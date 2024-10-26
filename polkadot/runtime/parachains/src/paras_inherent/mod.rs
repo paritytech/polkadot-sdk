@@ -27,8 +27,7 @@ use crate::{
 	inclusion::{self, CandidateCheckContext},
 	initializer,
 	metrics::METRICS,
-	paras,
-	scheduler,
+	paras, scheduler,
 	shared::{self, AllowedRelayParentsTracker},
 	ParaId,
 };

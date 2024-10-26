@@ -106,7 +106,7 @@ impl<N> Default for OrderStatus<N> {
 /// Data about a placed on-demand order.
 struct EnqueuedOrder<N> {
 	/// The parachain the order was placed for.
-	paraid: ParaId,
+	para_id: ParaId,
 	/// The block number the order came in.
 	ordered_at: N,
 }
@@ -162,7 +162,8 @@ pub mod pallet {
 
 	/// Priority queue for all orders which don't yet (or not any more) have any core affinity.
 	#[pallet::storage]
-	pub(super) type OrderStatus<T: Config> = StorageValue<_, super::OrderStatus<BlockNumberFor<T>>, ValueQuery>;
+	pub(super) type OrderStatus<T: Config> =
+		StorageValue<_, super::OrderStatus<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Keeps track of accumulated revenue from on demand order sales.
 	#[pallet::storage]
@@ -291,7 +292,7 @@ where
 					order.ordered_at.saturating_add(One::one()).saturating_add(One::one());
 				let is_ready = ready_at <= now;
 
-				if num_cores > 0 && is_ready && popped.insert(order.paraid) {
+				if num_cores > 0 && is_ready && popped.insert(order.para_id) {
 					num_cores -= 1;
 				} else {
 					remaining_orders.push(order);

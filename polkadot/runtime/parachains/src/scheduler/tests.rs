@@ -546,21 +546,21 @@ fn next_up_on_available_uses_next_scheduled_or_none() {
 			// Two assignments for A on core 0, because the claim queue used to be empty.
 			assert_eq!(Scheduler::claim_queue_len(), 2);
 
-			assert!(Scheduler::next_up_on_available(CoreIndex(1)).is_none());
+			assert!(Scheduler::scheduled_on_core(CoreIndex(1)).is_none());
 
 			assert_eq!(
-				Scheduler::next_up_on_available(CoreIndex(0)).unwrap(),
+				Scheduler::scheduled_on_core(CoreIndex(0)).unwrap(),
 				ScheduledCore { para_id: para_a, collator: None }
 			);
 
 			Scheduler::advance_claim_queue(&Default::default());
 			assert_eq!(
-				Scheduler::next_up_on_available(CoreIndex(0)).unwrap(),
+				Scheduler::scheduled_on_core(CoreIndex(0)).unwrap(),
 				ScheduledCore { para_id: para_a, collator: None }
 			);
 
 			Scheduler::advance_claim_queue(&Default::default());
-			assert!(Scheduler::next_up_on_available(CoreIndex(0)).is_none());
+			assert!(Scheduler::scheduled_on_core(CoreIndex(0)).is_none());
 		}
 	});
 }

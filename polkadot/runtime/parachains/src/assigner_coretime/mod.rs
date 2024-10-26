@@ -300,7 +300,7 @@ impl<T: Config> Pallet<T> {
 	/// exactly once for the prediction offered by `peek_next_block` to stay accurate.
 	/// - This function is meant to be called from a runtime API and thus uses the state of the
 	/// block after the current one to show an accurate prediction of upcoming schedules.
-	pub fn peek_next_block(num_entries: u8) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+	pub fn peek_next_block(num_entries: u32) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 		let now = frame_system::Pallet::<T>::block_number().saturating_add(One::one());
 		Self::peek_impl(now, num_entries)
 	}
@@ -365,27 +365,27 @@ impl<T: Config> Pallet<T> {
 
 	fn peek_impl(
 		mut now: BlockNumberFor<T>,
-		num_entries: u8,
+		num_entries: u32,
 	) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 		let mut core_states = CoreDescriptors::<T>::get();
-		let mut result = BTreeMap::with_capacity(Self::num_coretime_cores());
+		let mut result = BTreeMap::new();
 		for i in 0..num_entries {
 			let assignments =
 				Self::advance_assignments_single_impl(now, &mut core_states, AccessMode::Peek)
 					.collect();
-			for (core_idx, assignment) in assignments {
+			for (core_idx, para_id) in assignments {
 				let claim_queue = result.entry(core_idx).or_default();
 				// Stop filling on holes, otherwise we get claims at the wrong positions.
 				if claim_queue.len() == i {
-					claim_queue.push_back(assignment.para_id())
+					claim_queue.push_back(para_id)
 				} else if claim_queue.len() == 0 && i == 1 {
 					// Except for position 1: Claim queue was empty before. We now have an incoming
 					// assignment on position 1: Duplicate it to position 0 so the chain will
 					// get a full asynchronous backing opportunity (and a bonus synchronous
 					// backing opportunity).
-					claim_queue.push_back(assignment.para_id());
+					claim_queue.push_back(para_id);
 					// And fill position 1:
-					claim_queue.push_back(assignment.para_id());
+					claim_queue.push_back(para_id);
 				}
 			}
 			now.saturating_add(One::one());
