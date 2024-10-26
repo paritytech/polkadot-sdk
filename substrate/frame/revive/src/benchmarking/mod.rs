@@ -520,6 +520,25 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_code_size() {
+		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
+		build_runtime!(runtime, memory: [vec![0u8; len as _], contract.account_id.encode(), ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_code_hash(memory.as_mut_slice(), len, 0);
+		}
+
+		assert_ok!(result);
+		assert_eq!(
+			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
+			contract.info().unwrap().code_hash
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_own_code_hash() {
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
 		build_runtime!(runtime, contract, memory: [vec![0u8; len as _], ]);

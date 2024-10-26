@@ -62,6 +62,7 @@ pub trait WeightInfo {
 	fn seal_caller() -> Weight;
 	fn seal_is_contract() -> Weight;
 	fn seal_code_hash() -> Weight;
+	fn seal_code_size() -> Weight;
 	fn seal_own_code_hash() -> Weight;
 	fn seal_caller_is_origin() -> Weight;
 	fn seal_caller_is_root() -> Weight;
@@ -311,6 +312,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
 	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(1779), added: 4254, mode: `Measured`)
 	fn seal_code_hash() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `369`
+		//  Estimated: `3834`
+		// Minimum execution time: 7_589_000 picoseconds.
+		Weight::from_parts(7_958_000, 3834)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
+	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(1779), added: 4254, mode: `Measured`)
+	fn seal_code_size() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `369`
 		//  Estimated: `3834`
@@ -1070,6 +1081,16 @@ impl WeightInfo for () {
 	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
 	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(1779), added: 4254, mode: `Measured`)
 	fn seal_code_hash() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `369`
+		//  Estimated: `3834`
+		// Minimum execution time: 7_589_000 picoseconds.
+		Weight::from_parts(7_958_000, 3834)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
+	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(1779), added: 4254, mode: `Measured`)
+	fn seal_code_size() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `369`
 		//  Estimated: `3834`

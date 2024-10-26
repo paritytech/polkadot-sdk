@@ -248,6 +248,11 @@ impl<T: Config> CodeInfo<T> {
 	pub fn deposit(&self) -> BalanceOf<T> {
 		self.deposit
 	}
+
+	/// Returns the code length.
+	pub fn code_len(&self) -> U256 {
+		self.code_len.into()
+	}
 }
 
 pub struct PreparedCall<'a, E: Ext> {
@@ -271,7 +276,7 @@ where
 				&mut self.instance,
 				self.api_version,
 			) {
-				break exec_result
+				break exec_result;
 			}
 		};
 		let _ = self.runtime.ext().gas_meter_mut().sync_from_executor(self.instance.gas())?;

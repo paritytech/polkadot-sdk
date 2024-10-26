@@ -295,6 +295,8 @@ pub enum RuntimeCosts {
 	IsContract,
 	/// Weight of calling `seal_code_hash`.
 	CodeHash,
+	/// Weight of calling `seal_code_size`.
+	CodeSize,
 	/// Weight of calling `seal_own_code_hash`.
 	OwnCodeHash,
 	/// Weight of calling `seal_caller_is_origin`.
@@ -450,6 +452,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Caller => T::WeightInfo::seal_caller(),
 			IsContract => T::WeightInfo::seal_is_contract(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
+			CodeSize => T::WeightInfo::seal_code_size(),
 			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
 			CallerIsOrigin => T::WeightInfo::seal_caller_is_origin(),
 			CallerIsRoot => T::WeightInfo::seal_caller_is_root(),
@@ -568,8 +571,9 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 				log::error!(target: LOG_TARGET, "polkavm execution error: {error}");
 				Some(Err(Error::<E::T>::ExecutionFailed.into()))
 			},
-			Ok(Finished) =>
-				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
+			Ok(Finished) => {
+				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }))
+			},
 			Ok(Trap) => Some(Err(Error::<E::T>::ContractTrapped.into())),
 			Ok(Segfault(_)) => Some(Err(Error::<E::T>::ExecutionFailed.into())),
 			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
@@ -584,11 +588,12 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 						instance.write_output(return_value);
 						None
 					},
-					Err(TrapReason::Return(ReturnData { flags, data })) =>
+					Err(TrapReason::Return(ReturnData { flags, data })) => {
 						match ReturnFlags::from_bits(flags) {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
-						},
+						}
+					},
 					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
@@ -1414,6 +1419,22 @@ pub mod env {
 		)?)
 	}
 
+	/// Retrieve the code size for a given contract address.
+	/// See [`pallet_revive_uapi::HostFn::code_size`].
+	#[api_version(0)]
+	fn code_size(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::CodeSize)?;
+		let mut address = H160::zero();
+		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&self.ext.code_size(&address).to_little_endian(),
+			false,
+			already_charged,
+		)?)
+	}
+
 	/// Retrieve the code hash of the currently executing contract.
 	/// See [`pallet_revive_uapi::HostFn::own_code_hash`].
 	#[api_version(0)]
@@ -1763,8 +1784,9 @@ pub mod env {
 			Environment::new(self, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
 		let ret = match chain_extension.call(env)? {
 			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } =>
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
+			RetVal::Diverging { flags, data } => {
+				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data }))
+			},
 		};
 		self.chain_extension = Some(chain_extension);
 		ret

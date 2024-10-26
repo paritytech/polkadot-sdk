@@ -279,6 +279,9 @@ pub trait Ext: sealing::Sealed {
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
 
+	/// Returns the code size of the contract at the given `address` or zero.
+	fn code_size(&self, address: &H160) -> U256;
+
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
 
@@ -1135,8 +1138,9 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1561,6 +1565,13 @@ where
 				}
 				H256::zero()
 			})
+	}
+
+	fn code_size(&self, address: &H160) -> U256 {
+		<ContractInfoOf<T>>::get(&address)
+			.map(|contract| CodeInfoOf::<T>::get(contract.code_hash).map(|info| info.code_len()))
+			.flatten()
+			.unwrap_or(U256::zero())
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
