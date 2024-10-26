@@ -346,7 +346,7 @@ pub trait StakingUnchecked: StakingInterface {
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Copy)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	/// The stash account of the nominator in question.
 	pub who: AccountId,
@@ -357,6 +357,8 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 
 /// A snapshot of the stake backing a single validator in the system.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[codec(mel_bound(T: Config))]
+#[scale_info(skip_type_params(T))]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -432,6 +434,19 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	}
 }
 
+/// Returns an exposure page from a set of individual exposures.
+impl<A, B: HasCompact + Default + sp_std::ops::AddAssign + sp_std::ops::SubAssign + Clone>
+	From<Vec<IndividualExposure<A, B>>> for ExposurePage<A, B>
+{
+	fn from(exposures: Vec<IndividualExposure<A, B>>) -> Self {
+		exposures.into_iter().fold(ExposurePage::default(), |mut page, e| {
+			page.page_total += e.value.clone();
+			page.others.push(e);
+			page
+		})
+	}
+}
+
 /// Metadata for Paged Exposure of a validator such as total stake across pages and page count.
 ///
 /// In combination with the associated `ExposurePage`s, it can be used to reconstruct a full
@@ -449,6 +464,7 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	TypeInfo,
 	Default,
 	MaxEncodedLen,
+	Copy,
 )]
 pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	/// The total balance backing this validator.
@@ -461,6 +477,32 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub nominator_count: u32,
 	/// Number of pages of nominators.
 	pub page_count: Page,
+}
+
+impl<Balance> PagedExposureMetadata<Balance>
+where
+	Balance: HasCompact
+		+ codec::MaxEncodedLen
+		+ sp_std::ops::Add<Output = Balance>
+		+ sp_std::ops::Sub<Output = Balance>
+		+ PartialEq
+		+ Copy
+		+ sp_runtime::traits::Debug,
+{
+	/// Merge a paged exposure metadata page into self and return the result.
+	pub fn merge(self, other: Self) -> Self {
+		// TODO(gpestana): re-enable assert.
+		//debug_assert!(self.own == other.own);
+
+		Self {
+			total: self.total + other.total - self.own,
+			own: self.own,
+			nominator_count: self.nominator_count + other.nominator_count,
+			// TODO(gpestana): merge the pages efficiently so that we make sure all the slots in the
+			// page are filled.
+			page_count: self.page_count + other.page_count,
+		}
+	}
 }
 
 /// A type that belongs only in the context of an `Agent`.
@@ -623,3 +665,30 @@ pub trait DelegationMigrator {
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn individual_exposures_to_exposure_works() {
+		let exposure_1 = IndividualExposure { who: 1, value: 10u32 };
+		let exposure_2 = IndividualExposure { who: 2, value: 20 };
+		let exposure_3 = IndividualExposure { who: 3, value: 30 };
+
+		let exposure_page: ExposurePage<u32, u32> = vec![exposure_1, exposure_2, exposure_3].into();
+
+		assert_eq!(
+			exposure_page,
+			ExposurePage { page_total: 60, others: vec![exposure_1, exposure_2, exposure_3] },
+		);
+	}
+
+	#[test]
+	fn empty_individual_exposures_to_exposure_works() {
+		let empty_exposures: Vec<IndividualExposure<u32, u32>> = vec![];
+
+		let exposure_page: ExposurePage<u32, u32> = empty_exposures.into();
+		assert_eq!(exposure_page, ExposurePage { page_total: 0, others: vec![] });
+	}
+}
