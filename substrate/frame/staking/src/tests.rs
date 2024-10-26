@@ -26,7 +26,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
-	hypothetically, hypothetically_ok,
+	hypothetically,
 	pallet_prelude::*,
 	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
 };
@@ -1955,33 +1955,83 @@ fn reap_stash_fails_if_extra_consumer() {
 		.existential_deposit(10)
 		.balance_factor(10)
 		.build_and_execute(|| {
-			// given
-			assert_eq!(asset::staked::<Test>(&11), 10 * 1000);
-			assert_eq!(Staking::bonded(&11), Some(11));
+			// given a validator
+			let validator: AccountId = 300;
+			asset::set_stakeable_balance::<Test>(&validator, 1000);
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(validator),
+				1000,
+				RewardDestination::Account(validator)
+			));
+			assert_ok!(Staking::validate(
+				RuntimeOrigin::signed(validator),
+				ValidatorPrefs::default()
+			));
+			assert_ok!(Session::set_keys(
+				RuntimeOrigin::signed(validator),
+				SessionKeys { other: validator.into() },
+				vec![]
+			));
 
-			// When ledger goes below ED
-			let mut ledger = Staking::ledger(11.into()).unwrap();
-			ledger.slash(ledger.total, 10, 1);
-			assert_ok!(ledger.update());
-			// make stake balance as zero.
-			asset::set_stakeable_balance::<Test>(&11, 0);
-			assert_eq!(asset::staked::<Test>(&11), 0);
+			// and a nominator
+			let nominator: AccountId = 301;
+			asset::set_stakeable_balance::<Test>(&nominator, 500);
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(nominator),
+				500,
+				RewardDestination::Account(nominator)
+			));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(nominator), vec![validator]));
 
-			// reap stash would work without the extra consumer.
-			hypothetically_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+			// assert setup
+			assert_eq!(asset::staked::<Test>(&validator), 1000);
+			assert_eq!(Staking::bonded(&validator), Some(validator));
+			assert_eq!(asset::staked::<Test>(&nominator), 500);
+			assert_eq!(Staking::bonded(&nominator), Some(nominator));
 
-			// mock stash has an extra consumer from another pallet in the runtime.
-			System::inc_consumers(&11).expect("stash has a provider so this should not fail");
+			// the validator has an extra consumer from another pallet (session) in the runtime.
+			assert_eq!(System::consumers(&validator), 2);
+			assert_eq!(System::consumers(&nominator), 1);
 
-			// This would prevent the pallet to decrement provider from reaping the stash.
-			assert_noop!(
-				Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
-				DispatchError::ConsumerRemaining
-			);
+			// Slash their bonds to make their stake go below ED
+			let mut vledger = Staking::ledger(validator.into()).unwrap();
+			vledger.slash(vledger.total, 10, 1);
+			assert_ok!(vledger.update());
+			let mut nledger = Staking::ledger(nominator.into()).unwrap();
+			nledger.slash(nledger.total, 10, 1);
+			assert_ok!(nledger.update());
 
-			// Once the extra consumer is removed, the pallet can reap the stash.
-			System::dec_consumers(&11);
-			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
+			// ensure they don't have any extra balance to stake.
+			asset::set_stakeable_balance::<Test>(&validator, 0);
+			assert_eq!(asset::staked::<Test>(&validator), 0);
+			asset::set_stakeable_balance::<Test>(&nominator, 0);
+			assert_eq!(asset::staked::<Test>(&nominator), 0);
+
+			hypothetically!({
+				// Validator has an extra consumer coming from another pallet other than session.
+				System::inc_consumers(&validator)
+					.expect("stash has a provider so this should not fail");
+
+				// This would prevent the pallet to decrement provider from reaping the stash.
+				assert_noop!(
+					Staking::reap_stash(RuntimeOrigin::signed(20), validator, 0),
+					DispatchError::ConsumerRemaining
+				);
+
+				// Once the extra consumer is removed, the pallet can reap the stash as usual.
+				System::dec_consumers(&validator);
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), validator, 0));
+			});
+
+			// reap stash removes the extra consumer by purging keys.
+			assert!(pallet_session::NextKeys::<Test>::contains_key(&validator));
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), validator, 0));
+			assert!(!pallet_session::NextKeys::<Test>::contains_key(&validator));
+			assert_eq!(Staking::bonded(&validator), None);
+
+			// reap stash works for nominator
+			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), nominator, 0));
+			assert_eq!(Staking::bonded(&nominator), None);
 		});
 }
 
