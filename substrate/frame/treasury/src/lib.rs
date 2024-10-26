@@ -236,6 +236,9 @@ pub mod pallet {
 		/// Runtime hooks to external pallet using treasury to compute spend funds.
 		type SpendFunds: SpendFunds<Self, I>;
 
+		/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
+		/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
+		///
 		/// The maximum number of approvals that can wait in the spending queue.
 		///
 		/// NOTE: This parameter is also used within the Bounties Pallet extension if enabled.
@@ -277,10 +280,16 @@ pub mod pallet {
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 	}
 
+	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
+	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
+	///
 	/// Number of proposals that have been made.
 	#[pallet::storage]
 	pub type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
 
+	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
+	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
+	///
 	/// Proposals that have been made.
 	#[pallet::storage]
 	pub type Proposals<T: Config<I>, I: 'static = ()> = StorageMap<
@@ -296,6 +305,9 @@ pub mod pallet {
 	pub type Deactivated<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BalanceOf<T, I>, ValueQuery>;
 
+	/// DEPRECATED: associated with `spend_local` call and will be removed in May 2025.
+	/// Refer to <https://github.com/paritytech/polkadot-sdk/pull/5961> for migration to `spend`.
+	///
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
 	pub type Approvals<T: Config<I>, I: 'static = ()> =
