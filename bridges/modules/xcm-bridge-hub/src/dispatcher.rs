@@ -127,7 +127,6 @@ mod tests {
 	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
 	use frame_support::assert_ok;
 	use pallet_bridge_messages::InboundLaneStorage;
-	use xcm_executor::traits::ConvertLocation;
 
 	fn bridge() -> (Box<BridgeLocations>, TestLaneIdType) {
 		let origin = OpenBridgeOrigin::sibling_parachain_origin();
@@ -157,11 +156,7 @@ mod tests {
 							bridge.bridge_destination_universal_location().clone().into(),
 						),
 						state: BridgeState::Opened,
-						bridge_owner_account: LocationToAccountId::convert_location(
-							bridge.bridge_origin_relative_location(),
-						)
-						.expect("valid accountId"),
-						deposit: 0,
+						deposit: None,
 						lane_id,
 					},
 				);

@@ -23,13 +23,14 @@ use bp_messages::{
 	ChainWithMessages, HashedLaneId, MessageNonce,
 };
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
-use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
+use bp_xcm_bridge_hub::{BridgeId, BridgeLocations, LocalXcmChannelManager};
 use codec::Encode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{EnsureOrigin, Equals, Everything, OriginTrait},
+	traits::{fungible::Mutate, EitherOf, EnsureOrigin, Equals, Everything, OriginTrait},
 	weights::RuntimeDbWeight,
 };
+use frame_system::EnsureRootWithSuccess;
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::H256;
 use sp_runtime::{
@@ -42,9 +43,9 @@ use xcm::prelude::*;
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds,
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
-	SiblingParachainConvertsVia,
+	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;
@@ -59,11 +60,12 @@ pub const BRIDGED_ASSET_HUB_ID: u32 = 1001;
 
 frame_support::construct_runtime! {
 	pub enum TestRuntime {
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Event<T>},
-		Messages: pallet_bridge_messages::{Pallet, Call, Event<T>},
-		XcmOverBridge: pallet_xcm_bridge_hub::{Pallet, Call, HoldReason, Event<T>},
-		XcmOverBridgeRouter: pallet_xcm_bridge_hub_router,
+		System: frame_system,
+		Balances: pallet_balances,
+		Messages: pallet_bridge_messages,
+		XcmOverBridge: pallet_xcm_bridge_hub,
+		XcmOverBridgeWrappedWithExportMessageRouter: pallet_xcm_bridge_hub_router = 57,
+		XcmOverBridgeByExportXcmRouter: pallet_xcm_bridge_hub_router::<Instance2> = 69,
 	}
 }
 
@@ -148,6 +150,7 @@ impl pallet_bridge_messages::WeightInfoExt for TestMessagesWeights {
 }
 
 parameter_types! {
+	pub const HereLocation: Location = Location::here();
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 	pub UniversalLocation: InteriorLocation = [
 		GlobalConsensus(RelayNetwork::get()),
@@ -195,19 +198,25 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type DestinationVersion = AlwaysLatest;
 
 	type ForceOrigin = frame_system::EnsureNever<()>;
-	type OpenBridgeOrigin = OpenBridgeOrigin;
+	type OpenBridgeOrigin = EitherOf<
+		// We want to translate `RuntimeOrigin::root()` to the `Location::here()`
+		EnsureRootWithSuccess<AccountId, HereLocation>,
+		OpenBridgeOrigin,
+	>;
 	type BridgeOriginAccountIdConverter = LocationToAccountId;
 
 	type BridgeDeposit = BridgeDeposit;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type AllowWithoutBridgeDeposit = Equals<ParentRelayChainLocation>;
+	type AllowWithoutBridgeDeposit = (Equals<ParentRelayChainLocation>, Equals<HereLocation>);
 
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type BlobDispatcher = TestBlobDispatcher;
 }
 
+/// A router instance simulates a scenario where the router is deployed on a different chain than
+/// the `MessageExporter`. This means that the router sends an `ExportMessage`.
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -218,7 +227,38 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion = AlwaysLatest;
 
-	type ToBridgeHubSender = TestExportXcmWithXcmOverBridge;
+	// We use `SovereignPaidRemoteExporter` here to test and ensure that the `ExportMessage`
+	// produced by `pallet_xcm_bridge_hub_router` is compatible with the `ExportXcm` implementation
+	// of `pallet_xcm_bridge_hub`.
+	type ToBridgeHubSender = SovereignPaidRemoteExporter<
+		XcmOverBridgeWrappedWithExportMessageRouter,
+		// **Note**: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which
+		// calls the `ExportXcm` implementation of `pallet_xcm_bridge_hub` as the
+		// `MessageExporter`.
+		ExecuteXcmOverSendXcm,
+		Self::UniversalLocation,
+	>;
+	type LocalXcmChannelManager = TestLocalXcmChannelManager;
+
+	type ByteFee = ConstU128<0>;
+	type FeeAsset = BridgeFeeAsset;
+}
+
+/// A router instance simulates a scenario where the router is deployed on the same chain than the
+/// `MessageExporter`. This means that the router triggers `ExportXcm` trait directly.
+impl pallet_xcm_bridge_hub_router::Config<pallet_xcm_bridge_hub_router::Instance2> for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+
+	type UniversalLocation = UniversalLocation;
+	type SiblingBridgeHubLocation = BridgeHubLocation;
+	type BridgedNetworkId = BridgedRelayNetwork;
+	type Bridges = NetworkExportTable<BridgeTable>;
+	type DestinationVersion = AlwaysLatest;
+
+	// We use `UnpaidLocalExporter` here to test and ensure that `pallet_xcm_bridge_hub_router` can
+	// trigger directly `pallet_xcm_bridge_hub` as exporter.
+	type ToBridgeHubSender = UnpaidLocalExporter<XcmOverBridge, Self::UniversalLocation>;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type ByteFee = ConstU128<0>;
@@ -264,14 +304,8 @@ thread_local! {
 }
 
 /// The `SendXcm` implementation directly executes XCM using `XcmExecutor`.
-///
-/// We ensure that the `ExportMessage` produced by `pallet_xcm_bridge_hub_router` is compatible with
-/// the `ExportXcm` implementation of `pallet_xcm_bridge_hub`.
-///
-/// Note: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which calls the
-/// `ExportXcm` implementation of `pallet_xcm_bridge_hub` as `MessageExporter`.
-pub struct TestExportXcmWithXcmOverBridge;
-impl SendXcm for TestExportXcmWithXcmOverBridge {
+pub struct ExecuteXcmOverSendXcm;
+impl SendXcm for ExecuteXcmOverSendXcm {
 	type Ticket = Xcm<()>;
 
 	fn validate(
@@ -298,7 +332,7 @@ impl SendXcm for TestExportXcmWithXcmOverBridge {
 		Ok(hash)
 	}
 }
-impl InspectMessageQueues for TestExportXcmWithXcmOverBridge {
+impl InspectMessageQueues for ExecuteXcmOverSendXcm {
 	fn clear_messages() {
 		todo!()
 	}
@@ -307,7 +341,7 @@ impl InspectMessageQueues for TestExportXcmWithXcmOverBridge {
 		todo!()
 	}
 }
-impl TestExportXcmWithXcmOverBridge {
+impl ExecuteXcmOverSendXcm {
 	pub fn set_origin_for_execute(origin: Location) {
 		EXECUTE_XCM_ORIGIN.with(|o| *o.borrow_mut() = Some(origin));
 	}
@@ -378,13 +412,9 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 			return Ok(Location {
 				parents: 1,
 				interior: [Parachain(SIBLING_ASSET_HUB_ID), OnlyChild].into(),
-			})
-		}
-
-		let mut sibling_account = [0u8; 32];
-		sibling_account[..4].copy_from_slice(&SIBLING_ASSET_HUB_ID.encode()[..4]);
-		if signer == Some(sibling_account.into()) {
-			return Ok(Location { parents: 1, interior: Parachain(SIBLING_ASSET_HUB_ID).into() })
+			});
+		} else if signer == Self::sibling_parachain_origin().into_signer() {
+			return Ok(SiblingLocation::get());
 		}
 
 		Err(o)
@@ -394,6 +424,19 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
 		Ok(Self::parent_relay_chain_origin())
 	}
+}
+
+pub(crate) type OpenBridgeOriginOf<T, I> =
+	<T as pallet_xcm_bridge_hub::Config<I>>::OpenBridgeOrigin;
+
+pub(crate) fn fund_origin_sovereign_account(
+	locations: &BridgeLocations,
+	balance: Balance,
+) -> AccountId {
+	let bridge_owner_account =
+		LocationToAccountId::convert_location(locations.bridge_origin_relative_location()).unwrap();
+	assert_ok!(Balances::mint_into(&bridge_owner_account, balance));
+	bridge_owner_account
 }
 
 pub struct TestLocalXcmChannelManager;
