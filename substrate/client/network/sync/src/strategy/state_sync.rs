@@ -133,11 +133,6 @@ where
 		}
 	}
 
-	// key_value = (storage_key, child_root)
-	fn insert_child_trie_roots(&mut self, key_value: (Vec<u8>, Vec<u8>)) {
-		self.state.entry(key_value.1).or_default().1.push(key_value.0);
-	}
-
 	fn process_state_key_values(
 		&mut self,
 		state_root: Vec<u8>,
@@ -163,7 +158,7 @@ where
 			entry.0.extend(top_key_values);
 
 			for key_value in child_key_values {
-				self.insert_child_trie_roots(key_value);
+				self.state.entry(key_value.1).or_default().1.push(key_value.0);
 			}
 		}
 	}
