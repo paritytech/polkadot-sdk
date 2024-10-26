@@ -39,7 +39,7 @@ use assert_matches::assert_matches;
 use codec::DecodeAll;
 use frame_support::assert_noop;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
+	vstaging::MutateDescriptorV2, BlockNumber, CandidateCommitments, CollatorId, CollatorSignature,
 	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
 	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
 };
