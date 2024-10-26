@@ -284,9 +284,9 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	/// Peek `num_entries` into the future.
 	///
-	/// First element in the returne vec will show you what you would get when you call
-	/// `pop_assignment_for_core` now. The second what you would get in the next block when you
-	/// called `pop_assignment_for_core` again (prediction).
+	/// First element for each `CoreIndex` will tell what would be retrieved when
+	/// `pop_assignment_for_core` is called at the next block. The second what one would get in the
+	/// block after the next block when one called `pop_assignment_for_core` again and so on.
 	///
 	/// The predictions are accurate in the sense that if an assignment `B` was predicted, it will
 	/// never happen that `pop_assignment_for_core` at that block will retrieve an assignment `A`.
@@ -294,23 +294,22 @@ impl<T: Config> Pallet<T> {
 	/// element), but `pop_assignment_for_core` at that block will then return something
 	/// regardless.
 	///
-	/// Invariant to maintain: `pop_assignment_for_core` must be called for each core each block
-	/// exactly once for the prediction offered by `peek` to stay accurate. If
-	/// `pop_assignment_for_core` was not yet called at this very block, then the first entry in
-	/// the vec returned by `peek` will be the assignment statements should be ready for
-	/// at this block.
-	pub fn peek(num_entries: u8) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-		let now = frame_system::Pallet::<T>::block_number();
+	/// Invariants:
+	///
+	/// - `pop_assignment_for_core` must be called for each core each block
+	/// exactly once for the prediction offered by `peek_next_block` to stay accurate.
+	/// - This function is meant to be called from a runtime API and thus uses the state of the
+	/// block after the current one to show an accurate prediction of upcoming schedules.
+	pub fn peek_next_block(num_entries: u8) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+		let now = frame_system::Pallet::<T>::block_number().saturating_add(One::one());
 		Self::peek_impl(now, num_entries)
 	}
 
-	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
-	///
-	/// This is where assignments come into existence.
+	/// Pops [`Assignments`] from the provider.
 	pub fn pop_assignments() -> BTreeMap<CoreIndex, Assignment> {
 		let now = frame_system::Pallet::<T>::block_number();
 
-		let assignments = CoreDescriptors::<T>::mutate(|core_states| {
+		let mut assignments = CoreDescriptors::<T>::mutate(|core_states| {
 			Self::pop_assignments_single_impl(now, core_states, AccessMode::Pop)
 				.collect::<BTreeMap<_, _>>()
 		});
@@ -325,47 +324,12 @@ impl<T: Config> Pallet<T> {
 		let next = now.saturating_add(One::one());
 		let mut core_states = CoreDescriptors::<T>::get();
 		let next_assignments =
-			Self::pop_assignments_single_impl(next, core_states, AccessMode::Peek).collect();
-		let mut final_assignments = BTreeMap::new();
-		'outer: loop {
-			match (assignments.next(), next_assignments.next()) {
-				(Some(mut current), Some(mut next)) => {
-					// Catch left up:
-					while current.0 < next.0 {
-						let (core_idx, assignment) = current;
-						final_assignments.insert(core_idx, assignment);
-						match assignments.next() {
-							Some(a) => current = a,
-							None => {
-								let (core_idx, assignment) = next;
-								final_assignments.insert(core_idx, assignment);
-								continue 'outer;
-							},
-						}
-					}
-					// Catch right up:
-					while next.0 < current.0 {
-						let (core_idx, assignment) = next;
-						final_assignments.insert(core_idx, assignment);
-						match next_assignments.next() {
-							Some(a) => next = a,
-							None => {
-								let (core_idx, assignment) = current;
-								final_assignments.insert(core_idx, assignment);
-								continue 'outer;
-							},
-						}
-					}
-					// Equal: Prefer current.
-					let (core_idx, assignment) = current;
-					final_assignments.insert(core_idx, assignment);
-				},
-				(Some((core_idx, assignment)), None) =>
-					final_assignments.insert(core_idx, assignment),
-				(None, Some((core_idx, assignment))) =>
-					final_assignments.insert(core_idx, assignment),
-			}
+			Self::pop_assignments_single_impl(next, core_states, AccessMode::Peek);
+
+		for (core_index, next_assignment) in next_assignments {
+			assignments.entry(core_index).or_insert_with(|| next_assignment);
 		}
+		assignments
 	}
 
 	/// Push back a previously popped assignment.
