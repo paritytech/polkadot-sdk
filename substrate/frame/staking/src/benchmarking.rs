@@ -257,7 +257,11 @@ mod benchmarks {
 			.map(|l| l.active)
 			.ok_or("ledger not created after")?;
 
-		let _ = asset::mint_into_existing::<T>(&stash, max_additional + asset::existential_deposit::<T>()).unwrap();
+		let _ = asset::mint_into_existing::<T>(
+			&stash,
+			max_additional + asset::existential_deposit::<T>(),
+		)
+		.unwrap();
 
 		whitelist_account!(stash);
 
@@ -1131,16 +1135,21 @@ mod benchmarks {
 		Ok(())
 	}
 
-	migrate_currency {
-		let (stash, _ctrl) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
+	#[benchmark]
+	fn migrate_currency() -> Result<(), BenchmarkError> {
+		let (stash, _ctrl) =
+			create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
 		let stake = asset::staked::<T>(&stash);
 		migrate_to_old_currency::<T>(stash.clone());
 		// no holds
 		assert!(asset::staked::<T>(&stash).is_zero());
 		whitelist_account!(stash);
-	}: _(RawOrigin::Signed(stash.clone()), stash.clone())
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(stash.clone()), stash.clone());
+
 		assert_eq!(asset::staked::<T>(&stash), stake);
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(
