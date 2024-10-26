@@ -8118,7 +8118,7 @@ mod ledger_recovery {
 			// side effects on 333 - ledger, bonded, payee, lock should be intact.
 			assert_eq!(asset::staked::<Test>(&333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
-			assert!(Payee::<Test>::get(&333).is_some()); // OK
+			assert!(Payee::<Test>::get(&333).is_some());
 			// however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
@@ -8510,6 +8510,12 @@ mod hold_migration {
 				Ok(Stake { total: 1000, active: 1000 })
 			);
 
+			// ensure cannot migrate again.
+			assert_noop!(
+				Staking::migrate_currency(RuntimeOrigin::signed(1), alice),
+				Error::<Test>::AlreadyMigrated
+			);
+
 			// locked balance is removed
 			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
 		});
@@ -8545,6 +8551,12 @@ mod hold_migration {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![Event::CurrencyMigrated { stash: alice, force_withdraw: 0 }]
+			);
+
+			// ensure cannot migrate again.
+			assert_noop!(
+				Staking::migrate_currency(RuntimeOrigin::signed(1), alice),
+				Error::<Test>::AlreadyMigrated
 			);
 		});
 	}
@@ -8601,6 +8613,12 @@ mod hold_migration {
 				}]
 			);
 
+			// ensure cannot migrate again.
+			assert_noop!(
+				Staking::migrate_currency(RuntimeOrigin::signed(1), alice),
+				Error::<Test>::AlreadyMigrated
+			);
+
 			// unbond works after migration.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 100));
 		});
@@ -8626,6 +8644,12 @@ mod hold_migration {
 				assert_eq!(System::consumers(&200), 0);
 				assert_eq!(System::providers(&200), 0);
 				assert!(!System::account_exists(&200));
+
+				// ensure cannot migrate again.
+				assert_noop!(
+					Staking::migrate_currency(RuntimeOrigin::signed(1), 200),
+					Error::<Test>::AlreadyMigrated
+				);
 			});
 
 			hypothetically!({
@@ -8651,6 +8675,12 @@ mod hold_migration {
 			// 1 provider is left, consumers is 0.
 			assert_eq!(System::providers(&200), 1);
 			assert_eq!(System::consumers(&200), 0);
+
+			// ensure cannot migrate again.
+			assert_noop!(
+				Staking::migrate_currency(RuntimeOrigin::signed(1), 200),
+				Error::<Test>::AlreadyMigrated
+			);
 		});
 	}
 }

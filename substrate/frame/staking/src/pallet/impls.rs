@@ -1160,38 +1160,9 @@ impl<T: Config> Pallet<T> {
 
 	pub(super) fn do_migrate_currency(stash: &T::AccountId) -> DispatchResult {
 		if Self::is_virtual_staker(stash) {
-			// Funds for virtual stakers not managed/held by this pallet. We only need to clear
-			// the extra consumer we used to have with OldCurrency.
-			frame_system::Pallet::<T>::dec_consumers(&stash);
-
-			// The delegation system that manages the virtual staker needed to increment provider
-			// previously because of the consumer needed by this pallet. In reality, this stash
-			// is just a key for managing the ledger and the account does not need to hold any
-			// balance or exist. We decrement this provider.
-			let actual_providers = frame_system::Pallet::<T>::providers(stash);
-
-			let expected_providers =
-				// provider is expected to be 1 but someone can always transfer some free funds to
-				// these accounts, increasing the provider.
-				if asset::free_to_stake::<T>(&stash) >= asset::existential_deposit::<T>() {
-					2
-				} else {
-					1
-				};
-
-			// We should never have more than expected providers.
-			ensure!(actual_providers <= expected_providers, Error::<T>::BadState);
-
-			// if actual provider is less than expected, it is already migrated.
-			ensure!(actual_providers == expected_providers, Error::<T>::AlreadyMigrated);
-
-			// dec provider
-			let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
-
-			return Ok(())
+			return Self::do_migrate_virtual_staker(stash);
 		}
 
-		ensure!(!Self::is_virtual_staker(stash), Error::<T>::VirtualStakerNotAllowed);
 		let ledger = Self::ledger(Stash(stash.clone()))?;
 		let locked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
 		ensure!(!locked.is_zero(), Error::<T>::AlreadyMigrated);
@@ -1227,6 +1198,38 @@ impl<T: Config> Pallet<T> {
 
 		Self::deposit_event(Event::<T>::CurrencyMigrated { stash: stash.clone(), force_withdraw });
 		Ok(())
+	}
+
+	fn do_migrate_virtual_staker(stash: &T::AccountId) -> DispatchResult {
+		// Funds for virtual stakers not managed/held by this pallet. We only need to clear
+		// the extra consumer we used to have with OldCurrency.
+		frame_system::Pallet::<T>::dec_consumers(&stash);
+
+		// The delegation system that manages the virtual staker needed to increment provider
+		// previously because of the consumer needed by this pallet. In reality, this stash
+		// is just a key for managing the ledger and the account does not need to hold any
+		// balance or exist. We decrement this provider.
+		let actual_providers = frame_system::Pallet::<T>::providers(stash);
+
+		let expected_providers =
+			// provider is expected to be 1 but someone can always transfer some free funds to
+			// these accounts, increasing the provider.
+			if asset::free_to_stake::<T>(&stash) >= asset::existential_deposit::<T>() {
+				2
+			} else {
+				1
+			};
+
+		// We should never have more than expected providers.
+		ensure!(actual_providers <= expected_providers, Error::<T>::BadState);
+
+		// if actual provider is less than expected, it is already migrated.
+		ensure!(actual_providers == expected_providers, Error::<T>::AlreadyMigrated);
+
+		// dec provider
+		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
+
+		return Ok(())
 	}
 }
 
