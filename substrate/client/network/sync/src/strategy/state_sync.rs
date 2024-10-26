@@ -156,17 +156,12 @@ where
 			if entry.0.len() > 0 && entry.1.len() > 1 {
 				// Already imported child_trie with same root.
 				// Warning this will not work with parallel download.
-			} else if entry.0.is_empty() {
-				for (key, _value) in top_key_values.iter() {
+			} else {
+				for (key, _value) in &top_key_values {
 					self.imported_bytes += key.len() as u64;
 				}
 
-				entry.0 = top_key_values;
-			} else {
-				for (key, value) in top_key_values {
-					self.imported_bytes += key.len() as u64;
-					entry.0.push((key, value))
-				}
+				entry.0.extend(top_key_values);
 			}
 		}
 	}
