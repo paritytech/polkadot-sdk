@@ -24,7 +24,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use log::debug;
-use sc_client_api::{CompactProof, ProofProvider};
+use sc_client_api::{CompactProof, KeyValueStates, ProofProvider};
 use sc_consensus::ImportedState;
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
@@ -132,6 +132,48 @@ where
 			skip_proof,
 		}
 	}
+
+	fn process_state_verified(&mut self, values: KeyValueStates) {
+		for values in values.0 {
+			let key_values = if values.state_root.is_empty() {
+				// Read child trie roots.
+				values
+					.key_values
+					.into_iter()
+					.filter(|key_value| {
+						if well_known_keys::is_child_storage_key(key_value.0.as_slice()) {
+							self.state
+								.entry(key_value.1.clone())
+								.or_default()
+								.1
+								.push(key_value.0.clone());
+							false
+						} else {
+							true
+						}
+					})
+					.collect()
+			} else {
+				values.key_values
+			};
+			let entry = self.state.entry(values.state_root).or_default();
+			if entry.0.len() > 0 && entry.1.len() > 1 {
+				// Already imported child_trie with same root.
+				// Warning this will not work with parallel download.
+			} else if entry.0.is_empty() {
+				for (key, _value) in key_values.iter() {
+					self.imported_bytes += key.len() as u64;
+				}
+
+				entry.0 = key_values;
+			} else {
+				for (key, value) in key_values {
+					self.imported_bytes += key.len() as u64;
+					entry.0.push((key, value))
+				}
+			}
+		}
+	}
 }
 
 impl<B, Client> StateSyncProvider<B> for StateSync<B, Client>
@@ -181,45 +223,7 @@ where
 				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
 			};
 
-			for values in values.0 {
-				let key_values = if values.state_root.is_empty() {
-					// Read child trie roots.
-					values
-						.key_values
-						.into_iter()
-						.filter(|key_value| {
-							if well_known_keys::is_child_storage_key(key_value.0.as_slice()) {
-								self.state
-									.entry(key_value.1.clone())
-									.or_default()
-									.1
-									.push(key_value.0.clone());
-								false
-							} else {
-								true
-							}
-						})
-						.collect()
-				} else {
-					values.key_values
-				};
-				let entry = self.state.entry(values.state_root).or_default();
-				if entry.0.len() > 0 && entry.1.len() > 1 {
-					// Already imported child_trie with same root.
-					// Warning this will not work with parallel download.
-				} else if entry.0.is_empty() {
-					for (key, _value) in key_values.iter() {
-						self.imported_bytes += key.len() as u64;
-					}
-
-					entry.0 = key_values;
-				} else {
-					for (key, value) in key_values {
-						self.imported_bytes += key.len() as u64;
-						entry.0.push((key, value))
-					}
-				}
-			}
+			self.process_state_verified(values);
 			self.imported_bytes += proof_size;
 			complete
 		} else {
