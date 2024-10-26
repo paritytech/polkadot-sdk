@@ -150,10 +150,6 @@ where
 				is_top && well_known_keys::is_child_storage_key(key_value.0.as_slice())
 			});
 
-		for key_value in child_key_values {
-			self.insert_child_trie_roots(key_value);
-		}
-
 		let entry = self.state.entry(state_root).or_default();
 
 		if entry.0.len() > 0 && entry.1.len() > 1 {
@@ -165,6 +161,10 @@ where
 			}
 
 			entry.0.extend(top_key_values);
+
+			for key_value in child_key_values {
+				self.insert_child_trie_roots(key_value);
+			}
 		}
 	}
 
