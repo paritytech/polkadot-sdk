@@ -88,18 +88,26 @@ pub type BalanceOf<T> =
 
 /// Queue data for on-demand.
 #[derive(Encode, Decode, TypeInfo)]
-pub struct OrderStatus {
+pub struct OrderStatus<N> {
 	/// Last calculated traffic value.
 	pub traffic: FixedU128,
 
 	/// Enqueued orders.
-	pub queue: BoundedVec<ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE>,
+	pub queue: BoundedVec<EnqueuedOrder<N>, ON_DEMAND_MAX_QUEUE_MAX_SIZE>,
 }
 
 impl Default for OrderStatus {
 	fn default() -> OrderStatus {
 		OrderStatus { traffic: FixedU128::default(), queue: BoundedVec::new() }
 	}
+}
+
+/// Data about a placed on-demand order.
+struct EnqueuedOrder<N> {
+	/// The parachain the order was placed for.
+	paraid: ParaId,
+	/// The block number the order came in.
+	ordered_at: N,
 }
 
 /// Errors that can happen during spot traffic calculation.
@@ -117,7 +125,7 @@ pub enum SpotTrafficCalculationErr {
 pub mod pallet {
 
 	use super::*;
-	use polkadot_primitives::{Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
+	use polkadot_primitives::Id as ParaId;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -151,15 +159,9 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 	}
 
-	#[pallet::type_value]
-	pub(super) fn EntriesOnEmpty<T: Config>() -> super::OrderStatus {
-		Default::default()
-	}
-
 	/// Priority queue for all orders which don't yet (or not any more) have any core affinity.
 	#[pallet::storage]
-	pub(super) type OrderStatus<T: Config> =
-		StorageValue<_, super::OrderStatus, ValueQuery, EntriesOnEmpty<T>>;
+	pub(super) type OrderStatus<T: Config> = StorageValue<_, super::OrderStatus, ValueQuery>;
 
 	/// Keeps track of accumulated revenue from on demand order sales.
 	#[pallet::storage]
@@ -275,12 +277,20 @@ where
 	BalanceOf<T>: FixedPointOperand,
 {
 	/// Pop assignments for the given number of on-demand cores in a block.
-	pub fn pop_assignment_for_cores(mut num_cores: u32) -> impl Iterator<Item = ParaId> {
+	pub fn pop_assignment_for_cores(
+		now: BlockNumberFor<T>,
+		mut num_cores: u32,
+	) -> impl Iterator<Item = ParaId> {
 		pallet::OrderStatus::mutate(|order_status| {
 			let mut popped = BTreeSet::new();
 			let remaining_orders = Vec::with_capacity(order_status.queue.len());
 			for order in order_status.queue.into_iter() {
-				if num_cores > 0 && popped.insert(order) {
+				// Order is ready 2 blocks later (asynchronous backing):
+				let ready_at =
+					order.ordered_at.saturating_add(One::one()).saturating_add(One::one());
+				let is_ready = ready_at <= now;
+
+				if num_cores > 0 && is_ready && popped.insert(order.paraid) {
 					num_cores -= 1;
 				} else {
 					remaining_orders.push(order);
