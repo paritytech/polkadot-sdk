@@ -307,12 +307,65 @@ impl<T: Config> Pallet<T> {
 	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
 	///
 	/// This is where assignments come into existence.
-	pub fn pop_assignments() -> impl Iterator<Item = (CoreIndex, Assignment)> {
+	pub fn pop_assignments() -> BTreeMap<CoreIndex, Assignment> {
 		let now = frame_system::Pallet::<T>::block_number();
 
-		CoreDescriptors::<T>::mutate(|core_states| {
-			Self::pop_assignments_impl(now, core_states, AccessMode::Pop)
-		})
+		let assignments = CoreDescriptors::<T>::mutate(|core_states| {
+			Self::pop_assignments_single_impl(now, core_states, AccessMode::Pop)
+				.collect::<BTreeMap<_, _>>()
+		});
+
+		// Assignments missing?
+		if assignments.len() == Self::num_coretime_cores() {
+			return assignments
+		}
+
+		// Try to fill missing assignments from the next position (duplication to allow asynchronous
+		// backing even for first assignment coming in on a previously empty core):
+		let next = now.saturating_add(One::one());
+		let mut core_states = CoreDescriptors::<T>::get();
+		let next_assignments =
+			Self::pop_assignments_single_impl(next, core_states, AccessMode::Peek).collect();
+		let mut final_assignments = BTreeMap::new();
+		'outer: loop {
+			match (assignments.next(), next_assignments.next()) {
+				(Some(mut current), Some(mut next)) => {
+					// Catch left up:
+					while current.0 < next.0 {
+						let (core_idx, assignment) = current;
+						final_assignments.insert(core_idx, assignment);
+						match assignments.next() {
+							Some(a) => current = a,
+							None => {
+								let (core_idx, assignment) = next;
+								final_assignments.insert(core_idx, assignment);
+								continue 'outer;
+							},
+						}
+					}
+					// Catch right up:
+					while next.0 < current.0 {
+						let (core_idx, assignment) = next;
+						final_assignments.insert(core_idx, assignment);
+						match next_assignments.next() {
+							Some(a) => next = a,
+							None => {
+								let (core_idx, assignment) = current;
+								final_assignments.insert(core_idx, assignment);
+								continue 'outer;
+							},
+						}
+					}
+					// Equal: Prefer current.
+					let (core_idx, assignment) = current;
+					final_assignments.insert(core_idx, assignment);
+				},
+				(Some((core_idx, assignment)), None) =>
+					final_assignments.insert(core_idx, assignment),
+				(None, Some((core_idx, assignment))) =>
+					final_assignments.insert(core_idx, assignment),
+			}
+		}
 	}
 
 	/// Push back a previously popped assignment.
@@ -354,12 +407,21 @@ impl<T: Config> Pallet<T> {
 		let mut core_states = CoreDescriptors::<T>::get();
 		let mut result = BTreeMap::with_capacity(Self::num_coretime_cores());
 		for i in 0..num_entries {
-			let assignments = Self::pop_assignments_impl(now, &mut core_states, AccessMode::Peek);
+			let assignments =
+				Self::pop_assignments_single_impl(now, &mut core_states, AccessMode::Peek);
 			for (core_idx, assignment) in assignments {
-				let assignments = result.entry(core_idx).or_default();
-				// Stop filling on holes, otherwise we get assignments at the wrong positions.
-				if assignments.len() == i {
-					assignments.push_back(assignment.para_id())
+				let claim_queue = result.entry(core_idx).or_default();
+				// Stop filling on holes, otherwise we get claims at the wrong positions.
+				if claim_queue.len() == i {
+					claim_queue.push_back(assignment.para_id())
+				} else if claim_queue.len() == 0 && i == 1 {
+					// Except for position 1: Claim queue was empty before. We now have an incoming
+					// assignment on position 1: Duplicate it to position 0 so the chain will
+					// get a full asynchronous backing opportunity (and a bonus synchronous
+					// backing opportunity).
+					claim_queue.push_back(assignment.para_id());
+					// And fill position 1:
+					claim_queue.push_back(assignment.para_id());
 				}
 			}
 			now.saturating_add(One::one());
@@ -367,7 +429,8 @@ impl<T: Config> Pallet<T> {
 		result
 	}
 
-	fn pop_assignments_impl(
+	/// Pop assignments for `now`.
+	fn pop_assignments_single_impl(
 		now: BlockNumberFor<T>,
 		core_states: &mut BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>>,
 		mode: AccessMode,
@@ -404,7 +467,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let pool_assignments =
-			on_demand::Pallet::<T>::pop_assignment_for_cores(pool_cores.len() as _)
+			on_demand::Pallet::<T>::pop_assignment_for_cores(now, pool_cores.len() as _)
 				.map(Assignment::Pool);
 
 		bulk_assignments.into_iter().chain(pool_cores.into_iter().zip(pool_assignments))
