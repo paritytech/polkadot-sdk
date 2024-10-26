@@ -416,6 +416,7 @@ impl pallet_proxy::Config for Test {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = ConstU64<1>;
 	type AnnouncementDepositFactor = ConstU64<1>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 parameter_types! {
