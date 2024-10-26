@@ -841,18 +841,10 @@ mod tests {
 	use bp_messages::LaneIdType;
 	use mock::*;
 
-	use frame_support::{assert_err, assert_noop, assert_ok, traits::fungible::Mutate, BoundedVec};
+	use frame_support::{assert_err, assert_noop, assert_ok, BoundedVec};
 	use frame_system::{EventRecord, Phase};
 	use sp_runtime::traits::Zero;
 	use sp_runtime::TryRuntimeError;
-
-	fn fund_origin_sovereign_account(locations: &BridgeLocations, balance: Balance) -> AccountId {
-		let bridge_owner_account =
-			LocationToAccountId::convert_location(locations.bridge_origin_relative_location())
-				.unwrap();
-		assert_ok!(Balances::mint_into(&bridge_owner_account, balance));
-		bridge_owner_account
-	}
 
 	fn mock_open_bridge_from_with(
 		origin: RuntimeOrigin,
@@ -1094,11 +1086,12 @@ mod tests {
 	#[test]
 	fn open_bridge_works() {
 		run_test(|| {
-			// in our test runtime, we expect that bridge may be opened by parent relay chain
-			// and any sibling parachain
+			// in our test runtime, we expect that bridge may be opened by parent relay chain,
+			// any sibling parachain or local root
 			let origins = [
 				(OpenBridgeOrigin::parent_relay_chain_origin(), None),
 				(OpenBridgeOrigin::sibling_parachain_origin(), Some(BridgeDeposit::get())),
+				(RuntimeOrigin::root(), None),
 			];
 
 			// check that every origin may open the bridge
