@@ -211,14 +211,14 @@ where
 				for StateEntry { key, value } in state.entries {
 					// Skip all child key root (will be recalculated on import).
 					if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
-						child_roots.push((value, key));
+						child_roots.push((key, value));
 					} else {
 						self.imported_bytes += key.len() as u64;
 						entry.0.push((key, value))
 					}
 				}
-				for (root, storage_key) in child_roots {
-					self.state.entry(root).or_default().1.push(storage_key);
+				for key_value in child_roots {
+					self.insert_child_trie_roots(key_value);
 				}
 			}
 		}
