@@ -174,6 +174,55 @@ where
 			}
 		}
 	}
+
+	fn process_state_unverified(&mut self, response: StateResponse) -> bool {
+		let mut complete = true;
+		// if the trie is a child trie and one of its parent trie is empty,
+		// the parent cursor stays valid.
+		// Empty parent trie content only happens when all the response content
+		// is part of a single child trie.
+		if self.last_key.len() == 2 && response.entries[0].entries.is_empty() {
+			// Do not remove the parent trie position.
+			self.last_key.pop();
+		} else {
+			self.last_key.clear();
+		}
+		for state in response.entries {
+			debug!(
+				target: LOG_TARGET,
+				"Importing state from {:?} to {:?}",
+				state.entries.last().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
+				state.entries.first().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
+			);
+
+			if !state.complete {
+				if let Some(e) = state.entries.last() {
+					self.last_key.push(e.key.clone());
+				}
+				complete = false;
+			}
+			let is_top = state.state_root.is_empty();
+			let entry = self.state.entry(state.state_root).or_default();
+			if entry.0.len() > 0 && entry.1.len() > 1 {
+				// Already imported child trie with same root.
+			} else {
+				let mut child_roots = Vec::new();
+				for StateEntry { key, value } in state.entries {
+					// Skip all child key root (will be recalculated on import).
+					if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
+						child_roots.push((value, key));
+					} else {
+						self.imported_bytes += key.len() as u64;
+						entry.0.push((key, value))
+					}
+				}
+				for (root, storage_key) in child_roots {
+					self.state.entry(root).or_default().1.push(storage_key);
+				}
+			}
+		}
+		complete
+	}
 }
 
 impl<B, Client> StateSyncProvider<B> for StateSync<B, Client>
@@ -227,52 +276,7 @@ where
 			self.imported_bytes += proof_size;
 			complete
 		} else {
-			let mut complete = true;
-			// if the trie is a child trie and one of its parent trie is empty,
-			// the parent cursor stays valid.
-			// Empty parent trie content only happens when all the response content
-			// is part of a single child trie.
-			if self.last_key.len() == 2 && response.entries[0].entries.is_empty() {
-				// Do not remove the parent trie position.
-				self.last_key.pop();
-			} else {
-				self.last_key.clear();
-			}
-			for state in response.entries {
-				debug!(
-					target: LOG_TARGET,
-					"Importing state from {:?} to {:?}",
-					state.entries.last().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
-					state.entries.first().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
-				);
-
-				if !state.complete {
-					if let Some(e) = state.entries.last() {
-						self.last_key.push(e.key.clone());
-					}
-					complete = false;
-				}
-				let is_top = state.state_root.is_empty();
-				let entry = self.state.entry(state.state_root).or_default();
-				if entry.0.len() > 0 && entry.1.len() > 1 {
-					// Already imported child trie with same root.
-				} else {
-					let mut child_roots = Vec::new();
-					for StateEntry { key, value } in state.entries {
-						// Skip all child key root (will be recalculated on import).
-						if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
-							child_roots.push((value, key));
-						} else {
-							self.imported_bytes += key.len() as u64;
-							entry.0.push((key, value))
-						}
-					}
-					for (root, storage_key) in child_roots {
-						self.state.entry(root).or_default().1.push(storage_key);
-					}
-				}
-			}
-			complete
+			self.process_state_unverified(response)
 		};
 		if complete {
 			self.complete = true;
