@@ -133,6 +133,11 @@ where
 		}
 	}
 
+	// key_value = (storage_key, child_root)
+	fn insert_child_trie_roots(&mut self, key_value: (Vec<u8>, Vec<u8>)) {
+		self.state.entry(key_value.1).or_default().1.push(key_value.0);
+	}
+
 	fn process_state_verified(&mut self, values: KeyValueStates) {
 		for values in values.0 {
 			let key_values = if values.state_root.is_empty() {
@@ -142,11 +147,7 @@ where
 					.into_iter()
 					.filter(|key_value| {
 						if well_known_keys::is_child_storage_key(key_value.0.as_slice()) {
-							self.state
-								.entry(key_value.1.clone())
-								.or_default()
-								.1
-								.push(key_value.0.clone());
+							self.insert_child_trie_roots(key_value.clone());
 							false
 						} else {
 							true
