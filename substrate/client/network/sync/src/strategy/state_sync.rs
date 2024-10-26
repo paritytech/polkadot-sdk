@@ -151,9 +151,8 @@ where
 			// Already imported child_trie with same root.
 			// Warning this will not work with parallel download.
 		} else {
-			for (key, _value) in &top_key_values {
-				self.imported_bytes += key.len() as u64;
-			}
+			self.imported_bytes +=
+				top_key_values.iter().map(|(key, _value)| key.len()).sum::<usize>() as u64;
 
 			entry.0.extend(top_key_values);
 
