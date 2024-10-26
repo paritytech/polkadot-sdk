@@ -91,7 +91,6 @@ pub use libp2p::identity::{DecodingError, Keypair, PublicKey};
 pub use metrics::NotificationMetrics;
 pub use protocol::NotificationsSink;
 use std::{
-	cmp,
 	collections::{HashMap, HashSet},
 	fs, iter,
 	marker::PhantomData,
@@ -112,6 +111,7 @@ pub mod signature;
 pub mod traits;
 
 struct Libp2pBandwidthSink {
+	#[allow(deprecated)]
 	sink: Arc<transport::BandwidthSinks>,
 }
 
@@ -333,7 +333,7 @@ where
 			"🏷  Local node identity is: {}",
 			local_peer_id.to_base58(),
 		);
-		log::info!(target: "sub-libp2p", "Running libp2p network backend");
+		info!(target: "sub-libp2p", "Running libp2p network backend");
 
 		let (transport, bandwidth) = {
 			let config_mem = match network_config.transport {
@@ -341,46 +341,7 @@ where
 				TransportConfig::Normal { .. } => false,
 			};
 
-			// The yamux buffer size limit is configured to be equal to the maximum frame size
-			// of all protocols. 10 bytes are added to each limit for the length prefix that
-			// is not included in the upper layer protocols limit but is still present in the
-			// yamux buffer. These 10 bytes correspond to the maximum size required to encode
-			// a variable-length-encoding 64bits number. In other words, we make the
-			// assumption that no notification larger than 2^64 will ever be sent.
-			let yamux_maximum_buffer_size = {
-				let requests_max = request_response_protocols
-					.iter()
-					.map(|cfg| usize::try_from(cfg.max_request_size).unwrap_or(usize::MAX));
-				let responses_max = request_response_protocols
-					.iter()
-					.map(|cfg| usize::try_from(cfg.max_response_size).unwrap_or(usize::MAX));
-				let notifs_max = notification_protocols
-					.iter()
-					.map(|cfg| usize::try_from(cfg.max_notification_size()).unwrap_or(usize::MAX));
-
-				// A "default" max is added to cover all the other protocols: ping, identify,
-				// kademlia, block announces, and transactions.
-				let default_max = cmp::max(
-					1024 * 1024,
-					usize::try_from(protocol::BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE)
-						.unwrap_or(usize::MAX),
-				);
-
-				iter::once(default_max)
-					.chain(requests_max)
-					.chain(responses_max)
-					.chain(notifs_max)
-					.max()
-					.expect("iterator known to always yield at least one element; qed")
-					.saturating_add(10)
-			};
-
-			transport::build_transport(
-				local_identity.clone().into(),
-				config_mem,
-				network_config.yamux_window_size,
-				yamux_maximum_buffer_size,
-			)
+			transport::build_transport(local_identity.clone().into(), config_mem)
 		};
 
 		let (to_notifications, from_protocol_controllers) =
@@ -1498,7 +1459,6 @@ where
 	}
 
 	/// Process the next event coming from `Swarm`.
-	#[allow(deprecated)]
 	fn handle_swarm_event(&mut self, event: SwarmEvent<BehaviourOut>) {
 		match event {
 			SwarmEvent::Behaviour(BehaviourOut::InboundRequest { protocol, result, .. }) => {
@@ -1790,7 +1750,6 @@ where
 				}
 
 				if let Some(metrics) = self.metrics.as_ref() {
-					#[allow(deprecated)]
 					let reason = match error {
 						DialError::Denied { cause } =>
 							if cause.downcast::<Exceeded>().is_ok() {
@@ -1830,7 +1789,6 @@ where
 					"Libp2p => IncomingConnectionError({local_addr},{send_back_addr} via {connection_id:?}): {error}"
 				);
 				if let Some(metrics) = self.metrics.as_ref() {
-					#[allow(deprecated)]
 					let reason = match error {
 						ListenError::Denied { cause } =>
 							if cause.downcast::<Exceeded>().is_ok() {
