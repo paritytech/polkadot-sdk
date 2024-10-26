@@ -20,14 +20,20 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Id as ParaId,
+	async_backing, slashing, vstaging,
+	vstaging::{
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
+	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Id as ParaId,
 	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	Slot, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	PersistedValidationData, PvfCheckStatement, SessionIndex, SessionInfo, Slot, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
-use polkadot_primitives_test_helpers::{dummy_committed_candidate_receipt, dummy_validation_code};
+use polkadot_primitives_test_helpers::{
+	dummy_committed_candidate_receipt_v2, dummy_validation_code,
+};
 use sp_api::ApiError;
 use sp_core::testing::TaskExecutor;
 use std::{
@@ -279,7 +285,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		&self,
 		_: Hash,
 		_: ParaId,
-	) -> Result<Option<async_backing::BackingState>, ApiError> {
+	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError> {
 		todo!("Not required for tests")
 	}
 
@@ -699,7 +705,7 @@ fn requests_candidate_pending_availability() {
 	let para_a = ParaId::from(5_u32);
 	let para_b = ParaId::from(6_u32);
 	let spawner = sp_core::testing::TaskExecutor::new();
-	let candidate_receipt = dummy_committed_candidate_receipt(relay_parent);
+	let candidate_receipt = dummy_committed_candidate_receipt_v2(relay_parent);
 
 	let mut subsystem_client = MockSubsystemClient::default();
 	subsystem_client
