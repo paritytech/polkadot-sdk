@@ -153,14 +153,14 @@ impl<RA, Block: traits::Block, Storage> OffchainWorkers<RA, Block, Storage> {
 			enable_http_requests,
 			custom_extensions,
 		}: OffchainWorkerOptions<RA, Block, Storage, CE>,
-	) -> Self {
-		Self {
+	) -> std::io::Result<Self> {
+		Ok(Self {
 			runtime_api_provider,
 			thread_pool: Mutex::new(ThreadPool::with_name(
 				"offchain-worker".into(),
 				num_cpus::get(),
 			)),
-			shared_http_client: api::SharedClient::new(),
+			shared_http_client: api::SharedClient::new()?,
 			enable_http_requests,
 			keystore,
 			offchain_db: offchain_db.map(OffchainDb::new),
@@ -168,7 +168,7 @@ impl<RA, Block: traits::Block, Storage> OffchainWorkers<RA, Block, Storage> {
 			is_validator,
 			network_provider,
 			custom_extensions: Box::new(custom_extensions),
-		}
+		})
 	}
 }
 
@@ -466,7 +466,8 @@ mod tests {
 			is_validator: false,
 			enable_http_requests: false,
 			custom_extensions: |_| Vec::new(),
-		});
+		})
+		.unwrap();
 		futures::executor::block_on(offchain.on_block_imported(&header));
 
 		// then
