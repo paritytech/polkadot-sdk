@@ -385,8 +385,7 @@ impl RequestResponsesBehaviour {
 	) -> Result<Self, RegisterError> {
 		let mut protocols = HashMap::new();
 		for protocol in list {
-			let mut cfg = Config::default();
-			cfg.set_request_timeout(protocol.request_timeout);
+			let cfg = Config::default().with_request_timeout(protocol.request_timeout);
 
 			let protocol_support = if protocol.inbound_queue.is_some() {
 				ProtocolSupport::Full

@@ -727,7 +727,6 @@ impl ConnectionHandler for NotifsHandler {
 		self.keep_alive
 	}
 
-	#[allow(deprecated)]
 	fn poll(
 		&mut self,
 		cx: &mut Context,
@@ -759,7 +758,6 @@ impl ConnectionHandler for NotifsHandler {
 					// Only proceed with `out_substream.poll_ready_unpin` if there is an element
 					// available in `notifications_sink_rx`. This avoids waking up the task when
 					// a substream is ready to send if there isn't actually something to send.
-					#[allow(deprecated)]
 					match Pin::new(&mut *notifications_sink_rx).as_mut().poll_peek(cx) {
 						Poll::Ready(Some(&NotificationsSinkMessage::ForceClose)) =>
 							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
@@ -1615,7 +1613,6 @@ pub mod tests {
 		notifications_sink.send_sync_notification(vec![1, 3, 3, 9]);
 		notifications_sink.send_sync_notification(vec![1, 3, 4, 0]);
 
-		#[allow(deprecated)]
 		futures::future::poll_fn(|cx| {
 			assert!(std::matches!(
 				handler.poll(cx),

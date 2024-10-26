@@ -2368,7 +2368,6 @@ impl NetworkBehaviour for Notifications {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
 mod tests {
 	use super::*;
 	use crate::{
