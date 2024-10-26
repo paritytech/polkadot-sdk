@@ -1,0 +1,16 @@
+title: Try State Hook for Democracy.
+
+doc:
+  - audience: Runtime User
+    description: |
+      Invariants for storage items in the democracy pallet. Enforces the following Invariants:
+      1.`PublicPropCount` should be greater than `PublicProps` count.
+      2. `DepositOf` should be equal to `PublicProps` in storage.
+      3. Total number of depositors should be greater or equal to `PublicProps`.
+      4. `Cancellations` should be less than or equal to `ReferendumInfoOf`.
+      5. `NextExternal` should exists if PublicProps is empty.
+      6. `VotingOf for a particular account should not be greater than PublicProps in storage.
+      7. `VotingOf for a particular account should not be greater than PublicPropCount in storage.
+crates:
+- name: pallet-democracy
+  bump: minor

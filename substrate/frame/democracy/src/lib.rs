@@ -179,6 +179,7 @@ mod vote_threshold;
 pub mod weights;
 pub use conviction::Conviction;
 pub use pallet::*;
+use sp_runtime::traits::{Header, HeaderProvider};
 pub use types::{
 	Delegations, MetadataOwner, PropIndex, ReferendumIndex, ReferendumInfo, ReferendumStatus,
 	Tally, UnvoteScope,
@@ -1202,7 +1203,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This should be valid before or after each state transition of this pallet.
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		//PublicPropCount should be greater than PublicProps count
+		// PublicPropCount should be greater than PublicProps count
 		ensure!(
 			PublicProps::<T>::get().len() <= <PublicPropCount<T>>::get() as usize,
 			"`PublicPropCount` should be greater than of `PublicProps` in storage"
@@ -1223,6 +1224,12 @@ impl<T: Config> Pallet<T> {
 			"`Cancellations` should be less than or must equal `ReferendumInfoOf` in storage"
 		);
 
+		if (NextExternal::<T>::get().is_some()) {
+			ensure!(PublicProps::<T>::get().len() == 0, "`NextExternal` should exists if PublicProps is empty");
+		}
+
+		Self::try_state_voting_of__storage_invariants();
+
 		Ok(())
 	}
 
@@ -1235,6 +1242,24 @@ impl<T: Config> Pallet<T> {
 		}
 
 		total_count
+	}
+
+	fn try_state_voting_of__storage_invariants() -> Result<(), sp_runtime::TryRuntimeError> {
+
+		for (_, voting) in VotingOf::<T>::iter() {
+			match voting {
+				Voting::Direct { votes, .. } => {
+					ensure!(votes.len() <= PublicProps::<T>::get().len(),
+						"`VotingOf for a particular account should not be greater than PublicProps in storage");
+
+					ensure!(votes.len() <= <PublicPropCount<T>>::get() as usize,
+						"`VotingOf for a particular account should not be greater than PublicPropCount in storage");
+				}
+				Voting::Delegating { .. } => {}
+			}
+		}
+
+		Ok(())
 	}
 }
 
