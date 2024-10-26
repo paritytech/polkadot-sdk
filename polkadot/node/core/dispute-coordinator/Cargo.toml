@@ -37,6 +37,7 @@ polkadot-primitives-test-helpers = { workspace = true }
 futures-timer = { workspace = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
 
 [features]
 # If not enabled, the dispute coordinator will do nothing.
