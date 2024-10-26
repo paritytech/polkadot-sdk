@@ -205,15 +205,20 @@ where
 				// Already imported child trie with same root.
 			} else {
 				let mut child_roots = Vec::new();
+				let mut top_key_values = Vec::new();
+
 				for StateEntry { key, value } in state.entries {
 					// Skip all child key root (will be recalculated on import).
 					if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
 						child_roots.push((key, value));
 					} else {
 						self.imported_bytes += key.len() as u64;
-						entry.0.push((key, value))
+						top_key_values.push((key, value));
 					}
 				}
+
+				entry.0.extend(top_key_values);
+
 				for key_value in child_roots {
 					self.insert_child_trie_roots(key_value);
 				}
