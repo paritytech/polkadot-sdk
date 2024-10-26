@@ -24,7 +24,7 @@ impl<T: Config> Pallet<T> {
 		let pot_id = T::PotId::get();
 		pot_id.into_account_truncating()
 	}
-
+		pot_id.into_account_truncating()
 	/// Funds transfer from the Pot to a project account
 	pub fn spend(amount: BalanceOf<T>, beneficiary: AccountIdOf<T>) -> DispatchResult {
 		// Get Pot account
