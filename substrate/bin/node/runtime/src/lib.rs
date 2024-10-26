@@ -2243,6 +2243,41 @@ impl pallet_broker::Config for Runtime {
 }
 
 parameter_types! {
+	pub const PotId: PalletId = PalletId(*b"py/potid");
+	pub const Period:BlockNumber = 5 * MINUTES;
+	pub const MaxProjects:u32 = 50;
+	pub const EpochDurationBlocks: BlockNumber = EPOCH_DURATION_IN_BLOCKS;
+}
+
+impl pallet_distribution::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type NativeBalance = Balances;
+	type PotId = PotId;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type BufferPeriod = Period;
+	type MaxProjects = MaxProjects;
+	type EpochDurationBlocks = EpochDurationBlocks;
+	type BlockNumberProvider = System;
+	type WeightInfo = pallet_distribution::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const MaxWhitelistedProjects: u32 = 64;
+	pub const TemporaryRewards: Balance = 100000 * DOLLARS;
+	pub const TotalPeriod:BlockNumber = 30 * DAYS;
+	pub const LockPeriod:BlockNumber = 10 * DAYS;
+}
+
+impl pallet_opf::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type VoteLockingPeriod = LockPeriod;
+	type VotingPeriod = TotalPeriod;
+	type MaxWhitelistedProjects = MaxWhitelistedProjects;
+	type TemporaryRewards = TemporaryRewards;
+	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
 	pub const MixnetNumCoverToCurrentBlocks: BlockNumber = 3;
 	pub const MixnetNumRequestsToCurrentBlocks: BlockNumber = 3;
 	pub const MixnetNumCoverToPrevBlocks: BlockNumber = 3;
@@ -2587,6 +2622,12 @@ mod runtime {
 
 	#[runtime::pallet_index(81)]
 	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
+
+	#[runtime::pallet_index(82)]
+	pub type Distribution = pallet_distribution::Pallet<Runtime>;
+
+	#[runtime::pallet_index(83)]
+	pub type OptimisticProjectFunding = pallet_opf::Pallet<Runtime>;
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
@@ -2846,6 +2887,8 @@ mod benches {
 		[pallet_safe_mode, SafeMode]
 		[pallet_example_mbm, PalletExampleMbms]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
+		[pallet_distribution, Distribution]
+		[pallet_opf, OptimisticProjectFunding]
 		[pallet_verify_signature, VerifySignature]
 	);
 }

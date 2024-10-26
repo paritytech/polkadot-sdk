@@ -11520,6 +11520,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-distribution"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-election-provider-e2e-test"
 version = "1.0.0"
 dependencies = [
@@ -12263,6 +12284,29 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",
+]
+
+[[package]]
+name = "pallet-opf"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-conviction-voting",
+ "pallet-distribution",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -15359,6 +15403,7 @@ dependencies = [
  "pallet-delegated-staking",
  "pallet-democracy",
  "pallet-dev-mode",
+ "pallet-distribution",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
@@ -15386,6 +15431,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-opf",
  "pallet-paged-list",
  "pallet-parameters",
  "pallet-preimage",
@@ -15664,6 +15710,7 @@ dependencies = [
  "pallet-contracts",
  "pallet-default-config-example",
  "pallet-democracy",
+ "pallet-distribution",
  "pallet-example-authorization-tx-extension",
  "pallet-example-offchain-worker",
  "pallet-example-single-block-migrations",
@@ -15671,6 +15718,7 @@ dependencies = [
  "pallet-grandpa",
  "pallet-multisig",
  "pallet-nfts",
+ "pallet-opf",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-referenda",
