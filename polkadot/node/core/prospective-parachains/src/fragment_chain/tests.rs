@@ -18,7 +18,8 @@ use super::*;
 use assert_matches::assert_matches;
 use polkadot_node_subsystem_util::inclusion_emulator::InboundHrmpLimitations;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData, Id as ParaId,
+	vstaging::MutateDescriptorV2, BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData,
+	Id as ParaId,
 };
 use polkadot_primitives_test_helpers as test_helpers;
 use rand::{seq::SliceRandom, thread_rng};
@@ -73,7 +74,8 @@ fn make_committed_candidate(
 			signature: test_helpers::dummy_collator_signature(),
 			para_head: para_head.hash(),
 			validation_code_hash: Hash::repeat_byte(42).into(),
-		},
+		}
+		.into(),
 		commitments: CandidateCommitments {
 			upward_messages: Default::default(),
 			horizontal_messages: Default::default(),
@@ -283,7 +285,7 @@ fn candidate_storage_methods() {
 		candidate.commitments.head_data = HeadData(vec![1; 10]);
 		let mut pvd = pvd.clone();
 		pvd.parent_head = HeadData(vec![1; 10]);
-		candidate.descriptor.persisted_validation_data_hash = pvd.hash();
+		candidate.descriptor.set_persisted_validation_data_hash(pvd.hash());
 		assert_matches!(
 			CandidateEntry::new_seconded(candidate_hash, candidate, pvd),
 			Err(CandidateEntryError::ZeroLengthCycle)
@@ -291,7 +293,7 @@ fn candidate_storage_methods() {
 	}
 	assert!(!storage.contains(&candidate_hash));
 	assert_eq!(storage.possible_backed_para_children(&parent_head_hash).count(), 0);
-	assert_eq!(storage.head_data_by_hash(&candidate.descriptor.para_head), None);
+	assert_eq!(storage.head_data_by_hash(&candidate.descriptor.para_head()), None);
 	assert_eq!(storage.head_data_by_hash(&parent_head_hash), None);
 
 	// Add a valid candidate.
@@ -305,9 +307,9 @@ fn candidate_storage_methods() {
 	storage.add_candidate_entry(candidate_entry.clone()).unwrap();
 	assert!(storage.contains(&candidate_hash));
 	assert_eq!(storage.possible_backed_para_children(&parent_head_hash).count(), 0);
-	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head).count(), 0);
+	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head()).count(), 0);
 	assert_eq!(
-		storage.head_data_by_hash(&candidate.descriptor.para_head).unwrap(),
+		storage.head_data_by_hash(&candidate.descriptor.para_head()).unwrap(),
 		&candidate.commitments.head_data
 	);
 	assert_eq!(storage.head_data_by_hash(&parent_head_hash).unwrap(), &pvd.parent_head);
@@ -323,7 +325,7 @@ fn candidate_storage_methods() {
 			.collect::<Vec<_>>(),
 		vec![candidate_hash]
 	);
-	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head).count(), 0);
+	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head()).count(), 0);
 
 	// Re-adding a candidate fails.
 	assert_matches!(
@@ -339,7 +341,7 @@ fn candidate_storage_methods() {
 	storage.remove_candidate(&candidate_hash);
 	assert!(!storage.contains(&candidate_hash));
 	assert_eq!(storage.possible_backed_para_children(&parent_head_hash).count(), 0);
-	assert_eq!(storage.head_data_by_hash(&candidate.descriptor.para_head), None);
+	assert_eq!(storage.head_data_by_hash(&candidate.descriptor.para_head()), None);
 	assert_eq!(storage.head_data_by_hash(&parent_head_hash), None);
 
 	storage
@@ -354,7 +356,7 @@ fn candidate_storage_methods() {
 			.collect::<Vec<_>>(),
 		vec![candidate_hash]
 	);
-	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head).count(), 0);
+	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head()).count(), 0);
 
 	// Now add a second candidate in Seconded state. This will be a fork.
 	let (pvd_2, candidate_2) = make_committed_candidate(
