@@ -671,6 +671,8 @@ mod staking_integration {
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(agent), vec![GENESIS_VALIDATOR],));
 			let init_stake = Staking::stake(&agent).unwrap();
+			// agent has an extra provider now added by CoreStaking.
+			assert_eq!(System::providers(&agent), 2);
 
 			// scenario: 200 is a pool account, and the stake comes from its 4 delegators (300..304)
 			// in equal parts. lets try to migrate this nominator into delegate based stake.
@@ -685,8 +687,9 @@ mod staking_integration {
 				DelegatedStaking::generate_proxy_delegator(Agent::from(agent)).get();
 
 			assert_ok!(DelegatedStaking::migrate_to_agent(RawOrigin::Signed(agent).into(), 201));
-			// after migration, funds are moved to proxy delegator, still a provider exists.
-			assert_eq!(System::providers(&agent), 1);
+			// after migration, no provider left since free balance is 0 and staking pallet released
+			// all funds.
+			assert_eq!(System::providers(&agent), 0);
 			assert_eq!(Balances::free_balance(agent), 0);
 			// proxy delegator has one provider as well with no free balance.
 			assert_eq!(System::providers(&proxy_delegator), 1);
@@ -798,8 +801,6 @@ mod staking_integration {
 				RawOrigin::Signed(agent).into(),
 				reward_acc
 			));
-			// becoming an agent adds another provider.
-			assert_eq!(System::providers(&agent), 2);
 
 			// delegate to this account
 			fund(&delegator, 1000);
