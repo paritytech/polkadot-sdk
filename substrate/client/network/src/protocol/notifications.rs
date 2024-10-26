@@ -21,7 +21,7 @@
 
 pub use self::{
 	behaviour::{Notifications, NotificationsOut, ProtocolConfig},
-	handler::{NotificationsSink, NotifsHandlerError, Ready},
+	handler::{NotificationsSink, Ready},
 	service::{notification_service, ProtocolHandlePair},
 };
 

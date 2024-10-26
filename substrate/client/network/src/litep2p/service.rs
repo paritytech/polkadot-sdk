@@ -35,7 +35,7 @@ use crate::{
 use crate::litep2p::Record;
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
-use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
+use libp2p::{identity::SigningError, kad::RecordKey as KademliaKey};
 use litep2p::{
 	addresses::PublicAddresses, crypto::ed25519::Keypair,
 	types::multiaddr::Multiaddr as LiteP2pMultiaddr,

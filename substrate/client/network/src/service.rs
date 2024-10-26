@@ -41,7 +41,7 @@ use crate::{
 		NetworkState, NotConnectedPeer as NetworkStateNotConnectedPeer, Peer as NetworkStatePeer,
 	},
 	peer_store::{PeerStore, PeerStoreProvider},
-	protocol::{self, NotifsHandlerError, Protocol, Ready},
+	protocol::{self, Protocol, Ready},
 	protocol_controller::{self, ProtoSetConfig, ProtocolController, SetId},
 	request_responses::{IfDisconnected, ProtocolConfig as RequestResponseConfig, RequestFailure},
 	service::{
@@ -59,16 +59,13 @@ use crate::{
 };
 
 use codec::DecodeAll;
-use either::Either;
 use futures::{channel::oneshot, prelude::*};
-#[allow(deprecated)]
-use libp2p::swarm::THandlerErr;
 use libp2p::{
 	connection_limits::{ConnectionLimits, Exceeded},
 	core::{upgrade, ConnectedPoint, Endpoint},
 	identify::Info as IdentifyInfo,
 	identity::ed25519,
-	kad::{record::Key as KademliaKey, Record},
+	kad::{Record, RecordKey as KademliaKey},
 	multiaddr::{self, Multiaddr},
 	swarm::{
 		Config as SwarmConfig, ConnectionError, ConnectionId, DialError, Executor, ListenError,
@@ -1502,7 +1499,7 @@ where
 
 	/// Process the next event coming from `Swarm`.
 	#[allow(deprecated)]
-	fn handle_swarm_event(&mut self, event: SwarmEvent<BehaviourOut, THandlerErr<Behaviour<B>>>) {
+	fn handle_swarm_event(&mut self, event: SwarmEvent<BehaviourOut>) {
 		match event {
 			SwarmEvent::Behaviour(BehaviourOut::InboundRequest { protocol, result, .. }) => {
 				if let Some(metrics) = self.metrics.as_ref() {
@@ -1527,6 +1524,7 @@ where
 									Some("busy-omitted"),
 								ResponseFailure::Network(InboundFailure::ConnectionClosed) =>
 									Some("connection-closed"),
+								ResponseFailure::Network(InboundFailure::Io(_)) => Some("io"),
 							};
 
 							if let Some(reason) = reason {
@@ -1566,6 +1564,7 @@ where
 									"connection-closed",
 								RequestFailure::Network(OutboundFailure::UnsupportedProtocols) =>
 									"unsupported",
+								RequestFailure::Network(OutboundFailure::Io(_)) => "io",
 							};
 
 							metrics
@@ -1732,15 +1731,6 @@ where
 					};
 					let reason = match cause {
 						Some(ConnectionError::IO(_)) => "transport-error",
-						Some(ConnectionError::Handler(Either::Left(Either::Left(
-							Either::Left(Either::Right(
-								NotifsHandlerError::SyncNotificationsClogged,
-							)),
-						)))) => "sync-notifications-clogged",
-						Some(ConnectionError::Handler(Either::Left(Either::Left(
-							Either::Right(Either::Left(_)),
-						)))) => "ping-timeout",
-						Some(ConnectionError::Handler(_)) => "protocol-error",
 						Some(ConnectionError::KeepAliveTimeout) => "keep-alive-timeout",
 						None => "actively-closed",
 					};
@@ -1892,6 +1882,21 @@ where
 				if let Some(metrics) = self.metrics.as_ref() {
 					metrics.listeners_errors_total.inc();
 				}
+			},
+			SwarmEvent::NewExternalAddrCandidate { address } => {
+				trace!(target: "sub-libp2p", "Libp2p => NewExternalAddrCandidate: {address:?}");
+			},
+			SwarmEvent::ExternalAddrConfirmed { address } => {
+				trace!(target: "sub-libp2p", "Libp2p => ExternalAddrConfirmed: {address:?}");
+			},
+			SwarmEvent::ExternalAddrExpired { address } => {
+				trace!(target: "sub-libp2p", "Libp2p => ExternalAddrExpired: {address:?}");
+			},
+			SwarmEvent::NewExternalAddrOfPeer { peer_id, address } => {
+				trace!(target: "sub-libp2p", "Libp2p => NewExternalAddrOfPeer({peer_id:?}): {address:?}")
+			},
+			event => {
+				warn!(target: "sub-libp2p", "New unknown SwarmEvent libp2p event: {event:?}");
 			},
 		}
 	}
