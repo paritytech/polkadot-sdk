@@ -20,3 +20,5 @@ crates:
   bump: patch
 - name: asset-hub-westend-runtime
   bump: patch
+- name: bp-xcm-bridge-hub
+  bump: patch
