@@ -27,7 +27,7 @@ use array_bytes::bytes2hex;
 use futures::{FutureExt, Stream};
 use futures_timer::Delay;
 use ip_network::IpNetwork;
-use libp2p::kad::record::Key as KademliaKey;
+use libp2p::kad::RecordKey as KademliaKey;
 use litep2p::{
 	protocol::{
 		libp2p::{

@@ -39,12 +39,12 @@ use crate::types::ProtocolName;
 use asynchronous_codec::Framed;
 use bytes::BytesMut;
 use futures::prelude::*;
-use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
+use libp2p::core::{InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use log::{error, warn};
 use unsigned_varint::codec::UviBytes;
 
 use std::{
-	io, mem,
+	fmt, io, mem,
 	pin::Pin,
 	task::{Context, Poll},
 	vec,
@@ -185,6 +185,14 @@ pub struct NotificationsInOpen<TSubstream> {
 	pub handshake: Vec<u8>,
 	/// Implementation of `Stream` that allows receives messages from the substream.
 	pub substream: NotificationsInSubstream<TSubstream>,
+}
+
+impl<TSubstream> fmt::Debug for NotificationsInOpen<TSubstream> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("NotificationsInOpen")
+			.field("handshake", &self.handshake)
+			.finish_non_exhaustive()
+	}
 }
 
 impl<TSubstream> NotificationsInSubstream<TSubstream>
@@ -370,7 +378,14 @@ where
 
 	fn upgrade_outbound(self, mut socket: TSubstream, negotiated_name: Self::Info) -> Self::Future {
 		Box::pin(async move {
-			upgrade::write_length_prefixed(&mut socket, &self.initial_message).await?;
+			{
+				let mut len_data = unsigned_varint::encode::usize_buffer();
+				let encoded_len =
+					unsigned_varint::encode::usize(self.initial_message.len(), &mut len_data).len();
+				socket.write_all(&len_data[..encoded_len]).await?;
+			}
+			socket.write_all(&self.initial_message).await?;
+			socket.flush().await?;
 
 			// Reading handshake.
 			let handshake_len = unsigned_varint::aio::read_usize(&mut socket).await?;
@@ -411,6 +426,15 @@ pub struct NotificationsOutOpen<TSubstream> {
 	pub negotiated_fallback: Option<ProtocolName>,
 	/// Implementation of `Sink` that allows sending messages on the substream.
 	pub substream: NotificationsOutSubstream<TSubstream>,
+}
+
+impl<TSubstream> fmt::Debug for NotificationsOutOpen<TSubstream> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("NotificationsOutOpen")
+			.field("handshake", &self.handshake)
+			.field("negotiated_fallback", &self.negotiated_fallback)
+			.finish_non_exhaustive()
+	}
 }
 
 impl<TSubstream> Sink<Vec<u8>> for NotificationsOutSubstream<TSubstream>
