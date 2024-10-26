@@ -4148,8 +4148,8 @@ fn test_multi_page_payout_stakers_by_page() {
 #[test]
 fn unbond_with_chill_works() {
 	// Should test:
-	// * Given an account being bonded [and chosen as a validator](not mandatory)
-	// * it can force unbond a portion of its funds from the stash account.
+	// * Given a bunded account
+	// * it can full unbond all portion of its funds from the stash account.
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		// Set payee to stash.
 		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
@@ -4172,12 +4172,13 @@ fn unbond_with_chill_works() {
 			}
 		);
 
+		assert!(Validators::<Test>::contains_key(11));
+
 		mock::start_active_era(2);
 		assert_eq!(active_era(), 2);
 
 		// Unbond all amount by ensuring chilling
-		let res = Staking::unbond(RuntimeOrigin::signed(11), 1000);
-		assert!(res.is_ok());
+		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 
 		assert!(matches!(
 			staking_events_since_last_call().as_slice(),
@@ -4190,6 +4191,7 @@ fn unbond_with_chill_works() {
 				Event::Unbonded { stash: 11, amount: 1000 }
 			]
 		));
+		assert!(!Validators::<Test>::contains_key(11));
 	})
 }
 

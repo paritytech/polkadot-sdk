@@ -1070,6 +1070,8 @@ pub mod pallet {
 		/// period ends. If this leaves an amount actively bonded less than
 		/// [`asset::existential_deposit`], then it is increased to the full amount.
 		///
+		/// The stash may be chilled if the ledger total amount falls to 0 after unbonding.
+		///
 		/// The dispatch origin for this call must be _Signed_ by the controller, not the stash.
 		///
 		/// Once the unlock period is done, you can call `withdraw_unbonded` to actually move
@@ -1097,12 +1099,12 @@ pub mod pallet {
 
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
-			let mut total_weight = T::WeightInfo::unbond();
-
-			if value >= ledger.total {
+			let mut total_weight = if value >= ledger.total {
 				Self::chill_stash(&ledger.stash);
-				total_weight.saturating_accrue(T::WeightInfo::chill());
-			}
+				T::WeightInfo::chill()
+			} else {
+				Zero::zero()
+			};
 
 			if let Some(withdraw_weight) = Self::do_unbond(controller, value)? {
 				total_weight.saturating_accrue(withdraw_weight);
