@@ -19,7 +19,7 @@
 //! votes.
 
 use crate::dispatch::Parameter;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use codec::{HasCompact, MaxEncodedLen};
 use sp_arithmetic::Perbill;
 use sp_runtime::{traits::Member, DispatchError};
@@ -82,7 +82,7 @@ impl<T, P: Polling<T>> sp_runtime::traits::Get<u32> for ClassCountOf<P, T> {
 }
 
 pub trait Polling<Tally> {
-	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
+	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen + From<u8>;
 	type Votes: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
 	type Class: Parameter + Member + Ord + PartialOrd + MaxEncodedLen;
 	type Moment;
@@ -124,5 +124,50 @@ pub trait Polling<Tally> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_ongoing() -> (Self::Class, u32) {
 		(Self::classes().into_iter().next().expect("Always one class"), u32::max_value())
+	}
+}
+
+pub struct NoOpPoll;
+impl<Tally> Polling<Tally> for NoOpPoll {
+	type Index = u8;
+	type Votes = u32;
+	type Class = u16;
+	type Moment = u64;
+
+	fn classes() -> Vec<Self::Class> {
+		vec![]
+	}
+
+	fn as_ongoing(_index: Self::Index) -> Option<(Tally, Self::Class)> {
+		None
+	}
+
+	fn access_poll<R>(
+		_index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> R,
+	) -> R {
+		f(PollStatus::None)
+	}
+
+	fn try_access_poll<R>(
+		_index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> Result<R, DispatchError>,
+	) -> Result<R, DispatchError> {
+		f(PollStatus::None)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_ongoing(_class: Self::Class) -> Result<Self::Index, ()> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn end_ongoing(_index: Self::Index, _approved: bool) -> Result<(), ()> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_ongoing() -> (Self::Class, u32) {
+		(0, 0)
 	}
 }
