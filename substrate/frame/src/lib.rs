@@ -32,10 +32,17 @@
 //!
 //! ## Usage
 //!
-//! The main intended use of this crate is for it to be imported with its preludes:
+//! This crate is organized into 3 stages:
+//!
+//! 1. preludes: `prelude`, `testing_prelude` and `runtime::prelude`, `benchmarking`,
+//!    `weights_prelude`, `try_runtime`.
+//! 2. domain-specific modules: `traits`, `hashing`, `arithmetic` and `derive`.
+//! 3. Accessing frame/substrate dependencies directly: `deps`.
+//!
+//! The main intended use of this crate is for it to be used with the former, preludes:
 //!
 //! ```
-//! # use polkadot_sdk_frame as frame;
+//! use polkadot_sdk_frame as frame;
 //! #[frame::pallet]
 //! pub mod pallet {
 //! 	# use polkadot_sdk_frame as frame;
@@ -49,9 +56,16 @@
 //! 	pub struct Pallet<T>(_);
 //! }
 //!
+//! #[cfg(test)]
 //! pub mod tests {
 //! 	# use polkadot_sdk_frame as frame;
 //! 	use frame::testing_prelude::*;
+//! }
+//!
+//! #[cfg(feature = "runtime-benchmarks")]
+//! pub mod benchmarking {
+//! 	# use polkadot_sdk_frame as frame;
+//! 	use frame::benchmarking::prelude::*;
 //! }
 //!
 //! pub mod runtime {
@@ -60,25 +74,80 @@
 //! }
 //! ```
 //!
-//! See: [`prelude`], [`testing_prelude`] and [`runtime::prelude`].
+//! If not in preludes, one can look into the domain-specific modules. Finally, if an import is
+//! still not feasible, one can look into `deps`.
 //!
-//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
+//! This crate also uses a `runtime` feature to include all of the types and tools needed to build
+//! FRAME-based runtimes. So, if you want to build a runtime with this, import it as
+//!
+//! ```text
+//! polkadot-sdk-frame = { version = "foo", features = ["runtime"] }
+//! ```
+//!
+//! If you just want to build a pallet instead, import it as
+//!
+//! ```text
+//! polkadot-sdk-frame = { version = "foo" }
+//! ```
+//!
+//! Notice that the preludes overlap since they have imports in common. More in detail:
+//! - `testing_prelude` brings in frame `prelude` and `runtime::prelude`;
+//! - `runtime::prelude` brings in frame `prelude`;
+//! - `benchmarking` brings in frame `prelude`.
+//!
+//! ## Naming
+//!
+//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`. This is due
+//! to compatibility matters with `frame-support`.
+//!
+//! A typical pallet's `Cargo.toml` using this crate looks like:
+//!
+//! ```ignore
+//! [dependencies]
+//! codec = { features = ["max-encoded-len"], workspace = true }
+//! scale-info = { features = ["derive"], workspace = true }
+//! frame = { workspace = true, features = ["experimental", "runtime"] }
+//!
+//! [features]
+//! default = ["std"]
+//! std = [
+//! 	"codec/std",
+//! 	"scale-info/std",
+//! 	"frame/std",
+//! ]
+//! runtime-benchmarks = [
+//! 	"frame/runtime-benchmarks",
+//! ]
+//! try-runtime = [
+//! 	"frame/try-runtime",
+//! ]
+//! ```
 //!
 //! ## Documentation
 //!
 //! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
 //!
-//! ## Underlying dependencies
-//!
-//! This crate is an amalgamation of multiple other crates that are often used together to compose a
-//! pallet. It is not necessary to use it, and it may fall short for certain purposes.
-//!
-//! In short, this crate only re-exports types and traits from multiple sources. All of these
-//! sources are listed (and re-exported again) in [`deps`].
-//!
 //! ## WARNING: Experimental
 //!
 //! **This crate and all of its content is experimental, and should not yet be used in production.**
+//!
+//! ## Maintenance Note
+//!
+//! > Notes for the maintainers of this crate, describing how the re-exports and preludes should
+//! > work.
+//!
+//! * Preludes should be extensive. The goal of this pallet is to be ONLY used with the preludes.
+//!   The domain-specific modules are just a backup, aiming to keep things organized. Don't hesitate
+//!   in adding more items to the main prelude.
+//! * The only non-module, non-prelude items exported from the top level crate is the `pallet`
+//!   macro, such that we can have the `#[frame::pallet] mod pallet { .. }` syntax working.
+//! * In most cases, you might want to create a domain-specific module, but also add it to the
+//!   preludes, such as `hashing`.
+//! * The only items that should NOT be in preludes are those that have been placed in
+//!   `frame-support`/`sp-runtime`, but in truth are related to just one pallet.
+//! * The currency related traits are kept out of the preludes to encourage a deliberate choice of
+//!   one over the other.
+//! * `runtime::apis` should expose all common runtime APIs that all FRAME-based runtimes need.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
@@ -91,6 +160,9 @@ pub use frame_support::pallet_macros::{import_section, pallet_section};
 
 /// The logging library of the runtime. Can normally be the classic `log` crate.
 pub use log;
+
+#[doc(inline)]
+pub use frame_support::storage_alias;
 
 /// Macros used within the main [`pallet`] macro.
 ///
@@ -128,6 +200,11 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
+	/// Dispatch types from `frame-support`, other fundamental traits
+	#[doc(no_inline)]
+	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
+	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
 	pub use frame_system::pallet_prelude::*;
@@ -135,6 +212,78 @@ pub mod prelude {
 	/// All FRAME-relevant derive macros.
 	#[doc(no_inline)]
 	pub use super::derive::*;
+
+	/// All hashing related things
+	pub use super::hashing::*;
+
+	/// Runtime traits
+	#[doc(no_inline)]
+	pub use sp_runtime::traits::{
+		Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput,
+	};
+
+	/// Other error/result types for runtime
+	#[doc(no_inline)]
+	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+pub mod try_runtime {
+	pub use sp_runtime::TryRuntimeError;
+}
+
+/// Prelude to be included in the `benchmarking.rs` of a pallet.
+///
+/// It supports both the `benchmarking::v1::benchmarks` and `benchmarking::v2::benchmark` syntax.
+///
+/// ```
+/// use polkadot_sdk_frame::benchmarking::prelude::*;
+/// // rest of your code.
+/// ```
+///
+/// It already includes `polkadot_sdk_frame::prelude::*` and `polkadot_sdk_frame::testing_prelude`.
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking {
+	mod shared {
+		pub use frame_benchmarking::{add_benchmark, v1::account, whitelist, whitelisted_caller};
+		// all benchmarking functions.
+		pub use frame_benchmarking::benchmarking::*;
+		// The system origin, which is very often needed in benchmarking code. Might be tricky only
+		// if the pallet defines its own `#[pallet::origin]` and call it `RawOrigin`.
+		pub use frame_system::RawOrigin;
+	}
+
+	#[deprecated(
+		note = "'The V1 benchmarking syntax is deprecated. Please use the V2 syntax. This warning may become a hard error any time after April 2025. For more info, see: https://github.com/paritytech/polkadot-sdk/pull/5995"
+	)]
+	pub mod v1 {
+		pub use super::shared::*;
+		pub use frame_benchmarking::benchmarks;
+	}
+
+	pub mod prelude {
+		pub use super::shared::*;
+		pub use crate::prelude::*;
+		pub use frame_benchmarking::v2::*;
+	}
+}
+
+/// Prelude to be included in the `weight.rs` of each pallet.
+///
+/// ```
+/// pub use polkadot_sdk_frame::weights_prelude::*;
+/// ```
+pub mod weights_prelude {
+	pub use core::marker::PhantomData;
+	pub use frame_support::{
+		traits::Get,
+		weights::{
+			constants::{ParityDbWeight, RocksDbWeight},
+			Weight,
+		},
+	};
+	pub use frame_system;
 }
 
 /// The main testing prelude of FRAME.
@@ -145,9 +294,13 @@ pub mod prelude {
 /// use polkadot_sdk_frame::testing_prelude::*;
 /// // rest of your test setup.
 /// ```
+///
+/// This automatically brings in `polkadot_sdk_frame::prelude::*` and
+/// `polkadot_sdk_frame::runtime::prelude::*`.
 #[cfg(feature = "std")]
 pub mod testing_prelude {
-	pub use super::prelude::*;
+	pub use crate::{prelude::*, runtime::prelude::*};
+
 	/// Testing includes building a runtime, so we bring in all preludes related to runtimes as
 	/// well.
 	pub use super::runtime::testing_prelude::*;
@@ -159,6 +312,10 @@ pub mod testing_prelude {
 	};
 
 	pub use frame_system::{self, mocking::*};
+
+	#[deprecated(note = "Use `frame::testing_prelude::TestExternalities` instead.")]
+	pub use sp_io::TestExternalities;
+
 	pub use sp_io::TestExternalities as TestState;
 }
 
@@ -170,9 +327,13 @@ pub mod runtime {
 	/// A runtime typically starts with:
 	///
 	/// ```
-	/// use polkadot_sdk_frame::{prelude::*, runtime::prelude::*};
+	/// use polkadot_sdk_frame::runtime::prelude::*;
 	/// ```
+	///
+	/// This automatically brings in `polkadot_sdk_frame::prelude::*`.
 	pub mod prelude {
+		pub use crate::prelude::*;
+
 		/// All of the types related to the FRAME runtime executive.
 		pub use frame_executive::*;
 
@@ -328,7 +489,6 @@ pub mod runtime {
 	/// counter part of `runtime::prelude`.
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
-		pub use super::prelude::*;
 		pub use sp_core::storage::Storage;
 		pub use sp_runtime::BuildStorage;
 	}
@@ -350,12 +510,6 @@ pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }
 
-/// Low level primitive types used in FRAME pallets.
-pub mod primitives {
-	pub use sp_core::{H160, H256, H512, U256, U512};
-	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
-}
-
 /// All derive macros used in frame.
 ///
 /// This is already part of the [`prelude`].
@@ -370,12 +524,17 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-/// Access to all of the dependencies of this crate. In case the re-exports are not enough, this
-/// module can be used.
+pub mod hashing {
+	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
+	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+/// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
+/// this module can be used.
 ///
-/// Any time one uses this module to access a dependency, you can have a moment to think about
-/// whether this item could have been placed in any of the other modules and preludes in this crate.
-/// In most cases, hopefully the answer is yes.
+/// Note for maintainers: Any time one uses this module to access a dependency, you can have a
+/// moment to think about whether this item could have been placed in any of the other modules and
+/// preludes in this crate. In most cases, hopefully the answer is yes.
 pub mod deps {
 	// TODO: It would be great to somehow instruct RA to prefer *not* suggesting auto-imports from
 	// these. For example, we prefer `polkadot_sdk_frame::derive::CloneNoBound` rather than

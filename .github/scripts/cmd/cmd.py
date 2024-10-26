@@ -6,6 +6,7 @@ import json
 import argparse
 import _help
 import importlib.util
+import re
 
 _HelpAction = _help._HelpAction
 
@@ -40,20 +41,20 @@ subparsers = parser.add_subparsers(help='a command to run', dest='command')
 setup_logging()
 
 """
-BENCH 
+BENCH
 """
 
 bench_example = '''**Examples**:
- Runs all benchmarks 
+ Runs all benchmarks
  %(prog)s
 
  Runs benchmarks for pallet_balances and pallet_multisig for all runtimes which have these pallets. **--quiet** makes it to output nothing to PR but reactions
  %(prog)s --pallet pallet_balances pallet_xcm_benchmarks::generic --quiet
- 
+
  Runs bench for all pallets for westend runtime and fails fast on first failed benchmark
  %(prog)s --runtime westend --fail-fast
- 
- Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
+
+ Does not output anything and cleans up the previous bot's & author command triggering comments in PR
  %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
@@ -67,14 +68,14 @@ parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*
 parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
 
 """
-FMT 
+FMT
 """
 parser_fmt = subparsers.add_parser('fmt', help='Formats code (cargo +nightly-VERSION fmt) and configs (taplo format)')
 for arg, config in common_args.items():
     parser_fmt.add_argument(arg, **config)
 
 """
-Update UI 
+Update UI
 """
 parser_ui = subparsers.add_parser('update-ui', help='Updates UI tests')
 for arg, config in common_args.items():
@@ -175,7 +176,15 @@ def main():
                     print(f'-- package_dir: {package_dir}')
                     print(f'-- manifest_path: {manifest_path}')
                     output_path = os.path.join(package_dir, "src", "weights.rs")
+                    # TODO: we can remove once all pallets in dev runtime are migrated to polkadot-sdk-frame
+                    try:
+                        uses_polkadot_sdk_frame = "true" in os.popen(f"cargo metadata --locked --format-version 1 --no-deps | jq -r '.packages[] | select(.name == \"{pallet.replace('_', '-')}\") | .dependencies | any(.name == \"polkadot-sdk-frame\")'").read()
+                    # Empty output from the previous os.popen command
+                    except StopIteration:
+                        uses_polkadot_sdk_frame = False
                     template = config['template']
+                    if uses_polkadot_sdk_frame and re.match(r"frame-(:?umbrella-)?weight-template\.hbs", os.path.normpath(template).split(os.path.sep)[-1]):
+                        template = "substrate/.maintain/frame-umbrella-weight-template.hbs"
                 else:
                     default_path = f"./{config['path']}/src/weights"
                     xcm_path = f"./{config['path']}/src/weights/xcm"

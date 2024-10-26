@@ -158,7 +158,7 @@ mod benches {
 	fn on_init_loop() {
 		T::Migrations::set_fail_after(0); // Should not be called anyway.
 		System::<T>::set_block_number(1u32.into());
-		Pallet::<T>::on_runtime_upgrade();
+		<Pallet<T> as Hooks<BlockNumberFor<T>>>::on_runtime_upgrade();
 
 		#[block]
 		{
