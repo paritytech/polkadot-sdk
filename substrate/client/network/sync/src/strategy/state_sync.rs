@@ -140,35 +140,32 @@ where
 
 	fn process_state_verified(&mut self, values: KeyValueStates) {
 		for values in values.0 {
-			let key_values = if values.state_root.is_empty() {
-				// Read child trie roots.
-				values
-					.key_values
-					.into_iter()
-					.filter(|key_value| {
-						if well_known_keys::is_child_storage_key(key_value.0.as_slice()) {
-							self.insert_child_trie_roots(key_value.clone());
-							false
-						} else {
-							true
-						}
+			let (child_key_values, top_key_values): (Vec<_>, Vec<_>) =
+				if values.state_root.is_empty() {
+					// Read child trie roots.
+					values.key_values.into_iter().partition(|key_value| {
+						well_known_keys::is_child_storage_key(key_value.0.as_slice())
 					})
-					.collect()
-			} else {
-				values.key_values
-			};
+				} else {
+					(vec![], values.key_values)
+				};
+
+			for key_value in child_key_values {
+				self.insert_child_trie_roots(key_value);
+			}
+
 			let entry = self.state.entry(values.state_root).or_default();
 			if entry.0.len() > 0 && entry.1.len() > 1 {
 				// Already imported child_trie with same root.
 				// Warning this will not work with parallel download.
 			} else if entry.0.is_empty() {
-				for (key, _value) in key_values.iter() {
+				for (key, _value) in top_key_values.iter() {
 					self.imported_bytes += key.len() as u64;
 				}
 
-				entry.0 = key_values;
+				entry.0 = top_key_values;
 			} else {
-				for (key, value) in key_values {
+				for (key, value) in top_key_values {
 					self.imported_bytes += key.len() as u64;
 					entry.0.push((key, value))
 				}
