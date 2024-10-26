@@ -28,7 +28,7 @@ use crate::{
 	initializer,
 	metrics::METRICS,
 	paras,
-	scheduler::{self, Served},
+	scheduler,
 	shared::{self, AllowedRelayParentsTracker},
 	ParaId,
 };
@@ -598,19 +598,13 @@ impl<T: Config> Pallet<T> {
 			inclusion::Pallet::<T>::get_occupied_cores().map(|(core, _)| core).collect();
 
 		let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
-		let mut total_eligible_cores = 0;
 
-		for core_idx in scheduler::Pallet::<T>::availability_cores() {
-			// We don't back anything on upcoming new session as those candidates would have no
-			// chance of getting included.
-			// If the core is still occupied, we can not back anything either.
-			let is_eligible = !occupied_cores.contains(core_idx) && !upcoming_new_session;
-			let served_para =
-				scheduler::Pallet::<T>::advance_claim_queue_core(core_idx, Served(is_eligible));
+		let is_blocked = |core_idx| occupied_cores.contains(core_idx) || upcoming_new_session;
+		let scheduled = scheduler::Pallet::<T>::advance_claim_queue(is_blocked);
+		let total_eligible_cores = scheduled.len();
 
-			if is_eligible {
-				eligible.entry(served_para).or_default().insert(core_idx);
-			}
+		for (core_idx, para_id) in scheduled {
+			eligible.entry(para_id).or_default().insert(core_idx);
 		}
 
 		let node_features = configuration::ActiveConfig::<T>::get().node_features;
@@ -646,11 +640,6 @@ impl<T: Config> Pallet<T> {
 				scheduler::Pallet::<T>::group_validators,
 				core_index_enabled,
 			)?;
-
-		// We need to advance the claim queue on all cores, except for the ones that did not
-		// get freed in this block. The ones that did not get freed also cannot be newly
-		// occupied.
-		scheduler::Pallet::<T>::advance_claim_queue(&occupied_cores);
 
 		Ok((candidate_receipt_with_backing_validator_indices, backed_candidates_with_core))
 	}

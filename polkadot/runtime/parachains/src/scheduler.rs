@@ -37,20 +37,20 @@
 //! availability cores over time.
 
 use crate::{
-	assigner_coretime::{self, Assignment},
+	assigner_coretime,
 	configuration,
 	initializer::SessionChangeNotification,
 	paras,
 };
 use alloc::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec::Vec,
 };
 use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
 use polkadot_primitives::{
-	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, ValidatorIndex,
+	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ValidatorIndex,
 };
 use sp_runtime::traits::One;
 
@@ -61,7 +61,8 @@ mod tests;
 
 const LOG_TARGET: &str = "runtime::parachains::scheduler";
 
-pub mod migration;
+// TODO: Add back + fix.
+// pub mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -97,9 +98,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
-	/// Whether or not a schedule was served as planned.
-	pub struct Served(pub bool);
-
 	/// Availability timeout status of a core.
 	pub(crate) struct AvailabilityTimeoutStatus<BlockNumber> {
 		/// Is the core already timed out?
@@ -116,44 +114,30 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Iterator over all actually available availability cores.
-	///
-	/// This is all cores which also have a validator group assigned to them.
-	pub(crate) fn availability_cores() -> impl Iterator<Item = CoreIndex> {
-		(0..Self::num_availability_cores()).map(|i| CoreIndex(i as _))
-	}
-
-	/// Advance claim queue for given core.
+	/// Advance claim queue.
 	///
 	/// Parameters:
-	/// - core_idx: CoreIndex to advance the claim queue for.
-	/// - served: Whether or not the assignment got served as planned.
+	/// - is_blocked: Inform whether a given core is currently blocked (schedules can not be
+	/// served).
 	///
-	/// Returns: The `ParaId` that was scheduled next and now got served (or blocked).
-	pub(crate) fn advance_claim_queue_core(core_idx: CoreIndex, served: Served) -> Option<ParaId> {
-		let assignment = assigner_coretime::Pallet::<T>::pop_assignment_for_core(core_idx)?;
-		if served.0 {
-			assigner_coretime::Pallet::<T>::report_processed(assignment);
-		} else {
-			assigner_coretime::Pallet::<T>::push_back_assignment(assignment);
-		}
-		Some(assignment)
+	/// Returns: The `ParaId`s that had been scheduled next, blocked ones are filtered out.
+	pub(crate) fn advance_claim_queue<F: Fn(CoreIndex) -> bool>(
+		is_blocked: F,
+	) -> BTreeMap<CoreIndex, ParaId> {
+		let mut assignments = assigner_coretime::Pallet::<T>::advance_assignments(is_blocked);
+		assignments.split_off(&CoreIndex(Self::num_availability_cores()));
+		assignments
 	}
 
-	// Retrieve upcoming claims for each core.
+	/// Retrieve upcoming claims for each core.
+	///
+	/// To be called from runtime APIs.
 	pub(crate) fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 		let config = configuration::ActiveConfig::get();
 		let lookahead = config.scheduler_params.n_lookahead;
-		Self::availability_cores()
-			.map(|core_idx| {
-				(
-					core_idx,
-					assigner_coretime::Pallet::<T>::peek(core_idx, lookahead)
-						.map(Assignment::para_id)
-						.collect(),
-				)
-			})
-			.collect()
+		let mut queue = assigner_coretime::Pallet::<T>::peek_next_block(lookahead);
+		queue.split_off(&CoreIndex(Self::num_availability_cores()));
+		queue
 	}
 
 	/// Called by the initializer to initialize the scheduler pallet.
@@ -233,6 +217,13 @@ impl<T: Config> Pallet<T> {
 	/// Get the validators in the given group, if the group index is valid for this session.
 	pub(crate) fn group_validators(group_index: GroupIndex) -> Option<Vec<ValidatorIndex>> {
 		ValidatorGroups::<T>::get().get(group_index.0 as usize).map(|g| g.clone())
+	}
+
+	/// Iterator over all actually available availability cores.
+	///
+	/// This is all cores which also have a validator group assigned to them.
+	pub(crate) fn availability_cores() -> impl Iterator<Item = CoreIndex> {
+		(0..Self::num_availability_cores()).map(|i| CoreIndex(i as _))
 	}
 
 	/// Get the number of cores.
@@ -341,10 +332,5 @@ impl<T: Config> Pallet<T> {
 	#[cfg(test)]
 	pub(crate) fn set_validator_groups(validator_groups: Vec<Vec<ValidatorIndex>>) {
 		ValidatorGroups::<T>::set(validator_groups);
-	}
-
-	#[cfg(test)]
-	pub(crate) fn set_claim_queue(claim_queue: BTreeMap<CoreIndex, VecDeque<Assignment>>) {
-		ClaimQueue::<T>::set(claim_queue);
 	}
 }

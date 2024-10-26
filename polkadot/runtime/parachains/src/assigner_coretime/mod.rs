@@ -51,25 +51,6 @@ pub use pallet::*;
 #[derive(RuntimeDebug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
 pub struct PartsOf57600(u16);
 
-/// Assignment (ParaId -> CoreIndex).
-#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
-pub enum Assignment {
-	/// A pool assignment.
-	Pool(ParaId),
-	/// A bulk assignment.
-	Bulk(ParaId),
-}
-
-impl Assignment {
-	/// Returns the [`ParaId`] this assignment is associated to.
-	pub fn para_id(&self) -> ParaId {
-		match self {
-			Self::Pool(para_id) => *para_id,
-			Self::Bulk(para_id) => *para_id,
-		}
-	}
-}
-
 impl PartsOf57600 {
 	pub const ZERO: Self = Self(0);
 	pub const FULL: Self = Self(57600);
@@ -204,6 +185,25 @@ enum AccessMode {
 	Pop,
 }
 
+/// Assignments that got advanced.
+struct AdvancedAssignments<I1, I2> {
+	bulk_assignments: I1,
+	pool_assignments: I2,
+}
+
+impl<I1: Iterator<Item = (CoreIndex, ParaId)>, I2: Iterator<Item = (CoreIndex, ParaId)>>
+	AdvancedAssignments<I1, I2>
+{
+	fn into_iter<I3: Iterator<Item = (CoreIndex, ParaId)>>(self) -> I3 {
+		let Self { bulk_assignments, pool_assignments } = self;
+		bulk_assignments.chain(pool_assignments)
+	}
+
+	fn collect(self) -> BTreeMap<CoreIndex, ParaId> {
+		self.into_iter().collect()
+	}
+}
+
 impl<N> From<Schedule<N>> for WorkState<N> {
 	fn from(schedule: Schedule<N>) -> Self {
 		let Schedule { assignments, end_hint, next_schedule: _ } = schedule;
@@ -305,48 +305,47 @@ impl<T: Config> Pallet<T> {
 		Self::peek_impl(now, num_entries)
 	}
 
-	/// Pops [`Assignments`] from the provider.
-	pub fn pop_assignments() -> BTreeMap<CoreIndex, Assignment> {
+	/// Advance assignments.
+	///
+	/// We move forward one step with the assignments on each core.
+	///
+	/// Parameters:
+	///
+	/// - blocked: Lambda, for each core it returns true, the assignment could not actually be
+	/// served.
+	///
+	/// Returns: Advanced assignments. Blocked cores will still be advanced, but will not be
+	/// contained in the output.
+	pub fn advance_assignments<F: Fn(CoreIndex) -> bool>(
+		is_blocked: F,
+	) -> BTreeMap<CoreIndex, ParaId> {
 		let now = frame_system::Pallet::<T>::block_number();
 
-		let mut assignments = CoreDescriptors::<T>::mutate(|core_states| {
-			Self::pop_assignments_single_impl(now, core_states, AccessMode::Pop)
-				.collect::<BTreeMap<_, _>>()
+		let assignments = CoreDescriptors::<T>::mutate(|core_states| {
+			Self::advance_assignments_single_impl(now, core_states, AccessMode::Pop)
 		});
 
-		// Assignments missing?
-		if assignments.len() == Self::num_coretime_cores() {
-			return assignments
+		// Give blocked on-demand orders another chance:
+		for blocked in assignments.pool_assignments.clone().filter(is_blocked) {
+			on_demand::Pallet::<T>::push_back_order(blocked);
 		}
+
+		let mut assignments =
+			assignments.into_iter().filter(|core_idx| !is_blocked(core_idx)).collect();
 
 		// Try to fill missing assignments from the next position (duplication to allow asynchronous
 		// backing even for first assignment coming in on a previously empty core):
 		let next = now.saturating_add(One::one());
 		let mut core_states = CoreDescriptors::<T>::get();
 		let next_assignments =
-			Self::pop_assignments_single_impl(next, core_states, AccessMode::Peek);
+			Self::advance_assignments_single_impl(next, core_states, AccessMode::Peek).into_iter();
 
-		for (core_index, next_assignment) in next_assignments {
-			assignments.entry(core_index).or_insert_with(|| next_assignment);
+		for (core_idx, next_assignment) in
+			next_assignments.filter(|(core_idx, _)| !is_blocked(core_idx))
+		{
+			assignments.entry(core_idx).or_insert_with(|| next_assignment);
 		}
 		assignments
-	}
-
-	/// Push back a previously popped assignment.
-	///
-	/// If the assignment could not be processed, it can be pushed back
-	/// to the assignment provider in order to be popped again later.
-	///
-	/// Invariants: The order of assignments returned by `peek` is maintained: The pushed back
-	/// assignment will come after the elements returned by `peek` as of before that call or not at
-	/// all. The implementation is free to drop the pushed back assignment.
-	pub fn push_back_assignment(assignment: Assignment) {
-		match assignment {
-			Assignment::Pool(para_id) => on_demand::Pallet::<T>::push_back_order(para_id),
-			Assignment::Bulk(_) => {
-				// Pushing back assignments is not a thing for bulk.
-			},
-		}
 	}
 
 	pub(crate) fn coretime_cores() -> impl Iterator<Item = CoreIndex> {
@@ -372,7 +371,8 @@ impl<T: Config> Pallet<T> {
 		let mut result = BTreeMap::with_capacity(Self::num_coretime_cores());
 		for i in 0..num_entries {
 			let assignments =
-				Self::pop_assignments_single_impl(now, &mut core_states, AccessMode::Peek);
+				Self::advance_assignments_single_impl(now, &mut core_states, AccessMode::Peek)
+					.collect();
 			for (core_idx, assignment) in assignments {
 				let claim_queue = result.entry(core_idx).or_default();
 				// Stop filling on holes, otherwise we get claims at the wrong positions.
@@ -394,11 +394,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Pop assignments for `now`.
-	fn pop_assignments_single_impl(
+	fn advance_assignments_single_impl<BulkAssignments, PoolAssignments>(
 		now: BlockNumberFor<T>,
 		core_states: &mut BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>>,
 		mode: AccessMode,
-	) -> impl Iterator<Item = (CoreIndex, Assignment)> {
+	) -> AdvancedAssignments<BulkAssignments, PoolAssignments>
+	where
+		BulkAssignments: Iterator<Item = (CoreIndex, ParaId)>,
+		PoolAssignments: Iterator<Item = (CoreIndex, ParaId)>,
+	{
 		let mut bulk_assignments = Vec::with_capacity(Self::num_coretime_cores() as _);
 		let mut pool_cores = Vec::with_capacity(Self::num_coretime_cores() as _);
 		for (core_idx, core_state) in core_states.iter_mut() {
@@ -424,17 +428,16 @@ impl<T: Config> Pallet<T> {
 			}
 			match *a_type {
 				CoreAssignment::Pool => pool_cores.push(*core_idx),
-				CoreAssignment::Task(para_id) =>
-					bulk_assignments.push((*core_idx, Assignment::Bulk(para_id.into()))),
+				CoreAssignment::Task(para_id) => bulk_assignments.push((*core_idx, para_id.into())),
 				CoreAssignment::Idle => {},
 			}
 		}
 
 		let pool_assignments =
-			on_demand::Pallet::<T>::pop_assignment_for_cores(now, pool_cores.len() as _)
-				.map(Assignment::Pool);
+			on_demand::Pallet::<T>::pop_assignment_for_cores(now, pool_cores.len() as _);
+		let pool_assignments = pool_cores.into_iter().zip(pool_assignments);
 
-		bulk_assignments.into_iter().chain(pool_cores.into_iter().zip(pool_assignments))
+		AdvancedAssignments { bulk_assignments: bulk_assignments.into_iter(), pool_assignments }
 	}
 
 	/// Ensure given workload for core is up to date.
