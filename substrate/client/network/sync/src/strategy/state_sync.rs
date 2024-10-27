@@ -91,7 +91,8 @@ pub enum ImportResult<B: BlockT> {
 
 struct StateSyncMetadata {
 	last_key: SmallVec<[Vec<u8>; 2]>,
-	complete: bool
+	complete: bool,
+	imported_bytes: u64,
 }
 
 /// State sync state machine. Accumulates partial state data until it
@@ -105,7 +106,6 @@ pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	client: Arc<Client>,
-	imported_bytes: u64,
 	skip_proof: bool,
 }
 
@@ -132,9 +132,9 @@ where
 			metadata: StateSyncMetadata {
 				last_key: SmallVec::default(),
 				complete: false,
+				imported_bytes: 0,
 			},
 			state: HashMap::default(),
-			imported_bytes: 0,
 			skip_proof,
 		}
 	}
@@ -161,7 +161,7 @@ where
 			if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
 				child_storage_roots.push((value, key));
 			} else {
-				self.imported_bytes += key.len() as u64;
+				self.metadata.imported_bytes += key.len() as u64;
 				entry.0.push((key, value));
 			}
 		}
@@ -262,7 +262,7 @@ where
 			};
 
 			self.process_state_verified(values);
-			self.imported_bytes += proof_size;
+			self.metadata.imported_bytes += proof_size;
 			complete
 		} else {
 			self.process_state_unverified(response)
@@ -314,7 +314,7 @@ where
 		let percent_done = cursor as u32 * 100 / 256;
 		StateSyncProgress {
 			percentage: percent_done,
-			size: self.imported_bytes,
+			size: self.metadata.imported_bytes,
 			phase: if self.metadata.complete {
 				StateSyncPhase::ImportingState
 			} else {
