@@ -50,9 +50,26 @@ pub fn get_chain_spec_with_extra_endowed(
 	extra_endowed_accounts: Vec<AccountId>,
 	code: &[u8],
 ) -> ChainSpec {
+	let runtime_caller = GenesisConfigBuilderRuntimeCaller::<ParachainHostFunctions>::new(code);
+	let mut development_preset = runtime_caller
+		.get_named_preset(Some(&sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET.to_string()))
+		.expect("development preset is available on test runtime; qed");
+
+	// Extract existing balances
+	let existing_balances = development_preset
+		.get("balances")
+		.and_then(|b| b.get("balances"))
+		.and_then(|b| b.as_array())
+		.cloned()
+		.unwrap_or_default();
+
+	// Create new balances by combining existing and extra accounts
+	let mut all_balances = existing_balances;
+	all_balances.extend(extra_endowed_accounts.into_iter().map(|a| json!([a, 1u64 << 60])));
+
 	let mut patch_json = json!({
 		"balances": {
-			"balances": extra_endowed_accounts.into_iter().map(|a| (a, 1u64 << 60)).collect::<Vec<_>>(),
+			"balances": all_balances,
 		}
 	});
 
@@ -67,11 +84,6 @@ pub fn get_chain_spec_with_extra_endowed(
 			}),
 		);
 	};
-
-	let runtime_caller = GenesisConfigBuilderRuntimeCaller::<ParachainHostFunctions>::new(code);
-	let mut development_preset = runtime_caller
-		.get_named_preset(Some(&sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET.to_string()))
-		.expect("development preset is available on test runtime; qed");
 
 	sc_chain_spec::json_merge(&mut development_preset, patch_json.into());
 
