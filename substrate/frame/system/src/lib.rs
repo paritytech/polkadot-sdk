@@ -854,7 +854,7 @@ pub mod pallet {
 		/// All origins are allowed.
 		#[pallet::call_index(11)]
 		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade().saturating_add(T::SystemWeightInfo::authorize_apply_authorized_upgrade()), DispatchClass::Operational))]
-		#[pallet::authorize(Pallet::<T>::validate_apply_authorized_upgrade)]
+		#[pallet::authorize(|code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v| (v, Weight::zero())))]
 		// Weight of authorize is already included in the call weight. (As `ValidateUnsigned` also
 		// needs this weight).
 		#[pallet::weight_of_authorize(Weight::zero())]

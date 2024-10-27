@@ -93,5 +93,21 @@ benchmarks! {
 			.dispatch_bypass_filter(RawOrigin::None.into())?;
 	}
 
+	heartbeat_general {
+		let k in 1 .. MAX_KEYS;
+		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
+	}: _(RawOrigin::None, input_heartbeat, signature)
+
+	authorize_hearbeat_general {
+		let k in 1 .. MAX_KEYS;
+		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
+		let call = Call::<T>::heartbeat { heartbeat: input_heartbeat, signature };
+	}: {
+		use frame_support::traits::Authorize;
+		call.authorize()
+			.expect("Call give some authorization")
+			.expect("Call is authorized");
+	}
+
 	impl_benchmark_test_suite!(ImOnline, crate::mock::new_test_ext(), crate::mock::Runtime);
 }

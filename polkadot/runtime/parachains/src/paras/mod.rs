@@ -639,7 +639,7 @@ pub mod pallet {
 		frame_system::Config
 		+ configuration::Config
 		+ shared::Config
-		+ frame_system::offchain::CreateInherent<Call<Self>>
+		+ frame_system::offchain::CreateAuthorizedTransaction<Call<Self>>
 	{
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -1086,7 +1086,6 @@ pub mod pallet {
 			stmt: PvfCheckStatement,
 			signature: ValidatorSignature,
 		) -> DispatchResultWithPostInfo {
-			// TODO TODO: log a warning that this is deprecated.
 			ensure_none(origin)?;
 
 			let validators = shared::ActiveValidatorKeys::<T>::get();
@@ -1188,8 +1187,7 @@ pub mod pallet {
 				.max(<T as Config>::WeightInfo::include_pvf_check_statement_general_finalize_onboarding_accept())
 				.max(<T as Config>::WeightInfo::include_pvf_check_statement_general_finalize_onboarding_reject())
 		)]
-		#[pallet::authorize(Pallet::<T>::validate_include_pvf_check_statement)]
-		#[pallet::weight_of_authorize(T::WeightInfo::authorize_include_pvf_check_statement_general)]
+		#[pallet::authorize(|stmt, sig| Pallet::<T>::validate_include_pvf_check_statement(stmt, sig).map(|v| (v, Weight::zero())))]
 		pub fn include_pvf_check_statement_general(
 			origin: OriginFor<T>,
 			stmt: PvfCheckStatement,
@@ -2243,7 +2241,9 @@ impl<T: Config> Pallet<T> {
 	) {
 		use frame_system::offchain::SubmitTransaction;
 
-		let xt = T::create_inherent(Call::include_pvf_check_statement { stmt, signature }.into());
+		let xt = T::create_authorized_transaction(
+			Call::include_pvf_check_statement_general { stmt, signature }.into()
+		);
 		if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			log::error!(target: LOG_TARGET, "Error submitting pvf check statement: {:?}", e,);
 		}

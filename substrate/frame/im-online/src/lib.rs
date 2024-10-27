@@ -378,7 +378,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// ## Complexity:
 		/// - `O(K)` where K is length of `Keys` (heartbeat.validators_len)
@@ -389,9 +389,6 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::validate_unsigned_and_then_heartbeat(
 			heartbeat.validators_len,
 		))]
-		#[pallet::authorize(Pallet::<T>::validate_heartbeat)]
-		// authorize weight is in the dispatch weight itself.
-		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn heartbeat(
 			origin: OriginFor<T>,
 			heartbeat: Heartbeat<BlockNumberFor<T>>,
@@ -399,26 +396,29 @@ pub mod pallet {
 			// we can skip doing it here again.
 			_signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
 		) -> DispatchResult {
-			// TODO TODO: log a warning this is deprecated if the origin is none
-			ensure_none(origin.clone()).or_else(|_| ensure_authorized(origin))?;
+			ensure_none(origin)?;
 
-			let current_session = T::ValidatorSet::session_index();
-			let exists =
-				ReceivedHeartbeats::<T>::contains_key(current_session, heartbeat.authority_index);
-			let keys = Keys::<T>::get();
-			let public = keys.get(heartbeat.authority_index as usize);
-			if let (false, Some(public)) = (exists, public) {
-				Self::deposit_event(Event::<T>::HeartbeatReceived { authority_id: public.clone() });
-
-				ReceivedHeartbeats::<T>::insert(current_session, heartbeat.authority_index, true);
-
-				Ok(())
-			} else if exists {
-				Err(Error::<T>::DuplicatedHeartbeat.into())
-			} else {
-				Err(Error::<T>::InvalidKey.into())
-			}
+			Self::do_verified_heartbeat(heartbeat)
 		}
+
+		/// ## Complexity:
+		/// - `O(K)` where K is length of `Keys` (heartbeat.validators_len)
+		///   - `O(K)`: decoding of length `K`
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::heartbeat_general(heartbeat.validators_len))]
+		#[pallet::authorize(|heartbeat, sig| Pallet::<T>::validate_heartbeat(heartbeat, sig).map(|v| (v, Weight::zero())))]
+		pub fn heartbeat_general(
+			origin: OriginFor<T>,
+			heartbeat: Heartbeat<BlockNumberFor<T>>,
+			// since signature verification is done in `authorize` we can skip doing it here again.
+			_signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+		) -> DispatchResult {
+			ensure_authorized(origin)?;
+
+			Self::do_verified_heartbeat(heartbeat)
+		}
+
+
 	}
 
 	#[pallet::hooks]
@@ -475,6 +475,27 @@ impl<T: Config + pallet_authorship::Config>
 }
 
 impl<T: Config> Pallet<T> {
+	fn do_verified_heartbeat(
+		heartbeat: Heartbeat<BlockNumberFor<T>>,
+	) -> DispatchResult {
+		let current_session = T::ValidatorSet::session_index();
+		let exists =
+			ReceivedHeartbeats::<T>::contains_key(current_session, heartbeat.authority_index);
+		let keys = Keys::<T>::get();
+		let public = keys.get(heartbeat.authority_index as usize);
+		if let (false, Some(public)) = (exists, public) {
+			Self::deposit_event(Event::<T>::HeartbeatReceived { authority_id: public.clone() });
+
+			ReceivedHeartbeats::<T>::insert(current_session, heartbeat.authority_index, true);
+
+			Ok(())
+		} else if exists {
+			Err(Error::<T>::DuplicatedHeartbeat.into())
+		} else {
+			Err(Error::<T>::InvalidKey.into())
+		}
+	}
+
 	/// Returns `true` if a heartbeat has been received for the authority at
 	/// `authority_index` in the authorities series or if the authority has
 	/// authored at least one block, during the current session. Otherwise
@@ -586,7 +607,7 @@ impl<T: Config> Pallet<T> {
 
 			let signature = key.sign(&heartbeat.encode()).ok_or(OffchainErr::FailedSigning)?;
 
-			Ok(Call::heartbeat { heartbeat, signature })
+			Ok(Call::heartbeat_general { heartbeat, signature })
 		};
 
 		if Self::is_online(authority_index) {

@@ -61,9 +61,8 @@ where
 		_inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if let Some(crate::RawOrigin::None) = origin.as_system_ref() {
-			// TODO TODO: authorize should be able to return a refund
 			if let Some(authorize) = call.authorize() {
-				return authorize.map(|validity| (validity, Weight::zero(), crate::Origin::<T>::Authorized.into()))
+				return authorize.map(|(validity, unspent)| (validity, unspent, crate::Origin::<T>::Authorized.into()))
 			}
 		}
 

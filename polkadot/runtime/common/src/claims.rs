@@ -56,6 +56,10 @@ pub trait WeightInfo {
 	fn attest() -> Weight;
 	fn move_claim() -> Weight;
 	fn prevalidate_attests() -> Weight;
+	fn claim_general() -> Weight;
+	fn claim_attest_general() -> Weight;
+	fn authorize_claim() -> Weight;
+	fn authorize_claim_general() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -76,6 +80,18 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn prevalidate_attests() -> Weight {
+		Weight::zero()
+	}
+	fn claim_general() -> Weight {
+		Weight::zero()
+	}
+	fn claim_attest_general() -> Weight {
+		Weight::zero()
+	}
+	fn authorize_claim() -> Weight {
+		Weight::zero()
+	}
+	fn authorize_claim_general() -> Weight {
 		Weight::zero()
 	}
 }
@@ -277,7 +293,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
-	#[pallet::call]
+	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Make a claim to collect your DOTs.
 		///
@@ -305,26 +321,15 @@ pub mod pallet {
 		/// </weight>
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim())]
-		#[pallet::authorize(|dest, ethereum_sig|
-			Pallet::<T>::validate_claim(dest, ethereum_sig, None)
-		)]
-		// weight is taken into account in the call itself
-		#[pallet::weight_of_authorize(Weight::zero())]
+		#[deprecated(note = "Use `claim_general` instead.")]
 		pub fn claim(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
 			ethereum_signature: EcdsaSignature,
 		) -> DispatchResult {
-			// TODO TODO: log a warning it is deprecated if origin is none
-			ensure_none(origin.clone()).or_else(|_| ensure_authorized(origin))?;
+			ensure_none(origin)?;
 
-			let data = dest.using_encoded(to_ascii_hex);
-			let signer = Self::eth_recover(&ethereum_signature, &data, &[][..])
-				.ok_or(Error::<T>::InvalidEthereumSignature)?;
-			ensure!(Signing::<T>::get(&signer).is_none(), Error::<T>::InvalidStatement);
-
-			Self::process_claim(signer, dest)?;
-			Ok(())
+			Self::do_claim(dest, ethereum_signature)
 		}
 
 		/// Mint a new claim to collect DOTs.
@@ -393,27 +398,16 @@ pub mod pallet {
 		/// </weight>
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::claim_attest())]
-		#[pallet::authorize(|dest, ethereum_sig, stmt|
-			Pallet::<T>::validate_claim(dest, ethereum_sig, Some(stmt))
-		)]
-		// weight is taken into account in the call itself
-		#[pallet::weight_of_authorize(Weight::zero())]
+		#[deprecated(note = "Use `claim_attest_general` instead.")]
 		pub fn claim_attest(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
 			ethereum_signature: EcdsaSignature,
 			statement: Vec<u8>,
 		) -> DispatchResult {
-			ensure_none(origin.clone()).or_else(|_| ensure_authorized(origin))?;
+			ensure_none(origin)?;
 
-			let data = dest.using_encoded(to_ascii_hex);
-			let signer = Self::eth_recover(&ethereum_signature, &data, &statement)
-				.ok_or(Error::<T>::InvalidEthereumSignature)?;
-			if let Some(s) = Signing::<T>::get(signer) {
-				ensure!(s.to_text() == &statement[..], Error::<T>::InvalidStatement);
-			}
-			Self::process_claim(signer, dest)?;
-			Ok(())
+			Self::do_claim_attest(dest, ethereum_signature, statement)
 		}
 
 		/// Attest to a statement, needed to finalize the claims process.
@@ -474,6 +468,73 @@ pub mod pallet {
 			});
 			Ok(Pays::No.into())
 		}
+
+		/// Make a claim to collect your DOTs.
+		///
+		/// The dispatch origin for this call must be _None_.
+		///
+		/// Validation:
+		/// A call to `claim_general` is deemed valid if the signature provided matches
+		/// the expected signed message of:
+		///
+		/// > Ethereum Signed Message:
+		/// > (configured prefix string)(address)
+		///
+		/// and `address` matches the `dest` account.
+		///
+		/// Parameters:
+		/// - `dest`: The destination account to payout the claim.
+		/// - `ethereum_signature`: The signature of an ethereum signed message matching the format
+		///   described above.
+		#[pallet::call_index(5)]
+		#[pallet::authorize(|dest, ethereum_sig|
+			Pallet::<T>::validate_claim(dest, ethereum_sig, None).map(|v| (v, Weight::zero()))
+		)]
+		pub fn claim_general(
+			origin: OriginFor<T>,
+			dest: T::AccountId,
+			ethereum_signature: EcdsaSignature,
+		) -> DispatchResult {
+			ensure_authorized(origin)?;
+
+			Self::do_claim(dest, ethereum_signature)
+		}
+
+		/// Make a claim to collect your DOTs by signing a statement.
+		///
+		/// The dispatch origin for this call must be _None_.
+		///
+		/// Validation:
+		/// A call to `claim_attest_general` is deemed valid if the signature provided matches
+		/// the expected signed message of:
+		///
+		/// > Ethereum Signed Message:
+		/// > (configured prefix string)(address)(statement)
+		///
+		/// and `address` matches the `dest` account; the `statement` must match that which is
+		/// expected according to your purchase arrangement.
+		///
+		/// Parameters:
+		/// - `dest`: The destination account to payout the claim.
+		/// - `ethereum_signature`: The signature of an ethereum signed message matching the format
+		///   described above.
+		/// - `statement`: The identity of the statement which is being attested to in the
+		///   signature.
+		#[pallet::call_index(6)]
+		#[pallet::authorize(|dest, ethereum_sig, stmt|
+			Pallet::<T>::validate_claim(dest, ethereum_sig, Some(stmt)).map(|v| (v, Weight::zero()))
+		)]
+		pub fn claim_attest_general(
+			origin: OriginFor<T>,
+			dest: T::AccountId,
+			ethereum_signature: EcdsaSignature,
+			statement: Vec<u8>,
+		) -> DispatchResult {
+			ensure_authorized(origin)?;
+
+			Self::do_claim_attest(dest, ethereum_signature, statement)
+		}
+
 	}
 
 	#[pallet::validate_unsigned]
@@ -498,6 +559,27 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn do_claim(dest: T::AccountId, ethereum_signature: EcdsaSignature) -> DispatchResult {
+			let data = dest.using_encoded(to_ascii_hex);
+			let signer = Self::eth_recover(&ethereum_signature, &data, &[][..])
+				.ok_or(Error::<T>::InvalidEthereumSignature)?;
+			ensure!(Signing::<T>::get(&signer).is_none(), Error::<T>::InvalidStatement);
+
+			Self::process_claim(signer, dest)?;
+			Ok(())
+		}
+
+		fn do_claim_attest(dest: T::AccountId, ethereum_signature: EcdsaSignature, statement: Vec<u8>) -> DispatchResult {
+			let data = dest.using_encoded(to_ascii_hex);
+			let signer = Self::eth_recover(&ethereum_signature, &data, &statement)
+				.ok_or(Error::<T>::InvalidEthereumSignature)?;
+			if let Some(s) = Signing::<T>::get(signer) {
+				ensure!(s.to_text() == &statement[..], Error::<T>::InvalidStatement);
+			}
+			Self::process_claim(signer, dest)?;
+			Ok(())
+		}
+
 		fn validate_claim(
 			account: &T::AccountId,
 			ethereum_signature: &EcdsaSignature,
@@ -1828,6 +1910,109 @@ mod benchmarking {
 					Ok(Default::default())
 				}
 			).unwrap().is_ok());
+		}
+
+		claim_general {
+			let c = MAX_CLAIMS;
+
+			for i in 0 .. c / 2 {
+				create_claim::<T>(c)?;
+				create_claim_attest::<T>(u32::MAX - c)?;
+			}
+
+			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&c.encode())).unwrap();
+			let eth_address = eth(&secret_key);
+			let account: T::AccountId = account("user", c, SEED);
+			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
+			let signature = sig::<T>(&secret_key, &account.encode(), &[][..]);
+			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, None)?;
+			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+		}: _(RawOrigin::None, account.clone(), signature.clone())
+		verify {
+			assert_eq!(Claims::<T>::get(eth_address), None);
+		}
+
+		authorize_claim_general {
+			let c = MAX_CLAIMS;
+
+			for i in 0 .. c / 2 {
+				create_claim::<T>(c)?;
+				create_claim_attest::<T>(u32::MAX - c)?;
+			}
+
+			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&c.encode())).unwrap();
+			let eth_address = eth(&secret_key);
+			let account: T::AccountId = account("user", c, SEED);
+			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
+			let signature = sig::<T>(&secret_key, &account.encode(), &[][..]);
+			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, None)?;
+			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+			let call = Call::<T>::claim_general {
+				dest: account.clone(), ethereum_signature: signature.clone()
+			};
+		}: {
+			use frame_support::pallet_prelude::Authorize;
+			call.authorize()
+				.expect("Call give some authorization")
+				.expect("Authorization is valid");
+		}
+
+		claim_attest_general {
+			let c = MAX_CLAIMS;
+
+			for i in 0 .. c / 2 {
+				create_claim::<T>(c)?;
+				create_claim_attest::<T>(u32::MAX - c)?;
+			}
+
+			// Crate signature
+			let attest_c = u32::MAX - c;
+			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+			let eth_address = eth(&secret_key);
+			let account: T::AccountId = account("user", c, SEED);
+			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
+			let statement = StatementKind::Regular;
+			let signature = sig::<T>(&secret_key, &account.encode(), statement.to_text());
+			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, Some(statement))?;
+			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+			let call_enc = Call::<T>::claim_attest {
+				dest: account.clone(),
+				ethereum_signature: signature.clone(),
+			}.encode();
+			let source = sp_runtime::transaction_validity::TransactionSource::External;
+		}: _(RawOrigin::None, account.clone(), signature.clone(), StatementKind::Regular.to_text().to_vec())
+		verify {
+			assert_eq!(Claims::<T>::get(eth_address), None);
+		}
+
+		authorize_claim_attest_general {
+			let c = MAX_CLAIMS;
+
+			for i in 0 .. c / 2 {
+				create_claim::<T>(c)?;
+				create_claim_attest::<T>(u32::MAX - c)?;
+			}
+
+			// Crate signature
+			let attest_c = u32::MAX - c;
+			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+			let eth_address = eth(&secret_key);
+			let account: T::AccountId = account("user", c, SEED);
+			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
+			let statement = StatementKind::Regular;
+			let signature = sig::<T>(&secret_key, &account.encode(), statement.to_text());
+			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, Some(statement))?;
+			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+			let call = Call::<T>::claim_attest {
+				dest: account.clone(),
+				ethereum_signature: signature.clone(),
+				statement: StatementKind::Regular.to_text().to_vec()
+			};
+		}: {
+			use frame_support::pallet_prelude::Authorize;
+			call.authorize()
+				.expect("Call give some authorization")
+				.expect("Authorization is valid");
 		}
 
 		impl_benchmark_test_suite!(

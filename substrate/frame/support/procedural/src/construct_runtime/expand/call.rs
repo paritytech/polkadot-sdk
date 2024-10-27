@@ -226,7 +226,10 @@ pub fn expand_outer_dispatch(
 		impl #scrate::traits::Authorize for RuntimeCall {
 			fn authorize(&self) -> ::core::option::Option<
 				::core::result::Result<
-					#scrate::pallet_prelude::ValidTransaction,
+					(
+						#scrate::pallet_prelude::ValidTransaction,
+						#scrate::pallet_prelude::Weight,
+					),
 					#scrate::pallet_prelude::TransactionValidityError
 				>
 			> {

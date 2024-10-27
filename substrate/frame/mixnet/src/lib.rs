@@ -283,14 +283,13 @@ pub mod pallet {
 		/// Register a mixnode for the following session.
 		#[pallet::call_index(0)]
 		#[pallet::weight(1)] // TODO
-		#[pallet::authorize(Pallet::<T>::validate_register)]
+		#[pallet::authorize(|registration, sig| Pallet::<T>::validate_register(registration, sig).map(|v| (v, Weight::zero())))]
 		pub fn register(
 			origin: OriginFor<T>,
 			registration: RegistrationFor<T>,
 			_signature: AuthoritySignature,
 		) -> DispatchResult {
-			// TODO TODO: log a warning this is deprecated if origin is none
-			ensure_none(origin.clone()).or_else(|_| ensure_authorized(origin))?;
+			ensure_authorized(origin)?;
 
 			// Checked by ValidateUnsigned or authorize
 			debug_assert_eq!(registration.session_index, CurrentSessionIndex::<T>::get());
@@ -304,18 +303,6 @@ pub mod pallet {
 			);
 
 			Ok(())
-		}
-	}
-
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			let Self::Call::register { registration, signature } = call else {
-				return InvalidTransaction::Call.into()
-			};
-			Pallet::<T>::validate_register(registration, signature)
 		}
 	}
 }

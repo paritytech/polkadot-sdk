@@ -299,7 +299,10 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					fn #attr_fn_getter<
 						#type_impl_gen,
 						F: Fn( #( &#arg_type ),* )-> ::core::result::Result<
-							#frame_support::pallet_prelude::ValidTransaction,
+							(
+								#frame_support::pallet_prelude::ValidTransaction,
+								#frame_support::pallet_prelude::Weight,
+							),
 							#frame_support::pallet_prelude::TransactionValidityError,
 						>
 					>(f: F) -> F {
@@ -548,7 +551,10 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#where_clause
 		{
 			fn authorize(&self) -> ::core::option::Option<::core::result::Result<
-				#frame_support::pallet_prelude::ValidTransaction,
+				(
+					#frame_support::pallet_prelude::ValidTransaction,
+					#frame_support::pallet_prelude::Weight,
+				),
 				#frame_support::pallet_prelude::TransactionValidityError
 			>>
 			{
