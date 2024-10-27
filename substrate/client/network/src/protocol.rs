@@ -27,7 +27,7 @@ use crate::{
 
 use codec::Encode;
 use libp2p::{
-	core::Endpoint,
+	core::{transport::PortUse, Endpoint},
 	swarm::{
 		behaviour::FromSwarm, ConnectionDenied, ConnectionId, NetworkBehaviour, THandler,
 		THandlerInEvent, THandlerOutEvent, ToSwarm,
@@ -248,12 +248,14 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 		peer: PeerId,
 		addr: &Multiaddr,
 		role_override: Endpoint,
+		port_use: PortUse,
 	) -> Result<THandler<Self>, ConnectionDenied> {
 		self.behaviour.handle_established_outbound_connection(
 			connection_id,
 			peer,
 			addr,
 			role_override,
+			port_use,
 		)
 	}
 

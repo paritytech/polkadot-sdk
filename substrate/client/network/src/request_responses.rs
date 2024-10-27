@@ -43,7 +43,7 @@ use crate::{
 
 use futures::{channel::oneshot, prelude::*};
 use libp2p::{
-	core::{Endpoint, Multiaddr},
+	core::{transport::PortUse, Endpoint, Multiaddr},
 	request_response::{self, Behaviour, Codec, Message, ProtocolSupport, ResponseChannel},
 	swarm::{
 		behaviour::FromSwarm, handler::multi::MultiHandler, ConnectionDenied, ConnectionId,
@@ -546,11 +546,16 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 		peer: PeerId,
 		addr: &Multiaddr,
 		role_override: Endpoint,
+		port_use: PortUse,
 	) -> Result<THandler<Self>, ConnectionDenied> {
 		let iter = self.protocols.iter_mut().filter_map(|(p, (r, _))| {
-			if let Ok(handler) =
-				r.handle_established_outbound_connection(connection_id, peer, addr, role_override)
-			{
+			if let Ok(handler) = r.handle_established_outbound_connection(
+				connection_id,
+				peer,
+				addr,
+				role_override,
+				port_use,
+			) {
 				Some((p.to_string(), handler))
 			} else {
 				None

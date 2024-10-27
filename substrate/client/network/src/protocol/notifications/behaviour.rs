@@ -33,7 +33,7 @@ use bytes::BytesMut;
 use fnv::FnvHashMap;
 use futures::{future::BoxFuture, prelude::*, stream::FuturesUnordered};
 use libp2p::{
-	core::{Endpoint, Multiaddr},
+	core::{transport::PortUse, Endpoint, Multiaddr},
 	swarm::{
 		behaviour::{ConnectionClosed, ConnectionEstablished, DialFailure, FromSwarm},
 		ConnectionDenied, ConnectionId, DialError, NetworkBehaviour, NotifyHandler, THandler,
@@ -1234,6 +1234,7 @@ impl NetworkBehaviour for Notifications {
 		peer: PeerId,
 		_addr: &Multiaddr,
 		_role_override: Endpoint,
+		_port_use: PortUse,
 	) -> Result<THandler<Self>, ConnectionDenied> {
 		Ok(NotifsHandler::new(peer, self.notif_protocols.clone(), Some(self.metrics.clone())))
 	}
@@ -2651,6 +2652,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -2850,6 +2852,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3002,6 +3005,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3045,6 +3049,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3114,6 +3119,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3261,6 +3267,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn1,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3386,6 +3393,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3459,6 +3467,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3521,6 +3530,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn1,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3534,6 +3544,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn2,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3587,6 +3598,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3644,6 +3656,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn2,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3704,6 +3717,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn1,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3772,6 +3786,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn1,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3812,6 +3827,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -3934,6 +3950,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4239,6 +4256,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4479,6 +4497,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(0),
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4580,6 +4599,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(0),
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4661,6 +4681,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(0),
 				endpoint: &endpoint.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4777,6 +4798,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(1337),
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4811,6 +4833,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(1337),
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4861,6 +4884,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(1337),
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4907,6 +4931,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4956,6 +4981,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: ConnectionId::new_unchecked(1337),
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -4998,6 +5024,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
@@ -5008,6 +5035,7 @@ mod tests {
 				peer_id: peer,
 				connection_id: conn,
 				endpoint: &connected.clone(),
+				cause: None,
 				remaining_established: 0usize,
 			},
 		));
