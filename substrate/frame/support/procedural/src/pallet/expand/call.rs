@@ -18,7 +18,7 @@
 use crate::{
 	pallet::{
 		expand::warnings::{weight_constant_warning, weight_witness_warning},
-		parse::{call::CallWeightDef, helper::CallReturnType},
+		parse::{call::{CallWeightDef, CallVariantDef}, helper::CallReturnType},
 		Def,
 	},
 	COUNTER,
@@ -27,6 +27,33 @@ use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_warning::Warning;
 use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
+
+/// Expand the weight to final token stream and accumulate warnings.
+fn expand_weight(
+	prefix: &str,
+	frame_support: &syn::Path,
+	dev_mode: bool,
+	weight_warnings: &mut Vec<Warning>,
+	method: &CallVariantDef,
+	weight: &CallWeightDef,
+) -> TokenStream2 {
+	match weight {
+		CallWeightDef::DevModeDefault => quote::quote!(
+			#frame_support::pallet_prelude::Weight::zero()
+		),
+		CallWeightDef::Immediate(e) => {
+			weight_constant_warning(e, dev_mode, weight_warnings);
+			weight_witness_warning(method, dev_mode, weight_warnings);
+
+			e.into_token_stream()
+		},
+		CallWeightDef::Inherited(t) => {
+			// Expand `<<T as Config>::WeightInfo>::$prefix$call_name()`.
+			let n = &syn::Ident::new(&format!("{}{}", prefix, method.name), method.name.span());
+			quote!({ < #t > :: #n () })
+		},
+	}
+}
 
 ///
 /// * Generate enum call and implement various trait on it.
@@ -86,29 +113,15 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let mut fn_weight = Vec::<TokenStream2>::new();
 	let mut weight_warnings = Vec::new();
 	for method in &methods {
-		match &method.weight {
-			CallWeightDef::DevModeDefault => fn_weight.push(syn::parse_quote!(0)),
-			CallWeightDef::Immediate(e) => {
-				weight_constant_warning(e, def.dev_mode, &mut weight_warnings);
-				weight_witness_warning(method, def.dev_mode, &mut weight_warnings);
-
-				fn_weight.push(e.into_token_stream());
-			},
-			CallWeightDef::Inherited => {
-				let pallet_weight = def
-					.call
-					.as_ref()
-					.expect("we have methods; we have calls; qed")
-					.inherited_call_weight
-					.as_ref()
-					.expect("the parser prevents this");
-
-				// Expand `<<T as Config>::WeightInfo>::call_name()`.
-				let t = &pallet_weight.typename;
-				let n = &method.name;
-				fn_weight.push(quote!({ < #t > :: #n ()	}));
-			},
-		}
+		let w = expand_weight(
+			"",
+			frame_support,
+			def.dev_mode,
+			&mut weight_warnings,
+			method,
+			&method.weight,
+		);
+		fn_weight.push(w);
 	}
 	debug_assert_eq!(fn_weight.len(), methods.len());
 
@@ -271,6 +284,56 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		Ok(deprecation) => deprecation,
 		Err(e) => return e.into_compile_error(),
 	};
+
+	let authorize_fn = methods.iter().zip(args_name.iter()).zip(args_type.iter()).map(
+		|((method, arg_name), arg_type)| {
+			if let Some((authorize_fn, _)) = &method.authorize {
+				let attr_fn_getter =
+					syn::Ident::new(&format!("pallet_authorize_call_for_{}", method.name), span);
+
+				quote::quote_spanned!(span =>
+
+					// Closure don't have a writable type. So we fix the authorize token stream to
+					// be any implementation of this generic F.
+					// This also allows to have good type inference on the closure.
+					fn #attr_fn_getter<
+						#type_impl_gen,
+						F: Fn( #( &#arg_type ),* )-> ::core::result::Result<
+							#frame_support::pallet_prelude::ValidTransaction,
+							#frame_support::pallet_prelude::TransactionValidityError,
+						>
+					>(f: F) -> F {
+						f
+					}
+
+					let authorize_fn = #attr_fn_getter::<#type_use_gen, _>(#authorize_fn);
+					let res = authorize_fn(#( #arg_name, )*);
+
+					Some(res)
+				)
+			} else {
+				quote::quote!(None)
+			}
+		},
+	);
+
+	let mut authorize_fn_weight = Vec::<TokenStream2>::new();
+	for method in &methods {
+		let w = match &method.authorize {
+			Some((_, weight)) => expand_weight(
+				"authorize_",
+				frame_support,
+				def.dev_mode,
+				&mut weight_warnings,
+				method,
+				&weight,
+			),
+			// No authorize logic, weight is negligible
+			None => quote::quote!(#frame_support::pallet_prelude::Weight::zero()),
+		};
+		authorize_fn_weight.push(w);
+	}
+	assert_eq!(authorize_fn_weight.len(), methods.len());
 
 	quote::quote_spanned!(span =>
 		#[doc(hidden)]
@@ -477,6 +540,38 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::__private::metadata_ir::PalletCallMetadataIR  {
 					ty: #frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>(),
 					deprecation_info: #deprecation,
+				}
+			}
+		}
+
+		impl<#type_impl_gen> #frame_support::traits::Authorize for #call_ident<#type_use_gen>
+			#where_clause
+		{
+			fn authorize(&self) -> ::core::option::Option<::core::result::Result<
+				#frame_support::pallet_prelude::ValidTransaction,
+				#frame_support::pallet_prelude::TransactionValidityError
+			>>
+			{
+				match *self {
+					#(
+						#cfg_attrs
+						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
+							#authorize_fn
+						},
+					)*
+					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
+				}
+			}
+
+			fn weight_of_authorize(&self) -> #frame_support::pallet_prelude::Weight {
+				match *self {
+					#(
+						#cfg_attrs
+						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
+							#authorize_fn_weight
+						},
+					)*
+					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
 				}
 			}
 		}

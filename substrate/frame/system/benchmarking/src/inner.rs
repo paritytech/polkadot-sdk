@@ -226,5 +226,24 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn authorize_apply_authorized_upgrade() -> Result<(), BenchmarkError> {
+		let runtime_blob = T::prepare_set_code_data();
+		T::setup_set_code_requirements(&runtime_blob)?;
+		let hash = T::Hashing::hash(&runtime_blob);
+		// Will be heavier when it needs to do verification (i.e. don't use `...without_checks`).
+		System::<T>::authorize_upgrade(RawOrigin::Root.into(), hash)?;
+
+		let call = Call::<T>::apply_authorized_upgrade { code: runtime_blob };
+
+		#[block]
+		{
+			use frame_support::pallet_prelude::Authorize;
+			call.authorize().ok_or("Call must give some authorization")??;
+		}
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

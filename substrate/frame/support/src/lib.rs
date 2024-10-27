@@ -903,6 +903,7 @@ pub mod pallet_prelude {
 			StorageList,
 		},
 		traits::{
+			Authorize,
 			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
 			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
 		},
@@ -918,7 +919,7 @@ pub mod pallet_prelude {
 	pub use sp_runtime::{
 		traits::{
 			CheckedAdd, CheckedConversion, CheckedDiv, CheckedMul, CheckedShl, CheckedShr,
-			CheckedSub, MaybeSerializeDeserialize, Member, One, ValidateUnsigned, Zero,
+			CheckedSub, MaybeSerializeDeserialize, Member, One, ValidateUnsigned, Zero, ValidateResult,
 		},
 		transaction_validity::{
 			InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource,
@@ -2510,7 +2511,7 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::storage;
 
 	pub use frame_support_procedural::{
-		task_condition, task_index, task_list, task_weight, tasks_experimental,
+		task_condition, task_index, task_list, task_weight, tasks_experimental, authorize, weight_of_authorize,
 	};
 
 	/// Allows a pallet to declare a type as an origin.

@@ -166,7 +166,7 @@ pub mod weights;
 pub mod migrations;
 
 pub use extensions::{
-	check_genesis::CheckGenesis, check_mortality::CheckMortality,
+	authorize_call::AuthorizeCall, check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
 	check_weight::CheckWeight, WeightInfo as ExtensionsWeightInfo,
@@ -174,7 +174,7 @@ pub use extensions::{
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
-use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
+use frame_support::traits::{Authorize, PostInherents, PostTransactions, PreInherents};
 use sp_core::storage::StateVersion;
 pub use weights::WeightInfo;
 
@@ -507,7 +507,8 @@ pub mod pallet {
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
-			+ From<Call<Self>>;
+			+ From<Call<Self>>
+			+ Authorize;
 
 		/// The aggregated `RuntimeTask` type.
 		#[pallet::no_default_bounds]
@@ -667,7 +668,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = <T as Config>::SystemWeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Make some on-chain remark.
 		///
@@ -780,10 +781,16 @@ pub mod pallet {
 
 		#[cfg(feature = "experimental")]
 		#[pallet::call_index(8)]
-		#[pallet::weight(task.weight())]
-		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
-			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+		#[pallet::weight(task.weight().saturating_add(task.weight_of_is_valid()))]
+		#[pallet::authorize(Pallet::<T>::validate_do_task)]
+		#[pallet::weight_of_authorize(task.weight_of_is_valid())]
+		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
+			let skip_validity = origin.as_system_ref() == Some(&RawOrigin::Authorized);
+
+			if !skip_validity {
+				if !task.is_valid() {
+					return Err(Error::<T>::InvalidTask.into())
+				}
 			}
 
 			Self::deposit_event(Event::TaskStarted { task: task.clone() });
@@ -792,11 +799,17 @@ pub mod pallet {
 				return Err(Error::<T>::FailedTask.into())
 			}
 
+			let task_weight = task.weight();
+
 			// Emit a success event, if your design includes events for this pallet.
 			Self::deposit_event(Event::TaskCompleted { task });
 
 			// Return success.
-			Ok(().into())
+			if skip_validity {
+				Ok(Some(task_weight).into())
+			} else {
+				Ok(().into())
+			}
 		}
 
 		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
@@ -840,11 +853,17 @@ pub mod pallet {
 		///
 		/// All origins are allowed.
 		#[pallet::call_index(11)]
-		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade(), DispatchClass::Operational))]
+		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade().saturating_add(T::SystemWeightInfo::authorize_apply_authorized_upgrade()), DispatchClass::Operational))]
+		#[pallet::authorize(Pallet::<T>::validate_apply_authorized_upgrade)]
+		// Weight of authorize is already included in the call weight. (As `ValidateUnsigned` also
+		// needs this weight).
+		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn apply_authorized_upgrade(
 			_: OriginFor<T>,
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			// TODO TODO: log a warning if origin is none: do the warning directly in validate
+			// unsigned
 			let post = Self::do_apply_authorize_upgrade(code)?;
 			Ok(post)
 		}
@@ -1060,30 +1079,14 @@ pub mod pallet {
 	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::apply_authorized_upgrade { ref code } = call {
-				if let Ok(hash) = Self::validate_authorized_upgrade(&code[..]) {
-					return Ok(ValidTransaction {
-						priority: 100,
-						requires: Vec::new(),
-						provides: vec![hash.as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
-				}
+			match call {
+				Call::apply_authorized_upgrade { ref code } =>
+					Self::validate_apply_authorized_upgrade(code),
+				#[cfg(feature = "experimental")]
+				Call::do_task { ref task } => Self::validate_do_task(task),
+				// TODO TODO: log warning if any of those variant above are used.
+				_ => Err(InvalidTransaction::Call.into()),
 			}
-			#[cfg(feature = "experimental")]
-			if let Call::do_task { ref task } = call {
-				if task.is_valid() {
-					return Ok(ValidTransaction {
-						priority: u64::max_value(),
-						requires: Vec::new(),
-						provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
-				}
-			}
-			Err(InvalidTransaction::Call.into())
 		}
 	}
 }
@@ -1411,6 +1414,17 @@ where
 {
 	match o.into() {
 		Ok(RawOrigin::None) => Ok(()),
+		_ => Err(BadOrigin),
+	}
+}
+
+/// Ensure that the origin `o` represents an extrinsic with authorized call. Returns `Ok` or an `Err` otherwise.
+pub fn ensure_authorized<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<(), BadOrigin>
+where
+	OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>>,
+{
+	match o.into() {
+		Ok(RawOrigin::Authorized) => Ok(()),
 		_ => Err(BadOrigin),
 	}
 }
@@ -2171,6 +2185,39 @@ impl<T: Config> Pallet<T> {
 		}
 		Ok(actual_hash)
 	}
+
+	/// Validate the call to `apply_authorized_upgrade` and return the validity of the transaction.
+	fn validate_apply_authorized_upgrade(code: &Vec<u8>) -> TransactionValidity {
+		if let Ok(hash) = Self::validate_authorized_upgrade(&code[..]) {
+			Ok(ValidTransaction {
+				priority: 100,
+				requires: Vec::new(),
+				provides: vec![hash.as_ref().to_vec()],
+				longevity: TransactionLongevity::max_value(),
+				propagate: true,
+			})
+		} else {
+			Err(InvalidTransaction::Call.into())
+		}
+	}
+
+	/// Validate the call to `do_task` and return the validity of the transaction.
+	#[cfg(feature = "experimental")]
+	fn validate_do_task(task: &T::RuntimeTask) -> TransactionValidity {
+		use frame_support::traits::Task;
+
+		if task.is_valid() {
+			Ok(ValidTransaction {
+				priority: u64::max_value(),
+				requires: Vec::new(),
+				provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
+				longevity: TransactionLongevity::max_value(),
+				propagate: true,
+			})
+		} else {
+			Err(InvalidTransaction::Call.into())
+		}
+	}
 }
 
 /// Returns a 32 byte datum which is guaranteed to be universally unique. `entropy` is provided
@@ -2292,7 +2339,7 @@ impl<T: Config> Lookup for ChainContext<T> {
 
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
-	pub use crate::{ensure_none, ensure_root, ensure_signed, ensure_signed_or_root};
+	pub use crate::{ensure_authorized, ensure_none, ensure_root, ensure_signed, ensure_signed_or_root};
 
 	/// Type alias for the `Origin` associated type of system config.
 	pub type OriginFor<T> = <T as crate::Config>::RuntimeOrigin;

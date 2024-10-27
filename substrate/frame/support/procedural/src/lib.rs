@@ -1338,3 +1338,130 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 		.unwrap_or_else(|r| r.into_compile_error())
 		.into()
 }
+
+/// Allows to authorize some "general" transactions of specific call.
+///
+/// This feature allows "general" transactions (transactions with no signature) to be validated
+/// and dispatched by only checking the call, without traditional signature.
+/// E.g. this allows specified calls to be executed without requiring sender to
+/// have an account, only checking the validity of the call to validate the transaction.
+///
+/// The call is authorized by a configurable "authorize" function, the weight of this "authorize"
+/// function must be small enough so that nodes transaction pool can't be spammed.
+///
+/// Authorized calls are dispatched with the [`frame_system::Origin::Authorized`] origin which must
+/// be ensured with [`frame_system::ensure_authorized`] in the call dispatch logic.
+///
+/// # Usage in the runtime
+///
+/// To enable the authorization process of pallets, the runtime must use
+/// [`frame_system::AuthorizeCall`] transaction extension.
+/// (NOTE: It is also recomended to use [`frame_system::DenyNone`] transaction extension at the end
+/// the transaction extension pipeline.)
+///
+/// To enable the creation of authorized call from offchain worker. The runtime should implement
+/// [`frame_system::CreateAuthorizedTransaction`]. This trait allows to specify which transaction
+/// extension to use when creating a transaction for an authorized call.
+///
+/// # Usage in the pallet
+///
+/// ## Example/Overview:
+///
+/// ```
+/// # #[allow(unused)]
+/// #[frame_support::pallet]
+/// pub mod pallet {
+///     use frame_support::pallet_prelude::*;
+///     use frame_system::pallet_prelude::*;
+///
+///     #[pallet::pallet]
+///     pub struct Pallet<T>(_);
+///
+///     #[pallet::config]
+///     pub trait Config: frame_system::Config {}
+///
+///     #[pallet::call]
+///     impl<T: Config> Pallet<T> {
+///         #[pallet::weight(Weight::zero())]
+///         #[pallet::authorize(|foo| if *foo == 42 {
+///             Ok(ValidTransaction::default())
+///         } else {
+///             Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+///         })]
+///         #[pallet::weight_of_authorize(Weight::zero())]
+///         #[pallet::call_index(0)]
+///         pub fn some_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
+///             ensure_authorized(origin)?;
+///
+///             Ok(())
+///         }
+///     }
+///
+///     #[frame_benchmarking::v2::benchmarks]
+///     mod benchmarks {
+///         use super::*;
+///         use frame_benchmarking::v2::BenchmarkError;
+///
+///         #[benchmark]
+///         fn authorize_some_call() -> Result<(), BenchmarkError> {
+///             let call = Call::<T>::some_call { arg: 42 };
+///
+///             #[block]
+///             {
+///                 use frame_support::pallet_prelude::Authorize;
+///                 call.authorize().ok_or("Call must give some authorization")??;
+///             }
+///
+///             Ok(())
+///         }
+///     }
+/// }
+/// ```
+///
+/// ## Specification:
+///
+/// Authorize process comes with 2 attributes macro on top of the authorized call function:
+///
+/// * `#[pallet::authorize($authorized_function)]` - defines the function that authorizes the call.
+///   Arguments are the same as call arguments but by reference `&`. Return type is
+///   [`TransactionValidity`](frame_support::pallet_prelude::TransactionValidity).
+/// * `#[pallet::weight_of_authorize($weight)]` - defines the value of the weight of the authorize
+///   function. This attribute is similar to `#[pallet::weight]`:
+///   * it can be ignore in `dev_mode`
+///   * it can be automatically infered from weight info. For the call `foo` the function
+///     `authorize_foo` in the weight info will be used.
+///   * it can be a fixed value like `Weight::from_all(0)` (not recommended in production).
+///
+///   The weight must be small enough so that nodes don't get DDOS by validating transactions.
+///
+/// Then in the call it must be ensured that the origin is the authorization process. This can
+/// be done using [`frame_system::ensure_authorized`] function.
+///
+/// # The macro expansion
+///
+/// From the given "authorize" function and weight, the macro will implement the trait
+/// [`Authorize`](frame_support::pallet_prelude::Authorize) on the call.
+///
+/// # How to benchmark
+///
+/// The "authorize" closure is used as the implementation of the trait
+/// [`Authorize`](frame_support::pallet_prelude::Authorize) for the call.
+/// To benchmark a call variant, use the function `Authorize::authorize` on a call value.
+/// See the example in the first section.
+#[proc_macro_attribute]
+pub fn authorize(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+/// Allows to define the weight of the "authorize" function.
+///
+/// See [`frame_support_procedural::authorize`] for more information on authorization works.
+///
+/// # Example:
+/// ```
+/// // TODO TODO: copy paste
+/// ```
+#[proc_macro_attribute]
+pub fn weight_of_authorize(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}

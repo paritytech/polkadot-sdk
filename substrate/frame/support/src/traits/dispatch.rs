@@ -22,8 +22,10 @@ use codec::MaxEncodedLen;
 use core::{cmp::Ordering, marker::PhantomData};
 use sp_runtime::{
 	traits::{BadOrigin, Get, Member, Morph, TryMorph},
+	transaction_validity::{TransactionValidityError, ValidTransaction},
 	Either,
 };
+use sp_weights::Weight;
 
 use super::misc;
 
@@ -563,6 +565,26 @@ pub trait OriginTrait: Sized {
 			}
 		})
 	}
+}
+
+/// A trait to allow calls to authorize themselves from origin `None`.
+///
+/// It is usually implemented by the [`crate::pallet`] macro and used by the
+/// [`frame_system::AuthorizeCall`] transaction extension.
+pub trait Authorize {
+	// TODO TODO: probably return the accurate to refund here
+	/// The authorize function.
+	///
+	/// Returns
+	/// * `Some(Ok((valid_transaction, new_origin)))` if the call is successfully authorized,
+	/// * `Some(Err(error))` if the call authorization is invalid,
+	/// * `None` if the call doesn't provide any authorization.
+	fn authorize(
+		&self,
+	) -> Option<Result<ValidTransaction, TransactionValidityError>>;
+
+	/// The weight of the authorization function.
+	fn weight_of_authorize(&self) -> Weight;
 }
 
 #[cfg(test)]

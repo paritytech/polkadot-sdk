@@ -45,6 +45,9 @@ use sp_mixnet::types::{
 	SessionPhase, SessionStatus, KX_PUBLIC_SIZE,
 };
 use sp_runtime::RuntimeDebug;
+use sp_runtime::transaction_validity::TransactionValidity;
+use sp_runtime::transaction_validity::InvalidTransaction;
+use sp_runtime::transaction_validity::ValidTransaction;
 
 const LOG_TARGET: &str = "runtime::mixnet";
 
@@ -280,14 +283,16 @@ pub mod pallet {
 		/// Register a mixnode for the following session.
 		#[pallet::call_index(0)]
 		#[pallet::weight(1)] // TODO
+		#[pallet::authorize(Pallet::<T>::validate_register)]
 		pub fn register(
 			origin: OriginFor<T>,
 			registration: RegistrationFor<T>,
 			_signature: AuthoritySignature,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			// TODO TODO: log a warning this is deprecated if origin is none
+			ensure_none(origin.clone()).or_else(|_| ensure_authorized(origin))?;
 
-			// Checked by ValidateUnsigned
+			// Checked by ValidateUnsigned or authorize
 			debug_assert_eq!(registration.session_index, CurrentSessionIndex::<T>::get());
 			debug_assert!(registration.authority_index < T::MaxAuthorities::get());
 
@@ -310,53 +315,7 @@ pub mod pallet {
 			let Self::Call::register { registration, signature } = call else {
 				return InvalidTransaction::Call.into()
 			};
-
-			// Check session index matches
-			match registration.session_index.cmp(&CurrentSessionIndex::<T>::get()) {
-				Ordering::Greater => return InvalidTransaction::Future.into(),
-				Ordering::Less => return InvalidTransaction::Stale.into(),
-				Ordering::Equal => (),
-			}
-
-			// Check authority index is valid
-			if registration.authority_index >= T::MaxAuthorities::get() {
-				return InvalidTransaction::BadProof.into()
-			}
-			let Some(authority_id) = NextAuthorityIds::<T>::get(registration.authority_index)
-			else {
-				return InvalidTransaction::BadProof.into()
-			};
-
-			// Check the authority hasn't registered a mixnode yet
-			if Self::already_registered(registration.session_index, registration.authority_index) {
-				return InvalidTransaction::Stale.into()
-			}
-
-			// Check signature. Note that we don't use regular signed transactions for registration
-			// as we don't want validators to have to pay to register. Spam is prevented by only
-			// allowing one registration per session per validator (see above).
-			let signature_ok = registration.using_encoded(|encoded_registration| {
-				authority_id.verify(&encoded_registration, signature)
-			});
-			if !signature_ok {
-				return InvalidTransaction::BadProof.into()
-			}
-
-			ValidTransaction::with_tag_prefix("MixnetRegistration")
-				.priority(T::RegistrationPriority::get())
-				// Include both authority index _and_ ID in tag in case of forks with different
-				// authority lists
-				.and_provides((
-					registration.session_index,
-					registration.authority_index,
-					authority_id,
-				))
-				.longevity(
-					(T::NextSessionRotation::average_session_length() / 2_u32.into())
-						.try_into()
-						.unwrap_or(64_u64),
-				)
-				.build()
+			Pallet::<T>::validate_register(registration, signature)
 		}
 	}
 }
@@ -542,6 +501,58 @@ impl<T: Config> Pallet<T> {
 				false
 			},
 		}
+	}
+
+	fn validate_register(
+		registration: &RegistrationFor<T>,
+		signature: &AuthoritySignature,
+	) -> TransactionValidity {
+		// Check session index matches
+		match registration.session_index.cmp(&CurrentSessionIndex::<T>::get()) {
+			Ordering::Greater => return InvalidTransaction::Future.into(),
+			Ordering::Less => return InvalidTransaction::Stale.into(),
+			Ordering::Equal => (),
+		}
+
+		// Check authority index is valid
+		if registration.authority_index >= T::MaxAuthorities::get() {
+			return InvalidTransaction::BadProof.into()
+		}
+		let Some(authority_id) = NextAuthorityIds::<T>::get(registration.authority_index)
+		else {
+			return InvalidTransaction::BadProof.into()
+		};
+
+		// Check the authority hasn't registered a mixnode yet
+		if Self::already_registered(registration.session_index, registration.authority_index) {
+			return InvalidTransaction::Stale.into()
+		}
+
+		// Check signature. Note that we don't use regular signed transactions for registration
+		// as we don't want validators to have to pay to register. Spam is prevented by only
+		// allowing one registration per session per validator (see above).
+		let signature_ok = registration.using_encoded(|encoded_registration| {
+			authority_id.verify(&encoded_registration, signature)
+		});
+		if !signature_ok {
+			return InvalidTransaction::BadProof.into()
+		}
+
+		ValidTransaction::with_tag_prefix("MixnetRegistration")
+			.priority(T::RegistrationPriority::get())
+			// Include both authority index _and_ ID in tag in case of forks with different
+			// authority lists
+			.and_provides((
+				registration.session_index,
+				registration.authority_index,
+				authority_id,
+			))
+			.longevity(
+				(T::NextSessionRotation::average_session_length() / 2_u32.into())
+					.try_into()
+					.unwrap_or(64_u64),
+			)
+			.build()
 	}
 }
 
