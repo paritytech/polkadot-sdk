@@ -53,7 +53,7 @@ use futures::prelude::*;
 use futures_timer::Delay;
 use ip_network::IpNetwork;
 use libp2p::{
-	core::{Endpoint, Multiaddr},
+	core::{transport::PortUse, Endpoint, Multiaddr},
 	kad::{
 		self,
 		store::{MemoryStore, RecordStore},
@@ -214,23 +214,14 @@ impl DiscoveryConfig {
 			enable_mdns,
 			kademlia_disjoint_query_paths,
 			kademlia_protocol,
-			kademlia_legacy_protocol,
+			kademlia_legacy_protocol: _,
 			kademlia_replication_factor,
 		} = self;
 
 		let kademlia = if let Some(ref kademlia_protocol) = kademlia_protocol {
-			let mut config = KademliaConfig::default();
+			let mut config = KademliaConfig::new(kademlia_protocol.clone());
 
 			config.set_replication_factor(kademlia_replication_factor);
-			// Populate kad with both the legacy and the new protocol names.
-			// Remove the legacy protocol:
-			// https://github.com/paritytech/polkadot-sdk/issues/504
-			let kademlia_protocols = if let Some(legacy_protocol) = kademlia_legacy_protocol {
-				vec![kademlia_protocol.clone(), legacy_protocol]
-			} else {
-				vec![kademlia_protocol.clone()]
-			};
-			config.set_protocol_names(kademlia_protocols.into_iter().map(Into::into).collect());
 
 			config.set_record_filtering(libp2p::kad::StoreInserts::FilterBoth);
 
@@ -613,12 +604,14 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 		peer: PeerId,
 		addr: &Multiaddr,
 		role_override: Endpoint,
+		port_use: PortUse,
 	) -> Result<THandler<Self>, ConnectionDenied> {
 		self.kademlia.handle_established_outbound_connection(
 			connection_id,
 			peer,
 			addr,
 			role_override,
+			port_use,
 		)
 	}
 

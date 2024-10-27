@@ -1,9 +1,9 @@
-title: Upgrade libp2p to 0.53.2
+title: Upgrade libp2p to 0.54.1
 
 doc:
   - audience: [Node Dev, Node Operator]
     description: |
-      Upgrade libp2p from 0.52.4 to 0.53.2
+      Upgrade libp2p from 0.52.4 to 0.54.1
 
 crates:
   - name: sc-authority-discovery

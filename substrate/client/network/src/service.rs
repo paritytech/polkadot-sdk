@@ -1729,7 +1729,12 @@ where
 						not_reported.then(|| self.boot_node_ids.get(&peer_id)).flatten()
 					{
 						if let DialError::WrongPeerId { obtained, endpoint } = &error {
-							if let ConnectedPoint::Dialer { address, role_override: _ } = endpoint {
+							if let ConnectedPoint::Dialer {
+								address,
+								role_override: _,
+								port_use: _,
+							} = endpoint
+							{
 								let address_without_peer_id = parse_addr(address.clone().into())
 									.map_or_else(|_| address.clone(), |r| r.1.into());
 
