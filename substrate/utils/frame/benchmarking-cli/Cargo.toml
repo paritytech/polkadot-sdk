@@ -63,7 +63,7 @@ sp-version = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-wasm-interface = { workspace = true, default-features = true }
-subxt = { workspace = true, features = ["substrate-compat", "native"] }
+subxt = { workspace = true, features = ["native", "substrate-compat"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
@@ -83,10 +83,11 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks"
+	"westend-runtime/runtime-benchmarks",
 ]
 rocksdb = ["sc-cli/rocksdb", "sc-client-db/rocksdb"]

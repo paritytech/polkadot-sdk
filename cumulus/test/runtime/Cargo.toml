@@ -78,6 +78,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"parachain-info/std",
 	"scale-info/std",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -85,14 +86,13 @@ std = [
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
+	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"serde_json/std",
-	"sp-keyring/std"
 ]
 increment-spec-version = []
 elastic-scaling = []
