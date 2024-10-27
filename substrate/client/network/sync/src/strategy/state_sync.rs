@@ -92,6 +92,8 @@ pub enum ImportResult<B: BlockT> {
 struct StateSyncMetadata<B: BlockT> {
 	last_key: SmallVec<[Vec<u8>; 2]>,
 	target_header: B::Header,
+	target_body: Option<Vec<B::Extrinsic>>,
+	target_justifications: Option<Justifications>,
 	complete: bool,
 	imported_bytes: u64,
 	skip_proof: bool,
@@ -115,8 +117,6 @@ impl<B: BlockT> StateSyncMetadata<B> {
 /// State sync state machine. Accumulates partial state data until it
 /// is ready to be imported.
 pub struct StateSync<B: BlockT, Client> {
-	target_body: Option<Vec<B::Extrinsic>>,
-	target_justifications: Option<Justifications>,
 	metadata: StateSyncMetadata<B>,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	client: Arc<Client>,
@@ -137,11 +137,11 @@ where
 	) -> Self {
 		Self {
 			client,
-			target_body,
-			target_justifications,
 			metadata: StateSyncMetadata {
 				last_key: SmallVec::default(),
 				target_header,
+				target_body,
+				target_justifications,
 				complete: false,
 				imported_bytes: 0,
 				skip_proof,
@@ -285,8 +285,8 @@ where
 				target_hash,
 				self.metadata.target_header.clone(),
 				ImportedState { block: target_hash, state: std::mem::take(&mut self.state).into() },
-				self.target_body.clone(),
-				self.target_justifications.clone(),
+				self.metadata.target_body.clone(),
+				self.metadata.target_justifications.clone(),
 			)
 		} else {
 			ImportResult::Continue
