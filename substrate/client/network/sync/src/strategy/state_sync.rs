@@ -89,6 +89,10 @@ pub enum ImportResult<B: BlockT> {
 	BadResponse,
 }
 
+struct StateSyncMetadata {
+	last_key: SmallVec<[Vec<u8>; 2]>,
+}
+
 /// State sync state machine. Accumulates partial state data until it
 /// is ready to be imported.
 pub struct StateSync<B: BlockT, Client> {
@@ -97,7 +101,7 @@ pub struct StateSync<B: BlockT, Client> {
 	target_root: B::Hash,
 	target_body: Option<Vec<B::Extrinsic>>,
 	target_justifications: Option<Justifications>,
-	last_key: SmallVec<[Vec<u8>; 2]>,
+	metadata: StateSyncMetadata,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	complete: bool,
 	client: Arc<Client>,
@@ -125,7 +129,7 @@ where
 			target_header,
 			target_body,
 			target_justifications,
-			last_key: SmallVec::default(),
+			metadata: StateSyncMetadata { last_key: SmallVec::default() },
 			state: HashMap::default(),
 			complete: false,
 			imported_bytes: 0,
@@ -177,11 +181,11 @@ where
 		// the parent cursor stays valid.
 		// Empty parent trie content only happens when all the response content
 		// is part of a single child trie.
-		if self.last_key.len() == 2 && response.entries[0].entries.is_empty() {
+		if self.metadata.last_key.len() == 2 && response.entries[0].entries.is_empty() {
 			// Do not remove the parent trie position.
-			self.last_key.pop();
+			self.metadata.last_key.pop();
 		} else {
-			self.last_key.clear();
+			self.metadata.last_key.clear();
 		}
 		for state in response.entries {
 			debug!(
@@ -193,7 +197,7 @@ where
 
 			if !state.complete {
 				if let Some(e) = state.entries.last() {
-					self.last_key.push(e.key.clone());
+					self.metadata.last_key.push(e.key.clone());
 				}
 				complete = false;
 			}
@@ -236,7 +240,7 @@ where
 			let (values, completed) = match self.client.verify_range_proof(
 				self.target_root,
 				proof,
-				self.last_key.as_slice(),
+				self.metadata.last_key.as_slice(),
 			) {
 				Err(e) => {
 					debug!(
@@ -251,7 +255,7 @@ where
 			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
 
 			let complete = completed == 0;
-			if !complete && !values.update_last_key(completed, &mut self.last_key) {
+			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
 				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
 			};
 
@@ -282,7 +286,7 @@ where
 	fn next_request(&self) -> StateRequest {
 		StateRequest {
 			block: self.target_block.encode(),
-			start: self.last_key.clone().into_vec(),
+			start: self.metadata.last_key.clone().into_vec(),
 			no_proof: self.skip_proof,
 		}
 	}
@@ -304,7 +308,7 @@ where
 
 	/// Returns state sync estimated progress.
 	fn progress(&self) -> StateSyncProgress {
-		let cursor = *self.last_key.get(0).and_then(|last| last.get(0)).unwrap_or(&0u8);
+		let cursor = *self.metadata.last_key.get(0).and_then(|last| last.get(0)).unwrap_or(&0u8);
 		let percent_done = cursor as u32 * 100 / 256;
 		StateSyncProgress {
 			percentage: percent_done,
