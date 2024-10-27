@@ -17,7 +17,7 @@
 
 //! Contains the core benchmarking logic.
 
-use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
+use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder, BuiltBlock};
 use sc_cli::{Error, Result};
 use sc_client_api::UsageProvider;
 use sp_api::{ApiExt, CallApiAt, Core, ProvideRuntimeApi};
@@ -34,6 +34,7 @@ use sp_runtime::{
 use super::ExtrinsicBuilder;
 use crate::shared::{StatSelect, Stats};
 use clap::Args;
+use codec::Encode;
 use log::info;
 use serde::Serialize;
 use sp_trie::proof_size_extension::ProofSizeExt;
@@ -174,13 +175,13 @@ where
 			None => None,
 		};
 
-		let proof_size = builder.current_proof_size();
-		let block = builder.build()?.block;
+		let BuiltBlock { block, proof, .. } = builder.build()?;
 
 		Ok((
 			block,
 			num_ext,
-			proof_size
+			proof
+				.map(|p| p.encoded_size())
 				.unwrap_or(0)
 				.try_into()
 				.map_err(|_| "Proof size is too large".to_string())?,

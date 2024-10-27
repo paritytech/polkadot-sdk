@@ -31,7 +31,7 @@ fn cumulus_test_runtime(
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
 ) -> serde_json::Value {
-	let config = build_struct_json_patch!( RuntimeGenesisConfig {
+	let config = build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
@@ -43,19 +43,10 @@ fn cumulus_test_runtime(
 }
 
 fn testnet_genesis_with_default_endowed(self_para_id: ParaId) -> serde_json::Value {
-	let endowed = Sr25519Keyring::iter().map(|x| x.to_account_id()).collect::<Vec<_>>();
+	let endowed = Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect::<Vec<_>>();
 
-	let invulnerables = vec![
-		Sr25519Keyring::Alice,
-		Sr25519Keyring::Bob,
-		Sr25519Keyring::Charlie,
-		Sr25519Keyring::Dave,
-		Sr25519Keyring::Eve,
-		Sr25519Keyring::Ferdie,
-	]
-	.into_iter()
-	.map(|x| x.public().into())
-	.collect::<Vec<_>>();
+	let invulnerables =
+		Sr25519Keyring::invulnerable().map(|x| x.public().into()).collect::<Vec<_>>();
 	cumulus_test_runtime(invulnerables, endowed, self_para_id)
 }
 
