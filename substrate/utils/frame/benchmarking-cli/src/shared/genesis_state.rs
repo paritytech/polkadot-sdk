@@ -44,7 +44,7 @@ pub enum SpecGenesisSource {
 
 pub enum GenesisStateHandler {
 	ChainSpec(Box<dyn ChainSpec>, SpecGenesisSource),
-	Runtime(Vec<u8>, String),
+	Runtime(Vec<u8>, Option<String>),
 }
 
 impl GenesisStateHandler {
@@ -71,8 +71,9 @@ impl GenesisStateHandler {
 					.map_err(|e| format!("{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}").into()),
 				SpecGenesisSource::None => Ok(Storage::default()),
 			},
-			GenesisStateHandler::Runtime(code_bytes, preset) =>
+			GenesisStateHandler::Runtime(code_bytes, Some(preset)) =>
 				genesis_from_code::<HF>(code_bytes.as_slice(), preset, json_patcher),
+			GenesisStateHandler::Runtime(_, None) => Ok(Storage::default()),
 		}
 	}
 

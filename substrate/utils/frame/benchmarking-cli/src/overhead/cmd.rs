@@ -32,10 +32,10 @@ use crate::{
 	shared::{
 		genesis_state,
 		genesis_state::{GenesisStateHandler, SpecGenesisSource},
-		GenesisBuilderPolicy, HostInfoParams, WeightParams,
+		HostInfoParams, WeightParams,
 	},
 };
-use clap::{Args, Parser};
+use clap::{ArgGroup, Args, Parser};
 use codec::Encode;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use fake_runtime_api::RuntimeApi as FakeRuntimeApi;
@@ -76,6 +76,15 @@ const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::overhead";
 
 /// Benchmark the execution overhead per-block and per-extrinsic.
 #[derive(Debug, Parser)]
+#[clap(group(
+    ArgGroup::new("genesis_source")
+        .args(["chain", "runtime"])
+        .required(true)
+), group(
+    ArgGroup::new("chain_source")
+        .args(["chain"])
+	)
+)]
 pub struct OverheadCmd {
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -118,7 +127,12 @@ pub struct OverheadParams {
 	pub enable_trie_cache: bool,
 
 	/// Optional runtime blob to use instead of the one from the genesis config.
-	#[arg(long, value_name = "PATH", conflicts_with = "chain")]
+	#[arg(
+		long,
+		value_name = "PATH",
+		conflicts_with = "chain",
+		required_if_eq("genesis_builder", "runtime")
+	)]
 	pub runtime: Option<PathBuf>,
 
 	/// The preset that we expect to find in the GenesisBuilder runtime API.
@@ -133,17 +147,35 @@ pub struct OverheadParams {
 	/// Can be used together with `--chain` to determine whether the
 	/// genesis state should be initialized with the values from the
 	/// provided chain spec or a runtime-provided genesis preset.
-	#[arg(long, value_enum, conflicts_with = "runtime", alias = "genesis-builder-policy")]
+	#[arg(
+		long,
+		value_enum,
+		alias = "genesis-builder-policy",
+		requires_ifs([
+			("spec", "chain_source"),
+			("spec-runtime", "chain_source"),
+			("spec-genesis", "chain_source"),
+		]))]
 	pub genesis_builder: Option<GenesisBuilderPolicy>,
 
 	/// Parachain Id to use for parachains. If not specified, the benchmark code will choose
 	/// a para-id and patch the state accordingly.
 	#[arg(long)]
 	pub para_id: Option<u32>,
+}
 
-	/// Runtime name to insert into the weight file template.
-	#[arg(long, default_value_t = Default::default())]
-	pub runtime_name: String,
+/// How the genesis state for benchmarking should be built.
+#[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy, Serialize)]
+#[clap(rename_all = "kebab-case")]
+pub enum GenesisBuilderPolicy {
+	/// Let the runtime build the genesis state through its `BuildGenesisConfig` runtime API.
+	/// This will use the `development` preset by default.
+	Runtime,
+	/// Use the runtime from the Spec file to build the genesis state.
+	SpecRuntime,
+	/// Use the spec file to build the genesis state. This fails when there is no spec.
+	#[value(alias = "spec")]
+	SpecGenesis,
 }
 
 /// Type of a benchmark.
@@ -258,11 +290,10 @@ impl OverheadCmd {
 		let genesis_builder_to_source = || match self.params.genesis_builder {
 			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) =>
 				SpecGenesisSource::Runtime(self.params.genesis_builder_preset.clone()),
-			Some(GenesisBuilderPolicy::Spec | GenesisBuilderPolicy::SpecGenesis) | None => {
+			Some(GenesisBuilderPolicy::SpecGenesis) | None => {
 				log::warn!(target: LOG_TARGET, "{WARN_SPEC_GENESIS_CTOR}");
 				SpecGenesisSource::SpecJson
 			},
-			Some(GenesisBuilderPolicy::None) => SpecGenesisSource::None,
 		};
 
 		// First handle chain-spec passed in via API parameter.
@@ -299,7 +330,7 @@ impl OverheadCmd {
 			return Ok((
 				GenesisStateHandler::Runtime(
 					runtime_blob,
-					self.params.genesis_builder_preset.clone(),
+					Some(self.params.genesis_builder_preset.clone()),
 				),
 				self.params.para_id,
 			))
@@ -610,9 +641,11 @@ impl CliConfiguration for OverheadCmd {
 
 #[cfg(test)]
 mod tests {
-	use crate::overhead::cmd::{
-		identify_chain, ChainType, ParachainHostFunctions, DEFAULT_PARA_ID,
+	use crate::{
+		overhead::cmd::{identify_chain, ChainType, ParachainHostFunctions, DEFAULT_PARA_ID},
+		OverheadCmd,
 	};
+	use clap::Parser;
 	use sc_executor::WasmExecutor;
 
 	#[test]
@@ -653,5 +686,49 @@ mod tests {
 		let chain_type = identify_chain(&metadata, None);
 		assert_eq!(chain_type, ChainType::Unknown);
 		assert_eq!(chain_type.requires_proof_recording(), false);
+	}
+
+	fn cli_succeed(args: &[&str]) -> Result<(), clap::Error> {
+		OverheadCmd::try_parse_from(args)?;
+		Ok(())
+	}
+
+	fn cli_fail(args: &[&str]) {
+		assert!(OverheadCmd::try_parse_from(args).is_err());
+	}
+
+	#[test]
+	fn test_cli_conflicts() -> Result<(), clap::Error> {
+		// Runtime tests
+		cli_succeed(&["test", "--runtime", "path/to/runtime", "--genesis-builder", "runtime"])?;
+		cli_succeed(&["test", "--runtime", "path/to/runtime"])?;
+		cli_succeed(&[
+			"test",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder-preset",
+			"preset",
+		])?;
+		cli_fail(&["test", "--runtime", "path/to/spec", "--genesis-builder", "spec"]);
+		cli_fail(&["test", "--runtime", "path/to/spec", "--genesis-builder", "spec-genesis"]);
+		cli_fail(&["test", "--runtime", "path/to/spec", "--genesis-builder", "spec-runtime"]);
+
+		// Spec tests
+		cli_succeed(&["test", "--chain", "path/to/spec"])?;
+		cli_succeed(&["test", "--chain", "path/to/spec", "--genesis-builder", "spec"])?;
+		cli_succeed(&["test", "--chain", "path/to/spec", "--genesis-builder", "spec-genesis"])?;
+		cli_succeed(&["test", "--chain", "path/to/spec", "--genesis-builder", "spec-runtime"])?;
+		cli_fail(&["test", "--chain", "path/to/spec", "--genesis-builder", "none"]);
+		cli_fail(&["test", "--chain", "path/to/spec", "--genesis-builder", "runtime"]);
+		cli_fail(&[
+			"test",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"runtime",
+			"--genesis-builder-preset",
+			"preset",
+		]);
+		Ok(())
 	}
 }

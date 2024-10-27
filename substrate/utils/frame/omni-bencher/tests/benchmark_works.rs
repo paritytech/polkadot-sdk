@@ -56,7 +56,7 @@ fn benchmark_overhead_chain_spec_works() -> std::result::Result<(), String> {
 	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path())?;
 
 	let status = create_benchmark_spec_command(&base_path, &chain_spec_path)
-		.args(["--genesis-builder-policy", "runtime"])
+		.args(["--genesis-builder-policy", "spec-runtime"])
 		.args(["--para-id", "666"])
 		.status()
 		.map_err(|e| format!("command failed: {:?}", e))?;

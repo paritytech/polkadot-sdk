@@ -20,11 +20,10 @@ use super::{
 	writer, ListOutput, PalletCmd,
 };
 use crate::{
-	pallet::types::FetchedCode,
+	pallet::{types::FetchedCode, GenesisBuilderPolicy},
 	shared::{
 		genesis_state,
 		genesis_state::{GenesisStateHandler, SpecGenesisSource, WARN_SPEC_GENESIS_CTOR},
-		GenesisBuilderPolicy,
 	},
 };
 use codec::{Decode, Encode};
@@ -179,7 +178,7 @@ impl PalletCmd {
 		let genesis_builder_to_source = || match self.genesis_builder {
 			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) =>
 				SpecGenesisSource::Runtime(self.genesis_builder_preset.clone()),
-			Some(GenesisBuilderPolicy::Spec | GenesisBuilderPolicy::SpecGenesis) | None => {
+			Some(GenesisBuilderPolicy::SpecGenesis) | None => {
 				log::warn!(target: LOG_TARGET, "{WARN_SPEC_GENESIS_CTOR}");
 				SpecGenesisSource::SpecJson
 			},
@@ -214,10 +213,14 @@ impl PalletCmd {
 			log::debug!("Initializing state handler with runtime from path: {:?}", runtime_path);
 
 			let runtime_blob = fs::read(runtime_path)?;
-			return Ok(GenesisStateHandler::Runtime(
-				runtime_blob,
-				self.genesis_builder_preset.clone(),
-			))
+			return if let Some(GenesisBuilderPolicy::None) = self.genesis_builder {
+				Ok(GenesisStateHandler::Runtime(runtime_blob, None))
+			} else {
+				Ok(GenesisStateHandler::Runtime(
+					runtime_blob,
+					Some(self.genesis_builder_preset.clone()),
+				))
+			}
 		};
 
 		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
