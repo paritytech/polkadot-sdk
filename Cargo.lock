@@ -10713,6 +10713,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
+name = "pallet-account-sponsorship"
+version = "0.0.1"
+dependencies = [
+ "docify 0.2.7",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-meta-tx",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-alliance"
 version = "27.0.0"
 dependencies = [
@@ -11951,6 +11972,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-account-sponsorship",
  "pallet-balances",
  "pallet-transaction-payment",
  "parity-scale-codec",

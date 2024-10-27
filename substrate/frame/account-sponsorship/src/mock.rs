@@ -18,33 +18,22 @@
 
 #![cfg(any(test, feature = "runtime-benchmarks"))]
 
-use crate as pallet_meta_tx;
+use crate as pallet_account_sponsorship;
 use crate::*;
 use frame_support::{
 	construct_runtime, derive_impl,
 	weights::{FixedFee, NoFee},
 };
-use sp_core::{ConstU64, ConstU8};
-use sp_runtime::{traits::IdentityLookup, MultiSignature};
+use sp_core::ConstU8;
+use sp_runtime::{
+	traits::{ConstU64, IdentifyAccount, IdentityLookup, Verify},
+	MultiSignature,
+};
 
 pub type Balance = u64;
 
 pub type Signature = MultiSignature;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-pub type Extension = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckMortality<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-);
-
-pub type UncheckedExtrinsic =
-	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, Signature, Extension>;
 
 pub type MetaTxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
@@ -55,7 +44,7 @@ pub type MetaTxExtension = (
 	frame_system::CheckNonce<Runtime>,
 );
 
-impl Config for Runtime {
+impl pallet_meta_tx::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Signature = Signature;
@@ -77,6 +66,8 @@ impl frame_system::Config for Runtime {
 impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type ExistentialDeposit = ConstU64<5>;
 }
 
 pub const TX_FEE: u32 = 10;
@@ -91,7 +82,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type FeeMultiplierUpdate = ();
 }
 
-impl pallet_account_sponsorship::Config for Runtime {
+impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
