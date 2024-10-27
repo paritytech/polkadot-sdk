@@ -94,6 +94,7 @@ struct StateSyncMetadata<B: BlockT> {
 	target_header: B::Header,
 	complete: bool,
 	imported_bytes: u64,
+	skip_proof: bool,
 }
 
 impl<B: BlockT> StateSyncMetadata<B> {
@@ -119,7 +120,6 @@ pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	client: Arc<Client>,
-	skip_proof: bool,
 }
 
 impl<B, Client> StateSync<B, Client>
@@ -144,9 +144,9 @@ where
 				target_header,
 				complete: false,
 				imported_bytes: 0,
+				skip_proof,
 			},
 			state: HashMap::default(),
-			skip_proof,
 		}
 	}
 
@@ -236,11 +236,11 @@ where
 			debug!(target: LOG_TARGET, "Bad state response");
 			return ImportResult::BadResponse
 		}
-		if !self.skip_proof && response.proof.is_empty() {
+		if !self.metadata.skip_proof && response.proof.is_empty() {
 			debug!(target: LOG_TARGET, "Missing proof");
 			return ImportResult::BadResponse
 		}
-		let complete = if !self.skip_proof {
+		let complete = if !self.metadata.skip_proof {
 			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
 			let proof_size = response.proof.len() as u64;
 			let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
@@ -298,7 +298,7 @@ where
 		StateRequest {
 			block: self.metadata.target_hash().encode(),
 			start: self.metadata.last_key.clone().into_vec(),
-			no_proof: self.skip_proof,
+			no_proof: self.metadata.skip_proof,
 		}
 	}
 
