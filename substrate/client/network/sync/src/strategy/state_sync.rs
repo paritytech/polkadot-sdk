@@ -112,6 +112,28 @@ impl<B: BlockT> StateSyncMetadata<B> {
 	fn target_root(&self) -> B::Hash {
 		*self.target_header.state_root()
 	}
+
+	fn next_request(&self) -> StateRequest {
+		StateRequest {
+			block: self.target_hash().encode(),
+			start: self.last_key.clone().into_vec(),
+			no_proof: self.skip_proof,
+		}
+	}
+
+	fn progress(&self) -> StateSyncProgress {
+		let cursor = *self.last_key.get(0).and_then(|last| last.get(0)).unwrap_or(&0u8);
+		let percent_done = cursor as u32 * 100 / 256;
+		StateSyncProgress {
+			percentage: percent_done,
+			size: self.imported_bytes,
+			phase: if self.complete {
+				StateSyncPhase::ImportingState
+			} else {
+				StateSyncPhase::DownloadingState
+			},
+		}
+	}
 }
 
 /// State sync state machine. Accumulates partial state data until it
@@ -284,7 +306,10 @@ where
 			ImportResult::Import(
 				target_hash,
 				self.metadata.target_header.clone(),
-				ImportedState { block: target_hash, state: std::mem::take(&mut self.state).into() },
+				ImportedState {
+					block: target_hash,
+					state: std::mem::take(&mut self.state).into(),
+				},
 				self.metadata.target_body.clone(),
 				self.metadata.target_justifications.clone(),
 			)
@@ -295,11 +320,7 @@ where
 
 	/// Produce next state request.
 	fn next_request(&self) -> StateRequest {
-		StateRequest {
-			block: self.metadata.target_hash().encode(),
-			start: self.metadata.last_key.clone().into_vec(),
-			no_proof: self.metadata.skip_proof,
-		}
+		self.metadata.next_request()
 	}
 
 	/// Check if the state is complete.
@@ -319,16 +340,6 @@ where
 
 	/// Returns state sync estimated progress.
 	fn progress(&self) -> StateSyncProgress {
-		let cursor = *self.metadata.last_key.get(0).and_then(|last| last.get(0)).unwrap_or(&0u8);
-		let percent_done = cursor as u32 * 100 / 256;
-		StateSyncProgress {
-			percentage: percent_done,
-			size: self.metadata.imported_bytes,
-			phase: if self.metadata.complete {
-				StateSyncPhase::ImportingState
-			} else {
-				StateSyncPhase::DownloadingState
-			},
-		}
+		self.metadata.progress()
 	}
 }
