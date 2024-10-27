@@ -91,6 +91,7 @@ pub enum ImportResult<B: BlockT> {
 
 struct StateSyncMetadata {
 	last_key: SmallVec<[Vec<u8>; 2]>,
+	complete: bool
 }
 
 /// State sync state machine. Accumulates partial state data until it
@@ -103,7 +104,6 @@ pub struct StateSync<B: BlockT, Client> {
 	target_justifications: Option<Justifications>,
 	metadata: StateSyncMetadata,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
-	complete: bool,
 	client: Arc<Client>,
 	imported_bytes: u64,
 	skip_proof: bool,
@@ -129,9 +129,11 @@ where
 			target_header,
 			target_body,
 			target_justifications,
-			metadata: StateSyncMetadata { last_key: SmallVec::default() },
+			metadata: StateSyncMetadata {
+				last_key: SmallVec::default(),
+				complete: false,
+			},
 			state: HashMap::default(),
-			complete: false,
 			imported_bytes: 0,
 			skip_proof,
 		}
@@ -266,7 +268,7 @@ where
 			self.process_state_unverified(response)
 		};
 		if complete {
-			self.complete = true;
+			self.metadata.complete = true;
 			ImportResult::Import(
 				self.target_block,
 				self.target_header.clone(),
@@ -293,7 +295,7 @@ where
 
 	/// Check if the state is complete.
 	fn is_complete(&self) -> bool {
-		self.complete
+		self.metadata.complete
 	}
 
 	/// Returns target block number.
@@ -313,7 +315,7 @@ where
 		StateSyncProgress {
 			percentage: percent_done,
 			size: self.imported_bytes,
-			phase: if self.complete {
+			phase: if self.metadata.complete {
 				StateSyncPhase::ImportingState
 			} else {
 				StateSyncPhase::DownloadingState
