@@ -104,7 +104,7 @@ benchmarks! {
 		let call = Call::<T>::heartbeat { heartbeat: input_heartbeat, signature };
 	}: {
 		use frame_support::traits::Authorize;
-		call.authorize()
+		call.authorize(TransactionSource::External)
 			.expect("Call give some authorization")
 			.expect("Call is authorized");
 	}

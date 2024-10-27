@@ -98,4 +98,7 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::disputes::slashing::W
 			.saturating_add(T::DbWeight::get().writes(9))
 			.saturating_add(Weight::from_parts(0, 192).saturating_mul(n.into()))
 	}
+	fn authorize_report_dispute_lost_general() -> Weight {
+		Weight::zero()
+	}
 }

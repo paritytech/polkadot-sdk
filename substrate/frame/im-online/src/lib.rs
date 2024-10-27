@@ -406,7 +406,7 @@ pub mod pallet {
 		///   - `O(K)`: decoding of length `K`
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::heartbeat_general(heartbeat.validators_len))]
-		#[pallet::authorize(|heartbeat, sig| Pallet::<T>::validate_heartbeat(heartbeat, sig).map(|v| (v, Weight::zero())))]
+		#[pallet::authorize(|_source, heartbeat, sig| Pallet::<T>::validate_heartbeat(heartbeat, sig).map(|v| (v, Weight::zero())))]
 		pub fn heartbeat_general(
 			origin: OriginFor<T>,
 			heartbeat: Heartbeat<BlockNumberFor<T>>,

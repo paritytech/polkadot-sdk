@@ -111,7 +111,20 @@ pub struct CallVariantDef {
 	pub return_type: helper::CallReturnType,
 	/// The information related to `authorize` attribute.
 	/// `(authorize expression, weight of authorize)`
-	pub authorize: Option<(syn::Expr, CallWeightDef)>,
+	pub authorize: Option<AuthorizeDef>,
+}
+
+/// Definition related to the `authorize` attribute and other related attributes.
+#[derive(Clone)]
+pub struct AuthorizeDef {
+	/// The expression of the authorize attribute.
+	pub expr: syn::Expr,
+	/// The weight of the authorize attribute as define by the attribute
+	/// `[pallet::weight_of_authorize]`.
+	pub weight: CallWeightDef,
+	/// The span of the authorize attribute: `[pallet::authorize]`.
+	/// It can be used to emit better error for code generated for the authorize feature.
+	pub attr_span: Span,
 }
 
 /// Attributes for functions in call impl block.
@@ -123,7 +136,7 @@ pub enum FunctionAttr {
 	/// Parse for `#[pallet::feeless_if(expr)]`
 	FeelessIf(Span, syn::ExprClosure),
 	/// Parse for `#[pallet::authorize(expr)]`
-	Authorize(syn::Expr),
+	Authorize(Span, syn::Expr),
 	/// Parse for `#[pallet::weight_of_authorize(expr)]`
 	WeightOfAuthorize(syn::Expr),
 }
@@ -166,17 +179,18 @@ impl syn::parse::Parse for FunctionAttr {
 				})?,
 			))
 		} else if lookahead.peek(keyword::authorize) {
-			content.parse::<keyword::authorize>()?;
+			let authorize_token = content.parse::<keyword::authorize>()?;
 			let closure_content;
 			syn::parenthesized!(closure_content in content);
-			Ok(FunctionAttr::Authorize(closure_content.parse::<syn::Expr>()?))
-		// TODO TODO: check that additional tokens emit error
+			Ok(FunctionAttr::Authorize(
+				authorize_token.span(),
+				closure_content.parse::<syn::Expr>()?,
+			))
 		} else if lookahead.peek(keyword::weight_of_authorize) {
 			content.parse::<keyword::weight_of_authorize>()?;
 			let closure_content;
 			syn::parenthesized!(closure_content in content);
 			Ok(FunctionAttr::WeightOfAuthorize(closure_content.parse::<syn::Expr>()?))
-		// TODO TODO: check that additional tokens emit error
 		} else {
 			Err(lookahead.error())
 		}
@@ -334,14 +348,14 @@ impl CallDef {
 
 							feeless_check = Some(closure);
 						},
-						FunctionAttr::Authorize(expr) => {
+						FunctionAttr::Authorize(span, expr) => {
 							if authorize.is_some() {
 								let msg =
 									"Invalid pallet::call, there can only be one authorize attribute";
 								return Err(syn::Error::new(method.sig.span(), msg))
 							}
 
-							authorize = Some(expr);
+							authorize = Some((span, expr));
 						},
 						FunctionAttr::WeightOfAuthorize(expr) => {
 							if weight_of_authorize.is_some() {
@@ -359,7 +373,7 @@ impl CallDef {
 					return Err(syn::Error::new(weight_of_authorize.unwrap().span(), msg))
 				}
 
-				let authorize = if let Some(expr) = authorize {
+				let authorize = if let Some((attr_span, expr)) = authorize {
 					let weight_of_authorize = CallWeightDef::try_from(
 						weight_of_authorize,
 						&inherited_call_weight,
@@ -373,7 +387,9 @@ impl CallDef {
 							none were given.",
 						)
 					})?;
-					Some((expr, weight_of_authorize))
+					Some(AuthorizeDef {
+						expr, weight: weight_of_authorize, attr_span,
+					})
 				} else {
 					None
 				};

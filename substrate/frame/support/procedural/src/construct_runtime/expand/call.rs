@@ -224,7 +224,10 @@ pub fn expand_outer_dispatch(
 		)*
 
 		impl #scrate::traits::Authorize for RuntimeCall {
-			fn authorize(&self) -> ::core::option::Option<
+			fn authorize(
+				&self,
+				source: #scrate::pallet_prelude::TransactionSource,
+			) -> ::core::option::Option<
 				::core::result::Result<
 					(
 						#scrate::pallet_prelude::ValidTransaction,
@@ -236,7 +239,7 @@ pub fn expand_outer_dispatch(
 				match self {
 					#(
 						#pallet_attrs
-						#variant_patterns => #scrate::traits::Authorize::authorize(call),
+						#variant_patterns => #scrate::traits::Authorize::authorize(call, source),
 					)*
 				}
 			}

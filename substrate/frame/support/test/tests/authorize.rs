@@ -67,7 +67,7 @@ pub mod pallet1 {
 
 	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		#[pallet::authorize(|| Ok(ValidTransaction::default()))]
+		#[pallet::authorize(|_source| Ok(ValidTransaction::default()))]
 		#[pallet::weight_of_authorize(CALL_1_AUTH_WEIGHT)]
 		#[pallet::call_index(0)]
 		pub fn call1(origin: OriginFor<T>) -> DispatchResult {
@@ -76,7 +76,7 @@ pub mod pallet1 {
 			Ok(())
 		}
 
-		#[pallet::authorize(|a, b, c, d, e, f|
+		#[pallet::authorize(|_source, a, b, c, d, e, f|
 			if *a {
 				Ok(ValidTransaction {
 					priority: *b,
@@ -113,7 +113,7 @@ pub mod pallet1 {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		fn authorize_call3(valid: &bool) -> TransactionValidity {
+		fn authorize_call3(_source, valid: &bool) -> TransactionValidity {
 			if *valid {
 				Ok(Default::default())
 			} else {
@@ -139,7 +139,7 @@ pub mod pallet2 {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::authorize(|| Ok(ValidTransaction::default()))]
+		#[pallet::authorize(|_source| Ok(ValidTransaction::default()))]
 		pub fn call1(origin: OriginFor<T>) -> DispatchResult {
 			ensure_authorized(origin)?;
 			Ok(())
@@ -164,7 +164,7 @@ pub mod pallet3 {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::authorize(|| Ok(ValidTransaction::default()))]
+		#[pallet::authorize(|_source| Ok(ValidTransaction::default()))]
 		#[pallet::weight_of_authorize(CALL_1_AUTH_WEIGHT)]
 		#[pallet::weight(CALL_1_WEIGHT)]
 		#[pallet::call_index(0)]

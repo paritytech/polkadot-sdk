@@ -283,7 +283,7 @@ pub mod pallet {
 		/// Register a mixnode for the following session.
 		#[pallet::call_index(0)]
 		#[pallet::weight(1)] // TODO
-		#[pallet::authorize(|registration, sig| Pallet::<T>::validate_register(registration, sig).map(|v| (v, Weight::zero())))]
+		#[pallet::authorize(|_source, registration, sig| Pallet::<T>::validate_register(registration, sig).map(|v| (v, Weight::zero())))]
 		pub fn register(
 			origin: OriginFor<T>,
 			registration: RegistrationFor<T>,

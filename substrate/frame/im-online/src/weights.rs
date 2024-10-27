@@ -82,7 +82,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 1761).saturating_mul(k.into()))
 	}
-	fn heartbeat_general(k: u32, ) -> Weight {
+	fn heartbeat_general(_k: u32, ) -> Weight {
 		// TODO TODO
 		Weight::zero()
 	}
@@ -117,7 +117,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 1761).saturating_mul(k.into()))
 	}
-	fn heartbeat_general(k: u32, ) -> Weight {
+	fn heartbeat_general(_k: u32, ) -> Weight {
 		// TODO TODO
 		Weight::zero()
 	}

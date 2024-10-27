@@ -179,4 +179,7 @@ impl<T: frame_system::Config> frame_system::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	fn validate_apply_authorized_upgrade() -> Weight {
+		Weight::zero()
+	}
 }

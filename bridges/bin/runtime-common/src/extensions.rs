@@ -299,6 +299,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				_len: usize,
 				_self_implicit: Self::Implicit,
 				_inherited_implication: &impl codec::Encode,
+				_source: sp_runtime::transaction_validity::TransactionSource,
 			) -> Result<
 				(
 					sp_runtime::transaction_validity::ValidTransaction,

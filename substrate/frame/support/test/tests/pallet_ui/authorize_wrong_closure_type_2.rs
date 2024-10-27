@@ -33,7 +33,7 @@ mod pallet {
 
 	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
-		#[pallet::authorize(|_: u8| -> bool { true })]
+		#[pallet::authorize(|_, _: u8| -> bool { true })]
 		#[pallet::weight_of_authorize(Weight::zero())]
 		#[pallet::weight(Weight::zero())]
 		#[pallet::call_index(0)]

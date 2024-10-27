@@ -910,7 +910,7 @@ fn set_code_via_authorization_and_general_transaction() {
 
 		// Can't apply before authorization
 		assert_noop!(
-			apply_call.authorize().unwrap(),
+			apply_call.authorize(TransactionSource::External).unwrap(),
 			TransactionValidityError::Invalid(InvalidTransaction::Call.into()),
 		);
 
@@ -930,7 +930,7 @@ fn set_code_via_authorization_and_general_transaction() {
 		);
 
 		// Can apply correct runtime
-		assert_ok!(apply_call.authorize().unwrap());
+		assert_ok!(apply_call.authorize(TransactionSource::External).unwrap());
 		assert_ok!(apply_call.dispatch_bypass_filter(RawOrigin::Authorized.into()));
 		System::assert_has_event(SysEvent::CodeUpdated.into());
 		assert!(System::authorized_upgrade().is_none());

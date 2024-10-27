@@ -36,6 +36,7 @@ use frame_support::{
 	weights::Weight,
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
+use frame_support::pallet_prelude::TransactionSource;
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{
 	CallHelper as MessagesCallHelper, Config as BridgeMessagesConfig, LaneIdOf,
@@ -304,6 +305,7 @@ where
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, R::RuntimeCall> {
 		// Prepare relevant data for `prepare`
 		let parsed_call = match C::parse_and_check_for_obsolete_call(call)? {

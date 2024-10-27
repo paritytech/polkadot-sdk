@@ -49,6 +49,8 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use frame_support::pallet_prelude::DispatchResultWithPostInfo;
+use frame_support::pallet_prelude::DispatchError;
 
 use alloc::{
 	boxed::Box,
@@ -356,11 +358,15 @@ impl<T: Config> HandleReports<T> for () {
 
 pub trait WeightInfo {
 	fn report_dispute_lost(validator_count: ValidatorSetCount) -> Weight;
+	fn authorize_report_dispute_lost_general() -> Weight;
 }
 
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
 	fn report_dispute_lost(_validator_count: ValidatorSetCount) -> Weight {
+		Weight::zero()
+	}
+	fn authorize_report_dispute_lost_general() -> Weight {
 		Weight::zero()
 	}
 }
@@ -393,9 +399,10 @@ pub mod pallet {
 		/// The slashing report handling subsystem, defines methods to report an
 		/// offence (after the slashing report has been validated) and for
 		/// submitting a transaction to report a slash (from an offchain
-		/// context). NOTE: when enabling slashing report handling (i.e. this
-		/// type isn't set to `()`) you must use this pallet's
-		/// `ValidateUnsigned` in the runtime definition.
+		/// context).
+		/// NOTE: when enabling slashing report handling (i.e. this
+		/// type isn't set to `()`) you must use frame system authorize transaction
+		/// extension in the transaction extension pipeline.
 		type HandleReports: HandleReports<Self>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -442,12 +449,13 @@ pub mod pallet {
 		DuplicateSlashingReport,
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = <T as Config>::WeightInfo)]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::report_dispute_lost(
 			key_owner_proof.validator_count()
 		))]
+		#[deprecated(note = "Use `report_dispute_lost_general` instead.")]
 		pub fn report_dispute_lost_unsigned(
 			origin: OriginFor<T>,
 			// box to decrease the size of the call
@@ -456,56 +464,23 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 
-			let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
-			// check the membership proof to extract the offender's id
-			let key =
-				(polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
-			let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof)
-				.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
+			Self::do_report_dispute_lost(dispute_proof, key_owner_proof)
+		}
 
-			let session_index = dispute_proof.time_slot.session_index;
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::report_dispute_lost(
+			key_owner_proof.validator_count()
+		))]
+		#[pallet::authorize(Pallet::<T>::validate_report_dispute_lost_call)]
+		pub fn report_dispute_lost_general(
+			origin: OriginFor<T>,
+			// box to decrease the size of the call
+			dispute_proof: Box<DisputeProof>,
+			key_owner_proof: T::KeyOwnerProof,
+		) -> DispatchResultWithPostInfo {
+			ensure_authorized(origin)?;
 
-			// check that there is a pending slash for the given
-			// validator index and candidate hash
-			let candidate_hash = dispute_proof.time_slot.candidate_hash;
-			let try_remove = |v: &mut Option<PendingSlashes>| -> Result<(), DispatchError> {
-				let pending = v.as_mut().ok_or(Error::<T>::InvalidCandidateHash)?;
-				if pending.kind != dispute_proof.kind {
-					return Err(Error::<T>::InvalidCandidateHash.into())
-				}
-
-				match pending.keys.entry(dispute_proof.validator_index) {
-					Entry::Vacant(_) => return Err(Error::<T>::InvalidValidatorIndex.into()),
-					// check that `validator_index` matches `validator_id`
-					Entry::Occupied(e) if e.get() != &dispute_proof.validator_id =>
-						return Err(Error::<T>::ValidatorIndexIdMismatch.into()),
-					Entry::Occupied(e) => {
-						e.remove(); // the report is correct
-					},
-				}
-
-				// if the last validator is slashed for this dispute, clean up the storage
-				if pending.keys.is_empty() {
-					*v = None;
-				}
-
-				Ok(())
-			};
-
-			<UnappliedSlashes<T>>::try_mutate_exists(&session_index, &candidate_hash, try_remove)?;
-
-			let offence = SlashingOffence::new(
-				session_index,
-				candidate_hash,
-				validator_set_count,
-				vec![offender],
-				dispute_proof.kind,
-			);
-
-			<T::HandleReports as HandleReports<T>>::report_offence(offence)
-				.map_err(|_| Error::<T>::DuplicateSlashingReport)?;
-
-			Ok(Pays::No.into())
+			Self::do_report_dispute_lost(dispute_proof, key_owner_proof)
 		}
 	}
 
@@ -557,9 +532,107 @@ impl<T: Config> Pallet<T> {
 	) -> Option<()> {
 		T::HandleReports::submit_unsigned_slashing_report(dispute_proof, key_ownership_proof).ok()
 	}
+
+	/// The storage must be reverted on error.
+	fn do_report_dispute_lost(
+		dispute_proof: Box<DisputeProof>,
+		key_owner_proof: T::KeyOwnerProof,
+	) -> DispatchResultWithPostInfo {
+		let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
+		// check the membership proof to extract the offender's id
+		let key =
+			(polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
+		let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof)
+			.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
+
+		let session_index = dispute_proof.time_slot.session_index;
+
+		// check that there is a pending slash for the given
+		// validator index and candidate hash
+		let candidate_hash = dispute_proof.time_slot.candidate_hash;
+		let try_remove = |v: &mut Option<PendingSlashes>| -> Result<(), DispatchError> {
+			let pending = v.as_mut().ok_or(Error::<T>::InvalidCandidateHash)?;
+			if pending.kind != dispute_proof.kind {
+				return Err(Error::<T>::InvalidCandidateHash.into())
+			}
+
+			match pending.keys.entry(dispute_proof.validator_index) {
+				Entry::Vacant(_) => return Err(Error::<T>::InvalidValidatorIndex.into()),
+				// check that `validator_index` matches `validator_id`
+				Entry::Occupied(e) if e.get() != &dispute_proof.validator_id =>
+					return Err(Error::<T>::ValidatorIndexIdMismatch.into()),
+				Entry::Occupied(e) => {
+					e.remove(); // the report is correct
+				},
+			}
+
+			// if the last validator is slashed for this dispute, clean up the storage
+			if pending.keys.is_empty() {
+				*v = None;
+			}
+
+			Ok(())
+		};
+
+		<UnappliedSlashes<T>>::try_mutate_exists(&session_index, &candidate_hash, try_remove)?;
+
+		let offence = SlashingOffence::new(
+			session_index,
+			candidate_hash,
+			validator_set_count,
+			vec![offender],
+			dispute_proof.kind,
+		);
+
+		<T::HandleReports as HandleReports<T>>::report_offence(offence)
+			.map_err(|_| Error::<T>::DuplicateSlashingReport)?;
+
+		Ok(Pays::No.into())
+	}
+
+	fn validate_report_dispute_lost_call(
+		source: TransactionSource,
+		dispute_proof: &Box<DisputeProof>,
+		key_owner_proof: &T::KeyOwnerProof,
+	) -> Result<(ValidTransaction, Weight), TransactionValidityError> {
+		// discard slashing report not coming from the local node
+		match source {
+			TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+			_ => {
+				log::warn!(
+					target: LOG_TARGET,
+					"rejecting unsigned transaction because it is not local/in-block."
+				);
+
+				return Err(InvalidTransaction::Call.into())
+			},
+		}
+
+		// check report staleness
+		is_known_offence::<T>(dispute_proof, key_owner_proof)?;
+
+		let longevity = <T::HandleReports as HandleReports<T>>::ReportLongevity::get();
+
+		let tag_prefix = match dispute_proof.kind {
+			SlashingOffenceKind::ForInvalid => "DisputeForInvalid",
+			SlashingOffenceKind::AgainstValid => "DisputeAgainstValid",
+		};
+
+		let valid_transaction = ValidTransaction::with_tag_prefix(tag_prefix)
+			// We assign the maximum priority for any report.
+			.priority(TransactionPriority::max_value())
+			// Only one report for the same offender at the same slot.
+			.and_provides((dispute_proof.time_slot.clone(), dispute_proof.validator_id.clone()))
+			.longevity(longevity)
+			// We don't propagate this. This can never be included on a remote node.
+			.propagate(false)
+			.into();
+
+		Ok((valid_transaction, Weight::zero()))
+	}
 }
 
-/// Methods for the `ValidateUnsigned` implementation:
+/// Methods for the `ValidateUnsigned` or authorize implementation:
 ///
 /// It restricts calls to `report_dispute_lost_unsigned` to local calls (i.e.
 /// extrinsics generated on this node) or that already in a block. This
@@ -567,38 +640,8 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> Pallet<T> {
 	pub fn validate_unsigned(source: TransactionSource, call: &Call<T>) -> TransactionValidity {
 		if let Call::report_dispute_lost_unsigned { dispute_proof, key_owner_proof } = call {
-			// discard slashing report not coming from the local node
-			match source {
-				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
-				_ => {
-					log::warn!(
-						target: LOG_TARGET,
-						"rejecting unsigned transaction because it is not local/in-block."
-					);
-
-					return InvalidTransaction::Call.into()
-				},
-			}
-
-			// check report staleness
-			is_known_offence::<T>(dispute_proof, key_owner_proof)?;
-
-			let longevity = <T::HandleReports as HandleReports<T>>::ReportLongevity::get();
-
-			let tag_prefix = match dispute_proof.kind {
-				SlashingOffenceKind::ForInvalid => "DisputeForInvalid",
-				SlashingOffenceKind::AgainstValid => "DisputeAgainstValid",
-			};
-
-			ValidTransaction::with_tag_prefix(tag_prefix)
-				// We assign the maximum priority for any report.
-				.priority(TransactionPriority::max_value())
-				// Only one report for the same offender at the same slot.
-				.and_provides((dispute_proof.time_slot.clone(), dispute_proof.validator_id.clone()))
-				.longevity(longevity)
-				// We don't propagate this. This can never be included on a remote node.
-				.propagate(false)
-				.build()
+			Self::validate_report_dispute_lost_call(source, dispute_proof, key_owner_proof)
+				.map(|(valid_transaction, _)| valid_transaction)
 		} else {
 			InvalidTransaction::Call.into()
 		}

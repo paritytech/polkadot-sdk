@@ -1383,7 +1383,7 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///     #[pallet::call]
 ///     impl<T: Config> Pallet<T> {
 ///         #[pallet::weight(Weight::zero())]
-///         #[pallet::authorize(|foo| if *foo == 42 {
+///         #[pallet::authorize(|_source, foo| if *foo == 42 {
 ///             Ok(ValidTransaction::default())
 ///         } else {
 ///             Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
@@ -1409,7 +1409,8 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///             #[block]
 ///             {
 ///                 use frame_support::pallet_prelude::Authorize;
-///                 call.authorize().ok_or("Call must give some authorization")??;
+///                 call.authorize(TransactionSource::External)
+///                     .ok_or("Call must give some authorization")??;
 ///             }
 ///
 ///             Ok(())

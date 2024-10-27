@@ -782,7 +782,7 @@ pub mod pallet {
 		#[cfg(feature = "experimental")]
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight().saturating_add(task.weight_of_is_valid()))]
-		#[pallet::authorize(Pallet::<T>::validate_do_task)]
+		#[pallet::authorize(|_source, task| Pallet::<T>::validate_do_task(task).map(|v| (v, Weight::zero())))]
 		#[pallet::weight_of_authorize(task.weight_of_is_valid())]
 		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			let skip_validity = origin.as_system_ref() == Some(&RawOrigin::Authorized);
@@ -853,17 +853,22 @@ pub mod pallet {
 		///
 		/// All origins are allowed.
 		#[pallet::call_index(11)]
-		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade().saturating_add(T::SystemWeightInfo::authorize_apply_authorized_upgrade()), DispatchClass::Operational))]
-		#[pallet::authorize(|code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v| (v, Weight::zero())))]
-		// Weight of authorize is already included in the call weight. (As `ValidateUnsigned` also
+		#[pallet::weight((
+			T::SystemWeightInfo::apply_authorized_upgrade()
+				.saturating_add(T::SystemWeightInfo::validate_apply_authorized_upgrade()),
+			DispatchClass::Operational,
+		))]
+			// TODO TODO: error is ugly for this input
+		// #[pallet::authorize(|code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v| (v, Weight::zero())))]
+		#[pallet::authorize(|_source, code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v| (v, Weight::zero())))]
+		// weight of authorize is already included in the call weight. (As `ValidateUnsigned` also
 		// needs this weight).
 		#[pallet::weight_of_authorize(Weight::zero())]
 		pub fn apply_authorized_upgrade(
 			_: OriginFor<T>,
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			// TODO TODO: log a warning if origin is none: do the warning directly in validate
-			// unsigned
+			// TODO TODO: log a warning if origin is none: do the warning directly in validate unsigned
 			let post = Self::do_apply_authorize_upgrade(code)?;
 			Ok(post)
 		}

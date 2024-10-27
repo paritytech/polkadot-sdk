@@ -1187,7 +1187,7 @@ pub mod pallet {
 				.max(<T as Config>::WeightInfo::include_pvf_check_statement_general_finalize_onboarding_accept())
 				.max(<T as Config>::WeightInfo::include_pvf_check_statement_general_finalize_onboarding_reject())
 		)]
-		#[pallet::authorize(|stmt, sig| Pallet::<T>::validate_include_pvf_check_statement(stmt, sig).map(|v| (v, Weight::zero())))]
+		#[pallet::authorize(|_source, stmt, sig| Pallet::<T>::validate_include_pvf_check_statement(stmt, sig).map(|v| (v, Weight::zero())))]
 		pub fn include_pvf_check_statement_general(
 			origin: OriginFor<T>,
 			stmt: PvfCheckStatement,

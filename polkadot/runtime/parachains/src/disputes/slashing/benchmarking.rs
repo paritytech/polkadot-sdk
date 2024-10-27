@@ -160,4 +160,23 @@ benchmarks! {
 		let unapplied = <UnappliedSlashes<T>>::get(session_index, CANDIDATE_HASH);
 		assert!(unapplied.is_none());
 	}
+
+	// in this setup we have a single `ForInvalid` dispute
+	// submitted for a past session
+	authorize_report_dispute_lost_general {
+		let n in 4..<<T as super::Config>::BenchmarkingConfig as BenchmarkingConfiguration>::MAX_VALIDATORS;
+
+		let (session_index, key_owner_proof, validator_id) = setup_validator_set::<T>(n);
+		let dispute_proof = setup_dispute::<T>(session_index, validator_id);
+		let call = Call::<T>::report_dispute_lost_general {
+			dispute_proof: Box::new(dispute_proof),
+			key_owner_proof,
+		};
+	}: {
+		use frame_support::traits::Authorize;
+		call.authorize(TransactionSource::Local)
+			.expect("Some authorization")
+			.expect("Authorization is successful");
+	}
+
 }

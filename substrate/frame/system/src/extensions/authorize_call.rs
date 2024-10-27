@@ -22,6 +22,7 @@ use frame_support::{
 	traits::{Authorize, OriginTrait},
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
+use frame_support::pallet_prelude::TransactionSource;
 use sp_runtime::{
 	traits::{
 		Dispatchable, PostDispatchInfoOf,
@@ -59,9 +60,10 @@ where
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if let Some(crate::RawOrigin::None) = origin.as_system_ref() {
-			if let Some(authorize) = call.authorize() {
+			if let Some(authorize) = call.authorize(source) {
 				return authorize.map(|(validity, unspent)| (validity, unspent, crate::Origin::<T>::Authorized.into()))
 			}
 		}
@@ -139,7 +141,7 @@ mod tests {
 		impl<T: Config> Pallet<T> {
 			#[pallet::weight(CALL_WEIGHT)]
 			#[pallet::call_index(0)]
-			#[pallet::authorize(|valid| if *valid {
+			#[pallet::authorize(|_source, valid| if *valid {
 				Ok(valid_transaction())
 			} else {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))

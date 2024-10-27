@@ -22,7 +22,7 @@ use codec::MaxEncodedLen;
 use core::{cmp::Ordering, marker::PhantomData};
 use sp_runtime::{
 	traits::{BadOrigin, Get, Member, Morph, TryMorph},
-	transaction_validity::{TransactionValidityError, ValidTransaction},
+	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 	Either,
 };
 use sp_weights::Weight;
@@ -580,10 +580,12 @@ pub trait Authorize {
 	/// * `None` if the call doesn't provide any authorization.
 	fn authorize(
 		&self,
+		source: TransactionSource,
 	) -> Option<Result<(ValidTransaction, Weight), TransactionValidityError>>;
 
 	// TODO TODO: it can be useful to have the argument in scope for the weight calculation instead
 	// of taking just an expression in the macro attribute.
+	// But they are already implicitly there, similar to weight
 	/// The weight of the authorization function.
 	fn weight_of_authorize(&self) -> Weight;
 }

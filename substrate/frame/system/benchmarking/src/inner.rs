@@ -49,7 +49,9 @@ pub trait Config: frame_system::Config {
 
 #[benchmarks]
 mod benchmarks {
-	use super::*;
+	use frame_support::pallet_prelude::TransactionSource;
+
+use super::*;
 
 	#[benchmark]
 	fn remark(
@@ -239,7 +241,8 @@ mod benchmarks {
 		#[block]
 		{
 			use frame_support::pallet_prelude::Authorize;
-			call.authorize().ok_or("Call must give some authorization")??;
+			call.authorize(TransactionSource::External)
+				.ok_or("Call must give some authorization")??;
 		}
 
 		Ok(())

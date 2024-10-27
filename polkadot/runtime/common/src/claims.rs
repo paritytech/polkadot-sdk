@@ -43,6 +43,7 @@ use sp_runtime::{
 	},
 	RuntimeDebug,
 };
+use sp_runtime::transaction_validity::TransactionSource;
 
 type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
 	<T as frame_system::Config>::AccountId,
@@ -58,8 +59,8 @@ pub trait WeightInfo {
 	fn prevalidate_attests() -> Weight;
 	fn claim_general() -> Weight;
 	fn claim_attest_general() -> Weight;
-	fn authorize_claim() -> Weight;
 	fn authorize_claim_general() -> Weight;
+	fn authorize_claim_attest_general() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -88,10 +89,10 @@ impl WeightInfo for TestWeightInfo {
 	fn claim_attest_general() -> Weight {
 		Weight::zero()
 	}
-	fn authorize_claim() -> Weight {
+	fn authorize_claim_general() -> Weight {
 		Weight::zero()
 	}
-	fn authorize_claim_general() -> Weight {
+	fn authorize_claim_attest_general() -> Weight {
 		Weight::zero()
 	}
 }
@@ -487,7 +488,7 @@ pub mod pallet {
 		/// - `ethereum_signature`: The signature of an ethereum signed message matching the format
 		///   described above.
 		#[pallet::call_index(5)]
-		#[pallet::authorize(|dest, ethereum_sig|
+		#[pallet::authorize(|_source, dest, ethereum_sig|
 			Pallet::<T>::validate_claim(dest, ethereum_sig, None).map(|v| (v, Weight::zero()))
 		)]
 		pub fn claim_general(
@@ -521,7 +522,7 @@ pub mod pallet {
 		/// - `statement`: The identity of the statement which is being attested to in the
 		///   signature.
 		#[pallet::call_index(6)]
-		#[pallet::authorize(|dest, ethereum_sig, stmt|
+		#[pallet::authorize(|_source, dest, ethereum_sig, stmt|
 			Pallet::<T>::validate_claim(dest, ethereum_sig, Some(stmt)).map(|v| (v, Weight::zero()))
 		)]
 		pub fn claim_attest_general(
@@ -754,6 +755,7 @@ where
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> Result<
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
@@ -1952,7 +1954,7 @@ mod benchmarking {
 			};
 		}: {
 			use frame_support::pallet_prelude::Authorize;
-			call.authorize()
+			call.authorize(TransactionSource::External)
 				.expect("Call give some authorization")
 				.expect("Authorization is valid");
 		}
@@ -1978,8 +1980,8 @@ mod benchmarking {
 			let call_enc = Call::<T>::claim_attest {
 				dest: account.clone(),
 				ethereum_signature: signature.clone(),
+				statement: StatementKind::Regular.to_text().to_vec(),
 			}.encode();
-			let source = sp_runtime::transaction_validity::TransactionSource::External;
 		}: _(RawOrigin::None, account.clone(), signature.clone(), StatementKind::Regular.to_text().to_vec())
 		verify {
 			assert_eq!(Claims::<T>::get(eth_address), None);
@@ -2010,7 +2012,7 @@ mod benchmarking {
 			};
 		}: {
 			use frame_support::pallet_prelude::Authorize;
-			call.authorize()
+			call.authorize(TransactionSource::External)
 				.expect("Call give some authorization")
 				.expect("Authorization is valid");
 		}

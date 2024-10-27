@@ -31,6 +31,7 @@ use frame_support::dispatch::{DispatchInfo, GetDispatchInfo};
 use frame_system::{Call as SystemCall, RawOrigin};
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{AsTransactionAuthorizedOrigin, Dispatchable, TransactionExtension};
+use frame_support::pallet_prelude::TransactionSource;
 
 pub trait BenchmarkHelper<Signature, Signer> {
 	fn create_signature(entropy: &[u8], msg: &[u8]) -> (Signature, Signer);
@@ -55,7 +56,17 @@ mod benchmarks {
 
 		#[block]
 		{
-			assert!(ext.validate(RawOrigin::None.into(), &call, &info, 0, (), &call).is_ok());
+			assert!(
+				ext.validate(
+					RawOrigin::None.into(),
+					&call,
+					&info,
+					0,
+					(),
+					&call,
+					TransactionSource::External
+				).is_ok()
+			);
 		}
 
 		Ok(())

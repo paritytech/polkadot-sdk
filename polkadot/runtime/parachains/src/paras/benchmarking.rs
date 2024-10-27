@@ -248,7 +248,7 @@ benchmarks! {
 	}: {
 		use frame_support::pallet_prelude::Authorize;
 		Call::<T>::include_pvf_check_statement { stmt, signature }
-			.authorize()
+			.authorize(TransactionSource::Local)
 			.expect("Call give some authorization")
 			.expect("Authorization is valid");
 	}
