@@ -89,21 +89,34 @@ pub enum ImportResult<B: BlockT> {
 	BadResponse,
 }
 
-struct StateSyncMetadata {
+struct StateSyncMetadata<B: BlockT> {
 	last_key: SmallVec<[Vec<u8>; 2]>,
+	target_header: B::Header,
 	complete: bool,
 	imported_bytes: u64,
+}
+
+impl<B: BlockT> StateSyncMetadata<B> {
+	fn target_hash(&self) -> B::Hash {
+		self.target_header.hash()
+	}
+
+	/// Returns target block number.
+	fn target_number(&self) -> NumberFor<B> {
+		*self.target_header.number()
+	}
+
+	fn target_root(&self) -> B::Hash {
+		*self.target_header.state_root()
+	}
 }
 
 /// State sync state machine. Accumulates partial state data until it
 /// is ready to be imported.
 pub struct StateSync<B: BlockT, Client> {
-	target_block: B::Hash,
-	target_header: B::Header,
-	target_root: B::Hash,
 	target_body: Option<Vec<B::Extrinsic>>,
 	target_justifications: Option<Justifications>,
-	metadata: StateSyncMetadata,
+	metadata: StateSyncMetadata<B>,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	client: Arc<Client>,
 	skip_proof: bool,
@@ -124,13 +137,11 @@ where
 	) -> Self {
 		Self {
 			client,
-			target_block: target_header.hash(),
-			target_root: *target_header.state_root(),
-			target_header,
 			target_body,
 			target_justifications,
 			metadata: StateSyncMetadata {
 				last_key: SmallVec::default(),
+				target_header,
 				complete: false,
 				imported_bytes: 0,
 			},
@@ -240,7 +251,7 @@ where
 				},
 			};
 			let (values, completed) = match self.client.verify_range_proof(
-				self.target_root,
+				self.metadata.target_root(),
 				proof,
 				self.metadata.last_key.as_slice(),
 			) {
@@ -269,13 +280,11 @@ where
 		};
 		if complete {
 			self.metadata.complete = true;
+			let target_hash = self.metadata.target_hash();
 			ImportResult::Import(
-				self.target_block,
-				self.target_header.clone(),
-				ImportedState {
-					block: self.target_block,
-					state: std::mem::take(&mut self.state).into(),
-				},
+				target_hash,
+				self.metadata.target_header.clone(),
+				ImportedState { block: target_hash, state: std::mem::take(&mut self.state).into() },
 				self.target_body.clone(),
 				self.target_justifications.clone(),
 			)
@@ -287,7 +296,7 @@ where
 	/// Produce next state request.
 	fn next_request(&self) -> StateRequest {
 		StateRequest {
-			block: self.target_block.encode(),
+			block: self.metadata.target_hash().encode(),
 			start: self.metadata.last_key.clone().into_vec(),
 			no_proof: self.skip_proof,
 		}
@@ -300,12 +309,12 @@ where
 
 	/// Returns target block number.
 	fn target_number(&self) -> NumberFor<B> {
-		*self.target_header.number()
+		self.metadata.target_number()
 	}
 
 	/// Returns target block hash.
 	fn target_hash(&self) -> B::Hash {
-		self.target_block
+		self.metadata.target_hash()
 	}
 
 	/// Returns state sync estimated progress.
