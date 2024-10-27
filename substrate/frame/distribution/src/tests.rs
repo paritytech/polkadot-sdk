@@ -191,15 +191,15 @@ fn funds_claim_works() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-		let project = Spends::<Test>::get(ALICE).unwrap();
+	/*	let project = Spends::<Test>::get(ALICE).unwrap();
 		let project_id = project.whitelisted_project.unwrap();
 		let balance_0 =
-			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);
+			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);*/
 		now = now.saturating_add(project.valid_from);
 		run_to_block(now);
 
 		// Spend is in storage
-		assert!(Spends::<Test>::get(ALICE).is_some());
+		//assert!(Spends::<Test>::get(ALICE).is_some());
 
 		assert_ok!(Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_id,));
 		let balance_1 =

@@ -21,10 +21,8 @@ pub use super::*;
 impl<T: Config> Pallet<T> {
 	pub fn pot_account() -> AccountIdOf<T> {
 		// Get Pot account
-		let pot_id = T::PotId::get();
-		pot_id.into_account_truncating()
+		T::PotId::get().into_account_truncating()
 	}
-		pot_id.into_account_truncating()
 	/// Funds transfer from the Pot to a project account
 	pub fn spend(amount: BalanceOf<T>, beneficiary: AccountIdOf<T>) -> DispatchResult {
 		// Get Pot account
@@ -35,6 +33,7 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+	
 
 	/// Series of checks on the Pot, to ensure that we have enough funds
 	/// before executing a Spend --> used in tests.
@@ -51,6 +50,22 @@ impl<T: Config> Pallet<T> {
 		ensure!(balance > spend, Error::<T>::InsufficientPotReserves);
 		Ok(())
 	}
+/*
+	pub fn execute_on_schedule(project: ProjectId<T>, call: BoundedCallOf<T>) -> DispatchResult {
+		let infos = Spends::<T>::get(&project).ok_or(Error::<T>::InexistentSpend)?;
+		let when = infos.valid_from;
+		let ok = T::Scheduler::schedule_named(
+			(DISTRIBUTION_ID, "enactment", project).using_encoded(sp_io::hashing::blake2_256),
+			RawOrigin::Root,
+			when,
+			None,
+			63,
+			call,
+		)?;
+		Ok(())
+	}*/
+
+
 
 	// Done in begin_block
 	// At the beginning of every Epoch, populate the `Spends` storage from the `Projects` storage
@@ -59,12 +74,8 @@ impl<T: Config> Pallet<T> {
 	// should be removed from the `Projects` storage. This is also a good place to Reserve the
 	// funds for created `SpendInfos`. the function will be use in a hook.
 
-	pub fn begin_block(now: BlockNumberFor<T>) -> Weight {
-		let max_block_weight = T::BlockWeights::get().max_block / 4;
-		let epoch = T::EpochDurationBlocks::get();
-
-		//We reach the check period
-		if (now % epoch).is_zero() {
+	pub fn begin_block() -> DispatchResult{
+		
 			let mut projects = Projects::<T>::get().into_inner();
 
 			if projects.len() > 0 {
@@ -88,8 +99,7 @@ impl<T: Config> Pallet<T> {
 								&HoldReason::FundsReserved.into(),
 								&pot,
 								project.amount,
-							)
-							.expect("Funds Reserve Failed");
+							).expect("Funds Reserve Failed");
 
 							// Emmit an event
 							let now = T::BlockNumberProvider::current_block_number();
@@ -115,7 +125,7 @@ impl<T: Config> Pallet<T> {
 				}
 				*val = bounded;
 			});
-		}
-		max_block_weight
+		
+		Ok(())
 	}
 }

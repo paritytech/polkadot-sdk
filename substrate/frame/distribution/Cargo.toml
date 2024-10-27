@@ -21,16 +21,19 @@ frame-benchmarking = { optional = true, workspace = true, default-features = fal
 frame-support = { workspace = true, default-features = false }
 frame-system = { workspace = true, default-features = false }
 log = { workspace = true }
+pallet-scheduler = { workspace = true, default-features = false }
 scale-info = { features = [
 	"derive",
 ], workspace = true, default-features = false }
 sp-core = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
 
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-scheduler = { workspace = true, default-features = true }
 pallet-sudo = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
@@ -44,6 +47,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
@@ -57,6 +61,7 @@ std = [
 	"log/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
+	"pallet-scheduler/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
@@ -65,12 +70,14 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-scheduler/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",

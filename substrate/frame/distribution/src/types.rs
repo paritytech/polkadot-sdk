@@ -24,16 +24,18 @@ pub use frame_support::{
 	traits::{
 		fungible,
 		fungible::{Inspect, Mutate, MutateHold},
-		fungibles,
+		fungibles, LockIdentifier, Bounded,
 		tokens::{Precision, Preservation},
 		DefensiveOption, EnsureOrigin,
+		schedule::{MaybeHashed, v3::Named as ScheduleNamed, DispatchTime},
 	},
 	transactional, PalletId, Serialize,
 };
 pub use frame_system::{pallet_prelude::*, RawOrigin};
+pub use sp_std::boxed::Box;
 pub use scale_info::prelude::vec::Vec;
 pub use sp_runtime::traits::{
-	AccountIdConversion, BlockNumberProvider, Convert, Saturating, StaticLookup, Zero,
+	AccountIdConversion, BlockNumberProvider, Convert, Saturating, StaticLookup, Zero, Dispatchable,
 };
 pub use weights::WeightInfo;
 
@@ -43,8 +45,10 @@ pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// A reward index.
 pub type SpendIndex = u32;
-
+pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
+pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
 pub type ProjectId<T> = AccountIdOf<T>;
+pub const DISTRIBUTION_ID: LockIdentifier = *b"distribu";
 
 /// The state of the payment claim.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo, Default)]

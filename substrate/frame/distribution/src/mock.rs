@@ -100,6 +100,7 @@ impl pallet_distribution::Config for Test {
 	type NativeBalance = Balances;
 	type PotId = PotId;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type Scheduler = Scheduler;
 	type BufferPeriod = Period;
 	type MaxProjects = MaxProjects;
 	type EpochDurationBlocks = EpochDurationBlocks;

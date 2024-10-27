@@ -97,6 +97,7 @@ parameter_types! {
 }
 impl pallet_distribution::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type NativeBalance = Balances;
 	type PotId = PotId;
 	type RuntimeHoldReason = RuntimeHoldReason;

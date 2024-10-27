@@ -53,6 +53,7 @@ pub use pallet::*;
 mod functions;
 mod types;
 pub use types::*;
+pub use pallet_scheduler as Schedule;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -72,7 +73,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + Schedule::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type to access the Balances Pallet.
@@ -90,6 +91,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type PotId: Get<PalletId>;
 
+		/// The Scheduler.
+		type Scheduler: ScheduleNamed<
+			BlockNumberFor<Self>,
+			CallOf<Self>,
+			Self::PalletsOrigin,
+			Hasher = Self::Hashing,
+		>;
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// This the minimum required buffer time period between project nomination
@@ -159,12 +167,12 @@ pub mod pallet {
 		InvalidResult,
 	}
 
-	#[pallet::hooks]
+	/*#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			Self::begin_block(n)
 		}
-	}
+	}*/
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -189,13 +197,14 @@ pub mod pallet {
 		/// ## Events
 		/// Emits [`Event::<T>::RewardClaimed`] if successful for a positive approval.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::claim_reward_for(T::MaxProjects::get()))]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::claim_reward_for(T::MaxProjects::get()))]
 		#[transactional]
 		pub fn claim_reward_for(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
+			let now = T::BlockNumberProvider::current_block_number();
+			Self::begin_block()?;
 			let pot = Self::pot_account();
 			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
-			let now = T::BlockNumberProvider::current_block_number();
 
 			// Check that we're within the claiming period
 			ensure!(now > info.valid_from, Error::<T>::NotClaimingPeriod);
@@ -217,6 +226,16 @@ pub mod pallet {
 				project_id,
 			});
 
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::claim_reward_for(T::MaxProjects::get()))]
+		#[transactional]
+		pub fn execute_claim(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
+			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
+			let when = info.valid_from;
+		
 			Ok(())
 		}
 	}
