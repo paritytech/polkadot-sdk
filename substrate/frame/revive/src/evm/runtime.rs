@@ -25,7 +25,7 @@ use frame_support::{
 	traits::{ExtrinsicCall, InherentBuilder, SignedTransactionBuilder},
 };
 use pallet_transaction_payment::OnChargeTransaction;
-use scale_info::TypeInfo;
+use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_arithmetic::Percent;
 use sp_core::{Get, U256};
 use sp_runtime::{
@@ -59,9 +59,9 @@ pub struct UncheckedExtrinsic<Address, Signature, E: EthExtra>(
 
 impl<Address, Signature, E: EthExtra> TypeInfo for UncheckedExtrinsic<Address, Signature, E>
 where
-	Address: TypeInfo + 'static,
-	Signature: TypeInfo + 'static,
-	E::Extension: TypeInfo + 'static,
+	Address: StaticTypeInfo,
+	Signature: StaticTypeInfo,
+	E::Extension: StaticTypeInfo,
 {
 	type Identity =
 		generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>;
