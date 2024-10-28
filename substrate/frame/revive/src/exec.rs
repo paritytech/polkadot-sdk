@@ -1568,8 +1568,8 @@ where
 
 	fn code_size(&self, address: &H160) -> U256 {
 		<ContractInfoOf<T>>::get(&address)
-			.map(|contract| CodeInfoOf::<T>::get(contract.code_hash).map(|info| info.code_len()))
-			.flatten()
+			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
+			.map(|info| info.code_len())
 			.unwrap_or(U256::zero())
 	}
 

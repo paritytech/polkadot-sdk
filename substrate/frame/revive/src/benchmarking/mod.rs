@@ -168,7 +168,7 @@ where
 				};
 
 				if key == &key_new {
-					continue
+					continue;
 				}
 				child::put_raw(&child_trie_info, &key_new, &value);
 			}
@@ -212,8 +212,8 @@ fn caller_funding<T: Config>() -> BalanceOf<T> {
 
 /// The deposit limit we use for benchmarks.
 fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
-	(T::DepositPerByte::get() * 1024u32.into() * 1024u32.into()) +
-		T::DepositPerItem::get() * 1024u32.into()
+	(T::DepositPerByte::get() * 1024u32.into() * 1024u32.into())
+		+ T::DepositPerItem::get() * 1024u32.into()
 }
 
 #[benchmarks(
@@ -309,10 +309,10 @@ mod benchmarks {
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 		assert_eq!(
 			T::Currency::balance(&caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance(),
+			caller_funding::<T>()
+				- value - deposit
+				- code_deposit - mapping_deposit
+				- Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -349,10 +349,10 @@ mod benchmarks {
 		// value was removed from the caller
 		assert_eq!(
 			T::Currency::total_balance(&caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance(),
+			caller_funding::<T>()
+				- value - deposit
+				- code_deposit - mapping_deposit
+				- Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -391,10 +391,10 @@ mod benchmarks {
 		// value and value transferred via call should be removed from the caller
 		assert_eq!(
 			T::Currency::balance(&instance.caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance()
+			caller_funding::<T>()
+				- value - deposit
+				- code_deposit - mapping_deposit
+				- Pallet::<T>::min_balance()
 		);
 		// contract should have received the value
 		assert_eq!(T::Currency::balance(&instance.account_id), before + value);
@@ -559,25 +559,6 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_code_size() {
-		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
-		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, memory: [vec![0u8; len as _], contract.account_id.encode(), ]);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_code_hash(memory.as_mut_slice(), len, 0);
-		}
-
-		assert_ok!(result);
-		assert_eq!(
-			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
-			contract.info().unwrap().code_hash
-		);
-	}
-
-	#[benchmark(pov_mode = Measured)]
 	fn seal_own_code_hash() {
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
 		build_runtime!(runtime, contract, memory: [vec![0u8; len as _], ]);
@@ -591,6 +572,24 @@ mod benchmarks {
 		assert_eq!(
 			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
 			contract.info().unwrap().code_hash
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_code_size() {
+		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+		build_runtime!(runtime, memory: [contract.address.encode(), vec![0u8; 32], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_code_size(memory.as_mut_slice(), 0, 20);
+		}
+
+		assert_ok!(result);
+		assert_eq!(
+			U256::from_little_endian(&memory[20..]),
+			U256::from(WasmModule::dummy().code.len())
 		);
 	}
 
