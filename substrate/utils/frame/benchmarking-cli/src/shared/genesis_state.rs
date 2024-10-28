@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::overhead::cmd::ParachainExtension;
+use crate::overhead::command::ParachainExtension;
 use sc_chain_spec::{ChainSpec, GenericChainSpec, GenesisConfigBuilderRuntimeCaller};
 use sc_cli::Result;
 use serde_json::Value;

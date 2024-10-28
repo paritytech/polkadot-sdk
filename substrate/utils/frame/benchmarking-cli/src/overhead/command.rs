@@ -25,7 +25,7 @@ use crate::{
 		ExtrinsicBuilder,
 	},
 	overhead::{
-		cmd::ChainType::{Parachain, Relaychain, Unknown},
+		command::ChainType::{Parachain, Relaychain, Unknown},
 		fake_runtime_api,
 		template::TemplateData,
 	},
@@ -654,7 +654,7 @@ impl CliConfiguration for OverheadCmd {
 #[cfg(test)]
 mod tests {
 	use crate::{
-		overhead::cmd::{identify_chain, ChainType, ParachainHostFunctions, DEFAULT_PARA_ID},
+		overhead::command::{identify_chain, ChainType, ParachainHostFunctions, DEFAULT_PARA_ID},
 		OverheadCmd,
 	};
 	use clap::Parser;

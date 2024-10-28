@@ -212,7 +212,7 @@ impl<'a, 'b, HF: HostFunctions> RuntimeCaller<'a, 'b, HF> {
 
 #[cfg(test)]
 mod tests {
-	use crate::overhead::cmd::ParachainHostFunctions;
+	use crate::overhead::command::ParachainHostFunctions;
 	use codec::Decode;
 	use sc_executor::WasmExecutor;
 	use sp_version::RuntimeVersion;
