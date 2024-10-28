@@ -627,10 +627,6 @@ impl Client {
 		block: BlockNumberOrTagOrHash,
 	) -> Result<EthContractResult<Balance>, ClientError> {
 		let runtime_api = self.runtime_api(&block).await?;
-		let from = tx.from.ok_or_else(|| {
-			log::debug!(target: LOG_TARGET, "Dry run failed: from address is missing");
-			ClientError::DryRunFailed
-		})?;
 		let value = tx
 			.value
 			.unwrap_or_default()
@@ -638,11 +634,11 @@ impl Client {
 			.map_err(|_| ClientError::ConversionFailed)?;
 
 		// TODO: remove once subxt is updated
-		let from = from.0.into();
+		let from = tx.from.map(|v| v.0.into());
 		let to = tx.to.map(|v| v.0.into());
 
 		let payload = subxt_client::apis().revive_api().eth_transact(
-			from,
+			from.unwrap_or_default(),
 			to,
 			value,
 			tx.input.clone().unwrap_or_default().0,
