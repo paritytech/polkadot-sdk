@@ -4487,7 +4487,7 @@ mod run_tests {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			// Call the contract: Asserts the input to equal the immutable data
+			// Call the contract: Asserts the origin API to work as expected
 			assert_ok!(builder::call(addr).build());
 		});
 	}
