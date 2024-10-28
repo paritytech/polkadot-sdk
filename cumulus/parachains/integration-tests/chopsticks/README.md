@@ -8,4 +8,4 @@ To get started with chopsticks:
 - `npx @acala-network/chopsticks@latest xcm -r configs/westend-override.yaml -p configs/westend-asset-hub-override.yaml`  
 This particular command should span up two RPC servers (you can specify as many parachains as needed by chaining `-p configs/another-parachain-config.yaml`) and 
 output the ports they reserved for themselves.
-4. Once relay (and parachains) are up and running you can proceed to sending RPCs with the help of bun (see `tests` folder).   
+4. Once relay (and parachains) are up and running you can proceed with sending RPCs with the help of bun (see `tests` folder).   
