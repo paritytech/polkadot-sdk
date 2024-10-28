@@ -585,7 +585,6 @@ impl parachains_paras::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
-	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
 }
 
 pub struct BrokerPot;
