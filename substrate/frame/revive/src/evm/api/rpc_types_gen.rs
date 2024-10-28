@@ -17,7 +17,7 @@
 //! Generated JSON-RPC types.
 #![allow(missing_docs)]
 
-use super::{byte::*, Type0, Type1, Type2};
+use super::{byte::*, Type0, Type1, Type2, Type3};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
@@ -531,7 +531,7 @@ pub struct Transaction4844Unsigned {
 	/// to address
 	pub to: Address,
 	/// type
-	pub r#type: Byte,
+	pub r#type: Type3,
 	/// value
 	pub value: U256,
 }
