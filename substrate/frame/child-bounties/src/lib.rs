@@ -181,14 +181,20 @@ pub mod pallet {
 		Canceled { index: BountyIndex, child_index: BountyIndex },
 	}
 
-	/// Number of total child bounties.
+	/// DEPRECATED: Replaced with `ParentTotalChildBounties` storage item keeping dedicated counts
+	/// for each parent bounty. Number of total child bounties.
 	#[pallet::storage]
 	pub type ChildBountyCount<T: Config> = StorageValue<_, BountyIndex, ValueQuery>;
 
-	/// Number of child bounties per parent bounty.
+	/// Number of active child bounties per parent bounty.
 	/// Map of parent bounty index to number of child bounties.
 	#[pallet::storage]
 	pub type ParentChildBounties<T: Config> =
+		StorageMap<_, Twox64Concat, BountyIndex, u32, ValueQuery>;
+
+	/// Number of total child bounties per parent bounty, including completed bounties.
+	#[pallet::storage]
+	pub type ParentTotalChildBounties<T: Config> =
 		StorageMap<_, Twox64Concat, BountyIndex, u32, ValueQuery>;
 
 	/// Child bounties that have been added.
@@ -204,13 +210,26 @@ pub mod pallet {
 
 	/// The description of each child-bounty.
 	#[pallet::storage]
-	pub type ChildBountyDescriptions<T: Config> =
-		StorageMap<_, Twox64Concat, BountyIndex, BoundedVec<u8, T::MaximumReasonLength>>;
+	pub type ChildBountyDescriptions<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		BountyIndex,
+		Twox64Concat,
+		BountyIndex,
+		BoundedVec<u8, T::MaximumReasonLength>,
+	>;
 
 	/// The cumulative child-bounty curator fee for each parent bounty.
 	#[pallet::storage]
-	pub type ChildrenCuratorFees<T: Config> =
-		StorageMap<_, Twox64Concat, BountyIndex, BalanceOf<T>, ValueQuery>;
+	pub type ChildrenCuratorFees<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		BountyIndex,
+		Twox64Concat,
+		BountyIndex,
+		BalanceOf<T>,
+		ValueQuery,
+	>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -273,7 +292,7 @@ pub mod pallet {
 			)?;
 
 			// Get child-bounty ID.
-			let child_bounty_id = ChildBountyCount::<T>::get();
+			let child_bounty_id = ParentTotalChildBounties::<T>::get(parent_bounty_id);
 			let child_bounty_account = Self::child_bounty_account_id(child_bounty_id);
 
 			// Transfer funds from parent bounty to child-bounty.
@@ -281,7 +300,10 @@ pub mod pallet {
 
 			// Increment the active child-bounty count.
 			ParentChildBounties::<T>::mutate(parent_bounty_id, |count| count.saturating_inc());
-			ChildBountyCount::<T>::put(child_bounty_id.saturating_add(1));
+			ParentTotalChildBounties::<T>::insert(
+				parent_bounty_id,
+				child_bounty_id.saturating_add(1),
+			);
 
 			// Create child-bounty instance.
 			Self::create_child_bounty(
@@ -343,7 +365,7 @@ pub mod pallet {
 					// Add child-bounty curator fee to the cumulative sum. To be
 					// subtracted from the parent bounty curator when claiming
 					// bounty.
-					ChildrenCuratorFees::<T>::mutate(parent_bounty_id, |value| {
+					ChildrenCuratorFees::<T>::mutate(parent_bounty_id, child_bounty_id, |value| {
 						*value = value.saturating_add(fee)
 					});
 
@@ -713,7 +735,7 @@ pub mod pallet {
 						});
 
 						// Remove the child-bounty description.
-						ChildBountyDescriptions::<T>::remove(child_bounty_id);
+						ChildBountyDescriptions::<T>::remove(parent_bounty_id, child_bounty_id);
 
 						// Remove the child-bounty instance from the state.
 						*maybe_child_bounty = None;
@@ -808,7 +830,7 @@ impl<T: Config> Pallet<T> {
 			status: ChildBountyStatus::Added,
 		};
 		ChildBounties::<T>::insert(parent_bounty_id, child_bounty_id, &child_bounty);
-		ChildBountyDescriptions::<T>::insert(child_bounty_id, description);
+		ChildBountyDescriptions::<T>::insert(parent_bounty_id, child_bounty_id, description);
 		Self::deposit_event(Event::Added { index: parent_bounty_id, child_index: child_bounty_id });
 	}
 
@@ -857,7 +879,7 @@ impl<T: Config> Pallet<T> {
 
 				// Revert the curator fee back to parent bounty curator &
 				// reduce the active child-bounty count.
-				ChildrenCuratorFees::<T>::mutate(parent_bounty_id, |value| {
+				ChildrenCuratorFees::<T>::mutate(parent_bounty_id, child_bounty_id, |value| {
 					*value = value.saturating_sub(child_bounty.fee)
 				});
 				ParentChildBounties::<T>::mutate(parent_bounty_id, |count| {
@@ -878,7 +900,7 @@ impl<T: Config> Pallet<T> {
 				debug_assert!(transfer_result.is_ok());
 
 				// Remove the child-bounty description.
-				ChildBountyDescriptions::<T>::remove(child_bounty_id);
+				ChildBountyDescriptions::<T>::remove(parent_bounty_id, child_bounty_id);
 
 				*maybe_child_bounty = None;
 
@@ -905,8 +927,11 @@ impl<T: Config> pallet_bounties::ChildBountyManager<BalanceOf<T>> for Pallet<T> 
 	fn children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -> BalanceOf<T> {
 		// This is asked for when the parent bounty is being claimed. No use of
 		// keeping it in state after that. Hence removing.
-		let children_fee_total = ChildrenCuratorFees::<T>::get(bounty_id);
-		ChildrenCuratorFees::<T>::remove(bounty_id);
+		let mut children_fee_total = 0u32.into();
+		for child_fee in ChildrenCuratorFees::<T>::iter_prefix_values(bounty_id) {
+			children_fee_total += child_fee;
+		}
+		ChildrenCuratorFees::<T>::drain_prefix(bounty_id);
 		children_fee_total
 	}
 }

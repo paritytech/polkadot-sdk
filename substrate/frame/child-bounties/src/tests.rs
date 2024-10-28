@@ -263,7 +263,7 @@ fn add_child_bounty() {
 
 		// Check the child-bounty description status.
 		assert_eq!(
-			pallet_child_bounties::ChildBountyDescriptions::<Test>::get(0).unwrap(),
+			pallet_child_bounties::ChildBountyDescriptions::<Test>::get(0, 0).unwrap(),
 			b"12345-p1".to_vec(),
 		);
 	});
@@ -1222,7 +1222,7 @@ fn children_curator_fee_calculation_test() {
 		// Propose curator for child-bounty.
 		assert_ok!(ChildBounties::propose_curator(RuntimeOrigin::signed(4), 0, 0, 8, fee));
 		// Check curator fee added to the sum.
-		assert_eq!(pallet_child_bounties::ChildrenCuratorFees::<Test>::get(0), fee);
+		assert_eq!(pallet_child_bounties::ChildrenCuratorFees::<Test>::get(0, 0), fee);
 		// Accept curator for child-bounty.
 		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(8), 0, 0));
 		// Award child-bounty.
