@@ -26,6 +26,7 @@ extern crate alloc;
 
 use codec::{Decode, DecodeLimit, Encode, Error as CodecError, Input, MaxEncodedLen};
 use derivative::Derivative;
+use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
 pub mod v3;

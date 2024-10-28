@@ -94,7 +94,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::v5::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, XcmHash};
+use xcm::latest::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, XcmHash};
 
 pub use pallet_balances::Call as BalancesCall;
 #[cfg(feature = "std")]
@@ -641,7 +641,7 @@ impl SendXcm for DummyXcmSender {
 	type Ticket = ();
 	fn validate(
 		_: &mut Option<Location>,
-		_: &mut Option<xcm::v5::Xcm<()>>,
+		_: &mut Option<xcm::latest::Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		Ok(((), Assets::new()))
 	}

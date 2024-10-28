@@ -131,6 +131,7 @@ use frame_support::{
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
 		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
+		GetDispatchInfo,
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	migrations::MultiStepMigrator,
@@ -507,6 +508,7 @@ pub mod pallet {
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
+			+ GetDispatchInfo
 			+ From<Call<Self>>;
 
 		/// The aggregated `RuntimeTask` type.

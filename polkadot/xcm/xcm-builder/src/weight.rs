@@ -62,7 +62,7 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 		instrs_limit: &mut u32,
 	) -> Result<Weight, ()> {
 		let instr_weight = match instruction {
-			Transact { ref mut call, .. } => call.take_decoded()?.get_dispatch_info().call_weight,
+			Transact { ref mut call, .. } => call.ensure_decoded()?.get_dispatch_info().call_weight,
 			SetErrorHandler(xcm) | SetAppendix(xcm) => Self::weight_with_limit(xcm, instrs_limit)?,
 			_ => Weight::zero(),
 		};
@@ -108,7 +108,7 @@ where
 		instrs_limit: &mut u32,
 	) -> Result<Weight, ()> {
 		let instr_weight = match instruction {
-			Transact { ref mut call, .. } => call.take_decoded()?.get_dispatch_info().call_weight,
+			Transact { ref mut call, .. } => call.ensure_decoded()?.get_dispatch_info().call_weight,
 			SetErrorHandler(xcm) | SetAppendix(xcm) => Self::weight_with_limit(xcm, instrs_limit)?,
 			_ => Weight::zero(),
 		};

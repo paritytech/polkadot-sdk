@@ -106,7 +106,7 @@ pub mod pallet {
 
 	use crate::configuration;
 	use sp_runtime::traits::TryConvert;
-	use xcm::v5::InteriorLocation;
+	use xcm::latest::InteriorLocation;
 	use xcm_executor::traits::TransactAsset;
 
 	use super::*;

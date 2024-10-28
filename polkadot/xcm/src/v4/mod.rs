@@ -1319,9 +1319,6 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
 			Transact { origin_kind, mut call } => {
-				// TODO: This requires a FRAME dependency on the core XCM crate.
-				// I wouldn't want to have to do that, but it allows for better conversions
-				// from v5 to v4.
 				let require_weight_at_most = call.take_decoded()?.get_dispatch_info().call_weight;
 				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
 			},
