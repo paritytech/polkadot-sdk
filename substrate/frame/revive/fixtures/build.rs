@@ -116,50 +116,41 @@ mod build {
 		fs::write(output_dir.join("Cargo.toml"), cargo_toml).map_err(Into::into)
 	}
 
-	fn invoke_build(current_dir: &Path) -> Result<()> {
+	fn invoke_build(target: &Path, current_dir: &Path) -> Result<()> {
 		let encoded_rustflags = [
 			"-Dwarnings",
-			"-Ctarget-feature=+lui-addi-fusion",
-			"-Crelocation-model=pie",
-			"-Clink-arg=--emit-relocs",
-			"-Clink-arg=--unique",
 		]
 		.join("\x1f");
 
-		let toolchain = std::env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR)
-			.ok()
-			.unwrap_or(String::from("rve-nightly"));
-
-		let build_res = Command::new(env::var("CARGO")?)
+		let mut build_command = Command::new(env::var("CARGO")?);
+		build_command
 			.current_dir(current_dir)
 			.env_clear()
 			.env("PATH", env::var("PATH").unwrap_or_default())
 			.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-			.env("RUSTUP_TOOLCHAIN", &toolchain)
 			.env("RUSTC_BOOTSTRAP", "1")
 			.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
 			.args([
 				"build",
 				"--release",
-				"--target=riscv32ema-unknown-none-elf",
 				"-Zbuild-std=core",
 				"-Zbuild-std-features=panic_immediate_abort",
 			])
-			.output()
-			.expect("failed to execute process");
+			.arg("--target")
+			.arg(target);
+
+		if let Ok(toolchain) = env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR) {
+			build_command.env("RUSTUP_TOOLCHAIN", &toolchain);
+		}
+
+		let build_res = build_command.output().expect("failed to execute process");
 
 		if build_res.status.success() {
 			return Ok(())
 		}
 
 		let stderr = String::from_utf8_lossy(&build_res.stderr);
-
-		if stderr.contains("'rve-nightly' is not installed") {
-			eprintln!("RISC-V toolchain is not installed.\nDownload and install toolchain from https://github.com/paritytech/rustc-rv32e-toolchain.");
-			eprintln!("{}", stderr);
-		} else {
-			eprintln!("{}", stderr);
-		}
+		eprintln!("{}", stderr);
 
 		bail!("Failed to build contracts");
 	}
@@ -195,6 +186,7 @@ mod build {
 		let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
 		let contracts_dir = fixtures_dir.join("contracts");
 		let out_dir: PathBuf = env::var("OUT_DIR")?.into();
+		let target = fixtures_dir.join("riscv32emac-unknown-none-polkavm.json");
 
 		println!("cargo::rerun-if-env-changed={OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR}");
 		println!("cargo::rerun-if-env-changed={OVERRIDE_STRIP_ENV_VAR}");
@@ -216,7 +208,7 @@ mod build {
 		let tmp_dir_path = tmp_dir.path();
 
 		create_cargo_toml(&fixtures_dir, entries.iter(), tmp_dir.path())?;
-		invoke_build(tmp_dir_path)?;
+		invoke_build(&target, tmp_dir_path)?;
 
 		write_output(tmp_dir_path, &out_dir, entries)?;
 
