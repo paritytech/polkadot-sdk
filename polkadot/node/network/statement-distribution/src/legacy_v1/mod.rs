@@ -37,9 +37,10 @@ use polkadot_node_subsystem::{
 	overseer, ActivatedLeaf, StatementDistributionSenderTrait,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CommittedCandidateReceipt, CompactStatement, Hash,
-	Id as ParaId, IndexedVec, OccupiedCoreAssumption, PersistedValidationData, SignedStatement,
-	SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex, ValidatorSignature,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, AuthorityDiscoveryId,
+	CandidateHash, CompactStatement, Hash, Id as ParaId, IndexedVec, OccupiedCoreAssumption,
+	PersistedValidationData, SignedStatement, SigningContext, UncheckedSignedStatement,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use futures::{
@@ -1641,7 +1642,7 @@ async fn handle_incoming_message<'a, Context>(
 	// In case of `Valid` we should have it cached prior, therefore this performs
 	// no Runtime API calls and always returns `Ok(Some(_))`.
 	let pvd = if let Statement::Seconded(receipt) = statement.payload() {
-		let para_id = receipt.descriptor.para_id;
+		let para_id = receipt.descriptor.para_id();
 		// Either call the Runtime API or check that validation data is cached.
 		let result = active_head
 			.fetch_persisted_validation_data(ctx.sender(), relay_parent, para_id)

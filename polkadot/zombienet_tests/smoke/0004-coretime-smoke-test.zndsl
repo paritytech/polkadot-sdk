@@ -8,6 +8,9 @@ coretime-collator: is up
 # configure relay chain
 alice: js-script ./0004-configure-relay.js with "" return is 0 within 600 secs
 
+# Coretime chain should be producing blocks when the extrinsic is sent
+alice: parachain 1005 block height is at least 10 within 120 seconds
+
 # configure broker chain
 coretime-collator: js-script ./0004-configure-broker.js with "" return is 0 within 600 secs
 

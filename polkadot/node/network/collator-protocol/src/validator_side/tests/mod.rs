@@ -42,8 +42,9 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	CandidateReceipt, CollatorPair, CoreIndex, CoreState, GroupIndex, GroupRotationInfo, HeadData,
-	OccupiedCore, PersistedValidationData, ScheduledCore, ValidatorId, ValidatorIndex,
+	vstaging::{CandidateReceiptV2 as CandidateReceipt, CoreState, OccupiedCore},
+	CollatorPair, CoreIndex, GroupIndex, GroupRotationInfo, HeadData, PersistedValidationData,
+	ScheduledCore, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_candidate_receipt_bad_sig, dummy_hash,
@@ -121,7 +122,7 @@ impl Default for TestState {
 					let mut d = dummy_candidate_descriptor(dummy_hash());
 					d.para_id = chain_ids[1];
 
-					d
+					d.into()
 				},
 			}),
 		];
@@ -341,7 +342,7 @@ async fn assert_candidate_backing_second(
 			incoming_pov,
 		)) => {
 			assert_eq!(expected_relay_parent, relay_parent);
-			assert_eq!(expected_para_id, candidate_receipt.descriptor.para_id);
+			assert_eq!(expected_para_id, candidate_receipt.descriptor.para_id());
 			assert_eq!(*expected_pov, incoming_pov);
 			assert_eq!(pvd, received_pvd);
 			candidate_receipt
@@ -591,8 +592,11 @@ fn act_on_advertisement_v2() {
 
 		response_channel
 			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
-					.encode(),
+				request_v1::CollationFetchingResponse::Collation(
+					candidate_a.clone().into(),
+					pov.clone(),
+				)
+				.encode(),
 				ProtocolName::from(""),
 			)))
 			.expect("Sending response should succeed");
@@ -793,8 +797,11 @@ fn fetch_one_collation_at_a_time() {
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
 			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
-					.encode(),
+				request_v1::CollationFetchingResponse::Collation(
+					candidate_a.clone().into(),
+					pov.clone(),
+				)
+				.encode(),
 				ProtocolName::from(""),
 			)))
 			.expect("Sending response should succeed");
@@ -917,16 +924,22 @@ fn fetches_next_collation() {
 		// First request finishes now:
 		response_channel_non_exclusive
 			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
-					.encode(),
+				request_v1::CollationFetchingResponse::Collation(
+					candidate_a.clone().into(),
+					pov.clone(),
+				)
+				.encode(),
 				ProtocolName::from(""),
 			)))
 			.expect("Sending response should succeed");
 
 		response_channel
 			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
-					.encode(),
+				request_v1::CollationFetchingResponse::Collation(
+					candidate_a.clone().into(),
+					pov.clone(),
+				)
+				.encode(),
 				ProtocolName::from(""),
 			)))
 			.expect("Sending response should succeed");
@@ -1055,8 +1068,11 @@ fn fetch_next_collation_on_invalid_collation() {
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
 			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
-					.encode(),
+				request_v1::CollationFetchingResponse::Collation(
+					candidate_a.clone().into(),
+					pov.clone(),
+				)
+				.encode(),
 				ProtocolName::from(""),
 			)))
 			.expect("Sending response should succeed");

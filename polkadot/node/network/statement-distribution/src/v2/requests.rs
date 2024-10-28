@@ -47,9 +47,9 @@ use polkadot_node_network_protocol::{
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::{
-	CandidateHash, CommittedCandidateReceipt, CompactStatement, GroupIndex, Hash, Id as ParaId,
-	PersistedValidationData, SessionIndex, SignedStatement, SigningContext, ValidatorId,
-	ValidatorIndex,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash,
+	CompactStatement, GroupIndex, Hash, Id as ParaId, PersistedValidationData, SessionIndex,
+	SignedStatement, SigningContext, ValidatorId, ValidatorIndex,
 };
 
 use futures::{future::BoxFuture, prelude::*, stream::FuturesUnordered};
@@ -696,18 +696,18 @@ fn validate_complete_response(
 	// sanity-check candidate response.
 	// note: roughly ascending cost of operations
 	{
-		if response.candidate_receipt.descriptor.relay_parent != identifier.relay_parent {
+		if response.candidate_receipt.descriptor.relay_parent() != identifier.relay_parent {
 			return invalid_candidate_output()
 		}
 
-		if response.candidate_receipt.descriptor.persisted_validation_data_hash !=
+		if response.candidate_receipt.descriptor.persisted_validation_data_hash() !=
 			response.persisted_validation_data.hash()
 		{
 			return invalid_candidate_output()
 		}
 
 		if !allowed_para_lookup(
-			response.candidate_receipt.descriptor.para_id,
+			response.candidate_receipt.descriptor.para_id(),
 			identifier.group_index,
 		) {
 			return invalid_candidate_output()
@@ -1019,6 +1019,7 @@ mod tests {
 		candidate_receipt.descriptor.persisted_validation_data_hash =
 			persisted_validation_data.hash();
 		let candidate = candidate_receipt.hash();
+		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
 		let requested_peer_1 = PeerId::random();
 		let requested_peer_2 = PeerId::random();
 
@@ -1074,7 +1075,7 @@ mod tests {
 					requested_peer: requested_peer_1,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1114,7 +1115,7 @@ mod tests {
 					requested_peer: requested_peer_2,
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1197,7 +1198,7 @@ mod tests {
 					requested_peer,
 					props: request_properties,
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1236,6 +1237,7 @@ mod tests {
 		candidate_receipt.descriptor.persisted_validation_data_hash =
 			persisted_validation_data.hash();
 		let candidate = candidate_receipt.hash();
+		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
 		let requested_peer = PeerId::random();
 
 		let identifier = request_manager
@@ -1417,7 +1419,7 @@ mod tests {
 					requested_peer: requested_peer_1,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt_1.clone(),
+						candidate_receipt: candidate_receipt_1.clone().into(),
 						persisted_validation_data: persisted_validation_data_1.clone(),
 						statements,
 					}),
