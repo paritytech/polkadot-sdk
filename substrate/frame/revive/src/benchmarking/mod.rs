@@ -1530,7 +1530,6 @@ mod benchmarks {
 
 		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
 		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
 
 		let mut setup = CallSetup::<T>::default();
 		setup.set_storage_deposit_limit(deposit);
