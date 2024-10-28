@@ -19,11 +19,9 @@ use crate::{self as pallet_rc_client, *};
 
 use frame_support::{derive_impl, parameter_types};
 use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, Perbill};
-use sp_staking::{
-	offence::{OffenceReportSystem, OnOffenceHandler},
-	SessionIndex,
-};
+use sp_staking::{offence::OnOffenceHandler, SessionIndex};
 
+use core::marker::PhantomData;
 use std::collections::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -35,7 +33,7 @@ type Weight = sp_runtime::Weight;
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
-		RCClient: pallet_rc_client,
+		Client: pallet_rc_client,
 	}
 );
 
@@ -51,6 +49,12 @@ impl_opaque_keys! {
 	}
 }
 
+impl From<UintAuthorityId> for MockSessionKeys {
+	fn from(dummy: UintAuthorityId) -> Self {
+		Self { dummy }
+	}
+}
+
 parameter_types! {
 	pub static MaxOffenders: u32 = 5;
 	pub static MaxValidatorSet: u32 = 10;
@@ -58,7 +62,9 @@ parameter_types! {
 
 impl crate::pallet::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Staking = MockStaking;
+	type Staking = MockStaking<Test>;
+	type ValidatorId = AccountId;
+	type FullValidatorId = pallet_staking::Exposure<Self::AccountId, u64>;
 	type MaxOffenders = MaxOffenders;
 	type MaxValidatorSet = MaxValidatorSet;
 	type SessionKeys = MockSessionKeys;
@@ -67,14 +73,20 @@ impl crate::pallet::Config for Test {
 
 parameter_types! {
 	// Stores receved messages from `MockRelayClient` for testing.
-	// pub static SessionMessages: BtreeMap<SessionIndex, Vec<Xcm>> = BTreeMap::new();
+	pub static Outbound: Vec<MockMessages> = vec![];
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum MockMessages {
+	SetSessionKeys((AccountId, MockSessionKeys, SessionKeysProof)),
 }
 
 pub(crate) struct MockRelay;
 impl MockRelay {
-	fn message() {
-		// TODO: receive an XCM transact message sent by `MockRelayClient` and processa and store it
-		// depending on the used call.
+	fn send_it(msg: MockMessages) {
+		Outbound::mutate(|o| {
+			o.push(msg);
+		})
 	}
 }
 
@@ -89,12 +101,12 @@ impl AsyncSessionBroker for MockRelayClient {
 	type Error = &'static str;
 
 	fn set_session_keys(
-		_who: Self::AccountId,
-		_session_keys: Self::SessionKeys,
-		_proof: Self::SessionKeysProof,
+		who: Self::AccountId,
+		session_keys: Self::SessionKeys,
+		proof: Self::SessionKeysProof,
 	) -> Result<(), Self::Error> {
-		// TODO: build XCM and "send" it to MockRelay
-		todo!()
+		MockRelay::send_it(MockMessages::SetSessionKeys((who, session_keys, proof)));
+		Ok(())
 	}
 	fn purge_session_keys(_who: Self::AccountId) -> Result<(), Self::Error> {
 		// TODO: build XCM and "send" ut to MockRelay
@@ -113,16 +125,16 @@ impl AsyncOffenceBroker for MockRelayClient {}
 
 impl<AccountId> SessionInterface<AccountId> for MockRelayClient
 where
-	RCClient: SessionInterface<AccountId>,
+	Client: SessionInterface<AccountId>,
 {
 	fn validators() -> Vec<AccountId> {
-		<RCClient as SessionInterface<AccountId>>::validators()
+		<Client as SessionInterface<AccountId>>::validators()
 	}
 	fn disable_validator(validator_index: u32) -> bool {
-		<RCClient as SessionInterface<AccountId>>::disable_validator(validator_index)
+		<Client as SessionInterface<AccountId>>::disable_validator(validator_index)
 	}
 	fn prune_historical_up_to(up_to: SessionIndex) {
-		<RCClient as SessionInterface<AccountId>>::prune_historical_up_to(up_to)
+		<Client as SessionInterface<AccountId>>::prune_historical_up_to(up_to)
 	}
 }
 
@@ -131,9 +143,9 @@ parameter_types! {
 	pub static OffencesState: BTreeMap<SessionIndex, (AccountId, AccountId, Perbill)> = BTreeMap::new();
 }
 
-pub struct MockStaking;
-impl<AccountId> SessionManager<AccountId> for MockStaking {
-	fn new_session(_new_index: SessionIndex) -> Option<Vec<AccountId>> {
+pub struct MockStaking<T>(PhantomData<T>);
+impl<T: Config> SessionManager<T::AccountId> for MockStaking<T> {
+	fn new_session(_new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
 		todo!()
 	}
 	fn end_session(_end_index: SessionIndex) {
@@ -142,12 +154,12 @@ impl<AccountId> SessionManager<AccountId> for MockStaking {
 	fn start_session(_start_index: SessionIndex) {
 		todo!()
 	}
-	fn new_session_genesis(_new_index: SessionIndex) -> Option<Vec<AccountId>> {
+	fn new_session_genesis(_new_index: SessionIndex) -> Option<Vec<T::AccountId>> {
 		todo!()
 	}
 }
 
-impl<BlockNumber> AuthorshipEventHandler<AccountId, BlockNumber> for MockStaking {
+impl<T: Config> AuthorshipEventHandler<AccountId, BlockNumberFor<T>> for MockStaking<T> {
 	fn note_author(author: AccountId) {
 		// one point per authoring.
 		AuthoringState::mutate(|s| {
@@ -157,12 +169,35 @@ impl<BlockNumber> AuthorshipEventHandler<AccountId, BlockNumber> for MockStaking
 	}
 }
 
-impl OnOffenceHandler<AccountId, AccountId, Weight> for MockStaking {
+impl<T: Config> OnOffenceHandler<T::AccountId, OffenderOf<T>, Weight> for MockStaking<T> {
 	fn on_offence(
-		_offenders: &[sp_staking::offence::OffenceDetails<AccountId, AccountId>],
+		_offenders: &[sp_staking::offence::OffenceDetails<T::AccountId, OffenderOf<T>>],
 		_slash_fraction: &[Perbill],
 		_session: SessionIndex,
 	) -> Weight {
 		todo!()
+	}
+}
+
+#[derive(Default)]
+pub struct ExtBuilder {}
+
+impl ExtBuilder {
+	pub fn build(self) -> sp_io::TestExternalities {
+		use sp_runtime::BuildStorage;
+
+		sp_tracing::try_init_simple();
+
+		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
+		// set pallet's genesis state
+		sp_io::TestExternalities::from(storage)
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		sp_tracing::try_init_simple();
+
+		let mut ext = self.build();
+		ext.execute_with(test);
 	}
 }

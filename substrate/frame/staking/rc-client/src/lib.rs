@@ -18,36 +18,75 @@
 //! # Staking Relay chain client
 //!
 //! The Staking Relay chain client is used as a interface between the Staking pallet and an external
-//! consensus system (e.g. Polkadot's Relay chain).
+//! consensus system (e.g. Polkadot's Relay chain). The main goalof this pallet is to abstract the
+//! relay chain interfaces locally and handle the requests from staking in a sync and async manner.
 //!
 //! ## Overview
 //!
 //! The Staking Relay chain client (`rc-client` pallet) implements an abstraction for the i/o
 //! of the staking pallet. This abstraction is especially helpfull when the staking pallet
-//! and the its "consumers" live in different consensus systems. Most notably, this pallet handles
+//! and the "consumers" live in different consensus systems. Most notably, this pallet handles
 //! the following i/o tasks:
 //!
-//! - Communicates a new set of validators to a party an external consensus system;
-//! - Communicates setting and purging validator keys to an external consensus system;
-//! - Receives and pre-processes offence reports from a trusteed external consensus system;
-//! - Receives and pre-processes block authoring reports;
+//! - Communicates a new set of validators to a party an external consensus system by implementing
+//! [`crate::AsyncSessionBroker`].
+//! - Communicates setting and purging validator keys to an external consensus system by
+//! implementing [`crate::AsyncSessionBroker`].
+//! - Receives and pre-processes offence reports from a trusted external consensus system, handled
+//! by the implementation of [`crate::AsyncOffenceBroker`].
+//! - Receives and pre-processes block authoring reports through the extrinsic [`Call::author`];
 //!
 //! This pallet also exposes an extrinsic for signed origins to report staking offences which are
-//! communicated to both the staking pallet and an external consensus system.
+//! communicated to both the staking pallet and an external consensus system, as implemented by
+//! [`crate::AsyncOffenceBroker`].
 //!
 //!	In sum, this pallet works as an adapter pallet that can be used for the staking pallet to
 //!	communicate with external consensus systems.
 //!
-//! ## Inbound
+//! ## Pallet structure and Inbound vs Outbound requests
+//!
+//! As a rule of thumb, all the **inbound** requests are handled by extrinsics in this pallet. The
+//! extrinsics are exposed for trusted or signed origins to *push* reports, requests and
+//! information expected by the staking interface (e.g. offence reports, session key management,
+//! etc).
+//!
+//! These extrinsics are used by external entities may may live in a different consensus system as
+//! the staking interface to communicate with it (e.g. the relay chain in the context of staking
+//! being part of the AssetHub system parachain). This pallet may pre-process external requests
+//! before redirecting them to the staking interface.
+//!
+//! On the opposite direction, **outbout** requests from staking to external consensus systems are
+//! implemented by the [`crate::AsyncBroker`] trait. The implementor is responsible to pre-process
+//! requests and, potentially, forward the requests to an external consensus system (e.g. relay
+//! chain).
+//!
+//! One of the design goals of the [`crate::AsyncBroker`] trait and implementation is to abstract
+//! all the complexity derived from sync/async and the fact that the consumers and producers of the
+//! data expected by staking *may* be in a different consensus system. From the staking implementor
+//! POV, it should be transparent whether the broker is between e.g. the session manager or not.
+//!
+//! ## Async vs Sync communication
+//!
+//! This pallet is designed to support an async comminication channel between staking and the
+//! session interfaces. This pallet should abstract the potential asynchronicity of the
+//! channel to the staking interface. As such and when possible, this pallet caches information
+//! from external consensus systems so that the requests from staking can be served in a
+//! synchronous manner. For example, this pallet caches the current validator set as seen by the
+//! external consensus system to be able to serve the from staking request without having to query
+//! the external consensus system, which is ultimately the source of truth for the active validator
+//! set.
+//!
+//! ## Inbound flow
 //!
 //! All the inbound request should be performed through extrinsics. External consensus systems may
-//! call the inbound extrinsics through XCM transact.
+//! call the inbound extrinsics through XCM Transact.
 //!
 //! ### Block authoring
 //!
 //! This pallet exposes an extrinsict, [`Call::author`], that processes block authoring events.
 //! Block authoring information can only be submitted by the runtime's root origin. Successfull
-//! calls will be redirected to staking through the [`pallet_authorship::EventHandler`]) interface.
+//! calls will be redirected to [`Config::Staking`] through the [`pallet_authorship::EventHandler`])
+//! interface.
 //!
 //! ### Offence reports
 //!
@@ -55,7 +94,7 @@
 //! reports. These reports can only be submitted by the runtime's root origin. Successfull calls
 //! will be redirected to staking through the [`sp_staking::offence::OnOffenceHandler`]) interface.
 //!
-//! ## Outbound
+//! ## Outbound flow
 //!
 //!	### Validator keys
 //!
@@ -67,7 +106,7 @@
 //!
 //!	Callers can request to 1) set validator keys and 2) purge validator keys. These actions *may
 //! not be atomic*, i.e., the action and correspoding data may need to be propagated to an external
-//! consensus system and take several blocks to be enacted.
+//! consensus system and take several blocks to be enacted at sourch of truth.
 //
 //!	The session key management actions exposed by this pallet are:
 //!
@@ -78,11 +117,14 @@
 //!
 //! ### New set of validator IDs
 //!
-//! This pallet exposes a configuration type that implements the [`traits::ValidatorSetHandler`],
+//! This pallet exposes a configuration type that implements the [`crate::AsyncSessionBroker`],
 //! which defines what to do when pallet staking has a new validator set ready. Note, however, that
-//! this pallet is not the source of truth for validator sets.
+//! this pallet is not the source of truth of the current validator set.
 //!
 //! ### Signed offence reports
+//!
+//! This pallet exposes a configuration type that implements the [`crate::AsyncOffenceBroker`],
+//! which defines what to do when an external entity reports offences.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -96,11 +138,11 @@ mod tests;
 /// Re-exports this crate's traits.
 pub use traits::*;
 
-use frame_support::{dispatch::Parameter, weights::Weight};
+use frame_support::{dispatch::Parameter, traits::EstimateNextNewSession, weights::Weight};
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{Member, OpaqueKeys},
-	Perbill,
+	BoundedVec, Perbill,
 };
 
 use pallet_authorship::EventHandler as AuthorshipEventHandler;
@@ -114,36 +156,11 @@ use sp_staking::{
 /// An account ID type for the runtime.
 pub(crate) type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// The type of session keys proof expected by this pallet.
-pub(crate) type SessionKeysProof = Vec<u8>;
-
-// TODO:
-// - This pallet is the session manager from Staking (not RC-session-pallet)
-// 		- All the outbound actions should be a *existing* or new trait
-// 		RC Session (impl SessionManager) - Broker(impl SessionManager) - Staking(impl SessionManager)
-// - Rename pallet to "Broker" or something else (client is actually the type that sends the XCM,
-// which is implemented in the runtime config).
-//
-// pallet_session needs two traits as config
-// - Session Manager: Staking
-// - Session Handler: (Babe, grandpa, para_validator, para_assignment, authority_discover, beefy.)
-// (rename: relay-chain session proxy OR relay-chain proxy?)
-// - + track relay-chain session here (mapping RC session <> Staking session here)
-//
-// - New inbound message:
-// 	- When a new session changes (potentially with a delay) in the RC
-//
-// pallet-rc-proxy/broker
-//  - type AsyncSessionBroker
-//  - type OffenceBroker
-//
-// two traits:
-// - XCM relay-chain client (outbound trait) `trait RelayChainClient`
-// - XCM inbound trait `trait StakingClient`
-// 	- maybe add these traits in `sp-staking` (later)
+pub type SessionKeysProof = Vec<u8>;
+/// The offender type expected by this pallet.
+pub(crate) type OffenderOf<T> = (<T as Config>::ValidatorId, <T as Config>::FullValidatorId);
 
 pub mod traits {
-	use sp_staking::offence::OffenceReportSystem;
-
 	use super::*;
 
 	/// Marker trait that encapsulates all the behaviour that an async broker (staking -> relay
@@ -187,11 +204,11 @@ pub mod traits {
 		/// relay-chain.
 		fn new_validator_set(
 			session_index: SessionIndex,
-			validator_set: sp_runtime::BoundedVec<Self::AccountId, Self::MaxValidatorSet>,
+			validator_set: BoundedVec<Self::AccountId, Self::MaxValidatorSet>,
 		) -> Result<(), Self::Error>;
 	}
 
-	/// Something that implement a offence broker for staking.
+	/// Something that implements an offence broker for staking.
 	pub trait AsyncOffenceBroker {}
 }
 
@@ -207,10 +224,20 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 
-		/// The staking type to redirect inbound calls.
+		/// A stable ID for a validator, as expected by [`Self::Staking`].
+		type ValidatorId: Member
+			+ Parameter
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
+			+ TryFrom<Self::AccountId>;
+
+		/// Full validator identification, as expected by [`Self::Staking`].
+		type FullValidatorId: Parameter;
+
+		/// The staking interface.
 		type Staking: SessionManager<Self::AccountId>
 			+ AuthorshipEventHandler<Self::AccountId, BlockNumberFor<Self>>
-			+ OnOffenceHandler<Self::AccountId, Self::AccountId, Weight>;
+			+ OnOffenceHandler<Self::AccountId, (Self::ValidatorId, Self::FullValidatorId), Weight>;
 
 		/// The max offenders a report supports.
 		type MaxOffenders: Get<u32>;
@@ -300,14 +327,14 @@ pub mod pallet {
 		#[pallet::call_index(3)]
 		pub fn report_offence(
 			origin: OriginFor<T>,
-			offenders: BoundedVec<OffenceDetails<T::AccountId, T::AccountId>, T::MaxOffenders>,
+			offenders: BoundedVec<OffenceDetails<T::AccountId, OffenderOf<T>>, T::MaxOffenders>,
 			slash_fraction: BoundedVec<Perbill, T::MaxOffenders>,
 			session: SessionIndex,
 		) -> DispatchResult {
 			let _ = ensure_root(origin);
 
 			let _weight = <T::Staking as OnOffenceHandler<_, _, _>>::on_offence(
-				&offenders,
+				offenders.as_slice(),
 				&slash_fraction,
 				session,
 			);
@@ -326,10 +353,25 @@ impl<T: Config> SessionInterface<AccountIdOf<T>> for Pallet<T> {
 
 	// TODO: this trait needs to be bounded.
 	fn validators() -> Vec<AccountIdOf<T>> {
+		// this pallet keeps track of the active validators in the relay chain. The
+		// `ActiveValidators` map should be kept up to date as much as possible for this pallet,
+		// considering the async nature of the communication with the relay chain.
 		ActiveValidators::<T>::get().map(|v| v.into()).unwrap_or_default()
 	}
 
 	fn prune_historical_up_to(up_to: SessionIndex) {
 		<T::RelayChainClient as SessionInterface<AccountIdOf<T>>>::prune_historical_up_to(up_to);
+	}
+}
+
+impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
+	fn average_session_length() -> BlockNumberFor<T> {
+		// this call should be sync; keep track of session length as much as possible for this
+		// pallet, considering the async nature of the communication with the relay chain.
+		todo!()
+	}
+	fn estimate_next_new_session(_: BlockNumberFor<T>) -> (Option<BlockNumberFor<T>>, Weight) {
+		// this should be sync;
+		todo!()
 	}
 }

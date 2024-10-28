@@ -1,12 +1,13 @@
 [package]
-name = "pallet-staking-rc-client"
+name = "pallet-staking-rc-client-tests"
 version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "FRAME pallet staking relay chain client"
+description = "FRAME integration tests for pallet staking relay chain client"
+publish = false
 
 [lints]
 workspace = true
@@ -20,16 +21,20 @@ scale-info = { features = ["derive"], workspace = true }
 
 sp-runtime = { default-features = true, workspace = true }
 sp-std = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 sp-staking = { default-features = true, workspace = true }
 frame-support = { default-features = true, workspace = true }
 frame-system = { default-features = true, workspace = true }
-pallet-authorship = { workspace = true }
 pallet-session = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-authorship = { workspace = true }
 pallet-staking = { workspace = true }
+pallet-staking-rc-client = { workspace = true }
+frame-election-provider-support = { workspace = true }
 
-[dev-dependencies]
-sp-tracing = { workspace = true }
-sp-io = { workspace = true }
 
 [features]
 default = ["std"]
@@ -38,10 +43,16 @@ std = [
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-io/std",
+	"sp-core/std",
 	"sp-staking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-authorship/std",
+	"pallet-balances/std",
+	"pallet-timestamp/std",
 	"pallet-session/std",
+	"pallet-authorship/std",
 	"pallet-staking/std",
+	"pallet-staking-rc-client/std",
+	"frame-election-provider-support/std",
 ]
