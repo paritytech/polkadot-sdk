@@ -45,7 +45,6 @@ use futures::{
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	error::{Error, IntoPoolError},
 	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolFuture, PoolStatus,
 	TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
 };
@@ -607,19 +606,18 @@ where
 			return future::ready(Ok(mempool_result)).boxed()
 		}
 
-		let (hashes, to_be_submitted): (Vec<TxHash<Self>>, Vec<ExtrinsicFor<ChainApi>>) =
-			mempool_result
-				.iter()
-				.zip(xts)
-				.filter_map(|(result, xt)| result.as_ref().ok().map(|xt_hash| (xt_hash, xt)))
-				.unzip();
+		let to_be_submitted = mempool_result
+			.iter()
+			.zip(xts)
+			.filter_map(|(result, xt)| result.as_ref().ok().map(|_| xt))
+			.collect::<Vec<_>>();
 
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
 
 		let mempool = self.mempool.clone();
 		async move {
-			let results_map = view_store.submit(source, to_be_submitted.into_iter(), hashes).await;
+			let results_map = view_store.submit(source, to_be_submitted.into_iter()).await;
 			let mut submission_results = reduce_multiview_result(results_map).into_iter();
 
 			Ok(mempool_result
