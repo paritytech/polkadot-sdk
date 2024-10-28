@@ -1,4 +1,3 @@
-
 endpoint: wss://asset-hub-polkadot-rpc.dwellir.com
 mock-signature-host: true
 block: ${env.WESTEND_ASSET_HUB_BLOCK_NUMBER}
