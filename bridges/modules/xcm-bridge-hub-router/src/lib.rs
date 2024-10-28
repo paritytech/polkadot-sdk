@@ -223,11 +223,13 @@ pub mod pallet {
 		/// Calculates final fees based on the configuration, supporting two optional features:
 		///
 		/// 1. Adds an (optional) fee for message size based on `T::ByteFee` and `T::FeeAsset`.
-		/// 2. Applies a dynamic fee factor `Self::delivery_fee_factor` to the `actual_cost` (useful for congestion handling).
+		/// 2. Applies a dynamic fee factor `Self::delivery_fee_factor` to the `actual_cost` (useful
+		///    for congestion handling).
 		///
 		/// Parameters:
 		/// - `message_size`
-		/// - `actual_cost`: the fee for sending a message from this chain to a child, sibling, or local bridge hub, determined by `Config::ToBridgeHubSender`.
+		/// - `actual_cost`: the fee for sending a message from this chain to a child, sibling, or
+		///   local bridge hub, determined by `Config::ToBridgeHubSender`.
 		pub(crate) fn calculate_fees(message_size: u32, mut actual_cost: Assets) -> Assets {
 			// Apply message size `T::ByteFee/T::FeeAsset` feature (if configured).
 			if let Some(asset_id) = T::FeeAsset::get() {
@@ -533,9 +535,9 @@ mod tests {
 			// `base_cost_formula() * F`
 			let factor = FixedU128::from_rational(125, 100);
 			DeliveryFeeFactor::<TestRuntime, ()>::put(factor);
-			let expected_fee =
-				(FixedU128::saturating_from_integer(base_cost_formula()) * factor)
-					.into_inner() / FixedU128::DIV;
+			let expected_fee = (FixedU128::saturating_from_integer(base_cost_formula()) * factor)
+				.into_inner() /
+				FixedU128::DIV;
 			assert_eq!(
 				XcmBridgeHubRouter::validate(&mut Some(dest), &mut Some(xcm)).unwrap().1.get(0),
 				Some(&(BridgeFeeAsset::get(), expected_fee).into()),

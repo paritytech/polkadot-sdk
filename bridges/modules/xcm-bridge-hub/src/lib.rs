@@ -417,17 +417,18 @@ pub mod pallet {
 					deposit.amount,
 					Precision::BestEffort,
 				)
-					.inspect_err(|e| {
-						// we can't do anything here - looks like funds have been (partially) unreserved
-						// before by someone else. Let's not fail, though - it'll be worse for the caller
-						log::error!(
-							target: LOG_TARGET,
-							"Failed to unreserve during the bridge {:?} closure with error: {e:?}",
-							locations.bridge_id(),
-						);
-					})
-					.map(|released| Deposit::new(deposit.account, released))
-					.ok()
+				.inspect_err(|e| {
+					// we can't do anything here - looks like funds have been (partially) unreserved
+					// before by someone else. Let's not fail, though - it'll be worse for the
+					// caller
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to unreserve during the bridge {:?} closure with error: {e:?}",
+						locations.bridge_id(),
+					);
+				})
+				.map(|released| Deposit::new(deposit.account, released))
+				.ok()
 			} else {
 				None
 			};
