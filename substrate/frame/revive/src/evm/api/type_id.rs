@@ -17,6 +17,7 @@
 //! Ethereum Typed Transaction types
 use super::Byte;
 use codec::{Decode, Encode};
+use rlp::Decodable;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -29,6 +30,11 @@ macro_rules! transaction_type {
 		pub struct $name;
 
 		impl $name {
+			/// Get the value of the type
+			pub fn value(&self) -> u8 {
+				$value
+			}
+
 			/// Convert to Byte
 			pub fn as_byte(&self) -> Byte {
 				Byte::from($value)
@@ -40,6 +46,17 @@ macro_rules! transaction_type {
 					Ok(Self {})
 				} else {
 					Err(byte)
+				}
+			}
+		}
+
+		impl Decodable for $name {
+			fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+				let value: u8 = rlp.as_val()?;
+				if value == $value {
+					Ok(Self {})
+				} else {
+					Err(rlp::DecoderError::Custom(concat!("expected ", $value)))
 				}
 			}
 		}
@@ -93,3 +110,4 @@ macro_rules! transaction_type {
 transaction_type!(Type0, 0);
 transaction_type!(Type1, 1);
 transaction_type!(Type2, 2);
+transaction_type!(Type3, 3);
