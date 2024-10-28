@@ -231,7 +231,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	// produced by `pallet_xcm_bridge_hub_router` is compatible with the `ExportXcm` implementation
 	// of `pallet_xcm_bridge_hub`.
 	type ToBridgeHubSender = SovereignPaidRemoteExporter<
-		XcmOverBridgeWrappedWithExportMessageRouter,
+		NetworkExportTable<BridgeTable>,
 		// **Note**: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which
 		// calls the `ExportXcm` implementation of `pallet_xcm_bridge_hub` as the
 		// `MessageExporter`.

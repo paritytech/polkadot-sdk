@@ -83,8 +83,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
 	type ToBridgeHubSender = SovereignPaidRemoteExporter<
-		// use pallet itself as `ExportFor` provider.
-		XcmBridgeHubRouter,
+		NetworkExportTable<BridgeTable>,
 		TestToBridgeHubSender,
 		Self::UniversalLocation,
 	>;

@@ -109,9 +109,12 @@ pub mod pallet {
 		type LocalXcmChannelManager: XcmChannelStatusProvider;
 
 		/// Additional fee that is paid for every byte of the outbound message.
+		/// See `calculate_fees` for more details.
 		type ByteFee: Get<u128>;
-		/// Asset that is used to paid bridge fee.
-		type FeeAsset: Get<AssetId>;
+		/// Asset used to pay the `ByteFee`.
+		/// If not specified, the `ByteFee` is ignored.
+		/// See `calculate_fees` for more details.
+		type FeeAsset: Get<Option<AssetId>>;
 	}
 
 	#[pallet::pallet]
@@ -216,6 +219,36 @@ pub mod pallet {
 				*f
 			});
 		}
+
+		/// Calculates final fees based on the configuration, supporting two optional features:
+		///
+		/// 1. Adds an (optional) fee for message size based on `T::ByteFee` and `T::FeeAsset`.
+		/// 2. Applies a dynamic fee factor `Self::delivery_fee_factor` to the `actual_cost` (useful for congestion handling).
+		///
+		/// Parameters:
+		/// - `message_size`
+		/// - `actual_cost`: the fee for sending a message from this chain to a child, sibling, or local bridge hub, determined by `Config::ToBridgeHubSender`.
+		pub(crate) fn calculate_fees(message_size: u32, mut actual_cost: Assets) -> Assets {
+			// Apply message size `T::ByteFee/T::FeeAsset` feature (if configured).
+			if let Some(asset_id) = T::FeeAsset::get() {
+				let message_fee = (message_size as u128).saturating_mul(T::ByteFee::get());
+				if message_fee > 0 {
+					// Keep in mind that this is only the additional fee for message size.
+					actual_cost.push((asset_id, message_fee).into());
+				}
+			}
+
+			// Apply dynamic fees feature - apply `fee_factor` to the `actual_cost`.
+			let fee_factor = Self::delivery_fee_factor();
+			let mut new_cost = Assets::new();
+			for mut a in actual_cost.into_inner() {
+				if let Fungibility::Fungible(ref mut amount) = a.fun {
+					*amount = fee_factor.saturating_mul_int(*amount);
+				}
+				new_cost.push(a);
+			}
+			new_cost
+		}
 	}
 
 	#[pallet::event]
@@ -231,97 +264,6 @@ pub mod pallet {
 			/// New value of the `DeliveryFeeFactor`.
 			new_value: FixedU128,
 		},
-	}
-}
-
-// This pallet acts as the `ExporterFor` for the `SovereignPaidRemoteExporter` to compute
-// message fee using fee factor.
-impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
-	fn exporter_for(
-		network: &NetworkId,
-		remote_location: &InteriorLocation,
-		message: &Xcm<()>,
-	) -> Option<(Location, Option<Asset>)> {
-		log::trace!(
-			target: LOG_TARGET,
-			"exporter_for - network: {network:?}, remote_location: {remote_location:?}, msg: {message:?}",
-		);
-		// ensure that the message is sent to the expected bridged network (if specified).
-		if let Some(bridged_network) = T::BridgedNetworkId::get() {
-			if *network != bridged_network {
-				log::trace!(
-					target: LOG_TARGET,
-					"Router with bridged_network_id {bridged_network:?} does not support bridging to network {network:?}!",
-				);
-				return None
-			}
-		}
-
-		// ensure that the message is sent to the expected bridged network and location.
-		let (bridge_hub_location, maybe_payment) = match T::Bridges::exporter_for(
-			network,
-			remote_location,
-			message,
-		) {
-			Some((bridge_hub_location, maybe_payment))
-				if bridge_hub_location.eq(&T::SiblingBridgeHubLocation::get()) =>
-				(bridge_hub_location, maybe_payment),
-			_ => {
-				log::trace!(
-					target: LOG_TARGET,
-					"Router configured with bridged_network_id {:?} and sibling_bridge_hub_location: {:?} does not support bridging to network {:?} and remote_location {:?}!",
-					T::BridgedNetworkId::get(),
-					T::SiblingBridgeHubLocation::get(),
-					network,
-					remote_location,
-				);
-				return None
-			},
-		};
-
-		// take `base_fee` from `T::Brides`, but it has to be the same `T::FeeAsset`
-		let base_fee = match maybe_payment {
-			Some(payment) => match payment {
-				Asset { fun: Fungible(amount), id } if id.eq(&T::FeeAsset::get()) => amount,
-				invalid_asset => {
-					log::error!(
-						target: LOG_TARGET,
-						"Router with bridged_network_id {:?} is configured for `T::FeeAsset` {:?} \
-						which is not compatible with {:?} for bridge_hub_location: {:?} for bridging to {:?}/{:?}!",
-						T::BridgedNetworkId::get(),
-						T::FeeAsset::get(),
-						invalid_asset,
-						bridge_hub_location,
-						network,
-						remote_location,
-					);
-					return None
-				},
-			},
-			None => 0,
-		};
-
-		// compute fee amount. Keep in mind that this is only the bridge fee. The fee for sending
-		// message from this chain to child/sibling bridge hub is determined by the
-		// `Config::ToBridgeHubSender`
-		let message_size = message.encoded_size();
-		let message_fee = (message_size as u128).saturating_mul(T::ByteFee::get());
-		let fee_sum = base_fee.saturating_add(message_fee);
-
-		let fee_factor = Self::delivery_fee_factor();
-		let fee = fee_factor.saturating_mul_int(fee_sum);
-		let fee = if fee > 0 { Some((T::FeeAsset::get(), fee).into()) } else { None };
-
-		log::info!(
-			target: LOG_TARGET,
-			"Going to send message to {:?} ({} bytes) over bridge. Computed bridge fee {:?} using fee factor {}",
-			(network, remote_location),
-			message_size,
-			fee,
-			fee_factor,
-		);
-
-		Some((bridge_hub_location, fee))
 	}
 }
 
@@ -363,7 +305,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 
 				// The bridge doesn't support oversized or overweight messages. Therefore, it's
 				// better to drop such messages here rather than at the bridge hub. Let's check the
-				// message size."
+				// message size.
 				if message_size > HARD_MESSAGE_SIZE_LIMIT {
 					return Err(SendError::ExceedsMaxMessageSize)
 				}
@@ -380,6 +322,14 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 				let _ = VersionedXcm::from(xcm_to_dest_clone)
 					.into_version(destination_version)
 					.map_err(|()| SendError::DestinationUnsupported)?;
+
+				// now let's apply fees features
+				let cost = Self::calculate_fees(message_size, cost);
+
+				log::info!(
+					target: LOG_TARGET,
+					"Going to send message to {dest_clone:?} ({message_size:?} bytes) with actual cost: {cost:?}"
+				);
 
 				Ok(((message_size, ticket), cost))
 			},
@@ -566,8 +516,11 @@ mod tests {
 			let xcm: Xcm<()> = vec![ClearOrigin].into();
 			let msg_size = xcm.encoded_size();
 
-			// initially the base fee is used: `BASE_FEE + BYTE_FEE * msg_size + HRMP_FEE`
-			let expected_fee = BASE_FEE + BYTE_FEE * (msg_size as u128) + HRMP_FEE;
+			// `BASE_FEE + BYTE_FEE * msg_size + HRMP_FEE`
+			let base_cost_formula = || BASE_FEE + BYTE_FEE * (msg_size as u128) + HRMP_FEE;
+
+			// initially the base fee is used
+			let expected_fee = base_cost_formula();
 			assert_eq!(
 				XcmBridgeHubRouter::validate(&mut Some(dest.clone()), &mut Some(xcm.clone()))
 					.unwrap()
@@ -577,14 +530,12 @@ mod tests {
 			);
 
 			// but when factor is larger than one, it increases the fee, so it becomes:
-			// `(BASE_FEE + BYTE_FEE * msg_size) * F + HRMP_FEE`
+			// `base_cost_formula() * F`
 			let factor = FixedU128::from_rational(125, 100);
 			DeliveryFeeFactor::<TestRuntime, ()>::put(factor);
 			let expected_fee =
-				(FixedU128::saturating_from_integer(BASE_FEE + BYTE_FEE * (msg_size as u128)) *
-					factor)
-					.into_inner() / FixedU128::DIV +
-					HRMP_FEE;
+				(FixedU128::saturating_from_integer(base_cost_formula()) * factor)
+					.into_inner() / FixedU128::DIV;
 			assert_eq!(
 				XcmBridgeHubRouter::validate(&mut Some(dest), &mut Some(xcm)).unwrap().1.get(0),
 				Some(&(BridgeFeeAsset::get(), expected_fee).into()),
