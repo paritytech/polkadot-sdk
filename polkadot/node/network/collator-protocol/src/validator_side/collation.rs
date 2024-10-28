@@ -36,7 +36,6 @@ use polkadot_node_network_protocol::{
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::jaeger;
 use polkadot_node_subsystem_util::{
 	metrics::prometheus::prometheus::HistogramTimer, runtime::ProspectiveParachainsMode,
 };
@@ -72,10 +71,6 @@ pub struct FetchedCollation {
 	pub para_id: ParaId,
 	/// Candidate hash.
 	pub candidate_hash: CandidateHash,
-	/// Id of the collator the collation was fetched from.
-	/// This will be missing when we create the struct from
-	/// a v2 candidate receipt. instance
-	pub collator_id: Option<CollatorId>,
 }
 
 impl From<&CandidateReceipt<Hash>> for FetchedCollation {
@@ -85,7 +80,6 @@ impl From<&CandidateReceipt<Hash>> for FetchedCollation {
 			relay_parent: descriptor.relay_parent(),
 			para_id: descriptor.para_id(),
 			candidate_hash: receipt.hash(),
-			collator_id: descriptor.collator(),
 		}
 	}
 }
@@ -326,8 +320,6 @@ pub(super) struct CollationFetchRequest {
 	pub from_collator: BoxFuture<'static, OutgoingResult<request_v1::CollationFetchingResponse>>,
 	/// Handle used for checking if this request was cancelled.
 	pub cancellation_token: CancellationToken,
-	/// A jaeger span corresponding to the lifetime of the request.
-	pub span: Option<jaeger::Span>,
 	/// A metric histogram for the lifetime of the request
 	pub _lifetime_timer: Option<HistogramTimer>,
 }
@@ -346,7 +338,6 @@ impl Future for CollationFetchRequest {
 		};
 
 		if cancelled {
-			self.span.as_mut().map(|s| s.add_string_tag("success", "false"));
 			return Poll::Ready((
 				CollationEvent {
 					collator_protocol_version: self.collator_protocol_version,
@@ -367,16 +358,6 @@ impl Future for CollationFetchRequest {
 				res.map_err(CollationFetchError::Request),
 			)
 		});
-
-		match &res {
-			Poll::Ready((_, Ok(_))) => {
-				self.span.as_mut().map(|s| s.add_string_tag("success", "true"));
-			},
-			Poll::Ready((_, Err(_))) => {
-				self.span.as_mut().map(|s| s.add_string_tag("success", "false"));
-			},
-			_ => {},
-		};
 
 		res
 	}

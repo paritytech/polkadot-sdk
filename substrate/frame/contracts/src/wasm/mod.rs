@@ -488,10 +488,6 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 		&self.code_info
 	}
 
-	fn code_len(&self) -> u32 {
-		self.code.len() as u32
-	}
-
 	fn is_deterministic(&self) -> bool {
 		matches!(self.code_info.determinism, Determinism::Enforced)
 	}

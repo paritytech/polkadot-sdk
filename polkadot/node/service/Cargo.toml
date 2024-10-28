@@ -116,6 +116,7 @@ polkadot-gossip-support = { optional = true, workspace = true, default-features 
 polkadot-network-bridge = { optional = true, workspace = true, default-features = true }
 polkadot-node-collation-generation = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-approval-voting = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-approval-voting-parallel = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-av-store = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-backing = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-bitfield-signing = { optional = true, workspace = true, default-features = true }
@@ -160,6 +161,7 @@ full-node = [
 	"polkadot-network-bridge",
 	"polkadot-node-collation-generation",
 	"polkadot-node-core-approval-voting",
+	"polkadot-node-core-approval-voting-parallel",
 	"polkadot-node-core-av-store",
 	"polkadot-node-core-backing",
 	"polkadot-node-core-bitfield-signing",
@@ -198,6 +200,7 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-test-client/runtime-benchmarks",
@@ -215,7 +218,10 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
-fast-runtime = ["rococo-runtime?/fast-runtime", "westend-runtime?/fast-runtime"]
+fast-runtime = [
+	"rococo-runtime?/fast-runtime",
+	"westend-runtime?/fast-runtime",
+]
 
 malus = ["full-node"]
 runtime-metrics = [

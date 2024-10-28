@@ -27,13 +27,12 @@ use futures_timer::Delay;
 use schnellru::{ByLength, LruMap};
 
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{
 		Ancestors, CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage,
 		ProvisionableData, ProvisionerInherentData, ProvisionerMessage, RuntimeApiRequest,
 	},
-	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
-	SpawnedSubsystem, SubsystemError,
+	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
+	SubsystemError,
 };
 use polkadot_node_subsystem_util::{
 	has_required_runtime, request_availability_cores, request_persisted_validation_data,
@@ -96,13 +95,10 @@ pub struct PerRelayParent {
 	signed_bitfields: Vec<SignedAvailabilityBitfield>,
 	is_inherent_ready: bool,
 	awaiting_inherent: Vec<oneshot::Sender<ProvisionerInherentData>>,
-	span: PerLeafSpan,
 }
 
 impl PerRelayParent {
 	fn new(leaf: ActivatedLeaf, per_session: &PerSession) -> Self {
-		let span = PerLeafSpan::new(leaf.span.clone(), "provisioner");
-
 		Self {
 			leaf,
 			backed_candidates: Vec::new(),
@@ -111,7 +107,6 @@ impl PerRelayParent {
 			signed_bitfields: Vec::new(),
 			is_inherent_ready: false,
 			awaiting_inherent: Vec::new(),
-			span,
 		}
 	}
 }
@@ -271,12 +266,11 @@ async fn handle_communication<Context>(
 		},
 		ProvisionerMessage::ProvisionableData(relay_parent, data) => {
 			if let Some(state) = per_relay_parent.get_mut(&relay_parent) {
-				let span = state.span.child("provisionable-data");
 				let _timer = metrics.time_provisionable_data();
 
 				gum::trace!(target: LOG_TARGET, ?relay_parent, "Received provisionable data: {:?}", &data);
 
-				note_provisionable_data(state, &span, data);
+				note_provisionable_data(state, data);
 			}
 		},
 	}
@@ -296,12 +290,10 @@ async fn send_inherent_data_bg<Context>(
 	let backed_candidates = per_relay_parent.backed_candidates.clone();
 	let mode = per_relay_parent.prospective_parachains_mode;
 	let elastic_scaling_mvp = per_relay_parent.elastic_scaling_mvp;
-	let span = per_relay_parent.span.child("req-inherent-data");
 
 	let mut sender = ctx.sender().clone();
 
 	let bg = async move {
-		let _span = span;
 		let _timer = metrics.time_request_inherent_data();
 
 		gum::trace!(
@@ -360,7 +352,6 @@ async fn send_inherent_data_bg<Context>(
 
 fn note_provisionable_data(
 	per_relay_parent: &mut PerRelayParent,
-	span: &jaeger::Span,
 	provisionable_data: ProvisionableData,
 ) {
 	match provisionable_data {
@@ -374,10 +365,6 @@ fn note_provisionable_data(
 				para = ?backed_candidate.descriptor().para_id(),
 				"noted backed candidate",
 			);
-			let _span = span
-				.child("provisionable-backed")
-				.with_candidate(candidate_hash)
-				.with_para_id(backed_candidate.descriptor().para_id());
 			per_relay_parent.backed_candidates.push(backed_candidate);
 		},
 		// We choose not to punish these forms of misbehavior for the time being.

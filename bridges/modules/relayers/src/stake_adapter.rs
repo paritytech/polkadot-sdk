@@ -18,7 +18,7 @@
 //! mechanism of the relayers pallet.
 
 use bp_relayers::{ExplicitOrAccountParams, PayRewardFromAccount, StakeAndSlash};
-use codec::Codec;
+use codec::{Codec, Decode, Encode};
 use frame_support::traits::{tokens::BalanceStatus, NamedReservableCurrency};
 use sp_runtime::{traits::Get, DispatchError, DispatchResult};
 use sp_std::{fmt::Debug, marker::PhantomData};
@@ -53,15 +53,15 @@ where
 		Currency::unreserve_named(&ReserveId::get(), relayer, amount)
 	}
 
-	fn repatriate_reserved(
+	fn repatriate_reserved<LaneId: Decode + Encode>(
 		relayer: &AccountId,
-		beneficiary: ExplicitOrAccountParams<AccountId>,
+		beneficiary: ExplicitOrAccountParams<AccountId, LaneId>,
 		amount: Currency::Balance,
 	) -> Result<Currency::Balance, DispatchError> {
 		let beneficiary_account = match beneficiary {
 			ExplicitOrAccountParams::Explicit(account) => account,
 			ExplicitOrAccountParams::Params(params) =>
-				PayRewardFromAccount::<(), AccountId>::rewards_account(params),
+				PayRewardFromAccount::<(), AccountId, LaneId>::rewards_account(params),
 		};
 		Currency::repatriate_reserved_named(
 			&ReserveId::get(),
