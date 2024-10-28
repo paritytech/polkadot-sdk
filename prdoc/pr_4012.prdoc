@@ -33,3 +33,5 @@ doc:
 crates:
   - name: sp-api
     bump: none
+  - name: sp-api-proc-macro
+    bump: none
