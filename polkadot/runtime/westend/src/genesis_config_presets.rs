@@ -23,6 +23,7 @@ use crate::{
 #[cfg(not(feature = "std"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
+use frame_support::build_struct_json_patch;
 use pallet_staking::{Forcing, StakerStatus};
 use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -170,7 +171,7 @@ fn westend_testnet_genesis(
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
@@ -192,7 +193,6 @@ fn westend_testnet_genesis(
 					)
 				})
 				.collect::<Vec<_>>(),
-			..Default::default()
 		},
 		staking: StakingConfig {
 			minimum_validator_count: 1,
@@ -204,19 +204,12 @@ fn westend_testnet_genesis(
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			force_era: Forcing::NotForcing,
 			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
 		},
-		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		sudo: SudoConfig { key: Some(root_key) },
 		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
-		registrar: RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
+	})
 }
 
 // staging_testnet
