@@ -858,9 +858,6 @@ pub mod pallet {
 				.saturating_add(T::SystemWeightInfo::validate_apply_authorized_upgrade()),
 			DispatchClass::Operational,
 		))]
-		// TODO TODO: error is ugly for this input
-		// #[pallet::authorize(|code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v|
-		// (v, Weight::zero())))]
 		#[pallet::authorize(|_source, code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v| (v, Weight::zero())))]
 		// weight of authorize is already included in the call weight. (As `ValidateUnsigned` also
 		// needs this weight).

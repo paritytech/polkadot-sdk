@@ -150,6 +150,7 @@ benchmarks! {
 		let (session_index, key_owner_proof, validator_id) = setup_validator_set::<T>(n);
 		let dispute_proof = setup_dispute::<T>(session_index, validator_id);
 	}: {
+		#[allow(deprecated)]
 		let result = Pallet::<T>::report_dispute_lost_unsigned(
 			origin,
 			Box::new(dispute_proof),

@@ -174,6 +174,8 @@ pub struct ParaPastCodeMeta<N> {
 	last_pruned: Option<N>,
 }
 
+// TODO TODO: refactor the code a bit
+
 /// The possible states of a para, to take into account delayed lifecycle changes.
 ///
 /// If the para is in a "transition state", it is expected that the parachain is

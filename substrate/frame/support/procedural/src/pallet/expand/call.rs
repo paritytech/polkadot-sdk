@@ -294,11 +294,15 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				let authorize_fn = &authorize_def.expr;
 				let attr_fn_getter = syn::Ident::new(
 					&format!("macro_inner_authorize_call_for_{}", method.name),
-					span,
+					authorize_fn.span(),
 				);
 
+		// TODO TODO: UI test for when the closure miss one argument like this
+		// #[pallet::authorize(|code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v|
+		// (v, Weight::zero())))]
+
 				// TODO TODO: maybe this is not hygienic
-				quote::quote_spanned!(span =>
+				quote::quote_spanned!(authorize_fn.span() =>
 
 					// Closure don't have a writable type. So we fix the authorize token stream to
 					// be any implementation of this generic F.
@@ -348,7 +352,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 	assert_eq!(authorize_fn_weight.len(), methods.len());
 
-	quote::quote_spanned!(span =>
+	quote::quote_spanned!(proc_macro2::Span::call_site() =>
 		#[doc(hidden)]
 		mod warnings {
 			#(
@@ -527,6 +531,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 									#frame_support::__private::sp_tracing::trace_span!(stringify!(#fn_name))
 								);
 								#maybe_allow_attrs
+								#[allow(deprecated)]
 								<#pallet_ident<#type_use_gen>>::#fn_name(origin, #( #args_name, )* )
 									.map(Into::into).map_err(Into::into)
 							},

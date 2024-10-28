@@ -583,9 +583,6 @@ pub trait Authorize {
 		source: TransactionSource,
 	) -> Option<Result<(ValidTransaction, Weight), TransactionValidityError>>;
 
-	// TODO TODO: it can be useful to have the argument in scope for the weight calculation instead
-	// of taking just an expression in the macro attribute.
-	// But they are already implicitly there, similar to weight
 	/// The weight of the authorization function.
 	fn weight_of_authorize(&self) -> Weight;
 }

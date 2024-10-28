@@ -220,6 +220,31 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// A call that is specially authorized.
+		/// Authorized call can be dispatched by anybody without requiring any signature or fee.
+		#[pallet::call_index(0)]
+		#[pallet::authorize(|
+			source: TransactionSource,
+			new_foo: u32,
+			_other_compact,
+		| -> Result<(ValidTransaction, Weight), TransactionValidityError> {
+			if new_foo == 42 {
+				Ok((ValidTransaction { priority: 0, requires: vec![], provides: vec![] }, 0))
+			} else {
+				Err(InvalidTransaction::Call.into())
+			}
+		})]
+		#[pallet::weight(T::WeightInfo::set_foo_benchmark())]
+		pub fn set_foo(
+			_: OriginFor<T>,
+			new_foo: u32,
+			#[pallet::compact] _other_compact: u128,
+		) -> DispatchResult {
+			Foo::<T>::set(Some(new_foo));
+
+			Ok(())
+		}
 	}
 
 	/// The event type. This exactly like a normal Rust enum.
@@ -298,20 +323,6 @@ pub mod pallet {
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		Staking,
-	}
-
-	/// Allows the pallet to validate some unsigned transaction. See
-	/// [`sp_runtime::traits::ValidateUnsigned`] for more info.
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-		fn validate_unsigned(_: TransactionSource, _: &Self::Call) -> TransactionValidity {
-			unimplemented!()
-		}
-
-		fn pre_dispatch(_: &Self::Call) -> Result<(), TransactionValidityError> {
-			unimplemented!()
-		}
 	}
 
 	/// Allows the pallet to provide some inherent. See [`frame_support::inherent::ProvideInherent`]
