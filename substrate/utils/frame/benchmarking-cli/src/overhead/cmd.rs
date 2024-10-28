@@ -35,7 +35,7 @@ use crate::{
 		HostInfoParams, WeightParams,
 	},
 };
-use clap::{ArgGroup, Args, Parser};
+use clap::{error::ErrorKind, ArgGroup, Args, CommandFactory, Parser};
 use codec::Encode;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use fake_runtime_api::RuntimeApi as FakeRuntimeApi;
@@ -77,10 +77,6 @@ const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::overhead";
 /// Benchmark the execution overhead per-block and per-extrinsic.
 #[derive(Debug, Parser)]
 #[clap(group(
-    ArgGroup::new("genesis_source")
-        .args(["chain", "runtime"])
-        .required(true)
-), group(
     ArgGroup::new("chain_source")
         .args(["chain"])
 	)
@@ -339,6 +335,20 @@ impl OverheadCmd {
 		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
 	}
 
+	pub fn check_args(&self, chain_spec: &Option<Box<dyn ChainSpec>>) {
+		if chain_spec.is_none() &&
+			self.params.runtime.is_none() &&
+			self.shared_params.chain.is_none()
+		{
+			let mut cmd = OverheadCmd::command();
+			cmd.error(
+				ErrorKind::MissingRequiredArgument,
+				"Provide either a runtime via `--runtime` or a chain spec via `--chain`",
+			)
+			.exit();
+		}
+	}
+
 	/// Run the benchmark overhead command.
 	pub fn run_with_extrinsic_builder_and_spec<Block, ExtraHF>(
 		&self,
@@ -351,6 +361,8 @@ impl OverheadCmd {
 		Block: BlockT<Extrinsic = OpaqueExtrinsic, Hash = H256>,
 		ExtraHF: HostFunctions,
 	{
+		self.check_args(&chain_spec);
+
 		let (state_handler, para_id) =
 			self.state_handler_from_cli::<(ParachainHostFunctions, ExtraHF)>(chain_spec)?;
 

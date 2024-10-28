@@ -26,6 +26,7 @@ use crate::{
 		genesis_state::{GenesisStateHandler, SpecGenesisSource, WARN_SPEC_GENESIS_CTOR},
 	},
 };
+use clap::{error::ErrorKind, CommandFactory};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,
@@ -235,7 +236,8 @@ impl PalletCmd {
 		Hasher: Hash,
 		ExtraHostFunctions: HostFunctions,
 	{
-		self.check_args()?;
+		self.check_args(&chain_spec);
+
 		let _d = self.execution.as_ref().map(|exec| {
 			// We print the error at the end, since there is often A LOT of output.
 			sp_core::defer::DeferGuard::new(move || {
@@ -905,36 +907,52 @@ impl PalletCmd {
 	}
 
 	/// Sanity check the CLI arguments.
-	fn check_args(&self) -> Result<()> {
+	fn check_args(&self, chain_spec: &Option<Box<dyn ChainSpec>>) {
 		if self.runtime.is_some() && self.shared_params.chain.is_some() {
 			unreachable!("Clap should not allow both `--runtime` and `--chain` to be provided.")
 		}
 
+		let abort_with_error = |error_kind: ErrorKind, msg: String| {
+			let mut cmd = PalletCmd::command();
+			cmd.error(error_kind, msg).exit();
+		};
+
+		if chain_spec.is_none() && self.runtime.is_none() && self.shared_params.chain.is_none() {
+			abort_with_error(
+				ErrorKind::MissingRequiredArgument,
+				"Provide either a runtime via `--runtime` or a chain spec via `--chain`"
+					.to_string(),
+			)
+		}
+
 		if let Some(output_path) = &self.output {
 			if !output_path.is_dir() && output_path.file_name().is_none() {
-				return Err(format!(
-					"Output path is neither a directory nor a file: {output_path:?}"
-				)
-				.into())
+				abort_with_error(
+					ErrorKind::InvalidValue,
+					format!("Output path is neither a directory nor a file: {output_path:?}"),
+				);
 			}
 		}
 
 		if let Some(header_file) = &self.header {
 			if !header_file.is_file() {
-				return Err(format!("Header file could not be found: {header_file:?}").into())
+				abort_with_error(
+					ErrorKind::InvalidValue,
+					format!("Header file could not be found: {header_file:?}"),
+				);
 			};
 		}
 
 		if let Some(handlebars_template_file) = &self.template {
 			if !handlebars_template_file.is_file() {
-				return Err(format!(
-					"Handlebars template file could not be found: {handlebars_template_file:?}"
-				)
-				.into())
+				abort_with_error(
+					ErrorKind::InvalidValue,
+					format!(
+						"Handlebars template file could not be found: {handlebars_template_file:?}"
+					),
+				);
 			};
 		}
-
-		Ok(())
 	}
 }
 
