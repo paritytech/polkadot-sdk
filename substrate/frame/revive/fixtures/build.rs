@@ -174,7 +174,7 @@ mod build {
 	fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result<()> {
 		for entry in entries {
 			post_process(
-				&build_dir.join("target/riscv32ema-unknown-none-elf/release").join(entry.name()),
+				&build_dir.join("target/riscv32emac-unknown-none-polkavm/release").join(entry.name()),
 				&out_dir.join(entry.out_filename()),
 			)?;
 		}
