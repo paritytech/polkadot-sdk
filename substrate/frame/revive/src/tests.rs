@@ -4545,7 +4545,7 @@ mod run_tests {
 				.build());
 
 			// code size of non contract accounts
-			assert_ok!(builder::call(tester_addr).data(([8u8; 20], 0 as u64).encode()).build());
+			assert_ok!(builder::call(tester_addr).data(([8u8; 20], 0u64).encode()).build());
 		});
 	}
 
