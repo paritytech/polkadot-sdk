@@ -193,6 +193,7 @@ where
 			listener.clone(),
 			Default::default(),
 			mempool_max_transactions_count,
+			ready_limits.total_bytes + future_limits.total_bytes,
 		));
 
 		let (dropped_stream_controller, dropped_stream) =
@@ -283,6 +284,7 @@ where
 			listener.clone(),
 			metrics.clone(),
 			TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER * (options.ready.count + options.future.count),
+			options.ready.total_bytes + options.future.total_bytes,
 		));
 
 		let (dropped_stream_controller, dropped_stream) =
