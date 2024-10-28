@@ -42,10 +42,9 @@ fn transfer_and_transact_in_same_xcm(
 	]
 	.into();
 	let asset_hub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
-	let Fungible(total_weth) = weth.fun else { unreachable!() };
 
 	// TODO(https://github.com/paritytech/polkadot-sdk/issues/6197): dry-run to get local fees, for now use hardcoded value.
-	let ah_fees_amount = 90_000_000_000; // current exact value 79_948_099_299
+	let ah_fees_amount = 90_000_000_000u128; // current exact value 79_948_099_299
 	let fees_for_ah: Asset = (weth.id.clone(), ah_fees_amount).into();
 
 	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
