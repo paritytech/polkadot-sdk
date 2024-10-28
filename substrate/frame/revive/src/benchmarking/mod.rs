@@ -349,10 +349,10 @@ mod benchmarks {
 		// value was removed from the caller
 		assert_eq!(
 			T::Currency::total_balance(&caller),
-			caller_funding::<T>()
-				- value - deposit
-				- code_deposit - mapping_deposit
-				- Pallet::<T>::min_balance(),
+			caller_funding::<T>() -
+				value - deposit -
+				code_deposit - mapping_deposit -
+				Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
