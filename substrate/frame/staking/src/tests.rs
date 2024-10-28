@@ -8012,7 +8012,7 @@ mod ledger_recovery {
 			assert_eq!(asset::staked::<Test>(&333), lock_333_before); // OK
 			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
 			assert!(Payee::<Test>::get(&333).is_some()); // OK
-												// however, ledger associated with its controller was killed.
+											 // however, ledger associated with its controller was killed.
 			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
 
 			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.
@@ -8349,7 +8349,6 @@ mod getters {
 		Forcing, Nominations, Nominators, Perbill, SlashRewardFraction, SlashingSpans,
 		ValidatorPrefs, Validators,
 	};
-	use frame_support::assert_ok;
 	use sp_staking::{EraIndex, Exposure, IndividualExposure, Page, SessionIndex};
 
 	#[test]
