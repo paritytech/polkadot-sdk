@@ -48,7 +48,7 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// We use a fixed value for the gas price.
 /// This let us calculate the gas estimate for a transaction with the formula:
 /// `estimate_gas = substrate_fee / gas_price`.
-pub const GAS_PRICE: u32 = 1_000u32;
+pub const GAS_PRICE: u32 = 1u32;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
@@ -290,7 +290,7 @@ pub trait EthExtra {
 		})?;
 
 		let signer =
-			<Self::Config as crate::Config>::AddressMapper::to_account_id_contract(&signer);
+			<Self::Config as crate::Config>::AddressMapper::to_fallback_account_id(&signer);
 		let TransactionLegacyUnsigned { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			tx.transaction_legacy_unsigned;
 
@@ -419,7 +419,7 @@ mod test {
 		/// Get the [`AccountId`] of the account.
 		pub fn account_id(&self) -> AccountIdOf<Test> {
 			let address = self.address();
-			<Test as crate::Config>::AddressMapper::to_account_id_contract(&address)
+			<Test as crate::Config>::AddressMapper::to_fallback_account_id(&address)
 		}
 
 		/// Get the [`H160`] address of the account.
