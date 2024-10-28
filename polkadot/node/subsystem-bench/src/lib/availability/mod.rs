@@ -391,7 +391,7 @@ pub async fn benchmark_availability_write(
 				candidate_hash: backed_candidate.hash(),
 				n_validators: config.n_validators as u32,
 				available_data,
-				expected_erasure_root: backed_candidate.descriptor().erasure_root,
+				expected_erasure_root: backed_candidate.descriptor().erasure_root(),
 				tx,
 				core_index: CoreIndex(core_index as u32),
 				node_features: node_features_with_chunk_mapping_enabled(),
