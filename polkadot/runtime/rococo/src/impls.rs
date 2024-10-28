@@ -21,7 +21,7 @@ use core::marker::PhantomData;
 use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
 use polkadot_primitives::Balance;
-use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
+use polkadot_runtime_common::identity_migrator::OnReapIdentity;
 use rococo_runtime_constants::currency::*;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
@@ -88,10 +88,7 @@ where
 	AccountId: Into<[u8; 32]> + Clone + Encode,
 {
 	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult {
-		use crate::{
-			impls::IdentityMigratorCalls::PokeDeposit,
-			weights::polkadot_runtime_common_identity_migrator::WeightInfo as MigratorWeights,
-		};
+		use crate::impls::IdentityMigratorCalls::PokeDeposit;
 
 		let total_to_send = Self::calculate_remote_deposit(fields, subs);
 
