@@ -525,7 +525,7 @@ enum CallType {
 	/// Execute another instantiated contract
 	Call { callee_ptr: u32, value_ptr: u32, deposit_ptr: u32, weight: Weight },
 	/// Execute deployed code in the context (storage, account ID, value) of the caller contract
-	DelegateCall { address_ptr: u32, weight: Weight },
+	DelegateCall { address_ptr: u32, deposit_ptr: u32, weight: Weight },
 }
 
 impl CallType {
@@ -1021,14 +1021,19 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					read_only,
 				)
 			},
-			CallType::DelegateCall { address_ptr, weight } => {
+			CallType::DelegateCall { address_ptr, deposit_ptr, weight } => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
 
 				let mut address = H160::zero();
 				memory.read_into_buf(address_ptr, address.as_bytes_mut())?;
-				self.ext.delegate_call(weight, address, input_data)
+				let deposit_limit = if deposit_ptr == SENTINEL {
+					U256::zero()
+				} else {
+					memory.read_u256(deposit_ptr)?
+				};
+				self.ext.delegate_call(weight, deposit_limit, address, input_data)
 			},
 		};
 
@@ -1289,6 +1294,7 @@ pub mod env {
 		address_ptr: u32,
 		ref_time_limit: u64,
 		proof_size_limit: u64,
+		deposit_ptr: u32,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -1299,6 +1305,7 @@ pub mod env {
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::DelegateCall {
 				address_ptr,
+				deposit_ptr,
 				weight: Weight::from_parts(ref_time_limit, proof_size_limit),
 			},
 			input_data_ptr,

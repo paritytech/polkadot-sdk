@@ -213,6 +213,7 @@ pub trait Ext: sealing::Sealed {
 	fn delegate_call(
 		&mut self,
 		gas_limit: Weight,
+		deposit_limit: U256,
 		address: H160,
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError>;
@@ -1402,6 +1403,7 @@ where
 	fn delegate_call(
 		&mut self,
 		gas_limit: Weight,
+		deposit_limit: U256,
 		address: H160,
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
@@ -1423,7 +1425,7 @@ where
 			},
 			value,
 			gas_limit,
-			BalanceOf::<T>::zero(),
+			deposit_limit.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			self.is_read_only(),
 		)?;
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
@@ -2072,7 +2074,8 @@ mod tests {
 
 		let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
 			assert_eq!(ctx.ext.value_transferred(), U256::from(value));
-			let _ = ctx.ext.delegate_call(Weight::zero(), CHARLIE_ADDR, Vec::new())?;
+			let _ =
+				ctx.ext.delegate_call(Weight::zero(), U256::zero(), CHARLIE_ADDR, Vec::new())?;
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
@@ -2106,7 +2109,8 @@ mod tests {
 		});
 
 		let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
-			let _ = ctx.ext.delegate_call(Weight::zero(), CHARLIE_ADDR, Vec::new())?;
+			let _ =
+				ctx.ext.delegate_call(Weight::zero(), U256::zero(), CHARLIE_ADDR, Vec::new())?;
 			Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 		});
 
@@ -4479,7 +4483,12 @@ mod tests {
 			// An unknown code hash to fail the delegate_call on the first condition.
 			*ctx.ext.last_frame_output_mut() = output_revert();
 			assert_eq!(
-				ctx.ext.delegate_call(Weight::zero(), H160([0xff; 20]), Default::default()),
+				ctx.ext.delegate_call(
+					Weight::zero(),
+					U256::zero(),
+					H160([0xff; 20]),
+					Default::default()
+				),
 				Err(Error::<Test>::CodeNotFound.into())
 			);
 			assert_eq!(ctx.ext.last_frame_output(), &Default::default());
@@ -4598,11 +4607,9 @@ mod tests {
 
 			// In a delegate call, we should witness the caller immutable data
 			assert_eq!(
-				ctx.ext.delegate_call(Weight::zero(), CHARLIE_ADDR, Vec::new()).map(|_| ctx
-					.ext
-					.last_frame_output()
-					.data
-					.clone()),
+				ctx.ext
+					.delegate_call(Weight::zero(), U256::zero(), CHARLIE_ADDR, Vec::new())
+					.map(|_| ctx.ext.last_frame_output().data.clone()),
 				Ok(vec![1])
 			);
 

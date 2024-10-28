@@ -300,11 +300,12 @@ impl HostFn for HostFnImpl {
 		address: &[u8; 20],
 		ref_time_limit: u64,
 		proof_size_limit: u64,
+		deposit_limit: Option<&[u8; 32]>,
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-
+		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
 		#[repr(packed)]
 		#[allow(dead_code)]
 		struct Args {
@@ -312,6 +313,7 @@ impl HostFn for HostFnImpl {
 			address: *const u8,
 			ref_time_limit: u64,
 			proof_size_limit: u64,
+			deposit_limit: *const u8,
 			input: *const u8,
 			input_len: u32,
 			output: *mut u8,
@@ -322,6 +324,7 @@ impl HostFn for HostFnImpl {
 			address: address.as_ptr(),
 			ref_time_limit,
 			proof_size_limit,
+			deposit_limit: deposit_limit_ptr,
 			input: input.as_ptr(),
 			input_len: input.len() as _,
 			output: output_ptr,
