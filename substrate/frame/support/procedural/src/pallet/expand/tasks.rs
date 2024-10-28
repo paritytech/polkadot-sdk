@@ -20,21 +20,25 @@
 //! Home of the expansion code for the Tasks API
 
 use crate::pallet::{parse::tasks::*, Def};
-use derive_syn_parse::Parse;
 use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse_quote, spanned::Spanned, ItemEnum, ItemImpl};
+use syn::{parse_quote_spanned, spanned::Spanned};
 
 impl TaskEnumDef {
 	/// Since we optionally allow users to manually specify a `#[pallet::task_enum]`, in the
 	/// event they _don't_ specify one (which is actually the most common behavior) we have to
 	/// generate one based on the existing [`TasksDef`]. This method performs that generation.
-	pub fn generate(
-		tasks: &TasksDef,
-		type_decl_bounded_generics: TokenStream2,
-		type_use_generics: TokenStream2,
-	) -> Self {
+	pub fn generate(tasks: &TasksDef, def: &Def) -> Self {
+		// We use the span of the attribute to indicate that the error comes from code generated
+		// for the specific section, otherwise the item impl.
+		let span = tasks
+			.tasks_attr
+			.as_ref()
+			.map_or_else(|| tasks.item_impl.span(), |attr| attr.span());
+
+		let type_decl_bounded_generics = def.type_decl_bounded_generics(span);
+
 		let variants = if tasks.tasks_attr.is_some() {
 			tasks
 				.tasks
@@ -58,7 +62,8 @@ impl TaskEnumDef {
 		} else {
 			Vec::new()
 		};
-		let mut task_enum_def: TaskEnumDef = parse_quote! {
+
+		parse_quote_spanned! { span =>
 			/// Auto-generated enum that encapsulates all tasks defined by this pallet.
 			///
 			/// Conceptually similar to the [`Call`] enum, but for tasks. This is only
@@ -69,33 +74,32 @@ impl TaskEnumDef {
 					#variants,
 				)*
 			}
-		};
-		task_enum_def.type_use_generics = type_use_generics;
-		task_enum_def
+		}
 	}
 }
 
-impl ToTokens for TaskEnumDef {
-	fn to_tokens(&self, tokens: &mut TokenStream2) {
-		let item_enum = &self.item_enum;
-		let ident = &item_enum.ident;
-		let vis = &item_enum.vis;
-		let attrs = &item_enum.attrs;
-		let generics = &item_enum.generics;
-		let variants = &item_enum.variants;
-		let scrate = &self.scrate;
-		let type_use_generics = &self.type_use_generics;
-		if self.attr.is_some() {
+impl TaskEnumDef {
+	fn expand_to_tokens(&self, def: &Def) -> TokenStream2 {
+		if let Some(attr) = &self.attr {
+			let ident = &self.item_enum.ident;
+			let vis = &self.item_enum.vis;
+			let attrs = &self.item_enum.attrs;
+			let generics = &self.item_enum.generics;
+			let variants = &self.item_enum.variants;
+			let frame_support = &def.frame_support;
+			let type_use_generics = &def.type_use_generics(attr.span());
+			let type_impl_generics = &def.type_impl_generics(attr.span());
+
 			// `item_enum` is short-hand / generated enum
-			tokens.extend(quote! {
+			quote! {
 				#(#attrs)*
 				#[derive(
-					#scrate::CloneNoBound,
-					#scrate::EqNoBound,
-					#scrate::PartialEqNoBound,
-					#scrate::pallet_prelude::Encode,
-					#scrate::pallet_prelude::Decode,
-					#scrate::pallet_prelude::TypeInfo,
+					#frame_support::CloneNoBound,
+					#frame_support::EqNoBound,
+					#frame_support::PartialEqNoBound,
+					#frame_support::pallet_prelude::Encode,
+					#frame_support::pallet_prelude::Decode,
+					#frame_support::pallet_prelude::TypeInfo,
 				)]
 				#[codec(encode_bound())]
 				#[codec(decode_bound())]
@@ -104,32 +108,25 @@ impl ToTokens for TaskEnumDef {
 					#variants
 					#[doc(hidden)]
 					#[codec(skip)]
-					__Ignore(core::marker::PhantomData<T>, #scrate::Never),
+					__Ignore(core::marker::PhantomData<(#type_use_generics)>, #frame_support::Never),
 				}
 
-				impl<T: Config> core::fmt::Debug for #ident<#type_use_generics> {
+				impl<#type_impl_generics> core::fmt::Debug for #ident<#type_use_generics> {
 					fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 						f.debug_struct(stringify!(#ident)).field("value", self).finish()
 					}
 				}
-			});
+			}
 		} else {
 			// `item_enum` is a manually specified enum (no attribute)
-			tokens.extend(item_enum.to_token_stream());
+			self.item_enum.to_token_stream()
 		}
 	}
 }
 
-/// Represents an already-expanded [`TasksDef`].
-#[derive(Parse)]
-pub struct ExpandedTasksDef {
-	pub task_item_impl: ItemImpl,
-	pub task_trait_impl: ItemImpl,
-}
-
-impl ToTokens for TasksDef {
-	fn to_tokens(&self, tokens: &mut TokenStream2) {
-		let scrate = &self.scrate;
+impl TasksDef {
+	fn expand_to_tokens(&self, def: &Def) -> TokenStream2 {
+		let frame_support = &def.frame_support;
 		let enum_ident = syn::Ident::new("Task", self.enum_ident.span());
 		let enum_arguments = &self.enum_arguments;
 		let enum_use = quote!(#enum_ident #enum_arguments);
@@ -160,21 +157,21 @@ impl ToTokens for TasksDef {
 		let task_arg_names = self.tasks.iter().map(|task| &task.arg_names).collect::<Vec<_>>();
 
 		let impl_generics = &self.item_impl.generics;
-		tokens.extend(quote! {
+		quote! {
 			impl #impl_generics #enum_use
 			{
 				#(#task_fn_impls)*
 			}
 
-			impl #impl_generics #scrate::traits::Task for #enum_use
+			impl #impl_generics #frame_support::traits::Task for #enum_use
 			{
-				type Enumeration = #scrate::__private::IntoIter<#enum_use>;
+				type Enumeration = #frame_support::__private::IntoIter<#enum_use>;
 
 				fn iter() -> Self::Enumeration {
-					let mut all_tasks = #scrate::__private::vec![];
+					let mut all_tasks = #frame_support::__private::vec![];
 					#(all_tasks
 						.extend(#task_iters.map(|(#(#task_arg_names),*)| #enum_ident::#task_fn_idents { #(#task_arg_names: #task_arg_names.clone()),* })
-						.collect::<#scrate::__private::Vec<_>>());
+						.collect::<#frame_support::__private::Vec<_>>());
 					)*
 					all_tasks.into_iter()
 				}
@@ -193,7 +190,7 @@ impl ToTokens for TasksDef {
 					}
 				}
 
-				fn run(&self) -> Result<(), #scrate::pallet_prelude::DispatchError> {
+				fn run(&self) -> Result<(), #frame_support::pallet_prelude::DispatchError> {
 					match self.clone() {
 						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => {
 							<#enum_use>::#task_fn_names(#( #task_arg_names, )* )
@@ -203,64 +200,32 @@ impl ToTokens for TasksDef {
 				}
 
 				#[allow(unused_variables)]
-				fn weight(&self) -> #scrate::pallet_prelude::Weight {
+				fn weight(&self) -> #frame_support::pallet_prelude::Weight {
 					match self.clone() {
 						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => #task_weights,)*
 						Task::__Ignore(_, _) => unreachable!(),
 					}
 				}
 			}
-		});
-	}
-}
-
-/// Expands the [`TasksDef`] in the enclosing [`Def`], if present, and returns its tokens.
-///
-/// This modifies the underlying [`Def`] in addition to returning any tokens that were added.
-pub fn expand_tasks_impl(def: &mut Def) -> TokenStream2 {
-	let Some(tasks) = &mut def.tasks else { return quote!() };
-	let ExpandedTasksDef { task_item_impl, task_trait_impl } = parse_quote!(#tasks);
-	quote! {
-		#task_item_impl
-		#task_trait_impl
-	}
-}
-
-/// Represents a fully-expanded [`TaskEnumDef`].
-#[derive(Parse)]
-pub struct ExpandedTaskEnum {
-	pub item_enum: ItemEnum,
-	pub debug_impl: ItemImpl,
-}
-
-/// Modifies a [`Def`] to expand the underlying [`TaskEnumDef`] if present, and also returns
-/// its tokens. A blank [`TokenStream2`] is returned if no [`TaskEnumDef`] has been generated
-/// or defined.
-pub fn expand_task_enum(def: &mut Def) -> TokenStream2 {
-	let Some(task_enum) = &mut def.task_enum else { return quote!() };
-	let ExpandedTaskEnum { item_enum, debug_impl } = parse_quote!(#task_enum);
-	quote! {
-		#item_enum
-		#debug_impl
-	}
-}
-
-/// Modifies a [`Def`] to expand the underlying [`TasksDef`] and also generate a
-/// [`TaskEnumDef`] if applicable. The tokens for these items are returned if they are created.
-pub fn expand_tasks(def: &mut Def) -> TokenStream2 {
-	if let Some(tasks_def) = &def.tasks {
-		if def.task_enum.is_none() {
-			def.task_enum = Some(TaskEnumDef::generate(
-				&tasks_def,
-				def.type_decl_bounded_generics(tasks_def.item_impl.span()),
-				def.type_use_generics(tasks_def.item_impl.span()),
-			));
 		}
 	}
-	let tasks_extra_output = expand_tasks_impl(def);
-	let task_enum_extra_output = expand_task_enum(def);
+}
+
+/// Generate code related to tasks.
+pub fn expand_tasks(def: &Def) -> TokenStream2 {
+	let Some(tasks_def) = &def.tasks else {
+		return quote!();
+	};
+
+	let default_task_enum = TaskEnumDef::generate(&tasks_def, def);
+
+	let task_enum = def.task_enum.as_ref().unwrap_or_else(|| &default_task_enum);
+
+	let tasks_expansion = tasks_def.expand_to_tokens(def);
+	let task_enum_expansion = task_enum.expand_to_tokens(def);
+
 	quote! {
-		#tasks_extra_output
-		#task_enum_extra_output
+		#tasks_expansion
+		#task_enum_expansion
 	}
 }

@@ -103,8 +103,8 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-/// The signed extensions that are added to the runtime.
-type SignedExtra = (
+/// The transaction extensions that are added to the runtime.
+type TxExtension = (
 	// Checks that the sender is not the zero address.
 	frame_system::CheckNonZeroSender<Runtime>,
 	// Checks that the runtime version is correct.
@@ -207,7 +207,7 @@ impl pallet_transaction_payment::Config for Runtime {
 // Implements the types required for the template pallet.
 impl pallet_minimal_template::Config for Runtime {}
 
-type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
+type Block = frame::runtime::types_common::BlockOf<Runtime, TxExtension>;
 type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =
@@ -324,7 +324,7 @@ impl_runtime_apis! {
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			self::genesis_config_presets::preset_names()
+			crate::genesis_config_presets::preset_names()
 		}
 	}
 }
