@@ -70,7 +70,7 @@ pub use misc::{PreimageProvider, PreimageRecipient};
 pub use misc::{DEFENSIVE_OP_INTERNAL_ERROR, DEFENSIVE_OP_PUBLIC_ERROR};
 
 mod stored_map;
-pub use stored_map::{StorageMapShim, StoredMap};
+pub use stored_map::{StorageMapShim, StoredMap, KeyIterableStoredMap};
 mod randomness;
 pub use randomness::Randomness;
 

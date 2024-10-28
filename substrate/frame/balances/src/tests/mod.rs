@@ -27,7 +27,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced, StorageMapShim,
-		StoredMap, VariantCount, VariantCountOf, WhitelistedStorageKeys,
+		StoredMap, KeyIterableStoredMap, VariantCount, VariantCountOf, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},
 };
@@ -213,6 +213,17 @@ type BalancesAccountStore = StorageMapShim<super::Account<Test>, u64, super::Acc
 type SystemAccountStore = frame_system::Pallet<Test>;
 
 pub struct TestAccountStore;
+impl KeyIterableStoredMap<u64, super::AccountData<u64>> for TestAccountStore {
+	type KeyIterator = frame_support::storage::KeyPrefixIterator<u64>;
+	
+	fn iter_keys_from(from: Vec<u8>) -> Self::KeyIterator {
+		if UseSystem::get() {
+			<SystemAccountStore as KeyIterableStoredMap<_, _>>::iter_keys_from(from)
+		} else {
+			<BalancesAccountStore as KeyIterableStoredMap<_, _>>::iter_keys_from(from)
+		}
+	}
+}
 impl StoredMap<u64, super::AccountData<u64>> for TestAccountStore {
 	fn get(k: &u64) -> super::AccountData<u64> {
 		if UseSystem::get() {

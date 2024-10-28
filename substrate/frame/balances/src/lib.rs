@@ -162,10 +162,11 @@ use frame_support::{
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
-		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap,
+		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap, KeyIterableStoredMap,
 	},
 	BoundedSlice, WeakBoundedVec,
 };
+use frame_support::weights::constants::WEIGHT_REF_TIME_PER_MILLIS;
 use frame_system as system;
 pub use impl_currency::{NegativeImbalance, PositiveImbalance};
 use scale_info::TypeInfo;
@@ -283,7 +284,7 @@ pub mod pallet {
 
 		/// The means of storing the balances of an account.
 		#[pallet::no_default]
-		type AccountStore: StoredMap<Self::AccountId, AccountData<Self::Balance>>;
+		type AccountStore: KeyIterableStoredMap<Self::AccountId, AccountData<Self::Balance>>;
 
 		/// The ID type for reserves.
 		///
@@ -373,6 +374,10 @@ pub mod pallet {
 		Thawed { who: T::AccountId, amount: T::Balance },
 		/// The `TotalIssuance` was forcefully changed.
 		TotalIssuanceForced { old: T::Balance, new: T::Balance },
+
+		// AHM events
+		MigratedEdOut { who: T::AccountId, amount: T::Balance },
+		MigratedEdIn { who : T::AccountId, amount: T::Balance },
 	}
 
 	#[pallet::error]
@@ -816,9 +821,96 @@ pub mod pallet {
 			)?;
 			Ok(())
 		}
+
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::burn_keep_alive())] // TODO
+		pub fn migrate_ed_in(
+			origin: OriginFor<T>,
+			eds: Vec<(T::AccountId, T::Balance)>,
+		) -> DispatchResult {
+			// TODO ensure origin
+
+			for ed in eds {
+				let who = ed.0;
+				let amount = ed.1;
+
+				let _ = Self::deposit_creating(&who, amount);
+				Self::deposit_event(Event::MigratedEdIn { who, amount });
+			}
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Migrates the untouchable balance. This endowes the account on the AH if it does not exist yet.
+		///
+		/// We assume that Relay.ED >= AssetHub.ED
+		pub fn migrate_ed(next_key: &mut Option<Vec<u8>>, batch_size: u32) -> Option<(Call<T, I>, Weight)> {
+			let mut batch = Vec::new();
+			let ah_ed = Self::ed() / 100u32.into(); // FAIL-CI config
+
+			loop {
+				if batch.len() >= batch_size as usize {
+					break;
+				}
+				let Some(who) = T::AccountStore::iter_keys_from(next_key.clone().unwrap_or_default()).next() else {
+					*next_key = None;
+					break;
+				};
+				*next_key = Some(who.clone().encode());
+				let mut account = T::AccountStore::get(&who);
+				if account == Default::default() {
+					defensive!("AccountStore corrupted");
+					continue;
+				}
+				if account.flags.is_ahm_migrated() {
+					log::warn!(
+						target: LOG_TARGET,
+						"account already migrated",
+					);
+					continue;
+				}
+
+				// This should have already been done - just in case.
+				Self::ensure_upgraded(&who);
+
+				let total = account.free.saturating_add(account.reserved);
+				let forbidden = Self::ed().saturating_add(account.reserved);
+				let teleportable = total.saturating_sub(forbidden);
+
+				if teleportable < ah_ed {
+					log::warn!(
+						target: LOG_TARGET,
+						"teleporting reserved balance",
+					);
+					if account.reserved < ah_ed {
+						log::warn!(
+							target: LOG_TARGET,
+							"minting free balance to cover the ED",
+						);
+					}
+					account.reserved = account.reserved.saturating_sub(ah_ed);
+				} else {
+					account.free = account.free.saturating_sub(ah_ed);
+				}
+				account.flags.set_ahm_migrated();
+
+				// Write back
+				let _ = T::AccountStore::insert(&who, account);
+	
+				batch.push((who.clone(), ah_ed));
+				Self::deposit_event(Event::MigratedEdOut { who, amount: ah_ed });
+			}
+	
+			if batch.is_empty() {
+				return None;
+			}
+	
+			let call = Call::<T, I>::migrate_ed_in { eds: batch };
+			Some((call, Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS, 10000))) // FAIL-CI
+		}
+
 		fn ed() -> T::Balance {
 			T::ExistentialDeposit::get()
 		}

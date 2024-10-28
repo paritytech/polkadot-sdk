@@ -25,12 +25,16 @@ mod mock;
 mod tests;
 pub mod weights;
 
+use frame_support::pallet_prelude::Weight;
 use codec::Codec;
+use frame_support::traits::DefensiveResult;
+use frame_support::traits::Defensive;
 use frame_support::traits::{BalanceStatus::Reserved, Currency, ReservableCurrency};
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
 };
+use frame_support::weights::constants::WEIGHT_REF_TIME_PER_MILLIS;
 use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
@@ -230,6 +234,25 @@ pub mod pallet {
 			Self::deposit_event(Event::IndexFrozen { index, who });
 			Ok(())
 		}
+
+		#[pallet::call_index(5)]
+		#[pallet::weight(Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS, 10_000))]
+		pub fn migrate_in_index(origin: OriginFor<T>, batch: Vec<(T::AccountIndex, T::AccountId, BalanceOf<T>, bool)>) -> DispatchResult {
+			//ensure_root(origin)?; // FAIL-CI
+
+			for (index, who, deposit, permanent) in batch {
+				if let Some((who_ah, _, _)) = Accounts::<T>::get(index) {
+					Self::deposit_event(Event::IndexMigrationConflict { index, who_relay: who.clone(), who_ah });
+					continue;
+				}
+
+				Accounts::<T>::insert(index, (who.clone(), deposit, permanent));
+				let reserve_ok = T::Currency::reserve(&who, deposit).defensive().is_ok();
+				Self::deposit_event(Event::IndexMigratedIn { index, reserve_ok });
+			}
+
+			Ok(())
+		}
 	}
 
 	#[pallet::event]
@@ -241,6 +264,10 @@ pub mod pallet {
 		IndexFreed { index: T::AccountIndex },
 		/// A account index has been frozen to its current account ID.
 		IndexFrozen { index: T::AccountIndex, who: T::AccountId },
+
+		IndexMigratedOut { index: T::AccountIndex },
+		IndexMigrationConflict { index: T::AccountIndex, who_relay: T::AccountId, who_ah: T::AccountId },
+		IndexMigratedIn { index: T::AccountIndex, reserve_ok: bool },
 	}
 
 	#[pallet::error]
@@ -279,7 +306,34 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	// PUBLIC IMMUTABLES
+	// Must be run transactional.
+	pub fn migrate_next(batch_size: u32) -> Option<(Call<T>, Weight)> {
+		let mut batch = Vec::new();
+
+		loop {
+			if batch.len() >= batch_size as usize {
+				break;
+			}
+			let Some(next) = Accounts::<T>::iter().next() else {
+				break;
+			};
+			let (index, (who, deposit, permanent)) = next;
+
+			// Remove from the relay storage:
+			Accounts::<T>::remove(index);
+			T::Currency::unreserve(&who, deposit);
+
+			batch.push((index, who, deposit, permanent));
+			Self::deposit_event(Event::IndexMigratedOut { index });
+		}
+
+		if batch.is_empty() {
+			return None;
+		}
+
+		let call = Call::<T>::migrate_in_index { batch };
+		Some((call, Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS, 10000))) // FAIL-CI
+	}
 
 	/// Lookup an T::AccountIndex to get an Id, if there's one there.
 	pub fn lookup_index(index: T::AccountIndex) -> Option<T::AccountId> {

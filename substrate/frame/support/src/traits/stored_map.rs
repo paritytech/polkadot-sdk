@@ -21,6 +21,16 @@ use crate::storage::StorageMap;
 use codec::FullCodec;
 use sp_runtime::DispatchError;
 
+pub trait KeyIterableStoredMap<K, T: Default>: StoredMap<K, T> {
+	type KeyIterator: Iterator<Item = K>;
+	
+	fn iter_keys() -> Self::KeyIterator {
+		Self::iter_keys_from(Vec::new())
+	}
+
+	fn iter_keys_from(starting_raw_key: Vec<u8>) -> Self::KeyIterator;
+}
+
 /// An abstraction of a value stored within storage, but possibly as part of a larger composite
 /// item.
 pub trait StoredMap<K, T: Default> {
@@ -82,6 +92,15 @@ pub trait StoredMap<K, T: Default> {
 /// where previously it did exist (though may have been in a default state). This works well with
 /// system module's `CallOnCreatedAccount` and `CallKillAccount`.
 pub struct StorageMapShim<S, K, T>(core::marker::PhantomData<(S, K, T)>);
+
+impl<S: crate::IterableStorageMap<K, T, Query = T>, K: FullCodec, T: FullCodec + Default> KeyIterableStoredMap<K, T> for StorageMapShim<S, K, T> {
+	type KeyIterator = S::KeyIterator;
+
+	fn iter_keys_from(starting_raw_key: Vec<u8>) -> Self::KeyIterator {
+		S::iter_keys_from(starting_raw_key)
+	}
+}
+
 impl<S: StorageMap<K, T, Query = T>, K: FullCodec, T: FullCodec + Default> StoredMap<K, T>
 	for StorageMapShim<S, K, T>
 {

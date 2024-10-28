@@ -136,7 +136,7 @@ use frame_support::{
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
 		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
-		StoredMap, TypedGet,
+		StoredMap, KeyIterableStoredMap, TypedGet,
 	},
 	Parameter,
 };
@@ -2221,6 +2221,14 @@ impl<T: Config> StoredMap<T::AccountId, T::AccountData> for Pallet<T> {
 			Account::<T>::remove(k)
 		}
 		Ok(result)
+	}
+}
+
+impl<T: Config> KeyIterableStoredMap<T::AccountId, T::AccountData> for Pallet<T> {
+	type KeyIterator = frame_support::storage::KeyPrefixIterator<T::AccountId>;
+
+	fn iter_keys_from(from: Vec<u8>) -> Self::KeyIterator {
+		Account::<T>::iter_keys_from(from)
 	}
 }
 
