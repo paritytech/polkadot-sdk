@@ -304,13 +304,12 @@ impl TryFrom<OldResponse> for Response {
 		Ok(match old {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) =>
-				Self::ExecutionResult(
-					result
-						.map(|(num, old_error)| (num, old_error.try_into()))
-						.map(|(num, result)| result.map(|inner| (num, inner)))
-						.transpose()?
-				),
+			ExecutionResult(result) => Self::ExecutionResult(
+				result
+					.map(|(num, old_error)| (num, old_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()?,
+			),
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
 				let inner = pallet_info
@@ -1139,8 +1138,7 @@ impl<Call> Instruction<Call> {
 			HrmpChannelAccepted { recipient } => HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, call } =>
-				Transact { origin_kind, call: call.into() },
+			Transact { origin_kind, call } => Transact { origin_kind, call: call.into() },
 			ReportError(response_info) => ReportError(response_info),
 			DepositAsset { assets, beneficiary } => DepositAsset { assets, beneficiary },
 			DepositReserveAsset { assets, dest, xcm } => DepositReserveAsset { assets, dest, xcm },
@@ -1206,8 +1204,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			TransferAsset { assets, beneficiary } => W::transfer_asset(assets, beneficiary),
 			TransferReserveAsset { assets, dest, xcm } =>
 				W::transfer_reserve_asset(&assets, dest, xcm),
-			Transact { origin_kind, call } =>
-				W::transact(origin_kind, call),
+			Transact { origin_kind, call } => W::transact(origin_kind, call),
 			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
 				W::hrmp_new_channel_open_request(sender, max_message_size, max_capacity),
 			HrmpChannelAccepted { recipient } => W::hrmp_channel_accepted(recipient),

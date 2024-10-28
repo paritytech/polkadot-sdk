@@ -18,7 +18,10 @@
 
 use codec::{Decode, FullCodec, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
-use frame_support::{dispatch::GetDispatchInfo, traits::{ProcessMessage, ProcessMessageError}};
+use frame_support::{
+	dispatch::GetDispatchInfo,
+	traits::{ProcessMessage, ProcessMessageError},
+};
 use scale_info::TypeInfo;
 use sp_weights::{Weight, WeightMeter};
 use xcm::prelude::*;

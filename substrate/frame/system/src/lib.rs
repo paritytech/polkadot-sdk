@@ -130,8 +130,8 @@ use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
-		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
-		GetDispatchInfo,
+		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PerDispatchClass,
+		PostDispatchInfo,
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	migrations::MultiStepMigrator,

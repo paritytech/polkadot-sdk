@@ -53,10 +53,7 @@ fn transacting_should_respect_max_weight_requirement() {
 		weight_limit,
 		Weight::zero(),
 	);
-	assert_eq!(
-		r,
-		Outcome::Complete { used: Weight::from_parts(60, 60) }
-	);
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(60, 60) });
 }
 
 #[test]

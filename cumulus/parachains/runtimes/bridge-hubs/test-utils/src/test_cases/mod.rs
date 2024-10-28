@@ -129,10 +129,8 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 		});
 
 		// execute XCM with Transacts to `initialize bridge` as governance does
-		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
-			initialize_call.encode(),
-		)
-		.ensure_complete());
+		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(initialize_call.encode(),)
+			.ensure_complete());
 
 		// check mode after
 		assert_eq!(

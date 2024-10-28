@@ -157,10 +157,7 @@ where
 					.into(),
 			},
 			// Poke the deposit to reserve the appropriate amount on the parachain.
-			Transact {
-				origin_kind: OriginKind::Superuser,
-				call: poke.encode().into(),
-			},
+			Transact { origin_kind: OriginKind::Superuser, call: poke.encode().into() },
 		]);
 
 		// send

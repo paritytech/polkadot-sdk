@@ -73,10 +73,8 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 				});
 
 			// execute XCM with Transact to `set_storage` as governance does
-			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
-				set_storage_call,
-			)
-			.ensure_complete());
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(set_storage_call,)
+				.ensure_complete());
 
 			// check delivery reward constant after (stored)
 			assert_eq!(StorageConstant::get(), new_storage_constant_value);
@@ -122,10 +120,9 @@ pub fn set_storage_keys_by_governance_works<Runtime>(
 		});
 
 		// execute XCM with Transact to `set_storage` as governance does
-		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
-			kill_storage_call,
-		)
-		.ensure_complete());
+		assert_ok!(
+			RuntimeHelper::<Runtime>::execute_as_governance(kill_storage_call,).ensure_complete()
+		);
 	});
 	runtime.execute_with(|| {
 		assert_storage();
