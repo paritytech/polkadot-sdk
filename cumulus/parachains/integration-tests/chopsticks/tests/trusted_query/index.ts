@@ -4,7 +4,6 @@ import { Enum, createClient } from "polkadot-api";
 import { getWsProvider } from "polkadot-api/ws-provider/web";
 import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
 
-// Initialize client and dotApi globally
 let client = createClient(
     withPolkadotSdkCompat(
         getWsProvider("ws://localhost:8001")
@@ -12,10 +11,9 @@ let client = createClient(
 );
 let dotApi = client.getTypedApi(wnd);
 
-// Define test cases using a table-driven approach
 const testCases = [
   {
-    description: 'Test with parachain ID 1000, fungibility 1, want true',
+    description: 'Test with trusted location',
     asset: Enum('V4', {
       id: {
         parents: 0,
@@ -30,7 +28,7 @@ const testCases = [
     want: true
   },
   {
-    description: 'Test with parachain ID 2000, fungibility 2, want false',
+    description: 'Test with untrusted location',
     asset: Enum('V4', {
       id: {
         parents: 0,
@@ -44,18 +42,13 @@ const testCases = [
     }),
     want: false
   },
-  // Add more test cases as necessary
 ];
 
-// Iterate over the test cases
 testCases.forEach(({ description, asset, location, want }) => {
   test(description, async () => {
     const resp = await dotApi.apis.TrustedQueryApi.is_trusted_teleporter(asset, location);
 
-    // Assert success
     expect(resp.success).toBe(true);
-
-    // Assert value
     expect(resp.value).toBe(want);
 
     console.log(`Test: ${description}, want: ${want}, got: ${resp.value}`);
