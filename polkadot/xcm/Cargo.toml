@@ -34,10 +34,10 @@ hex-literal = { workspace = true, default-features = true }
 default = ["std"]
 wasm-api = []
 std = [
-	"frame-support/std",
 	"bounded-collections/std",
 	"codec/std",
 	"environmental/std",
+	"frame-support/std",
 	"log/std",
 	"scale-info/std",
 	"serde/std",
