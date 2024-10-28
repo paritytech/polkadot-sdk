@@ -17,7 +17,7 @@
 #![cfg(test)]
 
 use codec::Encode;
-use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
+use frame_support::weights::Weight;
 use polkadot_test_client::{
 	BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
 	TestClientBuilder, TestClientBuilderExt,
