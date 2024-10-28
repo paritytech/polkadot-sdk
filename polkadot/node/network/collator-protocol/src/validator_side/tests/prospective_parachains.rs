@@ -21,7 +21,7 @@ use super::*;
 use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{
 	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlockNumber,
-	CandidateCommitments, CommittedCandidateReceipt, Header, SigningContext, ValidatorId,
+	CandidateCommitments, Header, SigningContext, ValidatorId,
 };
 use rstest::rstest;
 
@@ -399,7 +399,7 @@ fn create_dummy_candidate_and_commitments(
 	};
 	candidate.commitments_hash = commitments.hash();
 
-	(candidate, commitments)
+	(candidate.into(), commitments)
 }
 
 async fn assert_advertise_collation(

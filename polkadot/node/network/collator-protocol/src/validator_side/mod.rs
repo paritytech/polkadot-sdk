@@ -53,7 +53,7 @@ use polkadot_node_subsystem_util::{
 	runtime::{fetch_claim_queue, recv_runtime},
 };
 use polkadot_primitives::{
-	vstaging::CoreState, AsyncBackingParams, CandidateHash, CollatorId, CoreState, Hash, HeadData,
+	vstaging::CoreState, AsyncBackingParams, CandidateHash, CollatorId, Hash, HeadData,
 	Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
 };
 
@@ -1830,7 +1830,7 @@ async fn kick_off_seconding<Context>(
 			maybe_parent_head.and_then(|head| maybe_parent_head_hash.map(|hash| (head, hash))),
 		)?;
 
-		let para_id = candidate_receipt.descriptor().para_id;
+		let para_id = candidate_receipt.descriptor().para_id();
 
 		ctx.send_message(CandidateBackingMessage::Second(
 			relay_parent,
