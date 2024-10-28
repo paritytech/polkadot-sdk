@@ -15,14 +15,14 @@
 //! Substrate mixes these two ideas together, and takes the novel approach of storing the
 //! blockchain's main "state transition function" in the main blockchain state, in the same fashion
 //! that a smart contract platform stores the code of individual contracts in its state. As noted in
-//! [`crate::reference_docs::blockchain_state_machines`], this state transition function is called
+//! [`blockchain_state_machines`](crate::reference_docs::blockchain_state_machines), this state transition function is called
 //! the **Runtime**, and WASM is chosen as the bytecode. The Runtime is stored under a special key
 //! in the state (see [`sp_core::storage::well_known_keys`]) and can be updated as a part of the
 //! state transition function's execution, just like a user's account balance can be updated.
 //!
 //! > Note that while we drew an analogy between smart contracts and runtimes in the above, there
 //! > are fundamental differences between the two, explained in
-//! > [`crate::reference_docs::runtime_vs_smart_contract`].
+//! > [`runtime_vs_smart_contract`](crate::reference_docs::runtime_vs_smart_contract).
 //!
 //! The rest of the system that is NOT the state transition function is called the
 //! [**Node**](crate::reference_docs::glossary#node), and is a normal binary that is compiled from
@@ -49,7 +49,7 @@
 //!
 //! A runtime must have a set of runtime APIs in order to have any meaningful blockchain
 //! functionality, but it can also expose more APIs. See
-//! [`crate::reference_docs::custom_runtime_api_rpc`] as an example of how to add custom runtime
+//! [`custom_runtime_api_rpc`](crate::reference_docs::custom_runtime_api_rpc) as an example of how to add custom runtime
 //! APIs to your FRAME-based runtime.
 //!
 //! Similarly, for a runtime to be "compatible" with a node, the node must implement the full set of
@@ -59,14 +59,14 @@
 //! **This implies that adding a new host function is a big commitment and should be done with
 //! care**. This is why, for example, adding a new host function to Polkadot always requires an RFC.
 //! Learn how to add a new host function to your runtime in
-//! [`crate::reference_docs::custom_host_functions`].
+//! [`custom_host_functions`](crate::reference_docs::custom_host_functions).
 //!
 //! ## Node vs. Runtime
 //!
 //! A common question is: which components of the system end up being part of the node, and which
 //! ones of the runtime?
 //!
-//! Recall from [`crate::reference_docs::blockchain_state_machines`] that the runtime is the state
+//! Recall from [`blockchain_state_machines`](crate::reference_docs::blockchain_state_machines) that the runtime is the state
 //! transition function. Anything that needs to influence how your blockchain's state is updated,
 //! should be a part of the runtime. For example, the logic around currency, governance, identity or
 //! any other application-specific logic that has to do with the state is part of the runtime.
@@ -156,3 +156,9 @@
 //! > Example taken from [this
 //! > lecture](https://polkadot-blockchain-academy.github.io/pba-book/substrate/wasm/page.html#example-2-block-import-9)
 //! > of the Polkadot Blockchain Academy.
+
+// Link References
+// [`blockchain_state_machines`]: crate::reference_docs::blockchain_state_machines
+// [`custom_host_functions`]: crate::reference_docs::custom_host_functions
+// [`custom_runtime_api_rpc`]: crate::reference_docs::custom_runtime_api_rpc
+// [`runtime_vs_smart_contract`]: crate::reference_docs::runtime_vs_smart_contract

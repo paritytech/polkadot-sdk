@@ -62,7 +62,7 @@
 //! ### Prerequisites
 //!
 //! - Ensure Asynchronous Backing is enabled on the network and you have enabled it on the parachain
-//!   using [`crate::guides::async_backing_guide`].
+//!   using [`async_backing_guide`](crate::guides::async_backing_guide).
 //! - Ensure the `AsyncBackingParams.max_candidate_depth` value is configured to a value that is at
 //!   least double the maximum targeted parachain velocity. For example, if the parachain will build
 //!   at most 3 candidates per relay chain block, the `max_candidate_depth` should be at least 6.
@@ -135,10 +135,14 @@
 //!      ```
 //!     Note: for a parachain which measures time in terms of its own block number, changing block
 //!     time may cause complications, requiring additional changes.  See here more information:
-//!     [`crate::guides::async_backing_guide#timing-by-block-number`].
+//!     [`async_backing_guide#timing-by-block-number`](crate::guides::async_backing_guide#timing-by-block-number).
 //!
 //! 3. Increase the `UNINCLUDED_SEGMENT_CAPACITY` to the desired value.
 //!
 //!     ```ignore
 //!     const UNINCLUDED_SEGMENT_CAPACITY: u32 = 2 * MAX_BLOCK_PROCESSING_VELOCITY + 1;
 //!     ```
+
+// Link References
+// [`async_backing_guide`]: crate::guides::async_backing_guide
+// [`async_backing_guide#timing-by-block-number`]: crate::guides::async_backing_guide#timing-by-block-number

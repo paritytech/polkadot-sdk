@@ -15,7 +15,7 @@
 //!
 //! ## Introduction
 //!
-//! As described in [`crate::reference_docs::wasm_meta_protocol`], at a high-level Substrate-based
+//! As described in [`wasm_meta_protocol`](crate::reference_docs::wasm_meta_protocol), at a high-level Substrate-based
 //! blockchains are composed of two parts:
 //!
 //! 1. A *runtime* which represents the state transition function (i.e. "Business Logic") of a
@@ -47,7 +47,7 @@
 //!
 //! Some of these pallet components resemble the building blocks of a smart contract. While both
 //! models are programming state transition functions of blockchains, there are crucial differences
-//! between the two. See [`crate::reference_docs::runtime_vs_smart_contract`] for more.
+//! between the two. See [`runtime_vs_smart_contract`](crate::reference_docs::runtime_vs_smart_contract) for more.
 //!
 //! Most of these components are defined using macros, the full list of which can be found in
 //! [`frame::pallet_macros`].
@@ -82,7 +82,7 @@
 //! FRAME makes it very simple to write Substrate-based runtimes, it is by no means intended to be
 //! the only one. At the end of the day, any WASM blob that exposes the right set of runtime APIs is
 //! a valid Runtime form the point of view of a Substrate client (see
-//! [`crate::reference_docs::wasm_meta_protocol`]). Notable examples are:
+//! [`wasm_meta_protocol`](crate::reference_docs::wasm_meta_protocol)). Notable examples are:
 //!
 //! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
 //! * writing a runtime in AssemblyScript, as explored in [this project](https://github.com/LimeChain/subsembly).
@@ -171,3 +171,7 @@ pub mod runtime {
 		const ANOTHER_VALUE_PARAMETER: u32 = 42;
 	}
 }
+
+// Link References
+// [`runtime_vs_smart_contract`]: crate::reference_docs::runtime_vs_smart_contract
+// [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol

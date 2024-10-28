@@ -2,7 +2,7 @@
 //!
 //! This reference document explains how FRAME pallets can be combined to interact together.
 //!
-//! It is suggested to re-read [`crate::polkadot_sdk::frame_runtime`], notably the information
+//! It is suggested to re-read [`frame_runtime`](crate::polkadot_sdk::frame_runtime), notably the information
 //! around [`frame::pallet_macros::config`]. Recall that:
 //!
 //! > Configuration trait of a pallet: It allows a pallet to receive types at a later
@@ -11,7 +11,7 @@
 //!
 //! ## Context, Background
 //!
-//! FRAME pallets, as per described in [`crate::polkadot_sdk::frame_runtime`] are:
+//! FRAME pallets, as per described in [`frame_runtime`](crate::polkadot_sdk::frame_runtime) are:
 //!
 //! > A pallet is a unit of encapsulated logic. It has a clearly defined responsibility and can be
 //! linked to other pallets.
@@ -143,7 +143,7 @@
 //! For example, all pallets in `polkadot-sdk` that needed to work with currencies could have been
 //! tightly coupled with [`pallet_balances`]. But, `polkadot-sdk` also provides [`pallet_assets`]
 //! (and more implementations by the community), therefore all pallets use traits to loosely couple
-//! with balances or assets pallet. More on this in [`crate::reference_docs::frame_tokens`].
+//! with balances or assets pallet. More on this in [`frame_tokens`](crate::reference_docs::frame_tokens).
 //!
 //! ## Further References
 //!
@@ -294,3 +294,7 @@ pub mod runtime {
 		// type AuthorProvider = PalletAuthor;
 	}
 }
+
+// Link References
+// [`frame_runtime`]: crate::polkadot_sdk::frame_runtime
+// [`frame_tokens`]: crate::reference_docs::frame_tokens

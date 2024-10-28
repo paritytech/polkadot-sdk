@@ -3,7 +3,7 @@
 //! This reference doc elaborates on what a Polkadot-SDK/Substrate node software is, and what
 //! various ways exist to run one.
 //!
-//! The node software, as denoted in [`crate::reference_docs::wasm_meta_protocol`], is everything in
+//! The node software, as denoted in [`wasm_meta_protocol`](crate::reference_docs::wasm_meta_protocol), is everything in
 //! a blockchain other than the WASM runtime. It contains common components such as the database,
 //! networking, RPC server and consensus. Substrate-based nodes are native binaries that are
 //! compiled down from the Rust source code. The `node` folder in any of the [`templates`] are
@@ -91,17 +91,17 @@
 //!   That being said, the node code of the templates (which may be eventually
 //!   removed/feature-gated) is no longer of relevance. The only focus is in the runtime, and
 //!   obtaining a `.wasm` file. References:
-//!     * [`crate::guides::your_first_pallet`]
-//!     * [`crate::guides::your_first_runtime`]
+//!     * [`your_first_pallet`](crate::guides::your_first_pallet)
+//!     * [`your_first_runtime`](crate::guides::your_first_runtime)
 //! * If need be, the weights of the runtime need to be updated using `frame-omni-bencher`.
 //!   References:
-//!     * [`crate::reference_docs::frame_benchmarking_weight`]
+//!     * [`frame_benchmarking_weight`](crate::reference_docs::frame_benchmarking_weight)
 //! * Next, [`chain-spec-builder`] is used to generate a `chain_spec.json`, either for development,
 //!   or for production. References:
-//!     * [`crate::reference_docs::chain_spec_genesis`]
+//!     * [`chain_spec_genesis`](crate::reference_docs::chain_spec_genesis)
 //! * For local development, the following options are available:
 //!     * `polkadot-omni-node` (notably, with [`--dev-block-time`]). References:
-//!         * [`crate::guides::your_first_node`]
+//!         * [`your_first_node`](crate::guides::your_first_node)
 //!     * External tools such as `chopsticks`, `zombienet`.
 //!         * See the `README.md` file of the `polkadot-sdk-parachain-template`.
 //! * For production `polkadot-omni-node` can be used out of the box.
@@ -183,3 +183,11 @@
 //! [`--dev-block-time`]: polkadot_omni_node_lib::cli::Cli::dev_block_time
 //! [`polkadot-omni-node`]: https://crates.io/crates/polkadot-omni-node
 //! [`chain-spec-builder`]: https://crates.io/crates/staging-chain-spec-builder
+
+// Link References
+// [`chain_spec_genesis`]: crate::reference_docs::chain_spec_genesis
+// [`frame_benchmarking_weight`]: crate::reference_docs::frame_benchmarking_weight
+// [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
+// [`your_first_node`]: crate::guides::your_first_node
+// [`your_first_pallet`]: crate::guides::your_first_pallet
+// [`your_first_runtime`]: crate::guides::your_first_runtime

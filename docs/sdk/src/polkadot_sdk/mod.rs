@@ -81,7 +81,7 @@
 
 //! * [`polkadot`]: The Polkadot relay chain node binary, as noted above.
 //! * [`polkadot-omni-node`]: A white-labeled parachain collator node. See more in
-//!   [`crate::reference_docs::omni_node`].
+//!   [`omni_node`](crate::reference_docs::omni_node).
 //! * [`polkadot-parachain-bin`]: The collator node used to run collators for all Polkadot system
 //!   parachains.
 //! * [`frame-omni-bencher`]: a benchmarking tool for FRAME-based runtimes. Nodes typically contain
@@ -156,3 +156,6 @@ pub mod substrate;
 pub mod templates;
 /// Learn about XCM, the de-facto communication language between different consensus systems.
 pub mod xcm;
+
+// Link References
+// [`omni_node`]: crate::reference_docs::omni_node

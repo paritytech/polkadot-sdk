@@ -25,7 +25,7 @@
 //!
 //! Next, we need to install the [`chain-spec-builder`]. This is the tool that allows us to build
 //! chain-specifications, through interacting with the genesis related APIs of the runtime, as
-//! described in [`crate::guides::your_first_runtime#genesis-configuration`].
+//! described in [`your_first_runtime#genesis-configuration`](crate::guides::your_first_runtime#genesis-configuration).
 //!
 //! ```text
 //! cargo install staging-chain-spec-builder
@@ -92,7 +92,7 @@
 //!
 //! ### Next Steps
 //!
-//! * See the rest of the steps in [`crate::reference_docs::omni_node#user-journey`].
+//! * See the rest of the steps in [`omni_node#user-journey`](crate::reference_docs::omni_node#user-journey).
 //!
 //! [`runtime`]: crate::reference_docs::glossary#runtime
 //! [`node`]: crate::reference_docs::glossary#node
@@ -312,3 +312,7 @@ mod tests {
 		});
 	}
 }
+
+// Link References
+// [`omni_node#user-journey`]: crate::reference_docs::omni_node#user-journey
+// [`your_first_runtime#genesis-configuration`]: crate::guides::your_first_runtime#genesis-configuration

@@ -30,7 +30,7 @@
 //! accord. This enables the Runtime to become inherently upgradeable, crucially without [forks](https://en.wikipedia.org/wiki/Fork_(blockchain)). The
 //! upgrade is merely a matter of the WASM blob being changed in the state, which is, in principle,
 //! same as updating an account's balance. Learn more about this in detail in
-//! [`crate::reference_docs::wasm_meta_protocol`].
+//! [`wasm_meta_protocol`](crate::reference_docs::wasm_meta_protocol).
 //!
 //! > A great analogy for substrate is the following: Substrate node is a gaming console, and a WASM
 //! > runtime, possibly created with FRAME is the game being inserted into the console.
@@ -38,14 +38,14 @@
 //! [`frame`], Substrate's default runtime development library, takes the above safety practices
 //! even further by embracing a declarative programming model whereby correctness is enhanced and
 //! the system is highly configurable through parameterization. Learn more about this in
-//! [`crate::reference_docs::trait_based_programming`].
+//! [`trait_based_programming`](crate::reference_docs::trait_based_programming).
 //!
 //! ## How to Get Started
 //!
 //! Substrate offers different options at the spectrum of technical freedom <-> development ease.
 //!
 //! * The easiest way to use Substrate is to use one of the templates (some of which listed at
-//!   [`crate::polkadot_sdk::templates`]) and only tweak the parameters of the runtime or node. This
+//!   [`templates`](crate::polkadot_sdk::templates)) and only tweak the parameters of the runtime or node. This
 //!   allows you to launch a blockchain in minutes, but is limited in technical freedom.
 //! * Next, most developers wish to develop their custom runtime modules, for which the de-facto way
 //! is [`frame`](crate::polkadot_sdk::frame_runtime).
@@ -135,3 +135,8 @@
 
 #[doc(hidden)]
 pub use crate::polkadot_sdk;
+
+// Link References
+// [`templates`]: crate::polkadot_sdk::templates
+// [`trait_based_programming`]: crate::reference_docs::trait_based_programming
+// [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
