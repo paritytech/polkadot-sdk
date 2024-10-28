@@ -17,7 +17,6 @@ use crate::{
 	create_pool_with_native_on,
 	tests::{snowbridge::CHAIN_ID, *},
 };
-use frame_support::traits::tokens::fungibles::Mutate;
 use sp_core::Get;
 use xcm::latest::AssetTransferFilter;
 
@@ -48,9 +47,6 @@ fn transfer_and_transact_in_same_xcm(
 	// TODO(https://github.com/paritytech/polkadot-sdk/issues/6197): dry-run to get local fees, for now use hardcoded value.
 	let ah_fees_amount = 90_000_000_000; // current exact value 79_948_099_299
 	let fees_for_ah: Asset = (weth.id.clone(), ah_fees_amount).into();
-
-	let weth_to_ah_then_onward_amount = total_weth - ah_fees_amount;
-	let weth_to_ah_then_onward: Asset = (weth.id.clone(), weth_to_ah_then_onward_amount).into();
 
 	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
 	// xcm to be executed at dest
