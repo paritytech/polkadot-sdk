@@ -1,0 +1,22 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Removed `pallet::getter` usage from pallet-grandpa
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removed the `pallet::getter`s from `pallet-grandpa`.
+      The syntax `StorageItem::<T, I>::get()` should be used instead
+
+crates:
+  - name: pallet-grandpa
+    bump: minor
+  - name: kitchensink-runtime
+    bump: none
+  - name: westend-runtime
+    bump: none
+  - name: polkadot-test-runtime
+    bump: none
+  - name: rococo-runtime
+    bump: none
