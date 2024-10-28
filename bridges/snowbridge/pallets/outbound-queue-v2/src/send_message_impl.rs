@@ -50,7 +50,7 @@ where
 			BoundedVec::try_from(ticket.encode()).map_err(|_| SendError::MessageTooLarge)?;
 
 		T::MessageQueue::enqueue_message(message.as_bounded_slice(), origin);
-		Self::deposit_event(Event::MessageQueued { id: ticket.id });
+		Self::deposit_event(Event::MessageQueued { message: ticket.clone() });
 		Ok(ticket.id)
 	}
 }

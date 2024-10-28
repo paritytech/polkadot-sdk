@@ -187,8 +187,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Message has been queued and will be processed in the future
 		MessageQueued {
-			/// ID of the message. Usually the XCM message hash or a SetTopic.
-			id: H256,
+			/// The message
+			message: Message,
 		},
 		/// Message will be committed at the end of current block. From now on, to track the
 		/// progress the message, use the `nonce` of `id`.
