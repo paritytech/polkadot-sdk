@@ -24,12 +24,15 @@ use super::{
 	HashT, HeadData, Header, Id, Id as ParaId, MultiDisputeStatementSet, ScheduledCore,
 	UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
 };
+use alloc::{
+	collections::{BTreeMap, BTreeSet, VecDeque},
+	vec,
+	vec::Vec,
+};
 use bitvec::prelude::*;
-use sp_application_crypto::ByteArray;
-
-use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use sp_application_crypto::ByteArray;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
@@ -104,14 +107,42 @@ impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
 	}
 }
 
-#[cfg(any(feature = "runtime-benchmarks", feature = "test"))]
-impl<H: Encode + Decode + Copy> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
+fn clone_into_array<A, T>(slice: &[T]) -> A
+where
+	A: Default + AsMut<[T]>,
+	T: Clone,
+{
+	let mut a = A::default();
+	<A as AsMut<[T]>>::as_mut(&mut a).clone_from_slice(slice);
+	a
+}
+
+impl<H: Copy> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
 	fn from(value: CandidateDescriptor<H>) -> Self {
-		Decode::decode(&mut value.encode().as_slice()).unwrap()
+		let collator = value.collator.as_slice();
+
+		Self {
+			para_id: value.para_id,
+			relay_parent: value.relay_parent,
+			// Use first byte of the `collator` field.
+			version: InternalVersion(collator[0]),
+			// Use next 2 bytes of the `collator` field.
+			core_index: u16::from_ne_bytes(clone_into_array(&collator[1..=2])),
+			// Use next 4 bytes of the `collator` field.
+			session_index: SessionIndex::from_ne_bytes(clone_into_array(&collator[3..=6])),
+			// Use remaing 25 bytes of the `collator` field.
+			reserved1: clone_into_array(&collator[7..]),
+			persisted_validation_data_hash: value.persisted_validation_data_hash,
+			pov_hash: value.pov_hash,
+			erasure_root: value.erasure_root,
+			reserved2: value.signature.into_inner().0,
+			para_head: value.para_head,
+			validation_code_hash: value.validation_code_hash,
+		}
 	}
 }
 
-impl<H> CandidateDescriptorV2<H> {
+impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// Constructor
 	pub fn new(
 		para_id: Id,
@@ -140,16 +171,73 @@ impl<H> CandidateDescriptorV2<H> {
 		}
 	}
 
-	/// Set the PoV size in the descriptor. Only for tests.
-	#[cfg(feature = "test")]
-	pub fn set_pov_hash(&mut self, pov_hash: Hash) {
+	/// Check the signature of the collator within this descriptor.
+	pub fn check_collator_signature(&self) -> Result<(), ()> {
+		// Return `Ok` if collator signature is not included (v2+ descriptor).
+		let Some(collator) = self.collator() else { return Ok(()) };
+
+		let Some(signature) = self.signature() else { return Ok(()) };
+
+		super::v8::check_collator_signature(
+			&self.relay_parent,
+			&self.para_id,
+			&self.persisted_validation_data_hash,
+			&self.pov_hash,
+			&self.validation_code_hash,
+			&collator,
+			&signature,
+		)
+	}
+}
+
+/// A trait to allow changing the descriptor field values in tests.
+#[cfg(feature = "test")]
+
+pub trait MutateDescriptorV2<H> {
+	/// Set the relay parent of the descriptor.
+	fn set_relay_parent(&mut self, relay_parent: H);
+	/// Set the `ParaId` of the descriptor.
+	fn set_para_id(&mut self, para_id: Id);
+	/// Set the PoV hash of the descriptor.
+	fn set_pov_hash(&mut self, pov_hash: Hash);
+	/// Set the version field of the descriptor.
+	fn set_version(&mut self, version: InternalVersion);
+	/// Set the PVD of the descriptor.
+	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash);
+	/// Set the erasure root of the descriptor.
+	fn set_erasure_root(&mut self, erasure_root: Hash);
+	/// Set the para head of the descriptor.
+	fn set_para_head(&mut self, para_head: Hash);
+}
+
+#[cfg(feature = "test")]
+impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
+	fn set_para_id(&mut self, para_id: Id) {
+		self.para_id = para_id;
+	}
+
+	fn set_relay_parent(&mut self, relay_parent: H) {
+		self.relay_parent = relay_parent;
+	}
+
+	fn set_pov_hash(&mut self, pov_hash: Hash) {
 		self.pov_hash = pov_hash;
 	}
 
-	/// Set the version in the descriptor. Only for tests.
-	#[cfg(feature = "test")]
-	pub fn set_version(&mut self, version: InternalVersion) {
+	fn set_version(&mut self, version: InternalVersion) {
 		self.version = version;
+	}
+
+	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash) {
+		self.persisted_validation_data_hash = persisted_validation_data_hash;
+	}
+
+	fn set_erasure_root(&mut self, erasure_root: Hash) {
+		self.erasure_root = erasure_root;
+	}
+
+	fn set_para_head(&mut self, para_head: Hash) {
+		self.para_head = para_head;
 	}
 }
 
@@ -230,6 +318,24 @@ impl<H> CandidateReceiptV2<H> {
 	}
 }
 
+impl<H: Copy> From<super::v8::CandidateReceipt<H>> for CandidateReceiptV2<H> {
+	fn from(value: super::v8::CandidateReceipt<H>) -> Self {
+		CandidateReceiptV2 {
+			descriptor: value.descriptor.into(),
+			commitments_hash: value.commitments_hash,
+		}
+	}
+}
+
+impl<H: Copy> From<super::v8::CommittedCandidateReceipt<H>> for CommittedCandidateReceiptV2<H> {
+	fn from(value: super::v8::CommittedCandidateReceipt<H>) -> Self {
+		CommittedCandidateReceiptV2 {
+			descriptor: value.descriptor.into(),
+			commitments: value.commitments,
+		}
+	}
+}
+
 impl<H: Clone> CommittedCandidateReceiptV2<H> {
 	/// Transforms this into a plain `CandidateReceipt`.
 	pub fn to_plain(&self) -> CandidateReceiptV2<H> {
@@ -298,9 +404,9 @@ pub struct ClaimQueueOffset(pub u8);
 /// Signals that a parachain can send to the relay chain via the UMP queue.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum UMPSignal {
-	/// A message sent by a parachain to select the core the candidate is commited to.
+	/// A message sent by a parachain to select the core the candidate is committed to.
 	/// Relay chain validators, in particular backers, use the `CoreSelector` and
-	/// `ClaimQueueOffset` to compute the index of the core the candidate has commited to.
+	/// `ClaimQueueOffset` to compute the index of the core the candidate has committed to.
 	SelectCore(CoreSelector, ClaimQueueOffset),
 }
 /// Separator between `XCM` and `UMPSignal`.
@@ -324,6 +430,25 @@ impl CandidateCommitments {
 			UMPSignal::SelectCore(core_selector, cq_offset) => Some((core_selector, cq_offset)),
 		}
 	}
+
+	/// Returns the core index determined by `UMPSignal::SelectCore` commitment
+	/// and `assigned_cores`.
+	///
+	/// Returns `None` if there is no `UMPSignal::SelectCore` commitment or
+	/// assigned cores is empty.
+	///
+	/// `assigned_cores` must be a sorted vec of all core indices assigned to a parachain.
+	pub fn committed_core_index(&self, assigned_cores: &[&CoreIndex]) -> Option<CoreIndex> {
+		if assigned_cores.is_empty() {
+			return None
+		}
+
+		self.selected_core().and_then(|(core_selector, _cq_offset)| {
+			let core_index =
+				**assigned_cores.get(core_selector.0 as usize % assigned_cores.len())?;
+			Some(core_index)
+		})
+	}
 }
 
 /// CandidateReceipt construction errors.
@@ -337,7 +462,8 @@ pub enum CandidateReceiptError {
 	InvalidSelectedCore,
 	/// The parachain is not assigned to any core at specified claim queue offset.
 	NoAssignment,
-	/// No core was selected.
+	/// No core was selected. The `SelectCore` commitment is mandatory for
+	/// v2 receipts if parachains has multiple cores assigned.
 	NoCoreSelected,
 	/// Unknown version.
 	UnknownVersion(InternalVersion),
@@ -345,7 +471,7 @@ pub enum CandidateReceiptError {
 
 macro_rules! impl_getter {
 	($field:ident, $type:ident) => {
-		/// Returns the value of $field field.
+		/// Returns the value of `$field` field.
 		pub fn $field(&self) -> $type {
 			self.$field
 		}
@@ -432,33 +558,57 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 }
 
 impl<H: Copy> CommittedCandidateReceiptV2<H> {
-	/// Checks if descriptor core index is equal to the commited core index.
-	/// Input `assigned_cores` must contain the sorted cores assigned to the para at
-	/// the committed claim queue offset.
-	pub fn check(&self, assigned_cores: &[CoreIndex]) -> Result<(), CandidateReceiptError> {
-		// Don't check v1 descriptors.
-		if self.descriptor.version() == CandidateDescriptorVersion::V1 {
-			return Ok(())
+	/// Checks if descriptor core index is equal to the committed core index.
+	/// Input `cores_per_para` is a claim queue snapshot stored as a mapping
+	/// between `ParaId` and the cores assigned per depth.
+	pub fn check_core_index(
+		&self,
+		cores_per_para: &TransposedClaimQueue,
+	) -> Result<(), CandidateReceiptError> {
+		match self.descriptor.version() {
+			// Don't check v1 descriptors.
+			CandidateDescriptorVersion::V1 => return Ok(()),
+			CandidateDescriptorVersion::V2 => {},
+			CandidateDescriptorVersion::Unknown =>
+				return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
-		if self.descriptor.version() == CandidateDescriptorVersion::Unknown {
-			return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version))
-		}
-
-		if assigned_cores.is_empty() {
+		if cores_per_para.is_empty() {
 			return Err(CandidateReceiptError::NoAssignment)
 		}
 
+		let (offset, core_selected) =
+			if let Some((_core_selector, cq_offset)) = self.commitments.selected_core() {
+				(cq_offset.0, true)
+			} else {
+				// If no core has been selected then we use offset 0 (top of claim queue)
+				(0, false)
+			};
+
+		// The cores assigned to the parachain at above computed offset.
+		let assigned_cores = cores_per_para
+			.get(&self.descriptor.para_id())
+			.ok_or(CandidateReceiptError::NoAssignment)?
+			.get(&offset)
+			.ok_or(CandidateReceiptError::NoAssignment)?
+			.into_iter()
+			.collect::<Vec<_>>();
+
+		let core_index = if core_selected {
+			self.commitments
+				.committed_core_index(assigned_cores.as_slice())
+				.ok_or(CandidateReceiptError::NoAssignment)?
+		} else {
+			// `SelectCore` commitment is mandatory for elastic scaling parachains.
+			if assigned_cores.len() > 1 {
+				return Err(CandidateReceiptError::NoCoreSelected)
+			}
+
+			**assigned_cores.get(0).ok_or(CandidateReceiptError::NoAssignment)?
+		};
+
 		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
-
-		let (core_selector, _cq_offset) =
-			self.commitments.selected_core().ok_or(CandidateReceiptError::NoCoreSelected)?;
-
-		let core_index = assigned_cores
-			.get(core_selector.0 as usize % assigned_cores.len())
-			.ok_or(CandidateReceiptError::InvalidCoreIndex)?;
-
-		if *core_index != descriptor_core_index {
+		if core_index != descriptor_core_index {
 			return Err(CandidateReceiptError::CoreIndexMismatch)
 		}
 
@@ -512,6 +662,12 @@ impl<H> BackedCandidate<H> {
 		&self.candidate
 	}
 
+	/// Get a mutable reference to the committed candidate receipt of the candidate.
+	/// Only for testing.
+	#[cfg(feature = "test")]
+	pub fn candidate_mut(&mut self) -> &mut CommittedCandidateReceiptV2<H> {
+		&mut self.candidate
+	}
 	/// Get a reference to the descriptor of the candidate.
 	pub fn descriptor(&self) -> &CandidateDescriptorV2<H> {
 		&self.candidate.descriptor
@@ -650,6 +806,13 @@ pub struct OccupiedCore<H = Hash, N = BlockNumber> {
 	pub candidate_descriptor: CandidateDescriptorV2<H>,
 }
 
+impl<H, N> OccupiedCore<H, N> {
+	/// Get the Para currently occupying this core.
+	pub fn para_id(&self) -> Id {
+		self.candidate_descriptor.para_id
+	}
+}
+
 /// The state of a particular availability core.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
@@ -669,6 +832,28 @@ pub enum CoreState<H = Hash, N = BlockNumber> {
 	/// left idle.
 	#[codec(index = 2)]
 	Free,
+}
+
+impl<N> CoreState<N> {
+	/// Returns the scheduled `ParaId` for the core or `None` if nothing is scheduled.
+	///
+	/// This function is deprecated. `ClaimQueue` should be used to obtain the scheduled `ParaId`s
+	/// for each core.
+	#[deprecated(
+		note = "`para_id` will be removed. Use `ClaimQueue` to query the scheduled `para_id` instead."
+	)]
+	pub fn para_id(&self) -> Option<Id> {
+		match self {
+			Self::Occupied(ref core) => core.next_up_on_available.as_ref().map(|n| n.para_id),
+			Self::Scheduled(core) => Some(core.para_id),
+			Self::Free => None,
+		}
+	}
+
+	/// Is this core state `Self::Occupied`?
+	pub fn is_occupied(&self) -> bool {
+		matches!(self, Self::Occupied(_))
+	}
 }
 
 impl<H: Copy> From<OccupiedCore<H>> for super::v8::OccupiedCore<H> {
@@ -695,6 +880,29 @@ impl<H: Copy> From<CoreState<H>> for super::v8::CoreState<H> {
 				super::v8::CoreState::Occupied(occupied_core.into()),
 		}
 	}
+}
+
+/// The claim queue mapped by parachain id.
+pub type TransposedClaimQueue = BTreeMap<ParaId, BTreeMap<u8, BTreeSet<CoreIndex>>>;
+
+/// Returns a mapping between the para id and the core indices assigned at different
+/// depths in the claim queue.
+pub fn transpose_claim_queue(
+	claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
+) -> TransposedClaimQueue {
+	let mut per_para_claim_queue = BTreeMap::new();
+
+	for (core, paras) in claim_queue {
+		// Iterate paras assigned to this core at each depth.
+		for (depth, para) in paras.into_iter().enumerate() {
+			let depths: &mut BTreeMap<u8, BTreeSet<CoreIndex>> =
+				per_para_claim_queue.entry(para).or_insert_with(|| Default::default());
+
+			depths.entry(depth as u8).or_default().insert(core);
+		}
+	}
+
+	per_para_claim_queue
 }
 
 #[cfg(test)]
@@ -766,6 +974,25 @@ mod tests {
 	}
 
 	#[test]
+	fn test_from_v1_descriptor() {
+		let mut old_ccr = dummy_old_committed_candidate_receipt().to_plain();
+		old_ccr.descriptor.collator = dummy_collator_id();
+		old_ccr.descriptor.signature = dummy_collator_signature();
+
+		let mut new_ccr = dummy_committed_candidate_receipt_v2().to_plain();
+
+		// Override descriptor from old candidate receipt.
+		new_ccr.descriptor = old_ccr.descriptor.clone().into();
+
+		// We get same candidate hash.
+		assert_eq!(old_ccr.hash(), new_ccr.hash());
+
+		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert_eq!(old_ccr.descriptor.collator, new_ccr.descriptor.collator().unwrap());
+		assert_eq!(old_ccr.descriptor.signature, new_ccr.descriptor.signature().unwrap());
+	}
+
+	#[test]
 	fn invalid_version_descriptor() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2();
 		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V2);
@@ -778,7 +1005,7 @@ mod tests {
 
 		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
 		assert_eq!(
-			new_ccr.check(&vec![].as_slice()),
+			new_ccr.check_core_index(&BTreeMap::new()),
 			Err(CandidateReceiptError::UnknownVersion(InternalVersion(100)))
 		)
 	}
@@ -802,7 +1029,13 @@ mod tests {
 			.upward_messages
 			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
 
-		assert_eq!(new_ccr.check(&vec![CoreIndex(123)]), Ok(()));
+		let mut cq = BTreeMap::new();
+		cq.insert(
+			CoreIndex(123),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+		);
+
+		assert_eq!(new_ccr.check_core_index(&transpose_claim_queue(cq)), Ok(()));
 	}
 
 	#[test]
@@ -814,11 +1047,12 @@ mod tests {
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
-		// The check should fail because no `SelectCore` signal was sent.
-		assert_eq!(
-			new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]),
-			Err(CandidateReceiptError::NoCoreSelected)
-		);
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
+
+		// The check should not fail because no `SelectCore` signal was sent.
+		// The message is optional.
+		assert!(new_ccr.check_core_index(&transpose_claim_queue(cq)).is_ok());
 
 		// Garbage message.
 		new_ccr.commitments.upward_messages.force_push(vec![0, 13, 200].encode());
@@ -826,9 +1060,18 @@ mod tests {
 		// No `SelectCore` can be decoded.
 		assert_eq!(new_ccr.commitments.selected_core(), None);
 
-		// Failure is expected.
+		let mut cq = BTreeMap::new();
+		cq.insert(
+			CoreIndex(0),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+		);
+		cq.insert(
+			CoreIndex(100),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+		);
+
 		assert_eq!(
-			new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]),
+			new_ccr.check_core_index(&transpose_claim_queue(cq.clone())),
 			Err(CandidateReceiptError::NoCoreSelected)
 		);
 
@@ -847,7 +1090,7 @@ mod tests {
 			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
 
 		// Duplicate doesn't override first signal.
-		assert_eq!(new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]), Ok(()));
+		assert_eq!(new_ccr.check_core_index(&transpose_claim_queue(cq)), Ok(()));
 	}
 
 	#[test]
@@ -884,13 +1127,57 @@ mod tests {
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
 		assert_eq!(v2_ccr.descriptor.core_index(), Some(CoreIndex(123)));
-		assert_eq!(new_ccr.check(&vec![CoreIndex(123)]), Ok(()));
+
+		let mut cq = BTreeMap::new();
+		cq.insert(
+			CoreIndex(123),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+		);
+
+		assert_eq!(new_ccr.check_core_index(&transpose_claim_queue(cq)), Ok(()));
 
 		assert_eq!(new_ccr.hash(), v2_ccr.hash());
 	}
 
+	// Only check descriptor `core_index` field of v2 descriptors. If it is v1, that field
+	// will be garbage.
 	#[test]
-	fn test_core_select_is_mandatory() {
+	fn test_v1_descriptors_with_ump_signal() {
+		let mut ccr = dummy_old_committed_candidate_receipt();
+		ccr.descriptor.para_id = ParaId::new(1024);
+		// Adding collator signature should make it decode as v1.
+		ccr.descriptor.signature = dummy_collator_signature();
+		ccr.descriptor.collator = dummy_collator_id();
+
+		ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		ccr.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
+
+		let encoded_ccr: Vec<u8> = ccr.encode();
+
+		let v1_ccr: CommittedCandidateReceiptV2 =
+			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
+
+		assert_eq!(v1_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert!(v1_ccr.commitments.selected_core().is_some());
+
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![v1_ccr.descriptor.para_id()].into());
+		cq.insert(CoreIndex(1), vec![v1_ccr.descriptor.para_id()].into());
+
+		assert!(v1_ccr.check_core_index(&transpose_claim_queue(cq)).is_ok());
+
+		assert_eq!(
+			v1_ccr.commitments.committed_core_index(&vec![&CoreIndex(10), &CoreIndex(5)]),
+			Some(CoreIndex(5)),
+		);
+
+		assert_eq!(v1_ccr.descriptor.core_index(), None);
+	}
+
+	#[test]
+	fn test_core_select_is_optional() {
 		// Testing edge case when collators provide zeroed signature and collator id.
 		let mut old_ccr = dummy_old_committed_candidate_receipt();
 		old_ccr.descriptor.para_id = ParaId::new(1000);
@@ -899,11 +1186,22 @@ mod tests {
 		let new_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
+
 		// Since collator sig and id are zeroed, it means that the descriptor uses format
-		// version 2.
-		// We expect the check to fail in such case because there will be no `SelectCore`
-		// commitment.
-		assert_eq!(new_ccr.check(&vec![CoreIndex(0)]), Err(CandidateReceiptError::NoCoreSelected));
+		// version 2. Should still pass checks without core selector.
+		assert!(new_ccr.check_core_index(&transpose_claim_queue(cq)).is_ok());
+
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
+		cq.insert(CoreIndex(1), vec![new_ccr.descriptor.para_id()].into());
+
+		//  Should fail because 2 cores are assigned,
+		assert_eq!(
+			new_ccr.check_core_index(&transpose_claim_queue(cq)),
+			Err(CandidateReceiptError::NoCoreSelected)
+		);
 
 		// Adding collator signature should make it decode as v1.
 		old_ccr.descriptor.signature = dummy_collator_signature();

@@ -14,7 +14,7 @@ on:
         required: true
         options:
           - "TODO"
-          - "no change"
+          - "no_change"
           - "patch"
           - "minor"
           - "major"
@@ -25,39 +25,30 @@ on:
         required: true
         options:
           - "TODO"
-          - "Runtime Dev"
-          - "Runtime User"
-          - "Node Dev"
-          - "Node User"
+          - "runtime_dev"
+          - "runtime_user"
+          - "node_dev"
+          - "node_operator"
       overwrite:
-        type: choice
+        type: boolean
         description: Overwrite existing PrDoc
-        default: "true"
+        default: true
         required: true
-        options:
-          - "true"
-          - "false"
 
 concurrency:
   group: command-prdoc
   cancel-in-progress: true
 
 jobs:
-  set-image:
-    runs-on: ubuntu-latest
-    outputs:
-      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - id: set_image
-        run: cat .github/env >> $GITHUB_OUTPUT
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
   cmd-prdoc:
-    needs: [set-image]
+    needs: [preflight]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
-      image: ${{ needs.set-image.outputs.IMAGE }}
+      image: ${{ needs.preflight.outputs.IMAGE }}
     permissions:
       contents: write
       pull-requests: write
@@ -87,4 +78,4 @@ jobs:
         with:
           commit_message: Add PrDoc (auto generated)
           branch: ${{ steps.gh.outputs.branch }}
-          file_pattern: 'prdoc/*.prdoc'
+          file_pattern: "prdoc/*.prdoc"

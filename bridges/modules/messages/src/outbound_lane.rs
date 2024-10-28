@@ -19,7 +19,7 @@
 use crate::{Config, LOG_TARGET};
 
 use bp_messages::{
-	ChainWithMessages, DeliveredMessages, LaneId, LaneState, MessageNonce, OutboundLaneData,
+	ChainWithMessages, DeliveredMessages, LaneState, MessageNonce, OutboundLaneData,
 	UnrewardedRelayer,
 };
 use codec::{Decode, Encode};
@@ -32,9 +32,11 @@ use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeIn
 pub trait OutboundLaneStorage {
 	/// Stored message payload type.
 	type StoredMessagePayload;
+	/// Lane identifier type.
+	type LaneId: Encode;
 
 	/// Lane id.
-	fn id(&self) -> LaneId;
+	fn id(&self) -> Self::LaneId;
 	/// Get lane data from the storage.
 	fn data(&self) -> OutboundLaneData;
 	/// Update lane data in the storage.
