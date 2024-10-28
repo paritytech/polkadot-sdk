@@ -4,7 +4,8 @@
 - `export BUN_INSTALL="$HOME/.bun"`
 - `export PATH="$BUN_INSTALL/bin:$PATH"`
 3. Once you have your folder you can run `bun init` inside of it, and it will create a default set-up for you. Click enter twice to choose the default options. 
-4. Now you need to add polkadot-api or papi: `bun add polkadot-api`
+4. Now you need to add polkadot-api or papi:  
+- `bun add polkadot-api`
 5. Add your ecosystem (`westend` or `wnd` in this case): 
 - `bun papi add wnd -w ws://localhost:8001`
 - you can find the port as the output of running `npx` command in the folder above
