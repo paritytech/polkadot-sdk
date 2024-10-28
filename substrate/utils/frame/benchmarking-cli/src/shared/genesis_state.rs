@@ -35,12 +35,16 @@ generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`-
 point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
 become a hard error any time after December 2024.";
 
+/// Defines how the chain specification shall be used to build the genesis storage.
 pub enum SpecGenesisSource {
 	Runtime(String),
+	/// Use provided chain-specification JSON file.
 	SpecJson,
+	/// Use default storage.
 	None,
 }
 
+/// Defines how the genesis storage shall be built.
 pub enum GenesisStateHandler {
 	ChainSpec(Box<dyn ChainSpec>, SpecGenesisSource),
 	Runtime(Vec<u8>, Option<String>),

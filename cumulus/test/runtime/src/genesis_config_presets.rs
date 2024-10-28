@@ -30,15 +30,14 @@ fn cumulus_test_runtime(
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
 ) -> serde_json::Value {
-	let config = build_struct_json_patch!(RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
 		sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.public().into()) },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		aura: AuraConfig { authorities: invulnerables },
-	});
-	serde_json::to_value(config).expect("Could not build genesis config.")
+	})
 }
 
 fn testnet_genesis_with_default_endowed(self_para_id: ParaId) -> serde_json::Value {
