@@ -180,6 +180,10 @@ use sp_runtime::{
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
+
+#[cfg(feature = "runtime-benchmarks")]
+use sp_core::{sr25519::Pair as SrPair, Pair};
+
 pub use types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
@@ -505,11 +509,19 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub balances: Vec<(T::AccountId, T::Balance)>,
+
+		#[cfg(feature = "runtime-benchmarks")]
+		pub dev_accounts: (u32, T::Balance, String),
 	}
 
 	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
 		fn default() -> Self {
-			Self { balances: Default::default() }
+			Self { 
+				balances: Default::default(),
+				
+				#[cfg(feature = "runtime-benchmarks")]
+            	dev_accounts: (Default::default(), Default::default(), String::new()),
+			}
 		}
 	}
 
@@ -539,6 +551,27 @@ pub mod pallet {
 				endowed_accounts.len() == self.balances.len(),
 				"duplicate balances in genesis."
 			);
+
+			// Generate additional dev accounts.
+			#[cfg(feature = "runtime-benchmarks")]
+			{
+				let (num_accounts, balance, ref derivation) = self.dev_accounts;
+				for index in 0..num_accounts {
+					assert!(
+						balance >= <T as Config<I>>::ExistentialDeposit::get(),
+						"the balance of any account should always be at least the existential deposit.",
+					);
+					// Create key pair from the derivation string
+					let derivation_string = &derivation.replace("{}", &index.to_string());
+					let pair: SrPair = Pair::from_string(&derivation_string, None).expect("Invalid derivation string");
+
+					// Convert the public key to AccountId
+					let who = T::AccountId::decode(&mut &pair.public().encode()[..]).unwrap();
+					frame_system::Pallet::<T>::inc_providers(&who);
+					assert!(T::AccountStore::insert(&who, AccountData { free: balance, ..Default::default() })
+						.is_ok());
+				}
+			}
 
 			for &(ref who, free) in self.balances.iter() {
 				frame_system::Pallet::<T>::inc_providers(who);

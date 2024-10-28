@@ -716,7 +716,12 @@ fn burn_must_work() {
 fn cannot_set_genesis_value_below_ed() {
 	EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = 11);
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let _ = crate::GenesisConfig::<Test> { balances: vec![(1, 10)] }
+	let _ = crate::GenesisConfig::<Test> { 
+		balances: vec![(1, 10)],
+		
+		#[cfg(feature = "runtime-benchmarks")]
+		dev_accounts: (1000000, 500, "//Sender/{}".to_string())
+	}
 		.assimilate_storage(&mut t)
 		.unwrap();
 }
@@ -725,7 +730,12 @@ fn cannot_set_genesis_value_below_ed() {
 #[should_panic = "duplicate balances in genesis."]
 fn cannot_set_genesis_value_twice() {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let _ = crate::GenesisConfig::<Test> { balances: vec![(1, 10), (2, 20), (1, 15)] }
+	let _ = crate::GenesisConfig::<Test> { 
+		balances: vec![(1, 10), (2, 20), (1, 15)],
+
+		#[cfg(feature = "runtime-benchmarks")]
+		dev_accounts: (1000000, 500, "//Sender/{}".to_string())
+	}
 		.assimilate_storage(&mut t)
 		.unwrap();
 }
