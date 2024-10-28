@@ -352,10 +352,12 @@ macro_rules! log {
 /// config.
 pub type MaxWinnersOf<T> = <T as Config>::MaxValidatorSet;
 
-/// Maximum number of exposures (validators) that each page of [`Config::ElectionProvider`] might
-/// might return.
-pub type MaxExposuresPerPageOf<T> =
-	<<T as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage;
+/// Maximum number of exposures that can fit into an exposure page, as defined by this pallet's
+/// config.
+/// TODO: needed? maybe use the type directly.
+pub type MaxExposuresPerPageOf<T> = <T as Config>::MaxExposurePageSize;
+
+pub type MaxWinnersPerPageOf<P> = <P as ElectionProvider>::MaxWinnersPerPage;
 
 /// Maximum number of nominations per nominator.
 pub type MaxNominationsOf<T> =
@@ -787,6 +789,8 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 				own: exposure.own,
 				nominator_count: exposure.others.len() as u32,
 				page_count: 1,
+				// set to default for legacy compat.
+				last_page_empty_slots: Default::default(),
 			},
 			exposure_page: ExposurePage { page_total: exposure.total, others: exposure.others },
 		}
@@ -1251,45 +1255,88 @@ impl<T: Config> EraInfo<T> {
 	}
 
 	/// Store exposure for elected validators at start of an era.
-	pub fn set_exposure(
+	///
+	/// If the exposure does not exist yet for the tuple (era, validator), it sets it. Otherwise,
+	/// it updates the existing record by ensuring *intermediate* exposure pages are filled up with
+	/// `T::MaxExposurePageSize` number of backiers per page.
+	pub fn upsert_exposure(
 		era: EraIndex,
 		validator: &T::AccountId,
-		exposure: Exposure<T::AccountId, BalanceOf<T>>,
+		mut exposure: Exposure<T::AccountId, BalanceOf<T>>,
 	) {
 		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
 
-		let nominator_count = exposure.others.len();
-		// expected page count is the number of nominators divided by the page size, rounded up.
-		let expected_page_count = nominator_count
-			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
-			.saturating_div(page_size as usize);
+		if let Some(stored_overview) = ErasStakersOverview::<T>::get(era, &validator) {
+			let exposures_append = exposure.split_others(stored_overview.last_page_empty_slots);
+			let last_page_idx = stored_overview.page_count.saturating_sub(1);
 
-		let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
-		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
+			let last_page_idx = ErasStakersOverview::<T>::mutate(era, &validator, |stored| {
+				// new metadata is updated based on 3 different set of exposures: the
+				// current one, the exposure split to be "fitted" into the current last page and
+				// the exposure set that will be appended from the new page onwards.
+				let new_metadata =
+					stored.defensive_unwrap_or_default().update_with::<T::MaxExposurePageSize>(
+						[&exposures_append, &exposure]
+							.iter()
+							.fold(Default::default(), |total, expo| {
+								total.saturating_add(expo.total.saturating_sub(expo.own))
+							}),
+						[&exposures_append, &exposure]
+							.iter()
+							.fold(Default::default(), |count, expo| {
+								count.saturating_add(expo.others.len() as u32)
+							}),
+					);
+				*stored = new_metadata.into();
 
-		// insert or update validator's overview.
-		let append_from = ErasStakersOverview::<T>::mutate(era, &validator, |stored| {
-			if let Some(stored_overview) = stored {
-				let append_from = stored_overview.page_count;
-				*stored = Some(stored_overview.merge(exposure_metadata));
-				append_from
-			} else {
-				*stored = Some(exposure_metadata);
-				Zero::zero()
-			}
-		});
+				last_page_idx
+			});
 
-		exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
-			let append_at = (append_from + idx as u32) as Page;
-			<ErasStakersPaged<T>>::insert((era, &validator, append_at), &paged_exposure);
-		});
+			// fill up last page with exposures.
+			let mut last_page =
+				ErasStakersPaged::<T>::get((era, validator, last_page_idx)).unwrap_or_default();
+
+			last_page.page_total = last_page
+				.page_total
+				.saturating_add(exposures_append.total)
+				.saturating_sub(exposures_append.own);
+			last_page.others.extend(exposures_append.others);
+			ErasStakersPaged::<T>::insert((era, &validator, last_page_idx), last_page);
+
+			// now handle the remainig exposures and append the exposure pages. The metadata update
+			// has been already handled above.
+			let (_, exposure_pages) = exposure.into_pages(page_size);
+
+			exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
+				let append_at =
+					(last_page_idx.saturating_add(1).saturating_add(idx as u32)) as Page;
+				<ErasStakersPaged<T>>::insert((era, &validator, append_at), &paged_exposure);
+			});
+		} else {
+			// expected page count is the number of nominators divided by the page size, rounded up.
+			let expected_page_count = exposure
+				.others
+				.len()
+				.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
+				.saturating_div(page_size as usize);
+
+			// no exposures yet for this (era, validator) tuple, calculate paged exposure pages and
+			// metadata from a blank slate.
+			let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
+			defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
+
+			// insert metadata.
+			ErasStakersOverview::<T>::insert(era, &validator, exposure_metadata);
+
+			// insert or update validator's overview.
+			exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
+				let append_at = idx as Page;
+				<ErasStakersPaged<T>>::insert((era, &validator, append_at), &paged_exposure);
+			});
+		};
 	}
 
-	/// Store total exposure for all the elected validators in the era.
-	pub(crate) fn set_total_stake(era: EraIndex, total_stake: BalanceOf<T>) {
-		<ErasTotalStake<T>>::insert(era, total_stake);
-	}
-
+	/// Update the total exposure for all the elected validators in the era.
 	pub(crate) fn add_total_stake(era: EraIndex, stake: BalanceOf<T>) {
 		<ErasTotalStake<T>>::mutate(era, |total_stake| {
 			*total_stake += stake;

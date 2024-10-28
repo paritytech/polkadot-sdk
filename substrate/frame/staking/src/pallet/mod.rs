@@ -232,7 +232,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
 
-		/// The absolute maximum of next winner validators this pallet should return.
+		/// The absolute maximum of winner validators this pallet should return.
+		///
+		/// As this pallet supports multi-block election, the set of winner validators *per
+		/// election* is bounded by this type.
 		#[pallet::constant]
 		type MaxValidatorSet: Get<u32>;
 
@@ -742,8 +745,8 @@ pub mod pallet {
 
 	/// Voter snapshot progress status.
 	///
-	/// If the status is `Ongoing`, it keeps track of the last voter account returned in the
-	/// snapshot.
+	/// If the status is `Ongoing`, it keeps a cursor of the last voter retrieved to proceed when
+	/// creating the next snapshot page.
 	#[pallet::storage]
 	pub(crate) type VoterSnapshotStatus<T: Config> =
 		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
@@ -756,25 +759,23 @@ pub mod pallet {
 	pub(crate) type TargetSnapshotStatus<T: Config> =
 		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
 
-	/// Keeps track of an ongoing multi-page election solution request and the block the first paged
-	/// was requested, if any. In addition, it also keeps track of the current era that is being
-	/// plannet.
+	/// Keeps track of an ongoing multi-page election solution request.
+	///
+	/// Stores the block number of when the first election page was requested. `None` indicates
+	/// that the election results haven't started to be fetched.
 	#[pallet::storage]
-	pub(crate) type ElectingStartedAt<T: Config> =
-		StorageValue<_, (BlockNumberFor<T>, EraIndex), OptionQuery>;
+	pub(crate) type ElectingStartedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
-	// TODO:
-	// * maybe use pallet-paged-list? (https://paritytech.github.io/polkadot-sdk/master/pallet_paged_list/index.html)
+	/// A bounded list of the "electable" stashes that resulted from a successful election.
 	#[pallet::storage]
 	pub(crate) type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedVec<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 
-	/// Lock for election data provider.
+	/// Lock state for election data mutations.
 	///
-	/// While the lock is set, the data to build a snapshot is frozen, i.e. the returned data from
-	/// `ElectionDataProvider` implementation will not change.
+	/// While the lock is set, there should be no mutations on the ledgers/staking data, ensuring
+	/// that the data provided to [`Config::ElectionDataProvider`] is stable during all pages.
 	#[pallet::storage]
-	#[pallet::getter(fn election_data_lock)]
 	pub(crate) type ElectionDataLock<T: Config> = StorageValue<_, (), OptionQuery>;
 
 	#[pallet::genesis_config]
@@ -840,6 +841,11 @@ pub mod pallet {
 					),
 					_ => Ok(()),
 				});
+				assert!(
+					ValidatorCount::<T>::get() <=
+						<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
+							<T::ElectionProvider as ElectionProvider>::Pages::get()
+				);
 			}
 
 			// all voters are reported to the `VoterList`.
@@ -1017,51 +1023,41 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Start fetching the election pages `Pages` blocks before the election prediction, so
-		/// that the `ElectableStashes` is ready with all the pages on time.
+		/// that the `ElectableStashes` has been populated with all validators from all pages at
+		/// the time of the election.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			let pages: BlockNumberFor<T> =
 				<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get().into();
 
-			if let Some((started_at, planning_era)) = ElectingStartedAt::<T>::get() {
-				let remaining_pages =
+			// election ongoing, fetch the next page.
+			if let Some(started_at) = ElectingStartedAt::<T>::get() {
+				let next_page =
 					pages.saturating_sub(One::one()).saturating_sub(now.saturating_sub(started_at));
 
-				if remaining_pages == Zero::zero() {
+				// note: this pallet is expected to fetch all the solution pages starting from the
+				// most significant one through to the page 0. Fetching page zero is an indication
+				// that all the solution pages have been fetched.
+				if next_page == Zero::zero() {
+					crate::log!(trace, "elect(): finished fetching all paged solutions.");
 					Self::do_elect_paged(Zero::zero());
 
-					// last page, reset elect status and update era.
-					crate::log!(info, "elect(): finished fetching all paged solutions.");
-					CurrentEra::<T>::set(Some(planning_era));
 					ElectingStartedAt::<T>::kill();
 				} else {
-					crate::log!(
-						info,
-						"elect(): progressing with calling elect, remaining pages {:?}.",
-						remaining_pages
-					);
-					Self::do_elect_paged(remaining_pages.saturated_into::<PageIndex>());
+					crate::log!(trace, "elect(): progressing, {:?} remaining pages.", next_page);
+					Self::do_elect_paged(next_page.saturated_into::<PageIndex>());
 				}
 			} else {
+				// election isn't ongoing yet, check if it should start.
 				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
 
 				if now == (next_election.saturating_sub(pages)) {
-					// start calling elect.
 					crate::log!(
-						info,
-						"elect(): next election in {:?} pages, start fetching solution pages.",
-						pages,
+						trace,
+						"elect(): start fetching solution pages. expected pages: {}",
+						pages
 					);
-					Self::do_elect_paged(pages.saturated_into::<PageIndex>().saturating_sub(1));
 
-					// set `ElectingStartedAt` only in multi-paged election.
-					if pages > One::one() {
-						ElectingStartedAt::<T>::set(Some((
-							now,
-							CurrentEra::<T>::get().unwrap_or_default().saturating_add(1),
-						)));
-					} else {
-						crate::log!(info, "elect(): finished fetching the single paged solution.");
-					}
+					Self::do_elect_paged(pages.saturated_into::<PageIndex>().saturating_sub(1));
 				}
 			};
 
@@ -1099,7 +1095,15 @@ pub mod pallet {
 				"As per documentation, slash defer duration ({}) should be less than bonding duration ({}).",
 				T::SlashDeferDuration::get(),
 				T::BondingDuration::get(),
-			)
+			);
+
+			// TODO: needed and true? test it!
+			// The max exposure page size should not be larger than the max winners per page
+			// returned by the election provider.
+			assert!(
+				<T as Config>::MaxExposurePageSize::get() <=
+					<<T as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
+			);
 		}
 
 		#[cfg(feature = "try-runtime")]

@@ -1314,6 +1314,7 @@ fn bond_extra_and_withdraw_unbonded_works() {
 				legacy_claimed_rewards: bounded_vec![],
 			}
 		);
+
 		assert_eq!(
 			Staking::eras_stakers(active_era(), &11),
 			Exposure { total: 1000, own: 1000, others: vec![] }
@@ -1864,7 +1865,11 @@ fn reward_to_stake_works() {
 			let _ = asset::set_stakeable_balance::<Test>(&20, 1000);
 
 			// Bypass logic and change current exposure
-			EraInfo::<Test>::set_exposure(0, &21, Exposure { total: 69, own: 69, others: vec![] });
+			EraInfo::<Test>::upsert_exposure(
+				0,
+				&21,
+				Exposure { total: 69, own: 69, others: vec![] },
+			);
 			<Ledger<Test>>::insert(
 				&20,
 				StakingLedgerInspect {
@@ -2334,7 +2339,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 
 		// Check reward
 		ErasRewardPoints::<Test>::insert(0, reward);
-		EraInfo::<Test>::set_exposure(0, &11, exposure);
+		EraInfo::<Test>::upsert_exposure(0, &11, exposure);
 		ErasValidatorReward::<Test>::insert(0, stake);
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
 		assert_eq!(asset::total_balance::<Test>(&11), stake * 2);
@@ -2346,7 +2351,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		// only slashes out of bonded stake are applied. without this line, it is 0.
 		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::Staked).unwrap();
 		// Override exposure of 11
-		EraInfo::<Test>::set_exposure(
+		EraInfo::<Test>::upsert_exposure(
 			0,
 			&11,
 			Exposure {
@@ -6932,7 +6937,7 @@ fn test_runtime_api_pending_rewards() {
 		<ErasStakers<Test>>::insert(0, validator_one, exposure.clone());
 		<ErasStakers<Test>>::insert(0, validator_two, exposure.clone());
 		// add paged exposure for third validator
-		EraInfo::<Test>::set_exposure(0, &validator_three, exposure);
+		EraInfo::<Test>::upsert_exposure(0, &validator_three, exposure);
 
 		// add some reward to be distributed
 		ErasValidatorReward::<Test>::insert(0, 1000);
@@ -8450,7 +8455,7 @@ pub mod multi_page_staking {
 	}
 
 	#[test]
-	fn collect_exposures_multi_page_elect_works() {
+	fn store_stakers_info_multi_page_elect_works() {
 		ExtBuilder::default().exposures_page_size(2).build_and_execute(|| {
 			assert_eq!(MaxExposurePageSize::get(), 2);
 
@@ -8485,63 +8490,96 @@ pub mod multi_page_staking {
 			let exposures_page_one = bounded_vec![(1, exposure_one), (2, exposure_two),];
 			let exposures_page_two = bounded_vec![(1, exposure_three),];
 
+			// stores exposure page with exposures of validator 1 and 2, returns exposed validator
+			// account id.
 			assert_eq!(
-				Pallet::<Test>::store_stakers_info_paged(exposures_page_one, current_era())
-					.to_vec(),
+				Pallet::<Test>::store_stakers_info(exposures_page_one, current_era()).to_vec(),
 				vec![1, 2]
 			);
+			// Stakers overview OK for validator 1 and 2.
 			assert_eq!(
-				Pallet::<Test>::store_stakers_info_paged(exposures_page_two, current_era())
-					.to_vec(),
+				ErasStakersOverview::<Test>::get(0, &1).unwrap(),
+				PagedExposureMetadata {
+					total: 1700,
+					own: 1000,
+					nominator_count: 3,
+					page_count: 2,
+					last_page_empty_slots: 1,
+				},
+			);
+			assert_eq!(
+				ErasStakersOverview::<Test>::get(0, &2).unwrap(),
+				PagedExposureMetadata {
+					total: 2000,
+					own: 1000,
+					nominator_count: 2,
+					page_count: 1,
+					last_page_empty_slots: 0,
+				},
+			);
+
+			// stores exposure page with exposures of validator 1, returns exposed validator
+			// account id.
+			assert_eq!(
+				Pallet::<Test>::store_stakers_info(exposures_page_two, current_era()).to_vec(),
 				vec![1]
 			);
 
 			// Stakers overview OK for validator 1.
 			assert_eq!(
 				ErasStakersOverview::<Test>::get(0, &1).unwrap(),
-				PagedExposureMetadata { total: 2200, own: 1000, nominator_count: 5, page_count: 3 },
-			);
-			// Stakers overview OK for validator 2.
-			assert_eq!(
-				ErasStakersOverview::<Test>::get(0, &2).unwrap(),
-				PagedExposureMetadata { total: 2000, own: 1000, nominator_count: 2, page_count: 1 },
+				PagedExposureMetadata {
+					total: 2200,
+					own: 1000,
+					nominator_count: 5,
+					page_count: 3,
+					last_page_empty_slots: 1,
+				},
 			);
 
 			// validator 1 has 3 paged exposures.
+			assert!(
+				ErasStakersPaged::<Test>::iter_prefix_values((0, &1)).count() as u32 ==
+					EraInfo::<Test>::get_page_count(0, &1) &&
+					EraInfo::<Test>::get_page_count(0, &1) == 3
+			);
 			assert!(ErasStakersPaged::<Test>::get((0, &1, 0)).is_some());
 			assert!(ErasStakersPaged::<Test>::get((0, &1, 1)).is_some());
 			assert!(ErasStakersPaged::<Test>::get((0, &1, 2)).is_some());
 			assert!(ErasStakersPaged::<Test>::get((0, &1, 3)).is_none());
-			assert_eq!(ErasStakersPaged::<Test>::iter_prefix_values((0, &1)).count(), 3);
 
 			// validator 2 has 1 paged exposures.
 			assert!(ErasStakersPaged::<Test>::get((0, &2, 0)).is_some());
 			assert!(ErasStakersPaged::<Test>::get((0, &2, 1)).is_none());
 			assert_eq!(ErasStakersPaged::<Test>::iter_prefix_values((0, &2)).count(), 1);
 
-			// exposures of validator 1.
+			// exposures of validator 1 are the expected:
 			assert_eq!(
-				ErasStakersPaged::<Test>::iter_prefix_values((0, &1)).collect::<Vec<_>>(),
-				vec![
-					ExposurePage {
-						page_total: 100,
-						others: vec![IndividualExposure { who: 103, value: 100 }]
-					},
-					ExposurePage {
-						page_total: 500,
-						others: vec![
-							IndividualExposure { who: 110, value: 250 },
-							IndividualExposure { who: 111, value: 250 }
-						]
-					},
-					ExposurePage {
-						page_total: 600,
-						others: vec![
-							IndividualExposure { who: 101, value: 500 },
-							IndividualExposure { who: 102, value: 100 }
-						]
-					},
-				],
+				ErasStakersPaged::<Test>::get((0, &1, 0)).unwrap(),
+				ExposurePage {
+					page_total: 600,
+					others: vec![
+						IndividualExposure { who: 101, value: 500 },
+						IndividualExposure { who: 102, value: 100 }
+					]
+				},
+			);
+			assert_eq!(
+				ErasStakersPaged::<Test>::get((0, &1, 1)).unwrap(),
+				ExposurePage {
+					page_total: 350,
+					others: vec![
+						IndividualExposure { who: 103, value: 100 },
+						IndividualExposure { who: 110, value: 250 }
+					]
+				}
+			);
+			assert_eq!(
+				ErasStakersPaged::<Test>::get((0, &1, 2)).unwrap(),
+				ExposurePage {
+					page_total: 250,
+					others: vec![IndividualExposure { who: 111, value: 250 }]
+				}
 			);
 
 			// exposures of validator 2.

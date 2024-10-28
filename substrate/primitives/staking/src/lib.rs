@@ -381,7 +381,26 @@ impl<
 		Balance: HasCompact + AtLeast32BitUnsigned + Copy + codec::MaxEncodedLen,
 	> Exposure<AccountId, Balance>
 {
-	/// Splits an `Exposure` into `PagedExposureMetadata` and multiple chunks of
+	/// Splits self into two where the returned partial `Exposure` has max of `n_others` individual
+	/// exposures while the remaining exposures are left in `self`.
+	pub fn split_others(&mut self, n_others: u32) -> Self {
+		let head_others: Vec<_> =
+			self.others.drain(..(n_others as usize).min(self.others.len())).collect();
+
+		let total_others_head: Balance = head_others
+			.iter()
+			.fold(Zero::zero(), |acc: Balance, o| acc.saturating_add(o.value));
+
+		self.total = self.total.saturating_sub(total_others_head);
+
+		Self {
+			total: total_others_head.saturating_add(self.own),
+			own: self.own,
+			others: head_others,
+		}
+	}
+
+	/// Converts an `Exposure` into `PagedExposureMetadata` and multiple chunks of
 	/// `IndividualExposure` with each chunk having maximum of `page_size` elements.
 	pub fn into_pages(
 		self,
@@ -390,6 +409,7 @@ impl<
 		let individual_chunks = self.others.chunks(page_size as usize);
 		let mut exposure_pages: Vec<ExposurePage<AccountId, Balance>> =
 			Vec::with_capacity(individual_chunks.len());
+		let mut total_chunks_last_page = Default::default();
 
 		for chunk in individual_chunks {
 			let mut page_total: Balance = Zero::zero();
@@ -403,6 +423,7 @@ impl<
 				})
 			}
 
+			total_chunks_last_page = others.len() as u32;
 			exposure_pages.push(ExposurePage { page_total, others });
 		}
 
@@ -412,6 +433,7 @@ impl<
 				own: self.own,
 				nominator_count: self.others.len() as u32,
 				page_count: exposure_pages.len() as Page,
+				last_page_empty_slots: page_size.saturating_sub(total_chunks_last_page),
 			},
 			exposure_pages,
 		)
@@ -477,6 +499,8 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub nominator_count: u32,
 	/// Number of pages of nominators.
 	pub page_count: Page,
+	/// Number of empty slots in the last page.
+	pub last_page_empty_slots: u32,
 }
 
 impl<Balance> PagedExposureMetadata<Balance>
@@ -485,22 +509,30 @@ where
 		+ codec::MaxEncodedLen
 		+ sp_std::ops::Add<Output = Balance>
 		+ sp_std::ops::Sub<Output = Balance>
+		+ sp_runtime::Saturating
 		+ PartialEq
 		+ Copy
 		+ sp_runtime::traits::Debug,
 {
-	/// Merge a paged exposure metadata page into self and return the result.
-	pub fn merge(self, other: Self) -> Self {
-		// TODO(gpestana): re-enable assert.
-		//debug_assert!(self.own == other.own);
+	/// Consomes self and returns the result of the metadata updated with `other_balances` and
+	/// of adding `other_num` nominators to the metadata.
+	///
+	/// `Max` is a getter of the maximum number of nominators per page.
+	pub fn update_with<Max: sp_core::Get<u32>>(
+		self,
+		others_balance: Balance,
+		others_num: u32,
+	) -> Self {
+		let new_nominator_count = self.nominator_count.saturating_add(others_num);
+		let new_page_count =
+			new_nominator_count.saturating_add(Max::get()).saturating_div(Max::get());
 
 		Self {
-			total: self.total + other.total - self.own,
+			total: self.total.saturating_add(others_balance),
 			own: self.own,
-			nominator_count: self.nominator_count + other.nominator_count,
-			// TODO(gpestana): merge the pages efficiently so that we make sure all the slots in the
-			// page are filled.
-			page_count: self.page_count + other.page_count,
+			nominator_count: new_nominator_count,
+			page_count: new_page_count,
+			last_page_empty_slots: Max::get().saturating_sub(new_nominator_count % Max::get()),
 		}
 	}
 }
