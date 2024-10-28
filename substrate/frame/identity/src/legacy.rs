@@ -27,6 +27,15 @@ use sp_runtime::{BoundedVec, RuntimeDebug};
 
 use crate::types::{Data, IdentityInformationProvider};
 
+// newtype pattern
+// https://stackoverflow.com/a/25415289/3208553
+// pub struct BoundedVecT<T, S>(BoundedVec<T, S>);
+// impl<T, S> BoundedVecT<T, S> {
+// 	pub fn is_none(&self) -> bool {
+// 		self == &BoundedVec::None
+// 	}
+// }
+
 /// The fields that we use to identify the owner of an account with. Each corresponds to a field
 /// in the `IdentityInfo` struct.
 #[bitflags]
@@ -41,6 +50,7 @@ pub enum IdentityField {
 	PgpFingerprint,
 	Image,
 	Twitter,
+	Additional,
 }
 
 impl TypeInfo for IdentityField {
@@ -56,7 +66,9 @@ impl TypeInfo for IdentityField {
 				.variant("Email", |v| v.index(4))
 				.variant("PgpFingerprint", |v| v.index(5))
 				.variant("Image", |v| v.index(6))
-				.variant("Twitter", |v| v.index(7)),
+				.variant("Twitter", |v| v.index(7))
+				.variant("Additional", |v| v.index(8)),
+
 		)
 	}
 }
@@ -198,6 +210,10 @@ impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
 		if !self.twitter.is_none() {
 			res.insert(IdentityField::Twitter);
 		}
+		// TODO: How to add this? Do I need `BoundedVecT`
+		// if !self.additional.is_none() {
+		// 	res.insert(IdentityField::Additional);
+		// }
 		res
 	}
 }
