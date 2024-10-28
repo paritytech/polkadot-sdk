@@ -16,7 +16,7 @@
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
-	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned},
+	evm::api::{TransactionSigned, TransactionUnsigned},
 	AccountIdOf, AddressMapper, BalanceOf, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
@@ -279,7 +279,7 @@ pub trait EthExtra {
 		OnChargeTransactionBalanceOf<Self::Config>: Into<BalanceOf<Self::Config>>,
 		CallOf<Self::Config>: From<crate::Call<Self::Config>>,
 	{
-		let tx = rlp::decode::<TransactionLegacySigned>(&payload).map_err(|err| {
+		let tx = TransactionSigned::decode(&payload).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
 			InvalidTransaction::Call
 		})?;

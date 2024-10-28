@@ -21,6 +21,47 @@ use super::*;
 use alloc::vec::Vec;
 use rlp::{Decodable, Encodable};
 
+impl TransactionSigned {
+	/// Encode the Ethereum transaction into bytes.
+	pub fn encode(&self) -> Vec<u8> {
+		use TransactionSigned::*;
+		let mut s = rlp::RlpStream::new();
+		match self {
+			Transaction2930Signed(ref tx) => {
+				s.append(&Type1::value());
+				s.append(tx);
+			},
+			Transaction1559Signed(ref tx) => {
+				s.append(&Type2::value());
+				s.append(tx);
+			},
+			Transaction4844Signed(ref tx) => {
+				s.append(&Type3::value());
+				s.append(tx);
+			},
+			TransactionLegacySigned(ref tx) => {
+				s.append(tx);
+			},
+		}
+
+		s.out().to_vec()
+	}
+
+	/// Decode the Ethereum transaction from bytes.
+	pub fn decode(data: &[u8]) -> Result<Self, rlp::DecoderError> {
+		use super::type_id::*;
+		if data.len() < 1 {
+			return Err(rlp::DecoderError::RlpIsTooShort);
+		}
+		match data[0] {
+			TYPE1 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
+			TYPE2 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
+			TYPE3 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
+			_ => rlp::decode::<TransactionLegacySigned>(data).map(Into::into),
+		}
+	}
+}
+
 impl TransactionLegacyUnsigned {
 	/// Get the rlp encoded bytes of a signed transaction with a dummy 65 bytes signature.
 	pub fn dummy_signed_payload(&self) -> Vec<u8> {
@@ -47,8 +88,8 @@ impl Encodable for TransactionLegacyUnsigned {
 			s.append(&self.value);
 			s.append(&self.input.0);
 			s.append(&chain_id);
-			s.append(&0_u8);
-			s.append(&0_u8);
+			s.append(&0u8);
+			s.append(&0u8);
 		} else {
 			s.begin_list(6);
 			s.append(&self.nonce);
@@ -64,7 +105,6 @@ impl Encodable for TransactionLegacyUnsigned {
 	}
 }
 
-/// See <https://eips.ethereum.org/EIPS/eip-155>
 impl Decodable for TransactionLegacyUnsigned {
 	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
 		Ok(TransactionLegacyUnsigned {
@@ -95,20 +135,214 @@ impl Decodable for TransactionLegacyUnsigned {
 
 impl Encodable for TransactionLegacySigned {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		let tx = &self.transaction_legacy_unsigned;
+
 		s.begin_list(9);
-		s.append(&self.transaction_legacy_unsigned.nonce);
-		s.append(&self.transaction_legacy_unsigned.gas_price);
-		s.append(&self.transaction_legacy_unsigned.gas);
-		match self.transaction_legacy_unsigned.to {
+		s.append(&tx.nonce);
+		s.append(&tx.gas_price);
+		s.append(&tx.gas);
+		match tx.to {
 			Some(ref to) => s.append(to),
 			None => s.append_empty_data(),
 		};
-		s.append(&self.transaction_legacy_unsigned.value);
-		s.append(&self.transaction_legacy_unsigned.input.0);
+		s.append(&tx.value);
+		s.append(&tx.input.0);
 
 		s.append(&self.v);
 		s.append(&self.r);
 		s.append(&self.s);
+	}
+}
+
+impl Encodable for AccessListEntry {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(2);
+		s.append(&self.address);
+		s.append_list(&self.storage_keys);
+	}
+}
+
+impl Decodable for AccessListEntry {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+		Ok(AccessListEntry { address: rlp.val_at(0)?, storage_keys: rlp.list_at(1)? })
+	}
+}
+
+/// See <https://eips.ethereum.org/EIPS/eip-1559>
+impl Encodable for Transaction1559Signed {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		let tx = &self.transaction_1559_unsigned;
+		s.begin_list(12);
+		s.append(&tx.chain_id);
+		s.append(&tx.nonce);
+		s.append(&tx.max_priority_fee_per_gas);
+		s.append(&tx.max_fee_per_gas);
+		s.append(&tx.gas);
+		match tx.to {
+			Some(ref to) => s.append(to),
+			None => s.append_empty_data(),
+		};
+		s.append(&tx.value);
+		s.append(&tx.input.0);
+		s.append_list(&tx.access_list);
+
+		match self.y_parity {
+			Some(ref y_parity) => s.append(y_parity),
+			None => s.append_empty_data(),
+		};
+		s.append(&self.r);
+		s.append(&self.s);
+	}
+}
+
+impl Decodable for Transaction1559Signed {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+		Ok(Transaction1559Signed {
+			transaction_1559_unsigned: {
+				Transaction1559Unsigned {
+					chain_id: rlp.val_at(0)?,
+					nonce: rlp.val_at(1)?,
+					max_priority_fee_per_gas: rlp.val_at(2)?,
+					max_fee_per_gas: rlp.val_at(3)?,
+					gas: rlp.val_at(4)?,
+					to: {
+						let to = rlp.at(5)?;
+						if to.is_empty() {
+							None
+						} else {
+							Some(to.as_val()?)
+						}
+					},
+					value: rlp.val_at(6)?,
+					input: Bytes(rlp.val_at(7)?),
+					access_list: rlp.list_at(8)?,
+					..Default::default()
+				}
+			},
+			y_parity: {
+				let y_parity = rlp.at(9)?;
+				if y_parity.is_empty() {
+					None
+				} else {
+					Some(y_parity.as_val()?)
+				}
+			},
+			r: rlp.val_at(10)?,
+			s: rlp.val_at(11)?,
+			..Default::default()
+		})
+	}
+}
+
+//See https://eips.ethereum.org/EIPS/eip-2930
+impl Encodable for Transaction2930Signed {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		let tx = &self.transaction_2930_unsigned;
+		s.begin_list(11);
+		s.append(&tx.chain_id);
+		s.append(&tx.nonce);
+		s.append(&tx.gas_price);
+		s.append(&tx.gas);
+		match tx.to {
+			Some(ref to) => s.append(to),
+			None => s.append_empty_data(),
+		};
+		s.append(&tx.value);
+		s.append(&tx.input.0);
+		s.append_list(&tx.access_list);
+		s.append(&self.y_parity);
+		s.append(&self.r);
+		s.append(&self.s);
+	}
+}
+
+impl Decodable for Transaction2930Signed {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+		Ok(Transaction2930Signed {
+			transaction_2930_unsigned: {
+				Transaction2930Unsigned {
+					chain_id: rlp.val_at(0)?,
+					nonce: rlp.val_at(1)?,
+					gas_price: rlp.val_at(2)?,
+					gas: rlp.val_at(3)?,
+					to: {
+						let to = rlp.at(4)?;
+						if to.is_empty() {
+							None
+						} else {
+							Some(to.as_val()?)
+						}
+					},
+					value: rlp.val_at(5)?,
+					input: Bytes(rlp.val_at(6)?),
+					access_list: rlp.list_at(7)?,
+					..Default::default()
+				}
+			},
+			y_parity: rlp.val_at(8)?,
+			r: rlp.val_at(9)?,
+			s: rlp.val_at(10)?,
+			..Default::default()
+		})
+	}
+}
+
+//See https://eips.ethereum.org/EIPS/eip-4844
+impl Encodable for Transaction4844Signed {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		let tx = &self.transaction_4844_unsigned;
+		s.begin_list(14);
+		s.append(&tx.chain_id);
+		s.append(&tx.nonce);
+		s.append(&tx.max_priority_fee_per_gas);
+		s.append(&tx.max_fee_per_gas);
+		s.append(&tx.gas);
+		s.append(&tx.to);
+		s.append(&tx.value);
+		s.append(&tx.input.0);
+		s.append_list(&tx.access_list);
+		s.append(&tx.max_fee_per_blob_gas);
+		s.append_list(&tx.blob_versioned_hashes);
+		match self.y_parity {
+			Some(ref y_parity) => s.append(y_parity),
+			None => s.append_empty_data(),
+		};
+		s.append(&self.r);
+		s.append(&self.s);
+	}
+}
+
+impl Decodable for Transaction4844Signed {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+		Ok(Transaction4844Signed {
+			transaction_4844_unsigned: {
+				Transaction4844Unsigned {
+					chain_id: rlp.val_at(0)?,
+					nonce: rlp.val_at(1)?,
+					max_priority_fee_per_gas: rlp.val_at(2)?,
+					max_fee_per_gas: rlp.val_at(3)?,
+					gas: rlp.val_at(4)?,
+					to: rlp.val_at(5)?,
+					value: rlp.val_at(6)?,
+					input: Bytes(rlp.val_at(7)?),
+					access_list: rlp.list_at(8)?,
+					max_fee_per_blob_gas: rlp.val_at(9)?,
+					blob_versioned_hashes: rlp.list_at(10)?,
+					..Default::default()
+				}
+			},
+			y_parity: {
+				let y_parity = rlp.at(11)?;
+				if y_parity.is_empty() {
+					None
+				} else {
+					Some(y_parity.as_val()?)
+				}
+			},
+			r: rlp.val_at(12)?,
+			s: rlp.val_at(13)?,
+			..Default::default()
+		})
 	}
 }
 
@@ -156,6 +390,116 @@ impl Decodable for TransactionLegacySigned {
 mod test {
 	use super::*;
 
+	#[test]
+	fn encode_decode_tx_works() {
+		let txs = [
+			// Legacy
+			(
+				"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808025a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+				r#"
+				{
+					"chainId": "0x1",
+					"gas": "0x1e241",
+					"gasPrice": "0x0",
+					"input": "0x",
+					"nonce": "0x0",
+					"to": "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+					"type": "0x0",
+					"value": "0x0",
+					"r": "0xfe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0",
+					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+					"v": "0x25"
+				}
+				"#
+			),
+			// type 1: EIP2930
+			(
+				"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+				r#"
+				{
+					"accessList": [
+						{
+						"address": "0x0000000000000000000000000000000000000001",
+						"storageKeys": ["0x0000000000000000000000000000000000000000000000000000000000000000"]
+						}
+					],
+					"chainId": "0x1",
+					"gas": "0x1e241",
+					"gasPrice": "0x0",
+					"input": "0x",
+					"nonce": "0x0",
+					"to": "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+					"type": "0x1",
+					"value": "0x0",
+					"r": "0xfe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0",
+					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+					"yParity": "0x0"
+				}
+				"#
+			),
+			// type 2: EIP1559
+			(
+				"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+				r#"
+				{
+					"accessList": [
+						{
+							"address": "0x0000000000000000000000000000000000000001",
+							"storageKeys": ["0x0000000000000000000000000000000000000000000000000000000000000000"]
+						}
+					],
+					"chainId": "0x1",
+					"gas": "0x1e241",
+					"gasPrice": "0x0",
+					"input": "0x",
+					"maxFeePerGas": "0x1",
+					"maxPriorityFeePerGas": "0x0",
+					"nonce": "0x0",
+					"to": "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+					"type": "0x2",
+					"value": "0x0",
+					"r": "0xfe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0",
+					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8"
+				}
+				"#
+			),
+			// type 3: EIP4844
+			(
+
+				"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+				r#"
+				{
+					"accessList": [
+						{
+						"address": "0x0000000000000000000000000000000000000001",
+						"storageKeys": ["0x0000000000000000000000000000000000000000000000000000000000000000"]
+						}
+					],
+					"blobVersionedHashes": ["0x0000000000000000000000000000000000000000000000000000000000000000"],
+					"chainId": "0x1",
+					"gas": "0x1e241",
+					"input": "0x",
+					"maxFeePerBlobGas": "0x0",
+					"maxFeePerGas": "0x1",
+					"maxPriorityFeePerGas": "0x2",
+					"nonce": "0x0",
+					"to": "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+					"type": "0x3",
+					"value": "0x0",
+					"r": "0xfe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0",
+					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8"
+				}
+				"#
+			)
+		];
+
+		for (tx, json) in txs {
+			let raw_tx = hex::decode(tx).unwrap();
+			let tx = TransactionSigned::decode(&raw_tx).unwrap();
+			assert_eq!(tx.encode(), raw_tx);
+			assert_eq!(tx, serde_json::from_str(json).unwrap());
+		}
+	}
 	#[test]
 	fn encode_decode_legacy_transaction_works() {
 		let tx = TransactionLegacyUnsigned {

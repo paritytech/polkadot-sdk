@@ -20,16 +20,13 @@ use rlp::Encodable;
 use sp_core::{H160, U256};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 
-impl TransactionLegacyUnsigned {
-	/// Recover the Ethereum address, from an RLP encoded transaction and a 65 bytes signature.
-	pub fn recover_eth_address(rlp_encoded: &[u8], signature: &[u8; 65]) -> Result<H160, ()> {
-		let hash = keccak_256(rlp_encoded);
-		let mut addr = H160::default();
-		let pk = secp256k1_ecdsa_recover(&signature, &hash).map_err(|_| ())?;
-		addr.assign_from_slice(&keccak_256(&pk[..])[12..]);
-
-		Ok(addr)
-	}
+/// Recover the Ethereum address, from an encoded transaction and a 65 bytes signature.
+pub fn recover_eth_address(bytes: &[u8], signature: &[u8; 65]) -> Result<H160, ()> {
+	let hash = keccak_256(bytes);
+	let mut addr = H160::default();
+	let pk = secp256k1_ecdsa_recover(&signature, &hash).map_err(|_| ())?;
+	addr.assign_from_slice(&keccak_256(&pk[..])[12..]);
+	Ok(addr)
 }
 
 impl TransactionLegacySigned {
@@ -71,10 +68,29 @@ impl TransactionLegacySigned {
 			self.v.try_into().ok()
 		}
 	}
+}
 
-	/// Recover the Ethereum address from the signed transaction.
-	pub fn recover_eth_address(&self) -> Result<H160, ()> {
-		let rlp_encoded = self.transaction_legacy_unsigned.rlp_bytes();
-		TransactionLegacyUnsigned::recover_eth_address(&rlp_encoded, &self.raw_signature()?)
+impl TransactionSigned {
+	/// Get the raw 65 bytes signature from the signed transaction.
+	pub fn raw_signature(&self) -> Result<[u8; 65], ()> {
+		use TransactionSigned::*;
+		let mut s = [0u8; 65];
+
+		match self {
+			TransactionLegacySigned(tx) => {
+			},
+			Transaction2930Signed(tx)=> {
+			},
+			Transaction1559Signed(tx) => {
+			},
+			},Transaction4844Signed(tx) => {
+			},
+		}
+
+
+		self.r.write_as_big_endian(s[0..32].as_mut());
+		self.s.write_as_big_endian(s[32..64].as_mut());
+		s[64] = self.extract_recovery_id().ok_or(())?;
+		Ok(s)
 	}
 }
