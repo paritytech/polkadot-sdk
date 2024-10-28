@@ -445,7 +445,9 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 			UmpAcceptanceCheckErr::IsOffboarding => {
 				write!(fmt, "upward message rejected because the para is off-boarding")
 			},
-			UmpAcceptanceCheckErr::TooManyUMPSignals { count } => {},
+			UmpAcceptanceCheckErr::TooManyUMPSignals { count } => {
+				write!(fmt, "the ump queue has too many `UMPSignal` messages ({} > 1 )", count)
+			},
 			UmpAcceptanceCheckErr::NoUmpSignal => {
 				write!(fmt, "Required UMP signal not found")
 			},
