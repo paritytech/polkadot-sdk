@@ -20,8 +20,8 @@ use super::*;
 
 use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CommittedCandidateReceipt, Header, SigningContext,
-	ValidatorId,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlockNumber,
+	CandidateCommitments, CommittedCandidateReceipt, Header, SigningContext, ValidatorId,
 };
 use rstest::rstest;
 
@@ -232,7 +232,7 @@ async fn send_seconded_statement(
 
 	overseer_send(
 		virtual_overseer,
-		CollatorProtocolMessage::Seconded(candidate.descriptor.relay_parent, stmt),
+		CollatorProtocolMessage::Seconded(candidate.descriptor.relay_parent(), stmt),
 	)
 	.await;
 }
@@ -512,7 +512,7 @@ fn v1_advertisement_accepted_and_seconded() {
 			hrmp_watermark: 0,
 		};
 		candidate.commitments_hash = commitments.hash();
-
+		let candidate: CandidateReceipt = candidate.into();
 		let pov = PoV { block_data: BlockData(vec![1]) };
 
 		response_channel
@@ -822,7 +822,7 @@ fn fetched_collation_sanity_check() {
 			hrmp_watermark: 0,
 		};
 		candidate.commitments_hash = commitments.hash();
-
+		let candidate: CandidateReceipt = candidate.into();
 		let candidate_hash = CandidateHash(Hash::zero());
 		let parent_head_data_hash = Hash::zero();
 
@@ -917,7 +917,6 @@ fn sanity_check_invalid_parent_head_data() {
 
 		let mut candidate = dummy_candidate_receipt_bad_sig(head_c, Some(Default::default()));
 		candidate.descriptor.para_id = test_state.chain_ids[0];
-
 		let commitments = CandidateCommitments {
 			head_data: HeadData(vec![1, 2, 3]),
 			horizontal_messages: Default::default(),
@@ -936,6 +935,7 @@ fn sanity_check_invalid_parent_head_data() {
 		pvd.parent_head = parent_head_data;
 
 		candidate.descriptor.persisted_validation_data_hash = pvd.hash();
+		let candidate: CandidateReceipt = candidate.into();
 
 		let candidate_hash = candidate.hash();
 
@@ -1140,6 +1140,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 			processed_downward_messages: 0,
 			hrmp_watermark: 0,
 		};
+		let mut candidate_b: CandidateReceipt = candidate_b.into();
 		candidate_b.commitments_hash = candidate_b_commitments.hash();
 
 		let candidate_b_hash = candidate_b.hash();
@@ -1206,6 +1207,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				relay_parent_storage_root: Default::default(),
 			}
 			.hash();
+		let mut candidate_a: CandidateReceipt = candidate_a.into();
 		let candidate_a_commitments = CandidateCommitments {
 			head_data: HeadData(vec![1]),
 			horizontal_messages: Default::default(),
@@ -1216,6 +1218,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		};
 		candidate_a.commitments_hash = candidate_a_commitments.hash();
 
+		let candidate_a: CandidateReceipt = candidate_a.into();
 		let candidate_a_hash = candidate_a.hash();
 
 		advertise_collation(
@@ -1280,7 +1283,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				incoming_pov,
 			)) => {
 				assert_eq!(head_c, relay_parent);
-				assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id);
+				assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id());
 				assert_eq!(PoV { block_data: BlockData(vec![2]) }, incoming_pov);
 				assert_eq!(PersistedValidationData::<Hash, BlockNumber> {
 					parent_head: HeadData(vec![0]),
@@ -1333,7 +1336,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 					incoming_pov,
 				)) => {
 					assert_eq!(head_c, relay_parent);
-					assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id);
+					assert_eq!(test_state.chain_ids[0], candidate_receipt.descriptor.para_id());
 					assert_eq!(PoV { block_data: BlockData(vec![1]) }, incoming_pov);
 					assert_eq!(PersistedValidationData::<Hash, BlockNumber> {
 						parent_head: HeadData(vec![1]),

@@ -44,7 +44,7 @@ pub fn dummy_candidate_receipt<H: AsRef<[u8]>>(relay_parent: H) -> CandidateRece
 }
 
 /// Creates a v2 candidate receipt with filler data.
-pub fn dummy_candidate_receipt_v2<H: AsRef<[u8]>>(relay_parent: H) -> CandidateReceiptV2<H> {
+pub fn dummy_candidate_receipt_v2<H: AsRef<[u8]> + Copy>(relay_parent: H) -> CandidateReceiptV2<H> {
 	CandidateReceiptV2::<H> {
 		commitments_hash: dummy_candidate_commitments(dummy_head_data()).hash(),
 		descriptor: dummy_candidate_descriptor_v2(relay_parent),
@@ -62,7 +62,7 @@ pub fn dummy_committed_candidate_receipt<H: AsRef<[u8]>>(
 }
 
 /// Creates a v2 committed candidate receipt with filler data.
-pub fn dummy_committed_candidate_receipt_v2<H: AsRef<[u8]>>(
+pub fn dummy_committed_candidate_receipt_v2<H: AsRef<[u8]> + Copy>(
 	relay_parent: H,
 ) -> CommittedCandidateReceiptV2<H> {
 	CommittedCandidateReceiptV2 {
@@ -85,6 +85,23 @@ pub fn dummy_candidate_receipt_bad_sig(
 	CandidateReceipt::<Hash> {
 		commitments_hash,
 		descriptor: dummy_candidate_descriptor_bad_sig(relay_parent),
+	}
+}
+
+/// Create a candidate receipt with a bogus signature and filler data. Optionally set the commitment
+/// hash with the `commitments` arg.
+pub fn dummy_candidate_receipt_v2_bad_sig(
+	relay_parent: Hash,
+	commitments: impl Into<Option<Hash>>,
+) -> CandidateReceiptV2<Hash> {
+	let commitments_hash = if let Some(commitments) = commitments.into() {
+		commitments
+	} else {
+		dummy_candidate_commitments(dummy_head_data()).hash()
+	};
+	CandidateReceiptV2::<Hash> {
+		commitments_hash,
+		descriptor: dummy_candidate_descriptor_bad_sig(relay_parent).into(),
 	}
 }
 
@@ -144,7 +161,9 @@ pub fn dummy_candidate_descriptor<H: AsRef<[u8]>>(relay_parent: H) -> CandidateD
 }
 
 /// Create a v2 candidate descriptor with filler data.
-pub fn dummy_candidate_descriptor_v2<H: AsRef<[u8]>>(relay_parent: H) -> CandidateDescriptorV2<H> {
+pub fn dummy_candidate_descriptor_v2<H: AsRef<[u8]> + Copy>(
+	relay_parent: H,
+) -> CandidateDescriptorV2<H> {
 	let invalid = Hash::zero();
 	let descriptor = make_valid_candidate_descriptor_v2(
 		1.into(),
@@ -208,7 +227,7 @@ pub fn make_candidate(
 	parent_head: HeadData,
 	head_data: HeadData,
 	validation_code_hash: ValidationCodeHash,
-) -> (CommittedCandidateReceipt, PersistedValidationData) {
+) -> (CommittedCandidateReceiptV2, PersistedValidationData) {
 	let pvd = dummy_pvd(parent_head, relay_parent_number);
 	let commitments = CandidateCommitments {
 		head_data,
@@ -225,7 +244,8 @@ pub fn make_candidate(
 	candidate.descriptor.para_id = para_id;
 	candidate.descriptor.persisted_validation_data_hash = pvd.hash();
 	candidate.descriptor.validation_code_hash = validation_code_hash;
-	let candidate = CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
+	let candidate =
+		CommittedCandidateReceiptV2 { descriptor: candidate.descriptor.into(), commitments };
 
 	(candidate, pvd)
 }
@@ -269,7 +289,7 @@ pub fn make_valid_candidate_descriptor<H: AsRef<[u8]>>(
 }
 
 /// Create a v2 candidate descriptor.
-pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]>>(
+pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]> + Copy>(
 	para_id: ParaId,
 	relay_parent: H,
 	core_index: CoreIndex,
@@ -335,11 +355,11 @@ impl std::default::Default for TestCandidateBuilder {
 
 impl TestCandidateBuilder {
 	/// Build a `CandidateReceipt`.
-	pub fn build(self) -> CandidateReceipt {
+	pub fn build(self) -> CandidateReceiptV2 {
 		let mut descriptor = dummy_candidate_descriptor(self.relay_parent);
 		descriptor.para_id = self.para_id;
 		descriptor.pov_hash = self.pov_hash;
-		CandidateReceipt { descriptor, commitments_hash: self.commitments_hash }
+		CandidateReceipt { descriptor, commitments_hash: self.commitments_hash }.into()
 	}
 }
 

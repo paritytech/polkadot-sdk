@@ -427,7 +427,7 @@ impl TestDisputes {
 		let onchain_votes_count = self.validators_count * 80 / 100;
 		let session_idx = 0;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::Active);
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -445,7 +445,7 @@ impl TestDisputes {
 		let onchain_votes_count = self.validators_count * 40 / 100;
 		let session_idx = 1;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::Active);
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -462,7 +462,7 @@ impl TestDisputes {
 		let local_votes_count = self.validators_count * 90 / 100;
 		let session_idx = 2;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::Confirmed);
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -478,7 +478,7 @@ impl TestDisputes {
 		let onchain_votes_count = self.validators_count * 75 / 100;
 		let session_idx = 3;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::ConcludedFor(0));
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -494,7 +494,7 @@ impl TestDisputes {
 		let local_votes_count = self.validators_count * 90 / 100;
 		let session_idx = 4;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::ConcludedFor(0));
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -510,7 +510,7 @@ impl TestDisputes {
 		let onchain_votes_count = self.validators_count * 10 / 100;
 		let session_idx = 5;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::Active);
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
@@ -527,7 +527,7 @@ impl TestDisputes {
 		let local_votes_count = self.validators_count * 10 / 100;
 		let session_idx = 6;
 		let lf = leaf();
-		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt(lf.hash);
+		let dummy_receipt = polkadot_primitives_test_helpers::dummy_candidate_receipt_v2(lf.hash);
 		for _ in 0..dispute_count {
 			let d = (session_idx, CandidateHash(Hash::random()), DisputeStatus::Active);
 			self.add_offchain_dispute(d, local_votes_count, dummy_receipt.clone());
