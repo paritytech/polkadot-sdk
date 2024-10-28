@@ -931,13 +931,15 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	type UniversalLocation = xcm_config::UniversalLocation;
 	type SiblingBridgeHubLocation = xcm_config::bridging::SiblingBridgeHub;
 	type BridgedNetworkId = xcm_config::bridging::to_westend::WestendNetwork;
-	type Bridges = xcm_config::bridging::NetworkExportTable;
 	type DestinationVersion = PolkadotXcm;
 
 	// Let's use `SovereignPaidRemoteExporter`, which sends `ExportMessage` over HRMP to the sibling
 	// BridgeHub.
-	type ToBridgeHubSender =
-		SovereignPaidRemoteExporter<ToWestendXcmRouter, XcmpQueue, Self::UniversalLocation>;
+	type ToBridgeHubSender = SovereignPaidRemoteExporter<
+		xcm_builder::NetworkExportTable<xcm_config::bridging::to_westend::BridgeTable>,
+		XcmpQueue,
+		Self::UniversalLocation
+	>;
 	type LocalXcmChannelManager =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 

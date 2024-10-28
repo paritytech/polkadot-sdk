@@ -35,7 +35,7 @@ use frame_support::traits::Get;
 use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
 use sp_std::vec::Vec;
 use xcm::prelude::*;
-use xcm_builder::{ExporterFor, InspectMessageQueues};
+use xcm_builder::InspectMessageQueues;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -90,10 +90,7 @@ pub mod pallet {
 		/// Also used for filtering `Bridges` by `BridgedNetworkId`.
 		/// If not specified, allows all networks pass through.
 		type BridgedNetworkId: Get<Option<NetworkId>>;
-		/// Configuration for supported **bridged networks/locations** with **bridge location** and
-		/// **possible fee**. Allows to externalize better control over allowed **bridged
-		/// networks/locations**.
-		type Bridges: ExporterFor;
+
 		/// Checks the XCM version for the destination.
 		type DestinationVersion: GetVersion;
 

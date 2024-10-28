@@ -78,7 +78,6 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type UniversalLocation = UniversalLocation;
 	type SiblingBridgeHubLocation = SiblingBridgeHubLocation;
 	type BridgedNetworkId = BridgedNetworkId;
-	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion =
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 

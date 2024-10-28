@@ -224,7 +224,6 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type UniversalLocation = UniversalLocation;
 	type SiblingBridgeHubLocation = BridgeHubLocation;
 	type BridgedNetworkId = BridgedRelayNetwork;
-	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion = AlwaysLatest;
 
 	// We use `SovereignPaidRemoteExporter` here to test and ensure that the `ExportMessage`
@@ -253,7 +252,6 @@ impl pallet_xcm_bridge_hub_router::Config<pallet_xcm_bridge_hub_router::Instance
 	type UniversalLocation = UniversalLocation;
 	type SiblingBridgeHubLocation = BridgeHubLocation;
 	type BridgedNetworkId = BridgedRelayNetwork;
-	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion = AlwaysLatest;
 
 	// We use `UnpaidLocalExporter` here to test and ensure that `pallet_xcm_bridge_hub_router` can
