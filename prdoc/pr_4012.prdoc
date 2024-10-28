@@ -1,18 +1,18 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: "`impl_runtime_apis!`: prevent the use of `Self` as type argument"
+title: "`impl_runtime_apis!`: replace the use of `Self` with `Runtime`"
 
 doc:
   - audience: Runtime Dev
     description: |
         Currently, if there is a type alias similar to `type HeaderFor<T>` in the scope, it makes sense to expect that
         `HeaderFor<Runtime>` and `HeaderFor<Self>` are equivalent. However, this is not the case. It currently leads to 
-        a compilation error that `Self is not in scope`, which is confusing. This PR Introduces a checker struct, similar to 
-        `CheckTraitDecl` in `decl_runtime_apis!`, `CheckTraitImpl`. It identifies usage of `Self` as a type argument in
-        `impl_runtime_apis!` and emits an error message. The error message suggests replacing `Self` with `Runtime`.
+        a compilation error that `Self is not in scope`, which is confusing. This PR Introduces a visitor, similar to 
+        `CheckTraitDecl` in `decl_runtime_apis!`, `ReplaceSelfImpl`. It identifies usage of `Self` as a type argument in
+        `impl_runtime_apis!` and replaces `Self` with an explicit `Runtime` type.
 
-        For example, the following example code is not allowed:
+        For example, the following example code will be transformed before expansion:
         ```rust
         impl apis::Core<Block> for Runtime {
             fn initialize_block(header: &HeaderFor<Self>) -> ExtrinsicInclusionMode {
@@ -21,7 +21,7 @@ doc:
             }
         }
         ``` 
-        Instead, it should be written as:
+        Instead, it will be passed to macro as:
         ```rust
         impl apis::Core<Block> for Runtime {
             fn initialize_block(header: &HeaderFor<Runtime>) -> ExtrinsicInclusionMode {
