@@ -627,20 +627,10 @@ where
 						let result = submission_results
 							.next()
 							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed.");
-						result.or_else(|error| {
-							let error = error.into_pool_error();
-							match error {
-								Ok(
-									// The transaction is still in mempool it may get included into the view for the next block.
-									Error::ImmediatelyDropped
-								) => Ok(xt_hash),
-								Ok(e) => {
-									mempool.remove(xt_hash);
-									Err(e.into())
-								},
-								Err(e) => Err(e),
-							}
-						})
+						if result.is_err() {
+							mempool.remove(xt_hash);
+						};
+						result
 					})
 				})
 				.collect::<Vec<_>>())
@@ -693,24 +683,9 @@ where
 		let mempool = self.mempool.clone();
 		async move {
 			let result = view_store.submit_and_watch(at, source, xt).await;
-			let result = result.or_else(|(e, maybe_watcher)| {
-				let error = e.into_pool_error();
-				match (error, maybe_watcher) {
-					(
-						Ok(
-							// The transaction is still in mempool it may get included into the
-							// view for the next block.
-							Error::ImmediatelyDropped,
-						),
-						Some(watcher),
-					) => Ok(watcher),
-					(Ok(e), _) => {
-						mempool.remove(xt_hash);
-						Err(e.into())
-					},
-					(Err(e), _) => Err(e),
-				}
-			});
+			if result.is_err() {
+				mempool.remove(xt_hash);
+			};
 			result
 		}
 		.boxed()

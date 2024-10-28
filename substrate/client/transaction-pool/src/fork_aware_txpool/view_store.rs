@@ -147,10 +147,10 @@ where
 		_at: Block::Hash,
 		source: TransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<TxStatusStream<ChainApi>, (ChainApi::Error, Option<TxStatusStream<ChainApi>>)> {
+	) -> Result<TxStatusStream<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
-			return Err((PoolError::AlreadyImported(Box::new(tx_hash)).into(), None))
+			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
 		};
 		let submit_and_watch_futures = {
 			let active_views = self.active_views.read();
@@ -182,7 +182,7 @@ where
 
 		if let Some(Err(err)) = maybe_error {
 			log::trace!(target: LOG_TARGET, "[{:?}] submit_and_watch: err: {}", tx_hash, err);
-			return Err((err, Some(external_watcher)));
+			return Err(err);
 		};
 
 		Ok(external_watcher)
