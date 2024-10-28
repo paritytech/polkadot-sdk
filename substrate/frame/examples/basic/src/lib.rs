@@ -60,7 +60,10 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
-	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData}, pallet_prelude::TransactionSource, traits::IsSubType, weights::Weight
+	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
+	pallet_prelude::TransactionSource,
+	traits::IsSubType,
+	weights::Weight,
 };
 use frame_system::ensure_signed;
 use log::info;

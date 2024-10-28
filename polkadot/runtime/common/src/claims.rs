@@ -39,11 +39,11 @@ use sp_runtime::{
 		Dispatchable, TransactionExtension, Zero,
 	},
 	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
+		ValidTransaction,
 	},
 	RuntimeDebug,
 };
-use sp_runtime::transaction_validity::TransactionSource;
 
 type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
 	<T as frame_system::Config>::AccountId,
@@ -296,6 +296,8 @@ pub mod pallet {
 
 	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config> Pallet<T> {
+		/// Deprecated in favor of `claim_general`.
+		///
 		/// Make a claim to collect your DOTs.
 		///
 		/// The dispatch origin for this call must be _None_.
@@ -370,6 +372,8 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Deprecated in favor of `claim_attest_general`.
+		///
 		/// Make a claim to collect your DOTs by signing a statement.
 		///
 		/// The dispatch origin for this call must be _None_.
@@ -535,7 +539,6 @@ pub mod pallet {
 
 			Self::do_claim_attest(dest, ethereum_signature, statement)
 		}
-
 	}
 
 	#[pallet::validate_unsigned]
@@ -570,7 +573,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn do_claim_attest(dest: T::AccountId, ethereum_signature: EcdsaSignature, statement: Vec<u8>) -> DispatchResult {
+		fn do_claim_attest(
+			dest: T::AccountId,
+			ethereum_signature: EcdsaSignature,
+			statement: Vec<u8>,
+		) -> DispatchResult {
 			let data = dest.using_encoded(to_ascii_hex);
 			let signer = Self::eth_recover(&ethereum_signature, &data, &statement)
 				.ok_or(Error::<T>::InvalidEthereumSignature)?;
@@ -823,12 +830,13 @@ mod tests {
 	};
 	use pallet_balances;
 	use sp_runtime::{
-		testing::UintAuthorityId, traits::{DispatchTransaction, Identity}, transaction_validity::TransactionLongevity, BuildStorage, DispatchError::BadOrigin, TokenError
+		testing::UintAuthorityId,
+		traits::{Applyable, Checkable, DispatchTransaction, Identity},
+		transaction_validity::{TransactionLongevity, TransactionSource},
+		BuildStorage,
+		DispatchError::BadOrigin,
+		TokenError,
 	};
-	use sp_runtime::transaction_validity::TransactionSource;
-	use sp_runtime::traits::Checkable;
-	use sp_runtime::traits::Applyable;
-
 
 	pub type TransactionExtension = frame_system::AuthorizeCall<Test>;
 
@@ -1600,10 +1608,12 @@ mod tests {
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Test>::default())
 				.expect("Signature is good");
 
-			checked.validate::<Test>(TransactionSource::External, &info, len)
+			checked
+				.validate::<Test>(TransactionSource::External, &info, len)
 				.expect("Transaction is valid");
 
-			checked.apply::<Test>(&info, len)
+			checked
+				.apply::<Test>(&info, len)
 				.expect("Transaction is valid")
 				.expect("Transaction is successful");
 		});
@@ -1624,10 +1634,12 @@ mod tests {
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Test>::default())
 				.expect("Signature is good");
 
-			checked.validate::<Test>(TransactionSource::External, &info, len)
+			checked
+				.validate::<Test>(TransactionSource::External, &info, len)
 				.expect("Transaction is valid");
 
-			checked.apply::<Test>(&info, len)
+			checked
+				.apply::<Test>(&info, len)
 				.expect("Transaction is valid")
 				.expect("Transaction is successful");
 		});
@@ -1649,10 +1661,12 @@ mod tests {
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Test>::default())
 				.expect("Signature is good");
 
-			checked.validate::<Test>(TransactionSource::External, &info, len)
+			checked
+				.validate::<Test>(TransactionSource::External, &info, len)
 				.expect("Transaction is valid");
 
-			checked.apply::<Test>(&info, len)
+			checked
+				.apply::<Test>(&info, len)
 				.expect("Transaction is valid")
 				.expect_err("Transaction is failing");
 		});

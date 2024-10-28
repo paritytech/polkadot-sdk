@@ -87,8 +87,9 @@ where
 				let origin = Some(signer.clone()).into();
 				extension.validate_only(origin, &self.function, info, len, source).map(|x| x.0)
 			},
-			ExtrinsicFormat::General(ref extension) =>
-				extension.validate_only(None.into(), &self.function, info, len, source).map(|x| x.0),
+			ExtrinsicFormat::General(ref extension) => extension
+				.validate_only(None.into(), &self.function, info, len, source)
+				.map(|x| x.0),
 		}
 	}
 
@@ -111,10 +112,20 @@ where
 				Extension::bare_post_dispatch(info, &mut post_info, len, &pd_res)?;
 				Ok(res)
 			},
-			ExtrinsicFormat::Signed(signer, extension) =>
-				extension.dispatch_transaction(Some(signer).into(), self.function, info, len, TransactionSource::InBlock),
-			ExtrinsicFormat::General(extension) =>
-				extension.dispatch_transaction(None.into(), self.function, info, len, TransactionSource::InBlock),
+			ExtrinsicFormat::Signed(signer, extension) => extension.dispatch_transaction(
+				Some(signer).into(),
+				self.function,
+				info,
+				len,
+				TransactionSource::InBlock,
+			),
+			ExtrinsicFormat::General(extension) => extension.dispatch_transaction(
+				None.into(),
+				self.function,
+				info,
+				len,
+				TransactionSource::InBlock,
+			),
 		}
 	}
 }

@@ -44,10 +44,10 @@ use sp_mixnet::types::{
 	AuthorityId, AuthoritySignature, KxPublic, Mixnode, MixnodesErr, PeerId, SessionIndex,
 	SessionPhase, SessionStatus, KX_PUBLIC_SIZE,
 };
-use sp_runtime::RuntimeDebug;
-use sp_runtime::transaction_validity::TransactionValidity;
-use sp_runtime::transaction_validity::InvalidTransaction;
-use sp_runtime::transaction_validity::ValidTransaction;
+use sp_runtime::{
+	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+	RuntimeDebug,
+};
 
 const LOG_TARGET: &str = "runtime::mixnet";
 
@@ -291,7 +291,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_authorized(origin)?;
 
-			// Checked by ValidateUnsigned or authorize
+			// Checked by authorize
 			debug_assert_eq!(registration.session_index, CurrentSessionIndex::<T>::get());
 			debug_assert!(registration.authority_index < T::MaxAuthorities::get());
 
@@ -505,8 +505,7 @@ impl<T: Config> Pallet<T> {
 		if registration.authority_index >= T::MaxAuthorities::get() {
 			return InvalidTransaction::BadProof.into()
 		}
-		let Some(authority_id) = NextAuthorityIds::<T>::get(registration.authority_index)
-		else {
+		let Some(authority_id) = NextAuthorityIds::<T>::get(registration.authority_index) else {
 			return InvalidTransaction::BadProof.into()
 		};
 
@@ -529,11 +528,7 @@ impl<T: Config> Pallet<T> {
 			.priority(T::RegistrationPriority::get())
 			// Include both authority index _and_ ID in tag in case of forks with different
 			// authority lists
-			.and_provides((
-				registration.session_index,
-				registration.authority_index,
-				authority_id,
-			))
+			.and_provides((registration.session_index, registration.authority_index, authority_id))
 			.longevity(
 				(T::NextSessionRotation::average_session_length() / 2_u32.into())
 					.try_into()

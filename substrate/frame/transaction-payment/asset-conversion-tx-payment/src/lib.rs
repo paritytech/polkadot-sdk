@@ -46,7 +46,10 @@ extern crate alloc;
 
 use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo}, pallet_prelude::TransactionSource, traits::IsType, DefaultNoBound
+	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
+	pallet_prelude::TransactionSource,
+	traits::IsType,
+	DefaultNoBound,
 };
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use scale_info::TypeInfo;

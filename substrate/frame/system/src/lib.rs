@@ -858,8 +858,9 @@ pub mod pallet {
 				.saturating_add(T::SystemWeightInfo::validate_apply_authorized_upgrade()),
 			DispatchClass::Operational,
 		))]
-			// TODO TODO: error is ugly for this input
-		// #[pallet::authorize(|code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v| (v, Weight::zero())))]
+		// TODO TODO: error is ugly for this input
+		// #[pallet::authorize(|code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v|
+		// (v, Weight::zero())))]
 		#[pallet::authorize(|_source, code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v| (v, Weight::zero())))]
 		// weight of authorize is already included in the call weight. (As `ValidateUnsigned` also
 		// needs this weight).
@@ -868,7 +869,8 @@ pub mod pallet {
 			_: OriginFor<T>,
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			// TODO TODO: log a warning if origin is none: do the warning directly in validate unsigned
+			// TODO TODO: log a warning if origin is none: do the warning directly in validate
+			// unsigned
 			let post = Self::do_apply_authorize_upgrade(code)?;
 			Ok(post)
 		}
@@ -1423,7 +1425,8 @@ where
 	}
 }
 
-/// Ensure that the origin `o` represents an extrinsic with authorized call. Returns `Ok` or an `Err` otherwise.
+/// Ensure that the origin `o` represents an extrinsic with authorized call. Returns `Ok` or an
+/// `Err` otherwise.
 pub fn ensure_authorized<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<(), BadOrigin>
 where
 	OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>>,
@@ -2344,7 +2347,9 @@ impl<T: Config> Lookup for ChainContext<T> {
 
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
-	pub use crate::{ensure_authorized, ensure_none, ensure_root, ensure_signed, ensure_signed_or_root};
+	pub use crate::{
+		ensure_authorized, ensure_none, ensure_root, ensure_signed, ensure_signed_or_root,
+	};
 
 	/// Type alias for the `Origin` associated type of system config.
 	pub type OriginFor<T> = <T as crate::Config>::RuntimeOrigin;

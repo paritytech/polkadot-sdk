@@ -18,16 +18,12 @@
 use crate::Config;
 use frame_support::{
 	dispatch::DispatchInfo,
-	pallet_prelude::{Decode, DispatchResult, Encode, TypeInfo, Weight},
+	pallet_prelude::{Decode, DispatchResult, Encode, TransactionSource, TypeInfo, Weight},
 	traits::{Authorize, OriginTrait},
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
-use frame_support::pallet_prelude::TransactionSource;
 use sp_runtime::{
-	traits::{
-		Dispatchable, PostDispatchInfoOf,
-		TransactionExtension, ValidateResult,
-	},
+	traits::{Dispatchable, PostDispatchInfoOf, TransactionExtension, ValidateResult},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -64,7 +60,9 @@ where
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		if let Some(crate::RawOrigin::None) = origin.as_system_ref() {
 			if let Some(authorize) = call.authorize(source) {
-				return authorize.map(|(validity, unspent)| (validity, unspent, crate::Origin::<T>::Authorized.into()))
+				return authorize.map(|(validity, unspent)| {
+					(validity, unspent, crate::Origin::<T>::Authorized.into())
+				})
 			}
 		}
 
@@ -99,18 +97,18 @@ where
 
 #[cfg(test)]
 mod tests {
-	use codec::Encode;
-	use frame_support::{derive_impl, dispatch::GetDispatchInfo, pallet_prelude::{TransactionSource}, };
-	use sp_runtime::{testing::UintAuthorityId, traits::Checkable};
-	use sp_runtime::traits::Applyable;
-	use sp_runtime::BuildStorage;
-	use sp_runtime::transaction_validity::TransactionValidityError;
-	use sp_runtime::transaction_validity::InvalidTransaction;
-	use sp_runtime::DispatchError;
 	use crate as frame_system;
-	use frame_support::traits::OriginTrait;
-	use sp_runtime::traits::TransactionExtension as _;
-
+	use codec::Encode;
+	use frame_support::{
+		derive_impl, dispatch::GetDispatchInfo, pallet_prelude::TransactionSource,
+		traits::OriginTrait,
+	};
+	use sp_runtime::{
+		testing::UintAuthorityId,
+		traits::{Applyable, Checkable, TransactionExtension as _},
+		transaction_validity::{InvalidTransaction, TransactionValidityError},
+		BuildStorage, DispatchError,
+	};
 
 	#[frame_support::pallet]
 	pub mod pallet1 {
@@ -178,9 +176,7 @@ mod tests {
 		pub type Pallet1 = pallet1::Pallet<Runtime>;
 	}
 
-	pub type TransactionExtension = (
-		frame_system::AuthorizeCall<Runtime>,
-	);
+	pub type TransactionExtension = (frame_system::AuthorizeCall<Runtime>,);
 
 	pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
@@ -199,24 +195,16 @@ mod tests {
 	impl pallet1::Config for Runtime {}
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
-		let t = RuntimeGenesisConfig {
-			..Default::default()
-		}
-			.build_storage()
-			.unwrap();
+		let t = RuntimeGenesisConfig { ..Default::default() }.build_storage().unwrap();
 		t.into()
 	}
 
 	#[test]
 	fn valid_transaction() {
-		let call = RuntimeCall::Pallet1(pallet1::Call::call1 {
-			valid: true,
-		});
+		let call = RuntimeCall::Pallet1(pallet1::Call::call1 { valid: true });
 
 		new_test_ext().execute_with(|| {
-			let tx_ext = (
-				frame_system::AuthorizeCall::<Runtime>::new(),
-			);
+			let tx_ext = (frame_system::AuthorizeCall::<Runtime>::new(),);
 
 			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
@@ -226,16 +214,16 @@ mod tests {
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
 				.expect("Transaction is general so signature is good");
 
-			let valid_tx = checked.validate::<Runtime>(TransactionSource::External, &info, len)
+			let valid_tx = checked
+				.validate::<Runtime>(TransactionSource::External, &info, len)
 				.expect("call valid");
 
-			let dispatch_result = checked.apply::<Runtime>(&info, len)
-				.expect("Transaction is valid");
+			let dispatch_result =
+				checked.apply::<Runtime>(&info, len).expect("Transaction is valid");
 
 			assert!(dispatch_result.is_ok());
 
-			let post_info = dispatch_result
-				.unwrap_or_else(|e| e.post_info);
+			let post_info = dispatch_result.unwrap_or_else(|e| e.post_info);
 
 			assert_eq!(valid_tx, pallet1::valid_transaction());
 			assert_eq!(info.call_weight, pallet1::CALL_WEIGHT);
@@ -246,14 +234,10 @@ mod tests {
 
 	#[test]
 	fn invalid_transaction_fail_authorization() {
-		let call = RuntimeCall::Pallet1(pallet1::Call::call1 {
-			valid: false,
-		});
+		let call = RuntimeCall::Pallet1(pallet1::Call::call1 { valid: false });
 
 		new_test_ext().execute_with(|| {
-			let tx_ext = (
-				frame_system::AuthorizeCall::<Runtime>::new(),
-			);
+			let tx_ext = (frame_system::AuthorizeCall::<Runtime>::new(),);
 
 			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
@@ -263,11 +247,12 @@ mod tests {
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
 				.expect("Transaction is general so signature is good");
 
-			let validate_err = checked.validate::<Runtime>(TransactionSource::External, &info, len)
+			let validate_err = checked
+				.validate::<Runtime>(TransactionSource::External, &info, len)
 				.expect_err("call is invalid");
 
-			let apply_err = checked.apply::<Runtime>(&info, len)
-				.expect_err("Transaction is invalid");
+			let apply_err =
+				checked.apply::<Runtime>(&info, len).expect_err("Transaction is invalid");
 
 			assert_eq!(validate_err, TransactionValidityError::Invalid(InvalidTransaction::Call));
 			assert_eq!(apply_err, TransactionValidityError::Invalid(InvalidTransaction::Call));
@@ -278,14 +263,10 @@ mod tests {
 
 	#[test]
 	fn failing_transaction_invalid_origin() {
-		let call = RuntimeCall::Pallet1(pallet1::Call::call1 {
-			valid: true,
-		});
+		let call = RuntimeCall::Pallet1(pallet1::Call::call1 { valid: true });
 
 		new_test_ext().execute_with(|| {
-			let tx_ext = (
-				frame_system::AuthorizeCall::<Runtime>::new(),
-			);
+			let tx_ext = (frame_system::AuthorizeCall::<Runtime>::new(),);
 
 			let tx = UncheckedExtrinsic::new_signed(call, 42, Default::default(), tx_ext);
 
@@ -295,10 +276,12 @@ mod tests {
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
 				.expect("Signature is good");
 
-			checked.validate::<Runtime>(TransactionSource::External, &info, len)
+			checked
+				.validate::<Runtime>(TransactionSource::External, &info, len)
 				.expect("Transaction is valid, tx ext doesn't deny none");
 
-			let dispatch_res = checked.apply::<Runtime>(&info, len)
+			let dispatch_res = checked
+				.apply::<Runtime>(&info, len)
 				.expect("Transaction is valid")
 				.expect_err("Transaction is failing, because origin is wrong");
 
@@ -323,14 +306,15 @@ mod tests {
 
 			assert!(!origin.filter_call(&filtered_call));
 
-			let (_, _, new_origin) = ext.validate(
-				origin,
-				&RuntimeCall::Pallet1(pallet1::Call::call1 { valid: true }),
-				&crate::DispatchInfo::default(),
-				Default::default(),
-				(),
-				&(),
-			)
+			let (_, _, new_origin) = ext
+				.validate(
+					origin,
+					&RuntimeCall::Pallet1(pallet1::Call::call1 { valid: true }),
+					&crate::DispatchInfo::default(),
+					Default::default(),
+					(),
+					&(),
+				)
 				.expect("valid");
 
 			assert!(!new_origin.filter_call(&filtered_call));

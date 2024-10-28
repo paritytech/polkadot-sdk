@@ -91,7 +91,9 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: CreateAuthorizedTransaction<frame_system::Call<Self>> + frame_system::Config {
+	pub trait Config:
+		CreateAuthorizedTransaction<frame_system::Call<Self>> + frame_system::Config
+	{
 		type RuntimeTask: frame_support::traits::Task
 			+ IsType<<Self as frame_system::Config>::RuntimeTask>
 			+ From<Task<Self>>;

@@ -16,15 +16,18 @@
 // limitations under the License.
 
 use codec::Encode;
-use frame_support::{derive_impl, dispatch::GetDispatchInfo, pallet_prelude::{TransactionSource, Weight}, };
-use sp_runtime::traits::Checkable;
-use sp_runtime::traits::Applyable;
-use sp_runtime::BuildStorage;
-use sp_runtime::transaction_validity::TransactionValidity;
-use sp_runtime::transaction_validity::ValidTransaction;
-use sp_runtime::transaction_validity::TransactionValidityError;
-use sp_runtime::transaction_validity::InvalidTransaction;
-use sp_runtime::DispatchError;
+use frame_support::{
+	derive_impl,
+	dispatch::GetDispatchInfo,
+	pallet_prelude::{TransactionSource, Weight},
+};
+use sp_runtime::{
+	traits::{Applyable, Checkable},
+	transaction_validity::{
+		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+	},
+	BuildStorage, DispatchError,
+};
 
 // test for instance
 #[frame_support::pallet]
@@ -53,11 +56,21 @@ pub mod pallet1 {
 	}
 
 	impl WeightInfo for () {
-		fn call1() -> Weight { CALL_1_WEIGHT }
-		fn call2() -> Weight { CALL_2_WEIGHT }
-		fn authorize_call2() -> Weight { CALL_2_AUTH_WEIGHT }
-		fn call3() -> Weight { CALL_3_WEIGHT }
-		fn authorize_call3() -> Weight { CALL_3_AUTH_WEIGHT}
+		fn call1() -> Weight {
+			CALL_1_WEIGHT
+		}
+		fn call2() -> Weight {
+			CALL_2_WEIGHT
+		}
+		fn authorize_call2() -> Weight {
+			CALL_2_AUTH_WEIGHT
+		}
+		fn call3() -> Weight {
+			CALL_3_WEIGHT
+		}
+		fn authorize_call3() -> Weight {
+			CALL_3_AUTH_WEIGHT
+		}
 	}
 
 	#[pallet::config]
@@ -90,7 +103,15 @@ pub mod pallet1 {
 			}
 		)]
 		#[pallet::call_index(1)]
-		pub fn call2(origin: OriginFor<T>, a: bool, b: u64, c: u8, d: u8, e: u64, f: bool) -> DispatchResultWithPostInfo {
+		pub fn call2(
+			origin: OriginFor<T>,
+			a: bool,
+			b: u64,
+			c: u8,
+			d: u8,
+			e: u64,
+			f: bool,
+		) -> DispatchResultWithPostInfo {
 			ensure_authorized(origin)?;
 
 			let _ = (a, b, c, d, e, f);
@@ -113,7 +134,7 @@ pub mod pallet1 {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		fn authorize_call3(_source, valid: &bool) -> TransactionValidity {
+		fn authorize_call3(_source: TransactionSource, valid: &bool) -> TransactionValidity {
 			if *valid {
 				Ok(Default::default())
 			} else {
@@ -194,10 +215,8 @@ impl pallet2::Config for Runtime {}
 
 impl pallet3::Config for Runtime {}
 
-pub type TransactionExtension = (
-	frame_system::AuthorizeCall<Runtime>,
-	frame_system::DenyNone<Runtime>,
-);
+pub type TransactionExtension =
+	(frame_system::AuthorizeCall<Runtime>, frame_system::DenyNone<Runtime>);
 
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
@@ -243,11 +262,7 @@ mod runtime {
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = RuntimeGenesisConfig {
-		..Default::default()
-	}
-		.build_storage()
-		.unwrap();
+	let t = RuntimeGenesisConfig { ..Default::default() }.build_storage().unwrap();
 	t.into()
 }
 
@@ -274,7 +289,14 @@ fn valid_call_weight_test() {
 			actual_weight: pallet1::CALL_1_WEIGHT + pallet1::CALL_1_AUTH_WEIGHT,
 		},
 		Test {
-			call: RuntimeCall::Pallet1(pallet1::Call::call2 { a: true, b: 1, c: 2, d: 3, e: 4, f: true }),
+			call: RuntimeCall::Pallet1(pallet1::Call::call2 {
+				a: true,
+				b: 1,
+				c: 2,
+				d: 3,
+				e: 4,
+				f: true,
+			}),
 			dispatch_success: true,
 			call_weight: pallet1::CALL_2_WEIGHT,
 			ext_weight: pallet1::CALL_2_AUTH_WEIGHT,
@@ -295,7 +317,14 @@ fn valid_call_weight_test() {
 			actual_weight: pallet1::CALL_1_WEIGHT + pallet1::CALL_1_AUTH_WEIGHT,
 		},
 		Test {
-			call: RuntimeCall::Pallet1Instance2(pallet1::Call::call2 { a: true, b: 1, c: 2, d: 3, e: 4, f: true }),
+			call: RuntimeCall::Pallet1Instance2(pallet1::Call::call2 {
+				a: true,
+				b: 1,
+				c: 2,
+				d: 3,
+				e: 4,
+				f: true,
+			}),
 			dispatch_success: true,
 			call_weight: pallet1::CALL_2_WEIGHT,
 			ext_weight: pallet1::CALL_2_AUTH_WEIGHT,
@@ -343,16 +372,16 @@ fn valid_call_weight_test() {
 			let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
 				.expect("Transaction is general so signature is good");
 
-			checked.validate::<Runtime>(TransactionSource::External, &info, len)
+			checked
+				.validate::<Runtime>(TransactionSource::External, &info, len)
 				.expect("call1 is always valid");
 
-			let dispatch_result = checked.apply::<Runtime>(&info, len)
-				.expect("Transaction is valid");
+			let dispatch_result =
+				checked.apply::<Runtime>(&info, len).expect("Transaction is valid");
 
 			assert_eq!(dispatch_result.is_ok(), dispatch_success);
 
-			let post_info = dispatch_result
-				.unwrap_or_else(|e| e.post_info);
+			let post_info = dispatch_result.unwrap_or_else(|e| e.post_info);
 
 			assert_eq!(info.call_weight, call_weight);
 			assert_eq!(info.extension_weight, ext_weight);
@@ -374,7 +403,14 @@ fn valid_invalid_call() {
 			validate_res: Ok(Default::default()),
 		},
 		Test {
-			call: RuntimeCall::Pallet1(pallet1::Call::call2 { a: true, b: 1, c: 2, d: 3, e: 4, f: true }),
+			call: RuntimeCall::Pallet1(pallet1::Call::call2 {
+				a: true,
+				b: 1,
+				c: 2,
+				d: 3,
+				e: 4,
+				f: true,
+			}),
 			validate_res: Ok(ValidTransaction {
 				priority: 1,
 				requires: vec![2u8.encode()],
@@ -384,7 +420,14 @@ fn valid_invalid_call() {
 			}),
 		},
 		Test {
-			call: RuntimeCall::Pallet1(pallet1::Call::call2 { a: false, b: 1, c: 2, d: 3, e: 4, f: true }),
+			call: RuntimeCall::Pallet1(pallet1::Call::call2 {
+				a: false,
+				b: 1,
+				c: 2,
+				d: 3,
+				e: 4,
+				f: true,
+			}),
 			validate_res: Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 		},
 		Test {
@@ -439,10 +482,12 @@ fn signed_is_valid_but_dispatch_error() {
 		let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
 			.expect("Transaction is general so signature is good");
 
-		checked.validate::<Runtime>(TransactionSource::External, &info, len)
+		checked
+			.validate::<Runtime>(TransactionSource::External, &info, len)
 			.expect("origin is signed, transaction is valid");
 
-		let dispatch_err = checked.apply::<Runtime>(&info, len)
+		let dispatch_err = checked
+			.apply::<Runtime>(&info, len)
 			.expect("origin is signed, transaction is valid")
 			.expect_err("origin is wrong for the dispatched call");
 

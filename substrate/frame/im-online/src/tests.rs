@@ -21,20 +21,18 @@
 
 use super::*;
 use crate::mock::*;
-use frame_support::{assert_noop};
+use frame_support::{assert_noop, dispatch::GetDispatchInfo};
+use frame_system::offchain::CreateAuthorizedTransaction;
 use sp_core::offchain::{
 	testing::{TestOffchainExt, TestTransactionPoolExt},
 	OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 };
-use sp_runtime::testing::UintAuthorityId;
-use sp_runtime::ApplyExtrinsicResult;
-use sp_runtime::traits::Checkable;
-use sp_runtime::traits::Applyable;
-use frame_support::dispatch::GetDispatchInfo;
-use sp_runtime::transaction_validity::TransactionValidityError;
-use sp_runtime::transaction_validity::InvalidTransaction;
-use frame_system::offchain::CreateAuthorizedTransaction;
-
+use sp_runtime::{
+	testing::UintAuthorityId,
+	traits::{Applyable, Checkable},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+	ApplyExtrinsicResult,
+};
 
 #[test]
 fn test_unresponsiveness_slash_fraction() {
@@ -146,7 +144,8 @@ fn should_report_offline_validators() {
 
 		// should not report when heartbeat is sent
 		for (idx, v) in validators.into_iter().take(4).enumerate() {
-			let _ = heartbeat(block, 3, idx as u32, v.into(), Session::validators(), false).unwrap();
+			let _ =
+				heartbeat(block, 3, idx as u32, v.into(), Session::validators(), false).unwrap();
 		}
 		advance_session();
 
@@ -187,7 +186,9 @@ fn heartbeat(
 	let tx = if legacy {
 		UncheckedExtrinsic::new_bare(call.into())
 	} else {
-		<Runtime as CreateAuthorizedTransaction<Call<Runtime>>>::create_authorized_transaction(call.into())
+		<Runtime as CreateAuthorizedTransaction<Call<Runtime>>>::create_authorized_transaction(
+			call.into(),
+		)
 	};
 
 	let info = tx.get_dispatch_info();
@@ -195,8 +196,7 @@ fn heartbeat(
 
 	let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())?;
 
-	checked.apply::<Runtime>(&info, len)
-		.map(|r| r.map(|_| ()).map_err(|e| e.error))
+	checked.apply::<Runtime>(&info, len).map(|r| r.map(|_| ()).map_err(|e| e.error))
 }
 
 #[test]

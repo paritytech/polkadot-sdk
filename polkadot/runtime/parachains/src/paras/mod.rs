@@ -551,7 +551,6 @@ pub trait WeightInfo {
 	fn include_pvf_check_statement_finalize_onboarding_accept() -> Weight;
 	fn include_pvf_check_statement_finalize_onboarding_reject() -> Weight;
 	fn include_pvf_check_statement() -> Weight;
-
 	fn include_pvf_check_statement_general_finalize_upgrade_accept() -> Weight;
 	fn include_pvf_check_statement_general_finalize_upgrade_reject() -> Weight;
 	fn include_pvf_check_statement_general_finalize_onboarding_accept() -> Weight;
@@ -1069,10 +1068,10 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Deprecated in favor of [`include_pvf_check_statement_general`].
+		///
 		/// Includes a statement for a PVF pre-checking vote. Potentially, finalizes the vote and
 		/// enacts the results if that was the last vote before achieving the supermajority.
-		///
-		/// Deprecated in favor of [`include_pvf_check_statement_general`].
 		#[pallet::call_index(7)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::include_pvf_check_statement_finalize_upgrade_accept()
@@ -1081,6 +1080,7 @@ pub mod pallet {
 					.max(<T as Config>::WeightInfo::include_pvf_check_statement_finalize_onboarding_reject())
 				)
 		)]
+		#[deprecated(note = "Use `include_pvf_check_statement_general` instead.")]
 		pub fn include_pvf_check_statement(
 			origin: OriginFor<T>,
 			stmt: PvfCheckStatement,
@@ -1252,7 +1252,6 @@ pub mod pallet {
 				Ok(Some(<T as Config>::WeightInfo::include_pvf_check_statement_general()).into())
 			}
 		}
-
 	}
 
 	#[pallet::validate_unsigned]
@@ -2242,7 +2241,7 @@ impl<T: Config> Pallet<T> {
 		use frame_system::offchain::SubmitTransaction;
 
 		let xt = T::create_authorized_transaction(
-			Call::include_pvf_check_statement_general { stmt, signature }.into()
+			Call::include_pvf_check_statement_general { stmt, signature }.into(),
 		);
 		if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			log::error!(target: LOG_TARGET, "Error submitting pvf check statement: {:?}", e,);
@@ -2394,7 +2393,7 @@ impl<T: Config> Pallet<T> {
 	/// * no double vote.
 	fn validate_include_pvf_check_statement(
 		stmt: &PvfCheckStatement,
-		signature: &ValidatorSignature
+		signature: &ValidatorSignature,
 	) -> TransactionValidity {
 		let current_session = shared::CurrentSessionIndex::<T>::get();
 		if stmt.session_index < current_session {

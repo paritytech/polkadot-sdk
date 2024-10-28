@@ -33,10 +33,10 @@ use bp_runtime::{Chain, RangeInclusiveExt, StaticStrProvider};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
+	pallet_prelude::TransactionSource,
 	weights::Weight,
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
-use frame_support::pallet_prelude::TransactionSource;
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{
 	CallHelper as MessagesCallHelper, Config as BridgeMessagesConfig, LaneIdOf,

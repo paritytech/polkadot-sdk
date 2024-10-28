@@ -25,8 +25,8 @@ use mock::{RuntimeOrigin, *};
 use sp_core::{hexdisplay::HexDisplay, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, Header},
-	DispatchError, DispatchErrorWithPostInfo,
 	transaction_validity::TransactionValidityError,
+	DispatchError, DispatchErrorWithPostInfo,
 };
 use std::collections::BTreeSet;
 use substrate_test_runtime_client::WasmExecutor;
@@ -925,7 +925,9 @@ fn set_code_via_authorization_and_general_transaction() {
 		let mut bad_runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
 		bad_runtime.extend(b"sneaky");
 		assert_noop!(
-			Call::<Test>::apply_authorized_upgrade { code: bad_runtime }.authorize().unwrap(),
+			Call::<Test>::apply_authorized_upgrade { code: bad_runtime }
+				.authorize()
+				.unwrap(),
 			TransactionValidityError::Invalid(InvalidTransaction::Call.into()),
 		);
 
@@ -936,4 +938,3 @@ fn set_code_via_authorization_and_general_transaction() {
 		assert!(System::authorized_upgrade().is_none());
 	});
 }
-

@@ -53,7 +53,11 @@ use scale_info::TypeInfo;
 use frame_support::{
 	dispatch::{
 		DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
-	}, pallet_prelude::TransactionSource, traits::{Defensive, EstimateCallFee, Get}, weights::{Weight, WeightToFee}, RuntimeDebugNoBound
+	},
+	pallet_prelude::TransactionSource,
+	traits::{Defensive, EstimateCallFee, Get},
+	weights::{Weight, WeightToFee},
+	RuntimeDebugNoBound,
 };
 pub use pallet::*;
 pub use payment::*;

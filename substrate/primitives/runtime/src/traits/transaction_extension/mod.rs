@@ -19,7 +19,9 @@
 
 use crate::{
 	scale_info::{MetaType, StaticTypeInfo},
-	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction},
+	transaction_validity::{
+		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
+	},
 	DispatchResult,
 };
 use codec::{Codec, Decode, Encode};

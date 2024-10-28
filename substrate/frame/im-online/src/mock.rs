@@ -37,12 +37,8 @@ use crate::Config;
 pub type Extension = frame_system::AuthorizeCall<Runtime>;
 pub type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
-	u64,
-	RuntimeCall,
-	UintAuthorityId,
-	Extension,
->;
+pub type UncheckedExtrinsic =
+	sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, UintAuthorityId, Extension>;
 
 frame_support::construct_runtime!(
 	pub enum Runtime {

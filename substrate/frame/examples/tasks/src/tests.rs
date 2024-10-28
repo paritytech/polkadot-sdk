@@ -20,15 +20,18 @@
 
 use crate::{mock::*, Numbers};
 #[cfg(feature = "experimental")]
-use codec::{Encode, Decode};
+use codec::{Decode, Encode};
 use frame_support::traits::Task;
+#[cfg(feature = "experimental")]
+use frame_support::{assert_noop, assert_ok, dispatch::GetDispatchInfo};
 #[cfg(feature = "experimental")]
 use sp_core::offchain::{testing, OffchainWorkerExt, TransactionPoolExt};
 use sp_runtime::BuildStorage;
 #[cfg(feature = "experimental")]
-use frame_support::{dispatch::GetDispatchInfo, assert_noop, assert_ok};
-#[cfg(feature = "experimental")]
-use sp_runtime::{traits::{Checkable, Applyable}, transaction_validity::TransactionSource};
+use sp_runtime::{
+	traits::{Applyable, Checkable},
+	transaction_validity::TransactionSource,
+};
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
@@ -158,7 +161,7 @@ fn task_with_offchain_worker() {
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert!(matches!(tx.preamble, sp_runtime::generic::Preamble::General( .. )));
+		assert!(matches!(tx.preamble, sp_runtime::generic::Preamble::General(..)));
 
 		let info = tx.get_dispatch_info();
 		let len = tx.using_encoded(|e| e.len());
@@ -166,10 +169,12 @@ fn task_with_offchain_worker() {
 		let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
 			.expect("Transaction is general so signature is good");
 
-		checked.validate::<Runtime>(TransactionSource::External, &info, len)
+		checked
+			.validate::<Runtime>(TransactionSource::External, &info, len)
 			.expect("call valid");
 
-		checked.apply::<Runtime>(&info, len)
+		checked
+			.apply::<Runtime>(&info, len)
 			.expect("Transaction is valid")
 			.expect("Transaction is successful");
 	});
@@ -178,10 +183,11 @@ fn task_with_offchain_worker() {
 #[cfg(feature = "experimental")]
 #[test]
 fn task_with_bare_also_work() {
-
 	new_test_ext().execute_with(|| {
 		Numbers::<Runtime>::insert(0, 1);
-		let task = <Runtime as frame_system::Config>::RuntimeTask::iter().next().expect("There is one task");
+		let task = <Runtime as frame_system::Config>::RuntimeTask::iter()
+			.next()
+			.expect("There is one task");
 		let call = frame_system::Call::<Runtime>::do_task { task };
 		let tx = Extrinsic::new_bare(call.into());
 
@@ -191,10 +197,12 @@ fn task_with_bare_also_work() {
 		let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
 			.expect("Transaction is general so signature is good");
 
-		checked.validate::<Runtime>(TransactionSource::External, &info, len)
+		checked
+			.validate::<Runtime>(TransactionSource::External, &info, len)
 			.expect("call valid");
 
-		checked.apply::<Runtime>(&info, len)
+		checked
+			.apply::<Runtime>(&info, len)
 			.expect("Transaction is valid")
 			.expect("Transaction is successful");
 	});

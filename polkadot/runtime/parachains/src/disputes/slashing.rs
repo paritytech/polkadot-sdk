@@ -45,12 +45,11 @@
 use crate::{disputes, initializer::ValidatorSetCount, session_info::IdentificationTuple};
 use frame_support::{
 	dispatch::Pays,
+	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
 	traits::{Defensive, Get, KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use frame_support::pallet_prelude::DispatchResultWithPostInfo;
-use frame_support::pallet_prelude::DispatchError;
 
 use alloc::{
 	boxed::Box,
@@ -540,8 +539,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResultWithPostInfo {
 		let validator_set_count = key_owner_proof.validator_count() as ValidatorSetCount;
 		// check the membership proof to extract the offender's id
-		let key =
-			(polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
+		let key = (polkadot_primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 		let offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof)
 			.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
 

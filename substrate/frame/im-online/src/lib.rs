@@ -417,8 +417,6 @@ pub mod pallet {
 
 			Self::do_verified_heartbeat(heartbeat)
 		}
-
-
 	}
 
 	#[pallet::hooks]
@@ -475,9 +473,7 @@ impl<T: Config + pallet_authorship::Config>
 }
 
 impl<T: Config> Pallet<T> {
-	fn do_verified_heartbeat(
-		heartbeat: Heartbeat<BlockNumberFor<T>>,
-	) -> DispatchResult {
+	fn do_verified_heartbeat(heartbeat: Heartbeat<BlockNumberFor<T>>) -> DispatchResult {
 		let current_session = T::ValidatorSet::session_index();
 		let exists =
 			ReceivedHeartbeats::<T>::contains_key(current_session, heartbeat.authority_index);
@@ -745,9 +741,8 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// check signature (this is expensive so we do it last).
-		let signature_valid = heartbeat.using_encoded(|encoded_heartbeat| {
-			authority_id.verify(&encoded_heartbeat, signature)
-		});
+		let signature_valid = heartbeat
+			.using_encoded(|encoded_heartbeat| authority_id.verify(&encoded_heartbeat, signature));
 
 		if !signature_valid {
 			return InvalidTransaction::BadProof.into()

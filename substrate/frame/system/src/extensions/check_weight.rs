@@ -18,7 +18,9 @@
 use crate::{limits::BlockWeights, Config, Pallet, LOG_TARGET};
 use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{DispatchInfo, PostDispatchInfo}, pallet_prelude::TransactionSource, traits::Get
+	dispatch::{DispatchInfo, PostDispatchInfo},
+	pallet_prelude::TransactionSource,
+	traits::Get,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{

@@ -122,9 +122,6 @@ pub struct AuthorizeDef {
 	/// The weight of the authorize attribute as define by the attribute
 	/// `[pallet::weight_of_authorize]`.
 	pub weight: CallWeightDef,
-	/// The span of the authorize attribute: `[pallet::authorize]`.
-	/// It can be used to emit better error for code generated for the authorize feature.
-	pub attr_span: Span,
 }
 
 /// Attributes for functions in call impl block.
@@ -136,7 +133,7 @@ pub enum FunctionAttr {
 	/// Parse for `#[pallet::feeless_if(expr)]`
 	FeelessIf(Span, syn::ExprClosure),
 	/// Parse for `#[pallet::authorize(expr)]`
-	Authorize(Span, syn::Expr),
+	Authorize(syn::Expr),
 	/// Parse for `#[pallet::weight_of_authorize(expr)]`
 	WeightOfAuthorize(syn::Expr),
 }
@@ -179,13 +176,10 @@ impl syn::parse::Parse for FunctionAttr {
 				})?,
 			))
 		} else if lookahead.peek(keyword::authorize) {
-			let authorize_token = content.parse::<keyword::authorize>()?;
+			content.parse::<keyword::authorize>()?;
 			let closure_content;
 			syn::parenthesized!(closure_content in content);
-			Ok(FunctionAttr::Authorize(
-				authorize_token.span(),
-				closure_content.parse::<syn::Expr>()?,
-			))
+			Ok(FunctionAttr::Authorize(closure_content.parse::<syn::Expr>()?))
 		} else if lookahead.peek(keyword::weight_of_authorize) {
 			content.parse::<keyword::weight_of_authorize>()?;
 			let closure_content;
@@ -348,14 +342,14 @@ impl CallDef {
 
 							feeless_check = Some(closure);
 						},
-						FunctionAttr::Authorize(span, expr) => {
+						FunctionAttr::Authorize(expr) => {
 							if authorize.is_some() {
 								let msg =
 									"Invalid pallet::call, there can only be one authorize attribute";
 								return Err(syn::Error::new(method.sig.span(), msg))
 							}
 
-							authorize = Some((span, expr));
+							authorize = Some(expr);
 						},
 						FunctionAttr::WeightOfAuthorize(expr) => {
 							if weight_of_authorize.is_some() {
@@ -373,12 +367,13 @@ impl CallDef {
 					return Err(syn::Error::new(weight_of_authorize.unwrap().span(), msg))
 				}
 
-				let authorize = if let Some((attr_span, expr)) = authorize {
+				let authorize = if let Some(expr) = authorize {
 					let weight_of_authorize = CallWeightDef::try_from(
 						weight_of_authorize,
 						&inherited_call_weight,
 						dev_mode,
-					).ok_or_else(|| {
+					)
+					.ok_or_else(|| {
 						syn::Error::new(
 							method.sig.span(),
 							"A pallet::call using authorize requires either a concrete \
@@ -387,9 +382,7 @@ impl CallDef {
 							none were given.",
 						)
 					})?;
-					Some(AuthorizeDef {
-						expr, weight: weight_of_authorize, attr_span,
-					})
+					Some(AuthorizeDef { expr, weight: weight_of_authorize })
 				} else {
 					None
 				};

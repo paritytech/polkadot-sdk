@@ -38,7 +38,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
-	pallet_prelude::Weight,
+	pallet_prelude::{TransactionSource, Weight},
 	traits::{
 		tokens::{
 			fungibles::{Balanced, Credit, Inspect},
@@ -48,7 +48,6 @@ use frame_support::{
 	},
 	DefaultNoBound,
 };
-use frame_support::pallet_prelude::TransactionSource;
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{

@@ -18,7 +18,10 @@
 use crate::{
 	pallet::{
 		expand::warnings::{weight_constant_warning, weight_witness_warning},
-		parse::{call::{CallWeightDef, CallVariantDef}, helper::CallReturnType},
+		parse::{
+			call::{CallVariantDef, CallWeightDef},
+			helper::CallReturnType,
+		},
 		Def,
 	},
 	COUNTER,
@@ -36,7 +39,6 @@ fn expand_weight(
 	weight_warnings: &mut Vec<Warning>,
 	method: &CallVariantDef,
 	weight: &CallWeightDef,
-	span_for_inherited: proc_macro2::Span,
 ) -> TokenStream2 {
 	match weight {
 		CallWeightDef::DevModeDefault => quote::quote!(
@@ -50,7 +52,7 @@ fn expand_weight(
 		},
 		CallWeightDef::Inherited(t) => {
 			// Expand `<<T as Config>::WeightInfo>::$prefix$call_name()`.
-			let n = &syn::Ident::new(&format!("{}{}", prefix, method.name), span_for_inherited);
+			let n = &syn::Ident::new(&format!("{}{}", prefix, method.name), t.span());
 			quote!({ < #t > :: #n () })
 		},
 	}
@@ -121,7 +123,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			&mut weight_warnings,
 			method,
 			&method.weight,
-			method.name.span(),
 		);
 		fn_weight.push(w);
 	}
@@ -291,8 +292,10 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		|((method, arg_name), arg_type)| {
 			if let Some(authorize_def) = &method.authorize {
 				let authorize_fn = &authorize_def.expr;
-				let attr_fn_getter =
-					syn::Ident::new(&format!("macro_inner_authorize_call_for_{}", method.name), span);
+				let attr_fn_getter = syn::Ident::new(
+					&format!("macro_inner_authorize_call_for_{}", method.name),
+					span,
+				);
 
 				// TODO TODO: maybe this is not hygienic
 				quote::quote_spanned!(span =>
@@ -337,7 +340,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				&mut weight_warnings,
 				method,
 				&authorize_def.weight,
-				authorize_def.attr_span,
 			),
 			// No authorize logic, weight is negligible
 			None => quote::quote!(#frame_support::pallet_prelude::Weight::zero()),

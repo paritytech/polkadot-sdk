@@ -51,7 +51,7 @@ pub trait Config: frame_system::Config {
 mod benchmarks {
 	use frame_support::pallet_prelude::TransactionSource;
 
-use super::*;
+	use super::*;
 
 	#[benchmark]
 	fn remark(

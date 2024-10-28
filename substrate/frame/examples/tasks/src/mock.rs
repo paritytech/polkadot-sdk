@@ -25,9 +25,7 @@ use sp_runtime::testing::UintAuthorityId;
 pub type AccountId = u32;
 pub type Balance = u32;
 
-pub type TransactionExtension = (
-	frame_system::AuthorizeCall<Runtime>,
-);
+pub type TransactionExtension = (frame_system::AuthorizeCall<Runtime>,);
 pub type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
@@ -63,10 +61,7 @@ where
 {
 	type Extension = TransactionExtension;
 
-	fn create_transaction(
-		call: RuntimeCall,
-		extension: Self::Extension,
-	) -> Self::Extrinsic {
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_transaction(call, extension)
 	}
 }
@@ -76,9 +71,7 @@ where
 	RuntimeCall: From<LocalCall>,
 {
 	fn create_extension() -> Self::Extension {
-		(
-			frame_system::AuthorizeCall::<Runtime>::new(),
-		)
+		(frame_system::AuthorizeCall::<Runtime>::new(),)
 	}
 }
 

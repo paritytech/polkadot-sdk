@@ -17,7 +17,10 @@
 
 //! The [DispatchTransaction] trait.
 
-use crate::{traits::AsTransactionAuthorizedOrigin, transaction_validity::{InvalidTransaction, TransactionSource}};
+use crate::{
+	traits::AsTransactionAuthorizedOrigin,
+	transaction_validity::{InvalidTransaction, TransactionSource},
+};
 
 use super::*;
 
@@ -147,7 +150,8 @@ where
 			Self::Origin,
 		) -> crate::DispatchResultWithInfo<<Call as Dispatchable>::PostInfo>,
 	) -> Self::Result {
-		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len, TransactionSource::InBlock)?;
+		let (pre, origin) =
+			self.validate_and_prepare(origin, &call, info, len, TransactionSource::InBlock)?;
 		let mut res = substitute(origin);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
 		let post_info = match &mut res {
