@@ -220,7 +220,7 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
 		Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion, Saturating, StaticLookup,
-		TrailingZeroInput,
+		TrailingZeroInput, TransactionExtension, ValidateResult,
 	};
 
 	/// Other error/result types for runtime

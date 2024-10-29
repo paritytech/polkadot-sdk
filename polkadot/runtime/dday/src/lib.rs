@@ -18,16 +18,16 @@
 extern crate alloc;
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
-	use frame_support::{
-		pallet_prelude::*,
+	use frame::{
+		prelude::*,
 		traits::{
+			fungible::{Inspect, Mutate},
 			PollStatus, Polling, SixteenPatriciaMerkleTreeExistenceProof,
-			SixteenPatriciaMerkleTreeProver, VerifyExistenceProof,
+			SixteenPatriciaMerkleTreeProver, TransactionExtension, VerifyExistenceProof,
 		},
 	};
-	use frame_system::pallet_prelude::*;
 	use polkadot_primitives::HeadData;
 	use polkadot_runtime_parachains::paras;
 
@@ -37,6 +37,7 @@ pub mod pallet {
 	/// The hardcoded voting power type on AH.
 	pub type VotingPowerType = frame_system::AccountInfo<u32, pallet_balances::AccountData<u128>>;
 
+	/// The index of a referenda/poll.
 	pub type PollIndexOf<T> = <<T as Config>::Polling as Polling<Tally>>::Index;
 
 	/// The tallying type.
@@ -49,6 +50,10 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + paras::Config {
+		/// Currency interface.
+		type Currency: Inspect<<Self as frame_system::Config>::AccountId, Balance = u128>
+			+ Mutate<<Self as frame_system::Config>::AccountId>;
+
 		/// The asset hub parachain id.
 		type AssetHub: Get<polkadot_primitives::Id>;
 
@@ -85,7 +90,7 @@ pub mod pallet {
 		}
 
 		fn voting_power_of(
-			who: T::AccountId,
+			who: &T::AccountId,
 			root: T::Hash,
 			proof: SixteenPatriciaMerkleTreeExistenceProof,
 		) -> Result<u128, DispatchError> {
@@ -98,21 +103,41 @@ pub mod pallet {
 			})
 			.map(|account| account.data.free + account.data.frozen)
 		}
+
+		fn deposit_for_vote(voting_power_claim: u128) -> u128 {
+			todo!("A deposit amount that must be present in the origin of `vote` in order to process the transaction.");
+		}
+
+		fn ensure_has_deposit(who: &T::AccountId, voting_power_claim: u128) -> DispatchResult {
+			let deposit = Self::deposit_for_vote(voting_power_claim);
+			ensure!(T::Currency::balance(&who) >= deposit, "InsufficientBalance");
+			Ok(())
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Vote on a poll.
+		///
+		/// `origin` can be anyone with enough balance to submit this transaction, and pay for its
+		/// pre-dispatch fees. Successful submissions are refunded.
+		/// `who` is the account on behalf of whom we are voting.
+		/// `voting_power_proof` is the proof that `who` has `voting_power_claim`.
+		/// `voting_power_claim` itself is needed to properly prioritize the proof transactions. See
+		/// [`PrioritizeByVotingPower`].
 		#[pallet::weight(0)]
 		#[pallet::call_index(0)]
 		pub fn vote(
 			origin: OriginFor<T>,
 			who: T::AccountId,
 			voting_power_proof: SixteenPatriciaMerkleTreeExistenceProof,
+			voting_power_claim: u128,
 			vote: bool,
 			poll_index: PollIndexOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let frozen_root = Self::frozen_root().ok_or("NotFrozen")?;
-			let voting_power = Self::voting_power_of(who, frozen_root, voting_power_proof)?;
+			let voting_power = Self::voting_power_of(&who, frozen_root, voting_power_proof)?;
+			Self::ensure_has_deposit(&who, voting_power)?;
 
 			T::Polling::try_access_poll(poll_index, |status| match status {
 				PollStatus::Ongoing(tally, class) => {
@@ -147,6 +172,7 @@ pub mod pallet {
 					if *is_stalled {
 						// if it was stalled, and now it is not, we need to nullify any ongoing
 						// poll.
+						todo!()
 					}
 					*is_stalled = false;
 					*last_head = head;
@@ -157,4 +183,65 @@ pub mod pallet {
 			Default::default()
 		}
 	}
+
+	/// Prioritize transactions by their claimed voting power.
+	///
+	/// This extension will not verify the proof of the voting power and "blindly" trust it, knowing
+	/// that if the proof is incorrect, [`Pallet::vote`] will slash a proportional deposit from the
+	/// sender.
+	///
+	/// If the voting power proof is invalid
+	#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+	#[scale_info(skip_type_params(T))]
+	pub struct PrioritizeByVotingPower<T>(PhantomData<T>);
+
+	impl<T: Config> core::fmt::Debug for PrioritizeByVotingPower<T> {
+		fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+			write!(f, "PrioritizeByVotingPower")
+		}
+	}
+
+	impl<T: Config> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
+		for PrioritizeByVotingPower<T>
+	where
+		T: Send + Sync,
+	{
+		const IDENTIFIER: &'static str = "PrioritizeByVotingPower";
+		type Implicit = ();
+		type Val = ();
+		type Pre = ();
+
+		fn weight(&self, call: &<T as frame_system::Config>::RuntimeCall) -> Weight {
+			Default::default()
+		}
+
+		fn validate(
+			&self,
+			origin: frame::traits::DispatchOriginOf<<T as frame_system::Config>::RuntimeCall>,
+			call: &<T as frame_system::Config>::RuntimeCall,
+			info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+			len: usize,
+			self_implicit: Self::Implicit,
+			inherited_implication: &impl Encode,
+		) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
+			todo!();
+		}
+
+		fn prepare(
+			self,
+			val: Self::Val,
+			origin: &frame::traits::DispatchOriginOf<<T as frame_system::Config>::RuntimeCall>,
+			call: &<T as frame_system::Config>::RuntimeCall,
+			info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+			len: usize,
+		) -> Result<Self::Pre, TransactionValidityError> {
+			todo!();
+		}
+	}
 }
+
+#[cfg(test)]
+pub mod mock {}
+
+#[cfg(test)]
+pub mod tests {}

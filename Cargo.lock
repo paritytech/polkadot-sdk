@@ -12478,6 +12478,7 @@ dependencies = [
 name = "pallet-relay-dday"
 version = "9.0.0"
 dependencies = [
+ "pallet-balances",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
