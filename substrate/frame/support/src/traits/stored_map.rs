@@ -20,13 +20,12 @@
 use crate::storage::StorageMap;
 use codec::FullCodec;
 use sp_runtime::DispatchError;
+use sp_std::vec::Vec;
 
 pub trait KeyIterableStoredMap<K, T: Default>: StoredMap<K, T> {
 	type KeyIterator: Iterator<Item = K>;
 	
-	fn iter_keys() -> Self::KeyIterator {
-		Self::iter_keys_from(Vec::new())
-	}
+	fn iter_keys() -> Self::KeyIterator;
 
 	fn iter_keys_from(starting_raw_key: Vec<u8>) -> Self::KeyIterator;
 }
@@ -95,6 +94,10 @@ pub struct StorageMapShim<S, K, T>(core::marker::PhantomData<(S, K, T)>);
 
 impl<S: crate::IterableStorageMap<K, T, Query = T>, K: FullCodec, T: FullCodec + Default> KeyIterableStoredMap<K, T> for StorageMapShim<S, K, T> {
 	type KeyIterator = S::KeyIterator;
+
+	fn iter_keys() -> Self::KeyIterator {
+		S::iter_keys()
+	}
 
 	fn iter_keys_from(starting_raw_key: Vec<u8>) -> Self::KeyIterator {
 		S::iter_keys_from(starting_raw_key)

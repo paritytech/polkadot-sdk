@@ -2227,6 +2227,10 @@ impl<T: Config> StoredMap<T::AccountId, T::AccountData> for Pallet<T> {
 impl<T: Config> KeyIterableStoredMap<T::AccountId, T::AccountData> for Pallet<T> {
 	type KeyIterator = frame_support::storage::KeyPrefixIterator<T::AccountId>;
 
+	fn iter_keys() -> Self::KeyIterator {
+		Account::<T>::iter_keys()
+	}
+
 	fn iter_keys_from(from: Vec<u8>) -> Self::KeyIterator {
 		Account::<T>::iter_keys_from(from)
 	}

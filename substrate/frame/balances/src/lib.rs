@@ -151,6 +151,7 @@ mod types;
 pub mod weights;
 
 use codec::{Codec, MaxEncodedLen};
+use sp_io::hashing::twox_128;
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
@@ -443,7 +444,7 @@ pub mod pallet {
 	///
 	/// But this comes with tradeoffs, storing account balances in the system pallet stores
 	/// `frame_system` data alongside the account data contrary to storing account balances in the
-	/// `Balances` pallet, which uses a `StorageMap` to store balances data only.
+	/// `Balances` pallet, which uses a `StorageMap` to store balances data o	nly.
 	/// NOTE: This is only used in the case that this pallet is used to store balances.
 	#[pallet::storage]
 	pub type Account<T: Config<I>, I: 'static = ()> =
@@ -846,19 +847,83 @@ pub mod pallet {
 		/// Migrates the untouchable balance. This endowes the account on the AH if it does not exist yet.
 		///
 		/// We assume that Relay.ED >= AssetHub.ED
-		pub fn migrate_ed(next_key: &mut Option<Vec<u8>>, batch_size: u32) -> Option<(Call<T, I>, Weight)> {
+		pub fn migrate_ed(mut next_key: Option<Vec<u8>>, batch_size: u32) -> Option<(Option<Vec<u8>>, Call<T, I>, Weight)> {
 			let mut batch = Vec::new();
 			let ah_ed = Self::ed() / 100u32.into(); // FAIL-CI config
+
+			{				
+				let mut iter = T::AccountStore::iter_keys();
+				let mut found = 0;
+
+				loop {
+					let Some(next) = iter.next() else {
+						log::warn!("Key not starting with prefix");
+						break;
+					};
+
+					//key = next;
+					found += 1;
+				}
+
+				log::info!(
+					target: LOG_TARGET,
+					"found {} accounts",
+					found,
+				);
+			}
+
+			let pallet_prefix = sp_crypto_hashing::twox_128(b"System");
+			let storage_prefix = sp_crypto_hashing::twox_128(b"Account");
+			let prefix = pallet_prefix
+				.iter()
+				.chain(storage_prefix.iter())
+				.cloned()
+				.collect::<Vec<_>>();
+
+			if next_key.is_none() {
+				next_key = Some(prefix.clone());
+			}
+			log::info!(
+				target: LOG_TARGET,
+				"migrating ED from cursor: {:?}",
+				next_key,
+			);
 
 			loop {
 				if batch.len() >= batch_size as usize {
 					break;
 				}
-				let Some(who) = T::AccountStore::iter_keys_from(next_key.clone().unwrap_or_default()).next() else {
-					*next_key = None;
+				let next = sp_io::storage::next_key(&next_key.clone().unwrap()).unwrap_or_default();
+                if !next.starts_with(&prefix) {
+                    log::info!(
+						target: LOG_TARGET,
+						"migration complete from cursor: {:?}",
+						&next_key,
+					);
+					next_key = None;
+                    break;
+                }
+				next_key = Some(next.clone());
+				// last 32 bytes of the key is the account id
+				let acc_key = next.iter().skip(next.len() - 32).cloned().collect::<Vec<_>>();
+				let who = T::AccountId::decode(&mut &acc_key[..]).unwrap();
+
+				// TODO hacky, but the T::AccountStore::iter_keys_from does not work...
+				/*let Some(who) = acc else {
+					log::info!(
+						target: LOG_TARGET,
+						"migration complete from cursor: {:?}",
+						next_key,
+					);
+					next_key = None;
 					break;
-				};
-				*next_key = Some(who.clone().encode());
+				};*/
+				log::info!(
+					target: LOG_TARGET,
+					"migrating ED for account: {:?}",
+					who,
+				);
+				next_key = Some(who.clone().encode());
 				let mut account = T::AccountStore::get(&who);
 				if account == Default::default() {
 					defensive!("AccountStore corrupted");
@@ -908,7 +973,7 @@ pub mod pallet {
 			}
 	
 			let call = Call::<T, I>::migrate_ed_in { eds: batch };
-			Some((call, Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS, 10000))) // FAIL-CI
+			Some((next_key, call, Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS, 10000))) // FAIL-CI
 		}
 
 		fn ed() -> T::Balance {
