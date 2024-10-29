@@ -17,17 +17,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 log = { workspace = true }
 codec = { features = ["derive"], workspace = true }
-rand = { features = ["std_rng"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 polkadot-primitives = { workspace = true }
-polkadot-core-primitives = { workspace = true }
 polkadot-runtime-parachains ={ workspace = true }
 
 pallet-balances = { workspace = true }
 
-sp-runtime = { workspace = true }
-sp-staking = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
@@ -37,7 +33,6 @@ sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-consensus-aura = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -45,8 +40,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 ]
 std = [
@@ -55,12 +48,8 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"rand/std",
 	"scale-info/std",
-	"sp-runtime/std",
-	"sp-staking/std",
 	"polkadot-primitives/std",
-	"polkadot-core-primitives/std",
 	"polkadot-runtime-parachains/std",
 ]
 

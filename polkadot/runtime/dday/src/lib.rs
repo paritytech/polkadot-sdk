@@ -23,8 +23,8 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
-			SixteenPatriciaMerkleTreeExistenceProof, SixteenPatriciaMerkleTreeProver,
-			VerifyExistenceProof,
+			PollStatus, Polling, SixteenPatriciaMerkleTreeExistenceProof,
+			SixteenPatriciaMerkleTreeProver, VerifyExistenceProof,
 		},
 	};
 	use frame_system::pallet_prelude::*;
@@ -36,6 +36,16 @@ pub mod pallet {
 
 	/// The hardcoded voting power type on AH.
 	pub type VotingPowerType = frame_system::AccountInfo<u32, pallet_balances::AccountData<u128>>;
+
+	pub type PollIndexOf<T> = <<T as Config>::Polling as Polling<Tally>>::Index;
+
+	/// The tallying type.
+	pub struct Tally {
+		/// Total ayes accumulated. Each unit is one DOT.
+		pub ayes: u128,
+		/// Total nays accumulated. Each unit is one DOT.
+		pub nays: u128,
+	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + paras::Config {
@@ -51,6 +61,9 @@ pub mod pallet {
 		///
 		/// We assume the value stored under this key is known: [`VotingPowerType`].
 		type VotingPowerKey: Get<Vec<u8>>;
+
+		/// The polling aka referenda system.
+		type Polling: Polling<Tally>;
 
 		/// If the head data of AssetHub is not updated in this many blocks, we assume it is
 		/// stalled.
@@ -70,29 +83,50 @@ pub mod pallet {
 				_ => None,
 			}
 		}
+
+		fn voting_power_of(
+			who: T::AccountId,
+			root: T::Hash,
+			proof: SixteenPatriciaMerkleTreeExistenceProof,
+		) -> Result<u128, DispatchError> {
+			ensure!(proof.key == T::VotingPowerKey::get(), "InvalidKey");
+			SixteenPatriciaMerkleTreeProver::<<T as frame_system::Config>::Hashing>::verify_proof(
+				proof, &root,
+			)
+			.and_then(|data| {
+				<VotingPowerType as Decode>::decode(&mut &*data).map_err(|_| "NotDecode".into())
+			})
+			.map(|account| account.data.free + account.data.frozen)
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Submit the proof of a user's free balance on AH if it is frozen.
 		#[pallet::weight(0)]
 		#[pallet::call_index(0)]
-		pub fn frozen_balance_of(
+		pub fn vote(
 			origin: OriginFor<T>,
 			who: T::AccountId,
-			proof: SixteenPatriciaMerkleTreeExistenceProof,
-		) -> DispatchResult {
-			ensure!(proof.key == T::VotingPowerKey::get(), "InvalidKey");
-			let root = Self::frozen_root().ok_or("NotFrozen")?;
-			let voting_power = SixteenPatriciaMerkleTreeProver::<
-				<T as frame_system::Config>::Hashing,
-			>::verify_proof(proof, &root)
-			.and_then(|data| {
-				<VotingPowerType as Decode>::decode(&mut &*data).map_err(|_| "NotDecode".into())
-			})
-			.map(|account| account.data.free + account.data.frozen)?;
+			voting_power_proof: SixteenPatriciaMerkleTreeExistenceProof,
+			vote: bool,
+			poll_index: PollIndexOf<T>,
+		) -> DispatchResultWithPostInfo {
+			let frozen_root = Self::frozen_root().ok_or("NotFrozen")?;
+			let voting_power = Self::voting_power_of(who, frozen_root, voting_power_proof)?;
 
-			Ok(())
+			T::Polling::try_access_poll(poll_index, |status| match status {
+				PollStatus::Ongoing(tally, class) => {
+					if vote {
+						tally.ayes += voting_power;
+					} else {
+						tally.nays += voting_power;
+					}
+					Ok(())
+				},
+				_ => Err("NotReferenda".into()),
+			})?;
+
+			Ok(Pays::No.into())
 		}
 	}
 
@@ -110,6 +144,11 @@ pub mod pallet {
 					}
 				} else {
 					// head has changed, update it and return okk.
+					if *is_stalled {
+						// if it was stalled, and now it is not, we need to nullify any ongoing
+						// poll.
+					}
+					*is_stalled = false;
 					*last_head = head;
 					*last_updated = now;
 				}
