@@ -99,7 +99,7 @@ fn report_outcome_notify_works() {
 			Parachain(OTHER_PARA_ID),
 			message,
 			&mut hash,
-			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::from_parts(100_000_000_000, 1_000_000_000),
 			Weight::zero(),
 		);
 		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
@@ -167,7 +167,7 @@ fn report_outcome_works() {
 			Parachain(OTHER_PARA_ID),
 			message,
 			&mut hash,
-			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::from_parts(100_000_000_000, 1_000_000_000),
 			Weight::zero(),
 		);
 		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
@@ -216,7 +216,7 @@ fn custom_querier_works() {
 			AccountId32 { network: None, id: ALICE.into() },
 			message,
 			&mut hash,
-			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::from_parts(100_000_000_000, 1_000_000_000),
 			Weight::from_parts(1_000, 1_000),
 		);
 		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
@@ -242,7 +242,7 @@ fn custom_querier_works() {
 			AccountId32 { network: None, id: ALICE.into() },
 			message,
 			&mut hash,
-			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::from_parts(100_000_000_000, 1_000_000_000),
 			Weight::from_parts(1_000, 1_000),
 		);
 		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
@@ -268,7 +268,7 @@ fn custom_querier_works() {
 			AccountId32 { network: None, id: ALICE.into() },
 			message,
 			&mut hash,
-			Weight::from_parts(1_000_000_000, 1_000_000_000),
+			Weight::from_parts(100_000_000_000, 1_000_000_000),
 			Weight::zero(),
 		);
 		assert_eq!(r, Outcome::Complete { used: Weight::from_parts(1_000, 1_000) });
