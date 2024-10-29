@@ -58,12 +58,7 @@ mod benchmarks {
 
 		// Ignore read/write to `DidUpdate` since it is transient.
 		let did_update_key = DidUpdate::<T>::hashed_key().to_vec();
-		add_to_whitelist(TrackedStorageKey {
-			key: did_update_key,
-			reads: 0,
-			writes: 1,
-			whitelisted: false,
-		});
+		add_to_whitelist(did_update_key.into());
 
 		#[block]
 		{
