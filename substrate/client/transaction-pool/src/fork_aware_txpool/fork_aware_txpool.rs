@@ -627,10 +627,9 @@ where
 						submission_results
 							.next()
 							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed.")
-							.map_err(|err| {
-								mempool.remove(xt_hash);
-								err
-							})
+							.inspect_err(|_|
+								mempool.remove(xt_hash)
+							)
 					})
 				})
 				.collect::<Vec<_>>())
@@ -682,10 +681,10 @@ where
 		let view_store = self.view_store.clone();
 		let mempool = self.mempool.clone();
 		async move {
-			view_store.submit_and_watch(at, source, xt).await.map_err(|err| {
-				mempool.remove(xt_hash);
-				err
-			})
+			view_store
+				.submit_and_watch(at, source, xt)
+				.await
+				.inspect_err(|_| mempool.remove(xt_hash))
 		}
 		.boxed()
 	}
