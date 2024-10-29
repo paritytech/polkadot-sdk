@@ -26,7 +26,7 @@ pub use frame_support::{
 		fungible::{Inspect, Mutate, MutateHold},
 		fungibles, LockIdentifier, Bounded,
 		tokens::{Precision, Preservation},
-		DefensiveOption, EnsureOrigin,
+		DefensiveOption, EnsureOrigin, OriginTrait,
 		schedule::{MaybeHashed, v3::Named as ScheduleNamed, DispatchTime},
 	},
 	transactional, PalletId, Serialize,
@@ -48,6 +48,7 @@ pub type SpendIndex = u32;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
 pub type ProjectId<T> = AccountIdOf<T>;
+pub type PalletsOriginOf<T> = <<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
 pub const DISTRIBUTION_ID: LockIdentifier = *b"distribu";
 
 /// The state of the payment claim.

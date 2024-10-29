@@ -96,6 +96,7 @@ parameter_types! {
 	pub const EpochDurationBlocks:u32 = 5;
 }
 impl pallet_distribution::Config for Test {
+	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type NativeBalance = Balances;
 	type PotId = PotId;

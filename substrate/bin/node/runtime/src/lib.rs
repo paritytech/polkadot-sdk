@@ -2250,6 +2250,7 @@ parameter_types! {
 }
 
 impl pallet_distribution::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type NativeBalance = Balances;
 	type PotId = PotId;

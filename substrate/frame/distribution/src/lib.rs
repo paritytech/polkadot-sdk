@@ -73,7 +73,13 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + Schedule::Config {
+	pub trait Config: frame_system::Config {
+		type RuntimeCall: Parameter
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+			+ From<Call<Self>>
+			+ IsType<<Self as frame_system::Config>::RuntimeCall>
+			+ From<frame_system::Call<Self>>;
+
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type to access the Balances Pallet.
@@ -95,7 +101,7 @@ pub mod pallet {
 		type Scheduler: ScheduleNamed<
 			BlockNumberFor<Self>,
 			CallOf<Self>,
-			Self::PalletsOrigin,
+			PalletsOriginOf<Self>,
 			Hasher = Self::Hashing,
 		>;
 		type RuntimeHoldReason: From<HoldReason>;
