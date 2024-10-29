@@ -14,31 +14,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//! The Ethereum JSON-RPC server.
+use clap::Parser;
+use pallet_revive_eth_rpc::cli;
+use tracing_subscriber::{util::SubscriberInitExt, EnvFilter, FmtSubscriber};
 
-//! This creates a large rw section but the trailing zeroes
-//! are removed by the linker. It should be rejected even
-//! though the blob is small enough.
+/// Initialize tracing
+fn init_tracing() {
+	let env_filter =
+		EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("eth_rpc=trace"));
 
-#![no_std]
-#![no_main]
-
-extern crate common;
-
-use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
-
-static mut BUFFER: [u8; 2 * 1025 * 1024] = [0; 2 * 1025 * 1024];
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub unsafe extern "C" fn call_never() {
-	// make sure the buffer is not optimized away
-	api::return_value(ReturnFlags::empty(), &BUFFER);
+	FmtSubscriber::builder()
+		.with_env_filter(env_filter)
+		.finish()
+		.try_init()
+		.expect("failed to initialize tracing");
 }
 
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {}
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+	init_tracing();
+	let cmd = cli::CliCommand::parse();
+	cli::run(cmd).await
+}

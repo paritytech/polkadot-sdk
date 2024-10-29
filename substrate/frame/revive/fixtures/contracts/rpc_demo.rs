@@ -15,30 +15,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This creates a large rw section but the trailing zeroes
-//! are removed by the linker. It should be rejected even
-//! though the blob is small enough.
-
 #![no_std]
 #![no_main]
 
-extern crate common;
-
-use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
-
-static mut BUFFER: [u8; 2 * 1025 * 1024] = [0; 2 * 1025 * 1024];
+use common::input;
+use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub unsafe extern "C" fn call_never() {
-	// make sure the buffer is not optimized away
-	api::return_value(ReturnFlags::empty(), &BUFFER);
+pub extern "C" fn deploy() {
+	input!(128, data: [u8],);
+	api::deposit_event(&[], data);
 }
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {}
+pub extern "C" fn call() {
+	input!(128, data: [u8],);
+	api::deposit_event(&[], data);
+}
