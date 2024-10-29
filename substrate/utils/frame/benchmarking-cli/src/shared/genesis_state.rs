@@ -37,6 +37,7 @@ become a hard error any time after December 2024.";
 
 /// Defines how the chain specification shall be used to build the genesis storage.
 pub enum SpecGenesisSource {
+	/// Use preset provided by the runtime embedded in the chain specification.
 	Runtime(String),
 	/// Use provided chain-specification JSON file.
 	SpecJson,
@@ -117,8 +118,7 @@ fn genesis_from_code<EHF: HostFunctions>(
 		EHF,
 	)>::new(code);
 
-	let mut preset_json =
-		genesis_config_caller.get_named_preset(Some(&genesis_builder_preset.to_string()))?;
+	let mut preset_json = genesis_config_caller.get_named_preset(Some(genesis_builder_preset))?;
 	if let Some(patcher) = storage_patcher {
 		preset_json = patcher(preset_json);
 	}

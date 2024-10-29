@@ -53,7 +53,7 @@ fn benchmark_overhead_runtime_works() -> std::result::Result<(), String> {
 #[test]
 fn benchmark_overhead_chain_spec_works() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
-	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path())?;
+	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path(), false)?;
 
 	let status = create_benchmark_spec_command(&base_path, &chain_spec_path)
 		.args(["--genesis-builder-policy", "spec-runtime"])
@@ -65,9 +65,23 @@ fn benchmark_overhead_chain_spec_works() -> std::result::Result<(), String> {
 }
 
 #[test]
+fn benchmark_overhead_chain_spec_works_plain_spec() -> std::result::Result<(), String> {
+	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
+	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path(), false)?;
+
+	let status = create_benchmark_spec_command(&base_path, &chain_spec_path)
+		.args(["--genesis-builder-policy", "spec"])
+		.args(["--para-id", "100"])
+		.status()
+		.map_err(|e| format!("command failed: {:?}", e))?;
+
+	assert_benchmark_success(status, &base_path)
+}
+
+#[test]
 fn benchmark_overhead_chain_spec_works_raw() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
-	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path())?;
+	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path(), true)?;
 
 	let status = create_benchmark_spec_command(&base_path, &chain_spec_path)
 		.args(["--genesis-builder-policy", "spec"])
@@ -81,7 +95,7 @@ fn benchmark_overhead_chain_spec_works_raw() -> std::result::Result<(), String> 
 #[test]
 fn benchmark_overhead_chain_spec_fails_wrong_para_id() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
-	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path())?;
+	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path(), false)?;
 
 	let status = create_benchmark_spec_command(&base_path, &chain_spec_path)
 		.args(["--genesis-builder-policy", "spec"])
@@ -100,7 +114,7 @@ fn benchmark_overhead_chain_spec_fails_wrong_para_id() -> std::result::Result<()
 }
 
 /// Sets up a temporary directory and creates a chain spec file
-fn setup_chain_spec(tmp_dir: &Path) -> Result<(PathBuf, PathBuf), String> {
+fn setup_chain_spec(tmp_dir: &Path, raw: bool) -> Result<(PathBuf, PathBuf), String> {
 	let base_path = tmp_dir.to_path_buf();
 	let chain_spec_path = base_path.join("chain_spec.json");
 
@@ -118,7 +132,7 @@ fn setup_chain_spec(tmp_dir: &Path) -> Result<(PathBuf, PathBuf), String> {
 		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 		.build();
 
-	let json = chain_spec.as_json(false).unwrap();
+	let json = chain_spec.as_json(raw).unwrap();
 	fs::write(&chain_spec_path, json)
 		.map_err(|e| format!("Unable to write chain-spec file: {}", e))?;
 

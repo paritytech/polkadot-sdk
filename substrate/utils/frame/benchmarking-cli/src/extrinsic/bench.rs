@@ -193,25 +193,7 @@ where
 		let mut record = BenchRecord::new();
 		let genesis = self.client.info().genesis_hash;
 
-		info!("Running {} warmups...", self.params.warmup);
-		for _ in 0..self.params.warmup {
-			let mut runtime_api = self.client.runtime_api();
-			if self.record_proof {
-				runtime_api.record_proof();
-				let recorder = runtime_api
-					.proof_recorder()
-					.expect("Proof recording is enabled in the line above; qed.");
-				runtime_api.register_extension(ProofSizeExt::new(recorder));
-			}
-			runtime_api
-				.execute_block(genesis, block.clone())
-				.map_err(|e| Error::Client(RuntimeApiError(e)))?;
-		}
-
-		info!("Executing block {} times", self.params.repeat);
-		// Interesting part here:
-		// Execute a block multiple times and record each execution time.
-		for _ in 0..self.params.repeat {
+		let measure_block = || -> Result<u128> {
 			let block = block.clone();
 			let mut runtime_api = self.client.runtime_api();
 			if self.record_proof {
@@ -227,7 +209,19 @@ where
 				.execute_block(genesis, block)
 				.map_err(|e| Error::Client(RuntimeApiError(e)))?;
 
-			let elapsed = start.elapsed().as_nanos();
+			Ok(start.elapsed().as_nanos())
+		};
+
+		info!("Running {} warmups...", self.params.warmup);
+		for _ in 0..self.params.warmup {
+			let _ = measure_block()?;
+		}
+
+		info!("Executing block {} times", self.params.repeat);
+		// Interesting part here:
+		// Execute a block multiple times and record each execution time.
+		for _ in 0..self.params.repeat {
+			let elapsed = measure_block()?;
 			record.push(elapsed as u64);
 		}
 
