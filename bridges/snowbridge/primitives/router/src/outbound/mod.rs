@@ -5,11 +5,14 @@
 #[cfg(test)]
 mod tests;
 
-use core::slice::Iter;
-
 use codec::{Decode, Encode};
+use core::slice::Iter;
+use sp_std::ops::ControlFlow;
 
-use frame_support::{ensure, traits::Get};
+use frame_support::{
+	ensure,
+	traits::{Contains, Get, ProcessMessageError},
+};
 use snowbridge_core::{
 	outbound::{AgentExecuteCommand, Command, Message, SendMessage},
 	AgentId, ChannelId, ParaId, TokenId, TokenIdOf,
@@ -18,6 +21,7 @@ use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
+use xcm_builder::{CreateMatcher, ExporterFor, MatchXcm};
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 pub struct EthereumBlobExporter<
@@ -405,5 +409,42 @@ where
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
 		Ok((Command::MintForeignToken { token_id, recipient, amount }, *topic_id))
+	}
+}
+
+/// An adapter for the implementation of `ExporterFor`, which attempts to find the
+/// `(bridge_location, payment)` for the requested `network` and `remote_location` and `xcm`
+/// in the provided `T` table containing various exporters.
+pub struct XcmFilterExporter<T, M>(core::marker::PhantomData<(T, M)>);
+impl<T: ExporterFor, M: Contains<Xcm<()>>> ExporterFor for XcmFilterExporter<T, M> {
+	fn exporter_for(
+		network: &NetworkId,
+		remote_location: &InteriorLocation,
+		xcm: &Xcm<()>,
+	) -> Option<(Location, Option<Asset>)> {
+		// check the XCM
+		if !M::contains(xcm) {
+			return None
+		}
+		// check `network` and `remote_location`
+		T::exporter_for(network, remote_location, xcm)
+	}
+}
+
+/// Xcm for SnowbridgeV2 which requires XCMV5
+pub struct XcmForSnowbridgeV2;
+impl Contains<Xcm<()>> for XcmForSnowbridgeV2 {
+	fn contains(xcm: &Xcm<()>) -> bool {
+		let mut instructions = xcm.clone().0;
+		let result = instructions.matcher().match_next_inst_while(
+			|_| true,
+			|inst| {
+				return match inst {
+					AliasOrigin(..) => Err(ProcessMessageError::Yield),
+					_ => Ok(ControlFlow::Continue(())),
+				}
+			},
+		);
+		result.is_err()
 	}
 }
