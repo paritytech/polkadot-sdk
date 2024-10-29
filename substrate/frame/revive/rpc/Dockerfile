@@ -6,7 +6,7 @@ RUN apt-get update && \
 
 WORKDIR /polkadot
 COPY . /polkadot
-RUN cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
+RUN cargo build --locked --profile production -p pallet-revive-eth-rpc --bin eth-rpc
 
 FROM docker.io/parity/base-bin:latest
 COPY --from=builder /polkadot/target/release/eth-rpc /usr/local/bin
