@@ -252,7 +252,6 @@ where
 		hash: ExtrinsicHash<ChainApi>,
 		tx: TxInMemPool<ChainApi, Block>,
 	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
-		//todo: obey size limits [#5476]
 		let bytes = self.transactions.bytes();
 		let mut transactions = self.transactions.write();
 		let result = match (
