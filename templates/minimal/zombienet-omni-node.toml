@@ -6,10 +6,4 @@ default_args = ["--dev-block-time 3000"]
 
 [[relaychain.nodes]]
 name = "alice"
-validator = true
 ws_port = 9944
-
-[[relaychain.nodes]]
-name = "bob"
-validator = true
-ws_port = 9955
