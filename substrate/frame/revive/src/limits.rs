@@ -36,7 +36,7 @@
 ///
 /// A 0 means that no callings of other contracts are possible. In other words only the origin
 /// called "root contract" is allowed to execute then.
-pub const CALL_STACK_DEPTH: u32 = 10;
+pub const CALL_STACK_DEPTH: u32 = 5;
 
 /// The maximum number of topics a call to [`crate::SyscallDoc::deposit_event`] can emit.
 ///
@@ -97,7 +97,7 @@ pub mod code {
 	/// for more code or more data. However, since code will decompress
 	/// into a bigger representation on compilation it will only increase
 	/// the allowed code size by [`BYTE_PER_INSTRUCTION`].
-	pub const STATIC_MEMORY_BYTES: u32 = 1024 * 1024;
+	pub const STATIC_MEMORY_BYTES: u32 = 2 * 1024 * 1024;
 
 	/// How much memory each instruction will take in-memory after compilation.
 	///
