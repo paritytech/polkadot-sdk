@@ -378,9 +378,11 @@ fn build_project(
 		file_name,
 		format!(
 			r#"
+				pub const WASM_BINARY_PATH: Option<&str> = Some("{wasm_binary_path}");
 				pub const WASM_BINARY: Option<&[u8]> = Some(include_bytes!("{wasm_binary}"));
 				pub const WASM_BINARY_BLOATY: Option<&[u8]> = Some(include_bytes!("{wasm_binary_bloaty}"));
 			"#,
+			wasm_binary_path = wasm_binary,
 			wasm_binary = wasm_binary,
 			wasm_binary_bloaty = wasm_binary_bloaty,
 		),

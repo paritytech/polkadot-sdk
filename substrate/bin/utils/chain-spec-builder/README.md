@@ -25,39 +25,30 @@ _Note:_ `chain-spec-builder` binary is published on [crates.io](https://crates.i
 
 ### Generate chains-spec using default config from runtime
 
-Query the default genesis config from the provided `runtime.wasm` and use it in the chain
-spec.
+Query the default genesis config from the provided runtime WASM blob and use it in the chain spec.
 
-```bash
-chain-spec-builder create -r runtime.wasm default
-```
+<!-- docify::embed!("tests/test.rs", create_default) -->
 
 _Note:_ [GenesisBuilder::get_preset](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
 runtime function is called.
 
 ### Display the runtime's default `GenesisConfig`
 
-```bash
-chain-spec-builder display-preset -r runtime.wasm
-```
+<!-- docify::embed!("tests/test.rs", display_default_preset) -->
 
 _Note:_ [GenesisBuilder::get_preset](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
 runtime function is called.
 
 ### Display the `GenesisConfig` preset with given name
 
-```bash
-chain-spec-builder display-preset -r runtime.wasm -p "staging"
-```
+<!-- docify::embed!("tests/test.rs", display_preset)-->
 
 _Note:_ [GenesisBuilder::get_preset](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
 runtime function is called.
 
 ### List the names of `GenesisConfig` presets provided by runtime
 
-```bash
-chain-spec-builder list-presets -r runtime.wasm
-```
+<!-- docify::embed!("tests/test.rs", list_presets)-->
 
 _Note:_ [GenesisBuilder::preset_names](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.preset_names)
 runtime function is called.
@@ -67,9 +58,7 @@ runtime function is called.
 Patch the runtime's default genesis config with the named preset provided by the runtime and generate the plain
 version of chain spec:
 
-```bash
-chain-spec-builder create -r runtime.wasm named-preset "staging"
-```
+<!-- docify::embed!("tests/test.rs", create_with_named_preset)-->
 
 _Note:_ [GenesisBuilder::get_preset](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
 and
@@ -81,9 +70,7 @@ runtime functions are called.
 Patch the runtime's default genesis config with provided `patch.json` and generate raw
 storage (`-s`) version of chain spec:
 
-```bash
-chain-spec-builder create -s -r runtime.wasm patch patch.json
-```
+<!-- docify::embed!("tests/test.rs", create_with_patch_raw)-->
 
 _Note:_ [GenesisBuilder::build_state](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
 runtime function is called.
@@ -92,26 +79,19 @@ runtime function is called.
 
 Build the chain spec using provided full genesis config json file. No defaults will be used:
 
-```bash
-chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
-```
+<!-- docify::embed!("tests/test.rs", create_full_raw)-->
 
 _Note_: [GenesisBuilder::build_state](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
 runtime function is called.
 
 ### Generate human readable chain spec using provided genesis config patch
 
-```bash
-chain-spec-builder create -r runtime.wasm patch patch.json
-```
+<!-- docify::embed!("tests/test.rs", create_with_patch_plain)-->
 
 ### Generate human readable chain spec using provided full genesis config
 
-```bash
-chain-spec-builder create -r runtime.wasm full full-genesis-config.json
-```
+<!-- docify::embed!("tests/test.rs", create_full_plain)-->
 
 ### Extra tools
 
-The `chain-spec-builder` provides also some extra utilities: `VerifyCmd`, `ConvertToRawCmd`,
-`UpdateCodeCmd`.
+The `chain-spec-builder` provides also some extra utilities: `VerifyCmd`, `ConvertToRawCmd`, `UpdateCodeCmd`.

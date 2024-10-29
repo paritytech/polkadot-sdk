@@ -19,6 +19,7 @@
 use std::fs::File;
 
 use clap::Parser;
+use cmd_lib::run_cmd;
 use sc_chain_spec::update_code_in_json_chain_spec;
 use staging_chain_spec_builder::ChainSpecBuilder;
 
@@ -191,4 +192,156 @@ fn test_add_code_substitute() {
 	);
 	builder.run().unwrap();
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/add_code_substitute.json");
+}
+
+#[docify::export]
+#[test]
+fn create_default() {
+	let runtime_path = substrate_test_runtime::WASM_BINARY_PATH.expect("a valid path. qed.");
+	let output_path = "/tmp/test.create_default.json";
+	let expected_output = "tests/expected/doc/create_default.json";
+	let bin_path = env!("CARGO_BIN_EXE_chain-spec-builder");
+	run_cmd!(
+		$bin_path -c $output_path create -r $runtime_path default;
+		sed -i "/\"code\":/d" $output_path;
+		diff $output_path $expected_output;
+		rm $output_path;
+	)
+	.expect("cmd success. qed.");
+}
+
+#[docify::export]
+#[test]
+fn display_default_preset() {
+	let runtime_path = substrate_test_runtime::WASM_BINARY_PATH.expect("a valid path. qed.");
+	let output_path = "/tmp/test.display_preset.json";
+	let expected_output = "tests/expected/doc/display_preset.json";
+	let bin_path = env!("CARGO_BIN_EXE_chain-spec-builder");
+	run_cmd!(
+		$bin_path display-preset -r $runtime_path > $output_path;
+		sed -i "/\"code\":/d" $output_path;
+		diff $output_path $expected_output;
+		rm $output_path;
+	)
+	.expect("cmd success. qed.");
+}
+
+#[docify::export]
+#[test]
+fn display_preset() {
+	let runtime_path = substrate_test_runtime::WASM_BINARY_PATH.expect("a valid path. qed.");
+	let bin_path = env!("CARGO_BIN_EXE_chain-spec-builder");
+	let preset_name = "staging";
+	let output_path = format!("/tmp/test.display_preset_{preset_name}.json");
+	let expected_output = format!("tests/expected/doc/display_preset_{preset_name}.json");
+	run_cmd!(
+		$bin_path display-preset -r $runtime_path -p $preset_name  > $output_path;
+		sed -i "/\"code\":/d" $output_path;
+		diff $output_path $expected_output;
+		rm $output_path;
+	)
+	.expect("cmd success. qed.");
+}
+
+#[docify::export]
+#[test]
+fn list_presets() {
+	let bin_path = env!("CARGO_BIN_EXE_chain-spec-builder");
+	let runtime_path = substrate_test_runtime::WASM_BINARY_PATH.expect("a valid path. qed.");
+	let output_path = "/tmp/test.list_presets.json";
+	let expected_output = "tests/expected/doc/list_presets.json";
+	run_cmd!(
+		$bin_path list-presets -r $runtime_path > $output_path;
+		sed -i "/\"code\":/d" $output_path;
+		diff $output_path $expected_output;
+		rm $output_path;
+	)
+	.expect("cmd success. qed.");
+}
+
+#[docify::export]
+#[test]
+fn create_with_named_preset() {
+	let bin_path = env!("CARGO_BIN_EXE_chain-spec-builder");
+	let runtime_path = substrate_test_runtime::WASM_BINARY_PATH.expect("a valid path. qed.");
+	let named_preset = "staging";
+	let output_path = format!("/tmp/test.create_with_named_preset_{named_preset}.json");
+	let expected_output =
+		format!("tests/expected/doc/create_with_named_preset_{named_preset}.json");
+	run_cmd!(
+		$bin_path -c $output_path create --relay-chain dev --para-id 1000 -r $runtime_path named-preset $named_preset;
+		sed -i "/\"code\":/d" $output_path;
+		diff $output_path $expected_output;
+		rm $output_path;
+	)
+	.expect("cmd success. qed.");
+}
+
+#[docify::export]
+#[test]
+fn create_with_patch_raw() {
+	let bin_path = env!("CARGO_BIN_EXE_chain-spec-builder");
+	let runtime_path = substrate_test_runtime::WASM_BINARY_PATH.expect("a valid path. qed.");
+	let patch_path = "tests/input/patch.json";
+	let output_path = format!("/tmp/test.create_with_patch_raw.json");
+	let expected_output = format!("tests/expected/doc/create_with_patch_raw.json");
+	run_cmd!(
+		$bin_path -c $output_path create -s -r $runtime_path patch $patch_path;
+		sed -i "/\"code\":/d" $output_path;
+		diff $output_path $expected_output;
+		rm $output_path;
+	)
+	.expect("cmd success. qed.");
+}
+
+#[docify::export]
+#[test]
+fn create_with_patch_plain() {
+	let bin_path = env!("CARGO_BIN_EXE_chain-spec-builder");
+	let runtime_path = substrate_test_runtime::WASM_BINARY_PATH.expect("a valid path. qed.");
+	let patch_path = "tests/input/patch.json";
+	let output_path = format!("/tmp/test.create_with_patch_plain.json");
+	let expected_output = format!("tests/expected/doc/create_with_patch_plain.json");
+	run_cmd!(
+		$bin_path -c $output_path create -r $runtime_path patch $patch_path;
+		sed -i "/\"code\":/d" $output_path;
+		diff $output_path $expected_output;
+		rm $output_path;
+	)
+	.expect("cmd success. qed.");
+}
+
+#[docify::export]
+#[test]
+fn create_full_plain() {
+	let bin_path = env!("CARGO_BIN_EXE_chain-spec-builder");
+	let runtime_path = substrate_test_runtime::WASM_BINARY_PATH.expect("a valid path. qed.");
+	let full_genesis_config_path = "tests/input/full.json";
+	let output_path = format!("/tmp/test.create_full_plain.json");
+	let expected_output = format!("tests/expected/doc/create_full_plain.json");
+
+	run_cmd!(
+		$bin_path -c $output_path create -r $runtime_path full $full_genesis_config_path;
+		sed -i "/\"code\":/d" $output_path;
+		diff $output_path $expected_output;
+		rm $output_path;
+	)
+	.expect("cmd success. qed.");
+}
+
+#[docify::export]
+#[test]
+fn create_full_raw() {
+	let bin_path = env!("CARGO_BIN_EXE_chain-spec-builder");
+	let runtime_path = substrate_test_runtime::WASM_BINARY_PATH.expect("a valid path. qed.");
+	let full_genesis_config_path = "tests/input/full.json";
+	let output_path = format!("/tmp/test.create_full_raw.json");
+	let expected_output = format!("tests/expected/doc/create_full_raw.json");
+	run_cmd!(
+		$bin_path -c $output_path create -s -r $runtime_path full $full_genesis_config_path;
+		sed -i "/\"code\":/d" $output_path;
+		diff $output_path $expected_output;
+		rm $output_path;
+	)
+	.expect("cmd success. qed.");
 }
