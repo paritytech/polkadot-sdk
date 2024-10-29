@@ -13,6 +13,8 @@ doc:
       dangling username is now replaced by the permissioned `kill_username` call.
 
 crates:
+  - name: pallet-alliance
+    bump: major
   - name: pallet-identity
     bump: major
   - name: rococo-runtime
@@ -22,6 +24,8 @@ crates:
   - name: people-rococo-runtime
     bump: major
   - name: people-westend-runtime
+    bump: major
+  - name: polkadot-runtime-common
     bump: major
   - name: kitchensink-runtime
     bump: major
