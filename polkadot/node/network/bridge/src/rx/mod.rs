@@ -986,7 +986,7 @@ fn update_our_view<Context>(
 	};
 
 	let our_view = OurView::new(
-		live_heads.iter().take(MAX_VIEW_HEADS).cloned().map(|a| (a.hash, a.span)),
+		live_heads.iter().take(MAX_VIEW_HEADS).cloned().map(|a| a.hash),
 		finalized_number,
 	);
 

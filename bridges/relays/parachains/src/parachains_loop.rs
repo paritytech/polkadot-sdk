@@ -177,6 +177,14 @@ pub async fn run<P: ParachainsPipeline>(
 where
 	P::SourceRelayChain: Chain<BlockNumber = RelayBlockNumber>,
 {
+	log::info!(
+		target: "bridge",
+		"Starting {} -> {} finality proof relay: relaying (only_free_headers: {:?}) headers",
+		P::SourceParachain::NAME,
+		P::TargetChain::NAME,
+		only_free_headers,
+	);
+
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
 		.with_metrics(metrics_params)

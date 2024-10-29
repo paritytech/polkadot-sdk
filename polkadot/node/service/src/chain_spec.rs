@@ -27,10 +27,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "westend-native")]
 use westend_runtime as westend;
 
-use polkadot_primitives::{AccountId, AccountPublic};
-use sp_core::{Pair, Public};
-use sp_runtime::traits::IdentifyAccount;
-
 #[cfg(feature = "westend-native")]
 const WESTEND_STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 #[cfg(feature = "rococo-native")]
@@ -256,19 +252,4 @@ pub fn versi_local_testnet_config() -> Result<RococoChainSpec, String> {
 	.with_genesis_config_preset_name("versi_local_testnet")
 	.with_protocol_id("versi")
 	.build())
-}
-
-/// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-/// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }

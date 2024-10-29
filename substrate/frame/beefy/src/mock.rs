@@ -75,12 +75,21 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = TestXt<RuntimeCall, ()>;
+}
+
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		TestXt::new_bare(call)
+	}
 }
 
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
