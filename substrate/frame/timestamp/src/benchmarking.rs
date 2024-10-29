@@ -19,7 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use frame_benchmarking::{benchmarking, v2::*};
+use frame_benchmarking::{benchmarking::add_to_whitelist, v2::*};
 use frame_support::traits::OnFinalize;
 use frame_system::RawOrigin;
 use sp_storage::TrackedStorageKey;
