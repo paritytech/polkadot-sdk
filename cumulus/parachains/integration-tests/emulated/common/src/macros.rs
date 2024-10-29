@@ -698,7 +698,7 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 				));
 
 				type Runtime = <$asset_hub as Chain>::Runtime;
-				let acceptable_payment_assets = Runtime::query_acceptable_payment_assets(4).unwrap();
+				let acceptable_payment_assets = Runtime::query_acceptable_payment_assets(XCM_VERSION).unwrap();
 				assert_eq!(acceptable_payment_assets, vec![
 					VersionedAssetId::from(AssetId(wnd.clone())),
 					VersionedAssetId::from(AssetId(usdt.clone())),
