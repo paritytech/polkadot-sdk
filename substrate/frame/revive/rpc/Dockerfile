@@ -9,7 +9,7 @@ COPY . /polkadot
 RUN cargo build --locked --profile production -p pallet-revive-eth-rpc --bin eth-rpc
 
 FROM docker.io/parity/base-bin:latest
-COPY --from=builder /polkadot/target/release/eth-rpc /usr/local/bin
+COPY --from=builder /polkadot/target/production/eth-rpc /usr/local/bin
 
 USER root
 RUN useradd -m -u 1001 -U -s /bin/sh -d /polkadot polkadot && \
