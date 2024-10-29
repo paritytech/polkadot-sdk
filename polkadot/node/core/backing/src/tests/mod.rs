@@ -20,19 +20,21 @@ use futures::{future, Future};
 use polkadot_node_primitives::{BlockData, InvalidCandidate, SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
 	messages::{
-		AllMessages, ChainApiMessage, CollatorProtocolMessage, HypotheticalMembership,
+		AllMessages, ChainApiMessage, CollatorProtocolMessage, HypotheticalMembership, PvfExecKind,
 		RuntimeApiMessage, RuntimeApiRequest, ValidationFailed,
 	},
 	ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, TimeoutExt,
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
-	node_features, BlockNumber, CandidateDescriptor, GroupRotationInfo, HeadData, Header,
-	OccupiedCore, PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	node_features,
+	vstaging::{MutateDescriptorV2, OccupiedCore},
+	BlockNumber, CandidateDescriptor, GroupRotationInfo, HeadData, Header, PersistedValidationData,
+	ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt, dummy_hash, validator_pubkeys,
+	dummy_committed_candidate_receipt_v2, dummy_hash, validator_pubkeys,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use rstest::rstest;
@@ -236,7 +238,8 @@ impl TestCandidateBuilder {
 				para_head: self.head_data.hash(),
 				validation_code_hash: ValidationCode(self.validation_code).hash(),
 				persisted_validation_data_hash: self.persisted_validation_data_hash,
-			},
+			}
+			.into(),
 			commitments: CandidateCommitments {
 				head_data: self.head_data,
 				upward_messages: Default::default(),
@@ -313,7 +316,7 @@ async fn assert_validate_from_exhaustive(
 			},
 		) if validation_data == *assert_pvd &&
 			validation_code == *assert_validation_code &&
-			*pov == *assert_pov && &candidate_receipt.descriptor == assert_candidate.descriptor() &&
+			*pov == *assert_pov && candidate_receipt.descriptor == assert_candidate.descriptor &&
 			exec_kind == PvfExecKind::BackingSystemParas &&
 			candidate_receipt.commitments_hash == assert_candidate.commitments.hash() =>
 		{
@@ -640,7 +643,7 @@ async fn assert_validate_seconded_candidate(
 		}) if &validation_data == assert_pvd &&
 			&validation_code == assert_validation_code &&
 			&*pov == assert_pov &&
-			&candidate_receipt.descriptor == candidate.descriptor() &&
+			candidate_receipt.descriptor == candidate.descriptor &&
 			exec_kind == PvfExecKind::BackingSystemParas &&
 			candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 		{
@@ -896,7 +899,7 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 
 		assert_validate_seconded_candidate(
 			&mut virtual_overseer,
-			candidate_a.descriptor().relay_parent,
+			candidate_a.descriptor.relay_parent(),
 			&candidate_a,
 			&pov_ab,
 			&pvd_ab,
@@ -1107,7 +1110,7 @@ fn get_backed_candidate_preserves_order() {
 					),
 				) if
 					req.candidate_receipt == candidate
-					&& req.candidate_para == candidate.descriptor.para_id
+					&& req.candidate_para == candidate.descriptor.para_id()
 					&& pvd == req.persisted_validation_data => {
 					tx.send(true).unwrap();
 				}
@@ -1119,7 +1122,7 @@ fn get_backed_candidate_preserves_order() {
 					ProspectiveParachainsMessage::CandidateBacked(
 						candidate_para_id, candidate_hash
 					),
-				) if candidate.hash() == candidate_hash && candidate_para_id == candidate.descriptor.para_id
+				) if candidate.hash() == candidate_hash && candidate_para_id == candidate.descriptor.para_id()
 			);
 
 			assert_matches!(
@@ -1358,7 +1361,7 @@ fn extract_core_index_from_statement_works() {
 	.flatten()
 	.expect("should be signed");
 
-	candidate.descriptor.para_id = test_state.chain_ids[1];
+	candidate.descriptor.set_para_id(test_state.chain_ids[1]);
 
 	let signed_statement_3 = SignedFullStatementWithPVD::sign(
 		&test_state.keystore,
@@ -1538,7 +1541,7 @@ fn backing_works_while_validation_ongoing() {
 				},
 			) if validation_data == pvd_abc &&
 				validation_code == validation_code_abc &&
-				*pov == pov_abc && &candidate_receipt.descriptor == candidate_a.descriptor() &&
+				*pov == pov_abc && candidate_receipt.descriptor == candidate_a.descriptor &&
 				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
@@ -1821,7 +1824,7 @@ fn backing_doesnt_second_invalid() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_block_a && &candidate_receipt.descriptor == candidate_a.descriptor() &&
+				*pov == pov_block_a && candidate_receipt.descriptor == candidate_a.descriptor &&
 				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate_a.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
@@ -2010,7 +2013,7 @@ fn backing_second_after_first_fails_works() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
 				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
@@ -2169,7 +2172,7 @@ fn backing_works_after_failed_validation() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
 				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
@@ -2237,7 +2240,7 @@ fn candidate_backing_reorders_votes() {
 	};
 
 	let attested = TableAttestedCandidate {
-		candidate: dummy_committed_candidate_receipt(dummy_hash()),
+		candidate: dummy_committed_candidate_receipt_v2(dummy_hash()),
 		validity_votes: vec![
 			(ValidatorIndex(5), fake_attestation(5)),
 			(ValidatorIndex(3), fake_attestation(3)),
@@ -2470,7 +2473,7 @@ fn retry_works() {
 				},
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
-				*pov == pov_a && &candidate_receipt.descriptor == candidate.descriptor() &&
+				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
 				exec_kind == PvfExecKind::BackingSystemParas &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash
 		);
@@ -3419,7 +3422,7 @@ fn prospective_parachains_reject_candidate() {
 			AllMessages::CollatorProtocol(CollatorProtocolMessage::Invalid(
 				relay_parent,
 				candidate_receipt,
-			)) if candidate_receipt.descriptor() == candidate.descriptor() &&
+			)) if candidate_receipt.descriptor() == &candidate.descriptor &&
 				candidate_receipt.commitments_hash == candidate.commitments.hash() &&
 				relay_parent == leaf_a_parent
 		);
@@ -3524,7 +3527,7 @@ fn second_multiple_candidates_per_relay_parent() {
 
 			assert_validate_seconded_candidate(
 				&mut virtual_overseer,
-				candidate.descriptor().relay_parent,
+				candidate.descriptor.relay_parent(),
 				&candidate,
 				&pov,
 				&pvd,
@@ -3572,7 +3575,7 @@ fn second_multiple_candidates_per_relay_parent() {
 
 			assert_candidate_is_shared_and_seconded(
 				&mut virtual_overseer,
-				&candidate.descriptor().relay_parent,
+				&candidate.descriptor.relay_parent(),
 			)
 			.await;
 		}
@@ -3903,7 +3906,7 @@ fn seconding_sanity_check_occupy_same_depth() {
 
 			assert_validate_seconded_candidate(
 				&mut virtual_overseer,
-				candidate.descriptor().relay_parent,
+				candidate.descriptor.relay_parent(),
 				&candidate,
 				&pov,
 				&pvd,
@@ -3953,7 +3956,7 @@ fn seconding_sanity_check_occupy_same_depth() {
 
 			assert_candidate_is_shared_and_seconded(
 				&mut virtual_overseer,
-				&candidate.descriptor().relay_parent,
+				&candidate.descriptor.relay_parent(),
 			)
 			.await;
 		}
@@ -3984,7 +3987,7 @@ fn occupied_core_assignment() {
 			time_out_at: 200_u32,
 			next_up_on_time_out: None,
 			availability: Default::default(),
-			candidate_descriptor,
+			candidate_descriptor: candidate_descriptor.into(),
 			candidate_hash: Default::default(),
 		});
 
