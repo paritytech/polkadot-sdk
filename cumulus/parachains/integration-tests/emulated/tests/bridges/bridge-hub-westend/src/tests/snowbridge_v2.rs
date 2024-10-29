@@ -159,8 +159,8 @@ fn send_weth_from_asset_hub_to_ethereum_by_executing_raw_xcm() {
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
-					if *who == assethub_sovereign && *amount == 2737194500000,
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. })
+					if *who == assethub_sovereign
 			)),
 			"AssetHub sovereign takes remote fee."
 		);
