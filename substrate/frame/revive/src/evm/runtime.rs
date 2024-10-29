@@ -25,7 +25,7 @@ use frame_support::{
 	traits::{ExtrinsicCall, InherentBuilder, SignedTransactionBuilder},
 };
 use pallet_transaction_payment::OnChargeTransaction;
-use scale_info::TypeInfo;
+use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_arithmetic::Percent;
 use sp_core::{Get, U256};
 use sp_runtime::{
@@ -48,15 +48,27 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// We use a fixed value for the gas price.
 /// This let us calculate the gas estimate for a transaction with the formula:
 /// `estimate_gas = substrate_fee / gas_price`.
-pub const GAS_PRICE: u32 = 1_000u32;
+pub const GAS_PRICE: u32 = 1u32;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-#[scale_info(skip_type_params(E))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct UncheckedExtrinsic<Address, Signature, E: EthExtra>(
 	pub generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>,
 );
+
+impl<Address, Signature, E: EthExtra> TypeInfo for UncheckedExtrinsic<Address, Signature, E>
+where
+	Address: StaticTypeInfo,
+	Signature: StaticTypeInfo,
+	E::Extension: StaticTypeInfo,
+{
+	type Identity =
+		generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>;
+	fn type_info() -> scale_info::Type {
+		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extension>::type_info()
+	}
+}
 
 impl<Address, Signature, E: EthExtra>
 	From<generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>>
