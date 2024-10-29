@@ -12109,15 +12109,11 @@ dependencies = [
 name = "pallet-multisig"
 version = "28.0.0"
 dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
  "log",
  "pallet-balances",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -12428,16 +12424,11 @@ dependencies = [
 name = "pallet-proxy"
 version = "28.0.0"
 dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
  "pallet-balances",
  "pallet-utility",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
- "sp-core 28.0.0",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -13739,6 +13730,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-identity",
  "pallet-message-queue",
+ "pallet-migrations",
  "pallet-multisig",
  "pallet-proxy",
  "pallet-session",
@@ -13839,6 +13831,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-identity",
  "pallet-message-queue",
+ "pallet-migrations",
  "pallet-multisig",
  "pallet-proxy",
  "pallet-session",
@@ -17981,6 +17974,7 @@ dependencies = [
  "pallet-indices",
  "pallet-membership",
  "pallet-message-queue",
+ "pallet-migrations",
  "pallet-mmr",
  "pallet-multisig",
  "pallet-nis",
@@ -26649,6 +26643,7 @@ dependencies = [
  "pallet-indices",
  "pallet-membership",
  "pallet-message-queue",
+ "pallet-migrations",
  "pallet-mmr",
  "pallet-multisig",
  "pallet-nomination-pools",
