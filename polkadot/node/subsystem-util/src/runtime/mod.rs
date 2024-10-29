@@ -30,11 +30,13 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	node_features::FeatureIndex, slashing, AsyncBackingParams, CandidateEvent, CandidateHash,
-	CoreIndex, CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	Id as ParaId, IndexedVec, NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	node_features::FeatureIndex,
+	slashing,
+	vstaging::{CandidateEvent, CoreState, OccupiedCore, ScrapedOnChainVotes},
+	AsyncBackingParams, CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo,
+	Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
 use std::collections::{BTreeMap, VecDeque};
