@@ -31,8 +31,6 @@ pub enum Error {
 	UtilRuntime(#[from] polkadot_node_subsystem_util::runtime::Error),
 	#[error(transparent)]
 	Erasure(#[from] polkadot_erasure_coding::Error),
-	#[error("Parachain backing state not available in runtime.")]
-	MissingParaBackingState,
 	#[error("Collation submitted before initialization")]
 	SubmittedBeforeInit,
 	#[error("Claim queue runtime API not available")]
