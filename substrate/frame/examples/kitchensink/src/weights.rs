@@ -51,6 +51,8 @@ use core::marker::PhantomData;
 /// Weight functions needed for pallet_template.
 pub trait WeightInfo {
 	fn set_foo_benchmark() -> Weight;
+	fn set_foo_using_authorize() -> Weight;
+	fn authorize_set_foo_using_authorize() -> Weight;
 }
 
 /// Weight functions for `pallet_example_kitchensink`.
@@ -67,6 +69,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn set_foo_using_authorize() -> Weight {
+		// TODO TODO:
+		Weight::zero()
+	}
+	fn authorize_set_foo_using_authorize() -> Weight {
+		// TODO TODO:
+		Weight::zero()
+	}
 }
 
 impl WeightInfo for () {
@@ -80,5 +90,13 @@ impl WeightInfo for () {
 		Weight::from_parts(1_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	fn set_foo_using_authorize() -> Weight {
+		// TODO TODO:
+		Weight::zero()
+	}
+	fn authorize_set_foo_using_authorize() -> Weight {
+		// TODO TODO:
+		Weight::zero()
 	}
 }

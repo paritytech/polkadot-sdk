@@ -297,13 +297,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					authorize_fn.span(),
 				);
 
-		// TODO TODO: UI test for when the closure miss one argument like this
-		// #[pallet::authorize(|code| Pallet::<T>::validate_apply_authorized_upgrade(code).map(|v|
-		// (v, Weight::zero())))]
-
-				// TODO TODO: maybe this is not hygienic
-				quote::quote_spanned!(authorize_fn.span() =>
-
+				let typed_authorize_fn = quote::quote_spanned!(authorize_fn.span() => {
 					// Closure don't have a writable type. So we fix the authorize token stream to
 					// be any implementation of this generic F.
 					// This also allows to have good type inference on the closure.
@@ -323,7 +317,12 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 						f
 					}
 
-					let authorize_fn = #attr_fn_getter::<#type_use_gen, _>(#authorize_fn);
+					#attr_fn_getter::<#type_use_gen, _>(#authorize_fn)
+				});
+
+				// `source` is from outside this block, so we can't use the authorize_fn span.
+				quote::quote!(
+					let authorize_fn = #typed_authorize_fn;
 					let res = authorize_fn(source, #( #arg_name, )*);
 
 					Some(res)

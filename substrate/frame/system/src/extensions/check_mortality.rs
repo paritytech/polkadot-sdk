@@ -118,6 +118,7 @@ mod tests {
 	};
 	use sp_core::H256;
 	use sp_runtime::traits::DispatchTransaction;
+	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	#[test]
 	fn signed_ext_check_era_should_work() {
@@ -153,7 +154,7 @@ mod tests {
 			<BlockHash<Test>>::insert(16, H256::repeat_byte(1));
 
 			assert_eq!(
-				ext.validate_only(Some(1).into(), CALL, &normal, len).unwrap().0.longevity,
+				ext.validate_only(Some(1).into(), CALL, &normal, len, External).unwrap().0.longevity,
 				15
 			);
 		})

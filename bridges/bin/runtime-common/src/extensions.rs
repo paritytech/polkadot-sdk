@@ -394,6 +394,7 @@ mod tests {
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 		DispatchError,
 	};
+	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	parameter_types! {
 		pub MsgProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(
@@ -611,7 +612,8 @@ mod tests {
 					42u64.into(),
 					&MockCall { data: 1 },
 					&(),
-					0
+					0,
+					External,
 				),
 				InvalidTransaction::Custom(1)
 			);
@@ -630,7 +632,8 @@ mod tests {
 					42u64.into(),
 					&MockCall { data: 2 },
 					&(),
-					0
+					0,
+					External,
 				),
 				InvalidTransaction::Custom(2)
 			);
@@ -646,7 +649,7 @@ mod tests {
 
 			assert_eq!(
 				BridgeRejectObsoleteHeadersAndMessages
-					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0)
+					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0, External)
 					.unwrap()
 					.0,
 				ValidTransaction { priority: 3, ..Default::default() },

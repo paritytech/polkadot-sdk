@@ -468,6 +468,7 @@ mod tests {
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 		DispatchError,
 	};
+	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	parameter_types! {
 		TestParachain: u32 = BridgedUnderlyingParachain::PARACHAIN_ID;
@@ -1078,6 +1079,7 @@ mod tests {
 				&call,
 				&DispatchInfo::default(),
 				0,
+				External,
 			)
 			.map(|t| t.0)
 	}
@@ -1090,6 +1092,7 @@ mod tests {
 				&call,
 				&DispatchInfo::default(),
 				0,
+				External,
 			)
 			.map(|t| t.0)
 	}
@@ -1102,6 +1105,7 @@ mod tests {
 				&call,
 				&DispatchInfo::default(),
 				0,
+				External,
 			)
 			.map(|t| t.0)
 	}

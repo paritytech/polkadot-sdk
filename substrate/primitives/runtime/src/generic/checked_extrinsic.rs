@@ -117,14 +117,12 @@ where
 				self.function,
 				info,
 				len,
-				TransactionSource::InBlock,
 			),
 			ExtrinsicFormat::General(extension) => extension.dispatch_transaction(
 				None.into(),
 				self.function,
 				info,
 				len,
-				TransactionSource::InBlock,
 			),
 		}
 	}

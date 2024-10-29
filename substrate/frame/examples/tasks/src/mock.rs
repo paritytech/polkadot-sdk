@@ -27,8 +27,8 @@ pub type Balance = u32;
 
 pub type TransactionExtension = (frame_system::AuthorizeCall<Runtime>,);
 pub type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
-pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
+pub type Block = sp_runtime::generic::Block<Header, Extrinsic>;
+pub type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<
 	u64,
 	RuntimeCall,
 	UintAuthorityId,
@@ -52,7 +52,7 @@ where
 	RuntimeCall: From<LocalCall>,
 {
 	type RuntimeCall = RuntimeCall;
-	type Extrinsic = UncheckedExtrinsic;
+	type Extrinsic = Extrinsic;
 }
 
 impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
@@ -62,7 +62,7 @@ where
 	type Extension = TransactionExtension;
 
 	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
-		UncheckedExtrinsic::new_transaction(call, extension)
+		Extrinsic::new_transaction(call, extension)
 	}
 }
 

@@ -107,6 +107,7 @@ mod tests {
 		testing::UintAuthorityId,
 		traits::{Applyable, Checkable, TransactionExtension as _},
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
+		transaction_validity::TransactionSource::External,
 		BuildStorage, DispatchError,
 	};
 
@@ -140,7 +141,7 @@ mod tests {
 			#[pallet::weight(CALL_WEIGHT)]
 			#[pallet::call_index(0)]
 			#[pallet::authorize(|_source, valid| if *valid {
-				Ok(valid_transaction())
+				Ok((valid_transaction(), Weight::zero()))
 			} else {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 			})]
@@ -314,6 +315,7 @@ mod tests {
 					Default::default(),
 					(),
 					&(),
+					External,
 				)
 				.expect("valid");
 

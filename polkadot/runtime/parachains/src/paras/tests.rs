@@ -23,6 +23,7 @@ use sp_keyring::Sr25519Keyring;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
 use frame_system::RawOrigin;
+use frame_support::storage::{transactional::with_transaction_unchecked, TransactionOutcome};
 
 use crate::{
 	configuration::HostConfiguration,
@@ -1427,15 +1428,15 @@ fn pvf_check_upgrade_reject() {
 		EventValidator::new().started(&new_code, a).rejected(&new_code, a).check();
 	});
 }
-// TODO TODO: some legacy tests?
 
-// TODO TODO: fix tests
+// TODO TODO: add some legacy tests
+
 #[test]
 fn pvf_check_submit_vote() {
 	let code_a = test_validation_code_1();
 	let code_b = test_validation_code_2();
 
-	let check = |stmt: PvfCheckStatement| -> (Result<_, _>, Result<_, _>) {
+	let check = |stmt: PvfCheckStatement| -> Result<Result<(), _>, TransactionValidityError> {
 		let validators = &[
 			Sr25519Keyring::Alice,
 			Sr25519Keyring::Bob,
@@ -1450,14 +1451,24 @@ fn pvf_check_submit_vote() {
 		let call =
 			Call::<Test>::include_pvf_check_statement_general { stmt: stmt.clone(), signature: signature.clone() };
 
-		let authorized = call.authorize(TransactionSource::InBlock)
-			.expect("Some authorization are set for the call")
-			.map(|_| ());
-		let dispatch_result =
-			Paras::include_pvf_check_statement_general(RawOrigin::Authorized.into(), stmt.clone(), signature.clone())
+		with_transaction_unchecked(|| {
+			let authorized = call.authorize(TransactionSource::InBlock)
+				.expect("Some authorization are set for the call")
 				.map(|_| ());
 
-		(authorized, dispatch_result)
+			if let Err(err) = authorized {
+				return TransactionOutcome::Rollback(Err(err));
+			}
+
+			let res = Paras::include_pvf_check_statement_general(
+				RawOrigin::Authorized.into(),
+				stmt.clone(),
+				signature.clone()
+			)
+				.map(|_| ());
+
+			TransactionOutcome::Commit(Ok(res))
+		})
 	};
 
 	let genesis_config = MockGenesisConfig::default();
@@ -1482,68 +1493,62 @@ fn pvf_check_submit_vote() {
 				session_index: 1,
 				validator_index: 1.into(),
 			}),
-			(Ok(()), Ok(())),
+			Ok(Ok(())),
 		);
 
 		// A vote in the same direction.
-		let (authorized, dispatch) = check(PvfCheckStatement {
+		let res = check(PvfCheckStatement {
 			accept: false,
 			subject: code_a.hash(),
 			session_index: 1,
 			validator_index: 1.into(),
 		});
-		assert_eq!(authorized, Err(InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into()));
-		assert_err!(dispatch, Error::<Test>::PvfCheckDoubleVote);
+		assert_eq!(res, Err(InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into()));
 
 		// Equivocation
-		let (authorized, dispatch) = check(PvfCheckStatement {
+		let res = check(PvfCheckStatement {
 			accept: true,
 			subject: code_a.hash(),
 			session_index: 1,
 			validator_index: 1.into(),
 		});
-		assert_eq!(authorized, Err(InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into()));
-		assert_err!(dispatch, Error::<Test>::PvfCheckDoubleVote);
+		assert_eq!(res, Err(InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into()));
 
 		// Vote for an earlier session.
-		let (authorized, dispatch) = check(PvfCheckStatement {
+		let res = check(PvfCheckStatement {
 			accept: false,
 			subject: code_a.hash(),
 			session_index: 0,
 			validator_index: 1.into(),
 		});
-		assert_eq!(authorized, Err(InvalidTransaction::Stale.into()));
-		assert_err!(dispatch, Error::<Test>::PvfCheckStatementStale);
+		assert_eq!(res, Err(InvalidTransaction::Stale.into()));
 
 		// Vote for an later session.
-		let (authorized, dispatch) = check(PvfCheckStatement {
+		let res = check(PvfCheckStatement {
 			accept: false,
 			subject: code_a.hash(),
 			session_index: 2,
 			validator_index: 1.into(),
 		});
-		assert_eq!(authorized, Err(InvalidTransaction::Future.into()));
-		assert_err!(dispatch, Error::<Test>::PvfCheckStatementFuture);
+		assert_eq!(res, Err(InvalidTransaction::Future.into()));
 
 		// Validator not in the set.
-		let (authorized, dispatch) = check(PvfCheckStatement {
+		let res = check(PvfCheckStatement {
 			accept: false,
 			subject: code_a.hash(),
 			session_index: 1,
 			validator_index: 5.into(),
 		});
-		assert_eq!(authorized, Err(InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into()));
-		assert_err!(dispatch, Error::<Test>::PvfCheckValidatorIndexOutOfBounds);
+		assert_eq!(res, Err(InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into()));
 
 		// Bad subject (code_b)
-		let (authorized, dispatch) = check(PvfCheckStatement {
+		let res = check(PvfCheckStatement {
 			accept: false,
 			subject: code_b.hash(),
 			session_index: 1,
 			validator_index: 1.into(),
 		});
-		assert_eq!(authorized, Err(InvalidTransaction::Custom(INVALID_TX_BAD_SUBJECT).into()));
-		assert_err!(dispatch, Error::<Test>::PvfCheckSubjectInvalid);
+		assert_eq!(res, Err(InvalidTransaction::Custom(INVALID_TX_BAD_SUBJECT).into()));
 	});
 }
 

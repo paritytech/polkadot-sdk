@@ -546,7 +546,6 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			dbg!();
 			match call {
 				// <weight>
 				// The weight of this logic is included in the `claim` dispatchable.

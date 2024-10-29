@@ -190,12 +190,6 @@ impl TasksDef {
 					}
 				}
 
-				// TODO TODO: rename is_valid_weight?
-				fn weight_of_is_valid(&self) -> #frame_support::pallet_prelude::Weight {
-					// TODO TODO: attribute to specify weight of is_valid
-					Default::default()
-				}
-
 				fn run(&self) -> Result<(), #frame_support::pallet_prelude::DispatchError> {
 					match self.clone() {
 						#(#enum_ident::#task_fn_idents { #(#task_arg_names),* } => {

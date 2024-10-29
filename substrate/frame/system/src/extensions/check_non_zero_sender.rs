@@ -89,6 +89,7 @@ mod tests {
 		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction},
 		transaction_validity::TransactionValidityError,
 	};
+	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	#[test]
 	fn zero_account_ban_works() {
@@ -97,7 +98,7 @@ mod tests {
 			let len = 0_usize;
 			assert_eq!(
 				CheckNonZeroSender::<Test>::new()
-					.validate_only(Some(0).into(), CALL, &info, len)
+					.validate_only(Some(0).into(), CALL, &info, len, External)
 					.unwrap_err(),
 				TransactionValidityError::from(InvalidTransaction::BadSigner)
 			);
@@ -105,7 +106,8 @@ mod tests {
 				Some(1).into(),
 				CALL,
 				&info,
-				len
+				len,
+				External,
 			));
 		})
 	}
@@ -116,7 +118,7 @@ mod tests {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			let (_, _, origin) = CheckNonZeroSender::<Test>::new()
-				.validate(None.into(), CALL, &info, len, (), CALL)
+				.validate(None.into(), CALL, &info, len, (), CALL, External)
 				.unwrap();
 			assert!(!origin.is_transaction_authorized());
 		})

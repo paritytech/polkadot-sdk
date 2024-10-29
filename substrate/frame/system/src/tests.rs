@@ -26,6 +26,7 @@ use sp_core::{hexdisplay::HexDisplay, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, Header},
 	transaction_validity::TransactionValidityError,
+	transaction_validity::TransactionSource,
 	DispatchError, DispatchErrorWithPostInfo,
 };
 use std::collections::BTreeSet;
@@ -926,7 +927,7 @@ fn set_code_via_authorization_and_general_transaction() {
 		bad_runtime.extend(b"sneaky");
 		assert_noop!(
 			Call::<Test>::apply_authorized_upgrade { code: bad_runtime }
-				.authorize()
+				.authorize(TransactionSource::External)
 				.unwrap(),
 			TransactionValidityError::Invalid(InvalidTransaction::Call.into()),
 		);

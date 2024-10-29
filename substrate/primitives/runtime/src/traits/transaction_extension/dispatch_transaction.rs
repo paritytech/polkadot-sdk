@@ -57,7 +57,6 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 		call: &Call,
 		info: &Self::Info,
 		len: usize,
-		source: TransactionSource,
 	) -> Result<(Self::Pre, Self::Origin), TransactionValidityError>;
 	/// Dispatch a transaction with the given base origin and call.
 	fn dispatch_transaction(
@@ -66,7 +65,6 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 		call: Call,
 		info: &Self::Info,
 		len: usize,
-		source: TransactionSource,
 	) -> Self::Result;
 	/// Do everything which would be done in a [dispatch_transaction](Self::dispatch_transaction),
 	/// but instead of executing the call, execute `substitute` instead. Since this doesn't actually
@@ -114,10 +112,8 @@ where
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		// TODO TODO: source is a bit weird here, we can only prepare if it is in the block.
-		source: TransactionSource,
 	) -> Result<(T::Pre, Self::Origin), TransactionValidityError> {
-		let (_, val, origin) = self.validate_only(origin, call, info, len, source)?;
+		let (_, val, origin) = self.validate_only(origin, call, info, len, TransactionSource::InBlock)?;
 		let pre = self.prepare(val, &origin, &call, info, len)?;
 		Ok((pre, origin))
 	}
@@ -127,10 +123,8 @@ where
 		call: Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
-		// TODO TODO: source is a bit weird here, we can only dispatch if it is in the block.
-		source: TransactionSource,
 	) -> Self::Result {
-		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len, source)?;
+		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
 		let mut res = call.dispatch(origin);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
 		let post_info = match &mut res {
@@ -152,7 +146,7 @@ where
 		) -> crate::DispatchResultWithInfo<<Call as Dispatchable>::PostInfo>,
 	) -> Self::Result {
 		let (pre, origin) =
-			self.validate_and_prepare(origin, &call, info, len, TransactionSource::InBlock)?;
+			self.validate_and_prepare(origin, &call, info, len)?;
 		let mut res = substitute(origin);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
 		let post_info = match &mut res {

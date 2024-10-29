@@ -223,24 +223,28 @@ pub mod pallet {
 
 		/// A call that is specially authorized.
 		/// Authorized call can be dispatched by anybody without requiring any signature or fee.
-		#[pallet::call_index(0)]
+		#[pallet::call_index(1)]
 		#[pallet::authorize(|
-			source: TransactionSource,
-			new_foo: u32,
-			_other_compact,
-		| -> Result<(ValidTransaction, Weight), TransactionValidityError> {
-			if new_foo == 42 {
-				Ok((ValidTransaction { priority: 0, requires: vec![], provides: vec![] }, 0))
+			_source: TransactionSource,
+			new_foo: &u32,
+		| -> TransactionValidityWithRefund {
+			if *new_foo == 42 {
+				let refund = Weight::zero();
+				let validity = ValidTransaction::default();
+				Ok((validity, refund))
 			} else {
 				Err(InvalidTransaction::Call.into())
 			}
 		})]
-		#[pallet::weight(T::WeightInfo::set_foo_benchmark())]
-		pub fn set_foo(
-			_: OriginFor<T>,
+		#[pallet::weight(T::WeightInfo::set_foo_using_authorize())]
+		#[pallet::weight_of_authorize(T::WeightInfo::authorize_set_foo_using_authorize())]
+		pub fn set_foo_using_authorize(
+			origin: OriginFor<T>,
 			new_foo: u32,
-			#[pallet::compact] _other_compact: u128,
 		) -> DispatchResult {
+			// We only dispatch if it comes from the authorized origin. Meaning that the closure
+			// passed in `pallet::authorize` has successfully authorized the call.
+			ensure_authorized(origin)?;
 			Foo::<T>::set(Some(new_foo));
 
 			Ok(())

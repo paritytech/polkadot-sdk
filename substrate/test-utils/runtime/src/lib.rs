@@ -1055,6 +1055,7 @@ mod tests {
 	use sp_runtime::{
 		traits::{DispatchTransaction, Hash as _},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
+		transaction_validity::TransactionSource::External,
 	};
 	use substrate_test_runtime_client::{
 		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,
@@ -1212,6 +1213,7 @@ mod tests {
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
 						len,
+						External,
 					)
 					.unwrap()
 					.0
@@ -1226,6 +1228,7 @@ mod tests {
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
 						len,
+						External,
 					)
 					.unwrap()
 					.0

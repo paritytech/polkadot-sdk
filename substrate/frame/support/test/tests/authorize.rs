@@ -22,11 +22,9 @@ use frame_support::{
 	pallet_prelude::{TransactionSource, Weight},
 };
 use sp_runtime::{
-	traits::{Applyable, Checkable},
-	transaction_validity::{
+	testing::UintAuthorityId, traits::{Applyable, Checkable}, transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
-	BuildStorage, DispatchError,
+	}, BuildStorage, DispatchError
 };
 
 // test for instance
@@ -43,6 +41,8 @@ pub mod pallet1 {
 	pub const CALL_3_AUTH_WEIGHT: Weight = Weight::from_all(6);
 	pub const CALL_3_WEIGHT: Weight = Weight::from_all(7);
 	pub const CALL_3_REFUND: Weight = Weight::from_all(6);
+	pub const CALL_4_AUTH_WEIGHT: Weight = Weight::from_all(10);
+	pub const CALL_4_WEIGHT: Weight = Weight::from_all(11);
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
@@ -75,12 +75,13 @@ pub mod pallet1 {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		type SomeGeneric: Parameter;
 		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::call(weight = T::WeightInfo)]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		#[pallet::authorize(|_source| Ok(ValidTransaction::default()))]
+		#[pallet::authorize(|_source| Ok((ValidTransaction::default(), Weight::zero())))]
 		#[pallet::weight_of_authorize(CALL_1_AUTH_WEIGHT)]
 		#[pallet::call_index(0)]
 		pub fn call1(origin: OriginFor<T>) -> DispatchResult {
@@ -89,15 +90,16 @@ pub mod pallet1 {
 			Ok(())
 		}
 
-		#[pallet::authorize(|_source, a, b, c, d, e, f|
+		#[pallet::authorize(|_source, a, b, c, d, e, f, authorize_refund|
 			if *a {
-				Ok(ValidTransaction {
+				let valid = ValidTransaction {
 					priority: *b,
 					requires: vec![c.encode()],
 					provides: vec![d.encode()],
 					longevity: *e,
 					propagate: *f,
-				})
+				};
+				Ok((valid, authorize_refund.clone()))
 			} else {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 			}
@@ -111,17 +113,18 @@ pub mod pallet1 {
 			d: u8,
 			e: u64,
 			f: bool,
+			authorize_refund: Weight,
 		) -> DispatchResultWithPostInfo {
 			ensure_authorized(origin)?;
 
-			let _ = (a, b, c, d, e, f);
+			let _ = (a, b, c, d, e, f, authorize_refund);
 
 			Ok(Some(CALL_2_REFUND).into())
 		}
 
 		#[pallet::authorize(Pallet::<T, I>::authorize_call3)]
 		#[pallet::call_index(2)]
-		pub fn call3(origin: OriginFor<T>, valid: bool) -> DispatchResultWithPostInfo {
+		pub fn call3(origin: OriginFor<T>, valid: bool, _some_gen: T::SomeGeneric) -> DispatchResultWithPostInfo {
 			ensure_authorized(origin)?;
 
 			let _ = valid;
@@ -131,10 +134,21 @@ pub mod pallet1 {
 				error: DispatchError::Other("Call3 failed"),
 			})
 		}
+
+		#[cfg(feature = "frame-feature-testing")]
+		#[pallet::call_index(3)]
+		#[pallet::authorize(|_source| Ok(ValidTransaction::default()))]
+		#[pallet::weight_of_authorize(CALL_4_AUTH_WEIGHT)]
+		#[pallet::weight(CALL_4_WEIGHT)]
+		pub fn call4(origin: OriginFor<T>) -> DispatchResult {
+			ensure_authorized(origin)?;
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		fn authorize_call3(_source: TransactionSource, valid: &bool) -> TransactionValidity {
+		fn authorize_call3(_source: TransactionSource, valid: &bool, _some_gen: &T::SomeGeneric) -> TransactionValidityWithRefund {
 			if *valid {
 				Ok(Default::default())
 			} else {
@@ -160,7 +174,7 @@ pub mod pallet2 {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::authorize(|_source| Ok(ValidTransaction::default()))]
+		#[pallet::authorize(|_source| Ok(Default::default()))]
 		pub fn call1(origin: OriginFor<T>) -> DispatchResult {
 			ensure_authorized(origin)?;
 			Ok(())
@@ -185,7 +199,7 @@ pub mod pallet3 {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::authorize(|_source| Ok(ValidTransaction::default()))]
+		#[pallet::authorize(|_source| Ok(Default::default()))]
 		#[pallet::weight_of_authorize(CALL_1_AUTH_WEIGHT)]
 		#[pallet::weight(CALL_1_WEIGHT)]
 		#[pallet::call_index(0)]
@@ -204,10 +218,18 @@ impl frame_system::Config for Runtime {
 impl pallet2::SomeTrait for RuntimeOrigin {}
 
 impl pallet1::Config for Runtime {
+	type SomeGeneric = u32;
 	type WeightInfo = ();
 }
 
 impl pallet1::Config<frame_support::instances::Instance2> for Runtime {
+	type SomeGeneric = u32;
+	type WeightInfo = ();
+}
+
+#[cfg(feature = "frame-feature-testing")]
+impl pallet1::Config<frame_support::instances::Instance3> for Runtime {
+	type SomeGeneric = u32;
 	type WeightInfo = ();
 }
 
@@ -215,58 +237,33 @@ impl pallet2::Config for Runtime {}
 
 impl pallet3::Config for Runtime {}
 
-pub type TransactionExtension =
-	(frame_system::AuthorizeCall<Runtime>, frame_system::DenyNone<Runtime>);
+pub type TransactionExtension = frame_system::AuthorizeCall<Runtime>;
 
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<
 	u64,
 	RuntimeCall,
-	sp_runtime::testing::MockU64Signature,
+	UintAuthorityId,
 	TransactionExtension,
 >;
 
-// TODO TODO: add test for conditional compilation
-
-#[frame_support::runtime]
-mod runtime {
-	#[runtime::runtime]
-	#[runtime::derive(
-		RuntimeCall,
-		RuntimeEvent,
-		RuntimeError,
-		RuntimeOrigin,
-		RuntimeFreezeReason,
-		RuntimeHoldReason,
-		RuntimeSlashReason,
-		RuntimeLockId,
-		RuntimeTask
-	)]
-	pub struct Runtime;
-
-	#[runtime::pallet_index(0)]
-	pub type System = frame_system::Pallet<Runtime>;
-
-	#[runtime::pallet_index(1)]
-	pub type Pallet1 = pallet1::Pallet<Runtime>;
-
-	#[runtime::pallet_index(12)]
-	pub type Pallet1Instance2 = pallet1::Pallet<Runtime, Instance2>;
-
-	#[runtime::pallet_index(2)]
-	pub type Pallet2 = pallet2::Pallet<Runtime>;
-
-	#[runtime::pallet_index(3)]
-	pub type Pallet3 = pallet3::Pallet<Runtime>;
-}
+frame_support::construct_runtime!(
+	pub enum Runtime {
+		System: frame_system,
+		Pallet1: pallet1,
+		Pallet1Instance2: pallet1::<Instance2>,
+		Pallet2: pallet2,
+		Pallet3: pallet3,
+		#[cfg(feature = "frame-feature-testing")]
+		Pallet1Instance3: pallet1::<Instance3>,
+	}
+);
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig { ..Default::default() }.build_storage().unwrap();
 	t.into()
 }
-
-// TODO TODO: test for generic args in call
 
 #[test]
 fn valid_call_weight_test() {
@@ -279,6 +276,8 @@ fn valid_call_weight_test() {
 		ext_weight: Weight,
 		actual_weight: Weight,
 	}
+
+	let call_2_auth_weight_refund = Weight::from_all(2);
 
 	let tests = vec![
 		Test {
@@ -296,6 +295,7 @@ fn valid_call_weight_test() {
 				d: 3,
 				e: 4,
 				f: true,
+				authorize_refund: Weight::zero(),
 			}),
 			dispatch_success: true,
 			call_weight: pallet1::CALL_2_WEIGHT,
@@ -303,7 +303,7 @@ fn valid_call_weight_test() {
 			actual_weight: pallet1::CALL_2_REFUND + pallet1::CALL_2_AUTH_WEIGHT,
 		},
 		Test {
-			call: RuntimeCall::Pallet1(pallet1::Call::call3 { valid: true }),
+			call: RuntimeCall::Pallet1(pallet1::Call::call3 { valid: true, some_gen: 1 }),
 			dispatch_success: false,
 			call_weight: pallet1::CALL_3_WEIGHT,
 			ext_weight: pallet1::CALL_3_AUTH_WEIGHT,
@@ -324,14 +324,18 @@ fn valid_call_weight_test() {
 				d: 3,
 				e: 4,
 				f: true,
+				authorize_refund: call_2_auth_weight_refund,
 			}),
 			dispatch_success: true,
 			call_weight: pallet1::CALL_2_WEIGHT,
 			ext_weight: pallet1::CALL_2_AUTH_WEIGHT,
-			actual_weight: pallet1::CALL_2_REFUND + pallet1::CALL_2_AUTH_WEIGHT,
+			actual_weight:
+				pallet1::CALL_2_REFUND
+				+ pallet1::CALL_2_AUTH_WEIGHT
+				- call_2_auth_weight_refund,
 		},
 		Test {
-			call: RuntimeCall::Pallet1Instance2(pallet1::Call::call3 { valid: true }),
+			call: RuntimeCall::Pallet1Instance2(pallet1::Call::call3 { valid: true, some_gen: 1 }),
 			dispatch_success: false,
 			call_weight: pallet1::CALL_3_WEIGHT,
 			ext_weight: pallet1::CALL_3_AUTH_WEIGHT,
@@ -351,6 +355,14 @@ fn valid_call_weight_test() {
 			ext_weight: pallet3::CALL_1_AUTH_WEIGHT,
 			actual_weight: pallet3::CALL_1_WEIGHT + pallet3::CALL_1_AUTH_WEIGHT,
 		},
+		#[cfg(feature = "frame-feature-testing")]
+		Test {
+			call: RuntimeCall::Pallet1Instance3(pallet1::Call::call4 {}),
+			dispatch_success: true,
+			call_weight: pallet1::CALL_4_WEIGHT,
+			ext_weight: pallet1::CALL_4_AUTH_WEIGHT,
+			actual_weight: pallet1::CALL_4_WEIGHT + pallet3::CALL_4_AUTH_WEIGHT,
+		},
 	];
 
 	for (index, test) in tests.into_iter().enumerate() {
@@ -359,10 +371,7 @@ fn valid_call_weight_test() {
 		println!("Running test {}", index);
 
 		new_test_ext().execute_with(|| {
-			let tx_ext = (
-				frame_system::AuthorizeCall::<Runtime>::new(),
-				frame_system::DenyNone::<Runtime>::new(),
-			);
+			let tx_ext = frame_system::AuthorizeCall::<Runtime>::new();
 
 			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
@@ -410,6 +419,7 @@ fn valid_invalid_call() {
 				d: 3,
 				e: 4,
 				f: true,
+				authorize_refund: Weight::zero(),
 			}),
 			validate_res: Ok(ValidTransaction {
 				priority: 1,
@@ -427,15 +437,16 @@ fn valid_invalid_call() {
 				d: 3,
 				e: 4,
 				f: true,
+				authorize_refund: Weight::zero(),
 			}),
 			validate_res: Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 		},
 		Test {
-			call: RuntimeCall::Pallet1(pallet1::Call::call3 { valid: true }),
+			call: RuntimeCall::Pallet1(pallet1::Call::call3 { valid: true, some_gen: 1 }),
 			validate_res: Ok(Default::default()),
 		},
 		Test {
-			call: RuntimeCall::Pallet1(pallet1::Call::call3 { valid: false }),
+			call: RuntimeCall::Pallet1(pallet1::Call::call3 { valid: false, some_gen: 1 }),
 			validate_res: Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 		},
 	];
@@ -446,10 +457,7 @@ fn valid_invalid_call() {
 		println!("Running test {}", index);
 
 		new_test_ext().execute_with(|| {
-			let tx_ext = (
-				frame_system::AuthorizeCall::<Runtime>::new(),
-				frame_system::DenyNone::<Runtime>::new(),
-			);
+			let tx_ext = frame_system::AuthorizeCall::<Runtime>::new();
 
 			let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
@@ -469,12 +477,9 @@ fn valid_invalid_call() {
 fn signed_is_valid_but_dispatch_error() {
 	new_test_ext().execute_with(|| {
 		let call = RuntimeCall::Pallet1(pallet1::Call::call1 {});
-		let tx_ext = (
-			frame_system::AuthorizeCall::<Runtime>::new(),
-			frame_system::DenyNone::<Runtime>::new(),
-		);
+		let tx_ext = frame_system::AuthorizeCall::<Runtime>::new();
 
-		let tx = UncheckedExtrinsic::new_signed(call, 1u64, Default::default(), tx_ext);
+		let tx = UncheckedExtrinsic::new_signed(call, 1u64, 1.into(), tx_ext);
 
 		let info = tx.get_dispatch_info();
 		let len = tx.using_encoded(|e| e.len());
