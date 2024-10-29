@@ -63,7 +63,7 @@ sp-version = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-wasm-interface = { workspace = true, default-features = true }
-subxt = { workspace = true, features = ["native", "substrate-compat"] }
+subxt = { workspace = true, features = ["native"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }

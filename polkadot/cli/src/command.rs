@@ -402,8 +402,7 @@ pub fn run() -> Result<()> {
 						.into())
 					}
 
-					cmd.run_with_extrinsic_builder_and_spec::<polkadot_service::Block, ()>(
-						None,
+					cmd.run_with_default_builder_and_spec::<polkadot_service::Block, ()>(
 						Some(config.chain_spec),
 					)
 					.map_err(Error::SubstrateCli)

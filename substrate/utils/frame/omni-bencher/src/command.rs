@@ -145,7 +145,7 @@ impl V1SubCommand {
 					pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
 				},
 				BenchmarkCmd::Overhead(overhead_cmd) =>
-					overhead_cmd.run_with_extrinsic_builder::<OpaqueBlock, HostFunctions>(None),
+					overhead_cmd.run_with_default_builder_and_spec::<OpaqueBlock, HostFunctions>(None),
 				_ =>
 					return Err(
 						"Only the `v1 benchmark pallet` and `v1 benchmark overhead` command is currently supported".into()

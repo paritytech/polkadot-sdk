@@ -200,7 +200,7 @@ fn create_inherent_data<Client: UsageProvider<Block> + HeaderBackend<Block>, Blo
 	let genesis = client.usage_info().chain.best_hash;
 	let header = client.header(genesis).unwrap().unwrap();
 
-	let mut inherent_data = sp_inherents::InherentData::new();
+	let mut inherent_data = InherentData::new();
 
 	// Para inherent can only makes sense when we are handling a parachain.
 	if let Parachain(para_id) = chain_type {
@@ -350,16 +350,41 @@ impl OverheadCmd {
 		Ok(())
 	}
 
-	/// Run the benchmark overhead command.
-	pub fn run_with_extrinsic_builder_and_spec<Block, ExtraHF>(
+	/// Run the overhead benchmark with the default extrinsic builder.
+	///
+	/// This will use [SubstrateRemarkBuilder] to build the extrinsic. It is
+	/// designed to match common configurations found in substrate chains.
+	pub fn run_with_default_builder_and_spec<Block, ExtraHF>(
 		&self,
-		ext_builder_provider: Option<
-			Box<dyn FnOnce(Metadata, H256, RuntimeVersion) -> Box<dyn ExtrinsicBuilder>>,
-		>,
 		chain_spec: Option<Box<dyn ChainSpec>>,
 	) -> Result<()>
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic, Hash = H256>,
+		ExtraHF: HostFunctions,
+	{
+		self.run_with_extrinsic_builder_and_spec::<Block, ExtraHF>(
+			Box::new(|metadata, hash, version| {
+				let genesis = subxt::utils::H256::from(hash.to_fixed_bytes());
+				Box::new(SubstrateRemarkBuilder::new(metadata, genesis, version)) as Box<_>
+			}),
+			chain_spec,
+		)
+	}
+
+	/// Run the benchmark overhead command.
+	///
+	/// The provided [ExtrinsicBuilder] will be used to build extrinsics for
+	/// block-building. It is expected that the provided implementation builds
+	/// a `System::remark` extrinsic.
+	pub fn run_with_extrinsic_builder_and_spec<Block, ExtraHF>(
+		&self,
+		ext_builder_provider: Box<
+			dyn FnOnce(Metadata, Block::Hash, RuntimeVersion) -> Box<dyn ExtrinsicBuilder>,
+		>,
+		chain_spec: Option<Box<dyn ChainSpec>>,
+	) -> Result<()>
+	where
+		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 		ExtraHF: HostFunctions,
 	{
 		if let Err((error_kind, msg)) = self.check_args(&chain_spec) {
@@ -405,17 +430,7 @@ impl OverheadCmd {
 				transaction_version: version.transaction_version,
 			};
 
-			match ext_builder_provider {
-				Some(provider) => (provider(metadata, genesis, runtime_version), runtime_name),
-				None => {
-					let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
-					(
-						Box::new(SubstrateRemarkBuilder::new(metadata, genesis, runtime_version))
-							as Box<_>,
-						runtime_name,
-					)
-				},
-			}
+			(ext_builder_provider(metadata, genesis, runtime_version), runtime_name)
 		};
 
 		self.run(
@@ -431,23 +446,27 @@ impl OverheadCmd {
 	/// Run the benchmark overhead command.
 	pub fn run_with_extrinsic_builder<Block, ExtraHF>(
 		&self,
-		ext_builder_provider: Option<
-			Box<dyn FnOnce(Metadata, H256, RuntimeVersion) -> Box<dyn ExtrinsicBuilder>>,
+		ext_builder_provider: Box<
+			dyn FnOnce(Metadata, Block::Hash, RuntimeVersion) -> Box<dyn ExtrinsicBuilder>,
 		>,
 	) -> Result<()>
 	where
-		Block: BlockT<Extrinsic = OpaqueExtrinsic, Hash = H256>,
+		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 		ExtraHF: HostFunctions,
 	{
 		self.run_with_extrinsic_builder_and_spec::<Block, ExtraHF>(ext_builder_provider, None)
 	}
 
-	fn build_client_components<Block: BlockT, HF: HostFunctions>(
+	fn build_client_components<Block, HF>(
 		&self,
 		genesis_storage: Storage,
 		executor: WasmExecutor<HF>,
 		chain_type: &ChainType,
-	) -> Result<Arc<OverheadClient<Block, HF>>> {
+	) -> Result<Arc<OverheadClient<Block, HF>>>
+	where
+		Block: BlockT,
+		HF: HostFunctions,
+	{
 		let extensions = ExecutionExtensions::new(None, Arc::new(executor.clone()));
 
 		let base_path = match &self.shared_params.base_path {
