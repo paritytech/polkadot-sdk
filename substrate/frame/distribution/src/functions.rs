@@ -50,20 +50,21 @@ impl<T: Config> Pallet<T> {
 		ensure!(balance > spend, Error::<T>::InsufficientPotReserves);
 		Ok(())
 	}
-/*
-	pub fn execute_on_schedule(project: ProjectId<T>, call: BoundedCallOf<T>) -> DispatchResult {
+
+	pub fn schedule_enactment(project: ProjectId<T>, call: BoundedCallOf<T>) -> DispatchResult {
 		let infos = Spends::<T>::get(&project).ok_or(Error::<T>::InexistentSpend)?;
 		let when = infos.valid_from;
-		let ok = T::Scheduler::schedule_named(
+		T::Scheduler::schedule_named(
 			(DISTRIBUTION_ID, "enactment", project).using_encoded(sp_io::hashing::blake2_256),
-			RawOrigin::Root,
-			when,
+			DispatchTime::At(when),
 			None,
 			63,
+			RawOrigin::Root.into(),
 			call,
 		)?;
+
 		Ok(())
-	}*/
+	}
 
 
 

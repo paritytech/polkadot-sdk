@@ -97,13 +97,21 @@ pub mod pallet {
 		#[pallet::constant]
 		type PotId: Get<PalletId>;
 
+		/// The preimage provider.
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+
 		/// The Scheduler.
-		type Scheduler: ScheduleNamed<
-			BlockNumberFor<Self>,
-			CallOf<Self>,
-			PalletsOriginOf<Self>,
-			Hasher = Self::Hashing,
-		>;
+		type Scheduler: ScheduleAnon<
+				BlockNumberFor<Self>,
+				CallOf<Self>,
+				PalletsOriginOf<Self>,
+				Hasher = Self::Hashing,
+			> + ScheduleNamed<
+				BlockNumberFor<Self>,
+				CallOf<Self>,
+				PalletsOriginOf<Self>,
+				Hasher = Self::Hashing,
+			>;
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// This the minimum required buffer time period between project nomination
@@ -211,9 +219,24 @@ pub mod pallet {
 			Self::begin_block()?;
 			let pot = Self::pot_account();
 			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
+			let call0: <T as Config>::RuntimeCall =  (Call::<T>::execute_claim { project_id: project_id.clone()}).into();
+			let call1: <T as frame_system::Config>::RuntimeCall = call0.clone().into();
+			let call = T::Preimages::bound(call1)?;
+			Self::schedule_enactment(project_id, call)?;		
+			
+			Ok(())
+		}
 
-			// Check that we're within the claiming period
-			ensure!(now > info.valid_from, Error::<T>::NotClaimingPeriod);
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::claim_reward_for(T::MaxProjects::get()))]
+		#[transactional]
+		pub fn execute_claim(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
+			let _caller = ensure_signed(origin)?;
+			let now = T::BlockNumberProvider::current_block_number();
+			Self::begin_block()?;
+			let pot = Self::pot_account();
+			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
+
 			// Unlock the funds
 			T::NativeBalance::release(
 				&HoldReason::FundsReserved.into(),
@@ -232,16 +255,6 @@ pub mod pallet {
 				project_id,
 			});
 
-			Ok(())
-		}
-
-		#[pallet::call_index(1)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::claim_reward_for(T::MaxProjects::get()))]
-		#[transactional]
-		pub fn execute_claim(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
-			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
-			let when = info.valid_from;
-		
 			Ok(())
 		}
 	}

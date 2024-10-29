@@ -106,6 +106,7 @@ impl pallet_distribution::Config for Test {
 	type MaxProjects = MaxProjects;
 	type EpochDurationBlocks = EpochDurationBlocks;
 	type BlockNumberProvider = System;
+	type Preimages = Preimage;
 	type WeightInfo = ();
 }
 //Define some accounts and use them

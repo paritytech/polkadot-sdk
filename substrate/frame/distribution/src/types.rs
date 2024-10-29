@@ -26,8 +26,8 @@ pub use frame_support::{
 		fungible::{Inspect, Mutate, MutateHold},
 		fungibles, LockIdentifier, Bounded,
 		tokens::{Precision, Preservation},
-		DefensiveOption, EnsureOrigin, OriginTrait,
-		schedule::{MaybeHashed, v3::Named as ScheduleNamed, DispatchTime},
+		DefensiveOption, EnsureOrigin, OriginTrait,QueryPreimage, StorePreimage,
+		schedule::{MaybeHashed, v3::{Named as ScheduleNamed, Anon as ScheduleAnon}, DispatchTime},
 	},
 	transactional, PalletId, Serialize,
 };

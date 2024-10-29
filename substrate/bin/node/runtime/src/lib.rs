@@ -2260,6 +2260,7 @@ impl pallet_distribution::Config for Runtime {
 	type MaxProjects = MaxProjects;
 	type EpochDurationBlocks = EpochDurationBlocks;
 	type BlockNumberProvider = System;
+	type Preimages = Preimage;
 	type WeightInfo = pallet_distribution::weights::SubstrateWeight<Runtime>;
 }
 
