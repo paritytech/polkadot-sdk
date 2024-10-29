@@ -26,6 +26,7 @@ use snowbridge_router_primitives::inbound::{
 	GlobalConsensusEthereumConvertsFor,
 };
 use sp_core::H256;
+use sp_runtime::MultiAddress;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
@@ -169,6 +170,158 @@ fn send_weth_from_asset_hub_to_ethereum() {
 					if *who == assethub_sovereign
 			)),
 			"AssetHub sovereign takes remote fee."
+		);
+	});
+}
+
+#[test]
+fn transfer_relay_token() {
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(
+		BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id()),
+	);
+	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
+
+	let asset_id: Location = Location { parents: 1, interior: [].into() };
+	let expected_asset_id: Location =
+		Location { parents: 1, interior: [GlobalConsensus(Westend)].into() };
+
+	let expected_token_id = TokenIdOf::convert_location(&expected_asset_id).unwrap();
+
+	let ethereum_sovereign: AccountId =
+		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&Location::new(
+			2,
+			[GlobalConsensus(EthereumNetwork::get())],
+		))
+		.unwrap()
+		.into();
+
+	// Register token
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			sp_runtime::MultiAddress::Id(BridgeHubWestendSender::get()),
+			INITIAL_FUND * 10,
+		));
+
+		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
+			RuntimeOrigin::root(),
+			Box::new(VersionedLocation::from(asset_id.clone())),
+			AssetMetadata {
+				name: "wnd".as_bytes().to_vec().try_into().unwrap(),
+				symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
+				decimals: 12,
+			},
+		));
+		// Check that a message was sent to Ethereum to create the agent
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::RegisterToken { .. }) => {},]
+		);
+	});
+
+	// Send token to Ethereum
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		let weth_asset_location: Location =
+			(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH })
+				.into();
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
+			RuntimeOrigin::root(),
+			weth_asset_location.clone().try_into().unwrap(),
+			assethub_sovereign.clone().into(),
+			false,
+			1,
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
+			RuntimeOrigin::signed(assethub_sovereign.clone().into()),
+			weth_asset_location.clone().try_into().unwrap(),
+			MultiAddress::Id(AssetHubWestendSender::get()),
+			TOKEN_AMOUNT,
+		));
+
+		// Local fee amount(in DOT) should cover
+		// 1. execution cost on AH
+		// 2. delivery cost to BH
+		// 3. execution cost on BH
+		let local_fee_amount = 200_000_000_000;
+		// Remote fee amount(in WETH) should cover execution cost on Ethereum
+		let remote_fee_amount = 4_000_000_000;
+
+		let local_fee_asset =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(local_fee_amount) };
+		let remote_fee_asset =
+			Asset { id: AssetId(weth_asset_location.clone()), fun: Fungible(remote_fee_amount) };
+
+		let assets = vec![
+			Asset {
+				id: AssetId(Location::parent()),
+				fun: Fungible(TOKEN_AMOUNT + local_fee_amount),
+			},
+			remote_fee_asset.clone(),
+		];
+
+		let destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+
+		let beneficiary = Location::new(
+			0,
+			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+		);
+
+		let xcm_on_bh = Xcm(vec![
+			ExpectAsset(vec![remote_fee_asset.clone()].into()),
+			DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
+		]);
+
+		let xcms = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: local_fee_asset.clone() },
+			InitiateTransfer {
+				destination,
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.clone().into(),
+				))),
+				assets: vec![AssetTransferFilter::ReserveDeposit(Definite(
+					Asset { id: AssetId(Location::parent()), fun: Fungible(TOKEN_AMOUNT) }.into(),
+				))],
+				remote_xcm: xcm_on_bh,
+			},
+		]));
+
+		// Send DOT to Ethereum
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			bx!(xcms),
+			Weight::from(8_000_000_000),
+		)
+		.unwrap();
+
+		let events = AssetHubWestend::events();
+		// Check that the native asset transferred to some reserved account(sovereign of Ethereum)
+		// assert!(
+		// 	events.iter().any(|event| matches!(
+		// 		event,
+		// 		RuntimeEvent::Balances(pallet_balances::Event::Transfer { to, ..})
+		// 			if *to == ethereum_sovereign.clone(),
+		// 	)),
+		// 	"native token reserved to Ethereum sovereign account."
+		// );
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		// Check that the transfer token back to Ethereum message was queue in the Ethereum
+		// Outbound Queue
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
 		);
 	});
 }

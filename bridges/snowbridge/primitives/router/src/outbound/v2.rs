@@ -16,7 +16,7 @@ use snowbridge_core::{
 	AgentId, TokenId, TokenIdOf,
 };
 use sp_core::{H160, H256};
-use sp_runtime::{traits::MaybeEquivalence, transaction_validity::InvalidTransaction::Payment};
+use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_builder::{CreateMatcher, ExporterFor, MatchXcm};
@@ -193,6 +193,7 @@ macro_rules! match_expression {
 
 struct XcmConverter<'a, ConvertAssetId, Call> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
+	message: Vec<Instruction<Call>>,
 	ethereum_network: NetworkId,
 	agent_id: AgentId,
 	_marker: PhantomData<ConvertAssetId>,
@@ -203,6 +204,7 @@ where
 {
 	fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId, agent_id: AgentId) -> Self {
 		Self {
+			message: message.clone().inner().into(),
 			iter: message.inner().iter().peekable(),
 			ethereum_network,
 			agent_id,
@@ -211,7 +213,7 @@ where
 	}
 
 	fn convert(&mut self) -> Result<Message, XcmConverterError> {
-		let result = match self.peek() {
+		let result = match self.jump_to() {
 			Ok(ReserveAssetDeposited { .. }) => self.send_native_tokens_message(),
 			// Get withdraw/deposit and make native tokens create message.
 			Ok(WithdrawAsset { .. }) => self.send_tokens_message(),
@@ -230,18 +232,7 @@ where
 	fn send_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
 
-		// Extract the fee asset item from PayFees(V5)
-
-		let _ = match_expression!(self.next()?, WithdrawAsset(fee), fee)
-			.ok_or(WithdrawAssetExpected)?;
-		let fee_asset =
-			match_expression!(self.next()?, PayFees { asset: fee }, fee).ok_or(InvalidFeeAsset)?;
-		// Todo: Validate fee asset is WETH
-		let fee_amount = match fee_asset {
-			Asset { id: _, fun: Fungible(amount) } => Some(*amount),
-			_ => None,
-		}
-		.ok_or(AssetResolutionFailed)?;
+		let fee_amount = self.extract_remote_fee()?;
 
 		// Get the reserve assets from WithdrawAsset.
 		let reserve_assets =
@@ -348,6 +339,8 @@ where
 	fn send_native_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
 
+		let fee_amount = self.extract_remote_fee()?;
+
 		// Get the reserve assets.
 		let reserve_assets =
 			match_expression!(self.next()?, ReserveAssetDeposited(reserve_assets), reserve_assets)
@@ -357,16 +350,6 @@ where
 		if match_expression!(self.peek(), Ok(ClearOrigin), ()).is_some() {
 			let _ = self.next();
 		}
-
-		// Extract the fee asset item from BuyExecution|PayFees(V5)
-		let fee_asset = match_expression!(self.next()?, BuyExecution { fees, .. }, fees)
-			.ok_or(InvalidFeeAsset)?;
-		// Todo: Validate fee asset is WETH
-		let fee_amount = match fee_asset {
-			Asset { id: _, fun: Fungible(amount) } => Some(*amount),
-			_ => None,
-		}
-		.ok_or(AssetResolutionFailed)?;
 
 		// Check if ExpectAsset exists and skip over it.
 		if match_expression!(self.peek(), Ok(ExpectAsset { .. }), ()).is_some() {
@@ -435,6 +418,29 @@ where
 		};
 
 		Ok(message)
+	}
+
+	/// Skip fee instructions and jump to the primary instruction
+	fn jump_to(&mut self) -> Result<&Instruction<Call>, XcmConverterError> {
+		ensure!(self.message.len() > 3, XcmConverterError::UnexpectedEndOfXcm);
+		self.message.get(2).ok_or(XcmConverterError::UnexpectedEndOfXcm)
+	}
+
+	/// Extract the fee asset item from PayFees(V5)
+	fn extract_remote_fee(&mut self) -> Result<u128, XcmConverterError> {
+		use XcmConverterError::*;
+		// Extract the fee asset item from PayFees(V5)
+		let _ = match_expression!(self.next()?, WithdrawAsset(fee), fee)
+			.ok_or(WithdrawAssetExpected)?;
+		let fee_asset =
+			match_expression!(self.next()?, PayFees { asset: fee }, fee).ok_or(InvalidFeeAsset)?;
+		// Todo: Validate fee asset is WETH
+		let fee_amount = match fee_asset {
+			Asset { id: _, fun: Fungible(amount) } => Some(*amount),
+			_ => None,
+		}
+		.ok_or(AssetResolutionFailed)?;
+		Ok(fee_amount)
 	}
 }
 
