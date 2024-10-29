@@ -102,7 +102,7 @@ def main():
         failed_benchmarks = {}
         successful_benchmarks = {}
 
-        profile = "release"
+        profile = "production"
 
         print(f'Provided runtimes: {args.runtime}')
         # convert to mapped dict
