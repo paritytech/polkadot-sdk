@@ -96,7 +96,8 @@ jobs:
 
       - name: Bump versions, reorder prdocs and push stable branch
         env:
-          GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          REPO: ${{ github.repository }}
         run: |
           . ./.github/scripts/release/release_lib.sh
 
