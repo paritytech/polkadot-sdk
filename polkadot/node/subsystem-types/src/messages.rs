@@ -43,15 +43,18 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate,
-	BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
-	CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
-	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
-	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, slashing, vstaging,
+	vstaging::{
+		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+	},
+	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
+	CandidateIndex, CollatorId, CoreIndex, DisputeState, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, HeadData, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, PvfExecKind as RuntimePvfExecKind, SessionIndex,
+	SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -708,7 +711,7 @@ pub enum RuntimeApiRequest {
 	CandidatePendingAvailability(ParaId, RuntimeApiSender<Option<CommittedCandidateReceipt>>),
 	/// Get all events concerning candidates (backing, inclusion, time-out) in the parent of
 	/// the block in whose state this request is executed.
-	CandidateEvents(RuntimeApiSender<Vec<CandidateEvent>>),
+	CandidateEvents(RuntimeApiSender<Vec<vstaging::CandidateEvent>>),
 	/// Get the execution environment parameter set by session index
 	SessionExecutorParams(SessionIndex, RuntimeApiSender<Option<ExecutorParams>>),
 	/// Get the session info for the given session, if stored.
@@ -724,7 +727,7 @@ pub enum RuntimeApiRequest {
 	/// Get information about the BABE epoch the block was included in.
 	CurrentBabeEpoch(RuntimeApiSender<BabeEpoch>),
 	/// Get all disputes in relation to a relay parent.
-	FetchOnChainVotes(RuntimeApiSender<Option<polkadot_primitives::ScrapedOnChainVotes>>),
+	FetchOnChainVotes(RuntimeApiSender<Option<polkadot_primitives::vstaging::ScrapedOnChainVotes>>),
 	/// Submits a PVF pre-checking statement into the transaction pool.
 	SubmitPvfCheckStatement(PvfCheckStatement, ValidatorSignature, RuntimeApiSender<()>),
 	/// Returns code hashes of PVFs that require pre-checking by validators in the active set.
@@ -759,7 +762,7 @@ pub enum RuntimeApiRequest {
 	/// Returns all disabled validators at a given block height.
 	DisabledValidators(RuntimeApiSender<Vec<ValidatorIndex>>),
 	/// Get the backing state of the given para.
-	ParaBackingState(ParaId, RuntimeApiSender<Option<async_backing::BackingState>>),
+	ParaBackingState(ParaId, RuntimeApiSender<Option<vstaging::async_backing::BackingState>>),
 	/// Get candidate's acceptance limitations for asynchronous backing for a relay parent.
 	///
 	/// If it's not supported by the Runtime, the async backing is said to be disabled.
@@ -1256,7 +1259,7 @@ impl HypotheticalCandidate {
 	/// Get the `ParaId` of the hypothetical candidate.
 	pub fn candidate_para(&self) -> ParaId {
 		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } => receipt.descriptor().para_id,
+			HypotheticalCandidate::Complete { ref receipt, .. } => receipt.descriptor.para_id(),
 			HypotheticalCandidate::Incomplete { candidate_para, .. } => candidate_para,
 		}
 	}
@@ -1275,7 +1278,7 @@ impl HypotheticalCandidate {
 	pub fn relay_parent(&self) -> Hash {
 		match *self {
 			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				receipt.descriptor().relay_parent,
+				receipt.descriptor.relay_parent(),
 			HypotheticalCandidate::Incomplete { candidate_relay_parent, .. } =>
 				candidate_relay_parent,
 		}
@@ -1285,7 +1288,7 @@ impl HypotheticalCandidate {
 	pub fn output_head_data_hash(&self) -> Option<Hash> {
 		match *self {
 			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				Some(receipt.descriptor.para_head),
+				Some(receipt.descriptor.para_head()),
 			HypotheticalCandidate::Incomplete { .. } => None,
 		}
 	}
@@ -1308,10 +1311,10 @@ impl HypotheticalCandidate {
 	}
 
 	/// Get the validation code hash, if the candidate is complete.
-	pub fn validation_code_hash(&self) -> Option<&ValidationCodeHash> {
+	pub fn validation_code_hash(&self) -> Option<ValidationCodeHash> {
 		match *self {
 			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				Some(&receipt.descriptor.validation_code_hash),
+				Some(receipt.descriptor.validation_code_hash()),
 			HypotheticalCandidate::Incomplete { .. } => None,
 		}
 	}
