@@ -35,7 +35,7 @@ use crate::{
 		HostInfoParams, WeightParams,
 	},
 };
-use clap::{error::ErrorKind, ArgGroup, Args, CommandFactory, Parser};
+use clap::{error::ErrorKind, Args, CommandFactory, Parser};
 use codec::Encode;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use fake_runtime_api::RuntimeApi as FakeRuntimeApi;
@@ -76,11 +76,6 @@ const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::overhead";
 
 /// Benchmark the execution overhead per-block and per-extrinsic.
 #[derive(Debug, Parser)]
-#[clap(group(
-    ArgGroup::new("chain_source")
-        .args(["chain"])
-	)
-)]
 pub struct OverheadCmd {
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -143,15 +138,7 @@ pub struct OverheadParams {
 	/// Can be used together with `--chain` to determine whether the
 	/// genesis state should be initialized with the values from the
 	/// provided chain spec or a runtime-provided genesis preset.
-	#[arg(
-		long,
-		value_enum,
-		alias = "genesis-builder-policy",
-		requires_ifs([
-			("spec", "chain_source"),
-			("spec-runtime", "chain_source"),
-			("spec-genesis", "chain_source"),
-		]))]
+	#[arg(long, value_enum, alias = "genesis-builder-policy")]
 	pub genesis_builder: Option<GenesisBuilderPolicy>,
 
 	/// Parachain Id to use for parachains. If not specified, the benchmark code will choose
@@ -335,18 +322,32 @@ impl OverheadCmd {
 		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
 	}
 
-	pub fn check_args(&self, chain_spec: &Option<Box<dyn ChainSpec>>) {
+	fn check_args(
+		&self,
+		chain_spec: &Option<Box<dyn ChainSpec>>,
+	) -> std::result::Result<(), (ErrorKind, String)> {
 		if chain_spec.is_none() &&
 			self.params.runtime.is_none() &&
 			self.shared_params.chain.is_none()
 		{
-			let mut cmd = OverheadCmd::command();
-			cmd.error(
+			return Err((
 				ErrorKind::MissingRequiredArgument,
-				"Provide either a runtime via `--runtime` or a chain spec via `--chain`",
-			)
-			.exit();
+				"Provide either a runtime via `--runtime` or a chain spec via `--chain`"
+					.to_string(),
+			))
 		}
+
+		match self.params.genesis_builder {
+			Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::SpecRuntime) =>
+				if chain_spec.is_none() && self.shared_params.chain.is_none() {
+					return Err((
+						ErrorKind::MissingRequiredArgument,
+						"Provide a chain spec via `--chain`.".to_string(),
+					))
+				},
+			_ => {},
+		};
+		Ok(())
 	}
 
 	/// Run the benchmark overhead command.
@@ -361,7 +362,10 @@ impl OverheadCmd {
 		Block: BlockT<Extrinsic = OpaqueExtrinsic, Hash = H256>,
 		ExtraHF: HostFunctions,
 	{
-		self.check_args(&chain_spec);
+		if let Err((error_kind, msg)) = self.check_args(&chain_spec) {
+			let mut cmd = OverheadCmd::command();
+			cmd.error(error_kind, msg).exit();
+		};
 
 		let (state_handler, para_id) =
 			self.state_handler_from_cli::<(ParachainHostFunctions, ExtraHF)>(chain_spec)?;
@@ -701,12 +705,16 @@ mod tests {
 	}
 
 	fn cli_succeed(args: &[&str]) -> Result<(), clap::Error> {
-		OverheadCmd::try_parse_from(args)?;
+		let cmd = OverheadCmd::try_parse_from(args)?;
+		assert!(cmd.check_args(&None).is_ok());
 		Ok(())
 	}
 
 	fn cli_fail(args: &[&str]) {
-		assert!(OverheadCmd::try_parse_from(args).is_err());
+		let cmd = OverheadCmd::try_parse_from(args);
+		if let Ok(cmd) = cmd {
+			assert!(cmd.check_args(&None).is_err());
+		}
 	}
 
 	#[test]

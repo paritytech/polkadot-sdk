@@ -20,7 +20,7 @@ mod types;
 mod writer;
 
 use crate::shared::HostInfoParams;
-use clap::{ArgGroup, ValueEnum};
+use clap::ValueEnum;
 use frame_support::Serialize;
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
@@ -45,10 +45,6 @@ pub enum ListOutput {
 
 /// Benchmark the extrinsic weight of FRAME Pallets.
 #[derive(Debug, clap::Parser)]
-#[clap(group(
-    ArgGroup::new("chain_source")
-        .args(["chain"])
-))]
 pub struct PalletCmd {
 	/// Select a FRAME Pallet to benchmark, or `*` for all (in which case `extrinsic` must be `*`).
 	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
@@ -187,16 +183,7 @@ pub struct PalletCmd {
 	/// How to construct the genesis state.
 	///
 	/// Uses `GenesisBuilderPolicy::Spec` by default.
-	#[arg(
-		long,
-		value_enum,
-		alias = "genesis-builder-policy",
-		requires_ifs([
-			("spec", "chain_source"),
-			("spec-runtime", "chain_source"),
-			("spec-genesis", "chain_source"),
-		])
-	)]
+	#[arg(long, value_enum, alias = "genesis-builder-policy")]
 	pub genesis_builder: Option<GenesisBuilderPolicy>,
 
 	/// The preset that we expect to find in the GenesisBuilder runtime API.
@@ -296,153 +283,4 @@ pub enum GenesisBuilderPolicy {
 	/// Use the spec file to build the genesis state. This fails when there is no spec.
 	#[value(alias = "spec")]
 	SpecGenesis,
-}
-
-#[cfg(test)]
-mod tests {
-	use crate::pallet::PalletCmd;
-	use clap::Parser;
-
-	fn cli_succeed(args: &[&str]) -> Result<(), clap::Error> {
-		PalletCmd::try_parse_from(args)?;
-		Ok(())
-	}
-
-	fn cli_fail(args: &[&str]) {
-		assert!(PalletCmd::try_parse_from(args).is_err());
-	}
-
-	#[test]
-	fn test_cli_conflicts() -> Result<(), clap::Error> {
-		// Runtime tests
-		cli_succeed(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--runtime",
-			"path/to/runtime",
-			"--genesis-builder",
-			"runtime",
-		])?;
-		cli_succeed(&["test", "--extrinsic", "", "--pallet", "", "--runtime", "path/to/runtime"])?;
-		cli_succeed(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--runtime",
-			"path/to/runtime",
-			"--genesis-builder-preset",
-			"preset",
-		])?;
-		cli_fail(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--runtime",
-			"path/to/spec",
-			"--genesis-builder",
-			"spec",
-		]);
-		cli_fail(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--runtime",
-			"path/to/spec",
-			"--genesis-builder",
-			"spec-genesis",
-		]);
-		cli_fail(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--runtime",
-			"path/to/spec",
-			"--genesis-builder",
-			"spec-runtime",
-		]);
-		cli_fail(&["test", "--runtime", "path/to/spec", "--genesis-builder", "spec-genesis"]);
-
-		// Spec tests
-		cli_succeed(&["test", "--extrinsic", "", "--pallet", "", "--chain", "path/to/spec"])?;
-		cli_succeed(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--chain",
-			"path/to/spec",
-			"--genesis-builder",
-			"spec",
-		])?;
-		cli_succeed(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--chain",
-			"path/to/spec",
-			"--genesis-builder",
-			"spec-genesis",
-		])?;
-		cli_succeed(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--chain",
-			"path/to/spec",
-			"--genesis-builder",
-			"spec-runtime",
-		])?;
-		cli_succeed(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--chain",
-			"path/to/spec",
-			"--genesis-builder",
-			"none",
-		])?;
-		cli_fail(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--chain",
-			"path/to/spec",
-			"--genesis-builder",
-			"runtime",
-		]);
-		cli_fail(&[
-			"test",
-			"--extrinsic",
-			"",
-			"--pallet",
-			"",
-			"--chain",
-			"path/to/spec",
-			"--genesis-builder",
-			"runtime",
-			"--genesis-builder-preset",
-			"preset",
-		]);
-		Ok(())
-	}
 }

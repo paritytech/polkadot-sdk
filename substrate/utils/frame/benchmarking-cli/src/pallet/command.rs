@@ -236,7 +236,10 @@ impl PalletCmd {
 		Hasher: Hash,
 		ExtraHostFunctions: HostFunctions,
 	{
-		self.check_args(&chain_spec);
+		if let Err((error_kind, msg)) = self.check_args(&chain_spec) {
+			let mut cmd = PalletCmd::command();
+			cmd.error(error_kind, msg).exit();
+		};
 
 		let _d = self.execution.as_ref().map(|exec| {
 			// We print the error at the end, since there is often A LOT of output.
@@ -907,52 +910,66 @@ impl PalletCmd {
 	}
 
 	/// Sanity check the CLI arguments.
-	fn check_args(&self, chain_spec: &Option<Box<dyn ChainSpec>>) {
+	fn check_args(
+		&self,
+		chain_spec: &Option<Box<dyn ChainSpec>>,
+	) -> std::result::Result<(), (ErrorKind, String)> {
 		if self.runtime.is_some() && self.shared_params.chain.is_some() {
 			unreachable!("Clap should not allow both `--runtime` and `--chain` to be provided.")
 		}
 
-		let abort_with_error = |error_kind: ErrorKind, msg: String| {
-			let mut cmd = PalletCmd::command();
-			cmd.error(error_kind, msg).exit();
-		};
-
 		if chain_spec.is_none() && self.runtime.is_none() && self.shared_params.chain.is_none() {
-			abort_with_error(
+			return Err((
 				ErrorKind::MissingRequiredArgument,
 				"Provide either a runtime via `--runtime` or a chain spec via `--chain`"
 					.to_string(),
-			)
+			))
+		}
+
+		match self.genesis_builder {
+			Some(
+				GenesisBuilderPolicy::None |
+				GenesisBuilderPolicy::SpecGenesis |
+				GenesisBuilderPolicy::SpecRuntime,
+			) =>
+				if chain_spec.is_none() && self.shared_params.chain.is_none() {
+					return Err((
+						ErrorKind::MissingRequiredArgument,
+						"Provide a chain spec via `--chain`.".to_string(),
+					))
+				},
+			_ => {},
 		}
 
 		if let Some(output_path) = &self.output {
 			if !output_path.is_dir() && output_path.file_name().is_none() {
-				abort_with_error(
+				return Err((
 					ErrorKind::InvalidValue,
 					format!("Output path is neither a directory nor a file: {output_path:?}"),
-				);
+				));
 			}
 		}
 
 		if let Some(header_file) = &self.header {
 			if !header_file.is_file() {
-				abort_with_error(
+				return Err((
 					ErrorKind::InvalidValue,
 					format!("Header file could not be found: {header_file:?}"),
-				);
+				));
 			};
 		}
 
 		if let Some(handlebars_template_file) = &self.template {
 			if !handlebars_template_file.is_file() {
-				abort_with_error(
+				return Err((
 					ErrorKind::InvalidValue,
 					format!(
 						"Handlebars template file could not be found: {handlebars_template_file:?}"
 					),
-				);
+				));
 			};
 		}
+		Ok(())
 	}
 }
 
@@ -1004,5 +1021,157 @@ fn list_benchmark(
 				println!("{pallet}");
 			}
 		},
+	}
+}
+#[cfg(test)]
+mod tests {
+	use crate::pallet::PalletCmd;
+	use clap::Parser;
+
+	fn cli_succeed(args: &[&str]) -> Result<(), clap::Error> {
+		let cmd = PalletCmd::try_parse_from(args)?;
+		assert!(cmd.check_args(&None).is_ok());
+		Ok(())
+	}
+
+	fn cli_fail(args: &[&str]) {
+		let cmd = PalletCmd::try_parse_from(args);
+		if let Ok(cmd) = cmd {
+			assert!(cmd.check_args(&None).is_err());
+		}
+	}
+
+	#[test]
+	fn test_cli_conflicts() -> Result<(), clap::Error> {
+		// Runtime tests
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder",
+			"runtime",
+		])?;
+		cli_succeed(&["test", "--extrinsic", "", "--pallet", "", "--runtime", "path/to/runtime"])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder-preset",
+			"preset",
+		])?;
+		cli_fail(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder",
+			"spec",
+		]);
+		cli_fail(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec-genesis",
+		]);
+		cli_fail(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec-runtime",
+		]);
+		cli_fail(&["test", "--runtime", "path/to/spec", "--genesis-builder", "spec-genesis"]);
+
+		// Spec tests
+		cli_succeed(&["test", "--extrinsic", "", "--pallet", "", "--chain", "path/to/spec"])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec-genesis",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"spec-runtime",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"none",
+		])?;
+		cli_fail(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"runtime",
+		]);
+		cli_fail(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--chain",
+			"path/to/spec",
+			"--genesis-builder",
+			"runtime",
+			"--genesis-builder-preset",
+			"preset",
+		]);
+		Ok(())
 	}
 }
