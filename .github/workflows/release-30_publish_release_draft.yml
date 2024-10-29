@@ -166,7 +166,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        binary: [frame-omni-bencher, chain-spec-builder]
+        binary: [frame-omni-bencher, chain-spec-builder, polkadot-omni-node]
 
     steps:
       - name: Download artifacts
