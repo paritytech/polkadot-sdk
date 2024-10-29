@@ -553,7 +553,7 @@ fn setting_subaccounts_should_work() {
 
 		System::assert_last_event(tests::RuntimeEvent::Identity(Event::SubIdentitiesSet {
 			main: ten.clone(),
-			sub_account_num: 1,
+			number_of_subs: 1,
 			new_deposit: sub_deposit,
 		}));
 

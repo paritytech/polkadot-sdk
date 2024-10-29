@@ -368,7 +368,7 @@ pub mod pallet {
 		/// A sub-identity was added to an identity and the deposit paid.
 		SubIdentityAdded { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
 		/// An account's sub-identities were set (in bulk).
-		SubIdentitiesSet { main: T::AccountId, sub_account_num: u32, new_deposit: BalanceOf<T> },
+		SubIdentitiesSet { main: T::AccountId, number_of_subs: u32, new_deposit: BalanceOf<T> },
 		/// A given sub-account's associated name was changed by its super-identity.
 		SubIdentityRenamed { sub: T::AccountId, main: T::AccountId },
 		/// A sub-identity was removed from an identity and the deposit freed.
