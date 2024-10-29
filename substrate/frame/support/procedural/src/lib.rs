@@ -1339,25 +1339,17 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 		.into()
 }
 
-/// Allows to authorize some "general" transactions of specific call.
+/// Allows to authorize some general transactions with specific call.
 ///
-/// This feature allows "general" transactions (transactions with no signature) to be validated
-/// and dispatched by only checking the call, without traditional signature.
-/// E.g. this allows specified calls to be executed without requiring sender to
-/// have an account, only checking the validity of the call to validate the transaction.
+/// This attribute allows to specify a special validation logic for a specific call.
+/// A general transaction with this specific call can then be validated by the given function,
+/// and if valid then dispatched with the origin [`frame_system::Origin::Authorized`].
 ///
-/// The call is authorized by a configurable "authorize" function, the weight of this "authorize"
-/// function must be small enough so that nodes transaction pool can't be spammed.
+/// To ensure the origin of the call is the authorization process, the call must check the origin
+/// with [`frame_system::ensure_authorized`] function.
 ///
-/// Authorized calls are dispatched with the [`frame_system::Origin::Authorized`] origin which must
-/// be ensured with [`frame_system::ensure_authorized`] in the call dispatch logic.
-///
-/// # Usage in the runtime
-///
-/// To enable the authorization process of pallets, the runtime must use
-/// [`frame_system::AuthorizeCall`] transaction extension.
-/// (NOTE: It is also recomended to use [`frame_system::DenyNone`] transaction extension at the end
-/// the transaction extension pipeline.)
+/// To enable the authorization process on the extrinsic, the runtime must use
+/// [`frame_system::AuthorizeCall`] transaction extension in the transaction extension pipeline.
 ///
 /// To enable the creation of authorized call from offchain worker. The runtime should implement
 /// [`frame_system::CreateAuthorizedTransaction`]. This trait allows to specify which transaction
@@ -1384,7 +1376,9 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///     impl<T: Config> Pallet<T> {
 ///         #[pallet::weight(Weight::zero())]
 ///         #[pallet::authorize(|_source, foo| if *foo == 42 {
-///             Ok(ValidTransaction::default())
+///             let refund = Weight::zero();
+///             let validity = ValidTransaction::default();
+///             Ok((validity, refund))
 ///         } else {
 ///             Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 ///         })]
@@ -1394,6 +1388,32 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///             ensure_authorized(origin)?;
 ///
 ///             Ok(())
+///         }
+///
+///         #[pallet::weight(Weight::zero())]
+///         // We can also give the callback as a function
+///         #[pallet::authorize(Pallet::<T>::authorize_some_other_call)]
+///         #[pallet::weight_of_authorize(Weight::zero())]
+///         #[pallet::call_index(1)]
+///         pub fn some_other_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
+///             ensure_authorized(origin)?;
+///
+///             Ok(())
+///         }
+///     }
+///
+///     impl<T: Config> Pallet<T> {
+///         fn authorize_some_other_call(
+///             source: TransactionSource,
+///             foo: &u32
+///         ) -> TransactionValidityWithRefund {
+///             if *foo == 42 {
+///                 let refund = Weight::zero();
+///                 let validity = ValidTransaction::default();
+///                 Ok((validity, refund))
+///             } else {
+///                 Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+///             }
 ///         }
 ///     }
 ///
@@ -1421,11 +1441,12 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///
 /// ## Specification:
 ///
-/// Authorize process comes with 2 attributes macro on top of the authorized call function:
+/// Authorize process comes with 2 attributes macro on top of the authorized call:
 ///
 /// * `#[pallet::authorize($authorized_function)]` - defines the function that authorizes the call.
-///   Arguments are the same as call arguments but by reference `&`. Return type is
-///   [`TransactionValidity`](frame_support::pallet_prelude::TransactionValidity).
+///   First argument is the transaction source [`frame_support::pallet_prelude::TransactionSource`]
+///   then followed by the same as call arguments but by reference `&`. Return type is
+///   [`TransactionValidityWithRefund`](frame_support::pallet_prelude::TransactionValidityWithRefund).
 /// * `#[pallet::weight_of_authorize($weight)]` - defines the value of the weight of the authorize
 ///   function. This attribute is similar to `#[pallet::weight]`:
 ///   * it can be ignore in `dev_mode`
@@ -1445,18 +1466,19 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///
 /// # How to benchmark
 ///
-/// The "authorize" closure is used as the implementation of the trait
+/// The authorize function is used as the implementation of the trait
 /// [`Authorize`](frame_support::pallet_prelude::Authorize) for the call.
-/// To benchmark a call variant, use the function `Authorize::authorize` on a call value.
+/// To benchmark a call variant, use the function
+/// [`Authorize::authorize`](frame_support::pallet_prelude::Authorize) on a call value.
 /// See the example in the first section.
 #[proc_macro_attribute]
 pub fn authorize(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// Allows to define the weight of the "authorize" function.
+/// Allows to define the weight of the authorize function.
 ///
-/// See [`frame_support_procedural::authorize`] for more information on authorization works.
+/// See [`frame_support_procedural::authorize`] for more information on how authorization works.
 ///
 /// # Example:
 /// ```
