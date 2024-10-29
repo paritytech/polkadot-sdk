@@ -9,7 +9,7 @@
 //!
 //! ## Context
 //!
-//! Recall from [`wasm_meta_protocol`](crate::reference_docs::wasm_meta_protocol) that the node and the runtime
+//! Recall from [`wasm_meta_protocol`] that the node and the runtime
 //! communicate with one another via host functions and runtime APIs. Many of these interactions
 //! contribute to the actual state transition of the blockchain. For example [`sp_api::Core`] is the
 //! main runtime API that is called to execute new blocks.
@@ -101,7 +101,7 @@
 //!   of the same WASM blob, and is therefore guaranteed to be up to date.
 //!
 //! For example, imagine you have modified a storage item to have a new type. This will possibly
-//! require a [`frame_runtime_upgrades_and_migrations`](crate::reference_docs::frame_runtime_upgrades_and_migrations), and any offchain
+//! require a [`frame_runtime_upgrades_and_migrations`], and any offchain
 //! code, such as a Polkadot-JS application, will have to be updated to reflect this change. Whereas
 //! the WASM offchain worker code is guaranteed to already be updated, or else the runtime code will
 //! not even compile.
@@ -112,6 +112,10 @@
 //! - <https://forum.polkadot.network/t/offchain-workers-design-assumptions-vulnerabilities/2548>
 //! - <https://substrate.stackexchange.com/questions/11058/how-can-i-create-ocw-that-wont-activates-every-block-but-will-activates-only-w/11060#11060>
 //! - [Offchain worker example](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/examples/offchain-worker)
+
+// Link References
+// [`frame_runtime_upgrades_and_migrations`]: crate::reference_docs::frame_runtime_upgrades_and_migrations
+// [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
 
 // Link References
 // [`frame_runtime_upgrades_and_migrations`]: crate::reference_docs::frame_runtime_upgrades_and_migrations

@@ -42,6 +42,9 @@ class DocLinkProcessor:
         r'\[`crate::reference_docs::[^`]+`\]',
         r'\[`crate::guides::[^`]+`\]',
         r'\[`crate::polkadot_sdk::[^`]+`\]'
+        r'\[`crate::\w+::[^`#]+(?:#[^`]+)?`\]' 
+        r'\[`[^`]+`\]\(`crate::[^`]+`\)',
+        r'\[`[^`]+`\]\(crate::[^)]+\)' # Added to catch links with anchors (#)
     ]
 
     def __init__(self, dry_run: bool = False):
@@ -69,12 +72,30 @@ class DocLinkProcessor:
 
             # Process each pattern
             for pattern in self.PATTERNS:
-                def replacer(match: re.Match) -> str:
-                    full_path = match.group(0)  # [`crate::path::to::item`]
-                    path_without_brackets = full_path[2:-2]
-                    short_name = path_without_brackets.split("::")[-1]
+                def replacer(match):
+                     # Extract full path
+                    full_path = match.group(0)
+                    
+                    if '(' in full_path:
+                        # Handle already transformed links
+                        name_part = full_path.split('](')[0][2:-1]  # Extract name between [` and `]
+                        path_part = full_path.split('](')[1][:-1]   # Extract path between ( and )
+                        short_name = name_part
+                        path_without_brackets = path_part
+                    else:
+                        # Handle original format links
+                        path_without_brackets = full_path[2:-2]  # Remove [` and `]
+                        short_name = path_without_brackets.split("::")[-1]  # Gets last part including any #anchor
+                    
+                    # Add to links set for reference section
                     links.add((short_name, path_without_brackets))
-                    return f'[`{short_name}`]({path_without_brackets})'
+                    
+                    # Print debug info if verbose
+                    print(f"Found link: {full_path}")
+                    print(f"Converting to: [`{short_name}`]")
+                    
+                    # Return just the shortened form
+                    return f'[`{short_name}`]'
 
                 modified_content = re.sub(pattern, replacer, modified_content)
 

@@ -131,10 +131,10 @@
 //!
 //! ## Further Details
 //!
-//! * [`frame_origin`](crate::reference_docs::frame_origin) explores further details about the usage of
+//! * [`frame_origin`] explores further details about the usage of
 //!   `RuntimeOrigin`.
 //! * [`RuntimeCall`] is a particularly interesting composite enum as it dictates the encoding of an
-//!   extrinsic. See [`transaction_extensions`](crate::reference_docs::transaction_extensions) for more information.
+//!   extrinsic. See [`transaction_extensions`] for more information.
 //! * See the documentation of [`construct_runtime`].
 //! * See the corresponding lecture in the [pba-book](https://polkadot-blockchain-academy.github.io/pba-book/frame/outer-enum/page.html).
 //!
@@ -308,6 +308,10 @@ pub mod runtime_with_specific_runtime_call {
 		type RuntimeCall = RuntimeCall;
 	}
 }
+
+// Link References
+// [`frame_origin`]: crate::reference_docs::frame_origin
+// [`transaction_extensions`]: crate::reference_docs::transaction_extensions
 
 // Link References
 // [`frame_origin`]: crate::reference_docs::frame_origin

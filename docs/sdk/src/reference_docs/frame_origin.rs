@@ -41,7 +41,7 @@
 //! Note that [`OriginFor`](frame_system::pallet_prelude::OriginFor) is merely a shorthand for
 //! [`frame_system::Config::RuntimeOrigin`]. Given the name prefix `Runtime`, we can learn that
 //! `RuntimeOrigin` is similar to `RuntimeCall` and others, a runtime composite enum that is
-//! amalgamated at the runtime level. Read [`frame_runtime_types`](crate::reference_docs::frame_runtime_types) to
+//! amalgamated at the runtime level. Read [`frame_runtime_types`] to
 //! familiarize yourself with these types.
 //!
 //! To understand this better, we will next create a pallet with a custom origin, which will add a
@@ -55,7 +55,7 @@
 //! And a runtime with the following pallets:
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", runtime_exp)]
 //!
-//! The type [`RuntimeOrigin`](crate::reference_docs::frame_origin::runtime_for_origin::RuntimeOrigin) is expanded.
+//! The type [`RuntimeOrigin`] is expanded.
 //! This `RuntimeOrigin` contains a variant for the [`frame_system::RawOrigin`] and the custom
 //! origin of the pallet.
 //!
@@ -71,8 +71,7 @@
 //! convert the `<T as frame_system::Config>::RuntimeOrigin` into the local `enum Origin` of the
 //! current pallet. This is a common process that is explained in
 //! [`frame_runtime_types#
-//! adding-further-constraints-to-runtime-composite-enums`](crate::reference_docs::frame_runtime_types#
-//! adding-further-constraints-to-runtime-composite-enums).
+//! adding-further-constraints-to-runtime-composite-enums`].
 //!
 //! We use the same process here to express that `RuntimeOrigin` has a number of additional bounds,
 //! as follows.
@@ -259,6 +258,13 @@ pub mod runtime_for_external_origin {
 		type ExternalOrigin = EnsureSigned<<Self as frame_system::Config>::AccountId>;
 	}
 }
+
+// Link References
+// [`RuntimeOrigin`]: crate::reference_docs::frame_origin::runtime_for_origin::RuntimeOrigin
+// [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
+// [`frame_runtime_types#
+//! adding-further-constraints-to-runtime-composite-enums`]: crate::reference_docs::frame_runtime_types#
+//! adding-further-constraints-to-runtime-composite-enums
 
 // Link References
 // [`RuntimeOrigin`]: crate::reference_docs::frame_origin::runtime_for_origin::RuntimeOrigin

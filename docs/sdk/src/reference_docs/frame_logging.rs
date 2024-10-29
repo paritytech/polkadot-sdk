@@ -103,7 +103,7 @@
 //!
 //! ## Log Target Prefixing
 //!
-//! Many [`frame_runtime`](crate::polkadot_sdk::frame_runtime) pallets emit logs with log target `runtime::<name of
+//! Many [`frame_runtime`] pallets emit logs with log target `runtime::<name of
 //! pallet>`, for example `runtime::system`. This then allows one to run a node with a wasm blob
 //! compiled with `LOG_TARGET=runtime=debug`, which enables the log target of all pallets who's log
 //! target starts with `runtime`.
@@ -111,9 +111,13 @@
 //! ## Low Level Primitives
 //!
 //! Under the hood, logging is another instance of host functions under the hood (as defined in
-//! [`wasm_meta_protocol`](crate::reference_docs::wasm_meta_protocol)). The runtime uses a set of host functions under
+//! [`wasm_meta_protocol`]). The runtime uses a set of host functions under
 //! [`sp_io::logging`] and [`sp_io::misc`] to emit all logs and prints. You typically do not need to
 //! use these APIs directly.
+
+// Link References
+// [`frame_runtime`]: crate::polkadot_sdk::frame_runtime
+// [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
 
 // Link References
 // [`frame_runtime`]: crate::polkadot_sdk::frame_runtime

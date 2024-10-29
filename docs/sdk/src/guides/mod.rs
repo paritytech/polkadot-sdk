@@ -12,7 +12,7 @@
 //!
 //! > By this step, you have already launched a full Polkadot-SDK-based blockchain!
 //!
-//! Once done, feel free to step up into one of our templates: [`templates`](crate::polkadot_sdk::templates).
+//! Once done, feel free to step up into one of our templates: [`templates`].
 //!
 //! [`your_first_pallet`]: crate::guides::your_first_pallet
 //! [`your_first_runtime`]: crate::guides::your_first_runtime
@@ -45,6 +45,9 @@ pub mod enable_metadata_hash;
 
 /// How to enable elastic scaling MVP on a parachain.
 pub mod enable_elastic_scaling_mvp;
+
+// Link References
+// [`templates`]: crate::polkadot_sdk::templates
 
 // Link References
 // [`templates`]: crate::polkadot_sdk::templates

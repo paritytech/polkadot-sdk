@@ -49,7 +49,7 @@
 //!
 //! The benchmarking code can be written as a part of FRAME pallet, using the macros provided in
 //! [`frame_benchmarking`]. See any of the existing pallets in `polkadot-sdk`, or the pallets in our
-//! [`templates`](crate::polkadot_sdk::templates) for examples.
+//! [`templates`] for examples.
 //!
 //! ## Weight
 //!
@@ -97,7 +97,7 @@
 //!
 //! 1. The old school way: Most Polkadot-SDK based nodes (such as the ones integrated in
 //!    [`templates`]) have an a `benchmark` subcommand integrated into themselves.
-//! 2. The more [`omni_node`](crate::reference_docs::omni_node) compatible way of running the benchmarks would
+//! 2. The more [`omni_node`] compatible way of running the benchmarks would
 //!    be using [`frame-omni-bencher`] CLI, which only relies on a runtime.
 //!
 //! Note that by convention, the runtime and pallets always have their benchmarking code feature
@@ -108,7 +108,7 @@
 //!
 //! A new feature in FRAME allows the runtime to be configured for "automatic refund" of the proof
 //! size weight. This is very useful for maximizing the throughput of parachains. Please see:
-//! [`enable_pov_reclaim`](crate::guides::enable_pov_reclaim).
+//! [`enable_pov_reclaim`].
 //!
 //! ## Summary
 //!
@@ -210,6 +210,11 @@ pub mod pallet {
 		}
 	}
 }
+
+// Link References
+// [`enable_pov_reclaim`]: crate::guides::enable_pov_reclaim
+// [`omni_node`]: crate::reference_docs::omni_node
+// [`templates`]: crate::polkadot_sdk::templates
 
 // Link References
 // [`enable_pov_reclaim`]: crate::guides::enable_pov_reclaim

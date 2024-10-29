@@ -15,7 +15,7 @@
 #![doc = simple_mermaid::mermaid!("../../../mermaid/stf_simple.mmd")]
 //!
 //! In Substrate-based blockchains, the state transition function is called the *Runtime*. This is
-//! explained further in [`wasm_meta_protocol`](crate::reference_docs::wasm_meta_protocol).
+//! explained further in [`wasm_meta_protocol`].
 //!
 //! With this in mind, we can paint a complete picture of a blockchain as a state machine:
 #![doc = simple_mermaid::mermaid!("../../../mermaid/stf.mmd")]
@@ -27,6 +27,9 @@
 //! ```math
 //! STF = F(State_N, Block_N) -> State_{N+1}
 //! ```
+
+// Link References
+// [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
 
 // Link References
 // [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol

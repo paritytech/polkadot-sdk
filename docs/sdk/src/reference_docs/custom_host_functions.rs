@@ -1,7 +1,7 @@
 //! # Custom Host Functions
 //!
 //! Host functions are functions that the wasm instance can use to communicate with the node. Learn
-//! more about this in [`wasm_meta_protocol`](crate::reference_docs::wasm_meta_protocol).
+//! more about this in [`wasm_meta_protocol`].
 //!
 //! ## Finding Host Functions
 //!
@@ -25,6 +25,9 @@
 //! The host functions are attached to the node side's [`sc_executor::WasmExecutor`]. For example in
 //! the minimal template, the setup looks as follows:
 #![doc = docify::embed!("../../templates/minimal/node/src/service.rs", FullClient)]
+
+// Link References
+// [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
 
 // Link References
 // [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol

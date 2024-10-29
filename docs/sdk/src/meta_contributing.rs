@@ -100,10 +100,10 @@
 //! ```
 //!
 //! * Before even getting started, what is with all of this `<T: Config>`? We link to
-//! [`trait_based_programming`](crate::reference_docs::trait_based_programming).
+//! [`trait_based_programming`].
 //! * First, the name. Why is this called `pallet::call`? This goes back to `enum Call`, which is
-//! explained in [`frame_runtime_types`](crate::reference_docs::frame_runtime_types). Build on top of this!
-//! * Then, what is `origin`? Just an account id? [`frame_origin`](crate::reference_docs::frame_origin).
+//! explained in [`frame_runtime_types`]. Build on top of this!
+//! * Then, what is `origin`? Just an account id? [`frame_origin`].
 //! * Then, what is `DispatchResult`? Why is this called *dispatch*? Probably something that can be
 //! explained in the documentation of [`frame::prelude::DispatchResult`].
 //! * Why is `"SomeStaticString"` a valid error? Because there is implementation for it that you can
@@ -154,7 +154,13 @@
 //! If even faster build time for docs is needed, you can temporarily remove most of the
 //! substrate/cumulus dependencies that are only used for linking purposes.
 //!
-//! For more on local development, see [`development_environment_advice`](crate::reference_docs::development_environment_advice).
+//! For more on local development, see [`development_environment_advice`].
+
+// Link References
+// [`development_environment_advice`]: crate::reference_docs::development_environment_advice
+// [`frame_origin`]: crate::reference_docs::frame_origin
+// [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
+// [`trait_based_programming`]: crate::reference_docs::trait_based_programming
 
 // Link References
 // [`development_environment_advice`]: crate::reference_docs::development_environment_advice
