@@ -27,6 +27,7 @@ use snowbridge_router_primitives::inbound::{
 };
 use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
 
 const INITIAL_FUND: u128 = 5_000_000_000_000;
@@ -37,7 +38,7 @@ const XCM_FEE: u128 = 100_000_000_000;
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
 
 #[test]
-fn send_weth_from_asset_hub_to_ethereum_by_executing_raw_xcm() {
+fn send_weth_from_asset_hub_to_ethereum() {
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
 	let weth_asset_location: Location =
@@ -93,7 +94,12 @@ fn send_weth_from_asset_hub_to_ethereum_by_executing_raw_xcm() {
 			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
 		);
 
-		let local_fee_amount = 80_000_000_000;
+		// Local fee amount(in DOT) should cover
+		// 1. execution cost on AH
+		// 2. delivery cost to BH
+		// 3. execution cost on BH
+		let local_fee_amount = 200_000_000_000;
+		// Remote fee amount(in WETH) should cover execution cost on Ethereum
 		let remote_fee_amount = 4_000_000_000;
 		let local_fee_asset =
 			Asset { id: AssetId(Location::parent()), fun: Fungible(local_fee_amount) };
@@ -117,22 +123,22 @@ fn send_weth_from_asset_hub_to_ethereum_by_executing_raw_xcm() {
 		// Internal xcm of InitiateReserveWithdraw, WithdrawAssets + ClearOrigin instructions will
 		// be appended to the front of the list by the xcm executor
 		let xcm_on_bh = Xcm(vec![
-			BuyExecution { fees: remote_fee_asset.clone(), weight_limit: Unlimited },
-			// ExpectAsset as a workaround before XCMv5 to differ Route V1 and V2
 			ExpectAsset(vec![remote_fee_asset.clone()].into()),
 			DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
 		]);
 
 		let xcms = VersionedXcm::from(Xcm(vec![
 			WithdrawAsset(assets.clone().into()),
-			// BuyExecution { fees: local_fee_asset.clone(), weight_limit: Unlimited },
-			SetFeesMode { jit_withdraw: true },
-			InitiateReserveWithdraw {
-				assets: Definite(reserve_asset.clone().into()),
-				// with reserve set to Ethereum destination, the ExportMessage will
-				// be appended to the front of the list by the SovereignPaidRemoteExporter
-				reserve: destination,
-				xcm: xcm_on_bh,
+			PayFees { asset: local_fee_asset.clone() },
+			InitiateTransfer {
+				destination,
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.clone().into(),
+				))),
+				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+					reserve_asset.clone().into(),
+				))],
+				remote_xcm: xcm_on_bh,
 			},
 		]));
 

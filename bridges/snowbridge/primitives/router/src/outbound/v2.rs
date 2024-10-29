@@ -16,7 +16,7 @@ use snowbridge_core::{
 	AgentId, TokenId, TokenIdOf,
 };
 use sp_core::{H160, H256};
-use sp_runtime::traits::MaybeEquivalence;
+use sp_runtime::{traits::MaybeEquivalence, transaction_validity::InvalidTransaction::Payment};
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_builder::{CreateMatcher, ExporterFor, MatchXcm};
@@ -74,7 +74,7 @@ where
 		}
 
 		// Cloning destination to avoid modifying the value so subsequent exporters can use it.
-		let dest = destination.clone().take().ok_or(SendError::MissingArgument)?;
+		let dest = destination.clone().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
 			log::trace!(target: TARGET, "skipped due to unmatched remote destination {dest:?}.");
 			return Err(SendError::NotApplicable)
@@ -82,7 +82,6 @@ where
 
 		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
 		let (local_net, local_sub) = universal_source.clone()
-            .take()
             .ok_or_else(|| {
                 log::error!(target: TARGET, "universal source not provided.");
                 SendError::MissingArgument
@@ -97,14 +96,6 @@ where
 			log::trace!(target: TARGET, "skipped due to unmatched relay network {local_net:?}.");
 			return Err(SendError::NotApplicable)
 		}
-
-		let _para_id = match local_sub.as_slice() {
-			[Parachain(para_id)] => *para_id,
-			_ => {
-				log::error!(target: TARGET, "could not get parachain id from universal source '{local_sub:?}'.");
-				return Err(SendError::NotApplicable)
-			},
-		};
 
 		let source_location = Location::new(1, local_sub.clone());
 
@@ -121,13 +112,13 @@ where
 			SendError::MissingArgument
 		})?;
 
-		// An workaround to inspect ExpectAsset as V2 message
+		// Inspect ExpectAsset as V2 message
 		let mut instructions = message.clone().0;
 		let result = instructions.matcher().match_next_inst_while(
 			|_| true,
 			|inst| {
 				return match inst {
-					ExpectAsset(..) => Err(ProcessMessageError::Unsupported),
+					ExpectAsset(..) => Err(ProcessMessageError::Yield),
 					_ => Ok(ControlFlow::Continue(())),
 				}
 			},
@@ -239,6 +230,19 @@ where
 	fn send_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
 
+		// Extract the fee asset item from PayFees(V5)
+
+		let _ = match_expression!(self.next()?, WithdrawAsset(fee), fee)
+			.ok_or(WithdrawAssetExpected)?;
+		let fee_asset =
+			match_expression!(self.next()?, PayFees { asset: fee }, fee).ok_or(InvalidFeeAsset)?;
+		// Todo: Validate fee asset is WETH
+		let fee_amount = match fee_asset {
+			Asset { id: _, fun: Fungible(amount) } => Some(*amount),
+			_ => None,
+		}
+		.ok_or(AssetResolutionFailed)?;
+
 		// Get the reserve assets from WithdrawAsset.
 		let reserve_assets =
 			match_expression!(self.next()?, WithdrawAsset(reserve_assets), reserve_assets)
@@ -248,16 +252,6 @@ where
 		if match_expression!(self.peek(), Ok(ClearOrigin), ()).is_some() {
 			let _ = self.next();
 		}
-
-		// Extract the fee asset item from BuyExecution|PayFees(V5)
-		let fee_asset = match_expression!(self.next()?, BuyExecution { fees, .. }, fees)
-			.ok_or(InvalidFeeAsset)?;
-		// Todo: Validate fee asset is WETH
-		let fee_amount = match fee_asset {
-			Asset { id: _, fun: Fungible(amount) } => Some(*amount),
-			_ => None,
-		}
-		.ok_or(AssetResolutionFailed)?;
 
 		// Check if ExpectAsset exists and skip over it.
 		if match_expression!(self.peek(), Ok(ExpectAsset { .. }), ()).is_some() {
@@ -472,7 +466,7 @@ impl Contains<Xcm<()>> for XcmForSnowbridgeV2 {
 			|_| true,
 			|inst| {
 				return match inst {
-					AliasOrigin(..) => Err(ProcessMessageError::Yield),
+					ExpectAsset(..) => Err(ProcessMessageError::Yield),
 					_ => Ok(ControlFlow::Continue(())),
 				}
 			},
