@@ -37,7 +37,7 @@ mod benchmarks {
 		let t = MAX_TIME;
 		// Ignore write to `DidUpdate` since it transient.
 		let did_update_key = DidUpdate::<T>::hashed_key().to_vec();
-		benchmarking::add_to_whitelist(TrackedStorageKey {
+		add_to_whitelist(TrackedStorageKey {
 			key: did_update_key,
 			reads: 0,
 			writes: 1,
