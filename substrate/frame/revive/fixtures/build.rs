@@ -117,10 +117,7 @@ mod build {
 	}
 
 	fn invoke_build(target: &Path, current_dir: &Path) -> Result<()> {
-		let encoded_rustflags = [
-			"-Dwarnings",
-		]
-		.join("\x1f");
+		let encoded_rustflags = ["-Dwarnings"].join("\x1f");
 
 		let mut build_command = Command::new(env::var("CARGO")?);
 		build_command
@@ -174,7 +171,9 @@ mod build {
 	fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result<()> {
 		for entry in entries {
 			post_process(
-				&build_dir.join("target/riscv32emac-unknown-none-polkavm/release").join(entry.name()),
+				&build_dir
+					.join("target/riscv32emac-unknown-none-polkavm/release")
+					.join(entry.name()),
 				&out_dir.join(entry.out_filename()),
 			)?;
 		}
