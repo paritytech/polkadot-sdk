@@ -685,7 +685,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		remote_xcm: &mut Vec<Instruction<()>>,
 	) -> Result<Assets, XcmError> {
 		// Must ensure that we recognise the assets as being managed by the destination.
-		#[cfg(not(feature = "runtime-benchmarks"))]
+		#[cfg(not(any(test, feature = "runtime-benchmarks")))]
 		for asset in assets.assets_iter() {
 			ensure!(
 				Config::IsReserve::contains(&asset, &reserve),
@@ -708,7 +708,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	) -> Result<Assets, XcmError> {
 		for asset in assets.assets_iter() {
 			// Must ensure that we have teleport trust with destination for these assets.
-			#[cfg(not(feature = "runtime-benchmarks"))]
+			#[cfg(not(any(test, feature = "runtime-benchmarks")))]
 			ensure!(
 				Config::IsTeleporter::contains(&asset, &dest),
 				XcmError::UntrustedTeleportLocation
@@ -1140,7 +1140,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				}
 				result
 			},
-			InitiateTransfer { destination, remote_fees, assets, remote_xcm } => {
+			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let mut message = Vec::with_capacity(assets.len() + remote_xcm.len() + 2);
@@ -1225,8 +1225,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								)?,
 						};
 					}
-					// clear origin for subsequent custom instructions
-					message.push(ClearOrigin);
+					if preserve_origin {
+						// preserve current origin for subsequent user-controlled instructions on
+						// remote chain
+						let original_origin = self
+							.origin_ref()
+							.cloned()
+							.and_then(|origin| {
+								Self::try_reanchor(origin, &destination)
+									.map(|(reanchored, _)| reanchored)
+									.ok()
+							})
+							.ok_or(XcmError::BadOrigin)?;
+						message.push(AliasOrigin(original_origin));
+					} else {
+						// clear origin for subsequent user-controlled instructions on remote chain
+						message.push(ClearOrigin);
+					}
 					// append custom instructions
 					message.extend(remote_xcm.0.into_iter());
 					// send the onward XCM

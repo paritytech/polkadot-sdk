@@ -1091,6 +1091,8 @@ pub enum Instruction<Call> {
 	///   assets are **reserved** for fees, they are sent to the fees register rather than holding.
 	///   Best practice is to only add here enough to cover fees, and transfer the rest through the
 	///   `assets` parameter.
+	/// - `preserve_origin`: Specifies whether the original origin should be preserved or cleared,
+	///   using the instructions `AliasOrigin` or `ClearOrigin` respectively.
 	/// - `assets`: List of asset filters matched against existing assets in holding. These are
 	///   transferred over to `destination` using the specified transfer type, and deposited to
 	///   holding on `destination`.
@@ -1100,10 +1102,11 @@ pub enum Instruction<Call> {
 	///
 	/// Safety: No concerns.
 	///
-	/// Kind: *Command*.
+	/// Kind: *Command*
 	InitiateTransfer {
 		destination: Location,
 		remote_fees: Option<AssetTransferFilter>,
+		preserve_origin: bool,
 		assets: Vec<AssetTransferFilter>,
 		remote_xcm: Xcm<()>,
 	},
@@ -1185,8 +1188,8 @@ impl<Call> Instruction<Call> {
 			UnpaidExecution { weight_limit, check_origin } =>
 				UnpaidExecution { weight_limit, check_origin },
 			PayFees { asset } => PayFees { asset },
-			InitiateTransfer { destination, remote_fees, assets, remote_xcm } =>
-				InitiateTransfer { destination, remote_fees, assets, remote_xcm },
+			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
+				InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm },
 		}
 	}
 }
@@ -1257,8 +1260,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			UnpaidExecution { weight_limit, check_origin } =>
 				W::unpaid_execution(weight_limit, check_origin),
 			PayFees { asset } => W::pay_fees(asset),
-			InitiateTransfer { destination, remote_fees, assets, remote_xcm } =>
-				W::initiate_transfer(destination, remote_fees, assets, remote_xcm),
+			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
+				W::initiate_transfer(destination, remote_fees, preserve_origin, assets, remote_xcm),
 		}
 	}
 }

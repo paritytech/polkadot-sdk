@@ -134,6 +134,7 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 	fn initiate_transfer(
 		_dest: &Location,
 		remote_fees: &Option<AssetTransferFilter>,
+		_preserve_origin: &bool,
 		assets: &Vec<AssetTransferFilter>,
 		_xcm: &Xcm<()>,
 	) -> Weight {
@@ -247,8 +248,7 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 		XcmGeneric::<Runtime>::clear_topic()
 	}
 	fn alias_origin(_: &Location) -> Weight {
-		// XCM Executor does not currently support alias origin operations
-		Weight::MAX
+		XcmGeneric::<Runtime>::alias_origin()
 	}
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()
