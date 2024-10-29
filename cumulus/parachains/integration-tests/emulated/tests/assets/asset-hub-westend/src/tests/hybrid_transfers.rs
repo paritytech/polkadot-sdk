@@ -18,7 +18,6 @@ use crate::{
 	imports::*,
 	tests::teleport::do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt,
 };
-use xcm::latest::AssetTransferFilter;
 
 fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -851,6 +850,7 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 			InitiateTransfer {
 				destination: t.args.dest,
 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(fees.into())),
+				preserve_origin: false,
 				assets: vec![AssetTransferFilter::Teleport(assets.into())],
 				remote_xcm: xcm_on_dest,
 			},
@@ -886,6 +886,7 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 			InitiateTransfer {
 				destination: t.args.dest,
 				remote_fees: Some(AssetTransferFilter::ReserveDeposit(fees.into())),
+				preserve_origin: false,
 				assets: vec![AssetTransferFilter::Teleport(assets.into())],
 				remote_xcm: xcm_on_dest,
 			},

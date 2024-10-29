@@ -62,7 +62,7 @@ mod v_coretime {
 
 	impl<
 			T: Config,
-			SendXcm: xcm::v5::SendXcm,
+			SendXcm: xcm::latest::SendXcm,
 			LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 			const TIMESLICE_PERIOD: u32,
 		> MigrateToCoretime<T, SendXcm, LegacyLease, TIMESLICE_PERIOD>
@@ -95,7 +95,7 @@ mod v_coretime {
 
 	impl<
 			T: Config + crate::dmp::Config,
-			SendXcm: xcm::v5::SendXcm,
+			SendXcm: xcm::latest::SendXcm,
 			LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 			const TIMESLICE_PERIOD: u32,
 		> OnRuntimeUpgrade for MigrateToCoretime<T, SendXcm, LegacyLease, TIMESLICE_PERIOD>
@@ -157,7 +157,7 @@ mod v_coretime {
 	// NOTE: Also migrates `num_cores` config value in configuration::ActiveConfig.
 	fn migrate_to_coretime<
 		T: Config,
-		SendXcm: xcm::v5::SendXcm,
+		SendXcm: xcm::latest::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 		const TIMESLICE_PERIOD: u32,
 	>() -> Weight {
@@ -215,7 +215,7 @@ mod v_coretime {
 
 	fn migrate_send_assignments_to_coretime_chain<
 		T: Config,
-		SendXcm: xcm::v5::SendXcm,
+		SendXcm: xcm::latest::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 		const TIMESLICE_PERIOD: u32,
 	>() -> result::Result<(), SendError> {

@@ -82,7 +82,7 @@ use parachains_common::{
 use sp_runtime::{Perbill, RuntimeDebug};
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
+	ForeignAssetsConvertedConcreteId, GovernanceLocation, LocationToAccountId,
 	PoolAssetsConvertedConcreteId, TokenLocation, TrustBackedAssetsConvertedConcreteId,
 	TrustBackedAssetsPalletLocation,
 };
@@ -424,7 +424,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v5::Location>,
 			xcm_config::bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
 		),
-		ForeignCreatorsSovereignAccountOf,
+		LocationToAccountId,
 		AccountId,
 		xcm::v5::Location,
 	>;
@@ -1414,7 +1414,7 @@ impl_runtime_apis! {
 			// We also accept all assets in a pool with the native token.
 			let assets_in_pool_with_native = assets_common::get_assets_in_pool_with::<
 				Runtime,
-				xcm::prelude::Location
+				xcm::v5::Location
 			>(&native_token).map_err(|()| XcmPaymentApiError::VersionedConversionFailed)?.into_iter();
 			acceptable_assets.extend(assets_in_pool_with_native);
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
@@ -1431,7 +1431,7 @@ impl_runtime_apis! {
 				Ok(asset_id) => {
 					let assets_in_pool_with_this_asset: Vec<_> = assets_common::get_assets_in_pool_with::<
 						Runtime,
-						xcm::prelude::Location
+						xcm::v5::Location
 					>(&asset_id.0).map_err(|()| XcmPaymentApiError::VersionedConversionFailed)?;
 					if assets_in_pool_with_this_asset
 						.into_iter()
@@ -1834,7 +1834,12 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					// Any location can alias to an internal location.
+					// Here parachain 1001 aliases to an internal account.
+					Ok((
+						Location::new(1, [Parachain(1001)]),
+						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
+					))
 				}
 			}
 

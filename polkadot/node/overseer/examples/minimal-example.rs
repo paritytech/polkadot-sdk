@@ -31,7 +31,9 @@ use polkadot_overseer::{
 	gen::{FromOrchestra, SpawnedSubsystem},
 	HeadSupportsParachains, SubsystemError,
 };
-use polkadot_primitives::{CandidateReceipt, Hash, PersistedValidationData};
+use polkadot_primitives::{
+	vstaging::CandidateReceiptV2 as CandidateReceipt, Hash, PersistedValidationData,
+};
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_hash, dummy_validation_code,
 };
@@ -71,7 +73,7 @@ impl Subsystem1 {
 			let (tx, _) = oneshot::channel();
 
 			let candidate_receipt = CandidateReceipt {
-				descriptor: dummy_candidate_descriptor(dummy_hash()),
+				descriptor: dummy_candidate_descriptor(dummy_hash()).into(),
 				commitments_hash: Hash::zero(),
 			};
 

@@ -73,6 +73,7 @@ mod sys {
 		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
+		pub fn origin(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
 		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn own_code_hash(out_ptr: *mut u8);
@@ -453,7 +454,7 @@ impl HostFn for HostFnImpl {
 
 	impl_wrapper_for! {
 		[u8; 32] => block_number, balance, value_transferred, now, minimum_balance, chain_id;
-		[u8; 20] => address, caller;
+		[u8; 20] => address, caller, origin;
 	}
 
 	fn weight_left(output: &mut &mut [u8]) {

@@ -114,11 +114,7 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmBalancesWeight::<Runtime>::transfer_reserve_asset())
 	}
-	fn transact(
-		_origin_kind: &OriginKind,
-		_require_weight_at_most: &Weight,
-		_call: &DoubleEncoded<RuntimeCall>,
-	) -> Weight {
+	fn transact(_origin_kind: &OriginKind, _call: &DoubleEncoded<RuntimeCall>) -> Weight {
 		XcmGeneric::<Runtime>::transact()
 	}
 	fn hrmp_new_channel_open_request(
@@ -170,6 +166,7 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	fn initiate_transfer(
 		_dest: &Location,
 		remote_fees: &Option<AssetTransferFilter>,
+		_preserve_origin: &bool,
 		assets: &Vec<AssetTransferFilter>,
 		_xcm: &Xcm<()>,
 	) -> Weight {

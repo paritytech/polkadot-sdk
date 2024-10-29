@@ -685,7 +685,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		remote_xcm: &mut Vec<Instruction<()>>,
 	) -> Result<Assets, XcmError> {
 		// Must ensure that we recognise the assets as being managed by the destination.
-		#[cfg(not(feature = "runtime-benchmarks"))]
+		#[cfg(not(any(test, feature = "runtime-benchmarks")))]
 		for asset in assets.assets_iter() {
 			ensure!(
 				Config::IsReserve::contains(&asset, &reserve),
@@ -708,7 +708,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	) -> Result<Assets, XcmError> {
 		for asset in assets.assets_iter() {
 			// Must ensure that we have teleport trust with destination for these assets.
-			#[cfg(not(feature = "runtime-benchmarks"))]
+			#[cfg(not(any(test, feature = "runtime-benchmarks")))]
 			ensure!(
 				Config::IsTeleporter::contains(&asset, &dest),
 				XcmError::UntrustedTeleportLocation
@@ -773,7 +773,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			error_handler_weight = ?self.error_handler_weight,
 		);
 		let mut result = Ok(());
-		for (i, instr) in xcm.0.into_iter().enumerate() {
+		for (i, mut instr) in xcm.0.into_iter().enumerate() {
 			match &mut result {
 				r @ Ok(()) => {
 					// Initialize the recursion count only the first time we hit this code in our
@@ -809,7 +809,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					}
 				},
 				Err(ref mut error) =>
-					if let Ok(x) = Config::Weigher::instr_weight(&instr) {
+					if let Ok(x) = Config::Weigher::instr_weight(&mut instr) {
 						error.weight.saturating_accrue(x)
 					},
 			}
@@ -926,7 +926,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					Ok(())
 				})
 			},
-			Transact { origin_kind, require_weight_at_most, mut call } => {
+			Transact { origin_kind, mut call } => {
 				// We assume that the Relay-chain is allowed to use transact on this parachain.
 				let origin = self.cloned_origin().ok_or_else(|| {
 					tracing::trace!(
@@ -983,18 +983,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				);
 
 				let weight = message_call.get_dispatch_info().call_weight;
-
-				if !weight.all_lte(require_weight_at_most) {
-					tracing::trace!(
-						target: "xcm::process_instruction::transact",
-						%weight,
-						%require_weight_at_most,
-						"Max weight bigger than require at most",
-					);
-
-					return Err(XcmError::MaxWeightInvalid)
-				}
-
 				let maybe_actual_weight =
 					match Config::CallDispatcher::dispatch(message_call, dispatch_origin) {
 						Ok(post_info) => {
@@ -1019,9 +1007,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					};
 				let actual_weight = maybe_actual_weight.unwrap_or(weight);
 				let surplus = weight.saturating_sub(actual_weight);
-				// We assume that the `Config::Weigher` will count the `require_weight_at_most`
-				// for the estimate of how much weight this instruction will take. Now that we know
-				// that it's less, we credit it.
+				// If the actual weight of the call was less than the specified weight, we credit it.
 				//
 				// We make the adjustment for the total surplus, which is used eventually
 				// reported back to the caller and this ensures that they account for the total
@@ -1154,7 +1140,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				}
 				result
 			},
-			InitiateTransfer { destination, remote_fees, assets, remote_xcm } => {
+			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let mut message = Vec::with_capacity(assets.len() + remote_xcm.len() + 2);
@@ -1239,8 +1225,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								)?,
 						};
 					}
-					// clear origin for subsequent custom instructions
-					message.push(ClearOrigin);
+					if preserve_origin {
+						// preserve current origin for subsequent user-controlled instructions on
+						// remote chain
+						let original_origin = self
+							.origin_ref()
+							.cloned()
+							.and_then(|origin| {
+								Self::try_reanchor(origin, &destination)
+									.map(|(reanchored, _)| reanchored)
+									.ok()
+							})
+							.ok_or(XcmError::BadOrigin)?;
+						message.push(AliasOrigin(original_origin));
+					} else {
+						// clear origin for subsequent user-controlled instructions on remote chain
+						message.push(ClearOrigin);
+					}
 					// append custom instructions
 					message.extend(remote_xcm.0.into_iter());
 					// send the onward XCM

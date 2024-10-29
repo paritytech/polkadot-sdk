@@ -106,7 +106,7 @@ pub mod pallet {
 
 	use crate::configuration;
 	use sp_runtime::traits::TryConvert;
-	use xcm::v5::InteriorLocation;
+	use xcm::latest::InteriorLocation;
 	use xcm_executor::traits::TransactAsset;
 
 	use super::*;
@@ -136,11 +136,6 @@ pub mod pallet {
 		type AssetTransactor: TransactAsset;
 		/// AccountId to Location converter
 		type AccountToLocation: for<'a> TryConvert<&'a Self::AccountId, Location>;
-
-		/// Maximum weight for any XCM transact call that should be executed on the coretime chain.
-		///
-		/// Basically should be `max_weight(set_leases, reserve, notify_core_count)`.
-		type MaxXcmTransactWeight: Get<Weight>;
 	}
 
 	#[pallet::event]
@@ -338,7 +333,6 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		require_weight_at_most: T::MaxXcmTransactWeight::get(),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }

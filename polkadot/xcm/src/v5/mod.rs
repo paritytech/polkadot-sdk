@@ -304,13 +304,12 @@ impl TryFrom<OldResponse> for Response {
 		Ok(match old {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) =>
-				Self::ExecutionResult(
-					result
-						.map(|(num, old_error)| (num, old_error.try_into()))
-						.map(|(num, result)| result.map(|inner| (num, inner)))
-						.transpose()?
-				),
+			ExecutionResult(result) => Self::ExecutionResult(
+				result
+					.map(|(num, old_error)| (num, old_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()?,
+			),
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
 				let inner = pallet_info
@@ -494,8 +493,6 @@ pub enum Instruction<Call> {
 	/// The Transact Status Register is set according to the result of dispatching the call.
 	///
 	/// - `origin_kind`: The means of expressing the message origin as a dispatch origin.
-	/// - `require_weight_at_most`: The weight of `call`; this should be at least the chain's
-	///   calculated weight and will be used in the weight determination arithmetic.
 	/// - `call`: The encoded transaction to be applied.
 	///
 	/// Safety: No concerns.
@@ -503,7 +500,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	Transact { origin_kind: OriginKind, require_weight_at_most: Weight, call: DoubleEncoded<Call> },
+	Transact { origin_kind: OriginKind, call: DoubleEncoded<Call> },
 
 	/// A message to notify about a new incoming HRMP channel. This message is meant to be sent by
 	/// the relay-chain to a para.
@@ -1094,6 +1091,8 @@ pub enum Instruction<Call> {
 	///   assets are **reserved** for fees, they are sent to the fees register rather than holding.
 	///   Best practice is to only add here enough to cover fees, and transfer the rest through the
 	///   `assets` parameter.
+	/// - `preserve_origin`: Specifies whether the original origin should be preserved or cleared,
+	///   using the instructions `AliasOrigin` or `ClearOrigin` respectively.
 	/// - `assets`: List of asset filters matched against existing assets in holding. These are
 	///   transferred over to `destination` using the specified transfer type, and deposited to
 	///   holding on `destination`.
@@ -1103,10 +1102,11 @@ pub enum Instruction<Call> {
 	///
 	/// Safety: No concerns.
 	///
-	/// Kind: *Command*.
+	/// Kind: *Command*
 	InitiateTransfer {
 		destination: Location,
 		remote_fees: Option<AssetTransferFilter>,
+		preserve_origin: bool,
 		assets: Vec<AssetTransferFilter>,
 		remote_xcm: Xcm<()>,
 	},
@@ -1141,8 +1141,7 @@ impl<Call> Instruction<Call> {
 			HrmpChannelAccepted { recipient } => HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } =>
-				Transact { origin_kind, require_weight_at_most, call: call.into() },
+			Transact { origin_kind, call } => Transact { origin_kind, call: call.into() },
 			ReportError(response_info) => ReportError(response_info),
 			DepositAsset { assets, beneficiary } => DepositAsset { assets, beneficiary },
 			DepositReserveAsset { assets, dest, xcm } => DepositReserveAsset { assets, dest, xcm },
@@ -1189,8 +1188,8 @@ impl<Call> Instruction<Call> {
 			UnpaidExecution { weight_limit, check_origin } =>
 				UnpaidExecution { weight_limit, check_origin },
 			PayFees { asset } => PayFees { asset },
-			InitiateTransfer { destination, remote_fees, assets, remote_xcm } =>
-				InitiateTransfer { destination, remote_fees, assets, remote_xcm },
+			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
+				InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm },
 		}
 	}
 }
@@ -1208,8 +1207,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			TransferAsset { assets, beneficiary } => W::transfer_asset(assets, beneficiary),
 			TransferReserveAsset { assets, dest, xcm } =>
 				W::transfer_reserve_asset(&assets, dest, xcm),
-			Transact { origin_kind, require_weight_at_most, call } =>
-				W::transact(origin_kind, require_weight_at_most, call),
+			Transact { origin_kind, call } => W::transact(origin_kind, call),
 			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
 				W::hrmp_new_channel_open_request(sender, max_message_size, max_capacity),
 			HrmpChannelAccepted { recipient } => W::hrmp_channel_accepted(recipient),
@@ -1262,8 +1260,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			UnpaidExecution { weight_limit, check_origin } =>
 				W::unpaid_execution(weight_limit, check_origin),
 			PayFees { asset } => W::pay_fees(asset),
-			InitiateTransfer { destination, remote_fees, assets, remote_xcm } =>
-				W::initiate_transfer(destination, remote_fees, assets, remote_xcm),
+			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
+				W::initiate_transfer(destination, remote_fees, preserve_origin, assets, remote_xcm),
 		}
 	}
 }
@@ -1323,8 +1321,8 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } =>
-				Self::Transact { origin_kind, require_weight_at_most, call: call.into() },
+			Transact { origin_kind, require_weight_at_most: _, call } =>
+				Self::Transact { origin_kind, call: call.into() },
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,

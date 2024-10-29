@@ -21,7 +21,7 @@ use core::marker::PhantomData;
 use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
 use polkadot_primitives::Balance;
-use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
+use polkadot_runtime_common::identity_migrator::OnReapIdentity;
 use westend_runtime_constants::currency::*;
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
@@ -88,10 +88,7 @@ where
 	AccountId: Into<[u8; 32]> + Clone + Encode,
 {
 	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult {
-		use crate::{
-			impls::IdentityMigratorCalls::PokeDeposit,
-			weights::polkadot_runtime_common_identity_migrator::WeightInfo as MigratorWeights,
-		};
+		use crate::impls::IdentityMigratorCalls::PokeDeposit;
 
 		let total_to_send = Self::calculate_remote_deposit(fields, subs);
 
@@ -144,7 +141,6 @@ where
 				.into();
 
 		let poke = PeopleRuntimePallets::<AccountId>::IdentityMigrator(PokeDeposit(who.clone()));
-		let remote_weight_limit = MigratorWeights::<Runtime>::poke_deposit().saturating_mul(2);
 
 		// Actual program to execute on People Chain.
 		let program: Xcm<()> = Xcm(vec![
@@ -161,11 +157,7 @@ where
 					.into(),
 			},
 			// Poke the deposit to reserve the appropriate amount on the parachain.
-			Transact {
-				origin_kind: OriginKind::Superuser,
-				require_weight_at_most: remote_weight_limit,
-				call: poke.encode().into(),
-			},
+			Transact { origin_kind: OriginKind::Superuser, call: poke.encode().into() },
 		]);
 
 		// send

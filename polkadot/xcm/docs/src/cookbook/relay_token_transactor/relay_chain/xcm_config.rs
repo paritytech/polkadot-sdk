@@ -142,7 +142,7 @@ impl pallet_xcm::Config for Runtime {
 	type UniversalLocation = UniversalLocation;
 	// No version discovery needed
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 0;
-	type AdvertisedXcmVersion = frame::traits::ConstU32<3>;
+	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	// No locking
 	type TrustedLockers = ();

@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, assigner_parachains, configuration, coretime, disputes, dmp, hrmp,
+	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -30,7 +30,9 @@ use polkadot_primitives::CoreIndex;
 
 use codec::Decode;
 use frame_support::{
-	assert_ok, derive_impl, parameter_types,
+	assert_ok, derive_impl,
+	dispatch::GetDispatchInfo,
+	parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
@@ -76,7 +78,6 @@ frame_support::construct_runtime!(
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
 		MockAssigner: mock_assigner,
-		ParachainsAssigner: assigner_parachains,
 		OnDemand: on_demand,
 		CoretimeAssigner: assigner_coretime,
 		Coretime: coretime,
@@ -261,7 +262,7 @@ thread_local! {
 /// versions in the `VERSION_WRAPPER`.
 pub struct TestUsesOnlyStoredVersionWrapper;
 impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
-	fn wrap_version<RuntimeCall>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		dest: &Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
@@ -399,8 +400,6 @@ impl pallet_message_queue::Config for Test {
 	type IdleMaxServiceWeight = ();
 }
 
-impl assigner_parachains::Config for Test {}
-
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
 	// Production chains should keep this numbar around twice the
@@ -422,7 +421,6 @@ impl assigner_coretime::Config for Test {}
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
-	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
 }
 
 pub struct BrokerPot;
@@ -439,7 +437,6 @@ impl coretime::Config for Test {
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
-	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 	type BrokerPotLocation = BrokerPot;
 	type AssetTransactor = ();
 	type AccountToLocation = ();

@@ -45,8 +45,11 @@ use polkadot_primitives::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
-	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
-	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData,
+	vstaging::{
+		CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
+		CandidateReceiptV2 as CandidateReceipt,
+	},
+	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
 	ValidationCodeHash, ValidatorId,
 };
@@ -437,7 +440,7 @@ where
 		.into_iter()
 		.filter_map(|e| match e {
 			CandidateEvent::CandidateBacked(receipt, ..) => {
-				let h = receipt.descriptor.validation_code_hash;
+				let h = receipt.descriptor.validation_code_hash();
 				if already_prepared.contains(&h) {
 					None
 				} else {
@@ -646,7 +649,7 @@ async fn validate_candidate_exhaustive(
 	let _timer = metrics.time_validate_candidate_exhaustive();
 
 	let validation_code_hash = validation_code.hash();
-	let para_id = candidate_receipt.descriptor.para_id;
+	let para_id = candidate_receipt.descriptor.para_id();
 	gum::debug!(
 		target: LOG_TARGET,
 		?validation_code_hash,
@@ -747,7 +750,7 @@ async fn validate_candidate_exhaustive(
 			Err(ValidationFailed(e.to_string()))
 		},
 		Ok(res) =>
-			if res.head_data.hash() != candidate_receipt.descriptor.para_head {
+			if res.head_data.hash() != candidate_receipt.descriptor.para_head() {
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
@@ -992,11 +995,11 @@ fn perform_basic_checks(
 		return Err(InvalidCandidate::ParamsTooLarge(encoded_pov_size as u64))
 	}
 
-	if pov_hash != candidate.pov_hash {
+	if pov_hash != candidate.pov_hash() {
 		return Err(InvalidCandidate::PoVHashMismatch)
 	}
 
-	if *validation_code_hash != candidate.validation_code_hash {
+	if *validation_code_hash != candidate.validation_code_hash() {
 		return Err(InvalidCandidate::CodeHashMismatch)
 	}
 
