@@ -228,6 +228,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					.runtime_api()
 					.metadata(best_block)
 					.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+
+				log::info!("len: {:?}", metadata.len());
 				if !pallet_exists(metadata.as_slice(), DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME)? {
 					return Err(sc_service::Error::Application(
 						anyhow::anyhow!(

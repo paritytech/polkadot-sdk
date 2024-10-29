@@ -27,7 +27,9 @@ docify = { workspace = true }
 # Local
 jsonrpsee = { features = ["server"], workspace = true }
 parachains-common = { workspace = true, default-features = true }
-frame-metadata = { workspace = true, default-features = true }
+frame-metadata = { workspace = true, default-features = true, features = [
+	"decode",
+] }
 
 # Substrate
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
