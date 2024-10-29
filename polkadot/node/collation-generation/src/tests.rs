@@ -30,12 +30,12 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::{subsystem_test_harness, TestSubsystemContextHandle};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	async_backing::{BackingState, CandidatePendingAvailability},
+	vstaging::async_backing::{BackingState, CandidatePendingAvailability},
 	AsyncBackingParams, BlockNumber, CollatorPair, HeadData, PersistedValidationData,
 	ScheduledCore, ValidationCode,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_descriptor, dummy_hash, dummy_head_data, dummy_validator, make_candidate,
+	dummy_candidate_descriptor_v2, dummy_hash, dummy_head_data, dummy_validator, make_candidate,
 };
 use rstest::rstest;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
@@ -504,22 +504,22 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 			// descriptor has a valid signature, then just copy in the generated signature
 			// and check the rest of the fields for equality.
 			assert!(CollatorPair::verify(
-				&descriptor.signature,
+				&descriptor.signature().unwrap(),
 				&collator_signature_payload(
-					&descriptor.relay_parent,
-					&descriptor.para_id,
-					&descriptor.persisted_validation_data_hash,
-					&descriptor.pov_hash,
-					&descriptor.validation_code_hash,
+					&descriptor.relay_parent(),
+					&descriptor.para_id(),
+					&descriptor.persisted_validation_data_hash(),
+					&descriptor.pov_hash(),
+					&descriptor.validation_code_hash(),
 				)
 				.as_ref(),
-				&descriptor.collator,
+				&descriptor.collator().unwrap(),
 			));
 			let expect_descriptor = {
 				let mut expect_descriptor = expect_descriptor;
-				expect_descriptor.signature = descriptor.signature.clone();
-				expect_descriptor.erasure_root = descriptor.erasure_root;
-				expect_descriptor
+				expect_descriptor.signature = descriptor.signature().clone().unwrap();
+				expect_descriptor.erasure_root = descriptor.erasure_root();
+				expect_descriptor.into()
 			};
 			assert_eq!(descriptor, expect_descriptor);
 		},
@@ -658,7 +658,7 @@ fn fallback_when_no_validation_code_hash_api(#[case] runtime_version: u32) {
 			..
 		}) => {
 			let CandidateReceipt { descriptor, .. } = candidate_receipt;
-			assert_eq!(expect_validation_code_hash, descriptor.validation_code_hash);
+			assert_eq!(expect_validation_code_hash, descriptor.validation_code_hash());
 		},
 		_ => panic!("received wrong message type"),
 	}
@@ -752,9 +752,9 @@ fn submit_collation_leads_to_distribution() {
 			}) => {
 				let CandidateReceipt { descriptor, .. } = candidate_receipt;
 				assert_eq!(parent_head_data_hash, parent_head.hash());
-				assert_eq!(descriptor.persisted_validation_data_hash, expected_pvd.hash());
-				assert_eq!(descriptor.para_head, dummy_head_data().hash());
-				assert_eq!(descriptor.validation_code_hash, validation_code_hash);
+				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
+				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
+				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
 			}
 		);
 
@@ -772,16 +772,17 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 	let para_id = ParaId::from(5);
 
 	// One core, in occupied state. The data in `CoreState` and `ClaimQueue` should match.
-	let cores: Vec<CoreState> = vec![CoreState::Occupied(polkadot_primitives::OccupiedCore {
-		next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
-		occupied_since: 1,
-		time_out_at: 10,
-		next_up_on_time_out: Some(ScheduledCore { para_id, collator: None }),
-		availability: Default::default(), // doesn't matter
-		group_responsible: polkadot_primitives::GroupIndex(0),
-		candidate_hash: Default::default(),
-		candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
-	})];
+	let cores: Vec<CoreState> =
+		vec![CoreState::Occupied(polkadot_primitives::vstaging::OccupiedCore {
+			next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
+			occupied_since: 1,
+			time_out_at: 10,
+			next_up_on_time_out: Some(ScheduledCore { para_id, collator: None }),
+			availability: Default::default(), // doesn't matter
+			group_responsible: polkadot_primitives::GroupIndex(0),
+			candidate_hash: Default::default(),
+			candidate_descriptor: dummy_candidate_descriptor_v2(dummy_hash()),
+		})];
 	let claim_queue = BTreeMap::from([(CoreIndex::from(0), VecDeque::from([para_id]))]).into();
 
 	test_harness(|mut virtual_overseer| async move {
@@ -882,7 +883,7 @@ fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elasti
 	let cores = (0..3)
 		.into_iter()
 		.map(|idx| {
-			CoreState::Occupied(polkadot_primitives::OccupiedCore {
+			CoreState::Occupied(polkadot_primitives::vstaging::OccupiedCore {
 				next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
 				occupied_since: 0,
 				time_out_at: 10,
@@ -890,7 +891,7 @@ fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elasti
 				availability: Default::default(), // doesn't matter
 				group_responsible: polkadot_primitives::GroupIndex(idx as u32),
 				candidate_hash: Default::default(),
-				candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
+				candidate_descriptor: dummy_candidate_descriptor_v2(dummy_hash()),
 			})
 		})
 		.collect::<Vec<_>>();
@@ -1008,16 +1009,17 @@ fn no_collation_is_distributed_for_occupied_core_with_async_backing_disabled(
 	let para_id = ParaId::from(5);
 
 	// One core, in occupied state. The data in `CoreState` and `ClaimQueue` should match.
-	let cores: Vec<CoreState> = vec![CoreState::Occupied(polkadot_primitives::OccupiedCore {
-		next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
-		occupied_since: 1,
-		time_out_at: 10,
-		next_up_on_time_out: Some(ScheduledCore { para_id, collator: None }),
-		availability: Default::default(), // doesn't matter
-		group_responsible: polkadot_primitives::GroupIndex(0),
-		candidate_hash: Default::default(),
-		candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
-	})];
+	let cores: Vec<CoreState> =
+		vec![CoreState::Occupied(polkadot_primitives::vstaging::OccupiedCore {
+			next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
+			occupied_since: 1,
+			time_out_at: 10,
+			next_up_on_time_out: Some(ScheduledCore { para_id, collator: None }),
+			availability: Default::default(), // doesn't matter
+			group_responsible: polkadot_primitives::GroupIndex(0),
+			candidate_hash: Default::default(),
+			candidate_descriptor: dummy_candidate_descriptor_v2(dummy_hash()),
+		})];
 	let claim_queue = BTreeMap::from([(CoreIndex::from(0), VecDeque::from([para_id]))]).into();
 
 	test_harness(|mut virtual_overseer| async move {
@@ -1248,9 +1250,9 @@ mod helpers {
 					..
 				}) => {
 					assert_eq!(parent_head_data_hash, parent_head.hash());
-					assert_eq!(candidate_receipt.descriptor().persisted_validation_data_hash, pvd.hash());
-					assert_eq!(candidate_receipt.descriptor().para_head, dummy_head_data().hash());
-					assert_eq!(candidate_receipt.descriptor().validation_code_hash, validation_code_hash);
+					assert_eq!(candidate_receipt.descriptor().persisted_validation_data_hash(), pvd.hash());
+					assert_eq!(candidate_receipt.descriptor().para_head(), dummy_head_data().hash());
+					assert_eq!(candidate_receipt.descriptor().validation_code_hash(), validation_code_hash);
 				}
 			);
 		}

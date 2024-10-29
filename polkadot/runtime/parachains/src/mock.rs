@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, assigner_parachains, configuration, coretime, disputes, dmp, hrmp,
+	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -76,7 +76,6 @@ frame_support::construct_runtime!(
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
 		MockAssigner: mock_assigner,
-		ParachainsAssigner: assigner_parachains,
 		OnDemand: on_demand,
 		CoretimeAssigner: assigner_coretime,
 		Coretime: coretime,
@@ -90,12 +89,21 @@ frame_support::construct_runtime!(
 	}
 );
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
 	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
+}
+
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
 }
 
 parameter_types! {
@@ -390,8 +398,6 @@ impl pallet_message_queue::Config for Test {
 	type IdleMaxServiceWeight = ();
 }
 
-impl assigner_parachains::Config for Test {}
-
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
 	// Production chains should keep this numbar around twice the
@@ -511,9 +517,6 @@ pub mod mock_assigner {
 		#[pallet::storage]
 		pub(super) type MockAssignmentQueue<T: Config> =
 			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
-
-		#[pallet::storage]
-		pub(super) type MockCoreCount<T: Config> = StorageValue<_, u32, OptionQuery>;
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -521,12 +524,6 @@ pub mod mock_assigner {
 		/// scheduler when filling the claim queue for tests.
 		pub fn add_test_assignment(assignment: Assignment) {
 			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
-		}
-
-		// Allows for customized core count in scheduler tests, rather than a core count
-		// derived from on-demand config + parachain count.
-		pub fn set_core_count(count: u32) {
-			MockCoreCount::<T>::set(Some(count));
 		}
 	}
 
@@ -545,20 +542,18 @@ pub mod mock_assigner {
 		}
 
 		// We don't care about core affinity in the test assigner
-		fn report_processed(_assignment: Assignment) {}
+		fn report_processed(_: Assignment) {}
 
-		// The results of this are tested in on_demand tests. No need to represent it
-		// in the mock assigner.
-		fn push_back_assignment(_assignment: Assignment) {}
+		fn push_back_assignment(assignment: Assignment) {
+			Self::add_test_assignment(assignment);
+		}
 
 		#[cfg(any(feature = "runtime-benchmarks", test))]
 		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
 			Assignment::Bulk(para_id)
 		}
 
-		fn session_core_count() -> u32 {
-			MockCoreCount::<T>::get().unwrap_or(5)
-		}
+		fn assignment_duplicated(_: &Assignment) {}
 	}
 }
 

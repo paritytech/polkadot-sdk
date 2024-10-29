@@ -63,6 +63,7 @@ const UNBALANCED_TRIE_LAYERS: u32 = 20;
 struct Contract<T: Config> {
 	caller: T::AccountId,
 	account_id: T::AccountId,
+	address: H160,
 }
 
 impl<T> Contract<T>
@@ -71,11 +72,6 @@ where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 {
-	/// Returns the address of the contract.
-	fn address(&self) -> H160 {
-		T::AddressMapper::to_address(&self.account_id)
-	}
-
 	/// Create new contract and use a default account id as instantiator.
 	fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
 		Self::with_index(0, module, data)
@@ -98,9 +94,12 @@ where
 	) -> Result<Contract<T>, &'static str> {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let salt = Some([0xffu8; 32]);
+		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller.clone()).into();
+
+		Contracts::<T>::map_account(origin.clone()).unwrap();
 
 		let outcome = Contracts::<T>::bare_instantiate(
-			RawOrigin::Signed(caller.clone()).into(),
+			origin,
 			0u32.into(),
 			Weight::MAX,
 			default_deposit_limit::<T>(),
@@ -112,8 +111,8 @@ where
 		);
 
 		let address = outcome.result?.addr;
-		let account_id = T::AddressMapper::to_account_id_contract(&address);
-		let result = Contract { caller, account_id: account_id.clone() };
+		let account_id = T::AddressMapper::to_fallback_account_id(&address);
+		let result = Contract { caller, address, account_id };
 
 		ContractInfoOf::<T>::insert(&address, result.info()?);
 
@@ -143,7 +142,7 @@ where
 			info.write(&Key::Fix(item.0), Some(item.1.clone()), None, false)
 				.map_err(|_| "Failed to write storage to restoration dest")?;
 		}
-		<ContractInfoOf<T>>::insert(T::AddressMapper::to_address(&self.account_id), info);
+		<ContractInfoOf<T>>::insert(&self.address, info);
 		Ok(())
 	}
 
@@ -223,6 +222,7 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 		T: Config + pallet_balances::Config,
 		MomentOf<T>: Into<U256>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
+		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
 )]
 mod benchmarks {
@@ -263,13 +263,12 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
-		let callee = T::AddressMapper::to_address(&instance.account_id);
 		let storage_deposit = default_deposit_limit::<T>();
 
 		#[extrinsic_call]
 		call(
 			RawOrigin::Signed(instance.caller.clone()),
-			callee,
+			instance.address,
 			value,
 			Weight::MAX,
 			storage_deposit,
@@ -293,9 +292,10 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, .. } = WasmModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
+		Contracts::<T>::map_account(origin.clone().into()).unwrap();
 		let deployer = T::AddressMapper::to_address(&caller);
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
-		let account_id = T::AddressMapper::to_account_id_contract(&addr);
+		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
 		_(origin, value, Weight::MAX, storage_deposit, code, input, Some(salt));
@@ -305,9 +305,14 @@ mod benchmarks {
 		// uploading the code reserves some balance in the callers account
 		let code_deposit =
 			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
+		let mapping_deposit =
+			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 		assert_eq!(
 			T::Currency::balance(&caller),
-			caller_funding::<T>() - value - deposit - code_deposit - Pallet::<T>::min_balance(),
+			caller_funding::<T>() -
+				value - deposit -
+				code_deposit - mapping_deposit -
+				Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -323,33 +328,31 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
+		Contracts::<T>::map_account(origin.clone().into()).unwrap();
 		let WasmModule { code, .. } = WasmModule::dummy();
 		let storage_deposit = default_deposit_limit::<T>();
 		let deployer = T::AddressMapper::to_address(&caller);
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
-		let hash =
-			Contracts::<T>::bare_upload_code(origin.into(), code, storage_deposit)?.code_hash;
-		let account_id = T::AddressMapper::to_account_id_contract(&addr);
+		let hash = Contracts::<T>::bare_upload_code(origin.clone().into(), code, storage_deposit)?
+			.code_hash;
+		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 
 		#[extrinsic_call]
-		_(
-			RawOrigin::Signed(caller.clone()),
-			value,
-			Weight::MAX,
-			storage_deposit,
-			hash,
-			input,
-			Some(salt),
-		);
+		_(origin, value, Weight::MAX, storage_deposit, hash, input, Some(salt));
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
 		let code_deposit =
 			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &account_id);
+		let mapping_deposit =
+			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &account_id);
 		// value was removed from the caller
 		assert_eq!(
 			T::Currency::total_balance(&caller),
-			caller_funding::<T>() - value - deposit - code_deposit - Pallet::<T>::min_balance(),
+			caller_funding::<T>() -
+				value - deposit -
+				code_deposit - mapping_deposit -
+				Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -371,11 +374,10 @@ mod benchmarks {
 			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::dummy(), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
-		let callee = T::AddressMapper::to_address(&instance.account_id);
 		let before = T::Currency::balance(&instance.account_id);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
-		_(origin, callee, value, Weight::MAX, storage_deposit, data);
+		_(origin, instance.address, value, Weight::MAX, storage_deposit, data);
 		let deposit = T::Currency::balance_on_hold(
 			&HoldReason::StorageDepositReserve.into(),
 			&instance.account_id,
@@ -384,10 +386,15 @@ mod benchmarks {
 			&HoldReason::CodeUploadDepositReserve.into(),
 			&instance.caller,
 		);
+		let mapping_deposit =
+			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
 		// value and value transferred via call should be removed from the caller
 		assert_eq!(
 			T::Currency::balance(&instance.caller),
-			caller_funding::<T>() - value - deposit - code_deposit - Pallet::<T>::min_balance(),
+			caller_funding::<T>() -
+				value - deposit -
+				code_deposit - mapping_deposit -
+				Pallet::<T>::min_balance()
 		);
 		// contract should have received the value
 		assert_eq!(T::Currency::balance(&instance.account_id), before + value);
@@ -447,12 +454,44 @@ mod benchmarks {
 		let storage_deposit = default_deposit_limit::<T>();
 		let hash =
 			<Contracts<T>>::bare_upload_code(origin.into(), code, storage_deposit)?.code_hash;
-		let callee = T::AddressMapper::to_address(&instance.account_id);
 		assert_ne!(instance.info()?.code_hash, hash);
 		#[extrinsic_call]
-		_(RawOrigin::Root, callee, hash);
+		_(RawOrigin::Root, instance.address, hash);
 		assert_eq!(instance.info()?.code_hash, hash);
 		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn map_account() {
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let origin = RawOrigin::Signed(caller.clone());
+		assert!(!T::AddressMapper::is_mapped(&caller));
+		#[extrinsic_call]
+		_(origin);
+		assert!(T::AddressMapper::is_mapped(&caller));
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn unmap_account() {
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let origin = RawOrigin::Signed(caller.clone());
+		<Contracts<T>>::map_account(origin.clone().into()).unwrap();
+		assert!(T::AddressMapper::is_mapped(&caller));
+		#[extrinsic_call]
+		_(origin);
+		assert!(!T::AddressMapper::is_mapped(&caller));
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn dispatch_as_fallback_account() {
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let origin = RawOrigin::Signed(caller.clone());
+		let dispatchable = frame_system::Call::remark { remark: vec![] }.into();
+		#[extrinsic_call]
+		_(origin, Box::new(dispatchable));
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -481,6 +520,24 @@ mod benchmarks {
 		assert_eq!(
 			<H160 as Decode>::decode(&mut &memory[..]).unwrap(),
 			T::AddressMapper::to_address(&runtime.ext().caller().account_id().unwrap())
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_origin() {
+		let len = H160::len_bytes();
+		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_origin(memory.as_mut_slice(), 0);
+		}
+
+		assert_ok!(result);
+		assert_eq!(
+			<H160 as Decode>::decode(&mut &memory[..]).unwrap(),
+			T::AddressMapper::to_address(&runtime.ext().origin().account_id().unwrap())
 		);
 	}
 
@@ -636,7 +693,7 @@ mod benchmarks {
 		build_runtime!(runtime, contract, memory: [(len as u32).encode(), vec![0u8; len],]);
 
 		<ImmutableDataOf<T>>::insert::<_, BoundedVec<_, _>>(
-			contract.address(),
+			contract.address,
 			immutable_data.clone().try_into().unwrap(),
 		);
 
@@ -669,10 +726,7 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(
-			&memory[..],
-			&<ImmutableDataOf<T>>::get(setup.contract().address()).unwrap()[..]
-		);
+		assert_eq!(&memory[..], &<ImmutableDataOf<T>>::get(setup.contract().address).unwrap()[..]);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -835,7 +889,7 @@ mod benchmarks {
 
 		assert_eq!(
 			record.event,
-			crate::Event::ContractEmitted { contract: instance.address(), data, topics }.into(),
+			crate::Event::ContractEmitted { contract: instance.address, data, topics }.into(),
 		);
 	}
 
@@ -1542,7 +1596,7 @@ mod benchmarks {
 		let salt = [42u8; 32];
 		let deployer = T::AddressMapper::to_address(&account_id);
 		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
-		let account_id = T::AddressMapper::to_account_id_contract(&addr);
+		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 		let mut memory = memory!(hash_bytes, deposit_bytes, value_bytes, input, salt,);
 
 		let mut offset = {

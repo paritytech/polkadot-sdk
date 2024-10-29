@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: backpressure `chainhead_v1_follow`
+
+doc:
+  - audience: Node Operator
+    description: |
+      The RPC endpoint `chainHead_v1_follow` now relies on backpressure 
+      to determine whether or not the subscription should be closed instead of continuing to send more events 
+      to a consumer which can't keep up. 
+      This should significantly improve memory consumption as substrate will be keeping less messages in memory.
+
+crates: 
+  - name: sc-rpc-spec-v2
+    bump: major
+  - name: sc-rpc
+    bump: major

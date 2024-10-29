@@ -30,7 +30,7 @@ use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
 	polkadot_sdk_frame::{
 		self as frame,
-		prelude::*,
+		deps::sp_genesis_builder,
 		runtime::{apis, prelude::*},
 	},
 	*,
@@ -38,15 +38,14 @@ use polkadot_sdk::{
 
 /// Provides getters for genesis configuration presets.
 pub mod genesis_config_presets {
+	use super::*;
 	use crate::{
 		interface::{Balance, MinimumBalance},
-		sp_genesis_builder::PresetId,
 		sp_keyring::AccountKeyring,
 		BalancesConfig, RuntimeGenesisConfig, SudoConfig,
 	};
 
 	use alloc::{vec, vec::Vec};
-	use polkadot_sdk::{sp_core::Get, sp_genesis_builder};
 	use serde_json::Value;
 
 	/// Returns a development genesis config preset.
@@ -103,8 +102,8 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-/// The signed extensions that are added to the runtime.
-type SignedExtra = (
+/// The transaction extensions that are added to the runtime.
+type TxExtension = (
 	// Checks that the sender is not the zero address.
 	frame_system::CheckNonZeroSender<Runtime>,
 	// Checks that the runtime version is correct.
@@ -207,7 +206,7 @@ impl pallet_transaction_payment::Config for Runtime {
 // Implements the types required for the template pallet.
 impl pallet_minimal_template::Config for Runtime {}
 
-type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
+type Block = frame::runtime::types_common::BlockOf<Runtime, TxExtension>;
 type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =
@@ -314,16 +313,16 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+	impl apis::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+		fn get_preset(id: &Option<PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(id, self::genesis_config_presets::get_preset)
 		}
 
-		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+		fn preset_names() -> Vec<PresetId> {
 			self::genesis_config_presets::preset_names()
 		}
 	}
