@@ -927,11 +927,7 @@ impl PalletCmd {
 		}
 
 		match self.genesis_builder {
-			Some(
-				GenesisBuilderPolicy::None |
-				GenesisBuilderPolicy::SpecGenesis |
-				GenesisBuilderPolicy::SpecRuntime,
-			) =>
+			Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::SpecRuntime) =>
 				if chain_spec.is_none() && self.shared_params.chain.is_none() {
 					return Err((
 						ErrorKind::MissingRequiredArgument,
@@ -1054,6 +1050,17 @@ mod tests {
 			"path/to/runtime",
 			"--genesis-builder",
 			"runtime",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-builder",
+			"none",
 		])?;
 		cli_succeed(&["test", "--extrinsic", "", "--pallet", "", "--runtime", "path/to/runtime"])?;
 		cli_succeed(&[
