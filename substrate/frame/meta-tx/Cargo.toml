@@ -15,23 +15,23 @@ workspace = true
 codec = { workspace = true, features = ["max-encoded-len"] }
 docify = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
-serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
+serde = { features = ["derive"], optional = true, workspace = true }
 
-frame-support = { workspace = true}
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
-sp-runtime = { workspace = true}
-sp-std = { workspace = true}
-frame-benchmarking = { workspace = true, optional = true }
-sp-keyring = { workspace = true, optional = true, default-features = true }
+sp-runtime = { workspace = true }
+sp-keyring = { workspace = true, optional = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-pallet-transaction-payment = { workspace = true, default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true}
 
 [features]
-default = ["std"]
+default = ["std"] 
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -42,17 +42,17 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-keyring/std",
 ]
 runtime-benchmarks = [
-	"pallet-balances/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"sp-keyring",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 ]
 try-runtime = [
-	"pallet-balances/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
