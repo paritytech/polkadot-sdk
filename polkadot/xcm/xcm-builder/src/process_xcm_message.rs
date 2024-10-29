@@ -18,7 +18,10 @@
 
 use codec::{Decode, FullCodec, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
-use frame_support::traits::{ProcessMessage, ProcessMessageError};
+use frame_support::{
+	dispatch::GetDispatchInfo,
+	traits::{ProcessMessage, ProcessMessageError},
+};
 use scale_info::TypeInfo;
 use sp_weights::{Weight, WeightMeter};
 use xcm::prelude::*;
@@ -32,7 +35,7 @@ pub struct ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>(
 impl<
 		MessageOrigin: Into<Location> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
 		XcmExecutor: ExecuteXcm<Call>,
-		Call,
+		Call: Decode + GetDispatchInfo,
 	> ProcessMessage for ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>
 {
 	type Origin = MessageOrigin;
