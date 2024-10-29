@@ -369,7 +369,7 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 	/// Proof: `Identity::PendingUsernames` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
 	/// Storage: `Identity::IdentityOf` (r:1 w:1)
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
-	fn set_username_for() -> Weight {
+	fn set_username_for(_p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `80`
 		//  Estimated: `11037`
@@ -396,8 +396,8 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `Identity::PendingUsernames` (r:1 w:1)
-	/// Proof: `Identity::PendingUsernames` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
-	fn remove_expired_approval() -> Weight {
+	/// Proof: `Identity::PendingUsernames` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+	fn remove_expired_approval(_p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `115`
 		//  Estimated: `3550`
@@ -421,18 +421,31 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `Identity::AccountOfUsername` (r:1 w:1)
-	/// Proof: `Identity::AccountOfUsername` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
-	/// Storage: `Identity::IdentityOf` (r:1 w:0)
-	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
-	fn remove_dangling_username() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `98`
-		//  Estimated: `11037`
-		// Minimum execution time: 10_829_000 picoseconds.
-		Weight::from_parts(11_113_000, 0)
-			.saturating_add(Weight::from_parts(0, 11037))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(1))
+	fn unbind_username() -> Weight {
+		Weight::zero()
+	}
+	fn remove_username() -> Weight {
+		Weight::zero()
+	}
+	fn kill_username(_p: u32, ) -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_authority_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_username_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_identity_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_pending_username_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_cleanup_authority_step() -> Weight {
+		Weight::zero()
+	}
+	fn migration_v2_cleanup_username_step() -> Weight {
+		Weight::zero()
 	}
 }
