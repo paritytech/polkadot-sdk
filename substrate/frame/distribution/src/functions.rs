@@ -33,7 +33,6 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
-	
 
 	/// Series of checks on the Pot, to ensure that we have enough funds
 	/// before executing a Spend --> used in tests.
@@ -66,8 +65,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-
-
 	// Done in begin_block
 	// At the beginning of every Epoch, populate the `Spends` storage from the `Projects` storage
 	// (populated by an external process/pallet) make sure that there is enough funds before
@@ -75,58 +72,58 @@ impl<T: Config> Pallet<T> {
 	// should be removed from the `Projects` storage. This is also a good place to Reserve the
 	// funds for created `SpendInfos`. the function will be use in a hook.
 
-	pub fn begin_block() -> DispatchResult{
-		
-			let mut projects = Projects::<T>::get().into_inner();
+	pub fn begin_block() -> DispatchResult {
+		let mut projects = Projects::<T>::get().into_inner();
 
-			if projects.len() > 0 {
-				// Reserve funds for the project
-				let pot = Self::pot_account();
-				let balance = T::NativeBalance::balance(&pot);
-				let minimum_balance = T::NativeBalance::minimum_balance();
+		if projects.len() > 0 {
+			// Reserve funds for the project
+			let pot = Self::pot_account();
+			let balance = T::NativeBalance::balance(&pot);
+			let minimum_balance = T::NativeBalance::minimum_balance();
 
-				projects = projects
-					.iter()
-					.filter(|project| {
-						// check if the pot has enough fund for the Spend
-						// Check that the Pot as enough funds for the transfer
-						let remaining_balance = balance.saturating_sub(project.amount);
+			projects = projects
+				.iter()
+				.filter(|project| {
+					// check if the pot has enough fund for the Spend
+					// Check that the Pot as enough funds for the transfer
+					let remaining_balance = balance.saturating_sub(project.amount);
 
-						// we check that holding the necessary amount cannot fail
-						if remaining_balance > minimum_balance && balance > project.amount {
-							// Create a new Spend
-							let new_spend = SpendInfo::<T>::new(&project);
-							let _ = T::NativeBalance::hold(
-								&HoldReason::FundsReserved.into(),
-								&pot,
-								project.amount,
-							).expect("Funds Reserve Failed");
+					// we check that holding the necessary amount cannot fail
+					if remaining_balance > minimum_balance && balance > project.amount {
+						// Create a new Spend
+						let new_spend = SpendInfo::<T>::new(&project);
+						let _ = T::NativeBalance::hold(
+							&HoldReason::FundsReserved.into(),
+							&pot,
+							project.amount,
+						)
+						.expect("Funds Reserve Failed");
 
-							// Emmit an event
-							let now = T::BlockNumberProvider::current_block_number();
-							Self::deposit_event(Event::SpendCreated {
-								when: now,
-								amount: new_spend.amount,
-								project_id: project.project_id.clone(),
-							});
-						}
-						return false;
-					})
-					.map(|x| x.clone())
-					.collect();
+						// Emmit an event
+						let now = T::BlockNumberProvider::current_block_number();
+						Self::deposit_event(Event::SpendCreated {
+							when: now,
+							amount: new_spend.amount,
+							project_id: project.project_id.clone(),
+						});
+					}
+					return false;
+				})
+				.map(|x| x.clone())
+				.collect();
+		}
+
+		// Update project storage
+		let mut bounded = BoundedVec::<ProjectInfo<T>, T::MaxProjects>::new();
+		Projects::<T>::mutate(|val| {
+			for p in projects {
+				// The number of elements in projects is ALWAYS
+				// egual or below T::MaxProjects at this point.
+				let _ = bounded.try_push(p);
 			}
+			*val = bounded;
+		});
 
-			// Update project storage
-			let mut bounded = BoundedVec::<ProjectInfo<T>, T::MaxProjects>::new();
-			Projects::<T>::mutate(|val| {
-				for p in projects {
-					// The number of elements in projects is ALWAYS
-					// egual or below T::MaxProjects at this point.
-					let _ = bounded.try_push(p);
-				}
-				*val = bounded;
-			});
-		
 		Ok(())
 	}
 }

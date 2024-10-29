@@ -191,7 +191,7 @@ fn funds_claim_works() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-	/*	let project = Spends::<Test>::get(ALICE).unwrap();
+		/*	let project = Spends::<Test>::get(ALICE).unwrap();
 		let project_id = project.whitelisted_project.unwrap();
 		let balance_0 =
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);*/

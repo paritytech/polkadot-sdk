@@ -52,8 +52,8 @@
 pub use pallet::*;
 mod functions;
 mod types;
-pub use types::*;
 pub use pallet_scheduler as Schedule;
+pub use types::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -215,15 +215,13 @@ pub mod pallet {
 		#[transactional]
 		pub fn claim_reward_for(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
-			let now = T::BlockNumberProvider::current_block_number();
 			Self::begin_block()?;
-			let pot = Self::pot_account();
-			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
-			let call0: <T as Config>::RuntimeCall =  (Call::<T>::execute_claim { project_id: project_id.clone()}).into();
-			let call1: <T as frame_system::Config>::RuntimeCall = call0.clone().into();
+			let call0: <T as Config>::RuntimeCall =
+				(Call::<T>::execute_claim { project_id: project_id.clone() }).into();
+			let call1: CallOf<T> = call0.clone().into();
 			let call = T::Preimages::bound(call1)?;
-			Self::schedule_enactment(project_id, call)?;		
-			
+			Self::schedule_enactment(project_id, call)?;
+
 			Ok(())
 		}
 
