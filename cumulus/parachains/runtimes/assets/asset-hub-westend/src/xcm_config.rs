@@ -494,7 +494,10 @@ pub type XcmRouter = WithUniqueTopic<(
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
 	// GlobalConsensus
 	SovereignPaidRemoteExporter<
-		bridging::to_ethereum::EthereumNetworkExportTable,
+		(
+			bridging::to_ethereum::EthereumNetworkExportTableV2,
+			bridging::to_ethereum::EthereumNetworkExportTable,
+		),
 		XcmpQueue,
 		UniversalLocation,
 	>,
@@ -662,7 +665,9 @@ pub mod bridging {
 			/// Needs to be more than fee calculated from DefaultFeeConfig FeeConfigRecord in snowbridge:parachain/pallets/outbound-queue/src/lib.rs
 			/// Polkadot uses 10 decimals, Kusama,Rococo,Westend 12 decimals.
 			pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
+			pub const DefaultBridgeHubEthereumBaseFeeV2: Balance = 4_000_000_000;
 			pub storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
+			pub storage BridgeHubEthereumBaseFeeV2: Balance = DefaultBridgeHubEthereumBaseFeeV2::get();
 			pub SiblingBridgeHubWithEthereumInboundQueueInstance: Location = Location::new(
 				1,
 				[
@@ -685,6 +690,18 @@ pub mod bridging {
 				),
 			];
 
+			pub BridgeTableV2: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+				NetworkExportTableItem::new(
+					EthereumNetwork::get(),
+					Some(sp_std::vec![Junctions::Here]),
+					SiblingBridgeHub::get(),
+					Some((
+						XcmBridgeHubRouterFeeAssetId::get(),
+						BridgeHubEthereumBaseFeeV2::get(),
+					).into())
+				),
+			];
+
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
@@ -695,7 +712,17 @@ pub mod bridging {
 			pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
 				.chain(BridgeTable::get())
 				.collect();
+
+			pub EthereumBridgeTableV2: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec::Vec::new().into_iter()
+				.chain(BridgeTableV2::get())
+				.collect();
 		}
+
+		pub type EthereumNetworkExportTableV2 =
+			snowbridge_router_primitives::outbound::v2::XcmFilterExporter<
+				xcm_builder::NetworkExportTable<EthereumBridgeTableV2>,
+				snowbridge_router_primitives::outbound::v2::XcmForSnowbridgeV2,
+			>;
 
 		pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
 
