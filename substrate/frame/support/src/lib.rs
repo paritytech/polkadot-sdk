@@ -53,6 +53,7 @@ pub mod __private {
 	pub use paste;
 	pub use scale_info;
 	pub use serde;
+	pub use serde_json;
 	pub use sp_core::{Get, OpaqueMetadata, Void};
 	pub use sp_crypto_hashing_proc_macro;
 	pub use sp_inherents;
@@ -2588,8 +2589,11 @@ sp_core::generate_feature_enabled_macro!(try_runtime_enabled, feature = "try-run
 sp_core::generate_feature_enabled_macro!(try_runtime_or_std_enabled, any(feature = "try-runtime", feature = "std"), $);
 sp_core::generate_feature_enabled_macro!(try_runtime_and_std_not_enabled, all(not(feature = "try-runtime"), not(feature = "std")), $);
 
-// Helper for implementing GenesisBuilder runtime API
+/// Helper for implementing GenesisBuilder runtime API
 pub mod genesis_builder_helper;
+
+/// Helper for generating the `RuntimeGenesisConfig` instance for presets.
+pub mod generate_genesis_config;
 
 #[cfg(test)]
 mod test {

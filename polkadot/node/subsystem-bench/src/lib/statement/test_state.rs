@@ -41,12 +41,15 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CompactStatement,
-	Hash, Header, Id, PersistedValidationData, SessionInfo, SignedStatement, SigningContext,
-	UncheckedSigned, ValidatorIndex, ValidatorPair,
+	vstaging::{
+		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
+	},
+	BlockNumber, CandidateHash, CompactStatement, Hash, Header, Id, PersistedValidationData,
+	SessionInfo, SignedStatement, SigningContext, UncheckedSigned, ValidatorIndex, ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_committed_candidate_receipt, dummy_hash, dummy_head_data, dummy_pvd,
+	dummy_committed_candidate_receipt_v2, dummy_hash, dummy_head_data, dummy_pvd,
 };
 use sc_network::{config::IncomingRequest, ProtocolName};
 use sp_core::{Pair, H256};
@@ -125,8 +128,8 @@ impl TestState {
 				let candidate_index =
 					*pov_size_to_candidate.get(pov_size).expect("pov_size always exists; qed");
 				let mut receipt = receipt_templates[candidate_index].clone();
-				receipt.descriptor.para_id = Id::new(core_idx as u32 + 1);
-				receipt.descriptor.relay_parent = block_info.hash;
+				receipt.descriptor.set_para_id(Id::new(core_idx as u32 + 1));
+				receipt.descriptor.set_relay_parent(block_info.hash);
 
 				state.candidate_receipts.entry(block_info.hash).or_default().push(
 					CandidateReceipt {
@@ -240,7 +243,7 @@ fn generate_receipt_templates(
 	pov_size_to_candidate
 		.iter()
 		.map(|(&pov_size, &index)| {
-			let mut receipt = dummy_committed_candidate_receipt(dummy_hash());
+			let mut receipt = dummy_committed_candidate_receipt_v2(dummy_hash());
 			let (_, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
 				n_validators,
 				&AvailableData {
@@ -249,8 +252,8 @@ fn generate_receipt_templates(
 				},
 				|_, _| {},
 			);
-			receipt.descriptor.persisted_validation_data_hash = pvd.hash();
-			receipt.descriptor.erasure_root = erasure_root;
+			receipt.descriptor.set_persisted_validation_data_hash(pvd.hash());
+			receipt.descriptor.set_erasure_root(erasure_root);
 			receipt
 		})
 		.collect()
