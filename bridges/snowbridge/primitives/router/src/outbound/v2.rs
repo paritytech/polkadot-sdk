@@ -16,7 +16,7 @@ use snowbridge_core::{
 	AgentId, TokenId, TokenIdOf,
 };
 use sp_core::{H160, H256};
-use sp_runtime::traits::MaybeEquivalence;
+use sp_runtime::traits::{BlakeTwo256, Hash, MaybeEquivalence};
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_builder::{CreateMatcher, ExporterFor, MatchXcm};
@@ -112,13 +112,13 @@ where
 			SendError::MissingArgument
 		})?;
 
-		// Inspect ExpectAsset as V2 message
+		// Inspect AliasOrigin as V2 message
 		let mut instructions = message.clone().0;
 		let result = instructions.matcher().match_next_inst_while(
 			|_| true,
 			|inst| {
 				return match inst {
-					ExpectAsset(..) => Err(ProcessMessageError::Yield),
+					AliasOrigin(..) => Err(ProcessMessageError::Yield),
 					_ => Ok(ControlFlow::Continue(())),
 				}
 			},
@@ -180,6 +180,7 @@ enum XcmConverterError {
 	InvalidAsset,
 	UnexpectedInstruction,
 	TooManyCommands,
+	AliasOriginExpected,
 }
 
 macro_rules! match_expression {
@@ -229,6 +230,14 @@ where
 		Ok(result)
 	}
 
+	/// Convert the xcm for Ethereum-native token from AH into the Command
+	/// To match transfers of Ethereum-native tokens, we expect an input of the form:
+	/// # WithdrawAsset(WETH_FEE)
+	/// # PayFees(WETH_FEE)
+	/// # WithdrawAsset(WETH)
+	/// # AliasOrigin(origin)
+	/// # DepositAsset(WETH)
+	/// # SetTopic
 	fn send_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
 
@@ -239,15 +248,9 @@ where
 			match_expression!(self.next()?, WithdrawAsset(reserve_assets), reserve_assets)
 				.ok_or(WithdrawAssetExpected)?;
 
-		// Check if clear origin exists and skip over it.
-		if match_expression!(self.peek(), Ok(ClearOrigin), ()).is_some() {
-			let _ = self.next();
-		}
-
-		// Check if ExpectAsset exists and skip over it.
-		if match_expression!(self.peek(), Ok(ExpectAsset { .. }), ()).is_some() {
-			let _ = self.next();
-		}
+		// Check AliasOrigin.
+		let origin = match_expression!(self.next()?, AliasOrigin(origin), origin)
+			.ok_or(AliasOriginExpected)?;
 
 		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
@@ -298,8 +301,7 @@ where
 
 		let message = Message {
 			id: (*topic_id).into(),
-			// Todo: from XCMV5 AliasOrigin
-			origin: H256::zero(),
+			origin: BlakeTwo256::hash_of(origin),
 			fee: fee_amount,
 			commands: BoundedVec::try_from(vec![Command::UnlockNativeToken {
 				agent_id: self.agent_id,
@@ -317,10 +319,6 @@ where
 		self.iter.next().ok_or(XcmConverterError::UnexpectedEndOfXcm)
 	}
 
-	fn peek(&mut self) -> Result<&&'a Instruction<Call>, XcmConverterError> {
-		self.iter.peek().ok_or(XcmConverterError::UnexpectedEndOfXcm)
-	}
-
 	fn network_matches(&self, network: &Option<NetworkId>) -> bool {
 		if let Some(network) = network {
 			*network == self.ethereum_network
@@ -331,10 +329,11 @@ where
 
 	/// Convert the xcm for Polkadot-native token from AH into the Command
 	/// To match transfers of Polkadot-native tokens, we expect an input of the form:
-	/// # ReserveAssetDeposited
-	/// # ClearOrigin
-	/// # BuyExecution
-	/// # DepositAsset
+	/// # WithdrawAsset(WETH)
+	/// # PayFees(WETH)
+	/// # ReserveAssetDeposited(DOT)
+	/// # AliasOrigin(origin)
+	/// # DepositAsset(DOT)
 	/// # SetTopic
 	fn send_native_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
@@ -346,15 +345,9 @@ where
 			match_expression!(self.next()?, ReserveAssetDeposited(reserve_assets), reserve_assets)
 				.ok_or(ReserveAssetDepositedExpected)?;
 
-		// Check if clear origin exists and skip over it.
-		if match_expression!(self.peek(), Ok(ClearOrigin), ()).is_some() {
-			let _ = self.next();
-		}
-
-		// Check if ExpectAsset exists and skip over it.
-		if match_expression!(self.peek(), Ok(ExpectAsset { .. }), ()).is_some() {
-			let _ = self.next();
-		}
+		// Check AliasOrigin.
+		let origin = match_expression!(self.next()?, AliasOrigin(origin), origin)
+			.ok_or(AliasOriginExpected)?;
 
 		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
@@ -406,7 +399,7 @@ where
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
 		let message = Message {
-			origin: H256::zero(),
+			origin: BlakeTwo256::hash_of(origin),
 			fee: fee_amount,
 			id: (*topic_id).into(),
 			commands: BoundedVec::try_from(vec![Command::MintForeignToken {
@@ -472,7 +465,7 @@ impl Contains<Xcm<()>> for XcmForSnowbridgeV2 {
 			|_| true,
 			|inst| {
 				return match inst {
-					ExpectAsset(..) => Err(ProcessMessageError::Yield),
+					AliasOrigin(..) => Err(ProcessMessageError::Yield),
 					_ => Ok(ControlFlow::Continue(())),
 				}
 			},

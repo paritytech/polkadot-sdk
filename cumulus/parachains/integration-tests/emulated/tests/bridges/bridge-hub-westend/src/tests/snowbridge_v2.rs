@@ -13,19 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::imports::*;
-use asset_hub_westend_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 use bridge_hub_westend_runtime::EthereumInboundQueue;
-use codec::{Decode, Encode};
-use emulated_integration_tests_common::RESERVABLE_ASSET_ID;
-use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
-use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
-use snowbridge_core::{outbound::OperatingMode, AssetMetadata, TokenIdOf};
+use snowbridge_core::{AssetMetadata, TokenIdOf};
 use snowbridge_router_primitives::inbound::{
 	v1::{Command, Destination, MessageV1, VersionedMessage},
 	GlobalConsensusEthereumConvertsFor,
 };
-use sp_core::H256;
 use sp_runtime::MultiAddress;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::v5::AssetTransferFilter;
@@ -121,12 +115,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
 		);
 
-		// Internal xcm of InitiateReserveWithdraw, WithdrawAssets + ClearOrigin instructions will
-		// be appended to the front of the list by the xcm executor
-		let xcm_on_bh = Xcm(vec![
-			ExpectAsset(vec![remote_fee_asset.clone()].into()),
-			DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
-		]);
+		let xcm_on_bh = Xcm(vec![DepositAsset { assets: Wild(AllCounted(2)), beneficiary }]);
 
 		let xcms = VersionedXcm::from(Xcm(vec![
 			WithdrawAsset(assets.clone().into()),
@@ -136,6 +125,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
 					remote_fee_asset.clone().into(),
 				))),
+				preserve_origin: true,
 				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
 					reserve_asset.clone().into(),
 				))],
@@ -153,7 +143,6 @@ fn send_weth_from_asset_hub_to_ethereum() {
 	});
 
 	BridgeHubWestend::execute_with(|| {
-		use bridge_hub_westend_runtime::xcm_config::TreasuryAccount;
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		// Check that the transfer token back to Ethereum message was queue in the Ethereum
 		// Outbound Queue
@@ -184,8 +173,6 @@ fn transfer_relay_token() {
 	let asset_id: Location = Location { parents: 1, interior: [].into() };
 	let expected_asset_id: Location =
 		Location { parents: 1, interior: [GlobalConsensus(Westend)].into() };
-
-	let expected_token_id = TokenIdOf::convert_location(&expected_asset_id).unwrap();
 
 	let ethereum_sovereign: AccountId =
 		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&Location::new(
@@ -274,10 +261,7 @@ fn transfer_relay_token() {
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
 		);
 
-		let xcm_on_bh = Xcm(vec![
-			ExpectAsset(vec![remote_fee_asset.clone()].into()),
-			DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
-		]);
+		let xcm_on_bh = Xcm(vec![DepositAsset { assets: Wild(AllCounted(2)), beneficiary }]);
 
 		let xcms = VersionedXcm::from(Xcm(vec![
 			WithdrawAsset(assets.clone().into()),
@@ -287,6 +271,7 @@ fn transfer_relay_token() {
 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
 					remote_fee_asset.clone().into(),
 				))),
+				preserve_origin: true,
 				assets: vec![AssetTransferFilter::ReserveDeposit(Definite(
 					Asset { id: AssetId(Location::parent()), fun: Fungible(TOKEN_AMOUNT) }.into(),
 				))],
@@ -302,16 +287,16 @@ fn transfer_relay_token() {
 		)
 		.unwrap();
 
-		let events = AssetHubWestend::events();
 		// Check that the native asset transferred to some reserved account(sovereign of Ethereum)
-		// assert!(
-		// 	events.iter().any(|event| matches!(
-		// 		event,
-		// 		RuntimeEvent::Balances(pallet_balances::Event::Transfer { to, ..})
-		// 			if *to == ethereum_sovereign.clone(),
-		// 	)),
-		// 	"native token reserved to Ethereum sovereign account."
-		// );
+		let events = AssetHubWestend::events();
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount})
+					if *who == ethereum_sovereign.clone() && *amount == TOKEN_AMOUNT,
+			)),
+			"native token reserved to Ethereum sovereign account."
+		);
 	});
 
 	BridgeHubWestend::execute_with(|| {
