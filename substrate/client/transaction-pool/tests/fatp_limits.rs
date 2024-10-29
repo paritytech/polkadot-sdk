@@ -124,6 +124,74 @@ fn fatp_limits_ready_count_works() {
 }
 
 #[test]
+fn fatp_limits_ready_count_works_for_submit_at() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_mempool_count_limit(3).with_ready_count(2).build();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 500);
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Charlie, 500);
+	let xt1 = uxt(Alice, 200);
+	let xt2 = uxt(Alice, 201);
+
+	let results = block_on(pool.submit_at(
+		header01.hash(),
+		SOURCE,
+		vec![xt0.clone(), xt1.clone(), xt2.clone()],
+	))
+	.unwrap();
+
+	assert!(matches!(results[0].as_ref().unwrap_err().0, TxPoolError::ImmediatelyDropped));
+	assert!(results[1].as_ref().is_ok());
+	assert!(results[2].as_ref().is_ok());
+	assert_eq!(pool.mempool_len().0, 2);
+	//charlie was not included into view:
+	assert_pool_status!(header01.hash(), &pool, 2, 0);
+	assert_ready_iterator!(header01.hash(), pool, [xt1, xt2]);
+}
+
+#[test]
+fn fatp_limits_ready_count_works_for_submit_and_watch() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_mempool_count_limit(3).with_ready_count(2).build();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 300);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 500);
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Charlie, 500);
+	let xt1 = uxt(Alice, 200);
+	let xt2 = uxt(Bob, 300);
+	api.set_priority(&xt0, 2);
+	api.set_priority(&xt1, 2);
+	api.set_priority(&xt2, 1);
+
+	let result0 = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone()));
+	let result1 = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone()));
+	let result2 = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).map(|_| ());
+
+	assert!(matches!(result2.unwrap_err().0, TxPoolError::ImmediatelyDropped));
+	assert!(result0.is_ok());
+	assert!(result1.is_ok());
+	assert_eq!(pool.mempool_len().1, 2);
+	//charlie was not included into view:
+	assert_pool_status!(header01.hash(), &pool, 2, 0);
+	assert_ready_iterator!(header01.hash(), pool, [xt0, xt1]);
+}
+
+#[test]
 fn fatp_limits_future_count_works() {
 	sp_tracing::try_init_simple();
 

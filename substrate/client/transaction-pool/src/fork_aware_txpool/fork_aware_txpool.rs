@@ -600,13 +600,13 @@ where
 		log::debug!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.active_views_count());
 		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
-		let mempool_result = self.mempool.extend_unwatched(source, &xts);
+		let mempool_results = self.mempool.extend_unwatched(source, &xts);
 
 		if view_store.is_empty() {
-			return future::ready(Ok(mempool_result)).boxed()
+			return future::ready(Ok(mempool_results)).boxed()
 		}
 
-		let to_be_submitted = mempool_result
+		let to_be_submitted = mempool_results
 			.iter()
 			.zip(xts)
 			.filter_map(|(result, xt)| result.as_ref().ok().map(|_| xt))
@@ -620,17 +620,17 @@ where
 			let results_map = view_store.submit(source, to_be_submitted.into_iter()).await;
 			let mut submission_results = reduce_multiview_result(results_map).into_iter();
 
-			Ok(mempool_result
+			Ok(mempool_results
 				.into_iter()
 				.map(|result| {
 					result.and_then(|xt_hash| {
-						let result = submission_results
+						submission_results
 							.next()
-							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed.");
-						if result.is_err() {
-							mempool.remove(xt_hash);
-						};
-						result
+							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed.")
+							.map_err(|err| {
+								mempool.remove(xt_hash);
+								err
+							})
 					})
 				})
 				.collect::<Vec<_>>())
@@ -682,11 +682,10 @@ where
 		let view_store = self.view_store.clone();
 		let mempool = self.mempool.clone();
 		async move {
-			let result = view_store.submit_and_watch(at, source, xt).await;
-			if result.is_err() {
+			view_store.submit_and_watch(at, source, xt).await.map_err(|err| {
 				mempool.remove(xt_hash);
-			};
-			result
+				err
+			})
 		}
 		.boxed()
 	}
@@ -1031,7 +1030,7 @@ where
 		future::join_all(results).await
 	}
 
-	/// Updates the given view with the transaction from the internal mempol.
+	/// Updates the given view with the transactions from the internal mempol.
 	///
 	/// All transactions from the mempool (excluding those which are either already imported or
 	/// already included in blocks since recently finalized block) are submitted to the
@@ -1114,12 +1113,9 @@ where
 		// out the invalid event, and remove transaction.
 		if self.view_store.is_empty() {
 			for result in watched_results {
-				match result {
-					Err(tx_hash) => {
-						self.view_store.listener.invalidate_transactions(&[tx_hash]);
-						self.mempool.remove(tx_hash);
-					},
-					Ok(_) => {},
+				if let Err(tx_hash) = result {
+					self.view_store.listener.invalidate_transactions(&[tx_hash]);
+					self.mempool.remove(tx_hash);
 				}
 			}
 		}
