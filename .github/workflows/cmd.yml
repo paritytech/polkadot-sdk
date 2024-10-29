@@ -231,7 +231,7 @@ jobs:
           fi
 
           if [[ $BODY == "/cmd bench"* ]]; then
-              echo "RUNNER=parity-oldlinux" >> $GITHUB_OUTPUT
+              echo "RUNNER=cmd-bot-vm" >> $GITHUB_OUTPUT
           elif [[ $BODY == "/cmd update-ui"* ]]; then
               echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
           else
