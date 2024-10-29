@@ -543,7 +543,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::SubIdentitiesSet {
 				main: sender.clone(),
-				sub_account_num: new_subs as u32,
+				number_of_subs: new_subs as u32,
 				new_deposit,
 			});
 
