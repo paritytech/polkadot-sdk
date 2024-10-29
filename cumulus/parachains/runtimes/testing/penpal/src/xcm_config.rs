@@ -65,7 +65,7 @@ parameter_types! {
 	pub const PenpalNativeCurrency: Location = Location::here();
 	// The Penpal runtime is utilized for testing with various environment setups.
 	// This storage item allows us to customize the `NetworkId` where Penpal is deployed.
-	// By default, it is set to `NetworkId::Rococo` and can be changed using `System::set_storage`.
+	// By default, it is set to `NetworkId::Westend` and can be changed using `System::set_storage`.
 	pub storage RelayNetworkId: NetworkId = NetworkId::Westend;
 	pub RelayNetwork: Option<NetworkId> = Some(RelayNetworkId::get());
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();

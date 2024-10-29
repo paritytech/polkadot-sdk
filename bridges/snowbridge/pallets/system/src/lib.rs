@@ -272,12 +272,12 @@ pub mod pallet {
 	/// Lookup table for foreign token ID to native location relative to ethereum
 	#[pallet::storage]
 	pub type ForeignToNativeId<T: Config> =
-		StorageMap<_, Blake2_128Concat, TokenId, xcm::v4::Location, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, TokenId, xcm::v5::Location, OptionQuery>;
 
 	/// Lookup table for native location relative to ethereum to foreign token ID
 	#[pallet::storage]
 	pub type NativeToForeignId<T: Config> =
-		StorageMap<_, Blake2_128Concat, xcm::v4::Location, TokenId, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, xcm::v5::Location, TokenId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

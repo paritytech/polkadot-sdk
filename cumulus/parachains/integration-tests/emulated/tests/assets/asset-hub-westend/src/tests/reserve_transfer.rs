@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::imports::*;
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -1043,7 +1044,8 @@ fn reserve_transfer_multiple_assets_from_para_to_asset_hub() {
 	);
 
 	// Beneficiary is a new (empty) account
-	let receiver = get_account_id_from_seed::<sp_runtime::testing::sr25519::Public>(DUMMY_EMPTY);
+	let receiver: sp_runtime::AccountId32 =
+		get_public_from_string_or_panic::<sr25519::Public>(DUMMY_EMPTY).into();
 	// Init values for Asset Hub
 	let penpal_location_as_seen_by_ahr = AssetHubWestend::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr =
@@ -1601,7 +1603,7 @@ fn reserve_withdraw_from_untrusted_reserve_fails() {
 		]);
 		let result = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
 			signed_origin,
-			bx!(xcm::VersionedXcm::V4(xcm)),
+			bx!(xcm::VersionedXcm::from(xcm)),
 			Weight::MAX,
 		);
 		assert!(result.is_err());

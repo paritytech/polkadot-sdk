@@ -33,8 +33,8 @@ mod imports {
 	pub use asset_test_utils::xcm_helpers;
 	pub use emulated_integration_tests_common::{
 		accounts::DUMMY_EMPTY,
-		get_account_id_from_seed, test_parachain_is_trusted_teleporter,
-		test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
+		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
+		test_relay_is_trusted_teleporter, test_xcm_fee_querying_apis_work_for_asset_hub,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
 			TestArgs, TestContext, TestExt,
@@ -58,6 +58,9 @@ mod imports {
 			},
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
+		},
+		bridge_hub_westend_emulated_chain::bridge_hub_westend_runtime::xcm_config::{
+			self as bhw_xcm_config,
 		},
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		penpal_emulated_chain::{

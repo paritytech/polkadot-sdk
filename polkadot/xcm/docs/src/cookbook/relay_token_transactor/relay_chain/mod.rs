@@ -23,7 +23,7 @@ use frame::{
 	traits::{IdentityLookup, ProcessMessage, ProcessMessageError},
 };
 use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
-use xcm::v4::prelude::*;
+use xcm::v5::prelude::*;
 
 mod xcm_config;
 pub use xcm_config::LocationToAccountId;

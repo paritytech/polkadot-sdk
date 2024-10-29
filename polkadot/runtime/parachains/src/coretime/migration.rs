@@ -19,8 +19,6 @@
 pub use v_coretime::{GetLegacyLease, MigrateToCoretime};
 
 mod v_coretime {
-	#[cfg(feature = "try-runtime")]
-	use crate::scheduler::common::AssignmentProvider;
 	use crate::{
 		assigner_coretime, configuration,
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
@@ -64,7 +62,7 @@ mod v_coretime {
 
 	impl<
 			T: Config,
-			SendXcm: xcm::v4::SendXcm,
+			SendXcm: xcm::v5::SendXcm,
 			LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 			const TIMESLICE_PERIOD: u32,
 		> MigrateToCoretime<T, SendXcm, LegacyLease, TIMESLICE_PERIOD>
@@ -97,7 +95,7 @@ mod v_coretime {
 
 	impl<
 			T: Config + crate::dmp::Config,
-			SendXcm: xcm::v4::SendXcm,
+			SendXcm: xcm::v5::SendXcm,
 			LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 			const TIMESLICE_PERIOD: u32,
 		> OnRuntimeUpgrade for MigrateToCoretime<T, SendXcm, LegacyLease, TIMESLICE_PERIOD>
@@ -142,7 +140,8 @@ mod v_coretime {
 
 			let dmp_queue_size =
 				crate::dmp::Pallet::<T>::dmq_contents(T::BrokerId::get().into()).len() as u32;
-			let new_core_count = assigner_coretime::Pallet::<T>::session_core_count();
+			let config = configuration::ActiveConfig::<T>::get();
+			let new_core_count = config.scheduler_params.num_cores;
 			ensure!(new_core_count == prev_core_count, "Total number of cores need to not change.");
 			ensure!(
 				dmp_queue_size > prev_dmp_queue_size,
@@ -158,7 +157,7 @@ mod v_coretime {
 	// NOTE: Also migrates `num_cores` config value in configuration::ActiveConfig.
 	fn migrate_to_coretime<
 		T: Config,
-		SendXcm: xcm::v4::SendXcm,
+		SendXcm: xcm::v5::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 		const TIMESLICE_PERIOD: u32,
 	>() -> Weight {
@@ -216,7 +215,7 @@ mod v_coretime {
 
 	fn migrate_send_assignments_to_coretime_chain<
 		T: Config,
-		SendXcm: xcm::v4::SendXcm,
+		SendXcm: xcm::v5::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 		const TIMESLICE_PERIOD: u32,
 	>() -> result::Result<(), SendError> {

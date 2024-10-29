@@ -98,6 +98,34 @@ benchmarks! {
 
 	}
 
+	pay_fees {
+		let holding = T::worst_case_holding(0).into();
+
+		let mut executor = new_executor::<T>(Default::default());
+		executor.set_holding(holding);
+
+		let fee_asset = T::fee_asset().unwrap();
+
+		let instruction = Instruction::<XcmCallOf<T>>::PayFees { asset: fee_asset };
+
+		let xcm = Xcm(vec![instruction]);
+	} : {
+		executor.bench_process(xcm)?;
+	} verify {}
+
+	set_asset_claimer {
+		let mut executor = new_executor::<T>(Default::default());
+		let (_, sender_location) = account_and_location::<T>(1);
+
+		let instruction = Instruction::SetAssetClaimer{ location:sender_location.clone() };
+
+		let xcm = Xcm(vec![instruction]);
+	}: {
+		executor.bench_process(xcm)?;
+	} verify {
+		assert_eq!(executor.asset_claimer(), Some(sender_location.clone()));
+	}
+
 	query_response {
 		let mut executor = new_executor::<T>(Default::default());
 		let (query_id, response) = T::worst_case_response();
@@ -121,7 +149,7 @@ benchmarks! {
 
 		let instruction = Instruction::Transact {
 			origin_kind: OriginKind::SovereignAccount,
-			require_weight_at_most: noop_call.get_dispatch_info().weight,
+			require_weight_at_most: noop_call.get_dispatch_info().call_weight,
 			call: double_encoded_noop_call,
 		};
 		let xcm = Xcm(vec![instruction]);

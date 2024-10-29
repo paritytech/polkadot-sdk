@@ -14,9 +14,11 @@
 // limitations under the License.
 
 use crate::imports::*;
+use xcm::opaque::v5;
 
 mod asset_transfers;
 mod claim_assets;
+mod register_bridged_assets;
 mod send_xcm;
 mod snowbridge;
 mod teleport;
@@ -45,15 +47,15 @@ pub(crate) fn bridged_wnd_at_ah_rococo() -> Location {
 }
 
 // USDT and wUSDT
-pub(crate) fn usdt_at_ah_rococo() -> Location {
+pub(crate) fn usdt_at_ah_westend() -> Location {
 	Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())])
 }
-pub(crate) fn bridged_usdt_at_ah_westend() -> Location {
+pub(crate) fn bridged_usdt_at_ah_rococo() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Rococo),
-			Parachain(AssetHubRococo::para_id().into()),
+			GlobalConsensus(Westend),
+			Parachain(AssetHubWestend::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(USDT_ID.into()),
 		],
@@ -72,7 +74,7 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 }
 
 pub(crate) fn create_foreign_on_ah_rococo(
-	id: v4::Location,
+	id: v5::Location,
 	sufficient: bool,
 	prefund_accounts: Vec<(AccountId, u128)>,
 ) {
@@ -81,18 +83,18 @@ pub(crate) fn create_foreign_on_ah_rococo(
 	AssetHubRococo::force_create_foreign_asset(id, owner, sufficient, min, prefund_accounts);
 }
 
-pub(crate) fn create_foreign_on_ah_westend(id: v4::Location, sufficient: bool) {
+pub(crate) fn create_foreign_on_ah_westend(id: v5::Location, sufficient: bool) {
 	let owner = AssetHubWestend::account_id_of(ALICE);
 	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
 }
 
-pub(crate) fn foreign_balance_on_ah_rococo(id: v4::Location, who: &AccountId) -> u128 {
+pub(crate) fn foreign_balance_on_ah_rococo(id: v5::Location, who: &AccountId) -> u128 {
 	AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(id, who)
 	})
 }
-pub(crate) fn foreign_balance_on_ah_westend(id: v4::Location, who: &AccountId) -> u128 {
+pub(crate) fn foreign_balance_on_ah_westend(id: v5::Location, who: &AccountId) -> u128 {
 	AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(id, who)
@@ -100,23 +102,36 @@ pub(crate) fn foreign_balance_on_ah_westend(id: v4::Location, who: &AccountId) -
 }
 
 // set up pool
-pub(crate) fn set_up_pool_with_wnd_on_ah_westend(foreign_asset: v4::Location) {
-	let wnd: v4::Location = v4::Parent.into();
+pub(crate) fn set_up_pool_with_wnd_on_ah_westend(asset: v5::Location, is_foreign: bool) {
+	let wnd: v5::Location = v5::Parent.into();
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		let owner = AssetHubWestendSender::get();
 		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
 
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
-			signed_owner.clone(),
-			foreign_asset.clone().into(),
-			owner.clone().into(),
-			3_000_000_000_000,
-		));
+		if is_foreign {
+			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
+				signed_owner.clone(),
+				asset.clone().into(),
+				owner.clone().into(),
+				3_000_000_000_000,
+			));
+		} else {
+			let asset_id = match asset.interior.last() {
+				Some(GeneralIndex(id)) => *id as u32,
+				_ => unreachable!(),
+			};
+			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
+				signed_owner.clone(),
+				asset_id.into(),
+				owner.clone().into(),
+				3_000_000_000_000,
+			));
+		}
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			signed_owner.clone(),
 			Box::new(wnd.clone()),
-			Box::new(foreign_asset.clone()),
+			Box::new(asset.clone()),
 		));
 		assert_expected_events!(
 			AssetHubWestend,
@@ -127,7 +142,7 @@ pub(crate) fn set_up_pool_with_wnd_on_ah_westend(foreign_asset: v4::Location) {
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
 			signed_owner.clone(),
 			Box::new(wnd),
-			Box::new(foreign_asset),
+			Box::new(asset),
 			1_000_000_000_000,
 			2_000_000_000_000,
 			1,
@@ -149,7 +164,7 @@ pub(crate) fn send_assets_from_asset_hub_rococo(
 	fee_idx: u32,
 ) -> DispatchResult {
 	let signed_origin =
-		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get());
 	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
 

@@ -705,6 +705,10 @@ pub use pallet_uniques;
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
 
+/// FRAME verify signature pallet.
+#[cfg(feature = "pallet-verify-signature")]
+pub use pallet_verify_signature;
+
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]
 pub use pallet_vesting;
@@ -898,13 +902,13 @@ pub use polkadot_node_subsystem_types;
 #[cfg(feature = "polkadot-node-subsystem-util")]
 pub use polkadot_node_subsystem_util;
 
+/// Helper library that can be used to build a parachain node.
+#[cfg(feature = "polkadot-omni-node-lib")]
+pub use polkadot_omni_node_lib;
+
 /// System overseer of the Polkadot node.
 #[cfg(feature = "polkadot-overseer")]
 pub use polkadot_overseer;
-
-/// Helper library that can be used to build a parachain node.
-#[cfg(feature = "polkadot-parachain-lib")]
-pub use polkadot_parachain_lib;
 
 /// Types and utilities for creating and working with parachains.
 #[cfg(feature = "polkadot-parachain-primitives")]

@@ -23,17 +23,19 @@
 //! WASM-EXECUTION: `Compiled`, CHAIN: `Some("rococo-dev")`, DB CACHE: 1024
 
 // Executed Command:
-// target/production/polkadot
+// ./target/production/polkadot
 // benchmark
 // pallet
+// --chain=rococo-dev
 // --steps=50
 // --repeat=20
-// --extrinsic=*
-// --wasm-execution=compiled
-// --heap-pages=4096
-// --json-file=/builds/parity/mirrors/polkadot-sdk/.git/.artifacts/bench.json
+// --no-storage-info
+// --no-median-slopes
+// --no-min-squares
 // --pallet=pallet_balances
-// --chain=rococo-dev
+// --extrinsic=*
+// --execution=wasm
+// --wasm-execution=compiled
 // --header=./polkadot/file_header.txt
 // --output=./polkadot/runtime/rococo/src/weights/
 

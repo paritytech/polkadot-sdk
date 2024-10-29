@@ -478,14 +478,14 @@ fn claim_assets_works() {
 		// Even though assets are trapped, the extrinsic returns success.
 		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::V4(trapping_program)),
+			Box::new(VersionedXcm::from(trapping_program)),
 			BaseXcmWeight::get() * 2,
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 
 		// Expected `AssetsTrapped` event info.
 		let source: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-		let versioned_assets = VersionedAssets::V4(Assets::from((Here, SEND_AMOUNT)));
+		let versioned_assets = VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)));
 		let hash = BlakeTwo256::hash_of(&(source.clone(), versioned_assets.clone()));
 
 		// Assets were indeed trapped.
@@ -508,10 +508,11 @@ fn claim_assets_works() {
 		// Now claim them with the extrinsic.
 		assert_ok!(XcmPallet::claim_assets(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedAssets::V4((Here, SEND_AMOUNT).into())),
-			Box::new(VersionedLocation::V4(
-				AccountId32 { network: None, id: ALICE.clone().into() }.into()
-			)),
+			Box::new(VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)))),
+			Box::new(VersionedLocation::from(Location::from(AccountId32 {
+				network: None,
+				id: ALICE.clone().into()
+			}))),
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);

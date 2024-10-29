@@ -225,8 +225,6 @@ include:
   - .gitlab/pipeline/test.yml
   # build jobs
   - .gitlab/pipeline/build.yml
-  # short-benchmarks jobs
-  - .gitlab/pipeline/short-benchmarks.yml
   # publish jobs
   - .gitlab/pipeline/publish.yml
   # zombienet jobs
@@ -284,8 +282,3 @@ cancel-pipeline-build-linux-substrate:
   extends: .cancel-pipeline-template
   needs:
     - job: build-linux-substrate
-
-cancel-pipeline-build-short-benchmark:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: build-short-benchmark

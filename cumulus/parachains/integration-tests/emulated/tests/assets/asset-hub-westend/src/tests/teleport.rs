@@ -112,16 +112,6 @@ fn ah_to_penpal_foreign_assets_sender_assertions(t: SystemParaToParaTest) {
 	assert_expected_events!(
 		AssetHubWestend,
 		vec![
-			// native asset used for fees is transferred to Parachain's Sovereign account as reserve
-			RuntimeEvent::Balances(
-				pallet_balances::Event::Transfer { from, to, amount }
-			) => {
-				from: *from == t.sender.account_id,
-				to: *to == AssetHubWestend::sovereign_account_id_of(
-					t.args.dest.clone()
-				),
-				amount: *amount == t.args.amount,
-			},
 			// foreign asset is burned locally as part of teleportation
 			RuntimeEvent::ForeignAssets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
 				asset_id: *asset_id == expected_foreign_asset_id,
@@ -283,13 +273,13 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 	ah_to_para_dispatchable: fn(SystemParaToParaTest) -> DispatchResult,
 ) {
 	// Init values for Parachain
-	let fee_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 100;
+	let fee_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
 	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHub::get();
 	let asset_id_on_penpal = match asset_location_on_penpal.last() {
 		Some(Junction::GeneralIndex(id)) => *id as u32,
 		_ => unreachable!(),
 	};
-	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
+	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 1000;
 	let asset_owner = PenpalAssetOwner::get();
 	let system_para_native_asset_location = RelayLocation::get();
 	let sender = PenpalASender::get();
@@ -318,7 +308,7 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
 		asset_id_on_penpal,
 		sender.clone(),
-		asset_amount_to_send,
+		asset_amount_to_send * 2,
 	);
 	// fund Parachain's check account to be able to teleport
 	PenpalA::fund_accounts(vec![(
@@ -432,6 +422,10 @@ pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using
 			asset_amount_to_send,
 		));
 	});
+
+	// Only send back half the amount.
+	let asset_amount_to_send = asset_amount_to_send / 2;
+	let fee_amount_to_send = fee_amount_to_send / 2;
 
 	let ah_to_penpal_beneficiary_id = PenpalAReceiver::get();
 	let penpal_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalA::para_id());
@@ -577,7 +571,7 @@ fn teleport_to_untrusted_chain_fails() {
 		]);
 		let result = <AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
 			signed_origin,
-			bx!(xcm::VersionedXcm::V4(xcm)),
+			bx!(xcm::VersionedXcm::from(xcm)),
 			Weight::MAX,
 		);
 		assert!(result.is_err());

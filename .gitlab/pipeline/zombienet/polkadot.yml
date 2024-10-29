@@ -172,7 +172,7 @@ zombienet-polkadot-elastic-scaling-0001-basic-3cores-6s-blocks:
   variables:
     FORCED_INFRA_INSTANCE: "spot-iops"
   before_script:
-    - !reference [.zombienet-polkadot-common, before_script]
+    - !reference [ .zombienet-polkadot-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/elastic_scaling
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -183,14 +183,14 @@ zombienet-polkadot-elastic-scaling-0002-elastic-scaling-doesnt-break-parachains:
   extends:
     - .zombienet-polkadot-common
   before_script:
-    - !reference [.zombienet-polkadot-common, before_script]
+    - !reference [ .zombienet-polkadot-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/elastic_scaling
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/elastic_scaling"
       --test="0002-elastic-scaling-doesnt-break-parachains.zndsl"
 
-zombienet-polkadot-functional-0012-spam-statement-distribution-requests:
+.zombienet-polkadot-functional-0012-spam-statement-distribution-requests:
   extends:
     - .zombienet-polkadot-common
   script:
@@ -218,7 +218,7 @@ zombienet-polkadot-functional-0015-coretime-shared-core:
   extends:
     - .zombienet-polkadot-common
   before_script:
-    - !reference [.zombienet-polkadot-common, before_script]
+    - !reference [ .zombienet-polkadot-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
@@ -232,6 +232,25 @@ zombienet-polkadot-functional-0016-approval-voting-parallel:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/functional"
       --test="0016-approval-voting-parallel.zndsl"
+
+zombienet-polkadot-functional-0017-sync-backing:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0017-sync-backing.zndsl"
+
+zombienet-polkadot-functional-0018-shared-core-idle-parachain:
+  extends:
+    - .zombienet-polkadot-common
+  before_script:
+    - !reference [ .zombienet-polkadot-common, before_script ]
+    - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0018-shared-core-idle-parachain.zndsl"
 
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
@@ -277,7 +296,7 @@ zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
       --local-dir="${LOCAL_DIR}/smoke"
       --test="0002-parachains-upgrade-smoke-test.zndsl"
 
-zombienet-polkadot-smoke-0003-deregister-register-validator:
+.zombienet-polkadot-smoke-0003-deregister-register-validator:
   extends:
     - .zombienet-polkadot-common
   script:
@@ -360,10 +379,10 @@ zombienet-polkadot-malus-0001-dispute-valid:
     - job: build-polkadot-zombienet-tests
       artifacts: true
   before_script:
-    - !reference [".zombienet-polkadot-common", "before_script"]
+    - !reference [ ".zombienet-polkadot-common", "before_script" ]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
   script:
-  # we want to use `--no-capture` in zombienet tests.
+    # we want to use `--no-capture` in zombienet tests.
     - unset NEXTEST_FAILURE_OUTPUT
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- smoke::coretime_revenue::coretime_revenue_test

@@ -56,6 +56,18 @@ pub trait OnChargeAssetTransaction<T: Config> {
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError>;
 
+	/// Ensure payment of the transaction fees can be withdrawn.
+	///
+	/// Note: The `fee` already includes the `tip`.
+	fn can_withdraw_fee(
+		who: &T::AccountId,
+		call: &T::RuntimeCall,
+		dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
+		asset_id: Self::AssetId,
+		fee: Self::Balance,
+		tip: Self::Balance,
+	) -> Result<(), TransactionValidityError>;
+
 	/// After the transaction was executed the actual fee can be calculated.
 	/// This function should refund any overpaid fees and optionally deposit
 	/// the corrected amount.
@@ -138,6 +150,32 @@ where
 			Polite,
 		)
 		.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))
+	}
+
+	/// Ensure payment of the transaction fees can be withdrawn.
+	///
+	/// Note: The `fee` already includes the `tip`.
+	fn can_withdraw_fee(
+		who: &T::AccountId,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		asset_id: Self::AssetId,
+		fee: Self::Balance,
+		_tip: Self::Balance,
+	) -> Result<(), TransactionValidityError> {
+		// We don't know the precision of the underlying asset. Because the converted fee could be
+		// less than one (e.g. 0.5) but gets rounded down by integer division we introduce a minimum
+		// fee.
+		let min_converted_fee = if fee.is_zero() { Zero::zero() } else { One::one() };
+		let converted_fee = CON::to_asset_balance(fee, asset_id)
+			.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?
+			.max(min_converted_fee);
+		let can_withdraw =
+			<T::Fungibles as Inspect<T::AccountId>>::can_withdraw(asset_id, who, converted_fee);
+		if can_withdraw != WithdrawConsequence::Success {
+			return Err(InvalidTransaction::Payment.into())
+		}
+		Ok(())
 	}
 
 	/// Hand the fee and the tip over to the `[HandleCredit]` implementation.
