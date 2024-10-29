@@ -125,7 +125,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			<CreateOriginOf<T, I>>::ensure_origin(origin)?;
 
-			let derivative = <DerivativeOpsOf<T, I>>::create(derivative_create_params)?;
+			let derivative = <DerivativeCreateOpOf<T, I>>::create(derivative_create_params)?;
 
 			Self::try_register_derivative(&original, &derivative)
 		}
@@ -140,7 +140,7 @@ pub mod pallet {
 			let derivative = <OriginalToDerivative<T, I>>::get(&original)
 				.ok_or(Error::<T, I>::NoDerivativeToDeregister)?;
 
-			<DerivativeOpsOf<T, I>>::destroy(&derivative, JustDo::default())?;
+			<DerivativeDestroyOpOf<T, I>>::destroy(&derivative, JustDo::default())?;
 
 			Self::try_deregister_derivative_of(&original)
 		}
@@ -264,9 +264,8 @@ pub trait ExtrinsicsConfig<RuntimeOrigin, Derivative> {
 	type DestroyOrigin: EnsureOrigin<RuntimeOrigin>;
 
 	type DerivativeCreateParams: Parameter + CreateStrategy<Success = Derivative>;
-	type DerivativeOps: AssetDefinition<Id = Derivative>
-		+ Create<Self::DerivativeCreateParams>
-		+ Destroy<JustDo>;
+	type DerivativeCreateOp: Create<Self::DerivativeCreateParams>;
+	type DerivativeDestroyOp: AssetDefinition<Id = Derivative> + Destroy<JustDo>;
 
 	type WeightInfo: WeightInfo;
 }
@@ -276,7 +275,8 @@ impl<O, D: Parameter + 'static> ExtrinsicsConfig<O, D> for () {
 	type DestroyOrigin = EnsureNever<()>;
 
 	type DerivativeCreateParams = DerivativeEmptyParams<D>;
-	type DerivativeOps = DerivativeAlwaysErrOps<D>;
+	type DerivativeCreateOp = DerivativeAlwaysErrOps<D>;
+	type DerivativeDestroyOp = DerivativeAlwaysErrOps<D>;
 
 	type WeightInfo = ProhibitiveWeightInfo;
 }
@@ -317,10 +317,14 @@ pub type DerivativeCreateParamsOf<T, I> = <ExtrinsicsConfigOf<T, I> as Extrinsic
 	RuntimeOriginOf<T>,
 	DerivativeOf<T, I>,
 >>::DerivativeCreateParams;
-pub type DerivativeOpsOf<T, I> = <ExtrinsicsConfigOf<T, I> as ExtrinsicsConfig<
+pub type DerivativeCreateOpOf<T, I> = <ExtrinsicsConfigOf<T, I> as ExtrinsicsConfig<
 	RuntimeOriginOf<T>,
 	DerivativeOf<T, I>,
->>::DerivativeOps;
+>>::DerivativeCreateOp;
+pub type DerivativeDestroyOpOf<T, I> = <ExtrinsicsConfigOf<T, I> as ExtrinsicsConfig<
+	RuntimeOriginOf<T>,
+	DerivativeOf<T, I>,
+>>::DerivativeDestroyOp;
 pub type WeightInfoOf<T, I> = <ExtrinsicsConfigOf<T, I> as ExtrinsicsConfig<
 	RuntimeOriginOf<T>,
 	DerivativeOf<T, I>,
