@@ -4535,6 +4535,37 @@ mod run_tests {
 	}
 
 	#[test]
+	fn code_size_works() {
+		let (tester_code, _) = compile_module("extcodesize").unwrap();
+		let tester_code_len = tester_code.len() as u64;
+
+		let (dummy_code, _) = compile_module("dummy").unwrap();
+		let dummy_code_len = dummy_code.len() as u64;
+
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let Contract { addr: tester_addr, .. } =
+				builder::bare_instantiate(Code::Upload(tester_code)).build_and_unwrap_contract();
+			let Contract { addr: dummy_addr, .. } =
+				builder::bare_instantiate(Code::Upload(dummy_code)).build_and_unwrap_contract();
+
+			// code size of another contract address
+			assert_ok!(builder::call(tester_addr)
+				.data((dummy_addr, dummy_code_len).encode())
+				.build());
+
+			// code size of own contract address
+			assert_ok!(builder::call(tester_addr)
+				.data((tester_addr, tester_code_len).encode())
+				.build());
+
+			// code size of non contract accounts
+			assert_ok!(builder::call(tester_addr).data(([8u8; 20], 0u64).encode()).build());
+		});
+	}
+
+	#[test]
 	fn origin_must_be_mapped() {
 		let (code, hash) = compile_module("dummy").unwrap();
 
