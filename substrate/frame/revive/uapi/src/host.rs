@@ -263,6 +263,18 @@ pub trait HostFn: private::Sealed {
 	/// otherwise `zero`.
 	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]);
 
+	/// Retrieve the code size for a specified contract address.
+	///
+	/// # Parameters
+	///
+	/// - `addr`: The address of the contract.
+	/// - `output`: A reference to the output data buffer to write the code size.
+	///
+	/// # Note
+	///
+	/// If `addr` is not a contract the `output` will be zero.
+	fn code_size(addr: &[u8; 20], output: &mut [u8; 32]);
+
 	/// Checks whether there is a value stored under the given key.
 	///
 	/// The key length must not exceed the maximum defined by the contracts module parameter.

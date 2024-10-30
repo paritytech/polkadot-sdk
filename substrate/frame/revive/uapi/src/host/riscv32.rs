@@ -76,6 +76,7 @@ mod sys {
 		pub fn origin(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
 		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
+		pub fn code_size(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn own_code_hash(out_ptr: *mut u8);
 		pub fn caller_is_origin() -> ReturnCode;
 		pub fn caller_is_root() -> ReturnCode;
@@ -531,6 +532,10 @@ impl HostFn for HostFnImpl {
 
 	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) {
 		unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) }
+	}
+
+	fn code_size(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::code_size(address.as_ptr(), output.as_mut_ptr()) }
 	}
 
 	fn own_code_hash(output: &mut [u8; 32]) {
