@@ -1569,7 +1569,7 @@ where
 		<ContractInfoOf<T>>::get(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())
-			.unwrap_or(U256::zero())
+			.unwrap_or_default()
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
