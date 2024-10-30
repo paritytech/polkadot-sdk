@@ -427,45 +427,29 @@ where
 			})
 			.take(MAX_GLOBAL_LISTEN_ADDRESSES);
 
+		// Similar to listen addresses that takes into consideration `publish_non_global_ips`.
+		let external_addresses =
+			self.network.external_addresses().into_iter().filter_map(|address| {
+				let address = address_without_p2p(address);
+				if publish_non_global_ips {
+					Some(address)
+				} else if address_is_global(&address) {
+					Some(address)
+				} else {
+					None
+				}
+			});
+
+		let mut seen_addresses = HashSet::new();
+
 		let addresses = self
 			.public_addresses
 			.clone()
 			.into_iter()
 			.chain(global_listen_addresses)
-			.chain(self.network.external_addresses().into_iter().filter_map(|mut address| {
-				// Make sure the reported external address does not contain `/p2p/...` protocol.
-				if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
-					if peer_id != *local_peer_id.as_ref() {
-						error!(
-							target: LOG_TARGET,
-							"Network returned external address '{address}' with peer id \
-							 not matching the local peer id '{local_peer_id}'.",
-						);
-						debug_assert!(false);
-					}
-					address.pop();
-				}
-
-				if self.public_addresses.contains(&address) {
-					// Already added above.
-					None
-				} else {
-					Some(address)
-				}
-			}))
-			.filter(move |address| {
-				if publish_non_global_ips {
-					return true
-				}
-
-				address.iter().all(|protocol| match protocol {
-					// The `ip_network` library is used because its `is_global()` method is stable,
-					// while `is_global()` in the standard library currently isn't.
-					multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() => false,
-					multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() => false,
-					_ => true,
-				})
-			})
+			.chain(external_addresses)
+			// Deduplicate addresses.
+			.filter(|address| seen_addresses.insert(address.clone()))
 			.collect::<Vec<_>>();
 
 		if !addresses.is_empty() {
