@@ -531,7 +531,12 @@ pub fn disabled_validators<T>() -> Vec<ValidatorIndex>
 where
 	T: shared::Config,
 {
-	<shared::Pallet<T>>::disabled_validators()
+	// Manually accounting for issue #64 
+	if shared::Pallet::<T>::on_chain_storage_version() == StorageVersion::new(15) {
+        shared::migration::v15::DisabledValidators::<T>::get()
+    } else {
+        shared::Pallet::<T>::disabled_validators()
+    }
 }
 
 /// Returns the current state of the node features.
