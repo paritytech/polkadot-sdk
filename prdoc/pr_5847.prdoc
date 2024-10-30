@@ -2,7 +2,8 @@ title: '`candidate-validation`: RFC103 implementation'
 doc:
 - audience: Node Dev
   description: |
-    Introduces checks for descriptor `core_index` and `session_index` fields.
+    Introduces checks for descriptor `core_index` and `session_index` fields for
+    backing validationsss.
 crates:
 - name: polkadot-node-primitives
   bump: major

@@ -187,55 +187,40 @@ where
 			exec_kind,
 			response_sender,
 			..
-		} => async move {
-			let _timer = metrics.time_validate_from_exhaustive();
-			let relay_parent = candidate_receipt.descriptor.relay_parent();
+		} =>
+			async move {
+				let _timer = metrics.time_validate_from_exhaustive();
+				let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-			let Some(claim_queue) = claim_queue(relay_parent, &mut sender).await else {
-				let error = "cannot fetch the claim queue from the runtime";
+				let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
 
-				gum::warn!(
-					target: LOG_TARGET,
-					?relay_parent,
-					error
-				);
+				let maybe_expected_session_index =
+					match util::request_session_index_for_child(relay_parent, &mut sender)
+						.await
+						.await
+					{
+						Ok(Ok(expected_session_index)) => Some(expected_session_index),
+						_ => None,
+					};
 
-				let _ = response_sender.send(Err(ValidationFailed(error.into())));
-				return
-			};
+				let res = validate_candidate_exhaustive(
+					maybe_expected_session_index,
+					validation_host,
+					validation_data,
+					validation_code,
+					candidate_receipt,
+					pov,
+					executor_params,
+					exec_kind,
+					&metrics,
+					maybe_claim_queue,
+				)
+				.await;
 
-			let Ok(Ok(expected_session_index)) =
-				util::request_session_index_for_child(relay_parent, &mut sender).await.await
-			else {
-				let error = "cannot fetch session index from the runtime";
-				gum::warn!(
-					target: LOG_TARGET,
-					?relay_parent,
-					error,
-				);
-
-				let _ = response_sender.send(Err(ValidationFailed(error.into())));
-				return
-			};
-
-			let res = validate_candidate_exhaustive(
-				expected_session_index,
-				validation_host,
-				validation_data,
-				validation_code,
-				candidate_receipt,
-				pov,
-				executor_params,
-				exec_kind,
-				&metrics,
-				claim_queue,
-			)
-			.await;
-
-			metrics.on_validation_event(&res);
-			let _ = response_sender.send(res);
-		}
-		.boxed(),
+				metrics.on_validation_event(&res);
+				let _ = response_sender.send(res);
+			}
+			.boxed(),
 		CandidateValidationMessage::PreCheck {
 			relay_parent,
 			validation_code_hash,
@@ -688,7 +673,7 @@ where
 }
 
 async fn validate_candidate_exhaustive(
-	expected_session_index: SessionIndex,
+	maybe_expected_session_index: Option<SessionIndex>,
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -697,12 +682,13 @@ async fn validate_candidate_exhaustive(
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
-	claim_queue: ClaimQueueSnapshot,
+	maybe_claim_queue: Option<ClaimQueueSnapshot>,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
-
 	let validation_code_hash = validation_code.hash();
+	let relay_parent = candidate_receipt.descriptor.relay_parent();
 	let para_id = candidate_receipt.descriptor.para_id();
+
 	gum::debug!(
 		target: LOG_TARGET,
 		?validation_code_hash,
@@ -710,10 +696,24 @@ async fn validate_candidate_exhaustive(
 		"About to validate a candidate.",
 	);
 
+	// We only check the session index for backing.
 	match (exec_kind, candidate_receipt.descriptor.session_index()) {
-		(PvfExecKind::Backing | PvfExecKind::BackingSystemParas, Some(session_index))
-			if session_index != expected_session_index =>
-			return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex)),
+		(PvfExecKind::Backing | PvfExecKind::BackingSystemParas, Some(session_index)) => {
+			let Some(expected_session_index) = maybe_expected_session_index else {
+				let error = "cannot fetch session index from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				return Err(ValidationFailed(error.into()))
+			};
+
+			if session_index != expected_session_index {
+				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex))
+			}
+		},
 		(_, _) => {},
 	};
 
@@ -846,6 +846,17 @@ async fn validate_candidate_exhaustive(
 							Some(_core_index),
 							PvfExecKind::Backing | PvfExecKind::BackingSystemParas,
 						) => {
+							let Some(claim_queue) = maybe_claim_queue else {
+								let error = "cannot fetch the claim queue from the runtime";
+								gum::warn!(
+									target: LOG_TARGET,
+									?relay_parent,
+									error
+								);
+
+								return Err(ValidationFailed(error.into()))
+							};
+
 							if let Err(err) =
 								ccr.check_core_index(&transpose_claim_queue(claim_queue.0))
 							{
@@ -860,7 +871,7 @@ async fn validate_candidate_exhaustive(
 								))
 							}
 						},
-						// No checks for approvals.
+						// No checks for approvals and disputes
 						(_, _) => {},
 					}
 
