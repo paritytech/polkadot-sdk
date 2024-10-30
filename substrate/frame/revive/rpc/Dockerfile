@@ -20,5 +20,11 @@ RUN useradd -m -u 1001 -U -s /bin/sh -d /polkadot polkadot && \
 	/usr/local/bin/eth-rpc --help
 
 USER polkadot
-EXPOSE 8545
+
+# 8545 is the default port for the RPC server
+# 9616 is the default port for the prometheus metrics
+EXPOSE 8545 9616
 ENTRYPOINT ["/usr/local/bin/eth-rpc"]
+
+# We call the help by default
+CMD ["--help"]

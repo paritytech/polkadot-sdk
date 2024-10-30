@@ -26,7 +26,7 @@ use sc_service::{
 };
 
 // Default port if --prometheus-port is not specified
-const DEFAULT_PROMETHEUS_PORT: u16 = 9615;
+const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 
 // Default port if --rpc-port is not specified
 const DEFAULT_RPC_PORT: u16 = 8545;
