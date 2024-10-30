@@ -7,4 +7,4 @@ doc:
     Related to https://github.com/paritytech/polkadot-sdk/issues/6226
 crates:
 - name: polkadot
-  bump: no_change
+  bump: none
