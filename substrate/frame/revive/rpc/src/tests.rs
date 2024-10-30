@@ -75,7 +75,7 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	let _ = thread::spawn(move || match cli::run(args) {
 		Ok(_) => {},
 		Err(e) => {
-			panic!("Node exited with error: {}", e);
+			panic!("eth-rpc exited with error: {}", e);
 		},
 	});
 

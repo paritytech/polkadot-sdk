@@ -77,6 +77,7 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let CliCommand { rpc_params, prometheus_params, node_rpc_url, shared_params, .. } = cmd;
 
+	#[cfg(not(test))]
 	init_logger(&shared_params)?;
 	let is_dev = shared_params.dev;
 	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
