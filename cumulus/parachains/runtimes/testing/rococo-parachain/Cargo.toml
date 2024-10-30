@@ -49,7 +49,7 @@ polkadot-runtime-common = { workspace = true }
 # Cumulus
 cumulus-pallet-aura-ext = { workspace = true }
 pallet-message-queue = { workspace = true }
-cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-parachain-system = { workspace = true, features = ["experimental-ump-signals"] }
 cumulus-pallet-xcm = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 cumulus-ping = { workspace = true }
