@@ -206,6 +206,17 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the caller address.
 	fn caller(output: &mut [u8; 20]);
 
+	/// Stores the origin address (initator of the call stack) into the supplied buffer.
+	///
+	/// If there is no address associated with the origin (e.g. because the origin is root) then
+	/// it traps with `BadOrigin`. This can only happen through on-chain governance actions or
+	/// customized runtimes.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the origin's address.
+	fn origin(output: &mut [u8; 20]);
+
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///
 	/// Prefer this over [`is_contract()`][`Self::is_contract`] when checking whether your contract

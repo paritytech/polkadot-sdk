@@ -4477,6 +4477,22 @@ mod run_tests {
 	}
 
 	#[test]
+	fn origin_api_works() {
+		let (code, _) = compile_module("origin").unwrap();
+
+		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// Create fixture: Constructor does nothing
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Call the contract: Asserts the origin API to work as expected
+			assert_ok!(builder::call(addr).build());
+		});
+	}
+
+	#[test]
 	fn code_hash_works() {
 		let (code_hash_code, self_code_hash) = compile_module("code_hash").unwrap();
 		let (dummy_code, code_hash) = compile_module("dummy").unwrap();

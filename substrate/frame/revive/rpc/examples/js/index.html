@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="https://polkadot.com/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MetaMask Playground</title>
+    <style>
+	  input { width: 300px; margin-right: 10px; }
+
+      button {
+        display: block;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <input id="transferInput" type="text" style="float: left" placeholder="Destination address" value="0x3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0" />
+    <button id="transferButton">Transfer coins</button>
+
+    <button id="deployButton">Deploy Contract</button>
+
+    <input id="callInput" type="text" style="float: left" placeholder="Contract address" />
+    <button id="callButton">Call Contract</button>
+
+    <button id="deployAndCallButton">Deploy and Call Contract</button>
+    <script type="module" src="src/main.ts"></script>
+  </body>
+</html>
