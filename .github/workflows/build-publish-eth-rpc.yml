@@ -51,12 +51,11 @@ jobs:
           push: false
           tags: |
             ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
-            ${{ env.IMAGE_NAME }}:latest
 
   build_push_docker:
     name: Build and push docker image
     runs-on: parity-large
-    # if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     needs: [set-variables]
     env:
       VERSION: ${{ needs.set-variables.outputs.VERSION }}
@@ -78,4 +77,3 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_NAME }}:${{ env.VERSION }}
-            ${{ env.IMAGE_NAME }}:latest
