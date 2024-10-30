@@ -98,6 +98,7 @@ mod sys {
 			data_len: u32,
 		);
 		pub fn block_number(out_ptr: *mut u8);
+		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -578,5 +579,9 @@ impl HostFn for HostFnImpl {
 			unsafe { sys::return_data_copy(output.as_mut_ptr(), &mut output_len, offset) };
 		}
 		extract_from_slice(output, output_len as usize);
+	}
+
+	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
+		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
 }
