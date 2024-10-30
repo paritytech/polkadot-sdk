@@ -27,8 +27,6 @@
 // or the `tuples-128` complication flag. Note that these features *will increase* the compilation
 // of this crate.
 
-// FAIL-CI test changes
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 /// Export ourself as `frame_support` to make tests happy.
