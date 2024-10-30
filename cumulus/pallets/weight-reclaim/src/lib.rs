@@ -219,16 +219,17 @@ where
 		let accurate_weight = benchmarked_weight.set_proof_size(measured_proof_size);
 
 		frame_system::BlockWeight::<T>::mutate(|current_weight| {
-			let already_refunded = frame_system::ExtrinsicWeightRefunded::<T>::get();
-			current_weight.accrue(already_refunded, info.class);
+			let already_reclaimed = frame_system::ExtrinsicWeightReclaimed::<T>::get();
+			current_weight.accrue(already_reclaimed, info.class);
 			current_weight.reduce(info.total_weight(), info.class);
+			// TODO TODO: this is different from the original implementation as the post dispatch is
+			// always taken even if the pre dispatch is less.
 			current_weight.accrue(accurate_weight, info.class);
 
 			// The saturation will happen if the pre dispatch weight is underestimated.
 			// In this case the extrinsic refund is considered 0.
-			// TODO TODO: maybe change `ExtrinsicWeightRefunded` to just `ExtrinsicWeight`.
 			let accurate_unspent = info.total_weight().saturating_sub(accurate_weight);
-			frame_system::ExtrinsicWeightRefunded::<T>::put(accurate_unspent);
+			frame_system::ExtrinsicWeightReclaimed::<T>::put(accurate_unspent);
 		});
 
 		Ok(inner_refund)

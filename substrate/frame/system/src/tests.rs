@@ -896,14 +896,14 @@ fn test_default_account_nonce() {
 #[test]
 fn extrinsic_weight_refunded_is_cleaned() {
 	new_test_ext().execute_with(|| {
-		crate::ExtrinsicWeightRefunded::<Test>::put(Weight::from_parts(1, 2));
-		assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), Weight::from_parts(1, 2));
+		crate::ExtrinsicWeightReclaimed::<Test>::put(Weight::from_parts(1, 2));
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(1, 2));
 		System::note_applied_extrinsic(&Ok(().into()), Default::default());
-		assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), Weight::zero());
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
 
-		crate::ExtrinsicWeightRefunded::<Test>::put(Weight::from_parts(1, 2));
-		assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), Weight::from_parts(1, 2));
+		crate::ExtrinsicWeightReclaimed::<Test>::put(Weight::from_parts(1, 2));
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(1, 2));
 		System::note_applied_extrinsic(&Err(DispatchError::BadOrigin.into()), Default::default());
-		assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), Weight::zero());
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
 	});
 }

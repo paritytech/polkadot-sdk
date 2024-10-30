@@ -244,5 +244,48 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn weight_reclaim() -> Result<(), BenchmarkError> {
+		let caller = account("caller", 0, 0);
+		let base_extrinsic = <T as frame_system::Config>::BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.base_extrinsic;
+		let extension_weight = <T as frame_system::Config>::ExtensionsWeightInfo::weight_reclaim();
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(base_extrinsic.ref_time() * 5, 0),
+			extension_weight,
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		let post_info = PostDispatchInfo {
+			actual_weight: Some(Weight::from_parts(base_extrinsic.ref_time() * 2, 0)),
+			pays_fee: Default::default(),
+		};
+		let len = 0_usize;
+		let ext = WeightReclaim::<T>::new();
+
+		let initial_block_weight = Weight::from_parts(base_extrinsic.ref_time() * 2, 0);
+		frame_system::BlockWeight::<T>::mutate(|current_weight| {
+			current_weight.set(Weight::zero(), DispatchClass::Mandatory);
+			current_weight.set(initial_block_weight, DispatchClass::Normal);
+		});
+
+		#[block]
+		{
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(post_info))
+				.unwrap()
+				.unwrap();
+		}
+
+		assert_eq!(
+			System::<T>::block_weight().total(),
+			initial_block_weight +
+				base_extrinsic +
+				post_info.actual_weight.unwrap().saturating_add(extension_weight),
+		);
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test,);
 }

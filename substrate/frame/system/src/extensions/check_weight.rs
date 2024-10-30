@@ -138,14 +138,14 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 	) -> Result<(), TransactionValidityError> {
-		let already_refunded = crate::ExtrinsicWeightRefunded::<T>::get();
+		let already_reclaimed = crate::ExtrinsicWeightReclaimed::<T>::get();
 		let unspent = post_info.calc_unspent(info);
-		if unspent.any_gt(already_refunded) {
+		if unspent.any_gt(already_reclaimed) {
 			crate::BlockWeight::<T>::mutate(|current_weight| {
-				current_weight.accrue(already_refunded, info.class);
+				current_weight.accrue(already_reclaimed, info.class);
 				current_weight.reduce(unspent, info.class);
 			});
-			crate::ExtrinsicWeightRefunded::<T>::put(unspent);
+			crate::ExtrinsicWeightReclaimed::<T>::put(unspent);
 		}
 
 		log::trace!(
@@ -777,7 +777,7 @@ mod tests {
 			BlockWeight::<Test>::mutate(|current_weight| {
 				current_weight.reduce(accurate_refund, DispatchClass::Normal);
 			});
-			crate::ExtrinsicWeightRefunded::<Test>::put(accurate_refund);
+			crate::ExtrinsicWeightReclaimed::<Test>::put(accurate_refund);
 
 			// Do the post dispatch
 			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
@@ -789,7 +789,7 @@ mod tests {
 			));
 
 			// Ensure the accurate refund is used
-			assert_eq!(crate::ExtrinsicWeightRefunded::<Test>::get(), accurate_refund);
+			assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), accurate_refund);
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
 				info.total_weight() - accurate_refund + prior_block_weight + base_extrinsic
@@ -833,7 +833,7 @@ mod tests {
 			BlockWeight::<Test>::mutate(|current_weight| {
 				current_weight.reduce(inaccurate_refund, DispatchClass::Normal);
 			});
-			crate::ExtrinsicWeightRefunded::<Test>::put(inaccurate_refund);
+			crate::ExtrinsicWeightReclaimed::<Test>::put(inaccurate_refund);
 
 			// Do the post dispatch
 			assert_ok!(CheckWeight::<Test>::post_dispatch_details(
@@ -846,7 +846,7 @@ mod tests {
 
 			// Ensure the accurate refund from benchmark is used
 			assert_eq!(
-				crate::ExtrinsicWeightRefunded::<Test>::get(),
+				crate::ExtrinsicWeightReclaimed::<Test>::get(),
 				post_info.calc_unspent(&info)
 			);
 			assert_eq!(

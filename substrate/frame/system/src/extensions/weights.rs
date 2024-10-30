@@ -59,6 +59,7 @@ pub trait WeightInfo {
 	fn check_spec_version() -> Weight;
 	fn check_tx_version() -> Weight;
 	fn check_weight() -> Weight;
+	fn weight_reclaim() -> Weight { Weight::zero() } // TODO TODO: remove default implementation after CI
 }
 
 /// Weights for `frame_system_extensions` using the Substrate node and recommended hardware.
@@ -137,6 +138,10 @@ impl<T: crate::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn weight_reclaim() -> Weight {
+		// TODO TODO
+		Weight::zero()
+	}
 }
 
 // For backwards compatibility and tests.
@@ -213,5 +218,9 @@ impl WeightInfo for () {
 		Weight::from_parts(4_747_000, 1489)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn weight_reclaim() -> Weight {
+		// TODO TODO
+		Weight::zero()
 	}
 }
