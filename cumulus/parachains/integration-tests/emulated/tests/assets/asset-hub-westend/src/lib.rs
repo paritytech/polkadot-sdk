@@ -26,7 +26,10 @@ mod imports {
 	};
 
 	// Polkadot
-	pub use xcm::prelude::{AccountId32 as AccountId32Junction, *};
+	pub use xcm::{
+		latest::AssetTransferFilter,
+		prelude::{AccountId32 as AccountId32Junction, *},
+	};
 	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
@@ -42,7 +45,7 @@ mod imports {
 		xcm_helpers::{
 			get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
 		},
-		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
+		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, USDT_ID, XCM_V3,
 	};
 	pub use parachains_common::{AccountId, Balance};
 	pub use westend_system_emulated_network::{
@@ -68,6 +71,7 @@ mod imports {
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
 				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
 				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+				UniversalLocation as PenpalUniversalLocation,
 				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
 			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,

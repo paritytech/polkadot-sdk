@@ -17,7 +17,7 @@
 #![cfg(test)]
 
 use codec::Encode;
-use frame_support::{dispatch::GetDispatchInfo, weights::Weight};
+use frame_support::weights::Weight;
 use polkadot_test_client::{
 	BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
 	TestClientBuilder, TestClientBuilderExt,
@@ -79,11 +79,7 @@ fn transact_recursion_limit_works() {
 		Xcm(vec![
 			WithdrawAsset((Here, 1_000).into()),
 			BuyExecution { fees: (Here, 1).into(), weight_limit: Unlimited },
-			Transact {
-				origin_kind: OriginKind::Native,
-				require_weight_at_most: call.get_dispatch_info().call_weight,
-				call: call.encode().into(),
-			},
+			Transact { origin_kind: OriginKind::Native, call: call.encode().into() },
 		])
 	};
 	let mut call: Option<polkadot_test_runtime::RuntimeCall> = None;

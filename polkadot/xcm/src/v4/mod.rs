@@ -36,6 +36,7 @@ use codec::{
 };
 use core::{fmt::Debug, result};
 use derivative::Derivative;
+use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
 mod asset;
@@ -352,13 +353,12 @@ impl TryFrom<NewResponse> for Response {
 		Ok(match new {
 			Null => Self::Null,
 			Assets(assets) => Self::Assets(assets.try_into()?),
-			ExecutionResult(result) =>
-				Self::ExecutionResult(
-					result
-						.map(|(num, new_error)| (num, new_error.try_into()))
-						.map(|(num, result)| result.map(|inner| (num, inner)))
-						.transpose()?
-				),
+			ExecutionResult(result) => Self::ExecutionResult(
+				result
+					.map(|(num, new_error)| (num, new_error.try_into()))
+					.map(|(num, result)| result.map(|inner| (num, inner)))
+					.transpose()?,
+			),
 			Version(version) => Self::Version(version),
 			PalletsInfo(pallet_info) => {
 				let inner = pallet_info
@@ -1273,7 +1273,7 @@ impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 }
 
 // Convert from a v5 XCM to a v4 XCM.
-impl<Call> TryFrom<NewXcm<Call>> for Xcm<Call> {
+impl<Call: Decode + GetDispatchInfo> TryFrom<NewXcm<Call>> for Xcm<Call> {
 	type Error = ();
 	fn try_from(new_xcm: NewXcm<Call>) -> result::Result<Self, Self::Error> {
 		Ok(Xcm(new_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
@@ -1281,7 +1281,7 @@ impl<Call> TryFrom<NewXcm<Call>> for Xcm<Call> {
 }
 
 // Convert from a v5 instruction to a v4 instruction.
-impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
+impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 	type Error = ();
 	fn try_from(new_instruction: NewInstruction<Call>) -> result::Result<Self, Self::Error> {
 		use NewInstruction::*;
@@ -1317,8 +1317,10 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most, call } =>
-				Self::Transact { origin_kind, require_weight_at_most, call: call.into() },
+			Transact { origin_kind, mut call } => {
+				let require_weight_at_most = call.take_decoded()?.get_dispatch_info().call_weight;
+				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
+			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,
@@ -1390,7 +1392,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 				maybe_error
 					.map(|(num, new_error)| (num, new_error.try_into()))
 					.map(|(num, result)| result.map(|inner| (num, inner)))
-					.transpose()?
+					.transpose()?,
 			),
 			ExpectTransactStatus(maybe_error_code) => Self::ExpectTransactStatus(maybe_error_code),
 			QueryPallet { module_name, response_info } =>
