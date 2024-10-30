@@ -68,7 +68,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT},
+	traits::{BlakeTwo256, Block as BlockT, BlockNumberProvider},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, DispatchError, MultiAddress, Perbill, RuntimeDebug,
 };
@@ -598,7 +598,9 @@ impl pallet_broker::migration::v4::BlockToRelayHeightConversion<Runtime>
 	for BrokerMigrationV4BlockConversion
 {
 	fn convert_block_number_to_relay_height(input_block_number: u32) -> u32 {
-		let relay_height = pallet_broker::Pallet::<Runtime>::relay_height();
+		let relay_height = pallet_broker::RCBlockNumberProviderOf::<
+			<Runtime as pallet_broker::Config>::Coretime,
+		>::current_block_number();
 		let parachain_block_number = frame_system::Pallet::<Runtime>::block_number();
 		let offset = relay_height - parachain_block_number * 2;
 		offset + input_block_number * 2
