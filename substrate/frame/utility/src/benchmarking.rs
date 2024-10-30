@@ -19,7 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use alloc::{vec, vec::Vec};
+use alloc::vec;
 use frame_benchmarking::{benchmarking::add_to_whitelist, v2::*};
 use frame_system::RawOrigin;
 
