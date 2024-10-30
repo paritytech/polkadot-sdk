@@ -1196,7 +1196,7 @@ seccompiler = { version = "0.4.0" }
 secp256k1 = { version = "0.28.0", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
 separator = { version = "0.4.1" }
-serde = { version = "1.0.210", default-features = false }
+serde = { version = "1.0.214", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
 serde_json = { version = "1.0.132", default-features = false }
@@ -1310,7 +1310,7 @@ substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
 subxt = { version = "0.37", default-features = false }
 subxt-signer = { version = "0.37" }
-syn = { version = "2.0.82" }
+syn = { version = "2.0.85" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
