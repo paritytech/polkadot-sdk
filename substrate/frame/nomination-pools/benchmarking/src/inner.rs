@@ -692,7 +692,7 @@ mod benchmarks {
 		n: Linear<1, { <T as pallet_nomination_pools::Config>::MaxMetadataLen::get() }>,
 	) {
 		// Create a pool
-		let (depositor, pool_account) =
+		let (depositor, _pool_account) =
 			create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
 
 		// Create metadata of the max possible size
@@ -778,7 +778,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_commission() {
 		// Create a pool - do not set a commission yet.
-		let (depositor, pool_account) =
+		let (depositor, _pool_account) =
 			create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
 		// set a max commission
 		Pools::<T>::set_commission_max(
@@ -830,7 +830,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_commission_max() {
 		// Create a pool, setting a commission that will update when max commission is set.
-		let (depositor, pool_account) = create_pool_account::<T>(
+		let (depositor, _pool_account) = create_pool_account::<T>(
 			0,
 			Pools::<T>::depositor_min_bond() * 2u32.into(),
 			Some(Perbill::from_percent(50)),
@@ -854,7 +854,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_commission_change_rate() {
 		// Create a pool
-		let (depositor, pool_account) =
+		let (depositor, _pool_account) =
 			create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
 
 		#[extrinsic_call]
@@ -885,7 +885,7 @@ mod benchmarks {
 	#[benchmark]
 	fn set_commission_claim_permission() {
 		// Create a pool.
-		let (depositor, pool_account) =
+		let (depositor, _pool_account) =
 			create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
 
 		#[extrinsic_call]
@@ -911,12 +911,11 @@ mod benchmarks {
 	fn set_claim_permission() {
 		// Create a pool
 		let min_create_bond = Pools::<T>::depositor_min_bond();
-		let (depositor, pool_account) = create_pool_account::<T>(0, min_create_bond, None);
+		let (_depositor, pool_account) = create_pool_account::<T>(0, min_create_bond, None);
 
 		// Join pool
 		let min_join_bond = MinJoinBond::<T>::get().max(CurrencyOf::<T>::minimum_balance());
 		let joiner = create_funded_user_with_balance::<T>("joiner", 0, min_join_bond * 4u32.into());
-		let joiner_lookup = T::Lookup::unlookup(joiner.clone());
 		Pools::<T>::join(RuntimeOrigin::Signed(joiner.clone()).into(), min_join_bond, 1).unwrap();
 
 		// Sanity check join worked
