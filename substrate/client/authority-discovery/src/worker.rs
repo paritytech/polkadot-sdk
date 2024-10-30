@@ -274,20 +274,7 @@ where
 			config
 				.public_addresses
 				.into_iter()
-				.map(|mut address| {
-					if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
-						if peer_id != *local_peer_id.as_ref() {
-							error!(
-								target: LOG_TARGET,
-								"Discarding invalid local peer ID in public address {address}.",
-							);
-						}
-						// Always discard `/p2p/...` protocol for proper address comparison (local
-						// peer id will be added before publishing).
-						address.pop();
-					}
-					address
-				})
+				.map(|address| address_without_p2p(address, local_peer_id))
 				.collect()
 		};
 
@@ -391,22 +378,6 @@ where
 			})
 		};
 
-		// Removes the `/p2p/..` from the address if it is present.
-		let address_without_p2p = |mut address: Multiaddr| {
-			if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
-				if peer_id != *local_peer_id.as_ref() {
-					error!(
-						target: LOG_TARGET,
-						"Network returned external address '{address}' with peer id \
-						 not matching the local peer id '{local_peer_id}'.",
-					);
-					debug_assert!(false);
-				}
-				address.pop();
-			}
-			address
-		};
-
 		// These are the addresses the node is listening for incoming connections,
 		// as reported by installed protocols (tcp / websocket etc).
 		//
@@ -420,7 +391,7 @@ where
 			.into_iter()
 			.filter_map(|address| {
 				if address_is_global(&address) {
-					Some(address_without_p2p(address))
+					Some(address_without_p2p(address, local_peer_id))
 				} else {
 					None
 				}
@@ -430,7 +401,7 @@ where
 		// Similar to listen addresses that takes into consideration `publish_non_global_ips`.
 		let external_addresses =
 			self.network.external_addresses().into_iter().filter_map(|address| {
-				let address = address_without_p2p(address);
+				let address = address_without_p2p(address, local_peer_id);
 				if publish_non_global_ips {
 					Some(address)
 				} else if address_is_global(&address) {
@@ -980,6 +951,21 @@ where
 
 		Ok(intersection)
 	}
+}
+
+/// Removes the `/p2p/..` from the address if it is present.
+fn address_without_p2p(mut address: Multiaddr, local_peer_id: PeerId) -> Multiaddr {
+	if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+		if peer_id != *local_peer_id.as_ref() {
+			error!(
+				target: LOG_TARGET,
+				"Network returned external address '{address}' with peer id \
+				 not matching the local peer id '{local_peer_id}'.",
+			);
+		}
+		address.pop();
+	}
+	address
 }
 
 /// NetworkProvider provides [`Worker`] with all necessary hooks into the
