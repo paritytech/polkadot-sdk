@@ -115,7 +115,8 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use sp_runtime::traits::{
-	AppendZerosInput, Hash, IdentifyAccount, Saturating, StaticLookup, Verify, Zero,
+	AppendZerosInput, BlockNumberProvider, Hash, IdentifyAccount, Saturating, StaticLookup, Verify,
+	Zero,
 };
 pub use types::{
 	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
@@ -202,6 +203,9 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -1148,7 +1152,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 			if let Some((who, expiration)) = PendingUsernames::<T>::take(&username) {
-				let now = frame_system::Pallet::<T>::block_number();
+				let now = T::BlockNumberProvider::current_block_number();
 				ensure!(now > expiration, Error::<T>::NotExpired);
 				Self::deposit_event(Event::PreapprovalExpired { whose: who.clone() });
 				Ok(Pays::No.into())
@@ -1394,7 +1398,7 @@ impl<T: Config> Pallet<T> {
 	/// A username was granted by an authority, but must be accepted by `who`. Put the username
 	/// into a queue for acceptance.
 	pub fn queue_acceptance(who: &T::AccountId, username: Username<T>) {
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		let expiration = now.saturating_add(T::PendingUsernameExpiration::get());
 		PendingUsernames::<T>::insert(&username, (who.clone(), expiration));
 		Self::deposit_event(Event::UsernameQueued { who: who.clone(), username, expiration });

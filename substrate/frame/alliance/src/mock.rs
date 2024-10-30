@@ -80,6 +80,7 @@ impl pallet_collective::Config<AllianceCollective> for Test {
 	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
 	type KillOrigin = EnsureRoot<Self::AccountId>;
 	type Consideration = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 parameter_types! {
@@ -120,6 +121,7 @@ impl pallet_identity::Config for Test {
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 #[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
@@ -229,6 +231,7 @@ impl Config for Test {
 	type AllyDeposit = AllyDeposit;
 	type WeightInfo = ();
 	type RetirementPeriod = RetirementPeriod;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 type Block = frame_system::mocking::MockBlock<Test>;

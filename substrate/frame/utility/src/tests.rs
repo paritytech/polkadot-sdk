@@ -193,6 +193,7 @@ impl pallet_collective::Config<CouncilCollective> for Test {
 	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
 	type KillOrigin = EnsureRoot<Self::AccountId>;
 	type Consideration = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 impl example::Config for Test {}
