@@ -53,11 +53,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+pub mod migration;
 mod tests;
 pub mod weights;
-pub mod migration;
 
 extern crate alloc;
+
+/// The log target for this pallet.
+const LOG_TARGET: &str = "runtime::child-bounties";
 
 use alloc::vec::Vec;
 
@@ -132,7 +135,11 @@ pub mod pallet {
 
 	use super::*;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]

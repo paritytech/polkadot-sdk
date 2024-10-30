@@ -1,64 +1,151 @@
 use super::*;
 // use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::{traits::{Get, UncheckedOnRuntimeUpgrade}, storage_alias};
+use frame_support::{
+	storage_alias,
+	traits::{Get, UncheckedOnRuntimeUpgrade},
+};
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
 
-mod v1 {
-    use super::*;
+pub mod v1 {
+	use super::*;
 
 	pub struct MigrateToV1Impl<T>(PhantomData<T>);
-    
-    #[storage_alias]
-    type ChildBountyDescriptions<T: Config + pallet_bounties::Config> =
-            StorageMap<Pallet<T>, Twox64Concat, BountyIndex, BoundedVec<u8, <T as pallet_bounties::Config>::MaximumReasonLength>>;
-    
-    #[storage_alias]
-    type ChildrenCuratorFees<T: Config> =
-            StorageMap<Pallet<T>, Twox64Concat, BountyIndex, BalanceOf<T>, ValueQuery>;
+
+	#[storage_alias]
+	type ChildBountyDescriptions<T: Config + pallet_bounties::Config> = StorageMap<
+		Pallet<T>,
+		Twox64Concat,
+		BountyIndex,
+		BoundedVec<u8, <T as pallet_bounties::Config>::MaximumReasonLength>,
+	>;
+
+	#[storage_alias]
+	type ChildrenCuratorFees<T: Config> =
+		StorageMap<Pallet<T>, Twox64Concat, BountyIndex, BalanceOf<T>, ValueQuery>;
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV1Impl<T> {
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			// increment reads/writes after the action
 			let mut reads = 0u64;
 			let mut writes = 0u64;
+
+			let mut old_bounty_ids = Vec::new();
+			// first iteration collect all existing ids not to mutate map as we iterate it
 			for (parent_bounty_id, old_child_bounty_id) in ChildBounties::<T>::iter_keys() {
 				reads += 1;
-				let bounty_description = v1::ChildBountyDescriptions::<T>::take(old_child_bounty_id);
+				old_bounty_ids.push((parent_bounty_id, old_child_bounty_id));
+			}
+
+			log::info!(
+				target: LOG_TARGET,
+				"Migrating {} child bounties",
+				old_bounty_ids.len(),
+			);
+
+			for (parent_bounty_id, old_child_bounty_id) in old_bounty_ids {
+				// assign new child bounty id
+				let new_child_bounty_id = ParentTotalChildBounties::<T>::get(parent_bounty_id);
+				reads += 1;
+				ParentTotalChildBounties::<T>::insert(
+					parent_bounty_id,
+					new_child_bounty_id.saturating_add(1),
+				);
+				writes += 1;
+
+				let bounty_description =
+					v1::ChildBountyDescriptions::<T>::take(old_child_bounty_id);
 				writes += 1;
 				let bounty_curator_fee = v1::ChildrenCuratorFees::<T>::take(old_child_bounty_id);
 				writes += 1;
-				let new_child_bounty_id = ParentTotalChildBounties::<T>::get(parent_bounty_id);
-				reads += 1;
-				ParentTotalChildBounties::<T>::insert(parent_bounty_id, new_child_bounty_id.saturating_add(1));
+				let child_bounty = ChildBounties::<T>::take(parent_bounty_id, old_child_bounty_id);
 				writes += 1;
-				// should always be Some
-				writes += 1;
-				if let Some(taken) = ChildBounties::<T>::take(parent_bounty_id, old_child_bounty_id) {
-					writes += 1;
+
+				// should always be some
+				if let Some(taken) = child_bounty {
 					ChildBounties::<T>::insert(parent_bounty_id, new_child_bounty_id, taken);
+					writes += 1;
 				}
 				if let Some(bounty_description) = bounty_description {
+					super::super::ChildBountyDescriptions::<T>::insert(
+						parent_bounty_id,
+						new_child_bounty_id,
+						bounty_description,
+					);
 					writes += 1;
-					super::super::ChildBountyDescriptions::<T>::insert(parent_bounty_id, new_child_bounty_id, bounty_description);
 				}
+				super::super::ChildrenCuratorFees::<T>::insert(
+					parent_bounty_id,
+					new_child_bounty_id,
+					bounty_curator_fee,
+				);
 				writes += 1;
-				super::super::ChildrenCuratorFees::<T>::insert(parent_bounty_id, new_child_bounty_id, bounty_curator_fee);
 			}
+
+			log::info!(
+				target: LOG_TARGET,
+				"Migration done, reads: {}, writes: {}",
+				reads, writes,
+			);
 
 			T::DbWeight::get().reads_writes(reads, writes)
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			Ok(().encode())
+			let old_child_bounty_count = ChildBounties::<T>::iter_keys().count() as u32;
+			let old_child_bounty_descriptions =
+				v1::ChildBountyDescriptions::<T>::iter_keys().count() as u32;
+			let old_child_bounty_curator_fee =
+				v1::ChildrenCuratorFees::<T>::iter_keys().count() as u32;
+			Ok((
+				old_child_bounty_count,
+				old_child_bounty_descriptions,
+				old_child_bounty_curator_fee,
+			)
+				.encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			type StateType = (u32, u32, u32);
+			let (
+				old_child_bounty_count,
+				old_child_bounty_descriptions,
+				old_child_bounty_curator_fee,
+			): (u32, u32, u32) = StateType::decode(&mut &state[..]).expect("Can't decode previous state");
+			let new_child_bounty_count = ChildBounties::<T>::iter_keys().count() as u32;
+			let new_child_bounty_descriptions =
+				super::super::ChildBountyDescriptions::<T>::iter_keys().count() as u32;
+			let new_child_bounty_curator_fee =
+				super::super::ChildrenCuratorFees::<T>::iter_keys().count() as u32;
+
+			ensure!(
+				old_child_bounty_count == new_child_bounty_count,
+				"child bounty count doesn't match"
+			);
+			ensure!(
+				old_child_bounty_descriptions == new_child_bounty_descriptions,
+				"child bounty descriptions count doesn't match"
+			);
+			ensure!(
+				old_child_bounty_curator_fee == new_child_bounty_curator_fee,
+				"child bounty curator fee count doesn't match"
+			);
+
+			ensure!(
+				v1::ChildBountyDescriptions::<T>::iter_keys().count() == 0,
+				"child bounty descriptions should have been drained"
+			);
+			ensure!(
+				v1::ChildrenCuratorFees::<T>::iter_keys().count() == 0,
+				"child bounty curator fees should have been drained"
+			);
+
 			Ok(())
 		}
 	}
