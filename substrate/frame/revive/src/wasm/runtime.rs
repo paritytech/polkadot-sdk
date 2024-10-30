@@ -103,6 +103,13 @@ pub trait Memory<T: Config> {
 		Ok(U256::from_little_endian(&buf))
 	}
 
+	/// Read a `H160` from the sandbox memory.
+	fn read_h160(&self, ptr: u32) -> Result<H160, DispatchError> {
+		let mut buf = H160::default();
+		self.read_into_buf(ptr, buf.as_bytes_mut())?;
+		Ok(buf)
+	}
+
 	/// Read a `H256` from the sandbox memory.
 	fn read_h256(&self, ptr: u32) -> Result<H256, DispatchError> {
 		let mut code_hash = H256::default();
@@ -1000,8 +1007,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let call_outcome = match call_type {
 			CallType::Call { callee_ptr, value_ptr, deposit_ptr, weight } => {
-				let mut callee = H160::zero();
-				memory.read_into_buf(callee_ptr, callee.as_bytes_mut())?;
+				let callee = memory.read_h160(callee_ptr)?;
 				let deposit_limit = if deposit_ptr == SENTINEL {
 					U256::zero()
 				} else {
@@ -1131,8 +1137,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let count = self.ext.locked_delegate_dependencies_count() as _;
 		self.charge_gas(RuntimeCosts::Terminate(count))?;
 
-		let mut beneficiary = H160::zero();
-		memory.read_into_buf(beneficiary_ptr, beneficiary.as_bytes_mut())?;
+		let beneficiary = memory.read_h160(beneficiary_ptr)?;
 		self.ext.terminate(&beneficiary)?;
 		Err(TrapReason::Termination)
 	}
@@ -1238,8 +1243,7 @@ pub mod env {
 		value_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(RuntimeCosts::Transfer)?;
-		let mut callee = H160::zero();
-		memory.read_into_buf(address_ptr, callee.as_bytes_mut())?;
+		let callee = memory.read_h160(address_ptr)?;
 		let value: U256 = memory.read_u256(value_ptr)?;
 		let result = self.ext.transfer(&callee, value);
 		match result {
@@ -1414,8 +1418,7 @@ pub mod env {
 	#[api_version(0)]
 	fn is_contract(&mut self, memory: &mut M, account_ptr: u32) -> Result<u32, TrapReason> {
 		self.charge_gas(RuntimeCosts::IsContract)?;
-		let mut address = H160::zero();
-		memory.read_into_buf(account_ptr, address.as_bytes_mut())?;
+		let address = memory.read_h160(account_ptr)?;
 		Ok(self.ext.is_contract(&address) as u32)
 	}
 
@@ -1424,8 +1427,7 @@ pub mod env {
 	#[api_version(0)]
 	fn code_hash(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeHash)?;
-		let mut address = H160::zero();
-		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
+		let address = memory.read_h160(addr_ptr)?;
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
@@ -1440,8 +1442,7 @@ pub mod env {
 	#[api_version(0)]
 	fn code_size(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeSize)?;
-		let mut address = H160::zero();
-		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
+		let address = memory.read_h160(addr_ptr)?;
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
@@ -1593,8 +1594,7 @@ pub mod env {
 		out_ptr: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::BalanceOf)?;
-		let mut address = H160::zero();
-		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
+		let address = memory.read_h160(addr_ptr)?;
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
