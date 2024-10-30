@@ -24,6 +24,9 @@ use core::marker::PhantomData;
 use scale_info::{TypeInfo, prelude::vec};
 use sp_arithmetic::traits::{Saturating, Zero};
 use sp_runtime::{Perbill, RuntimeDebug};
+use frame_system::offchain::CreateInherent;
+#[cfg(feature = "experimental")]
+use frame_system::offchain::SubmitTransaction;
 
 use frame_support::{
 	defensive,
@@ -92,17 +95,13 @@ pub struct ClaimantStatus<CycleIndex, Balance, Id> {
 pub mod pallet {
 	use super::*;
 	use frame_support::{dispatch::Pays, pallet_prelude::*};
-	use frame_system::{
-		offchain::SendTransactionTypes,
-		pallet_prelude::{BlockNumberFor, *},
-	};
+	use frame_system::pallet_prelude::{BlockNumberFor, *};
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>:
-		SendTransactionTypes<frame_system::Call<Self>> + frame_system::Config
+	pub trait Config<I: 'static = ()>: CreateInherent<frame_system::Call<Self>> + frame_system::Config
 	{
 		type RuntimeTask: frame_support::traits::Task
 			+ IsType<<Self as frame_system::Config>::RuntimeTask>
@@ -409,6 +408,7 @@ pub mod pallet {
 		pub fn bump_offchain() -> DispatchResult {
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
 			status.cycle_index.saturating_inc();
+			status.cycle_start = frame_system::Pallet::<T>::block_number();
 			status.budget = T::Budget::get();
 			status.total_registrations = Zero::zero();
 			status.total_unregistered_paid = Zero::zero();
@@ -429,14 +429,16 @@ pub mod pallet {
 			let call = frame_system::Call::<T>::do_task { task: runtime_task.into() };
 
 			// Submit the task as an unsigned transaction
-			let res = SubmitTransaction::<T, frame_system::Call<T>>::submit_unsigned_transaction(
-				call.into(),
-			);
+			let xt = <T as CreateInherent<frame_system::Call<T>>>::create_inherent(call.into());
+			let res = SubmitTransaction::<T, frame_system::Call<T>>::submit_transaction(xt);
 			match res {
 				Ok(_) => log::info!(target: LOG_TARGET, "Submitted the task."),
 				Err(e) => log::error!(target: LOG_TARGET, "Error submitting task: {:?}", e),
 			}
 		}
+
+		#[cfg(not(feature = "experimental"))]
+		fn offchain_worker(_block_number: BlockNumberFor<T>) {}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
