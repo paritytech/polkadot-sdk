@@ -428,7 +428,7 @@ impl Client {
 		let mut block_stream = match inner.as_ref().api.blocks().subscribe_best().await {
 			Ok(s) => s,
 			Err(err) => {
-				log::error!("Failed to subscribe to blocks: {err:?}");
+				log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
 				return
 			},
 		};
@@ -439,12 +439,13 @@ impl Client {
 				Err(err) => {
 					if err.is_disconnected_will_reconnect() {
 						log::warn!(
+							target: LOG_TARGET,
 							"The RPC connection was lost and we may have missed a few blocks"
 						);
 						continue;
 					}
 
-					log::error!("Failed to fetch block: {err:?}");
+					log::error!(target: LOG_TARGET, "Failed to fetch block: {err:?}");
 					return
 				},
 			};
@@ -456,7 +457,7 @@ impl Client {
 				.receipt_infos(&block)
 				.await
 				.inspect_err(|err| {
-					log::error!("Failed to get receipts: {err:?}");
+					log::error!(target: LOG_TARGET, "Failed to get receipts: {err:?}");
 				})
 				.unwrap_or_default();
 
