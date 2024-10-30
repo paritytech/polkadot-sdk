@@ -100,9 +100,6 @@ impl CallSpan for TestCallSpan {
 	}
 }
 
-use super::*;
-use pretty_assertions::assert_eq;
-
 #[test]
 fn debugging_works() {
 	let (wasm_caller, _) = compile_module("call").unwrap();

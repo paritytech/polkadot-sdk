@@ -42,11 +42,6 @@ pub mod bench {
 			include_bytes!(concat!(env!("OUT_DIR"), "/", $name, ".polkavm"))
 		};
 	}
-	macro_rules! fixture {
-		($name: literal) => {
-			&[]
-		};
-	}
 	pub const DUMMY: &[u8] = fixture!("dummy");
 	pub const NOOP: &[u8] = fixture!("noop");
 	pub const INSTR: &[u8] = fixture!("instr_benchmark");

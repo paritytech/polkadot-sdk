@@ -18,7 +18,6 @@
 //! Compile text fixtures to PolkaVM binaries.
 use anyhow::Result;
 
-use super::Result;
 use anyhow::{bail, Context};
 use std::{
 	cfg, env, fs,
