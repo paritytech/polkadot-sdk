@@ -27,7 +27,7 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
-use sp_runtime::{traits::IdentityLookup, BuildStorage};
+use sp_runtime::{traits::IdentityLookup, BuildStorage, KeyTypeId};
 
 type AccountId = u64;
 type Nonce = u32;
@@ -42,6 +42,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking,
 		Session: pallet_session,
+		Historical: pallet_session::historical
 	}
 );
 
@@ -79,7 +80,8 @@ sp_runtime::impl_opaque_keys! {
 
 pub struct TestSessionHandler;
 impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
-	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] = &[];
+	// corresponds to the opaque key id above
+	const KEY_TYPE_IDS: &'static [KeyTypeId] = &[KeyTypeId([100u8, 117u8, 109u8, 121u8])];
 
 	fn on_genesis_session<Ks: sp_runtime::traits::OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
 
