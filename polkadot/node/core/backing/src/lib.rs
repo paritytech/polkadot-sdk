@@ -322,6 +322,8 @@ struct State {
 	/// This is guaranteed to have an entry for each candidate with a relay parent in the implicit
 	/// or explicit view for which a `Seconded` statement has been successfully imported.
 	per_candidate: HashMap<CandidateHash, PerCandidateState>,
+	/// Cache the per-session validators.
+	validators_cache: LruMap<SessionIndex, Vec<ValidatorId>>,
 	/// Cache the per-session Validator->Group mapping.
 	validator_to_group_cache:
 		LruMap<SessionIndex, Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>>,
@@ -342,6 +344,7 @@ impl State {
 			per_leaf: HashMap::default(),
 			per_relay_parent: HashMap::default(),
 			per_candidate: HashMap::new(),
+			validators_cache: LruMap::new(ByLength::new(2)),
 			validator_to_group_cache: LruMap::new(ByLength::new(2)),
 			background_validation_tx,
 			keystore,
@@ -984,6 +987,7 @@ async fn handle_active_leaves_update<Context>(
 			ctx,
 			maybe_new,
 			&state.keystore,
+			&mut state.validators_cache,
 			&mut state.validator_to_group_cache,
 			mode,
 		)
@@ -1084,6 +1088,7 @@ async fn construct_per_relay_parent_state<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
 	keystore: &KeystorePtr,
+	validators_cache: &mut LruMap<SessionIndex, Vec<ValidatorId>>,
 	validator_to_group_cache: &mut LruMap<
 		SessionIndex,
 		Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>,
@@ -1092,9 +1097,8 @@ async fn construct_per_relay_parent_state<Context>(
 ) -> Result<Option<PerRelayParentState>, Error> {
 	let parent = relay_parent;
 
-	let (session_index, validators, groups, cores) = futures::try_join!(
+	let (session_index, groups, cores) = futures::try_join!(
 		request_session_index_for_child(parent, ctx.sender()).await,
-		request_validators(parent, ctx.sender()).await,
 		request_validator_groups(parent, ctx.sender()).await,
 		request_from_runtime(parent, ctx.sender(), |tx| {
 			RuntimeApiRequest::AvailabilityCores(tx)
@@ -1105,6 +1109,16 @@ async fn construct_per_relay_parent_state<Context>(
 
 	let session_index = try_runtime_api!(session_index);
 
+	if validators_cache.get(&session_index).is_none() {
+		let validators = request_validators(parent, ctx.sender())
+			.await
+			.await
+			.map_err(Error::RuntimeApiUnavailable)?;
+		let validators: Vec<_> = try_runtime_api!(validators);
+		validators_cache.insert(session_index, validators);
+	}
+	let validators = validators_cache.get(&session_index).expect("Just inserted").clone();
+
 	let inject_core_index = request_node_features(parent, session_index, ctx.sender())
 		.await?
 		.unwrap_or(NodeFeatures::EMPTY)
@@ -1114,7 +1128,6 @@ async fn construct_per_relay_parent_state<Context>(
 
 	gum::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
 
-	let validators: Vec<_> = try_runtime_api!(validators);
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
 	let cores = try_runtime_api!(cores);
 	let minimum_backing_votes =
