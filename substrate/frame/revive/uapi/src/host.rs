@@ -105,6 +105,14 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the block number.
 	fn block_number(output: &mut [u8; 32]);
 
+	/// Stores the block hash of the given block number into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `block_number`: A reference to the block number buffer.
+	/// - `output`: A reference to the output data buffer to write the block number.
+	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
+
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
 	/// # Parameters
