@@ -34,25 +34,12 @@ mod tests;
 pub mod weights;
 
 extern crate alloc;
-
 use alloc::{boxed::Box, vec};
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	dispatch::GetDispatchInfo,
-	ensure,
-	traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
-	BoundedVec,
+use frame::{
+	prelude::*,
+	traits::{BlockNumberProvider, Currency, ReservableCurrency},
 };
-use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use scale_info::TypeInfo;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	traits::{
-		BlockNumberProvider, Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero,
-	},
-	DispatchError, DispatchResult, RuntimeDebug,
-};
 pub use weights::WeightInfo;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
@@ -98,11 +85,9 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 	height: BlockNumber,
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
-	use super::{DispatchResult, *};
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use super::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -132,7 +117,7 @@ pub mod pallet {
 			+ Member
 			+ Ord
 			+ PartialOrd
-			+ InstanceFilter<<Self as Config>::RuntimeCall>
+			+ frame::traits::InstanceFilter<<Self as Config>::RuntimeCall>
 			+ Default
 			+ MaxEncodedLen;
 
@@ -645,7 +630,7 @@ impl<T: Config> Pallet<T> {
 		let (height, ext_index) = maybe_when.unwrap_or_else(|| {
 			(
 				T::BlockNumberProvider::current_block_number(),
-				system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
+				frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
 			)
 		});
 		let entropy = (b"modlpy/proxy____", who, height, ext_index, proxy_type, index)
@@ -801,6 +786,7 @@ impl<T: Config> Pallet<T> {
 		real: T::AccountId,
 		call: <T as Config>::RuntimeCall,
 	) {
+		use frame::traits::{InstanceFilter as _, OriginTrait as _};
 		// This is a freshly authenticated new account, the origin restrictions doesn't apply.
 		let mut origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(real).into();
 		origin.add_filter(move |c: &<T as frame_system::Config>::RuntimeCall| {

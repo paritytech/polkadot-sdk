@@ -82,7 +82,7 @@ use parachains_common::{
 use sp_runtime::{Perbill, RuntimeDebug};
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
+	ForeignAssetsConvertedConcreteId, GovernanceLocation, LocationToAccountId,
 	PoolAssetsConvertedConcreteId, TokenLocation, TrustBackedAssetsConvertedConcreteId,
 	TrustBackedAssetsPalletLocation,
 };
@@ -424,7 +424,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location>,
 			xcm_config::bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
 		),
-		ForeignCreatorsSovereignAccountOf,
+		LocationToAccountId,
 		AccountId,
 		xcm::v4::Location,
 	>;
