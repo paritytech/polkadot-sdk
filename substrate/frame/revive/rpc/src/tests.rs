@@ -16,8 +16,6 @@
 // limitations under the License.
 //! Test the eth-rpc cli with the kitchensink node.
 
-// We require the `riscv` feature to get access to the compiled fixtures.
-#![cfg(feature = "riscv")]
 use crate::{
 	cli,
 	example::{send_transaction, wait_for_receipt},
