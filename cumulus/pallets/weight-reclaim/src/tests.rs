@@ -116,6 +116,9 @@ impl frame_system::ExtensionsWeightInfo for MockWeightInfo {
 	fn check_weight() -> Weight {
 		CHECK_WEIGHT_WEIGHT.with_borrow(|v| *v)
 	}
+	fn weight_reclaim() -> Weight {
+		Default::default()
+	}
 }
 
 impl crate::WeightInfo for MockWeightInfo {

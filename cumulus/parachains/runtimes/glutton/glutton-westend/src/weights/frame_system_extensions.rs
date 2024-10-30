@@ -127,4 +127,7 @@ impl<T: frame_system::Config> frame_system::ExtensionsWeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn weight_reclaim() -> Weight {
+		Weight::zero() // TODO TODO: rerun
+	}
 }
