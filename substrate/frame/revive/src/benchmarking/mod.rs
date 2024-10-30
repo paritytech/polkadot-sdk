@@ -526,6 +526,24 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_origin() {
+		let len = H160::len_bytes();
+		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_origin(memory.as_mut_slice(), 0);
+		}
+
+		assert_ok!(result);
+		assert_eq!(
+			<H160 as Decode>::decode(&mut &memory[..]).unwrap(),
+			T::AddressMapper::to_address(&runtime.ext().origin().account_id().unwrap())
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_is_contract() {
 		let Contract { account_id, .. } =
 			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
@@ -574,6 +592,24 @@ mod benchmarks {
 		assert_eq!(
 			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
 			contract.info().unwrap().code_hash
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_code_size() {
+		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+		build_runtime!(runtime, memory: [contract.address.encode(), vec![0u8; 32], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_code_size(memory.as_mut_slice(), 0, 20);
+		}
+
+		assert_ok!(result);
+		assert_eq!(
+			U256::from_little_endian(&memory[20..]),
+			U256::from(WasmModule::dummy().code.len())
 		);
 	}
 

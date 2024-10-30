@@ -284,12 +284,18 @@ pub trait Ext: sealing::Sealed {
 	/// Returns the caller.
 	fn caller(&self) -> Origin<Self::T>;
 
+	/// Return the origin of the whole call stack.
+	fn origin(&self) -> &Origin<Self::T>;
+
 	/// Check if a contract lives at the specified `address`.
 	fn is_contract(&self, address: &H160) -> bool;
 
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
+
+	/// Returns the code size of the contract at the given `address` or zero.
+	fn code_size(&self, address: &H160) -> U256;
 
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
@@ -1571,6 +1577,10 @@ where
 		}
 	}
 
+	fn origin(&self) -> &Origin<T> {
+		&self.origin
+	}
+
 	fn is_contract(&self, address: &H160) -> bool {
 		ContractInfoOf::<T>::contains_key(&address)
 	}
@@ -1584,6 +1594,13 @@ where
 				}
 				H256::zero()
 			})
+	}
+
+	fn code_size(&self, address: &H160) -> U256 {
+		<ContractInfoOf<T>>::get(&address)
+			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
+			.map(|info| info.code_len())
+			.unwrap_or_default()
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -2407,6 +2424,71 @@ mod tests {
 
 		assert_eq!(WitnessedCallerBob::get(), Some(ALICE_ADDR));
 		assert_eq!(WitnessedCallerCharlie::get(), Some(BOB_ADDR));
+	}
+
+	#[test]
+	fn origin_returns_proper_values() {
+		parameter_types! {
+			static WitnessedCallerBob: Option<H160> = None;
+			static WitnessedCallerCharlie: Option<H160> = None;
+		}
+
+		let bob_ch = MockLoader::insert(Call, |ctx, _| {
+			// Record the origin for bob.
+			WitnessedCallerBob::mutate(|witness| {
+				let origin = ctx.ext.origin();
+				*witness = Some(<Test as Config>::AddressMapper::to_address(
+					&origin.account_id().unwrap(),
+				));
+			});
+
+			// Call into CHARLIE contract.
+			assert_matches!(
+				ctx.ext.call(
+					Weight::zero(),
+					U256::zero(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					true,
+					false
+				),
+				Ok(_)
+			);
+			exec_success()
+		});
+		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
+			// Record the origin for charlie.
+			WitnessedCallerCharlie::mutate(|witness| {
+				let origin = ctx.ext.origin();
+				*witness = Some(<Test as Config>::AddressMapper::to_address(
+					&origin.account_id().unwrap(),
+				));
+			});
+			exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, bob_ch);
+			place_contract(&CHARLIE, charlie_ch);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+
+			let result = MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				0,
+				vec![],
+				None,
+			);
+
+			assert_matches!(result, Ok(_));
+		});
+
+		assert_eq!(WitnessedCallerBob::get(), Some(ALICE_ADDR));
+		assert_eq!(WitnessedCallerCharlie::get(), Some(ALICE_ADDR));
 	}
 
 	#[test]
