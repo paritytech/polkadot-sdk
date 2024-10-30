@@ -19,7 +19,7 @@ use crate::{client::Client, EthRpcServer, EthRpcServerImpl};
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
 use jsonrpsee::server::RpcModule;
-use sc_cli::{LoggerBuilder, PrometheusParams, RpcParams, SharedParams, Signals};
+use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
 	config::{PrometheusConfig, RpcConfiguration},
 	start_rpc_servers, TaskManager,
@@ -55,7 +55,7 @@ pub struct CliCommand {
 /// Initialize the logger
 #[cfg(not(test))]
 fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
-	let mut logger = LoggerBuilder::new(params.log_filters().join(","));
+	let mut logger = sc_cli::LoggerBuilder::new(params.log_filters().join(","));
 	logger
 		.with_log_reloading(params.enable_log_reloading)
 		.with_detailed_output(params.detailed_log_output);
@@ -70,7 +70,6 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 	}
 
 	logger.init()?;
-
 	Ok(())
 }
 
