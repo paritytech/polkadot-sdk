@@ -1,5 +1,4 @@
-# GHA for build-*
-name: Build and push images
+name: Build and push ETH-RPC image
 
 on:
   push:
