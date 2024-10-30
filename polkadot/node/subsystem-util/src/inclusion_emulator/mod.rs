@@ -657,7 +657,6 @@ impl Fragment {
 			&operating_constraints,
 			&relay_parent,
 			commitments,
-			ump_messages_sent,
 			persisted_validation_data,
 			validation_code_hash,
 			&modifications,
@@ -696,7 +695,6 @@ fn validate_against_constraints(
 	constraints: &Constraints,
 	relay_parent: &RelayChainBlockInfo,
 	commitments: &CandidateCommitments,
-	upward_message_count: usize,
 	persisted_validation_data: &PersistedValidationData,
 	validation_code_hash: &ValidationCodeHash,
 	modifications: &ConstraintModifications,
@@ -764,7 +762,7 @@ fn validate_against_constraints(
 		})
 	}
 
-	if upward_message_count > constraints.max_ump_num_per_candidate {
+	if modifications.ump_messages_sent > constraints.max_ump_num_per_candidate {
 		return Err(FragmentValidityError::UmpMessagesPerCandidateOverflow {
 			messages_allowed: constraints.max_ump_num_per_candidate,
 			messages_submitted: commitments.upward_messages.len(),
