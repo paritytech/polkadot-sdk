@@ -51,7 +51,6 @@ subxt = { workspace = true, default-features = true, features = [
 tokio = { workspace = true, features = ["full"] }
 codec = { workspace = true, features = ["derive"] }
 log.workspace = true
-tracing-subscriber.workspace = true
 pallet-revive = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }

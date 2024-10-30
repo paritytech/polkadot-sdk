@@ -12504,7 +12504,6 @@ dependencies = [
  "subxt-signer",
  "thiserror",
  "tokio",
- "tracing-subscriber 0.3.18",
 ]
 
 [[package]]

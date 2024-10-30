@@ -17,14 +17,13 @@
 //! The Ethereum JSON-RPC server.
 use crate::{client::Client, EthRpcServer, EthRpcServerImpl};
 use clap::Parser;
-use futures::FutureExt;
+use futures::{pin_mut, FutureExt};
 use jsonrpsee::server::RpcModule;
-use sc_cli::{PrometheusParams, RpcParams, Signals};
+use sc_cli::{LoggerBuilder, PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
 	config::{PrometheusConfig, RpcConfiguration},
 	start_rpc_servers, TaskManager,
 };
-use tokio::runtime::Handle;
 
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9615;
@@ -36,13 +35,13 @@ const DEFAULT_RPC_PORT: u16 = 8545;
 #[derive(Parser, Debug)]
 #[clap(author, about, version)]
 pub struct CliCommand {
-	/// Returns true if this configuration is for a development network.
-	#[clap(long = "dev", default_value = "false")]
-	pub is_dev: bool,
-
 	/// The node url to connect to
 	#[clap(long, default_value = "ws://127.0.0.1:9944")]
 	pub node_rpc_url: String,
+
+	#[allow(missing_docs)]
+	#[clap(flatten)]
+	pub shared_params: SharedParams,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -53,10 +52,33 @@ pub struct CliCommand {
 	pub prometheus_params: PrometheusParams,
 }
 
+/// Initialize the logger
+fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
+	let mut logger = LoggerBuilder::new(params.log_filters().join(","));
+	logger
+		.with_log_reloading(params.enable_log_reloading)
+		.with_detailed_output(params.detailed_log_output);
+
+	if let Some(tracing_targets) = &params.tracing_targets {
+		let tracing_receiver = params.tracing_receiver.into();
+		logger.with_profiling(tracing_receiver, tracing_targets);
+	}
+
+	if params.disable_log_color {
+		logger.with_colors(false);
+	}
+
+	logger.init()?;
+
+	Ok(())
+}
+
 /// Start the JSON-RPC server using the given command line arguments.
 pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
-	let CliCommand { is_dev, rpc_params, prometheus_params, node_rpc_url, .. } = cmd;
+	let CliCommand { rpc_params, prometheus_params, node_rpc_url, shared_params, .. } = cmd;
 
+	init_logger(&shared_params)?;
+	let is_dev = shared_params.dev;
 	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
 		.rpc_addr(is_dev, false, 8545)?
 		.map(|addrs| addrs.into_iter().map(Into::into).collect());
@@ -84,11 +106,21 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	let tokio_runtime = sc_cli::build_runtime()?;
 	let tokio_handle = tokio_runtime.handle();
-	let gen_rpc_module = || rpc_module(is_dev, &node_rpc_url, &tokio_handle);
-
 	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
 	let spawn_handle = task_manager.spawn_handle();
+
+	let gen_rpc_module = || {
+		let signals = tokio_runtime.block_on(async { Signals::capture() })?;
+		let fut = Client::from_url(&node_rpc_url, &spawn_handle).fuse();
+		pin_mut!(fut);
+
+		return match tokio_handle.block_on(signals.try_until_signal(fut)) {
+			Ok(Ok(client)) => rpc_module(is_dev, client),
+			Ok(Err(_)) | Err(_) =>
+				return Err(sc_service::Error::Application("Client connection interrupted".into())),
+		}
+	};
 
 	// Prometheus metrics.
 	if let Some(PrometheusConfig { port, registry }) = prometheus_config.clone() {
@@ -108,16 +140,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 }
 
 /// Create the JSON-RPC module.
-fn rpc_module(
-	is_dev: bool,
-	node_rpc_url: &str,
-	tokio_handle: &Handle,
-) -> Result<RpcModule<()>, sc_service::Error> {
-	let client = match tokio_handle.block_on(Client::from_url(node_rpc_url)) {
-		Ok(client) => client,
-		Err(e) => return Err(sc_service::Error::Application(e.into())),
-	};
-
+fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client)
 		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
 		.into_rpc();
