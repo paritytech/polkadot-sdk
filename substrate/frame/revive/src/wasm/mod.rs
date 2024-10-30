@@ -248,6 +248,11 @@ impl<T: Config> CodeInfo<T> {
 	pub fn deposit(&self) -> BalanceOf<T> {
 		self.deposit
 	}
+
+	/// Returns the code length.
+	pub fn code_len(&self) -> U256 {
+		self.code_len.into()
+	}
 }
 
 pub struct PreparedCall<'a, E: Ext> {

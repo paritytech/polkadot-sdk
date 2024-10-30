@@ -594,6 +594,24 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_code_size() {
+		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+		build_runtime!(runtime, memory: [contract.address.encode(), vec![0u8; 32], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_code_size(memory.as_mut_slice(), 0, 20);
+		}
+
+		assert_ok!(result);
+		assert_eq!(
+			U256::from_little_endian(&memory[20..]),
+			U256::from(WasmModule::dummy().code.len())
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_caller_is_origin() {
 		build_runtime!(runtime, memory: []);
 
