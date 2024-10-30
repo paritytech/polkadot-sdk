@@ -28,7 +28,7 @@ use frame_support::{
 use frame_system::{
 	pallet_prelude::*, CheckGenesis, CheckMortality, CheckNonZeroSender, CheckNonce,
 	CheckSpecVersion, CheckTxVersion, CheckWeight, Config, ExtensionsWeightInfo, Pallet as System,
-	RawOrigin,
+	RawOrigin, WeightReclaim,
 };
 use sp_runtime::{
 	generic::Era,
@@ -269,6 +269,7 @@ mod benchmarks {
 		frame_system::BlockWeight::<T>::mutate(|current_weight| {
 			current_weight.set(Weight::zero(), DispatchClass::Mandatory);
 			current_weight.set(initial_block_weight, DispatchClass::Normal);
+			current_weight.accrue(base_extrinsic + info.total_weight(), DispatchClass::Normal);
 		});
 
 		#[block]

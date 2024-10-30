@@ -59,7 +59,7 @@ pub trait WeightInfo {
 	fn check_spec_version() -> Weight;
 	fn check_tx_version() -> Weight;
 	fn check_weight() -> Weight;
-	fn weight_reclaim() -> Weight { Weight::zero() } // TODO TODO: remove default implementation after CI
+	fn weight_reclaim() -> Weight;
 }
 
 /// Weights for `frame_system_extensions` using the Substrate node and recommended hardware.

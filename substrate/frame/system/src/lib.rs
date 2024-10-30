@@ -1044,6 +1044,7 @@ pub mod pallet {
 	/// Logic doing some post dispatch weight reduction must update this storage to avoid duplicate
 	/// reduction.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub type ExtrinsicWeightReclaimed<T: Config> = StorageValue<_, Weight, ValueQuery>;
 
 	#[derive(frame_support::DefaultNoBound)]
