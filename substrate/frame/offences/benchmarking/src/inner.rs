@@ -243,7 +243,9 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn report_offence_babe(n: Linear<0, { MAX_NOMINATORS.min(MaxNominationsOf::<T>::get()) }>) -> Result<(), BenchmarkError> {
+	fn report_offence_babe(
+		n: Linear<0, { MAX_NOMINATORS.min(MaxNominationsOf::<T>::get()) }>,
+	) -> Result<(), BenchmarkError> {
 		// for babe equivocation reports the number of reporters
 		// and offenders is always 1
 		let reporters = vec![account("reporter", 1, SEED)];
