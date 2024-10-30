@@ -31,9 +31,8 @@ fn init_tracing() {
 		.expect("failed to initialize tracing");
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
 	init_tracing();
 	let cmd = cli::CliCommand::parse();
-	cli::run(cmd).await
+	cli::run(cmd)
 }

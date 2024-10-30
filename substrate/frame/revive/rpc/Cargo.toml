@@ -57,10 +57,9 @@ sp-core = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
-
-tower.workspace = true
-tower-http = { workspace = true, features = ["full"] }
-hyper.workspace = true
+sc-cli = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 
 rlp = { workspace = true, optional = true }
 subxt-signer = { workspace = true, optional = true, features = [
@@ -73,7 +72,6 @@ secp256k1 = { workspace = true, optional = true, features = ["recovery"] }
 env_logger = { workspace = true }
 
 [features]
-dev = []
 example = ["hex", "hex-literal", "rlp", "secp256k1", "subxt-signer"]
 riscv = ["pallet-revive/riscv"]
 
