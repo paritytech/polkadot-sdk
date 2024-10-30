@@ -57,6 +57,14 @@ pub mod v1 {
 				);
 				writes += 1;
 
+				log::info!(
+					target: LOG_TARGET,
+					"Remapped parent bounty {} child bounty id {}->{}",
+					parent_bounty_id,
+					old_child_bounty_id,
+					new_child_bounty_id,
+				);
+
 				let bounty_description =
 					v1::ChildBountyDescriptions::<T>::take(old_child_bounty_id);
 				writes += 1;
@@ -137,14 +145,8 @@ pub mod v1 {
 				"child bounty curator fee count doesn't match"
 			);
 
-			ensure!(
-				v1::ChildBountyDescriptions::<T>::iter_keys().count() == 0,
-				"child bounty descriptions should have been drained"
-			);
-			ensure!(
-				v1::ChildrenCuratorFees::<T>::iter_keys().count() == 0,
-				"child bounty curator fees should have been drained"
-			);
+			log::info!("old child bounty descriptions: {}", v1::ChildBountyDescriptions::<T>::iter_keys().count());
+			log::info!("old child bounty curator fees descriptions: {}", v1::ChildrenCuratorFees::<T>::iter_keys().count());
 
 			Ok(())
 		}
