@@ -290,7 +290,7 @@ where
 		// transfer amount must be greater than 0.
 		ensure!(amount > 0, ZeroAssetTransfer);
 
-		// Check if there is a SetTopic and skip over it if found.
+		// Check if there is a SetTopic.
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
 		Ok((
@@ -398,7 +398,7 @@ where
 
 		ensure!(asset_id == expected_asset_id, InvalidAsset);
 
-		// Check if there is a SetTopic and skip over it if found.
+		// Check if there is a SetTopic.
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
 		Ok((Command::MintForeignToken { token_id, recipient, amount }, *topic_id))

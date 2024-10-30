@@ -215,8 +215,9 @@ where
 
 	fn convert(&mut self) -> Result<Message, XcmConverterError> {
 		let result = match self.jump_to() {
+			// PNA
 			Ok(ReserveAssetDeposited { .. }) => self.send_native_tokens_message(),
-			// Get withdraw/deposit and make native tokens create message.
+			// ENA
 			Ok(WithdrawAsset { .. }) => self.send_tokens_message(),
 			Err(e) => Err(e),
 			_ => return Err(XcmConverterError::UnexpectedInstruction),
@@ -230,17 +231,18 @@ where
 		Ok(result)
 	}
 
-	/// Convert the xcm for Ethereum-native token from AH into the Command
-	/// To match transfers of Ethereum-native tokens, we expect an input of the form:
+	/// Convert the xcm for Ethereum-native token from AH into the Message which will be executed
+	/// on Ethereum Gateway contract, we expect an input of the form:
 	/// # WithdrawAsset(WETH_FEE)
 	/// # PayFees(WETH_FEE)
-	/// # WithdrawAsset(WETH)
-	/// # AliasOrigin(origin)
-	/// # DepositAsset(WETH)
+	/// # WithdrawAsset(ENA)
+	/// # AliasOrigin(Origin)
+	/// # DepositAsset(ENA)
 	/// # SetTopic
 	fn send_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
 
+		// Get fee amount
 		let fee_amount = self.extract_remote_fee()?;
 
 		// Get the reserve assets from WithdrawAsset.
@@ -282,6 +284,7 @@ where
 		ensure!(reserve_assets.len() == 1, TooManyAssets);
 		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
 
+		// only fungible asset is allowed
 		let (token, amount) = match reserve_asset {
 			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
 				match inner_location.unpack() {
@@ -296,11 +299,12 @@ where
 		// transfer amount must be greater than 0.
 		ensure!(amount > 0, ZeroAssetTransfer);
 
-		// Check if there is a SetTopic and skip over it if found.
+		// ensure SetTopic exists
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
 		let message = Message {
 			id: (*topic_id).into(),
+			// Todo: Use DescribeLocation
 			origin: BlakeTwo256::hash_of(origin),
 			fee: fee_amount,
 			commands: BoundedVec::try_from(vec![Command::UnlockNativeToken {
@@ -327,17 +331,18 @@ where
 		}
 	}
 
-	/// Convert the xcm for Polkadot-native token from AH into the Command
-	/// To match transfers of Polkadot-native tokens, we expect an input of the form:
+	/// Convert the xcm for Polkadot-native token from AH into the Message which will be executed
+	/// on Ethereum Gateway contract, we expect an input of the form:
 	/// # WithdrawAsset(WETH)
 	/// # PayFees(WETH)
-	/// # ReserveAssetDeposited(DOT)
-	/// # AliasOrigin(origin)
-	/// # DepositAsset(DOT)
+	/// # ReserveAssetDeposited(PNA)
+	/// # AliasOrigin(Origin)
+	/// # DepositAsset(PNA)
 	/// # SetTopic
 	fn send_native_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
 
+		// Get fee amount
 		let fee_amount = self.extract_remote_fee()?;
 
 		// Get the reserve assets.
@@ -379,6 +384,7 @@ where
 		ensure!(reserve_assets.len() == 1, TooManyAssets);
 		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
 
+		// only fungible asset is allowed
 		let (asset_id, amount) = match reserve_asset {
 			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
 				Some((inner_location.clone(), *amount)),
@@ -389,13 +395,12 @@ where
 		// transfer amount must be greater than 0.
 		ensure!(amount > 0, ZeroAssetTransfer);
 
+		// Ensure PNA already registered
 		let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
-
 		let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
-
 		ensure!(asset_id == expected_asset_id, InvalidAsset);
 
-		// Check if there is a SetTopic and skip over it if found.
+		// ensure SetTopic exists
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
 		let message = Message {
@@ -413,7 +418,7 @@ where
 		Ok(message)
 	}
 
-	/// Skip fee instructions and jump to the primary instruction
+	/// Skip fee instructions and jump to the primary asset instruction
 	fn jump_to(&mut self) -> Result<&Instruction<Call>, XcmConverterError> {
 		ensure!(self.message.len() > 3, XcmConverterError::UnexpectedEndOfXcm);
 		self.message.get(2).ok_or(XcmConverterError::UnexpectedEndOfXcm)
@@ -422,7 +427,6 @@ where
 	/// Extract the fee asset item from PayFees(V5)
 	fn extract_remote_fee(&mut self) -> Result<u128, XcmConverterError> {
 		use XcmConverterError::*;
-		// Extract the fee asset item from PayFees(V5)
 		let _ = match_expression!(self.next()?, WithdrawAsset(fee), fee)
 			.ok_or(WithdrawAssetExpected)?;
 		let fee_asset =
