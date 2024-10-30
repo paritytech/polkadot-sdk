@@ -11,7 +11,7 @@ doc:
 
 crates:
   - name: sc-chain-spec
-    bump: none
+    bump: minor
   - name: polkadot-service
     bump: major
   - name: frame-benchmarking-cli
@@ -19,15 +19,15 @@ crates:
   - name: cumulus-client-parachain-inherent
     bump: patch
   - name: polkadot-cli
-    bump: none
-  - name: polkadot-omni-node-lib
-    bump: none
-  - name: polkadot-omni-node
-    bump: none
-  - name: polkadot-parachain-bin
-    bump: none
-  - name: polkadot
-    bump: none
-  - name: frame-omni-bencher
     bump: patch
+  - name: polkadot-omni-node-lib
+    bump: patch
+  - name: polkadot-omni-node
+    bump: patch
+  - name: polkadot-parachain-bin
+    bump: patch
+  - name: polkadot
+    bump: patch
+  - name: frame-omni-bencher
+    bump: minor
 
