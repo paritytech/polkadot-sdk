@@ -149,7 +149,7 @@ impl<Context> CandidateValidationSubsystem {
 	}
 }
 
-// Reteurns the claim queue at relay parent and logs a warning if it is not available.
+// Returns the claim queue at relay parent and logs a warning if it is not available.
 async fn claim_queue<Sender>(relay_parent: Hash, sender: &mut Sender) -> Option<ClaimQueueSnapshot>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -814,7 +814,7 @@ async fn validate_candidate_exhaustive(
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
-				let ccr = CommittedCandidateReceipt {
+				let committed_candidate_receipt = CommittedCandidateReceipt {
 					descriptor: candidate_receipt.descriptor.clone(),
 					commitments: CandidateCommitments {
 						head_data: res.head_data,
@@ -826,7 +826,9 @@ async fn validate_candidate_exhaustive(
 					},
 				};
 
-				if candidate_receipt.commitments_hash != ccr.commitments.hash() {
+				if candidate_receipt.commitments_hash !=
+					committed_candidate_receipt.commitments.hash()
+				{
 					gum::info!(
 						target: LOG_TARGET,
 						?para_id,
@@ -857,8 +859,8 @@ async fn validate_candidate_exhaustive(
 								return Err(ValidationFailed(error.into()))
 							};
 
-							if let Err(err) =
-								ccr.check_core_index(&transpose_claim_queue(claim_queue.0))
+							if let Err(err) = committed_candidate_receipt
+								.check_core_index(&transpose_claim_queue(claim_queue.0))
 							{
 								gum::warn!(
 									target: LOG_TARGET,
@@ -876,7 +878,7 @@ async fn validate_candidate_exhaustive(
 					}
 
 					Ok(ValidationResult::Valid(
-						ccr.commitments,
+						committed_candidate_receipt.commitments,
 						(*persisted_validation_data).clone(),
 					))
 				}
