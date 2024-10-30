@@ -292,6 +292,9 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 	fn set_asset_claimer(_location: &Location) -> Weight {
 		XcmGeneric::<Runtime>::set_asset_claimer()
 	}
+	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
+		XcmGeneric::<Runtime>::execute_with_origin()
+	}
 }
 
 #[test]

@@ -1110,6 +1110,28 @@ pub enum Instruction<Call> {
 		assets: Vec<AssetTransferFilter>,
 		remote_xcm: Xcm<()>,
 	},
+
+	/// Executes an inner set of instructions with one origin.
+	///
+	/// Parameters:
+	/// - `origin`: The origin that will be used during the execution of the inner `xcm`.
+	///   If set to `None`, it acts in the same way as `ClearOrigin` and runs the inner xcm
+	///   with no origin.
+	///   If set to `Some(o)`, it acts in the same way as `DescendOrigin(o)` and runs the
+	///   inner xcm with `o` as origin.
+	/// - `xcm`: Inner instructions that will be executed with the origin modified according
+	///   to `origin`.
+	///
+	/// Safety: No concerns.
+	///
+	/// Kind: *Command*
+	///
+	/// Errors:
+	/// - `BadOrigin`
+	ExecuteWithOrigin {
+		origin: Option<InteriorLocation>,
+		xcm: Xcm<Call>,
+	},
 }
 
 impl<Call> Xcm<Call> {
@@ -1191,6 +1213,7 @@ impl<Call> Instruction<Call> {
 			PayFees { asset } => PayFees { asset },
 			InitiateTransfer { destination, remote_fees, assets, remote_xcm } =>
 				InitiateTransfer { destination, remote_fees, assets, remote_xcm },
+			ExecuteWithOrigin { origin, xcm } => ExecuteWithOrigin { origin, xcm: xcm.into() },
 		}
 	}
 }
@@ -1264,6 +1287,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			PayFees { asset } => W::pay_fees(asset),
 			InitiateTransfer { destination, remote_fees, assets, remote_xcm } =>
 				W::initiate_transfer(destination, remote_fees, assets, remote_xcm),
+			ExecuteWithOrigin { origin, xcm } => W::execute_with_origin(origin, xcm),
 		}
 	}
 }

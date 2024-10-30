@@ -301,7 +301,7 @@ impl<Config: config::Config> XcmAssetTransfers for XcmExecutor<Config> {
 	type AssetTransactor = Config::AssetTransactor;
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ExecutorError {
 	pub index: u32,
 	pub xcm_error: XcmError,
@@ -1042,18 +1042,26 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				);
 				Ok(())
 			},
-			DescendOrigin(who) => self
-				.context
-				.origin
-				.as_mut()
-				.ok_or(XcmError::BadOrigin)?
-				.append_with(who)
-				.map_err(|e| {
-					tracing::error!(target: "xcm::process_instruction::descend_origin", ?e, "Failed to append junctions");
-					XcmError::LocationFull
-				}),
-			ClearOrigin => {
-				self.context.origin = None;
+			DescendOrigin(who) => self.do_descend_origin(who),
+			ClearOrigin => self.do_clear_origin(),
+			ExecuteWithOrigin { origin, xcm } => {
+				let previous_origin = self.context.origin.clone();
+
+				// Set new temporary origin.
+				if let Some(who) = origin {
+					self.do_descend_origin(who)?;
+				} else {
+					self.do_clear_origin()?;
+				}
+				// Process instructions.
+				self.process(xcm).map_err(|error| {
+					tracing::error!(target: "xcm::execute", ?error, origin = ?self.context.origin, "ExecuteWithOrigin inner xcm failure");
+					self.context.origin = previous_origin.clone();
+					error.xcm_error
+				})?;
+				// Reset origin to previous one.
+				self.context.origin = previous_origin;
+
 				Ok(())
 			},
 			ReportError(response_info) => {
@@ -1614,6 +1622,24 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient)
 				}),
 		}
+	}
+
+	fn do_descend_origin(&mut self, who: InteriorLocation) -> XcmResult {
+		self
+			.context
+			.origin
+			.as_mut()
+			.ok_or(XcmError::BadOrigin)?
+			.append_with(who)
+			.map_err(|e| {
+				tracing::error!(target: "xcm::process_instruction::descend_origin", ?e, "Failed to append junctions");
+				XcmError::LocationFull
+			})
+	}
+
+	fn do_clear_origin(&mut self) -> XcmResult {
+		self.context.origin = None;
+		Ok(())
 	}
 
 	/// Deposit `to_deposit` assets to `beneficiary`, without giving up on the first (transient)

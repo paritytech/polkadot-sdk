@@ -183,6 +183,12 @@ pub type Barrier = TrailingSetTopicAsId<(
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
 
+pub type Weigher = WeightInfoBounds<
+	crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
+	RuntimeCall,
+	MaxInstructions,
+>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -193,11 +199,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = Weigher;
 	type Trader =
 		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToAuthor<Runtime>>;
 	type ResponseHandler = XcmPallet;

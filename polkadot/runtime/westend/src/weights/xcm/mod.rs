@@ -18,6 +18,7 @@ mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
 use crate::Runtime;
+use crate::xcm_config::Weigher;
 use alloc::vec::Vec;
 use frame_support::weights::Weight;
 use xcm::{
@@ -296,6 +297,9 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	}
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()
+	}
+	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<RuntimeCall>) -> Weight {
+		XcmGeneric::<Runtime>::execute_with_origin()
 	}
 }
 
