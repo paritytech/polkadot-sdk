@@ -27,6 +27,7 @@ use crate::{
 	overhead::{
 		command::ChainType::{Parachain, Relaychain, Unknown},
 		fake_runtime_api,
+		remark_builder::SubstrateRemarkBuilder,
 		template::TemplateData,
 	},
 	shared::{
