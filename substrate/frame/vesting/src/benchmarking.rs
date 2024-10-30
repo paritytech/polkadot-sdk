@@ -437,7 +437,7 @@ mod benchmarks {
 
 	impl_benchmark_test_suite! {
 		Pallet,
-		crate::mock::ExtBuilder::default().existential_deposit(256).build(),
-		crate::mock::Test
+		mock::ExtBuilder::default().existential_deposit(256).build(),
+		mock::Test
 	}
 }
