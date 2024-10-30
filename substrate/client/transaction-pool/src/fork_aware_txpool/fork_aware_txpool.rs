@@ -53,7 +53,7 @@ use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Extrinsic, NumberFor},
+	traits::{Block as BlockT, NumberFor},
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -599,7 +599,7 @@ where
 		log::debug!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.active_views_count());
 		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
-		let mempool_result = self.mempool.extend_unwatched(source, xts.clone());
+		let mempool_result = self.mempool.extend_unwatched(source, &xts);
 
 		if view_store.is_empty() {
 			return future::ready(Ok(mempool_result)).boxed()
@@ -838,16 +838,16 @@ where
 	fn submit_local(
 		&self,
 		_at: Block::Hash,
-		_xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
+		xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
-		//todo [#5493]
-		//looks like view_store / view needs non async submit_local method ?.
-		let e = Err(sc_transaction_pool_api::error::Error::Unactionable.into());
-		log::warn!(
-			target: LOG_TARGET,
-			"LocalTransactionPool::submit_local is not implemented for ForkAwareTxPool, returning error: {e:?}",
-		);
-		e
+		log::debug!(target: LOG_TARGET, "fatp::submit_local views:{}", self.active_views_count());
+		let xt = Arc::from(xt);
+		let result = self
+			.mempool
+			.extend_unwatched(TransactionSource::Local, &[xt.clone()])
+			.remove(0)?;
+
+		self.view_store.submit_local(xt).or_else(|_| Ok(result))
 	}
 }
 
@@ -1194,8 +1194,7 @@ where
 						None
 					})
 					.unwrap_or_default()
-					.into_iter()
-					.filter(|tx| tx.is_signed().unwrap_or(true));
+					.into_iter();
 
 				let mut resubmitted_to_report = 0;
 
