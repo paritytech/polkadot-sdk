@@ -170,6 +170,33 @@ fn make_offenders<T: Config>(
 	Ok(id_tuples)
 }
 
+#[cfg(test)]
+fn assert_all_slashes_applied<T>(offender_count: usize)
+where
+	T: Config,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_staking::Event<T>>,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_balances::Event<T>>,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_offences::Event>,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<frame_system::Event<T>>,
+{
+	// make sure that all slashes have been applied
+	// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter +
+	// reporter account endowed + some funds rescinded from issuance.
+	assert_eq!(
+		System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(),
+		2 * (offender_count + 1) + 3
+	);
+	// (n nominators + one validator) * slashed + Slash Reported
+	assert_eq!(
+		System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
+		1 * (offender_count + 1) + 1
+	);
+	// offence
+	assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
+	// reporter new account
+	assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
+}
+
 #[benchmarks(
 	where
 		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_staking::Event<T>>,
@@ -209,23 +236,7 @@ mod benchmarks {
 
 		#[cfg(test)]
 		{
-			// make sure that all slashes have been applied
-			// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter +
-			// reporter account endowed + some funds rescinded from issuance.
-			assert_eq!(
-				System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(),
-				2 * (n + 1) as usize + 3
-			);
-			// (n nominators + one validator) * slashed + Slash Reported
-			assert_eq!(
-				System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
-				1 * (n + 1) as usize + 1
-			);
-			// offence
-			assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
-			// reporter new account
-			assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
-
+			assert_all_slashes_applied::<T>(n as usize);
 		}
 
 		Ok(())
@@ -257,22 +268,7 @@ mod benchmarks {
 		}
 		#[cfg(test)]
 		{
-			// make sure that all slashes have been applied
-			// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter +
-			// reporter account endowed + some funds rescinded from issuance.
-			assert_eq!(
-				System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(),
-				2 * (n + 1) as usize + 3
-			);
-			// (n nominators + one validator) * slashed + Slash Reported
-			assert_eq!(
-				System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
-				1 * (n + 1) as usize + 1
-			);
-			// offence
-			assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
-			// reporter new account
-			assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
+			assert_all_slashes_applied::<T>(n as usize);
 		}
 
 		Ok(())
