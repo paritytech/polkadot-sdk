@@ -51,11 +51,18 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 #[tokio::test]
 async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	// Start the node.
-	let _ = thread::spawn(move || match start_node_inline(vec!["--dev", "--rpc-port=45789"]) {
-		Ok(_) => {},
-		Err(e) => {
-			panic!("Node exited with error: {}", e);
-		},
+	let _ = thread::spawn(move || {
+		match start_node_inline(vec![
+			"--dev",
+			"--rpc-port=45789",
+			"--no-telemetry",
+			"--no-prometheus",
+		]) {
+			Ok(_) => {},
+			Err(e) => {
+				panic!("Node exited with error: {}", e);
+			},
+		}
 	});
 
 	// Start the rpc server.
@@ -63,6 +70,7 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 		"--dev",
 		"--rpc-port=45788",
 		"--node-rpc-url=ws://localhost:45789",
+		"--no-prometheus",
 	]);
 	let _ = thread::spawn(move || match cli::run(args) {
 		Ok(_) => {},
