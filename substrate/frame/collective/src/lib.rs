@@ -1080,7 +1080,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		// Only allow actual closing of the proposal after the voting period has ended.
-		ensure!(T::BlockNumberProvider::current_block_number() >= voting.end, Error::<T, I>::TooEarly);
+		ensure!(
+			T::BlockNumberProvider::current_block_number() >= voting.end,
+			Error::<T, I>::TooEarly
+		);
 
 		let prime_vote = Prime::<T, I>::get().map(|who| voting.ayes.iter().any(|a| a == &who));
 
