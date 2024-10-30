@@ -542,7 +542,7 @@ pub mod pallet {
 			}
 
 			Self::deposit_event(Event::SubIdentitiesSet {
-				main: sender.clone(),
+				main: sender,
 				number_of_subs: new_subs as u32,
 				new_deposit,
 			});
@@ -957,7 +957,7 @@ pub mod pallet {
 			let sub = T::Lookup::lookup(sub)?;
 			ensure!(IdentityOf::<T>::contains_key(&sender), Error::<T>::NoIdentity);
 			ensure!(SuperOf::<T>::get(&sub).map_or(false, |x| x.0 == sender), Error::<T>::NotOwned);
-			SuperOf::<T>::insert(&sub, (sender.clone(), data));
+			SuperOf::<T>::insert(&sub, (&sender, data));
 
 			Self::deposit_event(Event::SubIdentityRenamed { main: sender, sub });
 			Ok(())
