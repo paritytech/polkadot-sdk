@@ -294,6 +294,9 @@ pub trait Ext: sealing::Sealed {
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
 
+	/// Returns the code size of the contract at the given `address` or zero.
+	fn code_size(&self, address: &H160) -> U256;
+
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
 
@@ -1567,6 +1570,13 @@ where
 				}
 				H256::zero()
 			})
+	}
+
+	fn code_size(&self, address: &H160) -> U256 {
+		<ContractInfoOf<T>>::get(&address)
+			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
+			.map(|info| info.code_len())
+			.unwrap_or_default()
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
