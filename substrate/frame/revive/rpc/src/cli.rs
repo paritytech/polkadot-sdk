@@ -115,10 +115,10 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		let fut = Client::from_url(&node_rpc_url, &spawn_handle).fuse();
 		pin_mut!(fut);
 
-		return match tokio_handle.block_on(signals.try_until_signal(fut)) {
+		match tokio_handle.block_on(signals.try_until_signal(fut)) {
 			Ok(Ok(client)) => rpc_module(is_dev, client),
-			Ok(Err(_)) | Err(_) =>
-				return Err(sc_service::Error::Application("Client connection interrupted".into())),
+			Ok(Err(err)) => Err(sc_service::Error::Application(err.into())),
+			Err(_) => Err(sc_service::Error::Application("Client connection interrupted".into())),
 		}
 	};
 
