@@ -53,6 +53,7 @@ pub struct CliCommand {
 }
 
 /// Initialize the logger
+#[cfg(not(test))]
 fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 	let mut logger = LoggerBuilder::new(params.log_filters().join(","));
 	logger
