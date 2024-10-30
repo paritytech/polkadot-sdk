@@ -90,8 +90,7 @@ impl Signals {
 		Ok(())
 	}
 
-	/// Execute the future task until and return it's value if it
-	/// returns before the signal
+	/// Execute the future task and return it's value if it returns before the signal
 	pub async fn try_until_signal<F, T>(self, func: F) -> Result<T, ()>
 	where
 		F: Future<Output = T> + future::FusedFuture,
