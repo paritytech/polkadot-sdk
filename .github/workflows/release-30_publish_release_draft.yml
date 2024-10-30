@@ -46,19 +46,14 @@ jobs:
 
       - name: Build ${{ matrix.binary[1] }} binary
         run: |
-          if [[ "${{ matrix.binary[0] }}" == "polkadot-omni-node" ]]; then
-            cargo build --release -p ${{ matrix.binary[0] }}
-            target/release/${{ matrix.binary[1] }} --version
-          else
-            cargo build --locked --profile=production -p ${{ matrix.binary[0] }} --bin ${{ matrix.binary[1] }}
-            target/production/${{ matrix.binary[1] }} --version
-          fi
+          cargo build --locked --profile=production -p ${{ matrix.binary[0] }} --bin ${{ matrix.binary[1] }}
+          target/production/${{ matrix.binary[1] }} --version
 
       - name: Upload ${{ matrix.binary[1] }} binary
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: ${{ matrix.binary[1] }}
-          path: target/**/${{ matrix.binary[1] }}
+          path: target/production/${{ matrix.binary[1] }}
 
 
   publish-release-draft:
@@ -185,7 +180,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.publish-release-draft.outputs.asset_upload_url }}
-          asset_path:  ${{ github.workspace}}/**/${{ matrix.binary }}
+          asset_path:  ${{ github.workspace}}/${{ matrix.binary }}
           asset_name:  ${{ matrix.binary }}
           asset_content_type: application/octet-stream
 
