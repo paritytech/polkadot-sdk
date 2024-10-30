@@ -73,6 +73,9 @@ const LOG_TARGET: &str = "sub-authority-discovery";
 /// Maximum number of addresses cached per authority. Additional addresses are discarded.
 const MAX_ADDRESSES_PER_AUTHORITY: usize = 10;
 
+/// Maximum number of global listen addresses published by the node.
+const MAX_GLOBAL_LISTEN_ADDRESSES: usize = 4;
+
 /// Maximum number of in-flight DHT lookups at any given point in time.
 const MAX_IN_FLIGHT_LOOKUPS: usize = 8;
 
@@ -376,10 +379,59 @@ where
 	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
 		let local_peer_id = self.network.local_peer_id();
 		let publish_non_global_ips = self.publish_non_global_ips;
+
+		// Checks that the address is global.
+		let address_is_global = |address: &Multiaddr| {
+			address.iter().all(|protocol| match protocol {
+				// The `ip_network` library is used because its `is_global()` method is stable,
+				// while `is_global()` in the standard library currently isn't.
+				multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() => false,
+				multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() => false,
+				_ => true,
+			})
+		};
+
+		// Removes the `/p2p/..` from the address if it is present.
+		let address_without_p2p = |mut address: Multiaddr| {
+			if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+				if peer_id != *local_peer_id.as_ref() {
+					error!(
+						target: LOG_TARGET,
+						"Network returned external address '{address}' with peer id \
+						 not matching the local peer id '{local_peer_id}'.",
+					);
+					debug_assert!(false);
+				}
+				address.pop();
+			}
+			address
+		};
+
+		// These are the addresses the node is listening for incoming connections,
+		// as reported by installed protocols (tcp / websocket etc).
+		//
+		// We double check the address is global. In other words, we double check the node
+		// is not running behind a NAT.
+		// Note: we do this regardless of the `publish_non_global_ips` setting, since the
+		// node discovers many external addresses via the identify protocol.
+		let global_listen_addresses = self
+			.network
+			.listen_addresses()
+			.into_iter()
+			.filter_map(|address| {
+				if address_is_global(&address) {
+					Some(address_without_p2p(address))
+				} else {
+					None
+				}
+			})
+			.take(MAX_GLOBAL_LISTEN_ADDRESSES);
+
 		let addresses = self
 			.public_addresses
 			.clone()
 			.into_iter()
+			.chain(global_listen_addresses)
 			.chain(self.network.external_addresses().into_iter().filter_map(|mut address| {
 				// Make sure the reported external address does not contain `/p2p/...` protocol.
 				if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
