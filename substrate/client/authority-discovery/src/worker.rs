@@ -71,7 +71,7 @@ pub mod tests;
 const LOG_TARGET: &str = "sub-authority-discovery";
 
 /// Maximum number of addresses cached per authority. Additional addresses are discarded.
-const MAX_ADDRESSES_PER_AUTHORITY: usize = 10;
+const MAX_ADDRESSES_PER_AUTHORITY: usize = 16;
 
 /// Maximum number of global listen addresses published by the node.
 const MAX_GLOBAL_LISTEN_ADDRESSES: usize = 4;
