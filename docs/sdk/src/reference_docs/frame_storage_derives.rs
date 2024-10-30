@@ -1,6 +1,9 @@
-//! <section class="info">
-//! In all examples, a few lines of boilerplate have been hidden from each snippet for conciseness.
-//! </section>
+//! # Frame storage derives
+//!
+//! > **Note:**
+//! >
+//! > In all examples, a few lines of boilerplate have been hidden from each snippet for
+//! > conciseness.
 //!
 //! Let's begin by starting to store a `NewType` in a storage item:
 //!
@@ -134,7 +137,7 @@
 //! - [`frame::prelude::PartialOrdNoBound`]
 //! - [`frame::prelude::OrdNoBound`]
 //!
-//! The above traits are almost certainly needed for your tests: To print your type, assert equality
+//! The above traits are almost certainly needed for your tests - to print your type, assert equality
 //! or clone it.
 //!
 //! We can fix the following example by using [`frame::prelude::DefaultNoBound`].

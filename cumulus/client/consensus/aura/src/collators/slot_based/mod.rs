@@ -34,7 +34,7 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::CollectCollationInfo;
+use cumulus_primitives_core::GetCoreSelectorApi;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_primitives::{
 	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
@@ -82,8 +82,6 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub collator_key: CollatorPair,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// The length of slots in the relay chain.
-	pub relay_chain_slot_duration: Duration,
 	/// The underlying block proposer this should call into.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
@@ -113,7 +111,7 @@ where
 		+ Sync
 		+ 'static,
 	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+		AuraApi<Block, P::Public> + GetCoreSelectorApi<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -151,7 +149,6 @@ where
 		collator_service: params.collator_service,
 		authoring_duration: params.authoring_duration,
 		collator_sender: tx,
-		relay_chain_slot_duration: params.relay_chain_slot_duration,
 		slot_drift: params.slot_drift,
 	};
 

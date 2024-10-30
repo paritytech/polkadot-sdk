@@ -10,9 +10,6 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"], workspace = true }
-futures = { workspace = true }
-
 # Substrate
 sp-inherents = { workspace = true }
 sp-timestamp = { workspace = true }
@@ -23,7 +20,6 @@ cumulus-primitives-core = { workspace = true }
 [features]
 default = ["std"]
 std = [
-	"codec/std",
 	"cumulus-primitives-core/std",
 	"sp-inherents/std",
 	"sp-timestamp/std",

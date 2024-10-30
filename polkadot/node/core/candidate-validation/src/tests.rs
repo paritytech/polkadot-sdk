@@ -17,22 +17,76 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
+use crate::PvfExecKind;
 use assert_matches::assert_matches;
 use futures::executor;
 use polkadot_node_core_pvf::PrepareError;
+use polkadot_node_primitives::{BlockData, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::AllMessages;
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
-	CoreIndex, GroupIndex, HeadData, Id as ParaId, IndexedVec, SessionInfo, UpwardMessage,
-	ValidatorId, ValidatorIndex,
+	vstaging::CandidateDescriptorV2, CandidateDescriptor, CoreIndex, GroupIndex, HeadData,
+	Id as ParaId, OccupiedCoreAssumption, SessionInfo, UpwardMessage, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
 };
-use sp_core::testing::TaskExecutor;
+use sp_core::{sr25519::Public, testing::TaskExecutor};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
+
+#[derive(Debug)]
+enum AssumptionCheckOutcome {
+	Matches(PersistedValidationData, ValidationCode),
+	DoesNotMatch,
+	BadRequest,
+}
+
+async fn check_assumption_validation_data<Sender>(
+	sender: &mut Sender,
+	descriptor: &CandidateDescriptor,
+	assumption: OccupiedCoreAssumption,
+) -> AssumptionCheckOutcome
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	let validation_data = {
+		let (tx, rx) = oneshot::channel();
+		let d = runtime_api_request(
+			sender,
+			descriptor.relay_parent,
+			RuntimeApiRequest::PersistedValidationData(descriptor.para_id, assumption, tx),
+			rx,
+		)
+		.await;
+
+		match d {
+			Ok(None) | Err(RuntimeRequestFailed) => return AssumptionCheckOutcome::BadRequest,
+			Ok(Some(d)) => d,
+		}
+	};
+
+	let persisted_validation_data_hash = validation_data.hash();
+
+	if descriptor.persisted_validation_data_hash == persisted_validation_data_hash {
+		let (code_tx, code_rx) = oneshot::channel();
+		let validation_code = runtime_api_request(
+			sender,
+			descriptor.relay_parent,
+			RuntimeApiRequest::ValidationCode(descriptor.para_id, assumption, code_tx),
+			code_rx,
+		)
+		.await;
+
+		match validation_code {
+			Ok(None) | Err(RuntimeRequestFailed) => AssumptionCheckOutcome::BadRequest,
+			Ok(Some(v)) => AssumptionCheckOutcome::Matches(validation_data, v),
+		}
+	} else {
+		AssumptionCheckOutcome::DoesNotMatch
+	}
+}
 
 #[test]
 fn correctly_checks_included_assumption() {
@@ -52,7 +106,8 @@ fn correctly_checks_included_assumption() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -126,7 +181,8 @@ fn correctly_checks_timed_out_assumption() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -198,7 +254,8 @@ fn check_is_bad_request_if_no_validation_data() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -254,7 +311,8 @@ fn check_is_bad_request_if_no_validation_code() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -322,7 +380,8 @@ fn check_does_not_match() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
@@ -385,8 +444,10 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_encoded_params: Vec<u8>,
+		_pvd: Arc<PersistedValidationData>,
+		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		// This is expected to panic if called more times than expected, indicating an error in the
 		// test.
@@ -422,7 +483,8 @@ fn candidate_validation_ok_is_ok() {
 		head_data.hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -490,7 +552,8 @@ fn candidate_validation_bad_return_is_invalid() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -524,7 +587,7 @@ fn perform_basic_checks_on_valid_candidate(
 	validation_code: &ValidationCode,
 	validation_data: &PersistedValidationData,
 	head_data_hash: Hash,
-) -> CandidateDescriptor {
+) -> CandidateDescriptorV2 {
 	let descriptor = make_valid_candidate_descriptor(
 		ParaId::from(1_u32),
 		dummy_hash(),
@@ -534,7 +597,8 @@ fn perform_basic_checks_on_valid_candidate(
 		head_data_hash,
 		head_data_hash,
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -728,7 +792,8 @@ fn candidate_validation_retry_on_error_helper(
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -768,7 +833,8 @@ fn candidate_validation_timeout_is_internal_error() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -813,9 +879,11 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 			head_data.hash(),
 			dummy_hash(),
 			Sr25519Keyring::Alice,
-		),
+		)
+		.into(),
 		commitments_hash: Hash::zero(),
-	};
+	}
+	.into();
 
 	// This will result in different commitments for this candidate.
 	let validation_result = WasmValidationResult {
@@ -859,7 +927,8 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		dummy_hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let check = perform_basic_checks(
 		&descriptor,
@@ -914,7 +983,8 @@ fn compressed_code_works() {
 		head_data.hash(),
 		dummy_hash(),
 		Sr25519Keyring::Alice,
-	);
+	)
+	.into();
 
 	let validation_result = WasmValidationResult {
 		head_data,
@@ -950,115 +1020,6 @@ fn compressed_code_works() {
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));
 }
 
-#[test]
-fn code_decompression_failure_is_error() {
-	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
-	let pov = PoV { block_data: BlockData(vec![1; 32]) };
-	let head_data = HeadData(vec![1, 1, 1]);
-
-	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT + 1];
-	let validation_code =
-		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT + 1)
-			.map(ValidationCode)
-			.unwrap();
-
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		validation_code.hash(),
-		head_data.hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	);
-
-	let validation_result = WasmValidationResult {
-		head_data,
-		new_validation_code: None,
-		upward_messages: Default::default(),
-		horizontal_messages: Default::default(),
-		processed_downward_messages: 0,
-		hrmp_watermark: 0,
-	};
-
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
-
-	let pool = TaskExecutor::new();
-	let (_ctx, _ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
-		AllMessages,
-		_,
-	>(pool.clone());
-
-	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
-		validation_data,
-		validation_code,
-		candidate_receipt,
-		Arc::new(pov),
-		ExecutorParams::default(),
-		PvfExecKind::Backing,
-		&Default::default(),
-	));
-
-	assert_matches!(v, Err(_));
-}
-
-#[test]
-fn pov_decompression_failure_is_invalid() {
-	let validation_data =
-		PersistedValidationData { max_pov_size: POV_BOMB_LIMIT as u32, ..Default::default() };
-	let head_data = HeadData(vec![1, 1, 1]);
-
-	let raw_block_data = vec![2u8; POV_BOMB_LIMIT + 1];
-	let pov = sp_maybe_compressed_blob::compress(&raw_block_data, POV_BOMB_LIMIT + 1)
-		.map(|raw| PoV { block_data: BlockData(raw) })
-		.unwrap();
-
-	let validation_code = ValidationCode(vec![2; 16]);
-
-	let descriptor = make_valid_candidate_descriptor(
-		ParaId::from(1_u32),
-		dummy_hash(),
-		validation_data.hash(),
-		pov.hash(),
-		validation_code.hash(),
-		head_data.hash(),
-		dummy_hash(),
-		Sr25519Keyring::Alice,
-	);
-
-	let validation_result = WasmValidationResult {
-		head_data,
-		new_validation_code: None,
-		upward_messages: Default::default(),
-		horizontal_messages: Default::default(),
-		processed_downward_messages: 0,
-		hrmp_watermark: 0,
-	};
-
-	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
-
-	let pool = TaskExecutor::new();
-	let (_ctx, _ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
-		AllMessages,
-		_,
-	>(pool.clone());
-
-	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
-		validation_data,
-		validation_code,
-		candidate_receipt,
-		Arc::new(pov),
-		ExecutorParams::default(),
-		PvfExecKind::Backing,
-		&Default::default(),
-	));
-
-	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure)));
-}
-
 struct MockPreCheckBackend {
 	result: Result<(), PrepareError>,
 }
@@ -1075,8 +1036,10 @@ impl ValidationBackend for MockPreCheckBackend {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_encoded_params: Vec<u8>,
+		_pvd: Arc<PersistedValidationData>,
+		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
@@ -1143,70 +1106,6 @@ fn precheck_works() {
 			}
 		);
 		assert_matches!(check_result.await, PreCheckOutcome::Valid);
-	};
-
-	let test_fut = future::join(test_fut, check_fut);
-	executor::block_on(test_fut);
-}
-
-#[test]
-fn precheck_invalid_pvf_blob_compression() {
-	let relay_parent = [3; 32].into();
-
-	let raw_code = vec![2u8; VALIDATION_CODE_BOMB_LIMIT + 1];
-	let validation_code =
-		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT + 1)
-			.map(ValidationCode)
-			.unwrap();
-	let validation_code_hash = validation_code.hash();
-
-	let pool = TaskExecutor::new();
-	let (mut ctx, mut ctx_handle) = polkadot_node_subsystem_test_helpers::make_subsystem_context::<
-		AllMessages,
-		_,
-	>(pool.clone());
-
-	let (check_fut, check_result) = precheck_pvf(
-		ctx.sender(),
-		MockPreCheckBackend::with_hardcoded_result(Ok(())),
-		relay_parent,
-		validation_code_hash,
-	)
-	.remote_handle();
-
-	let test_fut = async move {
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				rp,
-				RuntimeApiRequest::ValidationCodeByHash(
-					vch,
-					tx
-				),
-			)) => {
-				assert_eq!(vch, validation_code_hash);
-				assert_eq!(rp, relay_parent);
-
-				let _ = tx.send(Ok(Some(validation_code.clone())));
-			}
-		);
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-			) => {
-				tx.send(Ok(1u32.into())).unwrap();
-			}
-		);
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(_, tx))
-			) => {
-				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
-		assert_matches!(check_result.await, PreCheckOutcome::Invalid);
 	};
 
 	let test_fut = future::join(test_fut, check_fut);
@@ -1292,8 +1191,10 @@ impl ValidationBackend for MockHeadsUp {
 		&mut self,
 		_pvf: PvfPrepData,
 		_timeout: Duration,
-		_encoded_params: Vec<u8>,
+		_pvd: Arc<PersistedValidationData>,
+		_pov: Arc<PoV>,
 		_prepare_priority: polkadot_node_core_pvf::Priority,
+		_exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		unreachable!()
 	}
@@ -1332,7 +1233,6 @@ fn dummy_active_leaves_update(hash: Hash) -> ActiveLeavesUpdate {
 			hash,
 			number: 10,
 			unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(hash),
-			span: Arc::new(overseer::jaeger::Span::Disabled),
 		}),
 		..Default::default()
 	}
@@ -1353,7 +1253,8 @@ fn dummy_candidate_backed(
 		signature: dummy_collator_signature(),
 		para_head: zeros,
 		validation_code_hash,
-	};
+	}
+	.into();
 
 	CandidateEvent::CandidateBacked(
 		CandidateReceipt { descriptor, commitments_hash: zeros },
@@ -1363,10 +1264,10 @@ fn dummy_candidate_backed(
 	)
 }
 
-fn dummy_session_info(discovery_keys: Vec<AuthorityDiscoveryId>) -> SessionInfo {
+fn dummy_session_info(keys: Vec<Public>) -> SessionInfo {
 	SessionInfo {
-		validators: IndexedVec::<ValidatorIndex, ValidatorId>::from(vec![]),
-		discovery_keys,
+		validators: keys.iter().cloned().map(Into::into).collect(),
+		discovery_keys: keys.iter().cloned().map(Into::into).collect(),
 		assignment_keys: vec![],
 		validator_groups: Default::default(),
 		n_cores: 4u32,
@@ -1415,7 +1316,7 @@ fn maybe_prepare_validation_golden_path() {
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
 			}
 		);
 
@@ -1533,7 +1434,7 @@ fn maybe_prepare_validation_resets_state_on_a_new_session() {
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 2);
-				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
 			}
 		);
 	};
@@ -1679,7 +1580,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_not_a_validator_in_the_next
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
 			}
 		);
 	};
@@ -1726,7 +1627,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_a_validator_in_the_current_
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Alice.public().into()]))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Alice.public()]))));
 			}
 		);
 	};
@@ -1773,7 +1674,7 @@ fn maybe_prepare_validation_prepares_a_limited_number_of_pvfs() {
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
 				assert_eq!(index, 1);
-				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public().into()]))));
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
 			}
 		);
 

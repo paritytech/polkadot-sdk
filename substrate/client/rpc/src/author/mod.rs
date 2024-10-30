@@ -24,14 +24,14 @@ mod tests;
 use std::sync::Arc;
 
 use crate::{
-	utils::{pipe_from_stream, spawn_subscription_task},
+	utils::{spawn_subscription_task, BoundedVecDeque, PendingSubscription},
 	SubscriptionTaskExecutor,
 };
 
 use codec::{Decode, Encode};
 use futures::TryFutureExt;
-use jsonrpsee::{core::async_trait, types::ErrorObject, PendingSubscriptionSink};
-use sc_rpc_api::DenyUnsafe;
+use jsonrpsee::{core::async_trait, types::ErrorObject, Extensions, PendingSubscriptionSink};
+use sc_rpc_api::check_if_safe;
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
 	TransactionSource, TxHash,
@@ -55,8 +55,6 @@ pub struct Author<P, Client> {
 	pool: Arc<P>,
 	/// The key store.
 	keystore: KeystorePtr,
-	/// Whether to deny unsafe calls
-	deny_unsafe: DenyUnsafe,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 }
@@ -67,10 +65,9 @@ impl<P, Client> Author<P, Client> {
 		client: Arc<Client>,
 		pool: Arc<P>,
 		keystore: KeystorePtr,
-		deny_unsafe: DenyUnsafe,
 		executor: SubscriptionTaskExecutor,
 	) -> Self {
-		Author { client, pool, keystore, deny_unsafe, executor }
+		Author { client, pool, keystore, executor }
 	}
 }
 
@@ -104,8 +101,14 @@ where
 		})
 	}
 
-	fn insert_key(&self, key_type: String, suri: String, public: Bytes) -> Result<()> {
-		self.deny_unsafe.check_if_safe()?;
+	fn insert_key(
+		&self,
+		ext: &Extensions,
+		key_type: String,
+		suri: String,
+		public: Bytes,
+	) -> Result<()> {
+		check_if_safe(ext)?;
 
 		let key_type = key_type.as_str().try_into().map_err(|_| Error::BadKeyType)?;
 		self.keystore
@@ -114,8 +117,8 @@ where
 		Ok(())
 	}
 
-	fn rotate_keys(&self) -> Result<Bytes> {
-		self.deny_unsafe.check_if_safe()?;
+	fn rotate_keys(&self, ext: &Extensions) -> Result<Bytes> {
+		check_if_safe(ext)?;
 
 		let best_block_hash = self.client.info().best_hash;
 		let mut runtime_api = self.client.runtime_api();
@@ -128,8 +131,8 @@ where
 			.map_err(|api_err| Error::Client(Box::new(api_err)).into())
 	}
 
-	fn has_session_keys(&self, session_keys: Bytes) -> Result<bool> {
-		self.deny_unsafe.check_if_safe()?;
+	fn has_session_keys(&self, ext: &Extensions, session_keys: Bytes) -> Result<bool> {
+		check_if_safe(ext)?;
 
 		let best_block_hash = self.client.info().best_hash;
 		let keys = self
@@ -142,8 +145,8 @@ where
 		Ok(self.keystore.has_keys(&keys))
 	}
 
-	fn has_key(&self, public_key: Bytes, key_type: String) -> Result<bool> {
-		self.deny_unsafe.check_if_safe()?;
+	fn has_key(&self, ext: &Extensions, public_key: Bytes, key_type: String) -> Result<bool> {
+		check_if_safe(ext)?;
 
 		let key_type = key_type.as_str().try_into().map_err(|_| Error::BadKeyType)?;
 		Ok(self.keystore.has_keys(&[(public_key.to_vec(), key_type)]))
@@ -155,9 +158,10 @@ where
 
 	fn remove_extrinsic(
 		&self,
+		ext: &Extensions,
 		bytes_or_hash: Vec<hash::ExtrinsicOrHash<TxHash<P>>>,
 	) -> Result<Vec<TxHash<P>>> {
-		self.deny_unsafe.check_if_safe()?;
+		check_if_safe(ext)?;
 		let hashes = bytes_or_hash
 			.into_iter()
 			.map(|x| match x {
@@ -202,7 +206,9 @@ where
 				},
 			};
 
-			pipe_from_stream(pending, stream).await;
+			PendingSubscription::from(pending)
+				.pipe_from_stream(stream, BoundedVecDeque::default())
+				.await;
 		};
 
 		spawn_subscription_task(&self.executor, fut);

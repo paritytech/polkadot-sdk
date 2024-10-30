@@ -30,8 +30,8 @@
 //!
 //! There are generally two ways to achieve this:
 //!
-//! 1. Tight coupling pallets
-//! 2. Loose coupling pallets
+//! 1. Tight coupling pallets.
+//! 2. Loose coupling pallets.
 //!
 //! To explain the difference between the two, consider two pallets, `A` and `B`. In both cases, `A`
 //! wants to use some functionality exposed by `B`.
@@ -74,8 +74,8 @@
 //! pallet makes its own `trait Config` be bounded by another pallet's `trait Config`, it is
 //! expressing two things:
 //!
-//! 1. that it can only exist in a runtime if the other pallet is also present.
-//! 2. that it can use the other pallet's functionality.
+//! 1. That it can only exist in a runtime if the other pallet is also present.
+//! 2. That it can use the other pallet's functionality.
 //!
 //! `pallet-foo`'s `Config` would then look like:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_config)]
@@ -110,7 +110,7 @@
 //! Crucially, when using loose coupling, we gain the flexibility of providing different
 //! implementations of `AuthorProvider`, such that different users of a `pallet-foo` can use
 //! different ones, without any code change being needed. For example, in the code snippets of this
-//! module, you can fund [`OtherAuthorProvider`] which is an alternative implementation of
+//! module, you can find [`OtherAuthorProvider`], which is an alternative implementation of
 //! [`AuthorProvider`].
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", other_author_provider)]
 //!
@@ -135,8 +135,8 @@
 //!   general, it is easier to argue about multiple pallet if they only communicate together via a
 //!   known trait, rather than having access to all of each others public items, such as storage and
 //!   dispatchables.
-//! * If a group of pallets are meant to work together, and but are not foreseen to be generalized,
-//!   or used by others, consider tightly coupling pallets, *if it simplifies the development*.
+//! * If a group of pallets is meant to work together, but is not foreseen to be generalized, or
+//!   used by others, consider tightly coupling pallets, *if it simplifies the development*.
 //! * If a pallet needs a functionality provided by another pallet, but multiple implementations can
 //!   be foreseen, consider loosely coupling pallets.
 //!

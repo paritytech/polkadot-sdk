@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "FRAME pallet for democracy"
+description = "Supporting types for try-runtime, testing and dry-running commands."
 
 [lints]
 workspace = true

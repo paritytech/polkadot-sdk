@@ -22,8 +22,11 @@
 mod tests;
 
 use futures::channel::oneshot;
-use jsonrpsee::core::{async_trait, JsonValue};
-use sc_rpc_api::DenyUnsafe;
+use jsonrpsee::{
+	core::{async_trait, JsonValue},
+	Extensions,
+};
+use sc_rpc_api::check_if_safe;
 use sc_tracing::logging;
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_runtime::traits::{self, Header as HeaderT};
@@ -35,7 +38,6 @@ pub use sc_rpc_api::system::*;
 pub struct System<B: traits::Block> {
 	info: SystemInfo,
 	send_back: TracingUnboundedSender<Request<B>>,
-	deny_unsafe: DenyUnsafe,
 }
 
 /// Request to be processed.
@@ -68,12 +70,8 @@ impl<B: traits::Block> System<B> {
 	///
 	/// The `send_back` will be used to transmit some of the requests. The user is responsible for
 	/// reading from that channel and answering the requests.
-	pub fn new(
-		info: SystemInfo,
-		send_back: TracingUnboundedSender<Request<B>>,
-		deny_unsafe: DenyUnsafe,
-	) -> Self {
-		System { info, send_back, deny_unsafe }
+	pub fn new(info: SystemInfo, send_back: TracingUnboundedSender<Request<B>>) -> Self {
+		System { info, send_back }
 	}
 }
 
@@ -119,22 +117,23 @@ impl<B: traits::Block> SystemApiServer<B::Hash, <B::Header as HeaderT>::Number> 
 
 	async fn system_peers(
 		&self,
+		ext: &Extensions,
 	) -> Result<Vec<PeerInfo<B::Hash, <B::Header as HeaderT>::Number>>, Error> {
-		self.deny_unsafe.check_if_safe()?;
+		check_if_safe(ext)?;
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::Peers(tx));
 		rx.await.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	async fn system_network_state(&self) -> Result<JsonValue, Error> {
-		self.deny_unsafe.check_if_safe()?;
+	async fn system_network_state(&self, ext: &Extensions) -> Result<JsonValue, Error> {
+		check_if_safe(ext)?;
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::NetworkState(tx));
 		rx.await.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	async fn system_add_reserved_peer(&self, peer: String) -> Result<(), Error> {
-		self.deny_unsafe.check_if_safe()?;
+	async fn system_add_reserved_peer(&self, ext: &Extensions, peer: String) -> Result<(), Error> {
+		check_if_safe(ext)?;
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::NetworkAddReservedPeer(peer, tx));
 		match rx.await {
@@ -144,8 +143,12 @@ impl<B: traits::Block> SystemApiServer<B::Hash, <B::Header as HeaderT>::Number> 
 		}
 	}
 
-	async fn system_remove_reserved_peer(&self, peer: String) -> Result<(), Error> {
-		self.deny_unsafe.check_if_safe()?;
+	async fn system_remove_reserved_peer(
+		&self,
+		ext: &Extensions,
+		peer: String,
+	) -> Result<(), Error> {
+		check_if_safe(ext)?;
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::NetworkRemoveReservedPeer(peer, tx));
 		match rx.await {
@@ -173,15 +176,15 @@ impl<B: traits::Block> SystemApiServer<B::Hash, <B::Header as HeaderT>::Number> 
 		rx.await.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	fn system_add_log_filter(&self, directives: String) -> Result<(), Error> {
-		self.deny_unsafe.check_if_safe()?;
+	fn system_add_log_filter(&self, ext: &Extensions, directives: String) -> Result<(), Error> {
+		check_if_safe(ext)?;
 
 		logging::add_directives(&directives);
 		logging::reload_filter().map_err(|e| Error::Internal(e))
 	}
 
-	fn system_reset_log_filter(&self) -> Result<(), Error> {
-		self.deny_unsafe.check_if_safe()?;
+	fn system_reset_log_filter(&self, ext: &Extensions) -> Result<(), Error> {
+		check_if_safe(ext)?;
 		logging::reset_log_filter().map_err(|e| Error::Internal(e))
 	}
 }

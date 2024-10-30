@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -48,6 +48,7 @@ use xcm_runtime_apis::{
 	conversions::{Error as LocationToAccountApiError, LocationToAccountApi},
 	dry_run::{CallDryRunEffects, DryRunApi, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
+	trusted_query::{Error as TrustedQueryApiError, TrustedQueryApi},
 };
 
 construct_runtime! {
@@ -59,9 +60,16 @@ construct_runtime! {
 	}
 }
 
-pub type SignedExtra = (frame_system::CheckWeight<TestRuntime>,);
-pub type TestXt = sp_runtime::testing::TestXt<RuntimeCall, SignedExtra>;
-type Block = sp_runtime::testing::Block<TestXt>;
+pub type TxExtension = (frame_system::CheckWeight<TestRuntime>,);
+
+// we only use the hash type from this, so using the mock should be fine.
+pub(crate) type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<
+	u64,
+	RuntimeCall,
+	sp_runtime::testing::UintAuthorityId,
+	TxExtension,
+>;
+type Block = sp_runtime::testing::Block<Extrinsic>;
 type Balance = u128;
 type AssetIdForAssetsPallet = u32;
 type AccountId = u64;
@@ -137,7 +145,6 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const NativeTokenPerSecondPerByte: (AssetId, u128, u128) = (AssetId(HereLocation::get()), 1, 1);
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Westend), Parachain(2000)].into();
-	pub static AdvertisedXcmVersion: XcmVersion = 4;
 	pub const HereLocation: Location = Location::here();
 	pub const RelayLocation: Location = Location::parent();
 	pub const MaxAssetsIntoHolding: u32 = 64;
@@ -341,7 +348,7 @@ impl pallet_xcm::Config for TestRuntime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
-	type AdvertisedXcmVersion = AdvertisedXcmVersion;
+	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type TrustedLockers = ();
 	type SovereignAccountOf = ();
@@ -414,6 +421,16 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 }
 
 sp_api::mock_impl_runtime_apis! {
+	impl TrustedQueryApi<Block> for RuntimeApi {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, TrustedQueryApiError> {
+			XcmPallet::is_trusted_reserve(asset, location)
+		}
+
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, TrustedQueryApiError> {
+			XcmPallet::is_trusted_teleporter(asset, location)
+		}
+	}
+
 	impl LocationToAccountApi<Block, AccountId> for RuntimeApi {
 		fn convert_location(location: VersionedLocation) -> Result<AccountId, LocationToAccountApiError> {
 			let location = location.try_into().map_err(|_| LocationToAccountApiError::VersionedConversionFailed)?;

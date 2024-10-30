@@ -125,7 +125,7 @@ impl pallet_xcm::Config for Runtime {
 	// No one can call `send`
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
 	type XcmRouter = super::super::network::RelayChainXcmRouter; // Provided by xcm-simulator
-															 // Anyone can execute XCM programs
+															  // Anyone can execute XCM programs
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	// We execute any type of program
 	type XcmExecuteFilter = Everything;
@@ -142,7 +142,7 @@ impl pallet_xcm::Config for Runtime {
 	type UniversalLocation = UniversalLocation;
 	// No version discovery needed
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 0;
-	type AdvertisedXcmVersion = frame::traits::ConstU32<3>;
+	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
 	// No locking
 	type TrustedLockers = ();

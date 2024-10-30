@@ -23,6 +23,7 @@ pallet-assets = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-utility = { workspace = true }
+pallet-whitelist = { workspace = true }
 
 # Polkadot
 polkadot-runtime-common = { workspace = true, default-features = true }

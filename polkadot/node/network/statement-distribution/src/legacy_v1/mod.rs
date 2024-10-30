@@ -33,14 +33,14 @@ use polkadot_node_subsystem_util::{
 };
 
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{CandidateBackingMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
-	overseer, ActivatedLeaf, PerLeafSpan, StatementDistributionSenderTrait,
+	overseer, ActivatedLeaf, StatementDistributionSenderTrait,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CommittedCandidateReceipt, CompactStatement, Hash,
-	Id as ParaId, IndexedVec, OccupiedCoreAssumption, PersistedValidationData, SignedStatement,
-	SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex, ValidatorSignature,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, AuthorityDiscoveryId,
+	CandidateHash, CompactStatement, Hash, Id as ParaId, IndexedVec, OccupiedCoreAssumption,
+	PersistedValidationData, SignedStatement, SigningContext, UncheckedSignedStatement,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use futures::{
@@ -632,15 +632,12 @@ pub(crate) struct ActiveHeadData {
 	session_index: sp_staking::SessionIndex,
 	/// How many `Seconded` statements we've seen per validator.
 	seconded_counts: HashMap<ValidatorIndex, usize>,
-	/// A Jaeger span for this head, so we can attach data to it.
-	span: PerLeafSpan,
 }
 
 impl ActiveHeadData {
 	fn new(
 		validators: IndexedVec<ValidatorIndex, ValidatorId>,
 		session_index: sp_staking::SessionIndex,
-		span: PerLeafSpan,
 	) -> Self {
 		ActiveHeadData {
 			candidates: Default::default(),
@@ -650,7 +647,6 @@ impl ActiveHeadData {
 			validators,
 			session_index,
 			seconded_counts: Default::default(),
-			span,
 		}
 	}
 
@@ -901,12 +897,6 @@ async fn circulate_statement_and_dependents<Context>(
 		None => return,
 	};
 
-	let _span = active_head
-		.span
-		.child("circulate-statement")
-		.with_candidate(statement.payload().candidate_hash())
-		.with_stage(jaeger::Stage::StatementDistribution);
-
 	let topology = topology_store
 		.get_topology_or_fallback(active_head.session_index)
 		.local_grid_neighbors();
@@ -933,12 +923,10 @@ async fn circulate_statement_and_dependents<Context>(
 		}
 	};
 
-	let _span = _span.child("send-to-peers");
 	// Now send dependent statements to all peers needing them, if any.
 	if let Some((candidate_hash, peers_needing_dependents)) = outputs {
 		for peer in peers_needing_dependents {
 			if let Some(peer_data) = peers.get_mut(&peer) {
-				let _span_loop = _span.child("to-peer").with_peer_id(&peer);
 				// defensive: the peer data should always be some because the iterator
 				// of peers is derived from the set of peers.
 				send_statements_about(
@@ -1513,11 +1501,6 @@ async fn handle_incoming_message<'a, Context>(
 
 	let fingerprint = message.get_fingerprint();
 	let candidate_hash = *fingerprint.0.candidate_hash();
-	let handle_incoming_span = active_head
-		.span
-		.child("handle-incoming")
-		.with_candidate(candidate_hash)
-		.with_peer_id(&peer);
 
 	let max_message_count = active_head.validators.len() * 2;
 
@@ -1659,7 +1642,7 @@ async fn handle_incoming_message<'a, Context>(
 	// In case of `Valid` we should have it cached prior, therefore this performs
 	// no Runtime API calls and always returns `Ok(Some(_))`.
 	let pvd = if let Statement::Seconded(receipt) = statement.payload() {
-		let para_id = receipt.descriptor.para_id;
+		let para_id = receipt.descriptor.para_id();
 		// Either call the Runtime API or check that validation data is cached.
 		let result = active_head
 			.fetch_persisted_validation_data(ctx.sender(), relay_parent, para_id)
@@ -1698,8 +1681,6 @@ async fn handle_incoming_message<'a, Context>(
 		},
 		NotedStatement::Fresh(statement) => {
 			modify_reputation(reputation, ctx.sender(), peer, BENEFIT_VALID_STATEMENT_FIRST).await;
-
-			let mut _span = handle_incoming_span.child("notify-backing");
 
 			// When we receive a new message from a peer, we forward it to the
 			// candidate backing subsystem.
@@ -2079,7 +2060,6 @@ pub(crate) async fn handle_activated_leaf<Context>(
 	activated: ActivatedLeaf,
 ) -> Result<()> {
 	let relay_parent = activated.hash;
-	let span = PerLeafSpan::new(activated.span, "statement-distribution-legacy");
 	gum::trace!(
 		target: LOG_TARGET,
 		hash = ?relay_parent,
@@ -2095,11 +2075,10 @@ pub(crate) async fn handle_activated_leaf<Context>(
 		.await?;
 	let session_info = &info.session_info;
 
-	state.active_heads.entry(relay_parent).or_insert(ActiveHeadData::new(
-		session_info.validators.clone(),
-		session_index,
-		span,
-	));
+	state
+		.active_heads
+		.entry(relay_parent)
+		.or_insert(ActiveHeadData::new(session_info.validators.clone(), session_index));
 
 	Ok(())
 }

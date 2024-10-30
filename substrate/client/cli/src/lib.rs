@@ -25,6 +25,7 @@
 #![warn(unused_imports)]
 
 use clap::{CommandFactory, FromArgMatches, Parser};
+use log::warn;
 use sc_service::Configuration;
 
 pub mod arg_enums;
@@ -242,7 +243,10 @@ pub trait SubstrateCli: Sized {
 
 		let config = command.create_configuration(self, tokio_runtime.handle().clone())?;
 
-		command.init(&Self::support_url(), &Self::impl_version(), logger_hook, &config)?;
+		command.init(&Self::support_url(), &Self::impl_version(), |logger_builder| {
+			logger_hook(logger_builder, &config)
+		})?;
+
 		Runner::new(config, tokio_runtime, signals)
 	}
 }

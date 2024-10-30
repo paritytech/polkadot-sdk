@@ -20,7 +20,7 @@ reviewed by reviewers, if the PR does NOT have the `R0-Silent` label. In case of
 
 ## Review Notes
 
-*In depth notes about the **implenentation** details of your PR. This should be the main guide for reviewers to
+*In depth notes about the **implementation** details of your PR. This should be the main guide for reviewers to
 understand your approach and effectively review it. If too long, use
 [`<details>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/details)*.
 
@@ -33,8 +33,9 @@ possibly integration.*
 # Checklist
 
 * [ ] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-* [ ] My PR follows the [labeling requirements](CONTRIBUTING.md#Process) of this project (at minimum one label for `T`
-  required)
+* [ ] My PR follows the [labeling requirements](
+https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
+) of this project (at minimum one label for `T` required)
     * External contributors: ask maintainers to put the right label on your PR.
 * [ ] I have made corresponding changes to the documentation (if applicable)
 * [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)

@@ -34,22 +34,12 @@ mod tests;
 pub mod weights;
 
 extern crate alloc;
-
 use alloc::{boxed::Box, vec};
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	dispatch::GetDispatchInfo,
-	ensure,
-	traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
+use frame::{
+	prelude::*,
+	traits::{Currency, ReservableCurrency},
 };
-use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use scale_info::TypeInfo;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
-	DispatchError, DispatchResult, RuntimeDebug,
-};
 pub use weights::WeightInfo;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
@@ -95,11 +85,9 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 	height: BlockNumber,
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
-	use super::{DispatchResult, *};
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use super::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -129,7 +117,7 @@ pub mod pallet {
 			+ Member
 			+ Ord
 			+ PartialOrd
-			+ InstanceFilter<<Self as Config>::RuntimeCall>
+			+ frame::traits::InstanceFilter<<Self as Config>::RuntimeCall>
 			+ Default
 			+ MaxEncodedLen;
 
@@ -194,7 +182,7 @@ pub mod pallet {
 			(T::WeightInfo::proxy(T::MaxProxies::get())
 				 // AccountData for inner call origin accountdata.
 				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-				.saturating_add(di.weight),
+				.saturating_add(di.call_weight),
 			di.class)
 		})]
 		pub fn proxy(
@@ -391,7 +379,7 @@ pub mod pallet {
 			let announcement = Announcement {
 				real: real.clone(),
 				call_hash,
-				height: system::Pallet::<T>::block_number(),
+				height: frame_system::Pallet::<T>::block_number(),
 			};
 
 			Announcements::<T>::try_mutate(&who, |(ref mut pending, ref mut deposit)| {
@@ -486,7 +474,7 @@ pub mod pallet {
 			(T::WeightInfo::proxy_announced(T::MaxPending::get(), T::MaxProxies::get())
 				 // AccountData for inner call origin accountdata.
 				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-				.saturating_add(di.weight),
+				.saturating_add(di.call_weight),
 			di.class)
 		})]
 		pub fn proxy_announced(
@@ -502,7 +490,7 @@ pub mod pallet {
 			let def = Self::find_proxy(&real, &delegate, force_proxy_type)?;
 
 			let call_hash = T::CallHasher::hash_of(&call);
-			let now = system::Pallet::<T>::block_number();
+			let now = frame_system::Pallet::<T>::block_number();
 			Self::edit_announcements(&delegate, |ann| {
 				ann.real != real ||
 					ann.call_hash != call_hash ||
@@ -570,7 +558,6 @@ pub mod pallet {
 	/// The set of account proxies. Maps the account which has delegated to the accounts
 	/// which are being delegated to, together with the amount held on deposit.
 	#[pallet::storage]
-	#[pallet::getter(fn proxies)]
 	pub type Proxies<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -587,7 +574,6 @@ pub mod pallet {
 
 	/// The announcements made by the proxy (key).
 	#[pallet::storage]
-	#[pallet::getter(fn announcements)]
 	pub type Announcements<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -601,6 +587,26 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Public function to proxies storage.
+	pub fn proxies(
+		account: T::AccountId,
+	) -> (
+		BoundedVec<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, T::MaxProxies>,
+		BalanceOf<T>,
+	) {
+		Proxies::<T>::get(account)
+	}
+
+	/// Public function to announcements storage.
+	pub fn announcements(
+		account: T::AccountId,
+	) -> (
+		BoundedVec<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
+		BalanceOf<T>,
+	) {
+		Announcements::<T>::get(account)
+	}
+
 	/// Calculate the address of an pure account.
 	///
 	/// - `who`: The spawner account.
@@ -620,8 +626,8 @@ impl<T: Config> Pallet<T> {
 	) -> T::AccountId {
 		let (height, ext_index) = maybe_when.unwrap_or_else(|| {
 			(
-				system::Pallet::<T>::block_number(),
-				system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
+				frame_system::Pallet::<T>::block_number(),
+				frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
 			)
 		});
 		let entropy = (b"modlpy/proxy____", who, height, ext_index, proxy_type, index)
@@ -777,6 +783,7 @@ impl<T: Config> Pallet<T> {
 		real: T::AccountId,
 		call: <T as Config>::RuntimeCall,
 	) {
+		use frame::traits::{InstanceFilter as _, OriginTrait as _};
 		// This is a freshly authenticated new account, the origin restrictions doesn't apply.
 		let mut origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(real).into();
 		origin.add_filter(move |c: &<T as frame_system::Config>::RuntimeCall| {
