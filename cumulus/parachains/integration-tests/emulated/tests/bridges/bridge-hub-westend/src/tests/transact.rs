@@ -50,7 +50,7 @@ fn transfer_and_transact_in_same_xcm(
 	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
 	// xcm to be executed at dest
 	let xcm_on_dest = Xcm(vec![
-		Transact { origin_kind: OriginKind::Xcm, require_weight_at_most, call },
+		Transact { origin_kind: OriginKind::Xcm, call },
 		ExpectTransactStatus(MaybeErrorCode::Success),
 		// since this is the last hop, we don't need to further use any assets previously
 		// reserved for fees (there are no further hops to cover transport fees for); we

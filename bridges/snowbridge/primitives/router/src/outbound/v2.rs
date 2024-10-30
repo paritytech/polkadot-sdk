@@ -483,7 +483,10 @@ mod tests {
 	use frame_support::parameter_types;
 	use hex_literal::hex;
 	use snowbridge_core::{
-		outbound::v2::{Fee, SendError, SendMessageFeeProvider},
+		outbound::{
+			v2::{Fee, SendError},
+			SendMessageFeeProvider,
+		},
 		AgentIdOf,
 	};
 	use sp_std::default::Default;
