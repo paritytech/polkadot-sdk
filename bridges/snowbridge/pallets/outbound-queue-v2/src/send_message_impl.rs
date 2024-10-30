@@ -8,8 +8,9 @@ use frame_support::{
 	ensure,
 	traits::{EnqueueMessage, Get},
 };
-use snowbridge_core::outbound::v2::{
-	primary_governance_origin, Message, SendError, SendMessage, SendMessageFeeProvider,
+use snowbridge_core::outbound::{
+	v2::{primary_governance_origin, Message, SendError, SendMessage},
+	SendMessageFeeProvider,
 };
 use sp_core::H256;
 use sp_runtime::BoundedVec;

@@ -5,6 +5,7 @@
 //! Common traits and types
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::RuntimeDebug;
 
 pub mod v1;
@@ -19,4 +20,12 @@ pub enum OperatingMode {
 	/// enqueuing of new messages from the Ethereum side. This can be used to close off an
 	/// deprecated channel or pause the bridge for upgrade operations.
 	RejectingOutboundMessages,
+}
+
+/// A trait for getting the local costs associated with sending a message.
+pub trait SendMessageFeeProvider {
+	type Balance: BaseArithmetic + Unsigned + Copy;
+
+	/// The local component of the message processing fees in native currency
+	fn local_fee() -> Self::Balance;
 }

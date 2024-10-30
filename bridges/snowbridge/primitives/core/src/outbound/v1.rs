@@ -2,7 +2,11 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! # Outbound V1 primitives
 
-use crate::{outbound::OperatingMode, pricing::UD60x18, ChannelId};
+use crate::{
+	outbound::{OperatingMode, SendMessageFeeProvider},
+	pricing::UD60x18,
+	ChannelId,
+};
 use codec::{Decode, Encode};
 use ethabi::Token;
 use frame_support::PalletError;
@@ -359,14 +363,6 @@ pub trait SendMessage: SendMessageFeeProvider {
 
 pub trait Ticket: Encode + Decode + Clone {
 	fn message_id(&self) -> H256;
-}
-
-/// A trait for getting the local costs associated with sending a message.
-pub trait SendMessageFeeProvider {
-	type Balance: BaseArithmetic + Unsigned + Copy;
-
-	/// The local component of the message processing fees in native currency
-	fn local_fee() -> Self::Balance;
 }
 
 /// Reasons why sending to Ethereum could not be initiated

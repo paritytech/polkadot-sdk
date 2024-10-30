@@ -202,17 +202,16 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = XcmFeeManagerFromComponents<
+	type FeeManager = XcmFeeManagerFromComponentsBridgeHub<
 		WaivedLocations,
 		(
-			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 			XcmExportFeeToSibling<
 				bp_westend::Balance,
 				AccountId,
 				WestendLocation,
 				EthereumNetwork,
 				Self::AssetTransactor,
-				crate::EthereumOutboundQueue,
+				crate::EthereumOutboundQueueV2,
 			>,
 			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 		),
