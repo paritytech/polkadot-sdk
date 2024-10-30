@@ -2,7 +2,8 @@ FROM rust AS builder
 
 RUN apt-get update && \
 		DEBIAN_FRONTEND=noninteractive apt-get install -y \
-		protobuf-compiler
+		protobuf-compiler \
+		clang libclang-dev
 
 WORKDIR /polkadot
 COPY . /polkadot
