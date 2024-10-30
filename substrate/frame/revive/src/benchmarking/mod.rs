@@ -71,6 +71,7 @@ where
 	T: Config + pallet_balances::Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Create new contract and use a default account id as instantiator.
 	fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
@@ -224,6 +225,7 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
+		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 )]
 mod benchmarks {
 	use super::*;
@@ -781,6 +783,31 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().block_number());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_block_hash() {
+		let mut memory = vec![0u8; 64];
+		let mut setup = CallSetup::<T>::default();
+		let input = setup.data();
+		let (mut ext, _) = setup.ext();
+		ext.set_block_number(BlockNumberFor::<T>::from(1u32));
+
+		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
+
+		let block_hash = H256::from([1; 32]);
+		frame_system::BlockHash::<T>::insert(
+			&BlockNumberFor::<T>::from(0u32),
+			T::Hash::from(block_hash),
+		);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_block_hash(memory.as_mut_slice(), 32, 0);
+		}
+		assert_ok!(result);
+		assert_eq!(&memory[..32], &block_hash.0);
 	}
 
 	#[benchmark(pov_mode = Measured)]

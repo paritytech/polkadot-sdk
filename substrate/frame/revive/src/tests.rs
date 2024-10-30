@@ -4624,4 +4624,29 @@ mod run_tests {
 			assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 1_100);
 		});
 	}
+
+	#[test]
+	fn block_hash_works() {
+		let (code, _) = compile_module("block_hash").unwrap();
+
+		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// The genesis config sets to the block number to 1
+			let block_hash = [1; 32];
+			frame_system::BlockHash::<Test>::insert(
+				&crate::BlockNumberFor::<Test>::from(0u32),
+				<Test as frame_system::Config>::Hash::from(&block_hash),
+			);
+			assert_ok!(builder::call(addr)
+				.data((U256::zero(), H256::from(block_hash)).encode())
+				.build());
+
+			// A block number out of range returns the zero value
+			assert_ok!(builder::call(addr).data((U256::from(1), H256::zero()).encode()).build());
+		});
+	}
 }
