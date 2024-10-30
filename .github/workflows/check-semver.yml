@@ -2,7 +2,7 @@ name: Check semver
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [ opened, synchronize, reopened, ready_for_review ]
   workflow_dispatch:
 
 concurrency:
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TOOLCHAIN: nightly-2024-06-01
+  TOOLCHAIN: stable
 
 jobs:
   preflight:
@@ -18,7 +18,7 @@ jobs:
   check-semver:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    needs: [preflight]
+    needs: [ preflight ]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
