@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
+use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
 
@@ -28,17 +28,24 @@ use crate::Pallet as Indices;
 
 const SEED: u32 = 0;
 
-benchmarks! {
-	claim {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn claim() {
 		let account_index = T::AccountIndex::from(SEED);
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-	}: _(RawOrigin::Signed(caller.clone()), account_index)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account_index);
+
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, caller);
 	}
 
-	transfer {
+	#[benchmark]
+	fn transfer() -> Result<(), BenchmarkError> {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
@@ -48,24 +55,32 @@ benchmarks! {
 		T::Currency::make_free_balance_be(&recipient, BalanceOf::<T>::max_value());
 		// Claim the index
 		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
-	}: _(RawOrigin::Signed(caller.clone()), recipient_lookup, account_index)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), recipient_lookup, account_index);
+
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, recipient);
+		Ok(())
 	}
 
-	free {
+	#[benchmark]
+	fn free() -> Result<(), BenchmarkError> {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		// Claim the index
 		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
-	}: _(RawOrigin::Signed(caller.clone()), account_index)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account_index);
+
 		assert_eq!(Accounts::<T>::get(account_index), None);
+		Ok(())
 	}
 
-	force_transfer {
+	#[benchmark]
+	fn force_transfer() -> Result<(), BenchmarkError> {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let original: T::AccountId = account("original", 0, SEED);
@@ -75,21 +90,28 @@ benchmarks! {
 		T::Currency::make_free_balance_be(&recipient, BalanceOf::<T>::max_value());
 		// Claim the index
 		Indices::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
-	}: _(RawOrigin::Root, recipient_lookup, account_index, false)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, recipient_lookup, account_index, false);
+
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, recipient);
+		Ok(())
 	}
 
-	freeze {
+	#[benchmark]
+	fn freeze() -> Result<(), BenchmarkError> {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		// Claim the index
 		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
-	}: _(RawOrigin::Signed(caller.clone()), account_index)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), account_index);
+
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().2, true);
+		Ok(())
 	}
 
 	// TODO in another PR: lookup and unlookup trait weights (not critical)
