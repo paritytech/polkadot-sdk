@@ -1046,7 +1046,7 @@ mod benchmarks {
 					RuntimeOrigin::Signed(slash_reporter.clone()).into(),
 					depositor_lookup.clone(),
 				)
-					.is_ok(),
+				.is_ok(),
 			);
 		}
 
@@ -1112,7 +1112,7 @@ mod benchmarks {
 				RuntimeOrigin::Signed(joiner.clone()).into(),
 				joiner_lookup.clone()
 			)
-				.is_err());
+			.is_err());
 		}
 	}
 
@@ -1131,13 +1131,13 @@ mod benchmarks {
 					RuntimeOrigin::Signed(depositor.clone()).into(),
 					1u32.into(),
 				)
-					.is_ok(),
+				.is_ok(),
 			);
 		}
 		// this queries agent balance if `DelegateStake` strategy.
-		assert!(
-			T::StakeAdapter::total_balance(Pool::from(pool_account.clone())) ==
-				Some(deposit_amount)
+		assert_eq!(
+			T::StakeAdapter::total_balance(Pool::from(pool_account.clone())),
+			Some(deposit_amount)
 		);
 	}
 
@@ -1176,7 +1176,7 @@ mod benchmarks {
 					RuntimeOrigin::Signed(depositor.clone()).into(),
 					depositor_lookup.clone(),
 				)
-					.is_ok(),
+				.is_ok(),
 			);
 		}
 		// verify balances once more.
