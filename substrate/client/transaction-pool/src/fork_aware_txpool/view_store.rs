@@ -438,27 +438,44 @@ where
 		let finalized_xts = self.finalize_route(finalized_hash, tree_route).await;
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 
+		let mut dropped_views = vec![];
 		//clean up older then finalized
 		{
 			let mut active_views = self.active_views.write();
-			active_views.retain(|hash, v| match finalized_number {
-				Err(_) | Ok(None) => *hash == finalized_hash,
-				Ok(Some(n)) if v.at.number == n => *hash == finalized_hash,
-				Ok(Some(n)) => v.at.number > n,
+			active_views.retain(|hash, v| {
+				let retain = match finalized_number {
+					Err(_) | Ok(None) => *hash == finalized_hash,
+					Ok(Some(n)) if v.at.number == n => *hash == finalized_hash,
+					Ok(Some(n)) => v.at.number > n,
+				};
+				if !retain {
+					dropped_views.push(*hash);
+				}
+				retain
 			});
 		}
 
 		{
 			let mut inactive_views = self.inactive_views.write();
-			inactive_views.retain(|_, v| match finalized_number {
-				Err(_) | Ok(None) => false,
-				Ok(Some(n)) => v.at.number >= n,
+			inactive_views.retain(|hash, v| {
+				let retain = match finalized_number {
+					Err(_) | Ok(None) => false,
+					Ok(Some(n)) => v.at.number >= n,
+				};
+				if !retain {
+					dropped_views.push(*hash);
+				}
+				retain
 			});
 
 			log::trace!(target:LOG_TARGET,"handle_finalized: inactive_views: {:?}", inactive_views.keys());
 		}
 
 		self.listener.remove_view(finalized_hash);
+		for view in dropped_views {
+			self.listener.remove_view(view);
+			self.dropped_stream_controller.remove_view(view);
+		}
 		self.listener.remove_stale_controllers();
 		self.dropped_stream_controller.remove_finalized_txs(finalized_xts.clone());
 

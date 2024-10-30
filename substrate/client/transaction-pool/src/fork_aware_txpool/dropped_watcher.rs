@@ -142,12 +142,7 @@ where
 					self.transaction_states.entry(tx_hash)
 				{
 					views_keeping_tx_valid.get_mut().remove(&block_hash);
-					if views_keeping_tx_valid.get().is_empty() ||
-						views_keeping_tx_valid
-							.get()
-							.iter()
-							.all(|h| !self.stream_map.contains_key(h))
-					{
+					if views_keeping_tx_valid.get().is_empty() {
 						return Some(tx_hash)
 					}
 				} else {
@@ -373,6 +368,7 @@ mod dropped_watcher_tests {
 
 		watcher.add_view(block_hash0, view_stream0);
 		assert!(output_stream.next().now_or_never().is_none());
+		watcher.remove_view(block_hash0);
 
 		watcher.add_view(block_hash1, view_stream1);
 		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
