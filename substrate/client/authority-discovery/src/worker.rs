@@ -76,6 +76,9 @@ const MAX_ADDRESSES_PER_AUTHORITY: usize = 10;
 /// Maximum number of global listen addresses published by the node.
 const MAX_GLOBAL_LISTEN_ADDRESSES: usize = 4;
 
+/// Maximum number of addresses to publish in a single record.
+const MAX_ADDRESSES_TO_PUBLISH: usize = 32;
+
 /// Maximum number of in-flight DHT lookups at any given point in time.
 const MAX_IN_FLIGHT_LOOKUPS: usize = 8;
 
@@ -421,6 +424,7 @@ where
 			.chain(external_addresses)
 			// Deduplicate addresses.
 			.filter(|address| seen_addresses.insert(address.clone()))
+			.take(MAX_ADDRESSES_TO_PUBLISH)
 			.collect::<Vec<_>>();
 
 		if !addresses.is_empty() {
