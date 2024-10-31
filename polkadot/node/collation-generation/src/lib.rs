@@ -44,9 +44,9 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	request_persisted_validation_data, request_session_index_for_child,
+	request_claim_queue, request_persisted_validation_data, request_session_index_for_child,
 	request_validation_code_hash, request_validators,
-	runtime::{fetch_claim_queue, request_node_features},
+	runtime::{request_node_features, ClaimQueueSnapshot},
 };
 use polkadot_primitives::{
 	collator_signature_payload,
@@ -213,10 +213,7 @@ impl CollationGenerationSubsystem {
 
 		validation_data.parent_head = parent_head;
 
-		let claim_queue = fetch_claim_queue(ctx.sender(), relay_parent)
-			.await
-			.map_err(Error::UtilRuntime)?
-			.ok_or(Error::ClaimQueueNotAvailable)?;
+		let claim_queue = request_claim_queue(relay_parent, ctx.sender()).await.await??;
 
 		let session_index =
 			request_session_index_for_child(relay_parent, ctx.sender()).await.await??;
@@ -240,7 +237,7 @@ impl CollationGenerationSubsystem {
 			result_sender,
 			&mut self.metrics,
 			session_info.v2_receipts,
-			&transpose_claim_queue(claim_queue.0),
+			&transpose_claim_queue(claim_queue),
 		)
 		.await?;
 
@@ -274,10 +271,8 @@ impl CollationGenerationSubsystem {
 		let session_info = self.session_info.get(relay_parent, session_index, ctx.sender()).await?;
 		let n_validators = session_info.n_validators;
 
-		let claim_queue = fetch_claim_queue(ctx.sender(), relay_parent)
-			.await
-			.map_err(Error::UtilRuntime)?
-			.ok_or(Error::ClaimQueueNotAvailable)?;
+		let claim_queue =
+			ClaimQueueSnapshot::from(request_claim_queue(relay_parent, ctx.sender()).await.await??);
 
 		let cores_to_build_on = claim_queue
 			.iter_claims_at_depth(0)

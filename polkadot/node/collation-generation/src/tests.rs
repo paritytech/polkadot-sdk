@@ -40,8 +40,6 @@ use std::{
 
 type VirtualOverseer = TestSubsystemContextHandle<CollationGenerationMessage>;
 
-const RUNTIME_VERSION: u32 = RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT;
-
 fn test_harness<T: Future<Output = VirtualOverseer>>(test: impl FnOnce(VirtualOverseer) -> T) {
 	let pool = sp_core::testing::TaskExecutor::new();
 	let (context, virtual_overseer) =
@@ -473,17 +471,6 @@ mod helpers {
 
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				hash,
-				RuntimeApiRequest::Version(tx),
-			)) => {
-				assert_eq!(hash, activated_hash);
-				tx.send(Ok(RUNTIME_VERSION)).unwrap();
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::ClaimQueue(tx))) => {
 				assert_eq!(hash, activated_hash);
 				tx.send(Ok(claim_queue)).unwrap();
@@ -582,16 +569,6 @@ mod helpers {
 			}
 		);
 
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				rp,
-				RuntimeApiRequest::Version(tx),
-			)) => {
-				assert_eq!(rp, relay_parent);
-				tx.send(Ok(RUNTIME_VERSION)).unwrap();
-			}
-		);
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(

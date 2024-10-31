@@ -33,8 +33,6 @@ pub enum Error {
 	Erasure(#[from] polkadot_erasure_coding::Error),
 	#[error("Collation submitted before initialization")]
 	SubmittedBeforeInit,
-	#[error("Claim queue runtime API not available")]
-	ClaimQueueNotAvailable,
 	#[error("V2 core index check failed: {0}")]
 	CandidateReceiptCheck(CandidateReceiptError),
 	#[error("PoV size {0} exceeded maximum size of {1}")]
