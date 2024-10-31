@@ -41,6 +41,7 @@ use sp_staking::{
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
+	offence::OffenceSeverity,
 };
 
 mod impls;
@@ -723,11 +724,14 @@ pub mod pallet {
 	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
 	/// implicitly means that the implementor also controls the max number of disabled validators.
 	///
-	/// The vec is always kept sorted so that we can find whether a given validator has previously
-	/// offended using binary search.
+	/// The vec is always kept sorted based on the u32 ubdex so that we can find whether a given
+	/// validator has previously offended using binary search.
+	/// 
+	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which represents
+	/// how severe is the offence that got the validator disabled.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type DisabledValidators<T: Config> = StorageValue<_, Vec<(u32, Perbill)>, ValueQuery>;
+	pub type DisabledValidators<T: Config> = StorageValue<_, Vec<(u32, OffenceSeverity)>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators

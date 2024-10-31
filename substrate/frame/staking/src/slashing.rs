@@ -65,7 +65,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchResult, RuntimeDebug,
 };
-use sp_staking::{EraIndex, StakingInterface};
+use sp_staking::{EraIndex, StakingInterface, offence::OffenceSeverity};
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -324,8 +324,9 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 /// validators provided by [`decision`].
 fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 	DisabledValidators::<T>::mutate(|disabled| {
+		let new_severity = OffenceSeverity(params.slash);
 		let decision =
-			T::DisablingStrategy::decision(params.stash, params.slash, params.slash_era, &disabled);
+			T::DisablingStrategy::decision(params.stash, new_severity, params.slash_era, &disabled);
 
 		if let Some(offender_idx) = decision.disable {
 			// Check if the offender is already disabled
@@ -333,14 +334,13 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 				// Offender is already disabled, update severity if the new one is higher
 				Ok(index) => {
 					let (_, old_severity) = &mut disabled[index];
-					if params.slash > *old_severity {
-						*old_severity = params.slash;
+					if new_severity > *old_severity {
+						*old_severity = new_severity;
 					}
 				},
 				Err(index) => {
 					// Offender is not disabled, add to `DisabledValidators` and disable it
-					let severity = params.slash;
-					disabled.insert(index, (offender_idx, severity));
+					disabled.insert(index, (offender_idx, new_severity));
 					// Propagate disablement to session level
 					T::SessionInterface::disable_validator(offender_idx);
 					// Emit event that a validator got disabled

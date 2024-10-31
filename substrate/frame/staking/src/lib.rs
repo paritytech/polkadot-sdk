@@ -323,7 +323,7 @@ use sp_runtime::{
 	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 use sp_staking::{
-	offence::{Offence, OffenceError, ReportOffence},
+	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
 	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
 	StakingAccount,
 };
@@ -1283,9 +1283,9 @@ pub trait DisablingStrategy<T: Config> {
 	/// Make a disabling decision. Returning a [`DisablingDecision`]
 	fn decision(
 		offender_stash: &T::AccountId,
-		offender_slash_severity: Perbill,
+		offender_slash_severity: OffenceSeverity,
 		slash_era: EraIndex,
-		currently_disabled: &Vec<(u32, Perbill)>,
+		currently_disabled: &Vec<(u32, OffenceSeverity)>,
 	) -> DisablingDecision;
 }
 
@@ -1326,9 +1326,9 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 {
 	fn decision(
 		offender_stash: &T::AccountId,
-		_offender_slash_severity: Perbill,
+		_offender_slash_severity: OffenceSeverity,
 		slash_era: EraIndex,
-		currently_disabled: &Vec<(u32, Perbill)>,
+		currently_disabled: &Vec<(u32, OffenceSeverity)>,
 	) -> DisablingDecision {
 		let active_set = T::SessionInterface::validators();
 
@@ -1394,9 +1394,9 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 {
 	fn decision(
 		offender_stash: &T::AccountId,
-		offender_slash_severity: Perbill,
+		offender_slash_severity: OffenceSeverity,
 		slash_era: EraIndex,
-		currently_disabled: &Vec<(u32, Perbill)>,
+		currently_disabled: &Vec<(u32, OffenceSeverity)>,
 	) -> DisablingDecision {
 		let active_set = T::SessionInterface::validators();
 
@@ -1445,8 +1445,8 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 			// offender_slash_severity
 			if let Some((smallest_idx, _)) = currently_disabled
 				.iter()
-				.filter(|(_, perbill)| *perbill <= offender_slash_severity)
-				.min_by_key(|(_, perbill)| *perbill)
+				.filter(|(_, severity)| *severity <= offender_slash_severity)
+				.min_by_key(|(_, severity)| *severity)
 			{
 				log!(debug, "Will disable {:?} and re-enable {:?}", offender_idx, smallest_idx);
 				return DisablingDecision {

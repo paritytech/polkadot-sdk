@@ -60,9 +60,10 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
-/// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, PerBill)>` to track offense
+/// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
 /// severity for re-enabling purposes.
 pub mod v16 {
+	use sp_staking::offence::OffenceSeverity;
 	use super::*;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
@@ -74,14 +75,15 @@ pub mod v16 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, PerBill)>`.
-			// Using max severity (PerBill) for the migration which effectively makes it so
-			// offenders before the migration will not be re-enabled this era.
-			let max_perbill = Perbill::from_percent(100);
+			// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>`.
+			// Using max severity (PerBill 100%) for the migration which effectively makes it so
+			// offenders before the migration will not be re-enabled this era unless there are
+			// other 100% offenders.
+			let max_offence = OffenceSeverity(Perbill::from_percent(100));
 			// Inject severity
 			let migrated = v15::DisabledValidators::<T>::take()
 				.into_iter()
-				.map(|v| (v, max_perbill))
+				.map(|v| (v, max_offence.clone()))
 				.collect::<Vec<_>>();
 
 			DisabledValidators::<T>::set(migrated);
@@ -112,10 +114,10 @@ pub mod v16 {
 			);
 
 			// Verify severity
-			let max_perbill = Perbill::from_percent(100);
+			let max_severity = OffenceSeverity(Perbill::from_percent(100));
 			let new_disabled_validators = DisabledValidators::<T>::get();
 			for (_, severity) in new_disabled_validators {
-				frame_support::ensure!(severity == max_perbill, "Severity mismatch");
+				frame_support::ensure!(severity == max_severity, "Severity mismatch");
 			}
 
 			Ok(())
