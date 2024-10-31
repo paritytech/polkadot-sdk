@@ -293,7 +293,7 @@ fn test_add_code_substitute() {
 }
 
 #[test]
-#[docify::export]
+#[docify::export_content]
 fn cmd_create_default() {
 	exe!(
 		// Example
@@ -302,7 +302,7 @@ fn cmd_create_default() {
 }
 
 #[test]
-#[docify::export]
+#[docify::export_content]
 fn cmd_display_default_preset() {
 	exe!(
 		// Example
@@ -311,7 +311,7 @@ fn cmd_display_default_preset() {
 }
 
 #[test]
-#[docify::export]
+#[docify::export_content]
 fn cmd_display_preset() {
 	exe!(
 		// Example
@@ -320,7 +320,7 @@ fn cmd_display_preset() {
 }
 
 #[test]
-#[docify::export]
+#[docify::export_content]
 fn cmd_list_presets() {
 	exe!(
 		// Example
@@ -329,7 +329,7 @@ fn cmd_list_presets() {
 }
 
 #[test]
-#[docify::export]
+#[docify::export_content]
 fn cmd_create_with_named_preset() {
 	exe!(
 		// Example
@@ -338,7 +338,7 @@ fn cmd_create_with_named_preset() {
 }
 
 #[test]
-#[docify::export]
+#[docify::export_content]
 fn cmd_create_with_patch_raw() {
 	exe!(
 		// Example
@@ -347,7 +347,7 @@ fn cmd_create_with_patch_raw() {
 }
 
 #[test]
-#[docify::export]
+#[docify::export_content]
 fn cmd_create_with_patch_plain() {
 	exe!(
 		// Example
@@ -356,7 +356,7 @@ fn cmd_create_with_patch_plain() {
 }
 
 #[test]
-#[docify::export]
+#[docify::export_content]
 fn cmd_create_full_plain() {
 	exe!(
 		// Example
@@ -365,7 +365,7 @@ fn cmd_create_full_plain() {
 }
 
 #[test]
-#[docify::export]
+#[docify::export_content]
 fn cmd_create_full_raw() {
 	exe!(
 		// Example
