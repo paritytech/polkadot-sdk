@@ -86,6 +86,7 @@ pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
 		),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
+		frame_system::WeightReclaim::new(),
 	)
 }
 

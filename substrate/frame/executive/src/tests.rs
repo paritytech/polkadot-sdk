@@ -455,6 +455,7 @@ type TxExtension = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 type UncheckedXt = sp_runtime::generic::UncheckedExtrinsic<
 	u64,
@@ -563,6 +564,7 @@ fn tx_ext(nonce: u64, fee: Balance) -> TxExtension {
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::from(fee),
+		frame_system::WeightReclaim::new(),
 	)
 		.into()
 }
