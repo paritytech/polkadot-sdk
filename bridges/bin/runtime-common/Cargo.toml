@@ -40,6 +40,7 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 sp-trie = { optional = true, workspace = true }
+sp-weights = { workspace = true }
 
 # Polkadot dependencies
 xcm = { workspace = true }
@@ -81,6 +82,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-trie/std",
+	"sp-weights/std",
 	"trie-db/std",
 	"tuplex/std",
 	"xcm/std",
@@ -95,6 +97,7 @@ runtime-benchmarks = [
 	"pallet-bridge-messages/test-helpers",
 	"pallet-bridge-parachains/runtime-benchmarks",
 	"pallet-bridge-relayers/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-trie",

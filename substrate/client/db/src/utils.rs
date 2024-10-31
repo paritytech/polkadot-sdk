@@ -512,8 +512,10 @@ impl<'a, 'b> codec::Input for JoinInput<'a, 'b> {
 mod tests {
 	use super::*;
 	use codec::Input;
-	use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper};
-	type Block = RawBlock<ExtrinsicWrapper<u32>>;
+	use sp_runtime::testing::{Block as RawBlock, MockCallU64, TestXt};
+
+	pub type UncheckedXt = TestXt<MockCallU64, ()>;
+	type Block = RawBlock<UncheckedXt>;
 
 	#[test]
 	fn number_index_key_doesnt_panic() {

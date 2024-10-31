@@ -138,7 +138,7 @@ pub trait ExtensionConfig {
 	/// Lane identifier type.
 	type LaneId: Clone + Copy + Decode + Encode + Debug;
 
-	/// Given runtime call, check if it is supported by the signed extension. Additionally,
+	/// Given runtime call, check if it is supported by the transaction extension. Additionally,
 	/// check if call (or any of batched calls) are obsolete.
 	fn parse_and_check_for_obsolete_call(
 		call: &<Self::Runtime as SystemConfig>::RuntimeCall,
