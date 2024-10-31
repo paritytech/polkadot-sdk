@@ -35,6 +35,7 @@ use pallet_revive::{
 	},
 	EthContractResult,
 };
+use sc_service::SpawnTaskHandle;
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_weights::Weight;
 use std::{
@@ -57,10 +58,7 @@ use subxt::{
 };
 use subxt_client::transaction_payment::events::TransactionFeePaid;
 use thiserror::Error;
-use tokio::{
-	sync::{watch::Sender, RwLock},
-	task::JoinSet,
-};
+use tokio::sync::{watch::Sender, RwLock};
 
 use crate::subxt_client::{self, system::events::ExtrinsicSuccess, SrcChainConfig};
 
@@ -201,8 +199,6 @@ impl<const N: usize> BlockCache<N> {
 pub struct Client {
 	/// The inner state of the client.
 	inner: Arc<ClientInner>,
-	// JoinSet to manage spawned tasks.
-	join_set: JoinSet<Result<(), ClientError>>,
 	/// A watch channel to signal cache updates.
 	pub updates: tokio::sync::watch::Receiver<()>,
 }
@@ -308,13 +304,6 @@ impl ClientInner {
 	}
 }
 
-/// Drop all the tasks spawned by the client on drop.
-impl Drop for Client {
-	fn drop(&mut self) {
-		self.join_set.abort_all()
-	}
-}
-
 /// Fetch the chain ID from the substrate chain.
 async fn chain_id(api: &OnlineClient<SrcChainConfig>) -> Result<u64, ClientError> {
 	let query = subxt_client::constants().revive().chain_id();
@@ -355,18 +344,18 @@ async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 impl Client {
 	/// Create a new client instance.
 	/// The client will subscribe to new blocks and maintain a cache of [`CACHE_SIZE`] blocks.
-	pub async fn from_url(url: &str) -> Result<Self, ClientError> {
+	pub async fn from_url(url: &str, spawn_handle: &SpawnTaskHandle) -> Result<Self, ClientError> {
 		log::info!(target: LOG_TARGET, "Connecting to node at: {url} ...");
 		let inner: Arc<ClientInner> = Arc::new(ClientInner::from_url(url).await?);
 		log::info!(target: LOG_TARGET, "Connected to node at: {url}");
 
 		let (tx, mut updates) = tokio::sync::watch::channel(());
-		let mut join_set = JoinSet::new();
-		join_set.spawn(Self::subscribe_blocks(inner.clone(), tx));
-		join_set.spawn(Self::subscribe_reconnect(inner.clone()));
+
+		spawn_handle.spawn("subscribe-blocks", None, Self::subscribe_blocks(inner.clone(), tx));
+		spawn_handle.spawn("subscribe-reconnect", None, Self::subscribe_reconnect(inner.clone()));
 
 		updates.changed().await.expect("tx is not dropped");
-		Ok(Self { inner, join_set, updates })
+		Ok(Self { inner, updates })
 	}
 
 	/// Expose the storage API.
@@ -422,7 +411,7 @@ impl Client {
 	}
 
 	/// Subscribe and log reconnection events.
-	async fn subscribe_reconnect(inner: Arc<ClientInner>) -> Result<(), ClientError> {
+	async fn subscribe_reconnect(inner: Arc<ClientInner>) {
 		let rpc = inner.as_ref().rpc_client.clone();
 		loop {
 			let reconnected = rpc.reconnect_initiated().await;
@@ -434,12 +423,15 @@ impl Client {
 	}
 
 	/// Subscribe to new blocks and update the cache.
-	async fn subscribe_blocks(inner: Arc<ClientInner>, tx: Sender<()>) -> Result<(), ClientError> {
+	async fn subscribe_blocks(inner: Arc<ClientInner>, tx: Sender<()>) {
 		log::info!(target: LOG_TARGET, "Subscribing to new blocks");
-		let mut block_stream =
-			inner.as_ref().api.blocks().subscribe_best().await.inspect_err(|err| {
-				log::error!("Failed to subscribe to blocks: {err:?}");
-			})?;
+		let mut block_stream = match inner.as_ref().api.blocks().subscribe_best().await {
+			Ok(s) => s,
+			Err(err) => {
+				log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
+				return
+			},
+		};
 
 		while let Some(block) = block_stream.next().await {
 			let block = match block {
@@ -447,13 +439,14 @@ impl Client {
 				Err(err) => {
 					if err.is_disconnected_will_reconnect() {
 						log::warn!(
+							target: LOG_TARGET,
 							"The RPC connection was lost and we may have missed a few blocks"
 						);
 						continue;
 					}
 
-					log::error!("Failed to fetch block: {err:?}");
-					return Err(err.into());
+					log::error!(target: LOG_TARGET, "Failed to fetch block: {err:?}");
+					return
 				},
 			};
 
@@ -464,7 +457,7 @@ impl Client {
 				.receipt_infos(&block)
 				.await
 				.inspect_err(|err| {
-					log::error!("Failed to get receipts: {err:?}");
+					log::error!(target: LOG_TARGET, "Failed to get receipts: {err:?}");
 				})
 				.unwrap_or_default();
 
@@ -491,7 +484,6 @@ impl Client {
 		}
 
 		log::info!(target: LOG_TARGET, "Block subscription ended");
-		Ok(())
 	}
 }
 
