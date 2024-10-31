@@ -120,6 +120,10 @@ pub mod pallet {
 		ItemFailed { error: DispatchError },
 		/// A call was dispatched.
 		DispatchedAs { result: DispatchResult },
+		/// one or both if_else calls failed.
+		IfElseFailure { which: String, error: DispatchError },
+		/// if_else completed.
+		IfElseCompleted,
 	}
 
 	// Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
@@ -453,6 +457,53 @@ pub mod pallet {
 
 			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
 			res.map(|_| ()).map_err(|e| e.error)
+		}
+
+		#[pallet::call_index(6)]
+		#[pallet::weight(10_000)]
+		pub fn if_else(
+			origin: OriginFor<T>,
+			main: <T as Config>::RuntimeCall,
+			fallback: <T as Config>::RuntimeCall,
+		) -> DispatchResultWithPostInfo {
+			// Do not allow the `None` origin.
+			if ensure_none(origin.clone()).is_ok() {
+				return Err(BadOrigin.into())
+			}
+	
+			let is_root = ensure_root(origin.clone()).is_ok();
+			let calls: Vec<<T as Config>::RuntimeCall> = vec![main.clone(), fallback.clone()];
+	
+			// Track the weights
+			let mut weight = Weight::zero();
+			for (index, call) in calls.into_iter().enumerate() {
+				let info = call.get_dispatch_info();
+				// If origin is root, don't apply any dispatch filters; root can call anything.
+				let result = if is_root {
+					call.dispatch_bypass_filter(origin.clone())
+				} else {
+					call.dispatch(origin.clone())
+				};
+				// Add weight of this call.
+				weight = weight.saturating_add(extract_actual_weight(&result, &info));
+				if let Err(e) = result {
+					let which = if index == 0 { "main".to_string() } else { "both calls have failed".to_string() }; // Use descriptive names
+					Self::deposit_event(Event::IfElseFailure {
+						which,
+						error: e.error,
+						
+					});
+	
+					// Take the weight of this function into account.
+					let base_weight = T::WeightInfo::batch(index.saturating_add(1) as u32);
+					// Return the actual used weight + base_weight of this call.
+					return Ok(Some(base_weight.saturating_add(weight)).into())
+				}
+				Self::deposit_event(Event::ItemCompleted);
+			}
+			Self::deposit_event(Event::IfElseCompleted);
+			let base_weight = T::WeightInfo::batch(2u32);
+			Ok(Some(base_weight.saturating_add(weight)).into())
 		}
 	}
 
