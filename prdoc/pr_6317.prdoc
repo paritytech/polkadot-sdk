@@ -1,7 +1,7 @@
 title: Bump asset-hub-westend spec version
 doc:
 - audience: Runtime Dev
-  description: null
+  description: Bump asset-hub westend spec version
 crates:
 - name: asset-hub-westend-runtime
   bump: patch
