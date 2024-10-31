@@ -57,7 +57,8 @@ jobs:
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
     permissions:
       id-token: write
-      actions: write
+      attestations: write
+      contents: read
 
   build-polkadot-parachain-binary:
     needs: [validate-inputs]
@@ -77,4 +78,5 @@ jobs:
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
     permissions:
       id-token: write
-      actions: write
+      attestations: write
+      contents: read
