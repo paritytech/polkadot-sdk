@@ -27,11 +27,9 @@ name = "chain-spec-builder"
 # This is a practice we should use for new code samples if any.
 doctest = false
 
-[build-dependencies]
-docify = { workspace = true }
-
 [dependencies]
 clap = { features = ["derive"], workspace = true }
+docify = { workspace = true }
 log = { workspace = true, default-features = true }
 sc-chain-spec = { features = [
 	"clap",

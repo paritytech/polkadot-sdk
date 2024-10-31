@@ -46,11 +46,11 @@ such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pal
 
 A Polkadot SDK based project such as this one consists of:
 
+- 🧮 the [Runtime](./runtime/README.md) - the core logic of the parachain.
+- 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
 - 💿 a [Node](./node/README.md) - the binary application, not part of the project default-members list and not compiled unless
 building the project with `--workspace` flag, which builds all workspace members, and is an alternative to
 [Omni Node](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html).
-- 🧮 the [Runtime](./runtime/README.md) - the core logic of the parachain.
-- 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
 
 ## Getting Started
 

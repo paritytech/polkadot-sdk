@@ -30,6 +30,14 @@ use std::{
 	path::{Path, PathBuf},
 };
 
+#[cfg(feature = "generate-readme")]
+#[allow(unused)]
+// We need this function to be compiled so that it triggers
+// the markdown compilation into the `README.md` file.
+fn compile_docs_markdown() {
+	docify::compile_markdown!("README.docify.md", "README.md");
+}
+
 /// A utility to easily create a chain spec definition.
 #[derive(Debug, Parser)]
 #[command(rename_all = "kebab-case", version, about)]

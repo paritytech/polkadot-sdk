@@ -24,5 +24,5 @@ fn main() {
 	}
 
 	#[cfg(feature = "generate-readme")]
-	docify::compile_markdown!("README.docify.md", "README.md");
+	println!("cargo:rerun-if-changed=README.docify.md");
 }

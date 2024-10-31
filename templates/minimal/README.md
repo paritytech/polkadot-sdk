@@ -46,10 +46,10 @@ such as a [Balances pallet](https://paritytech.github.io/polkadot-sdk/master/pal
 
 A Polkadot SDK based project such as this one consists of:
 
-- 💿 a [Node](./node/README.md) - the binary application (which is not part of the cargo default-members list and is not
-compiled unless building the entire workspace).
 - 🧮 the [Runtime](./runtime/README.md) - the core logic of the blockchain.
 - 🎨 the [Pallets](./pallets/README.md) - from which the runtime is constructed.
+- 💿 a [Node](./node/README.md) - the binary application (which is not part of the cargo default-members list and is not
+compiled unless building the entire workspace).
 
 ## Getting Started
 
