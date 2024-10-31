@@ -132,7 +132,7 @@ pub mod pallet {
 			who: T::AccountId,
 			voting_power_proof: SixteenPatriciaMerkleTreeExistenceProof,
 			voting_power_claim: u128,
-			vote: bool,
+			vote: bool, // TODO: this is stupid.. vote must come from the voter 🤦
 			poll_index: PollIndexOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let frozen_root = Self::frozen_root().ok_or("NotFrozen")?;
