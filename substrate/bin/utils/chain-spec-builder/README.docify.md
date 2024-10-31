@@ -64,8 +64,6 @@ version of chain spec:
 <!-- docify::embed!("tests/test.rs", cmd_create_with_named_preset)-->
 
 _Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
-and
-[`GenesisBuilder::build_state`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
 runtime functions are called.
 
 ### Generate raw storage chain spec using genesis config patch
@@ -75,8 +73,10 @@ storage (`-s`) version of chain spec:
 
 <!-- docify::embed!("tests/test.rs", cmd_create_with_patch_raw)-->
 
-_Note:_ [`GenesisBuilder::build_state`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
-runtime function is called.
+_Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
+and
+[`GenesisBuilder::build_state`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
+runtime functions are called.
 
 ### Generate raw storage chain spec using full genesis config
 

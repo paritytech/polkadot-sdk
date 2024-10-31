@@ -246,7 +246,6 @@ fn test_add_code_substitute() {
 #[docify::export_content]
 fn cmd_create_default() -> String {
 	bash!(
-		// Example
 		chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH default
 	)
 }
@@ -259,7 +258,6 @@ fn create_default() {
 #[docify::export_content]
 fn cmd_display_default_preset() -> String {
 	bash!(
-		// Example
 		chain-spec-builder display-preset -r $RUNTIME_PATH
 	)
 }
@@ -272,7 +270,6 @@ fn display_default_preset() {
 #[docify::export]
 fn cmd_display_preset() -> String {
 	bash!(
-		// Example
 		chain-spec-builder display-preset -r $RUNTIME_PATH -p "staging"
 	)
 }
@@ -285,7 +282,6 @@ fn display_preset() {
 #[docify::export_content]
 fn cmd_list_presets() -> String {
 	bash!(
-		// Example
 		chain-spec-builder list-presets -r $RUNTIME_PATH
 	)
 }
@@ -298,7 +294,6 @@ fn list_presets() {
 #[docify::export_content]
 fn cmd_create_with_named_preset() -> String {
 	bash!(
-		// Example
 		chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $RUNTIME_PATH named-preset "staging"
 	)
 }
@@ -315,7 +310,6 @@ fn create_with_named_preset() {
 #[docify::export_content]
 fn cmd_create_with_patch_raw() -> String {
 	bash!(
-		// Example
 		chain-spec-builder -c "/dev/stdout" create -s -r $RUNTIME_PATH patch "tests/input/patch.json"
 	)
 }
@@ -328,7 +322,6 @@ fn create_with_patch_raw() {
 #[docify::export_content]
 fn cmd_create_with_patch_plain() -> String {
 	bash!(
-		// Example
 		chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH patch "tests/input/patch.json"
 	)
 }
@@ -345,7 +338,6 @@ fn create_with_patch_plain() {
 #[docify::export_content]
 fn cmd_create_full_plain() -> String {
 	bash!(
-		// Example
 		chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH full "tests/input/full.json"
 	)
 }
@@ -358,7 +350,6 @@ fn create_full_plain() {
 #[docify::export_content]
 fn cmd_create_full_raw() -> String {
 	bash!(
-		// Example
 		chain-spec-builder -c "/dev/stdout" create -s -r $RUNTIME_PATH full "tests/input/full.json"
 	)
 }

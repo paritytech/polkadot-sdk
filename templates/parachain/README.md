@@ -92,7 +92,7 @@ cargo build -p parachain-template-runtime --release
 
 Please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
 
-#### Use chain-spec-builder to generate the chain_spec.json file
+#### Use `chain-spec-builder` to generate the `chain_spec.json` file
 
 ```sh
 chain-spec-builder create --relay-chain "rococo-local" --para-id 1000 --runtime \

@@ -18,16 +18,11 @@
 
 use std::env;
 
-#[cfg(feature = "generate-readme")]
-#[allow(unused)]
-// We need this function to be compiled so that it triggers
-// the markdown compilation into the `README.md` file.
-fn compile_docs_markdown() {
-	docify::compile_markdown!("README.docify.md", "README.md");
-}
-
 fn main() {
 	if let Ok(profile) = env::var("PROFILE") {
 		println!("cargo:rustc-cfg=build_type=\"{}\"", profile);
 	}
+
+	#[cfg(feature = "generate-readme")]
+	docify::compile_markdown!("README.docify.md", "README.md");
 }

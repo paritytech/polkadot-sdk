@@ -148,11 +148,11 @@ docker run --rm polkadot-sdk-minimal-template
 We can install `zombienet` as described [here](https://paritytech.github.io/zombienet/install.html#installation),
 and `zombienet-omni-node.toml` contains the network specification we want to start.
 
-#### Update `zombienet-omni-node` with a valid chain spec path
+#### Update `zombienet-omni-node.toml` with a valid chain spec path
 
 Before starting the network with zombienet we must update the network specification
 with a valid chain spec path. If we need to generate one, we can look up at the previous
-section for chain spec creation [here](#use-chain-spec-builder-to-generate-the-chain-spec-json-file).
+section for chain spec creation [here](#use-chain-spec-builder-to-generate-the-chain_specjson-file).
 
 Then make the changes in the network specification like so:
 

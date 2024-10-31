@@ -32,7 +32,6 @@ Query the default genesis config from the provided runtime WASM blob and use it 
 
 ```rust
 bash!(
-	// Example
 	chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH default
 )
 ```
@@ -44,7 +43,6 @@ runtime function is called.
 
 ```rust
 bash!(
-	// Example
 	chain-spec-builder display-preset -r $RUNTIME_PATH
 )
 ```
@@ -57,7 +55,6 @@ runtime function is called.
 ```rust
 fn cmd_display_preset() -> String {
 	bash!(
-		// Example
 		chain-spec-builder display-preset -r $RUNTIME_PATH -p "staging"
 	)
 }
@@ -70,7 +67,6 @@ runtime function is called.
 
 ```rust
 bash!(
-	// Example
 	chain-spec-builder list-presets -r $RUNTIME_PATH
 )
 ```
@@ -85,14 +81,11 @@ version of chain spec:
 
 ```rust
 bash!(
-	// Example
 	chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $RUNTIME_PATH named-preset "staging"
 )
 ```
 
 _Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
-and
-[`GenesisBuilder::build_state`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
 runtime functions are called.
 
 ### Generate raw storage chain spec using genesis config patch
@@ -102,13 +95,14 @@ storage (`-s`) version of chain spec:
 
 ```rust
 bash!(
-	// Example
 	chain-spec-builder -c "/dev/stdout" create -s -r $RUNTIME_PATH patch "tests/input/patch.json"
 )
 ```
 
-_Note:_ [`GenesisBuilder::build_state`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
-runtime function is called.
+_Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
+and
+[`GenesisBuilder::build_state`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
+runtime functions are called.
 
 ### Generate raw storage chain spec using full genesis config
 
@@ -116,7 +110,6 @@ Build the chain spec using provided full genesis config json file. No defaults w
 
 ```rust
 bash!(
-	// Example
 	chain-spec-builder -c "/dev/stdout" create -s -r $RUNTIME_PATH full "tests/input/full.json"
 )
 ```
@@ -128,7 +121,6 @@ runtime function is called.
 
 ```rust
 bash!(
-	// Example
 	chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH patch "tests/input/patch.json"
 )
 ```
@@ -137,7 +129,6 @@ bash!(
 
 ```rust
 bash!(
-	// Example
 	chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH full "tests/input/full.json"
 )
 ```

@@ -39,7 +39,7 @@ cargo install staging-chain-spec-builder
 
 ### 2. Generate a chain spec
 
-It is also expected for the chain spec to contain parachains related fields like `relay_chain` and `para_id`.
+Omni Node expects for the chain spec to contain parachains related fields like `relay_chain` and `para_id`.
 These fields can be introduced by running [`staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder)
 with additional flags:
 
@@ -58,6 +58,7 @@ polkadot-omni-node --chain <chain_spec.json>
 ## Useful links
 
 * [`Omni Node Polkadot SDK Docs`](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html)
+* [`Chain Spec Genesis Reference Docs`](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/chain_spec_genesis/index.html)
 * [`polkadot-parachain-bin`](https://crates.io/crates/polkadot-parachain-bin)
 * [`polkadot-sdk-parachain-template`](https://github.com/paritytech/polkadot-sdk-parachain-template)
 * [`frame-omni-bencher`](https://crates.io/crates/frame-omni-bencher)
