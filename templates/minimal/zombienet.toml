@@ -5,7 +5,8 @@
 # increasing the fork height with blocks not produced by them. If nodes
 # overlap for the block production at a certain height, they'll stop
 # being peers and will follow with block production for their own
-# initiated forks.
+# initiated forks. The setup bellow allows only one node to produce
+# blocks and the rest will follow.
 
 [relaychain]
 chain = "dev"

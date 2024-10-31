@@ -79,9 +79,7 @@ be used to run the minimal template's runtime. `polkadot-omni-node` binary crate
 
 #### Install `polkadot-omni-node`
 
-```sh
-cargo install polkadot-omni-node
-```
+Please see installation section on [crates.io/omni-node](https://crates.io/crates/polkadot-omni-node).
 
 #### Build `minimal-template-runtime`
 
@@ -109,8 +107,9 @@ Omni Node, nonetheless.
 
 #### Run Omni Node
 
-Start Omni Node with manual seal (3 seconds block times) and minimal template runtime based
-chain spec:
+Start Omni Node with manual seal (3 seconds block times), minimal template runtime based
+chain spec. We'll use `--tmp` flag to start the node with its configurations stored in a
+temporary directory, which will be deleted at the end of the process.
 
 ```sh
 polkadot-omni-node --chain <path/to/chain_spec.json> --dev-block-time 3000 --tmp
@@ -133,13 +132,13 @@ docker build . -t polkadot-sdk-minimal-template
 
 #### Start the `minimal-template-node`
 
-The `minimal-template-node` has a compile time dependency on `minimal-template-runtime`. The
-`minimal-template-runtime` exposes a constant that points to the runtime WASM blob, which is needed
-by the node to be able to create a chain spec, which will be used further in its setup, before it
-starts fully.
+The `minimal-template-node` has dependency on the `minimal-template-runtime`. It will use
+the `minimal_template_runtime::WASM_BINARY` constant (which holds the WASM blob as a byte
+array) for chain spec building, while starting. This is in contrast to Omni Node which doesn't
+depend on a specific runtime, but asks for the chain spec at startup.
 
 ```sh
-<target/release/path/to/minimal-template-node> 
+<target/release/path/to/minimal-template-node> --tmp --consensus manual-seal-3000
 # or via docker
 docker run --rm polkadot-sdk-minimal-template
 ```
@@ -154,7 +153,7 @@ and `zombienet-omni-node.toml` contains the network specification we want to sta
 #### Update `zombienet-omni-node` with a valid chain spec path
 
 Before starting the network with zombienet we must update the network specification
-dawith a valid chain spec path. If we need to generate one, we can look up at the previous
+with a valid chain spec path. If we need to generate one, we can look up at the previous
 section for chain spec creation [here](#use-chain-spec-builder-to-generate-the-chain-spec-json-file).
 
 Then make the changes in the network specification like so:
