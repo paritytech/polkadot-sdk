@@ -31,9 +31,9 @@ around by the `exe!(...)` macro calls.
 Query the default genesis config from the provided runtime WASM blob and use it in the chain spec.
 
 ```rust
-exe!(
+bash!(
 	// Example
-	chain-spec-builder -c "/dev/stdout" create -r $SUBSTRATE_TEST_RUNTIME_PATH default
+	chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH default
 )
 ```
 
@@ -43,9 +43,9 @@ runtime function is called.
 ### Display the runtime's default `GenesisConfig`
 
 ```rust
-exe!(
+bash!(
 	// Example
-	chain-spec-builder display-preset -r $SUBSTRATE_TEST_RUNTIME_PATH
+	chain-spec-builder display-preset -r $RUNTIME_PATH
 )
 ```
 
@@ -55,10 +55,12 @@ runtime function is called.
 ### Display the `GenesisConfig` preset with given name
 
 ```rust
-exe!(
-	// Example
-	chain-spec-builder display-preset -r $SUBSTRATE_TEST_RUNTIME_PATH -p "staging"
-)
+fn cmd_display_preset() -> String {
+	bash!(
+		// Example
+		chain-spec-builder display-preset -r $RUNTIME_PATH -p "staging"
+	)
+}
 ```
 
 _Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
@@ -67,9 +69,9 @@ runtime function is called.
 ### List the names of `GenesisConfig` presets provided by runtime
 
 ```rust
-exe!(
+bash!(
 	// Example
-	chain-spec-builder list-presets -r $SUBSTRATE_TEST_RUNTIME_PATH
+	chain-spec-builder list-presets -r $RUNTIME_PATH
 )
 ```
 
@@ -82,9 +84,9 @@ Patch the runtime's default genesis config with the named preset provided by the
 version of chain spec:
 
 ```rust
-exe!(
+bash!(
 	// Example
-	chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $SUBSTRATE_TEST_RUNTIME_PATH named-preset "staging"
+	chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $RUNTIME_PATH named-preset "staging"
 )
 ```
 
@@ -99,9 +101,9 @@ Patch the runtime's default genesis config with provided `patch.json` and genera
 storage (`-s`) version of chain spec:
 
 ```rust
-exe!(
+bash!(
 	// Example
-	chain-spec-builder -c "/dev/stdout" create -s -r $SUBSTRATE_TEST_RUNTIME_PATH patch "tests/input/patch.json"
+	chain-spec-builder -c "/dev/stdout" create -s -r $RUNTIME_PATH patch "tests/input/patch.json"
 )
 ```
 
@@ -113,9 +115,9 @@ runtime function is called.
 Build the chain spec using provided full genesis config json file. No defaults will be used:
 
 ```rust
-exe!(
+bash!(
 	// Example
-	chain-spec-builder -c "/dev/stdout" create -s -r $SUBSTRATE_TEST_RUNTIME_PATH full "tests/input/full.json"
+	chain-spec-builder -c "/dev/stdout" create -s -r $RUNTIME_PATH full "tests/input/full.json"
 )
 ```
 
@@ -125,21 +127,23 @@ runtime function is called.
 ### Generate human readable chain spec using provided genesis config patch
 
 ```rust
-exe!(
+bash!(
 	// Example
-	chain-spec-builder -c "/dev/stdout" create -r $SUBSTRATE_TEST_RUNTIME_PATH patch "tests/input/patch1.json"
+	chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH patch "tests/input/patch.json"
 )
 ```
 
 ### Generate human readable chain spec using provided full genesis config
 
 ```rust
-exe!(
+bash!(
 	// Example
-	chain-spec-builder -c "/dev/stdout" create -r $SUBSTRATE_TEST_RUNTIME_PATH full "tests/input/full.json"
+	chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH full "tests/input/full.json"
 )
 ```
 
 ### Extra tools
 
-The `chain-spec-builder` provides also some extra utilities: `VerifyCmd`, `ConvertToRawCmd`, `UpdateCodeCmd`.
+The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`](https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/struct.VerifyCmd.html),
+[`ConvertToRawCmd`](https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/struct.ConvertToRawCmd.html),
+[`UpdateCodeCmd`](https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/struct.UpdateCodeCmd.html).

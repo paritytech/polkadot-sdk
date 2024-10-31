@@ -43,6 +43,7 @@ sp-tracing = { workspace = true, default-features = true }
 [dev-dependencies]
 substrate-test-runtime = { workspace = true }
 cmd_lib = { workspace = true }
+docify = { workspace = true }
 
 [features]
 generate-readme = []

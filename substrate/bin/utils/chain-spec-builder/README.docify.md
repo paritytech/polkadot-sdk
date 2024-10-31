@@ -97,4 +97,6 @@ runtime function is called.
 
 ### Extra tools
 
-The `chain-spec-builder` provides also some extra utilities: `VerifyCmd`, `ConvertToRawCmd`, `UpdateCodeCmd`.
+The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`](https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/struct.VerifyCmd.html),
+[`ConvertToRawCmd`](https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/struct.ConvertToRawCmd.html),
+[`UpdateCodeCmd`](https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/struct.UpdateCodeCmd.html).
