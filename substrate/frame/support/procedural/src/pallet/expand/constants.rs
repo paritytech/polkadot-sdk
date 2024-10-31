@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pallet::Def;
+use crate::{deprecation::remove_deprecation_attribute, pallet::Def};
 
 struct ConstDef {
 	/// Name of the associated type.
@@ -45,7 +45,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 	let completed_where_clause = super::merge_where_clauses(&where_clauses);
 
 	let mut config_consts = vec![];
-	for const_ in def.config.consts_metadata.iter() {
+	for const_ in def.config.consts_metadata.iter_mut() {
 		let ident = &const_.ident;
 		let const_type = &const_.type_;
 		let deprecation_info = match crate::deprecation::get_deprecation(
@@ -55,6 +55,8 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 			Ok(deprecation) => deprecation,
 			Err(e) => return e.into_compile_error(),
 		};
+		remove_deprecation_attribute(&mut const_.attrs);
+
 		config_consts.push(ConstDef {
 			ident: const_.ident.clone(),
 			type_: const_.type_.clone(),
@@ -70,7 +72,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 
 	let mut extra_consts = vec![];
-	for const_ in def.extra_constants.iter().flat_map(|d| &d.extra_constants) {
+	for const_ in def.extra_constants.iter_mut().flat_map(|d| &mut d.extra_constants) {
 		let ident = &const_.ident;
 		let deprecation_info = match crate::deprecation::get_deprecation(
 			&quote::quote! { #frame_support },
@@ -79,6 +81,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 			Ok(deprecation) => deprecation,
 			Err(e) => return e.into_compile_error(),
 		};
+		remove_deprecation_attribute(&mut const_.attrs);
 
 		extra_consts.push(ConstDef {
 			ident: const_.ident.clone(),

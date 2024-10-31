@@ -15,7 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pallet::{expand::merge_where_clauses, Def};
+use crate::{
+	deprecation::remove_deprecation_attribute,
+	pallet::{expand::merge_where_clauses, Def},
+};
 use frame_support_procedural_tools::get_doc_literals;
 
 ///
@@ -35,6 +38,13 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 	let type_decl_gen = &def.type_decl_generics(def.pallet_struct.attr_span);
 	let pallet_ident = &def.pallet_struct.pallet;
 	let config_where_clause = &def.config.where_clause;
+	let deprecation_status =
+		match crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &def.item.attrs)
+		{
+			Ok(deprecation) => deprecation,
+			Err(e) => return e.into_compile_error(),
+		};
+	remove_deprecation_attribute(&mut def.item.attrs);
 
 	let mut storages_where_clauses = vec![&def.config.where_clause];
 	storages_where_clauses.extend(def.storages.iter().map(|storage| &storage.where_clause));
@@ -185,12 +195,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 	];
-	let deprecation_status =
-		match crate::deprecation::get_deprecation(&quote::quote! {#frame_support}, &def.item.attrs)
-		{
-			Ok(deprecation) => deprecation,
-			Err(e) => return e.into_compile_error(),
-		};
+
 	quote::quote_spanned!(def.pallet_struct.attr_span =>
 		#pallet_error_metadata
 

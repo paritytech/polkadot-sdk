@@ -237,7 +237,7 @@ fn construct_runtime_final_expansion(
 		&unchecked_extrinsic,
 		&system_pallet.path,
 	);
-	let outer_config = expand::expand_outer_config(&name, &pallets, &scrate);
+	let outer_config: TokenStream2 = expand::expand_outer_config(&name, &pallets, &scrate);
 	let inherent =
 		expand::expand_outer_inherent(&name, &block, &unchecked_extrinsic, &pallets, &scrate);
 	let validate_unsigned = expand::expand_outer_validate_unsigned(&name, &pallets, &scrate);

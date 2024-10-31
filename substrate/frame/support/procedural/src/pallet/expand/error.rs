@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	deprecation::remove_deprecation_attribute,
 	pallet::{
 		parse::error::{VariantDef, VariantField},
 		Def,
@@ -99,7 +100,6 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 			unreachable!("Checked by error parser")
 		}
 	};
-
 	error_item.variants.insert(0, phantom_variant);
 
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
@@ -116,6 +116,12 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		Ok(deprecation) => deprecation,
 		Err(e) => return e.into_compile_error(),
 	};
+
+	error_item
+		.variants
+		.iter_mut()
+		.for_each(|variant| remove_deprecation_attribute(&mut variant.attrs));
+	remove_deprecation_attribute(&mut error_item.attrs);
 
 	// derive TypeInfo for error metadata
 	error_item.attrs.push(syn::parse_quote! {

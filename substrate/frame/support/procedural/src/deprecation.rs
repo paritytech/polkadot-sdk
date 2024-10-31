@@ -36,6 +36,11 @@ fn deprecation_msg_formatter(msg: &str) -> String {
 	)
 }
 
+/// removes deprecation attribute if its present.
+pub fn remove_deprecation_attribute(attrs: &mut Vec<syn::Attribute>) {
+	attrs.retain(|attr| !attr.path().is_ident("deprecated"))
+}
+
 fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<TokenStream> {
 	match &attr.meta {
 		Meta::List(meta_list) => {

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	deprecation::remove_deprecation_attribute,
 	pallet::{parse::event::PalletEventDepositAttr, Def},
 	COUNTER,
 };
@@ -108,6 +109,11 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 		Err(e) => return e.into_compile_error(),
 	};
 
+	event_item
+		.variants
+		.iter_mut()
+		.for_each(|variant| remove_deprecation_attribute(&mut variant.attrs));
+
 	if get_doc_literals(&event_item.attrs).is_empty() {
 		event_item
 			.attrs
@@ -133,6 +139,8 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 	event_item.attrs.push(syn::parse_quote!(
 		#[scale_info(skip_type_params(#event_use_gen), capture_docs = #capture_docs)]
 	));
+
+	remove_deprecation_attribute(&mut event_item.attrs);
 
 	let deposit_event = if let Some(deposit_event) = &event.deposit_event {
 		let event_use_gen = &event.gen_kind.type_use_gen(event.attr_span);

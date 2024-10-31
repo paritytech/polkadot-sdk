@@ -17,6 +17,7 @@
 
 use crate::{
 	counter_prefix,
+	deprecation::remove_deprecation_attribute,
 	pallet::{
 		parse::{
 			helper::two128_str,
@@ -425,6 +426,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			Ok(deprecation) => deprecation,
 			Err(e) => return e.into_compile_error(),
 		};
+
 		entries_builder.push(quote::quote_spanned!(storage.attr_span =>
 			#(#cfg_attrs)*
 			(|entries: &mut #frame_support::__private::Vec<_>| {
@@ -439,6 +441,9 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 				}
 			})
 		))
+	}
+	for storage in &mut def.storages.iter_mut() {
+		remove_deprecation_attribute(&mut storage.attrs);
 	}
 
 	let getters = def.storages.iter().map(|storage| {

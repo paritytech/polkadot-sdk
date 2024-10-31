@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(useless_deprecated, deprecated, clippy::deprecated_semver)]
+#![allow(useless_deprecated, clippy::deprecated_semver)]
 
 use std::collections::BTreeMap;
 
@@ -121,6 +121,7 @@ impl SomeAssociation2 for u64 {
 // Comments should not be included in the pallet documentation
 #[pallet_doc("../example-pallet-doc.md")]
 #[doc = include_str!("../example-readme.md")]
+#[deprecated = "example"]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
@@ -138,6 +139,7 @@ pub mod pallet {
 	{
 		/// Some comment
 		/// Some comment
+		#[deprecated = "test 2"]
 		#[pallet::constant]
 		type MyGetParam: Get<u32>;
 
@@ -178,6 +180,7 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
+	#[deprecated = "example"]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
@@ -2552,6 +2555,15 @@ fn pallet_metadata() {
 				codec::Compact(0),
 				DeprecationStatusIR::Deprecated { note: "test", since: None }
 			)])),
+			meta.deprecation_info
+		)
+	}
+	{
+		// Example pallet constant is deprecated
+		let meta = &example.constants[0];
+		dbg!(meta);
+		assert_eq!(
+			DeprecationStatusIR::Deprecated { note: "test 2", since: None },
 			meta.deprecation_info
 		)
 	}
