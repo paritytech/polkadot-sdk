@@ -777,6 +777,18 @@ fn nominators_also_get_slashed_pro_rata() {
 }
 
 #[test]
+fn nominate_same_account_should_be_filtered() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21]);
+		assert_ok!(Staking::nominate(
+			RuntimeOrigin::signed(101),
+			vec![11, 11, 11, 21, 21, 21, 31, 31, 31]
+		));
+		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21, 31]);
+	});
+}
+
+#[test]
 fn double_staking_should_fail() {
 	// should test (in the same order):
 	// * an account already bonded as stash cannot be stashed again.

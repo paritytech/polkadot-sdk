@@ -1268,7 +1268,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::nominate(targets.len() as u32))]
 		pub fn nominate(
 			origin: OriginFor<T>,
-			targets: Vec<AccountIdLookupOf<T>>,
+			mut targets: Vec<AccountIdLookupOf<T>>,
 		) -> DispatchResult {
 			let controller = ensure_signed(origin)?;
 
@@ -1291,6 +1291,9 @@ pub mod pallet {
 			}
 
 			ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
+
+			targets.dedup();
+
 			ensure!(
 				targets.len() <= T::NominationsQuota::get_quota(ledger.active) as usize,
 				Error::<T>::TooManyTargets
