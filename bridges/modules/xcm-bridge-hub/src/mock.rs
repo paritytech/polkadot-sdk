@@ -16,6 +16,7 @@
 
 #![cfg(test)]
 
+use sp_std::marker::PhantomData;
 use crate as pallet_xcm_bridge_hub;
 
 use bp_messages::{
@@ -25,11 +26,13 @@ use bp_messages::{
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
 use bp_xcm_bridge_hub::{BridgeId, BridgeLocations, LocalXcmChannelManager};
 use codec::Encode;
+use bp_xcm_bridge_hub_router::ResolveBridgeId;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{fungible::Mutate, EitherOf, EnsureOrigin, Equals, Everything, OriginTrait},
 	weights::RuntimeDbWeight,
 };
+use frame_support::traits::Get;
 use frame_system::EnsureRootWithSuccess;
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::H256;
@@ -43,7 +46,7 @@ use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds,
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
-	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter,
+	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter, ensure_is_remote,
 };
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
@@ -221,46 +224,64 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 
-	type UniversalLocation = UniversalLocation;
-	type SiblingBridgeHubLocation = BridgeHubLocation;
-	type BridgedNetworkId = BridgedRelayNetwork;
 	type DestinationVersion = AlwaysLatest;
 
 	// We use `SovereignPaidRemoteExporter` here to test and ensure that the `ExportMessage`
 	// produced by `pallet_xcm_bridge_hub_router` is compatible with the `ExportXcm` implementation
 	// of `pallet_xcm_bridge_hub`.
 	type ToBridgeHubSender = SovereignPaidRemoteExporter<
-		NetworkExportTable<BridgeTable>,
+		pallet_xcm_bridge_hub_router::impls::ViaRemoteBridgeHubExporter<
+			TestRuntime,
+			(),
+			NetworkExportTable<BridgeTable>,
+			BridgedRelayNetwork,
+			BridgeHubLocation
+		>,
 		// **Note**: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which
 		// calls the `ExportXcm` implementation of `pallet_xcm_bridge_hub` as the
 		// `MessageExporter`.
 		ExecuteXcmOverSendXcm,
-		Self::UniversalLocation,
+		UniversalLocation,
 	>;
-	type LocalXcmChannelManager = TestLocalXcmChannelManager;
+
+	type BridgeIdResolver = BridgeIdResolver<UniversalLocation>;
 
 	type ByteFee = ConstU128<0>;
 	type FeeAsset = BridgeFeeAsset;
 }
 
-/// A router instance simulates a scenario where the router is deployed on the same chain than the
+/// A router instance simulates a scenario where the router is deployed on the same chain as the
 /// `MessageExporter`. This means that the router triggers `ExportXcm` trait directly.
 impl pallet_xcm_bridge_hub_router::Config<pallet_xcm_bridge_hub_router::Instance2> for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 
-	type UniversalLocation = UniversalLocation;
-	type SiblingBridgeHubLocation = BridgeHubLocation;
-	type BridgedNetworkId = BridgedRelayNetwork;
 	type DestinationVersion = AlwaysLatest;
 
 	// We use `UnpaidLocalExporter` here to test and ensure that `pallet_xcm_bridge_hub_router` can
 	// trigger directly `pallet_xcm_bridge_hub` as exporter.
-	type ToBridgeHubSender = UnpaidLocalExporter<XcmOverBridge, Self::UniversalLocation>;
-	type LocalXcmChannelManager = TestLocalXcmChannelManager;
+	type ToBridgeHubSender = UnpaidLocalExporter<XcmOverBridge, UniversalLocation>;
+
+	type BridgeIdResolver = BridgeIdResolver<UniversalLocation>;
 
 	type ByteFee = ConstU128<0>;
 	type FeeAsset = BridgeFeeAsset;
+}
+
+/// Implementation of `ResolveBridgeId` returning `BridgeId`.
+pub struct BridgeIdResolver<UniversalLocation>(PhantomData<UniversalLocation>);
+impl<UniversalLocation: Get<InteriorLocation>> ResolveBridgeId for BridgeIdResolver<UniversalLocation> {
+	type BridgeId = BridgeId;
+
+	fn resolve_for_dest(dest: &Location) -> Option<Self::BridgeId> {
+		let (remote_network, remote_dest) = ensure_is_remote(UniversalLocation::get(), dest.clone()).unwrap();
+		Self::resolve_for(&remote_network, &remote_dest)
+	}
+
+	fn resolve_for(bridged_network: &NetworkId, bridged_dest: &InteriorLocation) -> Option<Self::BridgeId> {
+		let bridged_universal_location = bridged_dest.clone().pushed_front_with(bridged_network.clone()).unwrap();
+		Some(BridgeId::new(&UniversalLocation::get(), &bridged_universal_location))
+	}
 }
 
 pub struct XcmConfig;
@@ -468,12 +489,6 @@ impl LocalXcmChannelManager for TestLocalXcmChannelManager {
 	fn resume_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
 		frame_support::storage::unhashed::put(b"TestLocalXcmChannelManager.Resumed", &true);
 		Ok(())
-	}
-}
-
-impl pallet_xcm_bridge_hub_router::XcmChannelStatusProvider for TestLocalXcmChannelManager {
-	fn is_congested(with: &Location) -> bool {
-		<Self as LocalXcmChannelManager>::is_congested(with)
 	}
 }
 

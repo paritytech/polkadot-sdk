@@ -50,6 +50,8 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_xcm_bridge_hub_router.
 pub trait WeightInfo {
+	fn on_initialize_when_bridge_state_removed() -> Weight;
+	fn on_initialize_when_bridge_state_updated() -> Weight;
 	fn on_initialize_when_non_congested() -> Weight;
 	fn on_initialize_when_congested() -> Weight;
 }
@@ -59,6 +61,13 @@ pub trait WeightInfo {
 /// Those weights are test only and must never be used in production.
 pub struct BridgeWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
+	fn on_initialize_when_bridge_state_removed() -> Weight {
+		RocksDbWeight::get().writes(1)
+	}
+
+	fn on_initialize_when_bridge_state_updated() -> Weight {
+		RocksDbWeight::get().writes(1)
+	}
 	///
 	/// Storage: `XcmBridgeHubRouter::DeliveryFeeFactor` (r:1 w:1)
 	///
@@ -89,6 +98,14 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
+	fn on_initialize_when_bridge_state_removed() -> Weight {
+		RocksDbWeight::get().writes(1)
+	}
+
+	fn on_initialize_when_bridge_state_updated() -> Weight {
+		RocksDbWeight::get().writes(1)
+	}
+
 	/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
 	/// (r:1 w:0)
 	///
