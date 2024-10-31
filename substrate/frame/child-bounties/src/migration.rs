@@ -24,10 +24,6 @@ pub mod v1 {
 		BoundedVec<u8, <T as pallet_bounties::Config>::MaximumReasonLength>,
 	>;
 
-	#[storage_alias]
-	type ChildrenCuratorFees<T: Config> =
-		StorageMap<Pallet<T>, Twox64Concat, BountyIndex, BalanceOf<T>, ValueQuery>;
-
 	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV1Impl<T> {
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			// increment reads/writes after the action
@@ -68,8 +64,6 @@ pub mod v1 {
 				let bounty_description =
 					v1::ChildBountyDescriptions::<T>::take(old_child_bounty_id);
 				writes += 1;
-				let bounty_curator_fee = v1::ChildrenCuratorFees::<T>::take(old_child_bounty_id);
-				writes += 1;
 				let child_bounty = ChildBounties::<T>::take(parent_bounty_id, old_child_bounty_id);
 				writes += 1;
 
@@ -86,12 +80,6 @@ pub mod v1 {
 					);
 					writes += 1;
 				}
-				super::super::ChildrenCuratorFees::<T>::insert(
-					parent_bounty_id,
-					new_child_bounty_id,
-					bounty_curator_fee,
-				);
-				writes += 1;
 			}
 
 			log::info!(
@@ -108,29 +96,17 @@ pub mod v1 {
 			let old_child_bounty_count = ChildBounties::<T>::iter_keys().count() as u32;
 			let old_child_bounty_descriptions =
 				v1::ChildBountyDescriptions::<T>::iter_keys().count() as u32;
-			let old_child_bounty_curator_fee =
-				v1::ChildrenCuratorFees::<T>::iter_keys().count() as u32;
-			Ok((
-				old_child_bounty_count,
-				old_child_bounty_descriptions,
-				old_child_bounty_curator_fee,
-			)
-				.encode())
+			Ok((old_child_bounty_count, old_child_bounty_descriptions).encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			type StateType = (u32, u32, u32);
-			let (
-				old_child_bounty_count,
-				old_child_bounty_descriptions,
-				old_child_bounty_curator_fee,
-			): (u32, u32, u32) = StateType::decode(&mut &state[..]).expect("Can't decode previous state");
+			type StateType = (u32, u32);
+			let (old_child_bounty_count, old_child_bounty_descriptions) =
+				StateType::decode(&mut &state[..]).expect("Can't decode previous state");
 			let new_child_bounty_count = ChildBounties::<T>::iter_keys().count() as u32;
 			let new_child_bounty_descriptions =
 				super::super::ChildBountyDescriptions::<T>::iter_keys().count() as u32;
-			let new_child_bounty_curator_fee =
-				super::super::ChildrenCuratorFees::<T>::iter_keys().count() as u32;
 
 			ensure!(
 				old_child_bounty_count == new_child_bounty_count,
@@ -140,13 +116,11 @@ pub mod v1 {
 				old_child_bounty_descriptions == new_child_bounty_descriptions,
 				"child bounty descriptions count doesn't match"
 			);
-			ensure!(
-				old_child_bounty_curator_fee == new_child_bounty_curator_fee,
-				"child bounty curator fee count doesn't match"
-			);
 
-			log::info!("old child bounty descriptions: {}", v1::ChildBountyDescriptions::<T>::iter_keys().count());
-			log::info!("old child bounty curator fees descriptions: {}", v1::ChildrenCuratorFees::<T>::iter_keys().count());
+			log::info!(
+				"old child bounty descriptions: {}",
+				v1::ChildBountyDescriptions::<T>::iter_keys().count()
+			);
 
 			Ok(())
 		}

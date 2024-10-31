@@ -229,15 +229,8 @@ pub mod pallet {
 
 	/// The cumulative child-bounty curator fee for each parent bounty.
 	#[pallet::storage]
-	pub type ChildrenCuratorFees<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		BountyIndex,
-		Twox64Concat,
-		BountyIndex,
-		BalanceOf<T>,
-		ValueQuery,
-	>;
+	pub type ChildrenCuratorFees<T: Config> =
+		StorageMap<_, Twox64Concat, BountyIndex, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -373,7 +366,7 @@ pub mod pallet {
 					// Add child-bounty curator fee to the cumulative sum. To be
 					// subtracted from the parent bounty curator when claiming
 					// bounty.
-					ChildrenCuratorFees::<T>::mutate(parent_bounty_id, child_bounty_id, |value| {
+					ChildrenCuratorFees::<T>::mutate(parent_bounty_id, |value| {
 						*value = value.saturating_add(fee)
 					});
 
@@ -887,7 +880,7 @@ impl<T: Config> Pallet<T> {
 
 				// Revert the curator fee back to parent bounty curator &
 				// reduce the active child-bounty count.
-				ChildrenCuratorFees::<T>::mutate(parent_bounty_id, child_bounty_id, |value| {
+				ChildrenCuratorFees::<T>::mutate(parent_bounty_id, |value| {
 					*value = value.saturating_sub(child_bounty.fee)
 				});
 				ParentChildBounties::<T>::mutate(parent_bounty_id, |count| {
@@ -935,11 +928,8 @@ impl<T: Config> pallet_bounties::ChildBountyManager<BalanceOf<T>> for Pallet<T> 
 	fn children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -> BalanceOf<T> {
 		// This is asked for when the parent bounty is being claimed. No use of
 		// keeping it in state after that. Hence removing.
-		let mut children_fee_total = 0u32.into();
-		for child_fee in ChildrenCuratorFees::<T>::iter_prefix_values(bounty_id) {
-			children_fee_total += child_fee;
-		}
-		ChildrenCuratorFees::<T>::drain_prefix(bounty_id);
+		let children_fee_total = ChildrenCuratorFees::<T>::get(bounty_id);
+		ChildrenCuratorFees::<T>::remove(bounty_id);
 		children_fee_total
 	}
 }

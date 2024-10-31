@@ -16460,7 +16460,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b569754b15060d03000c09e3bf11509d527f60b75d79b4c30c3625b5071d9702"
 dependencies = [
  "polkavm-derive-impl 0.14.0",
- "syn 2.0.82",
+ "syn 2.0.85",
 ]
 
 [[package]]
