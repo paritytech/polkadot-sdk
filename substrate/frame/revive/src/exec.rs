@@ -582,6 +582,8 @@ struct Frame<T: Config> {
 	read_only: bool,
 	/// The caller of the currently executing frame which was spawned by `delegate_call`.
 	delegate_caller: Option<Origin<T>>,
+	/// The address of the contract the call was delegated to.
+	delegate_address: Option<H160>,
 	/// The output of the last executed call frame.
 	last_frame_output: ExecReturnValue,
 }
@@ -592,6 +594,8 @@ struct DelegatedCall<T: Config, E> {
 	executable: E,
 	/// The caller of the contract.
 	caller: Origin<T>,
+	/// The address of the contract.
+	address: H160,
 }
 
 /// Parameter passed in when creating a new `Frame`.
@@ -896,64 +900,74 @@ where
 		read_only: bool,
 		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, E)>, ExecError> {
-		let (account_id, contract_info, executable, delegate_caller, entry_point) = match frame_args
-		{
-			FrameArgs::Call { dest, cached_info, delegated_call } => {
-				let contract = if let Some(contract) = cached_info {
-					contract
-				} else {
-					if let Some(contract) =
-						<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
-					{
+		let (account_id, contract_info, executable, delegate_caller, delegate_address, entry_point) =
+			match frame_args {
+				FrameArgs::Call { dest, cached_info, delegated_call } => {
+					let contract = if let Some(contract) = cached_info {
 						contract
 					} else {
-						return Ok(None);
-					}
-				};
-
-				let (executable, delegate_caller) =
-					if let Some(DelegatedCall { executable, caller }) = delegated_call {
-						(executable, Some(caller))
-					} else {
-						(E::from_storage(contract.code_hash, gas_meter)?, None)
+						if let Some(contract) =
+							<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
+						{
+							contract
+						} else {
+							return Ok(None);
+						}
 					};
 
-				(dest, contract, executable, delegate_caller, ExportedFunction::Call)
-			},
-			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
-				let deployer = T::AddressMapper::to_address(&sender);
-				let account_nonce = <System<T>>::account_nonce(&sender);
-				let address = if let Some(salt) = salt {
-					address::create2(&deployer, executable.code(), input_data, salt)
-				} else {
-					use sp_runtime::Saturating;
-					address::create1(
-						&deployer,
-						// the Nonce from the origin has been incremented pre-dispatch, so we need
-						// to subtract 1 to get the nonce at the time of the call.
-						if origin_is_caller {
-							account_nonce.saturating_sub(1u32.into()).saturated_into()
+					let (executable, delegate_caller, delegate_address) =
+						if let Some(DelegatedCall { executable, caller, address }) = delegated_call
+						{
+							(executable, Some(caller), Some(address))
 						} else {
-							account_nonce.saturated_into()
-						},
+							(E::from_storage(contract.code_hash, gas_meter)?, None, None)
+						};
+
+					(
+						dest,
+						contract,
+						executable,
+						delegate_caller,
+						delegate_address,
+						ExportedFunction::Call,
 					)
-				};
-				let contract = ContractInfo::new(
-					&address,
-					<System<T>>::account_nonce(&sender),
-					*executable.code_hash(),
-				)?;
-				(
-					T::AddressMapper::to_fallback_account_id(&address),
-					contract,
-					executable,
-					None,
-					ExportedFunction::Constructor,
-				)
-			},
-		};
+				},
+				FrameArgs::Instantiate { sender, executable, salt, input_data } => {
+					let deployer = T::AddressMapper::to_address(&sender);
+					let account_nonce = <System<T>>::account_nonce(&sender);
+					let address = if let Some(salt) = salt {
+						address::create2(&deployer, executable.code(), input_data, salt)
+					} else {
+						use sp_runtime::Saturating;
+						address::create1(
+							&deployer,
+							// the Nonce from the origin has been incremented pre-dispatch, so we
+							// need to subtract 1 to get the nonce at the time of the call.
+							if origin_is_caller {
+								account_nonce.saturating_sub(1u32.into()).saturated_into()
+							} else {
+								account_nonce.saturated_into()
+							},
+						)
+					};
+					let contract = ContractInfo::new(
+						&address,
+						<System<T>>::account_nonce(&sender),
+						*executable.code_hash(),
+					)?;
+					(
+						T::AddressMapper::to_fallback_account_id(&address),
+						contract,
+						executable,
+						None,
+						None,
+						ExportedFunction::Constructor,
+					)
+				},
+			};
 
 		let frame = Frame {
+			delegate_address,
 			delegate_caller,
 			value_transferred,
 			contract_info: CachedContract::Cached(contract_info),
@@ -1411,8 +1425,10 @@ where
 		// This is for example the case for unknown code hashes or creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
-		let contract_info = ContractInfoOf::<T>::get(&address).ok_or(Error::<T>::CodeNotFound)?;
-		let executable = E::from_storage(contract_info.code_hash, self.gas_meter_mut())?;
+		let code_hash = ContractInfoOf::<T>::get(&address)
+			.ok_or(Error::<T>::CodeNotFound)
+			.map(|c| c.code_hash)?;
+		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let top_frame = self.top_frame_mut();
 		let contract_info = top_frame.contract_info().clone();
 		let account_id = top_frame.account_id.clone();
@@ -1421,7 +1437,11 @@ where
 			FrameArgs::Call {
 				dest: account_id,
 				cached_info: Some(contract_info),
-				delegated_call: Some(DelegatedCall { executable, caller: self.caller().clone() }),
+				delegated_call: Some(DelegatedCall {
+					executable,
+					caller: self.caller().clone(),
+					address,
+				}),
 			},
 			value,
 			gas_limit,
@@ -1593,7 +1613,11 @@ where
 			return Err(Error::<T>::InvalidImmutableAccess.into());
 		}
 
-		let address = T::AddressMapper::to_address(self.account_id());
+		// Immutable is read from contract code being executed
+		let address = self
+			.top_frame()
+			.delegate_address
+			.unwrap_or(T::AddressMapper::to_address(self.account_id()));
 		Ok(<ImmutableDataOf<T>>::get(address).ok_or_else(|| Error::<T>::InvalidImmutableAccess)?)
 	}
 
@@ -4605,12 +4629,12 @@ mod tests {
 				Ok(vec![2]),
 			);
 
-			// In a delegate call, we should witness the caller immutable data
+			// Also in a delegate call, we should witness the callee immutable data
 			assert_eq!(
 				ctx.ext
 					.delegate_call(Weight::zero(), U256::zero(), CHARLIE_ADDR, Vec::new())
 					.map(|_| ctx.ext.last_frame_output().data.clone()),
-				Ok(vec![1])
+				Ok(vec![2])
 			);
 
 			exec_success()
