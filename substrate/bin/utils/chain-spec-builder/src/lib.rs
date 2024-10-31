@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-#![doc = docify::compile_markdown!("README.md")]
+#![doc = include_str!("../README.md")]
 
 use clap::{Parser, Subcommand};
 use sc_chain_spec::{
