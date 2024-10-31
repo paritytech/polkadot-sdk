@@ -104,7 +104,7 @@ jobs:
           GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
           RC_TAG: ${{ steps.compute_tag.outputs.new_tag }}
         run: |
-         git tag -s $RC_TAG
+         git tag -s $RC_TAG -m "new rc tag $RC_TAG"
          git push origin $RC_TAG
         # uses: tvdias/github-tagger@ed7350546e3e503b5e942dffd65bc8751a95e49d # v0.0.2
         # with:
