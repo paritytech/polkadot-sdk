@@ -8284,12 +8284,13 @@ mod byzantine_threshold_disabling_strategy {
 		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitDisablingStrategy,
 	};
 	use sp_runtime::Perbill;
-	use sp_staking::EraIndex;
+	use sp_staking::{EraIndex, offence::OffenceSeverity};
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
 	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
-	const OFFENDER_SLASH: Perbill = Perbill::from_percent(100);
+	const MAX_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(100));
+	const MIN_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(0));
 	const SLASH_ERA: EraIndex = 1;
 	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
 	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
@@ -8304,7 +8305,7 @@ mod byzantine_threshold_disabling_strategy {
 			let disabling_decision =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8316,14 +8317,13 @@ mod byzantine_threshold_disabling_strategy {
 	#[test]
 	fn dont_disable_beyond_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let max_slash = Perbill::from_percent(100);
-			let initially_disabled = vec![(1, max_slash), (2, max_slash)];
+			let initially_disabled = vec![(1, MIN_OFFENDER_SEVERITY), (2, MAX_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disabling_decision =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8335,14 +8335,13 @@ mod byzantine_threshold_disabling_strategy {
 	#[test]
 	fn disable_when_below_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let max_slash = Perbill::from_percent(100);
-			let initially_disabled = vec![(1, max_slash)];
+			let initially_disabled = vec![(1, MAX_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disabling_decision =
 				<UpToLimitDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8358,13 +8357,13 @@ mod disabling_strategy_with_reenabling {
 		UpToLimitWithReEnablingDisablingStrategy,
 	};
 	use sp_runtime::Perbill;
-	use sp_staking::EraIndex;
+	use sp_staking::{EraIndex, offence::OffenceSeverity};
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
 	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
-	const OFFENDER_SLASH_MINOR: Perbill = Perbill::from_percent(10);
-	const OFFENDER_SLASH_MAJOR: Perbill = Perbill::from_percent(100);
+	const MAX_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(100));
+	const LOW_OFFENDER_SEVERITY: OffenceSeverity = OffenceSeverity(Perbill::from_percent(0));
 	const SLASH_ERA: EraIndex = 1;
 	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
 	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
@@ -8379,7 +8378,7 @@ mod disabling_strategy_with_reenabling {
 			let disabling_decision =
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH_MAJOR,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8391,13 +8390,13 @@ mod disabling_strategy_with_reenabling {
 	#[test]
 	fn disable_when_below_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![(0, OFFENDER_SLASH_MAJOR)];
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disabling_decision =
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH_MAJOR,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8411,13 +8410,13 @@ mod disabling_strategy_with_reenabling {
 	#[test]
 	fn reenable_arbitrary_on_equal_severity() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![(0, OFFENDER_SLASH_MAJOR), (1, OFFENDER_SLASH_MAJOR)];
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY), (1, MAX_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disabling_decision =
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH_MAJOR,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8432,13 +8431,13 @@ mod disabling_strategy_with_reenabling {
 	#[test]
 	fn do_not_reenable_higher_offenders() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![(0, OFFENDER_SLASH_MAJOR), (1, OFFENDER_SLASH_MAJOR)];
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY), (1, MAX_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disabling_decision =
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH_MINOR,
+					LOW_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8450,13 +8449,13 @@ mod disabling_strategy_with_reenabling {
 	#[test]
 	fn reenable_lower_offenders() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![(0, OFFENDER_SLASH_MINOR), (1, OFFENDER_SLASH_MINOR)];
+			let initially_disabled = vec![(0, LOW_OFFENDER_SEVERITY), (1, LOW_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disabling_decision =
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH_MAJOR,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8471,13 +8470,13 @@ mod disabling_strategy_with_reenabling {
 	#[test]
 	fn reenable_lower_offenders_unordered() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			let initially_disabled = vec![(0, OFFENDER_SLASH_MAJOR), (1, OFFENDER_SLASH_MINOR)];
+			let initially_disabled = vec![(0, MAX_OFFENDER_SEVERITY), (1, LOW_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disabling_decision =
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH_MAJOR,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8493,13 +8492,13 @@ mod disabling_strategy_with_reenabling {
 	fn update_severity() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let initially_disabled =
-				vec![(OFFENDER_VALIDATOR_IDX, OFFENDER_SLASH_MINOR), (0, OFFENDER_SLASH_MAJOR)];
+				vec![(OFFENDER_VALIDATOR_IDX, LOW_OFFENDER_SEVERITY), (0, MAX_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disabling_decision =
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH_MAJOR,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8514,13 +8513,13 @@ mod disabling_strategy_with_reenabling {
 	fn update_cannot_lower_severity() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let initially_disabled =
-				vec![(OFFENDER_VALIDATOR_IDX, OFFENDER_SLASH_MAJOR), (0, OFFENDER_SLASH_MAJOR)];
+				vec![(OFFENDER_VALIDATOR_IDX, MAX_OFFENDER_SEVERITY), (0, MAX_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disabling_decision =
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH_MINOR,
+					LOW_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
@@ -8533,13 +8532,13 @@ mod disabling_strategy_with_reenabling {
 	fn no_accidental_reenablement_on_repeated_offence() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let initially_disabled =
-				vec![(OFFENDER_VALIDATOR_IDX, OFFENDER_SLASH_MAJOR), (0, OFFENDER_SLASH_MINOR)];
+				vec![(OFFENDER_VALIDATOR_IDX, MAX_OFFENDER_SEVERITY), (0, LOW_OFFENDER_SEVERITY)];
 			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
 			let disabling_decision =
 				<UpToLimitWithReEnablingDisablingStrategy as DisablingStrategy<Test>>::decision(
 					&OFFENDER_ID,
-					OFFENDER_SLASH_MAJOR,
+					MAX_OFFENDER_SEVERITY,
 					SLASH_ERA,
 					&initially_disabled,
 				);
