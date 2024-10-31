@@ -724,6 +724,13 @@ pub trait SteppedMigrations {
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>>;
 
+    /// Get the storage prefixes modified by the `n`th migration.
+    ///
+    /// Returns `None` if the index is out of bounds.
+    /// Returns `Some(Ok(prefixes))` containing the storage prefixes that will be modified.
+    fn nth_migrating_prefixes(n: usize)
+        -> Option<Result<impl IntoIterator<Item = Vec<u8>>, SteppedMigrationError>>;
+
 	/// Call the pre-upgrade hooks of the `n`th migration.
 	///
 	/// Returns `None` if the index is out of bounds.
@@ -798,6 +805,11 @@ impl SteppedMigrations for () {
 		_meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
 		None
+	}
+
+	fn nth_migrating_prefixes(_n: usize) 
+	-> Option<Result<impl IntoIterator<Item = Vec<u8>>, SteppedMigrationError>> {
+		None::<Result<Vec<Vec<u8>>, SteppedMigrationError>>
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -885,6 +897,13 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 		)
 	}
 
+	fn nth_migrating_prefixes(n: usize) 
+        -> Option<Result<impl IntoIterator<Item = Vec<u8>>, SteppedMigrationError>> {
+        n.is_zero()
+            .then(|| Ok(T::migrating_prefixes().into_iter().collect::<Vec<_>>()))
+            .defensive_proof("nth_migrating_prefixes should only be called with n==0")
+    }
+
 	#[cfg(feature = "try-runtime")]
 	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
 		if n != 0 {
@@ -912,6 +931,7 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(1, 30)]
+#[tuple_types_custom_trait_bound(SteppedMigration)]
 impl SteppedMigrations for Tuple {
 	fn len() -> u32 {
 		for_tuples!( #( Tuple::len() )+* )
@@ -966,6 +986,18 @@ impl SteppedMigrations for Tuple {
 
 		None
 	}
+
+	fn nth_migrating_prefixes(n: usize)
+        -> Option<Result<impl IntoIterator<Item = Vec<u8>>, SteppedMigrationError>> {
+        let mut i = 0;
+        for_tuples!( #(
+            if (i + Tuple::len() as usize) > n {
+                return Some(Ok(Tuple::migrating_prefixes().into_iter().collect::<Vec<_>>()))
+            }
+            i += Tuple::len() as usize;
+        )* );
+        None::<Result<Vec<Vec<u8>>, SteppedMigrationError>>
+    }
 
 	#[cfg(feature = "try-runtime")]
 	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
@@ -1148,7 +1180,7 @@ mod tests {
 	#[test]
 	fn tuple_migrations_work() {
 		assert_eq!(<() as SteppedMigrations>::len(), 0);
-		assert_eq!(<((), ((), ())) as SteppedMigrations>::len(), 0);
+		assert_eq!(<(M0, M1) as SteppedMigrations>::len(), 2);
 		assert_eq!(<Triple as SteppedMigrations>::len(), 3);
 		assert_eq!(<Hextuple as SteppedMigrations>::len(), 6);
 
