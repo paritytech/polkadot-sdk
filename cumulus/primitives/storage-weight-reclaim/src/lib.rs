@@ -115,8 +115,7 @@ mod allow_deprecated {
 		transaction extension pipeline; it ignores the validation and preparation of extensions prior \
 		to itself and ignores the post dispatch logic for extensions subsequent to itself, it also
 		doesn't provide weight information. \
-		Use `StorageWeightReclaim` and `StorageWeightRecord` in the `cumulus-pallet-weight-reclaim`\
-		crate")]
+		Use `StorageWeightReclaim` in the `cumulus-pallet-weight-reclaim` crate")]
 	#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct StorageWeightReclaim<T: Config + Send + Sync>(pub(super) PhantomData<T>);

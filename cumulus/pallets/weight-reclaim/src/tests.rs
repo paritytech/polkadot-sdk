@@ -56,6 +56,17 @@ impl TransactionExtension<RuntimeCall> for MockExtensionWithRefund {
 	) -> Result<Weight, TransactionValidityError> {
 		Ok(MOCK_EXT_REFUND.with_borrow(|v| *v))
 	}
+	fn bare_post_dispatch(
+		_info: &DispatchInfoOf<RuntimeCall>,
+		post_info: &mut PostDispatchInfoOf<RuntimeCall>,
+		_len: usize,
+		_result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		if let Some(ref mut w) = post_info.actual_weight {
+			*w -= MOCK_EXT_REFUND.with_borrow(|v| *v);
+		}
+		Ok(())
+	}
 
 	sp_runtime::impl_tx_ext_default!(RuntimeCall; validate prepare);
 }
@@ -211,6 +222,7 @@ mod doc {
 			frame_system::CheckNonce<Runtime>,
 			frame_system::CheckWeight<Runtime>,
 			// ... all other extensions
+			// No need for `frame_system::WeightReclaim` as the reclaim.
 		),
 	>;
 }
@@ -572,6 +584,42 @@ fn full_accrue() {
 		assert_eq!(
 			get_storage_weight().proof_size(),
 			initial_storage_weight + actual_used_proof_size as u64 + LEN as u64
+		);
+	});
+}
+
+#[test]
+fn bare_is_reclaimed() {
+	let mut test_ext = setup_test_externalities(&[]);
+	test_ext.execute_with(|| {
+		let info = DispatchInfo {
+			call_weight: Weight::from_parts(100, 100),
+			extension_weight: Weight::from_parts(100, 100),
+			class: DispatchClass::Normal,
+			pays_fee: Default::default(),
+		};
+		let mut post_info = PostDispatchInfo {
+			actual_weight: Some(Weight::from_parts(100, 100)),
+			pays_fee: Default::default(),
+		};
+		MOCK_EXT_REFUND.with_borrow_mut(|v| *v = Weight::from_parts(10, 10));
+
+		frame_system::BlockWeight::<Test>::mutate(|current_weight| {
+			current_weight
+				.set(Weight::from_parts(45, 45) + info.total_weight(), DispatchClass::Normal);
+		});
+
+		StorageWeightReclaim::<Test, MockExtensionWithRefund>::bare_post_dispatch(
+			&info,
+			&mut post_info,
+			0,
+			&Ok(()),
+		)
+		.expect("tx is valid");
+
+		assert_eq!(
+			*frame_system::BlockWeight::<Test>::get().get(DispatchClass::Normal),
+			Weight::from_parts(45 + 90, 45 + 90),
 		);
 	});
 }

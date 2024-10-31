@@ -907,3 +907,52 @@ fn extrinsic_weight_refunded_is_cleaned() {
 		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
 	});
 }
+
+#[test]
+fn reclaim_works() {
+	new_test_ext().execute_with(|| {
+		let info = DispatchInfo { call_weight: Weight::from_parts(100, 200), ..Default::default() };
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(50, 100)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(50, 100));
+
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(25, 200)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 100));
+
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(300, 50)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 150));
+
+		crate::Pallet::<Test>::reclaim_weight(
+			&info,
+			&PostDispatchInfo {
+				actual_weight: Some(Weight::from_parts(300, 300)),
+				..Default::default()
+			},
+		)
+		.unwrap();
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 150));
+
+		System::note_applied_extrinsic(&Ok(().into()), Default::default());
+		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
+	});
+}

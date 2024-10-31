@@ -145,6 +145,10 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::storage::well_known_keys;
+use sp_runtime::{
+	traits::{DispatchInfoOf, PostDispatchInfoOf},
+	transaction_validity::TransactionValidityError,
+};
 use sp_weights::{RuntimeDbWeight, Weight};
 
 #[cfg(any(feature = "std", test))]
@@ -2194,6 +2198,32 @@ impl<T: Config> Pallet<T> {
 			Self::can_set_code(code)?
 		}
 		Ok(actual_hash)
+	}
+
+	/// Reclaim the weight for the extrinsic given info and post info.
+	///
+	/// This function will check the already reclaimed weight, and reclaim more if the
+	/// difference between pre dispatch and post dispatch weight is higher.
+	pub fn reclaim_weight(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+	) -> Result<(), TransactionValidityError>
+	where
+		T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	{
+		let already_reclaimed = crate::ExtrinsicWeightReclaimed::<T>::get();
+		let unspent = post_info.calc_unspent(info);
+		let accurate_reclaim = already_reclaimed.max(unspent);
+
+		if already_reclaimed != accurate_reclaim {
+			crate::BlockWeight::<T>::mutate(|current_weight| {
+				current_weight.accrue(already_reclaimed, info.class);
+				current_weight.reduce(accurate_reclaim, info.class);
+			});
+			crate::ExtrinsicWeightReclaimed::<T>::put(accurate_reclaim);
+		}
+
+		Ok(())
 	}
 }
 

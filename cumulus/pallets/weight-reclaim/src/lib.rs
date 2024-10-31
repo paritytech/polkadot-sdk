@@ -74,7 +74,9 @@ pub mod pallet {
 ///
 /// This extension checks the size of the node-side storage proof
 /// before and after executing a given extrinsic. The difference between
-/// benchmarked and spent weight can be reclaimed.
+/// benchmarked and used weight is reclaimed.
+///
+/// If the benchmark was underestimating the proof size, then it is added to the block weight.
 #[derive(Encode, Decode, TypeInfo, Derivative)]
 #[derivative(
 	Clone(bound = "S: Clone"),
@@ -116,8 +118,13 @@ where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
 	const IDENTIFIER: &'static str = "StorageWeightReclaim<Use `metadata()`!>";
+
 	type Implicit = S::Implicit;
+
+	// Initial proof size and inner extension value.
 	type Val = (Option<u64>, S::Val);
+
+	// Initial proof size and inner extension pre.
 	type Pre = (Option<u64>, S::Pre);
 
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
@@ -141,8 +148,6 @@ where
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
 	) -> Result<(ValidTransaction, Self::Val, T::RuntimeOrigin), TransactionValidityError> {
-		// Trade-off: we could move it to `prepare` but better be accurate on reclaim than fast on
-		// `validate`
 		let proof_size = get_proof_size();
 
 		self.0
@@ -259,6 +264,8 @@ where
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		S::bare_post_dispatch(info, post_info, len, result)
+		S::bare_post_dispatch(info, post_info, len, result)?;
+
+		frame_system::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }

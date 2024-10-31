@@ -131,7 +131,7 @@ impl frame_system::Config for Runtime {
 
 /// Configure the palelt weight reclaim tx.
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
-	type WeightInfo = (); // TODO TODO: run CI weights generation
+	type WeightInfo = ();
 }
 
 impl pallet_timestamp::Config for Runtime {

@@ -44,24 +44,6 @@ where
 	pub fn new() -> Self {
 		Self(Default::default())
 	}
-
-	pub fn do_post_dispatch(
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
-	) -> Result<(), TransactionValidityError> {
-		let already_reclaimed = crate::ExtrinsicWeightReclaimed::<T>::get();
-		let unspent = post_info.calc_unspent(info);
-		let accurate_reclaim = already_reclaimed.max(unspent);
-
-		if already_reclaimed != accurate_reclaim {
-			crate::BlockWeight::<T>::mutate(|current_weight| {
-				current_weight.accrue(already_reclaimed, info.class);
-				current_weight.reduce(accurate_reclaim, info.class);
-			});
-			crate::ExtrinsicWeightReclaimed::<T>::put(accurate_reclaim);
-		}
-		Ok(())
-	}
 }
 
 impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for WeightReclaim<T>
@@ -107,8 +89,7 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		Self::do_post_dispatch(info, post_info)?;
-		Ok(Weight::zero())
+		crate::Pallet::<T>::reclaim_weight(info, post_info).map(|()| Weight::zero())
 	}
 
 	fn bare_validate(
@@ -133,7 +114,7 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		Self::do_post_dispatch(info, post_info)
+		crate::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }
 

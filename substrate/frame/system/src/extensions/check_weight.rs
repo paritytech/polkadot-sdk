@@ -134,21 +134,12 @@ where
 		Ok(())
 	}
 
+	#[deprecated(note = "Use `frame_system::Pallet::reclaim_weight` instead.")]
 	pub fn do_post_dispatch(
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 	) -> Result<(), TransactionValidityError> {
-		let already_reclaimed = crate::ExtrinsicWeightReclaimed::<T>::get();
-		let unspent = post_info.calc_unspent(info);
-		if unspent.any_gt(already_reclaimed) {
-			crate::BlockWeight::<T>::mutate(|current_weight| {
-				current_weight.accrue(already_reclaimed, info.class);
-				current_weight.reduce(unspent, info.class);
-			});
-			crate::ExtrinsicWeightReclaimed::<T>::put(unspent);
-		}
-
-		Ok(())
+		crate::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }
 
@@ -268,8 +259,7 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		Self::do_post_dispatch(info, post_info)?;
-		Ok(Weight::zero())
+		crate::Pallet::<T>::reclaim_weight(info, post_info).map(|()| Weight::zero())
 	}
 
 	fn bare_validate(
@@ -295,7 +285,7 @@ where
 		_len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		Self::do_post_dispatch(info, post_info)
+		crate::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }
 

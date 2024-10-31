@@ -138,9 +138,16 @@ impl<T: crate::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `System::AllExtrinsicsLen` (r:1 w:1)
+	/// Proof: `System::AllExtrinsicsLen` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn weight_reclaim() -> Weight {
-		// TODO TODO
-		Weight::zero()
+		// Proof Size summary in bytes:
+		//  Measured:  `24`
+		//  Estimated: `1489`
+		// Minimum execution time: 4_375_000 picoseconds.
+		Weight::from_parts(4_747_000, 1489)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 
@@ -219,8 +226,15 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	/// Storage: `System::AllExtrinsicsLen` (r:1 w:1)
+	/// Proof: `System::AllExtrinsicsLen` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn weight_reclaim() -> Weight {
-		// TODO TODO
-		Weight::zero()
+		// Proof Size summary in bytes:
+		//  Measured:  `24`
+		//  Estimated: `1489`
+		// Minimum execution time: 4_375_000 picoseconds.
+		Weight::from_parts(4_747_000, 1489)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
