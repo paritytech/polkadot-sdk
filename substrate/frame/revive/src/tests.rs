@@ -1170,17 +1170,17 @@ fn delegate_call_with_limits() {
 
 		// fails, not enough weight
 		assert_err!(
-				builder::bare_call(caller_addr)
-					.value(1337)
-					.data((callee_addr, 100u64, 100u64).encode())
-					.build()
-					.result,
-				Error::<Test>::ContractTrapped,
-			);
+			builder::bare_call(caller_addr)
+				.value(1337)
+				.data((callee_addr, 100u64, 100u64).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
 
 		assert_ok!(builder::call(caller_addr)
-				.value(1337)
-				.data((callee_addr, 500_000_000u64, 100_000u64).encode())
+			.value(1337)
+			.data((callee_addr, 500_000_000u64, 100_000u64).encode())
 			.build());
 	});
 }
@@ -3808,10 +3808,10 @@ fn locking_delegate_dependency_works() {
 		// Locking self should fail.
 		assert_err!(
 			builder::bare_call(addr_caller)
-					.origin(RuntimeOrigin::signed(ALICE_FALLBACK))
-					.data((1u32, &addr_caller, self_code_hash).encode())
-					.build()
-					.result,
+				.origin(RuntimeOrigin::signed(ALICE_FALLBACK))
+				.data((1u32, &addr_caller, self_code_hash).encode())
+				.build()
+				.result,
 			Error::<Test>::CannotAddSelfAsDelegateDependency
 		);
 
