@@ -27,8 +27,6 @@ use frame_support::{
 	traits::{tokens::ConvertRank, ConstU64},
 };
 use sp_runtime::{testing::TestXt, traits::Identity, BuildStorage, DispatchResult};
-//#[cfg(feature = "experimental")]
-//use sp_core::offchain::{testing, OffchainWorkerExt, TransactionPoolExt};
 use frame_support::traits::Task;
 use crate as pallet_salary;
 use crate::*;
@@ -186,11 +184,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 fn next_block() {
-	//#[cfg(feature = "experimental")]
-	//use frame_support::traits::Hooks;
 	System::set_block_number(System::block_number() + 1);
-	//#[cfg(feature = "experimental")]
-	//Salary::offchain_worker(System::block_number());
 }
 
 #[allow(dead_code)]
@@ -755,45 +749,3 @@ fn task_execution_fails_for_invalid_task() {
 		);
 	});
 }
-
-
-/*
-#[cfg(feature = "experimental")]
-#[test]
-fn task_with_offchain_worker() {
-	let (offchain, _offchain_state) = testing::TestOffchainExt::new();
-	let (pool, pool_state) = testing::TestTransactionPoolExt::new();
-
-	let mut t = sp_io::TestExternalities::default();
-	t.register_extension(OffchainWorkerExt::new(offchain));
-	t.register_extension(TransactionPoolExt::new(pool));
-
-	t.execute_with(|| {
-		set_rank(1, 1);
-		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
-		// assert!(pool_state.read().transactions.is_empty());
-
-		
-
-		run_to(2);
-		let tx = pool_state.write().transactions.pop().unwrap();
-		// assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
-		// assert!(pool_state.read().transactions.is_empty());
-		run_to(6);
-		let tux = pool_state.write().transactions.pop().unwrap();
-		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(
-			Salary::status(),
-			Some(StatusType {
-				cycle_index: 0,
-				cycle_start: 5,
-				budget: 10,
-				total_registrations: 0,
-				total_unregistered_paid: 0,
-			})
-		);
-		use sp_runtime::traits::ExtrinsicLike;
-		assert!(tx.is_bare());
-	});
-}
-*/
