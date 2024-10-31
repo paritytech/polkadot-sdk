@@ -101,3 +101,24 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for ResetInactive<T, I> {
 		}
 	}
 }
+
+pub struct SimpleStorageUpdate<T, I = ()>(PhantomData<(T, I)>);
+impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for SimpleStorageUpdate<T, I> {
+	fn on_runtime_upgrade() -> Weight {
+		let current_storage_version = <Pallet<T>>::current_storage_version();
+		let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+
+		if onchain_storage_version == 0 && current_storage_version != 0 {
+			current_storage_version.put::<Pallet<T>>();
+
+			log::info!(target: LOG_TARGET, "Storage to version {current_storage_version}");
+			T::DbWeight::get().reads_writes(1, 1)
+		} else {
+			log::info!(
+				target: LOG_TARGET,
+				"Migration did not execute. This probably should be removed"
+			);
+			T::DbWeight::get().reads(1)
+		}
+	}
+}
