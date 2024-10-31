@@ -648,7 +648,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 		let mut list: LinkedHashSet<_> = self
 			.permanent_addresses
 			.iter()
-			.filter_map(|(p, a)| (*p == peer_id).then_some(a.clone()))
+			.filter_map(|(p, a)| (*p == peer_id).then(|| a.clone()))
 			.collect();
 
 		if let Some(ephemeral_addresses) = self.ephemeral_addresses.get(&peer_id) {

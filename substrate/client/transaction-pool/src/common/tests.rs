@@ -156,6 +156,15 @@ impl ChainApi for TestApi {
 		futures::future::ready(Ok(res))
 	}
 
+	fn validate_transaction_blocking(
+		&self,
+		_at: <Self::Block as BlockT>::Hash,
+		_source: TransactionSource,
+		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+	) -> error::Result<TransactionValidity> {
+		unimplemented!();
+	}
+
 	/// Returns a block number given the block id.
 	fn block_id_to_number(
 		&self,

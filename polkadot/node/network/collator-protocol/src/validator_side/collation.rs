@@ -40,8 +40,8 @@ use polkadot_node_subsystem_util::{
 	metrics::prometheus::prometheus::HistogramTimer, runtime::ProspectiveParachainsMode,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CollatorId, Hash, HeadData, Id as ParaId,
-	PersistedValidationData,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CollatorId, Hash, HeadData,
+	Id as ParaId, PersistedValidationData,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -71,18 +71,15 @@ pub struct FetchedCollation {
 	pub para_id: ParaId,
 	/// Candidate hash.
 	pub candidate_hash: CandidateHash,
-	/// Id of the collator the collation was fetched from.
-	pub collator_id: CollatorId,
 }
 
 impl From<&CandidateReceipt<Hash>> for FetchedCollation {
 	fn from(receipt: &CandidateReceipt<Hash>) -> Self {
 		let descriptor = receipt.descriptor();
 		Self {
-			relay_parent: descriptor.relay_parent,
-			para_id: descriptor.para_id,
+			relay_parent: descriptor.relay_parent(),
+			para_id: descriptor.para_id(),
 			candidate_hash: receipt.hash(),
-			collator_id: descriptor.collator.clone(),
 		}
 	}
 }
@@ -141,7 +138,7 @@ pub fn fetched_collation_sanity_check(
 	persisted_validation_data: &PersistedValidationData,
 	maybe_parent_head_and_hash: Option<(HeadData, Hash)>,
 ) -> Result<(), SecondingError> {
-	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash {
+	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash() {
 		Err(SecondingError::PersistedValidationDataMismatch)
 	} else if advertised
 		.prospective_candidate

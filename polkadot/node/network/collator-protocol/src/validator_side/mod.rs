@@ -52,8 +52,8 @@ use polkadot_node_subsystem_util::{
 	runtime::{fetch_claim_queue, prospective_parachains_mode, ProspectiveParachainsMode},
 };
 use polkadot_primitives::{
-	CandidateHash, CollatorId, CoreState, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData,
+	vstaging::CoreState, CandidateHash, CollatorId, Hash, HeadData, Id as ParaId,
+	OccupiedCoreAssumption, PersistedValidationData,
 };
 
 use crate::error::{Error, FetchError, Result, SecondingError};
@@ -1021,7 +1021,7 @@ async fn second_unblocked_collations<Context>(
 		for mut unblocked_collation in unblocked_collations {
 			unblocked_collation.maybe_parent_head_data = Some(head_data.clone());
 			let peer_id = unblocked_collation.collation_event.pending_collation.peer_id;
-			let relay_parent = unblocked_collation.candidate_receipt.descriptor.relay_parent;
+			let relay_parent = unblocked_collation.candidate_receipt.descriptor.relay_parent();
 
 			if let Err(err) = kick_off_seconding(ctx, state, unblocked_collation).await {
 				gum::warn!(
@@ -1328,7 +1328,7 @@ where
 		collations.retain(|collation| {
 			state
 				.per_relay_parent
-				.contains_key(&collation.candidate_receipt.descriptor.relay_parent)
+				.contains_key(&collation.candidate_receipt.descriptor.relay_parent())
 		});
 
 		!collations.is_empty()
@@ -1470,7 +1470,7 @@ async fn process_msg<Context>(
 				},
 			};
 			let output_head_data = receipt.commitments.head_data.clone();
-			let output_head_data_hash = receipt.descriptor.para_head;
+			let output_head_data_hash = receipt.descriptor.para_head();
 			let fetched_collation = FetchedCollation::from(&receipt.to_plain());
 			if let Some(CollationEvent { collator_id, pending_collation, .. }) =
 				state.fetched_candidates.remove(&fetched_collation)
@@ -1531,8 +1531,8 @@ async fn process_msg<Context>(
 		Invalid(parent, candidate_receipt) => {
 			// Remove collations which were blocked from seconding and had this candidate as parent.
 			state.blocked_from_seconding.remove(&BlockedCollationId {
-				para_id: candidate_receipt.descriptor.para_id,
-				parent_head_data_hash: candidate_receipt.descriptor.para_head,
+				para_id: candidate_receipt.descriptor.para_id(),
+				parent_head_data_hash: candidate_receipt.descriptor.para_head(),
 			});
 
 			let fetched_collation = FetchedCollation::from(&candidate_receipt);
@@ -1843,8 +1843,8 @@ async fn kick_off_seconding<Context>(
 			(CollationVersion::V2, Some(_)) | (CollationVersion::V1, _) => {
 				let pvd = request_persisted_validation_data(
 					ctx.sender(),
-					candidate_receipt.descriptor().relay_parent,
-					candidate_receipt.descriptor().para_id,
+					candidate_receipt.descriptor().relay_parent(),
+					candidate_receipt.descriptor().para_id(),
 				)
 				.await?;
 				(
@@ -1874,14 +1874,14 @@ async fn kick_off_seconding<Context>(
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?blocked_collation.candidate_receipt.hash(),
-					relay_parent = ?blocked_collation.candidate_receipt.descriptor.relay_parent,
+					relay_parent = ?blocked_collation.candidate_receipt.descriptor.relay_parent(),
 					"Collation having parent head data hash {} is blocked from seconding. Waiting on its parent to be validated.",
 					parent_head_data_hash
 				);
 				state
 					.blocked_from_seconding
 					.entry(BlockedCollationId {
-						para_id: blocked_collation.candidate_receipt.descriptor.para_id,
+						para_id: blocked_collation.candidate_receipt.descriptor.para_id(),
 						parent_head_data_hash,
 					})
 					.or_insert_with(Vec::new)
@@ -2025,11 +2025,11 @@ async fn handle_collation_fetch_response(
 		Ok(
 			request_v1::CollationFetchingResponse::Collation(receipt, _) |
 			request_v1::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. },
-		) if receipt.descriptor().para_id != pending_collation.para_id => {
+		) if receipt.descriptor().para_id() != pending_collation.para_id => {
 			gum::debug!(
 				target: LOG_TARGET,
 				expected_para_id = ?pending_collation.para_id,
-				got_para_id = ?receipt.descriptor().para_id,
+				got_para_id = ?receipt.descriptor().para_id(),
 				peer_id = ?pending_collation.peer_id,
 				"Got wrong para ID for requested collation."
 			);
