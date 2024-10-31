@@ -315,14 +315,7 @@ pub mod v4 {
 				let updated_sale_info = SaleInfoRecord {
 					sale_start: updated_sale_start,
 					leadin_length: updated_leadin_length,
-					end_price: sale_info.price,
-					region_begin: sale_info.region_begin,
-					region_end: sale_info.region_end,
-					ideal_cores_sold: sale_info.ideal_cores_sold,
-					cores_offered: sale_info.cores_offered,
-					first_core: sale_info.first_core,
-					sellout_price: sale_info.sellout_price,
-					cores_sold: sale_info.cores_sold,
+					..sale_info
 				};
 				SaleInfo::<T>::put(updated_sale_info);
 			}
