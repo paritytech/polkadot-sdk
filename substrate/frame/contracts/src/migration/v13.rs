@@ -26,7 +26,6 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, storage_alias, weights::WeightMeter, DefaultNoBound};
 use sp_runtime::BoundedBTreeMap;
-use sp_std::prelude::*;
 
 mod v12 {
 	use super::*;

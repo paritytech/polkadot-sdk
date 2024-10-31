@@ -50,6 +50,12 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::Entry, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use polkadot_primitives::{
 	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, SlashingOffenceKind},
 	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
@@ -65,10 +71,6 @@ use sp_runtime::{
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::offence::{Kind, Offence, OffenceError, ReportOffence};
-use sp_std::{
-	collections::{btree_map::Entry, btree_set::BTreeSet},
-	prelude::*,
-};
 
 const LOG_TARGET: &str = "runtime::parachains::slashing";
 
@@ -158,7 +160,7 @@ impl<KeyOwnerIdentification> SlashingOffence<KeyOwnerIdentification> {
 
 /// This type implements `SlashingHandler`.
 pub struct SlashValidatorsForDisputes<C> {
-	_phantom: sp_std::marker::PhantomData<C>,
+	_phantom: core::marker::PhantomData<C>,
 }
 
 impl<C> Default for SlashValidatorsForDisputes<C> {
@@ -640,7 +642,7 @@ fn is_known_offence<T: Config>(
 /// When configured properly, should be instantiated with
 /// `T::KeyOwnerIdentification, Offences, ReportLongevity` parameters.
 pub struct SlashingReportHandler<I, R, L> {
-	_phantom: sp_std::marker::PhantomData<(I, R, L)>,
+	_phantom: core::marker::PhantomData<(I, R, L)>,
 }
 
 impl<I, R, L> Default for SlashingReportHandler<I, R, L> {
@@ -651,7 +653,7 @@ impl<I, R, L> Default for SlashingReportHandler<I, R, L> {
 
 impl<T, R, L> HandleReports<T> for SlashingReportHandler<T::KeyOwnerIdentification, R, L>
 where
-	T: Config + frame_system::offchain::SendTransactionTypes<Call<T>>,
+	T: Config + frame_system::offchain::CreateInherent<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		T::KeyOwnerIdentification,
@@ -683,7 +685,7 @@ where
 		dispute_proof: DisputeProof,
 		key_owner_proof: <T as Config>::KeyOwnerProof,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
-		use frame_system::offchain::SubmitTransaction;
+		use frame_system::offchain::{CreateInherent, SubmitTransaction};
 
 		let session_index = dispute_proof.time_slot.session_index;
 		let validator_index = dispute_proof.validator_index.0;
@@ -694,7 +696,8 @@ where
 			key_owner_proof,
 		};
 
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+		let xt = <T as CreateInherent<Call<T>>>::create_inherent(call.into());
+		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => {
 				log::info!(
 					target: LOG_TARGET,

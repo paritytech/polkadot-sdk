@@ -1,0 +1,74 @@
+name: Release - Build node release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      binary:
+        description: Binary to be build for the release
+        default: all
+        type: choice
+        options:
+          - polkadot
+          - polkadot-parachain
+          - all
+
+      release_tag:
+        description: Tag matching the actual release candidate with the format stableYYMM-rcX or stableYYMM
+        type: string
+
+jobs:
+  check-synchronization:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+
+  validate-inputs:
+    needs: [check-synchronization]
+    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+        release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Validate inputs
+        id: validate_inputs
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
+          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+
+  build-polkadot-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    with:
+      binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
+      package: polkadot
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+    secrets:
+      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+  build-polkadot-parachain-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    with:
+      binary: '["polkadot-parachain"]'
+      package: "polkadot-parachain-bin"
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+    secrets:
+      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}

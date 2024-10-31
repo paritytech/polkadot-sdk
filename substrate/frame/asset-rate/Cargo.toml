@@ -3,7 +3,7 @@ name = "pallet-asset-rate"
 version = "7.0.0"
 description = "Whitelist non-native assets for treasury spending and provide conversion to native balance"
 authors.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 repository.workspace = true
@@ -23,7 +23,6 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-core = { optional = true, workspace = true }
 
 [dev-dependencies]
@@ -43,7 +42,6 @@ std = [
 	"sp-core?/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -22,6 +22,7 @@ use crate::{
 	protocol_controller::{self, SetId},
 	service::{metrics::NotificationMetrics, traits::Direction},
 	types::ProtocolName,
+	MAX_RESPONSE_SIZE,
 };
 
 use codec::Encode;
@@ -56,7 +57,7 @@ pub mod message;
 
 /// Maximum size used for notifications in the block announce and transaction protocols.
 // Must be equal to `max(MAX_BLOCK_ANNOUNCE_SIZE, MAX_TRANSACTIONS_SIZE)`.
-pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = 16 * 1024 * 1024;
+pub(crate) const BLOCK_ANNOUNCES_TRANSACTIONS_SUBSTREAM_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Identifier of the peerset for the block announces protocol.
 const HARDCODED_PEERSETS_SYNC: SetId = SetId::from(0);
@@ -163,9 +164,6 @@ impl<B: BlockT> Protocol<B> {
 	pub fn disconnect_peer(&mut self, peer_id: &PeerId, protocol_name: ProtocolName) {
 		if let Some(position) = self.notification_protocols.iter().position(|p| *p == protocol_name)
 		{
-			// Note: no need to remove a peer from `self.peers` if we are dealing with sync
-			// protocol, because it will be done when handling
-			// `NotificationsOut::CustomProtocolClosed`.
 			self.behaviour.disconnect_peer(peer_id, SetId::from(position));
 		} else {
 			warn!(target: "sub-libp2p", "disconnect_peer() with invalid protocol name")
@@ -229,7 +227,7 @@ pub enum CustomMessageOutcome {
 
 impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 	type ConnectionHandler = <Notifications as NetworkBehaviour>::ConnectionHandler;
-	type OutEvent = CustomMessageOutcome;
+	type ToSwarm = CustomMessageOutcome;
 
 	fn handle_established_inbound_connection(
 		&mut self,
@@ -290,17 +288,25 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 		&mut self,
 		cx: &mut std::task::Context,
 		params: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
+	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		let event = match self.behaviour.poll(cx, params) {
 			Poll::Pending => return Poll::Pending,
 			Poll::Ready(ToSwarm::GenerateEvent(ev)) => ev,
 			Poll::Ready(ToSwarm::Dial { opts }) => return Poll::Ready(ToSwarm::Dial { opts }),
 			Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }) =>
 				return Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }),
-			Poll::Ready(ToSwarm::ReportObservedAddr { address, score }) =>
-				return Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
 			Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }) =>
 				return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+			Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)) =>
+				return Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
+			Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)) =>
+				return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
+			Poll::Ready(ToSwarm::ExternalAddrExpired(addr)) =>
+				return Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
+			Poll::Ready(ToSwarm::ListenOn { opts }) =>
+				return Poll::Ready(ToSwarm::ListenOn { opts }),
+			Poll::Ready(ToSwarm::RemoveListener { id }) =>
+				return Poll::Ready(ToSwarm::RemoveListener { id }),
 		};
 
 		let outcome = match event {

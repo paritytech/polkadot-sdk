@@ -5,7 +5,7 @@ version = "29.0.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 
@@ -22,13 +22,15 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 fnv = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-hyper = { features = ["http2", "stream"], workspace = true, default-features = true }
-hyper-rustls = { features = ["http2"], workspace = true }
-libp2p = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { features = ["http1", "http2"], workspace = true, default-features = true }
+hyper-rustls = { workspace = true }
+hyper-util = { features = ["client-legacy", "http1", "http2"], workspace = true }
 num_cpus = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
+rustls = { workspace = true }
 threadpool = { workspace = true }
 tracing = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
@@ -47,7 +49,6 @@ log = { workspace = true, default-features = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
-lazy_static = { workspace = true }
 tokio = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-client-db = { default-features = true, workspace = true }

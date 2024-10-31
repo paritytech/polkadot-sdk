@@ -36,9 +36,9 @@ use crate::{
 		SameOrOther, TryDrop,
 	},
 };
+use core::marker::PhantomData;
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
 use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
-use sp_std::marker::PhantomData;
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 

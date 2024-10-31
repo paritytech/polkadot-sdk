@@ -32,10 +32,14 @@ use crate::{
 	RequestFailure, Signature,
 };
 
+use crate::litep2p::Record;
 use codec::DecodeAll;
 use futures::{channel::oneshot, stream::BoxStream};
 use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
-use litep2p::{crypto::ed25519::Keypair, types::multiaddr::Multiaddr as LiteP2pMultiaddr};
+use litep2p::{
+	addresses::PublicAddresses, crypto::ed25519::Keypair,
+	types::multiaddr::Multiaddr as LiteP2pMultiaddr,
+};
 use parking_lot::RwLock;
 
 use sc_network_common::{
@@ -74,6 +78,30 @@ pub enum NetworkServiceCommand {
 
 		/// Record value.
 		value: Vec<u8>,
+	},
+
+	/// Put value to DHT.
+	PutValueTo {
+		/// Record.
+		record: Record,
+		/// Peers we want to put the record.
+		peers: Vec<sc_network_types::PeerId>,
+		/// If we should update the local storage or not.
+		update_local_storage: bool,
+	},
+	/// Store record in the local DHT store.
+	StoreRecord {
+		/// Record key.
+		key: KademliaKey,
+
+		/// Record value.
+		value: Vec<u8>,
+
+		/// Original publisher of the record.
+		publisher: Option<PeerId>,
+
+		/// Record expiration time as measured by a local, monothonic clock.
+		expires: Option<Instant>,
 	},
 
 	/// Query network status.
@@ -171,7 +199,7 @@ pub struct Litep2pNetworkService {
 	listen_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
 
 	/// External addresses.
-	external_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
+	external_addresses: PublicAddresses,
 }
 
 impl Litep2pNetworkService {
@@ -185,7 +213,7 @@ impl Litep2pNetworkService {
 		block_announce_protocol: ProtocolName,
 		request_response_protocols: HashMap<ProtocolName, TracingUnboundedSender<OutboundRequest>>,
 		listen_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
-		external_addresses: Arc<RwLock<HashSet<LiteP2pMultiaddr>>>,
+		external_addresses: PublicAddresses,
 	) -> Self {
 		Self {
 			local_peer_id,
@@ -238,15 +266,40 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValue { key, value });
 	}
 
+	fn put_record_to(
+		&self,
+		record: libp2p::kad::Record,
+		peers: HashSet<PeerId>,
+		update_local_storage: bool,
+	) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::PutValueTo {
+			record: Record {
+				key: record.key.to_vec().into(),
+				value: record.value,
+				publisher: record.publisher.map(|peer_id| {
+					let peer_id: sc_network_types::PeerId = peer_id.into();
+					peer_id.into()
+				}),
+				expires: record.expires,
+			},
+			peers: peers.into_iter().collect(),
+			update_local_storage,
+		});
+	}
+
 	fn store_record(
 		&self,
-		_key: KademliaKey,
-		_value: Vec<u8>,
-		_publisher: Option<PeerId>,
-		_expires: Option<Instant>,
+		key: KademliaKey,
+		value: Vec<u8>,
+		publisher: Option<PeerId>,
+		expires: Option<Instant>,
 	) {
-		// Will be added once litep2p is released with: https://github.com/paritytech/litep2p/pull/135
-		log::warn!(target: LOG_TARGET, "Store record is not implemented for litep2p");
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::StoreRecord {
+			key,
+			value,
+			publisher,
+			expires,
+		});
 	}
 }
 
@@ -264,8 +317,19 @@ impl NetworkStatusProvider for Litep2pNetworkService {
 	async fn network_state(&self) -> Result<NetworkState, ()> {
 		Ok(NetworkState {
 			peer_id: self.local_peer_id.to_base58(),
-			listened_addresses: self.listen_addresses.read().iter().cloned().collect(),
-			external_addresses: self.external_addresses.read().iter().cloned().collect(),
+			listened_addresses: self
+				.listen_addresses
+				.read()
+				.iter()
+				.cloned()
+				.map(|a| Multiaddr::from(a).into())
+				.collect(),
+			external_addresses: self
+				.external_addresses
+				.get_addresses()
+				.into_iter()
+				.map(|a| Multiaddr::from(a).into())
+				.collect(),
 			connected_peers: HashMap::new(),
 			not_connected_peers: HashMap::new(),
 			// TODO: Check what info we can include here.
@@ -429,7 +493,7 @@ impl NetworkEventStream for Litep2pNetworkService {
 
 impl NetworkStateInfo for Litep2pNetworkService {
 	fn external_addresses(&self) -> Vec<Multiaddr> {
-		self.external_addresses.read().iter().cloned().map(Into::into).collect()
+		self.external_addresses.get_addresses().into_iter().map(Into::into).collect()
 	}
 
 	fn listen_addresses(&self) -> Vec<Multiaddr> {

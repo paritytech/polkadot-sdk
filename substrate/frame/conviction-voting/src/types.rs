@@ -18,6 +18,7 @@
 //! Miscellaneous additional datatypes.
 
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -26,7 +27,6 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	RuntimeDebug,
 };
-use sp_std::{fmt::Debug, marker::PhantomData};
 
 use super::*;
 use crate::{AccountVote, Conviction, Vote};

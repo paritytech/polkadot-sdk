@@ -95,7 +95,7 @@
 //! use pallet_session as session;
 //!
 //! fn validators<T: pallet_session::Config>() -> Vec<<T as pallet_session::Config>::ValidatorId> {
-//! 	<pallet_session::Pallet<T>>::validators()
+//! 	pallet_session::Validators::<T>::get()
 //! }
 //! # fn main(){}
 //! ```
@@ -115,7 +115,14 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, MaxEncodedLen};
+use core::{
+	marker::PhantomData,
+	ops::{Rem, Sub},
+};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -132,11 +139,6 @@ use sp_runtime::{
 	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
-use sp_std::{
-	marker::PhantomData,
-	ops::{Rem, Sub},
-	prelude::*,
-};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -421,7 +423,14 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
+		/// Initial list of validator at genesis representing by their `(AccountId, ValidatorId,
+		/// Keys)`. These keys will be considered authorities for the first two sessions and they
+		/// will be valid at least until session 2
 		pub keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
+		/// List of (AccountId, ValidatorId, Keys) that will be registered at genesis, but not as
+		/// active validators. These keys are set, together with `keys`, as authority candidates
+		/// for future sessions (enactable from session 2 onwards)
+		pub non_authority_keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
 	}
 
 	#[pallet::genesis_build]
@@ -444,8 +453,10 @@ pub mod pallet {
 					}
 				});
 
-			for (account, val, keys) in self.keys.iter().cloned() {
-				<Pallet<T>>::inner_set_keys(&val, keys)
+			for (account, val, keys) in
+				self.keys.iter().chain(self.non_authority_keys.iter()).cloned()
+			{
+				Pallet::<T>::inner_set_keys(&val, keys)
 					.expect("genesis config must not contain duplicates; qed");
 				if frame_system::Pallet::<T>::inc_consumers_without_limit(&account).is_err() {
 					// This will leak a provider reference, however it only happens once (at
@@ -477,7 +488,7 @@ pub mod pallet {
 			T::SessionHandler::on_genesis_session::<T::Keys>(&queued_keys);
 
 			Validators::<T>::put(initial_validators_0);
-			<QueuedKeys<T>>::put(queued_keys);
+			QueuedKeys::<T>::put(queued_keys);
 
 			T::SessionManager::start_session(0);
 		}
@@ -485,12 +496,10 @@ pub mod pallet {
 
 	/// The current set of validators.
 	#[pallet::storage]
-	#[pallet::getter(fn validators)]
 	pub type Validators<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 
 	/// Current index of the session.
 	#[pallet::storage]
-	#[pallet::getter(fn current_index)]
 	pub type CurrentIndex<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// True if the underlying economic identities or weighting behind the validators
@@ -501,7 +510,6 @@ pub mod pallet {
 	/// The queued keys for the next session. When the next session begins, these keys
 	/// will be used to determine the validator's session keys.
 	#[pallet::storage]
-	#[pallet::getter(fn queued_keys)]
 	pub type QueuedKeys<T: Config> = StorageValue<_, Vec<(T::ValidatorId, T::Keys)>, ValueQuery>;
 
 	/// Indices of disabled validators.
@@ -510,7 +518,6 @@ pub mod pallet {
 	/// disabled using binary search. It gets cleared when `on_session_ending` returns
 	/// a new set of identities.
 	#[pallet::storage]
-	#[pallet::getter(fn disabled_validators)]
 	pub type DisabledValidators<T> = StorageValue<_, Vec<u32>, ValueQuery>;
 
 	/// The next session keys for a validator.
@@ -607,33 +614,53 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Public function to access the current set of validators.
+	pub fn validators() -> Vec<T::ValidatorId> {
+		Validators::<T>::get()
+	}
+
+	/// Public function to access the current session index.
+	pub fn current_index() -> SessionIndex {
+		CurrentIndex::<T>::get()
+	}
+
+	/// Public function to access the queued keys.
+	pub fn queued_keys() -> Vec<(T::ValidatorId, T::Keys)> {
+		QueuedKeys::<T>::get()
+	}
+
+	/// Public function to access the disabled validators.
+	pub fn disabled_validators() -> Vec<u32> {
+		DisabledValidators::<T>::get()
+	}
+
 	/// Move on to next session. Register new validator set and session keys. Changes to the
 	/// validator set have a session of delay to take effect. This allows for equivocation
 	/// punishment after a fork.
 	pub fn rotate_session() {
-		let session_index = <CurrentIndex<T>>::get();
+		let session_index = CurrentIndex::<T>::get();
 		log::trace!(target: "runtime::session", "rotating session {:?}", session_index);
 
-		let changed = <QueuedChanged<T>>::get();
+		let changed = QueuedChanged::<T>::get();
 
 		// Inform the session handlers that a session is going to end.
 		T::SessionHandler::on_before_session_ending();
 		T::SessionManager::end_session(session_index);
 
 		// Get queued session keys and validators.
-		let session_keys = <QueuedKeys<T>>::get();
+		let session_keys = QueuedKeys::<T>::get();
 		let validators =
 			session_keys.iter().map(|(validator, _)| validator.clone()).collect::<Vec<_>>();
 		Validators::<T>::put(&validators);
 
 		if changed {
 			// reset disabled validators if active set was changed
-			<DisabledValidators<T>>::take();
+			DisabledValidators::<T>::take();
 		}
 
 		// Increment session index.
 		let session_index = session_index + 1;
-		<CurrentIndex<T>>::put(session_index);
+		CurrentIndex::<T>::put(session_index);
 
 		T::SessionManager::start_session(session_index);
 
@@ -658,7 +685,7 @@ impl<T: Config> Pallet<T> {
 			let mut now_session_keys = session_keys.iter();
 			let mut check_next_changed = |keys: &T::Keys| {
 				if changed {
-					return
+					return;
 				}
 				// since a new validator set always leads to `changed` starting
 				// as true, we can ensure that `now_session_keys` and `next_validators`
@@ -681,8 +708,8 @@ impl<T: Config> Pallet<T> {
 			(queued_amalgamated, changed)
 		};
 
-		<QueuedKeys<T>>::put(queued_amalgamated.clone());
-		<QueuedChanged<T>>::put(next_changed);
+		QueuedKeys::<T>::put(queued_amalgamated.clone());
+		QueuedChanged::<T>::put(next_changed);
 
 		// Record that this happened.
 		Self::deposit_event(Event::NewSession { session_index });
@@ -697,7 +724,7 @@ impl<T: Config> Pallet<T> {
 			return false
 		}
 
-		<DisabledValidators<T>>::mutate(|disabled| {
+		DisabledValidators::<T>::mutate(|disabled| {
 			if let Err(index) = disabled.binary_search(&i) {
 				disabled.insert(index, i);
 				T::SessionHandler::on_disabled(i);
@@ -714,7 +741,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns `false` either if the validator could not be found or it was already
 	/// disabled.
 	pub fn disable(c: &T::ValidatorId) -> bool {
-		Self::validators()
+		Validators::<T>::get()
 			.iter()
 			.position(|i| i == c)
 			.map(|i| Self::disable_index(i as u32))
@@ -745,7 +772,7 @@ impl<T: Config> Pallet<T> {
 		let new_ids = T::Keys::key_ids();
 
 		// Translate NextKeys, and key ownership relations at the same time.
-		<NextKeys<T>>::translate::<Old, _>(|val, old_keys| {
+		NextKeys::<T>::translate::<Old, _>(|val, old_keys| {
 			// Clear all key ownership relations. Typically the overlap should
 			// stay the same, but no guarantees by the upgrade function.
 			for i in old_ids.iter() {
@@ -762,7 +789,7 @@ impl<T: Config> Pallet<T> {
 			Some(new_keys)
 		});
 
-		let _ = <QueuedKeys<T>>::translate::<Vec<(T::ValidatorId, Old)>, _>(|k| {
+		let _ = QueuedKeys::<T>::translate::<Vec<(T::ValidatorId, Old)>, _>(|k| {
 			k.map(|k| {
 				k.into_iter()
 					.map(|(val, old_keys)| (val.clone(), upgrade(val, old_keys)))
@@ -848,28 +875,28 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
-		<NextKeys<T>>::get(v)
+		NextKeys::<T>::get(v)
 	}
 
 	fn take_keys(v: &T::ValidatorId) -> Option<T::Keys> {
-		<NextKeys<T>>::take(v)
+		NextKeys::<T>::take(v)
 	}
 
 	fn put_keys(v: &T::ValidatorId, keys: &T::Keys) {
-		<NextKeys<T>>::insert(v, keys);
+		NextKeys::<T>::insert(v, keys);
 	}
 
 	/// Query the owner of a session key by returning the owner's validator ID.
 	pub fn key_owner(id: KeyTypeId, key_data: &[u8]) -> Option<T::ValidatorId> {
-		<KeyOwner<T>>::get((id, key_data))
+		KeyOwner::<T>::get((id, key_data))
 	}
 
 	fn put_key_owner(id: KeyTypeId, key_data: &[u8], v: &T::ValidatorId) {
-		<KeyOwner<T>>::insert((id, key_data), v)
+		KeyOwner::<T>::insert((id, key_data), v)
 	}
 
 	fn clear_key_owner(id: KeyTypeId, key_data: &[u8]) {
-		<KeyOwner<T>>::remove((id, key_data));
+		KeyOwner::<T>::remove((id, key_data));
 	}
 }
 
@@ -884,11 +911,11 @@ impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
 	type ValidatorIdOf = T::ValidatorIdOf;
 
 	fn session_index() -> sp_staking::SessionIndex {
-		Pallet::<T>::current_index()
+		CurrentIndex::<T>::get()
 	}
 
 	fn validators() -> Vec<Self::ValidatorId> {
-		Pallet::<T>::validators()
+		Validators::<T>::get()
 	}
 }
 
@@ -906,18 +933,18 @@ impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
 
 impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
-		<Pallet<T>>::disabled_validators().binary_search(&index).is_ok()
+		DisabledValidators::<T>::get().binary_search(&index).is_ok()
 	}
 
 	fn disabled_validators() -> Vec<u32> {
-		<Pallet<T>>::disabled_validators()
+		DisabledValidators::<T>::get()
 	}
 }
 
 /// Wraps the author-scraping logic for consensus engines that can recover
 /// the canonical index of an author. This then transforms it into the
 /// registering account-ID of that session key index.
-pub struct FindAccountFromAuthorIndex<T, Inner>(sp_std::marker::PhantomData<(T, Inner)>);
+pub struct FindAccountFromAuthorIndex<T, Inner>(core::marker::PhantomData<(T, Inner)>);
 
 impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::ValidatorId>
 	for FindAccountFromAuthorIndex<T, Inner>
@@ -928,7 +955,7 @@ impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::ValidatorId>
 	{
 		let i = Inner::find_author(digests)?;
 
-		let validators = <Pallet<T>>::validators();
+		let validators = Validators::<T>::get();
 		validators.get(i as usize).cloned()
 	}
 }

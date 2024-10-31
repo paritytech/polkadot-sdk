@@ -58,13 +58,18 @@
 //!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
 //!   which point the holds will start to come into play.
 //!
-//! - **Frozen Balance**: A freeze on a specified amount of an account's free balance until a
-//!   specified block number.
+//! - **Frozen Balance**: A freeze on a specified amount of an account's balance. Tokens that are
+//!   frozen cannot be transferred.
 //!
 //!   Multiple freezes always operate over the same funds, so they "overlay" rather than
 //!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend its
 //!   funds for any reason down to 100 units, at which point the freezes will start to come into
 //!   play.
+//!
+//!   It's important to note that the frozen balance can exceed the total balance of the account.
+//!   This is useful, eg, in cases where you want to prevent a user from transferring any fund. In
+//!   such a case, setting the frozen balance to `Balance::MAX` would serve that purpose
+//! effectively.
 //!
 //! - **Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)**: The minimum balance required to
 //!   create or keep an account open. This is to prevent "dust accounts" from filling storage. When
@@ -156,9 +161,11 @@ mod regular;
 mod union_of;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use sp_std::marker::PhantomData;
+#[cfg(feature = "runtime-benchmarks")]
+use sp_runtime::Saturating;
 
 use super::{
 	Fortitude::{Force, Polite},
@@ -179,6 +186,8 @@ use sp_core::Get;
 use sp_runtime::{traits::Convert, DispatchError};
 pub use union_of::{NativeFromLeft, NativeOrWithId, UnionOf};
 
+#[cfg(feature = "experimental")]
+use crate::traits::MaybeConsideration;
 use crate::{
 	ensure,
 	traits::{Consideration, Footprint},
@@ -204,37 +213,48 @@ pub struct FreezeConsideration<A, F, R, D, Fp>(F::Balance, PhantomData<fn() -> (
 where
 	F: MutateFreeze<A>;
 impl<
-		A: 'static,
-		F: 'static + MutateFreeze<A>,
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateFreeze<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateFreeze<A> + Mutate<A>,
 		R: 'static + Get<F::Id>,
 		D: 'static + Convert<Fp, F::Balance>,
 		Fp: 'static,
 	> Consideration<A, Fp> for FreezeConsideration<A, F, R, D, Fp>
 {
-	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		let new = D::convert(footprint);
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			F::increase_frozen(&R::get(), who, new)?;
-			Ok(Some(Self(new, PhantomData)))
-		}
+		F::increase_frozen(&R::get(), who, new)?;
+		Ok(Self(new, PhantomData))
 	}
-	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn update(self, who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		let new = D::convert(footprint);
 		if self.0 > new {
 			F::decrease_frozen(&R::get(), who, self.0 - new)?;
 		} else if new > self.0 {
 			F::increase_frozen(&R::get(), who, new - self.0)?;
 		}
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			Ok(Some(Self(new, PhantomData)))
-		}
+		Ok(Self(new, PhantomData))
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::decrease_frozen(&R::get(), who, self.0).map(|_| ())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &A, fp: Fp) {
+		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
+	}
+}
+#[cfg(feature = "experimental")]
+impl<
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateFreeze<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateFreeze<A> + Mutate<A>,
+		R: 'static + Get<F::Id>,
+		D: 'static + Convert<Fp, F::Balance>,
+		Fp: 'static,
+	> MaybeConsideration<A, Fp> for FreezeConsideration<A, F, R, D, Fp>
+{
+	fn is_none(&self) -> bool {
+		self.0.is_zero()
 	}
 }
 
@@ -258,40 +278,51 @@ pub struct HoldConsideration<A, F, R, D, Fp = Footprint>(
 where
 	F: MutateHold<A>;
 impl<
-		A: 'static,
-		F: 'static + MutateHold<A>,
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateHold<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateHold<A> + Mutate<A>,
 		R: 'static + Get<F::Reason>,
 		D: 'static + Convert<Fp, F::Balance>,
 		Fp: 'static,
 	> Consideration<A, Fp> for HoldConsideration<A, F, R, D, Fp>
 {
-	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		let new = D::convert(footprint);
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			F::hold(&R::get(), who, new)?;
-			Ok(Some(Self(new, PhantomData)))
-		}
+		F::hold(&R::get(), who, new)?;
+		Ok(Self(new, PhantomData))
 	}
-	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn update(self, who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		let new = D::convert(footprint);
 		if self.0 > new {
 			F::release(&R::get(), who, self.0 - new, BestEffort)?;
 		} else if new > self.0 {
 			F::hold(&R::get(), who, new - self.0)?;
 		}
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			Ok(Some(Self(new, PhantomData)))
-		}
+		Ok(Self(new, PhantomData))
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::release(&R::get(), who, self.0, BestEffort).map(|_| ())
 	}
 	fn burn(self, who: &A) {
 		let _ = F::burn_held(&R::get(), who, self.0, BestEffort, Force);
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &A, fp: Fp) {
+		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
+	}
+}
+#[cfg(feature = "experimental")]
+impl<
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateHold<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateHold<A> + Mutate<A>,
+		R: 'static + Get<F::Reason>,
+		D: 'static + Convert<Fp, F::Balance>,
+		Fp: 'static,
+	> MaybeConsideration<A, Fp> for HoldConsideration<A, F, R, D, Fp>
+{
+	fn is_none(&self) -> bool {
+		self.0.is_zero()
 	}
 }
 
@@ -316,33 +347,27 @@ impl<
 #[codec(mel_bound())]
 pub struct LoneFreezeConsideration<A, Fx, Rx, D, Fp>(PhantomData<fn() -> (A, Fx, Rx, D, Fp)>);
 impl<
-		A: 'static,
-		Fx: 'static + MutateFreeze<A>,
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] Fx: 'static + MutateFreeze<A>,
+		#[cfg(feature = "runtime-benchmarks")] Fx: 'static + MutateFreeze<A> + Mutate<A>,
 		Rx: 'static + Get<Fx::Id>,
 		D: 'static + Convert<Fp, Fx::Balance>,
 		Fp: 'static,
 	> Consideration<A, Fp> for LoneFreezeConsideration<A, Fx, Rx, D, Fp>
 {
-	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		ensure!(Fx::balance_frozen(&Rx::get(), who).is_zero(), DispatchError::Unavailable);
-		let new = D::convert(footprint);
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			Fx::set_frozen(&Rx::get(), who, new, Polite).map(|_| Some(Self(PhantomData)))
-		}
+		Fx::set_frozen(&Rx::get(), who, D::convert(footprint), Polite).map(|_| Self(PhantomData))
 	}
-	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
-		let new = D::convert(footprint);
-		let _ = Fx::set_frozen(&Rx::get(), who, new, Polite)?;
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			Ok(Some(Self(PhantomData)))
-		}
+	fn update(self, who: &A, footprint: Fp) -> Result<Self, DispatchError> {
+		Fx::set_frozen(&Rx::get(), who, D::convert(footprint), Polite).map(|_| Self(PhantomData))
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		Fx::thaw(&Rx::get(), who).map(|_| ())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &A, fp: Fp) {
+		let _ = Fx::mint_into(who, Fx::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }
 
@@ -367,35 +392,29 @@ impl<
 #[codec(mel_bound())]
 pub struct LoneHoldConsideration<A, Fx, Rx, D, Fp>(PhantomData<fn() -> (A, Fx, Rx, D, Fp)>);
 impl<
-		A: 'static,
-		F: 'static + MutateHold<A>,
+		A: 'static + Eq,
+		#[cfg(not(feature = "runtime-benchmarks"))] F: 'static + MutateHold<A>,
+		#[cfg(feature = "runtime-benchmarks")] F: 'static + MutateHold<A> + Mutate<A>,
 		R: 'static + Get<F::Reason>,
 		D: 'static + Convert<Fp, F::Balance>,
 		Fp: 'static,
 	> Consideration<A, Fp> for LoneHoldConsideration<A, F, R, D, Fp>
 {
-	fn new(who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
+	fn new(who: &A, footprint: Fp) -> Result<Self, DispatchError> {
 		ensure!(F::balance_on_hold(&R::get(), who).is_zero(), DispatchError::Unavailable);
-		let new = D::convert(footprint);
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			F::set_on_hold(&R::get(), who, new).map(|_| Some(Self(PhantomData)))
-		}
+		F::set_on_hold(&R::get(), who, D::convert(footprint)).map(|_| Self(PhantomData))
 	}
-	fn update(self, who: &A, footprint: Fp) -> Result<Option<Self>, DispatchError> {
-		let new = D::convert(footprint);
-		let _ = F::set_on_hold(&R::get(), who, new)?;
-		if new.is_zero() {
-			Ok(None)
-		} else {
-			Ok(Some(Self(PhantomData)))
-		}
+	fn update(self, who: &A, footprint: Fp) -> Result<Self, DispatchError> {
+		F::set_on_hold(&R::get(), who, D::convert(footprint)).map(|_| Self(PhantomData))
 	}
 	fn drop(self, who: &A) -> Result<(), DispatchError> {
 		F::release_all(&R::get(), who, BestEffort).map(|_| ())
 	}
 	fn burn(self, who: &A) {
 		let _ = F::burn_all_held(&R::get(), who, BestEffort, Force);
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &A, fp: Fp) {
+		let _ = F::mint_into(who, F::minimum_balance().saturating_add(D::convert(fp)));
 	}
 }

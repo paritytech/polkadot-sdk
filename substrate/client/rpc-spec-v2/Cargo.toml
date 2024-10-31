@@ -4,7 +4,7 @@ version = "0.34.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Substrate RPC interface v2."
 readme = "README.md"
@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
+jsonrpsee = { workspace = true, features = ["client-core", "macros", "server-core"] }
 # Internal chain structures for "chain_spec".
 sc-chain-spec = { workspace = true, default-features = true }
 # Pool for submitting extrinsics required by "transaction"
@@ -28,7 +28,6 @@ sp-rpc = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
-sc-utils = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 thiserror = { workspace = true }
@@ -45,7 +44,7 @@ rand = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 
 [dev-dependencies]
-jsonrpsee = { features = ["server", "ws-client"], workspace = true }
+jsonrpsee = { workspace = true, features = ["server", "ws-client"] }
 serde_json = { workspace = true, default-features = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
@@ -56,6 +55,8 @@ sp-externalities = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-service = { features = ["test-helpers"], workspace = true, default-features = true }
+sc-rpc = { workspace = true, default-features = true, features = ["test-helpers"] }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
 sc-transaction-pool = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }

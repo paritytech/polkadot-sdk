@@ -21,12 +21,16 @@
 
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_primitives::{
-	runtime_api, slashing, AccountId, AuthorityDiscoveryId, Balance, Block, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
-	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, Nonce, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	runtime_api, slashing,
+	vstaging::{
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	AccountId, AuthorityDiscoveryId, Balance, Block, BlockNumber, CandidateCommitments,
+	CandidateHash, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
+	InboundDownwardMessage, InboundHrmpMessage, Nonce, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -49,6 +53,7 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
+#[allow(dead_code)]
 struct Runtime;
 
 sp_api::impl_runtime_apis! {
@@ -241,7 +246,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
+		fn submit_report_double_voting_unsigned_extrinsic(
 			_: sp_consensus_beefy::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
@@ -252,10 +257,35 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
+		fn submit_report_fork_voting_unsigned_extrinsic(
+			_: sp_consensus_beefy::ForkVotingProof<
+				<Block as BlockT>::Header,
+				BeefyId,
+				sp_runtime::OpaqueValue
+			>,
+			_: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			unimplemented!()
+		}
+
+		fn submit_report_future_block_voting_unsigned_extrinsic(
+			_: sp_consensus_beefy::FutureBlockVotingProof<BlockNumber, BeefyId>,
+			_: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			unimplemented!()
+		}
+
 		fn generate_key_ownership_proof(
 			_: sp_consensus_beefy::ValidatorSetId,
 			_: BeefyId,
 		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
+			unimplemented!()
+		}
+
+		fn generate_ancestry_proof(
+			_: BlockNumber,
+			_: Option<BlockNumber>,
+		) -> Option<sp_runtime::OpaqueValue> {
 			unimplemented!()
 		}
 	}
@@ -398,30 +428,30 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
-		fn query_acceptable_payment_assets(_: xcm::Version) -> Result<Vec<VersionedAssetId>, xcm_fee_payment_runtime_api::fees::Error> {
+	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
+		fn query_acceptable_payment_assets(_: xcm::Version) -> Result<Vec<VersionedAssetId>, xcm_runtime_apis::fees::Error> {
 			unimplemented!()
 		}
 
-		fn query_weight_to_asset_fee(_: Weight, _: VersionedAssetId) -> Result<u128, xcm_fee_payment_runtime_api::fees::Error> {
+		fn query_weight_to_asset_fee(_: Weight, _: VersionedAssetId) -> Result<u128, xcm_runtime_apis::fees::Error> {
 			unimplemented!()
 		}
 
-		fn query_xcm_weight(_: VersionedXcm<()>) -> Result<Weight, xcm_fee_payment_runtime_api::fees::Error> {
+		fn query_xcm_weight(_: VersionedXcm<()>) -> Result<Weight, xcm_runtime_apis::fees::Error> {
 			unimplemented!()
 		}
 
-		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>) -> Result<VersionedAssets, xcm_fee_payment_runtime_api::fees::Error> {
+		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>) -> Result<VersionedAssets, xcm_runtime_apis::fees::Error> {
 			unimplemented!()
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::dry_run::DryRunApi<Block, (), (), ()> for Runtime {
-		fn dry_run_call(_: (), _: ()) -> Result<xcm_fee_payment_runtime_api::dry_run::CallDryRunEffects<()>, xcm_fee_payment_runtime_api::dry_run::Error> {
+	impl xcm_runtime_apis::dry_run::DryRunApi<Block, (), (), ()> for Runtime {
+		fn dry_run_call(_: (), _: ()) -> Result<xcm_runtime_apis::dry_run::CallDryRunEffects<()>, xcm_runtime_apis::dry_run::Error> {
 			unimplemented!()
 		}
 
-		fn dry_run_xcm(_: VersionedLocation, _: VersionedXcm<()>) -> Result<xcm_fee_payment_runtime_api::dry_run::XcmDryRunEffects<()>, xcm_fee_payment_runtime_api::dry_run::Error> {
+		fn dry_run_xcm(_: VersionedLocation, _: VersionedXcm<()>) -> Result<xcm_runtime_apis::dry_run::XcmDryRunEffects<()>, xcm_runtime_apis::dry_run::Error> {
 			unimplemented!()
 		}
 	}

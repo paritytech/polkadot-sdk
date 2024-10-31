@@ -17,6 +17,7 @@
 
 //! Benchmarks for the nomination pools coupled with the staking and bags list pallets.
 
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{account, whitelist_account};
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
@@ -40,8 +41,7 @@ use sp_runtime::{
 	traits::{Bounded, StaticLookup, Zero},
 	Perbill,
 };
-use sp_staking::EraIndex;
-use sp_std::{vec, vec::Vec};
+use sp_staking::{EraIndex, StakingUnchecked};
 // `frame_benchmarking::benchmarks!` macro needs this
 use pallet_nomination_pools::Call;
 
@@ -131,6 +131,8 @@ fn migrate_to_transfer_stake<T: Config>(pool_id: PoolId) {
 			)
 			.expect("member should have enough balance to transfer");
 		});
+
+	pallet_staking::Pallet::<T>::migrate_to_direct_staker(&pool_acc);
 }
 
 fn vote_to_balance<T: pallet_nomination_pools::Config>(

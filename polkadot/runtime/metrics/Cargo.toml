@@ -10,7 +10,6 @@ description = "Runtime metric interface for the Polkadot node"
 workspace = true
 
 [dependencies]
-sp-std = { workspace = true }
 sp-tracing = { workspace = true }
 codec = { workspace = true }
 polkadot-primitives = { workspace = true }
@@ -25,7 +24,6 @@ std = [
 	"codec/std",
 	"frame-benchmarking?/std",
 	"polkadot-primitives/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-metrics = ["frame-benchmarking", "sp-tracing/with-tracing"]

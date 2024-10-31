@@ -17,7 +17,6 @@
 
 //! Test environment for Asset Conversion Ops pallet.
 
-use super::*;
 use crate as pallet_asset_conversion_ops;
 use core::default::Default;
 use frame_support::{

@@ -34,6 +34,7 @@ use sc_network_sync::{
 	engine::SyncingEngine,
 	service::network::{NetworkServiceHandle, NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
+	strategy::{PolkadotSyncingStrategy, SyncingConfig},
 };
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
@@ -134,7 +135,7 @@ impl TestNetworkBuilder {
 		#[async_trait::async_trait]
 		impl<B: BlockT> sc_consensus::Verifier<B> for PassThroughVerifier {
 			async fn verify(
-				&mut self,
+				&self,
 				mut block: sc_consensus::BlockImportParams<B>,
 			) -> Result<sc_consensus::BlockImportParams<B>, String> {
 				block.finalized = self.0;
@@ -154,7 +155,7 @@ impl TestNetworkBuilder {
 
 		let protocol_id = ProtocolId::from("test-protocol-name");
 		let fork_id = Some(String::from("test-fork-id"));
-		let mut full_net_config = FullNetworkConfiguration::new(&network_config);
+		let mut full_net_config = FullNetworkConfiguration::new(&network_config, None);
 
 		let (chain_sync_network_provider, chain_sync_network_handle) =
 			self.chain_sync_network.unwrap_or(NetworkServiceProvider::new());
@@ -197,9 +198,22 @@ impl TestNetworkBuilder {
 				.iter()
 				.map(|bootnode| bootnode.peer_id.into())
 				.collect(),
+			None,
 		);
 		let peer_store_handle: Arc<dyn PeerStoreProvider> = Arc::new(peer_store.handle());
 		tokio::spawn(peer_store.run().boxed());
+
+		let syncing_config = SyncingConfig {
+			mode: network_config.sync_mode,
+			max_parallel_downloads: network_config.max_parallel_downloads,
+			max_blocks_per_request: network_config.max_blocks_per_request,
+			metrics_registry: None,
+			state_request_protocol_name: state_request_protocol_config.name.clone(),
+		};
+		// Initialize syncing strategy.
+		let syncing_strategy = Box::new(
+			PolkadotSyncingStrategy::new(syncing_config, client.clone(), None, None).unwrap(),
+		);
 
 		let (engine, chain_sync_service, block_announce_config) = SyncingEngine::new(
 			Roles::from(&config::Role::Full),
@@ -210,12 +224,10 @@ impl TestNetworkBuilder {
 			protocol_id.clone(),
 			&None,
 			Box::new(sp_consensus::block_validation::DefaultBlockAnnounceValidator),
-			None,
+			syncing_strategy,
 			chain_sync_network_handle,
 			import_queue.service(),
 			block_relay_params.downloader,
-			state_request_protocol_config.name.clone(),
-			None,
 			Arc::clone(&peer_store_handle),
 		)
 		.unwrap();

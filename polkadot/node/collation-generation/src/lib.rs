@@ -45,12 +45,13 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	request_async_backing_params, request_availability_cores, request_para_backing_state,
 	request_persisted_validation_data, request_validation_code, request_validation_code_hash,
-	request_validators, vstaging::fetch_claim_queue,
+	request_validators, runtime::fetch_claim_queue,
 };
 use polkadot_primitives::{
-	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
-	CollatorPair, CoreIndex, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, ScheduledCore, ValidationCodeHash,
+	collator_signature_payload,
+	vstaging::{CandidateReceiptV2 as CandidateReceipt, CoreState},
+	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
+	OccupiedCoreAssumption, PersistedValidationData, ScheduledCore, ValidationCodeHash,
 };
 use sp_core::crypto::Pair;
 use std::sync::Arc;
@@ -607,7 +608,8 @@ async fn construct_and_distribute_receipt(
 			erasure_root,
 			para_head: commitments.head_data.hash(),
 			validation_code_hash,
-		},
+		}
+		.into(),
 	};
 
 	gum::debug!(

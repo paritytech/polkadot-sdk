@@ -16,8 +16,10 @@
 
 //! Parachain heads source.
 
-use crate::parachains::{ParachainsPipelineAdapter, SubstrateParachainsPipeline};
-
+use crate::{
+	parachains::{ParachainsPipelineAdapter, SubstrateParachainsPipeline},
+	proofs::to_raw_storage_proof,
+};
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use bp_parachains::parachain_head_storage_key_at_source;
@@ -153,12 +155,9 @@ where
 		let parachain = ParaId(P::SourceParachain::PARACHAIN_ID);
 		let storage_key =
 			parachain_head_storage_key_at_source(P::SourceRelayChain::PARAS_PALLET_NAME, parachain);
-		let parachain_heads_proof = self
-			.client
-			.prove_storage(at_block.hash(), vec![storage_key.clone()])
-			.await?
-			.into_iter_nodes()
-			.collect();
+
+		let storage_proof =
+			self.client.prove_storage(at_block.hash(), vec![storage_key.clone()]).await?;
 
 		// why we're reading parachain head here once again (it has already been read at the
 		// `parachain_head`)? that's because `parachain_head` sometimes returns obsolete parachain
@@ -178,6 +177,11 @@ where
 			})?;
 		let parachain_head_hash = parachain_head.hash();
 
-		Ok((ParaHeadsProof { storage_proof: parachain_heads_proof }, parachain_head_hash))
+		Ok((
+			ParaHeadsProof {
+				storage_proof: to_raw_storage_proof::<P::SourceRelayChain>(storage_proof),
+			},
+			parachain_head_hash,
+		))
 	}
 }

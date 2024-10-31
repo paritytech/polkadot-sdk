@@ -97,6 +97,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{fmt::Debug, marker::PhantomData};
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
 use serde::Serialize;
@@ -118,7 +122,6 @@ use sp_runtime::{
 };
 #[cfg(any(feature = "std", test))]
 use sp_std::map;
-use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 use sp_version::RuntimeVersion;
 
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
@@ -166,12 +169,13 @@ pub use extensions::{
 	check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight,
+	check_weight::CheckWeight, WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
 use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
+use sp_core::storage::StateVersion;
 pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::system";
@@ -179,17 +183,20 @@ const LOG_TARGET: &str = "runtime::system";
 /// Compute the trie root of a list of extrinsics.
 ///
 /// The merkle proof is using the same trie as runtime state with
-/// `state_version` 0.
-pub fn extrinsics_root<H: Hash, E: codec::Encode>(extrinsics: &[E]) -> H::Output {
-	extrinsics_data_root::<H>(extrinsics.iter().map(codec::Encode::encode).collect())
+/// `state_version` 0 or 1.
+pub fn extrinsics_root<H: Hash, E: codec::Encode>(
+	extrinsics: &[E],
+	state_version: StateVersion,
+) -> H::Output {
+	extrinsics_data_root::<H>(extrinsics.iter().map(codec::Encode::encode).collect(), state_version)
 }
 
 /// Compute the trie root of a list of extrinsics.
 ///
 /// The merkle proof is using the same trie as runtime state with
-/// `state_version` 0.
-pub fn extrinsics_data_root<H: Hash>(xts: Vec<Vec<u8>>) -> H::Output {
-	H::ordered_trie_root(xts, sp_core::storage::StateVersion::V0)
+/// `state_version` 0 or 1.
+pub fn extrinsics_data_root<H: Hash>(xts: Vec<Vec<u8>>, state_version: StateVersion) -> H::Output {
+	H::ordered_trie_root(xts, state_version)
 }
 
 /// An object to track the currently used extrinsic weight in a block.
@@ -254,6 +261,19 @@ where
 	check_version: bool,
 }
 
+/// Information about the dispatch of a call, to be displayed in the
+/// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
+/// events.
+#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+pub struct DispatchEventInfo {
+	/// Weight of this transaction.
+	pub weight: Weight,
+	/// Class of this transaction.
+	pub class: DispatchClass,
+	/// Does this transaction pay fees.
+	pub pays_fee: Pays,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::{self as frame_system, pallet_prelude::*, *};
@@ -269,7 +289,7 @@ pub mod pallet {
 		///
 		/// NOTE: Avoids overriding `BlockHashCount` when using `mocking::{MockBlock, MockBlockU32,
 		/// MockBlockU128}`.
-		pub struct TestBlockHashCount<C: Get<u32>>(sp_std::marker::PhantomData<C>);
+		pub struct TestBlockHashCount<C: Get<u32>>(core::marker::PhantomData<C>);
 		impl<I: From<u32>, C: Get<u32>> Get<I> for TestBlockHashCount<C> {
 			fn get() -> I {
 				C::get().into()
@@ -296,6 +316,7 @@ pub mod pallet {
 			type OnNewAccount = ();
 			type OnKilledAccount = ();
 			type SystemWeightInfo = ();
+			type ExtensionsWeightInfo = ();
 			type SS58Prefix = ();
 			type Version = ();
 			type BlockWeights = ();
@@ -357,7 +378,7 @@ pub mod pallet {
 			type MaxConsumers = frame_support::traits::ConstU32<128>;
 
 			/// The default data to be stored in an account.
-			type AccountData = crate::AccountInfo<Self::Nonce, ()>;
+			type AccountData = ();
 
 			/// What to do if a new account is created.
 			type OnNewAccount = ();
@@ -367,6 +388,9 @@ pub mod pallet {
 
 			/// Weight information for the extrinsics of this pallet.
 			type SystemWeightInfo = ();
+
+			/// Weight information for the extensions of this pallet.
+			type ExtensionsWeightInfo = ();
 
 			/// This is used as an identifier of the chain.
 			type SS58Prefix = ();
@@ -511,7 +535,7 @@ pub mod pallet {
 			+ Default
 			+ Copy
 			+ CheckEqual
-			+ sp_std::hash::Hash
+			+ core::hash::Hash
 			+ AsRef<[u8]>
 			+ AsMut<[u8]>
 			+ MaxEncodedLen;
@@ -575,7 +599,11 @@ pub mod pallet {
 		/// All resources should be cleaned up associated with the given account.
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
+		/// Weight information for the extrinsics of this pallet.
 		type SystemWeightInfo: WeightInfo;
+
+		/// Weight information for the transaction extensions of this pallet.
+		type ExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
 		///
@@ -826,9 +854,9 @@ pub mod pallet {
 	#[pallet::event]
 	pub enum Event<T: Config> {
 		/// An extrinsic completed successfully.
-		ExtrinsicSuccess { dispatch_info: DispatchInfo },
+		ExtrinsicSuccess { dispatch_info: DispatchEventInfo },
 		/// An extrinsic failed.
-		ExtrinsicFailed { dispatch_error: DispatchError, dispatch_info: DispatchInfo },
+		ExtrinsicFailed { dispatch_error: DispatchError, dispatch_info: DispatchEventInfo },
 		/// `:code` was updated.
 		CodeUpdated,
 		/// A new account was created.
@@ -914,7 +942,8 @@ pub mod pallet {
 
 	/// Total length (in bytes) for all extrinsics put together, for the current block.
 	#[pallet::storage]
-	pub(super) type AllExtrinsicsLen<T: Config> = StorageValue<_, u32>;
+	#[pallet::whitelist_storage]
+	pub type AllExtrinsicsLen<T: Config> = StorageValue<_, u32>;
 
 	/// Map of block numbers to block hashes.
 	#[pallet::storage]
@@ -1011,7 +1040,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -1153,7 +1182,7 @@ impl From<sp_version::RuntimeVersion> for LastRuntimeUpgradeInfo {
 }
 
 /// Ensure the origin is Root.
-pub struct EnsureRoot<AccountId>(sp_std::marker::PhantomData<AccountId>);
+pub struct EnsureRoot<AccountId>(core::marker::PhantomData<AccountId>);
 impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
 	EnsureOrigin<O> for EnsureRoot<AccountId>
 {
@@ -1179,7 +1208,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 
 /// Ensure the origin is Root and return the provided `Success` value.
 pub struct EnsureRootWithSuccess<AccountId, Success>(
-	sp_std::marker::PhantomData<(AccountId, Success)>,
+	core::marker::PhantomData<(AccountId, Success)>,
 );
 impl<
 		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
@@ -1209,7 +1238,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 
 /// Ensure the origin is provided `Ensure` origin and return the provided `Success` value.
 pub struct EnsureWithSuccess<Ensure, AccountId, Success>(
-	sp_std::marker::PhantomData<(Ensure, AccountId, Success)>,
+	core::marker::PhantomData<(Ensure, AccountId, Success)>,
 );
 
 impl<
@@ -1232,7 +1261,7 @@ impl<
 }
 
 /// Ensure the origin is any `Signed` origin.
-pub struct EnsureSigned<AccountId>(sp_std::marker::PhantomData<AccountId>);
+pub struct EnsureSigned<AccountId>(core::marker::PhantomData<AccountId>);
 impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId: Decode>
 	EnsureOrigin<O> for EnsureSigned<AccountId>
 {
@@ -1259,7 +1288,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 }
 
 /// Ensure the origin is `Signed` origin from the given `AccountId`.
-pub struct EnsureSignedBy<Who, AccountId>(sp_std::marker::PhantomData<(Who, AccountId)>);
+pub struct EnsureSignedBy<Who, AccountId>(core::marker::PhantomData<(Who, AccountId)>);
 impl<
 		O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
 		Who: SortedMembers<AccountId>,
@@ -1291,7 +1320,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 }
 
 /// Ensure the origin is `None`. i.e. unsigned transaction.
-pub struct EnsureNone<AccountId>(sp_std::marker::PhantomData<AccountId>);
+pub struct EnsureNone<AccountId>(core::marker::PhantomData<AccountId>);
 impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId>
 	EnsureOrigin<O> for EnsureNone<AccountId>
 {
@@ -1316,7 +1345,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 }
 
 /// Always fail.
-pub struct EnsureNever<Success>(sp_std::marker::PhantomData<Success>);
+pub struct EnsureNever<Success>(core::marker::PhantomData<Success>);
 impl<O, Success> EnsureOrigin<O> for EnsureNever<Success> {
 	type Success = Success;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
@@ -1844,7 +1873,9 @@ impl<T: Config> Pallet<T> {
 		let extrinsics = (0..ExtrinsicCount::<T>::take().unwrap_or_default())
 			.map(ExtrinsicData::<T>::take)
 			.collect();
-		let extrinsics_root = extrinsics_data_root::<T::Hashing>(extrinsics);
+		let extrinsics_root_state_version = T::Version::get().extrinsics_root_state_version();
+		let extrinsics_root =
+			extrinsics_data_root::<T::Hashing>(extrinsics, extrinsics_root_state_version);
 
 		// move block hash pruning window by one block
 		let block_hash_count = T::BlockHashCount::get();
@@ -1906,7 +1937,7 @@ impl<T: Config> Pallet<T> {
 	/// Should only be called if you know what you are doing and outside of the runtime block
 	/// execution else it can have a large impact on the PoV size of a block.
 	pub fn read_events_no_consensus(
-	) -> impl sp_std::iter::Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
+	) -> impl Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
 		Events::<T>::stream_iter()
 	}
 
@@ -2016,13 +2047,15 @@ impl<T: Config> Pallet<T> {
 	/// Emits an `ExtrinsicSuccess` or `ExtrinsicFailed` event depending on the outcome.
 	/// The emitted event contains the post-dispatch corrected weight including
 	/// the base-weight for its dispatch class.
-	pub fn note_applied_extrinsic(r: &DispatchResultWithPostInfo, mut info: DispatchInfo) {
-		info.weight = extract_actual_weight(r, &info)
+	pub fn note_applied_extrinsic(r: &DispatchResultWithPostInfo, info: DispatchInfo) {
+		let weight = extract_actual_weight(r, &info)
 			.saturating_add(T::BlockWeights::get().get(info.class).base_extrinsic);
-		info.pays_fee = extract_actual_pays_fee(r, &info);
+		let class = info.class;
+		let pays_fee = extract_actual_pays_fee(r, &info);
+		let dispatch_event_info = DispatchEventInfo { weight, class, pays_fee };
 
 		Self::deposit_event(match r {
-			Ok(_) => Event::ExtrinsicSuccess { dispatch_info: info },
+			Ok(_) => Event::ExtrinsicSuccess { dispatch_info: dispatch_event_info },
 			Err(err) => {
 				log::trace!(
 					target: LOG_TARGET,
@@ -2030,7 +2063,10 @@ impl<T: Config> Pallet<T> {
 					Self::block_number(),
 					err,
 				);
-				Event::ExtrinsicFailed { dispatch_error: err.error, dispatch_info: info }
+				Event::ExtrinsicFailed {
+					dispatch_error: err.error,
+					dispatch_info: dispatch_event_info,
+				}
 			},
 		});
 

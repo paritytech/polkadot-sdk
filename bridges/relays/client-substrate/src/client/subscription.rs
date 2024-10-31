@@ -21,7 +21,6 @@ use async_std::{
 	stream::StreamExt,
 };
 use futures::{FutureExt, Stream};
-use jsonrpsee::core::ClientError;
 use sp_runtime::DeserializeOwned;
 use std::{
 	fmt::Debug,
@@ -143,7 +142,7 @@ impl<T: 'static + Clone + DeserializeOwned + Send> Subscription<T> {
 	/// Create new forwarded subscription.
 	pub fn new_forwarded(
 		desc: StreamDescription,
-		subscription: impl Stream<Item = StdResult<T, ClientError>> + Unpin + Send + 'static,
+		subscription: impl Stream<Item = StdResult<T, serde_json::Error>> + Unpin + Send + 'static,
 	) -> Self {
 		Self {
 			desc: desc.clone(),

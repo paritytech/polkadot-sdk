@@ -24,7 +24,7 @@
 use crate::{Chain, ChainWithBalances, ChainWithMessages};
 use bp_messages::{ChainWithMessages as ChainWithMessagesBase, MessageNonce};
 use bp_runtime::ChainId;
-use frame_support::weights::Weight;
+use frame_support::{sp_runtime::StateVersion, weights::Weight};
 use std::time::Duration;
 
 /// Chain that may be used in tests.
@@ -43,6 +43,8 @@ impl bp_runtime::Chain for TestChain {
 	type Balance = u32;
 	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		100000
@@ -99,6 +101,8 @@ impl bp_runtime::Chain for TestParachainBase {
 	type Balance = u32;
 	type Nonce = u32;
 	type Signature = sp_runtime::testing::TestSignature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		unreachable!()

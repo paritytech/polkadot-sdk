@@ -19,16 +19,21 @@
 use crate::test_cases::{bridges_prelude::*, run_test, RuntimeHelper};
 
 use asset_test_utils::BasicParachainRuntime;
-use bp_messages::{LaneId, MessageNonce};
+use bp_messages::MessageNonce;
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use bp_relayers::RewardsAccountParams;
+use bp_runtime::Chain;
+use bp_xcm_bridge_hub::BridgeLocations;
 use codec::Decode;
+use core::marker::PhantomData;
 use frame_support::{
 	assert_ok,
-	traits::{OnFinalize, OnInitialize, PalletInfoAccess},
+	dispatch::GetDispatchInfo,
+	traits::{fungible::Mutate, OnFinalize, OnInitialize, PalletInfoAccess},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
+use pallet_bridge_messages::{BridgedChainOf, LaneIdOf};
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
@@ -36,8 +41,8 @@ use parachains_runtimes_test_utils::{
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};
-use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
+use xcm_executor::traits::ConvertLocation;
 
 /// Verify that the transaction has succeeded.
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -127,8 +132,8 @@ where
 }
 
 /// Checks that the latest delivered nonce in the bridge messages pallet equals to given one.
-pub struct VerifySubmitMessagesProofOutcome<Runtime, MPI> {
-	lane: LaneId,
+pub struct VerifySubmitMessagesProofOutcome<Runtime: BridgeMessagesConfig<MPI>, MPI: 'static> {
+	lane: LaneIdOf<Runtime, MPI>,
 	expected_nonce: MessageNonce,
 	_marker: PhantomData<(Runtime, MPI)>,
 }
@@ -140,7 +145,7 @@ where
 {
 	/// Expect given delivered nonce to be the latest after transaction.
 	pub fn expect_last_delivered_nonce(
-		lane: LaneId,
+		lane: LaneIdOf<Runtime, MPI>,
 		expected_nonce: MessageNonce,
 	) -> Box<dyn VerifyTransactionOutcome> {
 		Box::new(Self { lane, expected_nonce, _marker: PhantomData })
@@ -155,37 +160,39 @@ where
 	fn verify_outcome(&self) {
 		assert_eq!(
 			pallet_bridge_messages::InboundLanes::<Runtime, MPI>::get(self.lane)
-				.last_delivered_nonce(),
-			self.expected_nonce,
+				.map(|d| d.last_delivered_nonce()),
+			Some(self.expected_nonce),
 		);
 	}
 }
 
 /// Verifies that relayer is rewarded at this chain.
-pub struct VerifyRelayerRewarded<Runtime: frame_system::Config> {
+pub struct VerifyRelayerRewarded<Runtime: pallet_bridge_relayers::Config<RPI>, RPI: 'static> {
 	relayer: Runtime::AccountId,
-	reward_params: RewardsAccountParams,
+	reward_params: RewardsAccountParams<Runtime::LaneId>,
 }
 
-impl<Runtime> VerifyRelayerRewarded<Runtime>
+impl<Runtime, RPI> VerifyRelayerRewarded<Runtime, RPI>
 where
-	Runtime: pallet_bridge_relayers::Config,
+	Runtime: pallet_bridge_relayers::Config<RPI>,
+	RPI: 'static,
 {
 	/// Expect given delivered nonce to be the latest after transaction.
 	pub fn expect_relayer_reward(
 		relayer: Runtime::AccountId,
-		reward_params: RewardsAccountParams,
+		reward_params: RewardsAccountParams<Runtime::LaneId>,
 	) -> Box<dyn VerifyTransactionOutcome> {
 		Box::new(Self { relayer, reward_params })
 	}
 }
 
-impl<Runtime> VerifyTransactionOutcome for VerifyRelayerRewarded<Runtime>
+impl<Runtime, RPI> VerifyTransactionOutcome for VerifyRelayerRewarded<Runtime, RPI>
 where
-	Runtime: pallet_bridge_relayers::Config,
+	Runtime: pallet_bridge_relayers::Config<RPI>,
+	RPI: 'static,
 {
 	fn verify_outcome(&self) {
-		assert!(pallet_bridge_relayers::RelayerRewards::<Runtime>::get(
+		assert!(pallet_bridge_relayers::RelayerRewards::<Runtime, RPI>::get(
 			&self.relayer,
 			&self.reward_params,
 		)
@@ -240,10 +247,12 @@ pub(crate) fn initialize_bridge_grandpa_pallet<Runtime, GPI>(
 pub type CallsAndVerifiers<Runtime> =
 	Vec<(RuntimeCallOf<Runtime>, Box<dyn VerifyTransactionOutcome>)>;
 
+pub type InboundRelayerId<Runtime, MPI> = bp_runtime::AccountIdOf<BridgedChainOf<Runtime, MPI>>;
+
 /// Returns relayer id at the bridged chain.
 pub fn relayer_id_at_bridged_chain<Runtime: pallet_bridge_messages::Config<MPI>, MPI>(
-) -> Runtime::InboundRelayer {
-	Runtime::InboundRelayer::decode(&mut TrailingZeroInput::zeroes()).unwrap()
+) -> InboundRelayerId<Runtime, MPI> {
+	Decode::decode(&mut TrailingZeroInput::zeroes()).unwrap()
 }
 
 /// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
@@ -260,10 +269,11 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	) -> sp_runtime::DispatchOutcome,
 	prepare_message_proof_import: impl FnOnce(
 		Runtime::AccountId,
-		Runtime::InboundRelayer,
+		InboundRelayerId<Runtime, MPI>,
 		InteriorLocation,
 		MessageNonce,
 		Xcm<()>,
+		bp_runtime::ChainId,
 	) -> CallsAndVerifiers<Runtime>,
 ) where
 	Runtime: BasicParachainRuntime + cumulus_pallet_xcmp_queue::Config + BridgeMessagesConfig<MPI>,
@@ -275,6 +285,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	let relayer_at_target = Bob;
 	let relayer_id_on_target: AccountId32 = relayer_at_target.public().into();
 	let relayer_id_on_source = relayer_id_at_bridged_chain::<Runtime, MPI>();
+	let bridged_chain_id = Runtime::BridgedChain::ID;
 
 	assert_ne!(runtime_para_id, sibling_parachain_id);
 
@@ -287,7 +298,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 			// value here is tricky - there are several transaction payment pallets and we don't
 			// want to introduce additional bounds and traits here just for that, so let's just
 			// select some presumably large value
-			sp_std::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
+			core::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
 				100_000_000u32.into(),
 		)],
 		|| {
@@ -336,6 +347,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 					message_destination,
 					message_nonce,
 					xcm.clone().into(),
+					bridged_chain_id,
 				),
 			);
 
@@ -374,4 +386,185 @@ fn execute_and_verify_calls<Runtime: frame_system::Config>(
 		assert_ok!(dispatch_outcome);
 		verifier.verify_outcome();
 	}
+}
+
+/// Helper function to open the bridge/lane for `source` and `destination` while ensuring all
+/// required balances are placed into the SA of the source.
+pub fn ensure_opened_bridge<
+	Runtime,
+	XcmOverBridgePalletInstance,
+	LocationToAccountId,
+	TokenLocation>
+(source: Location, destination: InteriorLocation, bridge_opener: impl Fn(BridgeLocations, Asset)) -> (BridgeLocations, pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>)
+where
+	Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
+	XcmOverBridgePalletInstance: 'static,
+	<Runtime as frame_system::Config>::RuntimeCall: GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
+	<Runtime as pallet_balances::Config>::Balance: From<<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::Balance>,
+	<Runtime as pallet_balances::Config>::Balance: From<u128>,
+	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
+TokenLocation: Get<Location>{
+	// construct expected bridge configuration
+	let locations =
+		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
+			source.clone().into(),
+			destination.clone().into(),
+		)
+		.expect("valid bridge locations");
+	assert!(pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+		locations.bridge_id()
+	)
+	.is_none());
+
+	// required balance: ED + fee + BridgeDeposit
+	let bridge_deposit =
+		<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeDeposit::get(
+		);
+	// random high enough value for `BuyExecution` fees
+	let buy_execution_fee_amount = 5_000_000_000_000_u128;
+	let buy_execution_fee = (TokenLocation::get(), buy_execution_fee_amount).into();
+	let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() +
+		buy_execution_fee_amount.into() +
+		bridge_deposit.into();
+
+	// SA of source location needs to have some required balance
+	let source_account_id = LocationToAccountId::convert_location(&source).expect("valid location");
+	let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
+		.expect("mint_into passes");
+
+	// call the bridge opener
+	bridge_opener(*locations.clone(), buy_execution_fee);
+
+	// check opened bridge
+	let bridge = pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+		locations.bridge_id(),
+	)
+	.expect("opened bridge");
+
+	// check state
+	assert_ok!(
+		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_try_state()
+	);
+
+	// return locations
+	(*locations, bridge.lane_id)
+}
+
+/// Utility for opening bridge with dedicated `pallet_xcm_bridge_hub`'s extrinsic.
+pub fn open_bridge_with_extrinsic<Runtime, XcmOverBridgePalletInstance>(
+	locations: BridgeLocations,
+	buy_execution_fee: Asset,
+) where
+	Runtime: frame_system::Config
+		+ pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_xcm::Config,
+	XcmOverBridgePalletInstance: 'static,
+	<Runtime as frame_system::Config>::RuntimeCall:
+		GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
+{
+	// open bridge with `Transact` call
+	let open_bridge_call = RuntimeCallOf::<Runtime>::from(BridgeXcmOverBridgeCall::<
+		Runtime,
+		XcmOverBridgePalletInstance,
+	>::open_bridge {
+		bridge_destination_universal_location: Box::new(
+			locations.bridge_destination_universal_location().clone().into(),
+		),
+	});
+
+	// execute XCM as source origin would do with `Transact -> Origin::Xcm`
+	assert_ok!(RuntimeHelper::<Runtime>::execute_as_origin_xcm(
+		locations.bridge_origin_relative_location().clone(),
+		open_bridge_call,
+		buy_execution_fee
+	)
+	.ensure_complete());
+}
+
+/// Utility for opening bridge directly inserting data to the storage (used only for legacy
+/// purposes).
+pub fn open_bridge_with_storage<Runtime, XcmOverBridgePalletInstance>(
+	locations: BridgeLocations,
+	_buy_execution_fee: Asset,
+	lane_id: pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>,
+) where
+	Runtime: pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>,
+	XcmOverBridgePalletInstance: 'static,
+{
+	// insert bridge data directly to the storage
+	assert_ok!(
+		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_open_bridge(
+			Box::new(locations),
+			lane_id,
+			true
+		)
+	);
+}
+
+/// Helper function to close the bridge/lane for `source` and `destination`.
+pub fn close_bridge<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(source: Location, destination: InteriorLocation)
+where
+	Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
+	XcmOverBridgePalletInstance: 'static,
+	<Runtime as frame_system::Config>::RuntimeCall: GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
+	<Runtime as pallet_balances::Config>::Balance: From<<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::Balance>,
+	<Runtime as pallet_balances::Config>::Balance: From<u128>,
+	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
+TokenLocation: Get<Location>{
+	// construct expected bridge configuration
+	let locations =
+		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
+			source.clone().into(),
+			destination.clone().into(),
+		)
+		.expect("valid bridge locations");
+	assert!(pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+		locations.bridge_id()
+	)
+	.is_some());
+
+	// required balance: ED + fee + BridgeDeposit
+	let bridge_deposit =
+		<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeDeposit::get(
+		);
+	// random high enough value for `BuyExecution` fees
+	let buy_execution_fee_amount = 2_500_000_000_000_u128;
+	let buy_execution_fee = (TokenLocation::get(), buy_execution_fee_amount).into();
+	let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() +
+		buy_execution_fee_amount.into() +
+		bridge_deposit.into();
+
+	// SA of source location needs to have some required balance
+	let source_account_id = LocationToAccountId::convert_location(&source).expect("valid location");
+	let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
+		.expect("mint_into passes");
+
+	// close bridge with `Transact` call
+	let close_bridge_call = RuntimeCallOf::<Runtime>::from(BridgeXcmOverBridgeCall::<
+		Runtime,
+		XcmOverBridgePalletInstance,
+	>::close_bridge {
+		bridge_destination_universal_location: Box::new(destination.into()),
+		may_prune_messages: 16,
+	});
+
+	// execute XCM as source origin would do with `Transact -> Origin::Xcm`
+	assert_ok!(RuntimeHelper::<Runtime>::execute_as_origin_xcm(
+		source.clone(),
+		close_bridge_call,
+		buy_execution_fee
+	)
+	.ensure_complete());
+
+	// bridge is closed
+	assert!(pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+		locations.bridge_id()
+	)
+	.is_none());
+
+	// check state
+	assert_ok!(
+		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_try_state()
+	);
 }

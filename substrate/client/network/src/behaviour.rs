@@ -31,8 +31,13 @@ use crate::{
 
 use futures::channel::oneshot;
 use libp2p::{
-	core::Multiaddr, identify::Info as IdentifyInfo, identity::PublicKey, kad::RecordKey,
-	swarm::NetworkBehaviour, PeerId,
+	connection_limits::ConnectionLimits,
+	core::Multiaddr,
+	identify::Info as IdentifyInfo,
+	identity::PublicKey,
+	kad::{Record, RecordKey},
+	swarm::NetworkBehaviour,
+	PeerId, StreamProtocol,
 };
 
 use parking_lot::Mutex;
@@ -47,8 +52,10 @@ pub use crate::request_responses::{InboundFailure, OutboundFailure, ResponseFail
 
 /// General behaviour of the network. Combines all protocols together.
 #[derive(NetworkBehaviour)]
-#[behaviour(out_event = "BehaviourOut")]
+#[behaviour(to_swarm = "BehaviourOut")]
 pub struct Behaviour<B: BlockT> {
+	/// Connection limits.
+	connection_limits: libp2p::connection_limits::Behaviour,
 	/// All the substrate-specific protocols.
 	substrate: Protocol<B>,
 	/// Periodically pings and identifies the nodes we are connected to, and store information in a
@@ -69,8 +76,6 @@ pub enum BehaviourOut {
 	///
 	/// This event is generated for statistics purposes.
 	InboundRequest {
-		/// Peer which sent us a request.
-		peer: PeerId,
 		/// Protocol name of the request.
 		protocol: ProtocolName,
 		/// If `Ok`, contains the time elapsed between when we received the request and when we
@@ -82,8 +87,6 @@ pub enum BehaviourOut {
 	///
 	/// This event is generated for statistics purposes.
 	RequestFinished {
-		/// Peer that we send a request to.
-		peer: PeerId,
 		/// Name of the protocol in question.
 		protocol: ProtocolName,
 		/// Duration the request took.
@@ -180,6 +183,7 @@ impl<B: BlockT> Behaviour<B> {
 		request_response_protocols: Vec<ProtocolConfig>,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
 		external_addresses: Arc<Mutex<HashSet<Multiaddr>>>,
+		connection_limits: ConnectionLimits,
 	) -> Result<Self, request_responses::RegisterError> {
 		Ok(Self {
 			substrate,
@@ -193,6 +197,7 @@ impl<B: BlockT> Behaviour<B> {
 				request_response_protocols.into_iter(),
 				peer_store_handle,
 			)?,
+			connection_limits: libp2p::connection_limits::Behaviour::new(connection_limits),
 		})
 	}
 
@@ -267,7 +272,7 @@ impl<B: BlockT> Behaviour<B> {
 	pub fn add_self_reported_address_to_dht(
 		&mut self,
 		peer_id: &PeerId,
-		supported_protocols: &[impl AsRef<[u8]>],
+		supported_protocols: &[StreamProtocol],
 		addr: Multiaddr,
 	) {
 		self.discovery.add_self_reported_address(peer_id, supported_protocols, addr);
@@ -283,6 +288,16 @@ impl<B: BlockT> Behaviour<B> {
 	/// `ValuePutFailed` event.
 	pub fn put_value(&mut self, key: RecordKey, value: Vec<u8>) {
 		self.discovery.put_value(key, value);
+	}
+
+	/// Puts a record into DHT, on the provided Peers
+	pub fn put_record_to(
+		&mut self,
+		record: Record,
+		peers: HashSet<sc_network_types::PeerId>,
+		update_local_storage: bool,
+	) {
+		self.discovery.put_record_to(record, peers, update_local_storage);
 	}
 
 	/// Stores value in DHT
@@ -331,10 +346,10 @@ impl From<CustomMessageOutcome> for BehaviourOut {
 impl From<request_responses::Event> for BehaviourOut {
 	fn from(event: request_responses::Event) -> Self {
 		match event {
-			request_responses::Event::InboundRequest { peer, protocol, result } =>
-				BehaviourOut::InboundRequest { peer, protocol, result },
-			request_responses::Event::RequestFinished { peer, protocol, duration, result } =>
-				BehaviourOut::RequestFinished { peer, protocol, duration, result },
+			request_responses::Event::InboundRequest { protocol, result, .. } =>
+				BehaviourOut::InboundRequest { protocol, result },
+			request_responses::Event::RequestFinished { protocol, duration, result, .. } =>
+				BehaviourOut::RequestFinished { protocol, duration, result },
 			request_responses::Event::ReputationChanges { peer, changes } =>
 				BehaviourOut::ReputationChanges { peer, changes },
 		}
@@ -374,5 +389,11 @@ impl From<DiscoveryOut> for BehaviourOut {
 				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key), Some(duration)),
 			DiscoveryOut::RandomKademliaStarted => BehaviourOut::RandomKademliaStarted,
 		}
+	}
+}
+
+impl From<void::Void> for BehaviourOut {
+	fn from(e: void::Void) -> Self {
+		void::unreachable(e)
 	}
 }

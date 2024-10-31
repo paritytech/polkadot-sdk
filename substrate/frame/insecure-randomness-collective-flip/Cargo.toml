@@ -4,7 +4,7 @@ version = "16.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Insecure do not use in production: FRAME randomness collective flip pallet"
 readme = "README.md"
@@ -22,7 +22,6 @@ scale-info = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true, default-features = true }
@@ -39,7 +38,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

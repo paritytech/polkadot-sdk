@@ -20,7 +20,6 @@ frame-system = { workspace = true }
 sp-io = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 pallet-message-queue = { workspace = true }
 
 # Polkadot
@@ -68,7 +67,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

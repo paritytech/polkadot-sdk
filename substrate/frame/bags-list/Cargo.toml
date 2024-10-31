@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet bags list"
 
@@ -25,7 +25,6 @@ scale-info = { features = [
 
 # primitives
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 # FRAME
 frame-support = { workspace = true }
@@ -66,7 +65,6 @@ std = [
 	"sp-core?/std",
 	"sp-io?/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-tracing?/std",
 ]
 runtime-benchmarks = [

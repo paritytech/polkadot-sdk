@@ -8,8 +8,8 @@
     "/dns/westend-bootnode-1.polkadot.io/tcp/30333/p2p/12D3KooWPVPzs42GvRBShdUMtFsk4SvnByrSdWqb6aeAAHvLMSLS",
     "/dns/westend-bootnode-1.polkadot.io/tcp/30334/ws/p2p/12D3KooWPVPzs42GvRBShdUMtFsk4SvnByrSdWqb6aeAAHvLMSLS",
     "/dns/westend-bootnode-1.polkadot.io/tcp/443/wss/p2p/12D3KooWPVPzs42GvRBShdUMtFsk4SvnByrSdWqb6aeAAHvLMSLS",
-    "/dns/boot.stake.plus/tcp/32333/p2p/12D3KooWK8fjVoSvMq5copQYMsdYreSGPGgcMbGMgbMDPfpf3sm7",
-    "/dns/boot.stake.plus/tcp/32334/wss/p2p/12D3KooWK8fjVoSvMq5copQYMsdYreSGPGgcMbGMgbMDPfpf3sm7",
+    "/dns/westend.boot.stake.plus/tcp/30334/wss/p2p/12D3KooWAzfLkJarihZAyDeDet2WpYNkzjpXocGmmDFiRaHJjoyw",
+    "/dns/westend.boot.stake.plus/tcp/31334/wss/p2p/12D3KooWBdcVpUwnB3AgwZQXcyrvd4yzPBXtSLknvoBSHQZNoftP",
     "/dns/boot-node.helikon.io/tcp/7080/p2p/12D3KooWRFDPyT8vA8mLzh6dJoyujn4QNjeqi6Ch79eSMz9beKXC",
     "/dns/boot-node.helikon.io/tcp/7082/wss/p2p/12D3KooWRFDPyT8vA8mLzh6dJoyujn4QNjeqi6Ch79eSMz9beKXC",
     "/dns/westend.bootnode.amforc.com/tcp/30001/p2p/12D3KooWAPmR7rbm2axPjHzF51yvQNDM5GvWfkF5BTV44Y5vJ3ct",
@@ -33,7 +33,8 @@
     "/dns/wnd14.rotko.net/tcp/35234/wss/p2p/12D3KooWLK8Zj1uZ46phU3vQwiDVda8tB76S8J26rXZQLHpwWkDJ",
     "/dns/wnd14.rotko.net/tcp/33234/p2p/12D3KooWLK8Zj1uZ46phU3vQwiDVda8tB76S8J26rXZQLHpwWkDJ",
     "/dns/ibp-boot-westend.luckyfriday.io/tcp/30333/p2p/12D3KooWDg1YEytdwFFNWroFj6gio4YFsMB3miSbHKgdpJteUMB9",
-    "/dns/ibp-boot-westend.luckyfriday.io/tcp/30334/wss/p2p/12D3KooWDg1YEytdwFFNWroFj6gio4YFsMB3miSbHKgdpJteUMB9"
+    "/dns/ibp-boot-westend.luckyfriday.io/tcp/30334/wss/p2p/12D3KooWDg1YEytdwFFNWroFj6gio4YFsMB3miSbHKgdpJteUMB9",
+    "/dns/westend.bootnode.stkd.io/tcp/30633/wss/p2p/12D3KooWHaQKkJiTPqeNgqDcW7dfYgJxYwT8YqJMtTkueSu6378V"
   ],
   "telemetryEndpoints": [
     [

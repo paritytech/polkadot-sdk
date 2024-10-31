@@ -23,7 +23,7 @@ use xcm_executor::traits::ConvertLocation;
 /// `EnsureOriginWithArg` impl for `CreateOrigin` that allows only XCM origins that are locations
 /// containing the class location.
 pub struct ForeignCreators<IsForeign, AccountOf, AccountId, L = Location>(
-	sp_std::marker::PhantomData<(IsForeign, AccountOf, AccountId, L)>,
+	core::marker::PhantomData<(IsForeign, AccountOf, AccountId, L)>,
 );
 impl<
 		IsForeign: ContainsPair<L, L>,
@@ -41,7 +41,7 @@ where
 	fn try_origin(
 		origin: RuntimeOrigin,
 		asset_location: &L,
-	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
+	) -> core::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = EnsureXcm::<Everything, L>::try_origin(origin.clone())?;
 		if !IsForeign::contains(asset_location, &origin_location) {
 			return Err(origin)

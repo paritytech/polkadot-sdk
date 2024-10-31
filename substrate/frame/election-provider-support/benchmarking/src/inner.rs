@@ -18,10 +18,10 @@
 //! Election provider support pallet benchmarking.
 //! This is separated into its own crate to avoid bloating the size of the runtime.
 
+use alloc::vec::Vec;
 use codec::Decode;
 use frame_benchmarking::v1::benchmarks;
 use frame_election_provider_support::{NposSolver, PhragMMS, SequentialPhragmen};
-use sp_std::vec::Vec;
 
 pub struct Pallet<T: Config>(frame_system::Pallet<T>);
 pub trait Config: frame_system::Config {}

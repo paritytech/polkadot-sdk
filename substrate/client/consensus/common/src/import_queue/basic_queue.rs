@@ -32,9 +32,9 @@ use std::pin::Pin;
 use crate::{
 	import_queue::{
 		buffered_link::{self, BufferedLinkReceiver, BufferedLinkSender},
-		import_single_block_metered, BlockImportError, BlockImportStatus, BoxBlockImport,
-		BoxJustificationImport, ImportQueue, ImportQueueService, IncomingBlock, Link,
-		RuntimeOrigin, Verifier, LOG_TARGET,
+		import_single_block_metered, verify_single_block_metered, BlockImportError,
+		BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueService,
+		IncomingBlock, Link, RuntimeOrigin, SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
 	},
 	metrics::Metrics,
 };
@@ -60,13 +60,16 @@ impl<B: BlockT> BasicQueue<B> {
 	/// Instantiate a new basic queue, with given verifier.
 	///
 	/// This creates a background task, and calls `on_start` on the justification importer.
-	pub fn new<V: 'static + Verifier<B>>(
+	pub fn new<V>(
 		verifier: V,
 		block_import: BoxBlockImport<B>,
 		justification_import: Option<BoxJustificationImport<B>>,
 		spawner: &impl sp_core::traits::SpawnEssentialNamed,
 		prometheus_registry: Option<&Registry>,
-	) -> Self {
+	) -> Self
+	where
+		V: Verifier<B> + 'static,
+	{
 		let (result_sender, result_port) = buffered_link::buffered_link(100_000);
 
 		let metrics = prometheus_registry.and_then(|r| {
@@ -219,7 +222,7 @@ mod worker_messages {
 /// Returns when `block_import` ended.
 async fn block_import_process<B: BlockT>(
 	mut block_import: BoxBlockImport<B>,
-	mut verifier: impl Verifier<B>,
+	verifier: impl Verifier<B>,
 	mut result_sender: BufferedLinkSender<B>,
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
 	metrics: Option<Metrics>,
@@ -238,8 +241,7 @@ async fn block_import_process<B: BlockT>(
 		};
 
 		let res =
-			import_many_blocks(&mut block_import, origin, blocks, &mut verifier, metrics.clone())
-				.await;
+			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
 
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}
@@ -252,7 +254,7 @@ struct BlockImportWorker<B: BlockT> {
 }
 
 impl<B: BlockT> BlockImportWorker<B> {
-	fn new<V: 'static + Verifier<B>>(
+	fn new<V>(
 		result_sender: BufferedLinkSender<B>,
 		verifier: V,
 		block_import: BoxBlockImport<B>,
@@ -262,7 +264,10 @@ impl<B: BlockT> BlockImportWorker<B> {
 		impl Future<Output = ()> + Send,
 		TracingUnboundedSender<worker_messages::ImportJustification<B>>,
 		TracingUnboundedSender<worker_messages::ImportBlocks<B>>,
-	) {
+	)
+	where
+		V: Verifier<B> + 'static,
+	{
 		use worker_messages::*;
 
 		let (justification_sender, mut justification_port) =
@@ -382,7 +387,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 	import_handle: &mut BoxBlockImport<B>,
 	blocks_origin: BlockOrigin,
 	blocks: Vec<IncomingBlock<B>>,
-	verifier: &mut V,
+	verifier: &V,
 	metrics: Option<Metrics>,
 ) -> ImportManyBlocksResult<B> {
 	let count = blocks.len();
@@ -419,15 +424,22 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 		let import_result = if has_error {
 			Err(BlockImportError::Cancelled)
 		} else {
-			// The actual import.
-			import_single_block_metered(
+			let verification_fut = verify_single_block_metered(
 				import_handle,
 				blocks_origin,
 				block,
 				verifier,
-				metrics.clone(),
-			)
-			.await
+				metrics.as_ref(),
+			);
+			match verification_fut.await {
+				Ok(SingleBlockVerificationOutcome::Imported(import_status)) => Ok(import_status),
+				Ok(SingleBlockVerificationOutcome::Verified(import_parameters)) => {
+					// The actual import.
+					import_single_block_metered(import_handle, import_parameters, metrics.as_ref())
+						.await
+				},
+				Err(e) => Err(e),
+			}
 		};
 
 		if let Some(metrics) = metrics.as_ref() {
@@ -494,7 +506,7 @@ mod tests {
 	#[async_trait::async_trait]
 	impl Verifier<Block> for () {
 		async fn verify(
-			&mut self,
+			&self,
 			block: BlockImportParams<Block>,
 		) -> Result<BlockImportParams<Block>, String> {
 			Ok(BlockImportParams::new(block.origin, block.header))
@@ -506,14 +518,14 @@ mod tests {
 		type Error = sp_consensus::Error;
 
 		async fn check_block(
-			&mut self,
+			&self,
 			_block: BlockCheckParams<Block>,
 		) -> Result<ImportResult, Self::Error> {
 			Ok(ImportResult::imported(false))
 		}
 
 		async fn import_block(
-			&mut self,
+			&self,
 			_block: BlockImportParams<Block>,
 		) -> Result<ImportResult, Self::Error> {
 			Ok(ImportResult::imported(true))

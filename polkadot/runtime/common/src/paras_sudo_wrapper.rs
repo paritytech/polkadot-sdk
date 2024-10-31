@@ -16,6 +16,7 @@
 
 //! A simple wrapper allowing `Sudo` to call into `paras` routines.
 
+use alloc::boxed::Box;
 use codec::Encode;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
@@ -26,7 +27,6 @@ use polkadot_runtime_parachains::{
 	paras::{self, AssignCoretime, ParaGenesisArgs},
 	ParaLifecycle,
 };
-use sp_std::boxed::Box;
 
 #[frame_support::pallet]
 pub mod pallet {

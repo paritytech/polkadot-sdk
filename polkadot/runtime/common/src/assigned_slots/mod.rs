@@ -30,6 +30,7 @@ use crate::{
 	slots::{self, Pallet as Slots, WeightInfo as SlotsWeightInfo},
 	traits::{LeaseError, Leaser, Registrar},
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
@@ -41,7 +42,6 @@ use polkadot_runtime_parachains::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{One, Saturating, Zero};
-use sp_std::prelude::*;
 
 const LOG_TARGET: &str = "runtime::assigned_slots";
 
@@ -186,6 +186,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub max_temporary_slots: u32,
 		pub max_permanent_slots: u32,
+		#[serde(skip)]
 		pub _config: PhantomData<T>,
 	}
 
@@ -664,12 +665,21 @@ mod tests {
 		}
 	);
 
-	impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+	impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 	where
 		RuntimeCall: From<C>,
 	{
 		type Extrinsic = UncheckedExtrinsic;
-		type OverarchingCall = RuntimeCall;
+		type RuntimeCall = RuntimeCall;
+	}
+
+	impl<C> frame_system::offchain::CreateInherent<C> for Test
+	where
+		RuntimeCall: From<C>,
+	{
+		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+			UncheckedExtrinsic::new_bare(call)
+		}
 	}
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

@@ -25,16 +25,14 @@ use crate::{
 	pallets::{pallet_bar, pallet_foo},
 	presets::*,
 };
+use alloc::{vec, vec::Vec};
 use frame::{
 	deps::frame_support::{
 		genesis_builder_helper::{build_state, get_preset},
 		runtime,
 	},
 	prelude::*,
-	runtime::{
-		apis::{self, impl_runtime_apis, ExtrinsicInclusionMode},
-		prelude::*,
-	},
+	runtime::{apis, prelude::*},
 };
 use sp_genesis_builder::PresetId;
 
@@ -48,7 +46,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The signed extensions that are added to the runtime.

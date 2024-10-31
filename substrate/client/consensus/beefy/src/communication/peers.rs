@@ -75,6 +75,11 @@ impl<B: Block> KnownPeers<B> {
 	pub fn contains(&self, peer: &PeerId) -> bool {
 		self.live.contains_key(peer)
 	}
+
+	/// Number of peers in the set.
+	pub fn len(&self) -> usize {
+		self.live.len()
+	}
 }
 
 #[cfg(test)]

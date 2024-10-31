@@ -1,5 +1,9 @@
 # Collator Protocol
 
+> NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699
+
 The Collator Protocol implements the network protocol by which collators and validators communicate. It is used by
 collators to distribute collations to validators and used by validators to accept collations by collators.
 

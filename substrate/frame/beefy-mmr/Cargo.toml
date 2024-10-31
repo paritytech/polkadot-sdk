@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 description = "BEEFY + MMR runtime utilities"
 repository.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 
 [lints]
 workspace = true
@@ -18,6 +18,7 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 binary-merkle-tree = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-beefy = { workspace = true }
@@ -27,7 +28,6 @@ sp-consensus-beefy = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 sp-api = { workspace = true }
 sp-state-machine = { workspace = true }
 
@@ -41,6 +41,7 @@ std = [
 	"array-bytes",
 	"binary-merkle-tree/std",
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -56,7 +57,6 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -65,4 +65,12 @@ try-runtime = [
 	"pallet-mmr/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-mmr/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]

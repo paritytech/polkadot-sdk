@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::{pallet_prelude::*, weights::WeightMeter};
+use alloc::{vec, vec::Vec};
+use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
-use sp_runtime::traits::ConvertBack;
-use sp_std::{vec, vec::Vec};
+use sp_runtime::traits::{ConvertBack, MaybeConvert};
 use CompletionStatus::Complete;
 
 impl<T: Config> Pallet<T> {
@@ -76,6 +76,8 @@ impl<T: Config> Pallet<T> {
 			let rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
 			T::Coretime::request_revenue_info_at(rc_block);
 			meter.consume(T::WeightInfo::request_revenue_info_at());
+			T::Coretime::on_new_timeslice(status.last_timeslice);
+			meter.consume(T::WeightInfo::on_new_timeslice());
 		}
 
 		Status::<T>::put(&status);
@@ -93,15 +95,23 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn process_revenue() -> bool {
-		let Some((until, amount)) = T::Coretime::check_notify_revenue_info() else { return false };
+		let Some(OnDemandRevenueRecord { until, amount }) = RevenueInbox::<T>::take() else {
+			return false
+		};
 		let when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
-		let mut revenue = T::ConvertBalance::convert_back(amount);
+		let mut revenue = T::ConvertBalance::convert_back(amount.clone());
 		if revenue.is_zero() {
 			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
 			InstaPoolHistory::<T>::remove(when);
 			return true
 		}
+
+		log::debug!(
+			target: "pallet_broker::process_revenue",
+			"Received {amount:?} from RC, converted into {revenue:?} revenue",
+		);
+
 		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
 		if r.maybe_payout.is_some() {
 			Self::deposit_event(Event::<T>::HistoryIgnored { when, revenue });
@@ -112,13 +122,18 @@ impl<T: Config> Pallet<T> {
 		let system_payout = if !total_contrib.is_zero() {
 			let system_payout =
 				revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
-			let _ = Self::charge(&Self::account_id(), system_payout);
+			Self::charge(&Self::account_id(), system_payout).defensive_ok();
 			revenue.saturating_reduce(system_payout);
 
 			system_payout
 		} else {
 			Zero::zero()
 		};
+
+		log::debug!(
+			target: "pallet_broker::process_revenue",
+			"Charged {system_payout:?} for system payouts, {revenue:?} remaining for private contributions",
+		);
 
 		if !revenue.is_zero() && r.private_contributions > 0 {
 			r.maybe_payout = Some(revenue);
@@ -248,6 +263,9 @@ impl<T: Config> Pallet<T> {
 		};
 
 		SaleInfo::<T>::put(&new_sale);
+
+		Self::renew_cores(&new_sale);
+
 		Self::deposit_event(Event::SaleInitialized {
 			sale_start,
 			leadin_length,
@@ -318,5 +336,51 @@ impl<T: Config> Pallet<T> {
 		}
 		T::Coretime::assign_core(core, rc_begin, assignment.clone(), None);
 		Self::deposit_event(Event::<T>::CoreAssigned { core, when: rc_begin, assignment });
+	}
+
+	/// Renews all the cores which have auto-renewal enabled.
+	pub(crate) fn renew_cores(sale: &SaleInfoRecordOf<T>) {
+		let renewals = AutoRenewals::<T>::get();
+
+		let Ok(auto_renewals) = renewals
+			.into_iter()
+			.flat_map(|record| {
+				// Check if the next renewal is scheduled further in the future than the start of
+				// the next region beginning. If so, we skip the renewal for this core.
+				if sale.region_begin < record.next_renewal {
+					return Some(record)
+				}
+
+				let Some(payer) = T::SovereignAccountOf::maybe_convert(record.task) else {
+					Self::deposit_event(Event::<T>::AutoRenewalFailed {
+						core: record.core,
+						payer: None,
+					});
+					return None
+				};
+
+				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
+					Some(AutoRenewalRecord {
+						core: new_core_index,
+						task: record.task,
+						next_renewal: sale.region_end,
+					})
+				} else {
+					Self::deposit_event(Event::<T>::AutoRenewalFailed {
+						core: record.core,
+						payer: Some(payer),
+					});
+
+					None
+				}
+			})
+			.collect::<Vec<AutoRenewalRecord>>()
+			.try_into()
+		else {
+			Self::deposit_event(Event::<T>::AutoRenewalLimitReached);
+			return;
+		};
+
+		AutoRenewals::<T>::set(auto_renewals);
 	}
 }

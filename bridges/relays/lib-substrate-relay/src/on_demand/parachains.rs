@@ -17,7 +17,7 @@
 //! On-demand Substrate -> Substrate parachain finality relay.
 
 use crate::{
-	messages_source::best_finalized_peer_header_at_self,
+	messages::source::best_finalized_peer_header_at_self,
 	on_demand::OnDemandRelay,
 	parachains::{
 		source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter,
@@ -31,11 +31,11 @@ use async_std::{
 	sync::{Arc, Mutex},
 };
 use async_trait::async_trait;
+use bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use bp_runtime::HeaderIdProvider;
 use futures::{select, FutureExt};
 use num_traits::Zero;
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
 use relay_substrate_client::{
 	is_ancient_block, AccountIdOf, AccountKeyPairOf, BlockNumberOf, CallOf, Chain, Client,
@@ -664,7 +664,8 @@ impl<'a, P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt>
 	for (
 		&'a OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>,
 		&'a ParachainsSource<P, SourceRelayClnt>,
-	) where
+	)
+where
 	SourceRelayClnt: Client<P::SourceRelayChain>,
 	TargetClnt: Client<P::TargetChain>,
 {
@@ -681,7 +682,7 @@ impl<'a, P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt>
 	async fn best_finalized_relay_block_at_target(
 		&self,
 	) -> Result<HeaderIdOf<P::SourceRelayChain>, SubstrateError> {
-		Ok(crate::messages_source::read_client_state::<P::TargetChain, P::SourceRelayChain>(
+		Ok(crate::messages::source::read_client_state::<P::TargetChain, P::SourceRelayChain>(
 			&self.0.target_client,
 		)
 		.await?

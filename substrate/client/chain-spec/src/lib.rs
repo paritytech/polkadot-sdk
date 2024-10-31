@@ -172,6 +172,12 @@
 //!   </tbody>
 //! </table>
 //!
+//! The main purpose of the `RuntimeGenesisConfig` patch is to:
+//! - minimize the maintenance effort when RuntimeGenesisConfig is changed in the future (e.g. new
+//!   pallets added to the runtime or pallet's genesis config changed),
+//! - increase the readability - it only contains the relevant fields,
+//! - allow to apply numerous changes in distinct domains (e.g. for zombienet).
+//!
 //! For production or long-lasting blockchains, using the `raw` format in the chain specification is
 //! recommended. Only the `raw` format guarantees that storage root hash will remain unchanged when
 //! the `RuntimeGenesisConfig` format changes due to software upgrade.
@@ -333,15 +339,17 @@ pub mod json_patch;
 
 pub use self::{
 	chain_spec::{
-		update_code_in_json_chain_spec, ChainSpec as GenericChainSpec, ChainSpecBuilder,
-		NoExtension,
+		set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec,
+		ChainSpec as GenericChainSpec, ChainSpecBuilder, NoExtension,
 	},
 	extension::{get_extension, get_extension_mut, Extension, Fork, Forks, GetExtension, Group},
 	genesis_block::{
 		construct_genesis_block, resolve_state_version_from_wasm, BuildGenesisBlock,
 		GenesisBlockBuilder,
 	},
-	genesis_config_builder::GenesisConfigBuilderRuntimeCaller,
+	genesis_config_builder::{
+		GenesisConfigBuilderRuntimeCaller, DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET,
+	},
 	json_patch::merge as json_merge,
 };
 pub use sc_chain_spec_derive::{ChainSpecExtension, ChainSpecGroup};
@@ -351,9 +359,9 @@ use sc_telemetry::TelemetryEndpoints;
 use sp_core::storage::Storage;
 use sp_runtime::BuildStorage;
 
-/// The type of a chain.
+/// The type of chain.
 ///
-/// This can be used by tools to determine the type of a chain for displaying
+/// This can be used by tools to determine the type of chain for displaying
 /// additional information or enabling additional features.
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]

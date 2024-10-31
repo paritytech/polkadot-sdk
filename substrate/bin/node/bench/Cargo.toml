@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Substrate node integration benchmarks."
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -40,7 +40,6 @@ hash-db = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 fs_extra = { workspace = true }
 rand = { features = ["small_rng"], workspace = true, default-features = true }
-lazy_static = { workspace = true }
 parity-db = { workspace = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }

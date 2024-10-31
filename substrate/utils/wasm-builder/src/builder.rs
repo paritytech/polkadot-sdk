@@ -346,6 +346,8 @@ fn build_project(
 	check_for_runtime_version_section: bool,
 	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
 ) {
+	// Init jobserver as soon as possible
+	crate::wasm_project::get_jobserver();
 	let cargo_cmd = match crate::prerequisites::check(target) {
 		Ok(cmd) => cmd,
 		Err(err_msg) => {

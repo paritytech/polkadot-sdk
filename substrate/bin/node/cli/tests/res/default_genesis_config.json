@@ -16,6 +16,7 @@
   "balances": {
     "balances": []
   },
+  "broker": {},
   "transactionPayment": {
     "multiplier": "1000000000000000000"
   },
@@ -33,7 +34,9 @@
     "maxNominatorCount": null
   },
   "session": {
-    "keys": []
+    "keys": [],
+    "nonAuthorityKeys": []
+
   },
   "democracy": {},
   "council": {
@@ -80,12 +83,14 @@
   "assets": {
     "assets": [],
     "metadata": [],
-    "accounts": []
+    "accounts": [],
+    "nextAssetId": null
   },
   "poolAssets": {
     "assets": [],
     "metadata": [],
-    "accounts": []
+    "accounts": [],
+    "nextAssetId": null
   },
   "transactionStorage": {
     "byteFee": 10,

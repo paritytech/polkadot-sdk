@@ -20,7 +20,7 @@
 
 use futures::{channel::mpsc::Sender, prelude::*, stream::FuturesUnordered};
 use jsonrpsee::core::client::{
-	Client as JsonRpseeClient, ClientBuilder, ClientT, Error, ReceivedMessage, TransportReceiverT,
+	Client as JsonRpseeClient, ClientBuilder, ClientT, ReceivedMessage, TransportReceiverT,
 	TransportSenderT,
 };
 use smoldot_light::{ChainId, Client as SmoldotClient, JsonRpcResponses};
@@ -124,7 +124,7 @@ pub struct LightClientRpcWorker {
 }
 
 fn handle_notification(
-	maybe_header: Option<Result<RelayHeader, Error>>,
+	maybe_header: Option<Result<RelayHeader, serde_json::Error>>,
 	senders: &mut Vec<Sender<RelayHeader>>,
 ) -> Result<(), ()> {
 	match maybe_header {

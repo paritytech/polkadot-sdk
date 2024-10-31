@@ -22,10 +22,7 @@
 
 use codec::{Compact, Decode, Encode};
 use indicatif::{ProgressBar, ProgressStyle};
-use jsonrpsee::{
-	core::params::ArrayParams,
-	http_client::{HttpClient, HttpClientBuilder},
-};
+use jsonrpsee::{core::params::ArrayParams, http_client::HttpClient};
 use log::*;
 use serde::de::DeserializeOwned;
 use sp_core::{
@@ -58,7 +55,7 @@ type ChildKeyValues = Vec<(ChildInfo, Vec<KeyValue>)>;
 type SnapshotVersion = Compact<u16>;
 
 const LOG_TARGET: &str = "remote-ext";
-const DEFAULT_HTTP_ENDPOINT: &str = "https://polkadot-try-runtime-node.parity-chains.parity.io:443";
+const DEFAULT_HTTP_ENDPOINT: &str = "https://try-runtime.polkadot.io:443";
 const SNAPSHOT_VERSION: SnapshotVersion = Compact(4);
 
 /// The snapshot that we store on disk.
@@ -190,7 +187,7 @@ impl Transport {
 			} else {
 				uri.clone()
 			};
-			let http_client = HttpClientBuilder::default()
+			let http_client = HttpClient::builder()
 				.max_request_size(u32::MAX)
 				.max_response_size(u32::MAX)
 				.request_timeout(std::time::Duration::from_secs(60 * 5))
@@ -1242,8 +1239,9 @@ where
 #[cfg(test)]
 mod test_prelude {
 	pub(crate) use super::*;
-	pub(crate) use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper, H256 as Hash};
-	pub(crate) type Block = RawBlock<ExtrinsicWrapper<Hash>>;
+	pub(crate) use sp_runtime::testing::{Block as RawBlock, MockCallU64};
+	pub(crate) type UncheckedXt = sp_runtime::testing::TestXt<MockCallU64, ()>;
+	pub(crate) type Block = RawBlock<UncheckedXt>;
 
 	pub(crate) fn init_logger() {
 		sp_tracing::try_init_simple();

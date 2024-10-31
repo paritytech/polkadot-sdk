@@ -112,6 +112,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[cfg(test)]
@@ -150,6 +152,7 @@ macro_rules! log {
 pub mod pallet {
 	use super::*;
 	use crate::types::*;
+	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Defensive, ReservableCurrency, StorageVersion},
@@ -157,7 +160,6 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::Zero, DispatchResult};
 	use sp_staking::{EraIndex, StakingInterface};
-	use sp_std::{prelude::*, vec::Vec};
 	pub use weights::WeightInfo;
 
 	#[cfg(feature = "try-runtime")]

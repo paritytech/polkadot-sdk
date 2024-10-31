@@ -16,6 +16,7 @@
 
 //! Relay chain state proof provides means for accessing part of relay chain storage for reads.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
@@ -23,7 +24,6 @@ use cumulus_primitives_core::{
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
-use sp_std::vec::Vec;
 use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
 
 /// The capacity of the upward message queue of a parachain on the relay chain.

@@ -17,7 +17,7 @@
 
 use super::*;
 use frame_support::{
-	pallet_prelude::{DispatchResult, *},
+	pallet_prelude::*,
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
@@ -127,8 +127,14 @@ impl<T: Config> Pallet<T> {
 		let core = Self::purchase_core(&who, price, &mut sale)?;
 
 		SaleInfo::<T>::put(&sale);
-		let id =
-			Self::issue(core, sale.region_begin, sale.region_end, Some(who.clone()), Some(price));
+		let id = Self::issue(
+			core,
+			sale.region_begin,
+			CoreMask::complete(),
+			sale.region_end,
+			Some(who.clone()),
+			Some(price),
+		);
 		let duration = sale.region_end.saturating_sub(sale.region_begin);
 		Self::deposit_event(Event::Purchased { who, region_id: id, price, duration });
 		Ok(id)
@@ -458,6 +464,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_notify_revenue(revenue: OnDemandRevenueRecordOf<T>) -> DispatchResult {
+		RevenueInbox::<T>::put(revenue);
+		Ok(())
+	}
+
 	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
 		let mut id_leases_count = 0;
 		let mut other_leases_count = 0;
@@ -472,7 +483,72 @@ impl<T: Config> Pallet<T> {
 				}
 			})
 		});
+		Ok(())
+	}
 
+	pub(crate) fn do_enable_auto_renew(
+		sovereign_account: T::AccountId,
+		core: CoreIndex,
+		task: TaskId,
+		workload_end_hint: Option<Timeslice>,
+	) -> DispatchResult {
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+
+		// Check if the core is expiring in the next bulk period; if so, we will renew it now.
+		//
+		// In case we renew it now, we don't need to check the workload end since we know it is
+		// eligible for renewal.
+		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
+			.is_some()
+		{
+			Self::do_renew(sovereign_account.clone(), core)?;
+		} else if let Some(workload_end) = workload_end_hint {
+			ensure!(
+				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
+					.is_some(),
+				Error::<T>::NotAllowed
+			);
+		} else {
+			return Err(Error::<T>::NotAllowed.into())
+		}
+
+		// We are sorting auto renewals by `CoreIndex`.
+		AutoRenewals::<T>::try_mutate(|renewals| {
+			let pos = renewals
+				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
+				.unwrap_or_else(|e| e);
+			renewals.try_insert(
+				pos,
+				AutoRenewalRecord {
+					core,
+					task,
+					next_renewal: workload_end_hint.unwrap_or(sale.region_end),
+				},
+			)
+		})
+		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+
+		Self::deposit_event(Event::AutoRenewalEnabled { core, task });
+		Ok(())
+	}
+
+	pub(crate) fn do_disable_auto_renew(core: CoreIndex, task: TaskId) -> DispatchResult {
+		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
+			let pos = renewals
+				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
+				.map_err(|_| Error::<T>::AutoRenewalNotEnabled)?;
+
+			let renewal_record = renewals.get(pos).ok_or(Error::<T>::AutoRenewalNotEnabled)?;
+
+			ensure!(
+				renewal_record.core == core && renewal_record.task == task,
+				Error::<T>::NoPermission
+			);
+			renewals.remove(pos);
+			Ok(())
+		})?;
+
+		Self::deposit_event(Event::AutoRenewalDisabled { core, task });
 		Ok(())
 	}
 

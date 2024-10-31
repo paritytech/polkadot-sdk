@@ -11,22 +11,21 @@ publish = false
 codec = { workspace = true }
 
 # Substrate
-sp-runtime = { workspace = true }
 frame-support = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-identity = { workspace = true }
+pallet-xcm = { workspace = true }
+sp-runtime = { workspace = true }
 
 # Polkadot
+polkadot-runtime-common = { workspace = true, default-features = true }
+westend-runtime-constants = { workspace = true, default-features = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
-westend-runtime = { workspace = true }
-westend-runtime-constants = { workspace = true, default-features = true }
-polkadot-runtime-common = { workspace = true, default-features = true }
 
 # Cumulus
 asset-test-utils = { workspace = true, default-features = true }
-parachains-common = { workspace = true, default-features = true }
-people-westend-runtime = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
 westend-system-emulated-network = { workspace = true }

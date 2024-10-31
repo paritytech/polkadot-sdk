@@ -1,0 +1,79 @@
+title: MBM `try-runtime` support
+doc:
+- audience: Runtime Dev
+  description: |
+    # MBM try-runtime support
+
+    This MR adds support to the try-runtime
+    trait such that the try-runtime-CLI will be able to support MBM testing [here](https://github.com/paritytech/try-runtime-cli/pull/90).
+    It mainly adds two feature-gated hooks to the `SteppedMigration` hook to facilitate
+    testing. These hooks are named `pre_upgrade` and `post_upgrade` and have the
+    same signature and implications as for single-block migrations.
+
+    ## Integration
+        
+    To make use of this in your Multi-Block-Migration, just implement the two new hooks and test pre- and post-conditions in them:
+
+    ```rust
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError>
+    {
+      // ...
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+        // ...
+    }
+    ```
+
+    You may return an error or panic in these functions to indicate failure.
+    This will then show up in the try-runtime-CLI and can be used in CI for testing.
+
+        
+    Changes:
+    - Adds `try-runtime` gated methods `pre_upgrade` and `post_upgrade`
+      on `SteppedMigration`
+    - Adds `try-runtime` gated methods `nth_pre_upgrade`
+      and `nth_post_upgrade` on `SteppedMigrations`
+    - Modifies `pallet_migrations`
+      implementation to run pre_upgrade and post_upgrade steps at the appropriate times, and panic in the event of migration failure.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: contracts-rococo-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: frame-executive
+  bump: minor
+- name: pallet-migrations
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: frame-system
+  bump: minor
+- name: frame-try-runtime
+  bump: minor

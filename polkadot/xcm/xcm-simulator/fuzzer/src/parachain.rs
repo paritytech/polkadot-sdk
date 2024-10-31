@@ -29,7 +29,6 @@ use sp_runtime::{
 	traits::{AccountIdLookup, BlakeTwo256, Hash, IdentifyAccount, Verify},
 	MultiAddress, MultiSignature,
 };
-use sp_std::prelude::*;
 
 use pallet_xcm::XcmPassthrough;
 use polkadot_core_primitives::BlockNumber as RelayBlockNumber;
@@ -45,13 +44,13 @@ use xcm_builder::{
 };
 use xcm_executor::{Config, XcmExecutor};
 
-pub type SignedExtra = (frame_system::CheckNonZeroSender<Runtime>,);
+pub type TxExtension = (frame_system::CheckNonZeroSender<Runtime>,);
 
 pub type BlockNumber = u64;
 pub type Address = MultiAddress<AccountId, ()>;
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
 pub type Signature = MultiSignature;

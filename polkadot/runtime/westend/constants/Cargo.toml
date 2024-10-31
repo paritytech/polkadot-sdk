@@ -6,6 +6,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [lints]
 workspace = true
 
@@ -34,3 +37,6 @@ std = [
 	"xcm-builder/std",
 	"xcm/std",
 ]
+
+# Set timing constants (e.g. session period) to faster versions to speed up testing.
+fast-runtime = []

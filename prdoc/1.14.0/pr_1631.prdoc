@@ -1,0 +1,39 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Upgrade libp2p to 0.52.4
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Upgrade libp2p from 0.51.4 to 0.52.4
+
+crates:
+  - name: sc-authority-discovery
+    bump: minor
+  - name: sc-cli
+    bump: minor
+  - name: sc-mixnet
+    bump: minor
+  - name: sc-network
+    bump: minor
+  - name: sc-network-gossip
+    bump: minor
+  - name: sc-network-common
+    bump: minor
+  - name: sc-network-light
+    bump: minor
+  - name: sc-network-statement
+    bump: minor
+  - name: sc-network-sync
+    bump: minor
+  - name: sc-network-test
+    bump: minor
+  - name: sc-network-transactions
+    bump: minor
+  - name: sc-network-types
+    bump: minor
+  - name: sc-offchain
+    bump: major
+  - name: sc-telemetry
+    bump: major

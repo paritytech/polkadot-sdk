@@ -19,6 +19,7 @@
 
 #![allow(missing_docs)]
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	migrations::*,
@@ -26,7 +27,6 @@ use frame_support::{
 };
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
-use sp_std::{vec, vec::Vec};
 
 /// Opaque identifier of a migration.
 pub type MockedIdentifier = BoundedVec<u8, ConstU32<256>>;
@@ -43,6 +43,12 @@ pub enum MockedMigrationKind {
 	/// Cause an [`SteppedMigrationError::InsufficientWeight`] error after its number of steps
 	/// elapsed.
 	HighWeightAfter(Weight),
+	/// PreUpgrade should fail.
+	#[cfg(feature = "try-runtime")]
+	PreUpgradeFail,
+	/// PostUpgrade should fail.
+	#[cfg(feature = "try-runtime")]
+	PostUpgradeFail,
 }
 use MockedMigrationKind::*; // C style
 
@@ -99,6 +105,8 @@ impl SteppedMigrations for MockedMigrations {
 				Err(SteppedMigrationError::Failed)
 			},
 			TimeoutAfter => unreachable!(),
+			#[cfg(feature = "try-runtime")]
+			PreUpgradeFail | PostUpgradeFail => Ok(None),
 		})
 	}
 
@@ -113,6 +121,31 @@ impl SteppedMigrations for MockedMigrations {
 
 	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
 		MIGRATIONS::get().get(n as usize).map(|(_, s)| Some(*s))
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
+		let (kind, _) = MIGRATIONS::get()[n as usize];
+
+		if let PreUpgradeFail = kind {
+			return Some(Err("Some pre-upgrade error".into()))
+		}
+
+		Some(Ok(vec![]))
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn nth_post_upgrade(
+		n: u32,
+		_state: Vec<u8>,
+	) -> Option<Result<(), sp_runtime::TryRuntimeError>> {
+		let (kind, _) = MIGRATIONS::get()[n as usize];
+
+		if let PostUpgradeFail = kind {
+			return Some(Err("Some post-upgrade error".into()))
+		}
+
+		Some(Ok(()))
 	}
 
 	fn cursor_max_encoded_len() -> usize {

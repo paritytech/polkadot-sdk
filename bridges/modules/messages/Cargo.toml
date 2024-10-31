@@ -13,52 +13,64 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 log = { workspace = true }
-num-traits = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 # Bridge dependencies
-
+bp-header-chain = { workspace = true }
 bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate Dependencies
-
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
+sp-trie = { optional = true, workspace = true }
 
 [dev-dependencies]
-bp-test-utils = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
+bp-runtime = { features = ["test-helpers"], workspace = true }
+bp-test-utils = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-bridge-grandpa = { workspace = true }
+sp-io = { workspace = true }
+sp-core = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
+	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-runtime/std",
+	"bp-test-utils/std",
 	"codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"num-traits/std",
+	"pallet-balances/std",
+	"pallet-bridge-grandpa/std",
 	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-trie/std",
 ]
 runtime-benchmarks = [
+	"bp-runtime/test-helpers",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-bridge-grandpa/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-bridge-grandpa/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+test-helpers = ["bp-runtime/test-helpers", "sp-trie"]

@@ -19,7 +19,7 @@
 //!
 //! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::{
 	ensure,

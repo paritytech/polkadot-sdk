@@ -14,19 +14,19 @@ codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true }
 docify = { workspace = true }
 
 [dev-dependencies]
-sp-trie = { workspace = true }
 sp-io = { workspace = true }
+sp-trie = { workspace = true }
 cumulus-test-runtime = { workspace = true }
 
 [features]
@@ -35,12 +35,12 @@ std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-proof-size-hostfunction/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-trie/std",
 ]

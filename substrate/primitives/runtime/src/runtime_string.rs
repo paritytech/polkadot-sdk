@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_core::RuntimeDebug;
-use sp_std::vec::Vec;
 
 /// A string that wraps a `&'static str` in the runtime and `String`/`Vec<u8>` on decode.
 #[derive(Eq, RuntimeDebug, Clone)]
@@ -50,7 +50,7 @@ macro_rules! format_runtime_string {
 		}
 		#[cfg(not(feature = "std"))]
 		{
-			sp_runtime::RuntimeString::Owned(sp_std::alloc::format!($($args)*).as_bytes().to_vec())
+			sp_runtime::RuntimeString::Owned($crate::format!($($args)*).as_bytes().to_vec())
 		}
 	}};
 }

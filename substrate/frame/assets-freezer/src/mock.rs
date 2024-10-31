@@ -87,6 +87,7 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
+	type DoneSlashHandler = ();
 }
 
 impl pallet_assets::Config for Test {
@@ -137,6 +138,7 @@ pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {
 			assets: vec![(1, 0, true, 1)],
 			metadata: vec![],
 			accounts: vec![(1, 1, 100)],
+			next_asset_id: None,
 		},
 		system: Default::default(),
 		balances: Default::default(),

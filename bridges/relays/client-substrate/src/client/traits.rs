@@ -225,6 +225,10 @@ pub trait Client<C: Chain>: 'static + Send + Sync + Clone + Debug {
 		})
 	}
 
-	/// Returns storage proof of given storage keys.
-	async fn prove_storage(&self, at: HashOf<C>, keys: Vec<StorageKey>) -> Result<StorageProof>;
+	/// Returns storage proof of given storage keys and state root.
+	async fn prove_storage(
+		&self,
+		at: HashOf<C>,
+		keys: Vec<StorageKey>,
+	) -> Result<(StorageProof, HashOf<C>)>;
 }

@@ -30,7 +30,6 @@ use sp_runtime::{
 	traits::{Bounded, One, Zero},
 	DispatchError, PerThing,
 };
-use sp_std::prelude::*;
 
 use crate::Pallet as Nis;
 

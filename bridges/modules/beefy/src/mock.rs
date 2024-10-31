@@ -29,6 +29,7 @@ use sp_core::{sr25519::Signature, Pair};
 use sp_runtime::{
 	testing::{Header, H256},
 	traits::{BlakeTwo256, Hash},
+	StateVersion,
 };
 
 pub use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Pair as BeefyPair};
@@ -92,6 +93,8 @@ impl Chain for TestBridgedChain {
 	type Balance = u64;
 	type Nonce = u64;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		unreachable!()

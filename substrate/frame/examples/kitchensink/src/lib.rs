@@ -42,6 +42,8 @@ use sp_runtime::TryRuntimeError;
 pub mod weights;
 pub use weights::*;
 
+extern crate alloc;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
