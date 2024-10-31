@@ -157,6 +157,9 @@ pub mod pallet {
 
 		/// A Spend was created
 		SpendCreated { when: BlockNumberFor<T>, amount: BalanceOf<T>, project_id: ProjectId<T> },
+
+		/// Not yet in the claiming period
+		NotClaimingPeriod { project_id: ProjectId<T>, claiming_period: BlockNumberFor<T> },
 	}
 
 	#[pallet::error]
@@ -226,7 +229,11 @@ pub mod pallet {
 				Self::schedule_enactment(project_id, call)?;
 				Ok(())
 			} else{
-				Err(Error::<T>::NotClaimingPeriod.into())
+				Self::deposit_event(Event::NotClaimingPeriod {
+					project_id,
+					claiming_period: info.valid_from,
+				});
+				Ok(())
 			}
 			
 

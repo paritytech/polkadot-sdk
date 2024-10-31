@@ -50,7 +50,7 @@ pub fn create_project(project_id: AccountId, amount: u128) {
 }
 
 #[test]
-fn spends_creation_works() {
+fn spends_creation_works_but_not_executed_before_claim_period() {
 	new_test_ext().execute_with(|| {
 		// Add 3 projects
 		let amount1 = 1_000_000 * BSX;
@@ -68,57 +68,57 @@ fn spends_creation_works() {
 		let now = <Test as Config>::BlockNumberProvider::current_block_number()
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
-
-		// We should have 3 Spends
-		assert!(Spends::<Test>::count() == 3);
+		let valid_from = now.saturating_add(<Test as Config>::BufferPeriod::get().into());
 
 		// The 3 Spends are known
 		let alice_spend: types::SpendInfo<Test> = SpendInfo {
 			amount: amount1,
-			valid_from: now,
+			valid_from,
 			whitelisted_project: Some(ALICE),
 			claimed: false,
 		};
 
 		let bob_spend: types::SpendInfo<Test> = SpendInfo {
 			amount: amount2,
-			valid_from: now,
+			valid_from,
 			whitelisted_project: Some(BOB),
 			claimed: false,
 		};
 
 		let dave_spend: types::SpendInfo<Test> = SpendInfo {
 			amount: amount3,
-			valid_from: now,
+			valid_from,
 			whitelisted_project: Some(DAVE),
 			claimed: false,
 		};
+
+		let _=Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), ALICE);
+		let _=Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), BOB);
+		let _=Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), DAVE);
 
 		// List of Spends actually created & stored
 		let list0: Vec<_> = Spends::<Test>::iter_keys().collect();
 		let list: Vec<_> = list0.into_iter().map(|x| Spends::<Test>::get(x)).collect();
 
 		expect_events(vec![
-			RuntimeEvent::Distribution(Event::SpendCreated {
-				when: now.saturating_sub(1),
-				amount: list[0].clone().unwrap().amount,
+			RuntimeEvent::Distribution(Event::NotClaimingPeriod {
 				project_id: list[0].clone().unwrap().whitelisted_project.unwrap(),
+				claiming_period: list[0].clone().unwrap().valid_from,
 			}),
-			RuntimeEvent::Distribution(Event::SpendCreated {
-				when: now.saturating_sub(1),
-				amount: list[1].clone().unwrap().amount,
+			RuntimeEvent::Distribution(Event::NotClaimingPeriod {
 				project_id: list[1].clone().unwrap().whitelisted_project.unwrap(),
+				claiming_period: list[1].clone().unwrap().valid_from,
 			}),
-			RuntimeEvent::Distribution(Event::SpendCreated {
-				when: now.saturating_sub(1),
-				amount: list[2].clone().unwrap().amount,
+			RuntimeEvent::Distribution(Event::NotClaimingPeriod {
 				project_id: list[2].clone().unwrap().whitelisted_project.unwrap(),
+				claiming_period: list[2].clone().unwrap().valid_from,
 			}),
 		]);
 
-		assert!(list.contains(&Some(alice_spend)));
-		assert!(list.contains(&Some(bob_spend)));
-		assert!(list.contains(&Some(dave_spend)));
+		assert_eq!(Spends::<Test>::contains_key(ALICE),true);
+		assert_eq!(Spends::<Test>::get(ALICE),Some(alice_spend));
+		assert_eq!(Spends::<Test>::get(BOB),Some(bob_spend));
+		assert_eq!(Spends::<Test>::get(DAVE),Some(dave_spend));
 	})
 }
 
@@ -209,32 +209,5 @@ fn funds_claim_works() {
 		assert_eq!(Projects::<Test>::get().len(), 0);
 		// Spend has been removed from storage
 		assert!(!Spends::<Test>::get(0).is_some());
-	})
-}
-
-#[test]
-fn funds_claim_fails_before_claim_period() {
-	new_test_ext().execute_with(|| {
-		// Add 3 projects
-		let amount1 = 1_000_000 * BSX;
-		let amount2 = 1_200_000 * BSX;
-		let amount3 = 2_000_000 * BSX;
-		create_project(ALICE, amount1.into());
-		create_project(BOB, amount2.into());
-		create_project(DAVE, amount3.into());
-
-		// The Spends Storage should be empty
-		assert_eq!(Spends::<Test>::count(), 0);
-
-		// Move to epoch block => Warning: We set the system block at 1 in mock.rs, so now =
-		// Epoch_Block + 1
-		let now = <Test as Config>::BlockNumberProvider::current_block_number()
-			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
-		run_to_block(now);
-
-		assert_noop!(
-			Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), ALICE),
-			Error::<Test>::NotClaimingPeriod
-		);
 	})
 }
