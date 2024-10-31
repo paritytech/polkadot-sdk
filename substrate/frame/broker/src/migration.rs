@@ -263,12 +263,9 @@ pub mod v4 {
 				BlockConversion::convert_block_length_to_relay_length(configuration_leadin_length);
 			log::info!(target: LOG_TARGET, "Configuration Pre-Migration: Interlude Length {:?}->{:?} Leadin Length {:?}->{:?}", interlude_length, updated_interlude_length, configuration_leadin_length, updated_leadin_length);
 
+			let sale_info_record = v3::SaleInfo::<T>::get().expect("must exist");
 			let (sale_start, sale_info_leadin_length) =
-				if let Some(sale_info_record) = v3::SaleInfo::<T>::get() {
-					(sale_info_record.sale_start, sale_info_record.leadin_length)
-				} else {
-					((0 as u32).into(), (0 as u32).into())
-				};
+				(sale_info_record.sale_start, sale_info_record.leadin_length);
 
 			let updated_sale_start: RelayBlockNumberOf<T> =
 				BlockConversion::convert_block_number_to_relay_height(sale_start);
@@ -345,38 +342,36 @@ pub mod v4 {
 			): (BlockNumberFor<T>, BlockNumberFor<T>, BlockNumberFor<T>, BlockNumberFor<T>) =
 				Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
 
-			if let Some(config_record) = Configuration::<T>::get() {
-				ensure!(
-					Self::verify_updated_block_length(
-						old_configuration_leadin_length,
-						config_record.leadin_length
-					),
-					"must migrate configuration leadin_length"
-				);
+			let config_record = Configuration::<T>::get().expect("must exist");
+			ensure!(
+				Self::verify_updated_block_length(
+					old_configuration_leadin_length,
+					config_record.leadin_length
+				),
+				"must migrate configuration leadin_length"
+			);
 
-				ensure!(
-					Self::verify_updated_block_length(
-						old_interlude_length,
-						config_record.interlude_length
-					),
-					"must migrate configuration interlude_length"
-				);
-			}
+			ensure!(
+				Self::verify_updated_block_length(
+					old_interlude_length,
+					config_record.interlude_length
+				),
+				"must migrate configuration interlude_length"
+			);
 
-			if let Some(sale_info) = SaleInfo::<T>::get() {
-				ensure!(
-					Self::verify_updated_block_time(old_sale_start, sale_info.sale_start),
-					"must migrate sale info sale_start"
-				);
+			let sale_info = SaleInfo::<T>::get().expect("must exist");
+			ensure!(
+				Self::verify_updated_block_time(old_sale_start, sale_info.sale_start),
+				"must migrate sale info sale_start"
+			);
 
-				ensure!(
-					Self::verify_updated_block_length(
-						old_sale_info_leadin_length,
-						sale_info.leadin_length
-					),
-					"must migrate sale info leadin_length"
-				);
-			}
+			ensure!(
+				Self::verify_updated_block_length(
+					old_sale_info_leadin_length,
+					sale_info.leadin_length
+				),
+				"must migrate sale info leadin_length"
+			);
 
 			Ok(())
 		}
