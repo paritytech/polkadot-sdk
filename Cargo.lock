@@ -11607,6 +11607,7 @@ dependencies = [
  "log",
  "pallet-assets",
  "pallet-balances",
+ "pallet-preimage",
  "pallet-scheduler",
  "pallet-sudo",
  "pallet-timestamp",

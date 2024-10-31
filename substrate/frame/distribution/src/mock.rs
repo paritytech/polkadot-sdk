@@ -20,17 +20,17 @@
 use crate as pallet_distribution;
 pub use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnFinalize, OnInitialize},
-	PalletId,
+	traits::{ConstU128, ConstU16, ConstU32, EqualPrivilegeOnly, ConstU64, OnFinalize, OnInitialize},
+	weights::Weight,PalletId,
 };
 pub use sp_core::H256;
 pub use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-
+pub use frame_system::EnsureRoot;
 pub type Block = frame_system::mocking::MockBlock<Test>;
-pub type Balance = u128;
+pub type Balance = u64;
 pub type AccountId = u64;
 
 // Configure a mock runtime to test the pallet.
@@ -38,14 +38,16 @@ frame_support::construct_runtime!(
 	pub struct Test {
 		System: frame_system,
 		Balances: pallet_balances,
+		Preimage: pallet_preimage,
+		Scheduler: pallet_scheduler,
 		Distribution: pallet_distribution,
 	}
 );
 
-// Feel free to remove more items from this, as they are the same as
-// `frame_system::config_preludes::TestDefaultConfig`. We have only listed the full `type` list here
-// for verbosity. Same for `pallet_balances::Config`.
-// https://paritytech.github.io/polkadot-sdk/master/frame_support/attr.derive_impl.html
+
+parameter_types! {
+	pub MaxWeight: Weight = Weight::from_parts(2_000_000_000_000, u64::MAX);
+}
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountId = AccountId;
@@ -53,11 +55,27 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type Lookup = IdentityLookup<Self::AccountId>;
 }
-
+impl pallet_preimage::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<u64>;
+	type Consideration = ();
+}
+impl pallet_scheduler::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaxWeight;
+	type ScheduleOrigin = EnsureRoot<u64>;
+	type MaxScheduledPerBlock = ConstU32<100>;
+	type WeightInfo = ();
+	type OriginPrivilegeCmp = EqualPrivilegeOnly;
+	type Preimages = Preimage;
+}
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = Balance;
-	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 }
 

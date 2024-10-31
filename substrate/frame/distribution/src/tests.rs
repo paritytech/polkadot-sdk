@@ -41,7 +41,7 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 
 pub fn create_project(project_id: AccountId, amount: u128) {
 	let submission_block = <Test as Config>::BlockNumberProvider::current_block_number();
-	let project: types::ProjectInfo<Test> = ProjectInfo { project_id, submission_block, amount };
+	let project: types::ProjectInfo<Test> = ProjectInfo { project_id, submission_block, amount: amount.try_into().unwrap() };
 	Projects::<Test>::mutate(|value| {
 		let mut val = value.clone();
 		let _ = val.try_push(project);
@@ -56,9 +56,9 @@ fn spends_creation_works() {
 		let amount1 = 1_000_000 * BSX;
 		let amount2 = 1_200_000 * BSX;
 		let amount3 = 2_000_000 * BSX;
-		create_project(ALICE, amount1);
-		create_project(BOB, amount2);
-		create_project(DAVE, amount3);
+		create_project(ALICE, amount1.into());
+		create_project(BOB, amount2.into());
+		create_project(DAVE, amount3.into());
 
 		// The Spends Storage should be empty
 		assert_eq!(Spends::<Test>::count(), 0);
@@ -129,9 +129,9 @@ fn funds_are_locked() {
 		let amount1 = 1_000_000 * BSX;
 		let amount2 = 1_200_000 * BSX;
 		let amount3 = 2_000_000 * BSX;
-		create_project(ALICE, amount1);
-		create_project(BOB, amount2);
-		create_project(DAVE, amount3);
+		create_project(ALICE, amount1.into());
+		create_project(BOB, amount2.into());
+		create_project(DAVE, amount3.into());
 
 		// The Spends Storage should be empty
 		assert_eq!(Spends::<Test>::count(), 0);
@@ -160,9 +160,9 @@ fn not_enough_funds_in_pot() {
 		let amount1 = 50_000_000 * BSX;
 		let amount2 = 60_200_000 * BSX;
 		let amount3 = 70_000_000 * BSX;
-		create_project(ALICE, amount1);
-		create_project(BOB, amount2);
-		create_project(DAVE, amount3);
+		create_project(ALICE, amount1.into());
+		create_project(BOB, amount2.into());
+		create_project(DAVE, amount3.into());
 
 		let total = amount1.saturating_add(amount2.saturating_add(amount3));
 		assert_noop!(Distribution::pot_check(total), Error::<Test>::InsufficientPotReserves);
@@ -176,9 +176,9 @@ fn funds_claim_works() {
 		let amount1 = 1_000_000 * BSX;
 		let amount2 = 1_200_000 * BSX;
 		let amount3 = 2_000_000 * BSX;
-		create_project(ALICE, amount1);
-		create_project(BOB, amount2);
-		create_project(DAVE, amount3);
+		create_project(ALICE, amount1.into());
+		create_project(BOB, amount2.into());
+		create_project(DAVE, amount3.into());
 
 		// The Spends Storage should be empty
 		assert_eq!(Spends::<Test>::count(), 0);
@@ -191,10 +191,10 @@ fn funds_claim_works() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-		/*	let project = Spends::<Test>::get(ALICE).unwrap();
+			let project = Spends::<Test>::get(ALICE).unwrap();
 		let project_id = project.whitelisted_project.unwrap();
 		let balance_0 =
-			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);*/
+			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);
 		now = now.saturating_add(project.valid_from);
 		run_to_block(now);
 
@@ -219,9 +219,9 @@ fn funds_claim_fails_before_claim_period() {
 		let amount1 = 1_000_000 * BSX;
 		let amount2 = 1_200_000 * BSX;
 		let amount3 = 2_000_000 * BSX;
-		create_project(ALICE, amount1);
-		create_project(BOB, amount2);
-		create_project(DAVE, amount3);
+		create_project(ALICE, amount1.into());
+		create_project(BOB, amount2.into());
+		create_project(DAVE, amount3.into());
 
 		// The Spends Storage should be empty
 		assert_eq!(Spends::<Test>::count(), 0);
@@ -232,11 +232,8 @@ fn funds_claim_fails_before_claim_period() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-		let project = Spends::<Test>::get(ALICE).unwrap();
-		let project_id = project.whitelisted_project.unwrap();
-
 		assert_noop!(
-			Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_id),
+			Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), ALICE),
 			Error::<Test>::NotClaimingPeriod
 		);
 	})

@@ -216,13 +216,21 @@ pub mod pallet {
 		pub fn claim_reward_for(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			Self::begin_block()?;
-			let call0: <T as Config>::RuntimeCall =
+			let now = T::BlockNumberProvider::current_block_number();
+			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
+			if now >= info.valid_from {
+				let call0: <T as Config>::RuntimeCall =
 				(Call::<T>::execute_claim { project_id: project_id.clone() }).into();
-			let call1: CallOf<T> = call0.clone().into();
-			let call = T::Preimages::bound(call1)?;
-			Self::schedule_enactment(project_id, call)?;
+				let call1: CallOf<T> = call0.clone().into();
+				let call = T::Preimages::bound(call1)?;
+				Self::schedule_enactment(project_id, call)?;
+				Ok(())
+			} else{
+				Err(Error::<T>::NotClaimingPeriod.into())
+			}
+			
 
-			Ok(())
+			
 		}
 
 		#[pallet::call_index(1)]
@@ -231,7 +239,6 @@ pub mod pallet {
 		pub fn execute_claim(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
 			let now = T::BlockNumberProvider::current_block_number();
-			Self::begin_block()?;
 			let pot = Self::pot_account();
 			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
 
@@ -245,11 +252,9 @@ pub mod pallet {
 			// transfer the funds
 			Self::spend(info.amount, project_id.clone())?;
 
-			let infos = Spends::<T>::take(&project_id).ok_or(Error::<T>::InexistentSpend)?;
-
 			Self::deposit_event(Event::RewardClaimed {
 				when: now,
-				amount: infos.amount,
+				amount: info.amount,
 				project_id,
 			});
 

@@ -33,6 +33,7 @@ sp-std = { workspace = true, default-features = false }
 [dev-dependencies]
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-preimage = { workspace = true, default-features = true }
 pallet-scheduler = { workspace = true, default-features = true }
 pallet-sudo = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
@@ -47,6 +48,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -61,6 +63,7 @@ std = [
 	"log/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
+	"pallet-preimage/std",
 	"pallet-scheduler/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
@@ -77,6 +80,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
