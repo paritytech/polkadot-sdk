@@ -1335,7 +1335,7 @@ where
 		self.top_frame_mut().entry_point = export;
 	}
 
-	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn set_block_number(&mut self, block_number: BlockNumberFor<T>) {
 		self.block_number = block_number;
 	}
