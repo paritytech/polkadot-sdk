@@ -7,7 +7,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//  http://www.apache.org/licenses/LICENSE-2.0
+// 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -803,14 +803,10 @@ impl ReplaceSelfImpl {
 
 impl VisitMut for ReplaceSelfImpl {
 	fn visit_generic_argument_mut(&mut self, i: &mut syn::GenericArgument) {
-		let typ = match i {
-			GenericArgument::Type(Type::Path(p))
-				if p.path.get_ident().is_some_and(|ident| ident == "Self") =>
-				Some(GenericArgument::Type(*self.self_ty.clone())),
-			_ => None,
-		};
-		if let Some(typ) = typ {
-			*i = typ;
+		let GenericArgument::Type(Type::Path(p)) = i else { return };
+
+		if p.path.get_ident().is_some_and(|ident| ident == "Self") {
+			*i = GenericArgument::Type(*self.self_ty.clone());
 		}
 	}
 }
