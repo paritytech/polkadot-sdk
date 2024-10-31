@@ -1291,13 +1291,12 @@ pub mod pallet {
 			}
 
 			ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
-
-			targets.dedup();
-
 			ensure!(
 				targets.len() <= T::NominationsQuota::get_quota(ledger.active) as usize,
 				Error::<T>::TooManyTargets
 			);
+
+			targets.dedup();
 
 			let old = Nominators::<T>::get(stash).map_or_else(Vec::new, |x| x.targets.into_inner());
 

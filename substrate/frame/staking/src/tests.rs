@@ -785,6 +785,23 @@ fn nominate_same_account_should_be_filtered() {
 			vec![11, 11, 11, 21, 21, 21, 31, 31, 31]
 		));
 		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21, 31]);
+
+		// Make sure it can correct the wrong automatically.
+		Nominators::<Test>::insert(
+			101,
+			Nominations {
+				targets: BoundedVec::truncate_from(vec![11, 11, 21, 21, 31, 31]),
+				submitted_in: Default::default(),
+				suppressed: Default::default(),
+			},
+		);
+		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 11, 21, 21, 31, 31]);
+
+		assert_ok!(Staking::nominate(
+			RuntimeOrigin::signed(101),
+			vec![11, 11, 11, 21, 21, 21, 31, 31, 31]
+		));
+		assert_eq!(Staking::nominators(101).unwrap().targets, vec![11, 21, 31]);
 	});
 }
 
