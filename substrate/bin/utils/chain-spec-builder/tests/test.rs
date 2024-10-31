@@ -24,7 +24,6 @@ use cmd_lib::spawn_with_output;
 use sc_chain_spec::update_code_in_json_chain_spec;
 use serde_json::{from_reader, from_str, Value};
 use staging_chain_spec_builder::ChainSpecBuilder;
-use std::{collections::HashMap, sync::LazyLock};
 
 // note: the runtime path will not be read, runtime code will be set directly, to avoid hassle with
 // creating the wasm file or providing a valid existing path during test execution.
@@ -35,67 +34,16 @@ const OUTPUT_FILE: &str = "/tmp/chain_spec_builder.test_output_file.json";
 const SUBSTRATE_TEST_RUNTIME_PATH: &str =
 	unwrap_option_str(substrate_test_runtime::WASM_BINARY_PATH);
 
-const COMMANDS: LazyLock<HashMap<&str, (&str, bool)>> = LazyLock::new(|| {
-	[(
-			r#"chain-spec-builder -c "/dev/stdout" create -r $SUBSTRATE_TEST_RUNTIME_PATH default"#,
-			("tests/expected/doc/create_default.json", true),
-		),
-		(
-			"chain-spec-builder display-preset -r $SUBSTRATE_TEST_RUNTIME_PATH",
-			("tests/expected/doc/display_preset.json", false),
-		),
-		(
-			r#"chain-spec-builder display-preset -r $SUBSTRATE_TEST_RUNTIME_PATH -p "staging""#,
-			("tests/expected/doc/display_preset_staging.json", false),
-		),
-		(
-			"chain-spec-builder list-presets -r $SUBSTRATE_TEST_RUNTIME_PATH",
-			("tests/expected/doc/list_presets.json", false),
-		),
-		(
-			r#"chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $SUBSTRATE_TEST_RUNTIME_PATH named-preset "staging""#,
-			("tests/expected/doc/create_with_named_preset_staging.json", true)
-		),
-		(
-			r#"chain-spec-builder -c "/dev/stdout" create -s -r $SUBSTRATE_TEST_RUNTIME_PATH patch "tests/input/patch.json""#,
-			("tests/expected/doc/create_with_patch_raw.json", false)
-		),
-		(
-		    r#"chain-spec-builder -c "/dev/stdout" create -r $SUBSTRATE_TEST_RUNTIME_PATH patch "tests/input/patch.json""#,
-			("tests/expected/doc/create_with_patch_plain.json", true),
-		),
-		(
-			r#"chain-spec-builder -c "/dev/stdout" create -r $SUBSTRATE_TEST_RUNTIME_PATH full "tests/input/full.json""#,
-			("tests/expected/doc/create_full_plain.json", true),
-		),
-		(
-			r#"chain-spec-builder -c "/dev/stdout" create -s -r $SUBSTRATE_TEST_RUNTIME_PATH full "tests/input/full.json""#,
-			("tests/expected/doc/create_full_raw.json", false),
-	)]
-	.iter()
-	.cloned()
-	.collect()
-});
-
 // Used for running commands visually pleasing in doc tests.
 macro_rules! exe(
 	( chain-spec-builder $($a:tt)* ) => {{
 		let bin_path = env!("CARGO_BIN_EXE_chain-spec-builder");
-		let mut cmd = bin_path.to_string();
-		$(
-			cmd.push(' ');
-			cmd.push_str(stringify!($a));
-		)*
-
-		let output = spawn_with_output!(
+		spawn_with_output!(
 			$bin_path $($a)*
 		)
 		.expect("a process running. qed")
 		.wait_with_output()
-		.expect("to get output. qed.");
-		if COMMANDS.contains_key(cmd.as_str()) {
-			doc_assert(output, COMMANDS[cmd.as_str()].0, COMMANDS[cmd.as_str()].1);
-		}
+		.expect("to get output. qed.")
 	}}
 );
 
@@ -292,83 +240,127 @@ fn test_add_code_substitute() {
 	assert_output_eq_expected(true, SUFFIX, "tests/expected/add_code_substitute.json");
 }
 
-#[test]
 #[docify::export_content]
-fn cmd_create_default() {
+fn cmd_create_default() -> String {
 	exe!(
 		// Example
 		chain-spec-builder -c "/dev/stdout" create -r $SUBSTRATE_TEST_RUNTIME_PATH default
-	);
+	)
 }
 
 #[test]
+fn create_default() {
+	doc_assert(cmd_create_default(), "tests/expected/doc/create_default.json", true);
+}
+
 #[docify::export_content]
-fn cmd_display_default_preset() {
+fn cmd_display_default_preset() -> String {
 	exe!(
 		// Example
 		chain-spec-builder display-preset -r $SUBSTRATE_TEST_RUNTIME_PATH
-	);
+	)
 }
 
 #[test]
+fn display_default_preset() {
+	doc_assert(cmd_display_default_preset(), "tests/expected/doc/display_preset.json", false);
+}
+
 #[docify::export_content]
-fn cmd_display_preset() {
+fn cmd_display_preset() -> String {
 	exe!(
 		// Example
 		chain-spec-builder display-preset -r $SUBSTRATE_TEST_RUNTIME_PATH -p "staging"
-	);
+	)
 }
 
 #[test]
+fn display_preset() {
+	doc_assert(cmd_display_preset(), "tests/expected/doc/display_preset_staging.json", false);
+}
+
 #[docify::export_content]
-fn cmd_list_presets() {
+fn cmd_list_presets() -> String {
 	exe!(
 		// Example
 		chain-spec-builder list-presets -r $SUBSTRATE_TEST_RUNTIME_PATH
-	);
+	)
 }
 
 #[test]
+fn list_presets() {
+	doc_assert(cmd_list_presets(), "tests/expected/doc/list_presets.json", false);
+}
+
 #[docify::export_content]
-fn cmd_create_with_named_preset() {
+fn cmd_create_with_named_preset() -> String {
 	exe!(
 		// Example
 		chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $SUBSTRATE_TEST_RUNTIME_PATH named-preset "staging"
-	);
+	)
 }
 
 #[test]
+fn create_with_named_preset() {
+	doc_assert(
+		cmd_create_with_named_preset(),
+		"tests/expected/doc/create_with_named_preset_staging.json",
+		true,
+	)
+}
+
 #[docify::export_content]
-fn cmd_create_with_patch_raw() {
+fn cmd_create_with_patch_raw() -> String {
 	exe!(
 		// Example
 		chain-spec-builder -c "/dev/stdout" create -s -r $SUBSTRATE_TEST_RUNTIME_PATH patch "tests/input/patch.json"
-	);
+	)
 }
 
 #[test]
+fn create_with_patch_raw() {
+	doc_assert(cmd_create_with_patch_raw(), "tests/expected/doc/create_with_patch_raw.json", false);
+}
+
 #[docify::export_content]
-fn cmd_create_with_patch_plain() {
+fn cmd_create_with_patch_plain() -> String {
 	exe!(
 		// Example
-		chain-spec-builder -c "/dev/stdout" create -r $SUBSTRATE_TEST_RUNTIME_PATH patch "tests/input/patch.json"
-	);
+		chain-spec-builder -c "/dev/stdout" create -r $SUBSTRATE_TEST_RUNTIME_PATH patch "tests/input/patch1.json"
+	)
 }
 
 #[test]
+fn create_with_path_plain() {
+	doc_assert(
+		cmd_create_with_patch_plain(),
+		"tests/expected/doc/create_with_patch_plain.json",
+		true,
+	);
+}
+
 #[docify::export_content]
-fn cmd_create_full_plain() {
+fn cmd_create_full_plain() -> String {
 	exe!(
 		// Example
 		chain-spec-builder -c "/dev/stdout" create -r $SUBSTRATE_TEST_RUNTIME_PATH full "tests/input/full.json"
-	);
+	)
 }
 
 #[test]
+fn create_full_plain() {
+	doc_assert(cmd_create_full_plain(), "tests/expected/doc/create_full_plain.json", true);
+}
+
 #[docify::export_content]
-fn cmd_create_full_raw() {
+fn cmd_create_full_raw() -> String {
 	exe!(
 		// Example
 		chain-spec-builder -c "/dev/stdout" create -s -r $SUBSTRATE_TEST_RUNTIME_PATH full "tests/input/full.json"
-	);
+	)
+}
+
+#[test]
+fn create_full_raw() {
+	doc_assert(cmd_create_full_raw(), "tests/expected/doc/create_full_raw.json", false);
 }
