@@ -1,0 +1,12 @@
+title: '[pallet-revive] revive json-rpc small adjustments'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Small adjustments to eth-rpc
+    - bump cache size
+    - use essential-tasks to spawn the json-rpc block subsrciption tasks
+crates:
+- name: sc-service
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
