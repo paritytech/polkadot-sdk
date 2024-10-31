@@ -188,12 +188,13 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 		let decl_span = decl.span();
 		extend_generics_with_block(&mut decl.generics);
 		let mod_name = generate_runtime_mod_name_for_trait(&decl.ident);
+
+		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl);
+
 		let found_attributes = remove_supported_attributes(&mut decl.attrs);
 		let api_version =
 			get_api_version(&found_attributes).map(|v| generate_runtime_api_version(v as u32))?;
 		let id = generate_runtime_api_id(&decl.ident.to_string());
-
-		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl);
 
 		let trait_api_version = get_api_version(&found_attributes)?;
 
