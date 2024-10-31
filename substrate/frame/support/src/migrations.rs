@@ -504,6 +504,11 @@ pub trait SteppedMigration {
 		None
 	}
 
+	/// Returns an iterator over storage prefixes that the migration will modify.
+	fn migrating_prefixes() -> impl IntoIterator<Item = Vec<u8>> {
+        core::iter::empty()
+    }
+
 	/// Try to migrate as much as possible with the given weight.
 	///
 	/// **ANY STORAGE CHANGES MUST BE ROLLED-BACK BY THE CALLER UPON ERROR.** This is necessary
