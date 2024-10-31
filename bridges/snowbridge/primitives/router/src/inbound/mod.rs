@@ -7,7 +7,7 @@ mod tests;
 
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::{traits::tokens::Balance as BalanceT, weights::Weight, PalletError};
+use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
 use scale_info::TypeInfo;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160, H256};
@@ -279,7 +279,6 @@ where
 			// Call create_asset on foreign assets pallet.
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				require_weight_at_most: Weight::from_parts(400_000_000, 8_000),
 				call: (
 					create_call_index,
 					asset_id,
@@ -416,6 +415,8 @@ where
 			// Final destination is a 32-byte account on AssetHub
 			Destination::AccountId32 { id } =>
 				Ok(Location::new(0, [AccountId32 { network: None, id }])),
+			// Forwarding to a destination parachain is not allowed for PNA and is validated on the
+			// Ethereum side. https://github.com/Snowfork/snowbridge/blob/e87ddb2215b513455c844463a25323bb9c01ff36/contracts/src/Assets.sol#L216-L224
 			_ => Err(ConvertMessageError::InvalidDestination),
 		}?;
 
@@ -459,8 +460,10 @@ where
 {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(_, [GlobalConsensus(Ethereum { chain_id })]) =>
+			(2, [GlobalConsensus(Ethereum { chain_id })]) =>
 				Some(Self::from_chain_id(chain_id).into()),
+			(2, [GlobalConsensus(Ethereum { chain_id }), AccountKey20 { network: _, key }]) =>
+				Some(Self::from_chain_id_with_key(chain_id, *key).into()),
 			_ => None,
 		}
 	}
@@ -469,5 +472,8 @@ where
 impl<AccountId> GlobalConsensusEthereumConvertsFor<AccountId> {
 	pub fn from_chain_id(chain_id: &u64) -> [u8; 32] {
 		(b"ethereum-chain", chain_id).using_encoded(blake2_256)
+	}
+	pub fn from_chain_id_with_key(chain_id: &u64, key: [u8; 20]) -> [u8; 32] {
+		(b"ethereum-chain", chain_id, key).using_encoded(blake2_256)
 	}
 }

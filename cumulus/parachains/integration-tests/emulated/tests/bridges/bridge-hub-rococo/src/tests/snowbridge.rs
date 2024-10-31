@@ -84,11 +84,7 @@ fn create_agent() {
 	let remote_xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
-		Transact {
-			require_weight_at_most: 3000000000.into(),
-			origin_kind: OriginKind::Xcm,
-			call: create_agent_call.encode().into(),
-		},
+		Transact { origin_kind: OriginKind::Xcm, call: create_agent_call.encode().into() },
 	]));
 
 	// Rococo Global Consensus
@@ -142,11 +138,7 @@ fn create_channel() {
 	let create_agent_xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
-		Transact {
-			require_weight_at_most: 3000000000.into(),
-			origin_kind: OriginKind::Xcm,
-			call: create_agent_call.encode().into(),
-		},
+		Transact { origin_kind: OriginKind::Xcm, call: create_agent_call.encode().into() },
 	]));
 
 	let create_channel_call =
@@ -155,11 +147,7 @@ fn create_channel() {
 	let create_channel_xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
-		Transact {
-			require_weight_at_most: 3000000000.into(),
-			origin_kind: OriginKind::Xcm,
-			call: create_channel_call.encode().into(),
-		},
+		Transact { origin_kind: OriginKind::Xcm, call: create_channel_call.encode().into() },
 	]));
 
 	// Rococo Global Consensus

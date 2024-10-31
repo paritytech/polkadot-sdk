@@ -122,7 +122,7 @@ def setup_parser(parser=None, pr_required=True):
 	return parser
 
 def snake_to_title(s):
-    return ' '.join(word.capitalize() for word in s.split('_'))
+	return ' '.join(word.capitalize() for word in s.split('_'))
 
 def main(args):
 	print(f"Args: {args}, force: {args.force}")
@@ -130,6 +130,8 @@ def main(args):
 	try:
 		# Convert snake_case audience arguments to title case
 		mapped_audiences = [snake_to_title(a) for a in args.audience]
+		if len(mapped_audiences) == 1:
+			mapped_audiences = mapped_audiences[0]
 		from_pr_number(args.pr, mapped_audiences, args.bump, args.force)
 		return 0
 	except Exception as e:

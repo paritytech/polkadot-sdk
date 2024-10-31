@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+//! # Polkadot Omni Node Library
+//!
 //! Helper library that can be used to run a parachain node.
 //!
 //! ## Overview
@@ -37,11 +39,18 @@
 //!
 //! ## Examples
 //!
-//! For an example, see the `polkadot-parachain-bin` crate.
+//! For an example, see the [`polkadot-parachain-bin`](https://crates.io/crates/polkadot-parachain-bin) crate.
+//!
+//! ## Binary
+//!
+//! It can be used to start a parachain node from a provided chain spec file.
+//! It is only compatible with runtimes that use block number `u32` and `Aura` consensus.
+//!
+//! Example: `polkadot-omni-node --chain <chain_spec.json>`
 
 #![deny(missing_docs)]
 
-mod cli;
+pub mod cli;
 mod command;
 mod common;
 mod fake_runtime_api;

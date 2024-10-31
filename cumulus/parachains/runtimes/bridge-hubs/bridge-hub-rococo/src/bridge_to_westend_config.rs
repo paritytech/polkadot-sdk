@@ -37,7 +37,7 @@ use frame_support::{parameter_types, traits::PalletInfoAccess};
 use frame_system::{EnsureNever, EnsureRoot};
 use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
-	BridgeRelayersSignedExtension, WithMessagesExtensionConfig,
+	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
 use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -84,8 +84,9 @@ pub type ToWestendBridgeHubMessagesDeliveryProof<MI> =
 type FromWestendMessageBlobDispatcher =
 	BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeRococoToWestendMessagesPalletInstance>;
 
-/// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
-pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = BridgeRelayersSignedExtension<
+/// Transaction extension that refunds relayers that are delivering messages from the Westend
+/// parachain.
+pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = BridgeRelayersTransactionExtension<
 	Runtime,
 	WithMessagesExtensionConfig<
 		StrOnBridgeHubRococoRefundBridgeHubWestendMessages,

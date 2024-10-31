@@ -206,6 +206,17 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the caller address.
 	fn caller(output: &mut [u8; 20]);
 
+	/// Stores the origin address (initator of the call stack) into the supplied buffer.
+	///
+	/// If there is no address associated with the origin (e.g. because the origin is root) then
+	/// it traps with `BadOrigin`. This can only happen through on-chain governance actions or
+	/// customized runtimes.
+	///
+	/// # Parameters
+	///
+	/// - `output`: A reference to the output data buffer to write the origin's address.
+	fn origin(output: &mut [u8; 20]);
+
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///
 	/// Prefer this over [`is_contract()`][`Self::is_contract`] when checking whether your contract
@@ -245,10 +256,24 @@ pub trait HostFn: private::Sealed {
 	/// - `addr`: The address of the contract.
 	/// - `output`: A reference to the output data buffer to write the code hash.
 	///
-	/// # Errors
+	/// # Note
 	///
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
-	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]) -> Result;
+	/// If `addr` is not a contract but the account exists then the hash of empty data
+	/// `0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470` is written,
+	/// otherwise `zero`.
+	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]);
+
+	/// Retrieve the code size for a specified contract address.
+	///
+	/// # Parameters
+	///
+	/// - `addr`: The address of the contract.
+	/// - `output`: A reference to the output data buffer to write the code size.
+	///
+	/// # Note
+	///
+	/// If `addr` is not a contract the `output` will be zero.
+	fn code_size(addr: &[u8; 20], output: &mut [u8; 32]);
 
 	/// Checks whether there is a value stored under the given key.
 	///

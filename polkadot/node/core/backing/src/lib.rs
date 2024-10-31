@@ -108,10 +108,14 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
-	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
-	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
-	SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
+	node_features::FeatureIndex,
+	vstaging::{
+		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+	},
+	CandidateCommitments, CandidateHash, CoreIndex, ExecutorParams, GroupIndex, GroupRotationInfo,
+	Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData, SessionIndex,
+	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
 	ValidityAttestation,
 };
 use polkadot_statement_table::{
@@ -627,7 +631,7 @@ async fn request_candidate_validation(
 	executor_params: ExecutorParams,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
-	let is_system = candidate_receipt.descriptor.para_id.is_system();
+	let is_system = candidate_receipt.descriptor.para_id().is_system();
 
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
@@ -692,7 +696,7 @@ async fn validate_and_make_available(
 	} = params;
 
 	let validation_code = {
-		let validation_code_hash = candidate.descriptor().validation_code_hash;
+		let validation_code_hash = candidate.descriptor().validation_code_hash();
 		let (tx, rx) = oneshot::channel();
 		sender
 			.send_message(RuntimeApiMessage::Request(
@@ -725,7 +729,7 @@ async fn validate_and_make_available(
 				&mut sender,
 				relay_parent,
 				from_validator,
-				candidate.descriptor.para_id,
+				candidate.descriptor.para_id(),
 				candidate_hash,
 				pov_hash,
 			)
@@ -772,7 +776,7 @@ async fn validate_and_make_available(
 				pov.clone(),
 				candidate.hash(),
 				validation_data.clone(),
-				candidate.descriptor.erasure_root,
+				candidate.descriptor.erasure_root(),
 				core_index,
 				node_features,
 			)
@@ -1054,7 +1058,7 @@ fn core_index_from_statement(
 	}
 
 	if let StatementWithPVD::Seconded(candidate, _pvd) = statement.payload() {
-		let candidate_para_id = candidate.descriptor.para_id;
+		let candidate_para_id = candidate.descriptor.para_id();
 		let mut assigned_paras = claim_queue.iter_claims_for_core(&core_index);
 
 		if !assigned_paras.any(|id| id == &candidate_para_id) {
@@ -1445,14 +1449,14 @@ async fn handle_validated_candidate_command<Context>(
 							let candidate_hash = candidate.hash();
 							gum::debug!(
 								target: LOG_TARGET,
-								relay_parent = ?candidate.descriptor().relay_parent,
+								relay_parent = ?candidate.descriptor().relay_parent(),
 								?candidate_hash,
 								"Attempted to second candidate but was rejected by prospective parachains",
 							);
 
 							// Ensure the collator is reported.
 							ctx.send_message(CollatorProtocolMessage::Invalid(
-								candidate.descriptor().relay_parent,
+								candidate.descriptor().relay_parent(),
 								candidate,
 							))
 							.await;
@@ -1487,7 +1491,7 @@ async fn handle_validated_candidate_command<Context>(
 									Some(d) => d,
 								};
 
-								leaf_data.add_seconded_candidate(candidate.descriptor().para_id);
+								leaf_data.add_seconded_candidate(candidate.descriptor().para_id());
 							}
 
 							rp_state.issued_statements.insert(candidate_hash);
@@ -1636,7 +1640,7 @@ async fn import_statement<Context>(
 				let (tx, rx) = oneshot::channel();
 				ctx.send_message(ProspectiveParachainsMessage::IntroduceSecondedCandidate(
 					IntroduceSecondedCandidateRequest {
-						candidate_para: candidate.descriptor().para_id,
+						candidate_para: candidate.descriptor.para_id(),
 						candidate_receipt: candidate.clone(),
 						persisted_validation_data: pvd.clone(),
 					},
@@ -1665,7 +1669,7 @@ async fn import_statement<Context>(
 					persisted_validation_data: pvd.clone(),
 					// This is set after importing when seconding locally.
 					seconded_locally: false,
-					relay_parent: candidate.descriptor().relay_parent,
+					relay_parent: candidate.descriptor.relay_parent(),
 				},
 			);
 		}
@@ -1709,7 +1713,7 @@ async fn post_import_statement_actions<Context>(
 				&rp_state.table_context,
 				rp_state.inject_core_index,
 			) {
-				let para_id = backed.candidate().descriptor.para_id;
+				let para_id = backed.candidate().descriptor.para_id();
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_hash,
@@ -1967,7 +1971,7 @@ async fn maybe_validate_and_import<Context>(
 						.get_candidate(&candidate_hash)
 						.ok_or(Error::CandidateNotFound)?
 						.to_plain(),
-					pov_hash: receipt.descriptor.pov_hash,
+					pov_hash: receipt.descriptor.pov_hash(),
 					from_validator: statement.validator_index(),
 					backing: Vec::new(),
 				};
@@ -2068,9 +2072,9 @@ async fn handle_second_message<Context>(
 	let _timer = metrics.time_process_second();
 
 	let candidate_hash = candidate.hash();
-	let relay_parent = candidate.descriptor().relay_parent;
+	let relay_parent = candidate.descriptor().relay_parent();
 
-	if candidate.descriptor().persisted_validation_data_hash != persisted_validation_data.hash() {
+	if candidate.descriptor().persisted_validation_data_hash() != persisted_validation_data.hash() {
 		gum::warn!(
 			target: LOG_TARGET,
 			?candidate_hash,
@@ -2104,12 +2108,12 @@ async fn handle_second_message<Context>(
 	let assigned_paras = rp_state.assigned_core.and_then(|core| rp_state.claim_queue.0.get(&core));
 
 	// Sanity check that candidate is from our assignment.
-	if !matches!(assigned_paras, Some(paras) if paras.contains(&candidate.descriptor().para_id)) {
+	if !matches!(assigned_paras, Some(paras) if paras.contains(&candidate.descriptor().para_id())) {
 		gum::debug!(
 			target: LOG_TARGET,
 			our_assignment_core = ?rp_state.assigned_core,
 			our_assignment_paras = ?assigned_paras,
-			collation = ?candidate.descriptor().para_id,
+			collation = ?candidate.descriptor().para_id(),
 			"Subsystem asked to second for para outside of our assignment",
 		);
 		return Ok(());
@@ -2119,7 +2123,7 @@ async fn handle_second_message<Context>(
 		target: LOG_TARGET,
 		our_assignment_core = ?rp_state.assigned_core,
 		our_assignment_paras = ?assigned_paras,
-		collation = ?candidate.descriptor().para_id,
+		collation = ?candidate.descriptor().para_id(),
 		"Current assignments vs collation",
 	);
 
