@@ -298,7 +298,12 @@ pub mod v4 {
 				let updated_config_record = ConfigRecord {
 					interlude_length: updated_interlude_length,
 					leadin_length: updated_leadin_length,
-					..config_record
+					advance_notice: config_record.advance_notice,
+					region_length: config_record.region_length,
+					ideal_bulk_proportion: config_record.ideal_bulk_proportion,
+					limit_cores_offered: config_record.limit_cores_offered,
+					renewal_bump: config_record.renewal_bump,
+					contribution_timeout: config_record.contribution_timeout,
 				};
 				Configuration::<T>::put(updated_config_record);
 			}
