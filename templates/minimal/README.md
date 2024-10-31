@@ -89,9 +89,7 @@ cargo build -p minimal-template-runtime --release
 
 #### Install `staging-chain-spec-builder`
 
-```sh
-cargo install staging-chain-spec-builder
-```
+Please see the installation section at [`crates.io/staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder).
 
 #### Use chain-spec-builder to generate the chain_spec.json file
 
