@@ -199,6 +199,9 @@ where
 		let measured_proof_size = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
 
 		// The consumed weight as benchamrked.
+		// NOTE: `calc_actual_weight` will take the minimum of `post_info` and `info` weights.
+		// This means any underestimation of compute time in the pre dispatch info will not be
+		// taken into account.
 		let benchmarked_weight = post_info_with_inner.calc_actual_weight(info);
 
 		let benchmarked_proof_size = benchmarked_weight.proof_size();
@@ -222,12 +225,11 @@ where
 			let already_reclaimed = frame_system::ExtrinsicWeightReclaimed::<T>::get();
 			current_weight.accrue(already_reclaimed, info.class);
 			current_weight.reduce(info.total_weight(), info.class);
-			// TODO TODO: this is different from the original implementation as the post dispatch is
-			// always taken even if the pre dispatch is less.
 			current_weight.accrue(accurate_weight, info.class);
 
-			// The saturation will happen if the pre dispatch weight is underestimated.
-			// In this case the extrinsic refund is considered 0.
+			// The saturation will happen if the pre dispatch weight is underestimating the proof
+			// size.
+			// In this case the extrinsic proof size weight reclaimed is 0.
 			let accurate_unspent = info.total_weight().saturating_sub(accurate_weight);
 			frame_system::ExtrinsicWeightReclaimed::<T>::put(accurate_unspent);
 		});

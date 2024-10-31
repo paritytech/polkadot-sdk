@@ -148,18 +148,6 @@ where
 			crate::ExtrinsicWeightReclaimed::<T>::put(unspent);
 		}
 
-		log::trace!(
-			target: LOG_TARGET,
-			"Used block weight: {:?}",
-			crate::BlockWeight::<T>::get(),
-		);
-
-		log::trace!(
-			target: LOG_TARGET,
-			"Used block length: {:?}",
-			Pallet::<T>::all_extrinsics_len(),
-		);
-
 		Ok(())
 	}
 }

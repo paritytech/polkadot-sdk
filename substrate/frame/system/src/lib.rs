@@ -2081,6 +2081,19 @@ impl<T: Config> Pallet<T> {
 			},
 		});
 
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block weight: {:?}",
+			BlockWeight::<T>::get(),
+		);
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block length: {:?}",
+			Pallet::<T>::all_extrinsics_len(),
+		);
+
+
 		let next_extrinsic_index = Self::extrinsic_index().unwrap_or_default() + 1u32;
 
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &next_extrinsic_index);
