@@ -35,7 +35,6 @@ use pallet_revive::{
 	},
 	EthContractResult,
 };
-use sc_service::SpawnTaskHandle;
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_weights::Weight;
 use std::{
@@ -162,7 +161,7 @@ impl From<ClientError> for ErrorObjectOwned {
 
 /// The number of recent blocks maintained by the cache.
 /// For each block in the cache, we also store the EVM transaction receipts.
-pub const CACHE_SIZE: usize = 10;
+pub const CACHE_SIZE: usize = 256;
 
 impl<const N: usize> BlockCache<N> {
 	fn latest_block(&self) -> Option<&Arc<SubstrateBlock>> {
@@ -340,7 +339,10 @@ async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 impl Client {
 	/// Create a new client instance.
 	/// The client will subscribe to new blocks and maintain a cache of [`CACHE_SIZE`] blocks.
-	pub async fn from_url(url: &str, spawn_handle: &SpawnTaskHandle) -> Result<Self, ClientError> {
+	pub async fn from_url(
+		url: &str,
+		spawn_handle: &sc_service::SpawnEssentialTaskHandle,
+	) -> Result<Self, ClientError> {
 		log::info!(target: LOG_TARGET, "Connecting to node at: {url} ...");
 		let inner: Arc<ClientInner> = Arc::new(ClientInner::from_url(url).await?);
 		log::info!(target: LOG_TARGET, "Connected to node at: {url}");

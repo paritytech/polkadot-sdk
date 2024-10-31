@@ -109,11 +109,11 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let tokio_handle = tokio_runtime.handle();
 	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
-	let spawn_handle = task_manager.spawn_handle();
+	let essential_spawn_handle = task_manager.spawn_essential_handle();
 
 	let gen_rpc_module = || {
 		let signals = tokio_runtime.block_on(async { Signals::capture() })?;
-		let fut = Client::from_url(&node_rpc_url, &spawn_handle).fuse();
+		let fut = Client::from_url(&node_rpc_url, &essential_spawn_handle).fuse();
 		pin_mut!(fut);
 
 		match tokio_handle.block_on(signals.try_until_signal(fut)) {
@@ -125,7 +125,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	// Prometheus metrics.
 	if let Some(PrometheusConfig { port, registry }) = prometheus_config.clone() {
-		spawn_handle.spawn(
+		task_manager.spawn_handle().spawn(
 			"prometheus-endpoint",
 			None,
 			prometheus_endpoint::init_prometheus(port, registry).map(drop),
