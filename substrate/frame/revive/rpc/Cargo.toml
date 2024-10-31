@@ -15,27 +15,27 @@ path = "src/main.rs"
 [[example]]
 name = "deploy"
 path = "examples/rust/deploy.rs"
-required-features = ["example", "riscv"]
+required-features = ["example"]
 
 [[example]]
 name = "transfer"
 path = "examples/rust/transfer.rs"
-required-features = ["example", "riscv"]
+required-features = ["example"]
 
 [[example]]
 name = "rpc-playground"
 path = "examples/rust/rpc-playground.rs"
-required-features = ["example", "riscv"]
+required-features = ["example"]
 
 [[example]]
 name = "extrinsic"
 path = "examples/rust/extrinsic.rs"
-required-features = ["example", "riscv"]
+required-features = ["example"]
 
 [[example]]
 name = "remark-extrinsic"
 path = "examples/rust/remark-extrinsic.rs"
-required-features = ["example", "riscv"]
+required-features = ["example"]
 
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
@@ -72,7 +72,6 @@ env_logger = { workspace = true }
 
 [features]
 example = ["hex", "hex-literal", "rlp", "secp256k1", "subxt-signer"]
-riscv = ["pallet-revive/riscv"]
 
 [dev-dependencies]
 hex-literal = { workspace = true }
