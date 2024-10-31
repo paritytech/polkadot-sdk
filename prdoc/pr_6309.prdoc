@@ -4,7 +4,7 @@ doc:
   description: |-
     Small adjustments to eth-rpc
     - bump cache size
-    - use essential-tasks to spawn the json-rpc block subsrciption tasks
+    - use essential-tasks to spawn the json-rpc block subscription tasks
 crates:
 - name: sc-service
   bump: patch
