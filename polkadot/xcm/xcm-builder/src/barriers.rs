@@ -200,6 +200,17 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 							return Err(ProcessMessageError::Unsupported)
 						};
 					},
+					ExecuteWithOrigin { origin: Some(interior), xcm } => {
+						let Ok(_) = actual_origin.append_with(interior.clone()) else {
+							return Err(ProcessMessageError::Unsupported)
+						};
+						InnerBarrier::should_execute(
+							&actual_origin,
+							&mut instructions[skipped.get()..],
+							max_weight,
+							properties
+						)?;
+					}
 					_ => return Ok(ControlFlow::Break(())),
 				};
 				skipped.set(skipped.get() + 1);
