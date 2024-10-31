@@ -850,18 +850,41 @@ pub mod pallet {
 		pub fn migrate_ed(mut next_key: Option<Vec<u8>>, batch_size: u32) -> Option<(Option<Vec<u8>>, Call<T, I>, Weight)> {
 			let mut batch = Vec::new();
 			let ah_ed = Self::ed() / 100u32.into(); // FAIL-CI config
+			let mut accounts = Vec::new();
 
 			{				
-				let mut iter = T::AccountStore::iter_keys();
+				let pallet_prefix = twox_128(b"System");
+				let storage_prefix = twox_128(b"Account");
+				let prefix = pallet_prefix
+					.iter()
+					.chain(storage_prefix.iter())
+					.cloned()
+					.collect::<Vec<_>>();
+
 				let mut found = 0;
+				let mut key = match next_key {
+					Some(ref k) => k.clone(),
+					None => prefix.clone(),
+				};
 
 				loop {
-					let Some(next) = iter.next() else {
-						log::warn!("Key not starting with prefix");
+					if found >= batch_size {
+						next_key = Some(key.clone());
 						break;
-					};
-
-					//key = next;
+					}
+					// TODO hacky shit
+					let next = sp_io::storage::next_key(&key).unwrap_or_default();
+					if !next.starts_with(&prefix) {
+						log::warn!("Key not starting with prefix");
+						next_key = None;
+						break;
+					}
+					// Invert the concat hasher
+					let acc_key = next.iter().skip(next.len() - 32).cloned().collect::<Vec<_>>();
+					let who = T::AccountId::decode(&mut &acc_key[..]).unwrap();
+					accounts.push(who);
+	
+					key = next;
 					found += 1;
 				}
 
@@ -872,59 +895,14 @@ pub mod pallet {
 				);
 			}
 
-			let pallet_prefix = sp_crypto_hashing::twox_128(b"System");
-			let storage_prefix = sp_crypto_hashing::twox_128(b"Account");
-			let prefix = pallet_prefix
-				.iter()
-				.chain(storage_prefix.iter())
-				.cloned()
-				.collect::<Vec<_>>();
-
-			if next_key.is_none() {
-				next_key = Some(prefix.clone());
-			}
-			log::info!(
-				target: LOG_TARGET,
-				"migrating ED from cursor: {:?}",
-				next_key,
-			);
-
-			loop {
-				if batch.len() >= batch_size as usize {
-					break;
-				}
-				let next = sp_io::storage::next_key(&next_key.clone().unwrap()).unwrap_or_default();
-                if !next.starts_with(&prefix) {
-                    log::info!(
-						target: LOG_TARGET,
-						"migration complete from cursor: {:?}",
-						&next_key,
-					);
-					next_key = None;
-                    break;
-                }
-				next_key = Some(next.clone());
-				// last 32 bytes of the key is the account id
-				let acc_key = next.iter().skip(next.len() - 32).cloned().collect::<Vec<_>>();
-				let who = T::AccountId::decode(&mut &acc_key[..]).unwrap();
-
-				// TODO hacky, but the T::AccountStore::iter_keys_from does not work...
-				/*let Some(who) = acc else {
-					log::info!(
-						target: LOG_TARGET,
-						"migration complete from cursor: {:?}",
-						next_key,
-					);
-					next_key = None;
-					break;
-				};*/
+			for who in accounts {
 				log::info!(
 					target: LOG_TARGET,
 					"migrating ED for account: {:?}",
 					who,
 				);
-				next_key = Some(who.clone().encode());
 				let mut account = T::AccountStore::get(&who);
+
 				if account == Default::default() {
 					defensive!("AccountStore corrupted");
 					continue;
