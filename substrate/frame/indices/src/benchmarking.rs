@@ -19,12 +19,10 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::*;
+use crate::*;
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
-
-use crate::Pallet as Indices;
 
 const SEED: u32 = 0;
 
@@ -54,7 +52,7 @@ mod benchmarks {
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 		T::Currency::make_free_balance_be(&recipient, BalanceOf::<T>::max_value());
 		// Claim the index
-		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), recipient_lookup, account_index);
@@ -70,7 +68,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		// Claim the index
-		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account_index);
@@ -89,7 +87,7 @@ mod benchmarks {
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 		T::Currency::make_free_balance_be(&recipient, BalanceOf::<T>::max_value());
 		// Claim the index
-		Indices::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
+		Pallet::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, recipient_lookup, account_index, false);
@@ -105,7 +103,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		// Claim the index
-		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account_index);
@@ -116,5 +114,5 @@ mod benchmarks {
 
 	// TODO in another PR: lookup and unlookup trait weights (not critical)
 
-	impl_benchmark_test_suite!(Indices, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite!(Pallet, mock::new_test_ext(), mock::Test);
 }

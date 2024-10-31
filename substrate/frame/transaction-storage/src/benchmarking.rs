@@ -19,15 +19,13 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::*;
+use crate::*;
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::{v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::traits::{Get, OnFinalize, OnInitialize};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, Pallet as System, RawOrigin};
 use sp_runtime::traits::{Bounded, CheckedDiv, One, Zero};
 use sp_transaction_storage_proof::TransactionStorageProof;
-
-use crate::Pallet as TransactionStorage;
 
 // Proof generated from max size storage:
 // ```
@@ -144,7 +142,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
 		T::Currency::set_balance(&caller, initial_balance);
-		TransactionStorage::<T>::store(
+		Pallet::<T>::store(
 			RawOrigin::Signed(caller.clone()).into(),
 			vec![0u8; T::MaxTransactionSize::get() as usize],
 		)?;
@@ -165,7 +163,7 @@ mod benchmarks {
 		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
 		T::Currency::set_balance(&caller, initial_balance);
 		for _ in 0..T::MaxBlockTransactions::get() {
-			TransactionStorage::<T>::store(
+			Pallet::<T>::store(
 				RawOrigin::Signed(caller.clone()).into(),
 				vec![0u8; T::MaxTransactionSize::get() as usize],
 			)?;
@@ -182,5 +180,5 @@ mod benchmarks {
 		Ok(())
 	}
 
-	impl_benchmark_test_suite!(TransactionStorage, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite!(Pallet, mock::new_test_ext(), mock::Test);
 }
