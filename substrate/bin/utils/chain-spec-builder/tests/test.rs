@@ -31,8 +31,6 @@ const DUMMY_PATH: &str = "fake-runtime-path";
 
 const OUTPUT_FILE: &str = "/tmp/chain_spec_builder.test_output_file.json";
 
-const RUNTIME_PATH: &str = unwrap_option_str(substrate_test_runtime::WASM_BINARY_PATH);
-
 // Used for running commands visually pleasing in doc tests.
 macro_rules! bash(
 	( chain-spec-builder $($a:tt)* ) => {{
@@ -45,13 +43,6 @@ macro_rules! bash(
 		.expect("to get output. qed.")
 	}}
 );
-
-pub const fn unwrap_option_str(opt: Option<&'static str>) -> &'static str {
-	match opt {
-		Some(val) => val,
-		None => panic!("Expected a value, but found None. qed."),
-	}
-}
 
 // Used specifically in docs tests.
 fn doc_assert(output: String, expected_output_path: &str, remove_code: bool) {
@@ -244,117 +235,163 @@ fn test_add_code_substitute() {
 }
 
 #[docify::export_content]
-fn cmd_create_default() -> String {
+fn cmd_create_default(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH default
+		chain-spec-builder -c "/dev/stdout" create -r $runtime_path default
 	)
 }
 
 #[test]
 fn create_default() {
-	doc_assert(cmd_create_default(), "tests/expected/doc/create_default.json", true);
+	doc_assert(
+		cmd_create_default(
+			substrate_test_runtime::WASM_BINARY_PATH.expect("to be a valid path. qed"),
+		),
+		"tests/expected/doc/create_default.json",
+		true,
+	);
 }
 
 #[docify::export_content]
-fn cmd_display_default_preset() -> String {
+fn cmd_display_default_preset(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder display-preset -r $RUNTIME_PATH
+		chain-spec-builder display-preset -r $runtime_path
 	)
 }
 
 #[test]
 fn display_default_preset() {
-	doc_assert(cmd_display_default_preset(), "tests/expected/doc/display_preset.json", false);
+	doc_assert(
+		cmd_display_default_preset(
+			substrate_test_runtime::WASM_BINARY_PATH.expect("to be a valid path. qed."),
+		),
+		"tests/expected/doc/display_preset.json",
+		false,
+	);
 }
 
 #[docify::export]
-fn cmd_display_preset() -> String {
+fn cmd_display_preset(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder display-preset -r $RUNTIME_PATH -p "staging"
+		chain-spec-builder display-preset -r $runtime_path -p "staging"
 	)
 }
 
 #[test]
 fn display_preset() {
-	doc_assert(cmd_display_preset(), "tests/expected/doc/display_preset_staging.json", false);
+	doc_assert(
+		cmd_display_preset(
+			substrate_test_runtime::WASM_BINARY_PATH.expect("to be a valid path. qed"),
+		),
+		"tests/expected/doc/display_preset_staging.json",
+		false,
+	);
 }
 
 #[docify::export_content]
-fn cmd_list_presets() -> String {
+fn cmd_list_presets(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder list-presets -r $RUNTIME_PATH
+		chain-spec-builder list-presets -r $runtime_path
 	)
 }
 
 #[test]
 fn list_presets() {
-	doc_assert(cmd_list_presets(), "tests/expected/doc/list_presets.json", false);
+	doc_assert(
+		cmd_list_presets(
+			substrate_test_runtime::WASM_BINARY_PATH.expect("to be a valid path. qed"),
+		),
+		"tests/expected/doc/list_presets.json",
+		false,
+	);
 }
 
 #[docify::export_content]
-fn cmd_create_with_named_preset() -> String {
+fn cmd_create_with_named_preset(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $RUNTIME_PATH named-preset "staging"
+		chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
 	)
 }
 
 #[test]
 fn create_with_named_preset() {
 	doc_assert(
-		cmd_create_with_named_preset(),
+		cmd_create_with_named_preset(
+			substrate_test_runtime::WASM_BINARY_PATH.expect("to be a valid path. qed"),
+		),
 		"tests/expected/doc/create_with_named_preset_staging.json",
 		true,
 	)
 }
 
 #[docify::export_content]
-fn cmd_create_with_patch_raw() -> String {
+fn cmd_create_with_patch_raw(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder -c "/dev/stdout" create -s -r $RUNTIME_PATH patch "tests/input/patch.json"
+		chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path patch "tests/input/patch.json"
 	)
 }
 
 #[test]
 fn create_with_patch_raw() {
-	doc_assert(cmd_create_with_patch_raw(), "tests/expected/doc/create_with_patch_raw.json", true);
+	doc_assert(
+		cmd_create_with_patch_raw(
+			substrate_test_runtime::WASM_BINARY_PATH.expect("to be a valid path. qed"),
+		),
+		"tests/expected/doc/create_with_patch_raw.json",
+		true,
+	);
 }
 
 #[docify::export_content]
-fn cmd_create_with_patch_plain() -> String {
+fn cmd_create_with_patch_plain(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH patch "tests/input/patch.json"
+		chain-spec-builder -c "/dev/stdout" create -r $runtime_path patch "tests/input/patch.json"
 	)
 }
 
 #[test]
 fn create_with_patch_plain() {
 	doc_assert(
-		cmd_create_with_patch_plain(),
+		cmd_create_with_patch_plain(
+			substrate_test_runtime::WASM_BINARY_PATH.expect("to be a valid path. qed"),
+		),
 		"tests/expected/doc/create_with_patch_plain.json",
 		true,
 	);
 }
 
 #[docify::export_content]
-fn cmd_create_full_plain() -> String {
+fn cmd_create_full_plain(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH full "tests/input/full.json"
+		chain-spec-builder -c "/dev/stdout" create -r $runtime_path full "tests/input/full.json"
 	)
 }
 
 #[test]
 fn create_full_plain() {
-	doc_assert(cmd_create_full_plain(), "tests/expected/doc/create_full_plain.json", true);
+	doc_assert(
+		cmd_create_full_plain(
+			substrate_test_runtime::WASM_BINARY_PATH.expect("to be a valid path. qed"),
+		),
+		"tests/expected/doc/create_full_plain.json",
+		true,
+	);
 }
 
 #[docify::export_content]
-fn cmd_create_full_raw() -> String {
+fn cmd_create_full_raw(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder -c "/dev/stdout" create -s -r $RUNTIME_PATH full "tests/input/full.json"
+		chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path Full "tests/input/full.json"
 	)
 }
 
 #[test]
 fn create_full_raw() {
-	doc_assert(cmd_create_full_raw(), "tests/expected/doc/create_full_raw.json", true);
+	doc_assert(
+		cmd_create_full_raw(
+			substrate_test_runtime::WASM_BINARY_PATH.expect("to be a valid path. qed"),
+		),
+		"tests/expected/doc/create_full_raw.json",
+		true,
+	);
 }

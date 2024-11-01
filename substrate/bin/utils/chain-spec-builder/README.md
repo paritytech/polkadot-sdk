@@ -32,7 +32,7 @@ Query the default genesis config from the provided runtime WASM blob and use it 
 
 ```rust
 bash!(
-	chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH default
+	chain-spec-builder -c "/dev/stdout" create -r $runtime_path default
 )
 ```
 
@@ -43,7 +43,7 @@ runtime function is called.
 
 ```rust
 bash!(
-	chain-spec-builder display-preset -r $RUNTIME_PATH
+	chain-spec-builder display-preset -r $runtime_path
 )
 ```
 
@@ -53,9 +53,9 @@ runtime function is called.
 ### Display the `GenesisConfig` preset with given name
 
 ```rust
-fn cmd_display_preset() -> String {
+fn cmd_display_preset(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder display-preset -r $RUNTIME_PATH -p "staging"
+		chain-spec-builder display-preset -r $runtime_path -p "staging"
 	)
 }
 ```
@@ -67,7 +67,7 @@ runtime function is called.
 
 ```rust
 bash!(
-	chain-spec-builder list-presets -r $RUNTIME_PATH
+	chain-spec-builder list-presets -r $runtime_path
 )
 ```
 
@@ -81,7 +81,7 @@ version of chain spec:
 
 ```rust
 bash!(
-	chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $RUNTIME_PATH named-preset "staging"
+	chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
 )
 ```
 
@@ -95,7 +95,7 @@ storage (`-s`) version of chain spec:
 
 ```rust
 bash!(
-	chain-spec-builder -c "/dev/stdout" create -s -r $RUNTIME_PATH patch "tests/input/patch.json"
+	chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path patch "tests/input/patch.json"
 )
 ```
 
@@ -110,7 +110,7 @@ Build the chain spec using provided full genesis config json file. No defaults w
 
 ```rust
 bash!(
-	chain-spec-builder -c "/dev/stdout" create -s -r $RUNTIME_PATH full "tests/input/full.json"
+	chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path Full "tests/input/full.json"
 )
 ```
 
@@ -121,7 +121,7 @@ runtime function is called.
 
 ```rust
 bash!(
-	chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH patch "tests/input/patch.json"
+	chain-spec-builder -c "/dev/stdout" create -r $runtime_path patch "tests/input/patch.json"
 )
 ```
 
@@ -129,7 +129,7 @@ bash!(
 
 ```rust
 bash!(
-	chain-spec-builder -c "/dev/stdout" create -r $RUNTIME_PATH full "tests/input/full.json"
+	chain-spec-builder -c "/dev/stdout" create -r $runtime_path full "tests/input/full.json"
 )
 ```
 
