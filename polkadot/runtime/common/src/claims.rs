@@ -1459,7 +1459,7 @@ mod benchmarking {
 	use frame_system::RawOrigin;
 	use secp_utils::*;
 	use sp_runtime::{
-		traits::{ValidateUnsigned, DispatchTransaction},
+		traits::{DispatchTransaction, ValidateUnsigned},
 		DispatchResult,
 	};
 
@@ -1509,7 +1509,7 @@ mod benchmarking {
 		#[benchmark]
 		fn claim() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
-			for _ in 0 .. c / 2 {
+			for _ in 0..c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
@@ -1518,19 +1518,25 @@ mod benchmarking {
 			let account: T::AccountId = account("user", c, SEED);
 			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 			let signature = sig::<T>(&secret_key, &account.encode(), &[][..]);
-			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, None)?;
+			super::Pallet::<T>::mint_claim(
+				RawOrigin::Root.into(),
+				eth_address,
+				VALUE.into(),
+				vesting,
+				None,
+			)?;
 			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
 			let source = sp_runtime::transaction_validity::TransactionSource::External;
-			let call_enc = Call::<T>::claim {
-				dest: account.clone(),
-				ethereum_signature: signature.clone()
-			}.encode();
+			let call_enc =
+				Call::<T>::claim { dest: account.clone(), ethereum_signature: signature.clone() }
+					.encode();
 
 			#[block]
 			{
 				let call = <Call<T> as Decode>::decode(&mut &*call_enc)
 					.expect("call is encoded above, encoding must be correct");
-				super::Pallet::<T>::validate_unsigned(source, &call).map_err(|e| -> &'static str { e.into() })?;
+				super::Pallet::<T>::validate_unsigned(source, &call)
+					.map_err(|e| -> &'static str { e.into() })?;
 				call.dispatch_bypass_filter(RawOrigin::None.into())?;
 			}
 
@@ -1542,7 +1548,7 @@ mod benchmarking {
 		#[benchmark]
 		fn mint_claim() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
-			for _ in 0 .. c / 2 {
+			for _ in 0..c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
@@ -1552,7 +1558,7 @@ mod benchmarking {
 
 			#[extrinsic_call]
 			_(RawOrigin::Root, eth_address, VALUE.into(), vesting, Some(statement));
-			
+
 			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
 			Ok(())
 		}
@@ -1561,32 +1567,41 @@ mod benchmarking {
 		#[benchmark]
 		fn claim_attest() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
-			for _ in 0 .. c / 2 {
+			for _ in 0..c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
 			// Crate signature
 			let attest_c = u32::MAX - c;
-			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+			let secret_key =
+				libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
 			let eth_address = eth(&secret_key);
 			let account: T::AccountId = account("user", c, SEED);
 			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 			let statement = StatementKind::Regular;
 			let signature = sig::<T>(&secret_key, &account.encode(), statement.to_text());
-			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, Some(statement))?;
+			super::Pallet::<T>::mint_claim(
+				RawOrigin::Root.into(),
+				eth_address,
+				VALUE.into(),
+				vesting,
+				Some(statement),
+			)?;
 			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
 			let call_enc = Call::<T>::claim_attest {
 				dest: account.clone(),
 				ethereum_signature: signature.clone(),
-				statement: StatementKind::Regular.to_text().to_vec()
-			}.encode();
+				statement: StatementKind::Regular.to_text().to_vec(),
+			}
+			.encode();
 			let source = sp_runtime::transaction_validity::TransactionSource::External;
 
 			#[block]
 			{
 				let call = <Call<T> as Decode>::decode(&mut &*call_enc)
 					.expect("call is encoded above, encoding must be correct");
-				super::Pallet::<T>::validate_unsigned(source, &call).map_err(|e| -> &'static str { e.into() })?;
+				super::Pallet::<T>::validate_unsigned(source, &call)
+					.map_err(|e| -> &'static str { e.into() })?;
 				call.dispatch_bypass_filter(RawOrigin::None.into())?;
 			}
 
@@ -1599,18 +1614,25 @@ mod benchmarking {
 		fn attest() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
 
-			for _ in 0 .. c / 2 {
+			for _ in 0..c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
 
 			let attest_c = u32::MAX - c;
-			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+			let secret_key =
+				libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
 			let eth_address = eth(&secret_key);
 			let account: T::AccountId = account("user", c, SEED);
 			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 			let statement = StatementKind::Regular;
-			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, Some(statement))?;
+			super::Pallet::<T>::mint_claim(
+				RawOrigin::Root.into(),
+				eth_address,
+				VALUE.into(),
+				vesting,
+				Some(statement),
+			)?;
 			Preclaims::<T>::insert(&account, eth_address);
 			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
 
@@ -1627,16 +1649,18 @@ mod benchmarking {
 		fn move_claim() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
 
-			for _ in 0 .. c / 2 {
+			for _ in 0..c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
 
 			let attest_c = u32::MAX - c;
-			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+			let secret_key =
+				libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
 			let eth_address = eth(&secret_key);
 
-			let new_secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&(u32::MAX/2).encode())).unwrap();
+			let new_secret_key =
+				libsecp256k1::SecretKey::parse(&keccak_256(&(u32::MAX / 2).encode())).unwrap();
 			let new_eth_address = eth(&new_secret_key);
 
 			let account: T::AccountId = account("user", c, SEED);
@@ -1660,7 +1684,7 @@ mod benchmarking {
 
 			#[block]
 			{
-				for _ in 0 .. i {
+				for _ in 0..i {
 					let _hash = keccak_256(&bytes);
 				}
 			}
@@ -1675,10 +1699,10 @@ mod benchmarking {
 			let signature = sig::<T>(&secret_key, &account.encode(), &[][..]);
 			let data = account.using_encoded(to_ascii_hex);
 			let extra = StatementKind::default().to_text();
-		
+
 			#[block]
 			{
-				for _ in 0 .. i {
+				for _ in 0..i {
 					assert!(super::Pallet::<T>::eth_recover(&signature, &data, extra).is_some());
 				}
 			}
@@ -1687,37 +1711,39 @@ mod benchmarking {
 		#[benchmark]
 		fn prevalidate_attests() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
-			for _ in 0 .. c / 2 {
+			for _ in 0..c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
 			let ext = PrevalidateAttests::<T>::new();
-			let call = super::Call::attest {
-				statement: StatementKind::Regular.to_text().to_vec(),
-			};
+			let call = super::Call::attest { statement: StatementKind::Regular.to_text().to_vec() };
 			let call: <T as frame_system::Config>::RuntimeCall = call.into();
 			let info = call.get_dispatch_info();
 			let attest_c = u32::MAX - c;
-			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+			let secret_key =
+				libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
 			let eth_address = eth(&secret_key);
 			let account: T::AccountId = account("user", c, SEED);
 			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 			let statement = StatementKind::Regular;
-			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, Some(statement))?;
+			super::Pallet::<T>::mint_claim(
+				RawOrigin::Root.into(),
+				eth_address,
+				VALUE.into(),
+				vesting,
+				Some(statement),
+			)?;
 			Preclaims::<T>::insert(&account, eth_address);
 			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
-		
+
 			#[block]
 			{
-				assert!(ext.test_run(
-					RawOrigin::Signed(account).into(),
-					&call,
-					&info,
-					0,
-					|_| {
+				assert!(ext
+					.test_run(RawOrigin::Signed(account).into(), &call, &info, 0, |_| {
 						Ok(Default::default())
-					}
-				).unwrap().is_ok());
+					})
+					.unwrap()
+					.is_ok());
 			}
 
 			Ok(())
