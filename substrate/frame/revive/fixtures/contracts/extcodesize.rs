@@ -14,24 +14,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
-//! Defines a dummy benchmarking suite so that the build doesn't fail in case
-//! no RISC-V toolchain is available.
+#![no_std]
+#![no_main]
 
-#![cfg(feature = "runtime-benchmarks")]
-#![cfg(not(feature = "riscv"))]
+use common::{input, u64_output};
+use uapi::{HostFn, HostFnImpl as api};
 
-use crate::{Config, *};
-use frame_benchmarking::v2::*;
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn deploy() {}
 
-#[benchmarks]
-mod benchmarks {
-	use super::*;
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn call() {
+	input!(address: &[u8; 20], expected: u64,);
 
-	#[benchmark(pov_mode = Ignored)]
-	fn enable_riscv_feature_to_unlock_benchmarks() {
-		#[block]
-		{}
-	}
+	let received = u64_output!(api::code_size, address);
+
+	assert_eq!(expected, received);
 }
