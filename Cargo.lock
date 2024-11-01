@@ -14532,6 +14532,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "rstest",
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",
  "sp-keyring",
