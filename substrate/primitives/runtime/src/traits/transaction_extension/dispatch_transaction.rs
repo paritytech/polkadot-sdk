@@ -113,7 +113,8 @@ where
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> Result<(T::Pre, Self::Origin), TransactionValidityError> {
-		let (_, val, origin) = self.validate_only(origin, call, info, len, TransactionSource::InBlock)?;
+		let (_, val, origin) =
+			self.validate_only(origin, call, info, len, TransactionSource::InBlock)?;
 		let pre = self.prepare(val, &origin, &call, info, len)?;
 		Ok((pre, origin))
 	}
@@ -145,8 +146,7 @@ where
 			Self::Origin,
 		) -> crate::DispatchResultWithInfo<<Call as Dispatchable>::PostInfo>,
 	) -> Self::Result {
-		let (pre, origin) =
-			self.validate_and_prepare(origin, &call, info, len)?;
+		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
 		let mut res = substitute(origin);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
 		let post_info = match &mut res {

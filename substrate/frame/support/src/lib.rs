@@ -924,8 +924,8 @@ pub mod pallet_prelude {
 		},
 		transaction_validity::{
 			InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource,
-			TransactionTag, TransactionValidity, TransactionValidityWithRefund, TransactionValidityError, UnknownTransaction,
-			ValidTransaction,
+			TransactionTag, TransactionValidity, TransactionValidityError,
+			TransactionValidityWithRefund, UnknownTransaction, ValidTransaction,
 		},
 		DispatchError, RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};

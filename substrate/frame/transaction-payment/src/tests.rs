@@ -23,8 +23,7 @@ use codec::Encode;
 use sp_runtime::{
 	generic::UncheckedExtrinsic,
 	traits::{DispatchTransaction, One},
-	transaction_validity::InvalidTransaction,
-	transaction_validity::TransactionSource::External,
+	transaction_validity::{InvalidTransaction, TransactionSource::External},
 	BuildStorage,
 };
 
@@ -246,7 +245,9 @@ fn transaction_extension_allows_free_transactions() {
 				pays_fee: Pays::Yes,
 			};
 			assert_eq!(
-				Ext::from(0).validate_only(Some(1).into(), CALL, &free_tx, len, External).unwrap_err(),
+				Ext::from(0)
+					.validate_only(Some(1).into(), CALL, &free_tx, len, External)
+					.unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Payment),
 			);
 		});
@@ -660,11 +661,19 @@ fn should_alter_operational_priority() {
 		};
 
 		let ext = Ext::from(tip);
-		let priority = ext.validate_only(Some(2).into(), CALL, &normal, len, External).unwrap().0.priority;
+		let priority = ext
+			.validate_only(Some(2).into(), CALL, &normal, len, External)
+			.unwrap()
+			.0
+			.priority;
 		assert_eq!(priority, 60);
 
 		let ext = Ext::from(2 * tip);
-		let priority = ext.validate_only(Some(2).into(), CALL, &normal, len, External).unwrap().0.priority;
+		let priority = ext
+			.validate_only(Some(2).into(), CALL, &normal, len, External)
+			.unwrap()
+			.0
+			.priority;
 		assert_eq!(priority, 110);
 	});
 
@@ -677,11 +686,13 @@ fn should_alter_operational_priority() {
 		};
 
 		let ext = Ext::from(tip);
-		let priority = ext.validate_only(Some(2).into(), CALL, &op, len, External).unwrap().0.priority;
+		let priority =
+			ext.validate_only(Some(2).into(), CALL, &op, len, External).unwrap().0.priority;
 		assert_eq!(priority, 5810);
 
 		let ext = Ext::from(2 * tip);
-		let priority = ext.validate_only(Some(2).into(), CALL, &op, len, External).unwrap().0.priority;
+		let priority =
+			ext.validate_only(Some(2).into(), CALL, &op, len, External).unwrap().0.priority;
 		assert_eq!(priority, 6110);
 	});
 }
@@ -699,7 +710,11 @@ fn no_tip_has_some_priority() {
 			pays_fee: Pays::Yes,
 		};
 		let ext = Ext::from(tip);
-		let priority = ext.validate_only(Some(2).into(), CALL, &normal, len, External).unwrap().0.priority;
+		let priority = ext
+			.validate_only(Some(2).into(), CALL, &normal, len, External)
+			.unwrap()
+			.0
+			.priority;
 		assert_eq!(priority, 10);
 	});
 
@@ -711,7 +726,8 @@ fn no_tip_has_some_priority() {
 			pays_fee: Pays::Yes,
 		};
 		let ext = Ext::from(tip);
-		let priority = ext.validate_only(Some(2).into(), CALL, &op, len, External).unwrap().0.priority;
+		let priority =
+			ext.validate_only(Some(2).into(), CALL, &op, len, External).unwrap().0.priority;
 		assert_eq!(priority, 5510);
 	});
 }
@@ -730,7 +746,11 @@ fn higher_tip_have_higher_priority() {
 				pays_fee: Pays::Yes,
 			};
 			let ext = Ext::from(tip);
-			pri1 = ext.validate_only(Some(2).into(), CALL, &normal, len, External).unwrap().0.priority;
+			pri1 = ext
+				.validate_only(Some(2).into(), CALL, &normal, len, External)
+				.unwrap()
+				.0
+				.priority;
 		});
 
 		ExtBuilder::default().balance_factor(100).build().execute_with(|| {

@@ -22,9 +22,12 @@ use frame_support::{
 	pallet_prelude::{TransactionSource, Weight},
 };
 use sp_runtime::{
-	testing::UintAuthorityId, traits::{Applyable, Checkable}, transaction_validity::{
+	testing::UintAuthorityId,
+	traits::{Applyable, Checkable},
+	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	}, BuildStorage, DispatchError
+	},
+	BuildStorage, DispatchError,
 };
 
 // test for instance
@@ -124,7 +127,11 @@ pub mod pallet1 {
 
 		#[pallet::authorize(Pallet::<T, I>::authorize_call3)]
 		#[pallet::call_index(2)]
-		pub fn call3(origin: OriginFor<T>, valid: bool, _some_gen: T::SomeGeneric) -> DispatchResultWithPostInfo {
+		pub fn call3(
+			origin: OriginFor<T>,
+			valid: bool,
+			_some_gen: T::SomeGeneric,
+		) -> DispatchResultWithPostInfo {
 			ensure_authorized(origin)?;
 
 			let _ = valid;
@@ -148,7 +155,11 @@ pub mod pallet1 {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		fn authorize_call3(_source: TransactionSource, valid: &bool, _some_gen: &T::SomeGeneric) -> TransactionValidityWithRefund {
+		fn authorize_call3(
+			_source: TransactionSource,
+			valid: &bool,
+			_some_gen: &T::SomeGeneric,
+		) -> TransactionValidityWithRefund {
 			if *valid {
 				Ok(Default::default())
 			} else {
@@ -329,10 +340,8 @@ fn valid_call_weight_test() {
 			dispatch_success: true,
 			call_weight: pallet1::CALL_2_WEIGHT,
 			ext_weight: pallet1::CALL_2_AUTH_WEIGHT,
-			actual_weight:
-				pallet1::CALL_2_REFUND
-				+ pallet1::CALL_2_AUTH_WEIGHT
-				- call_2_auth_weight_refund,
+			actual_weight: pallet1::CALL_2_REFUND + pallet1::CALL_2_AUTH_WEIGHT -
+				call_2_auth_weight_refund,
 		},
 		Test {
 			call: RuntimeCall::Pallet1Instance2(pallet1::Call::call3 { valid: true, some_gen: 1 }),

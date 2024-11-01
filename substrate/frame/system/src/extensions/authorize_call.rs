@@ -106,8 +106,9 @@ mod tests {
 	use sp_runtime::{
 		testing::UintAuthorityId,
 		traits::{Applyable, Checkable, TransactionExtension as _},
-		transaction_validity::{InvalidTransaction, TransactionValidityError},
-		transaction_validity::TransactionSource::External,
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidityError,
+		},
 		BuildStorage, DispatchError,
 	};
 

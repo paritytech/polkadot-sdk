@@ -220,7 +220,8 @@ pub type TransactionValidity = Result<ValidTransaction, TransactionValidityError
 
 /// Information on a transaction's validity and, if valid, on how it relates to other transactions
 /// and some refund for the operation.
-pub type TransactionValidityWithRefund = Result<(ValidTransaction, Weight), TransactionValidityError>;
+pub type TransactionValidityWithRefund =
+	Result<(ValidTransaction, Weight), TransactionValidityError>;
 
 impl From<InvalidTransaction> for TransactionValidity {
 	fn from(invalid_transaction: InvalidTransaction) -> Self {

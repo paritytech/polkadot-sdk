@@ -43,8 +43,8 @@ scale-info = { features = ["derive"], workspace = true }
 sp-core = { workspace = true, features = ["std"] }
 sp-io = { workspace = true, features = ["std"] }
 sp-runtime = { features = [
-	"serde",
 	"runtime-benchmarks",
+	"serde",
 	"std",
 ], workspace = true }
 frame-system = { workspace = true, features = ["runtime-benchmarks", "std"] }

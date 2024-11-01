@@ -87,9 +87,8 @@ mod tests {
 	use frame_support::{assert_ok, dispatch::DispatchInfo};
 	use sp_runtime::{
 		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction},
-		transaction_validity::TransactionValidityError,
+		transaction_validity::{TransactionSource::External, TransactionValidityError},
 	};
-	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	#[test]
 	fn zero_account_ban_works() {

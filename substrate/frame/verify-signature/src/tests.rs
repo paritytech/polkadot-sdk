@@ -25,7 +25,7 @@ use extension::VerifySignature;
 use frame_support::{
 	derive_impl,
 	dispatch::GetDispatchInfo,
-	pallet_prelude::{InvalidTransaction, TransactionValidityError, TransactionSource},
+	pallet_prelude::{InvalidTransaction, TransactionSource, TransactionValidityError},
 	traits::OriginTrait,
 };
 use frame_system::Call as SystemCall;

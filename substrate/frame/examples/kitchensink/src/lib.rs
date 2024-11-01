@@ -238,10 +238,7 @@ pub mod pallet {
 		})]
 		#[pallet::weight(T::WeightInfo::set_foo_using_authorize())]
 		#[pallet::weight_of_authorize(T::WeightInfo::authorize_set_foo_using_authorize())]
-		pub fn set_foo_using_authorize(
-			origin: OriginFor<T>,
-			new_foo: u32,
-		) -> DispatchResult {
+		pub fn set_foo_using_authorize(origin: OriginFor<T>, new_foo: u32) -> DispatchResult {
 			// We only dispatch if it comes from the authorized origin. Meaning that the closure
 			// passed in `pallet::authorize` has successfully authorized the call.
 			ensure_authorized(origin)?;
