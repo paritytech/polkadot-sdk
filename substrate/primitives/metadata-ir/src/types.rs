@@ -56,6 +56,22 @@ pub struct RuntimeApiMetadataIR<T: Form = MetaForm> {
 	pub deprecation_info: DeprecationStatusIR<T>,
 }
 
+impl <T: Form> RuntimeApiMetadataIR<T> {
+	/// This returns a version of `Self` keeping only the
+	/// methods for which the provided function returns true.
+	pub fn keeping_methods<F>(self, f: F) -> Self 
+	where
+		F: FnMut(&RuntimeApiMethodMetadataIR<T>) -> bool
+	{
+		Self {
+			name: self.name,
+			methods: self.methods.into_iter().filter(f).collect(),
+			docs: self.docs,
+			deprecation_info: self.deprecation_info
+		}
+	}
+}
+
 impl IntoPortable for RuntimeApiMetadataIR {
 	type Output = RuntimeApiMetadataIR<PortableForm>;
 
@@ -74,6 +90,8 @@ impl IntoPortable for RuntimeApiMetadataIR {
 pub struct RuntimeApiMethodMetadataIR<T: Form = MetaForm> {
 	/// Method name.
 	pub name: T::String,
+	/// Method version.
+	pub version: u64,
 	/// Method parameters.
 	pub inputs: Vec<RuntimeApiMethodParamMetadataIR<T>>,
 	/// Method output.
@@ -90,6 +108,7 @@ impl IntoPortable for RuntimeApiMethodMetadataIR {
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		RuntimeApiMethodMetadataIR {
 			name: self.name.into_portable(registry),
+			version: self.version,
 			inputs: registry.map_into_portable(self.inputs),
 			output: registry.register_type(&self.output),
 			docs: registry.map_into_portable(self.docs),

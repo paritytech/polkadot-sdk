@@ -42,7 +42,6 @@ use syn::{
 	Attribute, FnArg, GenericParam, Generics, Ident, ItemTrait, LitInt, LitStr, TraitBound,
 	TraitItem, TraitItemFn,
 };
-
 use std::collections::{BTreeMap, HashMap};
 
 /// The structure used for parsing the runtime api declarations.
@@ -193,8 +192,6 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 			get_api_version(&found_attributes).map(|v| generate_runtime_api_version(v as u32))?;
 		let id = generate_runtime_api_id(&decl.ident.to_string());
 
-		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl);
-
 		let trait_api_version = get_api_version(&found_attributes)?;
 
 		let mut methods_by_version: BTreeMap<u64, Vec<TraitItemFn>> = BTreeMap::new();
@@ -254,6 +251,11 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 			},
 			_ => (),
 		});
+
+		let method_versions: BTreeMap<&syn::Ident, u64> = methods_by_version.iter().flat_map(|(&version, methods)| {
+			methods.iter().map(move |method| (&method.sig.ident, version))
+		}).collect();
+		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl, &method_versions);
 
 		let versioned_api_traits = generate_versioned_api_traits(decl.clone(), methods_by_version);
 
