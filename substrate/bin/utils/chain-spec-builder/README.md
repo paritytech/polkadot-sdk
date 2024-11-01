@@ -24,13 +24,13 @@ _Note:_ `chain-spec-builder` binary is published on [crates.io](https://crates.i
 ## Usage
 
 Please note that below usage is backed by integration tests. The commands' examples are wrapped
-around by the `exe!(...)` macro calls.
+around by the `bash!(...)` macro calls.
 
 ### Generate chains-spec using default config from runtime
 
 Query the default genesis config from the provided runtime WASM blob and use it in the chain spec.
 
-```rust
+```rust,ignore
 bash!(
 	chain-spec-builder -c "/dev/stdout" create -r $runtime_path default
 )
@@ -41,7 +41,7 @@ runtime function is called.
 
 ### Display the runtime's default `GenesisConfig`
 
-```rust
+```rust,ignore
 bash!(
 	chain-spec-builder display-preset -r $runtime_path
 )
@@ -52,7 +52,7 @@ runtime function is called.
 
 ### Display the `GenesisConfig` preset with given name
 
-```rust
+```rust,ignore
 fn cmd_display_preset(runtime_path: &str) -> String {
 	bash!(
 		chain-spec-builder display-preset -r $runtime_path -p "staging"
@@ -65,7 +65,7 @@ runtime function is called.
 
 ### List the names of `GenesisConfig` presets provided by runtime
 
-```rust
+```rust,ignore
 bash!(
 	chain-spec-builder list-presets -r $runtime_path
 )
@@ -79,7 +79,7 @@ runtime function is called.
 Patch the runtime's default genesis config with the named preset provided by the runtime and generate the plain
 version of chain spec:
 
-```rust
+```rust,ignore
 bash!(
 	chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
 )
@@ -93,7 +93,7 @@ runtime functions are called.
 Patch the runtime's default genesis config with provided `patch.json` and generate raw
 storage (`-s`) version of chain spec:
 
-```rust
+```rust,ignore
 bash!(
 	chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path patch "tests/input/patch.json"
 )
@@ -108,9 +108,9 @@ runtime functions are called.
 
 Build the chain spec using provided full genesis config json file. No defaults will be used:
 
-```rust
+```rust,ignore
 bash!(
-	chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path Full "tests/input/full.json"
+	chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path full "tests/input/full.json"
 )
 ```
 
@@ -119,7 +119,7 @@ runtime function is called.
 
 ### Generate human readable chain spec using provided genesis config patch
 
-```rust
+```rust,ignore
 bash!(
 	chain-spec-builder -c "/dev/stdout" create -r $runtime_path patch "tests/input/patch.json"
 )
@@ -127,7 +127,7 @@ bash!(
 
 ### Generate human readable chain spec using provided full genesis config
 
-```rust
+```rust,ignore
 bash!(
 	chain-spec-builder -c "/dev/stdout" create -r $runtime_path full "tests/input/full.json"
 )

@@ -24,7 +24,7 @@ _Note:_ `chain-spec-builder` binary is published on [crates.io](https://crates.i
 ## Usage
 
 Please note that below usage is backed by integration tests. The commands' examples are wrapped
-around by the `exe!(...)` macro calls.
+around by the `bash!(...)` macro calls.
 
 ### Generate chains-spec using default config from runtime
 

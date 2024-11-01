@@ -381,7 +381,7 @@ fn create_full_plain() {
 #[docify::export_content]
 fn cmd_create_full_raw(runtime_path: &str) -> String {
 	bash!(
-		chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path Full "tests/input/full.json"
+		chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path full "tests/input/full.json"
 	)
 }
 
