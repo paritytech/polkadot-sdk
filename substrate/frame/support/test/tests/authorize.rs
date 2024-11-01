@@ -125,7 +125,7 @@ pub mod pallet1 {
 			Ok(Some(CALL_2_REFUND).into())
 		}
 
-		#[pallet::authorize(Pallet::<T, I>::authorize_call3)]
+		#[pallet::authorize(Self::authorize_call3)]
 		#[pallet::call_index(2)]
 		pub fn call3(
 			origin: OriginFor<T>,

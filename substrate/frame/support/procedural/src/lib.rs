@@ -1392,7 +1392,7 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///
 ///         #[pallet::weight(Weight::zero())]
 ///         // We can also give the callback as a function
-///         #[pallet::authorize(Pallet::<T>::authorize_some_other_call)]
+///         #[pallet::authorize(Self::authorize_some_other_call)]
 ///         #[pallet::weight_of_authorize(Weight::zero())]
 ///         #[pallet::call_index(1)]
 ///         pub fn some_other_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
