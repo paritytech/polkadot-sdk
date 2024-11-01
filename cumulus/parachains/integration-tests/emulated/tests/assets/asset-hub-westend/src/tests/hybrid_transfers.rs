@@ -456,7 +456,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 			<PenpalA as Chain>::RuntimeOrigin::root(),
 			vec![(
 				PenpalCustomizableAssetFromSystemAssetHub::key().to_vec(),
-				Location::new(2, [GlobalConsensus(Rococo)]).encode(),
+				Location::new(2, [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))]).encode(),
 			)],
 		));
 	});
