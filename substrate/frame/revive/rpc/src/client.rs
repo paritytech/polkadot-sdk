@@ -145,9 +145,6 @@ pub enum ClientError {
 	/// The transaction fee could not be found
 	#[error("TransactionFeePaid event not found")]
 	TxFeeNotFound,
-	/// The token decimals property was not found
-	#[error("tokenDecimals not found in properties")]
-	TokenDecimalsNotFound,
 	/// The cache is empty.
 	#[error("Cache is empty")]
 	CacheEmpty,
@@ -228,7 +225,7 @@ impl ClientInner {
 		let rpc = LegacyRpcMethods::<SrcChainConfig>::new(RpcClient::new(rpc_client.clone()));
 
 		let (native_to_evm_ratio, chain_id, max_block_weight) =
-			tokio::try_join!(native_to_evm_ratio(&rpc), chain_id(&api), max_block_weight(&api))?;
+			tokio::try_join!(native_to_evm_ratio(&api), chain_id(&api), max_block_weight(&api))?;
 
 		Ok(Self { api, rpc_client, rpc, cache, chain_id, max_block_weight, native_to_evm_ratio })
 	}
@@ -274,7 +271,7 @@ impl ClientInner {
 					.checked_div(gas_price.as_u128())
 					.unwrap_or_default();
 
-				let success = events.find_first::<ExtrinsicSuccess>().is_ok();
+				let success = events.has::<ExtrinsicSuccess>()?;
 				let transaction_index = ext.index();
 				let transaction_hash = BlakeTwo256::hash(&Vec::from(ext.bytes()).encode());
 				let block_hash = block.hash();
@@ -319,16 +316,10 @@ async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, 
 }
 
 /// Fetch the native to EVM ratio from the substrate chain.
-async fn native_to_evm_ratio(rpc: &LegacyRpcMethods<SrcChainConfig>) -> Result<U256, ClientError> {
-	let props = rpc.system_properties().await?;
-	let eth_decimals = U256::from(18u32);
-	let native_decimals: U256 = props
-		.get("tokenDecimals")
-		.and_then(|v| v.as_number()?.as_u64())
-		.ok_or(ClientError::TokenDecimalsNotFound)?
-		.into();
-
-	Ok(U256::from(10u32).pow(eth_decimals - native_decimals))
+async fn native_to_evm_ratio(api: &OnlineClient<SrcChainConfig>) -> Result<U256, ClientError> {
+	let query = subxt_client::constants().revive().native_to_eth_ratio();
+	let ratio = api.constants().at(&query)?;
+	Ok(U256::from(ratio))
 }
 
 /// Extract the block timestamp.

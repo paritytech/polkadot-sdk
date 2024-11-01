@@ -303,6 +303,10 @@ pub mod pallet {
 		/// preventing replay attacks.
 		#[pallet::constant]
 		type ChainId: Get<u64>;
+
+		/// The ratio between the decimal representation of the native token and the ETH token.
+		#[pallet::constant]
+		type NativeToEthRatio: Get<u32>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -374,7 +378,8 @@ pub mod pallet {
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-			type ChainId = ConstU64<{ 0 }>;
+			type ChainId = ConstU64<0>;
+			type NativeToEthRatio = ConstU32<1_000_000>;
 		}
 	}
 

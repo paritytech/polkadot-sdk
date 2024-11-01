@@ -1268,8 +1268,11 @@ where
 	fn transfer(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) -> ExecResult {
 		// this avoids events to be emitted for zero balance transfers
 		if !value.is_zero() {
-			T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map_err(|_| Error::<T>::TransferFailed)?;
+			log::debug!(target: LOG_TARGET, "Transfer of {value:?} from {from:?} to {to:?}");
+			T::Currency::transfer(from, to, value, Preservation::Preserve).map_err(|err| {
+				log::debug!(target: LOG_TARGET, "Transfer failed: {err:?}");
+				Error::<T>::TransferFailed
+			})?;
 		}
 		Ok(Default::default())
 	}
