@@ -48,6 +48,8 @@ pub struct MetadataIR<T: Form = MetaForm> {
 pub struct RuntimeApiMetadataIR<T: Form = MetaForm> {
 	/// Trait name.
 	pub name: T::String,
+	/// The base api_version declared on the trait.
+	pub base_version: u64,
 	/// Trait methods.
 	pub methods: Vec<RuntimeApiMethodMetadataIR<T>>,
 	/// Trait documentation.
@@ -65,6 +67,7 @@ impl <T: Form> RuntimeApiMetadataIR<T> {
 	{
 		Self {
 			name: self.name,
+			base_version: self.base_version,
 			methods: self.methods.into_iter().filter(f).collect(),
 			docs: self.docs,
 			deprecation_info: self.deprecation_info
@@ -78,6 +81,7 @@ impl IntoPortable for RuntimeApiMetadataIR {
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		RuntimeApiMetadataIR {
 			name: self.name.into_portable(registry),
+			base_version: self.base_version,
 			methods: registry.map_into_portable(self.methods),
 			docs: registry.map_into_portable(self.docs),
 			deprecation_info: self.deprecation_info.into_portable(registry),

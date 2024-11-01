@@ -252,10 +252,10 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 			_ => (),
 		});
 
-		let method_versions: BTreeMap<&syn::Ident, u64> = methods_by_version.iter().flat_map(|(&version, methods)| {
-			methods.iter().map(move |method| (&method.sig.ident, version))
+		let versioned_methods: Vec<(&syn::TraitItemFn, u64)> = methods_by_version.iter().flat_map(|(&version, methods)| {
+			methods.iter().map(move |method| (method, version))
 		}).collect();
-		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl, &method_versions);
+		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl, trait_api_version, &versioned_methods);
 
 		let versioned_api_traits = generate_versioned_api_traits(decl.clone(), methods_by_version);
 
