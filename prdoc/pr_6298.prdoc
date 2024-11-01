@@ -15,8 +15,10 @@ doc:
        - A maximum number of 32 addresses are published to DHT records (previously unbounded).
        - A maximum of 4 global listen addresses are utilized.
       
-      This PR also removes the following warning:
+      This PR replaces the following warning:
       `WARNING: No public address specified, validator node may not be reachable.`
+      with a more descriptive one originated from the authority-discovery
+      mechanism itself: `No public addresses configured and no global listen addresses found`.
 
 crates:
   - name: sc-cli
