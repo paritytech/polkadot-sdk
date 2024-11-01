@@ -1,11 +1,4 @@
-# Nodes might alternate in block production for a while, based on
-# the manual-seal timer, if rightly set to allow enough time for
-# nodes to produce and propose nodes, and then wait for peers to do
-# the same. The same nodes follow with importing the proposed blocks,
-# increasing the fork height with blocks not produced by them. If nodes
-# overlap for the block production at a certain height, they'll stop
-# being peers and will follow with block production for their own
-# initiated forks. The setup bellow allows only one node to produce
+# The setup bellow allows only one node to produce
 # blocks and the rest will follow.
 
 [relaychain]
