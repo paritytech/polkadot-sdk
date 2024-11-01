@@ -81,36 +81,35 @@ impl<T: Config> Pallet<T> {
 			let balance = T::NativeBalance::balance(&pot);
 			let minimum_balance = T::NativeBalance::minimum_balance();
 
-			projects = projects
-				.iter()
-				.filter(|project| {
-					// check if the pot has enough fund for the Spend
-					// Check that the Pot as enough funds for the transfer
-					let remaining_balance = balance.saturating_sub(project.amount);
-
-					// we check that holding the necessary amount cannot fail
-					if remaining_balance > minimum_balance && balance > project.amount {
-						// Create a new Spend
-						let new_spend = SpendInfo::<T>::new(&project);
-						let _ = T::NativeBalance::hold(
-							&HoldReason::FundsReserved.into(),
-							&pot,
-							project.amount,
-						)
-						.expect("Funds Reserve Failed");
-
-						// Emmit an event
-						let now = T::BlockNumberProvider::current_block_number();
-						Self::deposit_event(Event::SpendCreated {
-							when: now,
-							amount: new_spend.amount,
-							project_id: project.project_id.clone(),
-						});
-					}
-					return false;
-				})
-				.map(|x| x.clone())
-				.collect();
+			projects.retain(|project| {
+				// check if the pot has enough fund for the Spend
+				// Check that the Pot as enough funds for the transfer
+				let remaining_balance = balance.saturating_sub(project.amount);
+			
+				// we check that holding the necessary amount cannot fail
+				if remaining_balance > minimum_balance && balance > project.amount {
+					// Create a new Spend
+					let new_spend = SpendInfo::<T>::new(&project);
+					let _ = T::NativeBalance::hold(
+						&HoldReason::FundsReserved.into(),
+						&pot,
+						project.amount,
+			)
+					.expect("Funds Reserve Failed");
+			
+					// Emmit an event
+					let now = T::BlockNumberProvider::current_block_number();
+					Self::deposit_event(Event::SpendCreated {
+						when: now,
+						amount: new_spend.amount,
+						project_id: project.project_id.clone(),
+			});
+			
+					true
+				} else {
+					false
+				}
+			});
 		}
 
 		// Update project storage
