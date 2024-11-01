@@ -23,6 +23,7 @@
 extern crate alloc;
 mod address;
 mod benchmarking;
+mod benchmarking_dummy;
 mod exec;
 mod gas;
 mod limits;

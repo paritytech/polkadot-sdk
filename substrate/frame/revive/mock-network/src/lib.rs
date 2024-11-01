@@ -19,7 +19,7 @@ pub mod parachain;
 pub mod primitives;
 pub mod relay_chain;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "riscv"))]
 mod tests;
 
 use crate::primitives::{AccountId, UNITS};

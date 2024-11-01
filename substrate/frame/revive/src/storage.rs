@@ -505,6 +505,7 @@ impl<T: Config> DeletionQueueManager<T> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "riscv")]
 impl<T: Config> DeletionQueueManager<T> {
 	pub fn from_test_values(insert_counter: u32, delete_counter: u32) -> Self {
 		Self { insert_counter, delete_counter, _phantom: Default::default() }

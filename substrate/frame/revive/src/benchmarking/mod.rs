@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarks for the revive pallet
+//! Benchmarks for the contracts pallet
 
-#![cfg(feature = "runtime-benchmarks")]
+#![cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
 
 mod call_builder;
 mod code;

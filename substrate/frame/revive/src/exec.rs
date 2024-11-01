@@ -819,7 +819,7 @@ where
 			.map(|_| (address, stack.first_frame.last_frame_output))
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
 	pub fn bench_new_call(
 		dest: H160,
 		origin: Origin<T>,
@@ -1330,12 +1330,12 @@ where
 
 	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
 	/// on the configured entry point. Thus, we allow setting the export manually.
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
 	pub(crate) fn override_export(&mut self, export: ExportedFunction) {
 		self.top_frame_mut().entry_point = export;
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
 	pub(crate) fn set_block_number(&mut self, block_number: BlockNumberFor<T>) {
 		self.block_number = block_number;
 	}
