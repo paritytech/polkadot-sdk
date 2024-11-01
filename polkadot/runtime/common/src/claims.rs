@@ -1451,7 +1451,7 @@ mod tests {
 mod benchmarking {
 	use super::*;
 	use crate::claims::Call;
-	use frame_benchmarking::{account, benchmarks};
+	use frame_benchmarking::v2::*;
 	use frame_support::{
 		dispatch::{DispatchInfo, GetDispatchInfo},
 		traits::UnfilteredDispatchable,
@@ -1459,7 +1459,7 @@ mod benchmarking {
 	use frame_system::RawOrigin;
 	use secp_utils::*;
 	use sp_runtime::{
-		traits::{DispatchTransaction, ValidateUnsigned},
+		traits::{ValidateUnsigned, DispatchTransaction},
 		DispatchResult,
 	};
 
@@ -1496,22 +1496,23 @@ mod benchmarking {
 		Ok(())
 	}
 
-	benchmarks! {
-		where_clause { where <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>> + From<Call<T>>,
+	#[benchmarks(
+		where 
+			<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>> + From<Call<T>>,
 			<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + AsTransactionAuthorizedOrigin + Clone,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: Default,
-		}
+	)]
+	mod benchmarks {
+		use super::*;
 
-		// Benchmark `claim` including `validate_unsigned` logic.
-		claim {
+		#[benchmark]
+		fn claim() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
-
-			for i in 0 .. c / 2 {
+			for _ in 0 .. c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
-
 			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&c.encode())).unwrap();
 			let eth_address = eth(&secret_key);
 			let account: T::AccountId = account("user", c, SEED);
@@ -1524,42 +1525,46 @@ mod benchmarking {
 				dest: account.clone(),
 				ethereum_signature: signature.clone()
 			}.encode();
-		}: {
-			let call = <Call<T> as Decode>::decode(&mut &*call_enc)
-				.expect("call is encoded above, encoding must be correct");
-			super::Pallet::<T>::validate_unsigned(source, &call).map_err(|e| -> &'static str { e.into() })?;
-			call.dispatch_bypass_filter(RawOrigin::None.into())?;
-		}
-		verify {
+
+			#[block]
+			{
+				let call = <Call<T> as Decode>::decode(&mut &*call_enc)
+					.expect("call is encoded above, encoding must be correct");
+				super::Pallet::<T>::validate_unsigned(source, &call).map_err(|e| -> &'static str { e.into() })?;
+				call.dispatch_bypass_filter(RawOrigin::None.into())?;
+			}
+
 			assert_eq!(Claims::<T>::get(eth_address), None);
+			Ok(())
 		}
 
 		// Benchmark `mint_claim` when there already exists `c` claims in storage.
-		mint_claim {
+		#[benchmark]
+		fn mint_claim() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
-
-			for i in 0 .. c / 2 {
+			for _ in 0 .. c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
-
 			let eth_address = account("eth_address", 0, SEED);
 			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 			let statement = StatementKind::Regular;
-		}: _(RawOrigin::Root, eth_address, VALUE.into(), vesting, Some(statement))
-		verify {
+
+			#[extrinsic_call]
+			_(RawOrigin::Root, eth_address, VALUE.into(), vesting, Some(statement));
+			
 			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+			Ok(())
 		}
 
 		// Benchmark `claim_attest` including `validate_unsigned` logic.
-		claim_attest {
+		#[benchmark]
+		fn claim_attest() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
-
-			for i in 0 .. c / 2 {
+			for _ in 0 .. c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
-
 			// Crate signature
 			let attest_c = u32::MAX - c;
 			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
@@ -1576,21 +1581,25 @@ mod benchmarking {
 				statement: StatementKind::Regular.to_text().to_vec()
 			}.encode();
 			let source = sp_runtime::transaction_validity::TransactionSource::External;
-		}: {
-			let call = <Call<T> as Decode>::decode(&mut &*call_enc)
-				.expect("call is encoded above, encoding must be correct");
-			super::Pallet::<T>::validate_unsigned(source, &call).map_err(|e| -> &'static str { e.into() })?;
-			call.dispatch_bypass_filter(RawOrigin::None.into())?;
-		}
-		verify {
+
+			#[block]
+			{
+				let call = <Call<T> as Decode>::decode(&mut &*call_enc)
+					.expect("call is encoded above, encoding must be correct");
+				super::Pallet::<T>::validate_unsigned(source, &call).map_err(|e| -> &'static str { e.into() })?;
+				call.dispatch_bypass_filter(RawOrigin::None.into())?;
+			}
+
 			assert_eq!(Claims::<T>::get(eth_address), None);
+			Ok(())
 		}
 
 		// Benchmark `attest` including prevalidate logic.
-		attest {
+		#[benchmark]
+		fn attest() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
 
-			for i in 0 .. c / 2 {
+			for _ in 0 .. c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
@@ -1601,22 +1610,24 @@ mod benchmarking {
 			let account: T::AccountId = account("user", c, SEED);
 			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 			let statement = StatementKind::Regular;
-			let signature = sig::<T>(&secret_key, &account.encode(), statement.to_text());
 			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, Some(statement))?;
 			Preclaims::<T>::insert(&account, eth_address);
 			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
 
 			let stmt = StatementKind::Regular.to_text().to_vec();
-		}:
-		_(RawOrigin::Signed(account), stmt)
-		verify {
+
+			#[extrinsic_call]
+			_(RawOrigin::Signed(account), stmt);
+
 			assert_eq!(Claims::<T>::get(eth_address), None);
+			Ok(())
 		}
 
-		move_claim {
+		#[benchmark]
+		fn move_claim() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
 
-			for i in 0 .. c / 2 {
+			for _ in 0 .. c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
@@ -1633,47 +1644,53 @@ mod benchmarking {
 
 			assert!(Claims::<T>::contains_key(eth_address));
 			assert!(!Claims::<T>::contains_key(new_eth_address));
-		}: _(RawOrigin::Root, eth_address, new_eth_address, Some(account))
-		verify {
+
+			#[extrinsic_call]
+			_(RawOrigin::Root, eth_address, new_eth_address, Some(account));
+
 			assert!(!Claims::<T>::contains_key(eth_address));
 			assert!(Claims::<T>::contains_key(new_eth_address));
+			Ok(())
 		}
 
 		// Benchmark the time it takes to do `repeat` number of keccak256 hashes
-		#[extra]
-		keccak256 {
-			let i in 0 .. 10_000;
+		#[benchmark(extra)]
+		fn keccak256(i: Linear<0, 10_000>) {
 			let bytes = (i).encode();
-		}: {
-			for index in 0 .. i {
-				let _hash = keccak_256(&bytes);
+
+			#[block]
+			{
+				for _ in 0 .. i {
+					let _hash = keccak_256(&bytes);
+				}
 			}
 		}
 
 		// Benchmark the time it takes to do `repeat` number of `eth_recover`
-		#[extra]
-		eth_recover {
-			let i in 0 .. 1_000;
+		#[benchmark(extra)]
+		fn eth_recover(i: Linear<0, 1_000>) {
 			// Crate signature
 			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&i.encode())).unwrap();
 			let account: T::AccountId = account("user", i, SEED);
 			let signature = sig::<T>(&secret_key, &account.encode(), &[][..]);
 			let data = account.using_encoded(to_ascii_hex);
 			let extra = StatementKind::default().to_text();
-		}: {
-			for _ in 0 .. i {
-				assert!(super::Pallet::<T>::eth_recover(&signature, &data, extra).is_some());
+		
+			#[block]
+			{
+				for _ in 0 .. i {
+					assert!(super::Pallet::<T>::eth_recover(&signature, &data, extra).is_some());
+				}
 			}
 		}
 
-		prevalidate_attests {
+		#[benchmark]
+		fn prevalidate_attests() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
-
-			for i in 0 .. c / 2 {
+			for _ in 0 .. c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
-
 			let ext = PrevalidateAttests::<T>::new();
 			let call = super::Call::attest {
 				statement: StatementKind::Regular.to_text().to_vec(),
@@ -1686,20 +1703,24 @@ mod benchmarking {
 			let account: T::AccountId = account("user", c, SEED);
 			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
 			let statement = StatementKind::Regular;
-			let signature = sig::<T>(&secret_key, &account.encode(), statement.to_text());
 			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, Some(statement))?;
 			Preclaims::<T>::insert(&account, eth_address);
 			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
-		}: {
-			assert!(ext.test_run(
-				RawOrigin::Signed(account).into(),
-				&call,
-				&info,
-				0,
-				|_| {
-					Ok(Default::default())
-				}
-			).unwrap().is_ok());
+		
+			#[block]
+			{
+				assert!(ext.test_run(
+					RawOrigin::Signed(account).into(),
+					&call,
+					&info,
+					0,
+					|_| {
+						Ok(Default::default())
+					}
+				).unwrap().is_ok());
+			}
+
+			Ok(())
 		}
 
 		impl_benchmark_test_suite!(
