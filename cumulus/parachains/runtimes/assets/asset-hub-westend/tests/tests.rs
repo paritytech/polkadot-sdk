@@ -52,7 +52,10 @@ use sp_core::crypto::Ss58Codec;
 use sp_runtime::traits::MaybeEquivalence;
 use std::{convert::Into, ops::Mul};
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
-use xcm::latest::prelude::{Assets as XcmAssets, *};
+use xcm::latest::{
+	prelude::{Assets as XcmAssets, *},
+	ROCOCO_GENESIS_HASH,
+};
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -1123,8 +1126,10 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 	let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location =
-		xcm::v5::Location::new(2, [xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::Rococo)]);
+	let foreign_asset_id_location = xcm::v5::Location::new(
+		2,
+		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
+	);
 	let foreign_asset_id_minimum_balance = 1_000_000_000;
 	// sovereign account as foreign asset owner (can be whoever for this scenario)
 	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
@@ -1154,7 +1159,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 			},
 			(
 				[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
-				GlobalConsensus(Rococo),
+				GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 				[Parachain(1000)].into()
 			),
 			|| {
@@ -1192,8 +1197,10 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 	let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location =
-		xcm::v5::Location::new(2, [xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::Rococo)]);
+	let foreign_asset_id_location = xcm::v5::Location::new(
+		2,
+		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
+	);
 	let foreign_asset_id_minimum_balance = 1_000_000_000;
 	// sovereign account as foreign asset owner (can be whoever for this scenario)
 	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
@@ -1216,7 +1223,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 		bridging_to_asset_hub_rococo,
 		(
 			[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
-			GlobalConsensus(Rococo),
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 			[Parachain(1000)].into()
 		),
 		|| {

@@ -27,7 +27,7 @@ mod imports {
 
 	// Polkadot
 	pub use xcm::{
-		latest::AssetTransferFilter,
+		latest::{AssetTransferFilter, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
 	};
 	pub use xcm_executor::traits::TransferType;

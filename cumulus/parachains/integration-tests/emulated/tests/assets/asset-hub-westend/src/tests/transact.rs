@@ -41,10 +41,9 @@ fn transfer_and_transact_in_same_xcm(
 	let fees_for_ah: Asset = (usdt.id.clone(), ah_fees_amount).into();
 	let usdt_to_ah_then_onward: Asset = (usdt.id.clone(), usdt_to_ah_then_onward_amount).into();
 
-	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
 	// xcm to be executed at dest
 	let xcm_on_dest = Xcm(vec![
-		Transact { require_weight_at_most, origin_kind: OriginKind::Xcm, call },
+		Transact { origin_kind: OriginKind::Xcm, call },
 		ExpectTransactStatus(MaybeErrorCode::Success),
 		// since this is the last hop, we don't need to further use any assets previously
 		// reserved for fees (there are no further hops to cover transport fees for); we

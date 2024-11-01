@@ -43,14 +43,14 @@ use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSyst
 use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::rococo::currency::UNITS as ROC;
 use xcm::{
-	latest::prelude::*,
+	latest::{prelude::*, WESTEND_GENESIS_HASH},
 	prelude::{InteriorLocation, NetworkId},
 };
 use xcm_builder::{BridgeBlobDispatcher, ParentIsPreset, SiblingParachainConvertsVia};
 
 parameter_types! {
 	pub BridgeRococoToWestendMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8)].into();
-	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
+	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 	pub WestendGlobalConsensusNetworkLocation: Location = Location::new(
 		2,
 		[GlobalConsensus(WestendGlobalConsensusNetwork::get())]

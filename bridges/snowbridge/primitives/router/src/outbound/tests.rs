@@ -6,6 +6,7 @@ use snowbridge_core::{
 };
 use sp_std::default::Default;
 use xcm::prelude::SendError as XcmSendError;
+use xcm::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 
 use super::*;
 
@@ -61,7 +62,7 @@ impl SendMessageFeeProvider for MockErrOutboundQueue {
 pub struct MockTokenIdConvert;
 impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
 	fn convert(_id: &TokenId) -> Option<Location> {
-		Some(Location::new(1, [GlobalConsensus(Westend)]))
+		Some(Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]))
 	}
 	fn convert_back(_loc: &Location) -> Option<TokenId> {
 		None
@@ -1109,7 +1110,7 @@ fn xcm_converter_transfer_native_token_success() {
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
 	let amount = 1000000;
-	let asset_location = Location::new(1, [GlobalConsensus(Westend)]);
+	let asset_location = Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 	let token_id = TokenIdOf::convert_location(&asset_location).unwrap();
 
 	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
@@ -1142,7 +1143,7 @@ fn xcm_converter_transfer_native_token_with_invalid_location_will_fail() {
 
 	let amount = 1000000;
 	// Invalid asset location from a different consensus
-	let asset_location = Location { parents: 2, interior: [GlobalConsensus(Rococo)].into() };
+	let asset_location = Location { parents: 2, interior: [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))].into() };
 
 	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
 	let filter: AssetFilter = assets.clone().into();
@@ -1221,7 +1222,7 @@ fn exporter_validate_with_invalid_universal_source_does_not_alter_universal_sour
 	let network = BridgedNetwork::get();
 	let destination: InteriorLocation = Here.into();
 
-	let universal_source: InteriorLocation = [GlobalConsensus(Westend), Parachain(1000)].into();
+	let universal_source: InteriorLocation = [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)].into();
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");

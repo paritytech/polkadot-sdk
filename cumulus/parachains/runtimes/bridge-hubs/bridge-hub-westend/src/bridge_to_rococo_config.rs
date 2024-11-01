@@ -44,7 +44,7 @@ use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSyst
 use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::westend::currency::UNITS as WND;
 use xcm::{
-	latest::prelude::*,
+	latest::{prelude::*, ROCOCO_GENESIS_HASH},
 	prelude::{InteriorLocation, NetworkId},
 };
 use xcm_builder::{BridgeBlobDispatcher, ParentIsPreset, SiblingParachainConvertsVia};
@@ -57,7 +57,7 @@ parameter_types! {
 	pub const MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 
 	pub BridgeWestendToRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8)].into();
-	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
+	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub RococoGlobalConsensusNetworkLocation: Location = Location::new(
 		2,
 		[GlobalConsensus(RococoGlobalConsensusNetwork::get())]
