@@ -20,7 +20,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use frame_benchmarking::{v2::*, BenchmarkError};
+use frame_support::ensure;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use pallet_bounties::Pallet as Bounties;
+use pallet_treasury as Treasury;
 
 use crate::*;
 
@@ -99,7 +102,7 @@ fn activate_bounty<T: Config>(
 ) -> Result<BenchmarkChildBounty<T>, BenchmarkError> {
 	let mut child_bounty_setup = setup_child_bounty::<T>(user, description);
 	let curator_lookup = T::Lookup::unlookup(child_bounty_setup.curator.clone());
-	pallet_bounties::Pallet::<T>::propose_bounty(
+	Bounties::<T>::propose_bounty(
 		RawOrigin::Signed(child_bounty_setup.caller.clone()).into(),
 		child_bounty_setup.value,
 		child_bounty_setup.reason.clone(),
@@ -109,15 +112,15 @@ fn activate_bounty<T: Config>(
 
 	let approve_origin =
 		T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-	pallet_bounties::Pallet::<T>::approve_bounty(approve_origin, child_bounty_setup.bounty_id)?;
-	pallet_treasury::Pallet::<T>::on_initialize(BlockNumberFor::<T>::zero());
-	pallet_bounties::Pallet::<T>::propose_curator(
+	Bounties::<T>::approve_bounty(approve_origin, child_bounty_setup.bounty_id)?;
+	Treasury::<T>::on_initialize(BlockNumberFor::<T>::zero());
+	Bounties::<T>::propose_curator(
 		RawOrigin::Root.into(),
 		child_bounty_setup.bounty_id,
 		curator_lookup,
 		child_bounty_setup.fee,
 	)?;
-	pallet_bounties::Pallet::<T>::accept_curator(
+	Bounties::<T>::accept_curator(
 		RawOrigin::Signed(child_bounty_setup.curator.clone()).into(),
 		child_bounty_setup.bounty_id,
 	)?;
@@ -159,7 +162,7 @@ fn activate_child_bounty<T: Config>(
 }
 
 fn setup_pot_account<T: Config>() {
-	let pot_account = pallet_bounties::Pallet::<T>::account_id();
+	let pot_account = Bounties::<T>::account_id();
 	let value = T::Currency::minimum_balance().saturating_mul(1_000_000_000u32.into());
 	let _ = T::Currency::make_free_balance_be(&pot_account, value);
 }
@@ -261,7 +264,7 @@ mod benchmarks {
 	fn unassign_curator() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
-		pallet_treasury::Pallet::<T>::on_initialize(BlockNumberFor::<T>::zero());
+		Treasury::<T>::on_initialize(BlockNumberFor::<T>::zero());
 		frame_system::Pallet::<T>::set_block_number(T::BountyUpdatePeriod::get() + 1u32.into());
 		let caller = whitelisted_caller();
 
@@ -315,7 +318,7 @@ mod benchmarks {
 		let beneficiary_account = account("beneficiary", 0, SEED);
 
 		frame_system::Pallet::<T>::set_block_number(T::BountyDepositPayoutDelay::get());
-		assert!(
+		ensure!(
 			T::Currency::free_balance(&beneficiary_account).is_zero(),
 			"Beneficiary already has balance."
 		);
@@ -327,7 +330,7 @@ mod benchmarks {
 			bounty_setup.child_bounty_id,
 		);
 
-		assert!(
+		ensure!(
 			!T::Currency::free_balance(&beneficiary_account).is_zero(),
 			"Beneficiary didn't get paid."
 		);
@@ -368,7 +371,7 @@ mod benchmarks {
 	fn close_child_bounty_active() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
-		pallet_treasury::Pallet::<T>::on_initialize(BlockNumberFor::<T>::zero());
+		Treasury::<T>::on_initialize(BlockNumberFor::<T>::zero());
 
 		#[extrinsic_call]
 		close_child_bounty(RawOrigin::Root, bounty_setup.bounty_id, bounty_setup.child_bounty_id);
