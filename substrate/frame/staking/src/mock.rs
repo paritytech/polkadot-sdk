@@ -209,6 +209,7 @@ parameter_types! {
 	pub static MaxValidatorSet: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
+	pub static MaxWinnersPerPage: u32 = u32::MAX;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -229,7 +230,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type WeightInfo = ();
 	type Bounds = ElectionsBounds;
 	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
-	type MaxWinnersPerPage = ConstU32<{ u32::MAX }>;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
 }
 
 pub struct MockReward {}
@@ -429,6 +430,10 @@ impl ExtBuilder {
 	}
 	pub fn balance_factor(mut self, factor: Balance) -> Self {
 		self.balance_factor = factor;
+		self
+	}
+	pub fn max_validator_set(self, max: u32) -> Self {
+		MaxValidatorSet::set(max);
 		self
 	}
 	pub fn try_state(self, enable: bool) -> Self {
@@ -941,8 +946,8 @@ pub(crate) fn to_bounded_supports(
 	supports: Vec<(AccountId, Support<AccountId>)>,
 ) -> BoundedSupports<
 	AccountId,
-	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
 	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
+	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
 > {
 	supports.try_into_bounded_supports().unwrap()
 }

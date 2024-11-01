@@ -8375,6 +8375,36 @@ pub mod multi_page_staking {
 	use frame_election_provider_support::ElectionDataProvider;
 
 	#[test]
+	fn add_electable_stashes_work() {
+		ExtBuilder::default().max_validator_set(5).build_and_execute(|| {
+			assert_eq!(MaxValidatorSet::get(), 5);
+			assert!(ElectableStashes::<Test>::get().is_empty());
+
+			// adds stashes without duplicates, do not overflow bounds.
+			assert_ok!(Staking::add_electables(bounded_vec![1, 2, 3]));
+			assert_eq!(
+				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				vec![1, 2, 3]
+			);
+
+			// adds with duplicates which are deduplicated implicitly, no not overflow bounds.
+			assert_ok!(Staking::add_electables(bounded_vec![1, 2, 4]));
+			assert_eq!(
+				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				vec![1, 2, 3, 4]
+			);
+
+			// adds stashes so that bounds are overflown, fails and internal state changes so that
+			// all slots are filled.
+			assert!(Staking::add_electables(bounded_vec![6, 7, 8, 9, 10]).is_err());
+			assert_eq!(
+				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				vec![1, 2, 3, 4, 6]
+			);
+		})
+	}
+
+	#[test]
 	fn multi_page_target_snapshot_works() {
 		ExtBuilder::default().nominate(true).build_and_execute(|| {
 			let bounds = ElectionBoundsBuilder::default().targets_count(2.into()).build().targets;

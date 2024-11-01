@@ -27,7 +27,7 @@ use frame_support::{
 		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
-	BoundedVec,
+	BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
@@ -769,7 +769,7 @@ pub mod pallet {
 	/// A bounded list of the "electable" stashes that resulted from a successful election.
 	#[pallet::storage]
 	pub(crate) type ElectableStashes<T: Config> =
-		StorageValue<_, BoundedVec<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
+		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 
 	/// Lock state for election data mutations.
 	///
@@ -1061,7 +1061,7 @@ pub mod pallet {
 				}
 			};
 
-			// TODO: benchmarls of fetching/ not fetching election page on_initialize.
+			// TODO: benchmark on_initialize
 
 			// return the weight of the on_finalize.
 			T::DbWeight::get().reads(1)
@@ -1095,14 +1095,6 @@ pub mod pallet {
 				"As per documentation, slash defer duration ({}) should be less than bonding duration ({}).",
 				T::SlashDeferDuration::get(),
 				T::BondingDuration::get(),
-			);
-
-			// TODO: needed and true? test it!
-			// The max exposure page size should not be larger than the max winners per page
-			// returned by the election provider.
-			assert!(
-				<T as Config>::MaxExposurePageSize::get() <=
-					<<T as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get()
 			);
 		}
 

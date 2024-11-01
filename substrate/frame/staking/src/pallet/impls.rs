@@ -666,6 +666,11 @@ impl<T: Config> Pallet<T> {
 			// note: exposures have already been processed and stored for each of the election
 			// solution page at the time of `elect_paged(page_index)`.
 			ElectableStashes::<T>::take()
+				.into_inner()
+				.into_iter()
+				.collect::<Vec<_>>()
+				.try_into()
+				.expect("same bounds, will fit; qed.")
 		};
 
 		log!(info, "electable validators for session {:?}: {:?}", start_session_index, validators);
@@ -728,10 +733,12 @@ impl<T: Config> Pallet<T> {
 			planning_era,
 		);
 
-		ElectableStashes::<T>::mutate(|v| {
-			// TODO: dedup duplicate validator IDs, isntead of try_extend.
-			let _ = (*v).try_extend(stashes.into_iter()).defensive();
-		});
+		match Self::add_electables(stashes) {
+			Ok(_) => (),
+			Err(_) => {
+				defensive!("electable stashes exceeded limit, unexpected.");
+			},
+		}
 	}
 
 	/// Process the output of a paged election.
@@ -821,6 +828,26 @@ impl<T: Config> Pallet<T> {
 			})
 			.try_collect()
 			.expect("we only map through support vector which cannot change the size; qed")
+	}
+
+	/// Adds a new set of stashes to the electable stashes.
+	///
+	/// Deduplicates stashes in place and returns an error if the bounds are exceeded.
+	pub(crate) fn add_electables(
+		stashes: BoundedVec<T::AccountId, MaxWinnersPerPageOf<T::ElectionProvider>>,
+	) -> Result<(), ()> {
+		let mut storage_stashes = ElectableStashes::<T>::get();
+        for stash in stashes.into_iter() {
+            storage_stashes.try_insert(stash).map_err(|_| {
+                // add as many stashes as possible.
+                ElectableStashes::<T>::set(storage_stashes.clone());
+                ()
+            })?;
+        }
+
+        ElectableStashes::<T>::set(storage_stashes);
+
+		Ok(())
 	}
 
 	/// Remove all associated data of a stash account from the staking system.
