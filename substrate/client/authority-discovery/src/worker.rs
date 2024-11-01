@@ -37,7 +37,7 @@ use ip_network::IpNetwork;
 use libp2p::kad::{PeerRecord, Record};
 use linked_hash_set::LinkedHashSet;
 
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
@@ -180,6 +180,8 @@ pub struct Worker<Client, Block: BlockT, DhtEventStream> {
 
 	metrics: Option<Metrics>,
 
+	warn_public_addresses: bool,
+
 	role: Role,
 
 	phantom: PhantomData<Block>,
@@ -302,6 +304,7 @@ where
 			addr_cache,
 			role,
 			metrics,
+			warn_public_addresses: false,
 			phantom: PhantomData,
 			last_known_records: HashMap::new(),
 		}
@@ -366,7 +369,7 @@ where
 		}
 	}
 
-	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
+	fn addresses_to_publish(&mut self) -> impl Iterator<Item = Multiaddr> {
 		let local_peer_id = self.network.local_peer_id();
 		let publish_non_global_ips = self.publish_non_global_ips;
 
@@ -388,7 +391,7 @@ where
 		// is not running behind a NAT.
 		// Note: we do this regardless of the `publish_non_global_ips` setting, since the
 		// node discovers many external addresses via the identify protocol.
-		let global_listen_addresses = self
+		let mut global_listen_addresses = self
 			.network
 			.listen_addresses()
 			.into_iter()
@@ -399,11 +402,15 @@ where
 					None
 				}
 			})
-			.take(MAX_GLOBAL_LISTEN_ADDRESSES);
+			.take(MAX_GLOBAL_LISTEN_ADDRESSES)
+			.peekable();
 
 		// Similar to listen addresses that takes into consideration `publish_non_global_ips`.
-		let external_addresses =
-			self.network.external_addresses().into_iter().filter_map(|address| {
+		let mut external_addresses = self
+			.network
+			.external_addresses()
+			.into_iter()
+			.filter_map(|address| {
 				let address = address_without_p2p(address, local_peer_id);
 				if publish_non_global_ips {
 					Some(address)
@@ -412,7 +419,17 @@ where
 				} else {
 					None
 				}
-			});
+			})
+			.peekable();
+
+		let has_global_listen_addresses = global_listen_addresses.peek().is_some();
+		trace!(
+			target: LOG_TARGET,
+			"Node has public addresses: {}, global listen addresses: {}, external addresses: {}",
+			!self.public_addresses.is_empty(),
+			has_global_listen_addresses,
+			external_addresses.peek().is_some(),
+		);
 
 		let mut seen_addresses = HashSet::new();
 
@@ -432,6 +449,21 @@ where
 				target: LOG_TARGET,
 				"Publishing authority DHT record peer_id='{local_peer_id}' with addresses='{addresses:?}'",
 			);
+
+			if !self.warn_public_addresses &&
+				self.public_addresses.is_empty() &&
+				!has_global_listen_addresses
+			{
+				self.warn_public_addresses = true;
+
+				warn!(
+					target: LOG_TARGET,
+					"No public addresses configured and no global listen addresses found. \
+					Authority DHT record may contain unreachable addresses. \
+					Consider setting `--public-addr` to the public IP address of this node. \
+					This will become a hard requirement in future versions for validators."
+				);
+			}
 		}
 
 		// The address must include the local peer id.
@@ -448,7 +480,8 @@ where
 		let key_store = match &self.role {
 			Role::PublishAndDiscover(key_store) => key_store,
 			Role::Discover => return Ok(()),
-		};
+		}
+		.clone();
 
 		let addresses = serialize_addresses(self.addresses_to_publish());
 		if addresses.is_empty() {
