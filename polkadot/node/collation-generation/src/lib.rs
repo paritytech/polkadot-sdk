@@ -189,7 +189,6 @@ impl CollationGenerationSubsystem {
 			core_index,
 		} = params;
 
-		// We need to swap the parent-head data, but all other fields here will be correct.
 		let mut validation_data = match request_persisted_validation_data(
 			relay_parent,
 			config.para_id,
@@ -211,6 +210,7 @@ impl CollationGenerationSubsystem {
 			},
 		};
 
+		// We need to swap the parent-head data, but all other fields here will be correct.
 		validation_data.parent_head = parent_head;
 
 		let claim_queue = request_claim_queue(relay_parent, ctx.sender()).await.await??;
@@ -553,6 +553,15 @@ async fn construct_and_distribute_receipt(
 
 		ccr.to_plain()
 	} else {
+		if commitments.selected_core().is_some() {
+			gum::warn!(
+				target: LOG_TARGET,
+				?pov_hash,
+				?relay_parent,
+				para_id = %para_id,
+				"Candidate commitments contain UMP signal without v2 receipts being enabled.",
+			);
+		}
 		CandidateReceipt {
 			commitments_hash: commitments.hash(),
 			descriptor: CandidateDescriptor {
@@ -576,6 +585,7 @@ async fn construct_and_distribute_receipt(
 		?pov_hash,
 		?relay_parent,
 		para_id = %para_id,
+		?core_index,
 		"candidate is generated",
 	);
 	metrics.on_collation_generated();
