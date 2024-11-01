@@ -58,19 +58,19 @@ pub struct RuntimeApiMetadataIR<T: Form = MetaForm> {
 	pub deprecation_info: DeprecationStatusIR<T>,
 }
 
-impl <T: Form> RuntimeApiMetadataIR<T> {
+impl<T: Form> RuntimeApiMetadataIR<T> {
 	/// This returns a version of `Self` keeping only the
 	/// methods for which the provided function returns true.
-	pub fn keeping_methods<F>(self, f: F) -> Self 
+	pub fn keeping_methods<F>(self, f: F) -> Self
 	where
-		F: FnMut(&RuntimeApiMethodMetadataIR<T>) -> bool
+		F: FnMut(&RuntimeApiMethodMetadataIR<T>) -> bool,
 	{
 		Self {
 			name: self.name,
 			base_version: self.base_version,
 			methods: self.methods.into_iter().filter(f).collect(),
 			docs: self.docs,
-			deprecation_info: self.deprecation_info
+			deprecation_info: self.deprecation_info,
 		}
 	}
 }
