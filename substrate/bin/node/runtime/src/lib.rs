@@ -1528,6 +1528,27 @@ where
 	type RuntimeCall = RuntimeCall;
 }
 
+impl<C> frame_system::offchain::CreateAuthorizedTransaction<C> for Runtime
+where
+	RuntimeCall: From<C>,
+{
+	fn create_extension() -> Self::Extension {
+		(
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(0),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
+			),
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+		)
+	}
+}
+
 impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type RuntimeEvent = RuntimeEvent;

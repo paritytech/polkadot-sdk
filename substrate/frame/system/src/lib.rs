@@ -166,7 +166,7 @@ pub mod weights;
 pub mod migrations;
 
 pub use extensions::{
-	check_genesis::CheckGenesis, check_mortality::CheckMortality,
+	authorize_call::AuthorizeCall, check_genesis::CheckGenesis, check_mortality::CheckMortality,
 	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
 	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
 	check_weight::CheckWeight, WeightInfo as ExtensionsWeightInfo,
@@ -174,7 +174,7 @@ pub use extensions::{
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
-use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
+use frame_support::traits::{Authorize, PostInherents, PostTransactions, PreInherents};
 use sp_core::storage::StateVersion;
 pub use weights::WeightInfo;
 
@@ -507,7 +507,8 @@ pub mod pallet {
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
-			+ From<Call<Self>>;
+			+ From<Call<Self>>
+			+ Authorize;
 
 		/// The aggregated `RuntimeTask` type.
 		#[pallet::no_default_bounds]
@@ -667,7 +668,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = <T as Config>::SystemWeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Make some on-chain remark.
 		///
@@ -1411,6 +1412,18 @@ where
 {
 	match o.into() {
 		Ok(RawOrigin::None) => Ok(()),
+		_ => Err(BadOrigin),
+	}
+}
+
+/// Ensure that the origin `o` represents an extrinsic with authorized call. Returns `Ok` or an
+/// `Err` otherwise.
+pub fn ensure_authorized<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<(), BadOrigin>
+where
+	OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>>,
+{
+	match o.into() {
+		Ok(RawOrigin::Authorized) => Ok(()),
 		_ => Err(BadOrigin),
 	}
 }
@@ -2292,7 +2305,9 @@ impl<T: Config> Lookup for ChainContext<T> {
 
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
-	pub use crate::{ensure_none, ensure_root, ensure_signed, ensure_signed_or_root};
+	pub use crate::{
+		ensure_authorized, ensure_none, ensure_root, ensure_signed, ensure_signed_or_root,
+	};
 
 	/// Type alias for the `Origin` associated type of system config.
 	pub type OriginFor<T> = <T as crate::Config>::RuntimeOrigin;

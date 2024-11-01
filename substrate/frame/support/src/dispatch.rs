@@ -82,6 +82,8 @@ pub enum RawOrigin<AccountId> {
 	/// * included and agreed upon by the validators anyway,
 	/// * or unsigned transaction validated by a pallet.
 	None,
+	/// It is signed by nobody, call is authorized by the runtime.
+	Authorized,
 }
 
 impl<AccountId> From<Option<AccountId>> for RawOrigin<AccountId> {

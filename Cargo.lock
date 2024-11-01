@@ -6494,6 +6494,7 @@ dependencies = [
  "derive-syn-parse",
  "docify",
  "expander",
+ "frame-benchmarking",
  "frame-support",
  "frame-support-procedural-tools",
  "frame-system",

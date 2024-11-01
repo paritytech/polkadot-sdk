@@ -15,14 +15,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod authorize_call;
-pub mod check_genesis;
-pub mod check_mortality;
-pub mod check_non_zero_sender;
-pub mod check_nonce;
-pub mod check_spec_version;
-pub mod check_tx_version;
-pub mod check_weight;
-pub mod weights;
+#[frame_support::pallet]
+mod pallet {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 
-pub use weights::WeightInfo;
+	#[pallet::config(with_default)]
+	pub trait Config: frame_system::Config {
+		type WeightInfo: WeightInfo;
+	}
+
+	pub trait WeightInfo {
+	}
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::call(weight = T::WeightInfo)]
+	impl<T: Config> Pallet<T> {
+		#[pallet::authorize(|_, _: u8| -> bool { true })]
+		#[pallet::weight_of_authorize(Weight::zero())]
+		#[pallet::weight(Weight::zero())]
+		#[pallet::call_index(0)]
+		pub fn call1(origin: OriginFor<T>, a: u32) -> DispatchResult {
+			let _ = origin;
+			let _ = a;
+			Ok(())
+		}
+	}
+}
+
+fn main() {}
