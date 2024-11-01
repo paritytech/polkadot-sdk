@@ -47,7 +47,7 @@ use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
 use testnet_parachains_constants::rococo::snowbridge::{
 	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
 };
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
@@ -67,7 +67,7 @@ use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub const TokenLocation: Location = Location::parent();
-	pub const RelayNetwork: NetworkId = NetworkId::Rococo;
+	pub const RelayNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
@@ -583,7 +583,7 @@ pub mod bridging {
 				]
 			);
 
-			pub const WestendNetwork: NetworkId = NetworkId::Westend;
+			pub const WestendNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 			pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 			pub WestendEcosystem: Location = Location::new(2, [GlobalConsensus(WestendNetwork::get())]);
 			pub EthereumEcosystem: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);

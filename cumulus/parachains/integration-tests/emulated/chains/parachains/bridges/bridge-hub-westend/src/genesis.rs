@@ -23,6 +23,7 @@ use emulated_integration_tests_common::{
 };
 use parachains_common::Balance;
 use xcm::latest::prelude::*;
+use xcm::latest::ROCOCO_GENESIS_HASH;
 
 pub const PARA_ID: u32 = 1002;
 pub const ASSETHUB_PARA_ID: u32 = 1000;
@@ -73,7 +74,7 @@ pub fn genesis() -> Storage {
 				// open AHW -> AHR bridge
 				(
 					Location::new(1, [Parachain(1000)]),
-					Junctions::from([Rococo.into(), Parachain(1000)]),
+					Junctions::from([NetworkId::ByGenesis(ROCOCO_GENESIS_HASH).into(), Parachain(1000)]),
 					Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
 				),
 			],

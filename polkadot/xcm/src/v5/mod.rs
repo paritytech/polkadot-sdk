@@ -42,7 +42,9 @@ pub use asset::{
 	Asset, AssetFilter, AssetId, AssetInstance, AssetTransferFilter, Assets, Fungibility,
 	WildAsset, WildFungibility, MAX_ITEMS_IN_ASSETS,
 };
-pub use junction::{BodyId, BodyPart, Junction, NetworkId};
+pub use junction::{
+	BodyId, BodyPart, Junction, NetworkId, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH,
+};
 pub use junctions::Junctions;
 pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
 pub use traits::{

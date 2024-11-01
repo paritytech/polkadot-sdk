@@ -87,6 +87,9 @@ use pallet_bridge_messages::LaneIdOf;
 pub use sp_runtime::BuildStorage;
 
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+
+#[cfg(feature = "runtime-benchmarks")]
+use xcm::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm::prelude::*;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -1155,7 +1158,7 @@ impl_runtime_apis! {
 					);
 
 					// open bridge
-					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(NetworkId::Rococo), Parachain(8765)].into();
+					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(8765)].into();
 					let locations = XcmOverBridgeHubRococo::bridge_locations(
 						sibling_parachain_location.clone(),
 						bridge_destination_universal_location.clone(),
@@ -1177,7 +1180,7 @@ impl_runtime_apis! {
 					Ok(
 						(
 							sibling_parachain_location,
-							NetworkId::Rococo,
+							NetworkId::ByGenesis(ROCOCO_GENESIS_HASH),
 							[Parachain(8765)].into()
 						)
 					)

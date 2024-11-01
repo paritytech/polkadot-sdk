@@ -33,7 +33,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
-use xcm::{prelude::*, Version as XcmVersion};
+use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*, Version as XcmVersion};
 use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible,
 	FixedWeightBounds, FungibleAdapter, FungiblesAdapter, IsConcrete, MintLocation, NoChecking,
@@ -144,7 +144,8 @@ parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(100, 10); // Random value.
 	pub const MaxInstructions: u32 = 100;
 	pub const NativeTokenPerSecondPerByte: (AssetId, u128, u128) = (AssetId(HereLocation::get()), 1, 1);
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Westend), Parachain(2000)].into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH)), Parachain(2000)].into();
+	pub static AdvertisedXcmVersion: XcmVersion = 4;
 	pub const HereLocation: Location = Location::here();
 	pub const RelayLocation: Location = Location::parent();
 	pub const MaxAssetsIntoHolding: u32 = 64;
