@@ -22,7 +22,4 @@ fn main() {
 	if let Ok(profile) = env::var("PROFILE") {
 		println!("cargo:rustc-cfg=build_type=\"{}\"", profile);
 	}
-
-	#[cfg(feature = "generate-readme")]
-	println!("cargo:rerun-if-changed=README.docify.md");
 }

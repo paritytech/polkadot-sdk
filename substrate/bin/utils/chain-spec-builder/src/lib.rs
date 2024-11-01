@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 #![doc = include_str!("../README.md")]
+#[cfg(feature = "generate-readme")]
+docify::compile_markdown!("README.docify.md", "README.md");
 
 use clap::{Parser, Subcommand};
 use sc_chain_spec::{
@@ -29,14 +31,6 @@ use std::{
 	fs,
 	path::{Path, PathBuf},
 };
-
-#[cfg(feature = "generate-readme")]
-#[allow(unused)]
-// We need this function to be compiled so that it triggers
-// the markdown compilation into the `README.md` file.
-fn compile_docs_markdown() {
-	docify::compile_markdown!("README.docify.md", "README.md");
-}
 
 /// A utility to easily create a chain spec definition.
 #[derive(Debug, Parser)]
