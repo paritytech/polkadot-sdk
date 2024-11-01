@@ -101,7 +101,7 @@ fn works_for_delivery_fees() {
 	assert_eq!(asset_list(RECIPIENT), [(Here, 90u128).into()]);
 
 	let querier: Location = (
-		UniversalLocation::get().take_first().unwrap(),
+		Parachain(1000),
 		AccountId32 { id: SENDER.into(), network: None },
 	)
 		.into();

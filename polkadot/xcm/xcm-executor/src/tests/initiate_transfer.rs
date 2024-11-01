@@ -99,7 +99,7 @@ fn preserves_origin() {
 	assert!(matches!(instr.next().unwrap(), PayFees { .. }));
 	assert!(matches!(
 		instr.next().unwrap(),
-		AliasOrigin(origin) if (origin.parents == 0 && matches!(origin.interior, Junctions::X1( .. )))
+		AliasOrigin(origin) if matches!(origin.unpack(), (0, [Parachain(1000), AccountId32 { id: SENDER, network: None }]))
 	));
 	assert!(matches!(instr.next().unwrap(), RefundSurplus));
 	assert!(matches!(instr.next().unwrap(), DepositAsset { .. }));

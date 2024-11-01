@@ -50,7 +50,7 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 10;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1, 1);
 	pub const MaxInstructions: u32 = 10;
-	pub UniversalLocation: InteriorLocation = GlobalConsensus(ByGenesis([0; 32])).into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)].into();
 }
 
 /// Test origin.
