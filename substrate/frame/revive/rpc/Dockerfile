@@ -7,7 +7,6 @@ RUN apt-get update && \
 
 WORKDIR /polkadot
 COPY . /polkadot
-RUN rustup component add rust-src
 RUN cargo build --locked --profile production -p pallet-revive-eth-rpc --bin eth-rpc
 
 FROM docker.io/parity/base-bin:latest

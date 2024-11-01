@@ -26,7 +26,7 @@ pub use crate::wasm::runtime::SyscallDoc;
 #[cfg(test)]
 pub use runtime::HIGHEST_API_VERSION;
 
-#[cfg(feature = "runtime-benchmarks")]
+#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
 pub use crate::wasm::runtime::{ReturnData, TrapReason};
 
 pub use crate::wasm::runtime::{ApiVersion, Memory, Runtime, RuntimeCosts};
