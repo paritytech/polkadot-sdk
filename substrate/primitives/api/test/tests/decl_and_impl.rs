@@ -312,6 +312,7 @@ fn runtime_api_metadata_matches_version_implemented() {
 	let rt = Runtime {};
 	let runtime_metadata = rt.runtime_metadata();
 
+	// Check that the metadata for some runtime API matches expectation.
 	let assert_has_api_with_methods = |api_name: &str, api_methods: &[&str]| {
 		let Some(api) = runtime_metadata.iter().find(|api| api.name == api_name) else { 
 			panic!("Can't find runtime API '{api_name}'");
