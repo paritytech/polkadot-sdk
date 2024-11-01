@@ -235,6 +235,11 @@ impl ClientInner {
 		value.saturating_mul(self.native_to_evm_ratio)
 	}
 
+	/// Convert an evm balance to a native balance.
+	fn evm_to_native_decimals(&self, value: U256) -> U256 {
+		value / self.native_to_evm_ratio
+	}
+
 	/// Get the receipt infos from the extrinsics in a block.
 	async fn receipt_infos(
 		&self,
@@ -610,9 +615,10 @@ impl Client {
 		block: BlockNumberOrTagOrHash,
 	) -> Result<EthContractResult<Balance>, ClientError> {
 		let runtime_api = self.runtime_api(&block).await?;
-		let value = tx
-			.value
-			.unwrap_or_default()
+
+		let value = self
+			.inner
+			.evm_to_native_decimals(tx.value.unwrap_or_default())
 			.try_into()
 			.map_err(|_| ClientError::ConversionFailed)?;
 
