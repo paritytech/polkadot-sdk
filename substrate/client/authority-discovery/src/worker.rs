@@ -37,7 +37,7 @@ use ip_network::IpNetwork;
 use libp2p::kad::{PeerRecord, Record};
 use linked_hash_set::LinkedHashSet;
 
-use log::{debug, error, trace, warn};
+use log::{debug, error, trace};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
