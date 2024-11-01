@@ -95,7 +95,7 @@ Please see the installation section at [`crates.io/staging-chain-spec-builder`](
 
 ```sh
 chain-spec-builder create --relay-chain "dev" --para-id 1000 --runtime \
-    <target/release/wbuild/path/to/minimal-template-runtime.wasm> named-preset development
+    target/release/wbuild/minimal-template-runtime/minimal_template_runtime.wasm named-preset development
 ```
 
 **Note**: the `relay-chain` and `para-id` flags are extra bits of information required to

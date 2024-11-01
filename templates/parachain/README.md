@@ -21,7 +21,7 @@
 
 - [Starting a Development Chain](#starting-a-development-chain)
 
-  - [Omni Node](#omni-node)
+  - [Omni Node](#omni-node-prerequisites)
   - [Zombienet setup with Omni Node](#zombienet-setup-with-omni-node)
   - [Parachain Template Node](#parachain-template-node)
   - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
@@ -72,7 +72,7 @@ cd parachain-template
 
 ## Starting a Development Chain
 
-### Omni Node
+### Omni Node Prerequisites
 
 [Omni Node](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html) can
 be used to run the parachain template's runtime. `polkadot-omni-node` binary crate usage is described at a high-level
@@ -85,7 +85,7 @@ Please see the installation section at [`crates.io/omni-node`](https://crates.io
 #### Build `parachain-template-runtime`
 
 ```sh
-cargo build -p parachain-template-runtime --release
+cargo build --release
 ```
 
 #### Install `staging-chain-spec-builder`
@@ -96,25 +96,31 @@ Please see the installation section at [`crates.io/staging-chain-spec-builder`](
 
 ```sh
 chain-spec-builder create --relay-chain "rococo-local" --para-id 1000 --runtime \
-    <target/release/wbuild/path/to/minimal-template-runtime.wasm> named-preset development
+    target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
 ```
 
 **Note**: the `relay-chain` and `para-id` flags are mandatory information required by
 Omni Node, and for parachain template case the value for `para-id` must be set to `1000`, since this
 is also the value injected through [ParachainInfo](https://docs.rs/staging-parachain-info/0.17.0/staging_parachain_info/)
-pallet into the `parachain-template-runtime`'s storage.
+pallet into the `parachain-template-runtime`'s storage. The `relay-chain` value is set in accordance
+with the relay chain ID where this instantiation of parachain-template will connect to.
 
 #### Run Omni Node
 
-Start Omni Node with the generated chain spec.
+Start Omni Node with the generated chain spec. We'll start it development mode (without a relay chain config),
+with a temporary directory for configuration (given `--tmp`), and block production set to create a block with
+every second.
 
-```sh
-polkadot-omni-node --chain <path/to/chain_spec.json> 
+```bash
+polkadot-omni-node --chain <path/to/chain_spec.json> --tmp --dev-block-time 1000
+
 ```
 
-**Note**: this starts only the parachain's node, but this is not enough for proggressing with block production and finalization.
-We need to create an active relay chain too, and a good follow up after this is to configure zombienet to run the relay chain
-alongside the parachain.
+However, such a setup is not close to what would run in production, and for that we need to setup a local
+relay chain network that will help with the block finalization. In this guide we'll setup a local relay chain
+as well. We'll not do it manually, by starting one node at a time, but we'll use [zombienet](https://paritytech.github.io/zombienet/intro.html).
+
+Follow through the next section for more details on how to do it.
 
 ### Zombienet setup with Omni Node
 
