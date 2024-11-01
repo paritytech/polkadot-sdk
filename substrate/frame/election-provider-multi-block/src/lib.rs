@@ -46,11 +46,11 @@
 //! 		- pallet-unsigned
 //! ```
 //!
-//! Each sub-pallet has a specific set of tasks and implement one or more interfaces to expose their
-//! functionality to the core pallet:
+//! Each sub-pallet has a specific set of tasks and implements one or more interfaces to expose
+//! their functionality to the core pallet:
 //! - The [`verifier`] pallet provides an implementation of the [`verifier::Verifier`] trait, which
 //!   exposes the functionality to verify NPoS solutions in a multi-block context. In addition, it
-//!   implements [`verifier::AsyncVerifier`] which verifies multi-paged solution asynchronously.
+//!   implements [`verifier::AsyncVerifier`] which verifies multi-paged solutions asynchronously.
 //! - The [`signed`] pallet implements the signed phase, where off-chain entities commit to and
 //!   submit their election solutions. This pallet implements the
 //!   [`verifier::SolutionDataProvider`], which is used by the [`verifier`] pallet to fetch solution
@@ -62,7 +62,7 @@
 //! ### Pallet ordering
 //!
 //! Due to the assumptions of when the `on_initialize` hook must be called by the executor for the
-//! core pallet and each sub-pallets, it is crucial the the pallets are ordered correctly in the
+//! core pallet and each sub-pallets, it is crucial that the pallets are ordered correctly in the
 //! construct runtime. The ordering must be the following:
 //!
 //! ```text

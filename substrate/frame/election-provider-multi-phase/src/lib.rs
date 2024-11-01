@@ -172,7 +172,7 @@
 //!
 //! ## Error types
 //!
-//! This pallet provides a verbose error system to ease future debugging and debugging. The overall
+//! This pallet provides a verbose error system to ease debugging. The overall
 //! hierarchy of errors is as follows:
 //!
 //! 1. [`pallet::Error`]: These are the errors that can be returned in the dispatchables of the

@@ -571,7 +571,7 @@ pub mod pallet {
 			Submissions::<T>::scores_for(round).last().cloned()
 		}
 
-		/// Returns the metadata of a submitter for a given account.
+		/// Returns the metadata of a submitter for a given round.
 		pub(crate) fn metadata_for(
 			round: u32,
 			who: &T::AccountId,
@@ -718,7 +718,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Force clean submissions storage for a given (`sumitter`, `round`) tuple.
+		/// Force clean submissions storage for a given (`submitter`, `round`) tuple.
 		///
 		/// This pallet expects that submitted pages for `round` may exist IFF a corresponding
 		/// metadata exists.
@@ -804,7 +804,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 		})
 	}
 
-	/// Returns the score of the *best* solution in the queueu.
+	/// Returns the score of the *best* solution in the queue.
 	fn get_score() -> Option<ElectionScore> {
 		let round = crate::Pallet::<T>::current_round();
 		Submissions::<T>::leader(round).map(|(_who, score)| score)

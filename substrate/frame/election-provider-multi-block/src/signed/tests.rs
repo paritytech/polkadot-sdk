@@ -16,7 +16,12 @@
 // limitations under the License.
 
 use super::*;
-use crate::{mock::*, verifier::SolutionDataProvider, Phase, Verifier};
+use crate::{
+	mock::*,
+	signed::Error::{CannotClear, NotAcceptingSubmissions, SubmissionNotRegistered},
+	verifier::SolutionDataProvider,
+	Phase, Verifier,
+};
 use frame_support::{assert_noop, assert_ok, testing_prelude::*};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::traits::Convert;
@@ -27,8 +32,12 @@ fn clear_submission_of_works() {
 }
 
 mod calls {
+	use std::env::current_exe;
+
 	use super::*;
+	use frame_support::{storage::unhashed::contains_prefixed_key, traits::OriginTrait};
 	use sp_core::bounded_vec;
+	use sp_runtime::traits::BadOrigin;
 
 	#[test]
 	fn register_works() {
@@ -224,16 +233,221 @@ mod calls {
 	}
 
 	#[test]
-	fn bail_works() {
+	fn bail_fails_if_called_for_account_none() {
 		ExtBuilder::default().build_and_execute(|| {
-			// TODO
+			assert_err!(SignedPallet::bail(RuntimeOrigin::none()), BadOrigin);
 		})
 	}
 
 	#[test]
-	fn force_clear_submission_works() {
+	fn bail_fails_if_called_in_phase_other_than_signed() {
 		ExtBuilder::default().build_and_execute(|| {
-			// TODO
+			let some_bn = 0;
+			let some_page_index = 0;
+
+			let phases = vec![
+				Phase::Halted,
+				Phase::Off,
+				Phase::SignedValidation(some_bn),
+				Phase::Unsigned(some_bn),
+				Phase::Snapshot(some_page_index),
+				Phase::Export(some_bn),
+				Phase::Emergency,
+			];
+
+			let account_id = 99;
+			for phase in phases {
+				roll_to_phase(phase);
+
+				assert_err!(
+					SignedPallet::bail(RuntimeOrigin::signed(account_id)),
+					NotAcceptingSubmissions::<Runtime>,
+				);
+			}
+		})
+	}
+
+	#[test]
+	fn bail_while_having_no_submissions_does_not_modify_balances() {
+		ExtBuilder::default().build_and_execute(|| {
+			roll_to_phase(Phase::Signed);
+
+			// expected base deposit with 0 submissions in the queue.
+			let base_deposit = <Runtime as Config>::DepositBase::convert(0);
+			let page_deposit = <Runtime as Config>::DepositPerPage::get();
+			assert!(base_deposit != 0 && page_deposit != 0 && base_deposit != page_deposit);
+
+			let account_id = 99;
+
+			// account_id has 100 free balance and 0 held balance for elections.
+			// As configured in
+			// pallet-epm-mb/substrate/frame/election-provider-multi-block/src/mock/mod.rs ->
+			// pallet_balances::GenesisConfig::<T>
+			assert_eq!(balances(account_id), (100, 0));
+
+			assert_ok!(SignedPallet::register(
+				RuntimeOrigin::signed(account_id),
+				Default::default()
+			));
+
+			// free balance and held deposit updated as expected.
+			assert_eq!(balances(account_id), (100 - base_deposit, base_deposit));
+
+			// submit page
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(account_id),
+				0,
+				Some(Default::default())
+			));
+
+			// free balance and held deposit updated as expected
+			assert_eq!(
+				balances(account_id),
+				(100 - base_deposit - page_deposit, base_deposit + page_deposit)
+			);
+
+			let bailing_account_id = 91;
+
+			// bailing_account_id has 100 free balance and 0 held balance for elections.
+			// As configured in
+			// pallet-epm-mb/substrate/frame/election-provider-multi-block/src/mock/mod.rs ->
+			// pallet_balances::GenesisConfig::<T>
+			assert_eq!(balances(bailing_account_id), (100, 0));
+
+			// account 1 submitted nothing, so bail should have no effect and return error
+			assert_err!(
+				SignedPallet::bail(RuntimeOrigin::signed(bailing_account_id)),
+				SubmissionNotRegistered::<Runtime>
+			);
+
+			// balance of account with a submission as before
+			assert_eq!(
+				balances(account_id),
+				(100 - base_deposit - page_deposit, base_deposit + page_deposit)
+			);
+
+			// bailing account balance unchanged
+			assert_eq!(balances(bailing_account_id), (100, 0));
+		})
+	}
+
+	#[test]
+	fn force_clear_submission_fails_if_called_by_account_none() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_err!(
+				SignedPallet::force_clear_submission(RuntimeOrigin::none(), 0, 99),
+				BadOrigin
+			);
+		})
+	}
+
+	#[test]
+	fn force_clear_submission_fails_if_called_in_phase_other_than_off() {
+		ExtBuilder::default().build_and_execute(|| {
+			let some_bn = 0;
+			let some_page_index = 0;
+
+			let phases = vec![
+				Phase::Halted,
+				Phase::Signed,
+				Phase::SignedValidation(some_bn),
+				Phase::Unsigned(some_bn),
+				Phase::Snapshot(some_page_index),
+				Phase::Export(some_bn),
+				Phase::Emergency,
+			];
+
+			let account_id = 99;
+			for phase in phases {
+				roll_to_phase(phase);
+
+				assert_err!(
+					SignedPallet::force_clear_submission(RuntimeOrigin::root(), 0, account_id),
+					NotAcceptingSubmissions::<Runtime>,
+				);
+			}
+		})
+	}
+
+	#[test]
+	fn force_clear_submission_fails_if_submitter_done_no_submissions_at_all() {
+		ExtBuilder::default().build_and_execute(|| {
+			roll_to_phase(Phase::Off);
+			let account_id = 99;
+
+			assert_err!(
+				SignedPallet::force_clear_submission(RuntimeOrigin::root(), 0, account_id),
+				CannotClear::<Runtime>
+			);
+		})
+	}
+
+	#[test]
+	fn force_clear_submission_fails_if_submitter_done_submissions_for_another_round_than_requested()
+	{
+		ExtBuilder::default().build_and_execute(|| {
+			let account_id = 99;
+			let current_round = MultiPhase::current_round();
+
+			// do_register and try_mutate_page used directly so as not to switch phases in the test
+			assert_ok!(Pallet::<Runtime>::do_register(
+				&account_id,
+				Default::default(),
+				current_round
+			));
+
+			assert_ok!(Submissions::<Runtime>::try_mutate_page(
+				&account_id,
+				current_round,
+				0,
+				Some(Default::default())
+			));
+
+			roll_to_phase(Phase::Off);
+
+			assert_err!(
+				SignedPallet::force_clear_submission(
+					RuntimeOrigin::root(),
+					current_round + 1,
+					account_id
+				),
+				CannotClear::<Runtime>
+			);
+		})
+	}
+
+	#[test]
+	fn force_clear_submission_removes_both_metadata_and_submission_pages() {
+		ExtBuilder::default().build_and_execute(|| {
+			let account_id = 99;
+			let current_round = MultiPhase::current_round();
+
+			// do_register and try_mutate_page used directly so as not to switch phases in the test
+			assert_ok!(Pallet::<Runtime>::do_register(
+				&account_id,
+				Default::default(),
+				current_round
+			));
+
+			assert_ok!(Submissions::<Runtime>::try_mutate_page(
+				&account_id,
+				current_round,
+				0,
+				Some(Default::default())
+			));
+
+			roll_to_phase(Phase::Off);
+
+			assert_ok!(SignedPallet::force_clear_submission(
+				RuntimeOrigin::root(),
+				current_round,
+				account_id
+			));
+
+			assert!(Submissions::<Runtime>::metadata_for(current_round, &account_id).is_none());
+			assert!(
+				Submissions::<Runtime>::page_submission_for(current_round, account_id, 0).is_none()
+			);
 		})
 	}
 }
