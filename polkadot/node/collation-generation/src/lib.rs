@@ -76,7 +76,7 @@ const LOG_TARGET: &'static str = "parachain::collation-generation";
 /// Collation Generation Subsystem
 pub struct CollationGenerationSubsystem {
 	config: Option<Arc<CollationGenerationConfig>>,
-	session_info: SessionInfoCache,
+	session_info_cache: SessionInfoCache,
 	metrics: Metrics,
 }
 
@@ -84,7 +84,7 @@ pub struct CollationGenerationSubsystem {
 impl CollationGenerationSubsystem {
 	/// Create a new instance of the `CollationGenerationSubsystem`.
 	pub fn new(metrics: Metrics) -> Self {
-		Self { config: None, metrics, session_info: SessionInfoCache::new() }
+		Self { config: None, metrics, session_info_cache: SessionInfoCache::new() }
 	}
 
 	/// Run this subsystem
@@ -218,7 +218,8 @@ impl CollationGenerationSubsystem {
 		let session_index =
 			request_session_index_for_child(relay_parent, ctx.sender()).await.await??;
 
-		let session_info = self.session_info.get(relay_parent, session_index, ctx.sender()).await?;
+		let session_info =
+			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
 		let collation = PreparedCollation {
 			collation,
 			relay_parent,
@@ -268,7 +269,8 @@ impl CollationGenerationSubsystem {
 		let session_index =
 			request_session_index_for_child(relay_parent, ctx.sender()).await.await??;
 
-		let session_info = self.session_info.get(relay_parent, session_index, ctx.sender()).await?;
+		let session_info =
+			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
 		let n_validators = session_info.n_validators;
 
 		let claim_queue =
@@ -277,7 +279,6 @@ impl CollationGenerationSubsystem {
 		let cores_to_build_on = claim_queue
 			.iter_claims_at_depth(0)
 			.filter_map(|(core_idx, para_id)| (para_id == config.para_id).then_some(core_idx))
-			.peekable()
 			.collect::<Vec<_>>();
 
 		// Nothing to do if no core assigned to us.
@@ -416,12 +417,12 @@ impl<Context> CollationGenerationSubsystem {
 }
 
 #[derive(Clone)]
-struct SessionInfo {
+struct PerSessionInfo {
 	v2_receipts: bool,
 	n_validators: usize,
 }
 
-struct SessionInfoCache(LruMap<SessionIndex, SessionInfo>);
+struct SessionInfoCache(LruMap<SessionIndex, PerSessionInfo>);
 
 impl SessionInfoCache {
 	fn new() -> Self {
@@ -433,7 +434,7 @@ impl SessionInfoCache {
 		relay_parent: Hash,
 		session_index: SessionIndex,
 		sender: &mut Sender,
-	) -> Result<SessionInfo> {
+	) -> Result<PerSessionInfo> {
 		if let Some(info) = self.0.get(&session_index) {
 			return Ok(info.clone())
 		}
@@ -445,7 +446,7 @@ impl SessionInfoCache {
 			.await?
 			.unwrap_or(NodeFeatures::EMPTY);
 
-		let info = SessionInfo {
+		let info = PerSessionInfo {
 			v2_receipts: node_features
 				.get(FeatureIndex::CandidateReceiptV2 as usize)
 				.map(|b| *b)
