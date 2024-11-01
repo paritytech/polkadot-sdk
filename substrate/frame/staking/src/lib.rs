@@ -143,6 +143,34 @@
 //! The pallet implement the trait `SessionManager`. Which is the only API to query new validator
 //! set and allowing these validator set to be rewarded once their era is ended.
 //!
+//! ## Multi-page election support
+//!
+//! > Unless explicitly stated on the contrary, one page is the equivalent of one block. "Pages" and
+//! "blocks" are used interchangibly across the documentation.
+//!
+//! The pallet supports a multi-page election. In a multi-block election, some key parts of the
+//! staking pallet progress over multi pages. Most notably:
+//! 1. **Snapshot creation**: Both the voter and target snapshots are created over multi blocks. The
+//!    [`frame_election_provider_support::ElectionDataProvider`] trait supports that functionality
+//!    by parameterizing the electin voters and electable targets by the page index.
+//! 2. **Election**: The election is multi-block, where a set of supports is fetched per page/block.
+//!    This pallet keeps track of the elected stashes and their exposures as the paged election is
+//!    called. The [`frame_election_provider_support::ElectionProvider`] trait supports this
+//!    functionaluty by parameterizing the elect call with the page index.
+//!
+//! ### Prepare an election ahead of time with `on_initialize`
+//!
+//! This pallet is expected to have a set of winners ready and their exposures collected and stored
+//! at the time of a predicted election. In order to ensure that, it starts to fetch the paged
+//! results of an election from the [`frame_election_provider_support::ElectionProvider`] `N` pages
+//! ahead of the next election prediction.
+//!
+//! As the pages of winners are fetched, their exposures and era info are processed and stored so
+//! that all the data is ready at the time of the next election.
+//!
+//! Even though this pallet supports mulit-page elections, it also can be used in a single page
+//! context provided that the configs are set accordingly.
+//!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
@@ -352,11 +380,7 @@ macro_rules! log {
 /// config.
 pub type MaxWinnersOf<T> = <T as Config>::MaxValidatorSet;
 
-/// Maximum number of exposures that can fit into an exposure page, as defined by this pallet's
-/// config.
-/// TODO: needed? maybe use the type directly.
-pub type MaxExposuresPerPageOf<T> = <T as Config>::MaxExposurePageSize;
-
+/// Alias for the maximum number of winners per page, as expected by the election provider.
 pub type MaxWinnersPerPageOf<P> = <P as ElectionProvider>::MaxWinnersPerPage;
 
 /// Maximum number of nominations per nominator.

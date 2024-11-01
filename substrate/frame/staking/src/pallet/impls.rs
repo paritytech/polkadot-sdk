@@ -837,15 +837,14 @@ impl<T: Config> Pallet<T> {
 		stashes: BoundedVec<T::AccountId, MaxWinnersPerPageOf<T::ElectionProvider>>,
 	) -> Result<(), ()> {
 		let mut storage_stashes = ElectableStashes::<T>::get();
-        for stash in stashes.into_iter() {
-            storage_stashes.try_insert(stash).map_err(|_| {
-                // add as many stashes as possible.
-                ElectableStashes::<T>::set(storage_stashes.clone());
-                ()
-            })?;
-        }
+		for stash in stashes.into_iter() {
+			storage_stashes.try_insert(stash).map_err(|_| {
+				// add as many stashes as possible before returning err.
+				ElectableStashes::<T>::set(storage_stashes.clone());
+			})?;
+		}
 
-        ElectableStashes::<T>::set(storage_stashes);
+		ElectableStashes::<T>::set(storage_stashes);
 
 		Ok(())
 	}
@@ -1312,6 +1311,10 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> LockableElectionDataProvider for Pallet<T> {
+	// TODO: currently, setting the lock in the election data provider is a noop. Implement the
+	// logic that freezes and/or buffers the mutations to ledgers while the lock is set *before*
+	// the multi-page election is enabled.
+	// Tracking issue <https://github.com/paritytech/polkadot-sdk/issues/6328>.
 	fn set_lock() -> data_provider::Result<()> {
 		match ElectionDataLock::<T>::get() {
 			Some(_) => Err("lock already set"),
