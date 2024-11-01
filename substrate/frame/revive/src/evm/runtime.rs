@@ -313,12 +313,10 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		}
 
-		log::debug!(target: LOG_TARGET, "Eth value: {value:?}");
 		let native_to_eth = <Self::Config as crate::Config>::NativeToEthRatio::get();
 		let value = (value / U256::from(native_to_eth))
 			.try_into()
 			.map_err(|_| InvalidTransaction::Call)?;
-		log::debug!(target: LOG_TARGET, "Native value: {value:?}");
 
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
