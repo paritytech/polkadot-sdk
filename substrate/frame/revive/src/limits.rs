@@ -132,7 +132,7 @@ pub mod code {
 		// This scans the whole program but we only do it once on code deployment.
 		// It is safe to do unchecked math in u32 because the size of the program
 		// was already checked above.
-		use polkavm::program::ISA32_V1_NoSbrk as ISA;
+		use polkavm_common::program::ISA32_V1_NoSbrk as ISA;
 		let mut num_instructions: u32 = 0;
 		let mut max_basic_block_size: u32 = 0;
 		let mut basic_block_size: u32 = 0;

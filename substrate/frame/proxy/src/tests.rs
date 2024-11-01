@@ -20,14 +20,22 @@
 #![cfg(test)]
 
 use super::*;
+
 use crate as proxy;
 use alloc::{vec, vec::Vec};
-use frame::testing_prelude::*;
+use codec::{Decode, Encode};
+use frame_support::{
+	assert_noop, assert_ok, derive_impl,
+	traits::{ConstU32, ConstU64, Contains},
+};
+use sp_core::H256;
+use sp_runtime::{traits::BlakeTwo256, BuildStorage, DispatchError, RuntimeDebug};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-construct_runtime!(
-	pub struct Test {
+frame_support::construct_runtime!(
+	pub enum Test
+	{
 		System: frame_system,
 		Balances: pallet_balances,
 		Proxy: proxy,
@@ -78,7 +86,7 @@ impl Default for ProxyType {
 		Self::Any
 	}
 }
-impl frame::traits::InstanceFilter<RuntimeCall> for ProxyType {
+impl InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
@@ -128,20 +136,20 @@ use pallet_utility::{Call as UtilityCall, Event as UtilityEvent};
 
 type SystemError = frame_system::Error<Test>;
 
-pub fn new_test_ext() -> TestState {
+pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 3)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	let mut ext = TestState::new(t);
+	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
 
 fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	frame_system::Pallet::<Test>::events()
+	system::Pallet::<Test>::events()
 		.into_iter()
 		.rev()
 		.take(n)
@@ -278,7 +286,7 @@ fn delayed_requires_pre_announcement() {
 		assert_noop!(Proxy::proxy_announced(RuntimeOrigin::signed(0), 2, 1, None, call.clone()), e);
 		let call_hash = BlakeTwo256::hash_of(&call);
 		assert_ok!(Proxy::announce(RuntimeOrigin::signed(2), 1, call_hash));
-		frame_system::Pallet::<Test>::set_block_number(2);
+		system::Pallet::<Test>::set_block_number(2);
 		assert_ok!(Proxy::proxy_announced(RuntimeOrigin::signed(0), 2, 1, None, call.clone()));
 	});
 }
@@ -296,7 +304,7 @@ fn proxy_announced_removes_announcement_and_returns_deposit() {
 		let e = Error::<Test>::Unannounced;
 		assert_noop!(Proxy::proxy_announced(RuntimeOrigin::signed(0), 3, 1, None, call.clone()), e);
 
-		frame_system::Pallet::<Test>::set_block_number(2);
+		system::Pallet::<Test>::set_block_number(2);
 		assert_ok!(Proxy::proxy_announced(RuntimeOrigin::signed(0), 3, 1, None, call.clone()));
 		let announcements = Announcements::<Test>::get(3);
 		assert_eq!(announcements.0, vec![Announcement { real: 2, call_hash, height: 1 }]);

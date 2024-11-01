@@ -18,7 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-frame = { workspace = true, features = ["experimental", "runtime"] }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 
 # third party
 log = { workspace = true }
@@ -30,15 +34,25 @@ pallet-balances = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"frame/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
 	"log/std",
+	"pallet-balances/std",
 	"scale-info/std",
+	"sp-io/std",
+	"sp-runtime/std",
 ]
 runtime-benchmarks = [
-	"frame/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
 ]

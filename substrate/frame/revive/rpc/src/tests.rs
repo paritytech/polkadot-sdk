@@ -19,11 +19,10 @@
 // We require the `riscv` feature to get access to the compiled fixtures.
 #![cfg(feature = "riscv")]
 use crate::{
-	cli::{self, CliCommand},
+	cli,
 	example::{send_transaction, wait_for_receipt},
 	EthRpcClient,
 };
-use clap::Parser;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
@@ -51,33 +50,18 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 #[tokio::test]
 async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	// Start the node.
-	let _ = thread::spawn(move || {
-		match start_node_inline(vec![
-			"--dev",
-			"--rpc-port=45789",
-			"--no-telemetry",
-			"--no-prometheus",
-		]) {
-			Ok(_) => {},
-			Err(e) => {
-				panic!("Node exited with error: {}", e);
-			},
-		}
+	let _ = thread::spawn(move || match start_node_inline(vec!["--dev", "--rpc-port=45789"]) {
+		Ok(_) => {},
+		Err(e) => {
+			panic!("Node exited with error: {}", e);
+		},
 	});
 
 	// Start the rpc server.
-	let args = CliCommand::parse_from([
-		"--dev",
-		"--rpc-port=45788",
-		"--node-rpc-url=ws://localhost:45789",
-		"--no-prometheus",
-	]);
-	let _ = thread::spawn(move || match cli::run(args) {
-		Ok(_) => {},
-		Err(e) => {
-			panic!("eth-rpc exited with error: {}", e);
-		},
-	});
+	tokio::spawn(cli::run(cli::CliCommand {
+		rpc_port: "45788".to_string(),
+		node_rpc_url: "ws://localhost:45789".to_string(),
+	}));
 
 	let client = ws_client_with_retry("ws://localhost:45788").await;
 	let account = Account::default();

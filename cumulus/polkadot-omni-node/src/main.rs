@@ -49,6 +49,9 @@ impl CliConfigT for CliConfig {
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
 
-	let config = RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
+	let config = RunConfig {
+		chain_spec_loader: Box::new(DiskChainSpecLoader),
+		runtime_resolver: Box::new(DefaultRuntimeResolver),
+	};
 	Ok(run::<CliConfig>(config)?)
 }

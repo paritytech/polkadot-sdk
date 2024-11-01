@@ -69,19 +69,11 @@ pub trait WeightInfo {
 	fn quit_sub(s: u32, ) -> Weight;
 	fn add_username_authority() -> Weight;
 	fn remove_username_authority() -> Weight;
-	fn set_username_for(p: u32) -> Weight;
+	fn set_username_for() -> Weight;
 	fn accept_username() -> Weight;
-	fn remove_expired_approval(p: u32) -> Weight;
+	fn remove_expired_approval() -> Weight;
 	fn set_primary_username() -> Weight;
-	fn unbind_username() -> Weight;
-	fn remove_username() -> Weight;
-	fn kill_username(p: u32) -> Weight;
-	fn migration_v2_authority_step() -> Weight;
-	fn migration_v2_username_step() -> Weight;
-	fn migration_v2_identity_step() -> Weight;
-	fn migration_v2_pending_username_step() -> Weight;
-	fn migration_v2_cleanup_authority_step() -> Weight;
-	fn migration_v2_cleanup_username_step() -> Weight;
+	fn remove_dangling_username() -> Weight;
 }
 
 /// Weights for `pallet_identity` using the Substrate node and recommended hardware.
@@ -388,7 +380,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Identity::PendingUsernames` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
 	/// Storage: `Identity::IdentityOf` (r:1 w:1)
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
-	fn set_username_for(_p: u32) -> Weight {
+	fn set_username_for() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `80`
 		//  Estimated: `11037`
@@ -414,7 +406,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Identity::PendingUsernames` (r:1 w:1)
 	/// Proof: `Identity::PendingUsernames` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
-	fn remove_expired_approval(_p: u32) -> Weight {
+	fn remove_expired_approval() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `115`
 		//  Estimated: `3550`
@@ -436,32 +428,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	fn unbind_username() -> Weight {
-		Weight::zero()
-	}
-	fn remove_username() -> Weight {
-		Weight::zero()
-	}
-	fn kill_username(_p: u32) -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_authority_step() -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_username_step() -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_identity_step() -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_pending_username_step() -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_cleanup_authority_step() -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_cleanup_username_step() -> Weight {
-		Weight::zero()
+	/// Storage: `Identity::AccountOfUsername` (r:1 w:1)
+	/// Proof: `Identity::AccountOfUsername` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `Identity::IdentityOf` (r:1 w:0)
+	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
+	fn remove_dangling_username() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `98`
+		//  Estimated: `11037`
+		// Minimum execution time: 12_017_000 picoseconds.
+		Weight::from_parts(12_389_000, 11037)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -768,7 +746,7 @@ impl WeightInfo for () {
 	/// Proof: `Identity::PendingUsernames` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
 	/// Storage: `Identity::IdentityOf` (r:1 w:1)
 	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
-	fn set_username_for(_p: u32) -> Weight {
+	fn set_username_for() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `80`
 		//  Estimated: `11037`
@@ -794,7 +772,7 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Identity::PendingUsernames` (r:1 w:1)
 	/// Proof: `Identity::PendingUsernames` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
-	fn remove_expired_approval(_p: u32) -> Weight {
+	fn remove_expired_approval() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `115`
 		//  Estimated: `3550`
@@ -816,31 +794,17 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	fn unbind_username() -> Weight {
-		Weight::zero()
-	}
-	fn remove_username() -> Weight {
-		Weight::zero()
-	}
-	fn kill_username(_p: u32) -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_authority_step() -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_username_step() -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_identity_step() -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_pending_username_step() -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_cleanup_authority_step() -> Weight {
-		Weight::zero()
-	}
-	fn migration_v2_cleanup_username_step() -> Weight {
-		Weight::zero()
+	/// Storage: `Identity::AccountOfUsername` (r:1 w:1)
+	/// Proof: `Identity::AccountOfUsername` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `Identity::IdentityOf` (r:1 w:0)
+	/// Proof: `Identity::IdentityOf` (`max_values`: None, `max_size`: Some(7572), added: 10047, mode: `MaxEncodedLen`)
+	fn remove_dangling_username() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `98`
+		//  Estimated: `11037`
+		// Minimum execution time: 12_017_000 picoseconds.
+		Weight::from_parts(12_389_000, 11037)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

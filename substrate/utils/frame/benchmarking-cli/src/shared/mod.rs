@@ -17,7 +17,6 @@
 
 //! Code that is shared among all benchmarking sub-commands.
 
-pub mod genesis_state;
 pub mod record;
 pub mod stats;
 pub mod weight_params;

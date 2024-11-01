@@ -28,16 +28,11 @@ use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
 static mut BUFFER: [u8; 513 * 1024] = [42; 513 * 1024];
 
-unsafe fn buffer() -> &'static [u8; 513 * 1024] {
-	let ptr = core::ptr::addr_of!(BUFFER);
-	&*ptr
-}
-
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub unsafe extern "C" fn call_never() {
 	// make sure the buffer is not optimized away
-	api::return_value(ReturnFlags::empty(), buffer());
+	api::return_value(ReturnFlags::empty(), &BUFFER);
 }
 
 #[no_mangle]

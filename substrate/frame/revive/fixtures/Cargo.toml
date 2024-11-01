@@ -21,7 +21,7 @@ log = { workspace = true }
 parity-wasm = { workspace = true }
 tempfile = { workspace = true }
 toml = { workspace = true }
-polkavm-linker = { version = "0.14.0" }
+polkavm-linker = { version = "0.13.0" }
 anyhow = { workspace = true, default-features = true }
 
 [features]

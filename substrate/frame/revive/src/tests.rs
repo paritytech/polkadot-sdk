@@ -4477,22 +4477,6 @@ mod run_tests {
 	}
 
 	#[test]
-	fn origin_api_works() {
-		let (code, _) = compile_module("origin").unwrap();
-
-		ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-			// Create fixture: Constructor does nothing
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-			// Call the contract: Asserts the origin API to work as expected
-			assert_ok!(builder::call(addr).build());
-		});
-	}
-
-	#[test]
 	fn code_hash_works() {
 		let (code_hash_code, self_code_hash) = compile_module("code_hash").unwrap();
 		let (dummy_code, code_hash) = compile_module("dummy").unwrap();
@@ -4531,37 +4515,6 @@ mod run_tests {
 			assert_ok!(builder::call(addr)
 				.data((BOB_ADDR, crate::exec::EMPTY_CODE_HASH).encode())
 				.build());
-		});
-	}
-
-	#[test]
-	fn code_size_works() {
-		let (tester_code, _) = compile_module("extcodesize").unwrap();
-		let tester_code_len = tester_code.len() as u64;
-
-		let (dummy_code, _) = compile_module("dummy").unwrap();
-		let dummy_code_len = dummy_code.len() as u64;
-
-		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-			let Contract { addr: tester_addr, .. } =
-				builder::bare_instantiate(Code::Upload(tester_code)).build_and_unwrap_contract();
-			let Contract { addr: dummy_addr, .. } =
-				builder::bare_instantiate(Code::Upload(dummy_code)).build_and_unwrap_contract();
-
-			// code size of another contract address
-			assert_ok!(builder::call(tester_addr)
-				.data((dummy_addr, dummy_code_len).encode())
-				.build());
-
-			// code size of own contract address
-			assert_ok!(builder::call(tester_addr)
-				.data((tester_addr, tester_code_len).encode())
-				.build());
-
-			// code size of non contract accounts
-			assert_ok!(builder::call(tester_addr).data(([8u8; 20], 0u64).encode()).build());
 		});
 	}
 
@@ -4622,31 +4575,6 @@ mod run_tests {
 			builder::bare_call(addr).build_and_unwrap_result();
 			assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 100);
 			assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 1_100);
-		});
-	}
-
-	#[test]
-	fn block_hash_works() {
-		let (code, _) = compile_module("block_hash").unwrap();
-
-		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-			// The genesis config sets to the block number to 1
-			let block_hash = [1; 32];
-			frame_system::BlockHash::<Test>::insert(
-				&crate::BlockNumberFor::<Test>::from(0u32),
-				<Test as frame_system::Config>::Hash::from(&block_hash),
-			);
-			assert_ok!(builder::call(addr)
-				.data((U256::zero(), H256::from(block_hash)).encode())
-				.build());
-
-			// A block number out of range returns the zero value
-			assert_ok!(builder::call(addr).data((U256::from(1), H256::zero()).encode()).build());
 		});
 	}
 }

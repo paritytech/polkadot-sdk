@@ -20,6 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 environmental = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.13.0", default-features = false }
+polkavm-common = { version = "0.13.0", default-features = false }
 bitflags = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -99,6 +100,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
+	"polkavm-common/std",
 	"polkavm/std",
 	"rlp/std",
 	"scale-info/std",

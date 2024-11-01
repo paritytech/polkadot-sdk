@@ -19,9 +19,8 @@ mod command;
 mod types;
 mod writer;
 
-use crate::shared::HostInfoParams;
+use crate::{pallet::types::GenesisBuilderPolicy, shared::HostInfoParams};
 use clap::ValueEnum;
-use frame_support::Serialize;
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
 	DEFAULT_WASM_EXECUTION_METHOD,
@@ -173,7 +172,7 @@ pub struct PalletCmd {
 	pub wasmtime_instantiation_strategy: WasmtimeInstantiationStrategy,
 
 	/// Optional runtime blob to use instead of the one from the genesis config.
-	#[arg(long, conflicts_with = "chain", required_if_eq("genesis_builder", "runtime"))]
+	#[arg(long, conflicts_with = "chain")]
 	pub runtime: Option<PathBuf>,
 
 	/// Do not fail if there are unknown but also unused host functions in the runtime.
@@ -182,7 +181,8 @@ pub struct PalletCmd {
 
 	/// How to construct the genesis state.
 	///
-	/// Uses `GenesisBuilderPolicy::Spec` by default.
+	/// Uses `GenesisBuilderPolicy::Spec` by default and  `GenesisBuilderPolicy::Runtime` if
+	/// `runtime` is set.
 	#[arg(long, value_enum, alias = "genesis-builder-policy")]
 	pub genesis_builder: Option<GenesisBuilderPolicy>,
 
@@ -264,23 +264,4 @@ pub struct PalletCmd {
 	/// solo-chains) can disable proof recording to get more accurate results.
 	#[arg(long)]
 	disable_proof_recording: bool,
-}
-
-/// How the genesis state for benchmarking should be built.
-#[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy, Serialize)]
-#[clap(rename_all = "kebab-case")]
-pub enum GenesisBuilderPolicy {
-	/// Do not provide any genesis state.
-	///
-	/// Benchmarks are advised to function with this, since they should setup their own required
-	/// state. However, to keep backwards compatibility, this is not the default.
-	None,
-	/// Let the runtime build the genesis state through its `BuildGenesisConfig` runtime API.
-	/// This will use the `development` preset by default.
-	Runtime,
-	/// Use the runtime from the Spec file to build the genesis state.
-	SpecRuntime,
-	/// Use the spec file to build the genesis state. This fails when there is no spec.
-	#[value(alias = "spec")]
-	SpecGenesis,
 }

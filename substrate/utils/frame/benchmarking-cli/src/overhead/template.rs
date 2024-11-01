@@ -19,6 +19,7 @@
 //! it into the `weights.hbs` template.
 
 use sc_cli::Result;
+use sc_service::Configuration;
 
 use handlebars::Handlebars;
 use log::info;
@@ -26,7 +27,7 @@ use serde::Serialize;
 use std::{env, fs, path::PathBuf};
 
 use crate::{
-	overhead::command::{BenchmarkType, OverheadParams},
+	overhead::cmd::{BenchmarkType, OverheadParams},
 	shared::{Stats, UnderscoreHelper},
 };
 
@@ -58,22 +59,19 @@ pub(crate) struct TemplateData {
 	params: OverheadParams,
 	/// Stats about the benchmark result.
 	stats: Stats,
-	/// The resulting ref time weight.
-	ref_time: u64,
-	/// The size of the proof weight.
-	proof_size: u64,
+	/// The resulting weight in ns.
+	weight: u64,
 }
 
 impl TemplateData {
 	/// Returns a new [`Self`] from the given params.
 	pub(crate) fn new(
 		t: BenchmarkType,
-		chain_name: &String,
+		cfg: &Configuration,
 		params: &OverheadParams,
 		stats: &Stats,
-		proof_size: u64,
 	) -> Result<Self> {
-		let ref_time = params.weight.calc_weight(stats)?;
+		let weight = params.weight.calc_weight(stats)?;
 		let header = params
 			.header
 			.as_ref()
@@ -84,7 +82,7 @@ impl TemplateData {
 		Ok(TemplateData {
 			short_name: t.short_name().into(),
 			long_name: t.long_name().into(),
-			runtime_name: chain_name.to_owned(),
+			runtime_name: cfg.chain_spec.name().into(),
 			version: VERSION.into(),
 			date: chrono::Utc::now().format("%Y-%m-%d (Y/M/D)").to_string(),
 			hostname: params.hostinfo.hostname(),
@@ -93,8 +91,7 @@ impl TemplateData {
 			args: env::args().collect::<Vec<String>>(),
 			params: params.clone(),
 			stats: stats.clone(),
-			ref_time,
-			proof_size,
+			weight,
 		})
 	}
 

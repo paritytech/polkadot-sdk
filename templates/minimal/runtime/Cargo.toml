@@ -13,6 +13,7 @@ publish = false
 codec = { workspace = true }
 scale-info = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
+	"experimental",
 	"pallet-balances",
 	"pallet-sudo",
 	"pallet-timestamp",

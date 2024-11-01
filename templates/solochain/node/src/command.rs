@@ -144,12 +144,11 @@ pub fn run() -> sc_cli::Result<()> {
 						let ext_builder = RemarkBuilder::new(client.clone());
 
 						cmd.run(
-							config.chain_spec.name().into(),
+							config,
 							client,
 							inherent_benchmark_data()?,
 							Vec::new(),
 							&ext_builder,
-							false,
 						)
 					},
 					BenchmarkCmd::Extrinsic(cmd) => {

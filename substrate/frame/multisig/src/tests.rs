@@ -20,13 +20,18 @@
 #![cfg(test)]
 
 use super::*;
+
 use crate as pallet_multisig;
-use frame::{prelude::*, runtime::prelude::*, testing_prelude::*};
+use frame_support::{
+	assert_noop, assert_ok, derive_impl,
+	traits::{ConstU32, ConstU64, Contains},
+};
+use sp_runtime::{BuildStorage, TokenError};
 
 type Block = frame_system::mocking::MockBlockU32<Test>;
 
-construct_runtime!(
-	pub struct Test {
+frame_support::construct_runtime!(
+	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
 		Multisig: pallet_multisig,
@@ -70,14 +75,14 @@ impl Config for Test {
 
 use pallet_balances::Call as BalancesCall;
 
-pub fn new_test_ext() -> TestState {
+pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 2)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	let mut ext = TestState::new(t);
+	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
