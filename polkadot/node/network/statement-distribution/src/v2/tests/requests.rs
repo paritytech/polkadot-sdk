@@ -1226,6 +1226,8 @@ fn peer_reported_for_invalid_v2_descriptor() {
 #[rstest]
 #[case(false)]
 #[case(true)]
+// Test if v2 descriptors are filtered and peers punished if the node feature is disabled.
+// Also test if the peer is rewarded for providing v2 descriptor if the node feature is enabled.
 fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 	let group_size = 3;
 	let config = TestConfig {
