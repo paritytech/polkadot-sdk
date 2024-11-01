@@ -1244,7 +1244,7 @@ where
 		T::Nonce: Into<U256>,
 		T::Hash: frame_support::traits::IsType<H256>,
 	{
-		log::debug!(target: LOG_TARGET, "bare_eth_transact: dest: {dest:?} value: {value:?} input: {input:?} gas_limit: {gas_limit:?} storage_deposit_limit: {storage_deposit_limit:?}");
+		log::debug!(target: LOG_TARGET, "bare_eth_transact: dest: {dest:?} value: {value:?} gas_limit: {gas_limit:?} storage_deposit_limit: {storage_deposit_limit:?}");
 		// Get the nonce to encode in the tx.
 		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
 
@@ -1345,7 +1345,7 @@ where
 			let tx = TransactionLegacyUnsigned {
 				gas: max_gas_fee.into(),
 				nonce: nonce.into(),
-				value: value.into(),
+				value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
 				input: input.clone().into(),
 				gas_price: GAS_PRICE.into(),
 				chain_id: Some(T::ChainId::get().into()),
