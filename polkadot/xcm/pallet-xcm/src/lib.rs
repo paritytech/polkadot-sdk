@@ -97,6 +97,8 @@ pub trait WeightInfo {
 	fn new_query() -> Weight;
 	fn take_response() -> Weight;
 	fn claim_assets() -> Weight;
+	fn add_authorized_alias() -> Weight;
+	fn remove_authorized_alias() -> Weight;
 }
 
 /// fallback implementation
@@ -181,6 +183,14 @@ impl WeightInfo for TestWeightInfo {
 	fn claim_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
+
+	fn add_authorized_alias() -> Weight {
+		Weight::from_parts(100_000, 0)
+	}
+
+	fn remove_authorized_alias() -> Weight {
+		Weight::from_parts(100_000, 0)
+	}
 }
 
 #[frame_support::pallet]
@@ -199,6 +209,9 @@ pub mod pallet {
 		/// An implementation of `Get<u32>` which just returns the latest XCM version which we can
 		/// support.
 		pub const CurrentXcmVersion: u32 = XCM_VERSION;
+
+		/// The maximum number of distinct locations allowed as authorized aliases for a local origin.
+		pub const MaxAuthorizedAliases: u32 = 10;
 	}
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -574,6 +587,9 @@ pub mod pallet {
 		/// Local XCM execution incomplete.
 		#[codec(index = 24)]
 		LocalExecutionIncomplete,
+		/// Too many locations authorized to alias origin.
+		#[codec(index = 25)]
+		TooManyAuthorizedAliases,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -792,6 +808,17 @@ pub mod pallet {
 	/// implementation in the XCM executor configuration.
 	#[pallet::storage]
 	pub(crate) type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
+
+	/// Map of authorized aliasers of local origins. Each local location can authorize a list of
+	/// other locations to alias into it.
+	#[pallet::storage]
+	pub(super) type AuthorizedAliases<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		Location,
+		BoundedVec<Location, MaxAuthorizedAliases>,
+		ValueQuery,
+	>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -1424,6 +1451,51 @@ pub mod pallet {
 				*fees_transfer_type,
 				weight_limit,
 			)
+		}
+
+		/// Authorize another `aliaser` location to alias into the local `origin` making this call.
+		///
+		/// Usually useful to allow your local account to be aliased into from a remote location
+		/// also under your control (like your account on another chain).
+		///
+		/// WARNING: make sure the caller `origin` (you) trusts the `aliaser` location to act in
+		/// their/your name. Once authorized using this call, the `aliaser` can freely impersonate
+		/// `origin` in XCM programs executed on the local chain.
+		#[pallet::call_index(14)]
+		pub fn add_authorized_alias(
+			origin: OriginFor<T>,
+			aliaser: Box<VersionedLocation>,
+		) -> DispatchResult {
+			let origin = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let aliaser = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			ensure!(origin != aliaser, Error::<T>::BadLocation);
+			let mut authorized_aliases = AuthorizedAliases::<T>::get(&origin);
+			if !authorized_aliases.contains(&aliaser) {
+				authorized_aliases
+					.try_push(aliaser)
+					.map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
+				AuthorizedAliases::<T>::insert(&origin, authorized_aliases);
+			}
+			Ok(())
+		}
+
+		/// Remove a previously authorized `aliaser` from the list of locations that can alias into
+		/// the local `origin` making this call.
+		#[pallet::call_index(15)]
+		pub fn remove_authorized_alias(
+			origin: OriginFor<T>,
+			aliaser: Box<VersionedLocation>,
+		) -> DispatchResult {
+			let origin = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let to_remove = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			ensure!(origin != to_remove, Error::<T>::BadLocation);
+			let mut authorized_aliases = AuthorizedAliases::<T>::get(&origin);
+			let original_length = authorized_aliases.len();
+			authorized_aliases.retain(|alias| to_remove.ne(alias));
+			if original_length != authorized_aliases.len() {
+				AuthorizedAliases::<T>::insert(&origin, authorized_aliases);
+			}
+			Ok(())
 		}
 	}
 }
@@ -3432,12 +3504,12 @@ where
 /// Filter for `(origin: Location, target: Location)` to find whether `target` has explicitly
 /// authorized `origin` to alias it.
 ///
-/// TODO: how to authorize?.
-pub struct AuthorizedAliases;
-impl ContainsPair<Location, Location> for AuthorizedAliases {
+/// Note: users can authorize other locations to alias them by using
+/// `pallet_xcm::add_authorized_alias()`.
+pub struct AuthorizedAliases<T>(PhantomData<T>);
+impl<T: Config> ContainsPair<Location, Location> for AuthorizedAliases<T> {
 	fn contains(origin: &Location, target: &Location) -> bool {
-		// TODO: use storage
-		return false
+		pallet::AuthorizedAliases::<T>::get(&origin).contains(target)
 	}
 }
 
