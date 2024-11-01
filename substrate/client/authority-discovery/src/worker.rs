@@ -461,7 +461,7 @@ where
 					"No public addresses configured and no global listen addresses found. \
 					Authority DHT record may contain unreachable addresses. \
 					Consider setting `--public-addr` to the public IP address of this node. \
-					This will become a hard requirement in future versions for validators."
+					This will become a hard requirement in future versions for authorities."
 				);
 			}
 		}
