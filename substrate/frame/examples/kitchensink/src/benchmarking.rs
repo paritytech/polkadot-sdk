@@ -26,7 +26,6 @@ use crate::Pallet as Kitchensink;
 
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-use frame_support::pallet_prelude::TransactionSource;
 
 // To actually run this benchmark on pallet-example-kitchensink, we need to put this pallet into the
 //   runtime and compile it with `runtime-benchmarks` feature. The detail procedures are
