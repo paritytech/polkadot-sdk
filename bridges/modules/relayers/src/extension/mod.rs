@@ -33,6 +33,7 @@ use bp_runtime::{Chain, RangeInclusiveExt, StaticStrProvider};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
+	pallet_prelude::TransactionSource,
 	weights::Weight,
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -304,6 +305,7 @@ where
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, R::RuntimeCall> {
 		// Prepare relevant data for `prepare`
 		let parsed_call = match C::parse_and_check_for_obsolete_call(call)? {
@@ -466,6 +468,7 @@ mod tests {
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 		DispatchError,
 	};
+	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	parameter_types! {
 		TestParachain: u32 = BridgedUnderlyingParachain::PARACHAIN_ID;
@@ -1076,6 +1079,7 @@ mod tests {
 				&call,
 				&DispatchInfo::default(),
 				0,
+				External,
 			)
 			.map(|t| t.0)
 	}
@@ -1088,6 +1092,7 @@ mod tests {
 				&call,
 				&DispatchInfo::default(),
 				0,
+				External,
 			)
 			.map(|t| t.0)
 	}
@@ -1100,6 +1105,7 @@ mod tests {
 				&call,
 				&DispatchInfo::default(),
 				0,
+				External,
 			)
 			.map(|t| t.0)
 	}
