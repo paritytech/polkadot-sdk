@@ -1306,7 +1306,7 @@ where
 			)
 			.into();
 
-			log::debug!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
+			log::trace!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
 				gas_required: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
@@ -1379,7 +1379,7 @@ where
 			)
 			.into();
 
-			log::debug!(target: LOG_TARGET, "Call dry run Result: dispatch_info: {dispatch_info:?} len: {encoded_len:?} fee: {fee:?}");
+			log::trace!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
 				gas_required: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
