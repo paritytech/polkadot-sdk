@@ -456,7 +456,7 @@ where
 			{
 				self.warn_public_addresses = true;
 
-				warn!(
+				error!(
 					target: LOG_TARGET,
 					"No public addresses configured and no global listen addresses found. \
 					Authority DHT record may contain unreachable addresses. \
