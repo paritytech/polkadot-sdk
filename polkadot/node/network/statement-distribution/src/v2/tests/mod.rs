@@ -33,9 +33,9 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
-	AssignmentPair, AsyncBackingParams, Block, BlockNumber, GroupRotationInfo, HeadData, Header,
-	IndexedVec, PersistedValidationData, ScheduledCore, SessionIndex, SessionInfo, ValidatorPair,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, AssignmentPair,
+	AsyncBackingParams, Block, BlockNumber, GroupRotationInfo, HeadData, Header, IndexedVec,
+	PersistedValidationData, SessionIndex, SessionInfo, ValidatorPair,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::ProtocolName;
@@ -196,24 +196,22 @@ impl TestState {
 		groups_for_first_para: usize,
 	) -> TestLeaf {
 		let mut cq = std::collections::BTreeMap::new();
+
+		for i in 0..self.session_info.validator_groups.len() {
+			if i < groups_for_first_para {
+				cq.entry(CoreIndex(i as u32))
+					.or_insert_with(|| vec![ParaId::from(0u32), ParaId::from(0u32)].into());
+			} else {
+				cq.entry(CoreIndex(i as u32))
+					.or_insert_with(|| vec![ParaId::from(i), ParaId::from(i)].into());
+			};
+		}
+
 		TestLeaf {
 			number: 1,
 			hash: relay_parent,
 			parent_hash: Hash::repeat_byte(0),
 			session: 1,
-			availability_cores: self.make_availability_cores(|i| {
-				let para_id = if i < groups_for_first_para {
-					cq.entry(CoreIndex(i as u32))
-						.or_insert_with(|| vec![ParaId::from(0u32), ParaId::from(0u32)].into());
-					ParaId::from(0u32)
-				} else {
-					cq.entry(CoreIndex(i as u32))
-						.or_insert_with(|| vec![ParaId::from(i), ParaId::from(i)].into());
-					ParaId::from(i as u32)
-				};
-
-				CoreState::Scheduled(ScheduledCore { para_id, collator: None })
-			}),
 			disabled_validators: Default::default(),
 			para_data: (0..self.session_info.validator_groups.len())
 				.map(|i| {
@@ -245,10 +243,6 @@ impl TestState {
 		minimum_backing_votes: u32,
 	) -> TestLeaf {
 		TestLeaf { minimum_backing_votes, ..self.make_dummy_leaf(relay_parent) }
-	}
-
-	fn make_availability_cores(&self, f: impl FnMut(usize) -> CoreState) -> Vec<CoreState> {
-		(0..self.session_info.validator_groups.len()).map(f).collect()
 	}
 
 	fn make_dummy_topology(&self) -> NewGossipTopology {
@@ -438,7 +432,6 @@ struct TestLeaf {
 	hash: Hash,
 	parent_hash: Hash,
 	session: SessionIndex,
-	availability_cores: Vec<CoreState>,
 	pub disabled_validators: Vec<ValidatorIndex>,
 	para_data: Vec<(ParaId, PerParaData)>,
 	minimum_backing_votes: u32,
@@ -590,7 +583,6 @@ async fn handle_leaf_activation(
 		parent_hash,
 		para_data,
 		session,
-		availability_cores,
 		disabled_validators,
 		minimum_backing_votes,
 		claim_queue,
@@ -673,12 +665,6 @@ async fn handle_leaf_activation(
 			)) if parent == *hash && session_index == *session => {
 				assert!(is_new_session, "only expecting this call in a new session");
 				tx.send(Ok(*minimum_backing_votes)).unwrap();
-			},
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				parent,
-				RuntimeApiRequest::AvailabilityCores(tx),
-			)) if parent == *hash => {
-				tx.send(Ok(availability_cores.clone())).unwrap();
 			},
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,

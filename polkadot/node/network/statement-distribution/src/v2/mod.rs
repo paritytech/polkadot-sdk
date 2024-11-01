@@ -52,9 +52,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	node_features::FeatureIndex,
-	vstaging::{
-		transpose_claim_queue, CandidateDescriptorVersion, CoreState, TransposedClaimQueue,
-	},
+	vstaging::{transpose_claim_queue, CandidateDescriptorVersion, TransposedClaimQueue},
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, GroupIndex,
 	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo,
 	SignedStatement, SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex,
@@ -683,18 +681,6 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			continue
 		}
 
-		// New leaf: fetch info from runtime API and initialize
-		// `per_relay_parent`.
-
-		let availability_cores = polkadot_node_subsystem_util::request_availability_cores(
-			new_relay_parent,
-			ctx.sender(),
-		)
-		.await
-		.await
-		.map_err(JfyiError::RuntimeApiUnavailable)?
-		.map_err(JfyiError::FetchAvailabilityCores)?;
-
 		let group_rotation_info =
 			polkadot_node_subsystem_util::request_validator_groups(new_relay_parent, ctx.sender())
 				.await
@@ -716,7 +702,6 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				find_active_validator_state(
 					idx,
 					&per_session.groups,
-					&availability_cores,
 					&group_rotation_info,
 					&claim_queue,
 					seconding_limit,
@@ -726,8 +711,12 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			}
 		});
 
-		let groups_per_para =
-			determine_groups_per_para(availability_cores, group_rotation_info, &claim_queue).await;
+		let groups_per_para = determine_groups_per_para(
+			per_session.groups.all().len(),
+			group_rotation_info,
+			&claim_queue,
+		)
+		.await;
 
 		let transposed_cq = transpose_claim_queue(claim_queue.0);
 
@@ -780,7 +769,6 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 fn find_active_validator_state(
 	validator_index: ValidatorIndex,
 	groups: &Groups,
-	availability_cores: &[CoreState],
 	group_rotation_info: &GroupRotationInfo,
 	claim_queue: &ClaimQueueSnapshot,
 	seconding_limit: usize,
@@ -791,7 +779,7 @@ fn find_active_validator_state(
 
 	let our_group = groups.by_validator_index(validator_index)?;
 
-	let core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
+	let core_index = group_rotation_info.core_for_group(our_group, groups.all().len());
 	let paras_assigned_to_core = claim_queue.iter_claims_for_core(&core_index).copied().collect();
 	let group_validators = groups.get(our_group)?.to_owned();
 
@@ -2197,12 +2185,10 @@ async fn provide_candidate_to_grid<Context>(
 
 // Utility function to populate per relay parent `ParaId` to `GroupIndex` mappings.
 async fn determine_groups_per_para(
-	availability_cores: Vec<CoreState>,
+	n_cores: usize,
 	group_rotation_info: GroupRotationInfo,
 	claim_queue: &ClaimQueueSnapshot,
 ) -> HashMap<ParaId, Vec<GroupIndex>> {
-	let n_cores = availability_cores.len();
-
 	// Determine the core indices occupied by each para at the current relay parent. To support
 	// on-demand parachains we also consider the core indices at next blocks.
 	let schedule: HashMap<CoreIndex, Vec<ParaId>> = claim_queue
