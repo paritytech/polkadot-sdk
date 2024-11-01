@@ -3429,6 +3429,18 @@ where
 	}
 }
 
+/// Filter for `(origin: Location, target: Location)` to find whether `target` has explicitly
+/// authorized `origin` to alias it.
+///
+/// TODO: how to authorize?.
+pub struct AuthorizedAliases;
+impl ContainsPair<Location, Location> for AuthorizedAliases {
+	fn contains(origin: &Location, target: &Location) -> bool {
+		// TODO: use storage
+		return false
+	}
+}
+
 /// Filter for `Location` to find those which represent a strict majority approval of an
 /// identified plurality.
 ///
