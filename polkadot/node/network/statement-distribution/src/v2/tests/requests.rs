@@ -1041,9 +1041,9 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			);
 		}
 
-		// Send a request to peer and mock its response to include invalid statements.
+		// Send a request to peer and mock its response to include a candidate with invalid core
+		// index.
 		{
-			// Sign statement with wrong signing context, leading to bad signature.
 			let b_seconded_invalid = state
 				.sign_statement(
 					v_b,
@@ -1104,9 +1104,9 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			);
 		}
 
-		// Send a request to peer and mock its response to include invalid statements.
+		// Send a request to peer and mock its response to include a candidate with invalid session
+		// index.
 		{
-			// Sign statement with wrong signing context, leading to bad signature.
 			let b_seconded_invalid = state
 				.sign_statement(
 					v_b,
@@ -1165,9 +1165,8 @@ fn peer_reported_for_invalid_v2_descriptor() {
 			);
 		}
 
-		// Send a request to peer and mock its response to include invalid statements.
+		// Send a request to peer and mock its response to include a valid candidate.
 		{
-			// Sign statement with wrong signing context, leading to bad signature.
 			let b_seconded_invalid = state
 				.sign_statement(
 					v_b,
@@ -1318,9 +1317,9 @@ fn v2_descriptors_filtered(#[case] allow_v2_descriptors: bool) {
 			);
 		}
 
-		// Send a request to peer and mock its response to include invalid statements.
+		// Send a request to peer and mock its response to include a candidate with invalid core
+		// index.
 		{
-			// Sign statement with wrong signing context, leading to bad signature.
 			let b_seconded_invalid = state
 				.sign_statement(
 					v_b,

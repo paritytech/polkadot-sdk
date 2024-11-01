@@ -179,7 +179,7 @@ impl TestState {
 
 		let mut node_features = NodeFeatures::new();
 		if config.allow_v2_descriptors {
-			node_features.resize(4, false);
+			node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
 			node_features.set(FeatureIndex::CandidateReceiptV2 as usize, true);
 		}
 

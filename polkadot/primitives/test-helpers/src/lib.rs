@@ -260,7 +260,7 @@ pub fn make_candidate_v2(
 	para_id: ParaId,
 	parent_head: HeadData,
 	head_data: HeadData,
-	_validation_code_hash: ValidationCodeHash,
+	validation_code_hash: ValidationCodeHash,
 ) -> (CommittedCandidateReceiptV2, PersistedValidationData) {
 	let pvd = dummy_pvd(parent_head, relay_parent_number);
 	let commitments = CandidateCommitments {
@@ -276,7 +276,7 @@ pub fn make_candidate_v2(
 		dummy_candidate_descriptor_v2(relay_parent_hash);
 	descriptor.set_para_id(para_id);
 	descriptor.set_persisted_validation_data_hash(pvd.hash());
-	// descriptor.set_validation_code_hash(validation_code_hash);
+	descriptor.set_validation_code_hash(validation_code_hash);
 	let candidate =
 		CommittedCandidateReceiptV2 { descriptor, commitments };
 
