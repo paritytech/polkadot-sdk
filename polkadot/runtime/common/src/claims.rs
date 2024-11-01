@@ -1497,7 +1497,7 @@ mod benchmarking {
 	}
 
 	#[benchmarks(
-		where 
+		where
 			<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>> + From<Call<T>>,
 			<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo> + GetDispatchInfo,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + AsTransactionAuthorizedOrigin + Clone,
