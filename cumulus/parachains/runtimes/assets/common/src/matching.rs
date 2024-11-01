@@ -150,7 +150,7 @@ mod tests {
 
 	parameter_types! {
 		pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(1000)].into();
-		pub ExpectedNetworkId: NetworkId = Wococo;
+		pub ExpectedNetworkId: NetworkId = ByGenesis(WOCOCO_GENESIS_HASH);
 	}
 
 	#[test]
@@ -159,13 +159,13 @@ mod tests {
 		let asset: Location = (
 			Parent,
 			Parent,
-			GlobalConsensus(Wococo),
+			GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)),
 			Parachain(1000),
 			PalletInstance(1),
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location = (Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
+		let origin: Location = (Parent, Parent, GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)), Parachain(1000)).into();
 		assert!(FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset and origin from local consensus fails
@@ -198,14 +198,14 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location = (Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
+		let origin: Location = (Parent, Parent, GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)), Parachain(1000)).into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// origin from different consensus fails
 		let asset: Location = (
 			Parent,
 			Parent,
-			GlobalConsensus(Wococo),
+			GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)),
 			Parachain(1000),
 			PalletInstance(1),
 			GeneralIndex(1),

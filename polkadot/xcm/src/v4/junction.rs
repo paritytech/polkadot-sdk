@@ -117,7 +117,6 @@ impl From<NewNetworkId> for NetworkId {
 			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
 			Polkadot => Self::Polkadot,
 			Kusama => Self::Kusama,
-			Wococo => Self::Wococo,
 			Ethereum { chain_id } => Self::Ethereum { chain_id },
 			BitcoinCore => Self::BitcoinCore,
 			BitcoinCash => Self::BitcoinCash,

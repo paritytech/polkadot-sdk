@@ -103,11 +103,17 @@ pub enum Junction {
 	GlobalConsensus(NetworkId),
 }
 
+/// The genesis hash of the Westend testnet. Used to identify it.
 pub const WESTEND_GENESIS_HASH: [u8; 32] =
 	hex!["e143f23803ac50e8f6f8e62695d1ce9e4e1d68aa36c1cd2cfd15340213f3423e"];
 
+/// The genesis hash of the Rococo testnet. Used to identify it.
 pub const ROCOCO_GENESIS_HASH: [u8; 32] =
 	hex!["6408de7737c59c238890533af25896a2c20608d8b380bb01029acb392781063e"];
+
+// TODO: What to use here?
+pub const WOCOCO_GENESIS_HASH: [u8; 32] =
+	hex!["0000000000000000000000000000000000000000000000000000000000000000"];
 
 /// A global identifier of a data structure existing within consensus.
 ///
@@ -137,8 +143,6 @@ pub enum NetworkId {
 	Polkadot,
 	/// The Kusama canary-net Relay-chain.
 	Kusama,
-	/// The Wococo testnet Relay-chain.
-	Wococo,
 	/// An Ethereum network specified by its chain ID.
 	Ethereum {
 		/// The EIP-155 chain ID.
@@ -169,7 +173,7 @@ impl From<OldNetworkId> for NetworkId {
 			Kusama => Self::Kusama,
 			Westend => Self::ByGenesis(WESTEND_GENESIS_HASH),
 			Rococo => Self::ByGenesis(ROCOCO_GENESIS_HASH),
-			Wococo => Self::Wococo,
+			Wococo => Self::ByGenesis(WOCOCO_GENESIS_HASH),
 			Ethereum { chain_id } => Self::Ethereum { chain_id },
 			BitcoinCore => Self::BitcoinCore,
 			BitcoinCash => Self::BitcoinCash,
