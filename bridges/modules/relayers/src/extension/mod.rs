@@ -465,10 +465,11 @@ mod tests {
 	use pallet_utility::Call as UtilityCall;
 	use sp_runtime::{
 		traits::{ConstU64, DispatchTransaction, Header as HeaderT},
-		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidity, ValidTransaction,
+		},
 		DispatchError,
 	};
-	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	parameter_types! {
 		TestParachain: u32 = BridgedUnderlyingParachain::PARACHAIN_ID;

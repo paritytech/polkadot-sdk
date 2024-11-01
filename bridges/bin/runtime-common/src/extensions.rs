@@ -391,10 +391,11 @@ mod tests {
 			parameter_types, AsSystemOriginSigner, AsTransactionAuthorizedOrigin, ConstU64,
 			DispatchTransaction, Header as _, TransactionExtension,
 		},
-		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidity, ValidTransaction,
+		},
 		DispatchError,
 	};
-	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	parameter_types! {
 		pub MsgProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(

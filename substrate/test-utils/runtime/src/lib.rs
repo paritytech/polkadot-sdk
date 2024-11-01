@@ -1054,8 +1054,7 @@ mod tests {
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_runtime::{
 		traits::{DispatchTransaction, Hash as _},
-		transaction_validity::{InvalidTransaction, ValidTransaction},
-		transaction_validity::TransactionSource::External,
+		transaction_validity::{InvalidTransaction, TransactionSource::External, ValidTransaction},
 	};
 	use substrate_test_runtime_client::{
 		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,

@@ -112,18 +112,10 @@ where
 				Extension::bare_post_dispatch(info, &mut post_info, len, &pd_res)?;
 				Ok(res)
 			},
-			ExtrinsicFormat::Signed(signer, extension) => extension.dispatch_transaction(
-				Some(signer).into(),
-				self.function,
-				info,
-				len,
-			),
-			ExtrinsicFormat::General(extension) => extension.dispatch_transaction(
-				None.into(),
-				self.function,
-				info,
-				len,
-			),
+			ExtrinsicFormat::Signed(signer, extension) =>
+				extension.dispatch_transaction(Some(signer).into(), self.function, info, len),
+			ExtrinsicFormat::General(extension) =>
+				extension.dispatch_transaction(None.into(), self.function, info, len),
 		}
 	}
 }

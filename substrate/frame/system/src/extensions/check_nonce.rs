@@ -185,8 +185,10 @@ mod tests {
 	use frame_support::{
 		assert_ok, assert_storage_noop, dispatch::GetDispatchInfo, traits::OriginTrait,
 	};
-	use sp_runtime::traits::{AsTransactionAuthorizedOrigin, DispatchTransaction};
-	use sp_runtime::transaction_validity::TransactionSource::External;
+	use sp_runtime::{
+		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction},
+		transaction_validity::TransactionSource::External,
+	};
 
 	#[test]
 	fn signed_ext_check_nonce_works() {
