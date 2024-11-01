@@ -123,7 +123,7 @@ pub mod pallet {
 		/// one or both if_else calls failed.
 		IfElseFailure { which: String, error: DispatchError },
 		/// if_else completed.
-		IfElseCompleted,
+		IfElseCompleted { which: String },
 	}
 
 	// Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
@@ -459,51 +459,74 @@ pub mod pallet {
 			res.map(|_| ()).map_err(|e| e.error)
 		}
 
-		#[pallet::call_index(6)]
+		#[pallet::call_index(7)]
 		#[pallet::weight(10_000)]
 		pub fn if_else(
-			origin: OriginFor<T>,
-			main: <T as Config>::RuntimeCall,
-			fallback: <T as Config>::RuntimeCall,
+    		origin: OriginFor<T>,
+    		main: <T as Config>::RuntimeCall,
+    		fallback: <T as Config>::RuntimeCall,
 		) -> DispatchResultWithPostInfo {
-			// Do not allow the `None` origin.
-			if ensure_none(origin.clone()).is_ok() {
-				return Err(BadOrigin.into())
-			}
-	
-			let is_root = ensure_root(origin.clone()).is_ok();
-			let calls: Vec<<T as Config>::RuntimeCall> = vec![main.clone(), fallback.clone()];
-	
-			// Track the weights
-			let mut weight = Weight::zero();
-			for (index, call) in calls.into_iter().enumerate() {
-				let info = call.get_dispatch_info();
-				// If origin is root, don't apply any dispatch filters; root can call anything.
-				let result = if is_root {
-					call.dispatch_bypass_filter(origin.clone())
-				} else {
-					call.dispatch(origin.clone())
-				};
-				// Add weight of this call.
-				weight = weight.saturating_add(extract_actual_weight(&result, &info));
-				if let Err(e) = result {
-					let which = if index == 0 { "main".to_string() } else { "both calls have failed".to_string() }; // Use descriptive names
-					Self::deposit_event(Event::IfElseFailure {
-						which,
-						error: e.error,
-						
-					});
-	
-					// Take the weight of this function into account.
-					let base_weight = T::WeightInfo::batch(index.saturating_add(1) as u32);
-					// Return the actual used weight + base_weight of this call.
-					return Ok(Some(base_weight.saturating_add(weight)).into())
-				}
-				Self::deposit_event(Event::ItemCompleted);
-			}
-			Self::deposit_event(Event::IfElseCompleted);
-			let base_weight = T::WeightInfo::batch(2u32);
-			Ok(Some(base_weight.saturating_add(weight)).into())
+    		// Do not allow the `None` origin.
+    		if ensure_none(origin.clone()).is_ok() {
+        		return Err(BadOrigin.into());
+    		}
+
+    		let is_root = ensure_root(origin.clone()).is_ok();
+
+    		// Track the weights
+    		let mut weight = Weight::zero();
+
+    		// Execute the main call first
+    		let main_result = if is_root {
+        		main.clone().dispatch_bypass_filter(origin.clone())
+    		} else {
+        		main.clone().dispatch(origin.clone())
+    		};
+
+    		// Add weight of the main call
+    		let info = main.get_dispatch_info();
+    		weight = weight.saturating_add(extract_actual_weight(&main_result, &info));
+
+    		if let Err(main_call_error) = main_result {
+				// Both calls have failed
+				Self::deposit_event(Event::IfElseFailure {
+					which: "Main call".to_string(),
+					error: main_call_error.error,
+				});
+
+        		// If the main call failed, execute the fallback call
+        		let fallback_result = if is_root {
+            		fallback.clone().dispatch_bypass_filter(origin.clone())
+        		} else {
+            		fallback.clone().dispatch(origin.clone())
+        		};
+
+        		// Add weight of the fallback call
+        		let fallback_info = fallback.get_dispatch_info();
+        		weight = weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
+
+        		if let Err(fallback_error) = fallback_result {
+            		// Both calls have failed
+            		Self::deposit_event(Event::IfElseFailure {
+                		which: "Both calls have failed".to_string(),
+                		error: fallback_error.error,
+            		});
+
+            		// Calculate base weight and return
+            		let base_weight = T::WeightInfo::batch(2u32);
+            		return Ok(Some(base_weight.saturating_add(weight)).into());
+        		}
+
+        		// Fallback succeeded.
+        		Self::deposit_event(Event::IfElseCompleted {
+            		which: "Fallback".to_string(),
+        		});
+    		}
+			// Main call succesed.
+    		Self::deposit_event(Event::IfElseCompleted {
+				which: "Main".to_string()
+			});
+    		Ok(Some(weight).into())
 		}
 	}
 
