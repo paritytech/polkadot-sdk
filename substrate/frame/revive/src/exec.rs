@@ -590,12 +590,20 @@ struct Frame<T: Config> {
 	allows_reentry: bool,
 	/// If `true` subsequent calls cannot modify storage.
 	read_only: bool,
-	/// The caller of the currently executing frame which was spawned by `delegate_call`.
-	delegate_caller: Option<Origin<T>>,
-	/// The address of the contract the call was delegated to.
-	delegate_address: Option<H160>,
+	/// The delegate call info of the currently executing frame which was spawned by
+	/// `delegate_call`.
+	delegate: Option<DelegateInfo<T>>,
 	/// The output of the last executed call frame.
 	last_frame_output: ExecReturnValue,
+}
+
+/// This structure is used to represent the arguments in a delegate call frame in order to
+/// distinguish who delegated the call and where it was delegated to.
+struct DelegateInfo<T: Config> {
+	/// The caller of the contract.
+	pub caller: Origin<T>,
+	/// The address of the contract the call was delegated to.
+	pub callee: H160,
 }
 
 /// Used in a delegate call frame arguments in order to override the executable and caller.
@@ -604,8 +612,8 @@ struct DelegatedCall<T: Config, E> {
 	executable: E,
 	/// The caller of the contract.
 	caller: Origin<T>,
-	/// The address of the contract.
-	address: H160,
+	/// The address of the contract the call was delegated to.
+	callee: H160,
 }
 
 /// Parameter passed in when creating a new `Frame`.
@@ -911,75 +919,64 @@ where
 		read_only: bool,
 		origin_is_caller: bool,
 	) -> Result<Option<(Frame<T>, E)>, ExecError> {
-		let (account_id, contract_info, executable, delegate_caller, delegate_address, entry_point) =
-			match frame_args {
-				FrameArgs::Call { dest, cached_info, delegated_call } => {
-					let contract = if let Some(contract) = cached_info {
+		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
+			FrameArgs::Call { dest, cached_info, delegated_call } => {
+				let contract = if let Some(contract) = cached_info {
+					contract
+				} else {
+					if let Some(contract) =
+						<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
+					{
 						contract
 					} else {
-						if let Some(contract) =
-							<ContractInfoOf<T>>::get(T::AddressMapper::to_address(&dest))
-						{
-							contract
-						} else {
-							return Ok(None);
-						}
-					};
+						return Ok(None);
+					}
+				};
 
-					let (executable, delegate_caller, delegate_address) =
-						if let Some(DelegatedCall { executable, caller, address }) = delegated_call
-						{
-							(executable, Some(caller), Some(address))
-						} else {
-							(E::from_storage(contract.code_hash, gas_meter)?, None, None)
-						};
-
-					(
-						dest,
-						contract,
-						executable,
-						delegate_caller,
-						delegate_address,
-						ExportedFunction::Call,
-					)
-				},
-				FrameArgs::Instantiate { sender, executable, salt, input_data } => {
-					let deployer = T::AddressMapper::to_address(&sender);
-					let account_nonce = <System<T>>::account_nonce(&sender);
-					let address = if let Some(salt) = salt {
-						address::create2(&deployer, executable.code(), input_data, salt)
+				let (executable, delegate_caller) =
+					if let Some(DelegatedCall { executable, caller, callee }) = delegated_call {
+						(executable, Some(DelegateInfo { caller, callee }))
 					} else {
-						use sp_runtime::Saturating;
-						address::create1(
-							&deployer,
-							// the Nonce from the origin has been incremented pre-dispatch, so we
-							// need to subtract 1 to get the nonce at the time of the call.
-							if origin_is_caller {
-								account_nonce.saturating_sub(1u32.into()).saturated_into()
-							} else {
-								account_nonce.saturated_into()
-							},
-						)
+						(E::from_storage(contract.code_hash, gas_meter)?, None)
 					};
-					let contract = ContractInfo::new(
-						&address,
-						<System<T>>::account_nonce(&sender),
-						*executable.code_hash(),
-					)?;
-					(
-						T::AddressMapper::to_fallback_account_id(&address),
-						contract,
-						executable,
-						None,
-						None,
-						ExportedFunction::Constructor,
+
+				(dest, contract, executable, delegate_caller, ExportedFunction::Call)
+			},
+			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
+				let deployer = T::AddressMapper::to_address(&sender);
+				let account_nonce = <System<T>>::account_nonce(&sender);
+				let address = if let Some(salt) = salt {
+					address::create2(&deployer, executable.code(), input_data, salt)
+				} else {
+					use sp_runtime::Saturating;
+					address::create1(
+						&deployer,
+						// the Nonce from the origin has been incremented pre-dispatch, so we
+						// need to subtract 1 to get the nonce at the time of the call.
+						if origin_is_caller {
+							account_nonce.saturating_sub(1u32.into()).saturated_into()
+						} else {
+							account_nonce.saturated_into()
+						},
 					)
-				},
-			};
+				};
+				let contract = ContractInfo::new(
+					&address,
+					<System<T>>::account_nonce(&sender),
+					*executable.code_hash(),
+				)?;
+				(
+					T::AddressMapper::to_fallback_account_id(&address),
+					contract,
+					executable,
+					None,
+					ExportedFunction::Constructor,
+				)
+			},
+		};
 
 		let frame = Frame {
-			delegate_address,
-			delegate_caller,
+			delegate,
 			value_transferred,
 			contract_info: CachedContract::Cached(contract_info),
 			account_id,
@@ -1048,7 +1045,7 @@ where
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
 		let delegated_code_hash =
-			if frame.delegate_caller.is_some() { Some(*executable.code_hash()) } else { None };
+			if frame.delegate.is_some() { Some(*executable.code_hash()) } else { None };
 
 		// The output of the caller frame will be replaced by the output of this run.
 		// It is also not accessible from nested frames.
@@ -1470,7 +1467,7 @@ where
 				delegated_call: Some(DelegatedCall {
 					executable,
 					caller: self.caller().clone(),
-					address,
+					callee: address,
 				}),
 			},
 			value,
@@ -1600,7 +1597,7 @@ where
 	}
 
 	fn caller(&self) -> Origin<T> {
-		if let Some(caller) = &self.top_frame().delegate_caller {
+		if let Some(DelegateInfo { caller, .. }) = &self.top_frame().delegate {
 			caller.clone()
 		} else {
 			self.frames()
@@ -1657,7 +1654,9 @@ where
 		// Immutable is read from contract code being executed
 		let address = self
 			.top_frame()
-			.delegate_address
+			.delegate
+			.as_ref()
+			.map(|d| d.callee)
 			.unwrap_or(T::AddressMapper::to_address(self.account_id()));
 		Ok(<ImmutableDataOf<T>>::get(address).ok_or_else(|| Error::<T>::InvalidImmutableAccess)?)
 	}
