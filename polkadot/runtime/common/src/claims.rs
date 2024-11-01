@@ -1506,6 +1506,7 @@ mod benchmarking {
 	mod benchmarks {
 		use super::*;
 
+		// Benchmark `claim` including `validate_unsigned` logic.
 		#[benchmark]
 		fn claim() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
@@ -1613,12 +1614,10 @@ mod benchmarking {
 		#[benchmark]
 		fn attest() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
-
 			for _ in 0..c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
-
 			let attest_c = u32::MAX - c;
 			let secret_key =
 				libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
@@ -1648,12 +1647,10 @@ mod benchmarking {
 		#[benchmark]
 		fn move_claim() -> Result<(), BenchmarkError> {
 			let c = MAX_CLAIMS;
-
 			for _ in 0..c / 2 {
 				create_claim::<T>(c)?;
 				create_claim_attest::<T>(u32::MAX - c)?;
 			}
-
 			let attest_c = u32::MAX - c;
 			let secret_key =
 				libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
