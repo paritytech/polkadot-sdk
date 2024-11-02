@@ -105,6 +105,7 @@ pub use self::{
 	},
 	weights::WeightInfo,
 };
+use sp_runtime::traits::BlockNumberProvider;
 pub use alloc::vec::Vec;
 
 #[cfg(test)]
@@ -239,6 +240,9 @@ pub mod pallet {
 
 		/// The preimage provider.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
 	/// The next free referendum index, aka the number of referenda started so far.
@@ -485,7 +489,7 @@ pub mod pallet {
 				*x += 1;
 				r
 			});
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let nudge_call =
 				T::Preimages::bound(CallOf::<T, I>::from(Call::nudge_referendum { index }))?;
 			let status = ReferendumStatus {
@@ -527,7 +531,7 @@ pub mod pallet {
 			let track = Self::track(status.track).ok_or(Error::<T, I>::NoTrack)?;
 			status.decision_deposit =
 				Some(Self::take_deposit(who.clone(), track.decision_deposit)?);
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let (info, _, branch) = Self::service_referendum(now, index, status);
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e =
@@ -584,7 +588,7 @@ pub mod pallet {
 			Self::note_one_fewer_deciding(status.track);
 			Self::deposit_event(Event::<T, I>::Cancelled { index, tally: status.tally });
 			let info = ReferendumInfo::Cancelled(
-				frame_system::Pallet::<T>::block_number(),
+				T::BlockNumberProvider::current_block_number(),
 				Some(status.submission_deposit),
 				status.decision_deposit,
 			);
@@ -611,7 +615,7 @@ pub mod pallet {
 			Self::slash_deposit(Some(status.submission_deposit.clone()));
 			Self::slash_deposit(status.decision_deposit.clone());
 			Self::do_clear_metadata(index);
-			let info = ReferendumInfo::Killed(frame_system::Pallet::<T>::block_number());
+			let info = ReferendumInfo::Killed(T::BlockNumberProvider::current_block_number());
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			Ok(())
 		}
@@ -627,7 +631,7 @@ pub mod pallet {
 			index: ReferendumIndex,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let mut status = Self::ensure_ongoing(index)?;
 			// This is our wake-up, so we can disregard the alarm.
 			status.alarm = None;
@@ -658,7 +662,7 @@ pub mod pallet {
 			let mut track_queue = TrackQueue::<T, I>::get(track);
 			let branch =
 				if let Some((index, mut status)) = Self::next_for_deciding(&mut track_queue) {
-					let now = frame_system::Pallet::<T>::block_number();
+					let now = T::BlockNumberProvider::current_block_number();
 					let (maybe_alarm, branch) =
 						Self::begin_deciding(&mut status, index, now, track_info);
 					if let Some(set_alarm) = maybe_alarm {
@@ -758,7 +762,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		match ReferendumInfoFor::<T, I>::get(index) {
 			Some(ReferendumInfo::Ongoing(mut status)) => {
 				let result = f(PollStatus::Ongoing(&mut status.tally, status.track));
-				let now = frame_system::Pallet::<T>::block_number();
+				let now = T::BlockNumberProvider::current_block_number();
 				Self::ensure_alarm_at(&mut status, index, now + One::one());
 				ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
 				result
@@ -778,7 +782,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		match ReferendumInfoFor::<T, I>::get(index) {
 			Some(ReferendumInfo::Ongoing(mut status)) => {
 				let result = f(PollStatus::Ongoing(&mut status.tally, status.track))?;
-				let now = frame_system::Pallet::<T>::block_number();
+				let now = T::BlockNumberProvider::current_block_number();
 				Self::ensure_alarm_at(&mut status, index, now + One::one());
 				ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
 				Ok(result)
@@ -800,7 +804,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 			*x += 1;
 			r
 		});
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		let dummy_account_id =
 			codec::Decode::decode(&mut sp_runtime::traits::TrailingZeroInput::new(&b"dummy"[..]))
 				.expect("infinite length input; no invalid inputs for type; qed");
@@ -828,7 +832,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		let mut status = Self::ensure_ongoing(index).map_err(|_| ())?;
 		Self::ensure_no_alarm(&mut status);
 		Self::note_one_fewer_deciding(status.track);
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		let info = if approved {
 			ReferendumInfo::Approved(now, Some(status.submission_deposit), status.decision_deposit)
 		} else {
@@ -868,7 +872,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ReferendumInfo::Ongoing(status) => {
 				let track = Self::track(status.track).ok_or(Error::<T, I>::NoTrack)?;
 				let elapsed = if let Some(deciding) = status.deciding {
-					frame_system::Pallet::<T>::block_number().saturating_sub(deciding.since)
+					T::BlockNumberProvider::current_block_number().saturating_sub(deciding.since)
 				} else {
 					Zero::zero()
 				};
@@ -893,7 +897,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		origin: PalletsOriginOf<T>,
 		call: BoundedCallOf<T, I>,
 	) {
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		// Earliest allowed block is always at minimum the next block.
 		let earliest_allowed = now.saturating_add(track.min_enactment_period.max(One::one()));
 		let desired = desired.evaluate(now);
@@ -931,7 +935,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			result.is_ok(),
 			"Unable to schedule a new alarm at #{:?} (now: #{:?}), scheduler error: `{:?}`",
 			when,
-			frame_system::Pallet::<T>::block_number(),
+			T::BlockNumberProvider::current_block_number(),
 			result.unwrap_err(),
 		);
 		result.ok().map(|x| (when, x))
@@ -1023,7 +1027,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// overall more efficient), however the weights become rather less easy to measure.
 	fn note_one_fewer_deciding(track: TrackIdOf<T, I>) {
 		// Set an alarm call for the next block to nudge the track along.
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		let next_block = now + One::one();
 		let call = match T::Preimages::bound(CallOf::<T, I>::from(Call::one_fewer_deciding {
 			track,
