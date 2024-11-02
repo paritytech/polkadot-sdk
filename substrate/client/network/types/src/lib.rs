@@ -20,5 +20,5 @@ pub mod ed25519;
 pub mod multiaddr;
 pub mod multihash;
 mod peer_id;
-pub mod rec;
+pub mod kad;
 pub use peer_id::PeerId;

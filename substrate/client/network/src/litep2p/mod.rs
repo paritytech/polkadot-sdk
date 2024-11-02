@@ -863,7 +863,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								);
 
 								self.event_streams.send(Event::Dht(
-									DhtEvent::ValuePut(sc_network_types::rec::Key::new::<sc_network_types::rec::Key>(&key.to_vec().into()))
+									DhtEvent::ValuePut(sc_network_types::kad::Key::new::<sc_network_types::kad::Key>(&key.to_vec().into()))
 								));
 
 								if let Some(ref metrics) = self.metrics {
@@ -889,7 +889,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									);
 
 									self.event_streams.send(Event::Dht(
-										DhtEvent::ValuePutFailed(sc_network_types::rec::Key::new::<sc_network_types::rec::Key>(&key.to_vec().into()))
+										DhtEvent::ValuePutFailed(sc_network_types::kad::Key::new::<sc_network_types::kad::Key>(&key.to_vec().into()))
 									));
 
 									if let Some(ref metrics) = self.metrics {
@@ -907,7 +907,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								);
 
 								self.event_streams.send(Event::Dht(
-									DhtEvent::ValueNotFound(sc_network_types::rec::Key::new::<sc_network_types::rec::Key>(&key.to_vec().into()))
+									DhtEvent::ValueNotFound(sc_network_types::kad::Key::new::<sc_network_types::kad::Key>(&key.to_vec().into()))
 								));
 
 								if let Some(ref metrics) = self.metrics {
@@ -963,7 +963,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					Some(DiscoveryEvent::IncomingRecord { record: Record { key, value, publisher, expires }} ) => {
 						self.event_streams.send(Event::Dht(
 							DhtEvent::PutRecordRequest(
-								sc_network_types::rec::Key::new::<sc_network_types::rec::Key>(&key.to_vec().into()),
+								sc_network_types::kad::Key::new::<sc_network_types::kad::Key>(&key.to_vec().into()),
 								value,
 								publisher.map(Into::into),
 								expires,

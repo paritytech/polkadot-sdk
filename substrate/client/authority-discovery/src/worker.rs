@@ -35,7 +35,7 @@ use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
-use sc_network_types::rec::{Key, PeerRecord, Record};
+use sc_network_types::kad::{Key, PeerRecord, Record};
 
 use log::{debug, error, trace};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};

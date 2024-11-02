@@ -40,7 +40,7 @@ use litep2p::{
 	types::multiaddr::Multiaddr as LiteP2pMultiaddr,
 };
 use parking_lot::RwLock;
-use sc_network_types::rec::{Key as KademliaKey, Record};
+use sc_network_types::kad::{Key as KademliaKey, Record};
 
 use sc_network_common::{
 	role::{ObservedRole, Roles},

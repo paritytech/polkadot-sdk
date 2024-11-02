@@ -38,7 +38,7 @@ use sc_network::{
 };
 use sc_network_types::{
 	multiaddr::{Multiaddr, Protocol},
-	rec::Key as KademliaKey,
+	kad::Key as KademliaKey,
 	PeerId,
 };
 use sp_api::{ApiRef, ProvideRuntimeApi};

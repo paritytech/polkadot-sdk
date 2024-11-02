@@ -38,7 +38,7 @@ use sc_client_api::BlockBackend;
 use sc_network_common::{role::ObservedRole, ExHashT};
 pub use sc_network_types::{
 	multiaddr::Multiaddr,
-	rec::{Key as KademliaKey, Record},
+	kad::{Key as KademliaKey, Record},
 	PeerId,
 };
 use sp_runtime::traits::Block as BlockT;

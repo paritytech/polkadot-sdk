@@ -25,7 +25,7 @@ use bytes::Bytes;
 
 use sc_network_common::role::ObservedRole;
 use sc_network_types::{
-	rec::{Key, PeerRecord},
+	kad::{Key, PeerRecord},
 	PeerId,
 };
 
