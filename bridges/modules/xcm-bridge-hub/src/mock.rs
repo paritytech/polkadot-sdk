@@ -38,7 +38,7 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
-	traits::{BlakeTwo256, ConstU128, ConstU32, IdentityLookup},
+	traits::{BlakeTwo256, ConstU32, IdentityLookup},
 	AccountId32, BuildStorage, StateVersion,
 };
 use sp_std::cell::RefCell;
@@ -172,7 +172,6 @@ parameter_types! {
 
 	// configuration for pallet_xcm_bridge_hub_router
 	pub BridgeHubLocation: Location = Here.into();
-	pub BridgeFeeAsset: AssetId = Location::here().into();
 	pub BridgeTable: Vec<NetworkExportTableItem>
 		= vec![
 			NetworkExportTableItem::new(
@@ -220,12 +219,9 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 
 /// A router instance simulates a scenario where the router is deployed on a different chain than
 /// the `MessageExporter`. This means that the router sends an `ExportMessage`.
+pub type XcmOverBridgeWrappedWithExportMessageRouterInstance = ();
+#[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-
-	type DestinationVersion = AlwaysLatest;
-
 	// We use `SovereignPaidRemoteExporter` here to test and ensure that the `ExportMessage`
 	// produced by `pallet_xcm_bridge_hub_router` is compatible with the `ExportXcm` implementation
 	// of `pallet_xcm_bridge_hub`.
@@ -241,36 +237,27 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 		// calls the `ExportXcm` implementation of `pallet_xcm_bridge_hub` as the
 		// `MessageExporter`.
 		ExecuteXcmOverSendXcm,
-		UniversalLocation,
+		ExportMessageOriginUniversalLocation,
 	>;
 
-	type BridgeIdResolver = BridgeIdResolver<UniversalLocation>;
-
-	type ByteFee = ConstU128<0>;
-	type FeeAsset = BridgeFeeAsset;
+	type BridgeIdResolver = EnsureIsRemoteBridgeIdResolver<ExportMessageOriginUniversalLocation>;
 }
 
 /// A router instance simulates a scenario where the router is deployed on the same chain as the
 /// `MessageExporter`. This means that the router triggers `ExportXcm` trait directly.
-impl pallet_xcm_bridge_hub_router::Config<pallet_xcm_bridge_hub_router::Instance2> for TestRuntime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-
-	type DestinationVersion = AlwaysLatest;
-
+pub type XcmOverBridgeByExportXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance2;
+#[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
+impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeByExportXcmRouterInstance> for TestRuntime {
 	// We use `UnpaidLocalExporter` here to test and ensure that `pallet_xcm_bridge_hub_router` can
 	// trigger directly `pallet_xcm_bridge_hub` as exporter.
 	type ToBridgeHubSender = UnpaidLocalExporter<XcmOverBridge, UniversalLocation>;
 
-	type BridgeIdResolver = BridgeIdResolver<UniversalLocation>;
-
-	type ByteFee = ConstU128<0>;
-	type FeeAsset = BridgeFeeAsset;
+	type BridgeIdResolver = EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
 }
 
-/// Implementation of `ResolveBridgeId` returning `BridgeId`.
-pub struct BridgeIdResolver<UniversalLocation>(PhantomData<UniversalLocation>);
-impl<UniversalLocation: Get<InteriorLocation>> ResolveBridgeId for BridgeIdResolver<UniversalLocation> {
+/// Implementation of `ResolveBridgeId` returning `BridgeId` based on the configured `UniversalLocation`.
+pub struct EnsureIsRemoteBridgeIdResolver<UniversalLocation>(PhantomData<UniversalLocation>);
+impl<UniversalLocation: Get<InteriorLocation>> ResolveBridgeId for EnsureIsRemoteBridgeIdResolver<UniversalLocation> {
 	type BridgeId = BridgeId;
 
 	fn resolve_for_dest(dest: &Location) -> Option<Self::BridgeId> {
@@ -282,6 +269,22 @@ impl<UniversalLocation: Get<InteriorLocation>> ResolveBridgeId for BridgeIdResol
 		let bridged_universal_location = bridged_dest.clone().pushed_front_with(bridged_network.clone()).unwrap();
 		Some(BridgeId::new(&UniversalLocation::get(), &bridged_universal_location))
 	}
+}
+
+/// A dynamic way to set different universal location for the origin which sends `ExportMessage`.
+pub struct ExportMessageOriginUniversalLocation;
+impl ExportMessageOriginUniversalLocation {
+	pub(crate) fn set(universal_location: Option<InteriorLocation>) {
+		EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION.with(|o| *o.borrow_mut() = universal_location);
+	}
+}
+impl Get<InteriorLocation> for ExportMessageOriginUniversalLocation {
+	fn get() -> InteriorLocation {
+		EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION.with(|o| o.borrow().clone().expect("`EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION` is not set!"))
+	}
+}
+thread_local! {
+	pub static EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION: RefCell<Option<InteriorLocation>> = RefCell::new(None);
 }
 
 pub struct XcmConfig;

@@ -86,10 +86,8 @@ impl ResolveBridgeId for EveryDestinationToSameBridgeIdResolver {
 }
 
 /// An instance of `pallet_xcm_bridge_hub_router` configured to use a remote exporter with the `ExportMessage` instruction, which will be delivered to a sibling parachain using `SiblingBridgeHubLocation`.
+#[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-
 	type DestinationVersion =
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 

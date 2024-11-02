@@ -29,7 +29,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 use bp_xcm_bridge_hub_router::{BridgeState, ResolveBridgeId};
 use codec::Encode;
 use frame_support::traits::Get;
@@ -76,9 +75,35 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	#[pallet::config]
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::{derive_impl, traits::ConstU128};
+
+		/// A type providing default configurations for this pallet in testing environment.
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			type WeightInfo = ();
+			type DestinationVersion = AlwaysLatest;
+
+			// We don't need (optional) message_size fees.
+			type ByteFee = ConstU128<0>;
+			// We don't need (optional) message_size fees.
+			type FeeAsset = ();
+		}
+	}
+
+	#[pallet::config(with_default)]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Benchmarks results from runtime we're plugged into.
@@ -94,10 +119,12 @@ pub mod pallet {
 		/// - The local chain, in which case we need an implementation for `T::ToBridgeHubSender`
 		///   that does not use `ExportMessage` but instead directly calls the `ExportXcm`
 		///   implementation.
+		#[pallet::no_default]
 		type ToBridgeHubSender: SendXcm;
 
 		/// Resolves a specific `BridgeId` for `dest`, used for identifying the bridge in cases of congestion and dynamic fees.
 		/// If it resolves to `None`, it means no congestion or dynamic fees are handled for `dest`.
+		#[pallet::no_default]
 		type BridgeIdResolver: ResolveBridgeId;
 
 		/// Additional fee that is paid for every byte of the outbound message.
@@ -179,7 +206,7 @@ pub mod pallet {
 
 	/// Stores `BridgeState` for congestion control and dynamic fees for each resolved bridge ID associated with a destination.
 	#[pallet::storage]
-	pub type Bridges<T: Config<I>, I: 'static = ()> = StorageMap<_, Blake2_128Concat, BridgeIdOf<T, I>, BridgeState, OptionQuery>;
+	pub type Bridges<T: Config<I>, I: 'static = ()> = StorageMap<_, Identity, BridgeIdOf<T, I>, BridgeState, OptionQuery>;
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Called when new message is sent to the `dest` (queued to local outbound XCM queue).
