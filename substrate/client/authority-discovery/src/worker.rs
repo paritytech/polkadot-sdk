@@ -580,7 +580,7 @@ where
 
 				debug!(target: LOG_TARGET, "Value for hash '{:?}' found on Dht.", v.record.key);
 
-				if let Err(e) = self.handle_dht_value_found_event(v.into()) {
+				if let Err(e) = self.handle_dht_value_found_event(v) {
 					if let Some(metrics) = &self.metrics {
 						metrics.handle_value_found_event_failure.inc();
 					}
