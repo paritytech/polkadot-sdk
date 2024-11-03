@@ -44,11 +44,13 @@ pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-uniques = { workspace = true }
+pallet-revive = { workspace = true }
 pallet-utility = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
+sp-keyring = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-offchain = { workspace = true }
@@ -117,6 +119,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-asset-conversion-ops/runtime-benchmarks",
+	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-assets-freezer/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
@@ -127,8 +130,10 @@ runtime-benchmarks = [
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
 	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
@@ -166,6 +171,7 @@ try-runtime = [
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
 	"pallet-proxy/try-runtime",
+	"pallet-revive/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-state-trie-migration/try-runtime",
 	"pallet-timestamp/try-runtime",
@@ -218,6 +224,7 @@ std = [
 	"pallet-nfts-runtime-api/std",
 	"pallet-nfts/std",
 	"pallet-proxy/std",
+	"pallet-revive/std",
 	"pallet-session/std",
 	"pallet-state-trie-migration/std",
 	"pallet-timestamp/std",
@@ -242,6 +249,7 @@ std = [
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",

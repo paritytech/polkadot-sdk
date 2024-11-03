@@ -90,7 +90,7 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::Pair;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{codec::Encode, generic};
+use sp_runtime::{codec::Encode, generic, MultiAddress};
 use sp_state_machine::BasicExternalities;
 use std::sync::Arc;
 use substrate_test_client::{
@@ -969,7 +969,7 @@ pub fn construct_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: runtime::SignedExtra = (
+	let tx_ext: runtime::TxExtension = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
@@ -981,18 +981,19 @@ pub fn construct_extrinsic(
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<runtime::Runtime>::new(),
-	);
+	)
+		.into();
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(
 		function,
-		caller.public().into(),
+		MultiAddress::Id(caller.public().into()),
 		runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 
