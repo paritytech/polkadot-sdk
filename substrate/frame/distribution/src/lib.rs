@@ -160,6 +160,9 @@ pub mod pallet {
 
 		/// Not yet in the claiming period
 		NotClaimingPeriod { project_id: ProjectId<T>, claiming_period: BlockNumberFor<T> },
+
+		/// Payment will be enacted
+		WillBeEnacted { project_id: ProjectId<T> },
 	}
 
 	#[pallet::error]
@@ -226,7 +229,10 @@ pub mod pallet {
 				(Call::<T>::execute_claim { project_id: project_id.clone() }).into();
 				let call1: CallOf<T> = call0.clone().into();
 				let call = T::Preimages::bound(call1)?;
-				Self::schedule_enactment(project_id, call)?;
+				Self::schedule_enactment(project_id.clone(), call)?;
+				Self::deposit_event(Event::WillBeEnacted {
+					project_id,
+				});
 				Ok(())
 			} else{
 				Self::deposit_event(Event::NotClaimingPeriod {

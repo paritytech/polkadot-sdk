@@ -12379,6 +12379,8 @@ dependencies = [
  "pallet-balances",
  "pallet-conviction-voting",
  "pallet-distribution",
+ "pallet-preimage",
+ "pallet-scheduler",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",

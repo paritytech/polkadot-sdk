@@ -19,8 +19,8 @@
 use crate as pallet_opf;
 pub use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnFinalize, OnInitialize},
-	PalletId,
+	traits::{ConstU128, ConstU16, ConstU32, EqualPrivilegeOnly, ConstU64, OnFinalize, OnInitialize},
+	weights::Weight, PalletId,
 };
 pub use sp_core::H256;
 pub use sp_runtime::{
@@ -28,8 +28,9 @@ pub use sp_runtime::{
 	BuildStorage,
 };
 
+pub use frame_system::EnsureRoot;
 pub type Block = frame_system::mocking::MockBlock<Test>;
-pub type Balance = u128;
+pub type Balance = u64;
 pub type AccountId = u64;
 
 // Configure a mock runtime to test the pallet.
@@ -37,56 +38,48 @@ frame_support::construct_runtime!(
 	pub struct Test {
 		System: frame_system,
 		Balances: pallet_balances,
+		Preimage: pallet_preimage,
+		Scheduler: pallet_scheduler,
 		Distribution: pallet_distribution,
 		Opf: pallet_opf,
 	}
 );
 
-// Feel free to remove more items from this, as they are the same as
-// `frame_system::config_preludes::TestDefaultConfig`. We have only listed the full `type` list here
-// for verbosity. Same for `pallet_balances::Config`.
-// https://paritytech.github.io/polkadot-sdk/master/frame_support/attr.derive_impl.html
+parameter_types! {
+	pub MaxWeight: Weight = Weight::from_parts(2_000_000_000_000, u64::MAX);
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type Block = Block;
+	type Lookup = IdentityLookup<Self::AccountId>;
+}
+
+impl pallet_preimage::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<u64>;
+	type Consideration = ();
+}
+impl pallet_scheduler::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaxWeight;
+	type ScheduleOrigin = EnsureRoot<u64>;
+	type MaxScheduledPerBlock = ConstU32<100>;
+	type WeightInfo = ();
+	type OriginPrivilegeCmp = EqualPrivilegeOnly;
+	type Preimages = Preimage;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = Balance;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ConstU32<10>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<10>;
 }
 
 parameter_types! {
@@ -96,15 +89,17 @@ parameter_types! {
 	pub const EpochDurationBlocks:u32 = 5;
 }
 impl pallet_distribution::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
 	type NativeBalance = Balances;
 	type PotId = PotId;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type Scheduler = Scheduler;
 	type BufferPeriod = Period;
 	type MaxProjects = MaxProjects;
 	type EpochDurationBlocks = EpochDurationBlocks;
 	type BlockNumberProvider = System;
+	type Preimages = Preimage;
 	type WeightInfo = ();
 }
 

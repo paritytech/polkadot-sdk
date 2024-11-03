@@ -287,7 +287,7 @@ fn vote_removal_works() {
 
 		// No more votes in storage and balance is unlocked
 		assert_eq!(Votes::<Test>::get(101, BOB).is_some(), false);
-		assert_eq!(locked_balance1, Zero::zero());
+		assert_eq!(locked_balance1, 0);
 
 		// ProjectFund is correctly updated
 		let project_fund_after = ProjectFunds::<Test>::get(101);
@@ -386,7 +386,7 @@ fn vote_move_works() {
 			<<Test as pallet_distribution::Config>::NativeBalance as fungible::hold::Inspect<
 				u64,
 			>>::balance_on_hold(&pallet_distribution::HoldReason::FundsReserved.into(), &BOB);
-		assert!(locked_balance0 > Zero::zero());
+		assert!(locked_balance0 > 0);
 		assert_eq!(locked_balance0, 6000);
 		println!("locked: {:?}", locked_balance0);
 

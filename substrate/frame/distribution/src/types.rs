@@ -77,7 +77,7 @@ pub struct SpendInfo<T: Config> {
 	/// The block number from which the spend can be claimed(24h after SpendStatus Creation).
 	pub valid_from: BlockNumberFor<T>,
 	/// Corresponding project id
-	pub whitelisted_project: Option<AccountIdOf<T>>,
+	pub whitelisted_project: AccountIdOf<T>,
 	/// Has it been claimed?
 	pub claimed: bool,
 }
@@ -85,7 +85,7 @@ pub struct SpendInfo<T: Config> {
 impl<T: Config> SpendInfo<T> {
 	pub fn new(whitelisted: &ProjectInfo<T>) -> Self {
 		let amount = whitelisted.amount;
-		let whitelisted_project = Some(whitelisted.project_id.clone());
+		let whitelisted_project = whitelisted.project_id.clone();
 		let claimed = false;
 		let valid_from =
 			<frame_system::Pallet<T>>::block_number().saturating_add(T::BufferPeriod::get());

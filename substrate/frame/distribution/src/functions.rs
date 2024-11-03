@@ -52,7 +52,8 @@ impl<T: Config> Pallet<T> {
 
 	pub fn schedule_enactment(project: ProjectId<T>, call: BoundedCallOf<T>) -> DispatchResult {
 		let infos = Spends::<T>::get(&project).ok_or(Error::<T>::InexistentSpend)?;
-		let when = infos.valid_from;
+		let now = T::BlockNumberProvider::current_block_number();
+		let when = now.saturating_add(T::BufferPeriod::get());
 		T::Scheduler::schedule_named(
 			(DISTRIBUTION_ID, "enactment", project).using_encoded(sp_io::hashing::blake2_256),
 			DispatchTime::At(when),
@@ -105,9 +106,9 @@ impl<T: Config> Pallet<T> {
 						project_id: project.project_id.clone(),
 			});
 			
-					true
-				} else {
 					false
+				} else {
+					true
 				}
 			});
 		}
