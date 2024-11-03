@@ -161,7 +161,7 @@ pub mod pallet {
 		/// Not yet in the claiming period
 		NotClaimingPeriod { project_id: ProjectId<T>, claiming_period: BlockNumberFor<T> },
 
-		/// Payment will be enacted
+		/// Payment will be enacted for corresponding project
 		WillBeEnacted { project_id: ProjectId<T> },
 	}
 

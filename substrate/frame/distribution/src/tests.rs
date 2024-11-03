@@ -213,10 +213,19 @@ fn funds_claim_works() {
 			}),
 		]);
 
-		now = now.saturating_add(<Test as Config>::BufferPeriod::get().into()).saturating_add(1);
+		now = now.saturating_add(<Test as Config>::BufferPeriod::get().into());
+		run_to_block(now);
 		let balance_1 =
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);
-	//	assert!(balance_1 > balance_0);
+		
+		/*	expect_events(vec![
+				RuntimeEvent::Distribution(Event::RewardClaimed {
+					when: now,
+					amount: project.amount,
+					project_id,
+				}),
+			]);*/
+			//assert!(balance_1 > balance_0);
 	//	assert_eq!(Projects::<Test>::get().len(), 0);
 		// Spend has been removed from storage
 	//	assert!(!Spends::<Test>::get(0).is_some());

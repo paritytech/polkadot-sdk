@@ -54,12 +54,13 @@ impl<T: Config> Pallet<T> {
 		let infos = Spends::<T>::get(&project).ok_or(Error::<T>::InexistentSpend)?;
 		let now = T::BlockNumberProvider::current_block_number();
 		let when = now.saturating_add(T::BufferPeriod::get());
+		let origin: PalletsOriginOf<T> = RawOrigin::Root.into();
 		T::Scheduler::schedule_named(
 			(DISTRIBUTION_ID, "enactment", project).using_encoded(sp_io::hashing::blake2_256),
 			DispatchTime::At(when),
 			None,
 			63,
-			RawOrigin::Root.into(),
+			origin,
 			call,
 		)?;
 
