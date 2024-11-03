@@ -31,8 +31,8 @@ use crate::crypto::{
 use alloc::vec::Vec;
 
 use w3f_bls::{
-	BLSPoP, DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
-	ProofOfPossession as BlsProofOfPossession,
+	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
+	NuggetBLSnCPPoP, ProofOfPossession as BlsProofOfPossession,
 	ProofOfPossessionGenerator as BlsProofOfPossessionGenerator, SecretKey, SerializableToBytes,
 	TinyBLS381,
 };
@@ -106,7 +106,7 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 
 /// Signature serialized size
 pub const POP_SERIALIZED_SIZE: usize =
-	<BLSPoP<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
+	<NuggetBLSnCPPoP<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// A secret seed.
 ///
@@ -237,37 +237,44 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 }
 
 impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T> {
-	fn generate_proof_of_possession(&mut self) -> Vec<u8> {
-		let r: [u8; POP_SERIALIZED_SIZE] =
-			<Keypair<T> as BlsProofOfPossessionGenerator<T, Sha256, _, BLSPoP<T>>>::generate_pok(
-				&mut self.0,
-			)
-			.to_bytes()
-			.try_into()
-			.expect("Signature serializer returns vectors of POP_SERIALIZED_SIZE size");
-		r.to_vec()
+	fn generate_proof_of_possession(&mut self) -> Self::Signature {
+		let r: [u8; SIGNATURE_SERIALIZED_SIZE] = <Keypair<T> as BlsProofOfPossessionGenerator<
+			T,
+			Sha256,
+			DoublePublicKey<T>,
+			NuggetBLSnCPPoP<T>,
+		>>::generate_pok(&mut self.0)
+		.to_bytes()
+		.try_into()
+		.expect("NuggetBLSnCPPoP serializer returns vectors of SIGNATURE_SERIALIZED_SIZE size");
+		Self::Signature::unchecked_from(r)
 	}
 }
 
-impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T> {
+impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T>
+where
+	Pair<T>: TraitPair,
+{
 	fn verify_proof_of_possession(
-		proof_of_possession: &[u8],
+		proof_of_possession: &Self::Signature,
 		allegedly_possessed_pubkey: &Self::Public,
 	) -> bool {
-		let proof_of_possession = BLSPoP::<T>::from_bytes(proof_of_possession);
+		let proof_of_possession =
+			match NuggetBLSnCPPoP::<T>::from_bytes(proof_of_possession.as_ref()) {
+				Ok(s) => s,
+				Err(_) => return false,
+			};
+
 		let allegedly_possessed_pubkey_as_bls_pubkey =
-			match DoublePublicKey::<T>::from_bytes(&allegedly_possessed_pubkey.0) {
+			match DoublePublicKey::<T>::from_bytes(allegedly_possessed_pubkey.as_ref()) {
 				Ok(pk) => pk,
 				Err(_) => return false,
 			};
 
-		match proof_of_possession.ok() {
-			Some(proof_of_possession) => BlsProofOfPossession::<T, Sha256, _>::verify(
-				&proof_of_possession,
-				&allegedly_possessed_pubkey_as_bls_pubkey,
-			),
-			_ => false,
-		}
+		BlsProofOfPossession::<T, Sha256, _>::verify(
+			&proof_of_possession,
+			&allegedly_possessed_pubkey_as_bls_pubkey,
+		)
 	}
 }
 
@@ -608,7 +615,7 @@ mod tests {
 	fn good_proof_of_possession_must_verify<E: BlsBound>() {
 		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
 		let pop = pair.generate_proof_of_possession();
-		assert!(Pair::<E>::verify_proof_of_possession(pop.as_slice(), &pair.public()));
+		assert!(Pair::<E>::verify_proof_of_possession(&pop, &pair.public()));
 	}
 
 	#[test]
@@ -625,10 +632,7 @@ mod tests {
 		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::<E>::from_seed(b"23456789012345678901234567890123");
 		let pop = pair.generate_proof_of_possession();
-		assert_eq!(
-			Pair::<E>::verify_proof_of_possession(pop.as_slice(), &other_pair.public()),
-			false
-		);
+		assert_eq!(Pair::<E>::verify_proof_of_possession(&pop, &other_pair.public()), false);
 	}
 
 	#[test]

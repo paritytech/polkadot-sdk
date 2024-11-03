@@ -402,9 +402,18 @@ where
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
-	fn generate_proof_of_possession(&mut self) -> Vec<u8> {
-		[self.left.generate_proof_of_possession(), self.right.generate_proof_of_possession()]
+	fn generate_proof_of_possession(&mut self) -> Self::Signature {
+		let mut raw: [u8; SIGNATURE_LEN] = [0u8; SIGNATURE_LEN];
+
+		raw.copy_from_slice(
+			[
+				self.left.generate_proof_of_possession().to_raw_vec(),
+				self.right.generate_proof_of_possession().to_raw_vec(),
+			]
 			.concat()
+			.as_slice(),
+		);
+		Self::Signature::unchecked_from(raw)
 	}
 }
 
@@ -426,17 +435,15 @@ where
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	fn verify_proof_of_possession(
-		proof_of_possession: &[u8],
+		proof_of_possession: &Self::Signature,
 		allegedly_possessed_pubkey: &Self::Public,
 	) -> bool {
-		if proof_of_possession.len() < LeftPair::Signature::LEN {
-			return false
-		};
-
 		let Ok(left_pub) = allegedly_possessed_pubkey.0[..LeftPair::Public::LEN].try_into() else {
 			return false
 		};
-		let left_pop = &proof_of_possession[0..LeftPair::Signature::LEN];
+		let Ok(left_pop) = proof_of_possession.0[0..LeftPair::Signature::LEN].try_into() else {
+			return false
+		};
 
 		if !LeftPair::verify_proof_of_possession(&left_pop, &left_pub) {
 			return false
@@ -445,7 +452,9 @@ where
 		let Ok(right_pub) = allegedly_possessed_pubkey.0[LeftPair::Public::LEN..].try_into() else {
 			return false
 		};
-		let right_pop = &proof_of_possession[LeftPair::Signature::LEN..];
+		let Ok(right_pop) = proof_of_possession.0[LeftPair::Signature::LEN..].try_into() else {
+			return false
+		};
 		RightPair::verify_proof_of_possession(&right_pop, &right_pub)
 	}
 }
@@ -697,7 +706,7 @@ mod tests {
 		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
 		let pop = pair.generate_proof_of_possession();
-		assert!(Pair::verify_proof_of_possession(pop.as_slice(), &pair.public()));
-		assert_eq!(Pair::verify_proof_of_possession(pop.as_slice(), &other_pair.public()), false);
+		assert!(Pair::verify_proof_of_possession(&pop, &pair.public()));
+		assert_eq!(Pair::verify_proof_of_possession(&pop, &other_pair.public()), false);
 	}
 }
