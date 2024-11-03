@@ -226,24 +226,19 @@ pub mod pallet {
 			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
 			if now >= info.valid_from {
 				let call0: <T as Config>::RuntimeCall =
-				(Call::<T>::execute_claim { project_id: project_id.clone() }).into();
+					(Call::<T>::execute_claim { project_id: project_id.clone() }).into();
 				let call1: CallOf<T> = call0.clone().into();
 				let call = T::Preimages::bound(call1)?;
 				Self::schedule_enactment(project_id.clone(), call)?;
-				Self::deposit_event(Event::WillBeEnacted {
-					project_id,
-				});
+				Self::deposit_event(Event::WillBeEnacted { project_id });
 				Ok(())
-			} else{
+			} else {
 				Self::deposit_event(Event::NotClaimingPeriod {
 					project_id,
 					claiming_period: info.valid_from,
 				});
 				Ok(())
 			}
-			
-
-			
 		}
 
 		#[pallet::call_index(1)]

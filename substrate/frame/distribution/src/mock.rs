@@ -20,15 +20,18 @@
 use crate as pallet_distribution;
 pub use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU16, ConstU32, EqualPrivilegeOnly, ConstU64, OnFinalize, OnInitialize},
-	weights::Weight,PalletId,
+	traits::{
+		ConstU128, ConstU16, ConstU32, ConstU64, EqualPrivilegeOnly, OnFinalize, OnInitialize,
+	},
+	weights::Weight,
+	PalletId,
 };
+pub use frame_system::EnsureRoot;
 pub use sp_core::H256;
 pub use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-pub use frame_system::EnsureRoot;
 pub type Block = frame_system::mocking::MockBlock<Test>;
 pub type Balance = u64;
 pub type AccountId = u64;
@@ -43,7 +46,6 @@ frame_support::construct_runtime!(
 		Distribution: pallet_distribution,
 	}
 );
-
 
 parameter_types! {
 	pub MaxWeight: Weight = Weight::from_parts(2_000_000_000_000, u64::MAX);

@@ -41,7 +41,8 @@ pub fn run_to_block(n: BlockNumberFor<Test>) {
 
 pub fn create_project(project_id: AccountId, amount: u128) {
 	let submission_block = <Test as Config>::BlockNumberProvider::current_block_number();
-	let project: types::ProjectInfo<Test> = ProjectInfo { project_id, submission_block, amount: amount.try_into().unwrap() };
+	let project: types::ProjectInfo<Test> =
+		ProjectInfo { project_id, submission_block, amount: amount.try_into().unwrap() };
 	Projects::<Test>::mutate(|value| {
 		let mut val = value.clone();
 		let _ = val.try_push(project);
@@ -71,30 +72,18 @@ fn spends_creation_works_but_not_executed_before_claim_period() {
 		let valid_from = now.saturating_add(<Test as Config>::BufferPeriod::get().into());
 
 		// The 3 Spends are known
-		let alice_spend: types::SpendInfo<Test> = SpendInfo {
-			amount: amount1,
-			valid_from,
-			whitelisted_project: ALICE,
-			claimed: false,
-		};
+		let alice_spend: types::SpendInfo<Test> =
+			SpendInfo { amount: amount1, valid_from, whitelisted_project: ALICE, claimed: false };
 
-		let bob_spend: types::SpendInfo<Test> = SpendInfo {
-			amount: amount2,
-			valid_from,
-			whitelisted_project: BOB,
-			claimed: false,
-		};
+		let bob_spend: types::SpendInfo<Test> =
+			SpendInfo { amount: amount2, valid_from, whitelisted_project: BOB, claimed: false };
 
-		let dave_spend: types::SpendInfo<Test> = SpendInfo {
-			amount: amount3,
-			valid_from,
-			whitelisted_project: DAVE,
-			claimed: false,
-		};
+		let dave_spend: types::SpendInfo<Test> =
+			SpendInfo { amount: amount3, valid_from, whitelisted_project: DAVE, claimed: false };
 
-		let _=Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), ALICE);
-		let _=Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), BOB);
-		let _=Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), DAVE);
+		let _ = Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), ALICE);
+		let _ = Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), BOB);
+		let _ = Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), DAVE);
 
 		// List of Spends actually created & stored
 		let list0: Vec<_> = Spends::<Test>::iter_keys().collect();
@@ -115,10 +104,10 @@ fn spends_creation_works_but_not_executed_before_claim_period() {
 			}),
 		]);
 
-		assert_eq!(Spends::<Test>::contains_key(ALICE),true);
-		assert_eq!(Spends::<Test>::get(ALICE),Some(alice_spend));
-		assert_eq!(Spends::<Test>::get(BOB),Some(bob_spend));
-		assert_eq!(Spends::<Test>::get(DAVE),Some(dave_spend));
+		assert_eq!(Spends::<Test>::contains_key(ALICE), true);
+		assert_eq!(Spends::<Test>::get(ALICE), Some(alice_spend));
+		assert_eq!(Spends::<Test>::get(BOB), Some(bob_spend));
+		assert_eq!(Spends::<Test>::get(DAVE), Some(dave_spend));
 	})
 }
 
@@ -144,9 +133,9 @@ fn funds_are_locked() {
 
 		let total_on_hold = amount1.saturating_add(amount2).saturating_add(amount3);
 		let pot_account = Distribution::pot_account();
-		let _=Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), ALICE);
-		let _=Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), BOB);
-		let _=Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), DAVE);
+		let _ = Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), ALICE);
+		let _ = Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), BOB);
+		let _ = Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), DAVE);
 		let hold =
 			<<Test as Config>::NativeBalance as fungible::hold::Inspect<u64>>::balance_on_hold(
 				&HoldReason::FundsReserved.into(),
@@ -194,12 +183,12 @@ fn funds_claim_works() {
 			.saturating_add(<Test as Config>::EpochDurationBlocks::get().into());
 		run_to_block(now);
 
-		let _=Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), ALICE);
+		let _ = Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), ALICE);
 		let project = Spends::<Test>::get(ALICE).unwrap();
 		let project_id = project.whitelisted_project;
 		let balance_0 =
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);
-		
+
 		// Spend is in storage
 		//assert!(Spends::<Test>::get(ALICE).is_some());
 
@@ -207,25 +196,19 @@ fn funds_claim_works() {
 		run_to_block(now);
 
 		assert_ok!(Distribution::claim_reward_for(RawOrigin::Signed(EVE).into(), project_id,));
-		expect_events(vec![
-			RuntimeEvent::Distribution(Event::WillBeEnacted {
-				project_id: ALICE,
-			}),
-		]);
+		expect_events(vec![RuntimeEvent::Distribution(Event::WillBeEnacted { project_id: ALICE })]);
 
 		now = now.saturating_add(<Test as Config>::BufferPeriod::get().into());
 		run_to_block(now);
 		let balance_1 =
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);
-		
-			expect_events(vec![
-				RuntimeEvent::Distribution(Event::RewardClaimed {
-					when: now,
-					amount: project.amount,
-					project_id,
-				}),
-			]);
-			assert!(balance_1 > balance_0);
+
+		expect_events(vec![RuntimeEvent::Distribution(Event::RewardClaimed {
+			when: now,
+			amount: project.amount,
+			project_id,
+		})]);
+		assert!(balance_1 > balance_0);
 		assert_eq!(Projects::<Test>::get().len(), 0);
 		// Spend has been removed from storage
 		assert!(!Spends::<Test>::get(0).is_some());
