@@ -51,7 +51,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn schedule_enactment(project: ProjectId<T>, call: BoundedCallOf<T>) -> DispatchResult {
-		let infos = Spends::<T>::get(&project).ok_or(Error::<T>::InexistentSpend)?;
+		let _infos = Spends::<T>::get(&project).ok_or(Error::<T>::InexistentSpend)?;
 		let now = T::BlockNumberProvider::current_block_number();
 		let when = now.saturating_add(T::BufferPeriod::get());
 		T::Scheduler::schedule_named(
