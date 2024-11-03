@@ -533,6 +533,10 @@ pub mod pallet {
 		/// The static memory consumption of the blob will be larger than
 		/// [`limits::code::STATIC_MEMORY_BYTES`].
 		StaticMemoryTooLarge,
+		/// The program contains a basic block that is larger than allowed.
+		BasicBlockTooLarge,
+		/// The program contains an invalid instruction.
+		InvalidInstruction,
 		/// The contract has reached its maximum number of delegate dependencies.
 		MaxDelegateDependenciesReached,
 		/// The dependency was not found in the contract's delegate dependencies.

@@ -46,9 +46,7 @@ const MAX_DECODE_NESTING: u32 = 256;
 
 /// Encode a `U256` into a 32 byte buffer.
 fn as_bytes(u: U256) -> [u8; 32] {
-	let mut bytes = [0u8; 32];
-	u.to_little_endian(&mut bytes);
-	bytes
+	u.to_little_endian()
 }
 
 #[derive(Clone, Copy)]

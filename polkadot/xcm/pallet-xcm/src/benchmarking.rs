@@ -128,14 +128,14 @@ benchmarks! {
 					&origin_location,
 					None,
 				).map_err(|error| {
-				  log::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+				  tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
 				  BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
 			NonFungible(instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
 					.map_err(|error| {
-						log::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+						tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
 						BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 					})?;
 			}
@@ -178,14 +178,14 @@ benchmarks! {
 					&origin_location,
 					None,
 				).map_err(|error| {
-				  log::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+				  tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
 				  BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
 			NonFungible(instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
 					.map_err(|error| {
-						log::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+						tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
 						BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 					})?;
 			}

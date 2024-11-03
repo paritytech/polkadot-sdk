@@ -157,7 +157,6 @@ jobs:
   node-bench-regression-guard:
     timeout-minutes: 20
     if: always() && !cancelled()
-    # runs-on: arc-runners-polkadot-sdk
     runs-on: ubuntu-latest
     needs: [preflight, cargo-check-benches]
     steps:

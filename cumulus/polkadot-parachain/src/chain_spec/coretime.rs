@@ -15,7 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use cumulus_primitives_core::ParaId;
-use polkadot_parachain_lib::chain_spec::GenericChainSpec;
+use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::{ChainSpec, ChainType};
 use std::{borrow::Cow, str::FromStr};
 
@@ -150,7 +150,7 @@ pub mod rococo {
 		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId, Balance};
-	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
@@ -248,7 +248,7 @@ pub mod westend {
 		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId, Balance};
-	use polkadot_parachain_lib::chain_spec::Extensions;
+	use polkadot_omni_node_lib::chain_spec::Extensions;
 	use sp_core::sr25519;
 
 	pub(crate) const CORETIME_WESTEND: &str = "coretime-westend";
