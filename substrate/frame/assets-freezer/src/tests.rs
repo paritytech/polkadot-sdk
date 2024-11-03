@@ -76,9 +76,20 @@ mod impl_frozen_balance {
 	}
 
 	#[test]
+	#[should_panic = "The list of Freezes should be empty before allowing an account to die"]
+	fn died_fails_if_freezes_exist() {
+		new_test_ext(|| {
+			test_set_freeze(DummyFreezeReason::Governance, 1);
+			AssetsFreezer::died(ASSET_ID, &WHO);
+		});
+	}
+
+
+	#[test]
 	fn died_works() {
 		new_test_ext(|| {
 			test_set_freeze(DummyFreezeReason::Governance, 1);
+			test_thaw(DummyFreezeReason::Governance);
 			AssetsFreezer::died(ASSET_ID, &WHO);
 			assert!(FrozenBalances::<Test>::get(ASSET_ID, WHO).is_none());
 			assert!(Freezes::<Test>::get(ASSET_ID, WHO).is_empty());
