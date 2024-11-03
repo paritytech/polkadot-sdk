@@ -218,16 +218,16 @@ fn funds_claim_works() {
 		let balance_1 =
 			<<Test as Config>::NativeBalance as fungible::Inspect<u64>>::balance(&project_id);
 		
-		/*	expect_events(vec![
+			expect_events(vec![
 				RuntimeEvent::Distribution(Event::RewardClaimed {
 					when: now,
 					amount: project.amount,
 					project_id,
 				}),
-			]);*/
-			//assert!(balance_1 > balance_0);
-	//	assert_eq!(Projects::<Test>::get().len(), 0);
+			]);
+			assert!(balance_1 > balance_0);
+		assert_eq!(Projects::<Test>::get().len(), 0);
 		// Spend has been removed from storage
-	//	assert!(!Spends::<Test>::get(0).is_some());
+		assert!(!Spends::<Test>::get(0).is_some());
 	})
 }

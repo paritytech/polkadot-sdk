@@ -250,7 +250,7 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::claim_reward_for(T::MaxProjects::get()))]
 		#[transactional]
 		pub fn execute_claim(origin: OriginFor<T>, project_id: ProjectId<T>) -> DispatchResult {
-			let _caller = ensure_signed(origin)?;
+			ensure_root(origin)?;
 			let now = T::BlockNumberProvider::current_block_number();
 			let pot = Self::pot_account();
 			let info = Spends::<T>::get(&project_id).ok_or(Error::<T>::InexistentSpend)?;
