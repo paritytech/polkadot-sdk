@@ -724,7 +724,7 @@ pub mod pallet {
 	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
 	/// implicitly means that the implementor also controls the max number of disabled validators.
 	///
-	/// The vec is always kept sorted based on the u32 ubdex so that we can find whether a given
+	/// The vec is always kept sorted based on the u32 index so that we can find whether a given
 	/// validator has previously offended using binary search.
 	/// 
 	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which represents
