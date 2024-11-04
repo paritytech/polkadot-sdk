@@ -378,8 +378,8 @@ where
 			address.iter().all(|protocol| match protocol {
 				// The `ip_network` library is used because its `is_global()` method is stable,
 				// while `is_global()` in the standard library currently isn't.
-				multiaddr::Protocol::Ip4(ip) if !IpNetwork::from(ip).is_global() => false,
-				multiaddr::Protocol::Ip6(ip) if !IpNetwork::from(ip).is_global() => false,
+				multiaddr::Protocol::Ip4(ip) => IpNetwork::from(ip).is_global(),
+				multiaddr::Protocol::Ip6(ip) => IpNetwork::from(ip).is_global(),
 				_ => true,
 			})
 		};
