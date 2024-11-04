@@ -1060,11 +1060,13 @@ impl Stream for Peerset {
 
 					log::trace!(
 						target: LOG_TARGET,
-						"{}: close substreams to {peers:?}",
+						"{}: close substreams to {peers_to_remove:?}",
 						self.protocol,
 					);
 
-					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream { peers }))
+					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
+						peers: peers_to_remove,
+					}))
 				},
 				PeersetCommand::AddReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: add reserved peers {peers:?}", self.protocol);
