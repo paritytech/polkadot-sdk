@@ -2,8 +2,7 @@ title: migrate pallet-recovery to benchmark V2 syntax
 doc:
 - audience: Runtime Dev
   description: |-
-    Part of:
-    * #6202
+    migrate pallet-recovery to benchmark V2 syntax
 crates:
 - name: pallet-recovery
   bump: patch
