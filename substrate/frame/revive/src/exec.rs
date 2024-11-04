@@ -772,7 +772,7 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_no_contract(&origin, &origin, &dest, value)
+			Self::transfer_from_origin(&origin, &origin, &dest, value)
 		}
 	}
 
@@ -1267,14 +1267,43 @@ where
 	}
 
 	/// Transfer some funds from `from` to `to`.
-	fn transfer(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) -> ExecResult {
-		// this avoids events to be emitted for zero balance transfers
-		if !value.is_zero() {
-			T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map_err(|_| Error::<T>::TransferFailed)?;
-			return Ok(());
+	///
+	/// This is a no-op for zero `value`, avoiding events to be emitted for zero balance transfers.
+	///
+	/// If the destination account does not exist, it is pulled into existence by transferring the
+	/// ED from `origin` to the new account. The total amount transferred to `to` will be ED +
+	/// `value`. This makes the ED fully transparent for contracts.
+	/// The ED transfer is executed atomically with the actual transfer, avoiding the possibility of
+	/// the ED transfer succeeding but the actual transfer failing. In other words, if the `to` does
+	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
+	/// not provide the ED or transferring `value` from `from` to `to` fails.
+	/// Note: This will also fail if `origin` is root.
+	fn transfer(
+		origin: &Origin<T>,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		value: BalanceOf<T>,
+	) -> ExecResult {
+		if value.is_zero() {
+			return Ok(Default::default());
 		}
-		Ok(Default::default())
+
+		if <System<T>>::account_exists(to) {
+			return T::Currency::transfer(from, to, value, Preservation::Preserve)
+				.map(|_| Default::default())
+				.map_err(|_| Error::<T>::TransferFailed.into());
+		}
+
+		let origin = origin.account_id()?;
+		let ed = <T as Config>::Currency::minimum_balance();
+		with_transaction(|| -> TransactionOutcome<ExecResult> {
+			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+				.and_then(|_| T::Currency::transfer(from, to, value, Preservation::Preserve))
+			{
+				Ok(_) => TransactionOutcome::Commit(Ok(Default::default())),
+				Err(_) => TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into())),
+			}
+		})
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
@@ -1415,7 +1444,7 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				Self::transfer_no_contract(
+				Self::transfer_from_origin(
 					&self.origin,
 					&Origin::from_account_id(self.account_id().clone()),
 					&dest,
@@ -1517,16 +1546,6 @@ where
 			beneficiary: *beneficiary,
 		});
 		Ok(())
-	}
-
-	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult {
-		Self::transfer(
-			&self.top_frame().account_id,
-			&T::AddressMapper::to_account_id(to),
-			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
-		)
-		.map(|_| ())
-		.map_err(|error| error.error)
 	}
 
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
@@ -2123,15 +2142,11 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let alice_balance = min_balance + 100;
-			set_balance(&ALICE, alice_balance);
-
 			place_contract(&BOB, success_ch);
-			let bob_balance = get_balance(&BOB_CONTRACT_ID);
+			set_balance(&ALICE, 100);
+			let balance = get_balance(&BOB_FALLBACK);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, min_balance, value).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, value).unwrap();
 
 			let _ = MockStack::run_call(
 				origin.clone(),
@@ -2144,9 +2159,8 @@ mod tests {
 			)
 			.unwrap();
 
-			let difference = min_balance + value;
-			assert_eq!(get_balance(&ALICE), alice_balance - difference);
-			assert_eq!(get_balance(&BOB_CONTRACT_ID), bob_balance + difference);
+			assert_eq!(get_balance(&ALICE), 100 - value);
+			assert_eq!(get_balance(&BOB_FALLBACK), balance + value);
 		});
 	}
 
@@ -2166,15 +2180,11 @@ mod tests {
 		});
 
 		ExtBuilder::default().build().execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let alice_balance = min_balance + 100;
-			set_balance(&ALICE, alice_balance);
-
 			place_contract(&BOB, delegate_ch);
-			let bob_balance = get_balance(&BOB_CONTRACT_ID);
+			set_balance(&ALICE, 100);
+			let balance = get_balance(&BOB_FALLBACK);
 			let origin = Origin::from_account_id(ALICE);
-			let mut storage_meter =
-				storage::meter::Meter::new(&origin, min_balance, value).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 55).unwrap();
 
 			let _ = MockStack::run_call(
 				origin,
@@ -2187,9 +2197,8 @@ mod tests {
 			)
 			.unwrap();
 
-			let difference = min_balance + value;
-			assert_eq!(get_balance(&ALICE), alice_balance - difference);
-			assert_eq!(get_balance(&BOB_CONTRACT_ID), bob_balance + difference);
+			assert_eq!(get_balance(&ALICE), 100 - value);
+			assert_eq!(get_balance(&BOB_FALLBACK), balance + value);
 		});
 	}
 

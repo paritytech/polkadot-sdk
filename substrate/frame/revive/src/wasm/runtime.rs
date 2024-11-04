@@ -1232,29 +1232,6 @@ pub mod env {
 		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
 	}
 
-	/// Transfer some value to another account.
-	/// See [`pallet_revive_uapi::HostFn::transfer`].
-	#[api_version(0)]
-	#[mutating]
-	fn transfer(
-		&mut self,
-		memory: &mut M,
-		address_ptr: u32,
-		value_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::Transfer)?;
-		let callee = memory.read_h160(address_ptr)?;
-		let value: U256 = memory.read_u256(value_ptr)?;
-		let result = self.ext.transfer(&callee, value);
-		match result {
-			Ok(()) => Ok(ReturnErrorCode::Success),
-			Err(err) => {
-				let code = Self::err_into_return_code(err)?;
-				Ok(code)
-			},
-		}
-	}
-
 	/// Make a call to another contract.
 	/// See [`pallet_revive_uapi::HostFn::call`].
 	#[api_version(0)]
