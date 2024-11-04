@@ -210,8 +210,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				let return_type =
 					&call.methods.get(i).expect("def should be consistent with item").return_type;
 
-				remove_deprecation_attribute(&mut method.attrs);
-
 				let (ok_type, err_type) = match return_type {
 					CallReturnType::DispatchResult => (
 						quote::quote!(()),

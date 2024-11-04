@@ -221,6 +221,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		#[deprecated = "test"]
+		#[allow(deprecated)]
 		pub fn foo(
 			origin: OriginFor<T>,
 			#[pallet::compact] foo: u32,
