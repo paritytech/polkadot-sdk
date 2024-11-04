@@ -50,7 +50,8 @@ use crate::{
 
 use codec::Encode;
 use futures::StreamExt;
-use libp2p::kad::{PeerRecord, Record as P2PRecord, RecordKey};
+use sc_network_types::kad::{PeerRecord, Record as P2PRecord};
+use sc_network_types::kad::Key as RecordKey;
 use litep2p::{
 	config::ConfigBuilder,
 	crypto::ed25519::Keypair,
