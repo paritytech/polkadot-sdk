@@ -988,7 +988,7 @@ impl Stream for Peerset {
 
 					self.reserved_peers = peers;
 
-					let peers = reserved_peers_maybe_remove
+					let peers_to_remove = reserved_peers_maybe_remove
 						.into_iter()
 						.filter(|peer| {
 							match self.peers.remove(&peer) {
