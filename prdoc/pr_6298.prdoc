@@ -21,7 +21,5 @@ doc:
       mechanism itself: `No public addresses configured and no global listen addresses found`.
 
 crates:
-  - name: sc-cli
-    bump: patch
   - name: sc-authority-discovery
     bump: patch
