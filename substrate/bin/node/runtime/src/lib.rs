@@ -1427,6 +1427,7 @@ impl pallet_revive::Config for Runtime {
 	type Debug = ();
 	type Xcm = ();
 	type ChainId = ConstU64<420_420_420>;
+	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 }
 
 impl pallet_sudo::Config for Runtime {
