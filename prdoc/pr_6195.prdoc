@@ -6,7 +6,3 @@ author: vjgaur
 doc:
   - audience: Node Dev
     description: "Add script to format documentation links and improve readability of SDK docs"
-
-crates:
-  - name: substrate
-    bump: none
