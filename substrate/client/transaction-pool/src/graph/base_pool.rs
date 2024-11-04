@@ -326,26 +326,31 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 			match self.ready.import(tx) {
 				Ok(mut replaced) => {
 					if !first {
-						promoted.push(current_hash);
+						promoted.push(current_hash.clone());
 					}
+					// If there were conflicting future transactions promoted, removed them from
+					// promoted set.
+					promoted.retain(|hash| replaced.iter().all(|tx| *hash != tx.hash));
 					// The transactions were removed from the ready pool. We might attempt to
 					// re-import them.
 					removed.append(&mut replaced);
 				},
 				Err(e @ error::Error::TooLowPriority { .. }) =>
 					if first {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing: {:?}", current_tx.hash, e);
+						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
 						return Err(e)
 					} else {
+						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
 						removed.push(current_tx);
+						promoted.retain(|hash| *hash != current_hash);
 					},
 				// transaction failed to be imported.
 				Err(e) =>
 					if first {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing: {:?}", current_tx.hash, e);
+						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
 						return Err(e)
 					} else {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing: {:?}", current_tx.hash, e);
+						trace!(target: LOG_TARGET, "[{:?}] Error importing {first}: {:?}", current_tx.hash, e);
 						failed.push(current_tx.hash.clone());
 					},
 			}
