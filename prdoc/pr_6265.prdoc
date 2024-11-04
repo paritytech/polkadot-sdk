@@ -2,7 +2,7 @@
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
 title: "Update documentation link shortener script"
-pr: 6265
+number: 6265
 author: vjgaur
 crates:
   - name: substrate
