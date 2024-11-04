@@ -592,7 +592,7 @@ where
 					metrics.dht_event_received.with_label_values(&["value_not_found"]).inc();
 				}
 
-				if self.in_flight_lookups.remove::<KademliaKey>(&hash.to_vec().into()).is_some() {
+				if self.in_flight_lookups.remove(&hash).is_some() {
 					debug!(target: LOG_TARGET, "Value for hash '{:?}' not found on Dht.", hash)
 				} else {
 					debug!(
@@ -602,7 +602,7 @@ where
 				}
 			},
 			DhtEvent::ValuePut(hash) => {
-				if !self.latest_published_kad_keys.contains::<KademliaKey>(&hash.to_vec().into()) {
+				if !self.latest_published_kad_keys.contains(&hash) {
 					return;
 				}
 
@@ -618,7 +618,7 @@ where
 				debug!(target: LOG_TARGET, "Successfully put hash '{:?}' on Dht.", hash)
 			},
 			DhtEvent::ValuePutFailed(hash) => {
-				if !self.latest_published_kad_keys.contains::<KademliaKey>(&hash.to_vec().into()) {
+				if !self.latest_published_kad_keys.contains(&hash) {
 					// Not a value we have published or received multiple times.
 					return;
 				}
@@ -656,7 +656,7 @@ where
 		// Make sure we don't ever work with an outdated set of authorities
 		// and that we do not update known_authorithies too often.
 		let best_hash = self.client.best_hash().await?;
-		if !self.known_authorities.contains_key::<KademliaKey>(&record_key.to_vec().into()) &&
+		if !self.known_authorities.contains_key(&record_key) &&
 			self.authorities_queried_at
 				.map(|authorities_queried_at| authorities_queried_at != best_hash)
 				.unwrap_or(true)
@@ -679,7 +679,7 @@ where
 
 		let authority_id = self
 			.known_authorities
-			.get::<KademliaKey>(&record_key.to_vec().into())
+			.get(&record_key)
 			.ok_or(Error::UnknownAuthority)?;
 		let signed_record =
 			Self::check_record_signed_with_authority_id(record_value.as_slice(), authority_id)?;
@@ -700,7 +700,7 @@ where
 				.unwrap_or_default(); // 0 is a sane default for records that do not have creation time present.
 
 		let current_record_info =
-			self.last_known_records.get::<KademliaKey>(&record_key.to_vec().into());
+			self.last_known_records.get(&record_key);
 		// If record creation time is older than the current record creation time,
 		// we don't store it since we want to give higher priority to newer records.
 		if let Some(current_record_info) = current_record_info {
@@ -716,7 +716,7 @@ where
 		}
 
 		self.network.store_record(
-			record_key.to_vec().into(),
+			record_key,
 			record_value,
 			Some(publisher),
 			expires,
@@ -775,13 +775,13 @@ where
 		let remote_key = peer_record.record.key.clone();
 
 		let authority_id: AuthorityId = if let Some(authority_id) =
-			self.in_flight_lookups.remove::<KademliaKey>(&remote_key.to_vec().into())
+			self.in_flight_lookups.remove(&remote_key)
 		{
 			self.known_lookups
-				.insert(remote_key.clone().to_vec().into(), authority_id.clone());
+				.insert(remote_key.clone(), authority_id.clone());
 			authority_id
 		} else if let Some(authority_id) =
-			self.known_lookups.get::<KademliaKey>(&remote_key.to_vec().into())
+			self.known_lookups.get(&remote_key)
 		{
 			authority_id.clone()
 		} else {
@@ -847,7 +847,7 @@ where
 
 		let addr_cache_needs_update = self.handle_new_record(
 			&authority_id,
-			remote_key.clone().to_vec().into(),
+			remote_key.clone(),
 			RecordInfo {
 				creation_time: records_creation_time,
 				peers_with_record: answering_peer_id.into_iter().collect(),
