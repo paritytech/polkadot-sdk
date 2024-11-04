@@ -322,6 +322,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 
 			// import this transaction
 			let current_hash = tx.transaction.hash.clone();
+			let current_tx = tx.transaction.clone();
 			match self.ready.import(tx) {
 				Ok(mut replaced) => {
 					if !first {
@@ -331,13 +332,21 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 					// re-import them.
 					removed.append(&mut replaced);
 				},
+				Err(e @ error::Error::TooLowPriority { .. }) =>
+					if first {
+						trace!(target: LOG_TARGET, "[{:?}] Error importing: {:?}", current_tx.hash, e);
+						return Err(e)
+					} else {
+						removed.push(current_tx);
+					},
 				// transaction failed to be imported.
 				Err(e) =>
 					if first {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing: {:?}", current_hash, e);
+						trace!(target: LOG_TARGET, "[{:?}] Error importing: {:?}", current_tx.hash, e);
 						return Err(e)
 					} else {
-						failed.push(current_hash);
+						trace!(target: LOG_TARGET, "[{:?}] Error importing: {:?}", current_tx.hash, e);
+						failed.push(current_tx.hash.clone());
 					},
 			}
 			first = false;
@@ -761,6 +770,58 @@ mod tests {
 	}
 
 	#[test]
+	fn should_remove_conflicting_future() {
+		let mut pool = pool();
+		pool.import(Transaction {
+			data: vec![3u8].into(),
+			hash: 3,
+			requires: vec![vec![1]],
+			priority: 50u64,
+			provides: vec![vec![3]],
+			..default_tx().clone()
+		})
+		.unwrap();
+		assert_eq!(pool.ready().count(), 0);
+		assert_eq!(pool.ready.len(), 0);
+
+		let tx2 = Transaction {
+			data: vec![2u8].into(),
+			hash: 2,
+			requires: vec![vec![1]],
+			provides: vec![vec![3]],
+			..default_tx().clone()
+		};
+		pool.import(tx2.clone()).unwrap();
+		assert_eq!(pool.future.len(), 2);
+
+		let res = pool
+			.import(Transaction {
+				data: vec![1u8].into(),
+				hash: 1,
+				provides: vec![vec![1]],
+				..default_tx().clone()
+			})
+			.unwrap();
+
+		assert_eq!(
+			res,
+			Imported::Ready {
+				hash: 1,
+				promoted: vec![3],
+				failed: vec![],
+				removed: vec![tx2.into()]
+			}
+		);
+
+		let mut it = pool.ready().into_iter().map(|tx| tx.data[0]);
+		assert_eq!(it.next(), Some(1));
+		assert_eq!(it.next(), Some(3));
+		assert_eq!(it.next(), None);
+
+		assert_eq!(pool.future.len(), 0);
+	}
+
+	#[test]
 	fn should_handle_a_cycle() {
 		// given
 		let mut pool = pool();
@@ -783,14 +844,14 @@ mod tests {
 		assert_eq!(pool.ready.len(), 0);
 
 		// when
-		pool.import(Transaction {
+		let tx2 = Transaction {
 			data: vec![2u8].into(),
 			hash: 2,
 			requires: vec![vec![2]],
 			provides: vec![vec![0]],
 			..default_tx().clone()
-		})
-		.unwrap();
+		};
+		pool.import(tx2.clone()).unwrap();
 
 		// then
 		{
@@ -817,7 +878,12 @@ mod tests {
 		assert_eq!(it.next(), None);
 		assert_eq!(
 			res,
-			Imported::Ready { hash: 4, promoted: vec![1, 3], failed: vec![2], removed: vec![] }
+			Imported::Ready {
+				hash: 4,
+				promoted: vec![1, 3],
+				failed: vec![],
+				removed: vec![tx2.into()]
+			}
 		);
 		assert_eq!(pool.future.len(), 0);
 	}
