@@ -1,0 +1,14 @@
+title: '[pallet-child-bounties] Index child bounties by parent bounty'
+doc:
+- audience: Runtime Dev
+  description: |
+    Indexes child bounties by parent bounty. This allows to quickly
+    list child bounties and their descriptions from the parent bounty
+    by changing `ChildBountyDescriptions` to use `StorageDoubleMap`
+    which is indexed by `(ParentBounty, ChildBounty)` keys.
+
+    Migration is provided to migrate `ChildBountyDescriptions` and
+    `ChildBounties` storage items.
+crates:
+- name: pallet-child-bounties
+  bump: major

@@ -190,7 +190,7 @@ pub mod pallet {
 	}
 
 	/// DEPRECATED: Replaced with `ParentTotalChildBounties` storage item keeping dedicated counts
-	/// for each parent bounty. Number of total child bounties.
+	/// for each parent bounty. Number of total child bounties. Will be removed in May 2025.
 	#[pallet::storage]
 	pub type ChildBountyCount<T: Config> = StorageValue<_, BountyIndex, ValueQuery>;
 
