@@ -1,0 +1,12 @@
+title: Update litep2p network backend to version 0.8.0
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+      This release adds support for content provider advertisement and discovery to Kademlia protocol implementation (see libp2p
+      [spec](https://github.com/libp2p/specs/blob/master/kad-dht/README.md#content-provider-advertisement-and-discovery)).
+      Additionally, the release includes several improvements and memory leak fixes to enhance the stability and performance of the litep2p library.
+
+crates:
+  - name: sc-network
+    bump: patch
