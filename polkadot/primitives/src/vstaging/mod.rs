@@ -464,21 +464,34 @@ impl CandidateCommitments {
 
 /// CandidateReceipt construction errors.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum CandidateReceiptError {
 	/// The specified core index is invalid.
+	#[cfg_attr(feature = "std", error("The specified core index is invalid"))]
 	InvalidCoreIndex,
 	/// The core index in commitments doesn't match the one in descriptor
+	#[cfg_attr(
+		feature = "std",
+		error("The core index in commitments doesn't match the one in descriptor")
+	)]
 	CoreIndexMismatch,
 	/// The core selector or claim queue offset is invalid.
+	#[cfg_attr(feature = "std", error("The core selector or claim queue offset is invalid"))]
 	InvalidSelectedCore,
 	/// Could not decode UMP signal.
 	UmpSignalDecode,
 	/// The parachain is not assigned to any core at specified claim queue offset.
+	#[cfg_attr(
+		feature = "std",
+		error("The parachain is not assigned to any core at specified claim queue offset")
+	)]
 	NoAssignment,
 	/// No core was selected. The `SelectCore` commitment is mandatory for
 	/// v2 receipts if parachains has multiple cores assigned.
+	#[cfg_attr(feature = "std", error("Core selector not present"))]
 	NoCoreSelected,
 	/// Unknown version.
+	#[cfg_attr(feature = "std", error("Unknown internal version"))]
 	UnknownVersion(InternalVersion),
 	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
 	/// Currenly only one such message is allowed.
