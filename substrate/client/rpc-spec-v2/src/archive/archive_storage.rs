@@ -24,20 +24,19 @@ use std::{
 };
 
 use itertools::Itertools;
-use jsonrpsee::core::RpcResult;
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sp_runtime::traits::Block as BlockT;
 
 use super::error::Error as ArchiveError;
 use crate::common::{
 	events::{
-		ArchiveStorageDiffItem, ArchiveStorageDiffOperationType, ArchiveStorageDiffResult,
-		ArchiveStorageDiffType, ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType,
-		StorageResult,
+		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
+		ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageMethodErr,
+		ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType, StorageResult,
 	},
 	storage::{IterQueryType, QueryIter, Storage},
 };
-
+use tokio::sync::mpsc;
 /// Generates the events of the `archive_storage` method.
 pub struct ArchiveStorage<Client, Block, BE> {
 	/// Storage client.
@@ -183,7 +182,7 @@ impl<Client, Block, BE> ArchiveStorageDiff<Client, Block, BE>
 where
 	Block: BlockT + 'static,
 	BE: Backend<Block> + 'static,
-	Client: StorageProvider<Block, BE> + 'static,
+	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
 {
 	/// Deduplicate the provided items and return a list of `DiffDetails`.
 	///
@@ -191,7 +190,7 @@ where
 	pub fn deduplicate_items(
 		&self,
 		items: Vec<ArchiveStorageDiffItem<String>>,
-	) -> RpcResult<Vec<Vec<DiffDetails>>> {
+	) -> Result<Vec<Vec<DiffDetails>>, ArchiveError> {
 		let mut deduplicated: HashMap<Option<ChildInfo>, Vec<DiffDetails>> = HashMap::new();
 
 		for diff_item in items {
@@ -258,43 +257,27 @@ where
 		key: StorageKey,
 		maybe_child_trie: Option<ChildInfo>,
 		ty: FetchStorageType,
-	) -> RpcResult<Option<(StorageResult, Option<StorageResult>)>> {
-		let convert_err = |error| ArchiveError::InvalidParam(error);
-
+	) -> Result<Option<(StorageResult, Option<StorageResult>)>, String> {
 		match ty {
 			FetchStorageType::Value => {
-				let result = self
-					.client
-					.query_value(hash, &key, maybe_child_trie.as_ref())
-					.map_err(convert_err)?;
+				let result = self.client.query_value(hash, &key, maybe_child_trie.as_ref())?;
 
 				Ok(result.map(|res| (res, None)))
 			},
 
 			FetchStorageType::Hash => {
-				let result = self
-					.client
-					.query_hash(hash, &key, maybe_child_trie.as_ref())
-					.map_err(convert_err)?;
+				let result = self.client.query_hash(hash, &key, maybe_child_trie.as_ref())?;
 
 				Ok(result.map(|res| (res, None)))
 			},
 
 			FetchStorageType::Both => {
-				let value = self
-					.client
-					.query_value(hash, &key, maybe_child_trie.as_ref())
-					.map_err(convert_err)?;
-
+				let value = self.client.query_value(hash, &key, maybe_child_trie.as_ref())?;
 				let Some(value) = value else {
 					return Ok(None);
 				};
 
-				let hash = self
-					.client
-					.query_hash(hash, &key, maybe_child_trie.as_ref())
-					.map_err(convert_err)?;
-
+				let hash = self.client.query_hash(hash, &key, maybe_child_trie.as_ref())?;
 				let Some(hash) = hash else {
 					return Ok(None);
 				};
@@ -333,29 +316,54 @@ where
 		}
 	}
 
-	/// It is guaranteed that all entries correspond to the same child trie or main trie.
-	pub fn handle_trie_queries(
+	fn send_result(
+		tx: &mpsc::Sender<ArchiveStorageDiffEvent>,
+		result: (StorageResult, Option<StorageResult>),
+		operation_type: ArchiveStorageDiffOperationType,
+		child_trie_key: Option<String>,
+	) -> bool {
+		let res = ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: result.0.key.clone(),
+			result: result.0.result.clone(),
+			operation_type,
+			child_trie_key: child_trie_key.clone(),
+		});
+		if tx.blocking_send(res).is_err() {
+			return false
+		}
+
+		if let Some(second) = result.1 {
+			let res = ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+				key: second.key.clone(),
+				result: second.result.clone(),
+				operation_type,
+				child_trie_key,
+			});
+			if tx.blocking_send(res).is_err() {
+				return false
+			}
+		}
+
+		true
+	}
+
+	fn handle_trie_queries_inner(
 		&self,
 		hash: Block::Hash,
 		previous_hash: Block::Hash,
 		items: Vec<DiffDetails>,
-	) -> RpcResult<Vec<ArchiveStorageDiffResult>> {
-		let mut results = Vec::with_capacity(items.len());
+		tx: &mpsc::Sender<ArchiveStorageDiffEvent>,
+	) -> Result<(), String> {
 		let mut keys_set = HashSet::new();
 
 		let maybe_child_trie = items.first().map(|item| item.child_trie_key.clone()).flatten();
 		let maybe_child_trie_str =
 			items.first().map(|item| item.child_trie_key_string.clone()).flatten();
 
-		let keys_iter = self
-			.client
-			.raw_keys_iter(hash, maybe_child_trie.clone())
-			.map_err(|error| ArchiveError::InvalidParam(error))?;
+		let keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
 
-		let mut previous_keys_iter = self
-			.client
-			.raw_keys_iter(previous_hash, maybe_child_trie.clone())
-			.map_err(|error| ArchiveError::InvalidParam(error))?;
+		let mut previous_keys_iter =
+			self.client.raw_keys_iter(previous_hash, maybe_child_trie.clone())?;
 
 		for key in keys_iter {
 			let Some(fetch_type) = Self::starts_with(&key, &items) else {
@@ -372,20 +380,13 @@ where
 			if !previous_keys_iter.contains(&key) {
 				keys_set.insert(key.clone());
 
-				results.push(ArchiveStorageDiffResult {
-					key: storage_result.0.key.clone(),
-					result: storage_result.0.result.clone(),
-					operation_type: ArchiveStorageDiffOperationType::Added,
-					child_trie_key: maybe_child_trie_str.clone(),
-				});
-
-				if let Some(second) = storage_result.1 {
-					results.push(ArchiveStorageDiffResult {
-						key: second.key.clone(),
-						result: second.result.clone(),
-						operation_type: ArchiveStorageDiffOperationType::Added,
-						child_trie_key: maybe_child_trie_str.clone(),
-					});
+				if !Self::send_result(
+					&tx,
+					storage_result,
+					ArchiveStorageDiffOperationType::Added,
+					maybe_child_trie_str.clone(),
+				) {
+					return Ok(())
 				}
 
 				continue
@@ -405,25 +406,22 @@ where
 			if storage_result.0.result != previous_storage_result.0.result {
 				keys_set.insert(key.clone());
 
-				results.push(ArchiveStorageDiffResult {
-					key: storage_result.0.key.clone(),
-					result: storage_result.0.result.clone(),
-					operation_type: ArchiveStorageDiffOperationType::Modified,
-					child_trie_key: maybe_child_trie_str.clone(),
-				});
-
-				if let Some(second) = storage_result.1 {
-					results.push(ArchiveStorageDiffResult {
-						key: second.key.clone(),
-						result: second.result.clone(),
-						operation_type: ArchiveStorageDiffOperationType::Modified,
-						child_trie_key: maybe_child_trie_str.clone(),
-					});
+				if !Self::send_result(
+					&tx,
+					storage_result,
+					ArchiveStorageDiffOperationType::Modified,
+					maybe_child_trie_str.clone(),
+				) {
+					return Ok(())
 				}
 			}
 		}
 
 		for previous_key in previous_keys_iter {
+			if keys_set.contains(&previous_key) {
+				continue
+			}
+
 			let Some(fetch_type) = Self::starts_with(&previous_key, &items) else {
 				continue;
 			};
@@ -438,23 +436,40 @@ where
 				continue
 			};
 
-			results.push(ArchiveStorageDiffResult {
-				key: previous_storage_result.0.key,
-				result: previous_storage_result.0.result,
-				operation_type: ArchiveStorageDiffOperationType::Deleted,
-				child_trie_key: maybe_child_trie_str.clone(),
-			});
-
-			if let Some(second) = previous_storage_result.1 {
-				results.push(ArchiveStorageDiffResult {
-					key: second.key.clone(),
-					result: second.result.clone(),
-					operation_type: ArchiveStorageDiffOperationType::Deleted,
-					child_trie_key: maybe_child_trie_str.clone(),
-				});
+			if !Self::send_result(
+				&tx,
+				previous_storage_result,
+				ArchiveStorageDiffOperationType::Deleted,
+				maybe_child_trie_str.clone(),
+			) {
+				return Ok(())
 			}
 		}
 
-		Ok(results)
+		Ok(())
+	}
+
+	/// It is guaranteed that all entries correspond to the same child trie or main trie.
+	pub async fn handle_trie_queries(
+		&self,
+		hash: Block::Hash,
+		previous_hash: Block::Hash,
+		items: Vec<DiffDetails>,
+		tx: mpsc::Sender<ArchiveStorageDiffEvent>,
+	) -> Result<(), tokio::task::JoinError> {
+		let this = ArchiveStorageDiff { client: self.client.clone() };
+
+		tokio::task::spawn_blocking(move || {
+			let result = this.handle_trie_queries_inner(hash, previous_hash, items, &tx);
+
+			if let Err(error) = result {
+				let error =
+					ArchiveStorageDiffEvent::StorageDiffError(ArchiveStorageMethodErr { error });
+				let _ = tx.blocking_send(error);
+			}
+		})
+		.await?;
+
+		Ok(())
 	}
 }

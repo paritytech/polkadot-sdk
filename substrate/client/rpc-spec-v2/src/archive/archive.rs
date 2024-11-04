@@ -25,18 +25,23 @@ use crate::{
 		ArchiveApiServer,
 	},
 	common::events::{
-		ArchiveStorageDiffItem, ArchiveStorageDiffMethodResult, ArchiveStorageResult,
+		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageResult,
 		PaginatedStorageQuery,
 	},
-	hex_string, MethodResult,
+	hex_string, MethodResult, SubscriptionTaskExecutor,
 };
 
 use codec::Encode;
-use jsonrpsee::core::{async_trait, RpcResult};
+use futures::FutureExt;
+use jsonrpsee::{
+	core::{async_trait, RpcResult},
+	PendingSubscriptionSink,
+};
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
 };
+use sc_rpc::utils::Subscription;
 use sp_api::{CallApiAt, CallContext};
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
@@ -47,6 +52,8 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
+
+use tokio::sync::mpsc;
 
 /// The configuration of [`Archive`].
 pub struct ArchiveConfig {
@@ -69,6 +76,12 @@ const MAX_DESCENDANT_RESPONSES: usize = 5;
 /// `MAX_DESCENDANT_RESPONSES`.
 const MAX_QUERIED_ITEMS: usize = 8;
 
+/// The buffer capacity for each storage query.
+///
+/// This is small because the underlying JSON-RPC server has
+/// its down buffer capacity per connection as well.
+const STORAGE_QUERY_BUF: usize = 16;
+
 impl Default for ArchiveConfig {
 	fn default() -> Self {
 		Self {
@@ -84,6 +97,8 @@ pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	client: Arc<Client>,
 	/// Backend of the chain.
 	backend: Arc<BE>,
+	/// Executor to spawn subscriptions.
+	executor: SubscriptionTaskExecutor,
 	/// The hexadecimal encoded hash of the genesis block.
 	genesis_hash: String,
 	/// The maximum number of items the `archive_storage` can return for a descendant query before
@@ -101,12 +116,14 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 		client: Arc<Client>,
 		backend: Arc<BE>,
 		genesis_hash: GenesisHash,
+		executor: SubscriptionTaskExecutor,
 		config: ArchiveConfig,
 	) -> Self {
 		let genesis_hash = hex_string(&genesis_hash.as_ref());
 		Self {
 			client,
 			backend,
+			executor,
 			genesis_hash,
 			storage_max_descendant_responses: config.max_descendant_responses,
 			storage_max_queried_items: config.max_queried_items,
@@ -286,39 +303,97 @@ where
 
 	fn archive_unstable_storage_diff(
 		&self,
+		pending: PendingSubscriptionSink,
 		hash: Block::Hash,
 		previous_hash: Option<Block::Hash>,
 		items: Vec<ArchiveStorageDiffItem<String>>,
-	) -> RpcResult<ArchiveStorageDiffMethodResult> {
+	) {
 		let storage_client = ArchiveStorageDiff::new(self.client.clone());
+		let client = self.client.clone();
 
-		// Deduplicate the items.
-		let trie_items = storage_client.deduplicate_items(items)?;
-
-		let previous_hash = if let Some(previous_hash) = previous_hash {
-			previous_hash
-		} else {
-			let Ok(Some(current_header)) = self.client.header(hash) else {
-				return Err(ArchiveError::InvalidParam(format!(
-					"Block header is not present: {}",
-					hash
-				))
-				.into());
+		let fut = async move {
+			// Deduplicate the items.
+			let trie_items = match storage_client.deduplicate_items(items) {
+				Ok(items) => items,
+				Err(error) => {
+					pending.reject(error).await;
+					return
+				},
 			};
-			*current_header.parent_hash()
+
+			let previous_hash = if let Some(previous_hash) = previous_hash {
+				previous_hash
+			} else {
+				let Ok(Some(current_header)) = client.header(hash) else {
+					pending
+						.reject(ArchiveError::InvalidParam(format!(
+							"Block header is not present: {}",
+							hash
+						)))
+						.await;
+
+					return
+				};
+				*current_header.parent_hash()
+			};
+
+			let Ok(mut sink) = pending.accept().await.map(Subscription::from) else { return };
+
+			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			if trie_items.is_empty() {
+				// May fail if the channel is closed or the connection is closed.
+				// which is okay to ignore.
+				let result = futures::future::join(
+					storage_client.handle_trie_queries(hash, previous_hash, Vec::new(), tx),
+					process_events(&mut rx, &mut sink),
+				)
+				.await;
+
+				// Send `StorageDiffDone` if the events were processed successfully.
+				if result.1 {
+					let _ = sink.send(&ArchiveStorageDiffEvent::StorageDiffDone).await;
+				}
+			} else {
+				for trie_queries in trie_items {
+					let storage_fut = storage_client.handle_trie_queries(
+						hash,
+						previous_hash,
+						trie_queries,
+						tx.clone(),
+					);
+					let result =
+						futures::future::join(storage_fut, process_events(&mut rx, &mut sink))
+							.await;
+					if !result.1 {
+						return;
+					}
+				}
+
+				let _ = sink.send(&ArchiveStorageDiffEvent::StorageDiffDone).await;
+			}
 		};
 
-		if trie_items.is_empty() {
-			let result = storage_client.handle_trie_queries(hash, previous_hash, Vec::new())?;
-			return Ok(ArchiveStorageDiffMethodResult { result })
-		}
-
-		let mut storage_results = Vec::new();
-		for trie_queries in trie_items {
-			let result = storage_client.handle_trie_queries(hash, previous_hash, trie_queries)?;
-			storage_results.extend(result);
-		}
-
-		Ok(ArchiveStorageDiffMethodResult { result: storage_results })
+		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 	}
+}
+
+/// Returns true if the events where processed successfully, false otherwise.
+async fn process_events(
+	rx: &mut mpsc::Receiver<ArchiveStorageDiffEvent>,
+	sink: &mut Subscription,
+) -> bool {
+	while let Some(event) = rx.recv().await {
+		let is_error_event = std::matches!(event, ArchiveStorageDiffEvent::StorageDiffError(_));
+
+		if let Err(_) = sink.send(&event).await {
+			return false
+		}
+
+		if is_error_event {
+			// Stop further processing if an error event is received.
+			return false
+		}
+	}
+
+	true
 }
