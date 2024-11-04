@@ -180,6 +180,7 @@ pub struct Worker<Client, Block: BlockT, DhtEventStream> {
 
 	metrics: Option<Metrics>,
 
+	/// Flag to ensure the warning about missing public addresses is only printed once.
 	warn_public_addresses: bool,
 
 	role: Role,
