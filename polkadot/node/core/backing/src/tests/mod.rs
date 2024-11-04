@@ -69,11 +69,26 @@ fn dummy_pvd() -> PersistedValidationData {
 	}
 }
 
+struct PerSessionCacheState {
+	has_cached_validators: bool,
+	has_cached_node_features: bool,
+	has_cached_minimum_backing_votes: bool,
+}
+
+impl PerSessionCacheState {
+	fn new() -> Self {
+		PerSessionCacheState {
+			has_cached_validators: false,
+			has_cached_node_features: false,
+			has_cached_minimum_backing_votes: false,
+		}
+	}
+}
+
 pub(crate) struct TestState {
 	chain_ids: Vec<ParaId>,
 	keystore: KeystorePtr,
 	validators: Vec<Sr25519Keyring>,
-	has_cached_validators: bool,
 	validator_public: Vec<ValidatorId>,
 	validation_data: PersistedValidationData,
 	validator_groups: (Vec<Vec<ValidatorIndex>>, GroupRotationInfo),
@@ -86,6 +101,7 @@ pub(crate) struct TestState {
 	minimum_backing_votes: u32,
 	disabled_validators: Vec<ValidatorIndex>,
 	node_features: NodeFeatures,
+	per_session_cache_state: PerSessionCacheState,
 }
 
 impl TestState {
@@ -158,7 +174,7 @@ impl Default for TestState {
 			chain_ids,
 			keystore,
 			validators,
-			has_cached_validators: false,
+			per_session_cache_state: PerSessionCacheState::new(),
 			validator_public,
 			validator_groups: (validator_groups, group_rotation_info),
 			validator_to_group,
@@ -300,7 +316,7 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &mut T
 		}
 	);
 
-	if !test_state.has_cached_validators {
+	if !test_state.per_session_cache_state.has_cached_validators {
 		// Check that subsystem job issues a request for a validator set.
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -310,29 +326,35 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &mut T
 				tx.send(Ok(test_state.validator_public.clone())).unwrap();
 			}
 		);
-		test_state.has_cached_validators = true;
+		test_state.per_session_cache_state.has_cached_validators = true;
 	}
 
-	// Node features request from runtime: all features are disabled.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
-		) => {
-			tx.send(Ok(test_state.node_features.clone())).unwrap();
-		}
-	);
+	if !test_state.per_session_cache_state.has_cached_node_features {
+		// Node features request from runtime: all features are disabled.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
+			) => {
+				tx.send(Ok(test_state.node_features.clone())).unwrap();
+			}
+		);
+		test_state.per_session_cache_state.has_cached_node_features = true;
+	}
 
-	// Check if subsystem job issues a request for the minimum backing votes.
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			parent,
-			RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
-		)) if parent == test_state.relay_parent && session_index == test_state.signing_context.session_index => {
-			tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
-		}
-	);
+	if !test_state.per_session_cache_state.has_cached_minimum_backing_votes {
+		// Check if subsystem job issues a request for the minimum backing votes.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+			)) if parent == test_state.relay_parent && session_index == test_state.signing_context.session_index => {
+				tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
+			}
+		);
+		test_state.per_session_cache_state.has_cached_minimum_backing_votes = true;
+	}
 
 	// Check that subsystem job issues a request for the runtime version.
 	assert_matches!(

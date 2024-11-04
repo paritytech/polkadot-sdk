@@ -162,7 +162,7 @@ async fn activate_leaf(
 			}
 		);
 
-		if !test_state.has_cached_validators {
+		if !test_state.per_session_cache_state.has_cached_validators {
 			// Check that subsystem job issues a request for a validator set.
 			assert_matches!(
 				virtual_overseer.recv().await,
@@ -172,29 +172,35 @@ async fn activate_leaf(
 					tx.send(Ok(test_state.validator_public.clone())).unwrap();
 				}
 			);
-			test_state.has_cached_validators = true;
+			test_state.per_session_cache_state.has_cached_validators = true;
 		}
 
-		// Node features request from runtime: all features are disabled.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
-			) if parent == hash => {
-				tx.send(Ok(Default::default())).unwrap();
-			}
-		);
+		if !test_state.per_session_cache_state.has_cached_node_features {
+			// Node features request from runtime: all features are disabled.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
+				) if parent == hash => {
+					tx.send(Ok(Default::default())).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_node_features = true;
+		}
 
-		// Check if subsystem job issues a request for the minimum backing votes.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				parent,
-				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
-			)) if parent == hash && session_index == test_state.signing_context.session_index => {
-				tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
-			}
-		);
+		if !test_state.per_session_cache_state.has_cached_minimum_backing_votes {
+			// Check if subsystem job issues a request for the minimum backing votes.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					parent,
+					RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+				)) if parent == hash && session_index == test_state.signing_context.session_index => {
+					tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_minimum_backing_votes = true;
+		}
 
 		// Check that subsystem job issues a request for the runtime version.
 		assert_matches!(
