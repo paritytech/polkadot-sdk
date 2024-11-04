@@ -16,7 +16,7 @@
 //! # Bridge Hub Westend Runtime genesis config presets
 
 use crate::*;
-use alloc::{vec, vec::Vec, string::ToString};
+use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use parachains_common::{genesis_config_helpers::*, AccountId, AuraId};
 use sp_core::sr25519;
@@ -37,7 +37,7 @@ fn collectives_westend_genesis(
 				.cloned()
 				.map(|k| (k, COLLECTIVES_WESTEND_ED * 4096))
 				.collect::<Vec<_>>(),
-			dev_accounts: (10, COLLECTIVES_WESTEND_ED, "//Sender/{}".to_string())
+			..Default::default()
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
 		collator_selection: CollatorSelectionConfig {
