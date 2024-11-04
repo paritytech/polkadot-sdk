@@ -594,12 +594,9 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Checks if descriptor core index is equal to the committed core index.
 	/// Input `cores_per_para` is a claim queue snapshot stored as a mapping
 	/// between `ParaId` and the cores assigned per depth.
-	/// `core_index_enabled` optionally describes the status of the elastic scaling MVP node
-	/// feature.
 	pub fn check_core_index(
 		&self,
 		cores_per_para: &TransposedClaimQueue,
-		core_index_enabled: Option<bool>,
 	) -> Result<(), CommittedCandidateReceiptError> {
 		match self.descriptor.version() {
 			// Don't check v1 descriptors.
@@ -631,19 +628,13 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			core_index_selector
 		} else if assigned_cores.len() > 1 {
 			// We got more than one assigned core and no core selector. Special care is needed.
-
-			match core_index_enabled {
-				// Elastic scaling MVP feature is not supplied, nothing more to check.
-				None => return Ok(()),
-				// Elastic scaling MVP feature is disabled. Error.
-				Some(false) => return Err(CommittedCandidateReceiptError::NoCoreSelected),
-				// Elastic scaling MVP feature is enabled but the core index in the descriptor is
-				// not assigned to the para. Error.
-				Some(true) if !assigned_cores.contains(&descriptor_core_index) =>
-					return Err(CommittedCandidateReceiptError::InvalidCoreIndex),
-				// Elastic scaling MVP feature is enabled and the descriptor core index is indeed
-				// assigned to the para. This is the most we can check for now.
-				Some(true) => return Ok(()),
+			if !assigned_cores.contains(&descriptor_core_index) {
+				// core index in the descriptor is not assigned to the para. Error.
+				return Err(CommittedCandidateReceiptError::InvalidCoreIndex)
+			} else {
+				// the descriptor core index is indeed assigned to the para. This is the most we can
+				// check for now
+				return Ok(())
 			}
 		} else {
 			// No core selector but there's only one assigned core, use it.
