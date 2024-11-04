@@ -21,11 +21,11 @@
 //!
 //! This code is executed at the target bridge hub.
 
-use crate::{Config, Pallet, LOG_TARGET};
+use crate::{Config, Pallet, LOG_TARGET, DispatchChannelStatusProvider};
 
 use bp_messages::target_chain::{DispatchMessage, MessageDispatch};
 use bp_runtime::messages::MessageDispatchResult;
-use bp_xcm_bridge_hub::{LocalXcmChannelManager, XcmAsPlainPayload};
+use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use codec::{Decode, Encode};
 use frame_support::{weights::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, WeightInfoExt};
@@ -60,7 +60,7 @@ where
 	fn is_active(lane: Self::LaneId) -> bool {
 		Pallet::<T, I>::bridge_by_lane_id(&lane)
 			.and_then(|(_, bridge)| bridge.bridge_origin_relative_location.try_as().cloned().ok())
-			.map(|recipient: Location| !T::LocalXcmChannelManager::is_congested(&recipient))
+			.map(|recipient: Location| !T::BlobDispatcher::is_congested(&recipient))
 			.unwrap_or(false)
 	}
 
@@ -158,6 +158,7 @@ mod tests {
 						state: BridgeState::Opened,
 						deposit: None,
 						lane_id,
+						maybe_notify: None,
 					},
 				);
 				LaneToBridge::<TestRuntime, ()>::insert(lane_id, bridge.bridge_id());
@@ -206,8 +207,11 @@ mod tests {
 	#[test]
 	fn dispatcher_is_inactive_when_channel_with_target_chain_is_congested() {
 		run_test_with_opened_bridge(|| {
-			TestLocalXcmChannelManager::make_congested();
-			assert!(!XcmOverBridge::is_active(bridge().1));
+			let bridge = bridge();
+			let with = bridge.0.bridge_origin_relative_location();
+			let lane_id = bridge.1;
+			TestBlobDispatcher::make_congested(with);
+			assert!(!XcmOverBridge::is_active(lane_id));
 		});
 	}
 

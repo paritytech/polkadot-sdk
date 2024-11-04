@@ -15,13 +15,52 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Various implementations supporting easier configuration of the pallet.
-use crate::{Config, Pallet, Bridges, LOG_TARGET};
+use crate::{Config, Pallet, Bridges, BridgeIdOf, LOG_TARGET};
 use xcm_builder::ExporterFor;
 use bp_xcm_bridge_hub_router::ResolveBridgeId;
 use codec::Encode;
 use frame_support::pallet_prelude::PhantomData;
 use frame_support::traits::Get;
+use frame_support::ensure;
 use xcm::prelude::*;
+
+/// Implementation of `LocalXcmChannelManager` which tracks and updates `is_congested` for a given `BridgeId`.
+/// This implementation is useful for managing congestion and dynamic fees with the local `ExportXcm` implementation.
+impl<T: Config<I>, I: 'static> bp_xcm_bridge_hub::LocalXcmChannelManager<BridgeIdOf<T, I>> for Pallet<T, I> {
+    type Error = ();
+
+    /// Suspends the given bridge.
+    ///
+    /// This function ensures that the `local_origin` matches the expected `Location::here()`. If the check passes, it updates the bridge status to congested.
+    fn suspend_bridge(local_origin: &Location, bridge: BridgeIdOf<T, I>) -> Result<(), Self::Error> {
+        log::trace!(
+            target: LOG_TARGET,
+            "LocalXcmChannelManager::suspend_bridge(local_origin: {local_origin:?}, bridge: {bridge:?})",
+        );
+        ensure!(local_origin.eq(&Location::here()), ());
+
+        // update status
+        Self::update_bridge_status(bridge, true);
+
+        Ok(())
+    }
+
+    /// Resumes the given bridge.
+    ///
+    /// This function ensures that the `local_origin` matches the expected `Location::here()`. If the check passes, it updates the bridge status to not congested.
+    fn resume_bridge(local_origin: &Location, bridge: BridgeIdOf<T, I>) -> Result<(), Self::Error> {
+        log::trace!(
+            target: LOG_TARGET,
+            "LocalXcmChannelManager::resume_bridge(local_origin: {local_origin:?}, bridge: {bridge:?})",
+        );
+        ensure!(local_origin.eq(&Location::here()), ());
+
+        // update status
+        Self::update_bridge_status(bridge, false);
+
+        Ok(())
+    }
+}
 
 pub struct ViaRemoteBridgeHubExporter<T, I, E, BNF, BHLF>(PhantomData<(T, I, E, BNF, BHLF)>);
 

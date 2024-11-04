@@ -24,6 +24,7 @@ use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{Contains, Equals},
 };
+use frame_system::EnsureRoot;
 use sp_runtime::{traits::ConstU128, BuildStorage};
 use sp_std::cell::RefCell;
 use xcm::prelude::*;
@@ -43,8 +44,8 @@ pub const BYTE_FEE: u128 = 1_000;
 construct_runtime! {
 	pub enum TestRuntime
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		XcmBridgeHubRouter: pallet_xcm_bridge_hub_router::{Pallet, Storage, Event<T>},
+		System: frame_system,
+		XcmBridgeHubRouter: pallet_xcm_bridge_hub_router,
 	}
 }
 
@@ -104,6 +105,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	>;
 
 	type BridgeIdResolver = EveryDestinationToSameBridgeIdResolver;
+	type BridgeHubOrigin = EnsureRoot<u64>;
 
 	type ByteFee = ConstU128<BYTE_FEE>;
 	type FeeAsset = BridgeFeeAsset;

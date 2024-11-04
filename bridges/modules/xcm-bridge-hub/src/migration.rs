@@ -222,6 +222,7 @@ pub mod v1 {
 					state,
 					deposit,
 					lane_id,
+					maybe_notify: None,
 				})
 			};
 			Bridges::<T, I>::translate_values(translate);

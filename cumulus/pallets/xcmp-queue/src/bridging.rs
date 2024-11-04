@@ -17,11 +17,11 @@ use crate::{pallet, OutboundState};
 use cumulus_primitives_core::ParaId;
 use xcm::latest::prelude::*;
 
-/// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
+/// Adapter implementation for `bp_xcm_bridge_hub::ChannelStatusProvider` which checks
 /// both `OutboundXcmpStatus` and `InboundXcmpStatus` for defined `Location` if any of those is
 /// suspended.
 pub struct InAndOutXcmpChannelStatusProvider<Runtime>(core::marker::PhantomData<Runtime>);
-impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+impl<Runtime: crate::Config> bp_xcm_bridge_hub::ChannelStatusProvider
 	for InAndOutXcmpChannelStatusProvider<Runtime>
 {
 	fn is_congested(with: &Location) -> bool {
@@ -45,10 +45,10 @@ impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
 	}
 }
 
-/// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
+/// Adapter implementation for `bp_xcm_bridge_hub::ChannelStatusProvider` which checks
 /// only `OutboundXcmpStatus` for defined `SiblingParaId` if is suspended.
 pub struct OutXcmpChannelStatusProvider<Runtime>(core::marker::PhantomData<Runtime>);
-impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+impl<Runtime: crate::Config> bp_xcm_bridge_hub::ChannelStatusProvider
 	for OutXcmpChannelStatusProvider<Runtime>
 {
 	fn is_congested(with: &Location) -> bool {

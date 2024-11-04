@@ -24,21 +24,6 @@ use sp_core::{H256, sp_std::fmt::Debug};
 use sp_runtime::{FixedU128, RuntimeDebug};
 use xcm::latest::prelude::{Location, NetworkId, InteriorLocation};
 
-/// XCM channel status provider that may report whether it is congested or not.
-///
-/// By the channel we mean the physical channel that is used to deliver messages of one
-/// of the bridge queues.
-pub trait XcmChannelStatusProvider {
-	/// Returns true if the channel is currently congested.
-	fn is_congested(with: &Location) -> bool;
-}
-
-impl XcmChannelStatusProvider for () {
-	fn is_congested(_with: &Location) -> bool {
-		false
-	}
-}
-
 /// Current status of the bridge.
 #[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 pub struct BridgeState {

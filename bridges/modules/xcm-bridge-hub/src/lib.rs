@@ -148,6 +148,7 @@ use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
 pub use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
 use bp_xcm_bridge_hub::{
 	BridgeLocations, BridgeLocationsError, Deposit, DepositOf, LocalXcmChannelManager,
+	ChannelStatusProvider as DispatchChannelStatusProvider,
 };
 use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
 use frame_system::Config as SystemConfig;
@@ -164,6 +165,7 @@ pub use pallet::*;
 
 mod dispatcher;
 mod exporter;
+pub mod congestion;
 pub mod migration;
 mod mock;
 
@@ -241,10 +243,10 @@ pub mod pallet {
 		/// For example, it is possible to make an exception for a system parachain or relay.
 		type AllowWithoutBridgeDeposit: Contains<Location>;
 
-		/// Local XCM channel manager.
-		type LocalXcmChannelManager: LocalXcmChannelManager;
+		/// Local XCM channel manager. Dedicated to exporting capabilities when handling congestion with the sending side.
+		type LocalXcmChannelManager: LocalXcmChannelManager<BridgeId>;
 		/// XCM-level dispatcher for inbound bridge messages.
-		type BlobDispatcher: DispatchBlob;
+		type BlobDispatcher: DispatchBlob + DispatchChannelStatusProvider;
 	}
 
 	/// An alias for the bridge metadata.
@@ -510,6 +512,7 @@ pub mod pallet {
 						state: BridgeState::Opened,
 						deposit: deposit.clone(),
 						lane_id,
+						maybe_notify: None,
 					});
 					Ok(())
 				},
@@ -879,6 +882,7 @@ mod tests {
 			state: BridgeState::Opened,
 			deposit,
 			lane_id,
+			maybe_notify: None,
 		};
 		Bridges::<TestRuntime, ()>::insert(locations.bridge_id(), bridge.clone());
 		LaneToBridge::<TestRuntime, ()>::insert(bridge.lane_id, locations.bridge_id());
@@ -1034,6 +1038,7 @@ mod tests {
 					state: BridgeState::Opened,
 					deposit: None,
 					lane_id,
+					maybe_notify: None,
 				},
 			);
 
@@ -1166,7 +1171,8 @@ mod tests {
 						),
 						state: BridgeState::Opened,
 						deposit: expected_deposit.clone(),
-						lane_id
+						lane_id,
+						maybe_notify: None,
 					}),
 				);
 				assert_eq!(
@@ -1521,6 +1527,7 @@ mod tests {
 					state: BridgeState::Opened,
 					deposit: Some(Deposit::new(bridge_owner_account.clone(), Zero::zero())),
 					lane_id,
+					maybe_notify: None,
 				},
 				(lane_id, bridge_id),
 				(lane_id, lane_id),
@@ -1546,6 +1553,7 @@ mod tests {
 					state: BridgeState::Opened,
 					deposit: Some(Deposit::new(bridge_owner_account.clone(), Zero::zero())),
 					lane_id,
+					maybe_notify: None,
 				},
 				(lane_id, bridge_id_mismatch),
 				(lane_id, lane_id),
@@ -1571,6 +1579,7 @@ mod tests {
 					state: BridgeState::Opened,
 					deposit: Some(Deposit::new(bridge_owner_account_mismatch.clone(), Zero::zero())),
 					lane_id,
+					maybe_notify: None,
 				},
 				(lane_id, bridge_id),
 				(lane_id, lane_id),
@@ -1595,6 +1604,7 @@ mod tests {
 					state: BridgeState::Opened,
 					deposit: Some(Deposit::new(bridge_owner_account_mismatch.clone(), Zero::zero())),
 					lane_id,
+					maybe_notify: None,
 				},
 				(lane_id, bridge_id_mismatch),
 				(lane_id, lane_id),
@@ -1620,6 +1630,7 @@ mod tests {
 					state: BridgeState::Opened,
 					deposit: Some(Deposit::new(bridge_owner_account.clone(), Zero::zero())),
 					lane_id,
+					maybe_notify: None,
 				},
 				(lane_id, bridge_id),
 				(lane_id_mismatch, lane_id),
@@ -1645,6 +1656,7 @@ mod tests {
 					state: BridgeState::Opened,
 					deposit: Some(Deposit::new(bridge_owner_account, Zero::zero())),
 					lane_id,
+					maybe_notify: None,
 				},
 				(lane_id, bridge_id),
 				(lane_id, lane_id_mismatch),

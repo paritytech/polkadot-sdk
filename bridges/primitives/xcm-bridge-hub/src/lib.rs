@@ -96,42 +96,45 @@ impl core::fmt::Debug for BridgeId {
 }
 
 /// Local XCM channel manager.
-pub trait LocalXcmChannelManager {
+pub trait LocalXcmChannelManager<Bridge> {
 	/// Error that may be returned when suspending/resuming the bridge.
 	type Error: sp_std::fmt::Debug;
-
-	/// Returns true if the channel with given location is currently congested.
-	///
-	/// The `with` is guaranteed to be in the same consensus. However, it may point to something
-	/// below the chain level - like the contract or pallet instance, for example.
-	fn is_congested(with: &Location) -> bool;
 
 	/// Suspend the bridge, opened by given origin.
 	///
 	/// The `local_origin` is guaranteed to be in the same consensus. However, it may point to
 	/// something below the chain level - like the contract or pallet instance, for example.
-	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error>;
+	fn suspend_bridge(local_origin: &Location, bridge: Bridge) -> Result<(), Self::Error>;
 
 	/// Resume the previously suspended bridge, opened by given origin.
 	///
 	/// The `local_origin` is guaranteed to be in the same consensus. However, it may point to
 	/// something below the chain level - like the contract or pallet instance, for example.
-	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error>;
+	fn resume_bridge(local_origin: &Location, bridge: Bridge) -> Result<(), Self::Error>;
 }
 
-impl LocalXcmChannelManager for () {
+impl<Bridge> LocalXcmChannelManager<Bridge> for () {
 	type Error = ();
 
+	fn suspend_bridge(_local_origin: &Location, _bridge: Bridge) -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn resume_bridge(_local_origin: &Location, _bridge: Bridge) -> Result<(), Self::Error> {
+		Ok(())
+	}
+}
+
+/// Channel status provider that may report whether it is congested or not.
+pub trait ChannelStatusProvider {
+	/// Returns true if the channel is currently active and can be used.
+	fn is_congested(with: &Location) -> bool;
+}
+
+/// Default implementation of `ChannelStatusProvider`, indicating no congestion.
+impl ChannelStatusProvider for () {
 	fn is_congested(_with: &Location) -> bool {
 		false
-	}
-
-	fn suspend_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
-		Ok(())
-	}
-
-	fn resume_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
-		Ok(())
 	}
 }
 
@@ -176,6 +179,30 @@ pub struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
 
 	/// Mapping to the unique `LaneId`.
 	pub lane_id: LaneId,
+
+	/// Holds data about the `bridge_origin_relative_location` where notifications can be sent for handling congestion.
+	pub maybe_notify: Option<Receiver>,
+}
+
+/// Receiver metadata.
+#[derive(
+	CloneNoBound, Decode, Encode, Eq, PartialEqNoBound, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound,
+)]
+pub struct Receiver {
+	/// Pallet index.
+	pub pallet_index: u8,
+	/// Call/extrinsic index.
+	pub call_index: u8,
+}
+
+impl Receiver {
+	/// Create a new receiver.
+	pub fn new(pallet_index: u8, call_index: u8) -> Self {
+		Self {
+			pallet_index,
+			call_index,
+		}
+	}
 }
 
 /// An alias for the bridge deposit of `ThisChain`.

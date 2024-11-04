@@ -31,7 +31,7 @@
 
 use bp_xcm_bridge_hub_router::{BridgeState, ResolveBridgeId};
 use codec::Encode;
-use frame_support::traits::Get;
+use frame_support::traits::{EnsureOriginWithArg, Get};
 use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
 use sp_std::vec::Vec;
 use xcm::prelude::*;
@@ -127,6 +127,10 @@ pub mod pallet {
 		#[pallet::no_default]
 		type BridgeIdResolver: ResolveBridgeId;
 
+		/// Origin of the sibling bridge hub that is allowed to report bridge status.
+		#[pallet::no_default]
+		type BridgeHubOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, BridgeIdOf<Self, I>>;
+
 		/// Additional fee that is paid for every byte of the outbound message.
 		/// See `calculate_message_size_fees` for more details.
 		type ByteFee: Get<u128>;
@@ -204,9 +208,35 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::call]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Notification about congested bridge queue.
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::report_bridge_status())]
+		pub fn report_bridge_status(
+			origin: OriginFor<T>,
+			bridge_id: BridgeIdOf<T, I>,
+			is_congested: bool,
+		) -> DispatchResult {
+			let _ = T::BridgeHubOrigin::ensure_origin(origin, &bridge_id)?;
+
+			log::info!(
+				target: LOG_TARGET,
+				"Received bridge status from {:?}: congested = {}",
+				bridge_id,
+				is_congested,
+			);
+
+			// update status
+			Self::update_bridge_status(bridge_id, is_congested);
+
+			Ok(())
+		}
+	}
+
 	/// Stores `BridgeState` for congestion control and dynamic fees for each resolved bridge ID associated with a destination.
 	#[pallet::storage]
-	pub type Bridges<T: Config<I>, I: 'static = ()> = StorageMap<_, Identity, BridgeIdOf<T, I>, BridgeState, OptionQuery>;
+	pub type Bridges<T: Config<I>, I: 'static = ()> = StorageMap<_, Blake2_128Concat, BridgeIdOf<T, I>, BridgeState, OptionQuery>;
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Called when new message is sent to the `dest` (queued to local outbound XCM queue).
@@ -275,6 +305,24 @@ pub mod pallet {
 				}
 			}
 			None
+		}
+		/// Updates the congestion status of a bridge for a given `bridge_id`.
+		///
+		/// If the bridge does not exist and:
+		/// - `is_congested` is true, a new `BridgeState` is created with a default `delivery_fee_factor`.
+		/// - `is_congested` is false, does nothing and no `BridgeState` is created.
+		pub(crate) fn update_bridge_status(bridge_id: BridgeIdOf<T, I>, is_congested: bool) {
+			Bridges::<T, I>::mutate(bridge_id, |bridge| match bridge {
+				Some(bridge) => bridge.is_congested = is_congested,
+				None => {
+					if is_congested {
+						*bridge = Some(BridgeState {
+							delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
+							is_congested,
+						})
+					}
+				}
+			});
 		}
 	}
 
@@ -410,7 +458,7 @@ mod tests {
 
 	use frame_support::traits::Hooks;
 	use frame_system::{EventRecord, Phase};
-	use sp_runtime::traits::One;
+	use sp_runtime::traits::{Dispatchable, One};
 
 	#[test]
 	fn fee_factor_is_not_decreased_from_on_initialize_when_bridge_is_congested() {
@@ -445,9 +493,9 @@ mod tests {
 			}));
 
 			// it should eventually decrease and remove
-			let mut old_delivery_fee_factor = initial_fee_factor;
+			let mut last_delivery_fee_factor = initial_fee_factor;
 			while let Some(bridge_state) = get_bridge_state_for::<TestRuntime, ()>(&dest) {
-				old_delivery_fee_factor = bridge_state.delivery_fee_factor;
+				last_delivery_fee_factor = bridge_state.delivery_fee_factor;
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
 
@@ -473,7 +521,7 @@ mod tests {
 				Some(EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorDecreased {
-						previous_value: old_delivery_fee_factor,
+						previous_value: last_delivery_fee_factor,
 						new_value: 0.into(),
 						bridge_id,
 					}),
@@ -677,6 +725,39 @@ mod tests {
 				vec![ClearOrigin].into()
 			));
 			assert_eq!(XcmBridgeHubRouter::get_messages(), vec![]);
+		});
+	}
+
+	#[test]
+	fn report_bridge_status_works() {
+		run_test(|| {
+			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
+			let bridge_id = ();
+			let report_bridge_status = |bridge_id, is_congested| {
+				let call = RuntimeCall::XcmBridgeHubRouter(Call::report_bridge_status {
+					bridge_id,
+					is_congested,
+				});
+				assert_ok!(call.dispatch(RuntimeOrigin::root()));
+			};
+
+			assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
+			report_bridge_status(bridge_id, false);
+			assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
+
+			// make congested
+			report_bridge_status(bridge_id, true);
+			assert_eq!(get_bridge_state_for::<TestRuntime, ()>(&dest), Some(BridgeState {
+				delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
+				is_congested: true,
+			}));
+
+			// make uncongested
+			report_bridge_status(bridge_id, false);
+			assert_eq!(get_bridge_state_for::<TestRuntime, ()>(&dest), Some(BridgeState {
+				delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
+				is_congested: false,
+			}));
 		});
 	}
 }
