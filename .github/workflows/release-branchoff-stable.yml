@@ -63,7 +63,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
         with:
-          ref: release-ep-test
+          ref: master
           token: ${{ steps.generate_write_token.outputs.token }}
 
       - name: Import gpg keys
