@@ -113,9 +113,9 @@ use polkadot_primitives::{
 		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 	},
-	BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, ExecutorParams, GroupIndex, GroupRotationInfo,
-	Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData, SessionIndex,
-	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
+	BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
+	SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
 	ValidityAttestation,
 };
 use polkadot_statement_table::{
