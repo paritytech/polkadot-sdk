@@ -626,7 +626,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			// We got more than one assigned core and no core selector. Special care is needed.
 
 			match core_index_enabled {
-				// Elastic scaling MVPMVP feature is not supplied, nothing more to check.
+				// Elastic scaling MVP feature is not supplied, nothing more to check.
 				None => return Ok(()),
 				// Elastic scaling MVP feature is disabled. Error.
 				Some(false) => return Err(CommittedCandidateReceiptError::NoCoreSelected),
