@@ -46,9 +46,9 @@ use pallet_message_queue::OnQueueChanged;
 use polkadot_primitives::{
 	effective_minimum_backing_votes, supermajority_threshold,
 	vstaging::{
-		BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
+		skip_ump_signals, BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
 		CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, UMP_SEPARATOR,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
 	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, HeadData,
 	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
@@ -914,10 +914,7 @@ impl<T: Config> Pallet<T> {
 		upward_messages: &[UpwardMessage],
 	) -> Result<(), UmpAcceptanceCheckErr> {
 		// Filter any pending UMP signals and the separator.
-		let upward_messages = upward_messages
-			.iter()
-			.take_while(|message| message != &&UMP_SEPARATOR)
-			.collect::<Vec<_>>();
+		let upward_messages = skip_ump_signals(upward_messages.iter()).collect::<Vec<_>>();
 
 		// Cannot send UMP messages while off-boarding.
 		if paras::Pallet::<T>::is_offboarding(para) {
@@ -971,10 +968,7 @@ impl<T: Config> Pallet<T> {
 	/// to deal with the messages as given. Messages that are too long will be ignored since such
 	/// candidates should have already been rejected in [`Self::check_upward_messages`].
 	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) {
-		let bounded = upward_messages
-			.iter()
-			// Stop once we hit the `UMPSignal` separator.
-			.take_while(|message| message != &&UMP_SEPARATOR)
+		let bounded = skip_ump_signals(upward_messages.iter())
 			.filter_map(|d| {
 				BoundedSlice::try_from(&d[..])
 					.inspect_err(|_| {

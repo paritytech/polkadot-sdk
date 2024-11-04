@@ -428,6 +428,13 @@ pub enum UMPSignal {
 /// Separator between `XCM` and `UMPSignal`.
 pub const UMP_SEPARATOR: Vec<u8> = vec![];
 
+/// Utility function for skipping the ump signals.
+pub fn skip_ump_signals<'a>(
+	upward_messages: impl Iterator<Item = &'a Vec<u8>>,
+) -> impl Iterator<Item = &'a Vec<u8>> {
+	upward_messages.take_while(|message| *message != &UMP_SEPARATOR)
+}
+
 impl CandidateCommitments {
 	/// Returns the core selector and claim queue offset determined by `UMPSignal::SelectCore`
 	/// commitment, if present.
