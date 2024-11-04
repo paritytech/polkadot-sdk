@@ -174,7 +174,13 @@ impl AccountStatus {
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
-	/// The balance.
+	/// The `free` balance of an asset account, which can be potentially used for an account, if
+	/// certain constraints are met.
+	///
+	/// This balance is not the same as the _reducible_/_spendable_ balance of the asset account
+	/// (calculated on [`Pallet::reducible_balance`], and depends on freezes, defined on
+	/// [`Config::Freezer`], if any), and it's not the same as the _balance on hold_ (which depends
+	/// on [`Config::Holder`], if any).
 	pub(super) balance: Balance,
 	/// The status of the account.
 	pub(super) status: AccountStatus,
