@@ -17,6 +17,7 @@
 
 use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig};
 use alloc::{vec, vec::Vec};
+use frame_support::build_struct_json_patch;
 use serde_json::Value;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -29,7 +30,7 @@ fn testnet_genesis(
 	endowed_accounts: Vec<AccountId>,
 	root: AccountId,
 ) -> Value {
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
 				.iter()
@@ -42,13 +43,9 @@ fn testnet_genesis(
 		},
 		grandpa: pallet_grandpa::GenesisConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect::<Vec<_>>(),
-			..Default::default()
 		},
 		sudo: SudoConfig { key: Some(root) },
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+	})
 }
 
 /// Return the development genesis config.
