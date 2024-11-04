@@ -105,6 +105,14 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the block number.
 	fn block_number(output: &mut [u8; 32]);
 
+	/// Stores the block hash of the given block number into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `block_number`: A reference to the block number buffer.
+	/// - `output`: A reference to the output data buffer to write the block number.
+	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
+
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
 	/// # Parameters
@@ -591,18 +599,6 @@ pub trait HostFn: private::Sealed {
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result;
-
-	/// Transfer some amount of funds into the specified account.
-	///
-	/// # Parameters
-	///
-	/// - `address`: The address of the account to transfer funds to.
-	/// - `value`: The U256 value to transfer.
-	///
-	/// # Errors
-	///
-	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	fn transfer(address: &[u8; 20], value: &[u8; 32]) -> Result;
 
 	/// Remove the calling account and transfer remaining **free** balance.
 	///

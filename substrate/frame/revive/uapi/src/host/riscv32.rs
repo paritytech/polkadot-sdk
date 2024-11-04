@@ -58,7 +58,6 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn transfer(address_ptr: *const u8, value_ptr: *const u8) -> ReturnCode;
 		pub fn call(ptr: *const u8) -> ReturnCode;
 		pub fn delegate_call(
 			flags: u32,
@@ -98,6 +97,7 @@ mod sys {
 			data_len: u32,
 		);
 		pub fn block_number(out_ptr: *mut u8);
+		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -328,11 +328,6 @@ impl HostFn for HostFnImpl {
 			extract_from_slice(output, output_len as usize);
 		}
 
-		ret_code.into()
-	}
-
-	fn transfer(address: &[u8; 20], value: &[u8; 32]) -> Result {
-		let ret_code = unsafe { sys::transfer(address.as_ptr(), value.as_ptr()) };
 		ret_code.into()
 	}
 
@@ -578,5 +573,9 @@ impl HostFn for HostFnImpl {
 			unsafe { sys::return_data_copy(output.as_mut_ptr(), &mut output_len, offset) };
 		}
 		extract_from_slice(output, output_len as usize);
+	}
+
+	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
+		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
 }
