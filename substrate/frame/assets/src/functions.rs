@@ -223,10 +223,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					// here: https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/index.html#visualising-balance-components-together-
 					let untouchable = frozen.saturating_sub(held).max(details.min_balance);
 					if rest < untouchable {
-						return Frozen
+						if !frozen.is_zero() {
+							Frozen
+						} else {
+							WouldDie
+						}
+					} else {
+						Success
 					}
-
-					Success
 				},
 			}
 		} else {
