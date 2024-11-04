@@ -711,6 +711,31 @@ note: the trait `Config` must be implemented
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
+error[E0599]: the function or associated item `pallet_associated_types_metadata` exists for struct `Pallet<Runtime>`, but its trait bounds were not satisfied
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+   |
+20 |    construct_runtime! {
+   |  __^
+   | | _|
+   | ||
+21 | ||     pub struct Runtime where
+   | ||______________________- doesn't satisfy `Runtime: Config`
+22 | |          Block = Block,
+23 | |          NodeBlock = Block,
+...  |
+27 | |      }
+28 | |  }
+   | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
+   |
+   = note: the following trait bounds were not satisfied:
+           `Runtime: Config`
+note: the trait `Config` must be implemented
+  --> $WORKSPACE/substrate/frame/system/src/lib.rs
+   |
+   |     pub trait Config: 'static + Eq + Clone {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |

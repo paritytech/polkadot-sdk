@@ -73,8 +73,10 @@ mod sys {
 		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
+		pub fn origin(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
-		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
+		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
+		pub fn code_size(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn own_code_hash(out_ptr: *mut u8);
 		pub fn caller_is_origin() -> ReturnCode;
 		pub fn caller_is_root() -> ReturnCode;
@@ -96,6 +98,7 @@ mod sys {
 			data_len: u32,
 		);
 		pub fn block_number(out_ptr: *mut u8);
+		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -453,7 +456,7 @@ impl HostFn for HostFnImpl {
 
 	impl_wrapper_for! {
 		[u8; 32] => block_number, balance, value_transferred, now, minimum_balance, chain_id;
-		[u8; 20] => address, caller;
+		[u8; 20] => address, caller, origin;
 	}
 
 	fn weight_left(output: &mut &mut [u8]) {
@@ -528,9 +531,12 @@ impl HostFn for HostFnImpl {
 		ret_val.into()
 	}
 
-	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) -> Result {
-		let ret_val = unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) };
-		ret_val.into()
+	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) }
+	}
+
+	fn code_size(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::code_size(address.as_ptr(), output.as_mut_ptr()) }
 	}
 
 	fn own_code_hash(output: &mut [u8; 32]) {
@@ -573,5 +579,9 @@ impl HostFn for HostFnImpl {
 			unsafe { sys::return_data_copy(output.as_mut_ptr(), &mut output_len, offset) };
 		}
 		extract_from_slice(output, output_len as usize);
+	}
+
+	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
+		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
 }

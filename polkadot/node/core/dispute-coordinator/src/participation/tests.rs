@@ -68,7 +68,8 @@ async fn participate_with_commitments_hash<Context>(
 		let mut receipt = dummy_candidate_receipt_bad_sig(dummy_hash(), dummy_hash());
 		receipt.commitments_hash = commitments_hash;
 		receipt
-	};
+	}
+	.into();
 	let session = 1;
 
 	let request_timer = participation.metrics.time_participation_pipeline();
