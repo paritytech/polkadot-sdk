@@ -32,8 +32,8 @@ jobs:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
         run: |
-          forklift cargo clippy --all-targets --locked --workspace --quiet
-          forklift cargo clippy --all-targets --all-features --locked --workspace --quiet
+          cargo clippy --all-targets --locked --workspace --quiet
+          cargo clippy --all-targets --all-features --locked --workspace --quiet
   check-try-runtime:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     needs: [preflight]
