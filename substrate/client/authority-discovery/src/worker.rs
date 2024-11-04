@@ -396,10 +396,7 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				address_is_global(&address).then(||  address_without_p2p(address, local_peer_id))
-				} else {
-					None
-				}
+				address_is_global(&address).then(|| address_without_p2p(address, local_peer_id))
 			})
 			.take(MAX_GLOBAL_LISTEN_ADDRESSES)
 			.peekable();
@@ -412,12 +409,6 @@ where
 			.filter_map(|address| {
 				let address = address_without_p2p(address, local_peer_id);
 				(publish_non_global_ips || address_is_global(&address)).then(|| address)
-					Some(address)
-				} else if address_is_global(&address) {
-					Some(address)
-				} else {
-					None
-				}
 			})
 			.peekable();
 
