@@ -58,7 +58,7 @@ use frame_system::{
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::{DestroyWitness, PalletFeatures};
-use pallet_revive::evm::runtime::EthExtra;
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -79,9 +79,9 @@ use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, fee::WeightToFee, snowbridge::EthereumNetwork, time::*,
 };
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf,
-	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId,
-	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
+	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
+	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocation, WestendLocation,
+	XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -423,7 +423,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location>,
 			xcm_config::bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		),
-		ForeignCreatorsSovereignAccountOf,
+		LocationToAccountId,
 		AccountId,
 		xcm::v4::Location,
 	>;
@@ -957,7 +957,7 @@ impl pallet_revive::Config for Runtime {
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type ChainExtension = ();
-	type AddressMapper = pallet_revive::DefaultAddressMapper;
+	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 	type UnsafeUnstableInterface = ConstBool<false>;
@@ -2069,8 +2069,17 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, EventRecord> for Runtime
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
+		fn balance(address: H160) -> Balance {
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			Balances::usable_balance(account)
+		}
+
+		fn nonce(address: H160) -> Nonce {
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			System::account_nonce(account)
+		}
 		fn eth_transact(
 			from: H160,
 			dest: Option<H160>,

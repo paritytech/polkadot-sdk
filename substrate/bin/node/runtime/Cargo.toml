@@ -74,4 +74,3 @@ experimental = [
 	"pallet-example-tasks/experimental",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
-riscv = ["polkadot-sdk/riscv"]
