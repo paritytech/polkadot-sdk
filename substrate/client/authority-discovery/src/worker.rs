@@ -1001,20 +1001,18 @@ impl AddressType {
 	fn without_p2p(self, local_peer_id: PeerId) -> Multiaddr {
 		// Get the address and the source str for logging.
 		let (mut address, source) = match self {
-			AddressType::PublicAddress(address) => (address, Some("public address")),
-			AddressType::GlobalListenAddress(address) => (address, Some("global listen address")),
-			AddressType::ExternalAddress(address) => (address, None),
+			AddressType::PublicAddress(address) => (address, "public address"),
+			AddressType::GlobalListenAddress(address) => (address, "global listen address"),
+			AddressType::ExternalAddress(address) => (address, "external address"),
 		};
 
 		if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
 			if peer_id != *local_peer_id.as_ref() {
-				if let Some(source) = source {
-					error!(
-						target: LOG_TARGET,
-						"Network returned '{source}' '{address}' with peer id \
-						 not matching the local peer id '{local_peer_id}'.",
-					);
-				}
+				error!(
+					target: LOG_TARGET,
+					"Network returned '{source}' '{address}' with peer id \
+					 not matching the local peer id '{local_peer_id}'.",
+				);
 			}
 			address.pop();
 		}
