@@ -3,4 +3,8 @@
 
 title: "Update documentation link shortener script"
 author: vjgaur
-doc: "Update script to format documentation links according to style guide requirements" 
+doc: 
+  - "Add script to format documentation links and improve readability of SDK docs"
+crates:
+  - name: substrate
+    bump: none
