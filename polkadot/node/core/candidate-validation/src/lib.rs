@@ -860,7 +860,7 @@ async fn validate_candidate_exhaustive(
 							};
 
 							if let Err(err) = committed_candidate_receipt
-								.check_core_index(&transpose_claim_queue(claim_queue.0))
+								.check_core_index(&transpose_claim_queue(claim_queue.0), None)
 							{
 								gum::warn!(
 									target: LOG_TARGET,

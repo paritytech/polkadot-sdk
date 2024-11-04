@@ -436,14 +436,13 @@ impl CandidateCommitments {
 	/// assigned cores is empty.
 	///
 	/// `assigned_cores` must be a sorted vec of all core indices assigned to a parachain.
-	pub fn committed_core_index(
+	pub fn core_selector(
 		&self,
-		assigned_cores: &BTreeMap<u8, BTreeSet<CoreIndex>>,
-	) -> Result<CoreIndex, CandidateReceiptError> {
+	) -> Result<(Option<CoreSelector>, ClaimQueueOffset), CandidateReceiptError> {
 		let mut signals_iter =
 			self.upward_messages.iter().skip_while(|message| *message != &UMP_SEPARATOR);
 
-		let (core_selector, cq_offset) = if signals_iter.next().is_some() {
+		if signals_iter.next().is_some() {
 			let core_selector_message =
 				signals_iter.next().ok_or(CandidateReceiptError::NoCoreSelected)?;
 			// We should have exactly one signal beyond the separator
@@ -454,29 +453,12 @@ impl CandidateCommitments {
 			match UMPSignal::decode(&mut core_selector_message.as_slice())
 				.map_err(|_| CandidateReceiptError::InvalidSelectedCore)?
 			{
-				UMPSignal::SelectCore(core_selector, cq_offset) => (Some(core_selector), cq_offset),
+				UMPSignal::SelectCore(core_selector, cq_offset) =>
+					Ok((Some(core_selector), cq_offset)),
 			}
 		} else {
-			// No separator, we should use the defaults.
-			(None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
-		};
-
-		let assigned_cores =
-			assigned_cores.get(&cq_offset.0).ok_or(CandidateReceiptError::NoAssignment)?;
-
-		if assigned_cores.is_empty() {
-			return Err(CandidateReceiptError::NoAssignment)
+			Ok((None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)))
 		}
-
-		let core_selector = core_selector
-			.or_else(|| if assigned_cores.len() == 1 { Some(CoreSelector(0)) } else { None })
-			.ok_or(CandidateReceiptError::NoCoreSelected)?;
-
-		assigned_cores
-			.iter()
-			.nth(core_selector.0 as usize % assigned_cores.len())
-			.ok_or(CandidateReceiptError::InvalidSelectedCore)
-			.copied()
 	}
 }
 
@@ -489,6 +471,8 @@ pub enum CandidateReceiptError {
 	CoreIndexMismatch,
 	/// The core selector or claim queue offset is invalid.
 	InvalidSelectedCore,
+	/// Could not decode UMP signal.
+	UmpSignalDecode,
 	/// The parachain is not assigned to any core at specified claim queue offset.
 	NoAssignment,
 	/// No core was selected. The `SelectCore` commitment is mandatory for
@@ -596,6 +580,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	pub fn check_core_index(
 		&self,
 		cores_per_para: &TransposedClaimQueue,
+		core_index_enabled: Option<bool>,
 	) -> Result<(), CandidateReceiptError> {
 		match self.descriptor.version() {
 			// Don't check v1 descriptors.
@@ -605,13 +590,50 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 				return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
+		let (maybe_core_index_selector, cq_offset) = self.commitments.core_selector()?;
+
 		let assigned_cores = cores_per_para
 			.get(&self.descriptor.para_id())
+			.ok_or(CandidateReceiptError::NoAssignment)?
+			.get(&cq_offset.0)
 			.ok_or(CandidateReceiptError::NoAssignment)?;
 
-		let core_index = self.commitments.committed_core_index(assigned_cores)?;
+		if assigned_cores.is_empty() {
+			return Err(CandidateReceiptError::NoAssignment)
+		}
 
 		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
+
+		let core_index_selector = if let Some(core_index_selector) = maybe_core_index_selector {
+			// We have a committed core selector, we can use it.
+			core_index_selector
+		} else if assigned_cores.len() > 1 {
+			// We got more than one assigned core and no core selector. Special care is needed.
+
+			match core_index_enabled {
+				// Elastic scaling MVPMVP feature is not supplied, nothing more to check.
+				None => return Ok(()),
+				// Elastic scaling MVP feature is disabled. Error.
+				Some(false) => return Err(CandidateReceiptError::NoCoreSelected),
+				// Elastic scaling MVP feature is enabled but the core index in the descriptor is
+				// not assigned to the para. Error.
+				Some(true) if !assigned_cores.contains(&descriptor_core_index) =>
+					return Err(CandidateReceiptError::InvalidCoreIndex),
+				// Elastic scaling MVP feature is enabled and the descriptor core index is indeed
+				// assigned to the para. This is the most we can check for now.
+				Some(true) => return Ok(()),
+			}
+		} else {
+			// No core selector but there's only one assigned core, use it.
+			CoreSelector(0)
+		};
+
+		let core_index = assigned_cores
+			.iter()
+			.nth(core_index_selector.0 as usize % assigned_cores.len())
+			.ok_or(CandidateReceiptError::InvalidSelectedCore)
+			.copied()?;
+
 		if core_index != descriptor_core_index {
 			return Err(CandidateReceiptError::CoreIndexMismatch)
 		}

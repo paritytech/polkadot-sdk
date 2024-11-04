@@ -986,6 +986,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	allow_v2_receipts: bool,
+	core_index_enabled: bool,
 ) -> bool {
 	if candidate.descriptor().version() == CandidateDescriptorVersion::V1 {
 		return true
@@ -1040,7 +1041,10 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	};
 
 	// Check validity of `core_index`.
-	if let Err(err) = candidate.candidate().check_core_index(&rp_info.claim_queue) {
+	if let Err(err) = candidate
+		.candidate()
+		.check_core_index(&rp_info.claim_queue, Some(core_index_enabled))
+	{
 		log::debug!(
 			target: LOG_TARGET,
 			"Dropping candidate {:?} for paraid {:?}, {:?}",
@@ -1085,8 +1089,12 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
 
 	for candidate in backed_candidates {
-		if !sanitize_backed_candidate_v2::<T>(&candidate, allowed_relay_parents, allow_v2_receipts)
-		{
+		if !sanitize_backed_candidate_v2::<T>(
+			&candidate,
+			allowed_relay_parents,
+			allow_v2_receipts,
+			core_index_enabled,
+		) {
 			continue
 		}
 
