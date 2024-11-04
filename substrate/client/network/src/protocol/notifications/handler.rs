@@ -621,7 +621,7 @@ impl ConnectionHandler for NotifsHandler {
 			},
 			ConnectionEvent::ListenUpgradeError(_listen_upgrade_error) => {},
 			event => {
-				warn!(target: "sub-libp2p", "New unknown ConnectionEvent libp2p event: {event:?}");
+				warn!(target: "sub-libp2p", "New unknown `ConnectionEvent` libp2p event: {event:?}");
 			},
 		}
 	}

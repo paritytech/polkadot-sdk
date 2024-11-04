@@ -111,7 +111,7 @@ mod rep {
 	/// Reputation change when a peer doesn't respond in time to our messages.
 	pub const TIMEOUT: Rep = Rep::new(-(1 << 10), "Request timeout");
 	/// Reputation change when a peer connection failed with IO error.
-	pub const IO: Rep = Rep::new(-(1 << 10), "Request timeout");
+	pub const IO: Rep = Rep::new(-(1 << 10), "IO error during request");
 }
 
 struct Metrics {

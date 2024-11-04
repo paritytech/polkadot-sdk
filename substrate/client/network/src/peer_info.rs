@@ -444,7 +444,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				self.identify.on_swarm_event(FromSwarm::NewListenAddr(e));
 			},
 			event => {
-				debug!(target: "sub-libp2p", "New unknown FromSwarm libp2p event: {event:?}");
+				debug!(target: "sub-libp2p", "New unknown `FromSwarm` libp2p event: {event:?}");
 				self.ping.on_swarm_event(event);
 				self.identify.on_swarm_event(event);
 			},

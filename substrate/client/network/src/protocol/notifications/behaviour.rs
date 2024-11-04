@@ -1673,7 +1673,7 @@ impl NetworkBehaviour for Notifications {
 			FromSwarm::AddressChange(_) => {},
 			FromSwarm::NewListenAddr(_) => {},
 			event => {
-				warn!(target: "sub-libp2p", "New unknown FromSwarm libp2p event: {event:?}");
+				warn!(target: "sub-libp2p", "New unknown `FromSwarm` libp2p event: {event:?}");
 			},
 		}
 	}
@@ -2225,7 +2225,7 @@ impl NetworkBehaviour for Notifications {
 			NotifsHandlerOut::Close { protocol_index } => {
 				let set_id = SetId::from(protocol_index);
 
-				trace!(target: "sub-libp2p", "Handler({}, {:?}) <= SyncNotificationsClogged({:?})", peer_id, connection_id, set_id);
+				trace!(target: "sub-libp2p", "Handler({}, {:?}) => SyncNotificationsClogged({:?})", peer_id, connection_id, set_id);
 				self.events.push_back(ToSwarm::CloseConnection {
 					peer_id,
 					connection: CloseConnection::One(connection_id),

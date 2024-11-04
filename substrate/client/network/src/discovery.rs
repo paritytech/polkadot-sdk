@@ -759,7 +759,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				self.kademlia.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
 			},
 			event => {
-				debug!(target: "sub-libp2p", "New unknown FromSwarm libp2p event: {event:?}");
+				debug!(target: "sub-libp2p", "New unknown `FromSwarm` libp2p event: {event:?}");
 				self.kademlia.on_swarm_event(event);
 			},
 		}
@@ -1005,7 +1005,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 						warn!(target: "sub-libp2p", "Libp2p => Unhandled Kademlia event: {:?}", e)
 					},
 					Event::ModeChanged { new_mode } => {
-						debug!(target: "sub-libp2p", "Libp2p => Kademlia mode changed: {}", new_mode)
+						debug!(target: "sub-libp2p", "Libp2p => Kademlia mode changed: {new_mode}")
 					},
 				},
 				ToSwarm::Dial { opts } => return Poll::Ready(ToSwarm::Dial { opts }),

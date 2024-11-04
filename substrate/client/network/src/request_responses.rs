@@ -1114,7 +1114,7 @@ mod tests {
 			keypair.public().to_peer_id(),
 			SwarmConfig::with_executor(TokioExecutor(runtime))
 				// This is taken care of by notification protocols in non-test environment
-				// It is very slot in test environment for some reason, hence larger timeout
+				// It is very slow in test environment for some reason, hence larger timeout
 				.with_idle_connection_timeout(Duration::from_secs(60)),
 		);
 
