@@ -20,7 +20,7 @@
 
 use crate::{
 	common::events::{
-		ArchiveStorageDiffItem, ArchiveStorageDiffMethodResult, ArchiveStorageResult,
+		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageResult,
 		PaginatedStorageQuery,
 	},
 	MethodResult,
@@ -113,11 +113,15 @@ pub trait ArchiveApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "archive_unstable_storageDiff", blocking)]
+	#[subscription(
+		name = "archive_unstable_storageDiff" => "archive_unstable_storageDiffEvent",
+		unsubscribe = "archive_unstable_storageDiff_stopStorageDiff",
+		item = ArchiveStorageDiffEvent,
+	)]
 	fn archive_unstable_storage_diff(
 		&self,
 		hash: Hash,
 		previous_hash: Option<Hash>,
 		items: Vec<ArchiveStorageDiffItem<String>>,
-	) -> RpcResult<ArchiveStorageDiffMethodResult>;
+	);
 }
