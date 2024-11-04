@@ -3094,7 +3094,7 @@ pub(crate) async fn handle_response<Context>(
 ) {
 	let &requests::CandidateIdentifier { relay_parent, candidate_hash, group_index } =
 		response.candidate_identifier();
-	let peer = response.requested_peer().clone();
+	let peer = *response.requested_peer();
 
 	gum::trace!(
 		target: LOG_TARGET,

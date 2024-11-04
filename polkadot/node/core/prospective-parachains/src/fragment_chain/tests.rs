@@ -71,7 +71,7 @@ fn make_committed_candidate(
 			persisted_validation_data_hash: persisted_validation_data.hash(),
 			pov_hash: Hash::repeat_byte(1),
 			erasure_root: Hash::repeat_byte(1),
-			signature: test_helpers::dummy_collator_signature(),
+			signature: test_helpers::zero_collator_signature(),
 			para_head: para_head.hash(),
 			validation_code_hash: Hash::repeat_byte(42).into(),
 		}

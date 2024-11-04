@@ -206,6 +206,11 @@ pub fn dummy_collator_signature() -> CollatorSignature {
 		.expect("64 bytes; qed")
 }
 
+/// Create a zeroed collator signature.
+pub fn zero_collator_signature() -> CollatorSignature {
+	CollatorSignature::from(sr25519::Signature::default())
+}
+
 /// Create a meaningless persisted validation data.
 pub fn dummy_pvd(parent_head: HeadData, relay_parent_number: u32) -> PersistedValidationData {
 	PersistedValidationData {
