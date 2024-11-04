@@ -430,14 +430,10 @@ pub const UMP_SEPARATOR: Vec<u8> = vec![];
 
 impl CandidateCommitments {
 	/// Returns the core selector and claim queue offset determined by `UMPSignal::SelectCore`
-	/// commitment
-	///
-	/// Returns a tuple where the first item is the optional core index selector and the second item
-	/// is the claim queue offset, initialized with a default value if not present in the
-	/// commitments.
+	/// commitment, if present.
 	pub fn core_selector(
 		&self,
-	) -> Result<(Option<CoreSelector>, ClaimQueueOffset), CommittedCandidateReceiptError> {
+	) -> Result<Option<(CoreSelector, ClaimQueueOffset)>, CommittedCandidateReceiptError> {
 		let mut signals_iter =
 			self.upward_messages.iter().skip_while(|message| *message != &UMP_SEPARATOR);
 
@@ -452,11 +448,11 @@ impl CandidateCommitments {
 			match UMPSignal::decode(&mut core_selector_message.as_slice())
 				.map_err(|_| CommittedCandidateReceiptError::InvalidSelectedCore)?
 			{
-				UMPSignal::SelectCore(core_selector, cq_offset) =>
-					Ok((Some(core_selector), cq_offset)),
+				UMPSignal::SelectCore(core_index_selector, cq_offset) =>
+					Ok(Some((core_index_selector, cq_offset))),
 			}
 		} else {
-			Ok((None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)))
+			Ok(None)
 		}
 	}
 }
@@ -606,7 +602,10 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
-		let (maybe_core_index_selector, cq_offset) = self.commitments.core_selector()?;
+		let (maybe_core_index_selector, cq_offset) = self.commitments.core_selector()?.map_or_else(
+			|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)),
+			|(sel, off)| (Some(sel), off),
+		);
 
 		let assigned_cores = cores_per_para
 			.get(&self.descriptor.para_id())
