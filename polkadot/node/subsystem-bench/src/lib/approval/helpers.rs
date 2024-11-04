@@ -29,8 +29,8 @@ use polkadot_node_subsystem_types::messages::{
 };
 use polkadot_overseer::AllMessages;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateReceipt, CoreIndex, GroupIndex, Hash, Header,
-	Id as ParaId, Slot, ValidatorIndex,
+	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
+	BlockNumber, CoreIndex, GroupIndex, Hash, Header, Id as ParaId, Slot, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::dummy_candidate_receipt_bad_sig;
 use rand::{seq::SliceRandom, SeedableRng};
@@ -189,7 +189,7 @@ pub fn make_header(parent_hash: Hash, slot: Slot, number: u32) -> Header {
 fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
 	let mut r = dummy_candidate_receipt_bad_sig(*hash, Some(Default::default()));
 	r.descriptor.para_id = para_id;
-	r
+	r.into()
 }
 
 /// Helper function to create a list of candidates that are included in the block
