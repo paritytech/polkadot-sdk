@@ -27,7 +27,7 @@ use frame_support::{
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_arithmetic::Percent;
-use sp_core::{Get, U256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
@@ -121,6 +121,7 @@ where
 	BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
 	MomentOf<E::Config>: Into<U256>,
 	CallOf<E::Config>: From<crate::Call<E::Config>> + TryInto<crate::Call<E::Config>>,
+	<E::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 
 	// required by Checkable for `generic::UncheckedExtrinsic`
 	LookupSource: Member + MaybeDisplay,
@@ -290,6 +291,7 @@ pub trait EthExtra {
 		<Self::Config as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 		OnChargeTransactionBalanceOf<Self::Config>: Into<BalanceOf<Self::Config>>,
 		CallOf<Self::Config>: From<crate::Call<Self::Config>>,
+		<Self::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
 		let tx = rlp::decode::<TransactionLegacySigned>(&payload).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
@@ -311,10 +313,14 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		}
 
+		let value = (value / U256::from(<Self::Config as crate::Config>::NativeToEthRatio::get()))
+			.try_into()
+			.map_err(|_| InvalidTransaction::Call)?;
+
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
 				dest,
-				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
+				value,
 				gas_limit,
 				storage_deposit_limit,
 				data: input.0,
@@ -334,7 +340,7 @@ pub trait EthExtra {
 			};
 
 			crate::Call::instantiate_with_code::<Self::Config> {
-				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
+				value,
 				gas_limit,
 				storage_deposit_limit,
 				code: code.to_vec(),
@@ -368,7 +374,7 @@ pub trait EthExtra {
 				Default::default(),
 			)
 			.into();
-		log::debug!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
+		log::trace!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
 
 		if eth_fee < actual_fee {
 			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee:?}");
@@ -379,10 +385,10 @@ pub trait EthExtra {
 		let max = actual_fee.max(eth_fee_no_tip);
 		let diff = Percent::from_rational(max - min, min);
 		if diff > Percent::from_percent(10) {
-			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
+			log::trace!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
 			return Err(InvalidTransaction::Call.into())
 		} else {
-			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
+			log::trace!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
 		}
 
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
@@ -394,7 +400,6 @@ pub trait EthExtra {
 	}
 }
 
-#[cfg(feature = "riscv")]
 #[cfg(test)]
 mod test {
 	use super::*;

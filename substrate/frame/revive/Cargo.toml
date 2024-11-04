@@ -79,10 +79,6 @@ xcm-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-# enabling this feature will require having a riscv toolchain installed
-# if no tests are ran and runtime benchmarks will not work
-# apart from this the pallet will stay functional
-riscv = ["pallet-revive-fixtures/riscv"]
 std = [
 	"codec/std",
 	"environmental/std",
