@@ -111,6 +111,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn empty_on_idle() {
+		// Enough weight to do nothing.
 		#[block]
 		{
 			Pallet::<T>::on_idle(
