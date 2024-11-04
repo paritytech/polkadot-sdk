@@ -429,29 +429,28 @@ pub enum UMPSignal {
 pub const UMP_SEPARATOR: Vec<u8> = vec![];
 
 impl CandidateCommitments {
-	/// Returns the core index determined by `UMPSignal::SelectCore` commitment
-	/// and `assigned_cores`.
+	/// Returns the core selector and claim queue offset determined by `UMPSignal::SelectCore`
+	/// commitment
 	///
-	/// Returns `None` if there is no `UMPSignal::SelectCore` commitment or
-	/// assigned cores is empty.
-	///
-	/// `assigned_cores` must be a sorted vec of all core indices assigned to a parachain.
+	/// Returns a tuple where the first item is the optional core index selector and the second item
+	/// is the claim queue offset, initialized with a default value if not present in the
+	/// commitments.
 	pub fn core_selector(
 		&self,
-	) -> Result<(Option<CoreSelector>, ClaimQueueOffset), CandidateReceiptError> {
+	) -> Result<(Option<CoreSelector>, ClaimQueueOffset), CommittedCandidateReceiptError> {
 		let mut signals_iter =
 			self.upward_messages.iter().skip_while(|message| *message != &UMP_SEPARATOR);
 
 		if signals_iter.next().is_some() {
 			let core_selector_message =
-				signals_iter.next().ok_or(CandidateReceiptError::NoCoreSelected)?;
+				signals_iter.next().ok_or(CommittedCandidateReceiptError::NoCoreSelected)?;
 			// We should have exactly one signal beyond the separator
 			if signals_iter.next().is_some() {
-				return Err(CandidateReceiptError::TooManyUMPSignals)
+				return Err(CommittedCandidateReceiptError::TooManyUMPSignals)
 			}
 
 			match UMPSignal::decode(&mut core_selector_message.as_slice())
-				.map_err(|_| CandidateReceiptError::InvalidSelectedCore)?
+				.map_err(|_| CommittedCandidateReceiptError::InvalidSelectedCore)?
 			{
 				UMPSignal::SelectCore(core_selector, cq_offset) =>
 					Ok((Some(core_selector), cq_offset)),
@@ -462,10 +461,10 @@ impl CandidateCommitments {
 	}
 }
 
-/// CandidateReceipt construction errors.
+/// CommittedCandidateReceiptError construction errors.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
-pub enum CandidateReceiptError {
+pub enum CommittedCandidateReceiptError {
 	/// The specified core index is invalid.
 	#[cfg_attr(feature = "std", error("The specified core index is invalid"))]
 	InvalidCoreIndex,
@@ -592,29 +591,31 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Checks if descriptor core index is equal to the committed core index.
 	/// Input `cores_per_para` is a claim queue snapshot stored as a mapping
 	/// between `ParaId` and the cores assigned per depth.
+	/// `core_index_enabled` optionally describes the status of the elastic scaling MVP node
+	/// feature.
 	pub fn check_core_index(
 		&self,
 		cores_per_para: &TransposedClaimQueue,
 		core_index_enabled: Option<bool>,
-	) -> Result<(), CandidateReceiptError> {
+	) -> Result<(), CommittedCandidateReceiptError> {
 		match self.descriptor.version() {
 			// Don't check v1 descriptors.
 			CandidateDescriptorVersion::V1 => return Ok(()),
 			CandidateDescriptorVersion::V2 => {},
 			CandidateDescriptorVersion::Unknown =>
-				return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version)),
+				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
 		let (maybe_core_index_selector, cq_offset) = self.commitments.core_selector()?;
 
 		let assigned_cores = cores_per_para
 			.get(&self.descriptor.para_id())
-			.ok_or(CandidateReceiptError::NoAssignment)?
+			.ok_or(CommittedCandidateReceiptError::NoAssignment)?
 			.get(&cq_offset.0)
-			.ok_or(CandidateReceiptError::NoAssignment)?;
+			.ok_or(CommittedCandidateReceiptError::NoAssignment)?;
 
 		if assigned_cores.is_empty() {
-			return Err(CandidateReceiptError::NoAssignment)
+			return Err(CommittedCandidateReceiptError::NoAssignment)
 		}
 
 		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
@@ -629,11 +630,11 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 				// Elastic scaling MVPMVP feature is not supplied, nothing more to check.
 				None => return Ok(()),
 				// Elastic scaling MVP feature is disabled. Error.
-				Some(false) => return Err(CandidateReceiptError::NoCoreSelected),
+				Some(false) => return Err(CommittedCandidateReceiptError::NoCoreSelected),
 				// Elastic scaling MVP feature is enabled but the core index in the descriptor is
 				// not assigned to the para. Error.
 				Some(true) if !assigned_cores.contains(&descriptor_core_index) =>
-					return Err(CandidateReceiptError::InvalidCoreIndex),
+					return Err(CommittedCandidateReceiptError::InvalidCoreIndex),
 				// Elastic scaling MVP feature is enabled and the descriptor core index is indeed
 				// assigned to the para. This is the most we can check for now.
 				Some(true) => return Ok(()),
@@ -646,11 +647,11 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 		let core_index = assigned_cores
 			.iter()
 			.nth(core_index_selector.0 as usize % assigned_cores.len())
-			.ok_or(CandidateReceiptError::InvalidSelectedCore)
+			.ok_or(CommittedCandidateReceiptError::InvalidSelectedCore)
 			.copied()?;
 
 		if core_index != descriptor_core_index {
-			return Err(CandidateReceiptError::CoreIndexMismatch)
+			return Err(CommittedCandidateReceiptError::CoreIndexMismatch)
 		}
 
 		Ok(())
@@ -1047,7 +1048,7 @@ mod tests {
 		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
 		assert_eq!(
 			new_ccr.check_core_index(&BTreeMap::new()),
-			Err(CandidateReceiptError::UnknownVersion(InternalVersion(100)))
+			Err(CommittedCandidateReceiptError::UnknownVersion(InternalVersion(100)))
 		)
 	}
 
@@ -1113,7 +1114,7 @@ mod tests {
 
 		assert_eq!(
 			new_ccr.check_core_index(&transpose_claim_queue(cq.clone())),
-			Err(CandidateReceiptError::NoCoreSelected)
+			Err(CommittedCandidateReceiptError::NoCoreSelected)
 		);
 
 		new_ccr.commitments.upward_messages.clear();
@@ -1241,7 +1242,7 @@ mod tests {
 		//  Should fail because 2 cores are assigned,
 		assert_eq!(
 			new_ccr.check_core_index(&transpose_claim_queue(cq)),
-			Err(CandidateReceiptError::NoCoreSelected)
+			Err(CommittedCandidateReceiptError::NoCoreSelected)
 		);
 
 		// Adding collator signature should make it decode as v1.
