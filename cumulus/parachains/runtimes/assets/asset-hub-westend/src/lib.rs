@@ -2076,6 +2076,7 @@ impl_runtime_apis! {
 	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
 		fn balance(address: H160) -> Balance {
+			use frame_support::traits::fungible::Inspect;
 			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
 			Balances::reducible_balance(&account, Expendable, Polite)
 		}
