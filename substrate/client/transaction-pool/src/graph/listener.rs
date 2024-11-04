@@ -36,6 +36,7 @@ pub type DroppedByLimitsStream<H, BH> = TracingUnboundedReceiver<DroppedByLimits
 
 /// Extrinsic pool default listener.
 pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {
+	/// Map containing per-transaction sinks for emitting transaction status events.
 	watchers: HashMap<H, watcher::Sender<H, BlockHash<C>>>,
 	finality_watchers: LinkedHashMap<ExtrinsicHash<C>, Vec<H>>,
 
@@ -136,8 +137,14 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		});
 
 		//note: LimitEnforced could be introduced as new status to get rid of this flag.
-		if limits_enforced {
-			if let Some(ref sink) = self.dropped_by_limits_sink {
+		if let Some(ref sink) = self.dropped_by_limits_sink {
+			if let Some(t) = by {
+				if let Err(e) =
+					sink.unbounded_send((tx.clone(), TransactionStatus::Usurped(t.clone())))
+				{
+					trace!(target: LOG_TARGET, "[{:?}] dropped_sink/future: send message failed: {:?}", tx, e);
+				}
+			} else if limits_enforced {
 				if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Dropped)) {
 					trace!(target: LOG_TARGET, "[{:?}] dropped_sink/future: send message failed: {:?}", tx, e);
 				}

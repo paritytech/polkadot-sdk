@@ -36,6 +36,8 @@ use std::{
 };
 use tokio_stream::StreamMap;
 
+use super::dropped_watcher::{DroppedReason, DroppedTransaction};
+
 /// A side channel allowing to control the external stream instance (one per transaction) with
 /// [`ControllerCommand`].
 ///
@@ -79,7 +81,7 @@ enum ControllerCommand<ChainApi: graph::ChainApi> {
 	/// Notifies that a transaction was dropped from the pool.
 	///
 	/// If all preconditions are met, an external dropped event will be sent out.
-	TransactionDropped,
+	TransactionDropped(DroppedReason<ExtrinsicHash<ChainApi>>),
 }
 
 impl<ChainApi> std::fmt::Debug for ControllerCommand<ChainApi>
@@ -99,8 +101,8 @@ where
 			ControllerCommand::TransactionBroadcasted(_) => {
 				write!(f, "ListenerAction::TransactionBroadcasted(...)")
 			},
-			ControllerCommand::TransactionDropped => {
-				write!(f, "ListenerAction::TransactionDropped")
+			ControllerCommand::TransactionDropped(r) => {
+				write!(f, "ListenerAction::TransactionDropped {r:?}")
 			},
 		}
 	}
@@ -346,10 +348,15 @@ where
 									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Broadcasted", ctx.tx_hash);
 									return Some((TransactionStatus::Broadcast(peers), ctx))
 								},
-								ControllerCommand::TransactionDropped => {
+								ControllerCommand::TransactionDropped(DroppedReason::LimitsEnforced) => {
 									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Dropped", ctx.tx_hash);
 									ctx.terminate = true;
 									return Some((TransactionStatus::Dropped, ctx))
+								},
+								ControllerCommand::TransactionDropped(DroppedReason::Usurped(by)) => {
+									log::trace!(target: LOG_TARGET, "[{:?}] mvl sending out: Usurped({:?})", ctx.tx_hash, by);
+									ctx.terminate = true;
+									return Some((TransactionStatus::Usurped(by), ctx))
 								},
 							}
 						},
@@ -445,16 +452,15 @@ where
 	///
 	/// This method sends a `TransactionDropped` command to the controller of each requested
 	/// transaction prompting and external `Broadcasted` event.
-	pub(crate) fn transactions_dropped(&self, dropped: &[ExtrinsicHash<ChainApi>]) {
+	pub(crate) fn transaction_dropped(&self, dropped: DroppedTransaction<ExtrinsicHash<ChainApi>>) {
 		let mut controllers = self.controllers.write();
-		debug!(target: LOG_TARGET, "mvl::transactions_dropped: {:?}", dropped);
-		for tx_hash in dropped {
-			if let Some(tx) = controllers.remove(&tx_hash) {
-				debug!(target: LOG_TARGET, "[{:?}] transaction_dropped", tx_hash);
-				if let Err(e) = tx.unbounded_send(ControllerCommand::TransactionDropped) {
-					trace!(target: LOG_TARGET, "[{:?}] transactions_dropped: send message failed: {:?}", tx_hash, e);
-				};
-			}
+		debug!(target: LOG_TARGET, "mvl::transaction_dropped: {:?}", dropped);
+		if let Some(tx) = controllers.remove(&dropped.tx_hash) {
+			let DroppedTransaction { tx_hash, reason } = dropped;
+			debug!(target: LOG_TARGET, "[{:?}] transaction_dropped", tx_hash);
+			if let Err(e) = tx.unbounded_send(ControllerCommand::TransactionDropped(reason)) {
+				trace!(target: LOG_TARGET, "[{:?}] transaction_dropped: send message failed: {:?}", tx_hash, e);
+			};
 		}
 	}
 

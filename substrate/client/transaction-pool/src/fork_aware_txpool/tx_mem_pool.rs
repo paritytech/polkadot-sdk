@@ -26,7 +26,10 @@
 //!   it), while on other forks tx can be valid. Depending on which view is chosen to be cloned,
 //!   such transaction could not be present in the newly created view.
 
-use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
+use super::{
+	dropped_watcher::DroppedTransaction, metrics::MetricsLink as PrometheusMetrics,
+	multi_view_listener::MultiViewListener,
+};
 use crate::{
 	common::log_xt::log_xt_trace,
 	graph,
@@ -301,18 +304,13 @@ where
 
 	/// Removes transactions from the memory pool which are specified by the given list of hashes
 	/// and send the `Dropped` event to the listeners of these transactions.
-	pub(super) async fn remove_dropped_transactions(
+	pub(super) async fn remove_dropped_transaction(
 		&self,
-		to_be_removed: &[ExtrinsicHash<ChainApi>],
+		dropped: DroppedTransaction<ExtrinsicHash<ChainApi>>,
 	) {
-		log::debug!(target: LOG_TARGET, "remove_dropped_transactions count:{:?}", to_be_removed.len());
-		log_xt_trace!(target: LOG_TARGET, to_be_removed, "[{:?}] mempool::remove_dropped_transactions");
-		let mut transactions = self.transactions.write();
-		to_be_removed.iter().for_each(|t| {
-			transactions.remove(t);
-		});
-
-		self.listener.transactions_dropped(to_be_removed);
+		log::debug!(target: LOG_TARGET, "[{:?}] mempool::remove_dropped_transaction", dropped);
+		self.transactions.write().remove(&dropped.tx_hash);
+		self.listener.transaction_dropped(dropped);
 	}
 
 	/// Clones and returns a `HashMap` of references to all unwatched transactions in the memory

@@ -39,6 +39,35 @@ use std::{
 };
 use tokio_stream::StreamMap;
 
+/// Represents a transaction that was removed from the transaction pool, including the reason of its
+/// removal.
+#[derive(Debug, PartialEq)]
+pub struct DroppedTransaction<Hash> {
+	/// Hash of the dropped extrinsic.
+	pub tx_hash: Hash,
+	/// Reason of the transaction being dropped.
+	pub reason: DroppedReason<Hash>,
+}
+
+impl<Hash> DroppedTransaction<Hash> {
+	fn new_usurped(tx_hash: Hash, by: Hash) -> Self {
+		Self { reason: DroppedReason::Usurped(by), tx_hash }
+	}
+
+	fn new_enforced_by_limts(tx_hash: Hash) -> Self {
+		Self { reason: DroppedReason::LimitsEnforced, tx_hash }
+	}
+}
+
+/// Provides reason of why transactions was dropped.
+#[derive(Debug, PartialEq)]
+pub enum DroppedReason<Hash> {
+	/// Transaction was replaced by other transaction (e.g. because of higher priority).
+	Usurped(Hash),
+	/// Transaction was dropped because of internal pool limits being enforced.
+	LimitsEnforced,
+}
+
 /// Dropped-logic related event from the single view.
 pub type ViewStreamEvent<C> = crate::graph::DroppedByLimitsEvent<ExtrinsicHash<C>, BlockHash<C>>;
 
@@ -47,7 +76,8 @@ type ViewStream<C> = Pin<Box<dyn futures::Stream<Item = ViewStreamEvent<C>> + Se
 
 /// Stream of extrinsic hashes that were dropped by the views and have no references by existing
 /// views.
-pub(crate) type StreamOfDropped<C> = Pin<Box<dyn futures::Stream<Item = ExtrinsicHash<C>> + Send>>;
+pub(crate) type StreamOfDropped<C> =
+	Pin<Box<dyn futures::Stream<Item = DroppedTransaction<ExtrinsicHash<C>>> + Send>>;
 
 /// A type alias for a sender used as the controller of the [`MultiViewDropWatcherContext`].
 /// Used to send control commands from the [`MultiViewDroppedWatcherController`] to
@@ -125,7 +155,7 @@ where
 		&mut self,
 		block_hash: BlockHash<C>,
 		event: ViewStreamEvent<C>,
-	) -> Option<ExtrinsicHash<C>> {
+	) -> Option<DroppedTransaction<ExtrinsicHash<C>>> {
 		trace!(
 			target: LOG_TARGET,
 			"dropped_watcher: handle_event: event:{:?} views:{:?}, ",
@@ -137,17 +167,30 @@ where
 			TransactionStatus::Ready | TransactionStatus::Future => {
 				self.transaction_states.entry(tx_hash).or_default().insert(block_hash);
 			},
-			TransactionStatus::Dropped | TransactionStatus::Usurped(_) => {
+			TransactionStatus::Dropped => {
 				if let Entry::Occupied(mut views_keeping_tx_valid) =
 					self.transaction_states.entry(tx_hash)
 				{
 					views_keeping_tx_valid.get_mut().remove(&block_hash);
 					if views_keeping_tx_valid.get().is_empty() {
-						return Some(tx_hash)
+						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 					}
 				} else {
 					debug!("[{:?}] dropped_watcher: removing (non-tracked) tx", tx_hash);
-					return Some(tx_hash)
+					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
+				}
+			},
+			TransactionStatus::Usurped(by) => {
+				if let Entry::Occupied(mut views_keeping_tx_valid) =
+					self.transaction_states.entry(tx_hash)
+				{
+					views_keeping_tx_valid.get_mut().remove(&block_hash);
+					if views_keeping_tx_valid.get().is_empty() {
+						return Some(DroppedTransaction::new_usurped(tx_hash, by))
+					}
+				} else {
+					debug!("[{:?}] dropped_watcher: removing (non-tracked) tx", tx_hash);
+					return Some(DroppedTransaction::new_usurped(tx_hash, by))
 				}
 			},
 			_ => {},
@@ -296,7 +339,7 @@ mod dropped_watcher_tests {
 
 		watcher.add_view(block_hash, view_stream);
 		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
-		assert_eq!(handle.await.unwrap(), vec![tx_hash]);
+		assert_eq!(handle.await.unwrap(), vec![DroppedTransaction::new_enforced_by_limts(tx_hash)]);
 	}
 
 	#[tokio::test]
@@ -346,7 +389,10 @@ mod dropped_watcher_tests {
 		watcher.add_view(block_hash0, view_stream0);
 		watcher.add_view(block_hash1, view_stream1);
 		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
-		assert_eq!(handle.await.unwrap(), vec![tx_hash1]);
+		assert_eq!(
+			handle.await.unwrap(),
+			vec![DroppedTransaction::new_enforced_by_limts(tx_hash1)]
+		);
 	}
 
 	#[tokio::test]
@@ -375,7 +421,7 @@ mod dropped_watcher_tests {
 
 		watcher.add_view(block_hash1, view_stream1);
 		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
-		assert_eq!(handle.await.unwrap(), vec![tx_hash]);
+		assert_eq!(handle.await.unwrap(), vec![DroppedTransaction::new_enforced_by_limts(tx_hash)]);
 	}
 
 	#[tokio::test]
@@ -418,6 +464,6 @@ mod dropped_watcher_tests {
 		let block_hash2 = H256::repeat_byte(0x03);
 		watcher.add_view(block_hash2, view_stream2);
 		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
-		assert_eq!(handle.await.unwrap(), vec![tx_hash]);
+		assert_eq!(handle.await.unwrap(), vec![DroppedTransaction::new_enforced_by_limts(tx_hash)]);
 	}
 }

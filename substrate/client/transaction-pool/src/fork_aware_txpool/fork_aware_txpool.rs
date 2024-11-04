@@ -252,8 +252,9 @@ where
 				break;
 			};
 			log::trace!(target: LOG_TARGET, "[{:?}] fatp::dropped notification, removing", dropped);
-			mempool.remove_dropped_transactions(&[dropped]).await;
-			import_notification_sink.clean_notified_items(&[dropped]);
+			let tx_hash = dropped.tx_hash;
+			mempool.remove_dropped_transaction(dropped).await;
+			import_notification_sink.clean_notified_items(&[tx_hash]);
 		}
 	}
 
