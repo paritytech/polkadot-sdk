@@ -24,15 +24,19 @@ use orchestra::async_trait;
 use std::time::Duration;
 
 use polkadot_node_primitives::{BlockData, PoV};
-use polkadot_node_subsystem_types::messages::CandidateValidationMessage;
+use polkadot_node_subsystem_types::messages::{CandidateValidationMessage, PvfExecKind};
 use polkadot_overseer::{
 	self as overseer,
 	dummy::dummy_overseer_builder,
 	gen::{FromOrchestra, SpawnedSubsystem},
 	HeadSupportsParachains, SubsystemError,
 };
-use polkadot_primitives::{CandidateReceipt, Hash, PvfExecKind};
-use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
+use polkadot_primitives::{
+	vstaging::CandidateReceiptV2 as CandidateReceipt, Hash, PersistedValidationData,
+};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_descriptor, dummy_hash, dummy_validation_code,
+};
 
 struct AlwaysSupportsParachains;
 
@@ -69,11 +73,13 @@ impl Subsystem1 {
 			let (tx, _) = oneshot::channel();
 
 			let candidate_receipt = CandidateReceipt {
-				descriptor: dummy_candidate_descriptor(dummy_hash()),
+				descriptor: dummy_candidate_descriptor(dummy_hash()).into(),
 				commitments_hash: Hash::zero(),
 			};
 
-			let msg = CandidateValidationMessage::ValidateFromChainState {
+			let msg = CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: PersistedValidationData { ..Default::default() },
+				validation_code: dummy_validation_code(),
 				candidate_receipt,
 				pov: PoV { block_data: BlockData(Vec::new()) }.into(),
 				executor_params: Default::default(),

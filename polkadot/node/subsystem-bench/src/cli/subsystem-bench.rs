@@ -182,16 +182,20 @@ impl BenchCli {
 	}
 }
 
+#[cfg(feature = "memprofile")]
+#[global_allocator]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+#[cfg(feature = "memprofile")]
+#[allow(non_upper_case_globals)]
+#[export_name = "malloc_conf"]
+// See https://jemalloc.net/jemalloc.3.html for more information on the configuration options.
+pub static malloc_conf: &[u8] =
+	b"prof:true,prof_active:true,lg_prof_interval:30,lg_prof_sample:21,prof_prefix:/tmp/subsystem-bench\0";
+
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
-	env_logger::builder()
-		.filter(Some("hyper"), log::LevelFilter::Info)
-		// Avoid `Terminating due to subsystem exit subsystem` warnings
-		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)
-		.filter(None, log::LevelFilter::Info)
-		.format_timestamp_millis()
-		.try_init()
-		.unwrap();
+	sp_tracing::try_init_simple();
 
 	let cli: BenchCli = BenchCli::parse();
 	cli.launch()?;

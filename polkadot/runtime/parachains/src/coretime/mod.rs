@@ -358,7 +358,10 @@ fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruct
 
 fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Result<(), XcmError> {
 	let dest = Junction::Parachain(T::BrokerId::get()).into_location();
-	let mut message = Vec::new();
+	let mut message = vec![Instruction::UnpaidExecution {
+		weight_limit: WeightLimit::Unlimited,
+		check_origin: None,
+	}];
 	let asset = Asset { id: AssetId(Location::here()), fun: Fungible(raw_revenue) };
 	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
 
@@ -384,10 +387,6 @@ fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Resu
 
 		message.extend(
 			[
-				Instruction::UnpaidExecution {
-					weight_limit: WeightLimit::Unlimited,
-					check_origin: None,
-				},
 				ReceiveTeleportedAsset(assets_reanchored),
 				DepositAsset {
 					assets: Wild(AllCounted(1)),

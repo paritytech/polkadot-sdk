@@ -39,7 +39,6 @@ use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use sp_consensus::SyncOracle;
 
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use polkadot_node_jaeger as jaeger;
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use polkadot_node_subsystem::{
 	errors::{ChainApiError, RuntimeApiError},
@@ -48,8 +47,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util as util;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex, Hash,
-	Header, NodeFeatures, ValidatorIndex,
+	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
+	BlockNumber, CandidateHash, ChunkIndex, CoreIndex, Hash, Header, NodeFeatures, ValidatorIndex,
 };
 use util::availability_chunks::availability_chunk_indices;
 
@@ -1315,10 +1314,6 @@ fn store_available_data(
 		},
 	};
 
-	let erasure_span = jaeger::Span::new(candidate_hash, "erasure-coding")
-		.with_candidate(candidate_hash)
-		.with_pov(&available_data.pov);
-
 	// Important note: This check below is critical for consensus and the `backing` subsystem relies
 	// on it to ensure candidate validity.
 	let chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, &available_data)?;
@@ -1327,8 +1322,6 @@ fn store_available_data(
 	if branches.root() != expected_erasure_root {
 		return Err(Error::InvalidErasureRoot)
 	}
-
-	drop(erasure_span);
 
 	let erasure_chunks: Vec<_> = chunks
 		.iter()

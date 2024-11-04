@@ -458,13 +458,18 @@ where
 			notification.tree_route,
 		);
 
-		self.runtime
-			.runtime_api()
-			.beefy_genesis(notification.hash)
-			.ok()
-			.flatten()
-			.filter(|genesis| *genesis == self.persisted_state.pallet_genesis)
-			.ok_or(Error::ConsensusReset)?;
+		match self.runtime.runtime_api().beefy_genesis(notification.hash) {
+			Ok(Some(genesis)) if genesis != self.persisted_state.pallet_genesis => {
+				debug!(target: LOG_TARGET, "🥩 ConsensusReset detected. Expected genesis: {}, found genesis: {}", self.persisted_state.pallet_genesis, genesis);
+				return Err(Error::ConsensusReset)
+			},
+			Ok(_) => {},
+			Err(api_error) => {
+				// This can happen in case the block was already pruned.
+				// Mostly after warp sync when finality notifications are piled up.
+				debug!(target: LOG_TARGET, "🥩 Unable to check beefy genesis: {}", api_error);
+			},
+		}
 
 		let mut new_session_added = false;
 		if *header.number() > self.best_grandpa_block() {

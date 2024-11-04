@@ -42,6 +42,7 @@ pub trait WeightInfo {
 	fn force_transfer_native_from_agent() -> Weight;
 	fn set_token_transfer_fees() -> Weight;
 	fn set_pricing_parameters() -> Weight;
+	fn register_token() -> Weight;
 }
 
 // For backwards compatibility and tests.
@@ -244,6 +245,16 @@ impl WeightInfo for () {
 		// Minimum execution time: 31_000_000 picoseconds.
 		Weight::from_parts(42_000_000, 3517)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+
+	fn register_token() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `256`
+		//  Estimated: `6044`
+		// Minimum execution time: 45_000_000 picoseconds.
+		Weight::from_parts(45_000_000, 6044)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }

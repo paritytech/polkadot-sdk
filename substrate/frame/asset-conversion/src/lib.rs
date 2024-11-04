@@ -435,7 +435,7 @@ pub mod pallet {
 		/// calls to render the liquidity withdrawable and rectify the exchange rate.
 		///
 		/// Once liquidity is added, someone may successfully call
-		/// [`Pallet::swap_exact_tokens_for_tokens`] successfully.
+		/// [`Pallet::swap_exact_tokens_for_tokens`].
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::add_liquidity())]
 		pub fn add_liquidity(

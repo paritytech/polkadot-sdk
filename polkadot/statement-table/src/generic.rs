@@ -245,7 +245,8 @@ impl<Ctx: Context> CandidateData<Ctx> {
 	pub fn attested(
 		&self,
 		validity_threshold: usize,
-	) -> Option<AttestedCandidate<Ctx::GroupId, Ctx::Candidate, Ctx::AuthorityId, Ctx::Signature>> {
+	) -> Option<AttestedCandidate<Ctx::GroupId, Ctx::Candidate, Ctx::AuthorityId, Ctx::Signature>>
+	{
 		let valid_votes = self.validity_votes.len();
 		if valid_votes < validity_threshold {
 			return None
@@ -321,7 +322,8 @@ impl<Ctx: Context> Table<Ctx> {
 		digest: &Ctx::Digest,
 		context: &Ctx,
 		minimum_backing_votes: u32,
-	) -> Option<AttestedCandidate<Ctx::GroupId, Ctx::Candidate, Ctx::AuthorityId, Ctx::Signature>> {
+	) -> Option<AttestedCandidate<Ctx::GroupId, Ctx::Candidate, Ctx::AuthorityId, Ctx::Signature>>
+	{
 		self.candidate_votes.get(digest).and_then(|data| {
 			let v_threshold = context.get_group_size(&data.group_id).map_or(usize::MAX, |len| {
 				effective_minimum_backing_votes(len, minimum_backing_votes)
@@ -477,10 +479,7 @@ impl<Ctx: Context> Table<Ctx> {
 		if !context.is_member_of(&from, &votes.group_id) {
 			let sig = match vote {
 				ValidityVote::Valid(s) => s,
-				ValidityVote::Issued(_) => panic!(
-					"implicit issuance vote only cast from `import_candidate` after \
-							checking group membership of issuer; qed"
-				),
+				ValidityVote::Issued(s) => s,
 			};
 
 			return Err(Misbehavior::UnauthorizedStatement(UnauthorizedStatement {

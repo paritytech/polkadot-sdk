@@ -151,7 +151,7 @@ where
 	type Future = Pin<Box<dyn Future<Output = Result<Self::Output, Self::Error>> + Send>>;
 	type Error = NotificationsHandshakeError;
 
-	fn upgrade_inbound(self, mut socket: TSubstream, negotiated_name: Self::Info) -> Self::Future {
+	fn upgrade_inbound(self, mut socket: TSubstream, _negotiated_name: Self::Info) -> Self::Future {
 		Box::pin(async move {
 			let handshake_len = unsigned_varint::aio::read_usize(&mut socket).await?;
 			if handshake_len > MAX_HANDSHAKE_SIZE {
@@ -174,15 +174,7 @@ where
 				handshake: NotificationsInSubstreamHandshake::NotSent,
 			};
 
-			Ok(NotificationsInOpen {
-				handshake,
-				negotiated_fallback: if negotiated_name == self.protocol_names[0] {
-					None
-				} else {
-					Some(negotiated_name)
-				},
-				substream,
-			})
+			Ok(NotificationsInOpen { handshake, substream })
 		})
 	}
 }
@@ -191,9 +183,6 @@ where
 pub struct NotificationsInOpen<TSubstream> {
 	/// Handshake sent by the remote.
 	pub handshake: Vec<u8>,
-	/// If the negotiated name is not the "main" protocol name but a fallback, contains the
-	/// name of the negotiated fallback.
-	pub negotiated_fallback: Option<ProtocolName>,
 	/// Implementation of `Stream` that allows receives messages from the substream.
 	pub substream: NotificationsInSubstream<TSubstream>,
 }

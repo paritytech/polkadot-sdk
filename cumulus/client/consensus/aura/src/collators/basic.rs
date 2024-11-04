@@ -138,6 +138,7 @@ where
 		};
 
 		let mut last_processed_slot = 0;
+		let mut last_relay_chain_block = Default::default();
 
 		while let Some(request) = collation_requests.next().await {
 			macro_rules! reject_with_error {
@@ -215,11 +216,13 @@ where
 			//
 			// Most parachains currently run with 12 seconds slots and thus, they would try to
 			// produce multiple blocks per slot which very likely would fail on chain. Thus, we have
-			// this "hack" to only produce on block per slot.
+			// this "hack" to only produce one block per slot per relay chain fork.
 			//
 			// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
 			// obsolete and also the underlying issue will be fixed.
-			if last_processed_slot >= *claim.slot() {
+			if last_processed_slot >= *claim.slot() &&
+				last_relay_chain_block < *relay_parent_header.number()
+			{
 				continue
 			}
 
@@ -234,6 +237,16 @@ where
 					.await
 			);
 
+			let allowed_pov_size = if cfg!(feature = "full-pov-size") {
+				validation_data.max_pov_size
+			} else {
+				// Set the block limit to 50% of the maximum PoV size.
+				//
+				// TODO: If we got benchmarking that includes the proof size,
+				// we should be able to use the maximum pov size.
+				validation_data.max_pov_size / 2
+			} as usize;
+
 			let maybe_collation = try_request!(
 				collator
 					.collate(
@@ -242,11 +255,7 @@ where
 						None,
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
-						// Set the block limit to 50% of the maximum PoV size.
-						//
-						// TODO: If we got benchmarking that includes the proof size,
-						// we should be able to use the maximum pov size.
-						(validation_data.max_pov_size / 2) as usize,
+						allowed_pov_size,
 					)
 					.await
 			);
@@ -261,6 +270,7 @@ where
 			}
 
 			last_processed_slot = *claim.slot();
+			last_relay_chain_block = *relay_parent_header.number();
 		}
 	}
 }

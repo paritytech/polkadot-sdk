@@ -73,6 +73,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+pub mod migration;
 #[cfg(test)]
 mod tests;
 pub mod weights;
@@ -88,8 +89,11 @@ use scale_info::TypeInfo;
 
 use alloc::{boxed::Box, collections::btree_map::BTreeMap};
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
-	Permill, RuntimeDebug,
+	traits::{
+		AccountIdConversion, BlockNumberProvider, CheckedAdd, One, Saturating, StaticLookup,
+		UniqueSaturatedInto, Zero,
+	},
+	PerThing, Permill, RuntimeDebug,
 };
 
 use frame_support::{
@@ -100,8 +104,9 @@ use frame_support::{
 		ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
-	PalletId,
+	BoundedVec, PalletId,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -274,16 +279,17 @@ pub mod pallet {
 		/// Helper type for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
 	/// Number of proposals that have been made.
 	#[pallet::storage]
-	#[pallet::getter(fn proposal_count)]
-	pub(crate) type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
+	pub type ProposalCount<T, I = ()> = StorageValue<_, ProposalIndex, ValueQuery>;
 
 	/// Proposals that have been made.
 	#[pallet::storage]
-	#[pallet::getter(fn proposals)]
 	pub type Proposals<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -299,7 +305,6 @@ pub mod pallet {
 
 	/// Proposal indices that have been approved but not yet awarded.
 	#[pallet::storage]
-	#[pallet::getter(fn approvals)]
 	pub type Approvals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<ProposalIndex, T::MaxApprovals>, ValueQuery>;
 
@@ -324,6 +329,10 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// The blocknumber for the last triggered spend period.
+	#[pallet::storage]
+	pub(crate) type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -335,7 +344,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
 			// Create Treasury account
-			let account_id = <Pallet<T, I>>::account_id();
+			let account_id = Pallet::<T, I>::account_id();
 			let min = T::Currency::minimum_balance();
 			if T::Currency::free_balance(&account_id) < min {
 				let _ = T::Currency::make_free_balance_be(&account_id, min);
@@ -416,7 +425,8 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		/// ## Complexity
 		/// - `O(A)` where `A` is the number of approvals
-		fn on_initialize(n: frame_system::pallet_prelude::BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_do_not_use_local_block_number: BlockNumberFor<T>) -> Weight {
+			let block_number = T::BlockNumberProvider::current_block_number();
 			let pot = Self::pot();
 			let deactivated = Deactivated::<T, I>::get();
 			if pot != deactivated {
@@ -430,17 +440,29 @@ pub mod pallet {
 			}
 
 			// Check to see if we should spend some funds!
-			if (n % T::SpendPeriod::get()).is_zero() {
-				Self::spend_funds()
+			let last_spend_period = LastSpendPeriod::<T, I>::get()
+				// This unwrap should only occur one time on any blockchain.
+				// `update_last_spend_period` will populate the `LastSpendPeriod` storage if it is
+				// empty.
+				.unwrap_or_else(|| Self::update_last_spend_period());
+			let blocks_since_last_spend_period = block_number.saturating_sub(last_spend_period);
+			let safe_spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T>::one());
+
+			// Safe because of `max(1)` above.
+			let (spend_periods_passed, extra_blocks) = (
+				blocks_since_last_spend_period / safe_spend_period,
+				blocks_since_last_spend_period % safe_spend_period,
+			);
+			let new_last_spend_period = block_number.saturating_sub(extra_blocks);
+			if spend_periods_passed > BlockNumberFor::<T>::zero() {
+				Self::spend_funds(spend_periods_passed, new_last_spend_period)
 			} else {
 				Weight::zero()
 			}
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(
-			_: frame_system::pallet_prelude::BlockNumberFor<T>,
-		) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()?;
 			Ok(())
 		}
@@ -501,7 +523,7 @@ pub mod pallet {
 			.unwrap_or(Ok(()))?;
 
 			let beneficiary = T::Lookup::lookup(beneficiary)?;
-			let proposal_index = Self::proposal_count();
+			let proposal_index = ProposalCount::<T, I>::get();
 			Approvals::<T, I>::try_append(proposal_index)
 				.map_err(|_| Error::<T, I>::TooManyApprovals)?;
 			let proposal = Proposal {
@@ -596,7 +618,7 @@ pub mod pallet {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			let beneficiary = T::BeneficiaryLookup::lookup(*beneficiary)?;
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let valid_from = valid_from.unwrap_or(now);
 			let expire_at = valid_from.saturating_add(T::PayoutPeriod::get());
 			ensure!(expire_at > now, Error::<T, I>::SpendExpired);
@@ -674,7 +696,7 @@ pub mod pallet {
 		pub fn payout(origin: OriginFor<T>, index: SpendIndex) -> DispatchResult {
 			ensure_signed(origin)?;
 			let mut spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= spend.valid_from, Error::<T, I>::EarlyPayout);
 			ensure!(spend.expire_at > now, Error::<T, I>::SpendExpired);
 			ensure!(
@@ -720,7 +742,7 @@ pub mod pallet {
 
 			ensure_signed(origin)?;
 			let mut spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 
 			if now > spend.expire_at && !matches!(spend.status, State::Attempted { .. }) {
 				// spend has expired and no further status update is expected.
@@ -794,8 +816,46 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::PalletId::get().into_account_truncating()
 	}
 
+	// Backfill the `LastSpendPeriod` storage, assuming that no configuration has changed
+	// since introducing this code. Used specifically for a migration-less switch to populate
+	// `LastSpendPeriod`.
+	fn update_last_spend_period() -> BlockNumberFor<T> {
+		let block_number = T::BlockNumberProvider::current_block_number();
+		let spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T>::one());
+		let time_since_last_spend = block_number % spend_period;
+		// If it happens that this logic runs directly on a spend period block, we need to backdate
+		// to the last spend period so a spend still occurs this block.
+		let last_spend_period = if time_since_last_spend.is_zero() {
+			block_number.saturating_sub(spend_period)
+		} else {
+			// Otherwise, this is the last time we had a spend period.
+			block_number.saturating_sub(time_since_last_spend)
+		};
+		LastSpendPeriod::<T, I>::put(last_spend_period);
+		last_spend_period
+	}
+
+	/// Public function to proposal_count storage.
+	pub fn proposal_count() -> ProposalIndex {
+		ProposalCount::<T, I>::get()
+	}
+
+	/// Public function to proposals storage.
+	pub fn proposals(index: ProposalIndex) -> Option<Proposal<T::AccountId, BalanceOf<T, I>>> {
+		Proposals::<T, I>::get(index)
+	}
+
+	/// Public function to approvals storage.
+	pub fn approvals() -> BoundedVec<ProposalIndex, T::MaxApprovals> {
+		Approvals::<T, I>::get()
+	}
+
 	/// Spend some money! returns number of approvals before spend.
-	pub fn spend_funds() -> Weight {
+	pub fn spend_funds(
+		spend_periods_passed: BlockNumberFor<T>,
+		new_last_spend_period: BlockNumberFor<T>,
+	) -> Weight {
+		LastSpendPeriod::<T, I>::put(new_last_spend_period);
 		let mut total_weight = Weight::zero();
 
 		let mut budget_remaining = Self::pot();
@@ -803,15 +863,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let account_id = Self::account_id();
 
 		let mut missed_any = false;
-		let mut imbalance = <PositiveImbalanceOf<T, I>>::zero();
+		let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
 		let proposals_len = Approvals::<T, I>::mutate(|v| {
 			let proposals_approvals_len = v.len() as u32;
 			v.retain(|&index| {
 				// Should always be true, but shouldn't panic if false or we're screwed.
-				if let Some(p) = Self::proposals(index) {
+				if let Some(p) = Proposals::<T, I>::get(index) {
 					if p.value <= budget_remaining {
 						budget_remaining -= p.value;
-						<Proposals<T, I>>::remove(index);
+						Proposals::<T, I>::remove(index);
 
 						// return their deposit.
 						let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
@@ -847,10 +907,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			&mut missed_any,
 		);
 
-		if !missed_any {
-			// burn some proportion of the remaining budget if we run a surplus.
-			let burn = (T::Burn::get() * budget_remaining).min(budget_remaining);
-			budget_remaining -= burn;
+		if !missed_any && !T::Burn::get().is_zero() {
+			// Get the amount of treasury that should be left after potentially multiple spend
+			// periods have passed.
+			let one_minus_burn = T::Burn::get().left_from_one();
+			let percent_left =
+				one_minus_burn.saturating_pow(spend_periods_passed.unique_saturated_into());
+			let new_budget_remaining = percent_left * budget_remaining;
+			let burn = budget_remaining.saturating_sub(new_budget_remaining);
+			budget_remaining = new_budget_remaining;
 
 			let (debit, credit) = T::Currency::pair(burn);
 			imbalance.subsume(debit);
@@ -982,6 +1047,6 @@ where
 {
 	type Type = <R as frame_system::Config>::AccountId;
 	fn get() -> Self::Type {
-		<crate::Pallet<R>>::account_id()
+		crate::Pallet::<R>::account_id()
 	}
 }

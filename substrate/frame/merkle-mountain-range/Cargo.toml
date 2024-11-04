@@ -28,7 +28,7 @@ sp-runtime = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-env_logger = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
 itertools = { workspace = true }
 
 [features]

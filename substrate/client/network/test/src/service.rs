@@ -34,6 +34,7 @@ use sc_network_sync::{
 	engine::SyncingEngine,
 	service::network::{NetworkServiceHandle, NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
+	strategy::{PolkadotSyncingStrategy, SyncingConfig},
 };
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
@@ -202,6 +203,18 @@ impl TestNetworkBuilder {
 		let peer_store_handle: Arc<dyn PeerStoreProvider> = Arc::new(peer_store.handle());
 		tokio::spawn(peer_store.run().boxed());
 
+		let syncing_config = SyncingConfig {
+			mode: network_config.sync_mode,
+			max_parallel_downloads: network_config.max_parallel_downloads,
+			max_blocks_per_request: network_config.max_blocks_per_request,
+			metrics_registry: None,
+			state_request_protocol_name: state_request_protocol_config.name.clone(),
+		};
+		// Initialize syncing strategy.
+		let syncing_strategy = Box::new(
+			PolkadotSyncingStrategy::new(syncing_config, client.clone(), None, None).unwrap(),
+		);
+
 		let (engine, chain_sync_service, block_announce_config) = SyncingEngine::new(
 			Roles::from(&config::Role::Full),
 			client.clone(),
@@ -211,12 +224,10 @@ impl TestNetworkBuilder {
 			protocol_id.clone(),
 			&None,
 			Box::new(sp_consensus::block_validation::DefaultBlockAnnounceValidator),
-			None,
+			syncing_strategy,
 			chain_sync_network_handle,
 			import_queue.service(),
 			block_relay_params.downloader,
-			state_request_protocol_config.name.clone(),
-			None,
 			Arc::clone(&peer_store_handle),
 		)
 		.unwrap();
