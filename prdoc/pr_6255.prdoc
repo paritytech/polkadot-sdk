@@ -7,6 +7,8 @@ doc:
     by changing `ChildBountyDescriptions` to use `StorageDoubleMap`
     which is indexed by `(ParentBounty, ChildBounty)` keys.
 
+    Deprecates `ChildBountyCount` storage item in May 2025.
+
     Migration is provided to migrate `ChildBountyDescriptions` and
     `ChildBounties` storage items.
 crates:
