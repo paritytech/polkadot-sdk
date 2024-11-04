@@ -2,8 +2,5 @@
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
 title: "Update documentation link shortener script"
-number: 6265
 author: vjgaur
-crates:
-  - name: substrate
-    bump: none
+doc: "Update script to format documentation links according to style guide requirements" 
