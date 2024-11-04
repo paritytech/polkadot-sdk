@@ -543,6 +543,7 @@ impl pallet_treasury::Config for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
