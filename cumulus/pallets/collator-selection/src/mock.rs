@@ -188,7 +188,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		invulnerables,
 	};
 	let session = pallet_session::GenesisConfig::<Test> { keys, ..Default::default() };
-	pallet_balances::GenesisConfig::<Test> { balances }
+	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 	// collator selection must be initialized before session.

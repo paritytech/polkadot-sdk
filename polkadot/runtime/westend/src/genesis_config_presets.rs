@@ -22,7 +22,7 @@ use crate::{
 };
 #[cfg(not(feature = "std"))]
 use alloc::format;
-use alloc::{vec, vec::Vec};
+use alloc::{vec, vec::Vec, string::ToString};
 use pallet_staking::{Forcing, StakerStatus};
 use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, SchedulerParams, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -191,6 +191,7 @@ fn westend_testnet_genesis(
 	let config = RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
+			dev_accounts: (10, ENDOWMENT, "//Sender/{}".to_string())
 		},
 		session: SessionConfig {
 			keys: initial_authorities
@@ -370,6 +371,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
 				.collect::<Vec<_>>(),
+			dev_accounts: (10, ENDOWMENT, "//Sender/{}".to_string()),
 		},
 		session: SessionConfig {
 			keys: initial_authorities

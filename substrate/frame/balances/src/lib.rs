@@ -152,7 +152,7 @@ pub mod weights;
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{vec::Vec, string::{String, ToString}};
 use codec::{Codec, MaxEncodedLen};
 use core::{cmp, fmt::Debug, mem, result};
 use frame_support::{
@@ -556,11 +556,19 @@ pub mod pallet {
 			#[cfg(feature = "runtime-benchmarks")]
 			{
 				let (num_accounts, balance, ref derivation) = self.dev_accounts;
+				let num_balance = <T as pallet::Config<I>>::Balance::from(num_accounts);
 				for index in 0..num_accounts {
 					assert!(
 						balance >= <T as Config<I>>::ExistentialDeposit::get(),
 						"the balance of any account should always be at least the existential deposit.",
 					);
+					// Check if the derivation string follows the pattern "//character/{}"
+    				assert!(
+        				derivation.starts_with("//") && 
+        				derivation[2..].contains('/') && // There should be a character after "//" and before "{}"
+        				derivation.ends_with("{}"),
+        				"Invalid derivation string"
+    				);
 					// Create key pair from the derivation string
 					let derivation_string = &derivation.replace("{}", &index.to_string());
 					let pair: SrPair = Pair::from_string(&derivation_string, None).expect("Invalid derivation string");

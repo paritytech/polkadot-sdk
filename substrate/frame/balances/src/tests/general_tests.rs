@@ -141,3 +141,16 @@ fn try_state_works() {
 			.contains("Found `Freeze` with too many elements"));
 	});
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+#[test]
+fn dev_accounts_populated() {
+    ExtBuilder::default().build_and_execute_with(|| {
+        UseSystem::set(true); // copmment this out and uncomment this from time to time to check stuff.
+        // Print total issuance for debugging
+        let ti = TotalIssuance::<Test>::get();
+        println!("Total Issuance after genesis: {}", ti);
+		println!("Why are you printing twice?");
+        ensure_ti_valid();
+    });
+}

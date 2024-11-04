@@ -68,6 +68,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		system: Default::default(),
 		balances: pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(1, 1000000000), (2, 100), (3, 100), (4, 100)],
+			dev_accounts: (1, 100000000, "//Sender/{}".to_string()),
 		},
 		transaction_storage: pallet_transaction_storage::GenesisConfig::<Test> {
 			storage_period: 10,

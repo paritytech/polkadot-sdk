@@ -226,6 +226,7 @@ impl ExtBuilder {
 				.chain(validators_range.clone().map(|x| (x, 7 + 100)))
 				.chain(nominators_range.clone().map(|x| (x, 7 + 100)))
 				.collect::<Vec<_>>(),
+			dev_accounts: (10, 100, "//Sender/{}".to_string()),
 		}
 		.assimilate_storage(&mut storage);
 

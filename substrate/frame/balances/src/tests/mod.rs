@@ -171,7 +171,7 @@ impl ExtBuilder {
 				vec![]
 			},
 			#[cfg(feature = "runtime-benchmarks")]
-			dev_accounts: (1000000, self.existential_deposit, "//Sender/{}".to_string())
+			dev_accounts: (10, self.existential_deposit, "//Sender/{}".to_string())
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

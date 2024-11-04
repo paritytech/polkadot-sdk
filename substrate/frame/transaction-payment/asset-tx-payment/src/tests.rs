@@ -78,6 +78,7 @@ impl ExtBuilder {
 			} else {
 				vec![]
 			},
+			dev_accounts: (10, self.balance_factor, "//Sender/{}".to_string()),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

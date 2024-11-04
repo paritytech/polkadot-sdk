@@ -47,7 +47,7 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 
 	RuntimeGenesisConfig {
 		indices: IndicesConfig { indices: vec![] },
-		balances: BalancesConfig { balances: endowed },
+		balances: BalancesConfig { balances: endowed, dev_accounts: (10, 100 * DOLLARS, "//Sender/{}".to_string()) },
 		session: SessionConfig {
 			keys: vec![
 				(alice(), dave(), session_keys_from_seed(Ed25519Keyring::Alice.into())),

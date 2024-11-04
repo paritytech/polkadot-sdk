@@ -16,7 +16,7 @@
 //! # Asset Hub Westend Runtime genesis config presets
 
 use crate::*;
-use alloc::{vec, vec::Vec};
+use alloc::{vec, vec::Vec, string::ToString};
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::{genesis_config_helpers::*, AccountId, AuraId};
@@ -37,6 +37,7 @@ fn asset_hub_westend_genesis(
 	let config = RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
+			dev_accounts: (10, ASSET_HUB_WESTEND_ED, "//Sender/{}".to_string())
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
 		collator_selection: CollatorSelectionConfig {

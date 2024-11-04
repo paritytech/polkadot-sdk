@@ -216,7 +216,7 @@ pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestEx
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
 
-	pallet_balances::GenesisConfig::<Test> { balances }
+	pallet_balances::GenesisConfig::<Test> { balances, dev_accounts: (10, 10_000_000, "//Sender/{}".to_string()) }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

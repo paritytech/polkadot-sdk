@@ -243,7 +243,7 @@ construct_runtime!(
 pub fn kusama_like_with_balances(balances: Vec<(AccountId, Balance)>) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
-	pallet_balances::GenesisConfig::<Runtime> { balances }
+	pallet_balances::GenesisConfig::<Runtime> { balances, dev_accounts: (10, 1_000_000_000u32.into(), "//Sender/{}".into()) }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

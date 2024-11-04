@@ -214,6 +214,7 @@ impl ExtBuilder {
 		pallet_balances::GenesisConfig::<Test> {
 			// Total issuance will be 200 with treasury account initialized at ED.
 			balances: vec![(0, 100), (1, 98), (2, 1)],
+			dev_accounts: (1, 100, "//Sender/{}".to_string()),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -382,7 +383,7 @@ fn treasury_account_doesnt_get_deleted() {
 #[test]
 fn inexistent_account_works() {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> { balances: vec![(0, 100), (1, 99), (2, 1)] }
+	pallet_balances::GenesisConfig::<Test> { balances: vec![(0, 100), (1, 99), (2, 1)], dev_accounts: (1, 999, "//Sender/{}".to_string()) }
 		.assimilate_storage(&mut t)
 		.unwrap();
 	// Treasury genesis config is not build thus treasury account does not exist
@@ -417,6 +418,7 @@ fn genesis_funding_works() {
 	pallet_balances::GenesisConfig::<Test> {
 		// Total issuance will be 200 with treasury account initialized with 100.
 		balances: vec![(0, 100), (Treasury::account_id(), initial_funding)],
+		dev_accounts: (1, 100, "//Sender/{}".to_string()),
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

@@ -279,6 +279,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(8, 1000),
 			(9, 1000),
 		],
+		dev-accounts: (10, 1000, "//Sender/{}".to_string()),
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

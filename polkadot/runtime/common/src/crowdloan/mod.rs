@@ -1085,6 +1085,7 @@ mod tests {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(1, 1000), (2, 2000), (3, 3000), (4, 4000)],
+			dev_accounts: (10, crate::integration_tests::ExistentialDeposit::get().into(), "//Sender/{}".to_string()),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

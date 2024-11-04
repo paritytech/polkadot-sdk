@@ -211,6 +211,7 @@ impl ExtBuilder {
 				(31, self.balance_factor * 500),
 				(41, self.balance_factor * 1000),
 			],
+			dev_accounts: (10, 1000, "//Sender/{}".to_string())
 		}
 		.assimilate_storage(&mut storage)
 		.unwrap();

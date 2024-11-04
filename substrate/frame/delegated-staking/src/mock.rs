@@ -188,6 +188,7 @@ impl ExtBuilder {
 				(GENESIS_NOMINATOR_ONE, 1000),
 				(GENESIS_NOMINATOR_TWO, 2000),
 			],
+			dev_accounts: (10, 1000, "//Sender/{}".to_string())
 		}
 		.assimilate_storage(&mut storage);
 

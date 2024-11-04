@@ -103,6 +103,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(account(20), 1000),
 			(account(30), 1000),
 		],
+		dev_accounts: (10, 100, "//Sender/{}".to_string())
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

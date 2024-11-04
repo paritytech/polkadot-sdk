@@ -464,6 +464,7 @@ impl ExtBuilder {
 				// This allows us to have a total_payout different from 0.
 				(999, 1_000_000_000_000),
 			],
+			dev_accounts: (10, self.balance_factor, "//Sender/{}".to_string()),
 		}
 		.assimilate_storage(&mut storage);
 

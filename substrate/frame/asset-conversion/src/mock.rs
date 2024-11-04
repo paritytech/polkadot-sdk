@@ -162,6 +162,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10000), (2, 20000), (3, 30000), (4, 40000)],
+		dev_accounts: (10, 10000, "//Sender/{}".to_string()),
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
