@@ -213,7 +213,20 @@ pub trait SetCode<T: Config> {
 
 impl<T: Config> SetCode<T> for () {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
-		<Pallet<T>>::update_pending_code_in_storage(&code);
+		let system_version = T::Version::get().system_version;
+		log::info!(
+			 target: LOG_TARGET,
+			"Setting new code using system_version {}",
+			system_version,
+		);
+		match system_version {
+			0..=2 => {
+				<Pallet<T>>::update_code_in_storage(&code);
+			},
+			_ => {
+				<Pallet<T>>::update_pending_code_in_storage(&code);
+			},
+		}
 		Ok(())
 	}
 }
@@ -996,9 +1009,11 @@ pub mod pallet {
 	pub type LastRuntimeUpgrade<T: Config> = StorageValue<_, LastRuntimeUpgradeInfo>;
 
 	/// At which block a runtime upgrade is scheduled at.
-	/// At the moment, we only allow one upgrade to be scheduled at the next block after pending code is set.
+	/// At the moment, we only allow one upgrade to be scheduled at the next block after pending
+	/// code is set.
 	#[pallet::storage]
-	pub(super) type UpgradeScheduledAt<T: Config> = StorageValue<_, Option<BlockNumberFor<T>>, ValueQuery>;
+	pub(super) type UpgradeScheduledAt<T: Config> =
+		StorageValue<_, Option<BlockNumberFor<T>>, ValueQuery>;
 
 	/// True if we have upgraded so that `type RefCount` is `u32`. False (default) if not.
 	#[pallet::storage]
@@ -1447,6 +1462,17 @@ impl<T: Config> Pallet<T> {
 	pub fn account_exists(who: &T::AccountId) -> bool {
 		Account::<T>::contains_key(who)
 	}
+	/// Write code to the storage and emit related events and digest items.
+	///
+	/// Note this function almost never should be used directly. It is exposed
+	/// for `OnSetCode` implementations that defer actual code being written to
+	/// the storage (for instance in case of parachains).
+	pub fn update_code_in_storage(code: &[u8]) {
+		storage::unhashed::put_raw(well_known_keys::CODE, code);
+
+		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
+		Self::deposit_event(Event::CodeUpdated);
+	}
 
 	/// Write pending code to the storage for it to be applied in the next block.
 	///
@@ -1461,10 +1487,6 @@ impl<T: Config> Pallet<T> {
 
 		UpgradeScheduledAt::<T>::put(Some(scheduled_at));
 		storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
-
-		// TODO: should we emit an event here or in the next block?
-		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
-		Self::deposit_event(Event::CodeUpdated);
 	}
 
 	/// Replace code with pending code if scheduled to enact in this block and in that case emit
@@ -1474,21 +1496,24 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `true` if the pending code upgrade was applied.
 	pub fn maybe_apply_pending_code_upgrade() -> bool {
-	    let maybe_pending_upgrade = UpgradeScheduledAt::<T>::get();
+		let maybe_pending_upgrade = UpgradeScheduledAt::<T>::get();
 
 		if let Some(scheduled_at) = maybe_pending_upgrade {
 			let current_number = Pallet::<T>::block_number();
 			// Only enact the pending code upgrade if it is scheduled to be enacted in this block.
 			if scheduled_at == current_number {
-    			UpgradeScheduledAt::<T>::put(None::<BlockNumberFor<T>>);
-    			let new_code = storage::unhashed::get_raw(well_known_keys::PENDING_CODE);
-                let Some(new_code) = new_code else {
-                    // should never happen
-                    defensive!("UpgradeScheduledAt is set but no pending code found");
-                    return false
-                };
+				UpgradeScheduledAt::<T>::put(None::<BlockNumberFor<T>>);
+				let new_code = storage::unhashed::get_raw(well_known_keys::PENDING_CODE);
+				let Some(new_code) = new_code else {
+					// should never happen
+					defensive!("UpgradeScheduledAt is set but no pending code found");
+					return false
+				};
 				storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
 				storage::unhashed::kill(well_known_keys::PENDING_CODE);
+
+				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
+				Self::deposit_event(Event::CodeUpdated);
 
 				return true
 			} else if scheduled_at != current_number + One::one() {

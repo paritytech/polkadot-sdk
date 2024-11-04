@@ -112,8 +112,8 @@ mod benchmarks {
 			System::<T>::set_code_without_checks(RawOrigin::Root.into(), code)?;
 		}
 
-		let next_code = storage::unhashed::get_raw(well_known_keys::PENDING_CODE).ok_or("Code not stored.")?;
-		assert_eq!(next_code.len(), 4_000_000 as usize);
+		let code = storage::unhashed::get_raw(well_known_keys::CODE).ok_or("Code not stored.")?;
+		assert_eq!(code.len(), 4_000_000 as usize);
 		Ok(())
 	}
 
