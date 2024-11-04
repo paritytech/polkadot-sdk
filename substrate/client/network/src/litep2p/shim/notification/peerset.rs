@@ -984,7 +984,7 @@ impl Stream for Peerset {
 
 					// collect all *reserved* peers who are not in the new reserved set
 					let reserved_peers_maybe_remove =
-						self.reserved_peers.difference(&peers).cloned().collect::<HashSet<_>>();
+						self.reserved_peers.difference(&peers).cloned().collect::<Vec<_>>();
 
 					self.reserved_peers = peers;
 
