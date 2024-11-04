@@ -20,7 +20,7 @@
 //! Has to be compiled and run twice to calibrate on new hardware.
 
 #[cfg(feature = "runtime-benchmarks")]
-use frame_benchmarking::{v2::*, BenchmarkError};
+use frame_benchmarking::v2::*;
 use frame_support::{pallet_prelude::*, weights::constants::*};
 use frame_system::RawOrigin;
 use sp_runtime::{traits::One, Perbill};
