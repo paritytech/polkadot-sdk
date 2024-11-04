@@ -21,7 +21,7 @@
 
 use super::*;
 use alloc::vec;
-use frame_benchmarking::v2::{*};
+use frame_benchmarking::v2::*;
 use frame_system::{EventRecord, Pallet as System, RawOrigin};
 
 #[cfg(test)]
