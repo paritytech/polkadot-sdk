@@ -714,7 +714,10 @@ async fn validate_candidate_exhaustive(
 
 	// We only check the session index for backing.
 	match (exec_kind, candidate_receipt.descriptor.session_index()) {
-		(PvfExecKind::Backing | PvfExecKind::BackingSystemParas, Some(session_index)) => {
+		(
+			PvfExecKind::Backing { .. } | PvfExecKind::BackingSystemParas { .. },
+			Some(session_index),
+		) => {
 			let Some(expected_session_index) = maybe_expected_session_index else {
 				let error = "cannot fetch session index from the runtime";
 				gum::warn!(
@@ -871,7 +874,7 @@ async fn validate_candidate_exhaustive(
 						// descriptor core index.
 						(
 							Some(_core_index),
-							PvfExecKind::Backing | PvfExecKind::BackingSystemParas,
+							PvfExecKind::Backing { .. } | PvfExecKind::BackingSystemParas { .. },
 						) => {
 							let Some(claim_queue) = maybe_claim_queue else {
 								let error = "cannot fetch the claim queue from the runtime";
