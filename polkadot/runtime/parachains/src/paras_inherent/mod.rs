@@ -63,7 +63,7 @@ use polkadot_primitives::{
 };
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
-use sp_runtime::traits::{Header as HeaderT, One};
+use sp_runtime::traits::{Header as HeaderT, One, Saturating};
 
 mod misc;
 mod weights;
@@ -593,12 +593,12 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
-		let occupied_cores =
+		let occupied_cores: BTreeSet<_> =
 			inclusion::Pallet::<T>::get_occupied_cores().map(|(core, _)| core).collect();
 
 		let mut eligible: BTreeMap<ParaId, BTreeSet<CoreIndex>> = BTreeMap::new();
 
-		let is_blocked = |core_idx| occupied_cores.contains(core_idx) || upcoming_new_session;
+		let is_blocked = |core_idx| occupied_cores.contains(&core_idx) || upcoming_new_session;
 		let scheduled = scheduler::Pallet::<T>::advance_claim_queue(is_blocked);
 		let total_eligible_cores = scheduled.len();
 

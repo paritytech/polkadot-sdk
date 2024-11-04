@@ -186,17 +186,15 @@ enum AccessMode {
 }
 
 /// Assignments that got advanced.
-struct AdvancedAssignments<I1, I2> {
-	bulk_assignments: I1,
-	pool_assignments: I2,
+struct AdvancedAssignments {
+	bulk_assignments: Vec<(CoreIndex, ParaId)>,
+	pool_assignments: Vec<(CoreIndex, ParaId)>,
 }
 
-impl<I1: Iterator<Item = (CoreIndex, ParaId)>, I2: Iterator<Item = (CoreIndex, ParaId)>>
-	AdvancedAssignments<I1, I2>
-{
-	fn into_iter<I3: Iterator<Item = (CoreIndex, ParaId)>>(self) -> I3 {
+impl AdvancedAssignments {
+	fn into_iter(self) -> impl Iterator<Item = (CoreIndex, ParaId)> {
 		let Self { bulk_assignments, pool_assignments } = self;
-		bulk_assignments.chain(pool_assignments)
+		bulk_assignments.into_iter().chain(pool_assignments.into_iter())
 	}
 
 	fn collect(self) -> BTreeMap<CoreIndex, ParaId> {
@@ -326,22 +324,29 @@ impl<T: Config> Pallet<T> {
 		});
 
 		// Give blocked on-demand orders another chance:
-		for blocked in assignments.pool_assignments.clone().filter(is_blocked) {
+		for blocked in assignments.pool_assignments.iter().filter_map(|(core_idx, para_id)| {
+			if is_blocked(*core_idx) {
+				Some(*para_id)
+			} else {
+				None
+			}
+		}) {
 			on_demand::Pallet::<T>::push_back_order(blocked);
 		}
 
-		let mut assignments =
-			assignments.into_iter().filter(|core_idx| !is_blocked(core_idx)).collect();
+		let mut assignments: BTreeMap<CoreIndex, ParaId> =
+			assignments.into_iter().filter(|(core_idx, _)| !is_blocked(*core_idx)).collect();
 
 		// Try to fill missing assignments from the next position (duplication to allow asynchronous
 		// backing even for first assignment coming in on a previously empty core):
 		let next = now.saturating_add(One::one());
 		let mut core_states = CoreDescriptors::<T>::get();
 		let next_assignments =
-			Self::advance_assignments_single_impl(next, core_states, AccessMode::Peek).into_iter();
+			Self::advance_assignments_single_impl(next, &mut core_states, AccessMode::Peek)
+				.into_iter();
 
 		for (core_idx, next_assignment) in
-			next_assignments.filter(|(core_idx, _)| !is_blocked(core_idx))
+			next_assignments.filter(|(core_idx, _)| !is_blocked(*core_idx))
 		{
 			assignments.entry(core_idx).or_insert_with(|| next_assignment);
 		}
@@ -353,7 +358,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn num_coretime_cores() -> u32 {
-		configuration::ActiveConfig::get().coretime_cores
+		configuration::ActiveConfig::<T>::get().scheduler_params.num_cores
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
@@ -372,11 +377,11 @@ impl<T: Config> Pallet<T> {
 		for i in 0..num_entries {
 			let assignments =
 				Self::advance_assignments_single_impl(now, &mut core_states, AccessMode::Peek)
-					.collect();
+					.into_iter();
 			for (core_idx, para_id) in assignments {
-				let claim_queue = result.entry(core_idx).or_default();
+				let claim_queue: &mut VecDeque<ParaId> = result.entry(core_idx).or_default();
 				// Stop filling on holes, otherwise we get claims at the wrong positions.
-				if claim_queue.len() == i {
+				if claim_queue.len() == i as usize {
 					claim_queue.push_back(para_id)
 				} else if claim_queue.len() == 0 && i == 1 {
 					// Except for position 1: Claim queue was empty before. We now have an incoming
@@ -388,21 +393,17 @@ impl<T: Config> Pallet<T> {
 					claim_queue.push_back(para_id);
 				}
 			}
-			now.saturating_add(One::one());
+			now = now.saturating_add(One::one());
 		}
 		result
 	}
 
 	/// Pop assignments for `now`.
-	fn advance_assignments_single_impl<BulkAssignments, PoolAssignments>(
+	fn advance_assignments_single_impl(
 		now: BlockNumberFor<T>,
 		core_states: &mut BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>>,
 		mode: AccessMode,
-	) -> AdvancedAssignments<BulkAssignments, PoolAssignments>
-	where
-		BulkAssignments: Iterator<Item = (CoreIndex, ParaId)>,
-		PoolAssignments: Iterator<Item = (CoreIndex, ParaId)>,
-	{
+	) -> AdvancedAssignments {
 		let mut bulk_assignments = Vec::with_capacity(Self::num_coretime_cores() as _);
 		let mut pool_cores = Vec::with_capacity(Self::num_coretime_cores() as _);
 		for (core_idx, core_state) in core_states.iter_mut() {
@@ -435,9 +436,9 @@ impl<T: Config> Pallet<T> {
 
 		let pool_assignments =
 			on_demand::Pallet::<T>::pop_assignment_for_cores(now, pool_cores.len() as _);
-		let pool_assignments = pool_cores.into_iter().zip(pool_assignments);
+		let pool_assignments = pool_cores.into_iter().zip(pool_assignments).collect();
 
-		AdvancedAssignments { bulk_assignments: bulk_assignments.into_iter(), pool_assignments }
+		AdvancedAssignments { bulk_assignments, pool_assignments }
 	}
 
 	/// Ensure given workload for core is up to date.

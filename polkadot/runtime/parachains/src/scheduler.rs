@@ -36,7 +36,7 @@
 //! number of groups as availability cores. Validator groups will be assigned to different
 //! availability cores over time.
 
-use crate::{assigner_coretime, configuration, initializer::SessionChangeNotification, paras};
+use crate::{assigner_coretime, configuration, initializer::SessionChangeNotification};
 use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec::Vec,
@@ -129,7 +129,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// To be called from runtime APIs.
 	pub(crate) fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-		let config = configuration::ActiveConfig::get();
+		let config = configuration::ActiveConfig::<T>::get();
 		let lookahead = config.scheduler_params.lookahead;
 		let mut queue = assigner_coretime::Pallet::<T>::peek_next_block(lookahead);
 		queue.split_off(&CoreIndex(Self::num_availability_cores() as _));
@@ -148,7 +148,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_on_new_session(
 		notification: &SessionChangeNotification<BlockNumberFor<T>>,
 	) {
-		let SessionChangeNotification { validators, new_config, prev_config, .. } = notification;
+		let SessionChangeNotification { validators, new_config, .. } = notification;
 		let config = new_config;
 		let assigner_cores = config.scheduler_params.num_cores;
 

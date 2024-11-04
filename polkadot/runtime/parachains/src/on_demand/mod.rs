@@ -313,7 +313,7 @@ where
 	/// Parameters:
 	/// - `para_id`: The para that did not make it.
 	pub fn push_back_order(para_id: ParaId) {
-		OrderStatus::<T>::mutate(|order_status| {
+		pallet::OrderStatus::<T>::mutate(|order_status| {
 			let now = <frame_system::Pallet<T>>::block_number();
 			order_status.queue.push(EnqueuedOrder { para_id, ordered_at: now });
 		});
@@ -344,7 +344,7 @@ where
 	) -> DispatchResult {
 		let config = configuration::ActiveConfig::<T>::get();
 
-		OrderStatus::<T>::mutate(|order_status| {
+		pallet::OrderStatus::<T>::mutate(|order_status| {
 			Self::update_spot_traffic(&config, order_status);
 			let traffic = order_status.traffic;
 
