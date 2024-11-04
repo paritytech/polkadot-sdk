@@ -60,13 +60,18 @@ use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash, HeadData,
-	Header, IndexedVec, MultiDisputeStatementSet, NodeFeatures, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	vstaging::{
+		CandidateEvent, CandidateReceiptV2 as CandidateReceipt, MutateDescriptorV2,
+		ScrapedOnChainVotes,
+	},
+	ApprovalVote, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, DisputeStatement,
+	ExecutorParams, GroupIndex, Hash, HeadData, Header, IndexedVec, MultiDisputeStatementSet,
+	NodeFeatures, SessionIndex, SessionInfo, SigningContext, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
-use polkadot_primitives_test_helpers::{dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt_v2_bad_sig, dummy_digest, dummy_hash,
+};
 
 use crate::{
 	backend::Backend,
@@ -648,11 +653,11 @@ fn make_valid_candidate_receipt() -> CandidateReceipt {
 }
 
 fn make_invalid_candidate_receipt() -> CandidateReceipt {
-	dummy_candidate_receipt_bad_sig(Default::default(), Some(Default::default()))
+	dummy_candidate_receipt_v2_bad_sig(Default::default(), Some(Default::default()))
 }
 
 fn make_another_valid_candidate_receipt(relay_parent: Hash) -> CandidateReceipt {
-	let mut candidate_receipt = dummy_candidate_receipt_bad_sig(relay_parent, dummy_hash());
+	let mut candidate_receipt = dummy_candidate_receipt_v2_bad_sig(relay_parent, dummy_hash());
 	candidate_receipt.commitments_hash = CandidateCommitments::default().hash();
 	candidate_receipt
 }
@@ -3858,14 +3863,15 @@ fn participation_requests_reprioritized_for_newly_included() {
 			for repetition in 1..=3u8 {
 				// Building candidate receipts
 				let mut candidate_receipt = make_valid_candidate_receipt();
-				candidate_receipt.descriptor.pov_hash = Hash::from(
+				candidate_receipt.descriptor.set_pov_hash(Hash::from(
 					[repetition; 32], // Altering this receipt so its hash will be changed
-				);
+				));
 				// Set consecutive parents (starting from zero). They will order the candidates for
 				// participation.
 				let parent_block_num: BlockNumber = repetition as BlockNumber - 1;
-				candidate_receipt.descriptor.relay_parent =
-					*test_state.block_num_to_header.get(&parent_block_num).unwrap();
+				candidate_receipt.descriptor.set_relay_parent(
+					*test_state.block_num_to_header.get(&parent_block_num).unwrap(),
+				);
 				receipts.push(candidate_receipt.clone());
 			}
 

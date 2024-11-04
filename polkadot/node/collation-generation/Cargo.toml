@@ -28,3 +28,4 @@ polkadot-primitives-test-helpers = { workspace = true }
 assert_matches = { workspace = true }
 rstest = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
