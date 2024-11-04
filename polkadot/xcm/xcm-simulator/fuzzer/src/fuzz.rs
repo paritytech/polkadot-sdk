@@ -117,7 +117,7 @@ pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 
 	pallet_balances::GenesisConfig::<Runtime> {
 		balances: (0..6).map(|i| ([i; 32].into(), INITIAL_BALANCE)).collect(),
-		dev_accounts: (10, INITIAL_BALANCE, "//Sender/{}".to_string()),
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -139,7 +139,7 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 	balances.append(&mut (1..=3).map(|i| (para_account_id(i), INITIAL_BALANCE)).collect());
 	balances.append(&mut (0..6).map(|i| ([i; 32].into(), INITIAL_BALANCE)).collect());
 
-	pallet_balances::GenesisConfig::<Runtime> { balances, dev_accounts: (10, INITIAL_BALANCE, "//Sender/{}".to_string()) }
+	pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

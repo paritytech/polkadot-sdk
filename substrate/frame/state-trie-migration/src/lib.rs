@@ -1257,7 +1257,7 @@ mod mock {
 			frame_system::GenesisConfig::<Test>::default()
 				.assimilate_storage(&mut custom_storage)
 				.unwrap();
-			pallet_balances::GenesisConfig::<Test> { balances: vec![(1, 1000)], dev_accounts: (10, 1000, "//Sender/{}".to_string()) }
+			pallet_balances::GenesisConfig::<Test> { balances: vec![(1, 1000)], ..Default::default() }
 				.assimilate_storage(&mut custom_storage)
 				.unwrap();
 		}

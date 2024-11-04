@@ -115,7 +115,7 @@ impl EnvBuilder {
 	pub fn execute<R, F: FnOnce() -> R>(mut self, f: F) -> R {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		self.balances.push((Society::account_id(), self.balance.max(self.pot)));
-		pallet_balances::GenesisConfig::<Test> { balances: self.balances, dev_accounts: (10, 100000, "//Sender/{}".to_string()) }
+		pallet_balances::GenesisConfig::<Test> { balances: self.balances, ..Default::default() }
 			.assimilate_storage(&mut t)
 			.unwrap();
 		pallet_society::GenesisConfig::<Test> { pot: self.pot }

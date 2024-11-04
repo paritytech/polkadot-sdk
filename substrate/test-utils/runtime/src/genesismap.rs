@@ -130,7 +130,7 @@ impl GenesisStorageBuilder {
 				authorities: authorities_sr25519.clone(),
 				..Default::default()
 			},
-			balances: pallet_balances::GenesisConfig { balances: self.balances.clone(), dev_accounts: (10, 100u32.into(), "//Sender/{}".to_string()) },
+			balances: pallet_balances::GenesisConfig { balances: self.balances.clone(), ..Default::default() },
 		}
 	}
 

@@ -94,7 +94,7 @@ impl ExtBuilder {
 				(12, 10 * self.existential_deposit),
 				(13, 9999 * self.existential_deposit),
 			],
-			dev_accounts: (10, self.existential_deposit, "//Sender/{}".to_string()),
+			..Defualt::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

@@ -860,7 +860,7 @@ mod tests {
 
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(1, 10_000_000), (2, 10_000_000), (3, 10_000_000)],
-			dev_accounts: (10, crate::integration_tests::ExistentialDeposit::get().into(), "//Sender/{}".to_string()),
+			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

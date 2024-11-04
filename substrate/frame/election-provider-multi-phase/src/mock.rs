@@ -591,7 +591,7 @@ impl ExtBuilder {
 				(999, 100),
 				(9999, 100),
 			],
-			dev_accounts: (10, 100, "//Sender/{}".to_string()),
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 

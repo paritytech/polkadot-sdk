@@ -1476,7 +1476,7 @@ mod tests {
 						(5, 50 * self.balance_factor),
 						(6, 60 * self.balance_factor),
 					],
-					dev_accounts: (10, 10 * self.balance_factor, "//Sender/{}".to_string()),
+					..Default::default()
 				},
 				elections: elections_phragmen::GenesisConfig::<Test> {
 					members: self.genesis_members,
