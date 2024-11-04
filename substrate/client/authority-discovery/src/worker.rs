@@ -280,7 +280,7 @@ where
 			config
 				.public_addresses
 				.into_iter()
-				.map(|address| address_without_p2p(address, local_peer_id))
+				.map(|address| AddressType::PublicAddress(address).without_p2p(local_peer_id))
 				.collect()
 		};
 
@@ -397,7 +397,8 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				address_is_global(&address).then(|| address_without_p2p(address, local_peer_id))
+				address_is_global(&address)
+					.then(|| AddressType::GlobalListenAddress(address).without_p2p(local_peer_id))
 			})
 			.take(MAX_GLOBAL_LISTEN_ADDRESSES)
 			.peekable();
@@ -408,8 +409,8 @@ where
 			.external_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				let address = address_without_p2p(address, local_peer_id);
-				(publish_non_global_ips || address_is_global(&address)).then(|| address)
+				(publish_non_global_ips || address_is_global(&address))
+					.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
 			})
 			.peekable();
 
@@ -982,18 +983,43 @@ where
 }
 
 /// Removes the `/p2p/..` from the address if it is present.
-fn address_without_p2p(mut address: Multiaddr, local_peer_id: PeerId) -> Multiaddr {
-	if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
-		if peer_id != *local_peer_id.as_ref() {
-			error!(
-				target: LOG_TARGET,
-				"Network returned external address '{address}' with peer id \
-				 not matching the local peer id '{local_peer_id}'.",
-			);
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum AddressType {
+	/// The address is specified as a public address via the CLI.
+	PublicAddress(Multiaddr),
+	/// The address is a global listen address.
+	GlobalListenAddress(Multiaddr),
+	/// The address is discovered via the network (ie /identify protocol).
+	ExternalAddress(Multiaddr),
+}
+
+impl AddressType {
+	/// Removes the `/p2p/..` from the address if it is present.
+	///
+	/// In case the peer id in the address does not match the local peer id, an error is logged for
+	/// `ExternalAddress` and `GlobalListenAddress`.
+	fn without_p2p(self, local_peer_id: PeerId) -> Multiaddr {
+		// Get the address and the source str for logging.
+		let (mut address, source) = match self {
+			AddressType::PublicAddress(address) => (address, Some("public address")),
+			AddressType::GlobalListenAddress(address) => (address, Some("global listen address")),
+			AddressType::ExternalAddress(address) => (address, None),
+		};
+
+		if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+			if peer_id != *local_peer_id.as_ref() {
+				if let Some(source) = source {
+					error!(
+						target: LOG_TARGET,
+						"Network returned '{source}' '{address}' with peer id \
+						 not matching the local peer id '{local_peer_id}'.",
+					);
+				}
+			}
+			address.pop();
 		}
-		address.pop();
+		address
 	}
-	address
 }
 
 /// NetworkProvider provides [`Worker`] with all necessary hooks into the
