@@ -125,8 +125,8 @@ impl BalanceOnHold<u32, u64, u64> for TestHolder {
 		OnHold::get().get(&(asset, *who)).cloned()
 	}
 
-	fn died(_asset: u32, _who: &u64) {
-		// TODO: Connect with existing hooks list
+	fn died(asset: u32, who: &u64) {
+		Hooks::mutate(|v| v.push(Hook::Died(asset, *who)))
 	}
 
 	fn contains_holds(asset: AssetId) -> bool {
