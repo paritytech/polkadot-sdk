@@ -576,6 +576,9 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
+			// Content provider events are ignored for now.
+			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess { .. })) |
+			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},
 		}
 
 		match Pin::new(&mut this.identify_event_stream).poll_next(cx) {
