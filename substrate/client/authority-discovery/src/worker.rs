@@ -396,8 +396,7 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				if address_is_global(&address) {
-					Some(address_without_p2p(address, local_peer_id))
+				address_is_global(&address).then(||  address_without_p2p(address, local_peer_id))
 				} else {
 					None
 				}
