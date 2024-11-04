@@ -414,7 +414,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Details of an asset.
-	pub(super) type Asset<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type Asset<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
@@ -436,7 +436,7 @@ pub mod pallet {
 	/// Approved balance transfers. First balance is the amount approved for transfer. Second
 	/// is the amount of `T::Currency` reserved for storing this.
 	/// First key is the asset ID, second key is the owner and third key is the delegate.
-	pub(super) type Approvals<T: Config<I>, I: 'static = ()> = StorageNMap<
+	pub type Approvals<T: Config<I>, I: 'static = ()> = StorageNMap<
 		_,
 		(
 			NMapKey<Blake2_128Concat, T::AssetId>,
@@ -448,7 +448,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Metadata of an asset.
-	pub(super) type Metadata<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type Metadata<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
@@ -1188,7 +1188,7 @@ pub mod pallet {
 				ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 				if details.owner == owner {
-					return Ok(())
+					return Ok(());
 				}
 
 				let metadata_deposit = Metadata::<T, I>::get(&id).deposit;

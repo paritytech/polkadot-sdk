@@ -38,7 +38,7 @@ pub(super) type ExistenceReasonOf<T, I> =
 /// AssetStatus holds the current state of the asset. It could either be Live and available for use,
 /// or in a Destroying state.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub(super) enum AssetStatus {
+pub enum AssetStatus {
 	/// The asset is active and able to be used.
 	Live,
 	/// Whether the asset is frozen for non-admin transfers.
@@ -51,7 +51,7 @@ pub(super) enum AssetStatus {
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 	/// Can change `owner`, `issuer`, `freezer` and `admin` accounts.
-	pub(super) owner: AccountId,
+	pub owner: AccountId,
 	/// Can mint tokens.
 	pub(super) issuer: AccountId,
 	/// Can thaw tokens, force transfers and burn tokens from any account.
@@ -61,20 +61,20 @@ pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 	/// The total supply across all accounts.
 	pub(super) supply: Balance,
 	/// The balance deposited for this asset. This pays for the data stored here.
-	pub(super) deposit: DepositBalance,
+	pub deposit: DepositBalance,
 	/// The ED for virtual accounts.
 	pub(super) min_balance: Balance,
 	/// If `true`, then any account with this asset is given a provider reference. Otherwise, it
 	/// requires a consumer reference.
 	pub(super) is_sufficient: bool,
 	/// The total number of accounts.
-	pub(super) accounts: u32,
+	pub accounts: u32,
 	/// The total number of accounts for which we have placed a self-sufficient reference.
 	pub(super) sufficients: u32,
 	/// The total number of approvals.
-	pub(super) approvals: u32,
+	pub approvals: u32,
 	/// The status of the asset
-	pub(super) status: AssetStatus,
+	pub status: AssetStatus,
 }
 
 /// Data concerning an approval.
@@ -82,9 +82,9 @@ pub struct AssetDetails<Balance, AccountId, DepositBalance> {
 pub struct Approval<Balance, DepositBalance> {
 	/// The amount of funds approved for the balance transfer from the owner to some delegated
 	/// target.
-	pub(super) amount: Balance,
+	pub amount: Balance,
 	/// The amount reserved on the owner's account to hold this item in storage.
-	pub(super) deposit: DepositBalance,
+	pub deposit: DepositBalance,
 }
 
 #[test]
@@ -118,9 +118,9 @@ impl<Balance, AccountId> ExistenceReason<Balance, AccountId>
 where
 	AccountId: Clone,
 {
-	pub(crate) fn take_deposit(&mut self) -> Option<Balance> {
+	pub fn take_deposit(&mut self) -> Option<Balance> {
 		if !matches!(self, ExistenceReason::DepositHeld(_)) {
-			return None
+			return None;
 		}
 		if let ExistenceReason::DepositHeld(deposit) =
 			core::mem::replace(self, ExistenceReason::DepositRefunded)
@@ -131,9 +131,9 @@ where
 		}
 	}
 
-	pub(crate) fn take_deposit_from(&mut self) -> Option<(AccountId, Balance)> {
+	pub fn take_deposit_from(&mut self) -> Option<(AccountId, Balance)> {
 		if !matches!(self, ExistenceReason::DepositFrom(..)) {
-			return None
+			return None;
 		}
 		if let ExistenceReason::DepositFrom(depositor, deposit) =
 			core::mem::replace(self, ExistenceReason::DepositRefunded)
@@ -179,7 +179,7 @@ pub struct AssetAccount<Balance, DepositBalance, Extra, AccountId> {
 	/// The status of the account.
 	pub(super) status: AccountStatus,
 	/// The reason for the existence of the account.
-	pub(super) reason: ExistenceReason<DepositBalance, AccountId>,
+	pub reason: ExistenceReason<DepositBalance, AccountId>,
 	/// Additional "sidecar" data, in case some other pallet wants to use this storage item.
 	pub(super) extra: Extra,
 }
@@ -189,7 +189,7 @@ pub struct AssetMetadata<DepositBalance, BoundedString> {
 	/// The balance deposited for this metadata.
 	///
 	/// This pays for the data stored in this struct.
-	pub(super) deposit: DepositBalance,
+	pub deposit: DepositBalance,
 	/// The user friendly name of this asset. Limited in length by `StringLimit`.
 	pub(super) name: BoundedString,
 	/// The ticker symbol for this asset. Limited in length by `StringLimit`.
