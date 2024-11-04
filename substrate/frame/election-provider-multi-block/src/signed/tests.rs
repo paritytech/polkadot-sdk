@@ -32,10 +32,8 @@ fn clear_submission_of_works() {
 }
 
 mod calls {
-	use std::env::current_exe;
-
 	use super::*;
-	use frame_support::{storage::unhashed::contains_prefixed_key, traits::OriginTrait};
+	use frame_support::traits::OriginTrait;
 	use sp_core::bounded_vec;
 	use sp_runtime::traits::BadOrigin;
 
@@ -681,10 +679,190 @@ mod solution_data_provider {
 	}
 
 	#[test]
-	fn get_page_works() {
+	fn get_score_returns_entry_with_highest_sum_stake_given_entries_with_equal_minimal_stakes() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_phase(Phase::Signed);
+
 			assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), None);
+
+			let higher_score =
+				ElectionScore { minimal_stake: 40, sum_stake: 10, sum_stake_squared: 0 };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(40), higher_score));
+
+			let score = ElectionScore { minimal_stake: 40, sum_stake: 5, sum_stake_squared: 0 };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(30), score));
+
+			assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), Some(higher_score));
+		})
+	}
+
+	#[test]
+	fn get_score_returns_entry_with_lowest_sum_stake_squared_given_entries_with_equal_minimal_stakes_and_sum_stakes(
+	) {
+		ExtBuilder::default().build_and_execute(|| {
+			roll_to_phase(Phase::Signed);
+
+			assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), None);
+
+			let higher_score =
+				ElectionScore { minimal_stake: 40, sum_stake: 10, sum_stake_squared: 2 };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(40), higher_score));
+
+			let score = ElectionScore { minimal_stake: 40, sum_stake: 10, sum_stake_squared: 5 };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(30), score));
+
+			assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), Some(higher_score));
+		})
+	}
+
+	#[test]
+	fn get_paged_solution_returns_previously_submitted_page() {
+		ExtBuilder::default().build_and_execute(|| {
+			let origin = RuntimeOrigin::signed(99);
+			roll_to_phase(Phase::Signed);
+
+			assert_ok!(SignedPallet::register(origin.clone(), Default::default()));
+			assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
+
+			assert_ne!(<SignedPallet as SolutionDataProvider>::get_paged_solution(0), None)
+		})
+	}
+
+	#[test]
+	fn get_paged_solution_returns_none_given_invalid_page_index() {
+		ExtBuilder::default().build_and_execute(|| {
+			let origin = RuntimeOrigin::signed(99);
+			roll_to_phase(Phase::Signed);
+
+			assert_ok!(SignedPallet::register(origin.clone(), Default::default()));
+			assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
+
+			assert_eq!(<SignedPallet as SolutionDataProvider>::get_paged_solution(12345), None)
+		})
+	}
+
+	#[test]
+	fn get_paged_solution_returns_none_if_there_are_no_submissions() {
+		ExtBuilder::default().build_and_execute(|| {
+			let origin = RuntimeOrigin::signed(99);
+			roll_to_phase(Phase::Signed);
+
+			assert_eq!(<SignedPallet as SolutionDataProvider>::get_paged_solution(12345), None)
+		})
+	}
+
+	#[test]
+	fn report_result_rewards_submitter_of_the_best_solution_given_queued_result() {
+		ExtBuilder::default().build_and_execute(|| {
+			let account_id = 99;
+			let origin = RuntimeOrigin::signed(account_id);
+			roll_to_phase(Phase::Signed);
+
+			let base_deposit = <Runtime as Config>::DepositBase::convert(0);
+			let page_deposit = <Runtime as Config>::DepositPerPage::get();
+			assert!(base_deposit != 0 && page_deposit != 0 && base_deposit != page_deposit);
+
+			// account_id has 100 free balance and 0 held balance for elections.
+			// As configured in
+			// pallet-epm-mb/substrate/frame/election-provider-multi-block/src/mock/mod.rs ->
+			// pallet_balances::GenesisConfig::<T>
+			assert_eq!(balances(account_id), (100, 0));
+
+			assert_ok!(SignedPallet::register(origin.clone(), Default::default()));
+			assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
+
+			assert_eq!(
+				balances(account_id),
+				(100 - base_deposit - page_deposit, base_deposit + page_deposit)
+			);
+
+			SignedPallet::report_result(VerificationResult::Queued);
+
+			// the submitter should receive a reward but his funds are still blocked
+			assert_eq!(
+				balances(account_id),
+				(100 - base_deposit - page_deposit + Reward::get(), base_deposit + page_deposit)
+			);
+		})
+	}
+
+	#[test]
+	fn report_result_burns_the_stake_of_the_best_submitter_given_rejected_result() {
+		ExtBuilder::default().build_and_execute(|| {
+			let account_id = 99;
+			let origin = RuntimeOrigin::signed(account_id);
+			roll_to_phase(Phase::Signed);
+
+			let current_round = MultiPhase::current_round();
+
+			assert_ok!(SignedPallet::register(origin.clone(), Default::default()));
+			assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
+
+			assert_eq!(
+				Submissions::<T>::metadata_for(current_round, &account_id).unwrap(),
+				SubmissionMetadata {
+					claimed_score: Default::default(),
+					deposit: 10,
+					pages: bounded_vec![false, false, false],
+					release_strategy: Default::default(),
+				}
+			);
+
+			SignedPallet::report_result(VerificationResult::Rejected);
+
+			assert_eq!(
+				Submissions::<T>::metadata_for(current_round, &account_id).unwrap(),
+				SubmissionMetadata {
+					claimed_score: Default::default(),
+					deposit: 10,
+					pages: bounded_vec![false, false, false],
+					release_strategy: ReleaseStrategy::BurnAll,
+				}
+			);
+		})
+	}
+
+	#[test]
+	fn report_result_burns_the_stake_of_the_best_submitter_given_data_unavailable_result() {
+		ExtBuilder::default().build_and_execute(|| {
+			let account_id = 99;
+			let origin = RuntimeOrigin::signed(account_id);
+			roll_to_phase(Phase::Signed);
+
+			let current_round = MultiPhase::current_round();
+
+			assert_ok!(SignedPallet::register(origin.clone(), Default::default()));
+			assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
+
+			assert_eq!(
+				Submissions::<T>::metadata_for(current_round, &account_id).unwrap(),
+				SubmissionMetadata {
+					claimed_score: Default::default(),
+					deposit: 10,
+					pages: bounded_vec![false, false, false],
+					release_strategy: Default::default(),
+				}
+			);
+
+			SignedPallet::report_result(VerificationResult::DataUnavailable);
+
+			assert_eq!(
+				Submissions::<T>::metadata_for(current_round, &account_id).unwrap(),
+				SubmissionMetadata {
+					claimed_score: Default::default(),
+					deposit: 10,
+					pages: bounded_vec![false, false, false],
+					release_strategy: ReleaseStrategy::BurnAll,
+				}
+			);
+		})
+	}
+
+	#[test]
+	fn report_result_does_nothing_if_no_submissions_where_sent() {
+		ExtBuilder::default().build_and_execute(|| {
+			roll_to_phase(Phase::Signed);
+			SignedPallet::report_result(VerificationResult::Queued);
 		})
 	}
 }
@@ -708,7 +886,7 @@ mod e2e {
 				let claimed_score = ElectionScore { minimal_stake: 100, ..Default::default() };
 
 				// register submission
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(10), claimed_score,));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(10), claimed_score));
 
 				// metadata and claimed scores have been stored as expected.
 				assert_eq!(

@@ -317,7 +317,7 @@ pub mod pallet {
 
 	/// Wrapper for signed submissions.
 	///
-	/// It handle 3 storage items:
+	/// It handles 3 storage items:
 	///
 	/// 1. [`SortedScores`]: A flat, striclty sorted, vector with all the submission's scores. The
 	///    vector contains a tuple of `submitter_id` and `claimed_score`.
