@@ -1,4 +1,4 @@
-title: Litep2p network backend: do not disconnect all peers on SetReservedPeers command
+title: Litep2p network backend do not disconnect all peers on SetReservedPeers command
 
 doc:
   - audience: [ Node Dev, Node Operator ]
