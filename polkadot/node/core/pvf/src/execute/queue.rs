@@ -1081,7 +1081,11 @@ mod tests {
 		let hash = Hash::random();
 		queue.active_leaves.insert(
 			hash,
-			ActiveLeafWithAncestors { hash, number: 10, ancestors: vec![exec_ttl.relay_parent] },
+			ActiveLeafWithAncestors {
+				hash,
+				number: 10,
+				ancestors: Some(vec![exec_ttl.relay_parent]),
+			},
 		);
 
 		let mut result_rxs = vec![];
