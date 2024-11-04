@@ -535,7 +535,7 @@ fn session_index_checked_only_in_backing() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 		Default::default(),
 	))
@@ -752,7 +752,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 		Default::default(),
 	))
@@ -768,7 +768,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::BackingSystemParas,
+		PvfExecKind::BackingSystemParas { ttl: None },
 		&Default::default(),
 		Default::default(),
 	))
@@ -786,7 +786,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 		Some(Default::default()),
 	))
@@ -801,7 +801,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::BackingSystemParas,
+		PvfExecKind::BackingSystemParas { ttl: None },
 		&Default::default(),
 		Some(Default::default()),
 	))
@@ -870,7 +870,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing { ttl: None },
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq.clone())),
 	))
@@ -893,7 +893,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::BackingSystemParas,
+		PvfExecKind::BackingSystemParas { ttl: None },
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
 	))
