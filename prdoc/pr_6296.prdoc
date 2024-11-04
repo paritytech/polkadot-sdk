@@ -2,9 +2,7 @@ title: Migrate pallet-glutton benchmark to v2
 doc:
 - audience: Runtime Dev
   description: |-
-    Part of:
-
-    - #6202.
+    Update `pallet-glutton` to benchmarks v2.
 crates:
 - name: pallet-glutton
   bump: patch
