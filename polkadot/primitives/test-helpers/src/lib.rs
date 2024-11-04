@@ -23,7 +23,9 @@
 //! Note that `dummy_` prefixed values are meant to be fillers, that should not matter, and will
 //! contain randomness based data.
 use polkadot_primitives::{
-	vstaging::{CandidateDescriptorV2, CandidateReceiptV2, CommittedCandidateReceiptV2, MutateDescriptorV2},
+	vstaging::{
+		CandidateDescriptorV2, CandidateReceiptV2, CommittedCandidateReceiptV2, MutateDescriptorV2,
+	},
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, CollatorId, CollatorSignature,
 	CommittedCandidateReceipt, CoreIndex, Hash, HeadData, Id as ParaId, PersistedValidationData,
 	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
@@ -257,7 +259,6 @@ pub fn make_candidate(
 	(candidate, pvd)
 }
 
-
 /// Create a meaningless v2 candidate, returning its receipt and PVD.
 pub fn make_candidate_v2(
 	relay_parent_hash: Hash,
@@ -277,13 +278,11 @@ pub fn make_candidate_v2(
 		hrmp_watermark: relay_parent_number,
 	};
 
-	let mut descriptor =
-		dummy_candidate_descriptor_v2(relay_parent_hash);
+	let mut descriptor = dummy_candidate_descriptor_v2(relay_parent_hash);
 	descriptor.set_para_id(para_id);
 	descriptor.set_persisted_validation_data_hash(pvd.hash());
 	descriptor.set_validation_code_hash(validation_code_hash);
-	let candidate =
-		CommittedCandidateReceiptV2 { descriptor, commitments };
+	let candidate = CommittedCandidateReceiptV2 { descriptor, commitments };
 
 	(candidate, pvd)
 }
