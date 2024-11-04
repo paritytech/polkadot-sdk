@@ -214,7 +214,7 @@ async fn execute_job_terminates_on_execution_ttl() {
 
 	host.update_active_leaves(
 		ActiveLeavesUpdate::start_work(new_leaf(Hash::random(), 10)),
-		vec![exec_ttl.relay_parent],
+		Some(vec![exec_ttl.relay_parent]),
 	)
 	.await;
 

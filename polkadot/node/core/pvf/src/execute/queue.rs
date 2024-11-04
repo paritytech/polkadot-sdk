@@ -163,7 +163,7 @@ type Mux = FuturesUnordered<BoxFuture<'static, QueueEvent>>;
 struct ActiveLeafWithAncestors {
 	hash: Hash,
 	number: BlockNumber,
-	ancestors: Option<Vec<Hash>>,
+	ancestors: Vec<Hash>,
 }
 
 struct Queue {
@@ -324,6 +324,7 @@ impl Queue {
 		}
 
 		let Some(leaf) = update.activated else { return };
+		let ancestors = ancestors.unwrap_or_default();
 		let _ = self.active_leaves.insert(
 			leaf.hash,
 			ActiveLeafWithAncestors { hash: leaf.hash, number: leaf.number, ancestors },
@@ -335,11 +336,7 @@ impl Queue {
 			.active_leaves
 			.values()
 			.filter(|leaf| {
-				leaf.hash == ttl.relay_parent ||
-					leaf.ancestors
-						.as_ref()
-						.map(|x| x.contains(&ttl.relay_parent))
-						.unwrap_or(false)
+				leaf.hash == ttl.relay_parent || leaf.ancestors.contains(&ttl.relay_parent)
 			})
 			.min_by_key(|x| x.number)
 		else {
@@ -354,14 +351,15 @@ impl Queue {
 			let min_ancestry_len = self
 				.active_leaves
 				.values()
-				.filter(|x| x.ancestors.is_some())
-				.map(|x| x.ancestors.as_ref().map(|x| x.len()).unwrap_or_default())
+				.filter(|x| !x.ancestors.is_empty())
+				.map(|x| x.ancestors.len())
 				.min()
 				.unwrap_or(ttl.allowed_ancestry_len);
 			return min_ancestry_len < ttl.allowed_ancestry_len
 		};
+		let now = leaf.number;
 
-		return leaf.number >= ttl.deadline
+		return now <= ttl.deadline
 	}
 }
 
@@ -1081,11 +1079,7 @@ mod tests {
 		let hash = Hash::random();
 		queue.active_leaves.insert(
 			hash,
-			ActiveLeafWithAncestors {
-				hash,
-				number: 10,
-				ancestors: Some(vec![exec_ttl.relay_parent]),
-			},
+			ActiveLeafWithAncestors { hash, number: 10, ancestors: vec![exec_ttl.relay_parent] },
 		);
 
 		let mut result_rxs = vec![];
