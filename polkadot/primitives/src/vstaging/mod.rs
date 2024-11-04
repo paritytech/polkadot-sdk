@@ -478,6 +478,7 @@ pub enum CandidateReceiptError {
 	/// The core selector or claim queue offset is invalid.
 	#[cfg_attr(feature = "std", error("The core selector or claim queue offset is invalid"))]
 	InvalidSelectedCore,
+	#[cfg_attr(feature = "std", error("Could not decode UMP signal"))]
 	/// Could not decode UMP signal.
 	UmpSignalDecode,
 	/// The parachain is not assigned to any core at specified claim queue offset.
@@ -495,6 +496,7 @@ pub enum CandidateReceiptError {
 	UnknownVersion(InternalVersion),
 	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
 	/// Currenly only one such message is allowed.
+	#[cfg_attr(feature = "std", error("Too many UMP signals"))]
 	TooManyUMPSignals,
 }
 
