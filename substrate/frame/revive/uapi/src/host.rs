@@ -105,6 +105,14 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the block number.
 	fn block_number(output: &mut [u8; 32]);
 
+	/// Stores the block hash of the given block number into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `block_number`: A reference to the block number buffer.
+	/// - `output`: A reference to the output data buffer to write the block number.
+	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
+
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
 	/// # Parameters
@@ -262,6 +270,18 @@ pub trait HostFn: private::Sealed {
 	/// `0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470` is written,
 	/// otherwise `zero`.
 	fn code_hash(addr: &[u8; 20], output: &mut [u8; 32]);
+
+	/// Retrieve the code size for a specified contract address.
+	///
+	/// # Parameters
+	///
+	/// - `addr`: The address of the contract.
+	/// - `output`: A reference to the output data buffer to write the code size.
+	///
+	/// # Note
+	///
+	/// If `addr` is not a contract the `output` will be zero.
+	fn code_size(addr: &[u8; 20], output: &mut [u8; 32]);
 
 	/// Checks whether there is a value stored under the given key.
 	///
