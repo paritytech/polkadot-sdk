@@ -45,7 +45,7 @@ Options:
 ### Example
 
 ```bash
-/cmd prdoc --audience=runtime_dev --bump=patch
+/cmd prdoc --audience runtime_dev --bump patch
 ```
 
 ## Local Generation
