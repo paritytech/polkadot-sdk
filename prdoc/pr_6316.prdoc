@@ -2,9 +2,7 @@ title: Migrate pallet-election-provider-multi-phase benchmark to v2 and improve 
 doc:
 - audience: Runtime Dev
   description: |-
-    Part of:
-
-    - #6202.
+    Migrate pallet-election-provider-multi-phase benchmark to v2 and improve doc
 crates:
 - name: pallet-election-provider-multi-phase
   bump: patch
