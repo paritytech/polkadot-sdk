@@ -14,7 +14,7 @@ bounded-collections = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
-log = { workspace = true }
+tracing = { workspace = true }
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -44,13 +44,13 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",

@@ -47,8 +47,7 @@ pub trait BridgeRuntimeFilterCall<AccountId, Call> {
 	/// Data that may be passed from the validate to `post_dispatch`.
 	type ToPostDispatch;
 	/// Called during validation. Needs to checks whether a runtime call, submitted
-	/// by the `who` is valid. `who` may be `None` if transaction is not signed
-	/// by a regular account.
+	/// by the `who` is valid. Transactions not signed are not validated.
 	fn validate(who: &AccountId, call: &Call) -> (Self::ToPostDispatch, TransactionValidity);
 	/// Called after transaction is dispatched.
 	fn post_dispatch(_who: &AccountId, _has_failed: bool, _to_post_dispatch: Self::ToPostDispatch) {
@@ -274,12 +273,10 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 	($call:ty, $account_id:ty, $($filter_call:ty),*) => {
 		#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 		pub struct BridgeRejectObsoleteHeadersAndMessages;
-		impl sp_runtime::traits::SignedExtension for BridgeRejectObsoleteHeadersAndMessages {
+		impl sp_runtime::traits::TransactionExtension<$call> for BridgeRejectObsoleteHeadersAndMessages {
 			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
-			type AccountId = $account_id;
-			type Call = $call;
-			type AdditionalSigned = ();
-			type Pre = (
+			type Implicit = ();
+			type Val = Option<(
 				$account_id,
 				( $(
 					<$filter_call as $crate::extensions::BridgeRuntimeFilterCall<
@@ -287,72 +284,75 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 						$call,
 					>>::ToPostDispatch,
 				)* ),
-			);
+			)>;
+			type Pre = Self::Val;
 
-			fn additional_signed(&self) -> sp_std::result::Result<
-				(),
-				sp_runtime::transaction_validity::TransactionValidityError,
-			> {
-				Ok(())
+			fn weight(&self, _: &$call) -> frame_support::pallet_prelude::Weight {
+				frame_support::pallet_prelude::Weight::zero()
 			}
 
-			#[allow(unused_variables)]
 			fn validate(
 				&self,
-				who: &Self::AccountId,
-				call: &Self::Call,
-				_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				origin: <$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				call: &$call,
+				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				_len: usize,
-			) -> sp_runtime::transaction_validity::TransactionValidity {
-				let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
-				let to_prepare = ();
-				$(
-					let (from_validate, call_filter_validity) = <
-						$filter_call as
-						$crate::extensions::BridgeRuntimeFilterCall<
-							Self::AccountId,
-							$call,
-						>>::validate(&who, call);
-					let tx_validity = tx_validity.combine_with(call_filter_validity?);
-				)*
-				Ok(tx_validity)
-			}
-
-			#[allow(unused_variables)]
-			fn pre_dispatch(
-				self,
-				relayer: &Self::AccountId,
-				call: &Self::Call,
-				info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-				len: usize,
-			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
+				_self_implicit: Self::Implicit,
+				_inherited_implication: &impl codec::Encode,
+			) -> Result<
+				(
+					sp_runtime::transaction_validity::ValidTransaction,
+					Self::Val,
+					<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				), sp_runtime::transaction_validity::TransactionValidityError
+			> {
 				use $crate::extensions::__private::tuplex::PushBack;
+				use sp_runtime::traits::AsSystemOriginSigner;
+
+				let Some(who) = origin.as_system_origin_signer() else {
+					return Ok((Default::default(), None, origin));
+				};
 
 				let to_post_dispatch = ();
+				let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
 				$(
 					let (from_validate, call_filter_validity) = <
 						$filter_call as
 						$crate::extensions::BridgeRuntimeFilterCall<
 							$account_id,
 							$call,
-						>>::validate(&relayer, call);
-					let _ = call_filter_validity?;
+						>>::validate(who, call);
 					let to_post_dispatch = to_post_dispatch.push_back(from_validate);
+					let tx_validity = tx_validity.combine_with(call_filter_validity?);
 				)*
-				Ok((relayer.clone(), to_post_dispatch))
+				Ok((tx_validity, Some((who.clone(), to_post_dispatch)), origin))
+			}
+
+			fn prepare(
+				self,
+				val: Self::Val,
+				_origin: &<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				_call: &$call,
+				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
+				_len: usize,
+			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
+				Ok(val)
 			}
 
 			#[allow(unused_variables)]
-			fn post_dispatch(
-				to_post_dispatch: Option<Self::Pre>,
-				info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-				post_info: &sp_runtime::traits::PostDispatchInfoOf<Self::Call>,
+			fn post_dispatch_details(
+				to_post_dispatch: Self::Pre,
+				info: &sp_runtime::traits::DispatchInfoOf<$call>,
+				post_info: &sp_runtime::traits::PostDispatchInfoOf<$call>,
 				len: usize,
 				result: &sp_runtime::DispatchResult,
-			) -> Result<(), sp_runtime::transaction_validity::TransactionValidityError> {
+			) -> Result<frame_support::pallet_prelude::Weight, sp_runtime::transaction_validity::TransactionValidityError> {
 				use $crate::extensions::__private::tuplex::PopFront;
 
-				let Some((relayer, to_post_dispatch)) = to_post_dispatch else { return Ok(()) };
+				let Some((relayer, to_post_dispatch)) = to_post_dispatch else {
+					return Ok(frame_support::pallet_prelude::Weight::zero())
+				};
+
 				let has_failed = result.is_err();
 				$(
 					let (item, to_post_dispatch) = to_post_dispatch.pop_front();
@@ -363,7 +363,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 							$call,
 						>>::post_dispatch(&relayer, has_failed, item);
 				)*
-				Ok(())
+				Ok(frame_support::pallet_prelude::Weight::zero())
 			}
 		}
 	};
@@ -380,11 +380,16 @@ mod tests {
 	use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 	use bp_runtime::HeaderId;
 	use bp_test_utils::{make_default_justification, test_keyring, TEST_GRANDPA_SET_ID};
+	use codec::{Decode, Encode, MaxEncodedLen};
 	use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
 	use pallet_bridge_grandpa::{Call as GrandpaCall, StoredAuthoritySet};
 	use pallet_bridge_parachains::Call as ParachainsCall;
+	use scale_info::TypeInfo;
 	use sp_runtime::{
-		traits::{parameter_types, ConstU64, Header as _, SignedExtension},
+		traits::{
+			parameter_types, AsSystemOriginSigner, AsTransactionAuthorizedOrigin, ConstU64,
+			DispatchTransaction, Header as _, TransactionExtension,
+		},
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 		DispatchError,
 	};
@@ -402,12 +407,34 @@ mod tests {
 		);
 	}
 
+	#[derive(Debug, Clone, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
 	pub struct MockCall {
 		data: u32,
 	}
 
+	#[derive(Debug, Clone, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	pub struct MockOrigin(pub u64);
+
+	impl AsSystemOriginSigner<u64> for MockOrigin {
+		fn as_system_origin_signer(&self) -> Option<&u64> {
+			Some(&self.0)
+		}
+	}
+
+	impl AsTransactionAuthorizedOrigin for MockOrigin {
+		fn is_transaction_authorized(&self) -> bool {
+			true
+		}
+	}
+
+	impl From<u64> for MockOrigin {
+		fn from(o: u64) -> Self {
+			Self(o)
+		}
+	}
+
 	impl sp_runtime::traits::Dispatchable for MockCall {
-		type RuntimeOrigin = u64;
+		type RuntimeOrigin = MockOrigin;
 		type Config = ();
 		type Info = ();
 		type PostInfo = ();
@@ -579,12 +606,17 @@ mod tests {
 
 		run_test(|| {
 			assert_err!(
-				BridgeRejectObsoleteHeadersAndMessages.validate(&42, &MockCall { data: 1 }, &(), 0),
+				BridgeRejectObsoleteHeadersAndMessages.validate_only(
+					42u64.into(),
+					&MockCall { data: 1 },
+					&(),
+					0
+				),
 				InvalidTransaction::Custom(1)
 			);
 			assert_err!(
-				BridgeRejectObsoleteHeadersAndMessages.pre_dispatch(
-					&42,
+				BridgeRejectObsoleteHeadersAndMessages.validate_and_prepare(
+					42u64.into(),
 					&MockCall { data: 1 },
 					&(),
 					0
@@ -593,12 +625,17 @@ mod tests {
 			);
 
 			assert_err!(
-				BridgeRejectObsoleteHeadersAndMessages.validate(&42, &MockCall { data: 2 }, &(), 0),
+				BridgeRejectObsoleteHeadersAndMessages.validate_only(
+					42u64.into(),
+					&MockCall { data: 2 },
+					&(),
+					0
+				),
 				InvalidTransaction::Custom(2)
 			);
 			assert_err!(
-				BridgeRejectObsoleteHeadersAndMessages.pre_dispatch(
-					&42,
+				BridgeRejectObsoleteHeadersAndMessages.validate_and_prepare(
+					42u64.into(),
 					&MockCall { data: 2 },
 					&(),
 					0
@@ -608,37 +645,40 @@ mod tests {
 
 			assert_eq!(
 				BridgeRejectObsoleteHeadersAndMessages
-					.validate(&42, &MockCall { data: 3 }, &(), 0)
-					.unwrap(),
+					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0)
+					.unwrap()
+					.0,
 				ValidTransaction { priority: 3, ..Default::default() },
 			);
 			assert_eq!(
 				BridgeRejectObsoleteHeadersAndMessages
-					.pre_dispatch(&42, &MockCall { data: 3 }, &(), 0)
+					.validate_and_prepare(42u64.into(), &MockCall { data: 3 }, &(), 0)
+					.unwrap()
+					.0
 					.unwrap(),
 				(42, (1, 2)),
 			);
 
 			// when post_dispatch is called with `Ok(())`, it is propagated to all "nested"
 			// extensions
-			assert_ok!(BridgeRejectObsoleteHeadersAndMessages::post_dispatch(
+			assert_ok!(BridgeRejectObsoleteHeadersAndMessages::post_dispatch_details(
 				Some((0, (1, 2))),
 				&(),
 				&(),
 				0,
-				&Ok(())
+				&Ok(()),
 			));
 			FirstFilterCall::verify_post_dispatch_called_with(true);
 			SecondFilterCall::verify_post_dispatch_called_with(true);
 
 			// when post_dispatch is called with `Err(())`, it is propagated to all "nested"
 			// extensions
-			assert_ok!(BridgeRejectObsoleteHeadersAndMessages::post_dispatch(
+			assert_ok!(BridgeRejectObsoleteHeadersAndMessages::post_dispatch_details(
 				Some((0, (1, 2))),
 				&(),
 				&(),
 				0,
-				&Err(DispatchError::BadOrigin)
+				&Err(DispatchError::BadOrigin),
 			));
 			FirstFilterCall::verify_post_dispatch_called_with(false);
 			SecondFilterCall::verify_post_dispatch_called_with(false);

@@ -54,8 +54,9 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, CollatorPair, CoreIndex, CoreState,
-	GroupIndex, Hash, HeadData, Id as ParaId, SessionIndex,
+	vstaging::{CandidateReceiptV2 as CandidateReceipt, CoreState},
+	AuthorityDiscoveryId, CandidateHash, CollatorPair, CoreIndex, GroupIndex, Hash, HeadData,
+	Id as ParaId, SessionIndex,
 };
 
 use super::LOG_TARGET;
@@ -374,7 +375,7 @@ async fn distribute_collation<Context>(
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	core_index: CoreIndex,
 ) -> Result<()> {
-	let candidate_relay_parent = receipt.descriptor.relay_parent;
+	let candidate_relay_parent = receipt.descriptor.relay_parent();
 	let candidate_hash = receipt.hash();
 
 	let per_relay_parent = match state.per_relay_parent.get_mut(&candidate_relay_parent) {
@@ -850,12 +851,12 @@ async fn process_msg<Context>(
 			core_index,
 		} => {
 			match state.collating_on {
-				Some(id) if candidate_receipt.descriptor.para_id != id => {
+				Some(id) if candidate_receipt.descriptor.para_id() != id => {
 					// If the ParaId of a collation requested to be distributed does not match
 					// the one we expect, we ignore the message.
 					gum::warn!(
 						target: LOG_TARGET,
-						para_id = %candidate_receipt.descriptor.para_id,
+						para_id = %candidate_receipt.descriptor.para_id(),
 						collating_on = %id,
 						"DistributeCollation for unexpected para_id",
 					);
@@ -879,7 +880,7 @@ async fn process_msg<Context>(
 				None => {
 					gum::warn!(
 						target: LOG_TARGET,
-						para_id = %candidate_receipt.descriptor.para_id,
+						para_id = %candidate_receipt.descriptor.para_id(),
 						"DistributeCollation message while not collating on any",
 					);
 				},

@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+//! CLI options of the omni-node. See [`Command`].
+
 use crate::{
 	chain_spec::DiskChainSpecLoader,
 	common::{
@@ -103,6 +105,7 @@ pub enum Subcommand {
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
+/// CLI Options shipped with `polkadot-omni-node`.
 #[derive(clap::Parser)]
 #[command(
 	propagate_version = true,
@@ -113,9 +116,11 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(skip)]
 	pub(crate) chain_spec_loader: Option<Box<dyn LoadSpec>>,
 
+	/// Possible subcommands. See [`Subcommand`].
 	#[command(subcommand)]
 	pub subcommand: Option<Subcommand>,
 
+	/// The shared parameters with all cumulus-based parachain nodes.
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
@@ -200,6 +205,7 @@ impl<Config: CliConfig> SubstrateCli for Cli<Config> {
 	}
 }
 
+/// The relay chain CLI flags. These are passed in after a `--` at the end.
 #[derive(Debug)]
 pub struct RelayChainCli<Config: CliConfig> {
 	/// The actual relay chain cli object.
