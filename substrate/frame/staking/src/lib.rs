@@ -1302,25 +1302,26 @@ pub struct DisablingDecision {
 }
 
 /// Calculate the disabling limit based on the number of validators and the disabling limit factor.
-/// 
-/// This is a sensible default implementation for the disabling limit factor for most disabling strategies.
-/// 
+///
+/// This is a sensible default implementation for the disabling limit factor for most disabling
+/// strategies.
+///
 /// Disabling limit factor n=2 -> 1/n = 1/2 = 50% of validators can be disabled
 fn factor_based_disable_limit(validators_len: usize, disabling_limit_factor: usize) -> usize {
-    validators_len
-        .saturating_sub(1)
-        .checked_div(disabling_limit_factor)
-        .unwrap_or_else(|| {
-            defensive!("DISABLING_LIMIT_FACTOR should not be 0");
-            0
-        })
+	validators_len
+		.saturating_sub(1)
+		.checked_div(disabling_limit_factor)
+		.unwrap_or_else(|| {
+			defensive!("DISABLING_LIMIT_FACTOR should not be 0");
+			0
+		})
 }
 
-/// Implementation of [`DisablingStrategy`] using factor_based_disable_limit which disables validators from the active set up to a
-/// threshold. `DISABLING_LIMIT_FACTOR` is the factor of the maximum disabled validators in the
-/// active set. E.g. setting this value to `3` means no more than 1/3 of the validators in the
-/// active set can be disabled in an era.
-/// 
+/// Implementation of [`DisablingStrategy`] using factor_based_disable_limit which disables
+/// validators from the active set up to a threshold. `DISABLING_LIMIT_FACTOR` is the factor of the
+/// maximum disabled validators in the active set. E.g. setting this value to `3` means no more than
+/// 1/3 of the validators in the active set can be disabled in an era.
+///
 /// By default a factor of 3 is used which is the byzantine threshold.
 pub struct UpToLimitDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
 
@@ -1378,12 +1379,13 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 }
 
 /// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
-/// limit (factor_based_disable_limit) and if the limit is reached and the new offender is higher (bigger punishment/severity)
-/// then it re-enables to lowest offender to free up space for the new offender.
-/// 
-/// This strategy is not based on cumulative severity of offences but only on the severity of the highest offence.
-/// Offender first committing a 25% offence and then a 50% offence will be treated the same as an offender committing 50%
-/// offence.
+/// limit (factor_based_disable_limit) and if the limit is reached and the new offender is higher
+/// (bigger punishment/severity) then it re-enables to lowest offender to free up space for the new
+/// offender.
+///
+/// This strategy is not based on cumulative severity of offences but only on the severity of the
+/// highest offence. Offender first committing a 25% offence and then a 50% offence will be treated
+/// the same as an offender committing 50% offence.
 ///
 /// An extension of [`UpToLimitDisablingStrategy`].
 pub struct UpToLimitWithReEnablingDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;

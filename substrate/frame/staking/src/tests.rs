@@ -8297,7 +8297,7 @@ mod byzantine_threshold_disabling_strategy {
 		tests::Test, ActiveEra, ActiveEraInfo, DisablingStrategy, UpToLimitDisablingStrategy,
 	};
 	use sp_runtime::Perbill;
-	use sp_staking::{EraIndex, offence::OffenceSeverity};
+	use sp_staking::{offence::OffenceSeverity, EraIndex};
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set
@@ -8370,7 +8370,7 @@ mod disabling_strategy_with_reenabling {
 		UpToLimitWithReEnablingDisablingStrategy,
 	};
 	use sp_runtime::Perbill;
-	use sp_staking::{EraIndex, offence::OffenceSeverity};
+	use sp_staking::{offence::OffenceSeverity, EraIndex};
 
 	// Common test data - the stash of the offending validator, the era of the offence and the
 	// active set

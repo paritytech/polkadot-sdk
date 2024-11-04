@@ -63,8 +63,8 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 /// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
 /// severity for re-enabling purposes.
 pub mod v16 {
-	use sp_staking::offence::OffenceSeverity;
 	use super::*;
+	use sp_staking::offence::OffenceSeverity;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
