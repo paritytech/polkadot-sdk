@@ -12,7 +12,6 @@
   "codeSubstitutes": {},
   "genesis": {
     "runtimeGenesis": {
-      "code": "0x010203",
       "config": {
         "babe": {
           "authorities": [
