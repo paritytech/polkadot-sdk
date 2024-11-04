@@ -919,12 +919,15 @@ impl<T: Config> Pallet<T> {
 // where we pass the active child bounties and child curator fees to the parent
 // bounty.
 impl<T: Config> pallet_bounties::ChildBountyManager<BalanceOf<T>> for Pallet<T> {
+	/// Returns number of active child bounties for `bounty_id`
 	fn child_bounties_count(
 		bounty_id: pallet_bounties::BountyIndex,
 	) -> pallet_bounties::BountyIndex {
 		ParentChildBounties::<T>::get(bounty_id)
 	}
 
+	/// Returns cumulative child bounty curator fees for `bounty_id` also removing the associated
+	/// storage item. This function is assumed to be called when parent bounty is claimed.
 	fn children_curator_fees(bounty_id: pallet_bounties::BountyIndex) -> BalanceOf<T> {
 		// This is asked for when the parent bounty is being claimed. No use of
 		// keeping it in state after that. Hence removing.
