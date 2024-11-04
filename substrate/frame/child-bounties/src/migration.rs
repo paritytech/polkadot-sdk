@@ -77,8 +77,7 @@ pub mod v1 {
 					new_child_bounty_id,
 				);
 
-				let bounty_description =
-					v1::ChildBountyDescriptions::<T>::take(old_child_bounty_id);
+				let bounty_description = ChildBountyDescriptions::<T>::take(old_child_bounty_id);
 				writes += 1;
 				let child_bounty = ChildBounties::<T>::take(parent_bounty_id, old_child_bounty_id);
 				writes += 1;
