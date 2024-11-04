@@ -179,6 +179,7 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 		);
 		let mut actual_origin = origin.clone();
 		let skipped = Cell::new(0usize);
+		let mut already_checked_inner_barrier = false;
 		// NOTE: We do not check the validity of `UniversalOrigin` here, meaning that a malicious
 		// origin could place a `UniversalOrigin` in order to spoof some location which gets free
 		// execution. This technical could get it past the barrier condition, but the execution
@@ -206,10 +207,11 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 						};
 						InnerBarrier::should_execute(
 							&actual_origin,
-							&mut instructions[skipped.get()..],
+							&mut xcm.inner_mut(),
 							max_weight,
 							properties
 						)?;
+						already_checked_inner_barrier = true;
 					}
 					_ => return Ok(ControlFlow::Break(())),
 				};
@@ -217,12 +219,16 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 				Ok(ControlFlow::Continue(()))
 			},
 		)?;
-		InnerBarrier::should_execute(
-			&actual_origin,
-			&mut instructions[skipped.get()..],
-			max_weight,
-			properties,
-		)
+		if already_checked_inner_barrier {
+			Ok(())
+		} else {
+			InnerBarrier::should_execute(
+				&actual_origin,
+				&mut instructions[skipped.get()..],
+				max_weight,
+				properties,
+			)
+		}
 	}
 }
 
