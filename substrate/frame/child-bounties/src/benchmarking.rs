@@ -23,7 +23,8 @@ use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_support::ensure;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_bounties::Pallet as Bounties;
-use pallet_treasury as Treasury;
+use pallet_treasury::Pallet as Treasury;
+use sp_runtime::traits::BlockNumberProvider;
 
 use crate::*;
 
@@ -51,6 +52,10 @@ struct BenchmarkChildBounty<T: Config> {
 	child_bounty_fee: BalanceOf<T>,
 	/// Bounty description.
 	reason: Vec<u8>,
+}
+
+fn set_block_number<T: Config>(n: BlockNumberFor<T>) {
+	<T as pallet_treasury::Config>::BlockNumberProvider::set_block_number(n);
 }
 
 fn setup_bounty<T: Config>(
@@ -113,7 +118,8 @@ fn activate_bounty<T: Config>(
 	let approve_origin =
 		T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	Bounties::<T>::approve_bounty(approve_origin, child_bounty_setup.bounty_id)?;
-	Treasury::<T>::on_initialize(BlockNumberFor::<T>::zero());
+	set_block_number::<T>(T::SpendPeriod::get());
+	Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	Bounties::<T>::propose_curator(
 		RawOrigin::Root.into(),
 		child_bounty_setup.bounty_id,
@@ -264,8 +270,8 @@ mod benchmarks {
 	fn unassign_curator() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
-		Treasury::<T>::on_initialize(BlockNumberFor::<T>::zero());
-		frame_system::Pallet::<T>::set_block_number(T::BountyUpdatePeriod::get() + 1u32.into());
+		Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+		set_block_number::<T>(T::SpendPeriod::get() + T::BountyUpdatePeriod::get() + 1u32.into());
 		let caller = whitelisted_caller();
 
 		#[extrinsic_call]
@@ -317,7 +323,7 @@ mod benchmarks {
 
 		let beneficiary_account = account("beneficiary", 0, SEED);
 
-		frame_system::Pallet::<T>::set_block_number(T::BountyDepositPayoutDelay::get());
+		set_block_number::<T>(T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get());
 		ensure!(
 			T::Currency::free_balance(&beneficiary_account).is_zero(),
 			"Beneficiary already has balance."
@@ -371,7 +377,7 @@ mod benchmarks {
 	fn close_child_bounty_active() -> Result<(), BenchmarkError> {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
-		Treasury::<T>::on_initialize(BlockNumberFor::<T>::zero());
+		Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		#[extrinsic_call]
 		close_child_bounty(RawOrigin::Root, bounty_setup.bounty_id, bounty_setup.child_bounty_id);
