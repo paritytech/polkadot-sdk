@@ -45,7 +45,10 @@ use frame_support::{
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles,
-		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
+		tokens::{
+			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, Fortitude::Polite,
+			Preservation::Expendable,
+		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, InstanceFilter,
 		Nothing, TransformOrigin,
 	},
@@ -58,7 +61,7 @@ use frame_system::{
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::{DestroyWitness, PalletFeatures};
-use pallet_revive::evm::runtime::EthExtra;
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -124,7 +127,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westmint"),
 	impl_name: create_runtime_str!("westmint"),
 	authoring_version: 1,
-	spec_version: 1_016_002,
+	spec_version: 1_016_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -968,6 +971,7 @@ impl pallet_revive::Config for Runtime {
 	type Debug = ();
 	type Xcm = pallet_xcm::Pallet<Self>;
 	type ChainId = ConstU64<420_420_421>;
+	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
@@ -2069,8 +2073,18 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, EventRecord> for Runtime
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
+		fn balance(address: H160) -> Balance {
+			use frame_support::traits::fungible::Inspect;
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			Balances::reducible_balance(&account, Expendable, Polite)
+		}
+
+		fn nonce(address: H160) -> Nonce {
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			System::account_nonce(account)
+		}
 		fn eth_transact(
 			from: H160,
 			dest: Option<H160>,
