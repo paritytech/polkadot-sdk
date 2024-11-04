@@ -230,7 +230,7 @@ struct PerSessionState {
 	grid_view: Option<grid::SessionTopologyView>,
 	local_validator: Option<LocalValidatorIndex>,
 	// `true` if v2 candidate receipts are allowed by the runtime
-	v2_receipts: bool,
+	allow_v2_descriptors: bool,
 }
 
 impl PerSessionState {
@@ -238,7 +238,7 @@ impl PerSessionState {
 		session_info: SessionInfo,
 		keystore: &KeystorePtr,
 		backing_threshold: u32,
-		v2_receipts: bool,
+		allow_v2_descriptors: bool,
 	) -> Self {
 		let groups = Groups::new(session_info.validator_groups.clone(), backing_threshold);
 		let mut authority_lookup = HashMap::new();
@@ -258,7 +258,7 @@ impl PerSessionState {
 			authority_lookup,
 			grid_view: None,
 			local_validator,
-			v2_receipts,
+			allow_v2_descriptors,
 		}
 	}
 
@@ -298,7 +298,7 @@ impl PerSessionState {
 
 	/// Returns `true` if v2 candidate receipts are enabled
 	fn candidate_receipt_v2_enabled(&self) -> bool {
-		self.v2_receipts
+		self.allow_v2_descriptors
 	}
 }
 
