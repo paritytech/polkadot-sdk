@@ -39,13 +39,19 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn store(l: Linear<1, { 1024*1024 }>) {
+	fn store(l: Linear<1, { 1024 * 1024 }>) {
 		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), vec![0u8; l as usize]);
 
-		assert_last_event::<T>(Event::Stored { sender: caller, content_hash: sp_io::hashing::blake2_256(&vec![0u8; l as usize]).into() }.into());
+		assert_last_event::<T>(
+			Event::Stored {
+				sender: caller,
+				content_hash: sp_io::hashing::blake2_256(&vec![0u8; l as usize]).into(),
+			}
+			.into(),
+		);
 	}
 
 	impl_benchmark_test_suite!(Remark, crate::mock::new_test_ext(), crate::mock::Test);
