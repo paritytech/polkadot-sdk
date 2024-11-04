@@ -819,7 +819,7 @@ where
 			.map(|_| (address, stack.first_frame.last_frame_output))
 	}
 
-	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn bench_new_call(
 		dest: H160,
 		origin: Origin<T>,
@@ -1268,8 +1268,10 @@ where
 	fn transfer(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) -> ExecResult {
 		// this avoids events to be emitted for zero balance transfers
 		if !value.is_zero() {
-			T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map_err(|_| Error::<T>::TransferFailed)?;
+			T::Currency::transfer(from, to, value, Preservation::Preserve).map_err(|err| {
+				log::debug!(target: LOG_TARGET, "Transfer of {value:?} from {from:?} to {to:?} failed: {err:?}");
+				Error::<T>::TransferFailed
+			})?;
 		}
 		Ok(Default::default())
 	}
@@ -1330,12 +1332,12 @@ where
 
 	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
 	/// on the configured entry point. Thus, we allow setting the export manually.
-	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn override_export(&mut self, export: ExportedFunction) {
 		self.top_frame_mut().entry_point = export;
 	}
 
-	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn set_block_number(&mut self, block_number: BlockNumberFor<T>) {
 		self.block_number = block_number;
 	}

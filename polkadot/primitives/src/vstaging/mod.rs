@@ -208,6 +208,10 @@ pub trait MutateDescriptorV2<H> {
 	fn set_erasure_root(&mut self, erasure_root: Hash);
 	/// Set the para head of the descriptor.
 	fn set_para_head(&mut self, para_head: Hash);
+	/// Set the core index of the descriptor.
+	fn set_core_index(&mut self, core_index: CoreIndex);
+	/// Set the session index of the descriptor.
+	fn set_session_index(&mut self, session_index: SessionIndex);
 }
 
 #[cfg(feature = "test")]
@@ -226,6 +230,14 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 
 	fn set_version(&mut self, version: InternalVersion) {
 		self.version = version;
+	}
+
+	fn set_core_index(&mut self, core_index: CoreIndex) {
+		self.core_index = core_index.0 as u16;
+	}
+
+	fn set_session_index(&mut self, session_index: SessionIndex) {
+		self.session_index = session_index;
 	}
 
 	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash) {
@@ -453,19 +465,32 @@ impl CandidateCommitments {
 
 /// CandidateReceipt construction errors.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum CandidateReceiptError {
 	/// The specified core index is invalid.
+	#[cfg_attr(feature = "std", error("The specified core index is invalid"))]
 	InvalidCoreIndex,
 	/// The core index in commitments doesn't match the one in descriptor
+	#[cfg_attr(
+		feature = "std",
+		error("The core index in commitments doesn't match the one in descriptor")
+	)]
 	CoreIndexMismatch,
 	/// The core selector or claim queue offset is invalid.
+	#[cfg_attr(feature = "std", error("The core selector or claim queue offset is invalid"))]
 	InvalidSelectedCore,
 	/// The parachain is not assigned to any core at specified claim queue offset.
+	#[cfg_attr(
+		feature = "std",
+		error("The parachain is not assigned to any core at specified claim queue offset")
+	)]
 	NoAssignment,
 	/// No core was selected. The `SelectCore` commitment is mandatory for
 	/// v2 receipts if parachains has multiple cores assigned.
+	#[cfg_attr(feature = "std", error("Core selector not present"))]
 	NoCoreSelected,
 	/// Unknown version.
+	#[cfg_attr(feature = "std", error("Unknown internal version"))]
 	UnknownVersion(InternalVersion),
 }
 
