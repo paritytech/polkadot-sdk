@@ -1,0 +1,13 @@
+title: "runtimes: presets are provided as config patches"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces usage of build_struct_json_patch macro in all
+      runtimes (also guides) within the code base.  It also fixes macro to support
+      field init shorthand, and Struct Update syntax which were missing in original
+      implementation.
+
+crates:
+  - name: frame-support
+    bump: patch

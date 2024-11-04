@@ -362,7 +362,7 @@ macro_rules! build_struct_json_patch {
 	($($struct_type:ident)::+, $all_keys:ident  @  ..$update:expr ) => {
 		(
 			$($struct_type)::+ {
-			..{ println!("{:?}", $all_keys); $update }
+			..{ $update }
 			},
 			$crate::generate_genesis_config::InitilizationType::Full
 		)
@@ -484,11 +484,8 @@ mod test {
 
 	macro_rules! test {
 		($($struct:ident)::+ { $($v:tt)* }, { $($j:tt)* } ) => {{
-			println!("--");
 			let expected = serde_json::json!({ $($j)* });
-			println!("json: {}", serde_json::to_string_pretty(&expected).unwrap());
 			let value = build_struct_json_patch!($($struct)::+ { $($v)* });
-			println!("gc: {}", serde_json::to_string_pretty(&value).unwrap());
 			assert_eq!(value, expected);
 		}};
 	}
@@ -1012,7 +1009,6 @@ mod retain_keys_test {
 		( $s:literal ) => {
 			let field = InitializedField::full($s);
 			let cc = inflector::cases::camelcase::to_camel_case($s);
-			println!("field: {:?}, cc: {}", field, cc);
 			assert_eq!(field,cc);
 		} ;
 		( &[ $f:literal $(, $r:literal)* ]) => {
@@ -1023,7 +1019,6 @@ mod retain_keys_test {
 				.map(|s| inflector::cases::camelcase::to_camel_case(s))
 				.collect::<Vec<_>>()
 				.join(".");
-			println!("field: {:?}, cc: {}", field, cc);
 			assert_eq!(field,cc);
 		} ;
 	);
