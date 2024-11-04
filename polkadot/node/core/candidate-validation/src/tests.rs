@@ -474,7 +474,11 @@ impl ValidationBackend for MockValidateCandidateBackend {
 		unreachable!()
 	}
 
-	async fn update_best_block(&mut self, _block_number: BlockNumber) -> Result<(), String> {
+	async fn update_active_leaves(
+		&mut self,
+		_update: ActiveLeavesUpdate,
+		_ancestors: Option<Vec<Hash>>,
+	) -> Result<(), String> {
 		unreachable!()
 	}
 }
@@ -1441,7 +1445,11 @@ impl ValidationBackend for MockPreCheckBackend {
 		unreachable!()
 	}
 
-	async fn update_best_block(&mut self, _block_number: BlockNumber) -> Result<(), String> {
+	async fn update_active_leaves(
+		&mut self,
+		_update: ActiveLeavesUpdate,
+		_ancestors: Option<Vec<Hash>>,
+	) -> Result<(), String> {
 		unreachable!()
 	}
 }
@@ -1601,7 +1609,11 @@ impl ValidationBackend for MockHeadsUp {
 		Ok(())
 	}
 
-	async fn update_best_block(&mut self, _block_number: BlockNumber) -> Result<(), String> {
+	async fn update_active_leaves(
+		&mut self,
+		_update: ActiveLeavesUpdate,
+		_ancestors: Option<Vec<Hash>>,
+	) -> Result<(), String> {
 		unreachable!()
 	}
 }

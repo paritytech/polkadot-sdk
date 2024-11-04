@@ -31,13 +31,16 @@ use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
-		CandidateValidationMessage, PreCheckOutcome, PvfExecKind, RuntimeApiMessage,
-		RuntimeApiRequest, ValidationFailed,
+		CandidateValidationMessage, ChainApiMessage, PreCheckOutcome, PvfExecKind,
+		RuntimeApiMessage, RuntimeApiRequest, ValidationFailed,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
 };
-use polkadot_node_subsystem_util::{self as util, runtime::ClaimQueueSnapshot};
+use polkadot_node_subsystem_util::{
+	self as util,
+	runtime::{prospective_parachains_mode, ClaimQueueSnapshot, ProspectiveParachainsMode},
+};
 use polkadot_overseer::ActiveLeavesUpdate;
 use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
@@ -50,9 +53,9 @@ use polkadot_primitives::{
 		CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
-	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, ExecutorParams, Hash,
-	PersistedValidationData, PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex,
-	ValidationCode, ValidationCodeHash, ValidatorId,
+	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, PersistedValidationData,
+	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
+	ValidationCodeHash, ValidatorId,
 };
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;
@@ -279,7 +282,7 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							maybe_update_best_block(validation_host.clone(), &update).await;
+							update_active_leaves(ctx.sender(), validation_host.clone(), update.clone()).await;
 							maybe_prepare_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
@@ -552,19 +555,81 @@ where
 	Some(processed_code_hashes)
 }
 
-async fn maybe_update_best_block(
+async fn update_active_leaves<Sender>(
+	sender: &mut Sender,
 	mut validation_backend: impl ValidationBackend,
-	update: &ActiveLeavesUpdate,
-) {
-	let Some(ref leaf) = update.activated else { return };
-	if let Err(err) = validation_backend.update_best_block(leaf.number).await {
+	update: ActiveLeavesUpdate,
+) where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	let ancestors = if let Some(ref leaf) = update.activated {
+		get_block_ancestors(sender, leaf.hash).await
+	} else {
+		None
+	};
+	if let Err(err) = validation_backend.update_active_leaves(update, ancestors).await {
 		gum::warn!(
 			target: LOG_TARGET,
-			?leaf,
 			?err,
-			"cannot update relay parent in validation backend",
+			"cannot update active leaves in validation backend",
 		);
 	};
+}
+
+async fn get_block_ancestors<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<Vec<Hash>>
+where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	let mode = match prospective_parachains_mode(sender, relay_parent).await {
+		Ok(x) => x,
+		Err(err) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?err,
+				"cannot request prospective parachains mode",
+			);
+			return None
+		},
+	};
+	let allowed_ancestry_len = match mode {
+		ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. } => allowed_ancestry_len,
+		_ => {
+			gum::warn!(
+				target: LOG_TARGET,
+				"async backing is disabled",
+			);
+			return None
+		},
+	};
+
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(ChainApiMessage::Ancestors {
+			hash: relay_parent,
+			k: allowed_ancestry_len,
+			response_channel: tx,
+		})
+		.await;
+
+	match rx.await {
+		Ok(Ok(x)) => Some(x),
+		Ok(Err(err)) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?err,
+				"cannot request ancestors",
+			);
+			None
+		},
+		Err(err) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?err,
+				"cannot request ancestors",
+			);
+			None
+		},
+	}
 }
 
 struct RuntimeRequestFailed;
@@ -1069,7 +1134,11 @@ trait ValidationBackend {
 
 	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String>;
 
-	async fn update_best_block(&mut self, block_number: BlockNumber) -> Result<(), String>;
+	async fn update_active_leaves(
+		&mut self,
+		update: ActiveLeavesUpdate,
+		ancestors: Option<Vec<Hash>>,
+	) -> Result<(), String>;
 }
 
 #[async_trait]
@@ -1121,8 +1190,12 @@ impl ValidationBackend for ValidationHost {
 		self.heads_up(active_pvfs).await
 	}
 
-	async fn update_best_block(&mut self, block_number: BlockNumber) -> Result<(), String> {
-		self.update_best_block(block_number).await
+	async fn update_active_leaves(
+		&mut self,
+		update: ActiveLeavesUpdate,
+		ancestors: Option<Vec<Hash>>,
+	) -> Result<(), String> {
+		self.update_active_leaves(update, ancestors).await
 	}
 }
 

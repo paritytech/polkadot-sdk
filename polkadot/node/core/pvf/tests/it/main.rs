@@ -25,10 +25,14 @@ use polkadot_node_core_pvf::{
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
-use polkadot_node_subsystem::messages::PvfExecKind;
+use polkadot_node_subsystem::{
+	messages::{ExecutionJobTtl, PvfExecKind},
+	ActiveLeavesUpdate,
+};
+use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
-	BlockNumber, ExecutorParam, ExecutorParams, PersistedValidationData,
+	ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind,
 };
 use sp_core::H256;
@@ -108,7 +112,7 @@ impl TestHost {
 		pvd: PersistedValidationData,
 		pov: PoV,
 		executor_params: ExecutorParams,
-		ttl: Option<BlockNumber>,
+		ttl: Option<ExecutionJobTtl>,
 	) -> Result<ValidationResult, ValidationError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
@@ -134,8 +138,8 @@ impl TestHost {
 		result_rx.await.unwrap()
 	}
 
-	async fn update_best_block(&self, block_number: BlockNumber) {
-		self.host.lock().await.update_best_block(block_number).await.unwrap();
+	async fn update_active_leaves(&self, update: ActiveLeavesUpdate, ancestors: Option<Vec<Hash>>) {
+		self.host.lock().await.update_active_leaves(update, ancestors).await.unwrap();
 	}
 
 	#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
@@ -205,9 +209,14 @@ async fn execute_job_terminates_on_execution_ttl() {
 		max_pov_size: 4096 * 1024,
 	};
 	let pov = PoV { block_data: BlockData(Vec::new()) };
-	let exec_ttl = Some(9);
+	let exec_ttl =
+		ExecutionJobTtl { allowed_ancestry_len: 2, deadline: 9, relay_parent: Hash::random() };
 
-	host.update_best_block(10).await;
+	host.update_active_leaves(
+		ActiveLeavesUpdate::start_work(new_leaf(Hash::random(), 10)),
+		vec![exec_ttl.relay_parent],
+	)
+	.await;
 
 	let start = std::time::Instant::now();
 	let result = host
@@ -216,7 +225,7 @@ async fn execute_job_terminates_on_execution_ttl() {
 			pvd,
 			pov,
 			Default::default(),
-			exec_ttl,
+			Some(exec_ttl),
 		)
 		.await;
 

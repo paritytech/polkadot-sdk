@@ -186,6 +186,17 @@ pub enum CandidateValidationMessage {
 	},
 }
 
+/// TTL for execution jobs
+#[derive(Debug, Clone, Copy)]
+pub struct ExecutionJobTtl {
+	/// Block number as a deadline for execution job.
+	pub deadline: BlockNumber,
+	/// Relay parent hash.
+	pub relay_parent: Hash,
+	/// How many ancestors of a relay parent are allowed in async backing.
+	pub allowed_ancestry_len: usize,
+}
+
 /// Extends primitives::PvfExecKind, which is a runtime parameter we don't want to change,
 /// to separate and prioritize execution jobs by request type.
 #[derive(Debug, Clone, Copy)]
@@ -197,12 +208,12 @@ pub enum PvfExecKind {
 	/// For backing requests from system parachains.
 	BackingSystemParas {
 		/// TTL for execution jobs
-		ttl: Option<BlockNumber>,
+		ttl: Option<ExecutionJobTtl>,
 	},
 	/// For backing requests.
 	Backing {
 		/// TTL for execution jobs
-		ttl: Option<BlockNumber>,
+		ttl: Option<ExecutionJobTtl>,
 	},
 }
 
@@ -218,7 +229,7 @@ impl PvfExecKind {
 	}
 
 	/// Returns TTL of execution job
-	pub fn ttl(&self) -> Option<BlockNumber> {
+	pub fn ttl(&self) -> Option<ExecutionJobTtl> {
 		match *self {
 			Self::BackingSystemParas { ttl } | Self::Backing { ttl } => ttl,
 			_ => None,
