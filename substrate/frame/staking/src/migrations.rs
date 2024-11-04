@@ -83,7 +83,7 @@ pub mod v16 {
 			// Inject severity
 			let migrated = v15::DisabledValidators::<T>::take()
 				.into_iter()
-				.map(|v| (v, max_offence.clone()))
+				.map(|v| (v, max_offence))
 				.collect::<Vec<_>>();
 
 			DisabledValidators::<T>::set(migrated);
