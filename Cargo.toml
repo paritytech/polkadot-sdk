@@ -742,7 +742,7 @@ derive_more = { version = "0.99.17", default-features = false }
 digest = { version = "0.10.3", default-features = false }
 directories = { version = "5.0.1" }
 dlmalloc = { version = "0.2.4" }
-docify = { version = "0.2.8" }
+docify = { version = "0.2.9" }
 dyn-clonable = { version = "0.9.0" }
 dyn-clone = { version = "1.0.16" }
 ed25519-dalek = { version = "2.1", default-features = false }
