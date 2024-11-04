@@ -53,6 +53,9 @@ pub mod v1 {
 				old_bounty_ids.push((parent_bounty_id, old_child_bounty_id));
 			}
 
+			// keep ids order roughly the same with the old order
+			old_bounty_ids.sort();
+
 			log::info!(
 				target: LOG_TARGET,
 				"Migrating {} child bounties",
