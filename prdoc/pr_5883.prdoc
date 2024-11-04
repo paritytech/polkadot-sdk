@@ -10,3 +10,6 @@ crates:
     bump: minor
   - name: polkadot-primitives
     bump: major
+  - name: polkadot-primitives-test-helpers
+    bump: major
+
