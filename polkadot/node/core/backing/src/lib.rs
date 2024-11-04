@@ -88,10 +88,10 @@ use polkadot_node_subsystem::{
 	messages::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
 		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
-		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
-		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, PvfExecKind,
-		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
-		StoreAvailableDataError,
+		ExecutionJobTtl, HypotheticalCandidate, HypotheticalMembershipRequest,
+		IntroduceSecondedCandidateRequest, ProspectiveParachainsMessage, ProvisionableData,
+		ProvisionerMessage, PvfExecKind, RuntimeApiMessage, RuntimeApiRequest,
+		StatementDistributionMessage, StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -633,7 +633,11 @@ async fn request_candidate_validation(
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 	let is_system = candidate_receipt.descriptor.para_id().is_system();
-	let ttl = allowed_ancestry_len.map(|v| validation_data.relay_parent_number + v as BlockNumber);
+	let ttl = allowed_ancestry_len.map(|v| ExecutionJobTtl {
+		deadline: validation_data.relay_parent_number + v as BlockNumber,
+		allowed_ancestry_len: v,
+		relay_parent: candidate_receipt.descriptor.relay_parent(),
+	});
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
 			validation_data,
