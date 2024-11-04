@@ -240,30 +240,174 @@ mod calls {
 	}
 
 	#[test]
-	fn bail_fails_if_called_in_phase_other_than_signed() {
+	fn register_and_submit_page_and_bail_prohibitted_in_phase_off() {
 		ExtBuilder::default().build_and_execute(|| {
-			let some_bn = 0;
-			let some_page_index = 0;
-
-			let phases = vec![
-				Phase::Halted,
-				Phase::Off,
-				Phase::SignedValidation(some_bn),
-				Phase::Unsigned(some_bn),
-				Phase::Snapshot(some_page_index),
-				Phase::Export(some_bn),
-				Phase::Emergency,
-			];
+			// let some_bn = 0;
+			// let some_page_index = 0;
 
 			let account_id = 99;
-			for phase in phases {
-				roll_to_phase(phase);
+			roll_to_phase(Phase::Off);
 
-				assert_err!(
-					SignedPallet::bail(RuntimeOrigin::signed(account_id)),
-					NotAcceptingSubmissions::<Runtime>,
-				);
-			}
+			assert_err!(
+				SignedPallet::register(RuntimeOrigin::signed(account_id), Default::default()),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::submit_page(
+					RuntimeOrigin::signed(account_id),
+					0,
+					Some(Default::default())
+				),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::bail(RuntimeOrigin::signed(account_id)),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+		})
+	}
+
+	#[test]
+	fn register_and_submit_page_and_bail_prohibitted_in_phase_signed_validation() {
+		ExtBuilder::default().build_and_execute(|| {
+			let some_bn = 0;
+
+			let account_id = 99;
+			roll_to_phase(Phase::SignedValidation(some_bn));
+
+			assert_err!(
+				SignedPallet::register(RuntimeOrigin::signed(account_id), Default::default()),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::submit_page(
+					RuntimeOrigin::signed(account_id),
+					0,
+					Some(Default::default())
+				),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::bail(RuntimeOrigin::signed(account_id)),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+		})
+	}
+
+	#[test]
+	fn register_and_submit_page_and_bail_prohibitted_in_phase_unsigned() {
+		ExtBuilder::default().build_and_execute(|| {
+			let some_bn = 0;
+
+			let account_id = 99;
+			roll_to_phase(Phase::Unsigned(some_bn));
+
+			assert_err!(
+				SignedPallet::register(RuntimeOrigin::signed(account_id), Default::default()),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::submit_page(
+					RuntimeOrigin::signed(account_id),
+					0,
+					Some(Default::default())
+				),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::bail(RuntimeOrigin::signed(account_id)),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+		})
+	}
+
+	#[test]
+	fn register_and_submit_page_and_bail_prohibitted_in_phase_snapshot() {
+		ExtBuilder::default().build_and_execute(|| {
+			let some_page_index = 0;
+			let account_id = 99;
+			roll_to_phase(Phase::Snapshot(some_page_index));
+
+			assert_err!(
+				SignedPallet::register(RuntimeOrigin::signed(account_id), Default::default()),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::submit_page(
+					RuntimeOrigin::signed(account_id),
+					0,
+					Some(Default::default())
+				),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::bail(RuntimeOrigin::signed(account_id)),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+		})
+	}
+
+	#[test]
+	fn register_and_submit_page_and_bail_prohibitted_in_phase_export() {
+		ExtBuilder::default().build_and_execute(|| {
+			let some_bn = 0;
+			let account_id = 99;
+			roll_to_phase(Phase::Export(some_bn));
+
+			assert_err!(
+				SignedPallet::register(RuntimeOrigin::signed(account_id), Default::default()),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::submit_page(
+					RuntimeOrigin::signed(account_id),
+					0,
+					Some(Default::default())
+				),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::bail(RuntimeOrigin::signed(account_id)),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+		})
+	}
+
+	#[test]
+	fn register_and_submit_page_and_bail_prohibitted_in_phase_emergency() {
+		ExtBuilder::default().build_and_execute(|| {
+			let account_id = 99;
+			compute_snapshot_checked();
+			roll_to_phase(Phase::Emergency);
+
+			assert_err!(
+				SignedPallet::register(RuntimeOrigin::signed(account_id), Default::default()),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::submit_page(
+					RuntimeOrigin::signed(account_id),
+					0,
+					Some(Default::default())
+				),
+				NotAcceptingSubmissions::<Runtime>,
+			);
+
+			assert_err!(
+				SignedPallet::bail(RuntimeOrigin::signed(account_id)),
+				NotAcceptingSubmissions::<Runtime>,
+			);
 		})
 	}
 
@@ -348,11 +492,10 @@ mod calls {
 			let some_page_index = 0;
 
 			let phases = vec![
-				Phase::Halted,
-				Phase::Signed,
+				Phase::Off,
+				Phase::Snapshot(some_page_index),
 				Phase::SignedValidation(some_bn),
 				Phase::Unsigned(some_bn),
-				Phase::Snapshot(some_page_index),
 				Phase::Export(some_bn),
 				Phase::Emergency,
 			];
