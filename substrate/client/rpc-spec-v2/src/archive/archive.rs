@@ -55,6 +55,8 @@ use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 
 use tokio::sync::mpsc;
 
+pub(crate) const LOG_TARGET: &str = "rpc-spec-v2::archive";
+
 /// The configuration of [`Archive`].
 pub struct ArchiveConfig {
 	/// The maximum number of items the `archive_storage` can return for a descendant query before
@@ -311,6 +313,8 @@ where
 		let storage_client = ArchiveStorageDiff::new(self.client.clone());
 		let client = self.client.clone();
 
+		log::trace!(target: LOG_TARGET, "Storage diff subscription started");
+
 		let fut = async move {
 			// Deduplicate the items.
 			let mut trie_items = match deduplicate_storage_diff_items(items) {
@@ -324,6 +328,7 @@ where
 			if trie_items.is_empty() {
 				trie_items.push(Vec::new());
 			}
+			log::trace!(target: LOG_TARGET, "Storage diff deduplicated items: {:?}", trie_items);
 
 			let previous_hash = if let Some(previous_hash) = previous_hash {
 				previous_hash
@@ -353,6 +358,7 @@ where
 				let result =
 					futures::future::join(storage_fut, process_events(&mut rx, &mut sink)).await;
 				if !result.1 {
+					log::debug!(target: LOG_TARGET, "Error processing trie queries");
 					return;
 				}
 			}
@@ -370,6 +376,12 @@ async fn process_events(
 	sink: &mut Subscription,
 ) -> bool {
 	while let Some(event) = rx.recv().await {
+		let is_partial_trie_done = std::matches!(event, ArchiveStorageDiffEvent::StorageDiffDone);
+		if is_partial_trie_done {
+			log::debug!(target: LOG_TARGET, "Finished processing partial trie query");
+			break
+		}
+
 		let is_error_event = std::matches!(event, ArchiveStorageDiffEvent::StorageDiffError(_));
 
 		if let Err(_) = sink.send(&event).await {
@@ -377,6 +389,7 @@ async fn process_events(
 		}
 
 		if is_error_event {
+			log::debug!(target: LOG_TARGET, "Error event encountered while processing partial trie query");
 			// Stop further processing if an error event is received.
 			return false
 		}
