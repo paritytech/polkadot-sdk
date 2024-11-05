@@ -237,10 +237,44 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 		.expect(&format!("{:?} is more than enough for sending signals.", TIMEOUT));
 }
 
-async fn respond_to_core_info_queries(
+async fn respond_to_runtime_api_queries(
 	virtual_overseer: &mut VirtualOverseer,
 	test_state: &TestState,
+	hash: Hash,
 ) {
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			rp,
+			RuntimeApiRequest::SessionIndexForChild(tx)
+		)) => {
+			assert_eq!(rp, hash);
+			tx.send(Ok(1)).unwrap();
+		}
+	);
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			rp,
+			RuntimeApiRequest::AsyncBackingParams(tx)
+		)) => {
+			assert_eq!(rp, hash);
+			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
+		}
+	);
+
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			rp,
+			RuntimeApiRequest::NodeFeatures(_, tx)
+		)) => {
+			assert_eq!(rp, hash);
+			tx.send(Ok(polkadot_primitives::NodeFeatures::EMPTY)).unwrap();
+		}
+	);
+
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -254,9 +288,10 @@ async fn respond_to_core_info_queries(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
+			rp,
 			RuntimeApiRequest::ValidatorGroups(tx),
 		)) => {
+			assert_eq!(rp, hash);
 			let _ = tx.send(Ok((
 				test_state.validator_groups.clone(),
 				test_state.group_rotation_info.clone(),
@@ -267,9 +302,10 @@ async fn respond_to_core_info_queries(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
+			rp,
 			RuntimeApiRequest::AvailabilityCores(tx),
 		)) => {
+			assert_eq!(rp, hash);
 			let _ = tx.send(Ok(test_state.cores.clone()));
 		}
 	);
@@ -277,19 +313,10 @@ async fn respond_to_core_info_queries(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
-			RuntimeApiRequest::Version(tx),
-		)) => {
-			let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
+			rp,
 			RuntimeApiRequest::ClaimQueue(tx),
 		)) => {
+			assert_eq!(rp, hash);
 			let _ = tx.send(Ok(test_state.claim_queue.clone()));
 		}
 	);
@@ -470,19 +497,6 @@ async fn advertise_collation(
 	.await;
 }
 
-async fn assert_async_backing_params_request(virtual_overseer: &mut VirtualOverseer, hash: Hash) {
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			relay_parent,
-			RuntimeApiRequest::AsyncBackingParams(tx)
-		)) => {
-			assert_eq!(relay_parent, hash);
-			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
-		}
-	);
-}
-
 // As we receive a relevant advertisement act on it and issue a collation request.
 #[test]
 fn act_on_advertisement() {
@@ -502,8 +516,8 @@ fn act_on_advertisement() {
 		)
 		.await;
 
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -550,8 +564,8 @@ fn act_on_advertisement_v2() {
 		)
 		.await;
 
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -631,9 +645,8 @@ fn collator_reporting_works() {
 		)
 		.await;
 
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
+			.await;
 
 		let peer_b = PeerId::random();
 		let peer_c = PeerId::random();
@@ -748,8 +761,7 @@ fn fetch_one_collation_at_a_time() {
 
 		// Iter over view since the order may change due to sorted invariant.
 		for hash in our_view.iter() {
-			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
-			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+			respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, *hash).await;
 		}
 
 		let peer_b = PeerId::random();
@@ -847,8 +859,7 @@ fn fetches_next_collation() {
 		.await;
 
 		for hash in our_view.iter() {
-			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
-			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+			respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, *hash).await;
 		}
 
 		let peer_b = PeerId::random();
@@ -972,8 +983,8 @@ fn reject_connection_to_next_group() {
 		)
 		.await;
 
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -1024,8 +1035,7 @@ fn fetch_next_collation_on_invalid_collation() {
 		.await;
 
 		for hash in our_view.iter() {
-			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
-			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+			respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, *hash).await;
 		}
 
 		let peer_b = PeerId::random();
@@ -1135,8 +1145,8 @@ fn inactive_disconnected() {
 		)
 		.await;
 
-		assert_async_backing_params_request(&mut virtual_overseer, hash_a).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -1189,8 +1199,7 @@ fn activity_extends_life() {
 		.await;
 
 		for hash in our_view.iter() {
-			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
-			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+			respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, *hash).await;
 		}
 
 		let peer_b = PeerId::random();
@@ -1263,8 +1272,8 @@ fn disconnect_if_no_declare() {
 		)
 		.await;
 
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -1302,8 +1311,8 @@ fn disconnect_if_wrong_declare() {
 		)
 		.await;
 
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -1364,8 +1373,8 @@ fn delay_reputation_change() {
 		)
 		.await;
 
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -1450,8 +1459,8 @@ fn view_change_clears_old_collators() {
 		)
 		.await;
 
-		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
+			.await;
 
 		let peer_b = PeerId::random();
 
@@ -1475,8 +1484,7 @@ fn view_change_clears_old_collators() {
 		.await;
 
 		test_state.group_rotation_info = test_state.group_rotation_info.bump_rotation();
-		assert_async_backing_params_request(&mut virtual_overseer, hash_b).await;
-		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, hash_b).await;
 
 		assert_collator_disconnect(&mut virtual_overseer, peer_b).await;
 

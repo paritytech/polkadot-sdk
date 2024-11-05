@@ -32,7 +32,7 @@ fn get_parent_hash(hash: Hash) -> Hash {
 	Hash::from_low_u64_be(hash.to_low_u64_be() + 1)
 }
 
-async fn assert_assign_incoming(
+async fn assert_construct_per_relay_parent(
 	virtual_overseer: &mut VirtualOverseer,
 	test_state: &TestState,
 	hash: Hash,
@@ -77,16 +77,6 @@ async fn assert_assign_incoming(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 			parent,
-			RuntimeApiRequest::Version(tx),
-		)) if parent == hash => {
-			let _ = tx.send(Ok(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			parent,
 			RuntimeApiRequest::ClaimQueue(tx),
 		)) if parent == hash => {
 			let _ = tx.send(Ok(test_state.claim_queue.clone()));
@@ -117,14 +107,34 @@ pub(super) async fn update_view(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
-				RuntimeApiRequest::AsyncBackingParams(tx),
+				RuntimeApiRequest::SessionIndexForChild(tx)
 			)) => {
-				tx.send(Ok(ASYNC_BACKING_PARAMETERS)).unwrap();
+				tx.send(Ok(1)).unwrap();
 				(parent, new_view.get(&parent).copied().expect("Unknown parent requested"))
 			}
 		);
 
-		assert_assign_incoming(
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::AsyncBackingParams(tx),
+			)) => {
+				tx.send(Ok(ASYNC_BACKING_PARAMETERS)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::NodeFeatures(_, tx)
+			)) => {
+				tx.send(Ok(polkadot_primitives::NodeFeatures::EMPTY)).unwrap();
+			}
+		);
+
+		assert_construct_per_relay_parent(
 			virtual_overseer,
 			test_state,
 			leaf_hash,
@@ -193,7 +203,7 @@ pub(super) async fn update_view(
 
 		// Skip the leaf.
 		for (hash, number) in ancestry_iter.skip(1).take(requested_len.saturating_sub(1)) {
-			assert_assign_incoming(
+			assert_construct_per_relay_parent(
 				virtual_overseer,
 				test_state,
 				hash,

@@ -49,11 +49,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	request_session_index_for_child,
-	runtime::{
-		fetch_claim_queue, prospective_parachains_mode, request_node_features,
-		ProspectiveParachainsMode,
-	},
+	request_claim_queue, request_session_index_for_child,
+	runtime::{prospective_parachains_mode, request_node_features, ProspectiveParachainsMode},
 };
 use polkadot_primitives::{
 	node_features,
@@ -497,10 +494,10 @@ where
 		return Ok(None)
 	};
 
-	let claim_queue = fetch_claim_queue(sender, relay_parent)
+	let claim_queue = request_claim_queue(relay_parent, sender)
 		.await
-		.map_err(Error::Runtime)?
-		.ok_or(Error::FetchClaimQueue)?;
+		.await
+		.map_err(Error::CancelledClaimQueue)??;
 
 	let paras_now = cores
 		.get(core_now.0 as usize)
@@ -510,7 +507,7 @@ where
 				CoreState::Occupied(_),
 				ProspectiveParachainsMode::Enabled { max_candidate_depth, .. },
 			) if max_candidate_depth == 0 => None,
-			_ => claim_queue.0.get(&core_now).cloned(),
+			_ => claim_queue.get(&core_now).cloned(),
 		})
 		.unwrap_or_else(|| VecDeque::new());
 
@@ -1266,7 +1263,7 @@ where
 			.map(|b| *b)
 			.unwrap_or(false);
 
-		if let Some(per_relay_parent) = construct_per_relay_parent(
+		let Some(per_relay_parent) = construct_per_relay_parent(
 			sender,
 			&mut state.current_assignments,
 			keystore,
@@ -1276,9 +1273,12 @@ where
 			session_index,
 		)
 		.await?
-		{
-			state.per_relay_parent.insert(*leaf, per_relay_parent);
-		}
+		else {
+			continue
+		};
+
+		state.active_leaves.insert(*leaf, mode);
+		state.per_relay_parent.insert(*leaf, per_relay_parent);
 
 		if mode.is_enabled() {
 			state
@@ -2122,12 +2122,12 @@ fn descriptor_version_sanity_check(
 					core_index.0,
 					per_relay_parent.current_core.0,
 				))
+			} else {
+				return Err(SecondingError::InvalidReceiptVersion(
+					CandidateDescriptorVersion::V1,
+					CandidateDescriptorVersion::V2,
+				))
 			}
-		} else {
-			return Err(SecondingError::InvalidReceiptVersion(
-				CandidateDescriptorVersion::V1,
-				CandidateDescriptorVersion::V2,
-			))
 		}
 
 		if let Some(session_index) = descriptor.session_index() {
@@ -2136,12 +2136,12 @@ fn descriptor_version_sanity_check(
 					session_index,
 					per_relay_parent.session_index,
 				))
+			} else {
+				return Err(SecondingError::InvalidReceiptVersion(
+					CandidateDescriptorVersion::V1,
+					CandidateDescriptorVersion::V2,
+				))
 			}
-		} else {
-			return Err(SecondingError::InvalidReceiptVersion(
-				CandidateDescriptorVersion::V1,
-				CandidateDescriptorVersion::V2,
-			))
 		}
 
 		Ok(())

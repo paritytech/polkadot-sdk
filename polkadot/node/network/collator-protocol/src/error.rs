@@ -47,9 +47,6 @@ pub enum Error {
 	#[error("Error while accessing runtime information")]
 	Runtime(#[from] runtime::Error),
 
-	#[error("Unable to fetch claim queue")]
-	FetchClaimQueue,
-
 	#[error("Error while accessing Runtime API")]
 	RuntimeApi(#[from] RuntimeApiError),
 
@@ -70,6 +67,9 @@ pub enum Error {
 
 	#[error("Response receiver for session index request cancelled")]
 	CancelledSessionIndex(oneshot::Canceled),
+
+	#[error("Response receiver for claim queue request cancelled")]
+	CancelledClaimQueue(oneshot::Canceled),
 }
 
 /// An error happened on the validator side of the protocol when attempting
