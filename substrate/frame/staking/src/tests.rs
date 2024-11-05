@@ -8406,82 +8406,142 @@ pub mod multi_page_staking {
 
 	#[test]
 	fn multi_page_target_snapshot_works() {
-		ExtBuilder::default().nominate(true).build_and_execute(|| {
-			let bounds = ElectionBoundsBuilder::default().targets_count(2.into()).build().targets;
+		ExtBuilder::default()
+			.nominate(true)
+			.set_status(41, StakerStatus::Validator)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(101, StakerStatus::Idle)
+			.build_and_execute(|| {
+				// all registered validators.
+				assert_eq!(
+					<Test as Config>::TargetList::iter().collect::<Vec<_>>(),
+					vec![51, 31, 41, 21, 11]
+				);
 
-			// fetch from page 3 to 0.
-			assert_eq!(
-				<Staking as ElectionDataProvider>::electable_targets(bounds, 3).unwrap(),
-				vec![31, 21]
-			);
-			assert_eq!(
-				<Staking as ElectionDataProvider>::electable_targets(bounds, 2).unwrap(),
-				vec![11]
-			);
-			// all targets consumed now, thus remaining calls are empty vecs.
-			assert!(<Staking as ElectionDataProvider>::electable_targets(bounds, 1)
-				.unwrap()
-				.is_empty());
-			assert_eq!(TargetSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+				// 2 targets per page.
+				let bounds =
+					ElectionBoundsBuilder::default().targets_count(2.into()).build().targets;
 
-			assert!(<Staking as ElectionDataProvider>::electable_targets(bounds, 0)
-				.unwrap()
-				.is_empty());
+				let mut all_targets = vec![];
 
-			// once we reach page 0, the status reset.
-			assert_eq!(TargetSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
-			// and requesting a nsew snapshot can restart
-			assert_eq!(
-				<Staking as ElectionDataProvider>::electable_targets(bounds, 1).unwrap(),
-				vec![31, 21]
-			);
-		})
+				let targets_page_3 =
+					<Staking as ElectionDataProvider>::electable_targets(bounds, 3).unwrap();
+				all_targets.extend(targets_page_3.clone());
+
+				// result is expected: 2 most significant targets in the target list.
+				assert_eq!(targets_page_3, vec![51, 31]);
+
+				// target snapshot status updated as expecteed: snapshot is ongoing, last target ID
+				// returned was 31 as there has been 2 targets comndumed already.
+				assert_eq!(TargetSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(31));
+
+				let targets_page_2 =
+					<Staking as ElectionDataProvider>::electable_targets(bounds, 2).unwrap();
+				all_targets.extend(targets_page_2.clone());
+
+				assert_eq!(targets_page_2, vec![41, 21]);
+				// 4 targets consumed since the beginning.
+				assert_eq!(TargetSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(21));
+
+				let targets_page_1 =
+					<Staking as ElectionDataProvider>::electable_targets(bounds, 1).unwrap();
+				all_targets.extend(targets_page_1.clone());
+
+				// did not fullfill the bounds because there were not enough targets in the list.
+				assert_eq!(targets_page_1, vec![11]);
+
+				// all targets have been consumed in the list.
+				assert_eq!(TargetSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+
+				// all targets in the list have been consumed, it should return an empty set of
+				// targets.
+				assert!(<Staking as ElectionDataProvider>::electable_targets(bounds, 0)
+					.unwrap()
+					.is_empty());
+
+				// all pages have been requested, thus in waiting status, prepared for
+				// electable targets requests for a new snapshot.
+				assert_eq!(TargetSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+
+				// now request 1 page with bounds where all registerd targets fit. u32::MAX
+				// emulates a no bounds request.
+				let bounds =
+					ElectionBoundsBuilder::default().targets_count(u32::MAX.into()).build().targets;
+
+				let single_page_targets =
+					<Staking as ElectionDataProvider>::electable_targets(bounds, 0).unwrap();
+
+				// complete set of paged targets is the same as single page, no bounds set of
+				// targets.
+				assert_eq!(all_targets, single_page_targets);
+			})
 	}
 
 	#[test]
 	fn multi_page_voter_snapshot_works() {
-		ExtBuilder::default().nominate(true).build_and_execute(|| {
-			let bounds = ElectionBoundsBuilder::default().voters_count(3.into()).build().voters;
+		ExtBuilder::default()
+			.nominate(true)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(41, StakerStatus::Nominator(vec![51]))
+			.set_status(101, StakerStatus::Validator)
+			.build_and_execute(|| {
+				let bounds = ElectionBoundsBuilder::default().voters_count(3.into()).build().voters;
 
-			// fetch from page 3 to 0.
-			assert_eq!(
-				<Staking as ElectionDataProvider>::electing_voters(bounds, 3)
-					.unwrap()
-					.iter()
-					.map(|(x, _, _)| *x)
-					.collect::<Vec<_>>(),
-				vec![11, 21, 31]
-			);
-			assert_eq!(
-				<Staking as ElectionDataProvider>::electing_voters(bounds, 2)
-					.unwrap()
-					.iter()
-					.map(|(x, _, _)| *x)
-					.collect::<Vec<_>>(),
-				vec![101]
-			);
-			// all voters consumed now, thus remaining calls are empty vecs.
-			assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
-				.unwrap()
-				.is_empty());
-			assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+				assert_eq!(
+					<Test as Config>::VoterList::iter().collect::<Vec<_>>(),
+					vec![11, 21, 31, 41, 51, 101],
+				);
 
-			assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
-				.unwrap()
-				.is_empty());
+				let mut all_voters = vec![];
 
-			// once we reach page 0, the status reset.
-			assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
-			// and requesting a nsew snapshot can restart
-			assert_eq!(
-				<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
+				let voters_page_3 = <Staking as ElectionDataProvider>::electing_voters(bounds, 3)
 					.unwrap()
-					.iter()
-					.map(|(x, _, _)| *x)
-					.collect::<Vec<_>>(),
-				vec![11, 21, 31]
-			);
-		})
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+				all_voters.extend(voters_page_3.clone());
+
+				assert_eq!(voters_page_3, vec![11, 21, 31]);
+
+				let voters_page_2 = <Staking as ElectionDataProvider>::electing_voters(bounds, 2)
+					.unwrap()
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+				all_voters.extend(voters_page_2.clone());
+
+				assert_eq!(voters_page_2, vec![41, 51, 101]);
+
+				// all voters in the list have been consumed.
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+
+				// thus page 1 and 0 are empty.
+				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
+					.unwrap()
+					.is_empty());
+				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
+					.unwrap()
+					.is_empty());
+
+				// last page has been requested, reset the snapshot status to waiting.
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+
+				// now request 1 page with bounds where all registerd voters fit. u32::MAX
+				// emulates a no bounds request.
+				let bounds =
+					ElectionBoundsBuilder::default().voters_count(u32::MAX.into()).build().targets;
+
+				let single_page_voters =
+					<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
+						.unwrap()
+						.into_iter()
+						.map(|(a, _, _)| a)
+						.collect::<Vec<_>>();
+
+				// complete set of paged voters is the same as single page, no bounds set of
+				// voters.
+				assert_eq!(all_voters, single_page_voters);
+			})
 	}
 
 	#[test]

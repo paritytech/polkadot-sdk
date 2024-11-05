@@ -148,8 +148,8 @@
 //! > Unless explicitly stated on the contrary, one page is the equivalent of one block. "Pages" and
 //! "blocks" are used interchangibly across the documentation.
 //!
-//! The pallet supports a multi-page election. In a multi-block election, some key parts of the
-//! staking pallet progress over multi pages. Most notably:
+//! The pallet supports a multi-page election. In a multi-page election, some key actions of the
+//! staking pallet progress over multi pages/blocks. Most notably:
 //! 1. **Snapshot creation**: Both the voter and target snapshots are created over multi blocks. The
 //!    [`frame_election_provider_support::ElectionDataProvider`] trait supports that functionality
 //!    by parameterizing the electin voters and electable targets by the page index.
@@ -482,7 +482,7 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 /// Status of a paged snapshot progress.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum SnapshotStatus<AccountId> {
-	/// Paged snapshot is in progress, the `AccountId` was the last staker iterated.
+	/// Paged snapshot is in progress, the `AccountId` was the last staker iterated in the list.
 	Ongoing(AccountId),
 	/// All the stakers in the system have been consumed since the snapshot started.
 	Consumed,
