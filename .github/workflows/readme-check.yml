@@ -1,0 +1,44 @@
+name: Check README Updates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  check-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Find README.docify.md files and check generated READMEs
+        run: |
+          # Find all README.docify.md files
+          DOCIFY_FILES=$(find . -name "README.docify.md")
+
+          for file in $DOCIFY_FILES; do
+            echo "Processing $file"
+            
+            # Get the directory containing the docify file
+            DIR=$(dirname "$file")
+            
+            # Go to the directory and run cargo build
+            cd "$DIR"
+            cargo build --features generate-readme
+            
+            # Check if README.md has any uncommitted changes
+            git diff --exit-code README.md
+            
+            if [ $? -ne 0 ]; then
+              echo "Error: Found uncommitted changes in $DIR/README.md"
+              echo "Please regenerate the README.md file and commit the changes"
+              exit 1
+            fi
+            
+            # Return to the original directory
+            cd - > /dev/null
+          done
