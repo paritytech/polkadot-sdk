@@ -184,7 +184,13 @@ where
 	BE: Backend<Block> + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
 {
-	/// This calls into the database.
+	/// Fetch the storage from the given key.
+	///
+	/// This method returns:
+	/// - `None` if the storage is not present.
+	/// - `Some((StorageResult, None))` for `FetchStorageType::Value`.
+	/// - `Some((StorageResult, None))` for `FetchStorageType::Hash`.
+	/// - `Some((StorageResult, Some(StorageResult)))` for `FetchStorageType::Both`.
 	fn fetch_storage(
 		&self,
 		hash: Block::Hash,
@@ -250,6 +256,9 @@ where
 		}
 	}
 
+	/// Send the provided result to the `tx` sender.
+	///
+	/// Returns `false` if the sender has been closed.
 	fn send_result(
 		tx: &mpsc::Sender<ArchiveStorageDiffEvent>,
 		result: (StorageResult, Option<StorageResult>),
@@ -290,23 +299,28 @@ where
 	) -> Result<(), String> {
 		let mut keys_set = HashSet::new();
 
+		// Parse the child trie key as `ChildInfo` and `String`.
 		let maybe_child_trie = items.first().map(|item| item.child_trie_key.clone()).flatten();
 		let maybe_child_trie_str =
 			items.first().map(|item| item.child_trie_key_string.clone()).flatten();
 
+		// Iterator over the current block.
 		let keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
 
+		// Iterator over the previous block.
 		let mut previous_keys_iter =
 			self.client.raw_keys_iter(previous_hash, maybe_child_trie.clone())?;
 
 		for key in keys_iter {
 			let Some(fetch_type) = Self::starts_with(&key, &items) else {
+				// The key does not start with any of the provided items.
 				continue;
 			};
 
 			let Some(storage_result) =
 				self.fetch_storage(hash, key.clone(), maybe_child_trie.clone(), fetch_type)?
 			else {
+				// There is no storage result for the key.
 				continue
 			};
 
@@ -383,7 +397,13 @@ where
 		Ok(())
 	}
 
-	/// It is guaranteed that all entries correspond to the same child trie or main trie.
+	/// The items provided to this method are obtained by calling `deduplicate_storage_diff_items`.
+	/// The deduplication method ensures that all items `Vec<DiffDetails>` correspond to the same
+	/// `child_trie_key`.
+	///
+	/// This method will iterate over the keys of the main trie or a child trie and fetch the
+	/// given keys. The fetched keys will be sent to the provided `tx` sender to leverage
+	/// the backpressure mechanism.
 	pub async fn handle_trie_queries(
 		&self,
 		hash: Block::Hash,
