@@ -128,7 +128,6 @@ fn runtime_metadata() {
 			methods: vec![
 				RuntimeApiMethodMetadataIR {
 					name: "test",
-					version: 1,
 					inputs: vec![RuntimeApiMethodParamMetadataIR::<MetaForm> {
 						name: "data",
 						ty: meta_type::<u64>(),
@@ -139,7 +138,6 @@ fn runtime_metadata() {
 				},
 				RuntimeApiMethodMetadataIR {
 					name: "something_with_block",
-					version: 1,
 					inputs: vec![RuntimeApiMethodParamMetadataIR::<MetaForm> {
 						name: "block",
 						ty: meta_type::<Block>(),
@@ -150,7 +148,6 @@ fn runtime_metadata() {
 				},
 				RuntimeApiMethodMetadataIR {
 					name: "function_with_two_args",
-					version: 1,
 					inputs: vec![
 						RuntimeApiMethodParamMetadataIR::<MetaForm> {
 							name: "data",
@@ -170,7 +167,6 @@ fn runtime_metadata() {
 				},
 				RuntimeApiMethodMetadataIR {
 					name: "same_name",
-					version: 1,
 					inputs: vec![],
 					output: meta_type::<()>(),
 					docs: vec![],
@@ -181,7 +177,6 @@ fn runtime_metadata() {
 			},
 				RuntimeApiMethodMetadataIR {
 					name: "wild_card",
-					version: 1,
 					inputs: vec![RuntimeApiMethodParamMetadataIR::<MetaForm> {
 						name: "__runtime_api_generated_name_0__",
 						ty: meta_type::<u32>(),
@@ -207,7 +202,6 @@ fn runtime_metadata() {
 			methods: vec![
 				RuntimeApiMethodMetadataIR {
 					name: "version",
-					version: 5,
 					inputs: vec![],
 					output: meta_type::<sp_version::RuntimeVersion>(),
 					docs: maybe_docs(vec![" Returns the version of the runtime."]),
@@ -215,7 +209,6 @@ fn runtime_metadata() {
 				},
 				RuntimeApiMethodMetadataIR {
 					name: "execute_block",
-					version: 5,
 					inputs: vec![RuntimeApiMethodParamMetadataIR::<MetaForm> {
 						name: "block",
 						ty: meta_type::<Block>(),
@@ -227,7 +220,6 @@ fn runtime_metadata() {
 				},
 				RuntimeApiMethodMetadataIR {
 					name: "initialize_block",
-					version: 5,
 					inputs: vec![RuntimeApiMethodParamMetadataIR::<MetaForm> {
 						name: "header",
 						ty: meta_type::<&<Block as BlockT>::Header>(),
