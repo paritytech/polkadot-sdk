@@ -116,8 +116,8 @@ impl NodeKeyParams {
 						.clone()
 						.unwrap_or_else(|| net_config_dir.join(NODE_KEY_ED25519_FILE));
 					if !self.unsafe_force_node_key_generation &&
-						role.is_authority() && !is_dev &&
-						!key_path.exists()
+						role.is_authority() &&
+						!is_dev && !key_path.exists()
 					{
 						return Err(Error::NetworkKeyNotFound(key_path))
 					}
