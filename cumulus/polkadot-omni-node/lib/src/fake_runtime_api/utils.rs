@@ -202,7 +202,7 @@ macro_rules! impl_node_runtime_apis {
 
 				fn dispatch_benchmark(
 					_: frame_benchmarking::BenchmarkConfig
-				) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {
+				) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 					unimplemented!()
 				}
 			}

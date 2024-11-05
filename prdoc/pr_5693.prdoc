@@ -18,7 +18,7 @@ doc:
       		fn dispatch_benchmark(
       			config: frame_benchmarking::BenchmarkConfig
       -		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-      +		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, String> {
+      +		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
       ```
       SCALE encoding/decoding remains the same as before, but serde encoding in runtime has changed from bytes to string (it was like this in `std` environment already).
 crates:
