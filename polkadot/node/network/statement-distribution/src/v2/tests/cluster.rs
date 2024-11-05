@@ -25,6 +25,7 @@ fn share_seconded_circulated_to_cluster() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -125,6 +126,7 @@ fn cluster_valid_statement_before_seconded_ignored() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -185,6 +187,7 @@ fn cluster_statement_bad_signature() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -258,6 +261,7 @@ fn useful_cluster_statement_from_non_cluster_peer_rejected() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -320,6 +324,7 @@ fn elastic_scaling_useful_cluster_statement_from_non_cluster_peer_rejected() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -379,6 +384,7 @@ fn statement_from_non_cluster_originator_unexpected() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -434,6 +440,7 @@ fn seconded_statement_leads_to_request() {
 		group_size,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -522,6 +529,7 @@ fn cluster_statements_shared_seconded_first() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -636,6 +644,7 @@ fn cluster_accounts_for_implicit_view() {
 		group_size: 3,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -772,6 +781,7 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 		group_size,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -895,6 +905,7 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 		group_size,
 		local_validator: LocalRole::Validator,
 		async_backing_params: None,
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
@@ -1031,6 +1042,7 @@ fn ensure_seconding_limit_is_respected() {
 			max_candidate_depth: 1,
 			allowed_ancestry_len: 3,
 		}),
+		allow_v2_descriptors: false,
 	};
 
 	let relay_parent = Hash::repeat_byte(1);
