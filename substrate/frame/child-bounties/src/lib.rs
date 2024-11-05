@@ -227,7 +227,7 @@ pub mod pallet {
 
 	/// The description of each child-bounty.
 	#[pallet::storage]
-	pub type ParentChildBountyDescriptions<T: Config> = StorageDoubleMap<
+	pub type ChildBountyDescriptionsV2<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		BountyIndex,
@@ -753,10 +753,7 @@ pub mod pallet {
 						});
 
 						// Remove the child-bounty description.
-						ParentChildBountyDescriptions::<T>::remove(
-							parent_bounty_id,
-							child_bounty_id,
-						);
+						ChildBountyDescriptionsV2::<T>::remove(parent_bounty_id, child_bounty_id);
 
 						// Remove the child-bounty instance from the state.
 						*maybe_child_bounty = None;
@@ -861,7 +858,7 @@ impl<T: Config> Pallet<T> {
 			status: ChildBountyStatus::Added,
 		};
 		ChildBounties::<T>::insert(parent_bounty_id, child_bounty_id, &child_bounty);
-		ParentChildBountyDescriptions::<T>::insert(parent_bounty_id, child_bounty_id, description);
+		ChildBountyDescriptionsV2::<T>::insert(parent_bounty_id, child_bounty_id, description);
 		Self::deposit_event(Event::Added { index: parent_bounty_id, child_index: child_bounty_id });
 	}
 
@@ -932,7 +929,7 @@ impl<T: Config> Pallet<T> {
 				debug_assert!(transfer_result.is_ok());
 
 				// Remove the child-bounty description.
-				ParentChildBountyDescriptions::<T>::remove(parent_bounty_id, child_bounty_id);
+				ChildBountyDescriptionsV2::<T>::remove(parent_bounty_id, child_bounty_id);
 
 				*maybe_child_bounty = None;
 

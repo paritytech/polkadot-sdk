@@ -127,7 +127,7 @@ pub mod v1 {
 					);
 				}
 				if let Some(bounty_description) = bounty_description {
-					super::super::ParentChildBountyDescriptions::<T>::insert(
+					super::super::ChildBountyDescriptionsV2::<T>::insert(
 						parent_bounty_id,
 						new_child_bounty_id,
 						bounty_description,
@@ -167,7 +167,7 @@ pub mod v1 {
 				StateType::decode(&mut &state[..]).expect("Can't decode previous state");
 			let new_child_bounty_count = ChildBounties::<T>::iter_keys().count() as u32;
 			let new_child_bounty_descriptions =
-				super::super::ParentChildBountyDescriptions::<T>::iter_keys().count() as u32;
+				super::super::ChildBountyDescriptionsV2::<T>::iter_keys().count() as u32;
 
 			ensure!(
 				old_child_bounty_count == new_child_bounty_count,
