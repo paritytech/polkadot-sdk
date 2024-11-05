@@ -236,6 +236,7 @@ pub mod pallet {
 	///
 	/// The `V0` ids based on total child bounty count [`ChildBountyCount`]`. The `V1` version ids
 	/// based on the child bounty count per parent bounty [`ParentTotalChildBounties`].
+	/// The item intended solely for client convenience and not used in the pallet's core logic.
 	#[pallet::storage]
 	pub type V0ToV1ChildBountyIds<T: Config> =
 		StorageMap<_, Twox64Concat, BountyIndex, (BountyIndex, BountyIndex)>;
