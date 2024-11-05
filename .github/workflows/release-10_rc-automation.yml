@@ -62,7 +62,7 @@ jobs:
           git config --global gpg.program /home/runner/.local/bin/pgpkms-git
           git config --global user.name "ParityReleases"
           git config --global user.email "release-team@parity.io"
-          git config --global user.signingKey "90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
+          git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
       - name: Compute next rc tag
         # if: ${{ steps.get_rel_product.outputs.product == 'polkadot' }}
@@ -91,14 +91,6 @@ jobs:
             echo "first_rc=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Generate content write token for the release automation
-        id: generate_write_token
-        uses: actions/create-github-app-token@v1
-        with:
-            app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
-            private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
-            owner: paritytech-release
-
       - name: Apply new tag
         env:
           GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
@@ -106,13 +98,6 @@ jobs:
         run: |
          git tag -s $RC_TAG -m "new rc tag $RC_TAG"
          git push origin $RC_TAG
-        # uses: tvdias/github-tagger@ed7350546e3e503b5e942dffd65bc8751a95e49d # v0.0.2
-        # with:
-        #   # We can't use the normal GITHUB_TOKEN for the following reason:
-        #   # https://docs.github.com/en/actions/reference/events-that-trigger-workflows#triggering-new-workflows-using-a-personal-access-token
-        #   # RELEASE_BRANCH_TOKEN requires public_repo OAuth scope
-        #   repo-token: "${{ secrets.RELEASE_BRANCH_TOKEN }}"
-        #   tag: ${{ steps.compute_tag.outputs.new_tag }}
 
       - name: Send Matrix message to ${{ matrix.channel.name }}
         uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
