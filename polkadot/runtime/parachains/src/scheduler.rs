@@ -52,8 +52,6 @@ pub use pallet::*;
 #[cfg(test)]
 mod tests;
 
-const LOG_TARGET: &str = "runtime::parachains::scheduler";
-
 // TODO: Add back + fix.
 // pub mod migration;
 
@@ -208,13 +206,6 @@ impl<T: Config> Pallet<T> {
 	/// Get the validators in the given group, if the group index is valid for this session.
 	pub(crate) fn group_validators(group_index: GroupIndex) -> Option<Vec<ValidatorIndex>> {
 		ValidatorGroups::<T>::get().get(group_index.0 as usize).map(|g| g.clone())
-	}
-
-	/// Iterator over all actually available availability cores.
-	///
-	/// This is all cores which also have a validator group assigned to them.
-	pub(crate) fn availability_cores() -> impl Iterator<Item = CoreIndex> {
-		(0..Self::num_availability_cores()).map(|i| CoreIndex(i as _))
 	}
 
 	/// Get the number of cores.

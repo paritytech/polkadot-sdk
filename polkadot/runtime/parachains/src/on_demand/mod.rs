@@ -31,6 +31,8 @@
 //! occupying multiple cores in on-demand, we will likely add a separate order type, where the
 //! intent can be made explicit.
 
+use core::mem;
+
 use sp_runtime::traits::Zero;
 mod benchmarking;
 // TODO: Add back & fix.
@@ -89,12 +91,12 @@ pub type BalanceOf<T> =
 
 /// Queue data for on-demand.
 #[derive(Encode, Decode, TypeInfo)]
-pub struct OrderStatus<N> {
+struct OrderStatus<N> {
 	/// Last calculated traffic value.
-	pub traffic: FixedU128,
+	traffic: FixedU128,
 
 	/// Enqueued orders.
-	pub queue: BoundedVec<EnqueuedOrder<N>, ON_DEMAND_MAX_QUEUE_MAX_SIZE>,
+	queue: BoundedVec<EnqueuedOrder<N>, ConstU32<ON_DEMAND_MAX_QUEUE_MAX_SIZE>>,
 }
 
 impl<N> Default for OrderStatus<N> {
@@ -104,6 +106,7 @@ impl<N> Default for OrderStatus<N> {
 }
 
 /// Data about a placed on-demand order.
+#[derive(Encode, Decode, TypeInfo)]
 struct EnqueuedOrder<N> {
 	/// The parachain the order was placed for.
 	para_id: ParaId,
@@ -283,10 +286,10 @@ where
 		now: BlockNumberFor<T>,
 		mut num_cores: u32,
 	) -> impl Iterator<Item = ParaId> {
-		pallet::OrderStatus::mutate(|order_status| {
+		pallet::OrderStatus::<T>::mutate(|order_status| {
 			let mut popped = BTreeSet::new();
-			let remaining_orders = Vec::with_capacity(order_status.queue.len());
-			for order in order_status.queue.into_iter() {
+			let mut remaining_orders = Vec::with_capacity(order_status.queue.len());
+			for order in mem::take(&mut order_status.queue).into_iter() {
 				// Order is ready 2 blocks later (asynchronous backing):
 				let ready_at =
 					order.ordered_at.saturating_add(One::one()).saturating_add(One::one());
@@ -298,7 +301,7 @@ where
 					remaining_orders.push(order);
 				}
 			}
-			*order_status.queue = BoundedVec::truncate_from(remaining_orders);
+			order_status.queue = BoundedVec::truncate_from(remaining_orders);
 			popped.into_iter()
 		})
 	}
@@ -307,15 +310,15 @@ where
 	///
 	/// The order could not be served for some reason, give it another chance.
 	///
-	/// NOTE: We are not checking queue size here. So due to push backs it is possible that we
-	/// exceed the maximum queue size slightly.
-	///
 	/// Parameters:
 	/// - `para_id`: The para that did not make it.
 	pub fn push_back_order(para_id: ParaId) {
 		pallet::OrderStatus::<T>::mutate(|order_status| {
 			let now = <frame_system::Pallet<T>>::block_number();
-			order_status.queue.push(EnqueuedOrder { para_id, ordered_at: now });
+			if let Err(e) = order_status.queue.try_push(EnqueuedOrder { para_id, ordered_at: now })
+			{
+				log::debug!(target: LOG_TARGET, "Pushing back order failed (queue too long): {:?}", e.para_id);
+			};
 		});
 	}
 
@@ -357,7 +360,8 @@ where
 			ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
 
 			ensure!(
-				order_status.queue.len() < config.scheduler_params.on_demand_queue_max_size,
+				order_status.queue.len() <
+					config.scheduler_params.on_demand_queue_max_size as usize,
 				Error::<T>::QueueFull
 			);
 
@@ -391,7 +395,10 @@ where
 			});
 
 			let now = <frame_system::Pallet<T>>::block_number();
-			order_status.queue.push(EnqueuedOrder { para_id, ordered_at: now });
+			if let Err(e) = order_status.queue.try_push(EnqueuedOrder { para_id, ordered_at: now })
+			{
+				log::error!(target: LOG_TARGET, "Placing order failed (queue too long): {:?}, but size has been checked above!", e.para_id);
+			};
 
 			Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced {
 				para_id,
@@ -412,7 +419,7 @@ where
 		match Self::calculate_spot_traffic(
 			old_traffic,
 			config.scheduler_params.on_demand_queue_max_size,
-			order_status.queue.len(),
+			order_status.queue.len() as u32,
 			config.scheduler_params.on_demand_target_queue_utilization,
 			config.scheduler_params.on_demand_fee_variability,
 		) {

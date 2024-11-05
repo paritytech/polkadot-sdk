@@ -196,10 +196,6 @@ impl AdvancedAssignments {
 		let Self { bulk_assignments, pool_assignments } = self;
 		bulk_assignments.into_iter().chain(pool_assignments.into_iter())
 	}
-
-	fn collect(self) -> BTreeMap<CoreIndex, ParaId> {
-		self.into_iter().collect()
-	}
 }
 
 impl<N> From<Schedule<N>> for WorkState<N> {
@@ -351,10 +347,6 @@ impl<T: Config> Pallet<T> {
 			assignments.entry(core_idx).or_insert_with(|| next_assignment);
 		}
 		assignments
-	}
-
-	pub(crate) fn coretime_cores() -> impl Iterator<Item = CoreIndex> {
-		(0..Self::num_coretime_cores()).map(|i| CoreIndex(i as _))
 	}
 
 	fn num_coretime_cores() -> u32 {
