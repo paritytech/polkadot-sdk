@@ -20,7 +20,7 @@
 
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::{H256, sp_std::fmt::Debug};
+use sp_core::sp_std::fmt::Debug;
 use sp_runtime::{FixedU128, RuntimeDebug};
 use xcm::latest::prelude::{Location, NetworkId, InteriorLocation};
 
@@ -55,13 +55,4 @@ impl ResolveBridgeId for () {
 	fn resolve_for(_bridged_network: &NetworkId, _bridged_dest: &InteriorLocation) -> Option<Self::BridgeId> {
 		None
 	}
-}
-
-/// A minimized version of `pallet-xcm-bridge-hub-router::Call` that can be used without a runtime.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-#[allow(non_camel_case_types)]
-pub enum XcmBridgeHubRouterCall {
-	/// `pallet-xcm-bridge-hub-router::Call::report_bridge_status`
-	#[codec(index = 0)]
-	report_bridge_status { bridge_id: H256, is_congested: bool },
 }

@@ -1863,22 +1863,10 @@ dependencies = [
 [[package]]
 name = "bp-asset-hub-rococo"
 version = "0.4.0"
-dependencies = [
- "bp-xcm-bridge-hub-router",
- "frame-support",
- "parity-scale-codec",
- "scale-info",
-]
 
 [[package]]
 name = "bp-asset-hub-westend"
 version = "0.3.0"
-dependencies = [
- "bp-xcm-bridge-hub-router",
- "frame-support",
- "parity-scale-codec",
- "scale-info",
-]
 
 [[package]]
 name = "bp-beefy"
