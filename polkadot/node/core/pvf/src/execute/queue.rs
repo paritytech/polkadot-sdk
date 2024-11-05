@@ -897,6 +897,7 @@ impl Unscheduled {
 #[cfg(test)]
 mod tests {
 	use polkadot_node_primitives::BlockData;
+	use polkadot_node_subsystem::messages::ExecutionJobTtl;
 	use sp_core::H256;
 
 	use super::*;
