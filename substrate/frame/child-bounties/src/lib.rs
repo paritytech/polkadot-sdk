@@ -219,12 +219,6 @@ pub mod pallet {
 		ChildBounty<T::AccountId, BalanceOf<T>, BlockNumberFor<T>>,
 	>;
 
-	/// DEPRECATED: Old map of child bounty descriptions which uses deprecated ChildBountyCount for
-	/// keys, to be removed in May 2025
-	#[pallet::storage]
-	pub type ChildBountyDescriptions<T: Config> =
-		StorageMap<_, Twox64Concat, BountyIndex, BoundedVec<u8, T::MaximumReasonLength>>;
-
 	/// The description of each child-bounty.
 	#[pallet::storage]
 	pub type ChildBountyDescriptionsV2<T: Config> = StorageDoubleMap<
