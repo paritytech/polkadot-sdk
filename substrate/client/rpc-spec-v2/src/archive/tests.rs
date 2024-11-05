@@ -36,6 +36,7 @@ use jsonrpsee::{
 };
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
+use sc_rpc::testing::TokioTestExecutor;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_core::{Blake2Hasher, Hasher};
@@ -78,6 +79,7 @@ fn setup_api(
 		client.clone(),
 		backend,
 		CHAIN_GENESIS,
+		Arc::new(TokioTestExecutor::default()),
 		ArchiveConfig { max_descendant_responses, max_queried_items },
 	)
 	.into_rpc();

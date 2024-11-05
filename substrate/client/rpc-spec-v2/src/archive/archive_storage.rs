@@ -470,5 +470,230 @@ pub fn deduplicate_storage_diff_items(
 		}
 	}
 
-	Ok(deduplicated.into_values().collect())
+	Ok(deduplicated
+		.into_iter()
+		.sorted_by_key(|(child_trie_key, _)| child_trie_key.clone())
+		.map(|(_, values)| values)
+		.collect())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn dedup_empty() {
+		let items = vec![];
+		let result = deduplicate_storage_diff_items(items).unwrap();
+		assert!(result.is_empty());
+	}
+
+	#[test]
+	fn dedup_single() {
+		let items = vec![ArchiveStorageDiffItem {
+			key: "0x01".into(),
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: None,
+		}];
+		let result = deduplicate_storage_diff_items(items).unwrap();
+		assert_eq!(result.len(), 1);
+		assert_eq!(result[0].len(), 1);
+
+		let expected = DiffDetails {
+			key: StorageKey(vec![1]),
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: None,
+			child_trie_key_string: None,
+		};
+		assert_eq!(result[0][0], expected);
+	}
+
+	#[test]
+	fn dedup_with_different_keys() {
+		let items = vec![
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+			},
+			ArchiveStorageDiffItem {
+				key: "0x02".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+			},
+		];
+		let result = deduplicate_storage_diff_items(items).unwrap();
+		assert_eq!(result.len(), 1);
+		assert_eq!(result[0].len(), 2);
+
+		let expected = vec![
+			DiffDetails {
+				key: StorageKey(vec![1]),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+				child_trie_key_string: None,
+			},
+			DiffDetails {
+				key: StorageKey(vec![2]),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+				child_trie_key_string: None,
+			},
+		];
+		assert_eq!(result[0], expected);
+	}
+
+	#[test]
+	fn dedup_with_same_keys() {
+		// Identical keys.
+		let items = vec![
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+			},
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+			},
+		];
+		let result = deduplicate_storage_diff_items(items).unwrap();
+		assert_eq!(result.len(), 1);
+		assert_eq!(result[0].len(), 1);
+
+		let expected = vec![DiffDetails {
+			key: StorageKey(vec![1]),
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: None,
+			child_trie_key_string: None,
+		}];
+		assert_eq!(result[0], expected);
+	}
+
+	#[test]
+	fn dedup_with_same_prefix() {
+		// Identical keys.
+		let items = vec![
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+			},
+			ArchiveStorageDiffItem {
+				key: "0x01ff".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+			},
+		];
+		let result = deduplicate_storage_diff_items(items).unwrap();
+		assert_eq!(result.len(), 1);
+		assert_eq!(result[0].len(), 1);
+
+		let expected = vec![DiffDetails {
+			key: StorageKey(vec![1]),
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: None,
+			child_trie_key_string: None,
+		}];
+		assert_eq!(result[0], expected);
+	}
+
+	#[test]
+	fn dedup_with_different_return_types() {
+		let items = vec![
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+			},
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Hash,
+				child_trie_key: None,
+			},
+		];
+		let result = deduplicate_storage_diff_items(items).unwrap();
+		assert_eq!(result.len(), 1);
+		assert_eq!(result[0].len(), 2);
+
+		let expected = vec![
+			DiffDetails {
+				key: StorageKey(vec![1]),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+				child_trie_key_string: None,
+			},
+			DiffDetails {
+				key: StorageKey(vec![1]),
+				return_type: ArchiveStorageDiffType::Hash,
+				child_trie_key: None,
+				child_trie_key_string: None,
+			},
+		];
+		assert_eq!(result[0], expected);
+	}
+
+	#[test]
+	fn dedup_with_different_child_tries() {
+		let items = vec![
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: Some("0x01".into()),
+			},
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: Some("0x02".into()),
+			},
+		];
+		let result = deduplicate_storage_diff_items(items).unwrap();
+		assert_eq!(result.len(), 2);
+		assert_eq!(result[0].len(), 1);
+		assert_eq!(result[1].len(), 1);
+
+		let expected = vec![
+			vec![DiffDetails {
+				key: StorageKey(vec![1]),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: Some(ChildInfo::new_default_from_vec(vec![1])),
+				child_trie_key_string: Some("0x01".into()),
+			}],
+			vec![DiffDetails {
+				key: StorageKey(vec![1]),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: Some(ChildInfo::new_default_from_vec(vec![2])),
+				child_trie_key_string: Some("0x02".into()),
+			}],
+		];
+		assert_eq!(result, expected);
+	}
+
+	#[test]
+	fn dedup_with_same_child_tries() {
+		let items = vec![
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: Some("0x01".into()),
+			},
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: Some("0x01".into()),
+			},
+		];
+		let result = deduplicate_storage_diff_items(items).unwrap();
+		assert_eq!(result.len(), 1);
+		assert_eq!(result[0].len(), 1);
+
+		let expected = vec![DiffDetails {
+			key: StorageKey(vec![1]),
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: Some(ChildInfo::new_default_from_vec(vec![1])),
+			child_trie_key_string: Some("0x01".into()),
+		}];
+		assert_eq!(result[0], expected);
+	}
 }
