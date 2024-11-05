@@ -220,8 +220,10 @@ pub mod pallet {
 	>;
 
 	/// The description of each child-bounty.
+	///
+	/// This item replaces the `ChildBountyDescriptions` storage item from the V0 storage version.
 	#[pallet::storage]
-	pub type ChildBountyDescriptionsV2<T: Config> = StorageDoubleMap<
+	pub type ChildBountyDescriptionsV1<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		BountyIndex,
@@ -230,10 +232,12 @@ pub mod pallet {
 		BoundedVec<u8, T::MaximumReasonLength>,
 	>;
 
-	/// Stores a mapping of `old_child_bounty_id` generated from deprecated `ChildBountyCount`
-	/// storage item to new pair of parent/child ids (`parent_bounty_id`, `new_child_bounty_id`)
+	/// The mapping of the child bounty ids from storage version `V0` to the new `V1` version.
+	///
+	/// The `V0` ids based on total child bounty count [`ChildBountyCount`]`. The `V1` version ids
+	/// based on the child bounty count per parent bounty [`ParentTotalChildBounties`].
 	#[pallet::storage]
-	pub type OldToNewChildBountyIds<T: Config> =
+	pub type V0ToV1ChildBountyIds<T: Config> =
 		StorageMap<_, Twox64Concat, BountyIndex, (BountyIndex, BountyIndex)>;
 
 	/// The cumulative child-bounty curator fee for each parent bounty.
@@ -746,7 +750,7 @@ pub mod pallet {
 						});
 
 						// Remove the child-bounty description.
-						ChildBountyDescriptionsV2::<T>::remove(parent_bounty_id, child_bounty_id);
+						ChildBountyDescriptionsV1::<T>::remove(parent_bounty_id, child_bounty_id);
 
 						// Remove the child-bounty instance from the state.
 						*maybe_child_bounty = None;
@@ -851,7 +855,7 @@ impl<T: Config> Pallet<T> {
 			status: ChildBountyStatus::Added,
 		};
 		ChildBounties::<T>::insert(parent_bounty_id, child_bounty_id, &child_bounty);
-		ChildBountyDescriptionsV2::<T>::insert(parent_bounty_id, child_bounty_id, description);
+		ChildBountyDescriptionsV1::<T>::insert(parent_bounty_id, child_bounty_id, description);
 		Self::deposit_event(Event::Added { index: parent_bounty_id, child_index: child_bounty_id });
 	}
 
@@ -922,7 +926,7 @@ impl<T: Config> Pallet<T> {
 				debug_assert!(transfer_result.is_ok());
 
 				// Remove the child-bounty description.
-				ChildBountyDescriptionsV2::<T>::remove(parent_bounty_id, child_bounty_id);
+				ChildBountyDescriptionsV1::<T>::remove(parent_bounty_id, child_bounty_id);
 
 				*maybe_child_bounty = None;
 
@@ -965,7 +969,7 @@ impl<T: Config> pallet_bounties::ChildBountyManager<BalanceOf<T>> for Pallet<T> 
 		debug_assert!(ParentChildBounties::<T>::get(bounty_id).is_zero());
 		debug_assert!(ChildrenCuratorFees::<T>::get(bounty_id).is_zero());
 		debug_assert!(ChildBounties::<T>::iter_key_prefix(bounty_id).count().is_zero());
-		debug_assert!(ChildBountyDescriptionsV2::<T>::iter_key_prefix(bounty_id).count().is_zero());
+		debug_assert!(ChildBountyDescriptionsV1::<T>::iter_key_prefix(bounty_id).count().is_zero());
 		ParentChildBounties::<T>::remove(bounty_id);
 		ParentTotalChildBounties::<T>::remove(bounty_id);
 	}

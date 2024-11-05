@@ -33,7 +33,7 @@ pub mod v1 {
 
 	/// Migration to index `ChildBountyDescriptions` by parent bounty in a `StorageDoubleMap`.
 	/// Reassigns new ids for child bounties composed of `(parent_bounty_id, child_bounty_id)`.
-	/// Creates a map of `OldToNewChildBountyIds` to find new child bounty id from old child bounty
+	/// Creates a map of `V0ToV1ChildBountyIds` to find new child bounty id from old child bounty
 	/// id.
 	///
 	/// `TransferWeight` returns `Weight` of `unreserve_balance` operation which is perfomed during
@@ -81,7 +81,7 @@ pub mod v1 {
 				);
 				writes += 1;
 
-				OldToNewChildBountyIds::<T>::insert(
+				V0ToV1ChildBountyIds::<T>::insert(
 					old_child_bounty_id,
 					(parent_bounty_id, new_child_bounty_id),
 				);
@@ -134,7 +134,7 @@ pub mod v1 {
 					);
 				}
 				if let Some(bounty_description) = bounty_description {
-					super::super::ChildBountyDescriptionsV2::<T>::insert(
+					super::super::ChildBountyDescriptionsV1::<T>::insert(
 						parent_bounty_id,
 						new_child_bounty_id,
 						bounty_description,
@@ -174,7 +174,7 @@ pub mod v1 {
 				StateType::decode(&mut &state[..]).expect("Can't decode previous state");
 			let new_child_bounty_count = ChildBounties::<T>::iter_keys().count() as u32;
 			let new_child_bounty_descriptions =
-				super::super::ChildBountyDescriptionsV2::<T>::iter_keys().count() as u32;
+				super::super::ChildBountyDescriptionsV1::<T>::iter_keys().count() as u32;
 
 			ensure!(
 				old_child_bounty_count == new_child_bounty_count,
