@@ -50,6 +50,7 @@ use xcm_builder::{
 	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter, ensure_is_remote,
 };
 use xcm_executor::{traits::{ConvertLocation, ConvertOrigin}, XcmExecutor};
+use crate::congestion::BlobDispatcherWithChannelStatus;
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;
@@ -231,7 +232,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
-	type BlobDispatcher = TestBlobDispatcher;
+	type BlobDispatcher = BlobDispatcherWithChannelStatus<TestBlobDispatcher, TestBlobDispatcher>;
 }
 
 /// A router instance simulates a scenario where the router is deployed on a different chain than

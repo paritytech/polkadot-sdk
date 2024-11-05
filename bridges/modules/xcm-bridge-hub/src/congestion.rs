@@ -22,7 +22,8 @@ use codec::Encode;
 use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager, Receiver};
 use sp_runtime::traits::Convert;
 use xcm::latest::{send_xcm, Location, SendXcm, Xcm};
-use crate::{Config, Bridges, LOG_TARGET};
+use xcm_builder::{DispatchBlob, DispatchBlobError};
+use crate::{Config, Bridges, LOG_TARGET, DispatchChannelStatusProvider};
 
 /// Switches the implementation of `LocalXcmChannelManager` based on the `local_origin`.
 ///
@@ -147,5 +148,20 @@ impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender
 
     fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
         Self::report_bridge_status(local_origin, bridge, false)
+    }
+}
+
+/// Adapter that ties together the `DispatchBlob` trait with the `DispatchChannelStatusProvider` trait.
+/// The idea is that `DispatchBlob` triggers message dispatch/delivery on the receiver side,
+/// while `DispatchChannelStatusProvider` provides an status check to ensure the dispatch channel is active (not congested).
+pub struct BlobDispatcherWithChannelStatus<ChannelDispatch, ChannelStatus>(PhantomData<(ChannelDispatch, ChannelStatus)>);
+impl<ChannelDispatch: DispatchBlob, ChannelStatus> DispatchBlob for BlobDispatcherWithChannelStatus<ChannelDispatch, ChannelStatus> {
+    fn dispatch_blob(blob: Vec<u8>) -> Result<(), DispatchBlobError> {
+        ChannelDispatch::dispatch_blob(blob)
+    }
+}
+impl<ChannelDispatch, ChannelStatus: DispatchChannelStatusProvider> DispatchChannelStatusProvider for BlobDispatcherWithChannelStatus<ChannelDispatch, ChannelStatus> {
+    fn is_congested(with: &Location) -> bool {
+        ChannelStatus::is_congested(with)
     }
 }
