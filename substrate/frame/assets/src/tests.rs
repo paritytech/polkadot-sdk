@@ -210,10 +210,10 @@ fn refunding_calls_died_hook() {
 
         assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 0);
         assert_eq!(hooks(), vec![
-			Hook::Died(0, 1),
-			// Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
-			Hook::Died(0, 1)
-		]);
+            Hook::Died(0, 1),
+            // Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
+            Hook::Died(0, 1)
+        ]);
         assert_eq!(asset_ids(), vec![0, 999]);
     });
 }
@@ -655,10 +655,10 @@ fn min_balance_should_work() {
         assert_eq!(Assets::balance(0, 2), 100);
         assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 1);
         assert_eq!(take_hooks(), vec![
-			Hook::Died(0, 1),
-			// Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
-			Hook::Died(0, 1)
-		]);
+            Hook::Died(0, 1),
+            // Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
+            Hook::Died(0, 1)
+        ]);
 
         // Death by `force_transfer`.
         assert_ok!(Assets::force_transfer(RuntimeOrigin::signed(1), 0, 2, 1, 91));
@@ -666,20 +666,20 @@ fn min_balance_should_work() {
         assert_eq!(Assets::balance(0, 1), 100);
         assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 1);
         assert_eq!(take_hooks(), vec![
-			Hook::Died(0, 2),
-			// Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
-			Hook::Died(0, 2)
-		]);
+            Hook::Died(0, 2),
+            // Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
+            Hook::Died(0, 2)
+        ]);
 
         // Death by `burn`.
         assert_ok!(Assets::burn(RuntimeOrigin::signed(1), 0, 1, 91));
         assert!(Assets::maybe_balance(0, 1).is_none());
         assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 0);
         assert_eq!(take_hooks(), vec![
-			Hook::Died(0, 1),
-			// Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
-			Hook::Died(0, 1)
-		]);
+            Hook::Died(0, 1),
+            // Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
+            Hook::Died(0, 1)
+        ]);
 
         // Death by `transfer_approved`.
         assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
@@ -687,10 +687,10 @@ fn min_balance_should_work() {
         assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 100));
         assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91));
         assert_eq!(take_hooks(), vec![
-			Hook::Died(0, 1),
-			// Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
-			Hook::Died(0, 1)
-		]);
+            Hook::Died(0, 1),
+            // Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
+            Hook::Died(0, 1)
+        ]);
     });
 }
 
@@ -1395,10 +1395,23 @@ fn calling_dead_account_fails_if_freezes_or_balances_on_hold_exist_2() {
         assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
 
         set_frozen_balance(0, 1, 50);
+
+        let mut account = Account::<Test>::get(&0, &1)
+            .expect("account has already been touched; qed");
+        let touch_deposit = account.reason.take_deposit().expect("account was created by touching it; qed");
+
         assert_noop!(
 			Assets::refund(RuntimeOrigin::signed(1), 0, true),
 			Error::<Test>::ContainsFreezes
 		);
+
+        // Assert touch deposit is not tainted.
+        let deposit_after_noop = Account::<Test>::get(&0, &1)
+            .and_then(|mut account| {
+                account.reason.take_deposit()
+            });
+        assert_eq!(deposit_after_noop, Some(touch_deposit));
+
         clear_frozen_balance(0, 1);
 
         set_balance_on_hold(0, 1, 50);
@@ -1450,10 +1463,10 @@ fn destroy_accounts_calls_died_hooks() {
         // Accounts 1 and 2 died.
         assert_eq!(hooks(), vec![
             Hook::Died(0, 1),
-			// Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
+            // Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
             Hook::Died(0, 1),
             Hook::Died(0, 2),
-			// Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
+            // Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
             Hook::Died(0, 2)
         ]);
     })
@@ -1517,10 +1530,10 @@ fn freezer_should_work() {
         clear_frozen_balance(0, 1);
         assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 49));
         assert_eq!(hooks(), vec![
-			Hook::Died(0, 1),
-			// Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
-			Hook::Died(0, 1)
-		]);
+            Hook::Died(0, 1),
+            // Note: Hooks get called twice because the hook is called from `Holder` AND `Freezer`.
+            Hook::Died(0, 1)
+        ]);
     });
 }
 
