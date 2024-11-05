@@ -387,13 +387,13 @@ fn treasury_account_doesnt_get_deleted() {
 			<Treasury as OnInitialize<u64>>::on_initialize(2);
 			assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
-      assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), treasury_balance, 3));
+			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), treasury_balance, 3));
 
-      go_to_block(2);
-      assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
+			go_to_block(2);
+			assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
-      assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), Treasury::pot(), 3));
-    }
+			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), Treasury::pot(), 3));
+		}
 
 		go_to_block(4);
 		assert_eq!(Treasury::pot(), 0); // Pot is emptied
