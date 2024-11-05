@@ -143,7 +143,7 @@ impl Workers {
 
 enum QueueEvent {
 	Spawn(IdleWorker, WorkerHandle, ExecuteJob),
-	StartWork(
+	FinishWork(
 		Worker,
 		Result<WorkerInterfaceResponse, WorkerInterfaceError>,
 		ArtifactId,
@@ -333,7 +333,7 @@ async fn handle_mux(queue: &mut Queue, event: QueueEvent) {
 		QueueEvent::Spawn(idle, handle, job) => {
 			handle_worker_spawned(queue, idle, handle, job);
 		},
-		QueueEvent::StartWork(worker, outcome, artifact_id, result_tx) => {
+		QueueEvent::FinishWork(worker, outcome, artifact_id, result_tx) => {
 			handle_job_finish(queue, worker, outcome, artifact_id, result_tx).await;
 		},
 	}
@@ -615,7 +615,7 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 				job.pov,
 			)
 			.await;
-			QueueEvent::StartWork(worker, result, job.artifact.id, job.result_tx)
+			QueueEvent::FinishWork(worker, result, job.artifact.id, job.result_tx)
 		}
 		.boxed(),
 	);

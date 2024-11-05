@@ -403,3 +403,119 @@ macro_rules! test_chain_can_claim_assets {
 		}
 	};
 }
+
+#[macro_export]
+macro_rules! test_dry_run_transfer_across_pk_bridge {
+	( $sender_asset_hub:ty, $sender_bridge_hub:ty, $destination:expr ) => {
+		$crate::macros::paste::paste! {
+			use frame_support::{dispatch::RawOrigin, traits::fungible};
+			use sp_runtime::AccountId32;
+			use xcm::prelude::*;
+			use xcm_runtime_apis::dry_run::runtime_decl_for_dry_run_api::DryRunApiV1;
+
+			let who = AccountId32::new([1u8; 32]);
+			let transfer_amount = 10_000_000_000_000u128;
+			let initial_balance = transfer_amount * 10;
+
+			// Bridge setup.
+			$sender_asset_hub::force_xcm_version($destination, XCM_VERSION);
+			open_bridge_between_asset_hub_rococo_and_asset_hub_westend();
+
+			<$sender_asset_hub as TestExt>::execute_with(|| {
+				type Runtime = <$sender_asset_hub as Chain>::Runtime;
+				type RuntimeCall = <$sender_asset_hub as Chain>::RuntimeCall;
+				type OriginCaller = <$sender_asset_hub as Chain>::OriginCaller;
+				type Balances = <$sender_asset_hub as [<$sender_asset_hub Pallet>]>::Balances;
+
+				// Give some initial funds.
+				<Balances as fungible::Mutate<_>>::set_balance(&who, initial_balance);
+
+				let call = RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
+					dest: Box::new(VersionedLocation::from($destination)),
+					beneficiary: Box::new(VersionedLocation::from(Junction::AccountId32 {
+						id: who.clone().into(),
+						network: None,
+					})),
+					assets: Box::new(VersionedAssets::from(vec![
+						(Parent, transfer_amount).into(),
+					])),
+					fee_asset_item: 0,
+					weight_limit: Unlimited,
+				});
+				let result = Runtime::dry_run_call(OriginCaller::system(RawOrigin::Signed(who)), call).unwrap();
+				// We assert the dry run succeeds and sends only one message to the local bridge hub.
+				assert!(result.execution_result.is_ok());
+				assert_eq!(result.forwarded_xcms.len(), 1);
+				assert_eq!(result.forwarded_xcms[0].0, VersionedLocation::from(Location::new(1, [Parachain($sender_bridge_hub::para_id().into())])));
+			});
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
+	( $asset_hub:ty ) => {
+		$crate::macros::paste::paste! {
+			use emulated_integration_tests_common::USDT_ID;
+			use xcm_runtime_apis::fees::{Error as XcmPaymentApiError, runtime_decl_for_xcm_payment_api::XcmPaymentApiV1};
+
+			$asset_hub::execute_with(|| {
+				// Setup a pool between USDT and WND.
+				type RuntimeOrigin = <$asset_hub as Chain>::RuntimeOrigin;
+				type Assets = <$asset_hub as [<$asset_hub Pallet>]>::Assets;
+				type AssetConversion = <$asset_hub as [<$asset_hub Pallet>]>::AssetConversion;
+				let wnd = Location::new(1, []);
+				let usdt = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())]);
+				let sender = [<$asset_hub Sender>]::get();
+				assert_ok!(AssetConversion::create_pool(
+					RuntimeOrigin::signed(sender.clone()),
+					Box::new(wnd.clone()),
+					Box::new(usdt.clone()),
+				));
+
+				type Runtime = <$asset_hub as Chain>::Runtime;
+				let acceptable_payment_assets = Runtime::query_acceptable_payment_assets(4).unwrap();
+				assert_eq!(acceptable_payment_assets, vec![
+					VersionedAssetId::from(AssetId(wnd.clone())),
+					VersionedAssetId::from(AssetId(usdt.clone())),
+				]);
+
+				let program = Xcm::<()>::builder()
+					.withdraw_asset((Parent, 100u128))
+					.buy_execution((Parent, 10u128), Unlimited)
+					.deposit_asset(All, [0u8; 32])
+					.build();
+				let weight = Runtime::query_xcm_weight(VersionedXcm::from(program)).unwrap();
+				let fee_in_wnd = Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(wnd.clone()))).unwrap();
+				// Assets not in a pool don't work.
+				assert!(Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(1)])))).is_err());
+				let fee_in_usdt_fail = Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(usdt.clone())));
+				// Weight to asset fee fails because there's not enough asset in the pool.
+				// We just created it, there's none.
+				assert_eq!(fee_in_usdt_fail, Err(XcmPaymentApiError::AssetNotFound));
+				// We add some.
+				assert_ok!(Assets::mint(
+					RuntimeOrigin::signed(sender.clone()),
+					USDT_ID.into(),
+					sender.clone().into(),
+					5_000_000_000_000
+				));
+				// We make 1 WND = 4 USDT.
+				assert_ok!(AssetConversion::add_liquidity(
+					RuntimeOrigin::signed(sender.clone()),
+					Box::new(wnd),
+					Box::new(usdt.clone()),
+					1_000_000_000_000,
+					4_000_000_000_000,
+					0,
+					0,
+					sender.into()
+				));
+				// Now it works.
+				let fee_in_usdt = Runtime::query_weight_to_asset_fee(weight, VersionedAssetId::from(AssetId(usdt)));
+				assert_ok!(fee_in_usdt);
+				assert!(fee_in_usdt.unwrap() > fee_in_wnd);
+			});
+		}
+	};
+}
