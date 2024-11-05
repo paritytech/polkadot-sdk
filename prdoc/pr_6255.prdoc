@@ -22,3 +22,5 @@ crates:
   bump: major
 - name: rococo-runtime
   bump: major
+- name: sp-core
+  bump: minor
