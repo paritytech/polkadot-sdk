@@ -445,15 +445,14 @@ impl CandidateCommitments {
 			self.upward_messages.iter().skip_while(|message| *message != &UMP_SEPARATOR);
 
 		if signals_iter.next().is_some() {
-			let core_selector_message =
-				signals_iter.next().ok_or(CommittedCandidateReceiptError::NoCoreSelected)?;
+			let Some(core_selector_message) = signals_iter.next() else { return Ok(None) };
 			// We should have exactly one signal beyond the separator
 			if signals_iter.next().is_some() {
 				return Err(CommittedCandidateReceiptError::TooManyUMPSignals)
 			}
 
 			match UMPSignal::decode(&mut core_selector_message.as_slice())
-				.map_err(|_| CommittedCandidateReceiptError::InvalidSelectedCore)?
+				.map_err(|_| CommittedCandidateReceiptError::UmpSignalDecode)?
 			{
 				UMPSignal::SelectCore(core_index_selector, cq_offset) =>
 					Ok(Some((core_index_selector, cq_offset))),
@@ -592,8 +591,8 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 
 impl<H: Copy> CommittedCandidateReceiptV2<H> {
 	/// Checks if descriptor core index is equal to the committed core index.
-	/// Input `cores_per_para` is a claim queue snapshot stored as a mapping
-	/// between `ParaId` and the cores assigned per depth.
+	/// Input `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
+	/// a mapping between `ParaId` and the cores assigned per depth.
 	pub fn check_core_index(
 		&self,
 		cores_per_para: &TransposedClaimQueue,
@@ -1084,7 +1083,6 @@ mod tests {
 		new_ccr.descriptor.para_id = ParaId::new(1000);
 
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
 		let mut cq = BTreeMap::new();
 		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
@@ -1097,7 +1095,14 @@ mod tests {
 		new_ccr.commitments.upward_messages.force_push(vec![0, 13, 200].encode());
 
 		// No `SelectCore` can be decoded.
-		assert_eq!(new_ccr.commitments.selected_core(), None);
+		assert_eq!(
+			new_ccr.commitments.core_selector(),
+			Err(CommittedCandidateReceiptError::UmpSignalDecode)
+		);
+
+		// Has two cores assigned but no core commitment. Will pass the check if the descriptor core
+		// index is indeed assigned to the para.
+		new_ccr.commitments.upward_messages.clear();
 
 		let mut cq = BTreeMap::new();
 		cq.insert(
@@ -1108,28 +1113,46 @@ mod tests {
 			CoreIndex(100),
 			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
 		);
+		assert_eq!(new_ccr.check_core_index(&transpose_claim_queue(cq.clone())), Ok(()));
 
+		new_ccr.descriptor.set_core_index(CoreIndex(1));
 		assert_eq!(
 			new_ccr.check_core_index(&transpose_claim_queue(cq.clone())),
-			Err(CommittedCandidateReceiptError::NoCoreSelected)
+			Err(CommittedCandidateReceiptError::InvalidCoreIndex)
 		);
+		new_ccr.descriptor.set_core_index(CoreIndex(0));
 
 		new_ccr.commitments.upward_messages.clear();
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-
 		new_ccr
 			.commitments
 			.upward_messages
 			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
 
-		// Duplicate
+		// No assignments.
+		assert_eq!(
+			new_ccr.check_core_index(&transpose_claim_queue(Default::default())),
+			Err(CommittedCandidateReceiptError::NoAssignment)
+		);
+
+		// Mismatch between descriptor index and commitment.
+		new_ccr.descriptor.set_core_index(CoreIndex(1));
+		assert_eq!(
+			new_ccr.check_core_index(&transpose_claim_queue(cq.clone())),
+			Err(CommittedCandidateReceiptError::CoreIndexMismatch)
+		);
+		new_ccr.descriptor.set_core_index(CoreIndex(0));
+
+		// Too many UMP signals.
 		new_ccr
 			.commitments
 			.upward_messages
 			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
 
-		// Duplicate doesn't override first signal.
-		assert_eq!(new_ccr.check_core_index(&transpose_claim_queue(cq)), Ok(()));
+		assert_eq!(
+			new_ccr.check_core_index(&transpose_claim_queue(cq)),
+			Err(CommittedCandidateReceiptError::TooManyUMPSignals)
+		);
 	}
 
 	#[test]
@@ -1199,18 +1222,13 @@ mod tests {
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
 		assert_eq!(v1_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
-		assert!(v1_ccr.commitments.selected_core().is_some());
+		assert!(v1_ccr.commitments.core_selector().unwrap().is_some());
 
 		let mut cq = BTreeMap::new();
 		cq.insert(CoreIndex(0), vec![v1_ccr.descriptor.para_id()].into());
 		cq.insert(CoreIndex(1), vec![v1_ccr.descriptor.para_id()].into());
 
 		assert!(v1_ccr.check_core_index(&transpose_claim_queue(cq)).is_ok());
-
-		assert_eq!(
-			v1_ccr.commitments.committed_core_index(&vec![&CoreIndex(10), &CoreIndex(5)]),
-			Some(CoreIndex(5)),
-		);
 
 		assert_eq!(v1_ccr.descriptor.core_index(), None);
 	}
@@ -1236,11 +1254,9 @@ mod tests {
 		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
 		cq.insert(CoreIndex(1), vec![new_ccr.descriptor.para_id()].into());
 
-		//  Should fail because 2 cores are assigned,
-		assert_eq!(
-			new_ccr.check_core_index(&transpose_claim_queue(cq)),
-			Err(CommittedCandidateReceiptError::NoCoreSelected)
-		);
+		// Passes even if 2 cores are assigned, because elastic scaling MVP could still inject the
+		// core index in the `BackedCandidate`.
+		assert_eq!(new_ccr.check_core_index(&transpose_claim_queue(cq)), Ok(()));
 
 		// Adding collator signature should make it decode as v1.
 		old_ccr.descriptor.signature = dummy_collator_signature();
