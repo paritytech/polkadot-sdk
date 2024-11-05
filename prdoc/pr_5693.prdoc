@@ -50,15 +50,9 @@ crates:
   bump: major
 - name: people-westend-runtime
   bump: major
-- name: seedling-runtime
-  bump: major
-- name: shell-runtime
-  bump: major
 - name: penpal-runtime
   bump: major
 - name: rococo-parachain-runtime
-  bump: major
-- name: polkadot-parachain-lib
   bump: major
 - name: rococo-runtime
   bump: major
