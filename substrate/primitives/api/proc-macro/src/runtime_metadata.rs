@@ -125,15 +125,21 @@ pub fn generate_decl_runtime_metadata<'a>(
 			Ok(deprecation) => deprecation,
 			Err(e) => return e.into_compile_error(),
 		};
+
+		// Methods are filtered so that only those whose version is <= the `impl_version` passed to
+		// `runtime_metadata` are kept in the metadata we hand back.
 		methods.push(quote!(
 			#( #attrs )*
-			#crate_::metadata_ir::RuntimeApiMethodMetadataIR {
-				name: #method_name,
-				version: #version,
-				inputs: #crate_::vec![ #( #inputs, )* ],
-				output: #output,
-				docs: #docs,
-				deprecation_info: #deprecation,
+			if #version <= impl_version {
+				Some(#crate_::metadata_ir::RuntimeApiMethodMetadataIR {
+					name: #method_name,
+					inputs: #crate_::vec![ #( #inputs, )* ],
+					output: #output,
+					docs: #docs,
+					deprecation_info: #deprecation,
+				})
+			} else {
+				None
 			}
 		));
 	}
@@ -167,12 +173,15 @@ pub fn generate_decl_runtime_metadata<'a>(
 		#crate_::frame_metadata_enabled! {
 			#( #attrs )*
 			#[inline(always)]
-			pub fn runtime_metadata #impl_generics () -> #crate_::metadata_ir::RuntimeApiMetadataIR
+			pub fn runtime_metadata #impl_generics (impl_version: u32) -> #crate_::metadata_ir::RuntimeApiMetadataIR
 				#where_clause
 			{
 				#crate_::metadata_ir::RuntimeApiMetadataIR {
 					name: #trait_name,
-					methods: #crate_::vec![ #( #methods, )* ],
+					methods: [ #( #methods, )* ]
+						.into_iter()
+						.filter_map(|maybe_m| maybe_m)
+						.collect(),
 					docs: #docs,
 					deprecation_info: #deprecation,
 				}
@@ -233,9 +242,8 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 			*segment = parse_quote!(#mod_name);
 		}
 
-		// We apply this filter to remove any API methods that we are not actually implementing
-		// owing to the runtime API impl being for a lower version than what is declared.
-		let api_version_comparison = {
+		// Build a call to request runtime metadata for the appropriate API version.
+		let runtime_metadata_call = {
 			let api_version = extract_api_version(&impl_.attrs, impl_.span())?;
 
 			// If we've annotated an api_version, that defines the methods we need to impl.
@@ -247,21 +255,22 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 				quote! { #trait_::VERSION }
 			};
 
-			// If we have used a cfg_attr to determine which version we're implementing, then
-			// translate that to cfg attrs to conditionally check for that version. Else, we are
-			// looking for any API whose version is greater than the base version defined above.
+			// Handle the case where eg `#[cfg_attr(feature = "foo", api_version(4))]` is
+			// present by using that version only when the feature is enabled and falling 
+			// back to the above version if not.
 			if let Some(cfg_version) = api_version.feature_gated {
 				let cfg_feature = cfg_version.0;
 				let cfg_version = cfg_version.1;
-				quote! {
-					#[cfg(feature = #cfg_feature)]
-					{ method.version <= #cfg_version }
-					#[cfg(not(feature = #cfg_feature))]
-					{ method.version <= #base_version }
-				}
+				quote! {{
+					if cfg!(feature = #cfg_feature) {
+						#trait_::runtime_metadata::#generics(#cfg_version)
+					} else {
+						#trait_::runtime_metadata::#generics(#base_version)
+					}
+				}}
 			} else {
 				quote! {
-					method.version <= #base_version
+					#trait_::runtime_metadata::#generics(#base_version)
 				}
 			}
 		};
@@ -269,7 +278,7 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 		let attrs = filter_cfg_attributes(&impl_.attrs);
 		metadata.push(quote!(
 			#( #attrs )*
-			#trait_::runtime_metadata::#generics().keeping_methods(|method| { #api_version_comparison })
+			#runtime_metadata_call
 		));
 	}
 

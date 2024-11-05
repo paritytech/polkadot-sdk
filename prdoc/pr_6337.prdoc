@@ -12,8 +12,6 @@ doc:
 
 crates:
   - name: sp-api-proc-macro
-    bump: patch
-  - name: sp-metadata-ir
     bump: major
   - name: sp-consensus-babe
     bump: patch
