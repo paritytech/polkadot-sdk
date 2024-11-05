@@ -834,10 +834,21 @@ impl Peerset {
 
 	/// Checks if the peer should be disconnected based on the current state of the [`Peerset`]
 	/// and the provided direction.
+	///
+	/// Note: The role of the peer is not checked.
 	fn should_disconnect(&self, direction: Direction) -> bool {
 		match direction {
 			Direction::Inbound(_) => self.num_in >= self.max_in,
 			Direction::Outbound(_) => self.num_out >= self.max_out,
+		}
+	}
+
+	/// Increment the slot count for given peer.
+	fn increment_slot(&mut self, direction: Direction) {
+		match direction {
+			Direction::Inbound(Reserved::No) => self.num_in += 1,
+			Direction::Outbound(Reserved::No) => self.num_out += 1,
+			_ => {},
 		}
 	}
 
@@ -1029,10 +1040,7 @@ impl Stream for Peerset {
 										// The peer is kept connected as non-reserved. This will
 										// further count towards the slot count.
 										direction.set_reserved(Reserved::No);
-										match direction {
-											Direction::Inbound(_) => self.num_in += 1,
-											Direction::Outbound(_) => self.num_out += 1,
-										}
+										self.increment_slot(direction);
 
 										self.peers
 											.insert(*peer, PeerState::Connected { direction });
@@ -1239,10 +1247,7 @@ impl Stream for Peerset {
 										// The peer is kept connected as non-reserved. This will
 										// further count towards the slot count.
 										direction.set_reserved(Reserved::No);
-										match direction {
-											Direction::Inbound(_) => self.num_in += 1,
-											Direction::Outbound(_) => self.num_out += 1,
-										}
+										self.increment_slot(direction);
 
 										self.peers
 											.insert(*peer, PeerState::Connected { direction });
@@ -1277,10 +1282,7 @@ impl Stream for Peerset {
 										// The peer is kept connected as non-reserved. This will
 										// further count towards the slot count.
 										direction.set_reserved(Reserved::No);
-										match direction {
-											Direction::Inbound(_) => self.num_in += 1,
-											Direction::Outbound(_) => self.num_out += 1,
-										}
+										self.increment_slot(direction);
 
 										self.peers
 											.insert(*peer, PeerState::Opening { direction });
