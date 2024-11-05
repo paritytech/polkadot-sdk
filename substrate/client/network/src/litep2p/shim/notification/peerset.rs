@@ -123,8 +123,8 @@ pub enum Direction {
 impl Direction {
 	fn set_reserved(&mut self, new_reserved: Reserved) {
 		match self {
-			Direction::Inbound(ref mut reserved) => *reserved = new_reserved,
-			Direction::Outbound(ref mut reserved) => *reserved = new_reserved,
+			Direction::Inbound(ref mut reserved) | Direction::Outbound(ref mut reserved) =>
+						*reserved = new_reserved,
 		}
 	}
 }
