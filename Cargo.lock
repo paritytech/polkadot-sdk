@@ -3100,7 +3100,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -16838,7 +16838,7 @@ dependencies = [
  "proc-macro-error-attr2",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
- "syn 2.0.82",
+ "syn 2.0.87",
 ]
 
 [[package]]
