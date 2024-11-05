@@ -931,7 +931,7 @@ async fn set_reserved_peers_move_previously_reserved() {
 		event => panic!("invalid event: {event:?}"),
 	}
 
-	// verify all three peers are counted as outbound peers and they don't count towards
+	// verify all three peers are marked as reserved peers and they don't count towards
 	// slot allocation.
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
@@ -1074,7 +1074,7 @@ async fn set_reserved_peers_cannot_move_previously_reserved() {
 		event => panic!("invalid event: {event:?}"),
 	}
 
-	// verify all three peers are counted as outbound peers and they don't count towards
+	// verify all three peers are marked as reserved peers and they don't count towards
 	// slot allocation.
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
