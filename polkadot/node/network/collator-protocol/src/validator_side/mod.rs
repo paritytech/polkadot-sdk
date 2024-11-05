@@ -2115,45 +2115,29 @@ fn descriptor_version_sanity_check(
 	descriptor: &CandidateDescriptorV2,
 	per_relay_parent: &PerRelayParent,
 ) -> std::result::Result<(), SecondingError> {
-	if per_relay_parent.v2_receipts {
-		if let Some(core_index) = descriptor.core_index() {
-			if core_index != per_relay_parent.current_core {
-				return Err(SecondingError::InvalidCoreIndex(
-					core_index.0,
-					per_relay_parent.current_core.0,
-				))
-			} else {
-				return Err(SecondingError::InvalidReceiptVersion(
-					CandidateDescriptorVersion::V1,
-					CandidateDescriptorVersion::V2,
-				))
+	match descriptor.version() {
+		CandidateDescriptorVersion::V1 => Ok(()),
+		CandidateDescriptorVersion::V2 if per_relay_parent.v2_receipts => {
+			if let Some(core_index) = descriptor.core_index() {
+				if core_index != per_relay_parent.current_core {
+					return Err(SecondingError::InvalidCoreIndex(
+						core_index.0,
+						per_relay_parent.current_core.0,
+					))
+				}
 			}
-		}
 
-		if let Some(session_index) = descriptor.session_index() {
-			if session_index != per_relay_parent.session_index {
-				return Err(SecondingError::InvalidSessionIndex(
-					session_index,
-					per_relay_parent.session_index,
-				))
-			} else {
-				return Err(SecondingError::InvalidReceiptVersion(
-					CandidateDescriptorVersion::V1,
-					CandidateDescriptorVersion::V2,
-				))
+			if let Some(session_index) = descriptor.session_index() {
+				if session_index != per_relay_parent.session_index {
+					return Err(SecondingError::InvalidSessionIndex(
+						session_index,
+						per_relay_parent.session_index,
+					))
+				}
 			}
-		}
 
-		Ok(())
-	} else {
-		let descriptor_version = descriptor.version();
-		if descriptor_version != CandidateDescriptorVersion::V1 {
-			return Err(SecondingError::InvalidReceiptVersion(
-				descriptor_version,
-				CandidateDescriptorVersion::V1,
-			))
-		}
-
-		Ok(())
+			Ok(())
+		},
+		descriptor_version => Err(SecondingError::InvalidReceiptVersion(descriptor_version)),
 	}
 }

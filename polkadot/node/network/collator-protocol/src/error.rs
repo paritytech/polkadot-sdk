@@ -109,8 +109,8 @@ pub enum SecondingError {
 	#[error("Session index {0} present in descriptor is different than the expected one {1}")]
 	InvalidSessionIndex(u32, u32),
 
-	#[error("Invalid candidate receipt version {0:?} vs expected {1:?}")]
-	InvalidReceiptVersion(CandidateDescriptorVersion, CandidateDescriptorVersion),
+	#[error("Invalid candidate receipt version {0:?}")]
+	InvalidReceiptVersion(CandidateDescriptorVersion),
 }
 
 impl SecondingError {
@@ -125,7 +125,7 @@ impl SecondingError {
 				Duplicate | ParentHeadDataMismatch |
 				InvalidCoreIndex(_, _) |
 				InvalidSessionIndex(_, _) |
-				InvalidReceiptVersion(_, _)
+				InvalidReceiptVersion(_)
 		)
 	}
 }
