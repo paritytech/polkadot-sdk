@@ -37,7 +37,7 @@ fn transfer_and_transact_in_same_xcm(
 ) {
 	let signed_origin = <BridgeHubWestend as Chain>::RuntimeOrigin::root();
 	let context: InteriorLocation = [
-		GlobalConsensus(Westend),
+		GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 		Parachain(<BridgeHubWestend as Para>::ParachainInfo::get().into()),
 	]
 	.into();
@@ -47,10 +47,9 @@ fn transfer_and_transact_in_same_xcm(
 	let ah_fees_amount = 90_000_000_000u128; // current exact value 79_948_099_299
 	let fees_for_ah: Asset = (weth.id.clone(), ah_fees_amount).into();
 
-	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
 	// xcm to be executed at dest
 	let xcm_on_dest = Xcm(vec![
-		Transact { origin_kind: OriginKind::Xcm, require_weight_at_most, call },
+		Transact { origin_kind: OriginKind::Xcm, call },
 		ExpectTransactStatus(MaybeErrorCode::Success),
 		// since this is the last hop, we don't need to further use any assets previously
 		// reserved for fees (there are no further hops to cover transport fees for); we

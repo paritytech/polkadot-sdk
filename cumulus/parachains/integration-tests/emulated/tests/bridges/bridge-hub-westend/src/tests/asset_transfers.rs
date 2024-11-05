@@ -567,7 +567,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 		);
 		let sov_ahr_on_ahw =
 			AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
-				Rococo,
+				ByGenesis(ROCOCO_GENESIS_HASH),
 				AssetHubRococo::para_id(),
 			);
 		// send message over bridge
@@ -711,7 +711,7 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		pens_at_ahw
 			.interior()
 			.clone()
-			.pushed_front_with(Junction::GlobalConsensus(NetworkId::Westend))
+			.pushed_front_with(Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH)))
 			.unwrap(),
 	);
 	let wnds_to_send = amount;
@@ -751,7 +751,7 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		<Assets as Inspect<_>>::balance(pens_id_on_penpal, &PenpalBSender::get())
 	});
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
-		Rococo,
+		ByGenesis(ROCOCO_GENESIS_HASH),
 		AssetHubRococo::para_id(),
 	);
 	let wnds_in_reserve_on_ahw_before =
