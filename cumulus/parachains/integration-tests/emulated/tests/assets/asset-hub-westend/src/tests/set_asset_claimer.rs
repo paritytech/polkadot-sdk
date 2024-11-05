@@ -82,8 +82,11 @@ fn test_set_asset_claimer_within_a_chain() {
 fn account_and_location(account: &str) -> (AccountId32, Location) {
 	let account_id = AssetHubWestend::account_id_of(account);
 	let account_clone = account_id.clone();
-	let location: Location =
-		[Junction::AccountId32 { network: Some(ByGenesis(WESTEND_GENESIS_HASH)), id: account_id.into() }].into();
+	let location: Location = [Junction::AccountId32 {
+		network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
+		id: account_id.into(),
+	}]
+	.into();
 	(account_clone, location)
 }
 
@@ -99,7 +102,10 @@ fn test_set_asset_claimer_between_the_chains() {
 		1,
 		[
 			Parachain(AssetHubWestend::para_id().into()),
-			Junction::AccountId32 { network: Some(ByGenesis(WESTEND_GENESIS_HASH)), id: alice.clone().into() },
+			Junction::AccountId32 {
+				network: Some(ByGenesis(WESTEND_GENESIS_HASH)),
+				id: alice.clone().into(),
+			},
 		],
 	);
 

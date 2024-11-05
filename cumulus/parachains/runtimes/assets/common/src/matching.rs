@@ -165,7 +165,9 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location = (Parent, Parent, GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)), Parachain(1000)).into();
+		let origin: Location =
+			(Parent, Parent, GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)), Parachain(1000))
+				.into();
 		assert!(FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset and origin from local consensus fails
@@ -198,7 +200,9 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location = (Parent, Parent, GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)), Parachain(1000)).into();
+		let origin: Location =
+			(Parent, Parent, GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)), Parachain(1000))
+				.into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// origin from different consensus fails

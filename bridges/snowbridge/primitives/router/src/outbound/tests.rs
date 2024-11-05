@@ -5,8 +5,10 @@ use snowbridge_core::{
 	AgentIdOf,
 };
 use sp_std::default::Default;
-use xcm::prelude::SendError as XcmSendError;
-use xcm::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	prelude::SendError as XcmSendError,
+};
 
 use super::*;
 
@@ -1143,7 +1145,8 @@ fn xcm_converter_transfer_native_token_with_invalid_location_will_fail() {
 
 	let amount = 1000000;
 	// Invalid asset location from a different consensus
-	let asset_location = Location { parents: 2, interior: [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))].into() };
+	let asset_location =
+		Location { parents: 2, interior: [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))].into() };
 
 	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
 	let filter: AssetFilter = assets.clone().into();
@@ -1222,7 +1225,8 @@ fn exporter_validate_with_invalid_universal_source_does_not_alter_universal_sour
 	let network = BridgedNetwork::get();
 	let destination: InteriorLocation = Here.into();
 
-	let universal_source: InteriorLocation = [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)].into();
+	let universal_source: InteriorLocation =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000)].into();
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
