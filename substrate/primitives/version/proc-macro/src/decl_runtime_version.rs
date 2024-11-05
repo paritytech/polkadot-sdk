@@ -219,8 +219,10 @@ impl ParseRuntimeVersion {
 					_ => Err(Error::new(lit.span(), "only string literals are supported here")),
 				}
 			},
-			_ =>
-				Err(Error::new(expr.span(), format!("a function call is expected here: {expr:?}"))),
+			_ => Err(Error::new(
+				expr.span(),
+				format!("a function call is expected here, instead of: {expr:?}"),
+			)),
 		}
 	}
 

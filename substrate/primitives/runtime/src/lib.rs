@@ -1040,9 +1040,13 @@ macro_rules! create_runtime_str {
 		$crate::Cow::Borrowed($y)
 	}};
 }
-// Re-export for ^ macro, should be removed once macro is gone
+// TODO: Re-export for ^ macro `create_runtime_str`, should be removed once macro is gone
 #[doc(hidden)]
 pub use alloc::borrow::Cow;
+// TODO: Remove in future versions
+/// Deprecated alias to improve upgrade experience
+#[deprecated = "Use String or Cow<'static, str> instead"]
+pub type RuntimeString = alloc::string::String;
 
 #[cfg(test)]
 mod tests {
