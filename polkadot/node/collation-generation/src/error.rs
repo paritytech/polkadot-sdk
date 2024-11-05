@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_primitives::vstaging::CandidateReceiptError;
+use polkadot_primitives::vstaging::CommittedCandidateReceiptError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -34,7 +34,7 @@ pub enum Error {
 	#[error("Collation submitted before initialization")]
 	SubmittedBeforeInit,
 	#[error("V2 core index check failed: {0}")]
-	CandidateReceiptCheck(CandidateReceiptError),
+	CandidateReceiptCheck(CommittedCandidateReceiptError),
 	#[error("PoV size {0} exceeded maximum size of {1}")]
 	POVSizeExceeded(usize, usize),
 }
