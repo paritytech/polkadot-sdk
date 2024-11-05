@@ -7,11 +7,12 @@ concurrency:
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "cumulus/parachains/runtimes/*"
 
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
-
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
 
@@ -109,7 +110,6 @@ jobs:
       - check-runtime-coretime
       - check-runtime-bridge-hubs
       - check-runtime-contracts
-      - check-runtime-starters
       - check-runtime-testing
     if: always() && !cancelled()
     steps:

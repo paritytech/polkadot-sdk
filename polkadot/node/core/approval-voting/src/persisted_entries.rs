@@ -26,8 +26,8 @@ use polkadot_node_primitives::approval::{
 	v2::{AssignmentCertV2, CandidateBitfield},
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, CoreIndex, GroupIndex, Hash,
-	SessionIndex, ValidatorIndex, ValidatorSignature,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, CandidateIndex,
+	CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
 };
 use sp_consensus_slots::Slot;
 

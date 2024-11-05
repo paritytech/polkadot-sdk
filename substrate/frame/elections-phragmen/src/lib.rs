@@ -1408,7 +1408,7 @@ mod tests {
 
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 	pub type UncheckedExtrinsic =
-		sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
+		sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
 
 	frame_support::construct_runtime!(
 		pub enum Test

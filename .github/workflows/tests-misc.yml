@@ -178,6 +178,11 @@ jobs:
       - name: script
         id: compare
         run: |
+          if [ "${{ github.ref_name }}" = "master" ]; then
+            echo -e "Exiting on master branch"
+            exit 0
+          fi
+
           docker run --rm \
           -v $PWD/artifacts/master:/artifacts/master \
           -v $PWD/artifacts/current:/artifacts/current \
@@ -299,7 +304,7 @@ jobs:
   #         name: hfuzz-${{ github.sha }}
 
   cargo-check-each-crate:
-    timeout-minutes: 140
+    timeout-minutes: 70
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     if: ${{ needs.preflight.outputs.changes_rust }}
@@ -343,7 +348,7 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
       - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@4d1965c9142484e48d40c19de54b5cba84953a06 # v1.10.0
+        uses: actions-rust-lang/setup-rust-toolchain@11df97af8e8102fd60b60a77dfbf58d40cd843b8 # v1.10.1
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}

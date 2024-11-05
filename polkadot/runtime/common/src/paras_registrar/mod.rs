@@ -752,12 +752,21 @@ mod tests {
 		}
 	);
 
-	impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+	impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 	where
 		RuntimeCall: From<C>,
 	{
 		type Extrinsic = UncheckedExtrinsic;
-		type OverarchingCall = RuntimeCall;
+		type RuntimeCall = RuntimeCall;
+	}
+
+	impl<C> frame_system::offchain::CreateInherent<C> for Test
+	where
+		RuntimeCall: From<C>,
+	{
+		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+			UncheckedExtrinsic::new_bare(call)
+		}
 	}
 
 	const NORMAL_RATIO: Perbill = Perbill::from_percent(75);
