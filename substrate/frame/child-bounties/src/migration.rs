@@ -31,13 +31,13 @@ use frame_support::ensure;
 pub mod v1 {
 	use super::*;
 
-	/// Migration to index `ChildBountyDescriptions` by parent bounty in a `StorageDoubleMap`.
-	/// Reassigns new ids for child bounties composed of `(parent_bounty_id, child_bounty_id)`.
-	/// Creates a map of `V0ToV1ChildBountyIds` to find new child bounty id from old child bounty
-	/// id.
+	/// Creates a new ids for the child balances based on the child bounty count per parent bounty
+	/// instead of the total child bounty count. Translates the existing child bounties to the new
+	/// ids. Creates the `V0ToV1ChildBountyIds` map from `old_child_id` to new (`parent_id`,
+	/// `new_child_id`).
 	///
-	/// `TransferWeight` returns `Weight` of `unreserve_balance` operation which is perfomed during
-	/// this migration.
+	/// `TransferWeight` returns `Weight` of `T::Currency::transfer` and `T::Currency::free_balance`
+	/// operation which is performed during this migration.
 	pub struct MigrateToV1Impl<T, TransferWeight>(PhantomData<(T, TransferWeight)>);
 
 	#[storage_alias]
