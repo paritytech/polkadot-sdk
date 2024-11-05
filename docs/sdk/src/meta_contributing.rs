@@ -136,7 +136,7 @@
 //! ## Versioning
 //!
 //! So long as not deployed in `crates.io`, please notice that all of the information in this crate,
-//! namely in [`crate::guides`] and such are compatible with the master branch of `polkadot-sdk`. A
+//! namely in [`guides`] and such are compatible with the master branch of `polkadot-sdk`. A
 //! few solutions have been proposed to improve this, please see
 //! [here](https://github.com/paritytech/polkadot-sdk/issues/6191).
 //!
@@ -167,3 +167,6 @@
 // [`frame_origin`]: crate::reference_docs::frame_origin
 // [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
 // [`trait_based_programming`]: crate::reference_docs::trait_based_programming
+
+//! Link References
+//! [`guides`]: crate::guides

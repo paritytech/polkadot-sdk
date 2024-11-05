@@ -12,7 +12,7 @@
 //! > This guide will build a currency pallet from scratch using only the lowest primitives of
 //! > FRAME, and is mainly intended for education, not *applicability*. For example, almost all
 //! > FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
-//! > one. Further advanced FRAME related topics are discussed in [`crate::reference_docs`].
+//! > one. Further advanced FRAME related topics are discussed in [`reference_docs`].
 //!
 //! ## Writing Your First Pallet
 //!
@@ -806,3 +806,6 @@ pub mod pallet_v2 {
 // [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
 // [`templates`]: crate::polkadot_sdk::templates
 // [`trait_based_programming`]: crate::reference_docs::trait_based_programming
+
+//! Link References
+//! [`reference_docs`]: crate::reference_docs

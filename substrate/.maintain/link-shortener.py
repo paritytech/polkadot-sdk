@@ -39,6 +39,7 @@ class DocLinkProcessor:
     
     # Patterns to match various documentation link formats
     PATTERNS = [
+        r'\[`crate::[^`]+`\]',
         r'\[`crate::reference_docs::[^`]+`\]',
         r'\[`crate::guides::[^`]+`\]',
         r'\[`crate::polkadot_sdk::[^`]+`\]'
@@ -101,9 +102,9 @@ class DocLinkProcessor:
             if not modified_content.endswith('\n'):
                 modified_content += '\n'
             
-            modified_content += '\n// Link References\n'
+            modified_content += '\n//! Link References\n'
             for short_name, full_path in sorted(links):
-                modified_content += f'// [`{short_name}`]: {full_path}\n'
+                modified_content += f'//! [`{short_name}`]: {full_path}\n'
 
             # Handle dry run
             if self.dry_run:
@@ -136,10 +137,8 @@ class DocLinkProcessor:
 
 def get_project_root() -> Path:
     """Get the project root directory."""
-    # Assuming script is run from project root or script location
     script_dir = Path(__file__).resolve().parent
     if script_dir.name == '.maintain':
-        # If we're in .maintain, go up two levels to get to project root
         return script_dir.parent.parent
     return script_dir
 
