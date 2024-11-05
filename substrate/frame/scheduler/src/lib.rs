@@ -107,7 +107,7 @@ use frame_system::{
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
+	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, Saturating, Zero},
 	BoundedVec, DispatchError, RuntimeDebug,
 };
 
@@ -292,6 +292,9 @@ pub mod pallet {
 
 		/// The preimage provider with which we look up call hashes to get the call.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
 	#[pallet::storage]
@@ -889,7 +892,7 @@ impl<T: Config> Pallet<T> {
 	fn resolve_time(
 		when: DispatchTime<BlockNumberFor<T>>,
 	) -> Result<BlockNumberFor<T>, DispatchError> {
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 
 		let when = match when {
 			DispatchTime::At(x) => x,

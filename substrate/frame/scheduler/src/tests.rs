@@ -1636,6 +1636,7 @@ fn on_initialize_weight_is_correct() {
 		));
 
 		// Will include the named periodic only
+		System::set_block_number(1);
 		assert_eq!(
 			Scheduler::on_initialize(1),
 			TestWeightInfo::service_agendas_base() +
@@ -1648,6 +1649,7 @@ fn on_initialize_weight_is_correct() {
 		assert_eq!(logger::log(), vec![(root(), 2600u32)]);
 
 		// Will include anon and anon periodic
+		System::set_block_number(2);
 		assert_eq!(
 			Scheduler::on_initialize(2),
 			TestWeightInfo::service_agendas_base() +
@@ -1663,6 +1665,7 @@ fn on_initialize_weight_is_correct() {
 		assert_eq!(logger::log(), vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32)]);
 
 		// Will include named only
+		System::set_block_number(3);
 		assert_eq!(
 			Scheduler::on_initialize(3),
 			TestWeightInfo::service_agendas_base() +
@@ -1678,6 +1681,7 @@ fn on_initialize_weight_is_correct() {
 		);
 
 		// Will contain none
+		System::set_block_number(4);
 		let actual_weight = Scheduler::on_initialize(4);
 		assert_eq!(
 			actual_weight,
@@ -3033,5 +3037,38 @@ fn unavailable_call_is_detected() {
 		);
 		// It should not be requested anymore.
 		assert!(!Preimage::is_requested(&hash));
+	});
+}
+
+#[test]
+fn basic_scheduling_with_skipped_blocks_works() {
+	new_test_ext().execute_with(|| {
+		// Call to schedule
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+
+		// BaseCallFilter should be implemented to accept `Logger::log` runtime call which is
+		// implemented for `BaseFilter` in the mock runtime
+		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
+
+		// Schedule call to be executed at the 4th block
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap()
+		));
+
+		// `log` runtime call should not have executed yet
+		go_to_block(3);
+		assert!(logger::log().is_empty());
+
+		go_to_block(6);
+		// `log` runtime call should have executed at block 4
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
+
+		go_to_block(100);
+		assert_eq!(logger::log(), vec![(root(), 42u32)]);
 	});
 }

@@ -227,6 +227,7 @@ impl Config for Test {
 	type WeightInfo = TestWeightInfo;
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
+	type BlockNumberProvider = frame_system::Pallet<Self>;
 }
 
 pub type LoggerCall = logger::Call<Test>;
@@ -242,6 +243,12 @@ pub fn run_to_block(n: u64) {
 		System::set_block_number(System::block_number() + 1);
 		Scheduler::on_initialize(System::block_number());
 	}
+}
+
+pub fn go_to_block(n: u64) {
+	System::set_block_number(n);
+	Scheduler::on_initialize(n);
+	Scheduler::on_finalize(n);
 }
 
 pub fn root() -> OriginCaller {
