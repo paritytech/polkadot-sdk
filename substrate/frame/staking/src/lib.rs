@@ -1380,7 +1380,7 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 
 /// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
 /// limit (factor_based_disable_limit) and if the limit is reached and the new offender is higher
-/// (bigger punishment/severity) then it re-enables to lowest offender to free up space for the new
+/// (bigger punishment/severity) then it re-enables the lowest offender to free up space for the new
 /// offender.
 ///
 /// This strategy is not based on cumulative severity of offences but only on the severity of the
