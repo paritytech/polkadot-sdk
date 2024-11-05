@@ -12562,6 +12562,7 @@ dependencies = [
  "rlp 0.6.1",
  "sc-cli",
  "sc-rpc",
+ "sc-rpc-api",
  "sc-service",
  "scale-info",
  "secp256k1",
