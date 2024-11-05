@@ -45,8 +45,9 @@ use polkadot_primitives::{
 		CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
 	},
-	BlockNumber, CandidateHash, CompactStatement, Hash, Header, Id, PersistedValidationData,
-	SessionInfo, SignedStatement, SigningContext, UncheckedSigned, ValidatorIndex, ValidatorPair,
+	BlockNumber, CandidateHash, CompactStatement, CoreIndex, Hash, Header, Id,
+	PersistedValidationData, SessionInfo, SignedStatement, SigningContext, UncheckedSigned,
+	ValidatorIndex, ValidatorPair,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt_v2, dummy_hash, dummy_head_data, dummy_pvd,
@@ -130,6 +131,8 @@ impl TestState {
 				let mut receipt = receipt_templates[candidate_index].clone();
 				receipt.descriptor.set_para_id(Id::new(core_idx as u32 + 1));
 				receipt.descriptor.set_relay_parent(block_info.hash);
+				receipt.descriptor.set_core_index(CoreIndex(core_idx as u32));
+				receipt.descriptor.set_session_index(0);
 
 				state.candidate_receipts.entry(block_info.hash).or_default().push(
 					CandidateReceipt {
