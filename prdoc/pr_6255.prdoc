@@ -11,6 +11,9 @@ doc:
 
     Migration is provided to migrate `ChildBountyDescriptions` and
     `ChildBounties` storage items.
+
+    Old pre-migration ids mapping is stored in the `OldToNewChildBountyIds`
+    storage item.
 crates:
 - name: pallet-child-bounties
   bump: major
