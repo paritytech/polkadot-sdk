@@ -83,7 +83,7 @@ impl MockRuntimeApi {
 		core_state: MockRuntimeApiCoreState,
 	) -> MockRuntimeApi {
 		// Enable chunk mapping feature to make systematic av-recovery possible.
-		let node_features = node_features_with_chunk_mapping_enabled();
+		let node_features = default_node_features();
 		let validator_group_count =
 			session_info_for_peers(&config, &authorities).validator_groups.len();
 
@@ -341,7 +341,7 @@ impl MockRuntimeApi {
 	}
 }
 
-pub fn node_features_with_chunk_mapping_enabled() -> NodeFeatures {
+pub fn default_node_features() -> NodeFeatures {
 	let mut node_features = NodeFeatures::new();
 	node_features.resize(node_features::FeatureIndex::FirstUnassigned as usize, false);
 	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping as u8 as usize, true);
