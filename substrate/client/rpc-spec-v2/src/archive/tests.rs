@@ -1071,3 +1071,37 @@ async fn archive_storage_diff_deleted_changes() {
 	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
 	assert_eq!(ArchiveStorageDiffEvent::StorageDiffDone, event);
 }
+
+#[tokio::test]
+async fn archive_storage_diff_invalid_params() {
+	let invalid_hash = hex_string(&INVALID_HASH);
+	let (_, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+
+	// Invalid shape for parameters.
+	let items: Vec<ArchiveStorageDiffItem<String>> = Vec::new();
+	let err = api
+		.subscribe_unbounded(
+			"archive_unstable_storageDiff",
+			rpc_params!["123", items.clone(), &invalid_hash],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::JsonRpc(ref err) if err.code() == crate::chain_head::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid params"
+	);
+
+	// The shape is right, but the block hash is invalid.
+	let items: Vec<ArchiveStorageDiffItem<String>> = Vec::new();
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_unstable_storageDiff",
+			rpc_params![&invalid_hash, items.clone(), &invalid_hash],
+		)
+		.await
+		.unwrap();
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_matches!(event,
+		ArchiveStorageDiffEvent::StorageDiffError(ref err) if err.error.contains("Header was not found")
+	);
+}
