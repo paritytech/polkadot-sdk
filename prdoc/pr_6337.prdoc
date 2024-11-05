@@ -11,7 +11,9 @@ doc:
       PR fixes that, so that the runtime API metadata reflects what is actually implemented.
 
 crates:
-  - name: sp-api
+  - name: sp-api-proc-macro
     bump: patch
   - name: sp-metadata-ir
     bump: major
+  - name: sp-consensus-babe
+    bump: patch
