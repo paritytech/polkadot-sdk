@@ -2,17 +2,19 @@ title: '[pallet-child-bounties] Index child bounties by parent bounty'
 doc:
 - audience: Runtime Dev
   description: |
-    Indexes child bounties by parent bounty. This allows to quickly
-    list child bounties and their descriptions from the parent bounty
-    by changing `ChildBountyDescriptions` to use `StorageDoubleMap`
-    which is indexed by `(ParentBounty, ChildBounty)` keys.
+    Index child bounties by their parent bounty, ensuring that their indexes are independent of
+    child bounties from other parent bounties. This will allow for predictable indexes and the
+    ability to batch creation and approval calls together.
 
-    - Changes child bounty keys in `ChildBounties` storage item.
-    - Deprecates `ChildBountyCount` storage item in May 2025.
-    - Migration is provided to migrate `ChildBountyDescriptions` and
-    `ChildBounties` storage items.
-    - Old pre-migration ids mapping is stored in the `OldToNewChildBountyIds`
-    storage item.
+    - Introduces `ParentTotalChildBounties` storage item to keep the total child bounty count per
+    parent bounty;
+    - Translates `ChildBounties` keys from (parent_id, old_child_id) to (parent_id, new_child_id);
+    - Replaces `ChildBountyDescriptions` storage item by new `ChildBountyDescriptionsV1` storage
+    item indexed by (parent_id, child_id) instead of (child_id);
+    - `V0ToV1ChildBountyIds` storage item provides the old_child_id -> parent_id, new_child_id
+    mapping;
+    - Deprecates `ChildBountyCount` storage item which will be removed in May 2025;
+    - Provides the migration from v0 to new v1 storage version.
 crates:
 - name: pallet-child-bounties
   bump: major
