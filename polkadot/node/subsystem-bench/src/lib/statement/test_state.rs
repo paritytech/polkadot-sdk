@@ -62,6 +62,8 @@ use std::{
 	},
 };
 
+const SESSION_INDEX: u32 = 0;
+
 #[derive(Clone)]
 pub struct TestState {
 	// Full test config
@@ -132,7 +134,7 @@ impl TestState {
 				receipt.descriptor.set_para_id(Id::new(core_idx as u32 + 1));
 				receipt.descriptor.set_relay_parent(block_info.hash);
 				receipt.descriptor.set_core_index(CoreIndex(core_idx as u32));
-				receipt.descriptor.set_session_index(0);
+				receipt.descriptor.set_session_index(SESSION_INDEX);
 
 				state.candidate_receipts.entry(block_info.hash).or_default().push(
 					CandidateReceipt {
@@ -196,7 +198,7 @@ fn sign_statement(
 	validator_index: ValidatorIndex,
 	pair: &ValidatorPair,
 ) -> UncheckedSigned<CompactStatement> {
-	let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+	let context = SigningContext { parent_hash: relay_parent, session_index: SESSION_INDEX };
 	let payload = statement.signing_payload(&context);
 
 	SignedStatement::new(
@@ -323,7 +325,8 @@ impl HandleNetworkMessage for TestState {
 				}
 
 				let statement = CompactStatement::Valid(candidate_hash);
-				let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
+				let context =
+					SigningContext { parent_hash: relay_parent, session_index: SESSION_INDEX };
 				let payload = statement.signing_payload(&context);
 				let pair = self.test_authorities.validator_pairs.get(index).unwrap();
 				let signature = pair.sign(&payload[..]);
