@@ -269,8 +269,8 @@ where
 		child_trie_key: Option<String>,
 	) -> bool {
 		let res = ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
-			key: result.0.key.clone(),
-			result: result.0.result.clone(),
+			key: result.0.key,
+			result: result.0.result,
 			operation_type,
 			child_trie_key: child_trie_key.clone(),
 		});
@@ -280,8 +280,8 @@ where
 
 		if let Some(second) = result.1 {
 			let res = ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
-				key: second.key.clone(),
-				result: second.result.clone(),
+				key: second.key,
+				result: second.result,
 				operation_type,
 				child_trie_key,
 			});
@@ -311,8 +311,19 @@ where
 		let keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
 
 		// Iterator over the previous block.
-		let mut previous_keys_iter =
-			self.client.raw_keys_iter(previous_hash, maybe_child_trie.clone())?;
+		//
+		// Note: `Itertools::contains` consumes the iterator until the given key is found,
+		// therefore we may lose keys and iterate over the previous block twice for deleted keys.
+		//
+		// Example:
+		// keys_iter: [0, 1, 2]
+		// previous_keys_iter: [1, 2, 3]
+		//  -> the `previous_keys_iter` is entirely consumed while searching for `0`.
+		let previous_keys_iter: indexmap::IndexMap<_, _> = self
+			.client
+			.raw_keys_iter(previous_hash, maybe_child_trie.clone())?
+			.map(|key| (key, ()))
+			.collect();
 
 		for key in keys_iter {
 			let Some(fetch_type) = Self::starts_with(&key, &items) else {
@@ -327,10 +338,10 @@ where
 				continue
 			};
 
-			// The key is not present in the previous state.
-			if !previous_keys_iter.contains(&key) {
-				keys_set.insert(key.clone());
+			keys_set.insert(key.clone());
 
+			// The key is not present in the previous state.
+			if !previous_keys_iter.contains_key(&key) {
 				if !Self::send_result(
 					&tx,
 					storage_result,
@@ -355,8 +366,6 @@ where
 			};
 
 			if storage_result.0.result != previous_storage_result.0.result {
-				keys_set.insert(key.clone());
-
 				if !Self::send_result(
 					&tx,
 					storage_result,
@@ -368,7 +377,7 @@ where
 			}
 		}
 
-		for previous_key in previous_keys_iter {
+		for previous_key in previous_keys_iter.into_keys() {
 			if keys_set.contains(&previous_key) {
 				continue
 			}
@@ -379,7 +388,7 @@ where
 
 			let Some(previous_storage_result) = self.fetch_storage(
 				previous_hash,
-				previous_key.clone(),
+				previous_key,
 				maybe_child_trie.clone(),
 				fetch_type,
 			)?
