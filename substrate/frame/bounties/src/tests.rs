@@ -231,6 +231,7 @@ fn expect_events(e: Vec<BountiesEvent<Test>>) {
 }
 
 #[test]
+#[allow(deprecated)]
 fn genesis_config_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
@@ -248,6 +249,7 @@ fn minting_works() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn accepted_spend_proposal_ignored_outside_spend_period() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -274,6 +276,7 @@ fn unused_pot_should_diminish() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn accepted_spend_proposal_enacted_on_spend_period() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -288,6 +291,7 @@ fn accepted_spend_proposal_enacted_on_spend_period() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn pot_underflow_should_not_diminish() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -308,6 +312,7 @@ fn pot_underflow_should_not_diminish() {
 // Treasury account doesn't get deleted if amount approved to spend is all its free balance.
 // i.e. pot should not include existential deposit needed for account survival.
 #[test]
+#[allow(deprecated)]
 fn treasury_account_doesnt_get_deleted() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -330,6 +335,7 @@ fn treasury_account_doesnt_get_deleted() {
 // In case treasury account is not existing then it works fine.
 // This is useful for chain that will just update runtime.
 #[test]
+#[allow(deprecated)]
 fn inexistent_account_works() {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> { balances: vec![(0, 100), (1, 99), (2, 1)] }
@@ -423,6 +429,7 @@ fn propose_bounty_validation_works() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn close_bounty_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
