@@ -808,6 +808,19 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			let parent_bounty_id: BountyIndex = 1;
+			let child_bounty_id: BountyIndex = 2;
+			let _: T::AccountId = T::PalletId::get()
+				.try_into_sub_account(("cb", parent_bounty_id, child_bounty_id))
+				.expect(
+					"The `AccountId` type must be large enough to fit the child bounty account ID.",
+				);
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {

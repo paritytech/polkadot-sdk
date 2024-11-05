@@ -1602,3 +1602,10 @@ fn accept_curator_handles_different_deposit_calculations() {
 		assert_eq!(Balances::reserved_balance(child_curator), expected_deposit);
 	});
 }
+
+#[test]
+fn integrity_test() {
+	new_test_ext().execute_with(|| {
+		ChildBounties::integrity_test();
+	});
+}
