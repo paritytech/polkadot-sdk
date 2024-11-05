@@ -703,7 +703,7 @@ mod tests {
 	}
 
 	#[test]
-	fn dedup_with_shorter_key() {
+	fn dedup_with_shorter_key_reverse_order() {
 		let items = vec![
 			ArchiveStorageDiffItem {
 				key: "0x01ff".into(),
@@ -727,5 +727,82 @@ mod tests {
 			child_trie_key_string: None,
 		}];
 		assert_eq!(result[0], expected);
+	}
+
+	#[test]
+	fn dedup_multiple_child_tries() {
+		let items = vec![
+			ArchiveStorageDiffItem {
+				key: "0x02".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+			},
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: Some("0x01".into()),
+			},
+			ArchiveStorageDiffItem {
+				key: "0x02".into(),
+				return_type: ArchiveStorageDiffType::Hash,
+				child_trie_key: Some("0x01".into()),
+			},
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: Some("0x02".into()),
+			},
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Hash,
+				child_trie_key: Some("0x02".into()),
+			},
+			ArchiveStorageDiffItem {
+				key: "0x01ff".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: Some("0x02".into()),
+			},
+		];
+
+		let result = deduplicate_storage_diff_items(items).unwrap();
+
+		let expected = vec![
+			vec![DiffDetails {
+				key: StorageKey(vec![2]),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+				child_trie_key_string: None,
+			}],
+			vec![
+				DiffDetails {
+					key: StorageKey(vec![1]),
+					return_type: ArchiveStorageDiffType::Value,
+					child_trie_key: Some(ChildInfo::new_default_from_vec(vec![1])),
+					child_trie_key_string: Some("0x01".into()),
+				},
+				DiffDetails {
+					key: StorageKey(vec![2]),
+					return_type: ArchiveStorageDiffType::Hash,
+					child_trie_key: Some(ChildInfo::new_default_from_vec(vec![1])),
+					child_trie_key_string: Some("0x01".into()),
+				},
+			],
+			vec![
+				DiffDetails {
+					key: StorageKey(vec![1]),
+					return_type: ArchiveStorageDiffType::Value,
+					child_trie_key: Some(ChildInfo::new_default_from_vec(vec![2])),
+					child_trie_key_string: Some("0x02".into()),
+				},
+				DiffDetails {
+					key: StorageKey(vec![1]),
+					return_type: ArchiveStorageDiffType::Hash,
+					child_trie_key: Some(ChildInfo::new_default_from_vec(vec![2])),
+					child_trie_key_string: Some("0x02".into()),
+				},
+			],
+		];
+
+		assert_eq!(result, expected);
 	}
 }
