@@ -73,6 +73,8 @@
 //! - `approve_bounty` - Accept a specific treasury amount to be earmarked for a predefined body of
 //!   work.
 //! - `propose_curator` - Assign an account to a bounty as candidate curator.
+//! - `approve_bounty_with_curator` - Accept a specific treasury amount for a predefined body of
+//!   work with assigned candidate curator account.
 //! - `accept_curator` - Accept a bounty assignment from the Council, setting a curator deposit.
 //! - `extend_bounty_expiry` - Extend the expiry block number of the bounty and stay active.
 //! - `award_bounty` - Close and pay out the specified amount for the completed work.
@@ -173,6 +175,11 @@ pub enum BountyStatus<AccountId, BlockNumber> {
 		beneficiary: AccountId,
 		/// When the bounty can be claimed.
 		unlock_at: BlockNumber,
+	},
+	/// The bounty is approved with curator assigned.
+	ApprovedWithCurator {
+		/// The assigned curator of this bounty.
+		curator: AccountId,
 	},
 }
 
@@ -326,6 +333,7 @@ pub mod pallet {
 
 	/// Bounty indices that have been approved but not yet funded.
 	#[pallet::storage]
+	#[allow(deprecated)]
 	pub type BountyApprovals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<BountyIndex, T::MaxApprovals>, ValueQuery>;
 
@@ -470,6 +478,15 @@ pub mod pallet {
 					BountyStatus::Proposed | BountyStatus::Approved | BountyStatus::Funded => {
 						// No curator to unassign at this point.
 						return Err(Error::<T, I>::UnexpectedStatus.into())
+					},
+					BountyStatus::ApprovedWithCurator { ref curator } => {
+						// Bounty not yet funded, but bounty was approved with curator.
+						// `RejectOrigin` or curator himself can unassign from this bounty.
+						ensure!(maybe_sender.map_or(true, |sender| sender == *curator), BadOrigin);
+						// This state can only be while the bounty is not yet funded so we return
+						// bounty to the `Approved` state without curator
+						bounty.status = BountyStatus::Approved;
+						return Ok(());
 					},
 					BountyStatus::CuratorProposed { ref curator } => {
 						// A curator has been proposed, but not accepted yet.
@@ -723,7 +740,7 @@ pub mod pallet {
 								Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into()
 							)
 						},
-						BountyStatus::Approved => {
+						BountyStatus::Approved | BountyStatus::ApprovedWithCurator { .. } => {
 							// For weight reasons, we don't allow a council to cancel in this phase.
 							// We ask for them to wait until it is funded before they can cancel.
 							return Err(Error::<T, I>::UnexpectedStatus.into())
@@ -802,6 +819,52 @@ pub mod pallet {
 			})?;
 
 			Self::deposit_event(Event::<T, I>::BountyExtended { index: bounty_id });
+			Ok(())
+		}
+
+		/// Approve bountry and propose a curator simultaneously.
+		/// This call is a shortcut to calling `approve_bounty` and `propose_curator` separately.
+		///
+		/// May only be called from `T::SpendOrigin`.
+		///
+		/// - `bounty_id`: Bounty ID to approve.
+		/// - `curator`: The curator account whom will manage this bounty.
+		/// - `fee`: The curator fee.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		pub fn approve_bounty_with_curator(
+			origin: OriginFor<T>,
+			#[pallet::compact] bounty_id: BountyIndex,
+			curator: AccountIdLookupOf<T>,
+			#[pallet::compact] fee: BalanceOf<T, I>,
+		) -> DispatchResult {
+			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
+			let curator = T::Lookup::lookup(curator)?;
+			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
+				// approve bounty
+				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				ensure!(
+					bounty.value <= max_amount,
+					pallet_treasury::Error::<T, I>::InsufficientPermission
+				);
+				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
+				ensure!(fee < bounty.value, Error::<T, I>::InvalidFee);
+
+				BountyApprovals::<T, I>::try_append(bounty_id)
+					.map_err(|()| Error::<T, I>::TooManyQueued)?;
+
+				bounty.status = BountyStatus::ApprovedWithCurator { curator: curator.clone() };
+				bounty.fee = fee;
+
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::<T, I>::BountyApproved { index: bounty_id });
+			Self::deposit_event(Event::<T, I>::CuratorProposed { bounty_id, curator });
+
 			Ok(())
 		}
 	}
@@ -946,7 +1009,13 @@ impl<T: Config<I>, I: 'static> pallet_treasury::SpendFunds<T, I> for Pallet<T, I
 						if bounty.value <= *budget_remaining {
 							*budget_remaining -= bounty.value;
 
-							bounty.status = BountyStatus::Funded;
+							// jump through the funded phase if we're already approved with curator
+							if let BountyStatus::ApprovedWithCurator { curator } = &bounty.status {
+								bounty.status =
+									BountyStatus::CuratorProposed { curator: curator.clone() };
+							} else {
+								bounty.status = BountyStatus::Funded;
+							}
 
 							// return their deposit.
 							let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
