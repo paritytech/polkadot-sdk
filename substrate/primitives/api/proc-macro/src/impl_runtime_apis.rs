@@ -811,13 +811,11 @@ impl VisitMut for ReplaceSelfImpl {
 }
 
 /// Rename `Self` to `ItemImpl.self_ty` in all items.
-fn rename_self_in_trait_impls(impls: &mut [ItemImpl]) -> Result<()> {
+fn rename_self_in_trait_impls(impls: &mut [ItemImpl]) {
 	impls.iter_mut().for_each(|i| {
 		let mut checker = ReplaceSelfImpl { self_ty: i.self_ty.clone() };
 		checker.replace(i);
 	});
-
-	Ok(())
 }
 
 /// The implementation of the `impl_runtime_apis!` macro.
