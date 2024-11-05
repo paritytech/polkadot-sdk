@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Bump PoV request timeout
+
+doc:
+  - audience: Node Dev
+    description: |
+      With asynchronous backing and PoV size 10MB, we can increase the PoV request timeout from 1.2s to 2s.
+
+crates:
+  - name: polkadot-node-network-protocol
+    bump: patch
