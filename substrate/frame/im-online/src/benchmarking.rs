@@ -92,7 +92,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn validate_unsigned_and_then_heartbeat(k: Linear<1, MAX_KEYS>) -> Result<(), BenchmarkError> {
-		let (input_heartbeat, signature) = create_heartbeat::<T>(k.into())?;
+		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
 		let call = Call::heartbeat { heartbeat: input_heartbeat, signature };
 		let call_enc = call.encode();
 
