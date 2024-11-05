@@ -13,6 +13,5 @@
 //! - [Polkadot Blockchain Academy](https://github.com/Polkadot-Blockchain-Academy)
 //! - [Polkadot Wiki: Build](https://wiki.polkadot.network/docs/build-guide)
 
-//! Link References
 //! [`guides`]: crate::guides
 //! [`templates`]: crate::polkadot_sdk::templates

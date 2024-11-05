@@ -102,7 +102,7 @@ class DocLinkProcessor:
             if not modified_content.endswith('\n'):
                 modified_content += '\n'
             
-            modified_content += '\n//! Link References\n'
+            modified_content += '\n'
             for short_name, full_path in sorted(links):
                 modified_content += f'//! [`{short_name}`]: {full_path}\n'
 
