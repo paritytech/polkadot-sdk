@@ -188,8 +188,11 @@ pub trait ChildBountyManager<Balance> {
 	/// Get the active child bounties for a parent bounty.
 	fn child_bounties_count(bounty_id: BountyIndex) -> BountyIndex;
 
-	/// Get total curator fees of children-bounty curators.
+	/// Take total curator fees of children-bounty curators.
 	fn children_curator_fees(bounty_id: BountyIndex) -> Balance;
+
+	/// Hook called when a parent bounty is removed.
+	fn bounty_removed(bounty_id: BountyIndex);
 }
 
 #[frame_support::pallet]
@@ -466,12 +469,12 @@ pub mod pallet {
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
-				let slash_curator =
-					|curator: &T::AccountId, curator_deposit: &mut BalanceOf<T, I>| {
-						let imbalance = T::Currency::slash_reserved(curator, *curator_deposit).0;
-						T::OnSlash::on_unbalanced(imbalance);
-						*curator_deposit = Zero::zero();
-					};
+				let slash_curator = |curator: &T::AccountId,
+				                     curator_deposit: &mut BalanceOf<T, I>| {
+					let imbalance = T::Currency::slash_reserved(curator, *curator_deposit).0;
+					T::OnSlash::on_unbalanced(imbalance);
+					*curator_deposit = Zero::zero();
+				};
 
 				match bounty.status {
 					BountyStatus::Proposed | BountyStatus::Approved | BountyStatus::Funded => {
@@ -678,6 +681,7 @@ pub mod pallet {
 					*maybe_bounty = None;
 
 					BountyDescriptions::<T, I>::remove(bounty_id);
+					T::ChildBountyManager::bounty_removed(bounty_id);
 
 					Self::deposit_event(Event::<T, I>::BountyClaimed {
 						index: bounty_id,
@@ -775,7 +779,9 @@ pub mod pallet {
 						AllowDeath,
 					); // should not fail
 					debug_assert!(res.is_ok());
+
 					*maybe_bounty = None;
+					T::ChildBountyManager::bounty_removed(bounty_id);
 
 					Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
 					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
@@ -1053,4 +1059,6 @@ impl<Balance: Zero> ChildBountyManager<Balance> for () {
 	fn children_curator_fees(_bounty_id: BountyIndex) -> Balance {
 		Zero::zero()
 	}
+
+	fn bounty_removed(_bounty_id: BountyIndex) {}
 }

@@ -1154,10 +1154,14 @@ fn close_parent_with_child_bounty() {
 
 		// Check the child-bounty count.
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
+		assert_eq!(pallet_child_bounties::ParentTotalChildBounties::<Test>::get(0), 1);
 
 		// Try close parent-bounty again.
 		// Should pass this time.
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
+
+		// Check the total count is removed after the parent bounty removal.
+		assert_eq!(pallet_child_bounties::ParentTotalChildBounties::<Test>::get(0), 0);
 	});
 }
 
@@ -1236,8 +1240,14 @@ fn children_curator_fee_calculation_test() {
 
 		go_to_block(15);
 
+		// Check the total count.
+		assert_eq!(pallet_child_bounties::ParentTotalChildBounties::<Test>::get(0), 1);
+
 		// Claim the parent bounty.
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(9), 0));
+
+		// Check the total count after the parent bounty removal.
+		assert_eq!(pallet_child_bounties::ParentTotalChildBounties::<Test>::get(0), 0);
 
 		// Ensure parent-bounty curator received correctly reduced fee.
 		assert_eq!(Balances::free_balance(4), 101 + 6 - fee); // 101 + 6 - 2
