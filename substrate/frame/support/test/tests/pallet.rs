@@ -114,8 +114,8 @@ impl SomeAssociation2 for u64 {
 #[frame_support::pallet]
 /// Pallet documentation
 // Comments should not be included in the pallet documentation
-#[pallet_doc("../../README.md")]
-#[doc = include_str!("../../README.md")]
+#[pallet_doc("../../example_readme.md")]
+#[doc = include_str!("../../example_readme.md")]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
