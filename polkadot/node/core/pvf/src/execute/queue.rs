@@ -35,10 +35,7 @@ use polkadot_node_core_pvf_common::{
 	SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::{
-	messages::{ExecutionJobTtl, PvfExecKind},
-	ActiveLeavesUpdate,
-};
+use polkadot_node_subsystem::{messages::PvfExecKind, ActiveLeavesUpdate};
 use polkadot_primitives::{
 	BlockNumber, ExecutorParams, ExecutorParamsHash, Hash, PersistedValidationData,
 };
