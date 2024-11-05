@@ -184,72 +184,6 @@ where
 	BE: Backend<Block> + 'static,
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
 {
-	/// Deduplicate the provided items and return a list of `DiffDetails`.
-	///
-	/// Each list corresponds to a single child trie or the main trie.
-	pub fn deduplicate_items(
-		&self,
-		items: Vec<ArchiveStorageDiffItem<String>>,
-	) -> Result<Vec<Vec<DiffDetails>>, ArchiveError> {
-		let mut deduplicated: HashMap<Option<ChildInfo>, Vec<DiffDetails>> = HashMap::new();
-
-		for diff_item in items {
-			// Ensure the provided hex keys are valid before deduplication.
-			let key = StorageKey(parse_hex_param(diff_item.key)?);
-			let child_trie_key_string = diff_item.child_trie_key.clone();
-			let child_trie_key = diff_item
-				.child_trie_key
-				.map(|child_trie_key| parse_hex_param(child_trie_key))
-				.transpose()?
-				.map(ChildInfo::new_default_from_vec);
-
-			let diff_item = DiffDetails {
-				key,
-				return_type: diff_item.return_type,
-				child_trie_key: child_trie_key.clone(),
-				child_trie_key_string,
-			};
-
-			match deduplicated.entry(child_trie_key.clone()) {
-				Entry::Occupied(mut entry) => {
-					let mut should_insert = true;
-
-					for existing in entry.get() {
-						// This points to a different return type.
-						if existing.return_type != diff_item.return_type {
-							continue
-						}
-						// Keys and return types are identical.
-						if existing.key == diff_item.key {
-							should_insert = false;
-							break
-						}
-						// The current key is a longer prefix of the existing key.
-						if diff_item.key.as_ref().starts_with(&existing.key.as_ref()) {
-							should_insert = false;
-							break
-						}
-
-						if diff_item.key.as_ref().starts_with(&existing.key.as_ref()) {
-							let to_remove = existing.clone();
-							entry.get_mut().retain(|item| item != &to_remove);
-							break;
-						}
-					}
-
-					if should_insert {
-						entry.get_mut().push(diff_item);
-					}
-				},
-				Entry::Vacant(entry) => {
-					entry.insert(vec![diff_item]);
-				},
-			}
-		}
-
-		Ok(deduplicated.into_values().collect())
-	}
-
 	/// This calls into the database.
 	fn fetch_storage(
 		&self,
@@ -472,4 +406,69 @@ where
 
 		Ok(())
 	}
+}
+
+/// Deduplicate the provided items and return a list of `DiffDetails`.
+///
+/// Each list corresponds to a single child trie or the main trie.
+pub fn deduplicate_storage_diff_items(
+	items: Vec<ArchiveStorageDiffItem<String>>,
+) -> Result<Vec<Vec<DiffDetails>>, ArchiveError> {
+	let mut deduplicated: HashMap<Option<ChildInfo>, Vec<DiffDetails>> = HashMap::new();
+
+	for diff_item in items {
+		// Ensure the provided hex keys are valid before deduplication.
+		let key = StorageKey(parse_hex_param(diff_item.key)?);
+		let child_trie_key_string = diff_item.child_trie_key.clone();
+		let child_trie_key = diff_item
+			.child_trie_key
+			.map(|child_trie_key| parse_hex_param(child_trie_key))
+			.transpose()?
+			.map(ChildInfo::new_default_from_vec);
+
+		let diff_item = DiffDetails {
+			key,
+			return_type: diff_item.return_type,
+			child_trie_key: child_trie_key.clone(),
+			child_trie_key_string,
+		};
+
+		match deduplicated.entry(child_trie_key.clone()) {
+			Entry::Occupied(mut entry) => {
+				let mut should_insert = true;
+
+				for existing in entry.get() {
+					// This points to a different return type.
+					if existing.return_type != diff_item.return_type {
+						continue
+					}
+					// Keys and return types are identical.
+					if existing.key == diff_item.key {
+						should_insert = false;
+						break
+					}
+					// The current key is a longer prefix of the existing key.
+					if diff_item.key.as_ref().starts_with(&existing.key.as_ref()) {
+						should_insert = false;
+						break
+					}
+
+					if diff_item.key.as_ref().starts_with(&existing.key.as_ref()) {
+						let to_remove = existing.clone();
+						entry.get_mut().retain(|item| item != &to_remove);
+						break;
+					}
+				}
+
+				if should_insert {
+					entry.get_mut().push(diff_item);
+				}
+			},
+			Entry::Vacant(entry) => {
+				entry.insert(vec![diff_item]);
+			},
+		}
+	}
+
+	Ok(deduplicated.into_values().collect())
 }

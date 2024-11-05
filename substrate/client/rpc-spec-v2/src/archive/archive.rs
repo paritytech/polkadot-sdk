@@ -20,7 +20,7 @@
 
 use crate::{
 	archive::{
-		archive_storage::{ArchiveStorage, ArchiveStorageDiff},
+		archive_storage::{deduplicate_storage_diff_items, ArchiveStorage, ArchiveStorageDiff},
 		error::Error as ArchiveError,
 		ArchiveApiServer,
 	},
@@ -313,7 +313,7 @@ where
 
 		let fut = async move {
 			// Deduplicate the items.
-			let trie_items = match storage_client.deduplicate_items(items) {
+			let trie_items = match deduplicate_storage_diff_items(items) {
 				Ok(items) => items,
 				Err(error) => {
 					pending.reject(error).await;
@@ -340,6 +340,7 @@ where
 			let Ok(mut sink) = pending.accept().await.map(Subscription::from) else { return };
 
 			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+
 			if trie_items.is_empty() {
 				// May fail if the channel is closed or the connection is closed.
 				// which is okay to ignore.
