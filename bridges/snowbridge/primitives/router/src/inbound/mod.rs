@@ -253,7 +253,7 @@ where
 
 		let bridge_location = Location::new(2, GlobalConsensus(network));
 
-		let owner = GlobalConsensusEthereumConvertsFor::<[u8; 32]>::from_chain_id(&chain_id);
+		let owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
 		let asset_id = Self::convert_token_address(network, token);
 		let create_call_index: [u8; 2] = CreateAssetCall::get();
 		let inbound_queue_pallet_index = InboundQueuePalletInstance::get();
@@ -454,22 +454,27 @@ where
 	}
 }
 
-pub struct GlobalConsensusEthereumConvertsFor<AccountId>(PhantomData<AccountId>);
-impl<AccountId> ConvertLocation<AccountId> for GlobalConsensusEthereumConvertsFor<AccountId>
+pub struct EthereumLocationsConverterFor<AccountId>(PhantomData<AccountId>);
+impl<AccountId> ConvertLocation<AccountId> for EthereumLocationsConverterFor<AccountId>
 where
 	AccountId: From<[u8; 32]> + Clone,
 {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(_, [GlobalConsensus(Ethereum { chain_id })]) =>
+			(2, [GlobalConsensus(Ethereum { chain_id })]) =>
 				Some(Self::from_chain_id(chain_id).into()),
+			(2, [GlobalConsensus(Ethereum { chain_id }), AccountKey20 { network: _, key }]) =>
+				Some(Self::from_chain_id_with_key(chain_id, *key).into()),
 			_ => None,
 		}
 	}
 }
 
-impl<AccountId> GlobalConsensusEthereumConvertsFor<AccountId> {
+impl<AccountId> EthereumLocationsConverterFor<AccountId> {
 	pub fn from_chain_id(chain_id: &u64) -> [u8; 32] {
 		(b"ethereum-chain", chain_id).using_encoded(blake2_256)
+	}
+	pub fn from_chain_id_with_key(chain_id: &u64, key: [u8; 20]) -> [u8; 32] {
+		(b"ethereum-chain", chain_id, key).using_encoded(blake2_256)
 	}
 }
