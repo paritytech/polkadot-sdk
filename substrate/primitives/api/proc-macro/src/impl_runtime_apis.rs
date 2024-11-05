@@ -802,12 +802,11 @@ impl ReplaceSelfImpl {
 }
 
 impl VisitMut for ReplaceSelfImpl {
-	fn visit_generic_argument_mut(&mut self, i: &mut syn::GenericArgument) {
-		let GenericArgument::Type(Type::Path(p)) = i else { return };
-
-		if p.path.get_ident().is_some_and(|ident| ident == "Self") {
-			*i = GenericArgument::Type(*self.self_ty.clone());
-		}
+	fn visit_type_mut(&mut self, ty: &mut syn::Type) {
+		match ty {
+			Type::Path(p) if p.path.is_ident("Self") => { *ty = self.self_ty.clone(); },
+			ty => syn::visit_mut::visit_type_mut(self, ty),
+		} 
 	}
 }
 
