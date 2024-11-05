@@ -447,13 +447,18 @@ pub fn deduplicate_storage_diff_items(
 						should_insert = false;
 						break
 					}
+
+					// The following two conditions ensure that we keep the shortest key.
+
 					// The current key is a longer prefix of the existing key.
 					if diff_item.key.as_ref().starts_with(&existing.key.as_ref()) {
 						should_insert = false;
 						break
 					}
 
-					if diff_item.key.as_ref().starts_with(&existing.key.as_ref()) {
+					// The existing key is a longer prefix of the current key.
+					// We need to keep the current key and remove the existing one.
+					if existing.key.as_ref().starts_with(&diff_item.key.as_ref()) {
 						let to_remove = existing.clone();
 						entry.get_mut().retain(|item| item != &to_remove);
 						break;
@@ -693,6 +698,33 @@ mod tests {
 			return_type: ArchiveStorageDiffType::Value,
 			child_trie_key: Some(ChildInfo::new_default_from_vec(vec![1])),
 			child_trie_key_string: Some("0x01".into()),
+		}];
+		assert_eq!(result[0], expected);
+	}
+
+	#[test]
+	fn dedup_with_shorter_key() {
+		let items = vec![
+			ArchiveStorageDiffItem {
+				key: "0x01ff".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+			},
+			ArchiveStorageDiffItem {
+				key: "0x01".into(),
+				return_type: ArchiveStorageDiffType::Value,
+				child_trie_key: None,
+			},
+		];
+		let result = deduplicate_storage_diff_items(items).unwrap();
+		assert_eq!(result.len(), 1);
+		assert_eq!(result[0].len(), 1);
+
+		let expected = vec![DiffDetails {
+			key: StorageKey(vec![1]),
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: None,
+			child_trie_key_string: None,
 		}];
 		assert_eq!(result[0], expected);
 	}
