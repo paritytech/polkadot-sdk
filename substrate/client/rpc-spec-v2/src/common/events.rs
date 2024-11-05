@@ -81,7 +81,7 @@ pub struct StorageResult {
 }
 
 /// The type of the storage query.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum StorageResultType {
 	/// Fetch the value of the provided key.
@@ -136,7 +136,7 @@ pub struct ArchiveStorageMethodOk {
 }
 
 /// The error of a storage call.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArchiveStorageMethodErr {
 	/// Reported error.
@@ -176,7 +176,7 @@ pub struct ArchiveStorageDiffMethodResult {
 }
 
 /// The result of a storage difference call operation type.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ArchiveStorageDiffOperationType {
 	/// The key is added.
@@ -188,7 +188,7 @@ pub enum ArchiveStorageDiffOperationType {
 }
 
 /// The result of an individual storage difference key.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArchiveStorageDiffResult {
 	/// The hex-encoded key of the result.
@@ -211,7 +211,7 @@ pub struct ArchiveStorageDiffResult {
 ///  - `storageDiff` event - generated when a `ArchiveStorageDiffResult` is produced.
 ///  - `storageDiffError` event - generated when an error is produced.
 ///  - `storageDiffDone` event - generated when the `archive_storageDiff` method completed.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(tag = "event")]
 pub enum ArchiveStorageDiffEvent {
