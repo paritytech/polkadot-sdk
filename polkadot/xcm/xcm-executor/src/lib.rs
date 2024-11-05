@@ -92,8 +92,8 @@ pub struct XcmExecutor<Config: config::Config> {
 	asset_used_in_buy_execution: Option<AssetId>,
 	/// Stores the current message's weight.
 	message_weight: Weight,
-	_config: PhantomData<Config>,
 	asset_claimer: Option<Location>,
+	_config: PhantomData<Config>,
 }
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -342,8 +342,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			fees: AssetsInHolding::new(),
 			asset_used_in_buy_execution: None,
 			message_weight: Weight::zero(),
-			_config: PhantomData,
 			asset_claimer: None,
+			_config: PhantomData,
 		}
 	}
 
