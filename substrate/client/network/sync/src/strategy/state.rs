@@ -173,7 +173,7 @@ impl<B: BlockT> StateStrategy<B> {
 		peer_id: PeerId,
 		announce: &BlockAnnounce<B::Header>,
 	) -> Option<(B::Hash, NumberFor<B>)> {
-		is_best.then_some({
+		is_best.then(|| {
 			let best_number = *announce.header.number();
 			let best_hash = announce.header.hash();
 			if let Some(ref mut peer) = self.peers.get_mut(&peer_id) {

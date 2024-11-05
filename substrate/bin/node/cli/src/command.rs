@@ -136,11 +136,12 @@ pub fn run() -> Result<()> {
 						let ext_builder = RemarkBuilder::new(partial.client.clone());
 
 						cmd.run(
-							config,
+							config.chain_spec.name().into(),
 							partial.client,
 							inherent_benchmark_data()?,
 							Vec::new(),
 							&ext_builder,
+							false,
 						)
 					},
 					BenchmarkCmd::Extrinsic(cmd) => {
