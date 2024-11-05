@@ -365,7 +365,7 @@ mod tests {
 
 	use bp_runtime::RangeInclusiveExt;
 	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState, Receiver};
-	use bp_xcm_bridge_hub_router::ResolveBridgeId;
+	use pallet_xcm_bridge_hub_router::ResolveBridgeId;
 	use frame_support::{
 		assert_ok,
 		traits::{Contains, EnsureOrigin},
@@ -828,7 +828,7 @@ mod tests {
 			// valid routable destination
 			let dest = Location::new(2, BridgedUniversalDestination::get());
 
-			fn router_bridge_state<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(dest: &Location) -> Option<bp_xcm_bridge_hub_router::BridgeState> {
+			fn router_bridge_state<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(dest: &Location) -> Option<pallet_xcm_bridge_hub_router::BridgeState> {
 				let bridge_id = <T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
 				pallet_xcm_bridge_hub_router::Bridges::<T, I>::get(&bridge_id)
 			}

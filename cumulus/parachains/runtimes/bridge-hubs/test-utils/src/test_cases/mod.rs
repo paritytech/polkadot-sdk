@@ -740,7 +740,8 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 				),
 				state: BridgeState::Opened,
 				deposit: expected_deposit,
-				lane_id: expected_lane_id
+				lane_id: expected_lane_id,
+				maybe_notify: None,
 			})
 		);
 		assert_eq!(

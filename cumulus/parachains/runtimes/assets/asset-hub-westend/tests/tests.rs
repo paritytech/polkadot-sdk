@@ -17,18 +17,11 @@
 
 //! Tests for the Westmint (Westend Assets Hub) chain.
 
-use asset_hub_westend_runtime::{
-	xcm_config,
-	xcm_config::{
-		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
-		TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
-	},
-	AllPalletsWithoutSystem, Assets, Balances, ExistentialDeposit, ForeignAssets,
-	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
-	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	TrustBackedAssetsInstance, XcmpQueue,
-};
+use asset_hub_westend_runtime::{xcm_config, xcm_config::{
+	bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
+	ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
+	TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
+}, AllPalletsWithoutSystem, Assets, Balances, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, ToRococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue};
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -1248,6 +1241,55 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 			assert_eq!(Balances::free_balance(&staking_pot), 0);
 		}
 	)
+}
+
+#[test]
+fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
+	asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		LocationToAccountId,
+		ToRococoXcmRouterInstance,
+	>(
+		collator_session_keys(),
+		bridging_to_asset_hub_rococo,
+		|bridge_id, is_congested| {
+			vec![
+				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				Transact {
+					origin_kind: OriginKind::Xcm,
+					require_weight_at_most:
+					bp_bridge_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+					call: RuntimeCall::ToRococoXcmRouter(
+						pallet_xcm_bridge_hub_router::Call::report_bridge_status {
+							bridge_id,
+							is_congested,
+						},
+					)
+						.encode()
+						.into(),
+				},
+				ExpectTransactStatus(MaybeErrorCode::Success)
+			]
+				.into()
+		},
+	)
+}
+
+#[test]
+fn check_sane_weight_report_bridge_status() {
+	use pallet_xcm_bridge_hub_router::WeightInfo;
+	let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
+		ToRococoXcmRouterInstance,
+	>>::WeightInfo::report_bridge_status();
+	let max_weight = bp_bridge_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get();
+	assert!(
+		actual.all_lte(max_weight),
+		"max_weight: {:?} should be adjusted to actual {:?}",
+		max_weight,
+		actual
+	);
 }
 
 #[test]

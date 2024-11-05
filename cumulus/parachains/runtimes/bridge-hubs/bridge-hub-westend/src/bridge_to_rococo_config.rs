@@ -23,6 +23,7 @@ use crate::{
 	AccountId, Balance, Balances, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent,
 	RuntimeHoldReason, XcmOverBridgeHubRococo, XcmRouter,
 };
+use alloc::{vec, vec::Vec};
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LegacyLaneId,
@@ -40,8 +41,10 @@ use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
 	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
+use pallet_xcm_bridge_hub::congestion::{BlobDispatcherWithChannelStatus, ReportBridgeStatusXcmChannelManager};
 use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
 use polkadot_parachain_primitives::primitives::Sibling;
+use sp_runtime::traits::Convert;
 use testnet_parachains_constants::westend::currency::UNITS as WND;
 use xcm::{
 	latest::{prelude::*, ROCOCO_GENESIS_HASH},
@@ -86,10 +89,6 @@ pub type FromRococoBridgeHubMessagesProof<MI> =
 /// Messages delivery proof for Rococo Bridge Hub -> Westend Bridge Hub messages.
 pub type ToRococoBridgeHubMessagesDeliveryProof<MI> =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_rococo::Hash, LaneIdOf<Runtime, MI>>;
-
-/// Dispatches received XCM messages from other bridge
-type FromRococoMessageBlobDispatcher =
-	BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeWestendToRococoMessagesPalletInstance>;
 
 /// Transaction extension that refunds relayers that are delivering messages from the Rococo
 /// parachain.
@@ -159,6 +158,22 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	type OnMessagesDelivered = XcmOverBridgeHubRococo;
 }
 
+/// Converts encoded call to the unpaid XCM `Transact`.
+pub struct ReportBridgeStatusXcmProvider;
+impl Convert<Vec<u8>, Xcm<()>> for ReportBridgeStatusXcmProvider {
+	fn convert(encoded_call: Vec<u8>) -> Xcm<()> {
+		Xcm(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				require_weight_at_most: bp_bridge_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+				call: encoded_call.into(),
+			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
+		])
+	}
+}
+
 /// Add support for the export and dispatch of XCM programs.
 pub type XcmOverBridgeHubRococoInstance = pallet_xcm_bridge_hub::Instance1;
 impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
@@ -185,9 +200,16 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type AllowWithoutBridgeDeposit =
 		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
 
-	// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - https://github.com/paritytech/parity-bridges-common/issues/3047
-	type LocalXcmChannelManager = ();
-	type BlobDispatcher = FromRococoMessageBlobDispatcher;
+	// This pallet is deployed on BH, so we expect a remote router with `ExportMessage`. We handle congestion with XCM using `report_bridge_status` sent to the sending chain.
+	// (congestion with local sending chain)
+	type LocalXcmChannelManager = ReportBridgeStatusXcmChannelManager<Runtime, XcmOverBridgeHubRococoInstance, ReportBridgeStatusXcmProvider, XcmRouter>;
+	// Dispatching inbound messages from the bridge and managing congestion with the local receiving/destination chain
+	type BlobDispatcher = BlobDispatcherWithChannelStatus<
+		// Dispatches received XCM messages from other bridge
+		BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeWestendToRococoMessagesPalletInstance>,
+		// Provides the status of the XCMP queue's outbound queue, indicating whether messages can be dispatched to the sibling.
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<Runtime>,
+	>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

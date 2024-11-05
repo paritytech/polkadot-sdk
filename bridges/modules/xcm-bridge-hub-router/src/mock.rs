@@ -31,6 +31,7 @@ use xcm::prelude::*;
 use xcm_builder::{
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, SovereignPaidRemoteExporter,
 };
+use crate::impls::EnsureIsRemoteBridgeIdResolver;
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
@@ -104,7 +105,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 		UniversalLocation,
 	>;
 
-	type BridgeIdResolver = EveryDestinationToSameBridgeIdResolver;
+	type BridgeIdResolver = EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
 	type BridgeHubOrigin = EnsureRoot<u64>;
 
 	type ByteFee = ConstU128<BYTE_FEE>;

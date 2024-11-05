@@ -29,7 +29,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use bp_xcm_bridge_hub_router::{BridgeState, ResolveBridgeId};
+pub use bp_xcm_bridge_hub_router::{BridgeState, ResolveBridgeId};
 use codec::Encode;
 use frame_support::traits::{EnsureOriginWithArg, Get};
 use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
@@ -732,7 +732,7 @@ mod tests {
 	fn report_bridge_status_works() {
 		run_test(|| {
 			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
-			let bridge_id = ();
+			let bridge_id = bp_xcm_bridge_hub::BridgeId::new(&UniversalLocation::get(), dest.interior());
 			let report_bridge_status = |bridge_id, is_congested| {
 				let call = RuntimeCall::XcmBridgeHubRouter(Call::report_bridge_status {
 					bridge_id,

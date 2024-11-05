@@ -44,10 +44,20 @@
 
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
+use frame_support::weights::constants::RocksDbWeight;
 
 /// Weight functions for `pallet_xcm_bridge_hub_router`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for WeightInfo<T> {
+	// TODO: FAIL-CI
+	fn on_initialize_when_bridge_state_removed() -> Weight {
+		RocksDbWeight::get().writes(1)
+	}
+
+	// TODO: FAIL-CI
+	fn on_initialize_when_bridge_state_updated() -> Weight {
+		RocksDbWeight::get().writes(1)
+	}
 	/// Storage: `XcmpQueue::InboundXcmpSuspended` (r:1 w:0)
 	/// Proof: `XcmpQueue::InboundXcmpSuspended` (`max_values`: Some(1), `max_size`: Some(4002), added: 4497, mode: `MaxEncodedLen`)
 	/// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:0)
@@ -76,5 +86,15 @@ impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for Weigh
 		Weight::from_parts(6_536_000, 0)
 			.saturating_add(Weight::from_parts(0, 5487))
 			.saturating_add(T::DbWeight::get().reads(2))
+	}
+	// TODO: FAIL-CI
+	fn report_bridge_status() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `53`
+		//  Estimated: `1502`
+		// Minimum execution time: 10_427 nanoseconds.
+		Weight::from_parts(10_682_000, 1502)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }

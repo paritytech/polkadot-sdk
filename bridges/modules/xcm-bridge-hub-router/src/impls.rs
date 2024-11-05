@@ -16,7 +16,7 @@
 
 //! Various implementations supporting easier configuration of the pallet.
 use crate::{Config, Pallet, Bridges, BridgeIdOf, LOG_TARGET};
-use xcm_builder::ExporterFor;
+use xcm_builder::{ensure_is_remote, ExporterFor};
 use bp_xcm_bridge_hub_router::ResolveBridgeId;
 use codec::Encode;
 use frame_support::pallet_prelude::PhantomData;
@@ -162,5 +162,107 @@ where
         });
 
         Some((bridge_hub_location, fees))
+    }
+}
+
+/// Implementation of `ResolveBridgeId` returning `bp_xcm_bridge_hub::BridgeId` based on the configured `UniversalLocation` and remote universal location.
+pub struct EnsureIsRemoteBridgeIdResolver<UniversalLocation>(PhantomData<UniversalLocation>);
+impl<UniversalLocation: Get<InteriorLocation>> ResolveBridgeId for EnsureIsRemoteBridgeIdResolver<UniversalLocation> {
+    type BridgeId = bp_xcm_bridge_hub::BridgeId;
+
+    fn resolve_for_dest(dest: &Location) -> Option<Self::BridgeId> {
+        let Ok((remote_network, remote_dest)) = ensure_is_remote(UniversalLocation::get(), dest.clone()) else {
+            log::trace!(
+			    target: LOG_TARGET,
+				"EnsureIsRemoteBridgeIdResolver - does not recognize a remote destination for: {dest:?}!"
+            );
+            return None
+        };
+        Self::resolve_for(&remote_network, &remote_dest)
+    }
+
+    fn resolve_for(bridged_network: &NetworkId, bridged_dest: &InteriorLocation) -> Option<Self::BridgeId> {
+        let bridged_universal_location = if let Ok(network) = bridged_dest.global_consensus() {
+            if network.ne(bridged_network) {
+                log::error!(
+			        target: LOG_TARGET,
+				    "EnsureIsRemoteBridgeIdResolver - bridged_dest: {bridged_dest:?} contains invalid network: {network:?}, expected bridged_network: {bridged_network:?}!"
+                );
+                return None
+            } else {
+                bridged_dest.clone()
+            }
+        } else {
+            // if `bridged_dest` does not contain `GlobalConsensus`, let's prepend one
+            match bridged_dest.clone().pushed_front_with(bridged_network.clone()) {
+                Ok(bridged_universal_location) => bridged_universal_location,
+                Err((original, prepend_with)) => {
+                    log::error!(
+			            target: LOG_TARGET,
+				        "EnsureIsRemoteBridgeIdResolver - bridged_dest: {original:?} cannot be prepended with: {prepend_with:?}!"
+                    );
+                    return None
+                }
+            }
+        };
+
+        match (UniversalLocation::get().global_consensus(), bridged_universal_location.global_consensus()) {
+            (Ok(local), Ok(remote)) if local != remote => (),
+            (local, remote) => {
+                log::error!(
+			        target: LOG_TARGET,
+				    "EnsureIsRemoteBridgeIdResolver - local: {local:?} and remote: {remote:?} must be different!"
+                );
+                return None
+            }
+        }
+
+        // calculate `BridgeId` from universal locations
+        Some(Self::BridgeId::new(&UniversalLocation::get(), &bridged_universal_location))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use frame_support::__private::sp_tracing;
+    use super::*;
+
+    #[test]
+    fn ensure_is_remote_bridge_id_resolver_works() {
+        sp_tracing::try_init_simple();
+        frame_support::parameter_types! {
+            pub ThisNetwork: NetworkId = NetworkId::ByGenesis([0; 32]);
+            pub BridgedNetwork: NetworkId = NetworkId::ByGenesis([1; 32]);
+            pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetwork::get()), Parachain(1000)].into();
+        }
+        assert_ne!(ThisNetwork::get(), BridgedNetwork::get());
+
+        type Resolver = EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
+
+        // not remote dest
+        assert!(Resolver::resolve_for_dest(&Location::new(1, Here)).is_none());
+        // not a valid remote dest
+        assert!(Resolver::resolve_for_dest(&Location::new(2, Here)).is_none());
+        // the same network for remote dest
+        assert!(Resolver::resolve_for_dest(&Location::new(2, GlobalConsensus(ThisNetwork::get()))).is_none());
+        assert!(Resolver::resolve_for(&ThisNetwork::get(), &Here.into()).is_none());
+
+        // ok
+        assert!(Resolver::resolve_for_dest(&Location::new(2, GlobalConsensus(BridgedNetwork::get()))).is_some());
+        assert!(Resolver::resolve_for_dest(&Location::new(2, [GlobalConsensus(BridgedNetwork::get()), Parachain(2013)])).is_some());
+
+        // ok - resolves the same
+        assert_eq!(
+            Resolver::resolve_for_dest(&Location::new(2, GlobalConsensus(BridgedNetwork::get()))),
+            Resolver::resolve_for(&BridgedNetwork::get(), &Here.into()),
+        );
+        assert_eq!(
+            Resolver::resolve_for_dest(&Location::new(2, [GlobalConsensus(BridgedNetwork::get()), Parachain(2013)])),
+            Resolver::resolve_for(&BridgedNetwork::get(), &Parachain(2013).into()),
+        );
+        assert_eq!(
+            Resolver::resolve_for_dest(&Location::new(2, [GlobalConsensus(BridgedNetwork::get()), Parachain(2013)])),
+            Resolver::resolve_for(&BridgedNetwork::get(), &[GlobalConsensus(BridgedNetwork::get()), Parachain(2013)].into()),
+        );
     }
 }

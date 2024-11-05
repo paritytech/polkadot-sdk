@@ -40,6 +40,7 @@ use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
 	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
+use pallet_xcm_bridge_hub::congestion::BlobDispatcherWithChannelStatus;
 use pallet_xcm_bridge_hub::XcmAsPlainPayload;
 use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::rococo::currency::UNITS as ROC;
@@ -84,13 +85,6 @@ pub type FromRococoBulletinMessagesProof<MI> =
 /// Messages delivery proof for Rococo Bridge Hub -> Rococo Bulletin messages.
 pub type ToRococoBulletinMessagesDeliveryProof<MI> =
 	FromBridgedChainMessagesDeliveryProof<bp_polkadot_bulletin::Hash, LaneIdOf<Runtime, MI>>;
-
-/// Dispatches received XCM messages from other bridge.
-type FromRococoBulletinMessageBlobDispatcher = BridgeBlobDispatcher<
-	XcmRouter,
-	UniversalLocation,
-	BridgeRococoToRococoBulletinMessagesPalletInstance,
->;
 
 /// Transaction extension that refunds relayers that are delivering messages from the Rococo
 /// Bulletin chain.
@@ -156,7 +150,13 @@ impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime 
 	type AllowWithoutBridgeDeposit = Equals<PeopleRococoLocation>;
 
 	type LocalXcmChannelManager = ();
-	type BlobDispatcher = FromRococoBulletinMessageBlobDispatcher;
+	// Dispatching inbound messages from the bridge.
+	type BlobDispatcher = BlobDispatcherWithChannelStatus<
+		// Dispatches received XCM messages from other bridge
+		BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeRococoToRococoBulletinMessagesPalletInstance>,
+		// no congestion checking
+		(),
+	>;
 }
 
 #[cfg(test)]

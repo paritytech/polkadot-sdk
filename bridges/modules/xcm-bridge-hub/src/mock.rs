@@ -26,7 +26,6 @@ use bp_messages::{
 use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, HashOf};
 use bp_xcm_bridge_hub::{BridgeId, BridgeLocations, LocalXcmChannelManager};
 use codec::Encode;
-use bp_xcm_bridge_hub_router::ResolveBridgeId;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{fungible::Mutate, EitherOf, EnsureOrigin, Equals, Everything, OriginTrait},
@@ -47,7 +46,7 @@ use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds,
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
-	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter, ensure_is_remote,
+	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter,
 };
 use xcm_executor::{traits::{ConvertLocation, ConvertOrigin}, XcmExecutor};
 use crate::congestion::BlobDispatcherWithChannelStatus;
@@ -258,7 +257,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 		ExportMessageOriginUniversalLocation,
 	>;
 
-	type BridgeIdResolver = EnsureIsRemoteBridgeIdResolver<ExportMessageOriginUniversalLocation>;
+	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<ExportMessageOriginUniversalLocation>;
 	// We convert to root here `BridgeHubLocationXcmOriginAsRoot`
 	type BridgeHubOrigin = EnsureRoot<AccountId>;
 }
@@ -272,25 +271,9 @@ impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeByExportXcmRouterInstance
 	// trigger directly `pallet_xcm_bridge_hub` as exporter.
 	type ToBridgeHubSender = UnpaidLocalExporter<XcmOverBridge, UniversalLocation>;
 
-	type BridgeIdResolver = EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
+	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
 	// We don't need to support here `report_bridge_status`.
 	type BridgeHubOrigin = EnsureNever<()>;
-}
-
-/// Implementation of `ResolveBridgeId` returning `BridgeId` based on the configured `UniversalLocation`.
-pub struct EnsureIsRemoteBridgeIdResolver<UniversalLocation>(PhantomData<UniversalLocation>);
-impl<UniversalLocation: Get<InteriorLocation>> ResolveBridgeId for EnsureIsRemoteBridgeIdResolver<UniversalLocation> {
-	type BridgeId = BridgeId;
-
-	fn resolve_for_dest(dest: &Location) -> Option<Self::BridgeId> {
-		let (remote_network, remote_dest) = ensure_is_remote(UniversalLocation::get(), dest.clone()).unwrap();
-		Self::resolve_for(&remote_network, &remote_dest)
-	}
-
-	fn resolve_for(bridged_network: &NetworkId, bridged_dest: &InteriorLocation) -> Option<Self::BridgeId> {
-		let bridged_universal_location = bridged_dest.clone().pushed_front_with(bridged_network.clone()).unwrap();
-		Some(BridgeId::new(&UniversalLocation::get(), &bridged_universal_location))
-	}
 }
 
 /// A dynamic way to set different universal location for the origin which sends `ExportMessage`.

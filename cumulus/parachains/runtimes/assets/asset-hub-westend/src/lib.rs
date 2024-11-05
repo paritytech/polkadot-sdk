@@ -94,6 +94,8 @@ use assets_common::{
 	foreign_creators::ForeignCreators,
 	matching::{FromNetwork, FromSiblingParachain},
 };
+use frame_support::traits::Equals;
+use pallet_xcm::EnsureXcm;
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::{
 	latest::prelude::AssetId,
@@ -112,7 +114,7 @@ use xcm_runtime_apis::{
 };
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
-use xcm_builder::SovereignPaidRemoteExporter;
+use xcm_builder::{NetworkExportTable, SovereignPaidRemoteExporter};
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
@@ -925,22 +927,31 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo<Runtime>;
 
-	type UniversalLocation = xcm_config::UniversalLocation;
-	type SiblingBridgeHubLocation = xcm_config::bridging::SiblingBridgeHub;
-	type BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
 	type DestinationVersion = PolkadotXcm;
 
 	// Let's use `SovereignPaidRemoteExporter`, which sends `ExportMessage` over HRMP to the sibling
 	// BridgeHub.
 	type ToBridgeHubSender = SovereignPaidRemoteExporter<
-		xcm_builder::NetworkExportTable<xcm_config::bridging::to_rococo::BridgeTable>,
+		// `ExporterFor` wrapper handling dynamic fees for congestion.
+		pallet_xcm_bridge_hub_router::impls::ViaRemoteBridgeHubExporter<
+			Runtime,
+			ToRococoXcmRouterInstance,
+			NetworkExportTable<xcm_config::bridging::to_rococo::BridgeTable>,
+			xcm_config::bridging::to_rococo::RococoNetwork,
+			xcm_config::bridging::SiblingBridgeHub
+		>,
 		XcmpQueue,
-		Self::UniversalLocation
+		xcm_config::UniversalLocation,
 	>;
-	type LocalXcmChannelManager =
-		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
+	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge_hub` on the BH.
+	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<xcm_config::UniversalLocation>;
+	// For congestion - allow only calls from BH.
+	type BridgeHubOrigin = AsEnsureOriginWithArg<EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>>;
+
+	// For adding message size fees
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
+	// For adding message size fees
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
 
