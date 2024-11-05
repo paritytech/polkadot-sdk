@@ -121,7 +121,7 @@ pub trait ArchiveApi<Hash> {
 	fn archive_unstable_storage_diff(
 		&self,
 		hash: Hash,
-		previous_hash: Option<Hash>,
 		items: Vec<ArchiveStorageDiffItem<String>>,
+		previous_hash: Option<Hash>,
 	);
 }

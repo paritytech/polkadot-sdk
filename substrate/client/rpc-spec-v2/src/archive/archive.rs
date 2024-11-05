@@ -307,8 +307,8 @@ where
 		&self,
 		pending: PendingSubscriptionSink,
 		hash: Block::Hash,
-		previous_hash: Option<Block::Hash>,
 		items: Vec<ArchiveStorageDiffItem<String>>,
+		previous_hash: Option<Block::Hash>,
 	) {
 		let storage_client = ArchiveStorageDiff::new(self.client.clone());
 		let client = self.client.clone();
