@@ -296,17 +296,16 @@ impl Queue {
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
 		let exec_kind = job.exec_kind;
-		if let Some(ttl) = exec_kind.ttl() {
-			if !self.is_job_viable(ttl) {
-				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
-				gum::warn!(
-					target: LOG_TARGET,
-					?priority,
-					?ttl,
-					"Job exceeded its deadline and was dropped without execution",
-				);
-				return self.try_assign_next_job(finished_worker);
-			}
+
+		if !self.is_job_relevant(exec_kind) {
+			let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
+			gum::warn!(
+				target: LOG_TARGET,
+				?priority,
+				?exec_kind,
+				"Job exceeded its deadline and was dropped without execution",
+			);
+			return self.try_assign_next_job(finished_worker);
 		}
 
 		if let Some(worker) = worker {
@@ -331,7 +330,8 @@ impl Queue {
 		);
 	}
 
-	fn is_job_viable(&self, ttl: ExecutionJobTtl) -> bool {
+	fn is_job_relevant(&self, exec_kind: PvfExecKind) -> bool {
+		let Some(ttl) = exec_kind.ttl() else { return true };
 		let Some(leaf) = self
 			.active_leaves
 			.values()
