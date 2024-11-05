@@ -180,7 +180,8 @@ pub struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
 	/// Mapping to the unique `LaneId`.
 	pub lane_id: LaneId,
 
-	/// Holds data about the `bridge_origin_relative_location` where notifications can be sent for handling congestion.
+	/// Holds data about the `bridge_origin_relative_location` where notifications can be sent for
+	/// handling congestion.
 	pub maybe_notify: Option<Receiver>,
 }
 
@@ -198,10 +199,7 @@ pub struct Receiver {
 impl Receiver {
 	/// Create a new receiver.
 	pub fn new(pallet_index: u8, call_index: u8) -> Self {
-		Self {
-			pallet_index,
-			call_index,
-		}
+		Self { pallet_index, call_index }
 	}
 }
 

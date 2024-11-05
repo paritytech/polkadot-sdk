@@ -40,8 +40,7 @@ use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
 	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
-use pallet_xcm_bridge_hub::congestion::BlobDispatcherWithChannelStatus;
-use pallet_xcm_bridge_hub::XcmAsPlainPayload;
+use pallet_xcm_bridge_hub::{congestion::BlobDispatcherWithChannelStatus, XcmAsPlainPayload};
 use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::rococo::currency::UNITS as ROC;
 use xcm::{
@@ -153,7 +152,11 @@ impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime 
 	// Dispatching inbound messages from the bridge.
 	type BlobDispatcher = BlobDispatcherWithChannelStatus<
 		// Dispatches received XCM messages from other bridge
-		BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeRococoToRococoBulletinMessagesPalletInstance>,
+		BridgeBlobDispatcher<
+			XcmRouter,
+			UniversalLocation,
+			BridgeRococoToRococoBulletinMessagesPalletInstance,
+		>,
 		// no congestion checking
 		(),
 	>;

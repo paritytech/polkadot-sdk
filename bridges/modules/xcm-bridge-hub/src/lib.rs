@@ -147,8 +147,8 @@ use bp_messages::{LaneState, MessageNonce};
 use bp_runtime::{AccountIdOf, BalanceOf, RangeInclusiveExt};
 pub use bp_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
 use bp_xcm_bridge_hub::{
-	BridgeLocations, BridgeLocationsError, Deposit, DepositOf, LocalXcmChannelManager,
-	ChannelStatusProvider as DispatchChannelStatusProvider,
+	BridgeLocations, BridgeLocationsError, ChannelStatusProvider as DispatchChannelStatusProvider,
+	Deposit, DepositOf, LocalXcmChannelManager,
 };
 use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
 use frame_system::Config as SystemConfig;
@@ -163,9 +163,9 @@ pub use dispatcher::XcmBlobMessageDispatchResult;
 pub use exporter::PalletAsHaulBlobExporter;
 pub use pallet::*;
 
+pub mod congestion;
 mod dispatcher;
 mod exporter;
-pub mod congestion;
 pub mod migration;
 mod mock;
 
@@ -243,7 +243,8 @@ pub mod pallet {
 		/// For example, it is possible to make an exception for a system parachain or relay.
 		type AllowWithoutBridgeDeposit: Contains<Location>;
 
-		/// Local XCM channel manager. Dedicated to exporting capabilities when handling congestion with the sending side.
+		/// Local XCM channel manager. Dedicated to exporting capabilities when handling congestion
+		/// with the sending side.
 		type LocalXcmChannelManager: LocalXcmChannelManager<BridgeId>;
 		/// XCM-level dispatcher for inbound bridge messages.
 		type BlobDispatcher: DispatchBlob + DispatchChannelStatusProvider;

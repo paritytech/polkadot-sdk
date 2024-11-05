@@ -16,9 +16,8 @@
 
 #![cfg(test)]
 
-use sp_std::marker::PhantomData;
 use crate as pallet_xcm_bridge_hub;
-use pallet_xcm_bridge_hub::{congestion::{HereOrLocalConsensusXcmChannelManager, ReportBridgeStatusXcmChannelManager}};
+use crate::congestion::BlobDispatcherWithChannelStatus;
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
 	ChainWithMessages, HashedLaneId, MessageNonce,
@@ -28,28 +27,31 @@ use bp_xcm_bridge_hub::{BridgeId, BridgeLocations, LocalXcmChannelManager};
 use codec::Encode;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{fungible::Mutate, EitherOf, EnsureOrigin, Equals, Everything, OriginTrait},
+	traits::{fungible::Mutate, EitherOf, EnsureOrigin, Equals, Everything, Get, OriginTrait},
 	weights::RuntimeDbWeight,
 };
-use frame_support::traits::Get;
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess};
+use pallet_xcm_bridge_hub::congestion::{
+	HereOrLocalConsensusXcmChannelManager, ReportBridgeStatusXcmChannelManager,
+};
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
-	traits::{BlakeTwo256, ConstU32, IdentityLookup},
+	traits::{BlakeTwo256, ConstU32, Convert, IdentityLookup},
 	AccountId32, BuildStorage, StateVersion,
 };
-use sp_runtime::traits::Convert;
-use sp_std::cell::RefCell;
+use sp_std::{cell::RefCell, marker::PhantomData};
 use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds,
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
 	SiblingParachainConvertsVia, SovereignPaidRemoteExporter, UnpaidLocalExporter,
 };
-use xcm_executor::{traits::{ConvertLocation, ConvertOrigin}, XcmExecutor};
-use crate::congestion::BlobDispatcherWithChannelStatus;
+use xcm_executor::{
+	traits::{ConvertLocation, ConvertOrigin},
+	XcmExecutor,
+};
 
 pub type AccountId = AccountId32;
 pub type Balance = u64;
@@ -201,9 +203,9 @@ pub(crate) type TestLocalXcmChannelManager = TestingLocalXcmChannelManager<
 			TestRuntime,
 			(),
 			ReportBridgeStatusXcmProvider,
-			FromBridgeHubLocationXcmSender<ExecuteXcmOverSendXcm>
+			FromBridgeHubLocationXcmSender<ExecuteXcmOverSendXcm>,
 		>,
-	>
+	>,
 >;
 
 impl pallet_xcm_bridge_hub::Config for TestRuntime {
@@ -248,7 +250,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 			(),
 			NetworkExportTable<BridgeTable>,
 			BridgedRelayNetwork,
-			BridgeHubLocation
+			BridgeHubLocation,
 		>,
 		// **Note**: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which
 		// calls the `ExportXcm` implementation of `pallet_xcm_bridge_hub` as the
@@ -257,7 +259,9 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 		ExportMessageOriginUniversalLocation,
 	>;
 
-	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<ExportMessageOriginUniversalLocation>;
+	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<
+		ExportMessageOriginUniversalLocation,
+	>;
 	// We convert to root here `BridgeHubLocationXcmOriginAsRoot`
 	type BridgeHubOrigin = EnsureRoot<AccountId>;
 }
@@ -271,7 +275,8 @@ impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeByExportXcmRouterInstance
 	// trigger directly `pallet_xcm_bridge_hub` as exporter.
 	type ToBridgeHubSender = UnpaidLocalExporter<XcmOverBridge, UniversalLocation>;
 
-	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
+	type BridgeIdResolver =
+		pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
 	// We don't need to support here `report_bridge_status`.
 	type BridgeHubOrigin = EnsureNever<()>;
 }
@@ -285,7 +290,11 @@ impl ExportMessageOriginUniversalLocation {
 }
 impl Get<InteriorLocation> for ExportMessageOriginUniversalLocation {
 	fn get() -> InteriorLocation {
-		EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION.with(|o| o.borrow().clone().expect("`EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION` is not set!"))
+		EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION.with(|o| {
+			o.borrow()
+				.clone()
+				.expect("`EXPORT_MESSAGE_ORIGIN_UNIVERSAL_LOCATION` is not set!")
+		})
 	}
 }
 thread_local! {
@@ -483,7 +492,8 @@ pub(crate) fn fund_origin_sovereign_account(
 	bridge_owner_account
 }
 
-/// Testing wrapper implementation of `LocalXcmChannelManager`, that supports storing flags in storage to facilitate testing of `LocalXcmChannelManager` implementation.
+/// Testing wrapper implementation of `LocalXcmChannelManager`, that supports storing flags in
+/// storage to facilitate testing of `LocalXcmChannelManager` implementation.
 pub struct TestingLocalXcmChannelManager<Bridge, Tested>(PhantomData<(Bridge, Tested)>);
 
 impl<Bridge: Encode + sp_std::fmt::Debug, Tested> TestingLocalXcmChannelManager<Bridge, Tested> {
@@ -503,7 +513,9 @@ impl<Bridge: Encode + sp_std::fmt::Debug, Tested> TestingLocalXcmChannelManager<
 	}
 }
 
-impl<Bridge: Encode + sp_std::fmt::Debug + Copy, Tested: LocalXcmChannelManager<Bridge>> LocalXcmChannelManager<Bridge> for TestingLocalXcmChannelManager<Bridge, Tested> {
+impl<Bridge: Encode + sp_std::fmt::Debug + Copy, Tested: LocalXcmChannelManager<Bridge>>
+	LocalXcmChannelManager<Bridge> for TestingLocalXcmChannelManager<Bridge, Tested>
+{
 	type Error = Tested::Error;
 
 	fn suspend_bridge(local_origin: &Location, bridge: Bridge) -> Result<(), Self::Error> {
@@ -548,7 +560,10 @@ pub struct FromBridgeHubLocationXcmSender<Inner>(PhantomData<Inner>);
 impl<Inner: SendXcm> SendXcm for FromBridgeHubLocationXcmSender<Inner> {
 	type Ticket = Inner::Ticket;
 
-	fn validate(destination: &mut Option<Location>, message: &mut Option<Xcm<()>>) -> SendResult<Self::Ticket> {
+	fn validate(
+		destination: &mut Option<Location>,
+		message: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
 		Inner::validate(destination, message)
 	}
 

@@ -16,14 +16,13 @@
 
 //! The module contains utilities for handling congestion between the bridge hub and routers.
 
-use sp_std::vec::Vec;
-use sp_std::marker::PhantomData;
-use codec::Encode;
+use crate::{Bridges, Config, DispatchChannelStatusProvider, LOG_TARGET};
 use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager, Receiver};
+use codec::Encode;
 use sp_runtime::traits::Convert;
+use sp_std::{marker::PhantomData, vec::Vec};
 use xcm::latest::{send_xcm, Location, SendXcm, Xcm};
 use xcm_builder::{DispatchBlob, DispatchBlobError};
-use crate::{Config, Bridges, LOG_TARGET, DispatchChannelStatusProvider};
 
 /// Switches the implementation of `LocalXcmChannelManager` based on the `local_origin`.
 ///
@@ -33,24 +32,37 @@ use crate::{Config, Bridges, LOG_TARGET, DispatchChannelStatusProvider};
 /// This is useful when the `pallet-xcm-bridge-hub` needs to support both:
 /// - A local router deployed on the same chain as the `pallet-xcm-bridge-hub`.
 /// - A remote router deployed on a different chain than the `pallet-xcm-bridge-hub`.
-pub struct HereOrLocalConsensusXcmChannelManager<Bridge, HereXcmChannelManager, LocalConsensusXcmChannelManager>(PhantomData<(Bridge, HereXcmChannelManager, LocalConsensusXcmChannelManager)>);
-impl<Bridge: Encode + sp_std::fmt::Debug + Copy, HereXcmChannelManager: LocalXcmChannelManager<Bridge>, LocalConsensusXcmChannelManager: LocalXcmChannelManager<Bridge>> LocalXcmChannelManager<Bridge>
-for HereOrLocalConsensusXcmChannelManager<Bridge, HereXcmChannelManager, LocalConsensusXcmChannelManager> {
-    type Error = ();
+pub struct HereOrLocalConsensusXcmChannelManager<
+	Bridge,
+	HereXcmChannelManager,
+	LocalConsensusXcmChannelManager,
+>(PhantomData<(Bridge, HereXcmChannelManager, LocalConsensusXcmChannelManager)>);
+impl<
+		Bridge: Encode + sp_std::fmt::Debug + Copy,
+		HereXcmChannelManager: LocalXcmChannelManager<Bridge>,
+		LocalConsensusXcmChannelManager: LocalXcmChannelManager<Bridge>,
+	> LocalXcmChannelManager<Bridge>
+	for HereOrLocalConsensusXcmChannelManager<
+		Bridge,
+		HereXcmChannelManager,
+		LocalConsensusXcmChannelManager,
+	>
+{
+	type Error = ();
 
-    fn suspend_bridge(local_origin: &Location, bridge: Bridge) -> Result<(), Self::Error> {
-        if local_origin.eq(&Location::here()) {
-            HereXcmChannelManager::suspend_bridge(local_origin, bridge).map_err(|e| {
-                log::error!(
-                    target: LOG_TARGET,
+	fn suspend_bridge(local_origin: &Location, bridge: Bridge) -> Result<(), Self::Error> {
+		if local_origin.eq(&Location::here()) {
+			HereXcmChannelManager::suspend_bridge(local_origin, bridge).map_err(|e| {
+				log::error!(
+					target: LOG_TARGET,
 					"HereXcmChannelManager::suspend_bridge error: {e:?} for local_origin: {:?} and bridge: {:?}",
 					local_origin,
 					bridge,
 				);
-                ()
-            })
-        } else {
-            LocalConsensusXcmChannelManager::suspend_bridge(local_origin, bridge).map_err(|e| {
+				()
+			})
+		} else {
+			LocalConsensusXcmChannelManager::suspend_bridge(local_origin, bridge).map_err(|e| {
                 log::error!(
                     target: LOG_TARGET,
 					"LocalConsensusXcmChannelManager::suspend_bridge error: {e:?} for local_origin: {:?} and bridge: {:?}",
@@ -59,22 +71,22 @@ for HereOrLocalConsensusXcmChannelManager<Bridge, HereXcmChannelManager, LocalCo
 				);
                 ()
             })
-        }
-    }
+		}
+	}
 
-    fn resume_bridge(local_origin: &Location, bridge: Bridge) -> Result<(), Self::Error> {
-        if local_origin.eq(&Location::here()) {
-            HereXcmChannelManager::resume_bridge(local_origin, bridge).map_err(|e| {
-                log::error!(
-                    target: LOG_TARGET,
+	fn resume_bridge(local_origin: &Location, bridge: Bridge) -> Result<(), Self::Error> {
+		if local_origin.eq(&Location::here()) {
+			HereXcmChannelManager::resume_bridge(local_origin, bridge).map_err(|e| {
+				log::error!(
+					target: LOG_TARGET,
 					"HereXcmChannelManager::resume_bridge error: {e:?} for local_origin: {:?} and bridge: {:?}",
 					local_origin,
 					bridge,
 				);
-                ()
-            })
-        } else {
-            LocalConsensusXcmChannelManager::resume_bridge(local_origin, bridge).map_err(|e| {
+				()
+			})
+		} else {
+			LocalConsensusXcmChannelManager::resume_bridge(local_origin, bridge).map_err(|e| {
                 log::error!(
                     target: LOG_TARGET,
 					"LocalConsensusXcmChannelManager::resume_bridge error: {e:?} for local_origin: {:?} and bridge: {:?}",
@@ -83,38 +95,48 @@ for HereOrLocalConsensusXcmChannelManager<Bridge, HereXcmChannelManager, LocalCo
 				);
                 ()
             })
-        }
-    }
+		}
+	}
 }
 
-/// Manages the local XCM channels by sending XCM messages with the `report_bridge_status` extrinsic to the `local_origin`.
-/// The `XcmProvider` type converts the encoded call to `XCM`, which is then sent by `XcmSender` to the `local_origin`.
-/// This is useful, for example, when a router with `ExportMessage` is deployed on a different chain, and we want to control congestion by sending XCMs.
-pub struct ReportBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>(PhantomData<(T, I, XcmProvider, XcmSender)>);
-impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender: SendXcm> ReportBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender> {
-    fn report_bridge_status(local_origin: &Location, bridge_id: BridgeId, is_congested: bool) -> Result<(), ()> {
-        // check the bridge and get `maybe_notify` callback.
-        let bridge = Bridges::<T, I>::get(&bridge_id).ok_or(())?;
-        let Some(Receiver { pallet_index, call_index }) = bridge.maybe_notify else {
-            // `local_origin` did not set `maybe_notify`, so nothing to notify, so it is ok.
-            return Ok(())
-        };
+/// Manages the local XCM channels by sending XCM messages with the `report_bridge_status` extrinsic
+/// to the `local_origin`. The `XcmProvider` type converts the encoded call to `XCM`, which is then
+/// sent by `XcmSender` to the `local_origin`. This is useful, for example, when a router with
+/// `ExportMessage` is deployed on a different chain, and we want to control congestion by sending
+/// XCMs.
+pub struct ReportBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>(
+	PhantomData<(T, I, XcmProvider, XcmSender)>,
+);
+impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender: SendXcm>
+	ReportBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>
+{
+	fn report_bridge_status(
+		local_origin: &Location,
+		bridge_id: BridgeId,
+		is_congested: bool,
+	) -> Result<(), ()> {
+		// check the bridge and get `maybe_notify` callback.
+		let bridge = Bridges::<T, I>::get(&bridge_id).ok_or(())?;
+		let Some(Receiver { pallet_index, call_index }) = bridge.maybe_notify else {
+			// `local_origin` did not set `maybe_notify`, so nothing to notify, so it is ok.
+			return Ok(())
+		};
 
-        // constructing expected call
-        let remote_runtime_call = (pallet_index, call_index, bridge_id, is_congested);
-        // construct XCM
-        let xcm = XcmProvider::convert(remote_runtime_call.encode());
-        log::trace!(
-            target: LOG_TARGET,
+		// constructing expected call
+		let remote_runtime_call = (pallet_index, call_index, bridge_id, is_congested);
+		// construct XCM
+		let xcm = XcmProvider::convert(remote_runtime_call.encode());
+		log::trace!(
+			target: LOG_TARGET,
 			"ReportBridgeStatusXcmChannelManager is going to send status with is_congested: {:?} to the local_origin: {:?} and bridge: {:?} as xcm: {:?}",
-            is_congested,
+			is_congested,
 			local_origin,
-		    bridge,
-            xcm,
-        );
+			bridge,
+			xcm,
+		);
 
-        // send XCM
-        send_xcm::<XcmSender>(local_origin.clone(), xcm)
+		// send XCM
+		send_xcm::<XcmSender>(local_origin.clone(), xcm)
             .map(|result| {
                 log::warn!(
                     target: LOG_TARGET,
@@ -137,31 +159,41 @@ impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender
 				);
                 ()
             })
-    }
+	}
 }
-impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender: SendXcm> LocalXcmChannelManager<BridgeId> for ReportBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender> {
-    type Error = ();
+impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender: SendXcm>
+	LocalXcmChannelManager<BridgeId>
+	for ReportBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>
+{
+	type Error = ();
 
-    fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
-        Self::report_bridge_status(local_origin, bridge, true)
-    }
+	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+		Self::report_bridge_status(local_origin, bridge, true)
+	}
 
-    fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
-        Self::report_bridge_status(local_origin, bridge, false)
-    }
+	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+		Self::report_bridge_status(local_origin, bridge, false)
+	}
 }
 
-/// Adapter that ties together the `DispatchBlob` trait with the `DispatchChannelStatusProvider` trait.
-/// The idea is that `DispatchBlob` triggers message dispatch/delivery on the receiver side,
-/// while `DispatchChannelStatusProvider` provides an status check to ensure the dispatch channel is active (not congested).
-pub struct BlobDispatcherWithChannelStatus<ChannelDispatch, ChannelStatus>(PhantomData<(ChannelDispatch, ChannelStatus)>);
-impl<ChannelDispatch: DispatchBlob, ChannelStatus> DispatchBlob for BlobDispatcherWithChannelStatus<ChannelDispatch, ChannelStatus> {
-    fn dispatch_blob(blob: Vec<u8>) -> Result<(), DispatchBlobError> {
-        ChannelDispatch::dispatch_blob(blob)
-    }
+/// Adapter that ties together the `DispatchBlob` trait with the `DispatchChannelStatusProvider`
+/// trait. The idea is that `DispatchBlob` triggers message dispatch/delivery on the receiver side,
+/// while `DispatchChannelStatusProvider` provides an status check to ensure the dispatch channel is
+/// active (not congested).
+pub struct BlobDispatcherWithChannelStatus<ChannelDispatch, ChannelStatus>(
+	PhantomData<(ChannelDispatch, ChannelStatus)>,
+);
+impl<ChannelDispatch: DispatchBlob, ChannelStatus> DispatchBlob
+	for BlobDispatcherWithChannelStatus<ChannelDispatch, ChannelStatus>
+{
+	fn dispatch_blob(blob: Vec<u8>) -> Result<(), DispatchBlobError> {
+		ChannelDispatch::dispatch_blob(blob)
+	}
 }
-impl<ChannelDispatch, ChannelStatus: DispatchChannelStatusProvider> DispatchChannelStatusProvider for BlobDispatcherWithChannelStatus<ChannelDispatch, ChannelStatus> {
-    fn is_congested(with: &Location) -> bool {
-        ChannelStatus::is_congested(with)
-    }
+impl<ChannelDispatch, ChannelStatus: DispatchChannelStatusProvider> DispatchChannelStatusProvider
+	for BlobDispatcherWithChannelStatus<ChannelDispatch, ChannelStatus>
+{
+	fn is_congested(with: &Location) -> bool {
+		ChannelStatus::is_congested(with)
+	}
 }

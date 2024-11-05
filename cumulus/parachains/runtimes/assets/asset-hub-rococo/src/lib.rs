@@ -62,12 +62,12 @@ use frame_support::{
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
-		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, InstanceFilter, TransformOrigin,
+		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
+		TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight, WeightToFee as _},
 	BoundedVec, PalletId,
 };
-use frame_support::traits::Equals;
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned, EnsureSignedBy,
@@ -940,16 +940,20 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 			ToWestendXcmRouterInstance,
 			NetworkExportTable<xcm_config::bridging::to_westend::BridgeTable>,
 			xcm_config::bridging::to_westend::WestendNetwork,
-			xcm_config::bridging::SiblingBridgeHub
+			xcm_config::bridging::SiblingBridgeHub,
 		>,
 		XcmpQueue,
 		xcm_config::UniversalLocation,
 	>;
 
-	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge_hub` on the BH.
-	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<xcm_config::UniversalLocation>;
+	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge_hub` on
+	// the BH.
+	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<
+		xcm_config::UniversalLocation,
+	>;
 	// For congestion - allow only calls from BH.
-	type BridgeHubOrigin = AsEnsureOriginWithArg<EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>>;
+	type BridgeHubOrigin =
+		AsEnsureOriginWithArg<EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>>;
 
 	// For adding message size fees
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;

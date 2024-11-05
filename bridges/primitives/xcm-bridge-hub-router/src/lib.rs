@@ -22,7 +22,7 @@ use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::sp_std::fmt::Debug;
 use sp_runtime::{FixedU128, RuntimeDebug};
-use xcm::latest::prelude::{Location, NetworkId, InteriorLocation};
+use xcm::latest::prelude::{InteriorLocation, Location, NetworkId};
 
 /// Current status of the bridge.
 #[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
@@ -40,8 +40,12 @@ pub trait ResolveBridgeId {
 	/// Resolves `Self::BridgeId` for `dest`. If `None`, it means there is no supported bridge ID.
 	fn resolve_for_dest(bridged_dest: &Location) -> Option<Self::BridgeId>;
 
-	/// Resolves `Self::BridgeId` for `bridged_network` and `bridged_dest`. If `None`, it means there is no supported bridge ID.
-	fn resolve_for(bridged_network: &NetworkId, bridged_dest: &InteriorLocation) -> Option<Self::BridgeId>;
+	/// Resolves `Self::BridgeId` for `bridged_network` and `bridged_dest`. If `None`, it means
+	/// there is no supported bridge ID.
+	fn resolve_for(
+		bridged_network: &NetworkId,
+		bridged_dest: &InteriorLocation,
+	) -> Option<Self::BridgeId>;
 }
 
 /// The default implementation of `ResolveBridgeId` for `()` returns `None`.
@@ -52,7 +56,10 @@ impl ResolveBridgeId for () {
 		None
 	}
 
-	fn resolve_for(_bridged_network: &NetworkId, _bridged_dest: &InteriorLocation) -> Option<Self::BridgeId> {
+	fn resolve_for(
+		_bridged_network: &NetworkId,
+		_bridged_dest: &InteriorLocation,
+	) -> Option<Self::BridgeId> {
 		None
 	}
 }

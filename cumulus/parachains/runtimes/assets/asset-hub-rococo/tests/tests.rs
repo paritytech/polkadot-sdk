@@ -17,11 +17,18 @@
 
 //! Tests for the Rococo Assets Hub chain.
 
-use asset_hub_rococo_runtime::{xcm_config, xcm_config::{
-	bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-	ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
-	TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
-}, AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue};
+use asset_hub_rococo_runtime::{
+	xcm_config,
+	xcm_config::{
+		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
+		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
+		TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
+	},
+	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection,
+	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
+	MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	SessionKeys, ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
+};
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
 	ExtBuilder, SlotDurations,
@@ -1273,30 +1280,26 @@ mod asset_hub_rococo_tests {
 			XcmConfig,
 			LocationToAccountId,
 			ToWestendXcmRouterInstance,
-		>(
-			collator_session_keys(),
-			bridging_to_asset_hub_westend,
-			|bridge_id, is_congested| {
-				vec![
-					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact {
-						origin_kind: OriginKind::Xcm,
-						require_weight_at_most:
+		>(collator_session_keys(), bridging_to_asset_hub_westend, |bridge_id, is_congested| {
+			vec![
+				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				Transact {
+					origin_kind: OriginKind::Xcm,
+					require_weight_at_most:
 						bp_bridge_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-						call: RuntimeCall::ToWestendXcmRouter(
-							pallet_xcm_bridge_hub_router::Call::report_bridge_status {
-								bridge_id,
-								is_congested,
-							},
-						)
-							.encode()
-							.into(),
-					},
-					ExpectTransactStatus(MaybeErrorCode::Success)
-				]
-					.into()
-			},
-		)
+					call: RuntimeCall::ToWestendXcmRouter(
+						pallet_xcm_bridge_hub_router::Call::report_bridge_status {
+							bridge_id,
+							is_congested,
+						},
+					)
+					.encode()
+					.into(),
+				},
+				ExpectTransactStatus(MaybeErrorCode::Success),
+			]
+			.into()
+		})
 	}
 }
 

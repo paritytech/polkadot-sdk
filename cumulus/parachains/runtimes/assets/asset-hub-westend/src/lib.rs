@@ -938,16 +938,20 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 			ToRococoXcmRouterInstance,
 			NetworkExportTable<xcm_config::bridging::to_rococo::BridgeTable>,
 			xcm_config::bridging::to_rococo::RococoNetwork,
-			xcm_config::bridging::SiblingBridgeHub
+			xcm_config::bridging::SiblingBridgeHub,
 		>,
 		XcmpQueue,
 		xcm_config::UniversalLocation,
 	>;
 
-	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge_hub` on the BH.
-	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<xcm_config::UniversalLocation>;
+	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge_hub` on
+	// the BH.
+	type BridgeIdResolver = pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<
+		xcm_config::UniversalLocation,
+	>;
 	// For congestion - allow only calls from BH.
-	type BridgeHubOrigin = AsEnsureOriginWithArg<EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>>;
+	type BridgeHubOrigin =
+		AsEnsureOriginWithArg<EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>>;
 
 	// For adding message size fees
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;

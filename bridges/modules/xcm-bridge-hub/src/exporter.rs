@@ -365,11 +365,11 @@ mod tests {
 
 	use bp_runtime::RangeInclusiveExt;
 	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState, Receiver};
-	use pallet_xcm_bridge_hub_router::ResolveBridgeId;
 	use frame_support::{
 		assert_ok,
 		traits::{Contains, EnsureOrigin},
 	};
+	use pallet_xcm_bridge_hub_router::ResolveBridgeId;
 	use xcm_builder::{NetworkExportTable, UnpaidRemoteExporter};
 	use xcm_executor::traits::export_xcm;
 
@@ -636,13 +636,17 @@ mod tests {
 				OpenBridgeOriginOf::<TestRuntime, ()>::try_origin(origin.clone()).unwrap();
 			let (bridge, expected_lane_id) = open_lane(origin);
 
-			// we need to set `UniversalLocation` for `sibling_parachain_origin` for `XcmOverBridgeWrappedWithExportMessageRouterInstance`.
+			// we need to set `UniversalLocation` for `sibling_parachain_origin` for
+			// `XcmOverBridgeWrappedWithExportMessageRouterInstance`.
 			ExportMessageOriginUniversalLocation::set(Some(SiblingUniversalLocation::get()));
 
 			// check compatible bridge_id
 			assert_eq!(
 				bridge.bridge_id(),
-				&<TestRuntime as pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageRouterInstance>>::BridgeIdResolver::resolve_for_dest(&dest).unwrap()
+				&<TestRuntime as pallet_xcm_bridge_hub_router::Config<
+					XcmOverBridgeWrappedWithExportMessageRouterInstance,
+				>>::BridgeIdResolver::resolve_for_dest(&dest)
+				.unwrap()
 			);
 
 			// check before - no messages
@@ -699,7 +703,10 @@ mod tests {
 			// check compatible bridge_id
 			assert_eq!(
 				bridge.bridge_id(),
-				&<TestRuntime as pallet_xcm_bridge_hub_router::Config<XcmOverBridgeByExportXcmRouterInstance>>::BridgeIdResolver::resolve_for_dest(&dest).unwrap()
+				&<TestRuntime as pallet_xcm_bridge_hub_router::Config<
+					XcmOverBridgeByExportXcmRouterInstance,
+				>>::BridgeIdResolver::resolve_for_dest(&dest)
+				.unwrap()
 			);
 
 			// check before - no messages
@@ -828,56 +835,100 @@ mod tests {
 			// valid routable destination
 			let dest = Location::new(2, BridgedUniversalDestination::get());
 
-			fn router_bridge_state<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(dest: &Location) -> Option<pallet_xcm_bridge_hub_router::BridgeState> {
-				let bridge_id = <T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
+			fn router_bridge_state<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(
+				dest: &Location,
+			) -> Option<pallet_xcm_bridge_hub_router::BridgeState> {
+				let bridge_id =
+					<T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
 				pallet_xcm_bridge_hub_router::Bridges::<T, I>::get(&bridge_id)
 			}
 
 			// open two bridges
 			let origin = OpenBridgeOrigin::sibling_parachain_origin();
-			let origin_as_location = OpenBridgeOriginOf::<TestRuntime, ()>::try_origin(origin.clone()).unwrap();
+			let origin_as_location =
+				OpenBridgeOriginOf::<TestRuntime, ()>::try_origin(origin.clone()).unwrap();
 			let (bridge_1, expected_lane_id_1) = open_lane(origin);
 			let (bridge_2, expected_lane_id_2) = open_lane(RuntimeOrigin::root());
 			assert_ne!(expected_lane_id_1, expected_lane_id_2);
 			assert_ne!(bridge_1.bridge_id(), bridge_2.bridge_id());
 
-			// we need to set `UniversalLocation` for `sibling_parachain_origin` for `XcmOverBridgeWrappedWithExportMessageRouterInstance`.
+			// we need to set `UniversalLocation` for `sibling_parachain_origin` for
+			// `XcmOverBridgeWrappedWithExportMessageRouterInstance`.
 			ExportMessageOriginUniversalLocation::set(Some(SiblingUniversalLocation::get()));
 
-			// we need to update `maybe_notify` for `bridge_1` with `pallet_index` of `XcmOverBridgeWrappedWithExportMessageRouter`,
+			// we need to update `maybe_notify` for `bridge_1` with `pallet_index` of
+			// `XcmOverBridgeWrappedWithExportMessageRouter`,
 			Bridges::<TestRuntime, ()>::mutate_extant(bridge_1.bridge_id(), |bridge| {
 				bridge.maybe_notify = Some(Receiver::new(57, 0));
 			});
 
 			// check before
 			// bridges are opened
-			assert_eq!(XcmOverBridge::bridge(bridge_1.bridge_id()).unwrap().state, BridgeState::Opened);
-			assert_eq!(XcmOverBridge::bridge(bridge_2.bridge_id()).unwrap().state, BridgeState::Opened);
+			assert_eq!(
+				XcmOverBridge::bridge(bridge_1.bridge_id()).unwrap().state,
+				BridgeState::Opened
+			);
+			assert_eq!(
+				XcmOverBridge::bridge(bridge_2.bridge_id()).unwrap().state,
+				BridgeState::Opened
+			);
 			// both routers are uncongested
-			assert!(!router_bridge_state::<TestRuntime, XcmOverBridgeWrappedWithExportMessageRouterInstance>(&dest).map(|bs| bs.is_congested).unwrap_or(false));
-			assert!(!router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(&dest).map(|bs| bs.is_congested).unwrap_or(false));
+			assert!(!router_bridge_state::<
+				TestRuntime,
+				XcmOverBridgeWrappedWithExportMessageRouterInstance,
+			>(&dest)
+			.map(|bs| bs.is_congested)
+			.unwrap_or(false));
+			assert!(!router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(
+				&dest
+			)
+			.map(|bs| bs.is_congested)
+			.unwrap_or(false));
 			assert!(!TestLocalXcmChannelManager::is_bridge_suspened(bridge_1.bridge_id()));
 			assert!(!TestLocalXcmChannelManager::is_bridge_suspened(bridge_2.bridge_id()));
 			assert!(!TestLocalXcmChannelManager::is_bridge_resumed(bridge_1.bridge_id()));
 			assert!(!TestLocalXcmChannelManager::is_bridge_resumed(bridge_2.bridge_id()));
 
 			// make bridges congested with sending too much messages
-			for _ in 1..(OUTBOUND_LANE_CONGESTED_THRESHOLD + 2)  {
+			for _ in 1..(OUTBOUND_LANE_CONGESTED_THRESHOLD + 2) {
 				// send `ExportMessage(message)` by `pallet_xcm_bridge_hub_router`.
 				ExecuteXcmOverSendXcm::set_origin_for_execute(origin_as_location.clone());
-				assert_ok!(send_xcm::<XcmOverBridgeWrappedWithExportMessageRouter>(dest.clone(), Xcm::<()>::default()));
+				assert_ok!(send_xcm::<XcmOverBridgeWrappedWithExportMessageRouter>(
+					dest.clone(),
+					Xcm::<()>::default()
+				));
 
 				// call direct `ExportXcm` by `pallet_xcm_bridge_hub_router`.
-				assert_ok!(send_xcm::<XcmOverBridgeByExportXcmRouter>(dest.clone(), Xcm::<()>::default()));
+				assert_ok!(send_xcm::<XcmOverBridgeByExportXcmRouter>(
+					dest.clone(),
+					Xcm::<()>::default()
+				));
 			}
 
 			// checks after
 			// bridges are suspended
-			assert_eq!(XcmOverBridge::bridge(bridge_1.bridge_id()).unwrap().state, BridgeState::Suspended);
-			assert_eq!(XcmOverBridge::bridge(bridge_2.bridge_id()).unwrap().state, BridgeState::Suspended);
+			assert_eq!(
+				XcmOverBridge::bridge(bridge_1.bridge_id()).unwrap().state,
+				BridgeState::Suspended
+			);
+			assert_eq!(
+				XcmOverBridge::bridge(bridge_2.bridge_id()).unwrap().state,
+				BridgeState::Suspended
+			);
 			// both routers are congested
-			assert!(router_bridge_state::<TestRuntime, XcmOverBridgeWrappedWithExportMessageRouterInstance>(&dest).unwrap().is_congested);
-			assert!(router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(&dest).unwrap().is_congested);
+			assert!(
+				router_bridge_state::<
+					TestRuntime,
+					XcmOverBridgeWrappedWithExportMessageRouterInstance,
+				>(&dest)
+				.unwrap()
+				.is_congested
+			);
+			assert!(
+				router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(&dest)
+					.unwrap()
+					.is_congested
+			);
 			assert!(TestLocalXcmChannelManager::is_bridge_suspened(bridge_1.bridge_id()));
 			assert!(TestLocalXcmChannelManager::is_bridge_suspened(bridge_2.bridge_id()));
 			assert!(!TestLocalXcmChannelManager::is_bridge_resumed(bridge_1.bridge_id()));
@@ -894,11 +945,28 @@ mod tests {
 			);
 
 			// bridges are again opened
-			assert_eq!(XcmOverBridge::bridge(bridge_1.bridge_id()).unwrap().state, BridgeState::Opened);
-			assert_eq!(XcmOverBridge::bridge(bridge_2.bridge_id()).unwrap().state, BridgeState::Opened);
+			assert_eq!(
+				XcmOverBridge::bridge(bridge_1.bridge_id()).unwrap().state,
+				BridgeState::Opened
+			);
+			assert_eq!(
+				XcmOverBridge::bridge(bridge_2.bridge_id()).unwrap().state,
+				BridgeState::Opened
+			);
 			// both routers are uncongested
-			assert!(!router_bridge_state::<TestRuntime, XcmOverBridgeWrappedWithExportMessageRouterInstance>(&dest).unwrap().is_congested);
-			assert!(!router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(&dest).unwrap().is_congested);
+			assert!(
+				!router_bridge_state::<
+					TestRuntime,
+					XcmOverBridgeWrappedWithExportMessageRouterInstance,
+				>(&dest)
+				.unwrap()
+				.is_congested
+			);
+			assert!(
+				!router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(&dest)
+					.unwrap()
+					.is_congested
+			);
 			assert!(TestLocalXcmChannelManager::is_bridge_resumed(bridge_1.bridge_id()));
 			assert!(TestLocalXcmChannelManager::is_bridge_resumed(bridge_2.bridge_id()));
 		})

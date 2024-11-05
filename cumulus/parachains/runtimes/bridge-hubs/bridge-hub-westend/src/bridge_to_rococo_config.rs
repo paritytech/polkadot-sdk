@@ -41,7 +41,9 @@ use pallet_bridge_messages::LaneIdOf;
 use pallet_bridge_relayers::extension::{
 	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
-use pallet_xcm_bridge_hub::congestion::{BlobDispatcherWithChannelStatus, ReportBridgeStatusXcmChannelManager};
+use pallet_xcm_bridge_hub::congestion::{
+	BlobDispatcherWithChannelStatus, ReportBridgeStatusXcmChannelManager,
+};
 use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::Convert;
@@ -166,7 +168,8 @@ impl Convert<Vec<u8>, Xcm<()>> for ReportBridgeStatusXcmProvider {
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				require_weight_at_most: bp_bridge_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+				require_weight_at_most:
+					bp_bridge_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get(),
 				call: encoded_call.into(),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
@@ -200,14 +203,26 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type AllowWithoutBridgeDeposit =
 		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
 
-	// This pallet is deployed on BH, so we expect a remote router with `ExportMessage`. We handle congestion with XCM using `report_bridge_status` sent to the sending chain.
-	// (congestion with local sending chain)
-	type LocalXcmChannelManager = ReportBridgeStatusXcmChannelManager<Runtime, XcmOverBridgeHubRococoInstance, ReportBridgeStatusXcmProvider, XcmRouter>;
-	// Dispatching inbound messages from the bridge and managing congestion with the local receiving/destination chain
+	// This pallet is deployed on BH, so we expect a remote router with `ExportMessage`. We handle
+	// congestion with XCM using `report_bridge_status` sent to the sending chain. (congestion with
+	// local sending chain)
+	type LocalXcmChannelManager = ReportBridgeStatusXcmChannelManager<
+		Runtime,
+		XcmOverBridgeHubRococoInstance,
+		ReportBridgeStatusXcmProvider,
+		XcmRouter,
+	>;
+	// Dispatching inbound messages from the bridge and managing congestion with the local
+	// receiving/destination chain
 	type BlobDispatcher = BlobDispatcherWithChannelStatus<
 		// Dispatches received XCM messages from other bridge
-		BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeWestendToRococoMessagesPalletInstance>,
-		// Provides the status of the XCMP queue's outbound queue, indicating whether messages can be dispatched to the sibling.
+		BridgeBlobDispatcher<
+			XcmRouter,
+			UniversalLocation,
+			BridgeWestendToRococoMessagesPalletInstance,
+		>,
+		// Provides the status of the XCMP queue's outbound queue, indicating whether messages can
+		// be dispatched to the sibling.
 		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<Runtime>,
 	>;
 }

@@ -122,8 +122,9 @@ pub mod pallet {
 		#[pallet::no_default]
 		type ToBridgeHubSender: SendXcm;
 
-		/// Resolves a specific `BridgeId` for `dest`, used for identifying the bridge in cases of congestion and dynamic fees.
-		/// If it resolves to `None`, it means no congestion or dynamic fees are handled for `dest`.
+		/// Resolves a specific `BridgeId` for `dest`, used for identifying the bridge in cases of
+		/// congestion and dynamic fees. If it resolves to `None`, it means no congestion or
+		/// dynamic fees are handled for `dest`.
 		#[pallet::no_default]
 		type BridgeIdResolver: ResolveBridgeId;
 
@@ -183,7 +184,8 @@ pub mod pallet {
 					new_value: 0.into(),
 					bridge_id,
 				});
-				weight_used.saturating_accrue(T::WeightInfo::on_initialize_when_bridge_state_removed());
+				weight_used
+					.saturating_accrue(T::WeightInfo::on_initialize_when_bridge_state_removed());
 			}
 			// update
 			for (bridge_id, previous_value, bridge_state) in bridges_to_update.into_iter() {
@@ -201,7 +203,8 @@ pub mod pallet {
 					new_value,
 					bridge_id,
 				});
-				weight_used.saturating_accrue(T::WeightInfo::on_initialize_when_bridge_state_updated());
+				weight_used
+					.saturating_accrue(T::WeightInfo::on_initialize_when_bridge_state_updated());
 			}
 
 			weight_used
@@ -234,9 +237,11 @@ pub mod pallet {
 		}
 	}
 
-	/// Stores `BridgeState` for congestion control and dynamic fees for each resolved bridge ID associated with a destination.
+	/// Stores `BridgeState` for congestion control and dynamic fees for each resolved bridge ID
+	/// associated with a destination.
 	#[pallet::storage]
-	pub type Bridges<T: Config<I>, I: 'static = ()> = StorageMap<_, Blake2_128Concat, BridgeIdOf<T, I>, BridgeState, OptionQuery>;
+	pub type Bridges<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Blake2_128Concat, BridgeIdOf<T, I>, BridgeState, OptionQuery>;
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Called when new message is sent to the `dest` (queued to local outbound XCM queue).
@@ -247,24 +252,27 @@ pub mod pallet {
 			};
 
 			// handle congestion and fee factor (if detected)
-			let increased = Bridges::<T, I>::mutate_exists(&bridge_id, |bridge_state| match bridge_state {
-				Some(ref mut bridge_state) if bridge_state.is_congested => {
-					// found congested bridge
-					// ok - we need to increase the fee factor, let's do that
-					let message_size_factor = FixedU128::from_u32(message_size.saturating_div(1024))
-						.saturating_mul(MESSAGE_SIZE_FEE_BASE);
-					let total_factor = EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor);
+			let increased =
+				Bridges::<T, I>::mutate_exists(&bridge_id, |bridge_state| match bridge_state {
+					Some(ref mut bridge_state) if bridge_state.is_congested => {
+						// found congested bridge
+						// ok - we need to increase the fee factor, let's do that
+						let message_size_factor =
+							FixedU128::from_u32(message_size.saturating_div(1024))
+								.saturating_mul(MESSAGE_SIZE_FEE_BASE);
+						let total_factor = EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor);
 
-					let previous_factor = bridge_state.delivery_fee_factor;
-					bridge_state.delivery_fee_factor = bridge_state.delivery_fee_factor.saturating_mul(total_factor);
+						let previous_factor = bridge_state.delivery_fee_factor;
+						bridge_state.delivery_fee_factor =
+							bridge_state.delivery_fee_factor.saturating_mul(total_factor);
 
-					Some((previous_factor, bridge_state.delivery_fee_factor))
-				},
-				_ => {
-					// not congested, do nothing
-					None
-				}
-			});
+						Some((previous_factor, bridge_state.delivery_fee_factor))
+					},
+					_ => {
+						// not congested, do nothing
+						None
+					},
+				});
 			if let Some((previous_factor, new_factor)) = increased {
 				log::info!(
 						target: LOG_TARGET,
@@ -278,17 +286,21 @@ pub mod pallet {
 					previous_value: previous_factor,
 					new_value: new_factor,
 					bridge_id,
-					dest
+					dest,
 				});
 			}
 		}
 
 		/// Calculates dynamic fees for a given asset based on the bridge state.
 		///
-		/// This function adjusts the amount of a fungible asset according to the delivery fee factor
-		/// specified in the `bridge_state`. If the asset is fungible, the `delivery_fee_factor` is applied
-		/// to the asset’s amount, potentially altering its value.
-		pub(crate) fn calculate_dynamic_fees_for_asset(bridge_state: &BridgeState, mut asset: Asset) -> Asset {
+		/// This function adjusts the amount of a fungible asset according to the delivery fee
+		/// factor specified in the `bridge_state`. If the asset is fungible, the
+		/// `delivery_fee_factor` is applied to the asset’s amount, potentially altering its
+		/// value.
+		pub(crate) fn calculate_dynamic_fees_for_asset(
+			bridge_state: &BridgeState,
+			mut asset: Asset,
+		) -> Asset {
 			if let Fungibility::Fungible(ref mut amount) = asset.fun {
 				*amount = bridge_state.delivery_fee_factor.saturating_mul_int(*amount);
 			}
@@ -296,7 +308,9 @@ pub mod pallet {
 		}
 
 		/// Calculates an (optional) fee for message size based on `T::ByteFee` and `T::FeeAsset`.
-		pub(crate) fn calculate_message_size_fees(message_size: impl FnOnce() -> u32) -> Option<Asset> {
+		pub(crate) fn calculate_message_size_fees(
+			message_size: impl FnOnce() -> u32,
+		) -> Option<Asset> {
 			// Apply message size `T::ByteFee/T::FeeAsset` feature (if configured).
 			if let Some(asset_id) = T::FeeAsset::get() {
 				let message_fee = (message_size() as u128).saturating_mul(T::ByteFee::get());
@@ -309,19 +323,19 @@ pub mod pallet {
 		/// Updates the congestion status of a bridge for a given `bridge_id`.
 		///
 		/// If the bridge does not exist and:
-		/// - `is_congested` is true, a new `BridgeState` is created with a default `delivery_fee_factor`.
+		/// - `is_congested` is true, a new `BridgeState` is created with a default
+		///   `delivery_fee_factor`.
 		/// - `is_congested` is false, does nothing and no `BridgeState` is created.
 		pub(crate) fn update_bridge_status(bridge_id: BridgeIdOf<T, I>, is_congested: bool) {
 			Bridges::<T, I>::mutate(bridge_id, |bridge| match bridge {
 				Some(bridge) => bridge.is_congested = is_congested,
-				None => {
+				None =>
 					if is_congested {
 						*bridge = Some(BridgeState {
 							delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
 							is_congested,
 						})
-					}
-				}
+					},
 			});
 		}
 	}
@@ -467,14 +481,20 @@ mod tests {
 			let old_delivery_fee_factor = FixedU128::from_rational(125, 100);
 
 			// make bridge congested + update fee factor
-			set_bridge_state_for::<TestRuntime, ()>(&dest, Some(BridgeState {
-				delivery_fee_factor: old_delivery_fee_factor,
-				is_congested: true,
-			}));
+			set_bridge_state_for::<TestRuntime, ()>(
+				&dest,
+				Some(BridgeState {
+					delivery_fee_factor: old_delivery_fee_factor,
+					is_congested: true,
+				}),
+			);
 
 			// it should not decrease, because queue is congested
 			XcmBridgeHubRouter::on_initialize(One::one());
-			assert_eq!(get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor, old_delivery_fee_factor);
+			assert_eq!(
+				get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor,
+				old_delivery_fee_factor
+			);
 
 			assert_eq!(System::events(), vec![]);
 		})
@@ -487,10 +507,10 @@ mod tests {
 			let initial_fee_factor = FixedU128::from_rational(125, 100);
 
 			// make bridge uncongested + update fee factor
-			let bridge_id = set_bridge_state_for::<TestRuntime, ()>(&dest, Some(BridgeState {
-				delivery_fee_factor: initial_fee_factor,
-				is_congested: false,
-			}));
+			let bridge_id = set_bridge_state_for::<TestRuntime, ()>(
+				&dest,
+				Some(BridgeState { delivery_fee_factor: initial_fee_factor, is_congested: false }),
+			);
 
 			// it should eventually decrease and remove
 			let mut last_delivery_fee_factor = initial_fee_factor;
@@ -634,18 +654,19 @@ mod tests {
 				Some(&(BridgeFeeAsset::get(), expected_fee).into()),
 			);
 
-			// but when factor is larger than one, it increases the fee, so it becomes: `base_cost_formula() * F`
+			// but when factor is larger than one, it increases the fee, so it becomes:
+			// `base_cost_formula() * F`
 			let factor = FixedU128::from_rational(125, 100);
 
 			// make bridge congested + update fee factor
-			set_bridge_state_for::<TestRuntime, ()>(&dest, Some(BridgeState {
-				delivery_fee_factor: factor,
-				is_congested: true,
-			}));
+			set_bridge_state_for::<TestRuntime, ()>(
+				&dest,
+				Some(BridgeState { delivery_fee_factor: factor, is_congested: true }),
+			);
 
-			let expected_fee = (FixedU128::saturating_from_integer(base_cost_formula()) * factor)
-				.into_inner() /
-				FixedU128::DIV +  HRMP_FEE;
+			let expected_fee =
+				(FixedU128::saturating_from_integer(base_cost_formula()) * factor).into_inner() /
+					FixedU128::DIV + HRMP_FEE;
 			assert_eq!(
 				XcmBridgeHubRouter::validate(&mut Some(dest), &mut Some(xcm)).unwrap().1.get(0),
 				Some(&(BridgeFeeAsset::get(), expected_fee).into()),
@@ -656,26 +677,29 @@ mod tests {
 	#[test]
 	fn sent_message_doesnt_increase_factor_if_bridge_is_uncongested() {
 		run_test(|| {
-			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
+			let dest =
+				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
 
 			// make bridge congested + update fee factor
 			let old_delivery_fee_factor = FixedU128::from_rational(125, 100);
-			set_bridge_state_for::<TestRuntime, ()>(&dest, Some(BridgeState {
-				delivery_fee_factor: old_delivery_fee_factor,
-				is_congested: false,
-			}));
+			set_bridge_state_for::<TestRuntime, ()>(
+				&dest,
+				Some(BridgeState {
+					delivery_fee_factor: old_delivery_fee_factor,
+					is_congested: false,
+				}),
+			);
 
 			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					dest.clone(),
-					vec![ClearOrigin].into(),
-				)
-				.map(drop),
+				send_xcm::<XcmBridgeHubRouter>(dest.clone(), vec![ClearOrigin].into(),).map(drop),
 				Ok(()),
 			);
 
 			assert!(TestToBridgeHubSender::is_message_sent());
-			assert_eq!(old_delivery_fee_factor, get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor);
+			assert_eq!(
+				old_delivery_fee_factor,
+				get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor
+			);
 
 			assert_eq!(System::events(), vec![]);
 		});
@@ -684,23 +708,28 @@ mod tests {
 	#[test]
 	fn sent_message_increases_factor_if_bridge_is_congested() {
 		run_test(|| {
-			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
+			let dest =
+				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
 
 			// make bridge congested + update fee factor
 			let old_delivery_fee_factor = FixedU128::from_rational(125, 100);
-			set_bridge_state_for::<TestRuntime, ()>(&dest, Some(BridgeState {
-				delivery_fee_factor: old_delivery_fee_factor,
-				is_congested: true,
-			}));
+			set_bridge_state_for::<TestRuntime, ()>(
+				&dest,
+				Some(BridgeState {
+					delivery_fee_factor: old_delivery_fee_factor,
+					is_congested: true,
+				}),
+			);
 
-			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
-				dest.clone(),
-				vec![ClearOrigin].into(),
-			)
-			.map(drop));
+			assert_ok!(
+				send_xcm::<XcmBridgeHubRouter>(dest.clone(), vec![ClearOrigin].into(),).map(drop)
+			);
 
 			assert!(TestToBridgeHubSender::is_message_sent());
-			assert!(old_delivery_fee_factor < get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor);
+			assert!(
+				old_delivery_fee_factor <
+					get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor
+			);
 
 			// check emitted event
 			let first_system_event = System::events().first().cloned();
@@ -731,8 +760,10 @@ mod tests {
 	#[test]
 	fn report_bridge_status_works() {
 		run_test(|| {
-			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
-			let bridge_id = bp_xcm_bridge_hub::BridgeId::new(&UniversalLocation::get(), dest.interior());
+			let dest =
+				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
+			let bridge_id =
+				bp_xcm_bridge_hub::BridgeId::new(&UniversalLocation::get(), dest.interior());
 			let report_bridge_status = |bridge_id, is_congested| {
 				let call = RuntimeCall::XcmBridgeHubRouter(Call::report_bridge_status {
 					bridge_id,
@@ -747,17 +778,23 @@ mod tests {
 
 			// make congested
 			report_bridge_status(bridge_id, true);
-			assert_eq!(get_bridge_state_for::<TestRuntime, ()>(&dest), Some(BridgeState {
-				delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
-				is_congested: true,
-			}));
+			assert_eq!(
+				get_bridge_state_for::<TestRuntime, ()>(&dest),
+				Some(BridgeState {
+					delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
+					is_congested: true,
+				})
+			);
 
 			// make uncongested
 			report_bridge_status(bridge_id, false);
-			assert_eq!(get_bridge_state_for::<TestRuntime, ()>(&dest), Some(BridgeState {
-				delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
-				is_congested: false,
-			}));
+			assert_eq!(
+				get_bridge_state_for::<TestRuntime, ()>(&dest),
+				Some(BridgeState {
+					delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
+					is_congested: false,
+				})
+			);
 		});
 	}
 }

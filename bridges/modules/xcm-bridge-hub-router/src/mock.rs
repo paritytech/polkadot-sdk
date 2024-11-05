@@ -18,7 +18,8 @@
 
 use crate as pallet_xcm_bridge_hub_router;
 
-use bp_xcm_bridge_hub_router::{ResolveBridgeId, BridgeState};
+use crate::impls::EnsureIsRemoteBridgeIdResolver;
+use bp_xcm_bridge_hub_router::{BridgeState, ResolveBridgeId};
 use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -31,7 +32,6 @@ use xcm::prelude::*;
 use xcm_builder::{
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, SovereignPaidRemoteExporter,
 };
-use crate::impls::EnsureIsRemoteBridgeIdResolver;
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
@@ -82,12 +82,17 @@ impl ResolveBridgeId for EveryDestinationToSameBridgeIdResolver {
 		Some(())
 	}
 
-	fn resolve_for(_bridged_network: &NetworkId, _bridged_dest: &InteriorLocation) -> Option<Self::BridgeId> {
+	fn resolve_for(
+		_bridged_network: &NetworkId,
+		_bridged_dest: &InteriorLocation,
+	) -> Option<Self::BridgeId> {
 		Some(())
 	}
 }
 
-/// An instance of `pallet_xcm_bridge_hub_router` configured to use a remote exporter with the `ExportMessage` instruction, which will be delivered to a sibling parachain using `SiblingBridgeHubLocation`.
+/// An instance of `pallet_xcm_bridge_hub_router` configured to use a remote exporter with the
+/// `ExportMessage` instruction, which will be delivered to a sibling parachain using
+/// `SiblingBridgeHubLocation`.
 #[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type DestinationVersion =
@@ -99,7 +104,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 			(),
 			NetworkExportTable<BridgeTable>,
 			BridgedNetworkId,
-			SiblingBridgeHubLocation
+			SiblingBridgeHubLocation,
 		>,
 		TestToBridgeHubSender,
 		UniversalLocation,
@@ -195,7 +200,10 @@ pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
 }
 
-pub(crate) fn set_bridge_state_for<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(dest: &Location, bridge_state: Option<BridgeState>) -> pallet_xcm_bridge_hub_router::BridgeIdOf<T, I> {
+pub(crate) fn set_bridge_state_for<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(
+	dest: &Location,
+	bridge_state: Option<BridgeState>,
+) -> pallet_xcm_bridge_hub_router::BridgeIdOf<T, I> {
 	let bridge_id = <T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
 	if let Some(bridge_state) = bridge_state {
 		pallet_xcm_bridge_hub_router::Bridges::<T, I>::insert(&bridge_id, bridge_state);
@@ -205,7 +213,9 @@ pub(crate) fn set_bridge_state_for<T: pallet_xcm_bridge_hub_router::Config<I>, I
 	bridge_id
 }
 
-pub(crate) fn get_bridge_state_for<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(dest: &Location) -> Option<BridgeState> {
+pub(crate) fn get_bridge_state_for<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(
+	dest: &Location,
+) -> Option<BridgeState> {
 	let bridge_id = <T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
 	pallet_xcm_bridge_hub_router::Bridges::<T, I>::get(bridge_id)
 }
