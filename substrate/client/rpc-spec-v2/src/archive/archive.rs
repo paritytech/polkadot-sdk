@@ -313,13 +313,17 @@ where
 
 		let fut = async move {
 			// Deduplicate the items.
-			let trie_items = match deduplicate_storage_diff_items(items) {
+			let mut trie_items = match deduplicate_storage_diff_items(items) {
 				Ok(items) => items,
 				Err(error) => {
 					pending.reject(error).await;
 					return
 				},
 			};
+			// Default to using the main storage trie if no items are provided.
+			if trie_items.is_empty() {
+				trie_items.push(Vec::new());
+			}
 
 			let previous_hash = if let Some(previous_hash) = previous_hash {
 				previous_hash
@@ -338,40 +342,22 @@ where
 			};
 
 			let Ok(mut sink) = pending.accept().await.map(Subscription::from) else { return };
-
 			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
-
-			if trie_items.is_empty() {
-				// May fail if the channel is closed or the connection is closed.
-				// which is okay to ignore.
-				let result = futures::future::join(
-					storage_client.handle_trie_queries(hash, previous_hash, Vec::new(), tx),
-					process_events(&mut rx, &mut sink),
-				)
-				.await;
-
-				// Send `StorageDiffDone` if the events were processed successfully.
-				if result.1 {
-					let _ = sink.send(&ArchiveStorageDiffEvent::StorageDiffDone).await;
+			for trie_queries in trie_items {
+				let storage_fut = storage_client.handle_trie_queries(
+					hash,
+					previous_hash,
+					trie_queries,
+					tx.clone(),
+				);
+				let result =
+					futures::future::join(storage_fut, process_events(&mut rx, &mut sink)).await;
+				if !result.1 {
+					return;
 				}
-			} else {
-				for trie_queries in trie_items {
-					let storage_fut = storage_client.handle_trie_queries(
-						hash,
-						previous_hash,
-						trie_queries,
-						tx.clone(),
-					);
-					let result =
-						futures::future::join(storage_fut, process_events(&mut rx, &mut sink))
-							.await;
-					if !result.1 {
-						return;
-					}
-				}
-
-				let _ = sink.send(&ArchiveStorageDiffEvent::StorageDiffDone).await;
 			}
+
+			let _ = sink.send(&ArchiveStorageDiffEvent::StorageDiffDone).await;
 		};
 
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
