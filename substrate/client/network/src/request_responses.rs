@@ -1115,7 +1115,7 @@ mod tests {
 			SwarmConfig::with_executor(TokioExecutor(runtime))
 				// This is taken care of by notification protocols in non-test environment
 				// It is very slow in test environment for some reason, hence larger timeout
-				.with_idle_connection_timeout(Duration::from_secs(60)),
+				.with_idle_connection_timeout(Duration::from_secs(300)),
 		);
 
 		let listen_addr: Multiaddr = format!("/memory/{}", rand::random::<u64>()).parse().unwrap();
