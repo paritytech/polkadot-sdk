@@ -173,9 +173,9 @@ The patch file for genesis config contains the key-value pairs valid for given r
 ```
 The rest of genesis config keys will be initialized with default values.
 
-### Full genesis config file.
-The full genesis config file must contain values for *all* the keys present in the genesis config for given runtime. The format of the file is
-similar to patch format. Example is not provided here as it heavily depends on the runtime.
+### Full genesis config file
+The full genesis config file must contain values for *all* the keys present in the genesis config for given runtime. The
+format of the file is similar to patch format. Example is not provided here as it heavily depends on the runtime.
 
 ### Extra tools
 
