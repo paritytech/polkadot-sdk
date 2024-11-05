@@ -888,7 +888,7 @@ async fn archive_storage_diff_main_trie() {
 	let mut sub = api
 		.subscribe_unbounded(
 			"archive_unstable_storageDiff",
-			rpc_params![&block, &prev_hash, items.clone()],
+			rpc_params![&block_hash, &prev_hash, items.clone()],
 		)
 		.await
 		.unwrap();
@@ -914,6 +914,51 @@ async fn archive_storage_diff_main_trie() {
 		}),
 		event,
 	);
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(ArchiveStorageDiffEvent::StorageDiffDone, event);
+}
+
+#[tokio::test]
+async fn archive_storage_diff_no_changes() {
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+
+	// Build 2 identical blocks.
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
+	builder.push_storage_change(b":AA".to_vec(), Some(b"BB".to_vec())).unwrap();
+	let prev_block = builder.build().unwrap().block;
+	let prev_hash = format!("{:?}", prev_block.header.hash());
+	client.import(BlockOrigin::Own, prev_block.clone()).await.unwrap();
+
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(prev_block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
+	builder.push_storage_change(b":AA".to_vec(), Some(b"BB".to_vec())).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Search for items in the main trie with keys prefixed with ":A".
+	let items = vec![ArchiveStorageDiffItem::<String> {
+		key: hex_string(b":A"),
+		return_type: ArchiveStorageDiffType::Value,
+		child_trie_key: None,
+	}];
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_unstable_storageDiff",
+			rpc_params![&block_hash, &prev_hash, items.clone()],
+		)
+		.await
+		.unwrap();
 
 	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
 	assert_eq!(ArchiveStorageDiffEvent::StorageDiffDone, event);
