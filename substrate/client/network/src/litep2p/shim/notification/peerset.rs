@@ -124,7 +124,7 @@ impl Direction {
 	fn set_reserved(&mut self, new_reserved: Reserved) {
 		match self {
 			Direction::Inbound(ref mut reserved) | Direction::Outbound(ref mut reserved) =>
-						*reserved = new_reserved,
+				*reserved = new_reserved,
 		}
 	}
 }
@@ -832,6 +832,15 @@ impl Peerset {
 		})
 	}
 
+	/// Checks if the peer should be disconnected based on the current state of the [`Peerset`]
+	/// and the provided direction.
+	fn should_disconnect(&self, direction: Direction) -> bool {
+		match direction {
+			Direction::Inbound(_) => self.num_in >= self.max_in,
+			Direction::Outbound(_) => self.num_out >= self.max_out,
+		}
+	}
+
 	/// Get the number of inbound peers.
 	#[cfg(test)]
 	pub fn num_in(&self) -> usize {
@@ -998,11 +1007,8 @@ impl Stream for Peerset {
 									// The `Reserved::Yes` ensures we don't adjust the slot count
 									// when the substream is closed.
 
-									let disconnect = self.reserved_only ||
-										match direction {
-											Direction::Inbound(_) => self.num_in >= self.max_in,
-											Direction::Outbound(_) => self.num_out >= self.max_out,
-										};
+									let disconnect =
+										self.reserved_only || self.should_disconnect(direction);
 
 									if disconnect {
 										log::trace!(
@@ -1212,10 +1218,7 @@ impl Stream for Peerset {
 								// a regular peer and the used slot count is increased and if the
 								// peer cannot be accepted, litep2p is asked to close the substream.
 								PeerState::Connected { mut direction } => {
-									let disconnect = match direction {
-										Direction::Inbound(_) => self.num_in >= self.max_in,
-										Direction::Outbound(_) => self.num_out >= self.max_out,
-									};
+									let disconnect = self.should_disconnect(direction);
 
 									if disconnect {
 										log::trace!(
@@ -1249,10 +1252,7 @@ impl Stream for Peerset {
 								},
 
 								PeerState::Opening { mut direction } => {
-									let disconnect = match direction {
-										Direction::Inbound(_) => self.num_in >= self.max_in,
-										Direction::Outbound(_) => self.num_out >= self.max_out,
-									};
+									let disconnect = self.should_disconnect(direction);
 
 									if disconnect {
 										log::trace!(
