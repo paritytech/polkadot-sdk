@@ -223,6 +223,23 @@ pub enum ArchiveStorageDiffEvent {
 	StorageDiffDone,
 }
 
+impl ArchiveStorageDiffEvent {
+	/// Create a new `ArchiveStorageDiffEvent::StorageDiffError` event.
+	pub fn err(error: String) -> Self {
+		Self::StorageDiffError(ArchiveStorageMethodErr { error })
+	}
+
+	/// Checks if the event is a `StorageDiffDone` event.
+	pub fn is_done(&self) -> bool {
+		matches!(self, Self::StorageDiffDone)
+	}
+
+	/// Checks if the event is a `StorageDiffError` event.
+	pub fn is_err(&self) -> bool {
+		matches!(self, Self::StorageDiffError(_))
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
