@@ -47,7 +47,7 @@ use frame_support::{
 		},
 		tokens::{
 			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
-			GetSalary, PayFromAccount,
+			Fortitude::Polite, GetSalary, PayFromAccount, Preservation::Preserve,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, Contains,
 		Currency, EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
@@ -3165,8 +3165,9 @@ impl_runtime_apis! {
 	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
 		fn balance(address: H160) -> Balance {
+			use frame_support::traits::fungible::Inspect;
 			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
-			Balances::usable_balance(account)
+			Balances::reducible_balance(&account, Preserve, Polite)
 		}
 
 		fn nonce(address: H160) -> Nonce {

@@ -208,6 +208,8 @@ pub trait MutateDescriptorV2<H> {
 	fn set_version(&mut self, version: InternalVersion);
 	/// Set the PVD of the descriptor.
 	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash);
+	/// Set the validation code hash of the descriptor.
+	fn set_validation_code_hash(&mut self, validation_code_hash: ValidationCodeHash);
 	/// Set the erasure root of the descriptor.
 	fn set_erasure_root(&mut self, erasure_root: Hash);
 	/// Set the para head of the descriptor.
@@ -246,6 +248,10 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 
 	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash) {
 		self.persisted_validation_data_hash = persisted_validation_data_hash;
+	}
+
+	fn set_validation_code_hash(&mut self, validation_code_hash: ValidationCodeHash) {
+		self.validation_code_hash = validation_code_hash;
 	}
 
 	fn set_erasure_root(&mut self, erasure_root: Hash) {
