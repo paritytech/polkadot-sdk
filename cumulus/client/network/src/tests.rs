@@ -26,10 +26,11 @@ use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
+	vstaging::{CommittedCandidateReceiptV2, CoreState},
 	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorPair,
-	CommittedCandidateReceipt, CoreState, Hash as PHash, HeadData, InboundDownwardMessage,
-	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
-	SigningContext, ValidationCodeHash, ValidatorId,
+	CommittedCandidateReceipt, Hash as PHash, HeadData, InboundDownwardMessage, InboundHrmpMessage,
+	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, SigningContext,
+	ValidationCodeHash, ValidatorId,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,
@@ -166,7 +167,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		&self,
 		_: PHash,
 		_: ParaId,
-	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
+	) -> RelayChainResult<Option<CommittedCandidateReceiptV2>> {
 		if self.data.lock().runtime_version >=
 			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
@@ -174,7 +175,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		}
 
 		if self.data.lock().has_pending_availability {
-			Ok(Some(dummy_candidate()))
+			Ok(Some(dummy_candidate().into()))
 		} else {
 			Ok(None)
 		}
@@ -184,7 +185,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		&self,
 		_: PHash,
 		_: ParaId,
-	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
+	) -> RelayChainResult<Vec<CommittedCandidateReceiptV2>> {
 		if self.data.lock().runtime_version <
 			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
@@ -192,7 +193,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		}
 
 		if self.data.lock().has_pending_availability {
-			Ok(vec![dummy_candidate()])
+			Ok(vec![dummy_candidate().into()])
 		} else {
 			Ok(vec![])
 		}
@@ -412,7 +413,7 @@ async fn make_gossip_message_and_header(
 			validation_code_hash: ValidationCodeHash::from(PHash::random()),
 		},
 	};
-	let statement = Statement::Seconded(candidate_receipt);
+	let statement = Statement::Seconded(candidate_receipt.into());
 	let signed = SignedFullStatement::sign(
 		&keystore,
 		statement,
@@ -525,7 +526,7 @@ fn legacy_block_announce_data_handling() {
 
 	let block_data =
 		BlockAnnounceData::decode(&mut &data[..]).expect("Decoding works from legacy works");
-	assert_eq!(receipt.descriptor.relay_parent, block_data.relay_parent);
+	assert_eq!(receipt.descriptor.relay_parent(), block_data.relay_parent);
 
 	let data = block_data.encode();
 	LegacyBlockAnnounceData::decode(&mut &data[..]).expect("Decoding works");
@@ -600,7 +601,8 @@ async fn check_statement_seconded() {
 				erasure_root: PHash::random(),
 				signature: sp_core::sr25519::Signature::default().into(),
 				validation_code_hash: ValidationCodeHash::from(PHash::random()),
-			},
+			}
+			.into(),
 		},
 		statement: signed_statement.convert_payload().into(),
 		relay_parent,

@@ -17,11 +17,11 @@
 
 use codec::{Decode, Encode, Joiner};
 use frame_support::{
-	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo},
+	dispatch::{DispatchClass, GetDispatchInfo},
 	traits::Currency,
 	weights::Weight,
 };
-use frame_system::{self, AccountInfo, EventRecord, Phase};
+use frame_system::{self, AccountInfo, DispatchEventInfo, EventRecord, Phase};
 use polkadot_sdk::*;
 use sp_core::{storage::well_known_keys, traits::Externalities};
 use sp_runtime::{
@@ -59,17 +59,23 @@ pub fn bloaty_code_unwrap() -> &'static [u8] {
 /// Note that reads the multiplier from storage directly, hence to get the fee of `extrinsic`
 /// at block `n`, it must be called prior to executing block `n` to do the calculation with the
 /// correct multiplier.
-fn transfer_fee<E: Encode>(extrinsic: &E) -> Balance {
-	TransactionPayment::compute_fee(
-		extrinsic.encode().len() as u32,
-		&default_transfer_call().get_dispatch_info(),
-		0,
-	)
+fn transfer_fee(extrinsic: &UncheckedExtrinsic) -> Balance {
+	let mut info = default_transfer_call().get_dispatch_info();
+	info.extension_weight = extrinsic.0.extension_weight();
+	TransactionPayment::compute_fee(extrinsic.encode().len() as u32, &info, 0)
+}
+
+/// Default transfer fee, same as `transfer_fee`, but with a weight refund factored in.
+fn transfer_fee_with_refund(extrinsic: &UncheckedExtrinsic, weight_refund: Weight) -> Balance {
+	let mut info = default_transfer_call().get_dispatch_info();
+	info.extension_weight = extrinsic.0.extension_weight();
+	let post_info = (Some(info.total_weight().saturating_sub(weight_refund)), info.pays_fee).into();
+	TransactionPayment::compute_actual_fee(extrinsic.encode().len() as u32, &info, &post_info, 0)
 }
 
 fn xt() -> UncheckedExtrinsic {
 	sign(CheckedExtrinsic {
-		signed: Some((alice(), signed_extra(0, 0))),
+		format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, 0)),
 		function: RuntimeCall::Balances(default_transfer_call()),
 	})
 }
@@ -86,11 +92,11 @@ fn changes_trie_block() -> (Vec<u8>, Hash) {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time }),
 			},
 			CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, 0)),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 69 * DOLLARS,
@@ -113,11 +119,11 @@ fn blocks() -> ((Vec<u8>, Hash), (Vec<u8>, Hash)) {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time1 }),
 			},
 			CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(0, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(0, 0)),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 69 * DOLLARS,
@@ -133,18 +139,18 @@ fn blocks() -> ((Vec<u8>, Hash), (Vec<u8>, Hash)) {
 		block1.1,
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time2 }),
 			},
 			CheckedExtrinsic {
-				signed: Some((bob(), signed_extra(0, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(bob(), tx_ext(0, 0)),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: alice().into(),
 					value: 5 * DOLLARS,
 				}),
 			},
 			CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(1, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(1, 0)),
 				function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 					dest: bob().into(),
 					value: 15 * DOLLARS,
@@ -168,11 +174,11 @@ fn block_with_size(time: u64, nonce: u32, size: usize) -> (Vec<u8>, Hash) {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time * 1000 }),
 			},
 			CheckedExtrinsic {
-				signed: Some((alice(), signed_extra(nonce, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(alice(), tx_ext(nonce, 0)),
 				function: RuntimeCall::System(frame_system::Call::remark { remark: vec![0; size] }),
 			},
 		],
@@ -257,13 +263,14 @@ fn successful_execution_with_native_equivalent_code_gives_ok() {
 	let r = executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32))).0;
 	assert!(r.is_ok());
 
-	let fees = t.execute_with(|| transfer_fee(&xt()));
+	let weight_refund = Weight::zero();
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt())).0;
 	assert!(r.is_ok());
 
 	t.execute_with(|| {
-		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees);
+		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees_after_refund);
 		assert_eq!(Balances::total_balance(&bob()), 69 * DOLLARS);
 	});
 }
@@ -297,13 +304,14 @@ fn successful_execution_with_foreign_code_gives_ok() {
 	let r = executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32))).0;
 	assert!(r.is_ok());
 
-	let fees = t.execute_with(|| transfer_fee(&xt()));
+	let weight_refund = Weight::zero();
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt())).0;
 	assert!(r.is_ok());
 
 	t.execute_with(|| {
-		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees);
+		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees_after_refund);
 		assert_eq!(Balances::total_balance(&bob()), 69 * DOLLARS);
 	});
 }
@@ -316,15 +324,18 @@ fn full_native_block_import_works() {
 
 	let mut alice_last_known_balance: Balance = Default::default();
 	let mut fees = t.execute_with(|| transfer_fee(&xt()));
+	let extension_weight = xt().0.extension_weight();
+	let weight_refund = Weight::zero();
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
-	let transfer_weight = default_transfer_call().get_dispatch_info().weight.saturating_add(
+	let transfer_weight = default_transfer_call().get_dispatch_info().call_weight.saturating_add(
 		<Runtime as frame_system::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic,
 	);
 	let timestamp_weight = pallet_timestamp::Call::set::<Runtime> { now: Default::default() }
 		.get_dispatch_info()
-		.weight
+		.call_weight
 		.saturating_add(
 			<Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Mandatory)
@@ -334,17 +345,17 @@ fn full_native_block_import_works() {
 	executor_call(&mut t, "Core_execute_block", &block1.0).0.unwrap();
 
 	t.execute_with(|| {
-		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees);
+		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees_after_refund);
 		assert_eq!(Balances::total_balance(&bob()), 169 * DOLLARS);
 		alice_last_known_balance = Balances::total_balance(&alice());
 		let events = vec![
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
+					dispatch_info: DispatchEventInfo {
 						weight: timestamp_weight,
 						class: DispatchClass::Mandatory,
-						..Default::default()
+						pays_fee: Default::default(),
 					},
 				}),
 				topics: vec![],
@@ -370,21 +381,21 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
-					amount: fees * 8 / 10,
+					amount: fees_after_refund * 8 / 10,
 				}),
 				topics: vec![],
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
-					value: fees * 8 / 10,
+					value: fees_after_refund * 8 / 10,
 				}),
 				topics: vec![],
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
-					amount: fees * 2 / 10,
+					amount: fees_after_refund * 2 / 10,
 				}),
 				topics: vec![],
 			},
@@ -393,7 +404,7 @@ fn full_native_block_import_works() {
 				event: RuntimeEvent::TransactionPayment(
 					pallet_transaction_payment::Event::TransactionFeePaid {
 						who: alice().into(),
-						actual_fee: fees,
+						actual_fee: fees_after_refund,
 						tip: 0,
 					},
 				),
@@ -402,7 +413,11 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo { weight: transfer_weight, ..Default::default() },
+					dispatch_info: DispatchEventInfo {
+						weight: transfer_weight
+							.saturating_add(extension_weight.saturating_sub(weight_refund)),
+						..Default::default()
+					},
 				}),
 				topics: vec![],
 			},
@@ -412,15 +427,18 @@ fn full_native_block_import_works() {
 
 	fees = t.execute_with(|| transfer_fee(&xt()));
 	let pot = t.execute_with(|| Treasury::pot());
+	let extension_weight = xt().0.extension_weight();
+	let weight_refund = Weight::zero();
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	executor_call(&mut t, "Core_execute_block", &block2.0).0.unwrap();
 
 	t.execute_with(|| {
 		assert_eq!(
 			Balances::total_balance(&alice()),
-			alice_last_known_balance - 10 * DOLLARS - fees,
+			alice_last_known_balance - 10 * DOLLARS - fees_after_refund,
 		);
-		assert_eq!(Balances::total_balance(&bob()), 179 * DOLLARS - fees);
+		assert_eq!(Balances::total_balance(&bob()), 179 * DOLLARS - fees_after_refund);
 		let events = vec![
 			EventRecord {
 				phase: Phase::Initialization,
@@ -433,10 +451,10 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo {
+					dispatch_info: DispatchEventInfo {
 						weight: timestamp_weight,
 						class: DispatchClass::Mandatory,
-						..Default::default()
+						pays_fee: Default::default(),
 					},
 				}),
 				topics: vec![],
@@ -462,21 +480,21 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
-					amount: fees * 8 / 10,
+					amount: fees_after_refund * 8 / 10,
 				}),
 				topics: vec![],
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
-					value: fees * 8 / 10,
+					value: fees_after_refund * 8 / 10,
 				}),
 				topics: vec![],
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
-					amount: fees - fees * 8 / 10,
+					amount: fees_after_refund - fees_after_refund * 8 / 10,
 				}),
 				topics: vec![],
 			},
@@ -485,7 +503,7 @@ fn full_native_block_import_works() {
 				event: RuntimeEvent::TransactionPayment(
 					pallet_transaction_payment::Event::TransactionFeePaid {
 						who: bob().into(),
-						actual_fee: fees,
+						actual_fee: fees_after_refund,
 						tip: 0,
 					},
 				),
@@ -494,7 +512,11 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo { weight: transfer_weight, ..Default::default() },
+					dispatch_info: DispatchEventInfo {
+						weight: transfer_weight
+							.saturating_add(extension_weight.saturating_sub(weight_refund)),
+						..Default::default()
+					},
 				}),
 				topics: vec![],
 			},
@@ -519,21 +541,21 @@ fn full_native_block_import_works() {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Deposit {
 					who: pallet_treasury::Pallet::<Runtime>::account_id(),
-					amount: fees * 8 / 10,
+					amount: fees_after_refund * 8 / 10,
 				}),
 				topics: vec![],
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::Treasury(pallet_treasury::Event::Deposit {
-					value: fees * 8 / 10,
+					value: fees_after_refund * 8 / 10,
 				}),
 				topics: vec![],
 			},
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::Balances(pallet_balances::Event::Rescinded {
-					amount: fees - fees * 8 / 10,
+					amount: fees_after_refund - fees_after_refund * 8 / 10,
 				}),
 				topics: vec![],
 			},
@@ -542,7 +564,7 @@ fn full_native_block_import_works() {
 				event: RuntimeEvent::TransactionPayment(
 					pallet_transaction_payment::Event::TransactionFeePaid {
 						who: alice().into(),
-						actual_fee: fees,
+						actual_fee: fees_after_refund,
 						tip: 0,
 					},
 				),
@@ -551,7 +573,11 @@ fn full_native_block_import_works() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(2),
 				event: RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
-					dispatch_info: DispatchInfo { weight: transfer_weight, ..Default::default() },
+					dispatch_info: DispatchEventInfo {
+						weight: transfer_weight
+							.saturating_add(extension_weight.saturating_sub(weight_refund)),
+						..Default::default()
+					},
 				}),
 				topics: vec![],
 			},
@@ -567,26 +593,28 @@ fn full_wasm_block_import_works() {
 	let (block1, block2) = blocks();
 
 	let mut alice_last_known_balance: Balance = Default::default();
-	let mut fees = t.execute_with(|| transfer_fee(&xt()));
+	let weight_refund = Weight::zero();
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	executor_call(&mut t, "Core_execute_block", &block1.0).0.unwrap();
 
 	t.execute_with(|| {
-		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees);
+		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees_after_refund);
 		assert_eq!(Balances::total_balance(&bob()), 169 * DOLLARS);
 		alice_last_known_balance = Balances::total_balance(&alice());
 	});
 
-	fees = t.execute_with(|| transfer_fee(&xt()));
+	let weight_refund = Weight::zero();
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	executor_call(&mut t, "Core_execute_block", &block2.0).0.unwrap();
 
 	t.execute_with(|| {
 		assert_eq!(
 			Balances::total_balance(&alice()),
-			alice_last_known_balance - 10 * DOLLARS - fees,
+			alice_last_known_balance - 10 * DOLLARS - fees_after_refund,
 		);
-		assert_eq!(Balances::total_balance(&bob()), 179 * DOLLARS - 1 * fees);
+		assert_eq!(Balances::total_balance(&bob()), 179 * DOLLARS - 1 * fees_after_refund);
 	});
 }
 
@@ -700,11 +728,11 @@ fn deploying_wasm_contract_should_work() {
 		GENESIS_HASH.into(),
 		vec![
 			CheckedExtrinsic {
-				signed: None,
+				format: sp_runtime::generic::ExtrinsicFormat::Bare,
 				function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: time }),
 			},
 			CheckedExtrinsic {
-				signed: Some((charlie(), signed_extra(0, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(0, 0)),
 				function: RuntimeCall::Contracts(pallet_contracts::Call::instantiate_with_code::<
 					Runtime,
 				> {
@@ -717,7 +745,7 @@ fn deploying_wasm_contract_should_work() {
 				}),
 			},
 			CheckedExtrinsic {
-				signed: Some((charlie(), signed_extra(1, 0))),
+				format: sp_runtime::generic::ExtrinsicFormat::Signed(charlie(), tx_ext(1, 0)),
 				function: RuntimeCall::Contracts(pallet_contracts::Call::call::<Runtime> {
 					dest: sp_runtime::MultiAddress::Id(addr.clone()),
 					value: 10,
@@ -828,7 +856,8 @@ fn successful_execution_gives_ok() {
 		assert_eq!(Balances::total_balance(&alice()), 111 * DOLLARS);
 	});
 
-	let fees = t.execute_with(|| transfer_fee(&xt()));
+	let weight_refund = Weight::zero();
+	let fees_after_refund = t.execute_with(|| transfer_fee_with_refund(&xt(), weight_refund));
 
 	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()))
 		.0
@@ -839,7 +868,7 @@ fn successful_execution_gives_ok() {
 		.expect("Extrinsic failed");
 
 	t.execute_with(|| {
-		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees);
+		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees_after_refund);
 		assert_eq!(Balances::total_balance(&bob()), 69 * DOLLARS);
 	});
 }

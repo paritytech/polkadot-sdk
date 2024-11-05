@@ -18,7 +18,7 @@ use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::{
-	BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex, CoreState,
+	vstaging::CoreState, BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex,
 };
 use cumulus_relay_chain_interface::{
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
@@ -532,7 +532,8 @@ fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCand
 				signature: collator.sign(&[0u8; 132]).into(),
 				para_head: PHash::zero(),
 				validation_code_hash: PHash::zero().into(),
-			},
+			}
+			.into(),
 			commitments: CandidateCommitments {
 				head_data: head_data.encode().into(),
 				upward_messages: vec![].try_into().expect("empty vec fits within bounds"),

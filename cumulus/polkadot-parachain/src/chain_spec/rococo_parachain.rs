@@ -16,14 +16,15 @@
 
 //! ChainSpecs dedicated to Rococo parachain setups (for testing and example purposes)
 
-use crate::chain_spec::{get_from_seed, SAFE_XCM_VERSION};
+use crate::chain_spec::SAFE_XCM_VERSION;
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use parachains_common::{genesis_config_helpers::get_account_id_from_seed, AccountId};
-use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+use parachains_common::AccountId;
+use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use rococo_parachain_runtime::AuraId;
 use sc_chain_spec::ChainType;
-use sp_core::{crypto::UncheckedInto, sr25519};
+use sp_core::crypto::UncheckedInto;
+use sp_keyring::Sr25519Keyring;
 
 pub fn rococo_parachain_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
@@ -34,22 +35,12 @@ pub fn rococo_parachain_local_config() -> GenericChainSpec {
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(testnet_genesis(
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		vec![get_from_seed::<AuraId>("Alice"), get_from_seed::<AuraId>("Bob")],
+		Sr25519Keyring::Alice.to_account_id(),
 		vec![
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+			AuraId::from(Sr25519Keyring::Alice.public()),
+			AuraId::from(Sr25519Keyring::Bob.public()),
 		],
+		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		1000.into(),
 	))
 	.build()

@@ -49,10 +49,7 @@ use polkadot_node_subsystem::{
 	messages::{AllMessages, AvailabilityRecoveryMessage},
 	Overseer, OverseerConnector, SpawnGlue,
 };
-use polkadot_node_subsystem_types::{
-	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
-	Span,
-};
+use polkadot_node_subsystem_types::messages::{AvailabilityStoreMessage, NetworkBridgeEvent};
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
 use polkadot_primitives::{Block, CoreIndex, GroupIndex, Hash};
 use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
@@ -394,7 +391,7 @@ pub async fn benchmark_availability_write(
 				candidate_hash: backed_candidate.hash(),
 				n_validators: config.n_validators as u32,
 				available_data,
-				expected_erasure_root: backed_candidate.descriptor().erasure_root,
+				expected_erasure_root: backed_candidate.descriptor().erasure_root(),
 				tx,
 				core_index: CoreIndex(core_index as u32),
 				node_features: node_features_with_chunk_mapping_enabled(),
@@ -421,7 +418,7 @@ pub async fn benchmark_availability_write(
 
 		// Inform bitfield distribution about our view of current test block
 		let message = polkadot_node_subsystem_types::messages::BitfieldDistributionMessage::NetworkBridgeUpdate(
-			NetworkBridgeEvent::OurViewChange(OurView::new(vec![(relay_block_hash, Arc::new(Span::Disabled))], 0))
+			NetworkBridgeEvent::OurViewChange(OurView::new(vec![relay_block_hash], 0))
 		);
 		env.send_message(AllMessages::BitfieldDistribution(message)).await;
 

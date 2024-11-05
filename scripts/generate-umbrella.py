@@ -111,7 +111,6 @@ def main(path, version):
 		"runtime": list([f"{d.name}" for d, _ in runtime_crates]),
 		"node": ["std"] + list([f"{d.name}" for d, _ in std_crates]),
 		"tuples-96": [],
-		"riscv": [],
 	}
 
 	manifest = {
@@ -207,4 +206,3 @@ def parse_args():
 if __name__ == "__main__":
 	args = parse_args()
 	main(args.sdk, args.version)
-

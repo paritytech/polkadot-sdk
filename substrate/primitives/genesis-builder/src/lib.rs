@@ -17,17 +17,33 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! Substrate genesis config builder
+//! # Substrate genesis config builder.
 //!
-//! For FRAME based runtimes, this runtime interface provides means to interact with
-//! `RuntimeGenesisConfig`. Runtime provides a default `RuntimeGenesisConfig` structure in a form of
-//! the JSON blob.
+//! This crate contains [`GenesisBuilder`], a runtime-api to be implemented by runtimes, in order to
+//! express their genesis state.
 //!
-//! For non-FRAME runtimes this interface is intended to build genesis state of the runtime basing
-//! on some input arbitrary bytes array. This documentation uses term `RuntimeGenesisConfig`, which
-//! for non-FRAME runtimes may be understood as the runtime-side entity representing initial runtime
-//! configuration. The representation of the preset is an arbitrary `Vec<u8>` and does not
-//! necessarily have to represent a JSON blob.
+//! The overall flow of the methods in [`GenesisBuilder`] is as follows:
+//!
+//! 1. [`GenesisBuilder::preset_names`]: A runtime exposes a number of different
+//!    `RuntimeGenesisConfig` variations, each of which is called a `preset`, and is identified by a
+//!    [`PresetId`]. All runtimes are encouraged to expose at least [`DEV_RUNTIME_PRESET`] and
+//!    [`LOCAL_TESTNET_RUNTIME_PRESET`] presets for consistency.
+//! 2. [`GenesisBuilder::get_preset`]: Given a `PresetId`, this the runtime returns the JSON blob
+//!    representation of the `RuntimeGenesisConfig` for that preset. This JSON blob is often mixed
+//!    into the broader `chain_spec`. If `None` is given, [`GenesisBuilder::get_preset`] provides a
+//!    JSON represention of the default `RuntimeGenesisConfig` (by simply serializing the
+//!    `RuntimeGenesisConfig::default()` value into JSON format). This is used as a base for
+//!    applying patches / presets.
+
+//! 3. [`GenesisBuilder::build_state`]: Given a JSON blob, this method should deserialize it and
+//!    enact it (using `frame_support::traits::BuildGenesisConfig` for Frame-based runtime),
+//!    essentially writing it to the state.
+//!
+//! The first two flows are often done in between a runtime, and the `chain_spec_builder` binary.
+//! The latter is used when a new blockchain is launched to enact and store the genesis state. See
+//! the documentation of `chain_spec_builder` for more info.
+//!
+//! ## Patching
 //!
 //! The runtime may provide a number of partial predefined `RuntimeGenesisConfig` configurations in
 //! the form of patches which shall be applied on top of the default `RuntimeGenesisConfig`. The
@@ -35,19 +51,22 @@
 //! customized in the default runtime genesis config. These predefined configurations are referred
 //! to as presets.
 //!
-//! This allows the runtime to provide a number of predefined configs (e.g. for different
-//! testnets or development) without neccessity to leak the runtime types outside the itself (e.g.
-//! node or chain-spec related tools).
+//! This allows the runtime to provide a number of predefined configs (e.g. for different testnets
+//! or development) without necessarily to leak the runtime types outside itself (e.g. node or
+//! chain-spec related tools).
 //!
-//! This Runtime API allows to interact with `RuntimeGenesisConfig`, in particular:
-//! - provide the list of available preset names,
-//! - provide a number of named presets of `RuntimeGenesisConfig`,
-//! - provide a JSON represention of the default `RuntimeGenesisConfig` (by simply serializing the
-//!   default `RuntimeGenesisConfig` struct into JSON format),
-//! - deserialize the full `RuntimeGenesisConfig` from given JSON blob and put the resulting
-//!   `RuntimeGenesisConfig` structure into the state storage creating the initial runtime's state.
-//!   Allows to build customized genesis. This operation internally calls `GenesisBuild::build`
-//!   function for all runtime pallets.
+//! ## FRAME vs. non-FRAME
+//!
+//! For FRAME based runtimes [`GenesisBuilder`] provides means to interact with
+//! `RuntimeGenesisConfig`.
+//!
+//! For non-FRAME runtimes this interface is intended to build genesis state of the runtime basing
+//! on some input arbitrary bytes array. This documentation uses term `RuntimeGenesisConfig`, which
+//! for non-FRAME runtimes may be understood as the "runtime-side entity representing initial
+//! runtime genesis configuration". The representation of the preset is an arbitrary `Vec<u8>` and
+//! does not necessarily have to represent a JSON blob.
+//!
+//! ## Genesis Block State
 //!
 //! Providing externalities with an empty storage and putting `RuntimeGenesisConfig` into storage
 //! (by calling `build_state`) allows to construct the raw storage of `RuntimeGenesisConfig`
@@ -75,14 +94,15 @@ pub const DEV_RUNTIME_PRESET: &'static str = "development";
 pub const LOCAL_TESTNET_RUNTIME_PRESET: &'static str = "local_testnet";
 
 sp_api::decl_runtime_apis! {
-	/// API to interact with RuntimeGenesisConfig for the runtime
+	/// API to interact with `RuntimeGenesisConfig` for the runtime
 	pub trait GenesisBuilder {
 		/// Build `RuntimeGenesisConfig` from a JSON blob not using any defaults and store it in the
 		/// storage.
 		///
-		/// In the case of a FRAME-based runtime, this function deserializes the full `RuntimeGenesisConfig` from the given JSON blob and
-		/// puts it into the storage. If the provided JSON blob is incorrect or incomplete or the
-		/// deserialization fails, an error is returned.
+		/// In the case of a FRAME-based runtime, this function deserializes the full
+		/// `RuntimeGenesisConfig` from the given JSON blob and puts it into the storage. If the
+		/// provided JSON blob is incorrect or incomplete or the deserialization fails, an error
+		/// is returned.
 		///
 		/// Please note that provided JSON blob must contain all `RuntimeGenesisConfig` fields, no
 		/// defaults will be used.
@@ -91,7 +111,7 @@ sp_api::decl_runtime_apis! {
 		/// Returns a JSON blob representation of the built-in `RuntimeGenesisConfig` identified by
 		/// `id`.
 		///
-		/// If `id` is `None` the function returns JSON blob representation of the default
+		/// If `id` is `None` the function should return JSON blob representation of the default
 		/// `RuntimeGenesisConfig` struct of the runtime. Implementation must provide default
 		/// `RuntimeGenesisConfig`.
 		///
