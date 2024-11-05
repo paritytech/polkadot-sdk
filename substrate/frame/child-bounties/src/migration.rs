@@ -74,6 +74,12 @@ pub mod v1 {
 				);
 				writes += 1;
 
+				OldToNewChildBountyIds::<T>::insert(
+					old_child_bounty_id,
+					(parent_bounty_id, new_child_bounty_id),
+				);
+				writes += 1;
+
 				let old_child_bounty_account =
 					Self::old_child_bounty_account_id(old_child_bounty_id);
 				let new_child_bounty_account =

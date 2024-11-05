@@ -236,6 +236,12 @@ pub mod pallet {
 		BoundedVec<u8, T::MaximumReasonLength>,
 	>;
 
+	/// Stores a mapping of `old_child_bounty_id` generated from deprecated `ChildBountyCount`
+	/// storage item to new pair of parent/child ids (`parent_bounty_id`, `new_child_bounty_id`)
+	#[pallet::storage]
+	pub type OldToNewChildBountyIds<T: Config> =
+		StorageMap<_, Twox64Concat, BountyIndex, (BountyIndex, BountyIndex)>;
+
 	/// The cumulative child-bounty curator fee for each parent bounty.
 	#[pallet::storage]
 	pub type ChildrenCuratorFees<T: Config> =
