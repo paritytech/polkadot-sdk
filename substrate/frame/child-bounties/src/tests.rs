@@ -161,6 +161,7 @@ fn last_event() -> ChildBountiesEvent<Test> {
 }
 
 #[test]
+#[allow(deprecated)]
 fn genesis_config_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Treasury::pot(), 0);
