@@ -1,6 +1,6 @@
 title: 'Unify and harden UMP signal checks in check_core_index'
 doc:
-- audience: Runtime Dev | Node Dev
+- audience: [Runtime Dev, Node Dev]
   description: |
     Refactors and hardens the core index checks on the candidate commitments.
     Also adds a utility for skipping the ump signals
