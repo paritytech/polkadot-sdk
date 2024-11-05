@@ -33,8 +33,8 @@ use crate::{
 	common::{
 		events::{
 			ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
-			ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageMethodErr,
-			ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType, StorageResult,
+			ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageResult,
+			PaginatedStorageQuery, StorageQueryType, StorageResult,
 		},
 		storage::{IterQueryType, QueryIter, Storage},
 	},
@@ -437,15 +437,13 @@ where
 			let result = this.handle_trie_queries_inner(hash, previous_hash, items, &tx);
 
 			if let Err(error) = result {
-				let error =
-					ArchiveStorageDiffEvent::StorageDiffError(ArchiveStorageMethodErr { error });
 				log::trace!(
 					target: LOG_TARGET,
 					"handle_trie_queries: sending error={:?}",
 					error,
 				);
 
-				let _ = tx.blocking_send(error);
+				let _ = tx.blocking_send(ArchiveStorageDiffEvent::err(error));
 			} else {
 				log::trace!(
 					target: LOG_TARGET,

@@ -316,11 +316,13 @@ where
 		log::trace!(target: LOG_TARGET, "Storage diff subscription started");
 
 		let fut = async move {
+			let Ok(mut sink) = pending.accept().await.map(Subscription::from) else { return };
+
 			// Deduplicate the items.
 			let mut trie_items = match deduplicate_storage_diff_items(items) {
 				Ok(items) => items,
 				Err(error) => {
-					pending.reject(error).await;
+					let _ = sink.send(&ArchiveStorageDiffEvent::err(error.to_string())).await;
 					return
 				},
 			};
@@ -334,19 +336,13 @@ where
 				previous_hash
 			} else {
 				let Ok(Some(current_header)) = client.header(hash) else {
-					pending
-						.reject(ArchiveError::InvalidParam(format!(
-							"Block header is not present: {}",
-							hash
-						)))
-						.await;
-
+					let message = format!("Block header is not present: {hash}");
+					let _ = sink.send(&ArchiveStorageDiffEvent::err(message)).await;
 					return
 				};
 				*current_header.parent_hash()
 			};
 
-			let Ok(mut sink) = pending.accept().await.map(Subscription::from) else { return };
 			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
 			for trie_queries in trie_items {
 				let storage_fut = storage_client.handle_trie_queries(
@@ -376,14 +372,12 @@ async fn process_events(
 	sink: &mut Subscription,
 ) -> bool {
 	while let Some(event) = rx.recv().await {
-		let is_partial_trie_done = std::matches!(event, ArchiveStorageDiffEvent::StorageDiffDone);
-		if is_partial_trie_done {
+		if event.is_done() {
 			log::debug!(target: LOG_TARGET, "Finished processing partial trie query");
 			break
 		}
 
-		let is_error_event = std::matches!(event, ArchiveStorageDiffEvent::StorageDiffError(_));
-
+		let is_error_event = event.is_err();
 		if let Err(_) = sink.send(&event).await {
 			return false
 		}
