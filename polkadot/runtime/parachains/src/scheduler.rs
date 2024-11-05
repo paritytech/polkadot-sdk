@@ -45,7 +45,8 @@ use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
 use polkadot_primitives::{
-	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, ValidatorIndex,
+	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, SchedulerParams,
+	ValidatorIndex,
 };
 use sp_runtime::traits::One;
 
@@ -131,7 +132,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_on_new_session(
 		notification: &SessionChangeNotification<BlockNumberFor<T>>,
 	) {
-		let SessionChangeNotification { validators, new_config, prev_config, .. } = notification;
+		let SessionChangeNotification { validators, new_config, .. } = notification;
 		let config = new_config;
 		let assigner_cores = config.scheduler_params.num_cores;
 
@@ -186,7 +187,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Resize and populate claim queue.
-		Self::maybe_resize_claim_queue(prev_config.scheduler_params.num_cores, assigner_cores);
+		Self::maybe_resize_claim_queue();
 		Self::populate_claim_queue_after_session_change();
 
 		let now = frame_system::Pallet::<T>::block_number() + One::one();
@@ -201,6 +202,12 @@ impl<T: Config> Pallet<T> {
 	/// Get the number of cores.
 	pub(crate) fn num_availability_cores() -> usize {
 		ValidatorGroups::<T>::decode_len().unwrap_or(0)
+	}
+
+	/// Expected claim queue len. Can be different than the real length if for example we don't have
+	/// assignments for a core.
+	fn expected_claim_queue_len(config: &SchedulerParams<BlockNumberFor<T>>) -> u32 {
+		core::cmp::min(config.num_cores, Self::num_availability_cores() as u32)
 	}
 
 	/// Get the group assigned to a specific core by index at the current block number. Result
@@ -325,11 +332,11 @@ impl<T: Config> Pallet<T> {
 	/// and fill the queue from the assignment provider.
 	pub(crate) fn advance_claim_queue(except_for: &BTreeSet<CoreIndex>) {
 		let config = configuration::ActiveConfig::<T>::get();
-		let num_assigner_cores = config.scheduler_params.num_cores;
+		let expected_claim_queue_len = Self::expected_claim_queue_len(&config.scheduler_params);
 		// Extra sanity, config should already never be smaller than 1:
 		let n_lookahead = config.scheduler_params.lookahead.max(1);
 
-		for core_idx in 0..num_assigner_cores {
+		for core_idx in 0..expected_claim_queue_len {
 			let core_idx = CoreIndex::from(core_idx);
 
 			if !except_for.contains(&core_idx) {
@@ -345,13 +352,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// on new session
-	fn maybe_resize_claim_queue(old_core_count: u32, new_core_count: u32) {
-		if new_core_count < old_core_count {
+	fn maybe_resize_claim_queue() {
+		let cq = ClaimQueue::<T>::get();
+		let Some((old_max_core, _)) = cq.last_key_value() else { return };
+		let config = configuration::ActiveConfig::<T>::get();
+		let new_core_count = Self::expected_claim_queue_len(&config.scheduler_params);
+
+		if new_core_count < (old_max_core.0 + 1) {
 			ClaimQueue::<T>::mutate(|cq| {
-				let to_remove: Vec<_> = cq
-					.range(CoreIndex(new_core_count)..CoreIndex(old_core_count))
-					.map(|(k, _)| *k)
-					.collect();
+				let to_remove: Vec<_> =
+					cq.range(CoreIndex(new_core_count)..=*old_max_core).map(|(k, _)| *k).collect();
 				for key in to_remove {
 					if let Some(dropped_assignments) = cq.remove(&key) {
 						Self::push_back_to_assignment_provider(dropped_assignments.into_iter());
@@ -367,9 +377,9 @@ impl<T: Config> Pallet<T> {
 		let config = configuration::ActiveConfig::<T>::get();
 		// Extra sanity, config should already never be smaller than 1:
 		let n_lookahead = config.scheduler_params.lookahead.max(1);
-		let new_core_count = config.scheduler_params.num_cores;
+		let expected_claim_queue_len = Self::expected_claim_queue_len(&config.scheduler_params);
 
-		for core_idx in 0..new_core_count {
+		for core_idx in 0..expected_claim_queue_len {
 			let core_idx = CoreIndex::from(core_idx);
 			Self::fill_claim_queue(core_idx, n_lookahead);
 		}
