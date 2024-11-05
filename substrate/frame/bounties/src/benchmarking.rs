@@ -125,6 +125,21 @@ benchmarks_instance_pallet! {
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 	}: _<T::RuntimeOrigin>(approve_origin, bounty_id, curator_lookup, fee)
 
+	approve_bounty_with_curator {
+		setup_pot_account::<T, I>();
+		let (caller, curator, fee, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
+		let curator_lookup = T::Lookup::unlookup(curator.clone());
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
+		let bounty_id = BountyCount::<T, I>::get() - 1;
+		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		Treasury::<T, I>::on_initialize(BlockNumberFor::<T>::zero());
+	}: _<T::RuntimeOrigin>(approve_origin, bounty_id, curator_lookup, fee)
+	verify {
+		assert_last_event::<T, I>(
+			Event::CuratorProposed { bounty_id, curator }.into()
+		);
+	}
+
 	// Worst case when curator is inactive and any sender unassigns the curator.
 	unassign_curator {
 		setup_pot_account::<T, I>();
