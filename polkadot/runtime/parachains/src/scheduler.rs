@@ -201,7 +201,6 @@ impl<T: Config> Pallet<T> {
 
 			ValidatorGroups::<T>::set(groups);
 		}
-
 		let now = frame_system::Pallet::<T>::block_number() + One::one();
 		SessionStartBlock::<T>::set(now);
 	}

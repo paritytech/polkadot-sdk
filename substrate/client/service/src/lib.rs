@@ -98,7 +98,9 @@ pub use sc_transaction_pool::TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};
-pub use task_manager::{SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME};
+pub use task_manager::{
+	SpawnEssentialTaskHandle, SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME,
+};
 use tokio::runtime::Handle;
 
 const DEFAULT_PROTOCOL_ID: &str = "sup";
