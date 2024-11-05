@@ -1107,6 +1107,9 @@ async fn set_reserved_peers_cannot_move_previously_reserved() {
 			assert_eq!(peers.len(), 2);
 
 			for peer in peers {
+				// Ensure common peer is not disconnected.
+				assert_ne!(common_peer, peer);
+
 				assert_eq!(
 					peerset.peers().get(&peer),
 					Some(&PeerState::Closing { direction: Direction::Outbound(Reserved::Yes) })
