@@ -880,12 +880,21 @@ async fn archive_storage_diff_main_trie() {
 	let block_hash = format!("{:?}", block.header.hash());
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
-	// Search for items in the main trie with keys prefixed with ":A".
-	let items = vec![ArchiveStorageDiffItem::<String> {
-		key: hex_string(b":A"),
-		return_type: ArchiveStorageDiffType::Value,
-		child_trie_key: None,
-	}];
+	// Search for items in the main trie:
+	// - values of keys under ":A"
+	// - hashes of keys under ":AA"
+	let items = vec![
+		ArchiveStorageDiffItem::<String> {
+			key: hex_string(b":A"),
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: None,
+		},
+		ArchiveStorageDiffItem::<String> {
+			key: hex_string(b":AA"),
+			return_type: ArchiveStorageDiffType::Hash,
+			child_trie_key: None,
+		},
+	];
 	let mut sub = api
 		.subscribe_unbounded(
 			"archive_unstable_storageDiff",
@@ -916,12 +925,34 @@ async fn archive_storage_diff_main_trie() {
 		event,
 	);
 
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(
+		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: hex_string(b":AA"),
+			result: StorageResultType::Hash(format!("{:?}", Blake2Hasher::hash(b"22"))),
+			operation_type: ArchiveStorageDiffOperationType::Modified,
+			child_trie_key: None,
+		}),
+		event,
+	);
+
 	// Added key.
 	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
 	assert_eq!(
 		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
 			key: hex_string(b":AAA"),
 			result: StorageResultType::Value(hex_string(b"222")),
+			operation_type: ArchiveStorageDiffOperationType::Added,
+			child_trie_key: None,
+		}),
+		event,
+	);
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(
+		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: hex_string(b":AAA"),
+			result: StorageResultType::Hash(format!("{:?}", Blake2Hasher::hash(b"222"))),
 			operation_type: ArchiveStorageDiffOperationType::Added,
 			child_trie_key: None,
 		}),
