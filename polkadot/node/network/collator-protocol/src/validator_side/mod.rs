@@ -505,8 +505,8 @@ where
 			(CoreState::Occupied(_), ProspectiveParachainsMode::Disabled) => None,
 			(
 				CoreState::Occupied(_),
-				ProspectiveParachainsMode::Enabled { max_candidate_depth, .. },
-			) if max_candidate_depth == 0 => None,
+				ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, .. },
+			) => None,
 			_ => claim_queue.get(&core_now).cloned(),
 		})
 		.unwrap_or_else(|| VecDeque::new());
