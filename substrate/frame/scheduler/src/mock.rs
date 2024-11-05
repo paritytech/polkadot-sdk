@@ -228,6 +228,7 @@ impl Config for Test {
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
 	type BlockNumberProvider = frame_system::Pallet<Self>;
+	type MaxScheduledBlocks = ConstU32<20>;
 }
 
 pub type LoggerCall = logger::Call<Test>;

@@ -1683,10 +1683,7 @@ fn on_initialize_weight_is_correct() {
 		// Will contain none
 		System::set_block_number(4);
 		let actual_weight = Scheduler::on_initialize(4);
-		assert_eq!(
-			actual_weight,
-			TestWeightInfo::service_agendas_base() + TestWeightInfo::service_agenda_base(0)
-		);
+		assert_eq!(actual_weight, TestWeightInfo::service_agendas_base());
 	});
 }
 
