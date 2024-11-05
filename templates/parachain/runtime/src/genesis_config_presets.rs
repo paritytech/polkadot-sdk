@@ -35,8 +35,8 @@ fn testnet_genesis(
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
-				.clone()
-				.into_iter()
+				.iter()
+				.cloned()
 				.map(|k| (k, 1u128 << 60))
 				.collect::<Vec<_>>(),
 		},
@@ -47,7 +47,6 @@ fn testnet_genesis(
 		},
 		session: SessionConfig {
 			keys: invulnerables
-				.clone()
 				.into_iter()
 				.map(|(acc, aura)| {
 					(

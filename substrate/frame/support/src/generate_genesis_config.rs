@@ -217,152 +217,143 @@ pub fn retain_initialized_fields(
 #[macro_export]
 macro_rules! build_struct_json_patch {
 	(
-		$($struct_type:ident)::+ { $($tail:tt)* }
+		$($struct_type:ident)::+ { $($body:tt)* }
 	) => {
 		{
 			let mut __keys = $crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
 			#[allow(clippy::needless_update)]
-			let __struct_instance = $crate::build_struct_json_patch!($($struct_type)::+, __keys @  { $($tail)* }).0;
+			let __struct_instance = $crate::build_struct_json_patch!($($struct_type)::+, __keys @  { $($body)* }).0;
 			let mut __json_value =
 				$crate::__private::serde_json::to_value(__struct_instance).expect("serialization to json should work. qed");
 			$crate::generate_genesis_config::retain_initialized_fields(&mut __json_value, &__keys, Default::default());
 			__json_value
 		}
 	};
-	($($struct_type:ident)::+, $all_keys:ident @ { $($tail:tt)* }) => {
+	($($struct_type:ident)::+, $all_keys:ident @ { $($body:tt)* }) => {
 		{
-			let __value = $crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*);
+			let __value = $crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($body)*);
 			(
 				$($struct_type)::+ { ..__value.0 },
 				__value.1
 			)
 		}
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $($type:ident)::+ { $keyi:ident : $value:tt }  ) => {
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident:  $($type:ident)::+ { $($body:tt)* } ) => {
 		(
 			$($struct_type)::+ {
-			$key: {
-				$all_keys.push($crate::generate_genesis_config::InitializedField::partial(stringify!($key)));
-				$all_keys.push(
-						$crate::generate_genesis_config::InitializedField::full(
-							concat!(stringify!($key), ".", stringify!($keyi))
-						)
-				);
-				$($type)::+ {
-					$keyi:$value,
-					..Default::default()
-				}
-			},
-			..Default::default()
-			},
-			$crate::generate_genesis_config::InitilizationType::Partial
-		)
-	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:ident)::+ { $($body:tt)* } ) => {
-		(
-			$($struct_type)::+ {
-			$key: {
+				$key: {
 					let mut __inner_keys =
 						$crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
 					let __value = $crate::build_struct_json_patch!($($type)::+, __inner_keys @ { $($body)* });
 					for i in __inner_keys.iter_mut() {
-					i.add_prefix(stringify!($key));
-				};
+						i.add_prefix(stringify!($key));
+					};
 					$all_keys.push((__value.1,stringify!($key)).into());
 					$all_keys.extend(__inner_keys);
 					__value.0
-			},
-			..Default::default()
+				},
+				..Default::default()
 			},
 			$crate::generate_genesis_config::InitilizationType::Partial
 		)
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident:  $($type:ident)::+ { $($body:tt)* },  $($tail:tt)*  ) => {
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident:  $($type:ident)::+ { $($body:tt)* },  $($tail:tt)*) => {
 		{
-			let __update = $crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*);
+			let mut __initialization_type;
 			(
 				$($struct_type)::+ {
-			$key : {
+					$key : {
 						let mut __inner_keys =
 							$crate::__private::Vec::<$crate::generate_genesis_config::InitializedField>::default();
 						let __value = $crate::build_struct_json_patch!($($type)::+, __inner_keys @ { $($body)* });
 						$all_keys.push((__value.1,stringify!($key)).into());
 
 						for i in __inner_keys.iter_mut() {
-					i.add_prefix(stringify!($key));
-				};
+							i.add_prefix(stringify!($key));
+						};
 						$all_keys.extend(__inner_keys);
 						__value.0
-			},
-					.. __update.0
+					},
+					.. {
+						let (__value, __tmp) =
+							$crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*);
+						__initialization_type = __tmp;
+						__value
+					}
 				},
-				__update.1
+				__initialization_type
 			)
 		}
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $value:expr, $($tail:tt)* ) => {
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident: $value:expr, $($tail:tt)* ) => {
 		{
-			let __update = $crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*);
+			let mut __initialization_type;
 			(
 				$($struct_type)::+ {
-			$key: {
+					$key: {
 						$all_keys.push($crate::generate_genesis_config::InitializedField::full(
 							stringify!($key))
 						);
-				$value
-			},
-					..__update.0
+						$value
+					},
+					.. {
+						let (__value, __tmp) =
+							$crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*);
+						__initialization_type = __tmp;
+						__value
+					}
 				},
-				__update.1
+				__initialization_type
 			)
 		}
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident: $value:expr ) => {
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident: $value:expr ) => {
 		(
 			$($struct_type)::+ {
-			$key: {
-				$all_keys.push($crate::generate_genesis_config::InitializedField::full(stringify!($key)));
-				$value
-			},
-			..Default::default()
+				$key: {
+					$all_keys.push($crate::generate_genesis_config::InitializedField::full(stringify!($key)));
+					$value
+				},
+				..Default::default()
 			},
 			$crate::generate_genesis_config::InitilizationType::Partial
 		)
 	};
 	// field init shorthand
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident, $($tail:tt)* ) => {
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident, $($tail:tt)* ) => {
 		{
 			let __update = $crate::build_struct_json_patch!($($struct_type)::+, $all_keys @ $($tail)*);
 			(
 				$($struct_type)::+ {
-			$key: {
+					$key: {
 						$all_keys.push($crate::generate_genesis_config::InitializedField::full(
 							stringify!($key))
 						);
-				$key
-			},
+						$key
+					},
 					..__update.0
 				},
 				__update.1
 			)
 		}
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  $key:ident ) => {
+	($($struct_type:ident)::+, $all_keys:ident @ $key:ident ) => {
 		(
 			$($struct_type)::+ {
-			$key: {
-				$all_keys.push($crate::generate_genesis_config::InitializedField::full(stringify!($key)));
-				$key
-			},
-			..Default::default()
+				$key: {
+					$all_keys.push($crate::generate_genesis_config::InitializedField::full(stringify!($key)));
+					$key
+				},
+				..Default::default()
 			},
 			$crate::generate_genesis_config::InitilizationType::Partial
 		)
 	};
-	($($struct_type:ident)::+, $all_keys:ident  @  ..$update:expr ) => {
+	// update struct
+	($($struct_type:ident)::+, $all_keys:ident @ ..$update:expr ) => {
 		(
 			$($struct_type)::+ {
-			..{ $update }
+				..$update
 			},
 			$crate::generate_genesis_config::InitilizationType::Full
 		)
@@ -495,6 +486,7 @@ mod test {
 		let t = 5;
 		const C: u32 = 5;
 		test!(TestStruct { b: 5 }, { "b": 5 });
+		test!(TestStruct { b: 5, }, { "b": 5 });
 		#[allow(unused_braces)]
 		{
 			test!(TestStruct { b: { 4 + 34 } } , { "b": 38 });
@@ -914,6 +906,192 @@ mod test {
 					"u" : { "a": 32, "s": { "a": 34, "b": 66} }
 				}
 			);
+		}
+	}
+
+	#[test]
+	fn test_generate_config_macro_with_execution_order() {
+		#[derive(Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+		struct X {
+			x: Vec<u32>,
+			x2: Vec<u32>,
+			y2: Y,
+		}
+		#[derive(Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+		struct Y {
+			y: Vec<u32>,
+		}
+		#[derive(Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+		struct Z {
+			a: u32,
+			x: X,
+			y: Y,
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(Z { a: 0, x: X { x: v },  }, {
+				"a": 0, "x": { "x": [1,2,3] }
+			});
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(Z { a: 3, x: X { x: v.clone() }, y: Y { y: v } }, {
+				"a": 3, "x": { "x": [1,2,3] }, "y": { "y": [1,2,3] }
+			});
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(Z { a: 3, x: X { y2: Y { y: v.clone() }, x: v.clone() }, y: Y { y: v } }, {
+				"a": 3, "x": { "x": [1,2,3], "y2":{ "y":[1,2,3] } }, "y": { "y": [1,2,3] }
+			});
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(Z { a: 3, y: Y { y: v.clone() }, x: X { y2: Y { y: v.clone() }, x: v },  }, {
+				"a": 3, "x": { "x": [1,2,3], "y2":{ "y":[1,2,3] } }, "y": { "y": [1,2,3] }
+			});
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(
+				Z {
+					y: Y {
+						y: v.clone()
+					},
+					x: X {
+						y2: Y {
+							y: v.clone()
+						},
+						x: v.clone(),
+						x2: v.clone()
+					},
+				},
+				{
+					"x": {
+						"x": [1,2,3],
+						"x2": [1,2,3],
+						"y2": {
+							"y":[1,2,3]
+						}
+					},
+					"y": {
+						"y": [1,2,3]
+					}
+			});
+		}
+		{
+			let v = vec![1, 2, 3];
+			test!(
+				Z {
+					y: Y {
+						y: v.clone()
+					},
+					x: X {
+						y2: Y {
+							y: v.clone()
+						},
+						x: v
+					},
+				},
+				{
+					"x": {
+						"x": [1,2,3],
+						"y2": {
+							"y":[1,2,3]
+						}
+					},
+					"y": {
+						"y": [1,2,3]
+					}
+			});
+		}
+		{
+			let mut v = vec![0, 1, 2];
+			let f = |vec: &mut Vec<u32>| -> Vec<u32> {
+				vec.iter_mut().for_each(|x| *x += 1);
+				vec.clone()
+			};
+			let z = Z {
+				a: 0,
+				y: Y { y: f(&mut v) },
+				x: X { y2: Y { y: f(&mut v) }, x: f(&mut v), x2: vec![] },
+			};
+			let z_expected = Z {
+				a: 0,
+				y: Y { y: vec![1, 2, 3] },
+				x: X { y2: Y { y: vec![2, 3, 4] }, x: vec![3, 4, 5], x2: vec![] },
+			};
+			assert_eq!(z, z_expected);
+			v = vec![0, 1, 2];
+			println!("{z:?}");
+			test!(
+				Z {
+					y: Y {
+						y: f(&mut v)
+					},
+					x: X {
+						y2: Y {
+							y: f(&mut v)
+						},
+						x: f(&mut v)
+					},
+				},
+				{
+					"y": {
+						"y": [1,2,3]
+					},
+					"x": {
+						"y2": {
+							"y":[2,3,4]
+						},
+						"x": [3,4,5],
+					},
+			});
+		}
+		{
+			let mut v = vec![0, 1, 2];
+			let f = |vec: &mut Vec<u32>| -> Vec<u32> {
+				vec.iter_mut().for_each(|x| *x += 1);
+				vec.clone()
+			};
+			let z = Z {
+				a: 0,
+				y: Y { y: f(&mut v) },
+				x: X { y2: Y { y: f(&mut v) }, x: f(&mut v), x2: f(&mut v) },
+			};
+			let z_expected = Z {
+				a: 0,
+				y: Y { y: vec![1, 2, 3] },
+				x: X { y2: Y { y: vec![2, 3, 4] }, x: vec![3, 4, 5], x2: vec![4, 5, 6] },
+			};
+			assert_eq!(z, z_expected);
+			v = vec![0, 1, 2];
+			println!("{z:?}");
+			test!(
+				Z {
+					y: Y {
+						y: f(&mut v)
+					},
+					x: X {
+						y2: Y {
+							y: f(&mut v)
+						},
+						x: f(&mut v),
+						x2: f(&mut v)
+					},
+				},
+				{
+					"y": {
+						"y": [1,2,3]
+					},
+					"x": {
+						"y2": {
+							"y":[2,3,4]
+						},
+						"x": [3,4,5],
+						"x2": [4,5,6],
+					},
+			});
 		}
 	}
 

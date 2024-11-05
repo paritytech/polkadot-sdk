@@ -431,7 +431,6 @@ fn rococo_staging_testnet_config_genesis() -> serde_json::Value {
 		},
 		session: SessionConfig {
 			keys: initial_authorities
-				.clone()
 				.into_iter()
 				.map(|x| (x.0.clone(), x.0, rococo_session_keys(x.2, x.3, x.4, x.5, x.6, x.7)))
 				.collect::<Vec<_>>(),

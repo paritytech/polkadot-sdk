@@ -41,12 +41,11 @@ fn collectives_westend_genesis(
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
-			invulnerables: invulnerables.clone().into_iter().map(|(acc, _)| acc).collect(),
+			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: COLLECTIVES_WESTEND_ED * 16,
 		},
 		session: SessionConfig {
 			keys: invulnerables
-				.clone()
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
