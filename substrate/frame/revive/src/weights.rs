@@ -106,7 +106,6 @@ pub trait WeightInfo {
 	fn seal_get_transient_storage(n: u32, ) -> Weight;
 	fn seal_contains_transient_storage(n: u32, ) -> Weight;
 	fn seal_take_transient_storage(n: u32, ) -> Weight;
-	fn seal_transfer() -> Weight;
 	fn seal_call(t: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_instantiate(i: u32, ) -> Weight;
@@ -789,16 +788,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 2_430_000 picoseconds.
 		Weight::from_parts(2_669_757, 0)
-	}
-	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
-	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
-	fn seal_transfer() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `315`
-		//  Estimated: `3780`
-		// Minimum execution time: 14_740_000 picoseconds.
-		Weight::from_parts(15_320_000, 3780)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
 	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
@@ -1628,16 +1617,6 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 2_430_000 picoseconds.
 		Weight::from_parts(2_669_757, 0)
-	}
-	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
-	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
-	fn seal_transfer() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `315`
-		//  Estimated: `3780`
-		// Minimum execution time: 14_740_000 picoseconds.
-		Weight::from_parts(15_320_000, 3780)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
 	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
