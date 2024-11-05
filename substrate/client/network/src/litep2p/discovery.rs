@@ -553,7 +553,7 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
 			},
-			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
+			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
 				match this.find_node_query_id == Some(query_id) {
@@ -576,6 +576,9 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
+			// Content provider events are ignored for now.
+			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess { .. })) |
+			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},
 		}
 
 		match Pin::new(&mut this.identify_event_stream).poll_next(cx) {

@@ -52,9 +52,10 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
-	CandidateIndex, CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex, Hash, SessionIndex,
-	SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, ApprovalVoteMultipleCandidates,
+	ApprovalVotingParams, BlockNumber, CandidateHash, CandidateIndex, CoreIndex, ExecutorParams,
+	GroupIndex, Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair,
+	ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -2824,7 +2825,7 @@ where
 			target: LOG_TARGET,
 			validator_index = approval.validator.0,
 			candidate_hash = ?approved_candidate_hash,
-			para_id = ?candidate_entry.candidate_receipt().descriptor.para_id,
+			para_id = ?candidate_entry.candidate_receipt().descriptor.para_id(),
 			"Importing approval vote",
 		);
 
@@ -2923,7 +2924,7 @@ where
 	let block_hash = block_entry.block_hash();
 	let block_number = block_entry.block_number();
 	let session_index = block_entry.session();
-	let para_id = candidate_entry.candidate_receipt().descriptor().para_id;
+	let para_id = candidate_entry.candidate_receipt().descriptor().para_id();
 	let tick_now = state.clock.tick_now();
 
 	let (is_approved, status) = if let Some((approval_entry, status)) = state
@@ -3221,7 +3222,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		gum::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
-			para_id = ?candidate_receipt.descriptor.para_id,
+			para_id = ?candidate_receipt.descriptor.para_id(),
 			block_hash = ?relay_block,
 			"Launching approval work.",
 		);
@@ -3352,7 +3353,7 @@ async fn launch_approval<
 	}
 
 	let candidate_hash = candidate.hash();
-	let para_id = candidate.descriptor.para_id;
+	let para_id = candidate.descriptor.para_id();
 	gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
 
 	let timer = metrics.time_recover_and_approve();
@@ -3370,7 +3371,7 @@ async fn launch_approval<
 		.send_message(RuntimeApiMessage::Request(
 			block_hash,
 			RuntimeApiRequest::ValidationCodeByHash(
-				candidate.descriptor.validation_code_hash,
+				candidate.descriptor.validation_code_hash(),
 				code_tx,
 			),
 		))
@@ -3393,7 +3394,7 @@ async fn launch_approval<
 							?para_id,
 							?candidate_hash,
 							"Data unavailable for candidate {:?}",
-							(candidate_hash, candidate.descriptor.para_id),
+							(candidate_hash, candidate.descriptor.para_id()),
 						);
 						// do nothing. we'll just be a no-show and that'll cause others to rise up.
 						metrics_guard.take().on_approval_unavailable();
@@ -3404,7 +3405,7 @@ async fn launch_approval<
 							?para_id,
 							?candidate_hash,
 							"Channel closed while recovering data for candidate {:?}",
-							(candidate_hash, candidate.descriptor.para_id),
+							(candidate_hash, candidate.descriptor.para_id()),
 						);
 						// do nothing. we'll just be a no-show and that'll cause others to rise up.
 						metrics_guard.take().on_approval_unavailable();
@@ -3415,7 +3416,7 @@ async fn launch_approval<
 							?para_id,
 							?candidate_hash,
 							"Data recovery invalid for candidate {:?}",
-							(candidate_hash, candidate.descriptor.para_id),
+							(candidate_hash, candidate.descriptor.para_id()),
 						);
 						issue_local_invalid_statement(
 							&mut sender,
@@ -3438,7 +3439,7 @@ async fn launch_approval<
 				gum::warn!(
 					target: LOG_TARGET,
 					"Validation code unavailable for block {:?} in the state of block {:?} (a recent descendant)",
-					candidate.descriptor.relay_parent,
+					candidate.descriptor.relay_parent(),
 					block_hash,
 				);
 
