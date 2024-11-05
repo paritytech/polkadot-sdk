@@ -17,9 +17,6 @@
 //! In an ideal world this would be one runtime which would simplify the code massively.
 //! This is not an ideal world - Polkadot Asset Hub has a different key type.
 
-#[cfg(feature = "runtime-benchmarks")]
-extern crate alloc;
-
 mod utils;
 
 use utils::{impl_node_runtime_apis, imports::*};
