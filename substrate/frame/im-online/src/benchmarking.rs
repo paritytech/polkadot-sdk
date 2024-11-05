@@ -68,7 +68,7 @@ mod benchmarks {
 
 	#[benchmark(extra)]
 	fn heartbeat(k: Linear<1, MAX_KEYS>) -> Result<(), BenchmarkError> {
-		let (input_heartbeat, signature) = create_heartbeat::<T>(k.into())?;
+		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::None, input_heartbeat, signature);
@@ -78,7 +78,7 @@ mod benchmarks {
 
 	#[benchmark(extra)]
 	fn validate_unsigned(k: Linear<1, MAX_KEYS>) -> Result<(), BenchmarkError> {
-		let (input_heartbeat, signature) = create_heartbeat::<T>(k.into())?;
+		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
 		let call = Call::heartbeat { heartbeat: input_heartbeat, signature };
 
 		#[block]
