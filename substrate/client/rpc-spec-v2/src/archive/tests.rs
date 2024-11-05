@@ -875,6 +875,7 @@ async fn archive_storage_diff_main_trie() {
 		.unwrap();
 	builder.push_storage_change(b":A".to_vec(), Some(b"11".to_vec())).unwrap();
 	builder.push_storage_change(b":AA".to_vec(), Some(b"22".to_vec())).unwrap();
+	builder.push_storage_change(b":AAA".to_vec(), Some(b"222".to_vec())).unwrap();
 	let block = builder.build().unwrap().block;
 	let block_hash = format!("{:?}", block.header.hash());
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
@@ -910,6 +911,18 @@ async fn archive_storage_diff_main_trie() {
 			key: hex_string(b":AA"),
 			result: StorageResultType::Value(hex_string(b"22")),
 			operation_type: ArchiveStorageDiffOperationType::Modified,
+			child_trie_key: None,
+		}),
+		event,
+	);
+
+	// Added key.
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(
+		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: hex_string(b":AAA"),
+			result: StorageResultType::Value(hex_string(b"222")),
+			operation_type: ArchiveStorageDiffOperationType::Added,
 			child_trie_key: None,
 		}),
 		event,
