@@ -619,8 +619,8 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 							log::debug!(
 								target: "sub-libp2p",
 								"Failed to send response for {:?} on protocol {:?} due to a \
-								timeout or due to the connection to the peer being closed. \
-								Dropping response",
+								 timeout or due to the connection to the peer being closed. \
+								 Dropping response",
 								request_id, protocol_name,
 							);
 						} else if let Some(sent_feedback) = sent_feedback {
@@ -827,7 +827,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 										log::debug!(
 											target: "sub-libp2p",
 											"Request with id {:?} failed. At the same time local \
-											node is no longer interested in the result.",
+											 node is no longer interested in the result.",
 											request_id,
 										);
 									}
