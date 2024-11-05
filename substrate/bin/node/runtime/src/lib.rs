@@ -3002,8 +3002,8 @@ impl_runtime_apis! {
 		}
 
 		fn pool_accounts(pool_id: PoolId) -> (AccountId, AccountId) {
-		    NominationPools::api_pool_accounts(pool_id)
-	    }
+			NominationPools::api_pool_accounts(pool_id)
+		}
 	}
 
 	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
