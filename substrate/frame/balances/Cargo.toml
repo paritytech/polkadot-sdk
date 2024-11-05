@@ -24,6 +24,7 @@ frame-support.workspace = true
 frame-system.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
+sp-io.workspace = true
 docify = { workspace = true }
 
 [dev-dependencies]
@@ -44,6 +45,7 @@ std = [
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-io/std",
 ]
 # Enable support for setting the existential deposit to zero.
 insecure_zero_ed = []
@@ -57,4 +59,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-transaction-payment/try-runtime"
 ]

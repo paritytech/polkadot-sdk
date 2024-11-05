@@ -422,6 +422,10 @@ pub mod pallet {
 	pub type InactiveIssuance<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::Balance, ValueQuery>;
 
+	/// Set of accounts that we placed a sufficient reference on.
+	#[pallet::storage]
+	pub type SufficientAccounts<T: Config<I>, I: 'static = ()> = StorageMap<_, Twox64Concat, T::AccountId, ()>;
+
 	/// The Balances pallet example of storing the balance of an account.
 	///
 	/// # Example
@@ -843,7 +847,15 @@ pub mod pallet {
 		}
 	}
 
+	pub enum MigrationError {
+		NoLock,
+	}
+
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		pub fn migrate_lock(who: T::AccountId, amount: BalanceOf<T>) -> Result<Call<T>, MigrationError> {
+			Ok(())
+		}
+
 		/// Migrates the untouchable balance. This endowes the account on the AH if it does not exist yet.
 		///
 		/// We assume that Relay.ED >= AssetHub.ED
