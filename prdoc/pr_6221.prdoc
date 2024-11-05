@@ -1,4 +1,4 @@
-title: Enable approval-voting-parallel by default on kusama
+title: "snowbridge: allow account conversion for Ethereum accounts"
 
 doc:
   - audience: Runtime Dev
