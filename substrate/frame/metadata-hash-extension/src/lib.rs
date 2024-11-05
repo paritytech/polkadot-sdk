@@ -17,14 +17,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! The [`CheckMetadataHash`] signed extension.
+//! The [`CheckMetadataHash`] transaction extension.
 //!
 //! The extension for optionally checking the metadata hash. For information how it works and what
 //! it does exactly, see the docs of [`CheckMetadataHash`].
 //!
 //! # Integration
 //!
-//! As any signed extension you will need to add it to your runtime signed extensions:
+//! As any transaction extension you will need to add it to your runtime transaction extensions:
 #![doc = docify::embed!("src/tests.rs", add_metadata_hash_extension)]
 //! As the extension requires the `RUNTIME_METADATA_HASH` environment variable to be present at
 //! compile time, it requires a little bit more setup. To have this environment variable available
@@ -39,11 +39,12 @@ extern crate alloc;
 extern crate self as frame_metadata_hash_extension;
 
 use codec::{Decode, Encode};
-use frame_support::DebugNoBound;
+use frame_support::{pallet_prelude::Weight, DebugNoBound};
 use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, SignedExtension},
+	impl_tx_ext_default,
+	traits::TransactionExtension,
 	transaction_validity::{TransactionValidityError, UnknownTransaction},
 };
 
@@ -67,12 +68,24 @@ enum MetadataHash {
 	Custom([u8; 32]),
 }
 
+const RUNTIME_METADATA: Option<[u8; 32]> = if let Some(hex) = option_env!("RUNTIME_METADATA_HASH") {
+	match const_hex::const_decode_to_array(hex.as_bytes()) {
+		Ok(hex) => Some(hex),
+		Err(_) => panic!(
+			"Invalid RUNTIME_METADATA_HASH environment variable: it must be a 32 \
+			bytes value in hexadecimal: e.g. 0x123ABCabd...123ABCabc. Upper case or lower case, \
+			0x prefix is optional."
+		),
+	}
+} else {
+	None
+};
+
 impl MetadataHash {
 	/// Returns the metadata hash.
 	fn hash(&self) -> Option<[u8; 32]> {
 		match self {
-			Self::FetchFromEnv =>
-				option_env!("RUNTIME_METADATA_HASH").map(array_bytes::hex2array_unchecked),
+			Self::FetchFromEnv => RUNTIME_METADATA,
 			Self::Custom(hash) => Some(*hash),
 		}
 	}
@@ -85,15 +98,15 @@ impl MetadataHash {
 /// This metadata hash should give users the confidence that what they build with an online wallet
 /// is the same they are signing with their offline wallet and then applying on chain. To ensure
 /// that the online wallet is not tricking the offline wallet into decoding and showing an incorrect
-/// extrinsic, the offline wallet will include the metadata hash into the additional signed data and
+/// extrinsic, the offline wallet will include the metadata hash into the extension implicit and
 /// the runtime will then do the same. If the metadata hash doesn't match, the signature
 /// verification will fail and thus, the transaction will be rejected. The RFC contains more details
 /// on how it works.
 ///
 /// The extension adds one byte (the `mode`) to the size of the extrinsic. This one byte is
-/// controlling if the metadata hash should be added to the signed data or not. Mode `0` means that
-/// the metadata hash is not added and thus, `None` is added to the signed data. Mode `1` means that
-/// the metadata hash is added and thus, `Some(metadata_hash)` is added to the signed data. Further
+/// controlling if the metadata hash should be added to the implicit or not. Mode `0` means that
+/// the metadata hash is not added and thus, `None` is added to the implicit. Mode `1` means that
+/// the metadata hash is added and thus, `Some(metadata_hash)` is added to the implicit. Further
 /// values of `mode` are reserved for future changes.
 ///
 /// The metadata hash is read from the environment variable `RUNTIME_METADATA_HASH`. This
@@ -110,7 +123,7 @@ pub struct CheckMetadataHash<T> {
 }
 
 impl<T> CheckMetadataHash<T> {
-	/// Creates new `SignedExtension` to check metadata hash.
+	/// Creates new `TransactionExtension` to check metadata hash.
 	pub fn new(enable: bool) -> Self {
 		Self {
 			_phantom: core::marker::PhantomData,
@@ -131,14 +144,10 @@ impl<T> CheckMetadataHash<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for CheckMetadataHash<T> {
-	type AccountId = T::AccountId;
-	type Call = <T as Config>::RuntimeCall;
-	type AdditionalSigned = Option<[u8; 32]>;
-	type Pre = ();
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckMetadataHash<T> {
 	const IDENTIFIER: &'static str = "CheckMetadataHash";
-
-	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+	type Implicit = Option<[u8; 32]>;
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		let signed = match self.mode {
 			Mode::Disabled => None,
 			Mode::Enabled => match self.metadata_hash.hash() {
@@ -149,20 +158,20 @@ impl<T: Config + Send + Sync> SignedExtension for CheckMetadataHash<T> {
 
 		log::debug!(
 			target: "runtime::metadata-hash",
-			"CheckMetadataHash::additional_signed => {:?}",
+			"CheckMetadataHash::implicit => {:?}",
 			signed.as_ref().map(|h| array_bytes::bytes2hex("0x", h)),
 		);
 
 		Ok(signed)
 	}
+	type Val = ();
+	type Pre = ();
 
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
+	fn weight(&self, _: &T::RuntimeCall) -> Weight {
+		// The weight is the weight of implicit, it consists of a few match operation, it is
+		// negligible.
+		Weight::zero()
 	}
+
+	impl_tx_ext_default!(T::RuntimeCall; validate prepare);
 }

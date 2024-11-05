@@ -1,0 +1,10 @@
+title: '[pallet-revive] ensure the return data is reset if no frame was instantiated'
+
+doc:
+- audience:
+  - Runtime Dev
+  description: Failed call frames do not produce new return data but still reset it.
+
+crates:
+- name: pallet-revive
+  bump: patch
