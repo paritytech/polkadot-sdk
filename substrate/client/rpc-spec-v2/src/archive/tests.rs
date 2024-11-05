@@ -898,7 +898,7 @@ async fn archive_storage_diff_main_trie() {
 	let mut sub = api
 		.subscribe_unbounded(
 			"archive_unstable_storageDiff",
-			rpc_params![&block_hash, &prev_hash, items.clone()],
+			rpc_params![&block_hash, items.clone(), &prev_hash],
 		)
 		.await
 		.unwrap();
@@ -999,10 +999,74 @@ async fn archive_storage_diff_no_changes() {
 	let mut sub = api
 		.subscribe_unbounded(
 			"archive_unstable_storageDiff",
-			rpc_params![&block_hash, &prev_hash, items.clone()],
+			rpc_params![&block_hash, items.clone(), &prev_hash],
 		)
 		.await
 		.unwrap();
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(ArchiveStorageDiffEvent::StorageDiffDone, event);
+}
+
+#[tokio::test]
+async fn archive_storage_diff_deleted_changes() {
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+
+	// Blocks are imported as forks.
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
+	builder.push_storage_change(b":AA".to_vec(), Some(b"BB".to_vec())).unwrap();
+	let prev_block = builder.build().unwrap().block;
+	let prev_hash = format!("{:?}", prev_block.header.hash());
+	client.import(BlockOrigin::Own, prev_block.clone()).await.unwrap();
+
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder
+		.push_transfer(Transfer {
+			from: AccountKeyring::Alice.into(),
+			to: AccountKeyring::Ferdie.into(),
+			amount: 41,
+			nonce: 0,
+		})
+		.unwrap();
+	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Search for items in the main trie with keys prefixed with ":A".
+	let items = vec![ArchiveStorageDiffItem::<String> {
+		key: hex_string(b":A"),
+		return_type: ArchiveStorageDiffType::Value,
+		child_trie_key: None,
+	}];
+
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_unstable_storageDiff",
+			rpc_params![&block_hash, items.clone(), &prev_hash],
+		)
+		.await
+		.unwrap();
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(
+		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: hex_string(b":AA"),
+			result: StorageResultType::Value(hex_string(b"BB")),
+			operation_type: ArchiveStorageDiffOperationType::Deleted,
+			child_trie_key: None,
+		}),
+		event,
+	);
 
 	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
 	assert_eq!(ArchiveStorageDiffEvent::StorageDiffDone, event);
