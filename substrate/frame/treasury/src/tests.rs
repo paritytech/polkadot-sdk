@@ -983,13 +983,16 @@ fn multiple_spend_periods_work() {
 		// 100 will be spent, 1024 will be the burn amount, 1 for ED
 		Balances::make_free_balance_be(&Treasury::account_id(), 100 + 1024 + 1);
 		// approve spend of total amount 100 to beneficiary `6`.
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(11), 10, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(12), 20, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(13), 50, 6));
+		#[allow(deprecated)]
+		{
+			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
+			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
+			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
+			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
+			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(11), 10, 6));
+			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(12), 20, 6));
+			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(13), 50, 6));
+		}
 		// free balance of `6` is zero, spend period has not passed.
 		go_to_block(1);
 		assert_eq!(Balances::free_balance(6), 0);
