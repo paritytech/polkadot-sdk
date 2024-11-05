@@ -18,8 +18,8 @@
 use crate::utils::{
 	extract_api_version, extract_block_type_from_trait_path, extract_impl_trait,
 	extract_parameter_names_types_and_borrows, generate_crate_access,
-	generate_runtime_mod_name_for_trait, prefix_function_with_trait,
-	versioned_trait_name, ApiVersion, AllowSelfRefInParameters, RequireQualifiedTraitPath,
+	generate_runtime_mod_name_for_trait, prefix_function_with_trait, versioned_trait_name,
+	AllowSelfRefInParameters, ApiVersion, RequireQualifiedTraitPath,
 };
 
 use proc_macro2::{Span, TokenStream};

@@ -21,9 +21,9 @@ use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 use syn::{
-	parse_quote, parenthesized, punctuated::Punctuated, spanned::Spanned, token::And, Attribute, Error, Expr,
-	ExprLit, FnArg, GenericArgument, Ident, ItemImpl, Lit, LitStr, LitInt, Meta, MetaNameValue, 
-	Pat, Path, PathArguments, Result, ReturnType, Signature, Token, Type, TypePath,
+	parenthesized, parse_quote, punctuated::Punctuated, spanned::Spanned, token::And, Attribute,
+	Error, Expr, ExprLit, FnArg, GenericArgument, Ident, ItemImpl, Lit, LitInt, LitStr, Meta,
+	MetaNameValue, Pat, Path, PathArguments, Result, ReturnType, Signature, Token, Type, TypePath,
 };
 
 /// Generates the access to the `sc_client` crate.
@@ -346,7 +346,8 @@ pub struct ApiVersion {
 /// Extracts the value of `API_VERSION_ATTRIBUTE` and handles errors.
 /// Returns:
 /// - Err if the version is malformed
-/// - `ApiVersion` on success. If a version is set or not is determined by the fields of `ApiVersion`
+/// - `ApiVersion` on success. If a version is set or not is determined by the fields of
+///   `ApiVersion`
 pub fn extract_api_version(attrs: &[Attribute], span: Span) -> Result<ApiVersion> {
 	// First fetch all `API_VERSION_ATTRIBUTE` values (should be only one)
 	let api_ver = attrs

@@ -32,6 +32,7 @@ use proc_macro2::{Span, TokenStream};
 
 use quote::quote;
 
+use std::collections::{BTreeMap, HashMap};
 use syn::{
 	fold::{self, Fold},
 	parse::{Error, Parse, ParseStream, Result},
@@ -42,7 +43,6 @@ use syn::{
 	Attribute, FnArg, GenericParam, Generics, Ident, ItemTrait, LitInt, LitStr, TraitBound,
 	TraitItem, TraitItemFn,
 };
-use std::collections::{BTreeMap, HashMap};
 
 /// The structure used for parsing the runtime api declarations.
 struct RuntimeApiDecls {
@@ -188,8 +188,7 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 		extend_generics_with_block(&mut decl.generics);
 		let mod_name = generate_runtime_mod_name_for_trait(&decl.ident);
 		let found_attributes = remove_supported_attributes(&mut decl.attrs);
-		let api_version =
-			get_api_version(&found_attributes).map(generate_runtime_api_version)?;
+		let api_version = get_api_version(&found_attributes).map(generate_runtime_api_version)?;
 		let id = generate_runtime_api_id(&decl.ident.to_string());
 
 		let trait_api_version = get_api_version(&found_attributes)?;
@@ -252,10 +251,11 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 			_ => (),
 		});
 
-		let versioned_methods_iter = methods_by_version.iter().flat_map(|(&version, methods)| {
-			methods.iter().map(move |method| (method, version))
-		});
-		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl, versioned_methods_iter);
+		let versioned_methods_iter = methods_by_version
+			.iter()
+			.flat_map(|(&version, methods)| methods.iter().map(move |method| (method, version)));
+		let metadata =
+			crate::runtime_metadata::generate_decl_runtime_metadata(&decl, versioned_methods_iter);
 
 		let versioned_api_traits = generate_versioned_api_traits(decl.clone(), methods_by_version);
 
