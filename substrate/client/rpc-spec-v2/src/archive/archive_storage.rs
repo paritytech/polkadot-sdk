@@ -303,9 +303,9 @@ where
 		let mut keys_set = HashSet::new();
 
 		// Parse the child trie key as `ChildInfo` and `String`.
-		let maybe_child_trie = items.first().map(|item| item.child_trie_key.clone()).flatten();
+		let maybe_child_trie = items.first().and_then(|item| item.child_trie_key.clone());
 		let maybe_child_trie_str =
-			items.first().map(|item| item.child_trie_key_string.clone()).flatten();
+			items.first().and_then(|item| item.child_trie_key_string.clone());
 
 		// Iterator over the current block.
 		let keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
