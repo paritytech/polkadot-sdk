@@ -28,13 +28,16 @@ use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sp_runtime::traits::Block as BlockT;
 
 use super::error::Error as ArchiveError;
-use crate::common::{
-	events::{
-		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
-		ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageMethodErr,
-		ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType, StorageResult,
+use crate::{
+	archive::archive::LOG_TARGET,
+	common::{
+		events::{
+			ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
+			ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageMethodErr,
+			ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType, StorageResult,
+		},
+		storage::{IterQueryType, QueryIter, Storage},
 	},
-	storage::{IterQueryType, QueryIter, Storage},
 };
 use tokio::sync::mpsc;
 /// Generates the events of the `archive_storage` method.
@@ -414,12 +417,32 @@ where
 		let this = ArchiveStorageDiff { client: self.client.clone() };
 
 		tokio::task::spawn_blocking(move || {
+			log::trace!(
+				target: LOG_TARGET,
+				"handle_trie_queries: hash={:?}, previous_hash={:?}, items={:?}",
+				hash,
+				previous_hash,
+				items
+			);
+
 			let result = this.handle_trie_queries_inner(hash, previous_hash, items, &tx);
 
 			if let Err(error) = result {
 				let error =
 					ArchiveStorageDiffEvent::StorageDiffError(ArchiveStorageMethodErr { error });
+				log::trace!(
+					target: LOG_TARGET,
+					"handle_trie_queries: sending error={:?}",
+					error,
+				);
+
 				let _ = tx.blocking_send(error);
+			} else {
+				log::trace!(
+					target: LOG_TARGET,
+					"handle_trie_queries: sending storage diff done",
+				);
+				let _ = tx.blocking_send(ArchiveStorageDiffEvent::StorageDiffDone);
 			}
 		})
 		.await?;
