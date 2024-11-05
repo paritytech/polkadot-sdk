@@ -48,7 +48,8 @@ fn chain_can_claim_assets_for_its_users() {
 		// Some USDT.
 		(
 			Location::new(1, [Parachain(2000), AccountId32 { id: [1u8; 32], network: None }]),
-			([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())], 100_000_000u128).into(),
+			([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())], 100_000_000u128)
+				.into(),
 		),
 	];
 
@@ -71,11 +72,13 @@ fn chain_can_claim_assets_for_its_users() {
 	// Loop through all beneficiaries.
 	for (location, assets) in &beneficiaries {
 		builder = builder.execute_with_origin(
-			Some(location.interior().last().unwrap().clone().into()), // We take only the last part, the `AccountId32` junction.
+			Some(location.interior().last().unwrap().clone().into()), /* We take only the last
+			                                                           * part, the `AccountId32`
+			                                                           * junction. */
 			Xcm::<()>::builder_unsafe()
 				.claim_asset(assets.clone(), Location::new(0, [GeneralIndex(5)])) // Means lost assets were version 5.
 				.deposit_asset(assets.clone(), location.clone())
-				.build()
+				.build(),
 		)
 	}
 
@@ -85,7 +88,8 @@ fn chain_can_claim_assets_for_its_users() {
 	// Fund PenpalA's sovereign account on AssetHubWestend so it can pay for fees.
 	AssetHubWestend::execute_with(|| {
 		let penpal_as_seen_by_asset_hub = AssetHubWestend::sibling_location_of(PenpalA::para_id());
-		let penpal_sov_account_on_asset_hub = AssetHubWestend::sovereign_account_id_of(penpal_as_seen_by_asset_hub);
+		let penpal_sov_account_on_asset_hub =
+			AssetHubWestend::sovereign_account_id_of(penpal_as_seen_by_asset_hub);
 		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
 		assert_ok!(<Balances as Mutate<_>>::mint_into(
 			&penpal_sov_account_on_asset_hub,
@@ -106,7 +110,8 @@ fn chain_can_claim_assets_for_its_users() {
 	AssetHubWestend::execute_with(|| {
 		for (location, expected_assets) in &beneficiaries {
 			let sov_account = AssetHubWestend::sovereign_account_id_of(location.clone());
-			let actual_assets = <AssetHubWestend as Chain>::Runtime::query_account_balances(sov_account).unwrap();
+			let actual_assets =
+				<AssetHubWestend as Chain>::Runtime::query_account_balances(sov_account).unwrap();
 			assert_eq!(VersionedAssets::from(expected_assets.clone()), actual_assets);
 		}
 	});

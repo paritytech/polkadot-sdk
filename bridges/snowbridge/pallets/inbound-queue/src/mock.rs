@@ -19,7 +19,10 @@ use sp_runtime::{
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
-use xcm::{latest::{SendXcm, WESTEND_GENESIS_HASH}, prelude::*};
+use xcm::{
+	latest::{SendXcm, WESTEND_GENESIS_HASH},
+	prelude::*,
+};
 use xcm_executor::AssetsInHolding;
 
 use crate::{self as inbound_queue};

@@ -1116,13 +1116,12 @@ pub enum Instruction<Call> {
 	/// Executes an inner set of instructions with one origin.
 	///
 	/// Parameters:
-	/// - `origin`: The origin that will be used during the execution of the inner `xcm`.
-	///   If set to `None`, it acts in the same way as `ClearOrigin` and runs the inner xcm
-	///   with no origin.
-	///   If set to `Some(o)`, it acts in the same way as `DescendOrigin(o)` and runs the
-	///   inner xcm with `o` as origin.
-	/// - `xcm`: Inner instructions that will be executed with the origin modified according
-	///   to `origin`.
+	/// - `origin`: The origin that will be used during the execution of the inner `xcm`. If set to
+	///   `None`, it acts in the same way as `ClearOrigin` and runs the inner xcm with no origin.
+	///   If set to `Some(o)`, it acts in the same way as `DescendOrigin(o)` and runs the inner xcm
+	///   with `o` as origin.
+	/// - `xcm`: Inner instructions that will be executed with the origin modified according to
+	///   `origin`.
 	///
 	/// Safety: No concerns.
 	///
@@ -1130,10 +1129,7 @@ pub enum Instruction<Call> {
 	///
 	/// Errors:
 	/// - `BadOrigin`
-	ExecuteWithOrigin {
-		origin: Option<InteriorLocation>,
-		xcm: Xcm<Call>,
-	},
+	ExecuteWithOrigin { origin: Option<InteriorLocation>, xcm: Xcm<Call> },
 }
 
 impl<Call> Xcm<Call> {

@@ -209,10 +209,10 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 							&actual_origin,
 							&mut xcm.inner_mut(),
 							max_weight,
-							properties
+							properties,
 						)?;
 						already_checked_inner_barrier = true;
-					}
+					},
 					_ => return Ok(ControlFlow::Break(())),
 				};
 				skipped.set(skipped.get() + 1);

@@ -61,7 +61,7 @@ fn computed_origin_should_work() {
 	]);
 
 	AllowPaidFrom::set(vec![(
-	Parent,
+		Parent,
 		Parent,
 		GlobalConsensus(Kusama),
 		Parachain(100),
@@ -112,13 +112,13 @@ fn computed_origin_works_with_execute_with_origin() {
 				PayFees { asset: (Parent, 10u128).into() },
 			]),
 		},
-		DepositAsset { assets: All.into(), beneficiary: AccountId32 { id: [0u8; 32], network: None }.into() },
+		DepositAsset {
+			assets: All.into(),
+			beneficiary: AccountId32 { id: [0u8; 32], network: None }.into(),
+		},
 	]);
 
-	AllowPaidFrom::set(vec![(
-		Parent,
-		AccountId32 { id: [0u8; 32], network: None },
-	).into()]);
+	AllowPaidFrom::set(vec![(Parent, AccountId32 { id: [0u8; 32], network: None }).into()]);
 
 	let should_execute = WithComputedOrigin::<
 		AllowTopLevelPaidExecutionFrom<IsInVec<AllowPaidFrom>>,
@@ -141,7 +141,10 @@ fn computed_origin_works_with_execute_with_origin() {
 				PayFees { asset: (Parent, 10u128).into() },
 			]),
 		},
-		DepositAsset { assets: All.into(), beneficiary: AccountId32 { id: [0u8; 32], network: None }.into() },
+		DepositAsset {
+			assets: All.into(),
+			beneficiary: AccountId32 { id: [0u8; 32], network: None }.into(),
+		},
 	]);
 	let should_execute = WithComputedOrigin::<
 		AllowTopLevelPaidExecutionFrom<IsInVec<AllowPaidFrom>>,
@@ -155,11 +158,7 @@ fn computed_origin_works_with_execute_with_origin() {
 	);
 	assert_eq!(should_execute, Err(ProcessMessageError::Unsupported));
 
-	AllowPaidFrom::set(vec![(
-		Parent,
-		Parachain(1000),
-		PalletInstance(100),
-	).into()]);
+	AllowPaidFrom::set(vec![(Parent, Parachain(1000), PalletInstance(100)).into()]);
 	let should_execute = WithComputedOrigin::<
 		AllowTopLevelPaidExecutionFrom<IsInVec<AllowPaidFrom>>,
 		ExecutorUniversalLocation,
@@ -186,13 +185,13 @@ fn computed_origin_works_with_execute_with_origin() {
 
 	let mut invalid_message = Xcm::<()>(vec![
 		DescendOrigin(Parachain(1000).into()),
-		ExecuteWithOrigin {
-			origin: Some(PalletInstance(100).into()),
-			xcm: Xcm::<()>(vec![]),
-		},
+		ExecuteWithOrigin { origin: Some(PalletInstance(100).into()), xcm: Xcm::<()>(vec![]) },
 		WithdrawAsset((Parent, 100u128).into()),
 		PayFees { asset: (Parent, 10u128).into() },
-		DepositAsset { assets: All.into(), beneficiary: AccountId32 { id: [0u8; 32], network: None }.into() },
+		DepositAsset {
+			assets: All.into(),
+			beneficiary: AccountId32 { id: [0u8; 32], network: None }.into(),
+		},
 	]);
 	let should_execute = WithComputedOrigin::<
 		AllowTopLevelPaidExecutionFrom<IsInVec<AllowPaidFrom>>,

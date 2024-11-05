@@ -100,11 +100,8 @@ fn works_for_delivery_fees() {
 	// were withdrawn, minus the `10` that were destinated for fee payment.
 	assert_eq!(asset_list(RECIPIENT), [(Here, 90u128).into()]);
 
-	let querier: Location = (
-		Parachain(1000),
-		AccountId32 { id: SENDER.into(), network: None },
-	)
-		.into();
+	let querier: Location =
+		(Parachain(1000), AccountId32 { id: SENDER.into(), network: None }).into();
 	let sent_message = Xcm(vec![QueryResponse {
 		query_id: 0,
 		response: Response::ExecutionResult(None),

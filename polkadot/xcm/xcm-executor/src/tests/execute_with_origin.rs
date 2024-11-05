@@ -23,8 +23,8 @@
 
 use xcm::prelude::*;
 
-use crate::ExecutorError;
 use super::mock::*;
+use crate::ExecutorError;
 
 // The sender and recipient we use across these tests.
 const SENDER_1: [u8; 32] = [0; 32];
@@ -45,17 +45,15 @@ fn root_can_descend_into_more_than_one_account() {
 	// Build xcm.
 	let xcm = Xcm::<TestCall>::builder_unsafe()
 		.execute_with_origin(
-		    Some(SENDER_1.into()),
-		    Xcm::<TestCall>::builder_unsafe()
-		        .withdraw_asset((Here, 10u128))
-		        .pay_fees((Here, 10u128))
-		        .build()
+			Some(SENDER_1.into()),
+			Xcm::<TestCall>::builder_unsafe()
+				.withdraw_asset((Here, 10u128))
+				.pay_fees((Here, 10u128))
+				.build(),
 		)
 		.execute_with_origin(
 			Some(SENDER_2.into()),
-			Xcm::<TestCall>::builder_unsafe()
-				.withdraw_asset((Here, 100u128))
-				.build()
+			Xcm::<TestCall>::builder_unsafe().withdraw_asset((Here, 100u128)).build(),
 		)
 		.expect_origin(Some(Here.into()))
 		.deposit_asset(All, RECIPIENT)
@@ -82,11 +80,9 @@ fn works_for_clearing_origin() {
 		// Root code.
 		.expect_origin(Some(Here.into()))
 		.execute_with_origin(
-		    None,
-		    // User code, we run it with no origin.
-		    Xcm::<TestCall>::builder_unsafe()
-		    	.expect_origin(None)
-		        .build()
+			None,
+			// User code, we run it with no origin.
+			Xcm::<TestCall>::builder_unsafe().expect_origin(None).build(),
 		)
 		// We go back to root code.
 		.build();
@@ -106,19 +102,19 @@ fn set_error_handler_and_appendix_work() {
 
 	let xcm = Xcm::<TestCall>::builder_unsafe()
 		.execute_with_origin(
-		    Some(SENDER_1.into()),
-		    Xcm::<TestCall>::builder_unsafe()
-		        .withdraw_asset((Here, 110u128))
-		        .pay_fees((Here, 10u128))
-		        .set_error_handler(Xcm::<TestCall>::builder_unsafe()
-		        	.deposit_asset(vec![(Here, 10u128).into()], SENDER_2)
-		        	.build()
-		        )
-		        .set_appendix(Xcm::<TestCall>::builder_unsafe()
-		        	.deposit_asset(All, RECIPIENT)
-		        	.build()
-		        )
-		        .build()
+			Some(SENDER_1.into()),
+			Xcm::<TestCall>::builder_unsafe()
+				.withdraw_asset((Here, 110u128))
+				.pay_fees((Here, 10u128))
+				.set_error_handler(
+					Xcm::<TestCall>::builder_unsafe()
+						.deposit_asset(vec![(Here, 10u128).into()], SENDER_2)
+						.build(),
+				)
+				.set_appendix(
+					Xcm::<TestCall>::builder_unsafe().deposit_asset(All, RECIPIENT).build(),
+				)
+				.build(),
 		)
 		.build();
 
@@ -127,18 +123,20 @@ fn set_error_handler_and_appendix_work() {
 	// Program runs successfully.
 	assert!(vm.bench_process(xcm).is_ok());
 
-	assert_eq!(vm.error_handler(), &Xcm::<TestCall>(vec![
-		DepositAsset {
+	assert_eq!(
+		vm.error_handler(),
+		&Xcm::<TestCall>(vec![DepositAsset {
 			assets: vec![Asset { id: AssetId(Location::new(0, [])), fun: Fungible(10) }].into(),
 			beneficiary: Location::new(0, [AccountId32 { id: SENDER_2, network: None }]),
-		},
-	]));
-	assert_eq!(vm.appendix(), &Xcm::<TestCall>(vec![
-		DepositAsset {
+		},])
+	);
+	assert_eq!(
+		vm.appendix(),
+		&Xcm::<TestCall>(vec![DepositAsset {
 			assets: All.into(),
 			beneficiary: Location::new(0, [AccountId32 { id: RECIPIENT, network: None }]),
-		},
-	]));
+		},])
+	);
 
 	assert!(vm.bench_post_process(weight).ensure_complete().is_ok());
 }
@@ -153,12 +151,7 @@ fn recursion_exceeds_limit() {
 	add_asset(SENDER_2, (Here, 100u128));
 
 	let mut xcm = Xcm::<TestCall>::builder_unsafe()
-		.execute_with_origin(
-			None,
-			Xcm::<TestCall>::builder_unsafe()
-				.clear_origin()
-				.build()
-		)
+		.execute_with_origin(None, Xcm::<TestCall>::builder_unsafe().clear_origin().build())
 		.build();
 
 	// 10 is the RECURSION_LIMIT.
@@ -172,10 +165,13 @@ fn recursion_exceeds_limit() {
 	let (mut vm, weight) = instantiate_executor(Here, xcm.clone());
 
 	// Program errors with `ExceedsStackLimit`.
-	assert_eq!(vm.bench_process(xcm), Err(ExecutorError {
-		index: 0,
-		xcm_error: XcmError::ExceedsStackLimit,
-		weight: Weight::zero(),
-	}));
+	assert_eq!(
+		vm.bench_process(xcm),
+		Err(ExecutorError {
+			index: 0,
+			xcm_error: XcmError::ExceedsStackLimit,
+			weight: Weight::zero(),
+		})
+	);
 	assert!(vm.bench_post_process(weight).ensure_complete().is_ok());
 }

@@ -97,12 +97,14 @@ impl DescribeLocation for DescribeTokenTerminal {
 #[cfg(test)]
 mod tests {
 	use crate::TokenIdOf;
-	use xcm::prelude::{
-		GeneralIndex, GeneralKey, GlobalConsensus, Junction::*, Location, NetworkId::ByGenesis,
-		PalletInstance, Parachain,
+	use xcm::{
+		latest::WESTEND_GENESIS_HASH,
+		prelude::{
+			GeneralIndex, GeneralKey, GlobalConsensus, Junction::*, Location, NetworkId::ByGenesis,
+			PalletInstance, Parachain,
+		},
 	};
 	use xcm_executor::traits::ConvertLocation;
-	use xcm::latest::WESTEND_GENESIS_HASH;
 
 	#[test]
 	fn test_token_of_id() {
@@ -114,7 +116,14 @@ mod tests {
 			// Parachain relative to Ethereum
 			Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(2000)]),
 			// Parachain general index
-			Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(2000), GeneralIndex(1)]),
+			Location::new(
+				1,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(2000),
+					GeneralIndex(1),
+				],
+			),
 			// Parachain general key
 			Location::new(
 				1,
@@ -144,11 +153,23 @@ mod tests {
 			),
 			// Parchain Pallet instance cases
 			// Parachain pallet instance
-			Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(2000), PalletInstance(8)]),
+			Location::new(
+				1,
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(2000),
+					PalletInstance(8),
+				],
+			),
 			// Parachain Pallet general index
 			Location::new(
 				1,
-				[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(2000), PalletInstance(8), GeneralIndex(1)],
+				[
+					GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+					Parachain(2000),
+					PalletInstance(8),
+					GeneralIndex(1),
+				],
 			),
 			// Parachain Pallet general key
 			Location::new(

@@ -103,7 +103,10 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 			westend_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
 			vec![(
 				Location::new(1, [Parachain(1000)]),
-				Junctions::from([NetworkId::ByGenesis(ROCOCO_GENESIS_HASH).into(), Parachain(1000)]),
+				Junctions::from([
+					NetworkId::ByGenesis(ROCOCO_GENESIS_HASH).into(),
+					Parachain(1000),
+				]),
 				Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
 			)],
 		),
