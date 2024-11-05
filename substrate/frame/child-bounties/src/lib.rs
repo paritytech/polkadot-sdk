@@ -221,7 +221,7 @@ pub mod pallet {
 
 	/// The description of each child-bounty.
 	#[pallet::storage]
-	pub type ChildBountyDescriptions<T: Config> = StorageDoubleMap<
+	pub type ParentChildBountyDescriptions<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		BountyIndex,
@@ -297,7 +297,8 @@ pub mod pallet {
 
 			// Get child-bounty ID.
 			let child_bounty_id = ParentTotalChildBounties::<T>::get(parent_bounty_id);
-			let child_bounty_account = Self::child_bounty_account_id(child_bounty_id);
+			let child_bounty_account =
+				Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
 
 			// Transfer funds from parent bounty to child-bounty.
 			T::Currency::transfer(&parent_bounty_account, &child_bounty_account, value, KeepAlive)?;
@@ -695,7 +696,8 @@ pub mod pallet {
 						);
 
 						// Make curator fee payment.
-						let child_bounty_account = Self::child_bounty_account_id(child_bounty_id);
+						let child_bounty_account =
+							Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
 						let balance = T::Currency::free_balance(&child_bounty_account);
 						let curator_fee = child_bounty.fee.min(balance);
 						let payout = balance.saturating_sub(curator_fee);
@@ -739,7 +741,10 @@ pub mod pallet {
 						});
 
 						// Remove the child-bounty description.
-						ChildBountyDescriptions::<T>::remove(parent_bounty_id, child_bounty_id);
+						ParentChildBountyDescriptions::<T>::remove(
+							parent_bounty_id,
+							child_bounty_id,
+						);
 
 						// Remove the child-bounty instance from the state.
 						*maybe_child_bounty = None;
@@ -820,11 +825,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// The account ID of a child-bounty account.
-	pub fn child_bounty_account_id(id: BountyIndex) -> T::AccountId {
+	pub fn child_bounty_account_id(
+		parent_bounty_id: BountyIndex,
+		child_bounty_id: BountyIndex,
+	) -> T::AccountId {
 		// This function is taken from the parent (bounties) pallet, but the
 		// prefix is changed to have different AccountId when the index of
 		// parent and child is same.
-		T::PalletId::get().into_sub_account_truncating(("cb", id))
+		T::PalletId::get().into_sub_account_truncating(("cb", parent_bounty_id, child_bounty_id))
 	}
 
 	fn create_child_bounty(
@@ -841,7 +849,7 @@ impl<T: Config> Pallet<T> {
 			status: ChildBountyStatus::Added,
 		};
 		ChildBounties::<T>::insert(parent_bounty_id, child_bounty_id, &child_bounty);
-		ChildBountyDescriptions::<T>::insert(parent_bounty_id, child_bounty_id, description);
+		ParentChildBountyDescriptions::<T>::insert(parent_bounty_id, child_bounty_id, description);
 		Self::deposit_event(Event::Added { index: parent_bounty_id, child_index: child_bounty_id });
 	}
 
@@ -900,7 +908,8 @@ impl<T: Config> Pallet<T> {
 				// Transfer fund from child-bounty to parent bounty.
 				let parent_bounty_account =
 					pallet_bounties::Pallet::<T>::bounty_account_id(parent_bounty_id);
-				let child_bounty_account = Self::child_bounty_account_id(child_bounty_id);
+				let child_bounty_account =
+					Self::child_bounty_account_id(parent_bounty_id, child_bounty_id);
 				let balance = T::Currency::free_balance(&child_bounty_account);
 				let transfer_result = T::Currency::transfer(
 					&child_bounty_account,
@@ -911,7 +920,7 @@ impl<T: Config> Pallet<T> {
 				debug_assert!(transfer_result.is_ok());
 
 				// Remove the child-bounty description.
-				ChildBountyDescriptions::<T>::remove(parent_bounty_id, child_bounty_id);
+				ParentChildBountyDescriptions::<T>::remove(parent_bounty_id, child_bounty_id);
 
 				*maybe_child_bounty = None;
 
