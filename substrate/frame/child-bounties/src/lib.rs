@@ -946,9 +946,12 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-// Implement ChildBountyManager to connect with the bounties pallet. This is
-// where we pass the active child bounties and child curator fees to the parent
-// bounty.
+/// Implement ChildBountyManager to connect with the bounties pallet. This is
+/// where we pass the active child bounties and child curator fees to the parent
+/// bounty.
+///
+/// Function `children_curator_fees` not only returns the fee but also removes cumulative curator
+/// fees during call.
 impl<T: Config> pallet_bounties::ChildBountyManager<BalanceOf<T>> for Pallet<T> {
 	/// Returns number of active child bounties for `bounty_id`
 	fn child_bounties_count(
