@@ -148,7 +148,7 @@ This section provides details on the files that can be used with `create patch` 
 ### Patch file
 The patch file for genesis config contains the key-value pairs valid for given runtime, that needs to be customized,
 	e.g:
-```
+```ignore
 {
 	"balances": {
 		"balances": [
