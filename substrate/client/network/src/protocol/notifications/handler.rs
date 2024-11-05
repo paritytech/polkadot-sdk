@@ -117,6 +117,7 @@ pub struct NotifsHandler {
 	keep_alive: bool,
 
 	/// Optional future that keeps connection alive for a certain amount of time.
+	// TODO: this should be safe to remove, see https://github.com/paritytech/polkadot-sdk/issues/6350
 	keep_alive_timeout_future: Option<Pin<Box<dyn Future<Output = ()> + Send + 'static>>>,
 
 	/// Remote we are connected to.
