@@ -209,8 +209,7 @@ async fn execute_job_terminates_on_execution_ttl() {
 		max_pov_size: 4096 * 1024,
 	};
 	let pov = PoV { block_data: BlockData(Vec::new()) };
-	let exec_ttl =
-		ExecutionJobTtl { allowed_ancestry_len: 2, deadline: 9, relay_parent: Hash::random() };
+	let exec_ttl = ExecutionJobTtl { deadline: 9, relay_parent: Hash::random() };
 
 	host.update_active_leaves(
 		ActiveLeavesUpdate::start_work(new_leaf(Hash::random(), 10)),

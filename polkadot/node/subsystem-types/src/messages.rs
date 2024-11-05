@@ -193,8 +193,6 @@ pub struct ExecutionJobTtl {
 	pub deadline: BlockNumber,
 	/// Relay parent hash.
 	pub relay_parent: Hash,
-	/// How many ancestors of a relay parent are allowed in async backing.
-	pub allowed_ancestry_len: usize,
 }
 
 /// Extends primitives::PvfExecKind, which is a runtime parameter we don't want to change,

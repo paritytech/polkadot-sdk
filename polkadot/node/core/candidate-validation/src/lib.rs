@@ -606,7 +606,8 @@ where
 	sender
 		.send_message(ChainApiMessage::Ancestors {
 			hash: relay_parent,
-			k: allowed_ancestry_len,
+			// The depth of 2 * allowed_ancestry_len should be enough to track non-viable jobs.
+			k: 2 * allowed_ancestry_len,
 			response_channel: tx,
 		})
 		.await;

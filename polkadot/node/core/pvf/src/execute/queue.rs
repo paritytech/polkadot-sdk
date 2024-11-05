@@ -329,34 +329,21 @@ impl Queue {
 
 	fn is_job_relevant(&self, exec_kind: PvfExecKind) -> bool {
 		let Some(ttl) = exec_kind.ttl() else { return true };
-		let Some(leaf) = self
+		let Some(current_block_number) = self
 			.active_leaves
 			.values()
-			.filter(|leaf| {
-				leaf.hash == ttl.relay_parent || leaf.ancestors.contains(&ttl.relay_parent)
+			.filter(|x| x.hash == ttl.relay_parent || x.ancestors.contains(&ttl.relay_parent))
+			.map(|x| x.number)
+			.min()
+			.or_else(|| {
+				gum::warn!(target: LOG_TARGET, ?ttl, "Relay parent of the execution job was not found among the ancestors of active leaves");
+				self.active_leaves.values().map(|x| x.number).min() // Use the earliest block number as the current one.
 			})
-			.min_by_key(|x| x.number)
 		else {
-			gum::warn!(
-				target: LOG_TARGET,
-				?ttl,
-				"Relay parent of the execution job was not found among the ancestors of active leaves",
-			);
-			// The job is either very old or, with a slight chance, the allowed_ancestry_len has
-			// decreased since the candidate was imported, so we requested fewer ancestors for
-			// active leaves than we should have. In that case, it is better to execute the job.
-			let min_ancestry_len = self
-				.active_leaves
-				.values()
-				.filter(|x| !x.ancestors.is_empty())
-				.map(|x| x.ancestors.len())
-				.min()
-				.unwrap_or(ttl.allowed_ancestry_len);
-			return min_ancestry_len < ttl.allowed_ancestry_len
+			return true
 		};
-		let now = leaf.number;
 
-		return now <= ttl.deadline
+		current_block_number <= ttl.deadline
 	}
 }
 
@@ -1071,8 +1058,7 @@ mod tests {
 			to_queue_rx,
 			from_queue_tx,
 		);
-		let exec_ttl =
-			ExecutionJobTtl { allowed_ancestry_len: 2, deadline: 9, relay_parent: Hash::random() };
+		let exec_ttl = ExecutionJobTtl { deadline: 9, relay_parent: Hash::random() };
 		queue.active_leaves = HashMap::new();
 		let hash = Hash::random();
 		queue.active_leaves.insert(

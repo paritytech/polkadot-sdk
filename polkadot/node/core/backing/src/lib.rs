@@ -635,7 +635,6 @@ async fn request_candidate_validation(
 	let is_system = candidate_receipt.descriptor.para_id().is_system();
 	let ttl = allowed_ancestry_len.map(|v| ExecutionJobTtl {
 		deadline: validation_data.relay_parent_number + v as BlockNumber,
-		allowed_ancestry_len: v,
 		relay_parent: candidate_receipt.descriptor.relay_parent(),
 	});
 	sender
