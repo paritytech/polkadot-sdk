@@ -32,3 +32,4 @@ prometheus-endpoint = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 async-trait = { workspace = true }
 bitvec = { features = ["alloc"], workspace = true }
+strum = { features = ["derive"], workspace = true, default-features = true }

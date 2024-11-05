@@ -27,7 +27,7 @@ use sp_core::H256;
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, DispatchTransaction, IdentityLookup},
 	BuildStorage,
 };
 // Reexport crate as its pallet name for construct_runtime.
@@ -146,13 +146,16 @@ fn signed_ext_watch_dummy_works() {
 
 		assert_eq!(
 			WatchDummy::<Test>(PhantomData)
-				.validate(&1, &call, &info, 150)
+				.validate_only(Some(1).into(), &call, &info, 150)
 				.unwrap()
+				.0
 				.priority,
 			u64::MAX,
 		);
 		assert_eq!(
-			WatchDummy::<Test>(PhantomData).validate(&1, &call, &info, 250),
+			WatchDummy::<Test>(PhantomData)
+				.validate_only(Some(1).into(), &call, &info, 250)
+				.unwrap_err(),
 			InvalidTransaction::ExhaustsResources.into(),
 		);
 	})
@@ -174,13 +177,13 @@ fn weights_work() {
 	let info1 = default_call.get_dispatch_info();
 	// aka. `let info = <Call<Test> as GetDispatchInfo>::get_dispatch_info(&default_call);`
 	// TODO: account for proof size weight
-	assert!(info1.weight.ref_time() > 0);
-	assert_eq!(info1.weight, <Test as Config>::WeightInfo::accumulate_dummy());
+	assert!(info1.call_weight.ref_time() > 0);
+	assert_eq!(info1.call_weight, <Test as Config>::WeightInfo::accumulate_dummy());
 
 	// `set_dummy` is simpler than `accumulate_dummy`, and the weight
 	//   should be less.
 	let custom_call = pallet_example_basic::Call::<Test>::set_dummy { new_value: 20 };
 	let info2 = custom_call.get_dispatch_info();
 	// TODO: account for proof size weight
-	assert!(info1.weight.ref_time() > info2.weight.ref_time());
+	assert!(info1.call_weight.ref_time() > info2.call_weight.ref_time());
 }
