@@ -343,7 +343,7 @@ impl MockRuntimeApi {
 
 pub fn node_features_with_chunk_mapping_enabled() -> NodeFeatures {
 	let mut node_features = NodeFeatures::new();
-	node_features.resize(node_features::FeatureIndex::CandidateReceiptV2 as usize + 1, false);
+	node_features.resize(node_features::FeatureIndex::FirstUnassigned as usize, false);
 	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping as u8 as usize, true);
 	node_features.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
 	node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
