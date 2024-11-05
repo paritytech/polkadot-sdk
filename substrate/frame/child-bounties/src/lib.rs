@@ -219,7 +219,7 @@ pub mod pallet {
 		ChildBounty<T::AccountId, BalanceOf<T>, BlockNumberFor<T>>,
 	>;
 
-	/// The description of each child-bounty.
+	/// The description of each child-bounty. Indexed by `(parent_id, child_id)`.
 	///
 	/// This item replaces the `ChildBountyDescriptions` storage item from the V0 storage version.
 	#[pallet::storage]
