@@ -259,7 +259,7 @@ pub trait BalanceOnHold<AssetId, AccountId, Balance> {
 
 	/// Called after an account has been removed.
 	///
-	/// It is expected that this method is called only when there is not balance
+	/// It is expected that this method is called only when there is no balance
 	/// on hold. Otherwise, an account should not be removed.
 	fn died(asset: AssetId, who: &AccountId);
 
