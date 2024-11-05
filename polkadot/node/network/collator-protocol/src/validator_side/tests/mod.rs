@@ -42,9 +42,10 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
+	node_features,
 	vstaging::{CandidateReceiptV2 as CandidateReceipt, CoreState, OccupiedCore},
-	CollatorPair, CoreIndex, GroupIndex, GroupRotationInfo, HeadData, PersistedValidationData,
-	ScheduledCore, ValidatorId, ValidatorIndex,
+	CollatorPair, CoreIndex, GroupIndex, GroupRotationInfo, HeadData, NodeFeatures,
+	PersistedValidationData, ScheduledCore, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_candidate_receipt_bad_sig, dummy_hash,
@@ -78,6 +79,8 @@ struct TestState {
 	group_rotation_info: GroupRotationInfo,
 	cores: Vec<CoreState>,
 	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	node_features: NodeFeatures,
+	session_index: SessionIndex,
 }
 
 impl Default for TestState {
@@ -132,6 +135,10 @@ impl Default for TestState {
 		claim_queue.insert(CoreIndex(1), VecDeque::new());
 		claim_queue.insert(CoreIndex(2), [chain_ids[1]].into_iter().collect());
 
+		let mut node_features = NodeFeatures::EMPTY;
+		node_features.resize(node_features::FeatureIndex::CandidateReceiptV2 as usize + 1, false);
+		node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
+
 		Self {
 			chain_ids,
 			relay_parent,
@@ -141,6 +148,8 @@ impl Default for TestState {
 			group_rotation_info,
 			cores,
 			claim_queue,
+			node_features,
+			session_index: 1,
 		}
 	}
 }
@@ -249,7 +258,7 @@ async fn respond_to_runtime_api_queries(
 			RuntimeApiRequest::SessionIndexForChild(tx)
 		)) => {
 			assert_eq!(rp, hash);
-			tx.send(Ok(1)).unwrap();
+			tx.send(Ok(test_state.session_index)).unwrap();
 		}
 	);
 
@@ -271,7 +280,7 @@ async fn respond_to_runtime_api_queries(
 			RuntimeApiRequest::NodeFeatures(_, tx)
 		)) => {
 			assert_eq!(rp, hash);
-			tx.send(Ok(polkadot_primitives::NodeFeatures::EMPTY)).unwrap();
+			tx.send(Ok(test_state.node_features.clone())).unwrap();
 		}
 	);
 
