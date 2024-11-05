@@ -35,6 +35,9 @@ pub mod subxt_client;
 #[cfg(test)]
 mod tests;
 
+mod rpc_health;
+pub use rpc_health::*;
+
 mod rpc_methods_gen;
 pub use rpc_methods_gen::*;
 
