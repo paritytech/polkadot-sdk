@@ -7,12 +7,11 @@ doc:
     by changing `ChildBountyDescriptions` to use `StorageDoubleMap`
     which is indexed by `(ParentBounty, ChildBounty)` keys.
 
-    Deprecates `ChildBountyCount` storage item in May 2025.
-
-    Migration is provided to migrate `ChildBountyDescriptions` and
+    - Changes child bounty keys in `ChildBounties` storage item.
+    - Deprecates `ChildBountyCount` storage item in May 2025.
+    - Migration is provided to migrate `ChildBountyDescriptions` and
     `ChildBounties` storage items.
-
-    Old pre-migration ids mapping is stored in the `OldToNewChildBountyIds`
+    - Old pre-migration ids mapping is stored in the `OldToNewChildBountyIds`
     storage item.
 crates:
 - name: pallet-child-bounties
