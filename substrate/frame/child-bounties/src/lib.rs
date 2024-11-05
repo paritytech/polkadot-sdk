@@ -512,7 +512,7 @@ pub mod pallet {
 
 					let slash_curator = 
 						|curator: &T::AccountId, curator_deposit: &mut BalanceOf<T>| {
-							let imbalance = 
+							let imbalance =
 								T::Currency::slash_reserved(curator, *curator_deposit).0;
 							T::OnSlash::on_unbalanced(imbalance);
 							*curator_deposit = Zero::zero();
