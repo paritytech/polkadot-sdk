@@ -125,7 +125,6 @@ fn runtime_metadata() {
 	let expected_runtime_metadata = vec![
 		RuntimeApiMetadataIR {
 			name: "Api",
-			base_version: 1,
 			methods: vec![
 				RuntimeApiMethodMetadataIR {
 					name: "test",
@@ -205,7 +204,6 @@ fn runtime_metadata() {
 		},
 		RuntimeApiMetadataIR {
 			name: "Core",
-			base_version: 5,
 			methods: vec![
 				RuntimeApiMethodMetadataIR {
 					name: "version",

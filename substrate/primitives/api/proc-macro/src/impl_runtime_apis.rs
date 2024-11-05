@@ -462,7 +462,7 @@ fn extend_with_runtime_decl_path(mut trait_: Path) -> Path {
 	trait_
 }
 
-fn extend_with_api_version(mut trait_: Path, version: Option<u64>) -> Path {
+fn extend_with_api_version(mut trait_: Path, version: Option<u32>) -> Path {
 	let version = if let Some(v) = version {
 		v
 	} else {

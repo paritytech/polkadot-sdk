@@ -216,7 +216,7 @@ pub fn extract_impl_trait(impl_: &ItemImpl, require: RequireQualifiedTraitPath) 
 }
 
 /// Parse the given attribute as `API_VERSION_ATTRIBUTE`.
-pub fn parse_runtime_api_version(version: &Attribute) -> Result<u64> {
+pub fn parse_runtime_api_version(version: &Attribute) -> Result<u32> {
 	let version = version.parse_args::<syn::LitInt>().map_err(|_| {
 		Error::new(
 			version.span(),
@@ -231,7 +231,7 @@ pub fn parse_runtime_api_version(version: &Attribute) -> Result<u64> {
 }
 
 /// Each versioned trait is named 'ApiNameVN' where N is the specific version. E.g. ParachainHostV2
-pub fn versioned_trait_name(trait_ident: &Ident, version: u64) -> Ident {
+pub fn versioned_trait_name(trait_ident: &Ident, version: u32) -> Ident {
 	format_ident!("{}V{}", trait_ident, version)
 }
 
@@ -337,10 +337,10 @@ pub fn get_deprecation(crate_: &TokenStream, attrs: &[syn::Attribute]) -> Result
 /// Represents an API version.
 pub struct ApiVersion {
 	/// Corresponds to `#[api_version(X)]` attribute.
-	pub custom: Option<u64>,
+	pub custom: Option<u32>,
 	/// Corresponds to `#[cfg_attr(feature = "enable-staging-api", api_version(99))]`
-	/// attribute. `String` is the feature name, `u64` the staging api version.
-	pub feature_gated: Option<(String, u64)>,
+	/// attribute. `String` is the feature name, `u32` the staging api version.
+	pub feature_gated: Option<(String, u32)>,
 }
 
 /// Extracts the value of `API_VERSION_ATTRIBUTE` and handles errors.
@@ -374,7 +374,7 @@ pub fn extract_api_version(attrs: &[Attribute], span: Span) -> Result<ApiVersion
 
 /// Parse feature flagged api_version.
 /// E.g. `#[cfg_attr(feature = "enable-staging-api", api_version(99))]`
-fn extract_cfg_api_version(attrs: &[Attribute], span: Span) -> Result<Option<(String, u64)>> {
+fn extract_cfg_api_version(attrs: &[Attribute], span: Span) -> Result<Option<(String, u32)>> {
 	let cfg_attrs = attrs.iter().filter(|a| a.path().is_ident("cfg_attr")).collect::<Vec<_>>();
 
 	let mut cfg_api_version_attr = Vec::new();
@@ -390,7 +390,7 @@ fn extract_cfg_api_version(attrs: &[Attribute], span: Span) -> Result<Option<(St
 				let content;
 				parenthesized!(content in m.input);
 				let ver: LitInt = content.parse()?;
-				api_version = Some(ver.base10_parse::<u64>()?);
+				api_version = Some(ver.base10_parse::<u32>()?);
 			}
 			Ok(())
 		})?;
