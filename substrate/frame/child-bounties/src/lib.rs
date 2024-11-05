@@ -510,7 +510,7 @@ pub mod pallet {
 					let child_bounty =
 						maybe_child_bounty.as_mut().ok_or(BountiesError::<T>::InvalidIndex)?;
 
-					let slash_curator = 
+					let slash_curator =
 						|curator: &T::AccountId, curator_deposit: &mut BalanceOf<T>| {
 							let imbalance =
 								T::Currency::slash_reserved(curator, *curator_deposit).0;
