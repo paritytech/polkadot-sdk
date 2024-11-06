@@ -151,7 +151,7 @@ fn activate_child_bounty<T: Config>(
 		bounty_setup.reason.clone(),
 	)?;
 
-	bounty_setup.child_bounty_id = ChildBountyCount::<T>::get() - 1;
+	bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 	ChildBounties::<T>::propose_curator(
 		RawOrigin::Signed(bounty_setup.curator.clone()).into(),
@@ -205,7 +205,7 @@ benchmarks! {
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
 		)?;
-		let child_bounty_id = ChildBountyCount::<T>::get() - 1;
+		let child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 	}: _(RawOrigin::Signed(bounty_setup.curator), bounty_setup.bounty_id,
 			child_bounty_id, child_curator_lookup, bounty_setup.child_bounty_fee)
@@ -221,7 +221,7 @@ benchmarks! {
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
 		)?;
-		bounty_setup.child_bounty_id = ChildBountyCount::<T>::get() - 1;
+		bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 		ChildBounties::<T>::propose_curator(
 			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
@@ -296,7 +296,7 @@ benchmarks! {
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
 		)?;
-		bounty_setup.child_bounty_id = ChildBountyCount::<T>::get() - 1;
+		bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 	}: close_child_bounty(RawOrigin::Root, bounty_setup.bounty_id,
 		bounty_setup.child_bounty_id)
