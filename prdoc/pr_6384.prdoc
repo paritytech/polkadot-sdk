@@ -9,4 +9,4 @@ doc:
     Fixes: https://github.com/paritytech/polkadot-sdk/issues/6102
 crates:
 - name: polkadot-runtime-parachains
-  bump: minor
+  bump: major
