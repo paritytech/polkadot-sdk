@@ -3,18 +3,8 @@ doc:
 - audience: Node Dev
   description: |-
     This PR fixes issue reported in #6306.
+    It changes the behavior of `sc_chain_spec::json_patch::merge` function which no longer removes any keys from the base JSON object.
 
-    It adds new function `json_patch::merge_preserve_keys` which does not remove any keys from the base JSON object.
-    The old function `json_patch::merge` is kept, and its [functionality](https://www.rfc-editor.org/rfc/rfc7386) is not changed.
-
-    I also removed the `json_merge`  re-export in the favor of using `json_patch::merge`.
-
-    **Notes for reviewer:**
-    All the usages of `json_patch::merge` across the codebase where the keys removal was not intention were changed to `
-    json_patch::merge_preserve_keys`. It was done for clarity, even if it was not really neccessary as patches did contain any null values.
-
-
-    fixes: #6306
 crates:
 - name: staging-chain-spec-builder
   bump: major
