@@ -120,6 +120,7 @@ fn invoke_build(target: &Path, current_dir: &Path) -> Result<()> {
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTC_BOOTSTRAP", "1")
 		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
+		.env("RUSTUP_TOOLCHAIN", env::var("RUSTUP_TOOLCHAIN").unwrap_or_default())
 		.args([
 			"build",
 			"--release",
@@ -147,8 +148,8 @@ fn invoke_build(target: &Path, current_dir: &Path) -> Result<()> {
 
 /// Post-process the compiled code.
 fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
-	let strip = std::env::var(OVERRIDE_STRIP_ENV_VAR).map_or(false, |value| value == "1");
-	let optimize = std::env::var(OVERRIDE_OPTIMIZE_ENV_VAR).map_or(true, |value| value == "1");
+	let strip = env::var(OVERRIDE_STRIP_ENV_VAR).map_or(false, |value| value == "1");
+	let optimize = env::var(OVERRIDE_OPTIMIZE_ENV_VAR).map_or(true, |value| value == "1");
 
 	let mut config = polkavm_linker::Config::default();
 	config.set_strip(strip);
