@@ -151,6 +151,7 @@ pub enum ClientError {
 
 const GENERIC_ERROR_CODE: ErrorCode = ErrorCode::ServerError(-32000);
 
+// TODO use https://eips.ethereum.org/EIPS/eip-1474#error-codes
 // Convert a `ClientError` to an RPC `ErrorObjectOwned`.
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(value: ClientError) -> Self {

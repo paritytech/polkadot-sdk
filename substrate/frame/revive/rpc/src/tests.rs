@@ -18,7 +18,7 @@
 
 use crate::{
 	cli::{self, CliCommand},
-	example::{send_transaction, wait_for_receipt},
+	example::{send_transaction, wait_for_successful_receipt},
 	EthRpcClient,
 };
 use clap::Parser;
@@ -87,7 +87,7 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	let hash =
 		send_transaction(&account, &client, value, Bytes::default(), Some(ethan.address())).await?;
 
-	let receipt = wait_for_receipt(&client, hash).await?;
+	let receipt = wait_for_successful_receipt(&client, hash).await?;
 	assert_eq!(
 		Some(ethan.address()),
 		receipt.to,
@@ -104,7 +104,7 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
 	let hash = send_transaction(&account, &client, value, input.into(), None).await?;
-	let receipt = wait_for_receipt(&client, hash).await?;
+	let receipt = wait_for_successful_receipt(&client, hash).await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	assert_eq!(
 		Some(contract_address),
@@ -116,15 +116,27 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	assert_eq!(value, balance, "Contract balance should be the same as the value sent.");
 
 	// Call contract
-	let hash =
-		send_transaction(&account, &client, U256::zero(), Bytes::default(), Some(contract_address))
-			.await?;
-	let receipt = wait_for_receipt(&client, hash).await?;
+	let hash = send_transaction(&account, &client, value, Bytes::default(), Some(contract_address))
+		.await?;
+	let receipt = wait_for_successful_receipt(&client, hash).await?;
+
 	assert_eq!(
 		Some(contract_address),
 		receipt.to,
 		"Receipt should have the correct contract address."
 	);
+
+	let increase = client.get_balance(contract_address, BlockTag::Latest.into()).await? - balance;
+	assert_eq!(value, increase, "contract's balance should have increased by the value sent.");
+
+	// Balance transfer to contract
+	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	let hash = send_transaction(&account, &client, value, Bytes::default(), Some(contract_address))
+		.await?;
+
+	wait_for_successful_receipt(&client, hash).await?;
+	let increase = client.get_balance(contract_address, BlockTag::Latest.into()).await? - balance;
+	assert_eq!(value, increase, "contract's balance should have increased by the value sent.");
 
 	Ok(())
 }

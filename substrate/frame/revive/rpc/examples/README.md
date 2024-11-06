@@ -34,7 +34,7 @@ zombienet spawn --provider native  westend_local_network.toml
 This command starts the Ethereum JSON-RPC server, which runs on `localhost:8545` by default:
 
 ```bash
-RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc --features dev
+RUST_LOG="info,eth-rpc=debug" cargo run -p pallet-revive-eth-rpc -- --dev
 ```
 
 ## Rust examples
@@ -65,24 +65,8 @@ bun src/script.ts
 
 ### Configure MetaMask
 
-You can use the following instructions to setup [MetaMask] with the local chain.
-
-> **Note**: When you interact with MetaMask and restart the chain, you need to clear the activity tab (Settings >
-Advanced > Clear activity tab data), and in some cases lock/unlock MetaMask to reset the nonce.
-See [this guide][reset-account] for more info on how to reset the account activity.
-
-#### Add a new network
-
-To interact with the local chain, add a new network in [MetaMask].
-See [this guide][add-network] for more info on how to add a custom network.
-
-Make sure the node and the RPC server are started, and use the following settings to configure the network
-(MetaMask > Networks > Add a network manually):
-
-- Network name: KitchenSink
-- RPC URL: <http://localhost:8545>
-- Chain ID: 420420420
-- Currency Symbol: `DEV`
+See the doc [here](https://contracts.polkadot.io/connect-to-asset-hub) for more
+information on how to configure MetaMask.
 
 #### Import Dev account
 

@@ -40,6 +40,19 @@ pub async fn wait_for_receipt(
 	anyhow::bail!("Failed to get receipt")
 }
 
+/// Wait for a successful transaction receipt.
+pub async fn wait_for_successful_receipt(
+	client: &(impl EthRpcClient + Send + Sync),
+	hash: H256,
+) -> anyhow::Result<ReceiptInfo> {
+	let receipt = wait_for_receipt(client, hash).await?;
+	if receipt.is_success() {
+		Ok(receipt)
+	} else {
+		anyhow::bail!("Transaction failed")
+	}
+}
+
 /// Send a transaction.
 pub async fn send_transaction(
 	signer: &Account,

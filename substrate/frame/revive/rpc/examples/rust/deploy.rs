@@ -60,9 +60,14 @@ async fn main() -> anyhow::Result<()> {
 	println!("- Contract balance: {balance:?}");
 
 	println!("\n\n=== Calling contract ===\n\n");
-	let hash =
-		send_transaction(&account, &client, U256::zero(), Bytes::default(), Some(contract_address))
-			.await?;
+	let hash = send_transaction(
+		&account,
+		&client,
+		U256::from(1_000_000u32),
+		Bytes::default(),
+		Some(contract_address),
+	)
+	.await?;
 
 	println!("Contract call tx hash: {hash:?}");
 	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;

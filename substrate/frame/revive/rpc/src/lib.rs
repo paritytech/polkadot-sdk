@@ -91,13 +91,13 @@ pub enum EthRpcError {
 	TransactionTypeNotSupported(Byte),
 }
 
+// TODO use https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<EthRpcError> for ErrorObjectOwned {
 	fn from(value: EthRpcError) -> Self {
-		let code = match value {
-			EthRpcError::ClientError(_) => ErrorCode::InternalError,
-			_ => ErrorCode::InvalidRequest,
-		};
-		Self::owned::<String>(code.code(), value.to_string(), None)
+		match value {
+			EthRpcError::ClientError(err) => Self::from(err),
+			_ => Self::owned::<String>(ErrorCode::InvalidRequest.code(), value.to_string(), None),
+		}
 	}
 }
 
