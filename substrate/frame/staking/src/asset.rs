@@ -95,11 +95,6 @@ pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>)
 /// Overwrites the existing stake amount. If passed amount is lower than the existing stake, the
 /// difference is unlocked.
 pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-	// if first stake, inc provider. This allows us to stake all free balance.
-	if staked::<T>(who) == Zero::zero() && amount > Zero::zero() {
-		frame_system::Pallet::<T>::inc_providers(who);
-	}
-
 	T::Currency::set_on_hold(&HoldReason::Staking.into(), who, amount)
 }
 
@@ -108,19 +103,7 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 /// Fails if there are consumers left on `who` that restricts it from being reaped.
 pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
 	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort)
-		.map(|_| ())?;
-
-	if !frame_system::Pallet::<T>::can_dec_provider(who) {
-		// The session pallet keeps a consumer reference to validator stash which may block this
-		// pallet from clearing its provider reference. If the account cannot provide for itself
-		// (via enough free balance) to keep the session key, we try to clean up the session keys.
-		// If the extra consumer comes from somewhere else, reap stash would fail.
-		T::SessionInterface::purge_keys(who.clone())?;
-	}
-
-	// dec provider that we incremented for a new stake.
-	let _ = frame_system::Pallet::<T>::dec_providers(who)?;
-	Ok(())
+		.map(|_| ())
 }
 
 /// Slash the value from `who`.
