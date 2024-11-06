@@ -313,10 +313,11 @@ fn send_token_from_ethereum_to_penpal() {
 
 	// Create asset on the Penpal parachain.
 	PenpalA::execute_with(|| {
-		assert_ok!(<PenpalA as PenpalAPallet>::ForeignAssets::create(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+		assert_ok!(<PenpalA as PenpalAPallet>::ForeignAssets::force_create(
+			<PenpalA as Chain>::RuntimeOrigin::root(),
 			weth_asset_location.clone(),
 			asset_hub_sovereign.into(),
+			false,
 			1000,
 		));
 
