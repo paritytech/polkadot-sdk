@@ -576,38 +576,39 @@ async fn update_active_leaves<Sender>(
 	};
 }
 
+async fn get_allowed_ancestry_len<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<usize>
+where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	match prospective_parachains_mode(sender, relay_parent).await {
+		Ok(ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. }) =>
+			Some(allowed_ancestry_len),
+		Ok(_) => {
+			gum::warn!(target: LOG_TARGET, "async backing is disabled");
+			None
+		},
+		Err(err) => {
+			gum::warn!(target: LOG_TARGET, ?err, "cannot request prospective parachains mode");
+			None
+		},
+	}
+}
+
 async fn get_block_ancestors<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<Vec<Hash>>
 where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
-	let mode = match prospective_parachains_mode(sender, relay_parent).await {
-		Ok(x) => x,
-		Err(err) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				?err,
-				"cannot request prospective parachains mode",
-			);
-			return None
-		},
-	};
-	let allowed_ancestry_len = match mode {
-		ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. } => allowed_ancestry_len,
-		_ => {
-			gum::warn!(
-				target: LOG_TARGET,
-				"async backing is disabled",
-			);
-			return None
-		},
+	let Some(allowed_ancestry_len) = get_allowed_ancestry_len(sender, relay_parent).await else {
+		return None
 	};
 
+	// The depth of two allowed lengths should be sufficient to track non-viable backing jobs.
+	let ancestors_number = 2 * allowed_ancestry_len;
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(ChainApiMessage::Ancestors {
 			hash: relay_parent,
-			// The depth of 2 * allowed_ancestry_len should be enough to track non-viable jobs.
-			k: 2 * allowed_ancestry_len,
+			k: ancestors_number,
 			response_channel: tx,
 		})
 		.await;
@@ -615,19 +616,11 @@ where
 	match rx.await {
 		Ok(Ok(x)) => Some(x),
 		Ok(Err(err)) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				?err,
-				"cannot request ancestors",
-			);
+			gum::warn!(target: LOG_TARGET, ?err, "cannot request ancestors");
 			None
 		},
 		Err(err) => {
-			gum::warn!(
-				target: LOG_TARGET,
-				?err,
-				"cannot request ancestors",
-			);
+			gum::warn!(target: LOG_TARGET, ?err, "cannot request ancestors");
 			None
 		},
 	}
