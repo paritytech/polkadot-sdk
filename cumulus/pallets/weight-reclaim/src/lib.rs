@@ -225,21 +225,19 @@ where
 		}
 
 		let accurate_weight = benchmarked_actual_weight.set_proof_size(measured_proof_size);
-
 		frame_system::BlockWeight::<T>::mutate(|current_weight| {
 			let already_reclaimed = frame_system::ExtrinsicWeightReclaimed::<T>::get();
 			current_weight.accrue(already_reclaimed, info.class);
 			current_weight.reduce(info.total_weight(), info.class);
 			current_weight.accrue(accurate_weight, info.class);
-
-			// The saturation will happen if the pre dispatch weight is underestimating the proof
-			// size.
-			// In this case the extrinsic proof size weight reclaimed is 0.
-			let accurate_unspent = info.total_weight().saturating_sub(accurate_weight);
-			frame_system::ExtrinsicWeightReclaimed::<T>::put(accurate_unspent);
 		});
 
-		Ok(inner_refund)
+		// The saturation will happen if the pre dispatch weight is underestimating the proof
+		// size.
+		// In this case the extrinsic proof size weight reclaimed is 0.
+		let accurate_unspent = info.total_weight().saturating_sub(accurate_weight);
+		frame_system::ExtrinsicWeightReclaimed::<T>::put(accurate_unspent);
+		Ok(accurate_unspent)
 	}
 
 	fn bare_validate(

@@ -250,6 +250,7 @@ fn basic_refund() {
 
 		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
+		// TODO TODO: assert_eq!(post_info.actual_weight, Weight::from_parts(0, 650));
 		assert_eq!(get_storage_weight().proof_size(), 1250);
 	});
 }
@@ -532,11 +533,14 @@ fn full_basic_refund() {
 		let post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 		// Assertions:
-		let post_info_tx_proof_size =
-			check_weight + storage_weight_reclaim + mock_ext - mock_ext_refund;
 		assert_eq!(
-			post_info.actual_weight,
-			Some(call_info.call_weight + Weight::from_parts(3, post_info_tx_proof_size))
+			post_info.actual_weight.unwrap().ref_time(),
+			call_info.call_weight.ref_time() + 3,
+		);
+		assert_eq!(
+			post_info.actual_weight.unwrap().proof_size(),
+			// LEN is part of the base extrinsic, not the post info weight actual weight.
+			actual_used_proof_size as u64,
 		);
 		assert_eq!(
 			get_storage_weight().proof_size(),
@@ -578,8 +582,12 @@ fn full_accrue() {
 		let post_info_tx_proof_size =
 			check_weight + storage_weight_reclaim + mock_ext - mock_ext_refund;
 		assert_eq!(
-			post_info.actual_weight,
-			Some(call_info.call_weight + Weight::from_parts(3, post_info_tx_proof_size))
+			post_info.actual_weight.unwrap().ref_time(),
+			call_info.call_weight.ref_time() + 3,
+		);
+		assert_eq!(
+			post_info.actual_weight.unwrap().proof_size(),
+			info.total_weight().proof_size(), // The post info doesn't get the accrue.
 		);
 		assert_eq!(
 			get_storage_weight().proof_size(),
