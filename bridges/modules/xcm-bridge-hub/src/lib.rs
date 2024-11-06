@@ -460,6 +460,32 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Attempts to update the `maybe_notify` callback for receiving congestion notifications.
+		///
+		/// This can only be called by the "owner" of this side of the bridge, which means that the
+		/// inbound XCM channel with the local origin chain is functional.
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/parity-bridges-common/issues/3046 - add benchmarks impl FAIL-CI
+		pub fn update_notification_receiver(
+			origin: OriginFor<T>,
+			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
+			maybe_notify: Option<Receiver>,
+		) -> DispatchResult {
+			let locations = Self::bridge_locations_from_origin(origin, bridge_destination_universal_location)?;
+			Bridges::<T, I>::try_mutate_exists(locations.bridge_id(), |bridge| match bridge {
+				Some(b) => {
+					b.maybe_notify = maybe_notify;
+
+					Self::deposit_event(Event::<T, I>::NotificationReceiverUpdated {
+						bridge_id: * locations.bridge_id(),
+						maybe_notify: b.maybe_notify.clone(),
+					});
+					Ok(())
+				},
+				None => Err(Error::<T, I>::UnknownBridge.into()),
+			})
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -824,6 +850,13 @@ pub mod pallet {
 			/// Number of pruned messages during the close call.
 			pruned_messages: MessageNonce,
 		},
+		/// The bridge has been updated with a new notification receiver.
+		NotificationReceiverUpdated {
+			/// Bridge identifier.
+			bridge_id: BridgeId,
+			/// Updated notification receiver.
+			maybe_notify: Option<Receiver>,
+		}
 	}
 
 	#[pallet::error]
@@ -1471,6 +1504,62 @@ mod tests {
 					}),
 					topics: vec![],
 				}),
+			);
+		});
+	}
+
+	#[test]
+	fn update_notification_receiver_works() {
+		run_test(|| {
+			let origin = OpenBridgeOrigin::parent_relay_chain_origin();
+			let locations = XcmOverBridge::bridge_locations_from_origin(
+				origin.clone(),
+				Box::new(
+					VersionedInteriorLocation::from(bridged_asset_hub_universal_location())
+				),
+			).unwrap();
+
+			// open the bridge
+			assert_ok!(XcmOverBridge::open_bridge(
+					origin.clone(),
+					Box::new(locations.bridge_destination_universal_location().clone().into()),
+					Some(Receiver::new(13, 15)),
+				));
+			assert_eq!(
+				Bridges::<TestRuntime, ()>::get(locations.bridge_id()).map(|b| b.maybe_notify).unwrap(),
+				Some(Receiver::new(13, 15))
+			);
+
+			// update the notification receiver to `None`
+			assert_ok!(XcmOverBridge::update_notification_receiver(
+					origin.clone(),
+					Box::new(locations.bridge_destination_universal_location().clone().into()),
+					None,
+				));
+			assert_eq!(
+				Bridges::<TestRuntime, ()>::get(locations.bridge_id()).map(|b| b.maybe_notify).unwrap(),
+				None,
+			);
+
+			// update the notification receiver to `Some(..)`
+			assert_ok!(XcmOverBridge::update_notification_receiver(
+					origin.clone(),
+					Box::new(locations.bridge_destination_universal_location().clone().into()),
+					Some(Receiver::new(29, 43)),
+				));
+			assert_eq!(
+				Bridges::<TestRuntime, ()>::get(locations.bridge_id()).map(|b| b.maybe_notify).unwrap(),
+				Some(Receiver::new(29, 43))
+			);
+			// update the notification receiver to `Some(..)`
+			assert_ok!(XcmOverBridge::update_notification_receiver(
+					origin.clone(),
+					Box::new(locations.bridge_destination_universal_location().clone().into()),
+					Some(Receiver::new(29, 79)),
+				));
+			assert_eq!(
+				Bridges::<TestRuntime, ()>::get(locations.bridge_id()).map(|b| b.maybe_notify).unwrap(),
+				Some(Receiver::new(29, 79))
 			);
 		});
 	}

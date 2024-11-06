@@ -338,6 +338,7 @@ pub mod pallet {
 			}
 			None
 		}
+
 		/// Updates the congestion status of a bridge for a given `bridge_id`.
 		///
 		/// If the bridge does not exist and:
@@ -814,5 +815,40 @@ mod tests {
 				})
 			);
 		});
+	}
+
+	#[test]
+	fn update_bridge_status_works() {
+		run_test(|| {
+			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]);
+			let bridge_id =
+				bp_xcm_bridge_hub::BridgeId::new(&UniversalLocation::get(), dest.interior());
+			assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
+
+			// update as is_congested=false when `None`
+			Pallet::<TestRuntime, ()>::update_bridge_status(bridge_id, false);
+			assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
+
+
+			// update as is_congested=true
+			Pallet::<TestRuntime, ()>::update_bridge_status(bridge_id, true);
+			assert_eq!(
+				get_bridge_state_for::<TestRuntime, ()>(&dest),
+				Some(BridgeState {
+					delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
+					is_congested: true,
+				})
+			);
+
+			// update as is_congested=false when `Some(..)`
+			Pallet::<TestRuntime, ()>::update_bridge_status(bridge_id, false);
+			assert_eq!(
+				get_bridge_state_for::<TestRuntime, ()>(&dest),
+				Some(BridgeState {
+					delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
+					is_congested: false,
+				})
+			);
+		})
 	}
 }
