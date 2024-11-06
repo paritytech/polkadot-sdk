@@ -275,7 +275,7 @@ fn relay_commands_add_remove_username_authority() {
 				PeopleRuntime,
 			>::remove_username_authority {
 				authority: people_rococo_runtime::MultiAddress::Id(people_rococo_alice.clone()),
-				suffix: b"suffix1".into()
+				suffix: b"suffix1".into(),
 			});
 
 			let remove_authority_xcm_msg =

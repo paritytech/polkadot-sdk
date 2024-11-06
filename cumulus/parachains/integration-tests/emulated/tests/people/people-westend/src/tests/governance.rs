@@ -122,7 +122,9 @@ fn relay_commands_kill_identity() {
 
 		let kill_identity_call =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
-				target: people_westend_runtime::MultiAddress::Id(PeopleWestend::account_id_of(ALICE)),
+				target: people_westend_runtime::MultiAddress::Id(PeopleWestend::account_id_of(
+					ALICE,
+				)),
 			});
 
 		let xcm_message = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
@@ -275,7 +277,7 @@ fn relay_commands_add_remove_username_authority() {
 				PeopleRuntime,
 			>::remove_username_authority {
 				authority: people_westend_runtime::MultiAddress::Id(people_westend_alice.clone()),
-				suffix: b"suffix1".into()
+				suffix: b"suffix1".into(),
 			});
 
 			let remove_authority_xcm_msg =
