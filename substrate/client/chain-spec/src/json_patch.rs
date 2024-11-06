@@ -20,35 +20,6 @@
 
 use serde_json::Value;
 
-/// Refer to description of `merge` function.
-fn merge_impl(a: &mut Value, b: Value, allow_removal: bool) {
-	match (a, b) {
-		(Value::Object(a), Value::Object(b)) =>
-			for (k, v) in b {
-				if allow_removal && v.is_null() {
-					a.remove(&k);
-				} else {
-					merge_impl(a.entry(k).or_insert(Value::Null), v, allow_removal);
-				}
-			},
-		(a, b) => *a = b,
-	};
-}
-
-/// Recursively merges two JSON objects, `a` and `b`, into a single object.
-///
-/// If a key exists in both objects, the value from `b` will override the value from `a`.
-/// If a key exists in `b` with a `null` value, it will be removed from `a`.
-/// If a key exists only in `b` and not in `a`, it will be added to `a`.
-///
-/// # Arguments
-///
-/// * `a` - A mutable reference to the target JSON object to merge into.
-/// * `b` - The JSON object to merge with `a`.
-pub fn merge(a: &mut Value, b: Value) {
-	merge_impl(a, b, true);
-}
-
 /// Recursively merges two JSON objects, `a` and `b`, into a single object.
 ///
 /// If a key exists in both objects, the value from `b` will override the value from `a` (also if
@@ -60,8 +31,14 @@ pub fn merge(a: &mut Value, b: Value) {
 ///
 /// * `a` - A mutable reference to the target JSON object to merge into.
 /// * `b` - The JSON object to merge with `a`.
-pub fn merge_preserve_keys(a: &mut Value, b: Value) {
-	merge_impl(a, b, false);
+pub fn merge(a: &mut Value, b: Value) {
+	match (a, b) {
+		(Value::Object(a), Value::Object(b)) =>
+			for (k, v) in b {
+				merge(a.entry(k).or_insert(Value::Null), v);
+			},
+		(a, b) => *a = b,
+	};
 }
 
 #[cfg(test)]
@@ -186,7 +163,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test6_patch_removes_keys_if_null() {
+	fn test6_patch_does_not_remove_keys_if_null() {
 		let mut j1 = json!({
 			"a": {
 				"name": "xxx",
@@ -206,39 +183,6 @@ mod tests {
 		});
 
 		merge(&mut j1, j2);
-		assert_eq!(
-			j1,
-			json!({
-				"a": {
-					"name":"xxx",
-					"value":456,
-					"enum_variant_2": 32
-				}
-			})
-		);
-	}
-
-	#[test]
-	fn test6_additive_patch_does_not_remove_keys_if_null() {
-		let mut j1 = json!({
-			"a": {
-				"name": "xxx",
-				"value": 123,
-				"enum_variant_1": {
-					"name": "yyy",
-				}
-			},
-		});
-
-		let j2 = json!({
-			"a": {
-				"value": 456,
-				"enum_variant_1": null,
-				"enum_variant_2": 32,
-			}
-		});
-
-		merge_preserve_keys(&mut j1, j2);
 		assert_eq!(
 			j1,
 			json!({
