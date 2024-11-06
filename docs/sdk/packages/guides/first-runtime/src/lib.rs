@@ -31,8 +31,8 @@ use pallet_transaction_payment_rpc_runtime_api::{FeeDetails, RuntimeDispatchInfo
 #[docify::export]
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("first-runtime"),
-	impl_name: create_runtime_str!("first-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("first-runtime"),
+	impl_name: alloc::borrow::Cow::Borrowed("first-runtime"),
 	authoring_version: 1,
 	spec_version: 0,
 	impl_version: 1,
@@ -152,8 +152,8 @@ pub mod genesis_config_presets {
 	/// Get the set of the available genesis config presets.
 	#[docify::export]
 	pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-		let patch = match id.try_into() {
-			Ok(DEV_RUNTIME_PRESET) => development_config_genesis(),
+		let patch = match id.as_ref() {
+			DEV_RUNTIME_PRESET => development_config_genesis(),
 			_ => return None,
 		};
 		Some(
