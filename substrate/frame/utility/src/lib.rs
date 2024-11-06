@@ -67,9 +67,16 @@ use frame_support::{
 use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
+use scale_info::TypeInfo;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
+
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo)]
+pub enum Which {
+	Main,
+	Fallback,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -120,10 +127,8 @@ pub mod pallet {
 		ItemFailed { error: DispatchError },
 		/// A call was dispatched.
 		DispatchedAs { result: DispatchResult },
-		/// one or both if_else calls failed.
-		IfElseFailure { which: String, error: DispatchError },
 		/// if_else completed.
-		IfElseCompleted { which: String },
+		IfElseCompleted { call: Which },
 	}
 
 	// Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
@@ -163,6 +168,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Too many calls batched.
 		TooManyCalls,
+		/// Multiple call failure.
+		InvalidCalls
 	}
 
 	#[pallet::call]
@@ -475,57 +482,43 @@ pub mod pallet {
 
     		// Track the weights
     		let mut weight = Weight::zero();
+			
+			let info = main.get_dispatch_info();
 
     		// Execute the main call first
     		let main_result = if is_root {
-        		main.clone().dispatch_bypass_filter(origin.clone())
+        		main.dispatch_bypass_filter(origin.clone())
     		} else {
-        		main.clone().dispatch(origin.clone())
+        		main.dispatch(origin.clone())
     		};
 
     		// Add weight of the main call
-    		let info = main.get_dispatch_info();
     		weight = weight.saturating_add(extract_actual_weight(&main_result, &info));
 
-    		if let Err(main_call_error) = main_result {
-				// Both calls have failed
-				Self::deposit_event(Event::IfElseFailure {
-					which: "Main call".to_string(),
-					error: main_call_error.error,
-				});
-
+    		if let Err(_main_call_error) = main_result {
         		// If the main call failed, execute the fallback call
+				let fallback_info = fallback.get_dispatch_info();
+
         		let fallback_result = if is_root {
-            		fallback.clone().dispatch_bypass_filter(origin.clone())
+            		fallback.dispatch_bypass_filter(origin.clone())
         		} else {
-            		fallback.clone().dispatch(origin.clone())
+            		fallback.dispatch(origin.clone())
         		};
 
         		// Add weight of the fallback call
-        		let fallback_info = fallback.get_dispatch_info();
         		weight = weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
 
-        		if let Err(fallback_error) = fallback_result {
-            		// Both calls have failed
-            		Self::deposit_event(Event::IfElseFailure {
-                		which: "Both calls have failed".to_string(),
-                		error: fallback_error.error,
-            		});
-
-            		// Calculate base weight and return
-            		let base_weight = T::WeightInfo::batch(2u32);
-            		return Ok(Some(base_weight.saturating_add(weight)).into());
+        		if let Err(_fallback_error) = fallback_result {
+            		// Both calls have faild.
+					return Err(Error::<T>::InvalidCalls.into())
+            		
         		}
-
         		// Fallback succeeded.
-        		Self::deposit_event(Event::IfElseCompleted {
-            		which: "Fallback".to_string(),
-        		});
+        		Self::deposit_event(Event::IfElseCompleted { call: Which::Fallback });
+            	return Ok(Some(weight).into());
     		}
-			// Main call succesed.
-    		Self::deposit_event(Event::IfElseCompleted {
-				which: "Main".to_string()
-			});
+			// Main call succeeded.
+    		Self::deposit_event(Event::IfElseCompleted { call: Which::Main });
     		Ok(Some(weight).into())
 		}
 	}
