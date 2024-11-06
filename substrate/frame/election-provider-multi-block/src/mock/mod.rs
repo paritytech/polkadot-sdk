@@ -325,7 +325,12 @@ impl ExtBuilder {
 	}
 
 	pub(crate) fn desired_targets(self, desired: u32) -> Self {
-		DesiredTargets::set(desired);
+		DesiredTargets::set(Ok(desired));
+		self
+	}
+
+	pub(crate) fn no_desired_targets(self) -> Self {
+		DesiredTargets::set(Err("none"));
 		self
 	}
 
@@ -482,6 +487,10 @@ pub fn roll_to_phase(phase: Phase<BlockNumber>) {
 	while MultiPhase::current_phase() != phase {
 		roll_to(System::block_number() + 1);
 	}
+}
+
+pub fn set_phase_to(phase: Phase<BlockNumber>) {
+	CurrentPhase::<Runtime>::set(phase);
 }
 
 pub fn roll_to_export() {

@@ -112,6 +112,54 @@ mod feasibility_check {
 			);
 		})
 	}
+
+	#[test]
+	fn targets_not_in_snapshot() {
+		ExtBuilder::default().build_and_execute(|| {
+			roll_to_phase(Phase::Off);
+
+			crate::Snapshot::<Runtime>::kill();
+			assert_eq!(crate::Snapshot::<Runtime>::targets(), None);
+
+			assert_noop!(
+				VerifierPallet::feasibility_check(TestNposSolution::default(), 0),
+				FeasibilityError::SnapshotUnavailable,
+			);
+		})
+	}
+
+	#[test]
+	fn voters_not_in_snapshot() {
+		ExtBuilder::default().build_and_execute(|| {
+			roll_to_phase(Phase::Signed);
+
+			let _ = crate::PagedVoterSnapshot::<Runtime>::clear(u32::MAX, None);
+
+			assert_eq!(crate::Snapshot::<Runtime>::targets().unwrap().len(), 8);
+			assert_eq!(crate::Snapshot::<Runtime>::voters(0), None);
+
+			assert_noop!(
+				VerifierPallet::feasibility_check(TestNposSolution::default(), 0),
+				FeasibilityError::SnapshotUnavailable,
+			);
+		})
+	}
+
+	#[test]
+	fn desired_targets_not_in_snapshot() {
+		ExtBuilder::default().no_desired_targets().build_and_execute(|| {
+			roll_to_phase(Phase::Signed);
+
+			assert_eq!(crate::Snapshot::<Runtime>::targets().unwrap().len(), 8);
+			assert_ne!(crate::Snapshot::<Runtime>::voters(0).unwrap().len(), 0);
+			assert_eq!(crate::Snapshot::<Runtime>::desired_targets(), None);
+
+			assert_err!(
+				VerifierPallet::feasibility_check(TestNposSolution::default(), 0),
+				FeasibilityError::SnapshotUnavailable,
+			);
+		})
+	}
 }
 
 mod sync_verifier {

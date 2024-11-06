@@ -48,7 +48,7 @@ frame_support::parameter_types! {
 		(80, 80, bounded_vec![80]),
 	];
 	pub static EpochLength: u64 = 30;
-	pub static DesiredTargets: u32 = 5;
+	pub static DesiredTargets: data_provider::Result<u32> = Ok(5);
 
 	pub static LastIteratedTargetIndex: Option<usize> = None;
 	pub static LastIteratedVoterIndex: Option<usize> = None;
@@ -132,7 +132,7 @@ impl ElectionDataProvider for MockStaking {
 	}
 
 	fn desired_targets() -> data_provider::Result<u32> {
-		Ok(DesiredTargets::get())
+		DesiredTargets::get()
 	}
 
 	fn next_election_prediction(now: Self::BlockNumber) -> Self::BlockNumber {
