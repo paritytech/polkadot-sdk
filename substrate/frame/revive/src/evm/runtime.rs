@@ -351,7 +351,8 @@ pub trait EthExtra {
 
 		let nonce = nonce.try_into().map_err(|_| InvalidTransaction::Call)?;
 
-		// Fees calculated with the fixed `GAS_PRICE` that should be used to estimate the gas.
+		// Fees calculated with the fixed `GAS_PRICE`
+		// When we dry-run the transaction, we set the gas to `Fee / GAS_PRICE`
 		let eth_fee_no_tip = U256::from(GAS_PRICE)
 			.saturating_mul(gas)
 			.try_into()
@@ -376,6 +377,8 @@ pub trait EthExtra {
 			.into();
 		log::trace!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
 
+		// The fees from the Ethereum transaction should be greater or equal to actual fees paid by
+		// the account.
 		if eth_fee < actual_fee {
 			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee:?}");
 			return Err(InvalidTransaction::Payment.into())
@@ -503,7 +506,7 @@ mod test {
 		}
 
 		fn estimate_gas(&mut self) {
-			let dry_run = crate::Pallet::<Test>::bare_eth_transact(
+			let dry_run = crate::Pallet::<Test>::ae_eth_transact(
 				Account::default().account_id(),
 				self.tx.to,
 				self.tx.value.try_into().unwrap(),

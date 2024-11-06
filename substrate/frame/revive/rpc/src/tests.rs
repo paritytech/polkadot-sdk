@@ -55,7 +55,7 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 			"--rpc-port=45789",
 			"--no-telemetry",
 			"--no-prometheus",
-			"-lerror,evm=debug,sc_rpc_server=info,runtime::revive=debug",
+			"-lerror,evm=debug,sc_rpc_server=info,runtime::revive=trace",
 		]) {
 			panic!("Node exited with error: {e:?}");
 		}
