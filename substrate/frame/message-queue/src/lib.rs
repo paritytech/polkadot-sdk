@@ -868,13 +868,26 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// The maximal weight that a single message can consume.
+	/// The maximal weight that a single message ever can consume.
 	///
 	/// Any message using more than this will be marked as permanently overweight and not
 	/// automatically re-attempted. Returns `None` if the servicing of a message cannot begin.
 	/// `Some(0)` means that only messages with no weight may be served.
 	fn max_message_weight(limit: Weight) -> Option<Weight> {
-		limit.checked_sub(&Self::single_msg_overhead())
+		let service_weight = T::ServiceWeight::get().unwrap_or_default();
+		let on_idle_weight = T::IdleMaxServiceWeight::get().unwrap_or_default();
+
+		// Whatever weight is set, the one with the biggest one is used as the maximum weight. If a
+		// message is tried in one context and fails, it will be retried in the other context later.
+		let max_message_weight =
+			if service_weight.any_gt(on_idle_weight) { service_weight } else { on_idle_weight };
+
+		if max_message_weight.is_zero() {
+			// If no service weight is set, we need to use the given limit as max message weight.
+			limit.checked_sub(&Self::single_msg_overhead())
+		} else {
+			max_message_weight.checked_sub(&Self::single_msg_overhead())
+		}
 	}
 
 	/// The overhead of servicing a single message.
@@ -896,6 +909,8 @@ impl<T: Config> Pallet<T> {
 	fn do_integrity_test() -> Result<(), String> {
 		ensure!(!MaxMessageLenOf::<T>::get().is_zero(), "HeapSize too low");
 
+		let max_block = T::BlockWeights::get().max_block;
+
 		if let Some(service) = T::ServiceWeight::get() {
 			if Self::max_message_weight(service).is_none() {
 				return Err(format!(
@@ -903,6 +918,31 @@ impl<T: Config> Pallet<T> {
 					service,
 					Self::single_msg_overhead(),
 				))
+			}
+
+			if service.any_gt(max_block) {
+				return Err(format!(
+					"ServiceWeight {service} is bigger than max block weight {max_block}"
+				))
+			}
+		}
+
+		if let Some(on_idle) = T::IdleMaxServiceWeight::get() {
+			if on_idle.any_gt(max_block) {
+				return Err(format!(
+					"IdleMaxServiceWeight {on_idle} is bigger than max block weight {max_block}"
+				))
+			}
+		}
+
+		if let (Some(service_weight), Some(on_idle)) =
+			(T::ServiceWeight::get(), T::IdleMaxServiceWeight::get())
+		{
+			if !(service_weight.all_gt(on_idle) ||
+				on_idle.all_gt(service_weight) ||
+				service_weight == on_idle)
+			{
+				return Err("One of `ServiceWeight` or `IdleMaxServiceWeight` needs to be `all_gt` or both need to be equal.".into())
 			}
 		}
 
@@ -1531,7 +1571,7 @@ impl<T: Config> Pallet<T> {
 		let mut weight = WeightMeter::with_limit(weight_limit);
 
 		// Get the maximum weight that processing a single message may take:
-		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
+		let overweight_limit = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
 			if matches!(context, ServiceQueuesContext::OnInitialize) {
 				defensive!("Not enough weight to service a single message.");
 			}
@@ -1549,7 +1589,8 @@ impl<T: Config> Pallet<T> {
 			let mut last_no_progress = None;
 
 			loop {
-				let (progressed, n) = Self::service_queue(next.clone(), &mut weight, max_weight);
+				let (progressed, n) =
+					Self::service_queue(next.clone(), &mut weight, overweight_limit);
 				next = match n {
 					Some(n) =>
 						if !progressed {
