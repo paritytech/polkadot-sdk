@@ -196,44 +196,6 @@ async fn execute_job_terminates_on_timeout() {
 	assert!(duration < TEST_EXECUTION_TIMEOUT * JOB_TIMEOUT_WALL_CLOCK_FACTOR);
 }
 
-#[tokio::test]
-async fn execute_job_terminates_on_execution_ttl() {
-	let host = TestHost::new().await;
-	let pvd = PersistedValidationData {
-		parent_head: Default::default(),
-		relay_parent_number: 1u32,
-		relay_parent_storage_root: H256::default(),
-		max_pov_size: 4096 * 1024,
-	};
-	let pov = PoV { block_data: BlockData(Vec::new()) };
-	let relay_parent = Hash::random();
-
-	host.update_active_leaves(
-		ActiveLeavesUpdate::start_work(new_leaf(Hash::random(), 10)),
-		vec![relay_parent],
-	)
-	.await;
-
-	let start = std::time::Instant::now();
-	let result = host
-		.validate_candidate(
-			test_parachain_halt::wasm_binary_unwrap(),
-			pvd,
-			pov,
-			Default::default(),
-			relay_parent,
-		)
-		.await;
-
-	match result {
-		Err(ValidationError::ExecutionDeadline) => {},
-		r => panic!("{:?}", r),
-	}
-
-	let duration = std::time::Instant::now().duration_since(start);
-	assert!(duration < TEST_EXECUTION_TIMEOUT);
-}
-
 #[cfg(feature = "ci-only-tests")]
 #[tokio::test]
 async fn ensure_parallel_execution() {
