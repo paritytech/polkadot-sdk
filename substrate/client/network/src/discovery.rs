@@ -753,7 +753,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
 				if let Some(Protocol::P2p(peer_id)) = addr.iter().last() {
 					if peer_id != self.local_peer_id {
-						error!(
+						warn!(
 							target: "sub-libp2p",
 							"🔍 Discovered external address for a peer that is not us: {addr}",
 						);
