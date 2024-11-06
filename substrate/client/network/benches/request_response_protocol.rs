@@ -167,6 +167,8 @@ async fn run_serially(size: usize, limit: usize) {
 	let _ = tokio::join!(network1, network2);
 }
 
+// The libp2p request-response implementation does not provide any backpressure feedback.
+// So this benchmark is useless until we implement it for litep2p.
 async fn run_with_backpressure(size: usize, limit: usize) {
 	let listen_address1 = get_listen_address();
 	let listen_address2 = get_listen_address();
