@@ -203,28 +203,28 @@ where
 		// The consumed proof size as measured by the host.
 		let measured_proof_size = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
 
-		// The consumed weight as benchmarked.
+		// The consumed weight as benchmarked. Calculated from post info and info.
 		// NOTE: `calc_actual_weight` will take the minimum of `post_info` and `info` weights.
 		// This means any underestimation of compute time in the pre dispatch info will not be
 		// taken into account.
-		let benchmarked_weight = post_info_with_inner.calc_actual_weight(info);
+		let benchmarked_actual_weight = post_info_with_inner.calc_actual_weight(info);
 
-		let benchmarked_proof_size = benchmarked_weight.proof_size();
-		if benchmarked_proof_size < measured_proof_size {
+		let benchmarked_actual_proof_size = benchmarked_actual_weight.proof_size();
+		if benchmarked_actual_proof_size < measured_proof_size {
 			log::error!(
 				target: LOG_TARGET,
 				"Benchmarked storage weight smaller than consumed storage weight. \
-				benchmarked: {benchmarked_proof_size} consumed: {measured_proof_size}"
+				benchmarked: {benchmarked_actual_proof_size} consumed: {measured_proof_size}"
 			);
 		} else {
 			log::trace!(
 				target: LOG_TARGET,
-				"Reclaiming storage weight. benchmarked: {benchmarked_proof_size},
+				"Reclaiming storage weight. benchmarked: {benchmarked_actual_proof_size},
 				consumed: {measured_proof_size}"
 			);
 		}
 
-		let accurate_weight = benchmarked_weight.set_proof_size(measured_proof_size);
+		let accurate_weight = benchmarked_actual_weight.set_proof_size(measured_proof_size);
 
 		frame_system::BlockWeight::<T>::mutate(|current_weight| {
 			let already_reclaimed = frame_system::ExtrinsicWeightReclaimed::<T>::get();
