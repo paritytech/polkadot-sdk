@@ -15,6 +15,8 @@ use sp_keyring::Sr25519Keyring;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+/// Parachain id used for gensis config presets of parachain template.
+const PARACHAIN_ID: u32 = 1000;
 
 /// Generate the session keys from individual elements.
 ///
@@ -76,9 +78,7 @@ fn local_testnet_genesis() -> Value {
 		],
 		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		Sr25519Keyring::Alice.to_account_id(),
-		// TODO: this is super opaque, how should one know they should configure this? add to
-		// README!
-		1000.into(),
+		PARACHAIN_ID.into(),
 	)
 }
 
@@ -91,15 +91,15 @@ fn development_config_genesis() -> Value {
 		],
 		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		Sr25519Keyring::Alice.to_account_id(),
-		1000.into(),
+		PARACHAIN_ID.into(),
 	)
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<vec::Vec<u8>> {
-	let patch = match id.try_into() {
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => local_testnet_genesis(),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
+	let patch = match id.as_ref() {
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => local_testnet_genesis(),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => development_config_genesis(),
 		_ => return None,
 	};
 	Some(

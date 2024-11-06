@@ -82,9 +82,9 @@
 /// in practice at most once every few weeks.
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
-	async_backing::Constraints as PrimitiveConstraints, BlockNumber, CandidateCommitments,
-	CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData, UpgradeRestriction,
-	ValidationCodeHash,
+	async_backing::Constraints as PrimitiveConstraints, vstaging::skip_ump_signals, BlockNumber,
+	CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -431,9 +431,9 @@ pub struct ConstraintModifications {
 	pub hrmp_watermark: Option<HrmpWatermarkUpdate>,
 	/// Outbound HRMP channel modifications.
 	pub outbound_hrmp: HashMap<ParaId, OutboundHrmpChannelModification>,
-	/// The amount of UMP messages sent.
+	/// The amount of UMP XCM messages sent. `UMPSignal` and separator are excluded.
 	pub ump_messages_sent: usize,
-	/// The amount of UMP bytes sent.
+	/// The amount of UMP XCM bytes sent. `UMPSignal` and separator are excluded.
 	pub ump_bytes_sent: usize,
 	/// The amount of DMP messages processed.
 	pub dmp_messages_processed: usize,
@@ -600,6 +600,13 @@ impl Fragment {
 		validation_code_hash: &ValidationCodeHash,
 		persisted_validation_data: &PersistedValidationData,
 	) -> Result<ConstraintModifications, FragmentValidityError> {
+		// Filter UMP signals and the separator.
+		let upward_messages =
+			skip_ump_signals(commitments.upward_messages.iter()).collect::<Vec<_>>();
+
+		let ump_messages_sent = upward_messages.len();
+		let ump_bytes_sent = upward_messages.iter().map(|msg| msg.len()).sum();
+
 		let modifications = {
 			ConstraintModifications {
 				required_parent: Some(commitments.head_data.clone()),
@@ -632,8 +639,8 @@ impl Fragment {
 
 					outbound_hrmp
 				},
-				ump_messages_sent: commitments.upward_messages.len(),
-				ump_bytes_sent: commitments.upward_messages.iter().map(|msg| msg.len()).sum(),
+				ump_messages_sent,
+				ump_bytes_sent,
 				dmp_messages_processed: commitments.processed_downward_messages as _,
 				code_upgrade_applied: operating_constraints
 					.future_validation_code
@@ -750,7 +757,7 @@ fn validate_against_constraints(
 		})
 	}
 
-	if commitments.upward_messages.len() > constraints.max_ump_num_per_candidate {
+	if modifications.ump_messages_sent > constraints.max_ump_num_per_candidate {
 		return Err(FragmentValidityError::UmpMessagesPerCandidateOverflow {
 			messages_allowed: constraints.max_ump_num_per_candidate,
 			messages_submitted: commitments.upward_messages.len(),
@@ -814,7 +821,11 @@ impl HypotheticalOrConcreteCandidate for HypotheticalCandidate {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use polkadot_primitives::{HorizontalMessages, OutboundHrmpMessage, ValidationCode};
+	use codec::Encode;
+	use polkadot_primitives::{
+		vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR},
+		HorizontalMessages, OutboundHrmpMessage, ValidationCode,
+	};
 
 	#[test]
 	fn stack_modifications() {
@@ -1265,6 +1276,35 @@ mod tests {
 			Fragment::new(relay_parent, constraints, Arc::new(candidate.clone())),
 			Err(FragmentValidityError::CodeSizeTooLarge(max_code_size, max_code_size + 1,)),
 		);
+	}
+
+	#[test]
+	fn ump_signals_ignored() {
+		let relay_parent = RelayChainBlockInfo {
+			number: 6,
+			hash: Hash::repeat_byte(0xbe),
+			storage_root: Hash::repeat_byte(0xff),
+		};
+
+		let constraints = make_constraints();
+		let mut candidate = make_candidate(&constraints, &relay_parent);
+		let max_ump = constraints.max_ump_num_per_candidate;
+
+		// Fill ump queue to the limit.
+		candidate
+			.commitments
+			.upward_messages
+			.try_extend((0..max_ump).map(|i| vec![i as u8]))
+			.unwrap();
+
+		// Add ump signals.
+		candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+
+		Fragment::new(relay_parent, constraints, Arc::new(candidate)).unwrap();
 	}
 
 	#[test]
