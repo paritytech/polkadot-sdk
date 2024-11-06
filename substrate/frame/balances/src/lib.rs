@@ -390,8 +390,10 @@ pub mod pallet {
 		MigratedOutLock { who: T::AccountId, id: LockIdentifier },
 		MigratedInLock { who: T::AccountId, id: LockIdentifier },
 
-		MigratedOutReserve { who: T::AccountId, id: Option<T::ReserveIdentifier> },
-		MigratedInReserve { who: T::AccountId, id: Option<T::ReserveIdentifier> },
+		MigratedOutReserve { who: T::AccountId, id: Option<T::ReserveIdentifier>, amount: T::Balance },
+		MigratedInReserve { who: T::AccountId, id: Option<T::ReserveIdentifier>, amount: T::Balance },
+		MigrationSufficientRefSet { who: T::AccountId },
+		MigrationSufficientRefUnset { who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -912,14 +914,7 @@ pub mod pallet {
 			// TODO ensure origin
 
 			for (who, amount, id) in reserves {
-				Self::mint_into(who.clone(), amount)?;
-
-				if let Some(id) = id {
-					Self::reserve_named(&id, &who, amount);
-				} else {
-					Self::reserve(&who, amount);
-				}
-				Self::deposit_event(Event::MigratedInReserve { who, id });
+				Self::migrate_in_reserve(id, who, amount)?;
 			}
 
 			Ok(())
@@ -927,6 +922,28 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Integrate a migrated reserve into our runtime.
+		///
+		/// This would normally only execute on AssetHub. However, in error recovery situations,
+		/// it is no problem for Polkadot to execute this as well, which would just nullify the call
+		/// to `migrate_out_reserve`. So to say: `migrate_in_reserve` and `migrate_out_reserve` are
+		/// dual to each other in the mathematical sense. There are some storage changes that would
+		/// persist (like sufficient ref and MigrationMinted/BurnedAmount), but these need to be
+		/// cleaned at the end of the migration anyway for all accounts.
+		pub fn migrate_in_reserve(id: Option<T::ReserveIdentifier>, who: T::AccountId, amount: T::Balance) -> Result<(), DispatchError> {
+			Self::ensure_sufficient(&who);
+			Self::mint_into(who.clone(), amount)?;
+
+			if let Some(id) = id {
+				Self::reserve_named(&id, &who, amount);
+			} else {
+				Self::reserve(&who, amount);
+			}
+
+			Self::deposit_event(Event::MigratedInReserve { who, id, amount });
+			Ok(())
+		}
+
 		/// Must be run in a transactional context that reverts all changes upon error.
 		pub fn migrate_out_named_reserve(id: T::ReserveIdentifier, who: T::AccountId, amount: T::Balance) -> Result<Call<T, I>, DispatchError> {
 			Self::ensure_sufficient(&who);
@@ -935,7 +952,7 @@ pub mod pallet {
 				defensive!("Could not unreserve full amount");
 			}
 			let unreserved = amount.saturating_sub(remainder);
-			Self::deposit_event(Event::MigratedOutReserve { who: who.clone(), id: Some(id) });
+			Self::deposit_event(Event::MigratedOutReserve { who: who.clone(), id: Some(id), amount: unreserved });
 
 			Self::burn_from(who.clone(), unreserved)?;
 
@@ -948,20 +965,20 @@ pub mod pallet {
 		}
 
 		/// Must be run in a transactional context that reverts all changes upon error.
-		pub fn migrate_out_anon_reserve(id: T::ReserveIdentifier, who: T::AccountId, amount: T::Balance) -> Result<Call<T, I>, DispatchError> {
+		pub fn migrate_out_anon_reserve(who: T::AccountId, amount: T::Balance) -> Result<Call<T, I>, DispatchError> {
 			Self::ensure_sufficient(&who);
 			let remainder = Self::unreserve(&who, amount);
 			if !remainder.is_zero() {
 				defensive!("Could not unreserve full amount");
 			}
 			let unreserved = amount.saturating_sub(remainder);
-			Self::deposit_event(Event::MigratedOutReserve { who: who.clone(), id: Some(id) });
+			Self::deposit_event(Event::MigratedOutReserve { who: who.clone(), id: None, amount: unreserved });
 
 			Self::burn_from(who.clone(), unreserved)?;
 
 			let call = Call::<T, I>::migrate_in_reserves {
 				// We only migrate as much as we could unreserve.
-				reserves: vec![(who.clone(), amount, Some(id))], // FAIL-CI
+				reserves: vec![(who.clone(), amount, None)], // FAIL-CI
 			};
 
 			Ok(call)
@@ -1027,6 +1044,7 @@ pub mod pallet {
 			} else {
 				SufficientAccounts::<T, I>::insert(who, ());
 				frame_system::Pallet::<T>::inc_sufficients(who);
+				Self::deposit_event(Event::MigrationSufficientRefSet { who: who.clone() });
 			}
 		}
 
@@ -1544,11 +1562,23 @@ pub mod pallet {
 		}
 	}
 
-	/*impl<T: Config<I>, I: 'static> frame_support::ahm::MigratorNamedReserve<T::ReserveIdentifier, T::AccountId, T::Balance> for Pallet<T, I>
+	impl<T: Config<I>, I: 'static> frame_support::ahm::MigratorNamedReserve<T::ReserveIdentifier, T::AccountId, T::Balance> for Pallet<T, I>
 	{
 		fn migrate_out_named_reserve(id: T::ReserveIdentifier, who: T::AccountId, amount: T::Balance) -> Result<frame_support::ahm::EncodedPalletBalancesCall, DispatchError> {
 			let call = Self::migrate_out_named_reserve(id.into(), who.into(), amount.into())?;
 			Ok(call.encode())
 		}
-	}*/
+	}
+
+	impl<T: Config<I>, I: 'static> frame_support::ahm::MigratorAnonReserve<T::AccountId, T::Balance> for Pallet<T, I>
+	{
+		fn migrate_out_anon_reserve(who: T::AccountId, amount: T::Balance) -> Result<frame_support::ahm::EncodedPalletBalancesCall, DispatchError> {
+			let call = Self::migrate_out_anon_reserve(who.into(), amount.into())?;
+			Ok(call.encode())
+		}
+
+		fn migrate_in_anon_reserve(who: T::AccountId, amount: T::Balance) -> Result<(), DispatchError> {
+			Self::migrate_in_reserve(None, who.into(), amount.into())
+		}
+	}
 }

@@ -34,6 +34,7 @@ use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
 };
+use frame_support::ahm::MigratorAnonReserve;
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_MILLIS;
 use sp_std::prelude::*;
 pub use weights::WeightInfo;
@@ -67,8 +68,8 @@ pub mod pallet {
 		/// The currency trait.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
-		#[cfg(feature = "assethub-migration")]
-		type AhReserveMigrator: frame_support::ahm::MigratorAnonReserve<Self::AccountId, BalanceOf<Self>>;
+		//#[cfg(feature = "assethub-migration")]
+		type AhReserveMigrator: MigratorAnonReserve<Self::AccountId, BalanceOf<Self>>;
 
 		/// The deposit needed for reserving an index.
 		#[pallet::constant]
@@ -250,7 +251,8 @@ pub mod pallet {
 				}
 
 				Accounts::<T>::insert(index, (who.clone(), deposit, permanent));
-				let reserve_ok = T::Currency::reserve(&who, deposit).defensive().is_ok();
+				// We still do it in the error case...
+				let reserve_ok = T::AhReserveMigrator::migrate_in_anon_reserve(who, deposit).defensive().is_ok();
 				Self::deposit_event(Event::IndexMigratedIn { index, reserve_ok });
 			}
 
@@ -324,7 +326,7 @@ impl<T: Config> Pallet<T> {
 
 			// Remove from the relay storage:
 			Accounts::<T>::remove(index);
-			T::Currency::unreserve(&who, deposit);
+			T::AhReserveMigrator::migrate_out_anon_reserve(who.clone(), deposit).defensive_proof("Should migrate the reserve out").ok()?;
 
 			batch.push((index, who, deposit, permanent));
 			Self::deposit_event(Event::IndexMigratedOut { index });

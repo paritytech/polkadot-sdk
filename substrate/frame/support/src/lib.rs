@@ -33,11 +33,20 @@
 #[doc(hidden)]
 extern crate self as frame_support;
 
+#[doc(hidden)]
+extern crate alloc;
+
 /// Private exports that are being used by macros.
 ///
 /// The exports are not stable and should not be relied on.
 #[doc(hidden)]
 pub mod __private {
+	pub use alloc::{
+            boxed::Box,
+            rc::Rc,
+            vec,
+            vec::{IntoIter, Vec},
+    };
 	pub use codec;
 	pub use frame_metadata as metadata;
 	pub use log;
@@ -2664,12 +2673,12 @@ mod test {
 		});
 	}
 }
-/*
+
 pub mod ahm {
 	use sp_runtime::DispatchError;
 
 	// TODO replace with enum
-	pub type EncodedPalletBalancesCall = Vec<u8>;
+	pub type EncodedPalletBalancesCall = alloc::vec::Vec<u8>;
 
 	pub trait MigratorNamedReserve<ReserveIdentifier, AccountId, Balance> {
 		fn migrate_out_named_reserve(id: ReserveIdentifier, who: AccountId, amount: Balance) -> Result<EncodedPalletBalancesCall, DispatchError>;
@@ -2677,6 +2686,22 @@ pub mod ahm {
 
 	pub trait MigratorAnonReserve<AccountId, Balance> {
 		fn migrate_out_anon_reserve(who: AccountId, amount: Balance) -> Result<EncodedPalletBalancesCall, DispatchError>;
+		fn migrate_in_anon_reserve(who: AccountId, amount: Balance) -> Result<(), DispatchError>;
+	}
+
+	pub struct NoopMigrator<AccountId, Balance>(core::marker::PhantomData<(AccountId, Balance)>);
+	impl<AccountId, Balance> MigratorNamedReserve<u32, AccountId, Balance> for NoopMigrator<AccountId, Balance> {
+		fn migrate_out_named_reserve(_id: u32, _who: AccountId, _amount: Balance) -> Result<EncodedPalletBalancesCall, DispatchError> {
+			Err(DispatchError::Other("Not implemented"))
+		}
+	}
+	impl<AccountId, Balance> MigratorAnonReserve<AccountId, Balance> for NoopMigrator<AccountId, Balance> {
+		fn migrate_out_anon_reserve(_who: AccountId, _amount: Balance) -> Result<EncodedPalletBalancesCall, DispatchError> {
+			Err(DispatchError::Other("Not implemented"))
+		}
+
+		fn migrate_in_anon_reserve(_who: AccountId, _amount: Balance) -> Result<(), DispatchError> {
+			Err(DispatchError::Other("Not implemented"))
+		}
 	}
 }
-*/
