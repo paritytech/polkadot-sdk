@@ -22,7 +22,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
 	inclusion_emulator::RelayChainBlockInfo,
@@ -142,6 +142,17 @@ impl From<BlockInfoProspectiveParachains> for RelayChainBlockInfo {
 	}
 }
 
+/// Error in constructing a path from an outer relay parent to a target relay parent.
+#[fatality::fatality]
+pub enum PathError {
+	/// The relay parent is not present in the view.
+	#[error("The relay parent is not present in the view")]
+	UnknownRelayParent(Hash),
+	/// There are no relay parents to build on in the view.
+	#[error("The view is empty")]
+	NoRelayParentsToBuildOn,
+}
+
 impl View {
 	/// Get an iterator over active leaves in the view.
 	pub fn leaves(&self) -> impl Iterator<Item = &Hash> {
@@ -173,13 +184,7 @@ impl View {
 			return Err(FetchError::AlreadyKnown)
 		}
 
-		let res = fetch_fresh_leaf_and_insert_ancestry(
-			leaf_hash,
-			&mut self.block_info_storage,
-			&mut *sender,
-			self.collating_for,
-		)
-		.await;
+		let res = self.fetch_fresh_leaf_and_insert_ancestry(leaf_hash, &mut *sender).await;
 
 		match res {
 			Ok(fetched) => {
@@ -323,6 +328,188 @@ impl View {
 			.as_ref()
 			.map(|mins| mins.allowed_relay_parents_for(para_id, block_info.block_number))
 	}
+
+	/// Returns all relay parents grouped by block number
+	fn relay_parents_by_block_number(&self) -> BTreeMap<BlockNumber, HashSet<Hash>> {
+		self.block_info_storage.iter().fold(BTreeMap::new(), |mut acc, (hash, info)| {
+			acc.entry(info.block_number).or_insert_with(HashSet::new).insert(*hash);
+			acc
+		})
+	}
+
+	/// Returns all paths from each outer leaf to `relay_parent`. If no paths exist the function
+	/// will return an empty `Vec`.
+	///
+	/// The input is not included in the path so if `relay_parent` happens to be an outer leaf, no
+	/// paths will be returned.
+	pub fn paths_to_relay_parent(&self, relay_parent: &Hash) -> Result<Vec<Vec<Hash>>, PathError> {
+		let relay_parents_by_block_number = self.relay_parents_by_block_number();
+		let outer_leaves = relay_parents_by_block_number
+			.last_key_value()
+			.ok_or(PathError::NoRelayParentsToBuildOn)?
+			.1;
+
+		// handle the case where the relay parent is an outer leaf
+		if outer_leaves.contains(&relay_parent) {
+			return Ok(vec![]);
+		}
+
+		let mut paths = Vec::new();
+		for leaf in outer_leaves {
+			let mut path = Vec::new();
+			let mut current_block = *leaf;
+
+			while current_block != *relay_parent {
+				path.push(current_block);
+				current_block = self
+					.block_info_storage
+					.get(&current_block)
+					.ok_or(PathError::UnknownRelayParent(current_block))?
+					.parent_hash;
+			}
+
+			// Don't add empty paths to the result
+			if path.is_empty() {
+				continue
+			}
+
+			paths.push(path);
+		}
+
+		Ok(paths)
+	}
+
+	async fn fetch_fresh_leaf_and_insert_ancestry<Sender>(
+		&mut self,
+		leaf_hash: Hash,
+		sender: &mut Sender,
+	) -> Result<FetchSummary, FetchError>
+	where
+		Sender: SubsystemSender<ChainApiMessage>
+			+ SubsystemSender<ProspectiveParachainsMessage>
+			+ SubsystemSender<RuntimeApiMessage>,
+	{
+		let leaf_header = {
+			let (tx, rx) = oneshot::channel();
+			sender.send_message(ChainApiMessage::BlockHeader(leaf_hash, tx)).await;
+
+			match rx.await {
+				Ok(Ok(Some(header))) => header,
+				Ok(Ok(None)) =>
+					return Err(FetchError::BlockHeaderUnavailable(
+						leaf_hash,
+						BlockHeaderUnavailableReason::Unknown,
+					)),
+				Ok(Err(e)) =>
+					return Err(FetchError::BlockHeaderUnavailable(
+						leaf_hash,
+						BlockHeaderUnavailableReason::Internal(e),
+					)),
+				Err(_) =>
+					return Err(FetchError::BlockHeaderUnavailable(
+						leaf_hash,
+						BlockHeaderUnavailableReason::SubsystemUnavailable,
+					)),
+			}
+		};
+
+		// If the node is a collator, bypass prospective-parachains. We're only interested in the
+		// one paraid and the subsystem is not present.
+		let min_relay_parents = if let Some(para_id) = self.collating_for {
+			fetch_min_relay_parents_for_collator(leaf_hash, leaf_header.number, sender)
+				.await?
+				.map(|x| vec![(para_id, x)])
+				.unwrap_or_default()
+		} else {
+			fetch_min_relay_parents_from_prospective_parachains(leaf_hash, sender).await?
+		};
+
+		let min_min = min_relay_parents.iter().map(|x| x.1).min().unwrap_or(leaf_header.number);
+		let expected_ancestry_len = (leaf_header.number.saturating_sub(min_min) as usize) + 1;
+
+		let ancestry = if leaf_header.number > 0 {
+			let mut next_ancestor_number = leaf_header.number - 1;
+			let mut next_ancestor_hash = leaf_header.parent_hash;
+
+			let mut ancestry = Vec::with_capacity(expected_ancestry_len);
+			ancestry.push(leaf_hash);
+
+			// Ensure all ancestors up to and including `min_min` are in the
+			// block storage. When views advance incrementally, everything
+			// should already be present.
+			while next_ancestor_number >= min_min {
+				let parent_hash = if let Some(info) =
+					self.block_info_storage.get(&next_ancestor_hash)
+				{
+					info.parent_hash
+				} else {
+					// load the header and insert into block storage.
+					let (tx, rx) = oneshot::channel();
+					sender.send_message(ChainApiMessage::BlockHeader(next_ancestor_hash, tx)).await;
+
+					let header = match rx.await {
+						Ok(Ok(Some(header))) => header,
+						Ok(Ok(None)) =>
+							return Err(FetchError::BlockHeaderUnavailable(
+								next_ancestor_hash,
+								BlockHeaderUnavailableReason::Unknown,
+							)),
+						Ok(Err(e)) =>
+							return Err(FetchError::BlockHeaderUnavailable(
+								next_ancestor_hash,
+								BlockHeaderUnavailableReason::Internal(e),
+							)),
+						Err(_) =>
+							return Err(FetchError::BlockHeaderUnavailable(
+								next_ancestor_hash,
+								BlockHeaderUnavailableReason::SubsystemUnavailable,
+							)),
+					};
+
+					self.block_info_storage.insert(
+						next_ancestor_hash,
+						BlockInfo {
+							block_number: next_ancestor_number,
+							parent_hash: header.parent_hash,
+							maybe_allowed_relay_parents: None,
+						},
+					);
+
+					header.parent_hash
+				};
+
+				ancestry.push(next_ancestor_hash);
+				if next_ancestor_number == 0 {
+					break
+				}
+
+				next_ancestor_number -= 1;
+				next_ancestor_hash = parent_hash;
+			}
+
+			ancestry
+		} else {
+			vec![leaf_hash]
+		};
+
+		let fetched_ancestry =
+			FetchSummary { minimum_ancestor_number: min_min, leaf_number: leaf_header.number };
+
+		let allowed_relay_parents = AllowedRelayParents {
+			minimum_relay_parents: min_relay_parents.into_iter().collect(),
+			allowed_relay_parents_contiguous: ancestry,
+		};
+
+		let leaf_block_info = BlockInfo {
+			parent_hash: leaf_header.parent_hash,
+			block_number: leaf_header.number,
+			maybe_allowed_relay_parents: Some(allowed_relay_parents),
+		};
+
+		self.block_info_storage.insert(leaf_hash, leaf_block_info);
+
+		Ok(fetched_ancestry)
+	}
 }
 
 /// Errors when fetching a leaf and associated ancestry.
@@ -440,137 +627,6 @@ where
 	}
 
 	Ok(Some(min))
-}
-
-async fn fetch_fresh_leaf_and_insert_ancestry<Sender>(
-	leaf_hash: Hash,
-	block_info_storage: &mut HashMap<Hash, BlockInfo>,
-	sender: &mut Sender,
-	collating_for: Option<ParaId>,
-) -> Result<FetchSummary, FetchError>
-where
-	Sender: SubsystemSender<ChainApiMessage>
-		+ SubsystemSender<ProspectiveParachainsMessage>
-		+ SubsystemSender<RuntimeApiMessage>,
-{
-	let leaf_header = {
-		let (tx, rx) = oneshot::channel();
-		sender.send_message(ChainApiMessage::BlockHeader(leaf_hash, tx)).await;
-
-		match rx.await {
-			Ok(Ok(Some(header))) => header,
-			Ok(Ok(None)) =>
-				return Err(FetchError::BlockHeaderUnavailable(
-					leaf_hash,
-					BlockHeaderUnavailableReason::Unknown,
-				)),
-			Ok(Err(e)) =>
-				return Err(FetchError::BlockHeaderUnavailable(
-					leaf_hash,
-					BlockHeaderUnavailableReason::Internal(e),
-				)),
-			Err(_) =>
-				return Err(FetchError::BlockHeaderUnavailable(
-					leaf_hash,
-					BlockHeaderUnavailableReason::SubsystemUnavailable,
-				)),
-		}
-	};
-
-	// If the node is a collator, bypass prospective-parachains. We're only interested in the one
-	// paraid and the subsystem is not present.
-	let min_relay_parents = if let Some(para_id) = collating_for {
-		fetch_min_relay_parents_for_collator(leaf_hash, leaf_header.number, sender)
-			.await?
-			.map(|x| vec![(para_id, x)])
-			.unwrap_or_default()
-	} else {
-		fetch_min_relay_parents_from_prospective_parachains(leaf_hash, sender).await?
-	};
-
-	let min_min = min_relay_parents.iter().map(|x| x.1).min().unwrap_or(leaf_header.number);
-	let expected_ancestry_len = (leaf_header.number.saturating_sub(min_min) as usize) + 1;
-
-	let ancestry = if leaf_header.number > 0 {
-		let mut next_ancestor_number = leaf_header.number - 1;
-		let mut next_ancestor_hash = leaf_header.parent_hash;
-
-		let mut ancestry = Vec::with_capacity(expected_ancestry_len);
-		ancestry.push(leaf_hash);
-
-		// Ensure all ancestors up to and including `min_min` are in the
-		// block storage. When views advance incrementally, everything
-		// should already be present.
-		while next_ancestor_number >= min_min {
-			let parent_hash = if let Some(info) = block_info_storage.get(&next_ancestor_hash) {
-				info.parent_hash
-			} else {
-				// load the header and insert into block storage.
-				let (tx, rx) = oneshot::channel();
-				sender.send_message(ChainApiMessage::BlockHeader(next_ancestor_hash, tx)).await;
-
-				let header = match rx.await {
-					Ok(Ok(Some(header))) => header,
-					Ok(Ok(None)) =>
-						return Err(FetchError::BlockHeaderUnavailable(
-							next_ancestor_hash,
-							BlockHeaderUnavailableReason::Unknown,
-						)),
-					Ok(Err(e)) =>
-						return Err(FetchError::BlockHeaderUnavailable(
-							next_ancestor_hash,
-							BlockHeaderUnavailableReason::Internal(e),
-						)),
-					Err(_) =>
-						return Err(FetchError::BlockHeaderUnavailable(
-							next_ancestor_hash,
-							BlockHeaderUnavailableReason::SubsystemUnavailable,
-						)),
-				};
-
-				block_info_storage.insert(
-					next_ancestor_hash,
-					BlockInfo {
-						block_number: next_ancestor_number,
-						parent_hash: header.parent_hash,
-						maybe_allowed_relay_parents: None,
-					},
-				);
-
-				header.parent_hash
-			};
-
-			ancestry.push(next_ancestor_hash);
-			if next_ancestor_number == 0 {
-				break
-			}
-
-			next_ancestor_number -= 1;
-			next_ancestor_hash = parent_hash;
-		}
-
-		ancestry
-	} else {
-		vec![leaf_hash]
-	};
-
-	let fetched_ancestry =
-		FetchSummary { minimum_ancestor_number: min_min, leaf_number: leaf_header.number };
-
-	let allowed_relay_parents = AllowedRelayParents {
-		minimum_relay_parents: min_relay_parents.into_iter().collect(),
-		allowed_relay_parents_contiguous: ancestry,
-	};
-
-	let leaf_block_info = BlockInfo {
-		parent_hash: leaf_header.parent_hash,
-		block_number: leaf_header.number,
-		maybe_allowed_relay_parents: Some(allowed_relay_parents),
-	};
-
-	block_info_storage.insert(leaf_hash, leaf_block_info);
-
-	Ok(fetched_ancestry)
 }
 
 #[cfg(test)]

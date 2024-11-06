@@ -63,6 +63,9 @@ pub enum Error {
 
 	#[error("CollationSeconded contained statement with invalid signature")]
 	InvalidStatementSignature(UncheckedSignedFullStatement),
+
+	#[error(transparent)]
+	RelayParentError(backing_implicit_view::PathError),
 }
 
 /// An error happened on the validator side of the protocol when attempting

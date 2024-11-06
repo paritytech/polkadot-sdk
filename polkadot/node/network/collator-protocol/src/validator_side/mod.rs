@@ -1012,6 +1012,80 @@ async fn second_unblocked_collations<Context>(
 	}
 }
 
+fn ensure_seconding_limit_is_respected(
+	relay_parent: &Hash,
+	para_id: ParaId,
+	state: &State,
+	per_relay_parent: &PerRelayParent,
+	assignment: &GroupAssignments,
+) -> std::result::Result<(), AdvertisementError> {
+	let claims_for_para = per_relay_parent.collations.claims_for_para(&para_id);
+
+	// Seconding and pending candidates below the relay parent of the candidate. These are
+	// candidates which might have claimed slots at the current view of the claim queue.
+	let seconded_and_pending_below = seconded_and_pending_for_para_below(
+		&state.implicit_view,
+		&state.per_relay_parent,
+		&relay_parent,
+		&para_id,
+		assignment.current.len(),
+	);
+
+	// Seconding and pending candidates above the relay parent of the candidate. These are
+	// candidates at a newer relay parent which have already claimed a slot within their view.
+	let seconded_and_pending_above = seconded_and_pending_for_para_above(
+		&state.implicit_view,
+		&state.per_relay_parent,
+		&relay_parent,
+		&para_id,
+		assignment.current.len(),
+	)
+	.map_err(|_| AdvertisementError::RelayParentUnknown)?;
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?relay_parent,
+		?para_id,
+		claims_for_para,
+		seconded_and_pending_below,
+		?seconded_and_pending_above,
+		"Checking if seconded limit is reached"
+	);
+
+	// Relay parent is an outer leaf. There are no paths to it.
+	if seconded_and_pending_above.is_empty() {
+		if seconded_and_pending_below >= claims_for_para {
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?para_id,
+				claims_for_para,
+				"Seconding limit exceeded for an outer leaf"
+			);
+			return Err(AdvertisementError::SecondedLimitReached)
+		}
+	}
+
+	// Checks if another collation can be accepted. The number of collations that can be seconded
+	// per parachain is limited by the entries in claim queue for the `ParaId` in question.
+	// No op for for outer leaves
+	for claims_at_path in seconded_and_pending_above {
+		if claims_at_path + seconded_and_pending_below >= claims_for_para {
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?para_id,
+				claims_for_para,
+				claims_at_path,
+				"Seconding limit exceeded"
+			);
+			return Err(AdvertisementError::SecondedLimitReached)
+		}
+	}
+
+	Ok(())
+}
+
 async fn handle_advertisement<Sender>(
 	sender: &mut Sender,
 	state: &mut State,
@@ -1056,29 +1130,13 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	let claims_for_para = per_relay_parent.collations.claims_for_para(&para_id);
-	let seconded_and_pending_at_ancestors = seconded_and_pending_for_para_in_view(
-		&state.implicit_view,
-		&state.per_relay_parent,
+	ensure_seconding_limit_is_respected(
 		&relay_parent,
-		&para_id,
-		assignment.current.len(),
-	);
-
-	gum::trace!(
-		target: LOG_TARGET,
-		?relay_parent,
-		?para_id,
-		claims_for_para,
-		seconded_and_pending_at_ancestors,
-		"Checking if seconded limit is reached"
-	);
-
-	// Checks if another collation can be accepted. The number of collations that can be seconded
-	// per parachain is limited by the entries in claim queue for the `ParaId` in question.
-	if seconded_and_pending_at_ancestors >= claims_for_para {
-		return Err(AdvertisementError::SecondedLimitReached)
-	}
+		para_id,
+		state,
+		per_relay_parent,
+		assignment,
+	)?;
 
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
 		// Check if backing subsystem allows to second this candidate.
@@ -1206,6 +1264,13 @@ where
 	let added = view.iter().filter(|h| !current_leaves.contains_key(h));
 
 	for leaf in added {
+		gum::trace!(
+			target: LOG_TARGET,
+			?view,
+			?leaf,
+			"handle_our_view_change - added",
+		);
+
 		let async_backing_params =
 			recv_runtime(request_async_backing_params(*leaf, sender).await).await?;
 
@@ -1226,8 +1291,15 @@ where
 			.implicit_view
 			.known_allowed_relay_parents_under(leaf, None)
 			.unwrap_or_default();
+
 		for block_hash in allowed_ancestry {
 			if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
+				gum::trace!(
+					target: LOG_TARGET,
+					?view,
+					?block_hash,
+					"handle_our_view_change - allowed_ancestry",
+				);
 				let assignments =
 					assign_incoming(sender, &mut state.current_assignments, keystore, *block_hash)
 						.await?;
@@ -1238,6 +1310,13 @@ where
 	}
 
 	for (removed, _) in removed {
+		gum::trace!(
+			target: LOG_TARGET,
+			?view,
+			?removed,
+			"handle_our_view_change - removed",
+		);
+
 		state.active_leaves.remove(removed);
 		// If the leaf is deactivated it still may stay in the view as a part
 		// of implicit ancestry. Only update the state after the hash is actually
@@ -2018,7 +2097,7 @@ async fn handle_collation_fetch_response(
 
 // Returns how many seconded candidates and pending fetches are there within the view at a specific
 // relay parent
-fn seconded_and_pending_for_para_in_view(
+fn seconded_and_pending_for_para_below(
 	implicit_view: &ImplicitView,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
 	relay_parent: &Hash,
@@ -2036,7 +2115,7 @@ fn seconded_and_pending_for_para_in_view(
 				?relay_parent,
 				?para_id,
 				claim_queue_len,
-				"seconded_and_pending_for_para_in_view"
+				"seconded_and_pending_for_para_below"
 			);
 			ancestors.iter().take(claim_queue_len).fold(0, |res, anc| {
 				res + per_relay_parent
@@ -2048,6 +2127,29 @@ fn seconded_and_pending_for_para_in_view(
 		.unwrap_or(0)
 }
 
+fn seconded_and_pending_for_para_above(
+	implicit_view: &ImplicitView,
+	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+	relay_parent: &Hash,
+	para_id: &ParaId,
+	claim_queue_len: usize,
+) -> Result<Vec<usize>> {
+	let outer_paths = implicit_view
+		.paths_to_relay_parent(relay_parent)
+		.map_err(Error::RelayParentError)?;
+	let mut result = vec![];
+	for path in outer_paths {
+		let r = path.iter().take(claim_queue_len).fold(0, |res, anc| {
+			res + per_relay_parent
+				.get(&anc)
+				.map(|rp| rp.collations.seconded_and_pending_for_para(para_id))
+				.unwrap_or(0)
+		});
+		result.push(r);
+	}
+
+	Ok(result)
+}
 // Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
 // order in the claim queue so the earlier an element is located in the `Vec` the higher its
 // priority is.
@@ -2061,16 +2163,27 @@ fn unfulfilled_claim_queue_entries(
 	let mut claims_per_para = scheduled_paras
 		.into_iter()
 		.map(|para_id| {
-			(
-				*para_id,
-				seconded_and_pending_for_para_in_view(
-					implicit_view,
-					per_relay_parent,
-					relay_parent,
-					para_id,
-					relay_parent_state.assignment.current.len(),
-				),
+			let below = seconded_and_pending_for_para_below(
+				implicit_view,
+				per_relay_parent,
+				relay_parent,
+				para_id,
+				relay_parent_state.assignment.current.len(),
+			);
+			let above = seconded_and_pending_for_para_above(
+				implicit_view,
+				per_relay_parent,
+				relay_parent,
+				para_id,
+				relay_parent_state.assignment.current.len(),
 			)
+			.unwrap_or_default() //todo
+			.iter()
+			.max()
+			.copied()
+			.unwrap_or(0);
+
+			(*para_id, below + above)
 		})
 		.collect::<HashMap<_, _>>();
 	let claim_queue_state = relay_parent_state

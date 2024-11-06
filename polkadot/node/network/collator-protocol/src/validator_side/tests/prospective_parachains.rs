@@ -119,8 +119,13 @@ pub(super) async fn update_view(
 
 	let mut next_overseer_message = None;
 	for _ in 0..activated {
+		let msg = match next_overseer_message.take() {
+			Some(msg) => msg,
+			None => overseer_recv(virtual_overseer).await,
+		};
+
 		let (leaf_hash, leaf_number) = assert_matches!(
-			overseer_recv(virtual_overseer).await,
+			msg,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
 				RuntimeApiRequest::AsyncBackingParams(tx),
@@ -1593,7 +1598,7 @@ fn collation_fetches_without_claimqueue() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
-		let head_b = Hash::from_low_u64_be(128);
+		let head_b = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
 		let head_b_num: u32 = 2;
 
 		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
@@ -1857,7 +1862,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		let collator_b = PeerId::random();
 		let para_id_b = test_state.chain_ids[1];
 
-		let relay_parent_2 = Hash::from_low_u64_be(128);
+		let relay_parent_2 = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
 
 		update_view(&mut virtual_overseer, &test_state, vec![(relay_parent_2, 2)], 1).await;
 
@@ -1903,7 +1908,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		// parent hashes are hardcoded in `get_parent_hash` (called from `update_view`) to be
 		// `current hash + 1` so we need to craft them carefully (decrement by 2) in order to make
 		// them fall in the same view.
-		let relay_parent_4 = Hash::from_low_u64_be(126);
+		let relay_parent_4 = Hash::from_low_u64_be(relay_parent_2.to_low_u64_be() - 2);
 
 		update_view(&mut virtual_overseer, &test_state, vec![(relay_parent_4, 4)], 1).await;
 
@@ -1962,7 +1967,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 
 		// At `relay_parent_6` the advertisement for `para_id_b` falls out of the view so a new one
 		// can be accepted
-		let relay_parent_6 = Hash::from_low_u64_be(124);
+		let relay_parent_6 = Hash::from_low_u64_be(relay_parent_4.to_low_u64_be() - 2);
 		update_view(&mut virtual_overseer, &test_state, vec![(relay_parent_6, 6)], 1).await;
 
 		submit_second_and_assert(

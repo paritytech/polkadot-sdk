@@ -79,7 +79,7 @@ struct TestState {
 
 impl Default for TestState {
 	fn default() -> Self {
-		let relay_parent = Hash::repeat_byte(0x05);
+		let relay_parent = Hash::from_low_u64_be(0x05);
 		let collators = iter::repeat(()).map(|_| CollatorPair::generate().0).take(5).collect();
 
 		let validators = vec![
@@ -624,7 +624,7 @@ fn fetch_one_collation_at_a_time() {
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
-		let second = Hash::random();
+		let second = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
 
 		update_view(
 			&mut virtual_overseer,
@@ -878,7 +878,7 @@ fn fetch_next_collation_on_invalid_collation() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
-		let second = Hash::random();
+		let second = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
 
 		update_view(
 			&mut virtual_overseer,
@@ -1024,14 +1024,14 @@ fn activity_extends_life() {
 
 		let pair = CollatorPair::generate().0;
 
-		let hash_a = test_state.relay_parent;
-		let hash_b = Hash::repeat_byte(1);
-		let hash_c = Hash::repeat_byte(2);
+		let hash_a = Hash::from_low_u64_be(12);
+		let hash_b = Hash::from_low_u64_be(11);
+		let hash_c = Hash::from_low_u64_be(10);
 
 		update_view(
 			&mut virtual_overseer,
 			&test_state,
-			vec![(hash_a, 0), (hash_b, 1), (hash_c, 1)],
+			vec![(hash_a, 0), (hash_b, 1), (hash_c, 2)],
 			3,
 		)
 		.await;
