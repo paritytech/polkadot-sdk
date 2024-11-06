@@ -95,7 +95,7 @@ use sp_consensus_beefy::{
 };
 use sp_core::{ConstU8, OpaqueMetadata, RuntimeDebug, H256};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{
 		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, IdentityLookup, Keccak256,
 		OpaqueKeys, SaturatedConversion, Verify,
@@ -168,8 +168,8 @@ pub mod fast_runtime_binary {
 /// Runtime version (Westend).
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("westend"),
-	impl_name: create_runtime_str!("parity-westend"),
+	spec_name: alloc::borrow::Cow::Borrowed("westend"),
+	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
 	authoring_version: 2,
 	spec_version: 1_016_001,
 	impl_version: 0,
@@ -823,6 +823,7 @@ impl pallet_treasury::Config for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
@@ -2591,7 +2592,7 @@ sp_api::impl_runtime_apis! {
 			config: frame_benchmarking::BenchmarkConfig,
 		) -> Result<
 			Vec<frame_benchmarking::BenchmarkBatch>,
-			sp_runtime::RuntimeString,
+			alloc::string::String,
 		> {
 			use frame_support::traits::WhitelistedStorageKeys;
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};

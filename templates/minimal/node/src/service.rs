@@ -273,6 +273,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 				authorship_future,
 			);
 		},
+		_ => {},
 	}
 
 	network_starter.start_network();

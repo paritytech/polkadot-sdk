@@ -73,6 +73,8 @@
 //! - `approve_bounty` - Accept a specific treasury amount to be earmarked for a predefined body of
 //!   work.
 //! - `propose_curator` - Assign an account to a bounty as candidate curator.
+//! - `approve_bounty_with_curator` - Accept a specific treasury amount for a predefined body of
+//!   work with assigned candidate curator account.
 //! - `accept_curator` - Accept a bounty assignment from the Council, setting a curator deposit.
 //! - `extend_bounty_expiry` - Extend the expiry block number of the bounty and stay active.
 //! - `award_bounty` - Close and pay out the specified amount for the completed work.
@@ -96,7 +98,7 @@ use frame_support::traits::{
 };
 
 use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, Saturating, StaticLookup, Zero},
+	traits::{AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, Zero},
 	DispatchResult, Permill, RuntimeDebug,
 };
 
@@ -174,6 +176,11 @@ pub enum BountyStatus<AccountId, BlockNumber> {
 		/// When the bounty can be claimed.
 		unlock_at: BlockNumber,
 	},
+	/// The bounty is approved with curator assigned.
+	ApprovedWithCurator {
+		/// The assigned curator of this bounty.
+		curator: AccountId,
+	},
 }
 
 /// The child bounty manager.
@@ -181,8 +188,11 @@ pub trait ChildBountyManager<Balance> {
 	/// Get the active child bounties for a parent bounty.
 	fn child_bounties_count(bounty_id: BountyIndex) -> BountyIndex;
 
-	/// Get total curator fees of children-bounty curators.
+	/// Take total curator fees of children-bounty curators.
 	fn children_curator_fees(bounty_id: BountyIndex) -> Balance;
+
+	/// Hook called when a parent bounty is removed.
+	fn bounty_removed(bounty_id: BountyIndex);
 }
 
 #[frame_support::pallet]
@@ -326,6 +336,7 @@ pub mod pallet {
 
 	/// Bounty indices that have been approved but not yet funded.
 	#[pallet::storage]
+	#[allow(deprecated)]
 	pub type BountyApprovals<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<BountyIndex, T::MaxApprovals>, ValueQuery>;
 
@@ -471,6 +482,15 @@ pub mod pallet {
 						// No curator to unassign at this point.
 						return Err(Error::<T, I>::UnexpectedStatus.into())
 					},
+					BountyStatus::ApprovedWithCurator { ref curator } => {
+						// Bounty not yet funded, but bounty was approved with curator.
+						// `RejectOrigin` or curator himself can unassign from this bounty.
+						ensure!(maybe_sender.map_or(true, |sender| sender == *curator), BadOrigin);
+						// This state can only be while the bounty is not yet funded so we return
+						// bounty to the `Approved` state without curator
+						bounty.status = BountyStatus::Approved;
+						return Ok(());
+					},
 					BountyStatus::CuratorProposed { ref curator } => {
 						// A curator has been proposed, but not accepted yet.
 						// Either `RejectOrigin` or the proposed curator can unassign the curator.
@@ -488,7 +508,7 @@ pub mod pallet {
 								// If the sender is not the curator, and the curator is inactive,
 								// slash the curator.
 								if sender != *curator {
-									let block_number = frame_system::Pallet::<T>::block_number();
+									let block_number = Self::treasury_block_number();
 									if *update_due < block_number {
 										slash_curator(curator, &mut bounty.curator_deposit);
 									// Continue to change bounty status below...
@@ -552,8 +572,8 @@ pub mod pallet {
 						T::Currency::reserve(curator, deposit)?;
 						bounty.curator_deposit = deposit;
 
-						let update_due = frame_system::Pallet::<T>::block_number() +
-							T::BountyUpdatePeriod::get();
+						let update_due =
+							Self::treasury_block_number() + T::BountyUpdatePeriod::get();
 						bounty.status =
 							BountyStatus::Active { curator: curator.clone(), update_due };
 
@@ -607,8 +627,7 @@ pub mod pallet {
 				bounty.status = BountyStatus::PendingPayout {
 					curator: signer,
 					beneficiary: beneficiary.clone(),
-					unlock_at: frame_system::Pallet::<T>::block_number() +
-						T::BountyDepositPayoutDelay::get(),
+					unlock_at: Self::treasury_block_number() + T::BountyDepositPayoutDelay::get(),
 				};
 
 				Ok(())
@@ -639,10 +658,7 @@ pub mod pallet {
 				if let BountyStatus::PendingPayout { curator, beneficiary, unlock_at } =
 					bounty.status
 				{
-					ensure!(
-						frame_system::Pallet::<T>::block_number() >= unlock_at,
-						Error::<T, I>::Premature
-					);
+					ensure!(Self::treasury_block_number() >= unlock_at, Error::<T, I>::Premature);
 					let bounty_account = Self::bounty_account_id(bounty_id);
 					let balance = T::Currency::free_balance(&bounty_account);
 					let fee = bounty.fee.min(balance); // just to be safe
@@ -666,6 +682,7 @@ pub mod pallet {
 					*maybe_bounty = None;
 
 					BountyDescriptions::<T, I>::remove(bounty_id);
+					T::ChildBountyManager::bounty_removed(bounty_id);
 
 					Self::deposit_event(Event::<T, I>::BountyClaimed {
 						index: bounty_id,
@@ -727,7 +744,7 @@ pub mod pallet {
 								Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into()
 							)
 						},
-						BountyStatus::Approved => {
+						BountyStatus::Approved | BountyStatus::ApprovedWithCurator { .. } => {
 							// For weight reasons, we don't allow a council to cancel in this phase.
 							// We ask for them to wait until it is funded before they can cancel.
 							return Err(Error::<T, I>::UnexpectedStatus.into())
@@ -763,7 +780,9 @@ pub mod pallet {
 						AllowDeath,
 					); // should not fail
 					debug_assert!(res.is_ok());
+
 					*maybe_bounty = None;
+					T::ChildBountyManager::bounty_removed(bounty_id);
 
 					Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
 					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
@@ -795,7 +814,7 @@ pub mod pallet {
 				match bounty.status {
 					BountyStatus::Active { ref curator, ref mut update_due } => {
 						ensure!(*curator == signer, Error::<T, I>::RequireCurator);
-						*update_due = (frame_system::Pallet::<T>::block_number() +
+						*update_due = (Self::treasury_block_number() +
 							T::BountyUpdatePeriod::get())
 						.max(*update_due);
 					},
@@ -806,6 +825,52 @@ pub mod pallet {
 			})?;
 
 			Self::deposit_event(Event::<T, I>::BountyExtended { index: bounty_id });
+			Ok(())
+		}
+
+		/// Approve bountry and propose a curator simultaneously.
+		/// This call is a shortcut to calling `approve_bounty` and `propose_curator` separately.
+		///
+		/// May only be called from `T::SpendOrigin`.
+		///
+		/// - `bounty_id`: Bounty ID to approve.
+		/// - `curator`: The curator account whom will manage this bounty.
+		/// - `fee`: The curator fee.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		pub fn approve_bounty_with_curator(
+			origin: OriginFor<T>,
+			#[pallet::compact] bounty_id: BountyIndex,
+			curator: AccountIdLookupOf<T>,
+			#[pallet::compact] fee: BalanceOf<T, I>,
+		) -> DispatchResult {
+			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
+			let curator = T::Lookup::lookup(curator)?;
+			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
+				// approve bounty
+				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				ensure!(
+					bounty.value <= max_amount,
+					pallet_treasury::Error::<T, I>::InsufficientPermission
+				);
+				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
+				ensure!(fee < bounty.value, Error::<T, I>::InvalidFee);
+
+				BountyApprovals::<T, I>::try_append(bounty_id)
+					.map_err(|()| Error::<T, I>::TooManyQueued)?;
+
+				bounty.status = BountyStatus::ApprovedWithCurator { curator: curator.clone() };
+				bounty.fee = fee;
+
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::<T, I>::BountyApproved { index: bounty_id });
+			Self::deposit_event(Event::<T, I>::CuratorProposed { bounty_id, curator });
+
 			Ok(())
 		}
 	}
@@ -860,6 +925,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Get the block number used in the treasury pallet.
+	///
+	/// It may be configured to use the relay chain block number on a parachain.
+	pub fn treasury_block_number() -> BlockNumberFor<T> {
+		<T as pallet_treasury::Config<I>>::BlockNumberProvider::current_block_number()
+	}
+
+	/// Calculate the deposit required for a curator.
 	pub fn calculate_curator_deposit(fee: &BalanceOf<T, I>) -> BalanceOf<T, I> {
 		let mut deposit = T::CuratorDepositMultiplier::get() * *fee;
 
@@ -942,7 +1015,13 @@ impl<T: Config<I>, I: 'static> pallet_treasury::SpendFunds<T, I> for Pallet<T, I
 						if bounty.value <= *budget_remaining {
 							*budget_remaining -= bounty.value;
 
-							bounty.status = BountyStatus::Funded;
+							// jump through the funded phase if we're already approved with curator
+							if let BountyStatus::ApprovedWithCurator { curator } = &bounty.status {
+								bounty.status =
+									BountyStatus::CuratorProposed { curator: curator.clone() };
+							} else {
+								bounty.status = BountyStatus::Funded;
+							}
 
 							// return their deposit.
 							let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
@@ -981,4 +1060,6 @@ impl<Balance: Zero> ChildBountyManager<Balance> for () {
 	fn children_curator_fees(_bounty_id: BountyIndex) -> Balance {
 		Zero::zero()
 	}
+
+	fn bounty_removed(_bounty_id: BountyIndex) {}
 }

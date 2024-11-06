@@ -25,6 +25,7 @@ use alloc::{vec, vec::Vec};
 
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller, BenchmarkError};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use sp_runtime::traits::BlockNumberProvider;
 
 use crate::Pallet as ChildBounties;
 use pallet_bounties::Pallet as Bounties;
@@ -54,6 +55,10 @@ struct BenchmarkChildBounty<T: Config> {
 	child_bounty_fee: BalanceOf<T>,
 	/// Bounty description.
 	reason: Vec<u8>,
+}
+
+fn set_block_number<T: Config>(n: BlockNumberFor<T>) {
+	<T as pallet_treasury::Config>::BlockNumberProvider::set_block_number(n);
 }
 
 fn setup_bounty<T: Config>(
@@ -116,7 +121,8 @@ fn activate_bounty<T: Config>(
 	let approve_origin =
 		T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 	Bounties::<T>::approve_bounty(approve_origin, child_bounty_setup.bounty_id)?;
-	Treasury::<T>::on_initialize(BlockNumberFor::<T>::zero());
+	set_block_number::<T>(T::SpendPeriod::get());
+	Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	Bounties::<T>::propose_curator(
 		RawOrigin::Root.into(),
 		child_bounty_setup.bounty_id,
@@ -145,7 +151,7 @@ fn activate_child_bounty<T: Config>(
 		bounty_setup.reason.clone(),
 	)?;
 
-	bounty_setup.child_bounty_id = ChildBountyCount::<T>::get() - 1;
+	bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 	ChildBounties::<T>::propose_curator(
 		RawOrigin::Signed(bounty_setup.curator.clone()).into(),
@@ -199,7 +205,7 @@ benchmarks! {
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
 		)?;
-		let child_bounty_id = ChildBountyCount::<T>::get() - 1;
+		let child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 	}: _(RawOrigin::Signed(bounty_setup.curator), bounty_setup.bounty_id,
 			child_bounty_id, child_curator_lookup, bounty_setup.child_bounty_fee)
@@ -215,7 +221,7 @@ benchmarks! {
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
 		)?;
-		bounty_setup.child_bounty_id = ChildBountyCount::<T>::get() - 1;
+		bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 		ChildBounties::<T>::propose_curator(
 			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
@@ -231,8 +237,8 @@ benchmarks! {
 	unassign_curator {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
-		Treasury::<T>::on_initialize(BlockNumberFor::<T>::zero());
-		frame_system::Pallet::<T>::set_block_number(T::BountyUpdatePeriod::get() + 1u32.into());
+		Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+		set_block_number::<T>(T::SpendPeriod::get() + T::BountyUpdatePeriod::get() + 1u32.into());
 		let caller = whitelisted_caller();
 	}: _(RawOrigin::Signed(caller), bounty_setup.bounty_id,
 			bounty_setup.child_bounty_id)
@@ -268,7 +274,7 @@ benchmarks! {
 		let beneficiary_account: T::AccountId = account("beneficiary", 0, SEED);
 		let beneficiary = T::Lookup::unlookup(beneficiary_account.clone());
 
-		frame_system::Pallet::<T>::set_block_number(T::BountyDepositPayoutDelay::get());
+		set_block_number::<T>(T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get());
 		ensure!(T::Currency::free_balance(&beneficiary_account).is_zero(),
 			"Beneficiary already has balance.");
 
@@ -290,7 +296,7 @@ benchmarks! {
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
 		)?;
-		bounty_setup.child_bounty_id = ChildBountyCount::<T>::get() - 1;
+		bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 	}: close_child_bounty(RawOrigin::Root, bounty_setup.bounty_id,
 		bounty_setup.child_bounty_id)
@@ -305,7 +311,7 @@ benchmarks! {
 	close_child_bounty_active {
 		setup_pot_account::<T>();
 		let bounty_setup = activate_child_bounty::<T>(0, T::MaximumReasonLength::get())?;
-		Treasury::<T>::on_initialize(BlockNumberFor::<T>::zero());
+		Treasury::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
 	}: close_child_bounty(RawOrigin::Root, bounty_setup.bounty_id, bounty_setup.child_bounty_id)
 	verify {
 		assert_last_event::<T>(Event::Canceled {

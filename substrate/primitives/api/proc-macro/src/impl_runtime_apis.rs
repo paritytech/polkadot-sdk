@@ -15,14 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	common::API_VERSION_ATTRIBUTE,
-	utils::{
-		extract_block_type_from_trait_path, extract_impl_trait,
-		extract_parameter_names_types_and_borrows, generate_crate_access,
-		generate_runtime_mod_name_for_trait, parse_runtime_api_version, prefix_function_with_trait,
-		versioned_trait_name, AllowSelfRefInParameters, RequireQualifiedTraitPath,
-	},
+use crate::utils::{
+	extract_api_version, extract_block_type_from_trait_path, extract_impl_trait,
+	extract_parameter_names_types_and_borrows, generate_crate_access,
+	generate_runtime_mod_name_for_trait, prefix_function_with_trait, versioned_trait_name,
+	AllowSelfRefInParameters, ApiVersion, RequireQualifiedTraitPath,
 };
 
 use proc_macro2::{Span, TokenStream};
@@ -31,11 +28,10 @@ use quote::quote;
 
 use syn::{
 	fold::{self, Fold},
-	parenthesized,
 	parse::{Error, Parse, ParseStream, Result},
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
-	Attribute, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type, TypePath,
+	Attribute, Ident, ImplItem, ItemImpl, Path, Signature, Type, TypePath,
 };
 
 use std::collections::HashMap;
@@ -466,7 +462,7 @@ fn extend_with_runtime_decl_path(mut trait_: Path) -> Path {
 	trait_
 }
 
-fn extend_with_api_version(mut trait_: Path, version: Option<u64>) -> Path {
+fn extend_with_api_version(mut trait_: Path, version: Option<u32>) -> Path {
 	let version = if let Some(v) = version {
 		v
 	} else {
@@ -839,88 +835,6 @@ fn impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
 // Filters all attributes except the cfg ones.
 fn filter_cfg_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
 	attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect()
-}
-
-/// Parse feature flagged api_version.
-/// E.g. `#[cfg_attr(feature = "enable-staging-api", api_version(99))]`
-fn extract_cfg_api_version(attrs: &Vec<Attribute>, span: Span) -> Result<Option<(String, u64)>> {
-	let cfg_attrs = attrs.iter().filter(|a| a.path().is_ident("cfg_attr")).collect::<Vec<_>>();
-
-	let mut cfg_api_version_attr = Vec::new();
-	for cfg_attr in cfg_attrs {
-		let mut feature_name = None;
-		let mut api_version = None;
-		cfg_attr.parse_nested_meta(|m| {
-			if m.path.is_ident("feature") {
-				let a = m.value()?;
-				let b: LitStr = a.parse()?;
-				feature_name = Some(b.value());
-			} else if m.path.is_ident(API_VERSION_ATTRIBUTE) {
-				let content;
-				parenthesized!(content in m.input);
-				let ver: LitInt = content.parse()?;
-				api_version = Some(ver.base10_parse::<u64>()?);
-			}
-			Ok(())
-		})?;
-
-		// If there is a cfg attribute containing api_version - save if for processing
-		if let (Some(feature_name), Some(api_version)) = (feature_name, api_version) {
-			cfg_api_version_attr.push((feature_name, api_version, cfg_attr.span()));
-		}
-	}
-
-	if cfg_api_version_attr.len() > 1 {
-		let mut err = Error::new(span, format!("Found multiple feature gated api versions (cfg attribute with nested `{}` attribute). This is not supported.", API_VERSION_ATTRIBUTE));
-		for (_, _, attr_span) in cfg_api_version_attr {
-			err.combine(Error::new(attr_span, format!("`{}` found here", API_VERSION_ATTRIBUTE)));
-		}
-
-		return Err(err);
-	}
-
-	Ok(cfg_api_version_attr
-		.into_iter()
-		.next()
-		.map(|(feature, name, _)| (feature, name)))
-}
-
-/// Represents an API version.
-struct ApiVersion {
-	/// Corresponds to `#[api_version(X)]` attribute.
-	pub custom: Option<u64>,
-	/// Corresponds to `#[cfg_attr(feature = "enable-staging-api", api_version(99))]`
-	/// attribute. `String` is the feature name, `u64` the staging api version.
-	pub feature_gated: Option<(String, u64)>,
-}
-
-// Extracts the value of `API_VERSION_ATTRIBUTE` and handles errors.
-// Returns:
-// - Err if the version is malformed
-// - `ApiVersion` on success. If a version is set or not is determined by the fields of `ApiVersion`
-fn extract_api_version(attrs: &Vec<Attribute>, span: Span) -> Result<ApiVersion> {
-	// First fetch all `API_VERSION_ATTRIBUTE` values (should be only one)
-	let api_ver = attrs
-		.iter()
-		.filter(|a| a.path().is_ident(API_VERSION_ATTRIBUTE))
-		.collect::<Vec<_>>();
-
-	if api_ver.len() > 1 {
-		return Err(Error::new(
-			span,
-			format!(
-				"Found multiple #[{}] attributes for an API implementation. \
-				Each runtime API can have only one version.",
-				API_VERSION_ATTRIBUTE
-			),
-		));
-	}
-
-	// Parse the runtime version if there exists one.
-	Ok(ApiVersion {
-		custom: api_ver.first().map(|v| parse_runtime_api_version(v)).transpose()?,
-		feature_gated: extract_cfg_api_version(attrs, span)?,
-	})
 }
 
 #[cfg(test)]

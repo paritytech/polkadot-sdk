@@ -49,7 +49,7 @@
 extern crate alloc;
 
 #[doc(hidden)]
-pub use alloc::{format, vec::Vec};
+pub use alloc::vec::Vec;
 #[doc(hidden)]
 pub use codec;
 #[doc(hidden)]
@@ -90,14 +90,11 @@ mod multiaddress;
 pub mod offchain;
 pub mod proving_trie;
 pub mod runtime_logger;
-mod runtime_string;
 #[cfg(feature = "std")]
 pub mod testing;
 pub mod traits;
 pub mod transaction_validity;
 pub mod type_with_default;
-
-pub use crate::runtime_string::*;
 
 // Re-export Multiaddress
 pub use multiaddress::MultiAddress;
@@ -953,7 +950,7 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	{
 		let r = ::sp_core::bytes::deserialize(de)?;
 		Decode::decode(&mut &r[..])
-			.map_err(|e| ::serde::de::Error::custom(format!("Decode error: {}", e)))
+			.map_err(|e| ::serde::de::Error::custom(alloc::format!("Decode error: {}", e)))
 	}
 }
 
@@ -1036,6 +1033,23 @@ impl OpaqueValue {
 		Decode::decode(&mut &self.0[..]).ok()
 	}
 }
+
+// TODO: Remove in future versions and clean up `parse_str_literal` in `sp-version-proc-macro`
+/// Deprecated `Cow::Borrowed()` wrapper.
+#[macro_export]
+#[deprecated = "Use Cow::Borrowed() instead of create_runtime_str!()"]
+macro_rules! create_runtime_str {
+	( $y:expr ) => {{
+		$crate::Cow::Borrowed($y)
+	}};
+}
+// TODO: Re-export for ^ macro `create_runtime_str`, should be removed once macro is gone
+#[doc(hidden)]
+pub use alloc::borrow::Cow;
+// TODO: Remove in future versions
+/// Deprecated alias to improve upgrade experience
+#[deprecated = "Use String or Cow<'static, str> instead"]
+pub type RuntimeString = alloc::string::String;
 
 #[cfg(test)]
 mod tests {
