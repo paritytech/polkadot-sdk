@@ -1,0 +1,21 @@
+endpoint:
+  - wss://westend-rpc.dwellir.com
+mock-signature-host: true
+block: ${env.WESTEND_BLOCK_NUMBER}
+db: ./db.sqlite
+runtime-log-level: 5
+wasm-override: wasms/westend_runtime.compact.compressed.wasm
+
+import-storage:
+  XcmPallet:
+    SafeXcmVersion: 5
+  System:
+    Account:
+      -
+        -
+          - 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
+        - providers: 1
+          data:
+            free: '10000000000000000000'
+  ParasDisputes:
+    $removePrefix: ['disputes']
