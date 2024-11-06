@@ -229,9 +229,11 @@ pub mod benchmark_helpers {
 		}
 	}
 }
+
 pub(crate) mod migrations {
 	use frame_support::pallet_prelude::*;
 	use snowbridge_core::TokenId;
+	use sp_std::vec::Vec;
 
 	#[frame_support::storage_alias]
 	pub type OldNativeToForeignId<T: snowbridge_pallet_system::Config> = StorageMap<snowbridge_pallet_system::Pallet<T>, Blake2_128Concat, xcm::v4::Location, TokenId, OptionQuery>;
@@ -248,6 +250,13 @@ pub(crate) mod migrations {
 					Some(xcm::v5::Location::try_from(pre).expect("valid location"))
 				};
 			snowbridge_pallet_system::ForeignToNativeId::<T>::translate_values(translate_westend);
+
+			// TODO: finish
+			// let old_keys = OldNativeToForeignId::<T>::iter_keys().collect::<Vec<_>>();
+			// for old_key in old_keys {
+			// 	snowbridge_pallet_system::NativeToForeignId::<T>::swap(&old_key, &xcm::v5::Location::try_from(old_key).expect("valid location"));
+			// }
+
 			weight
 		}
 	}
