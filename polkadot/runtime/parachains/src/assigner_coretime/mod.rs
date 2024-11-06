@@ -386,11 +386,11 @@ impl<T: Config> Pallet<T> {
 	/// assign_core. Thus if you have too much interlacing for e.g. a single UMP message you can
 	/// split that up into multiple messages, each triggering a call to `assign_core`, together
 	/// forming the total assignment.
-	//With this restriction this function allows for O(1) complexity.This restriction exists,
-	// because it makes the insertion O(1) and the author could not think of a reason, why this
-	// restriction should be causing any problems. Inserting arbitrarily causes a
-	// `DispatchError::DisallowedInsert` error. This restriction could easily be lifted if need be
-	// and in fact an implementation is available [here](https://github.com/paritytech/polkadot-sdk/pull/1694/commits/c0c23b01fd2830910cde92c11960dad12cdff398#diff-0c85a46e448de79a5452395829986ee8747e17a857c27ab624304987d2dde8baR386).
+	///
+	/// Inserting arbitrarily causes a `DispatchError::DisallowedInsert` error.
+	// With this restriction this function allows for O(1) complexity. It could easily be lifted, if
+	// need be and in fact an implementation is available
+	// [here](https://github.com/paritytech/polkadot-sdk/pull/1694/commits/c0c23b01fd2830910cde92c11960dad12cdff398#diff-0c85a46e448de79a5452395829986ee8747e17a857c27ab624304987d2dde8baR386).
 	// The problem is that insertion complexity then depends on the size of the existing queue,
 	// which makes determining weights hard and could lead to issues like overweight blocks (at
 	// least in theory).
