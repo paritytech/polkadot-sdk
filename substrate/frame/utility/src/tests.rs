@@ -914,3 +914,43 @@ fn with_weight_works() {
 		);
 	})
 }
+
+#[test]
+fn if_else_with_root_works() {
+	new_test_ext().execute_with(|| {
+		let k = b"a".to_vec();
+		let call = RuntimeCall::System(frame_system::Call::set_storage {
+			items: vec![(k.clone(), k.clone())],
+		});
+		assert!(!TestBaseCallFilter::contains(&call));
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::root(),
+			Box::new(RuntimeCall::Balances(BalancesCall::force_transfer {
+				source: 1,
+				dest: 2,
+				value: 11
+			})),
+			Box::new(call),
+		));
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_eq!(storage::unhashed::get_raw(&k), Some(k));
+	});
+}
+
+#[test]
+fn if_else_with_signed_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			Box::new(call_transfer(2, 11)), 
+			Box::new(call_transfer(2, 5))
+		));
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::free_balance(2), 15);
+	});
+}
