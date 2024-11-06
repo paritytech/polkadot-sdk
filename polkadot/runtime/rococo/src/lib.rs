@@ -1661,6 +1661,7 @@ pub mod migrations {
 		pub const PhragmenElectionPalletId: LockIdentifier = *b"phrelect";
 		/// Weight for balance unreservations
 		pub BalanceUnreserveWeight: Weight = weights::pallet_balances_balances::WeightInfo::<Runtime>::force_unreserve();
+		pub BalanceTransferAllowDeath: Weight = weights::pallet_balances_balances::WeightInfo::<Runtime>::transfer_allow_death();
 	}
 
 	// Special Config for Gov V1 pallets, allowing us to run migrations for them without
@@ -1710,6 +1711,7 @@ pub mod migrations {
         paras_registrar::migration::MigrateToV1<Runtime, ()>,
         pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
         pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
+        pallet_child_bounties::migration::MigrateV0ToV1<Runtime, BalanceTransferAllowDeath>,
 
         // Unlock & unreserve Gov1 funds
 
