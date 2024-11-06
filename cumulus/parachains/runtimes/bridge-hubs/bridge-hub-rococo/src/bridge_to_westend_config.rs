@@ -175,6 +175,7 @@ where
 {
 	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
 	use sp_runtime::traits::Zero;
+	use xcm::latest::ROCOCO_GENESIS_HASH;
 	use xcm::VersionedInteriorLocation;
 
 	// insert bridge metadata
