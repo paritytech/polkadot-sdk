@@ -25,7 +25,7 @@ use polkadot_node_core_pvf::{
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
-use polkadot_node_subsystem::{messages::PvfExecKind, ActiveLeavesUpdate};
+use polkadot_node_subsystem::messages::PvfExecKind;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
 	ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
