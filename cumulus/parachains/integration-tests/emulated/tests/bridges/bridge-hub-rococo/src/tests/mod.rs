@@ -66,8 +66,8 @@ pub(crate) fn bridged_usdt_at_ah_rococo() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
-			Parachain(AssetHubRococo::para_id().into()),
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(AssetHubWestend::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(USDT_ID.into()),
 		],
