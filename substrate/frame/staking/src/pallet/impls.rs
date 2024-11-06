@@ -1164,19 +1164,23 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let ledger = Self::ledger(Stash(stash.clone()))?;
-		let locked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
-		ensure!(!locked.is_zero(), Error::<T>::AlreadyMigrated);
-		ensure!(ledger.total == locked, Error::<T>::BadState);
+		let staked: BalanceOf<T> = T::OldCurrency::balance_locked(STAKING_ID, stash).into();
+		ensure!(!staked.is_zero(), Error::<T>::AlreadyMigrated);
+		ensure!(ledger.total == staked, Error::<T>::BadState);
 
+		// remove old staking lock
+		T::OldCurrency::remove_lock(STAKING_ID, &stash);
+
+		// check if we can hold all stake.
 		let max_hold = asset::stakeable_balance::<T>(&stash);
-		let force_withdraw = if max_hold >= locked {
-			// this means we can replace all locked with stake. yay!
-			asset::update_stake::<T>(&stash, locked)?;
+		let force_withdraw = if max_hold >= staked {
+			// this means we can hold all stake. yay!
+			asset::update_stake::<T>(&stash, staked)?;
 			Zero::zero()
 		} else {
-			// if we are here, it means we cannot hold all funds. We will do a force withdraw from
-			// ledger which will mean the stake of the user will abruptly reduce.
-			let force_withdraw = locked.saturating_sub(max_hold);
+			// if we are here, it means we cannot hold all user stake. We will do a force withdraw
+			// from ledger, but that's okay since anyways user do not have funds for it.
+			let force_withdraw = staked.saturating_sub(max_hold);
 
 			// we ignore if active is 0. It implies the locked amount is not actively staked. The
 			// account can still get away from potential slash but we can't do much better here.
@@ -1189,9 +1193,6 @@ impl<T: Config> Pallet<T> {
 			.update()?;
 			force_withdraw
 		};
-
-		// remove lock
-		T::OldCurrency::remove_lock(STAKING_ID, &stash);
 
 		// Get rid of the extra consumer we used to have with OldCurrency.
 		frame_system::Pallet::<T>::dec_consumers(&stash);

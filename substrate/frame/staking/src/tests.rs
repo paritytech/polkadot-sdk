@@ -8580,9 +8580,10 @@ mod hold_migration {
 				Ok(Stake { total: stake, active: stake })
 			);
 
-			// She has extra reserved amount which would prevent us from holding all stake.
-			let expected_force_withdraw = 200;
-			assert_ok!(Balances::reserve(&alice, expected_force_withdraw));
+			// Get rid of the extra ED to emulate all their balance including ED is staked.
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 10, ExistentialDeposit::get()));
+
+			let expected_force_withdraw = ExistentialDeposit::get();
 
 			// ledger mutation would fail in this case before migration because of failing hold.
 			assert_noop!(
