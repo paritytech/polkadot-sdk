@@ -155,20 +155,20 @@ pub type Migrations = (
 		Runtime,
 		bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 	>,
-	bridge_to_rococo_config::migration::StaticToDynamicLanes,
 	frame_support::migrations::RemoveStorage<
 		BridgeRococoMessagesPalletName,
 		OutboundLanesCongestedSignalsKey,
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
-	// permanent
-	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
+	bridge_to_ethereum_config::migrations::MigrationForXcmV5<Runtime>,
+	// permanent
+	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
 
 parameter_types! {
