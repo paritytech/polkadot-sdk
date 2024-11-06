@@ -25,10 +25,7 @@ use polkadot_node_core_pvf::{
 	ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
-use polkadot_node_subsystem::{
-	messages::{ExecutionJobTtl, PvfExecKind},
-	ActiveLeavesUpdate,
-};
+use polkadot_node_subsystem::{messages::PvfExecKind, ActiveLeavesUpdate};
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
@@ -112,7 +109,7 @@ impl TestHost {
 		pvd: PersistedValidationData,
 		pov: PoV,
 		executor_params: ExecutorParams,
-		ttl: Option<ExecutionJobTtl>,
+		relay_parent: Hash,
 	) -> Result<ValidationResult, ValidationError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
@@ -130,7 +127,7 @@ impl TestHost {
 				Arc::new(pvd),
 				Arc::new(pov),
 				polkadot_node_core_pvf::Priority::Normal,
-				PvfExecKind::Backing { ttl },
+				PvfExecKind::Backing(relay_parent),
 				result_tx,
 			)
 			.await
@@ -138,7 +135,7 @@ impl TestHost {
 		result_rx.await.unwrap()
 	}
 
-	async fn update_active_leaves(&self, update: ActiveLeavesUpdate, ancestors: Option<Vec<Hash>>) {
+	async fn update_active_leaves(&self, update: ActiveLeavesUpdate, ancestors: Vec<Hash>) {
 		self.host.lock().await.update_active_leaves(update, ancestors).await.unwrap();
 	}
 
@@ -185,7 +182,7 @@ async fn execute_job_terminates_on_timeout() {
 			pvd,
 			pov,
 			Default::default(),
-			None,
+			H256::default(),
 		)
 		.await;
 
@@ -209,11 +206,11 @@ async fn execute_job_terminates_on_execution_ttl() {
 		max_pov_size: 4096 * 1024,
 	};
 	let pov = PoV { block_data: BlockData(Vec::new()) };
-	let exec_ttl = ExecutionJobTtl { deadline: 9, relay_parent: Hash::random() };
+	let relay_parent = Hash::random();
 
 	host.update_active_leaves(
 		ActiveLeavesUpdate::start_work(new_leaf(Hash::random(), 10)),
-		Some(vec![exec_ttl.relay_parent]),
+		vec![relay_parent],
 	)
 	.await;
 
@@ -224,7 +221,7 @@ async fn execute_job_terminates_on_execution_ttl() {
 			pvd,
 			pov,
 			Default::default(),
-			Some(exec_ttl),
+			relay_parent,
 		)
 		.await;
 
@@ -254,14 +251,14 @@ async fn ensure_parallel_execution() {
 		pvd.clone(),
 		pov.clone(),
 		Default::default(),
-		None,
+		H256::default(),
 	);
 	let execute_pvf_future_2 = host.validate_candidate(
 		test_parachain_halt::wasm_binary_unwrap(),
 		pvd,
 		pov,
 		Default::default(),
-		None,
+		H256::default(),
 	);
 
 	let start = std::time::Instant::now();
@@ -309,7 +306,7 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 			pvd.clone(),
 			pov.clone(),
 			Default::default(),
-			None,
+			H256::default(),
 		)
 	}))
 	.await;
@@ -359,7 +356,7 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 				0 => executor_params_1.clone(),
 				_ => executor_params_2.clone(),
 			},
-			None,
+			H256::default(),
 		)
 	}))
 	.await;
@@ -421,7 +418,7 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 			pvd,
 			pov,
 			Default::default(),
-			None,
+			H256::default(),
 		)
 		.await;
 
@@ -478,7 +475,7 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 			pvd,
 			pov,
 			Default::default(),
-			None,
+			H256::default(),
 		)
 		.await;
 
@@ -754,7 +751,7 @@ async fn invalid_compressed_code_fails_validation() {
 		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT + 1).unwrap();
 
 	let result = host
-		.validate_candidate(&validation_code, pvd, pov, Default::default(), None)
+		.validate_candidate(&validation_code, pvd, pov, Default::default(), H256::default())
 		.await;
 
 	assert_matches!(
@@ -784,7 +781,7 @@ async fn invalid_compressed_pov_fails_validation() {
 			pvd,
 			pov,
 			Default::default(),
-			None,
+			H256::default(),
 		)
 		.await;
 

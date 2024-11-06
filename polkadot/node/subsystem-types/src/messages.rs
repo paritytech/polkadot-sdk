@@ -186,33 +186,18 @@ pub enum CandidateValidationMessage {
 	},
 }
 
-/// TTL for execution jobs
-#[derive(Debug, Clone, Copy)]
-pub struct ExecutionJobTtl {
-	/// Block number as a deadline for execution job.
-	pub deadline: BlockNumber,
-	/// Relay parent hash.
-	pub relay_parent: Hash,
-}
-
 /// Extends primitives::PvfExecKind, which is a runtime parameter we don't want to change,
 /// to separate and prioritize execution jobs by request type.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PvfExecKind {
 	/// For dispute requests
 	Dispute,
 	/// For approval requests
 	Approval,
-	/// For backing requests from system parachains.
-	BackingSystemParas {
-		/// TTL for execution jobs
-		ttl: Option<ExecutionJobTtl>,
-	},
-	/// For backing requests.
-	Backing {
-		/// TTL for execution jobs
-		ttl: Option<ExecutionJobTtl>,
-	},
+	/// For backing requests from system parachains. With relay parent hash
+	BackingSystemParas(Hash),
+	/// For backing requests. With relay parent hash
+	Backing(Hash),
 }
 
 impl PvfExecKind {
@@ -221,16 +206,8 @@ impl PvfExecKind {
 		match *self {
 			Self::Dispute => "dispute",
 			Self::Approval => "approval",
-			Self::BackingSystemParas { .. } => "backing_system_paras",
-			Self::Backing { .. } => "backing",
-		}
-	}
-
-	/// Returns TTL of execution job
-	pub fn ttl(&self) -> Option<ExecutionJobTtl> {
-		match *self {
-			Self::BackingSystemParas { ttl } | Self::Backing { ttl } => ttl,
-			_ => None,
+			Self::BackingSystemParas(_) => "backing_system_paras",
+			Self::Backing(_) => "backing",
 		}
 	}
 }
@@ -240,8 +217,8 @@ impl From<PvfExecKind> for RuntimePvfExecKind {
 		match exec {
 			PvfExecKind::Dispute => RuntimePvfExecKind::Approval,
 			PvfExecKind::Approval => RuntimePvfExecKind::Approval,
-			PvfExecKind::BackingSystemParas { .. } => RuntimePvfExecKind::Backing,
-			PvfExecKind::Backing { .. } => RuntimePvfExecKind::Backing,
+			PvfExecKind::BackingSystemParas(_) => RuntimePvfExecKind::Backing,
+			PvfExecKind::Backing(_) => RuntimePvfExecKind::Backing,
 		}
 	}
 }

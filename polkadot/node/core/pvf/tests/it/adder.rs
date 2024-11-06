@@ -46,7 +46,7 @@ async fn execute_good_block_on_parent() {
 			pvd,
 			pov,
 			Default::default(),
-			None,
+			H256::default(),
 		)
 		.await
 		.unwrap();
@@ -83,7 +83,7 @@ async fn execute_good_chain_on_parent() {
 				pvd,
 				pov,
 				Default::default(),
-				None,
+				H256::default(),
 			)
 			.await
 			.unwrap();
@@ -122,7 +122,7 @@ async fn execute_bad_block_on_parent() {
 			pvd,
 			pov,
 			Default::default(),
-			None,
+			H256::default(),
 		)
 		.await
 		.unwrap_err();
@@ -148,7 +148,7 @@ async fn stress_spawn() {
 				pvd,
 				pov,
 				Default::default(),
-				None,
+				H256::default(),
 			)
 			.await
 			.unwrap();
@@ -189,7 +189,7 @@ async fn execute_can_run_serially() {
 				pvd,
 				pov,
 				Default::default(),
-				None,
+				H256::default(),
 			)
 			.await
 			.unwrap();

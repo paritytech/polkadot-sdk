@@ -477,7 +477,7 @@ impl ValidationBackend for MockValidateCandidateBackend {
 	async fn update_active_leaves(
 		&mut self,
 		_update: ActiveLeavesUpdate,
-		_ancestors: Option<Vec<Hash>>,
+		_ancestors: Vec<Hash>,
 	) -> Result<(), String> {
 		unreachable!()
 	}
@@ -539,7 +539,7 @@ fn session_index_checked_only_in_backing() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
 	))
@@ -678,7 +678,7 @@ fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
 	))
@@ -756,7 +756,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
 	))
@@ -772,7 +772,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::BackingSystemParas { ttl: None },
+		PvfExecKind::BackingSystemParas(dummy_hash()),
 		&Default::default(),
 		Default::default(),
 	))
@@ -790,7 +790,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(Default::default()),
 	))
@@ -805,7 +805,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::BackingSystemParas { ttl: None },
+		PvfExecKind::BackingSystemParas(dummy_hash()),
 		&Default::default(),
 		Some(Default::default()),
 	))
@@ -874,7 +874,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq.clone())),
 	))
@@ -897,7 +897,7 @@ fn invalid_session_or_core_index() {
 		candidate_receipt.clone(),
 		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::BackingSystemParas { ttl: None },
+		PvfExecKind::BackingSystemParas(dummy_hash()),
 		&Default::default(),
 		Some(ClaimQueueSnapshot(cq)),
 	))
@@ -952,7 +952,7 @@ fn candidate_validation_bad_return_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
 	))
@@ -1110,7 +1110,7 @@ fn candidate_validation_retry_internal_errors() {
 #[test]
 fn candidate_validation_dont_retry_internal_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
@@ -1144,7 +1144,7 @@ fn candidate_validation_retry_panic_errors() {
 #[test]
 fn candidate_validation_dont_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
@@ -1241,7 +1241,7 @@ fn candidate_validation_timeout_is_internal_error() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
 	));
@@ -1290,7 +1290,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
 	))
@@ -1345,7 +1345,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
 	))
@@ -1405,7 +1405,7 @@ fn compressed_code_works() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing { ttl: None },
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
 		Default::default(),
 	));
@@ -1448,7 +1448,7 @@ impl ValidationBackend for MockPreCheckBackend {
 	async fn update_active_leaves(
 		&mut self,
 		_update: ActiveLeavesUpdate,
-		_ancestors: Option<Vec<Hash>>,
+		_ancestors: Vec<Hash>,
 	) -> Result<(), String> {
 		unreachable!()
 	}
@@ -1612,7 +1612,7 @@ impl ValidationBackend for MockHeadsUp {
 	async fn update_active_leaves(
 		&mut self,
 		_update: ActiveLeavesUpdate,
-		_ancestors: Option<Vec<Hash>>,
+		_ancestors: Vec<Hash>,
 	) -> Result<(), String> {
 		unreachable!()
 	}

@@ -562,11 +562,7 @@ async fn update_active_leaves<Sender>(
 ) where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
-	let ancestors = if let Some(ref leaf) = update.activated {
-		get_block_ancestors(sender, leaf.hash).await
-	} else {
-		None
-	};
+	let ancestors = get_block_ancestors(sender, update.activated.as_ref().map(|x| x.hash)).await;
 	if let Err(err) = validation_backend.update_active_leaves(update, ancestors).await {
 		gum::warn!(
 			target: LOG_TARGET,
@@ -583,43 +579,38 @@ where
 	match prospective_parachains_mode(sender, relay_parent).await {
 		Ok(ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. }) =>
 			Some(allowed_ancestry_len),
-		Ok(_) => {
-			gum::warn!(target: LOG_TARGET, "async backing is disabled");
-			None
-		},
-		Err(err) => {
-			gum::warn!(target: LOG_TARGET, ?err, "cannot request prospective parachains mode");
+		res => {
+			gum::warn!(target: LOG_TARGET, ?res, "async backing is disabled");
 			None
 		},
 	}
 }
 
-async fn get_block_ancestors<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<Vec<Hash>>
+async fn get_block_ancestors<Sender>(
+	sender: &mut Sender,
+	maybe_relay_parent: Option<Hash>,
+) -> Vec<Hash>
 where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
 {
+	let Some(relay_parent) = maybe_relay_parent else { return vec![] };
 	let Some(allowed_ancestry_len) = get_allowed_ancestry_len(sender, relay_parent).await else {
-		return None
+		return vec![]
 	};
 
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(ChainApiMessage::Ancestors {
 			hash: relay_parent,
-			k: allowed_ancestry_len + 1,
+			k: allowed_ancestry_len,
 			response_channel: tx,
 		})
 		.await;
-
 	match rx.await {
-		Ok(Ok(x)) => Some(x),
-		Ok(Err(err)) => {
-			gum::warn!(target: LOG_TARGET, ?err, "cannot request ancestors");
-			None
-		},
-		Err(err) => {
-			gum::warn!(target: LOG_TARGET, ?err, "cannot request ancestors");
-			None
+		Ok(Ok(x)) => x,
+		res => {
+			gum::warn!(target: LOG_TARGET, ?res, "cannot request ancestors");
+			vec![]
 		},
 	}
 }
@@ -771,10 +762,7 @@ async fn validate_candidate_exhaustive(
 
 	// We only check the session index for backing.
 	match (exec_kind, candidate_receipt.descriptor.session_index()) {
-		(
-			PvfExecKind::Backing { .. } | PvfExecKind::BackingSystemParas { .. },
-			Some(session_index),
-		) => {
+		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) => {
 			let Some(expected_session_index) = maybe_expected_session_index else {
 				let error = "cannot fetch session index from the runtime";
 				gum::warn!(
@@ -807,7 +795,7 @@ async fn validate_candidate_exhaustive(
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
-		PvfExecKind::Backing { .. } | PvfExecKind::BackingSystemParas { .. } => {
+		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
@@ -931,7 +919,7 @@ async fn validate_candidate_exhaustive(
 						// descriptor core index.
 						(
 							Some(_core_index),
-							PvfExecKind::Backing { .. } | PvfExecKind::BackingSystemParas { .. },
+							PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_),
 						) => {
 							let Some(claim_queue) = maybe_claim_queue else {
 								let error = "cannot fetch the claim queue from the runtime";
@@ -1129,7 +1117,7 @@ trait ValidationBackend {
 	async fn update_active_leaves(
 		&mut self,
 		update: ActiveLeavesUpdate,
-		ancestors: Option<Vec<Hash>>,
+		ancestors: Vec<Hash>,
 	) -> Result<(), String>;
 }
 
@@ -1185,7 +1173,7 @@ impl ValidationBackend for ValidationHost {
 	async fn update_active_leaves(
 		&mut self,
 		update: ActiveLeavesUpdate,
-		ancestors: Option<Vec<Hash>>,
+		ancestors: Vec<Hash>,
 	) -> Result<(), String> {
 		self.update_active_leaves(update, ancestors).await
 	}

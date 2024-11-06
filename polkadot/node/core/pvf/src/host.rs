@@ -152,7 +152,7 @@ impl ValidationHost {
 	pub async fn update_active_leaves(
 		&mut self,
 		update: ActiveLeavesUpdate,
-		ancestors: Option<Vec<Hash>>,
+		ancestors: Vec<Hash>,
 	) -> Result<(), String> {
 		self.to_host_tx
 			.send(ToHost::UpdateActiveLeaves { update, ancestors })
@@ -165,7 +165,7 @@ enum ToHost {
 	PrecheckPvf { pvf: PvfPrepData, result_tx: PrecheckResultSender },
 	ExecutePvf(ExecutePvfInputs),
 	HeadsUp { active_pvfs: Vec<PvfPrepData> },
-	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Option<Vec<Hash>> },
+	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Vec<Hash> },
 }
 
 struct ExecutePvfInputs {
@@ -877,7 +877,7 @@ async fn handle_prepare_done(
 async fn handle_update_active_leaves(
 	execute_queue: &mut mpsc::Sender<execute::ToQueue>,
 	update: ActiveLeavesUpdate,
-	ancestors: Option<Vec<Hash>>,
+	ancestors: Vec<Hash>,
 ) -> Result<(), Fatal> {
 	send_execute(execute_queue, execute::ToQueue::UpdateActiveLeaves { update, ancestors }).await
 }
@@ -1282,7 +1282,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov1.clone(),
 			Priority::Normal,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1295,7 +1295,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov1,
 			Priority::Critical,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1308,7 +1308,7 @@ pub(crate) mod tests {
 			pvd,
 			pov2,
 			Priority::Normal,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1458,7 +1458,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1507,7 +1507,7 @@ pub(crate) mod tests {
 			pvd,
 			pov,
 			Priority::Critical,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1618,7 +1618,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1650,7 +1650,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx_2,
 		)
 		.await
@@ -1674,7 +1674,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx_3,
 		)
 		.await
@@ -1733,7 +1733,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await
@@ -1765,7 +1765,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx_2,
 		)
 		.await
@@ -1789,7 +1789,7 @@ pub(crate) mod tests {
 			pvd.clone(),
 			pov.clone(),
 			Priority::Critical,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx_3,
 		)
 		.await
@@ -1864,7 +1864,7 @@ pub(crate) mod tests {
 			pvd,
 			pov,
 			Priority::Normal,
-			PvfExecKind::Backing { ttl: None },
+			PvfExecKind::Backing(H256::default()),
 			result_tx,
 		)
 		.await

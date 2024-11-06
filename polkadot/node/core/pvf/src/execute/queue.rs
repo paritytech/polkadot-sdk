@@ -36,9 +36,7 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{messages::PvfExecKind, ActiveLeavesUpdate};
-use polkadot_primitives::{
-	BlockNumber, ExecutorParams, ExecutorParamsHash, Hash, PersistedValidationData,
-};
+use polkadot_primitives::{ExecutorParams, ExecutorParamsHash, Hash, PersistedValidationData};
 use slotmap::HopSlotMap;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -60,7 +58,7 @@ slotmap::new_key_type! { struct Worker; }
 
 #[derive(Debug)]
 pub enum ToQueue {
-	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Option<Vec<Hash>> },
+	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Vec<Hash> },
 	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
 }
 
@@ -157,12 +155,6 @@ enum QueueEvent {
 
 type Mux = FuturesUnordered<BoxFuture<'static, QueueEvent>>;
 
-struct ActiveLeafWithAncestors {
-	hash: Hash,
-	number: BlockNumber,
-	ancestors: Vec<Hash>,
-}
-
 struct Queue {
 	metrics: Metrics,
 
@@ -183,8 +175,8 @@ struct Queue {
 	workers: Workers,
 	mux: Mux,
 
-	/// Active leaves to check the viability of backing jobs.
-	active_leaves: HashMap<Hash, ActiveLeafWithAncestors>,
+	/// Active leaves and their ancestors to check the viability of backing jobs.
+	active_leaves: HashMap<Hash, Vec<Hash>>,
 }
 
 impl Queue {
@@ -224,7 +216,7 @@ impl Queue {
 			futures::select! {
 				to_queue = self.to_queue_rx.next() => {
 					if let Some(to_queue) = to_queue {
-						handle_to_queue(&mut self, to_queue);
+						handle_to_queue(&mut self, to_queue).await;
 					} else {
 						break;
 					}
@@ -294,17 +286,6 @@ impl Queue {
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
 		let exec_kind = job.exec_kind;
 
-		if !self.is_job_relevant(exec_kind) {
-			let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
-			gum::warn!(
-				target: LOG_TARGET,
-				?priority,
-				?exec_kind,
-				"Job exceeded its deadline and was dropped without execution",
-			);
-			return self.try_assign_next_job(finished_worker);
-		}
-
 		if let Some(worker) = worker {
 			assign(self, worker, job);
 		} else {
@@ -314,36 +295,62 @@ impl Queue {
 		self.unscheduled.mark_scheduled(priority);
 	}
 
-	fn update_active_leaves(&mut self, update: ActiveLeavesUpdate, ancestors: Option<Vec<Hash>>) {
-		for hash in update.deactivated {
+	async fn update_active_leaves(&mut self, update: ActiveLeavesUpdate, ancestors: Vec<Hash>) {
+		self.prune_deactivated_leaves(&update);
+		self.insert_active_leaf(update, ancestors);
+		self.prune_old_jobs().await;
+	}
+
+	fn prune_deactivated_leaves(&mut self, update: &ActiveLeavesUpdate) {
+		for hash in &update.deactivated {
 			let _ = self.active_leaves.remove(&hash);
 		}
 
-		let Some(leaf) = update.activated else { return };
-		let ancestors = ancestors.unwrap_or_default();
-		let _ = self.active_leaves.insert(
-			leaf.hash,
-			ActiveLeafWithAncestors { hash: leaf.hash, number: leaf.number, ancestors },
-		);
+		gum::debug!(target: LOG_TARGET, size = ?self.active_leaves.len(), "Active leaves pruned");
 	}
 
-	fn is_job_relevant(&self, exec_kind: PvfExecKind) -> bool {
-		let Some(ttl) = exec_kind.ttl() else { return true };
-		let Some(current_block_number) = self
-			.active_leaves
-			.values()
-			.filter(|x| x.hash == ttl.relay_parent || x.ancestors.contains(&ttl.relay_parent))
-			.map(|x| x.number)
-			.min()
-			.or_else(|| {
-				gum::debug!(target: LOG_TARGET, ?ttl, "Relay parent of the execution job was not found among the ancestors of active leaves");
-				self.active_leaves.values().map(|x| x.number).min() // Use the earliest block number as the current one.
-			})
-		else {
-			return true
-		};
+	fn insert_active_leaf(&mut self, update: ActiveLeavesUpdate, ancestors: Vec<Hash>) {
+		let Some(leaf) = update.activated else { return };
+		let _ = self.active_leaves.insert(leaf.hash, ancestors);
+	}
 
-		current_block_number <= ttl.deadline
+	async fn prune_old_jobs(&mut self) {
+		for &priority in &[Priority::Backing, Priority::BackingSystemParas] {
+			let Some(queue) = self.unscheduled.get_mut(priority) else { continue };
+			let to_remove: Vec<usize> = queue
+				.iter()
+				.enumerate()
+				.filter_map(|(index, job)| {
+					let relay_parent = match job.exec_kind {
+						PvfExecKind::Backing(x) | PvfExecKind::BackingSystemParas(x) => x,
+						_ => return None,
+					};
+					let in_active_fork = self.active_leaves.iter().any(|(hash, ancestors)| {
+						*hash == relay_parent || ancestors.contains(&relay_parent)
+					});
+					if in_active_fork {
+						None
+					} else {
+						Some(index)
+					}
+				})
+				.collect();
+
+			for &index in to_remove.iter().rev() {
+				if index > queue.len() {
+					continue
+				}
+
+				let Some(job) = queue.remove(index) else { continue };
+				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
+				gum::warn!(
+					target: LOG_TARGET,
+					?priority,
+					exec_kind = ?job.exec_kind,
+					"Job exceeded its deadline and was dropped without execution",
+				);
+			}
+		}
 	}
 }
 
@@ -362,10 +369,10 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 	}
 }
 
-fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
+async fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	match to_queue {
 		ToQueue::UpdateActiveLeaves { update, ancestors } => {
-			queue.update_active_leaves(update, ancestors);
+			queue.update_active_leaves(update, ancestors).await;
 		},
 		ToQueue::Enqueue { artifact, pending_execution_request } => {
 			let PendingExecutionRequest {
@@ -736,8 +743,8 @@ impl From<PvfExecKind> for Priority {
 		match kind {
 			PvfExecKind::Dispute => Priority::Dispute,
 			PvfExecKind::Approval => Priority::Approval,
-			PvfExecKind::BackingSystemParas { .. } => Priority::BackingSystemParas,
-			PvfExecKind::Backing { .. } => Priority::Backing,
+			PvfExecKind::BackingSystemParas(_) => Priority::BackingSystemParas,
+			PvfExecKind::Backing(_) => Priority::Backing,
 		}
 	}
 }
@@ -884,7 +891,6 @@ impl Unscheduled {
 #[cfg(test)]
 mod tests {
 	use polkadot_node_primitives::BlockData;
-	use polkadot_node_subsystem::messages::ExecutionJobTtl;
 	use sp_core::H256;
 
 	use super::*;
@@ -1040,56 +1046,5 @@ mod tests {
 		}
 
 		assert_eq!(&priorities[..4], &[Approval, Backing, Approval, Approval]);
-	}
-
-	#[tokio::test]
-	async fn test_try_assign_next_job_restarts_on_exceeded_ttl() {
-		// Set up a queue, but without a real worker, we won't execute any jobs.
-		let (_, to_queue_rx) = mpsc::channel(1);
-		let (from_queue_tx, _) = mpsc::unbounded();
-		let mut queue = Queue::new(
-			Metrics::default(),
-			PathBuf::new(),
-			PathBuf::new(),
-			1,
-			Duration::from_secs(1),
-			None,
-			SecurityStatus::default(),
-			to_queue_rx,
-			from_queue_tx,
-		);
-		let exec_ttl = ExecutionJobTtl { deadline: 9, relay_parent: Hash::random() };
-		queue.active_leaves = HashMap::new();
-		let hash = Hash::random();
-		queue.active_leaves.insert(
-			hash,
-			ActiveLeafWithAncestors { hash, number: 10, ancestors: vec![exec_ttl.relay_parent] },
-		);
-
-		let mut result_rxs = vec![];
-		for _ in 0..10 {
-			let (result_tx, result_rx) = oneshot::channel();
-			// Job's TTL has already expired.
-			let expired_job = ExecuteJob {
-				artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
-				exec_timeout: Duration::from_secs(1),
-				exec_kind: PvfExecKind::Backing { ttl: Some(exec_ttl) },
-				pvd: Arc::new(PersistedValidationData::default()),
-				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
-				executor_params: ExecutorParams::default(),
-				result_tx,
-				waiting_since: Instant::now(),
-			};
-			queue.unscheduled.add(expired_job, Priority::Backing);
-			result_rxs.push(result_rx);
-		}
-
-		// We're trying to assign the next job only once.
-		queue.try_assign_next_job(None);
-
-		// But it recursively processes all jobs and drops them with an `ExecutionDeadline` error.
-		for rx in result_rxs {
-			assert!(matches!(rx.await, Ok(Err(ValidationError::ExecutionDeadline))));
-		}
 	}
 }

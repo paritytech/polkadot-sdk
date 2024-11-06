@@ -88,10 +88,10 @@ use polkadot_node_subsystem::{
 	messages::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
 		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
-		ExecutionJobTtl, HypotheticalCandidate, HypotheticalMembershipRequest,
-		IntroduceSecondedCandidateRequest, ProspectiveParachainsMessage, ProvisionableData,
-		ProvisionerMessage, PvfExecKind, RuntimeApiMessage, RuntimeApiRequest,
-		StatementDistributionMessage, StoreAvailableDataError,
+		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
+		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, PvfExecKind,
+		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
+		StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -113,9 +113,9 @@ use polkadot_primitives::{
 		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 	},
-	BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
-	SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
+	CandidateCommitments, CandidateHash, CoreIndex, ExecutorParams, GroupIndex, GroupRotationInfo,
+	Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData, SessionIndex,
+	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
 	ValidityAttestation,
 };
 use polkadot_statement_table::{
@@ -629,14 +629,11 @@ async fn request_candidate_validation(
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
-	allowed_ancestry_len: Option<usize>,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 	let is_system = candidate_receipt.descriptor.para_id().is_system();
-	let ttl = allowed_ancestry_len.map(|v| ExecutionJobTtl {
-		deadline: validation_data.relay_parent_number + v as BlockNumber,
-		relay_parent: candidate_receipt.descriptor.relay_parent(),
-	});
+	let relay_parent = candidate_receipt.descriptor.relay_parent();
+
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
 			validation_data,
@@ -645,9 +642,9 @@ async fn request_candidate_validation(
 			pov,
 			executor_params,
 			exec_kind: if is_system {
-				PvfExecKind::BackingSystemParas { ttl }
+				PvfExecKind::BackingSystemParas(relay_parent)
 			} else {
-				PvfExecKind::Backing { ttl }
+				PvfExecKind::Backing(relay_parent)
 			},
 			response_sender: tx,
 		})
@@ -686,7 +683,6 @@ async fn validate_and_make_available(
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Sync,
 	>,
 	core_index: CoreIndex,
-	allowed_ancestry_len: Option<usize>,
 ) -> Result<(), Error> {
 	let BackgroundValidationParams {
 		mut sender,
@@ -763,7 +759,6 @@ async fn validate_and_make_available(
 			candidate.clone(),
 			pov.clone(),
 			executor_params,
-			allowed_ancestry_len,
 		)
 		.await?
 	};
@@ -1822,18 +1817,10 @@ async fn background_validate_and_make_available<Context>(
 ) -> Result<(), Error> {
 	let candidate_hash = params.candidate.hash();
 	let Some(core_index) = rp_state.assigned_core else { return Ok(()) };
-	let mode = rp_state.prospective_parachains_mode;
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			let allowed_ancestry_len = match mode {
-				ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. } =>
-					Some(allowed_ancestry_len),
-				_ => None,
-			};
-			if let Err(error) =
-				validate_and_make_available(params, core_index, allowed_ancestry_len).await
-			{
+			if let Err(error) = validate_and_make_available(params, core_index).await {
 				if let Error::BackgroundValidationMpsc(error) = error {
 					gum::debug!(
 						target: LOG_TARGET,
