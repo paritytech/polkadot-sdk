@@ -750,7 +750,7 @@ pub fn update_code_in_json_chain_spec(chain_spec: &mut json::Value, code: &[u8])
 			code: &'a [u8],
 		}
 		let code_patch = json::json!({"genesis":{"runtimeGenesis": Container { code }}});
-		crate::json_patch::merge_preserve_keys(chain_spec, code_patch);
+		crate::json_patch::merge(chain_spec, code_patch);
 		true
 	} else if json_contains_path(&chain_spec, &mut raw_path) {
 		#[derive(Serialize)]
@@ -759,7 +759,7 @@ pub fn update_code_in_json_chain_spec(chain_spec: &mut json::Value, code: &[u8])
 			code: &'a [u8],
 		}
 		let code_patch = json::json!({"genesis":{"raw":{"top": Container { code }}}});
-		crate::json_patch::merge_preserve_keys(chain_spec, code_patch);
+		crate::json_patch::merge(chain_spec, code_patch);
 		true
 	} else {
 		false
@@ -773,7 +773,7 @@ pub fn set_code_substitute_in_json_chain_spec(
 	block_height: u64,
 ) {
 	let substitutes = json::json!({"codeSubstitutes":{ &block_height.to_string(): sp_core::bytes::to_hex(code, false) }});
-	crate::json_patch::merge_preserve_keys(chain_spec, substitutes);
+	crate::json_patch::merge(chain_spec, substitutes);
 }
 
 #[cfg(test)]
@@ -898,7 +898,7 @@ mod tests {
 			)
 		};
 		assert!(json_contains_path(&json, &mut path));
-		crate::json_patch::merge_preserve_keys(&mut json, zeroing_patch);
+		crate::json_patch::merge(&mut json, zeroing_patch);
 		json
 	}
 

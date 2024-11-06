@@ -638,7 +638,7 @@ fn patch_genesis(mut input_value: Value, para_id: Option<u32>) -> Value {
 	// This ensures compatibility with the inherents that we provide to successfully build a
 	// block.
 	if let Some(para_id) = para_id {
-		sc_chain_spec::json_patch::merge_preserve_keys(
+		sc_chain_spec::json_patch::merge(
 			&mut input_value,
 			json!({
 				"parachainInfo": {
