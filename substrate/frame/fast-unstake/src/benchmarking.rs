@@ -98,7 +98,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_idle_unstake(b: Linear<1, { T::BatchSize::get() }>) {
-		// on_idle. we don't check anyone, but fully unbond them.
+		// on_idle: When we don't check anyone, but fully unbond them.
 
 		ErasToCheckPerBlock::<T>::put(1);
 		for who in create_unexposed_batch::<T>(b).into_iter() {
@@ -107,7 +107,7 @@ mod benchmarks {
 			));
 		}
 
-		// run on_idle once. This will check era 0.
+		// Run on_idle once. This will check era 0.
 		assert_eq!(Head::<T>::get(), None);
 		on_idle_full_block::<T>();
 
@@ -133,7 +133,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_idle_check(v: Linear<1, 256>, b: Linear<1, { T::BatchSize::get() }>) {
-		// on_idle, when we check some number of eras and the queue is already set.
+		// on_idle: When we check some number of eras and the queue is already set.
 
 		let u = T::MaxErasToCheckPerBlock::get().min(T::Staking::bonding_duration());
 
