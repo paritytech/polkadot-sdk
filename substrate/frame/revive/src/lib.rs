@@ -1332,27 +1332,19 @@ where
 			},
 		};
 
-		// Use a big enough gas price to ensure that the encoded size is large enough.
-		let gas: BalanceOf<T> =
-			(pallet_transaction_payment::Pallet::<T>::weight_to_fee(Weight::MAX) /
-				GAS_PRICE.into())
-			.into();
-
-		// Get the encoded size of the transaction.
 		let mut tx = TransactionLegacyUnsigned {
 			value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
 			input: input.into(),
 			nonce: nonce.into(),
 			chain_id: Some(T::ChainId::get().into()),
 			gas_price: GAS_PRICE.into(),
-			gas: gas.into(),
 			to: dest,
 			..Default::default()
 		};
 
 		// The transaction fees depend on the extrinsic's length, which in turn is influenced by
-		// the encoded length of the gas limit specified in the transaction.
-		// We iteratively compute the fee by adjusting the gas until the fee stabilizes.
+		// the encoded length of the gas limit specified in the transaction (tx.gas).
+		// We iteratively compute the fee by adjusting tx.gas until the fee stabilizes.
 		// with a maximum of 3 iterations to avoid an infinite loop.
 		for _ in 0..3 {
 			let eth_dispatch_call = crate::Call::<T>::eth_transact {
@@ -1369,6 +1361,7 @@ where
 			.into();
 
 			if fee == result.fee {
+				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} fee: {fee:?}");
 				break;
 			}
 			result.fee = fee;

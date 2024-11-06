@@ -65,18 +65,6 @@ bun src/script.ts
 
 ### Configure MetaMask
 
-See the doc [here](https://contracts.polkadot.io/connect-to-asset-hub) for more
+See the doc [here](https://contracts.polkadot.io/work-with-a-local-node#metemask-configuration) for more
 information on how to configure MetaMask.
 
-#### Import Dev account
-
-You will need to import the following account, endowed with some balance at genesis, to interact with the chain.
-See [this guide][import-account] for more info on how to import an account.
-
-- Account: `0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac`
-- Private Key: `5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133`
-
-[MetaMask]: https://metamask.io
-[add-network]: https://support.metamask.io/networks-and-sidechains/managing-networks/how-to-add-a-custom-network-rpc/#adding-a-network-manually
-[import-account]: https://support.metamask.io/managing-my-wallet/accounts-and-addresses/how-to-import-an-account/
-[reset-account]: https://support.metamask.io/managing-my-wallet/resetting-deleting-and-restoring/how-to-clear-your-account-activity-reset-account
