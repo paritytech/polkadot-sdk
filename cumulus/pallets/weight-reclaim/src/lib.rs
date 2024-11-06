@@ -203,7 +203,7 @@ where
 		// The consumed proof size as measured by the host.
 		let measured_proof_size = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
 
-		// The consumed weight as benchamrked.
+		// The consumed weight as benchmarked.
 		// NOTE: `calc_actual_weight` will take the minimum of `post_info` and `info` weights.
 		// This means any underestimation of compute time in the pre dispatch info will not be
 		// taken into account.
