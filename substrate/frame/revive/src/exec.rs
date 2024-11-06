@@ -1118,7 +1118,13 @@ where
 				frame.nested_storage.enforce_limit(contract)?;
 			}
 
-			let frame = self.top_frame();
+			let frame = self.top_frame_mut();
+
+			// If a special limit was set for the sub-call, we enforce it here.
+			// The sub-call will be rolled back in case the limit is exhausted.
+			let contract = frame.contract_info.as_contract();
+			frame.nested_storage.enforce_subcall_limit(contract)?;
+
 			let account_id = T::AddressMapper::to_address(&frame.account_id);
 			match (entry_point, delegated_code_hash) {
 				(ExportedFunction::Constructor, _) => {
@@ -1127,15 +1133,7 @@ where
 						return Err(Error::<T>::TerminatedInConstructor.into());
 					}
 
-					// If a special limit was set for the sub-call, we enforce it here.
-					// This is needed because contract constructor might write to storage.
-					// The sub-call will be rolled back in case the limit is exhausted.
-					let frame = self.top_frame_mut();
-					let contract = frame.contract_info.as_contract();
-					frame.nested_storage.enforce_subcall_limit(contract)?;
-
 					let caller = T::AddressMapper::to_address(self.caller().account_id()?);
-
 					// Deposit an instantiation event.
 					Contracts::<T>::deposit_event(Event::Instantiated {
 						deployer: caller,
@@ -1149,12 +1147,6 @@ where
 					});
 				},
 				(ExportedFunction::Call, None) => {
-					// If a special limit was set for the sub-call, we enforce it here.
-					// The sub-call will be rolled back in case the limit is exhausted.
-					let frame = self.top_frame_mut();
-					let contract = frame.contract_info.as_contract();
-					frame.nested_storage.enforce_subcall_limit(contract)?;
-
 					let caller = self.caller();
 					Contracts::<T>::deposit_event(Event::Called {
 						caller: caller.clone(),
