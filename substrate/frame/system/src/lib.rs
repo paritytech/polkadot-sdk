@@ -2217,8 +2217,8 @@ impl<T: Config> Pallet<T> {
 
 		if already_reclaimed != accurate_reclaim {
 			crate::BlockWeight::<T>::mutate(|current_weight| {
-				current_weight.accrue(already_reclaimed, info.class);
-				current_weight.reduce(accurate_reclaim, info.class);
+				let to_reclaim = accurate_reclaim.saturating_sub(already_reclaimed);
+				current_weight.reduce(to_reclaim, info.class);
 			});
 			crate::ExtrinsicWeightReclaimed::<T>::put(accurate_reclaim);
 		}
