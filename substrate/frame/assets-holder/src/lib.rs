@@ -90,21 +90,21 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		// `who`s balance on hold was increased by `amount`.
+		/// `who`s balance on hold was increased by `amount`.
 		Held {
 			who: T::AccountId,
 			asset_id: T::AssetId,
 			reason: T::RuntimeHoldReason,
 			amount: T::Balance,
 		},
-		// `who`s balance on hold was decreased by `amount`.
+		/// `who`s balance on hold was decreased by `amount`.
 		Released {
 			who: T::AccountId,
 			asset_id: T::AssetId,
 			reason: T::RuntimeHoldReason,
 			amount: T::Balance,
 		},
-		// `who`s balance on hold was burned by `amount`.
+		/// `who`s balance on hold was burned by `amount`.
 		Burned {
 			who: T::AccountId,
 			asset_id: T::AssetId,
