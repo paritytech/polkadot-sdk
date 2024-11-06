@@ -149,7 +149,7 @@ where
 	/// Please note that the patch may contain full `RuntimeGenesisConfig`.
 	pub fn get_storage_for_patch(&self, patch: Value) -> core::result::Result<Storage, String> {
 		let mut config = self.get_default_config()?;
-		crate::json_patch::merge_preserve_keys(&mut config, patch);
+		crate::json_patch::merge(&mut config, patch);
 		self.get_storage_for_config(config)
 	}
 
