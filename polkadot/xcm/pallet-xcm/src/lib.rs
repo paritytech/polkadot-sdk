@@ -1468,6 +1468,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let aliaser: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin, ?aliaser);
 			ensure!(origin != aliaser, Error::<T>::BadLocation);
 			let v_origin = VersionedLocation::from(origin);
 			let v_aliaser = VersionedLocation::from(aliaser);
@@ -1490,6 +1491,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let to_remove: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin, ?to_remove);
 			ensure!(origin != to_remove, Error::<T>::BadLocation);
 			let v_origin = VersionedLocation::from(origin);
 			let v_to_remove = VersionedLocation::from(to_remove);
@@ -3515,16 +3517,10 @@ impl<L: Into<VersionedLocation> + Clone, T: Config> ContainsPair<L, L> for Autho
 	fn contains(origin: &L, target: &L) -> bool {
 		let origin: VersionedLocation = origin.clone().into();
 		let target: VersionedLocation = target.clone().into();
-		AuthorizedAliasesMap::<T>::get(&origin).contains(&target)
+		tracing::trace!(target: "xcm::pallet_xcm::AuthorizedAliases::contains", ?origin, ?target);
+		AuthorizedAliasesMap::<T>::get(&target).contains(&origin)
 	}
 }
-// pub struct AuthorizedAliases<T>(PhantomData<T>);
-// impl<T: Config> ContainsPair<Location, Location> for AuthorizedAliases<T> {
-// 	fn contains(origin: &Location, target: &Location) -> bool {
-// 		let target = VersionedLocation::from(target.clone());
-// 		AuthorizedAliasesMap::<T>::get(&origin).contains(&target)
-// 	}
-// }
 
 /// Filter for `Location` to find those which represent a strict majority approval of an
 /// identified plurality.
