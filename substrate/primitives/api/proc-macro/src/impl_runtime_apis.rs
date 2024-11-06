@@ -918,7 +918,7 @@ mod tests {
 			syn::parse2::<RuntimeApiImpls>(code).unwrap();
 
 		// Run the renamer which is being run first in the `impl_runtime_apis!` macro.
-		rename_self_in_trait_impls(&mut api_impls).expect("Will succeed");
+		rename_self_in_trait_impls(&mut api_impls);
 		let result: TokenStream = quote::quote! {  #(#api_impls)* };
 
 		assert_eq!(result.to_string(), expected.to_string());
