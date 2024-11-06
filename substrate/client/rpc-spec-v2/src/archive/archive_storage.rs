@@ -19,7 +19,7 @@
 //! Implementation of the `archive_storage` method.
 
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap},
 	sync::Arc,
 };
 
@@ -300,8 +300,6 @@ where
 		items: Vec<DiffDetails>,
 		tx: &mpsc::Sender<ArchiveStorageDiffEvent>,
 	) -> Result<(), String> {
-		let mut keys_set = HashSet::new();
-
 		// Parse the child trie key as `ChildInfo` and `String`.
 		let maybe_child_trie = items.first().and_then(|item| item.child_trie_key.clone());
 		let maybe_child_trie_str =
@@ -312,6 +310,9 @@ where
 
 		// Iterator over the previous block.
 		//
+		// The hashmap contains the keys and a boolean to indicate if the key is present in the
+		// current hash. This information is later used to determine if the key has been deleted.
+		//
 		// Note: `Itertools::contains` consumes the iterator until the given key is found,
 		// therefore we may lose keys and iterate over the previous block twice for deleted keys.
 		//
@@ -319,13 +320,16 @@ where
 		// keys_iter: [0, 1, 2]
 		// previous_keys_iter: [1, 2, 3]
 		//  -> the `previous_keys_iter` is entirely consumed while searching for `0`.
-		let previous_keys_iter: indexmap::IndexMap<_, _> = self
+		let mut previous_keys_iter: indexmap::IndexMap<_, _> = self
 			.client
 			.raw_keys_iter(previous_hash, maybe_child_trie.clone())?
-			.map(|key| (key, ()))
+			.map(|key| (key, false))
 			.collect();
 
 		for key in keys_iter {
+			// Mark the key as present if it exists in the previous block.
+			previous_keys_iter.entry(key.clone()).and_modify(|e| *e = true);
+
 			let Some(fetch_type) = Self::starts_with(&key, &items) else {
 				// The key does not start with any of the provided items.
 				continue;
@@ -337,8 +341,6 @@ where
 				// There is no storage result for the key.
 				continue
 			};
-
-			keys_set.insert(key.clone());
 
 			// The key is not present in the previous state.
 			if !previous_keys_iter.contains_key(&key) {
@@ -377,11 +379,13 @@ where
 			}
 		}
 
-		for previous_key in previous_keys_iter.into_keys() {
-			if keys_set.contains(&previous_key) {
-				continue
-			}
+		// Iterate over the keys of the previous block that are not found in the current block.
+		let deleted_keys =
+			previous_keys_iter
+				.into_iter()
+				.filter_map(|(key, present)| if !present { Some(key) } else { None });
 
+		for previous_key in deleted_keys {
 			let Some(fetch_type) = Self::starts_with(&previous_key, &items) else {
 				continue;
 			};
