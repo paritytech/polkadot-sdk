@@ -77,16 +77,16 @@ pub(crate) mod pallet {
 	/// A wrapper type of the storage items related to the queued solution.
 	///
 	/// It manages the following storage types:
-	///
+	///∂
 	/// - [`QueuedSolutionX`]: variant X of the queued solution.
 	/// - [`QueuedSolutionY`]: variant Y of the queued solution.
 	/// - [`QueuedValidVariant`]: pointer to which variant is the currently valid.
-	/// - [`QueuedSolutionScore`]: the soltution score of the current valid variant.
+	/// - [`QueuedSolutionScore`]: the solution score of the current valid variant.
 	/// - [`QueuedSolutionBackings`].
 	///
 	/// Note that, as an async verification is progressing, the paged solution is kept in the
 	/// invalid variant storage. A solution is considered valid only when all the single page and
-	/// full solution checks have been perform based on the stored [`QueuedSolutionBackings`]. for
+	/// full solution checks have been performed based on the stored [`QueuedSolutionBackings`]. for
 	/// the corresponding in-verification solution. After the solution verification is successful,
 	/// the election score can be calculated and stored.
 	///

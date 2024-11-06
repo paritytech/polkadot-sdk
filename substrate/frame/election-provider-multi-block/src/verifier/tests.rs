@@ -165,9 +165,98 @@ mod feasibility_check {
 mod sync_verifier {
 	use super::*;
 
-	#[test]
-	fn sync_verifier_simple_works() {
-		ExtBuilder::default().build_and_execute(|| {})
+	mod verify_synchronous {
+		use sp_runtime::traits::Bounded;
+
+		use super::*;
+
+		#[test]
+		fn given_better_solution_stores_provided_page_as_valid_solution() {
+			ExtBuilder::default().pages(1).build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+				let solution = mine_full(0).unwrap();
+
+				// empty solution storage items before verification
+				assert!(<VerifierPallet as Verifier>::next_missing_solution_page().is_some());
+				assert!(QueuedSolutionBackings::<Runtime>::get(0).is_none());
+				assert!(match QueuedSolution::<Runtime>::invalid() {
+					SolutionPointer::X => QueuedSolutionX::<T>::get(0),
+					SolutionPointer::Y => QueuedSolutionY::<T>::get(0),
+				}
+				.is_none());
+
+				assert_ok!(<VerifierPallet as Verifier>::verify_synchronous(
+					solution.solution_pages[0].clone(),
+					solution.score,
+					0,
+				));
+
+				// solution storage items filled after verification
+				assert!(QueuedSolutionBackings::<Runtime>::get(0).is_some());
+				assert_eq!(<VerifierPallet as Verifier>::next_missing_solution_page(), None);
+				assert!(match QueuedSolution::<Runtime>::invalid() {
+					SolutionPointer::X => QueuedSolutionX::<T>::get(0),
+					SolutionPointer::Y => QueuedSolutionY::<T>::get(0),
+				}
+				.is_some());
+			})
+		}
+
+		#[test]
+		fn returns_error_if_score_quality_is_lower_than_expected() {
+			ExtBuilder::default().pages(1).build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+
+				// a solution already stored
+				let score =
+					ElectionScore { minimal_stake: u128::max_value(), ..Default::default() };
+				QueuedSolution::<T>::finalize_solution(score);
+
+				let solution = mine_full(0).unwrap();
+				assert_err!(
+					<VerifierPallet as Verifier>::verify_synchronous(
+						solution.solution_pages[0].clone(),
+						solution.score,
+						0,
+					),
+					FeasibilityError::ScoreTooLow
+				);
+			})
+		}
+
+		#[test]
+		fn returns_error_if_solution_fails_feasibility_check() {
+			ExtBuilder::default().build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+
+				let solution = mine_full(0).unwrap();
+				let _ = crate::PagedVoterSnapshot::<Runtime>::clear(u32::MAX, None);
+				assert_err!(
+					<VerifierPallet as Verifier>::verify_synchronous(
+						solution.solution_pages[0].clone(),
+						solution.score,
+						0,
+					),
+					FeasibilityError::SnapshotUnavailable
+				);
+			})
+		}
+
+		#[test]
+		fn returns_error_if_computed_score_is_different_than_provided() {
+			ExtBuilder::default().build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+				let solution = mine_full(0).unwrap();
+				assert_err!(
+					<VerifierPallet as Verifier>::verify_synchronous(
+						solution.solution_pages[0].clone(),
+						solution.score,
+						0,
+					),
+					FeasibilityError::InvalidScore
+				);
+			})
+		}
 	}
 
 	#[test]
