@@ -10,5 +10,3 @@ crates:
   bump: major
 - name: sc-chain-spec
   bump: major
-- name: frame-benchmarking-cli
-  bump: major
