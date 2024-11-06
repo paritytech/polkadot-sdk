@@ -75,7 +75,7 @@ pub fn get_chain_spec_with_extra_endowed(
 
 	if let Some(id) = id {
 		// Merge parachain ID if given, otherwise use the one from the preset.
-		sc_chain_spec::json_merge(
+		sc_chain_spec::json_patch::merge_preserve_keys(
 			&mut patch_json,
 			json!({
 				"parachainInfo": {
@@ -85,7 +85,7 @@ pub fn get_chain_spec_with_extra_endowed(
 		);
 	};
 
-	sc_chain_spec::json_merge(&mut development_preset, patch_json.into());
+	sc_chain_spec::json_patch::merge_preserve_keys(&mut development_preset, patch_json.into());
 
 	ChainSpec::builder(
 		code,

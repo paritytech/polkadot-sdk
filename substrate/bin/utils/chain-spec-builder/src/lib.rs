@@ -420,7 +420,7 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		});
 		let mut chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
 			.map_err(|e| format!("deserialization a json failed {e}"))?;
-		json_patch::merge(&mut chain_spec_json_blob, parachain_properties);
+		json_patch::merge_preserve_keys(&mut chain_spec_json_blob, parachain_properties);
 		Ok(serde_json::to_string_pretty(&chain_spec_json_blob)
 			.map_err(|e| format!("to pretty failed: {e}"))?)
 	} else {
