@@ -27,6 +27,7 @@ sp-state-machine = { workspace = true, default-features = true }
 trybuild = { workspace = true }
 rustversion = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+sp-metadata-ir = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
