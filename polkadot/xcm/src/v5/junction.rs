@@ -111,6 +111,9 @@ pub const WESTEND_GENESIS_HASH: [u8; 32] =
 pub const ROCOCO_GENESIS_HASH: [u8; 32] =
 	hex!["6408de7737c59c238890533af25896a2c20608d8b380bb01029acb392781063e"];
 
+/// Dummy genesis hash used instead of defunct networks like Wococo (and soon Rococo).
+pub const DUMMY_GENESIS_HASH: [u8; 32] = [0; 32];
+
 /// A global identifier of a data structure existing within consensus.
 ///
 /// Maintenance note: Networks with global consensus and which are practically bridgeable within the
@@ -169,7 +172,7 @@ impl From<OldNetworkId> for NetworkId {
 			Kusama => Self::Kusama,
 			Westend => Self::ByGenesis(WESTEND_GENESIS_HASH),
 			Rococo => Self::ByGenesis(ROCOCO_GENESIS_HASH),
-			Wococo => unimplemented!(),
+			Wococo => Self::ByGenesis(DUMMY_GENESIS_HASH),
 			Ethereum { chain_id } => Self::Ethereum { chain_id },
 			BitcoinCore => Self::BitcoinCore,
 			BitcoinCash => Self::BitcoinCash,
