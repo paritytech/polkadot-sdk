@@ -2000,7 +2000,7 @@ impl_runtime_apis! {
 				fn fee_asset() -> Result<Asset, BenchmarkError> {
 					Ok(Asset {
 						id: AssetId(WestendLocation::get()),
-						fun: Fungible(1_000_000 * UNITS),
+						fun: Fungible(1_000 * UNITS),
 					})
 				}
 

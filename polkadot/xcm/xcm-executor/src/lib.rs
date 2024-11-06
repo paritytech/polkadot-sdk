@@ -197,6 +197,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	pub fn asset_claimer(&self) -> Option<Location> {
 		self.asset_claimer.clone()
 	}
+	pub fn set_message_weight(&mut self, weight: Weight) {
+		self.message_weight = weight;
+	}
 }
 
 pub struct WeighedMessage<Call>(Weight, Xcm<Call>);
@@ -1298,9 +1301,22 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				result
 			},
 			PayFees { asset } => {
+				// Message was not weighed, there is nothing to pay.
+				if self.message_weight == Weight::zero() {
+					tracing::warn!(
+						target: "xcm::executor::PayFees",
+						"Message was not weighed or weight was 0. Nothing will be charged.",
+					);
+					return Ok(());
+				}
 				// Record old holding in case we need to rollback.
 				let old_holding = self.holding.clone();
 				// The max we're willing to pay for fees is decided by the `asset` operand.
+				tracing::trace!(
+					target: "xcm::executor::PayFees",
+					asset_for_fees = ?asset,
+					message_weight = ?self.message_weight,
+				);
 				let max_fee =
 					self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
 				// Pay for execution fees.
