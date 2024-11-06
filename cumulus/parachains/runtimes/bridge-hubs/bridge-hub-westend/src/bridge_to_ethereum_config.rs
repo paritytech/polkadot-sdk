@@ -231,9 +231,9 @@ pub mod benchmark_helpers {
 }
 
 pub(crate) mod migrations {
+	use alloc::vec::Vec;
 	use frame_support::pallet_prelude::*;
 	use snowbridge_core::TokenId;
-	use alloc::vec::Vec;
 
 	#[frame_support::storage_alias]
 	pub type OldNativeToForeignId<T: snowbridge_pallet_system::Config> = StorageMap<
@@ -245,9 +245,7 @@ pub(crate) mod migrations {
 	>;
 
 	/// One shot migration for NetworkId::Westend to NetworkId::ByGenesis(WESTEND_GENESIS_HASH)
-	pub struct MigrationForXcmV5<T: snowbridge_pallet_system::Config>(
-		core::marker::PhantomData<T>,
-	);
+	pub struct MigrationForXcmV5<T: snowbridge_pallet_system::Config>(core::marker::PhantomData<T>);
 	impl<T: snowbridge_pallet_system::Config> frame_support::traits::OnRuntimeUpgrade
 		for MigrationForXcmV5<T>
 	{
