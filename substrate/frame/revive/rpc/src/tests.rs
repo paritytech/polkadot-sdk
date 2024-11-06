@@ -18,14 +18,14 @@
 
 use crate::{
 	cli::{self, CliCommand},
-	example::{send_transaction, wait_for_successful_receipt},
+	example::{wait_for_successful_receipt, TransactionBuilder},
 	EthRpcClient,
 };
 use clap::Parser;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
-	evm::{Account, BlockTag, Bytes, U256},
+	evm::{Account, BlockTag, U256},
 };
 use std::thread;
 use substrate_cli_test_utils::*;
@@ -84,8 +84,7 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	assert_eq!(U256::zero(), ethan_balance);
 
 	let value = 1_000_000_000_000_000_000_000u128.into();
-	let hash =
-		send_transaction(&account, &client, value, Bytes::default(), Some(ethan.address())).await?;
+	let hash = TransactionBuilder::new().value(value).to(ethan.address()).send(&client).await?;
 
 	let receipt = wait_for_successful_receipt(&client, hash).await?;
 	assert_eq!(
@@ -103,7 +102,7 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let hash = send_transaction(&account, &client, value, input.into(), None).await?;
+	let hash = TransactionBuilder::new().value(value).input(input).send(&client).await?;
 	let receipt = wait_for_successful_receipt(&client, hash).await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	assert_eq!(
@@ -116,7 +115,10 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	assert_eq!(value, balance, "Contract balance should be the same as the value sent.");
 
 	// Call contract
-	let hash = send_transaction(&account, &client, value, Bytes::default(), Some(contract_address))
+	let hash = TransactionBuilder::new()
+		.value(value)
+		.to(contract_address)
+		.send(&client)
 		.await?;
 	let receipt = wait_for_successful_receipt(&client, hash).await?;
 
@@ -131,7 +133,10 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 
 	// Balance transfer to contract
 	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	let hash = send_transaction(&account, &client, value, Bytes::default(), Some(contract_address))
+	let hash = TransactionBuilder::new()
+		.value(value)
+		.to(contract_address)
+		.send(&client)
 		.await?;
 
 	wait_for_successful_receipt(&client, hash).await?;

@@ -26,7 +26,7 @@ use crate::{
 };
 use codec::Encode;
 use futures::{stream, StreamExt};
-use jsonrpsee::types::{ErrorCode, ErrorObjectOwned};
+use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	create1,
 	evm::{
@@ -149,14 +149,13 @@ pub enum ClientError {
 	CacheEmpty,
 }
 
-const GENERIC_ERROR_CODE: ErrorCode = ErrorCode::ServerError(-32000);
-
-// TODO use https://eips.ethereum.org/EIPS/eip-1474#error-codes
-// Convert a `ClientError` to an RPC `ErrorObjectOwned`.
+// TODO use
+// TODO convert error code to https://eips.ethereum.org/EIPS/eip-1474#error-codes
+// Once we can downcast subxt error: https://github.com/paritytech/subxt/pull/1843
 impl From<ClientError> for ErrorObjectOwned {
-	fn from(value: ClientError) -> Self {
-		log::debug!(target: LOG_TARGET, "ClientError: {value:?}");
-		ErrorObjectOwned::owned::<()>(GENERIC_ERROR_CODE.code(), value.to_string(), None)
+	fn from(err: ClientError) -> Self {
+		log::debug!(target: LOG_TARGET, "ClientError: {err:?}");
+		ErrorObjectOwned::owned::<()>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
 	}
 }
 

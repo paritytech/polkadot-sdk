@@ -20,7 +20,7 @@ use pallet_revive::{
 	evm::{Account, BlockTag, Bytes, ReceiptInfo, U256},
 };
 use pallet_revive_eth_rpc::{
-	example::{send_transaction, wait_for_receipt},
+	example::{wait_for_receipt, TransactionBuilder},
 	EthRpcClient,
 };
 
@@ -41,9 +41,11 @@ async fn main() -> anyhow::Result<()> {
 	println!("\n\n=== Deploying contract ===\n\n");
 
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let hash =
-		send_transaction(&account, &client, 5_000_000_000_000u128.into(), input.into(), None)
-			.await?;
+	let hash = TransactionBuilder::new()
+		.value(5_000_000_000_000u128.into())
+		.input(input)
+		.send(&client)
+		.await?;
 
 	println!("Deploy Tx hash: {hash:?}");
 	let ReceiptInfo { block_number, gas_used, contract_address, .. } =
@@ -60,14 +62,11 @@ async fn main() -> anyhow::Result<()> {
 	println!("- Contract balance: {balance:?}");
 
 	println!("\n\n=== Calling contract ===\n\n");
-	let hash = send_transaction(
-		&account,
-		&client,
-		U256::from(1_000_000u32),
-		Bytes::default(),
-		Some(contract_address),
-	)
-	.await?;
+	let hash = TransactionBuilder::new()
+		.value(U256::from(1_000_000u32))
+		.to(contract_address)
+		.send(&client)
+		.await?;
 
 	println!("Contract call tx hash: {hash:?}");
 	let ReceiptInfo { block_number, gas_used, to, .. } = wait_for_receipt(&client, hash).await?;
