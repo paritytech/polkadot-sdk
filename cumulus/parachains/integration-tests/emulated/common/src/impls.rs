@@ -63,7 +63,7 @@ use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 	MessageKey, OutboundLaneData,
 };
-pub use bp_xcm_bridge_hub::XcmBridgeHubCall;
+pub use bp_xcm_bridge_hub::{Receiver, XcmBridgeHubCall};
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LaneIdOf, OutboundLanes, Pallet};
 pub use pallet_bridge_messages::{
 	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,
@@ -938,7 +938,8 @@ macro_rules! impl_bridge_helpers_for_chain {
 				pub fn open_bridge(
 					bridge_location: $crate::impls::Location,
 					bridge_destination_universal_location: $crate::impls::InteriorLocation,
-					maybe_paid: Option<($crate::impls::Asset, $crate::impls::AccountId)>
+					maybe_paid: Option<($crate::impls::Asset, $crate::impls::AccountId)>,
+					maybe_notify: Option<$crate::impls::Receiver>,
 				) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						use $crate::impls::{bx, Chain};
@@ -952,7 +953,8 @@ macro_rules! impl_bridge_helpers_for_chain {
 						let call: $crate::impls::DoubleEncoded<()> = $runtime_call_wrapper(XcmBridgeHubCall::open_bridge {
 							bridge_destination_universal_location: bx!(
 								bridge_destination_universal_location.clone().into()
-							)
+							),
+							maybe_notify,
 						}).encode().into();
 
 						let xcm = if let Some((fee_asset, beneficiary)) = maybe_paid {

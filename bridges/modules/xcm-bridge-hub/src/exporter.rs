@@ -405,7 +405,7 @@ mod tests {
 			}
 
 			// open bridge
-			assert_ok!(XcmOverBridge::do_open_bridge(locations.clone(), lane_id, true));
+			assert_ok!(XcmOverBridge::do_open_bridge(locations.clone(), lane_id, true, None));
 		}
 		assert_ok!(XcmOverBridge::do_try_state());
 

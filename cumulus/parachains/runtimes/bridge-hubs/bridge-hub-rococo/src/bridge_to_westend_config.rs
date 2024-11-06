@@ -360,6 +360,7 @@ pub mod migration {
 		ConstBool<false>,
 		AssetHubRococoLocation,
 		AssetHubWestendUniversalLocation,
+		(),
 	>;
 
 	mod v1_wrong {

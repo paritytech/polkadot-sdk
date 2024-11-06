@@ -68,8 +68,9 @@ impl<T: Config<I>, I: 'static> bp_xcm_bridge_hub::LocalXcmChannelManager<BridgeI
 	}
 }
 
+/// Adapter implementation for `ExporterFor` that allows exporting message size fee and/or dynamic fees based on the `BridgeId` resolved by the `T::BridgeIdResolver` resolver, if and only if the `E` exporter supports bridging.
+/// This adapter acts as an `ExporterFor`, for example, for the `SovereignPaidRemoteExporter`, enabling it to compute message and/or dynamic fees using a fee factor.
 pub struct ViaRemoteBridgeHubExporter<T, I, E, BNF, BHLF>(PhantomData<(T, I, E, BNF, BHLF)>);
-
 impl<T: Config<I>, I: 'static, E, BridgedNetworkIdFilter, BridgeHubLocationFilter> ExporterFor
 	for ViaRemoteBridgeHubExporter<T, I, E, BridgedNetworkIdFilter, BridgeHubLocationFilter>
 where
@@ -187,6 +188,50 @@ where
 	}
 }
 
+/// Adapter implementation for `SendXcm` that allows adding a message size fee and/or dynamic fees based on the `BridgeId` resolved by the `T::BridgeIdResolver` resolver,
+/// if and only if `E` supports routing.
+/// This adapter can be used, for example, as a wrapper over `UnpaidLocalExporter`, enabling it to compute message and/or dynamic fees using a fee factor.
+pub struct ViaLocalBridgeHubExporter<T, I, E>(PhantomData<(T, I, E)>);
+impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeHubExporter<T, I, E> {
+	type Ticket = E::Ticket;
+
+	fn validate(destination: &mut Option<Location>, message: &mut Option<Xcm<()>>) -> SendResult<Self::Ticket> {
+		let dest_clone = destination.clone().ok_or(SendError::MissingArgument)?;
+		let message_size = message.as_ref().map_or(0, |message|message.encoded_size()) as _;
+
+		match E::validate(destination, message) {
+			Ok((ticket, mut fees)) => {
+				// calculate message size fees (if configured)
+				let maybe_message_size_fees = Pallet::<T, I>::calculate_message_size_fees(|| message_size);
+				if let Some(message_size_fees) = maybe_message_size_fees {
+					fees.push(message_size_fees);
+				}
+
+				// Here, we have the actual result fees covering bridge fees, so now we need to check/apply
+				// the congestion and dynamic_fees features (if possible).
+				if let Some(bridge_id) = T::BridgeIdResolver::resolve_for_dest(&dest_clone) {
+					if let Some(bridge_state) = Bridges::<T, I>::get(bridge_id) {
+						let mut dynamic_fees = sp_std::vec::Vec::with_capacity(fees.len());
+						for fee in fees.into_inner() {
+							dynamic_fees.push(Pallet::<T, I>::calculate_dynamic_fees_for_asset(&bridge_state, fee));
+						}
+						fees = Assets::from(dynamic_fees);
+					}
+				}
+
+				// return original ticket with possibly extended fees
+				Ok((ticket, fees))
+			}
+			e => e
+		}
+	}
+
+	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		E::deliver(ticket)
+	}
+}
+
+
 /// Implementation of `ResolveBridgeId` returning `bp_xcm_bridge_hub::BridgeId` based on the
 /// configured `UniversalLocation` and remote universal location.
 pub struct EnsureIsRemoteBridgeIdResolver<UniversalLocation>(PhantomData<UniversalLocation>);
@@ -224,7 +269,7 @@ impl<UniversalLocation: Get<InteriorLocation>> ResolveBridgeId
 			}
 		} else {
 			// if `bridged_dest` does not contain `GlobalConsensus`, let's prepend one
-			match bridged_dest.clone().pushed_front_with(bridged_network.clone()) {
+			match bridged_dest.clone().pushed_front_with(*bridged_network) {
 				Ok(bridged_universal_location) => bridged_universal_location,
 				Err((original, prepend_with)) => {
 					log::error!(

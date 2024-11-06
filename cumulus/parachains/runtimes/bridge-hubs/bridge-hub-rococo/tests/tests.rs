@@ -328,7 +328,7 @@ mod bridge_hub_westend_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]), None)
 					}
 				).1
 			},
@@ -392,7 +392,7 @@ mod bridge_hub_westend_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance,
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]), None)
 					},
 				)
 				.1
@@ -426,7 +426,7 @@ mod bridge_hub_westend_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance,
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]), None)
 					},
 				)
 				.1
@@ -595,7 +595,7 @@ mod bridge_hub_bulletin_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance
-						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap(), None)
 					}
 				).1
 			},
@@ -658,7 +658,7 @@ mod bridge_hub_bulletin_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap(), None)
 					},
 				)
 				.1
@@ -691,7 +691,7 @@ mod bridge_hub_bulletin_tests {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap(), None)
 					},
 				)
 				.1

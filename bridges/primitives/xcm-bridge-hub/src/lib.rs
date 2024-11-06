@@ -187,7 +187,7 @@ pub struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
 
 /// Receiver metadata.
 #[derive(
-	CloneNoBound, Decode, Encode, Eq, PartialEqNoBound, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound,
+	CloneNoBound, Decode, Encode, Eq, PartialEqNoBound, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound, Serialize, Deserialize,
 )]
 pub struct Receiver {
 	/// Pallet index.

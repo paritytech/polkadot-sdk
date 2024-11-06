@@ -249,7 +249,7 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 					|locations, fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime, XcmOverBridgeHubRococoInstance
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, fee, LegacyLaneId([0, 0, 0, 1]), None)
 					}
 				).1
 			},
@@ -311,7 +311,7 @@ fn relayed_incoming_message_works() {
 					bridge_hub_test_utils::open_bridge_with_storage::<
 						Runtime,
 						XcmOverBridgeHubRococoInstance,
-					>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					>(locations, fee, LegacyLaneId([0, 0, 0, 1]), None)
 				},
 			)
 			.1
@@ -345,7 +345,7 @@ fn free_relay_extrinsic_works() {
 					bridge_hub_test_utils::open_bridge_with_storage::<
 						Runtime,
 						XcmOverBridgeHubRococoInstance,
-					>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					>(locations, fee, LegacyLaneId([0, 0, 0, 1]), None)
 				},
 			)
 			.1

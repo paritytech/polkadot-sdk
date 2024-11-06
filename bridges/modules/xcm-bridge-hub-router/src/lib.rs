@@ -14,18 +14,36 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A pallet that can be used instead of `SovereignPaidRemoteExporter` (or others) in the XCM router
-//! configuration. The main feature this pallet offers is a dynamic message fee,
-//! which is computed based on the state of the bridge queues. The fee increases exponentially
-//! if the queue between this chain and the sibling or child bridge hub becomes congested.
+//! A pallet that can be used as an alternative in the XCM router configuration — see the `SendXcm` implementation for details.
 //!
-//! All other bridge hub queues offer backpressure mechanisms, so if any of these
-//! queues are congested, it will eventually lead to increased queuing on this chain.
+//! ## Features
 //!
-//! **Note on Terminology**: When we refer to the bridge hub here, we mean the chain that
-//! has the `pallet-bridge-messages` with an `ExportXcm` implementation deployed, e.g., provided by
-//! `pallet-xcm-bridge-hub`. Depending on the deployment setup, `T::ToBridgeHubSender` can be
-//! configured accordingly - see `T::ToBridgeHubSender` for more documentation.
+//! This pallet offers several optional features to customize functionality:
+//!
+//! ### Message Size Fee
+//! An optional fee based on `T::FeeAsset` and `T::ByteFee`. If `T::FeeAsset` is not specified, this fee is not calculated.
+//!
+//! ### Dynamic Fees and Congestion
+//!
+//! This pallet supports storing the congestion status of bridge outbound queues. The fee increases exponentially if the queue between this chain and a sibling or child bridge hub becomes congested. All other bridge hub queues provide backpressure mechanisms, so if any of these queues are congested, it will eventually lead to increased queuing on this chain.
+//!
+//! There are two methods for storing congestion status:
+//! 1. A dedicated extrinsic `report_bridge_status`, which relies on `T::BridgeHubOrigin`. This allows the message exporter to send, for example, an XCM `Transact`.
+//! 2. An implementation of `bp_xcm_bridge_hub::LocalXcmChannelManager`.
+//!
+//! ## Usage
+//!
+//! This pallet provides several implementations, such as `ViaLocalBridgeHubExporter` and `ViaRemoteBridgeHubExporter`, which can expose or access these features.
+//!
+//! This router can be used in two main scenarios, depending on where the router and message exporter (e.g., `pallet_xcm_bridge_hub` or another pallet with an `ExportXcm` implementation) are deployed:
+//!
+//! ### On the Same Chain as the Message Exporter
+//! In this setup, the router directly calls an `ExportXcm` implementation. In this case, `ViaLocalBridgeHubExporter` can be used as a wrapper with `T::ToBridgeHubSender`.
+//!
+//! ### On a Different Chain than the Message Exporter
+//! In this setup, we need to provide a `SendXcm` implementation for `T::ToBridgeHubSender`, which sends `ExportMessage`. For example, `SovereignPaidRemoteExporter` can be used with `ViaRemoteBridgeHubExporter`.
+//!
+//! **Note on Terminology**: When we refer to the bridge hub, we mean the chain that has the `pallet-bridge-messages` with an `ExportXcm` implementation deployed, such as `pallet-xcm-bridge-hub`. Depending on the deployment setup, `T::ToBridgeHubSender` can be configured accordingly—see `T::ToBridgeHubSender` for additional documentation.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

@@ -16,7 +16,7 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::{Config, Pallet, LOG_TARGET};
+use crate::{Config, Pallet, LOG_TARGET, Receiver};
 use frame_support::{
 	traits::{Get, OnRuntimeUpgrade, StorageVersion},
 	weights::Weight,
@@ -38,6 +38,7 @@ pub struct OpenBridgeForLane<
 	CreateLane,
 	SourceRelativeLocation,
 	BridgedUniversalLocation,
+	MaybeNotifyRelativeLocation,
 >(
 	core::marker::PhantomData<(
 		T,
@@ -46,6 +47,7 @@ pub struct OpenBridgeForLane<
 		CreateLane,
 		SourceRelativeLocation,
 		BridgedUniversalLocation,
+		MaybeNotifyRelativeLocation,
 	)>,
 );
 impl<
@@ -55,19 +57,22 @@ impl<
 		CreateLane: Get<bool>,
 		SourceRelativeLocation: Get<Location>,
 		BridgedUniversalLocation: Get<InteriorLocation>,
+		MaybeNotifyRelativeLocation: Get<Option<Receiver>>,
 	> OnRuntimeUpgrade
-	for OpenBridgeForLane<T, I, Lane, CreateLane, SourceRelativeLocation, BridgedUniversalLocation>
+	for OpenBridgeForLane<T, I, Lane, CreateLane, SourceRelativeLocation, BridgedUniversalLocation, MaybeNotifyRelativeLocation>
 {
 	fn on_runtime_upgrade() -> Weight {
 		let bridge_origin_relative_location = SourceRelativeLocation::get();
 		let bridge_destination_universal_location = BridgedUniversalLocation::get();
 		let lane_id = Lane::get();
 		let create_lane = CreateLane::get();
+		let maybe_notify = MaybeNotifyRelativeLocation::get();
 		log::info!(
 			target: LOG_TARGET,
 			"OpenBridgeForLane - going to open bridge with lane_id: {lane_id:?} (create_lane: {create_lane:?}) \
 			between bridge_origin_relative_location: {bridge_origin_relative_location:?} and \
-			bridge_destination_universal_location: {bridge_destination_universal_location:?}",
+			bridge_destination_universal_location: {bridge_destination_universal_location:?} \
+			maybe_notify: {maybe_notify:?}",
 		);
 
 		let locations = match Pallet::<T, I>::bridge_locations(
@@ -103,7 +108,7 @@ impl<
 			return T::DbWeight::get().reads(2)
 		}
 
-		if let Err(e) = Pallet::<T, I>::do_open_bridge(locations, lane_id, create_lane) {
+		if let Err(e) = Pallet::<T, I>::do_open_bridge(locations, lane_id, create_lane, maybe_notify) {
 			log::error!(target: LOG_TARGET, "OpenBridgeForLane - do_open_bridge failed with error: {e:?}");
 			T::DbWeight::get().reads(6)
 		} else {

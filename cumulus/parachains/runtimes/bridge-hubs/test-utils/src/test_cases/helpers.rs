@@ -471,6 +471,7 @@ pub fn open_bridge_with_extrinsic<Runtime, XcmOverBridgePalletInstance>(
 		bridge_destination_universal_location: Box::new(
 			locations.bridge_destination_universal_location().clone().into(),
 		),
+		maybe_notify: None,
 	});
 
 	// execute XCM as source origin would do with `Transact -> Origin::Xcm`
@@ -488,6 +489,7 @@ pub fn open_bridge_with_storage<Runtime, XcmOverBridgePalletInstance>(
 	locations: BridgeLocations,
 	_buy_execution_fee: Asset,
 	lane_id: pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>,
+	maybe_notify: Option<pallet_xcm_bridge_hub::Receiver>,
 ) where
 	Runtime: pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>,
 	XcmOverBridgePalletInstance: 'static,
@@ -497,7 +499,8 @@ pub fn open_bridge_with_storage<Runtime, XcmOverBridgePalletInstance>(
 		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::do_open_bridge(
 			Box::new(locations),
 			lane_id,
-			true
+			true,
+			maybe_notify,
 		)
 	);
 }

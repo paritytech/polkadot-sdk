@@ -307,5 +307,6 @@ pub mod migration {
 		ConstBool<true>,
 		PeopleRococoLocation,
 		BulletinRococoLocation,
+		(),
 	>;
 }

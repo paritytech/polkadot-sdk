@@ -16,6 +16,7 @@
 
 //! Defines structures related to calls of the `pallet-xcm-bridge-hub` pallet.
 
+use crate::Receiver;
 use bp_messages::MessageNonce;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -31,6 +32,8 @@ pub enum XcmBridgeHubCall {
 	open_bridge {
 		/// Universal `InteriorLocation` from the bridged consensus.
 		bridge_destination_universal_location: Box<VersionedInteriorLocation>,
+		/// Optional `maybe_notify` holds data about the `bridge_origin_relative_location` where notifications can be sent to handle congestion.
+		maybe_notify: Option<Receiver>,
 	},
 	/// `pallet_xcm_bridge_hub::Call::close_bridge`
 	#[codec(index = 1)]

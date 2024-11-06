@@ -33,7 +33,7 @@ fn bridge_hub_westend_genesis(
 	id: ParaId,
 	bridges_pallet_owner: Option<AccountId>,
 	asset_hub_para_id: ParaId,
-	opened_bridges: Vec<(Location, InteriorLocation, Option<bp_messages::LegacyLaneId>)>,
+	opened_bridges: Vec<(Location, InteriorLocation, Option<bp_messages::LegacyLaneId>, Option<pallet_xcm_bridge_hub::Receiver>)>,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
@@ -88,6 +88,7 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 					Parachain(1000),
 				]),
 				Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
+				None,
 			)],
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => bridge_hub_westend_genesis(

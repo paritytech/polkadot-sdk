@@ -247,6 +247,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type ToBridgeHubSender = SovereignPaidRemoteExporter<
 		pallet_xcm_bridge_hub_router::impls::ViaRemoteBridgeHubExporter<
 			TestRuntime,
+			// () - means `pallet_xcm_bridge_hub_router::Config<()>`
 			(),
 			NetworkExportTable<BridgeTable>,
 			BridgedRelayNetwork,
@@ -271,9 +272,13 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 pub type XcmOverBridgeByExportXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance2;
 #[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
 impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeByExportXcmRouterInstance> for TestRuntime {
-	// We use `UnpaidLocalExporter` here to test and ensure that `pallet_xcm_bridge_hub_router` can
+	// We use `UnpaidLocalExporter` with `ViaLocalBridgeHubExporter` here to test and ensure that `pallet_xcm_bridge_hub_router` can
 	// trigger directly `pallet_xcm_bridge_hub` as exporter.
-	type ToBridgeHubSender = UnpaidLocalExporter<XcmOverBridge, UniversalLocation>;
+	type ToBridgeHubSender = pallet_xcm_bridge_hub_router::impls::ViaLocalBridgeHubExporter<
+		TestRuntime,
+		XcmOverBridgeByExportXcmRouterInstance,
+		UnpaidLocalExporter<XcmOverBridge, UniversalLocation>
+	>;
 
 	type BridgeIdResolver =
 		pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
