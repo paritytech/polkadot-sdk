@@ -602,13 +602,11 @@ where
 		return None
 	};
 
-	// The depth of two allowed lengths should be sufficient to track non-viable backing jobs.
-	let ancestors_number = 2 * allowed_ancestry_len;
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(ChainApiMessage::Ancestors {
 			hash: relay_parent,
-			k: ancestors_number,
+			k: allowed_ancestry_len + 1,
 			response_channel: tx,
 		})
 		.await;

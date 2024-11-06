@@ -336,7 +336,7 @@ impl Queue {
 			.map(|x| x.number)
 			.min()
 			.or_else(|| {
-				gum::warn!(target: LOG_TARGET, ?ttl, "Relay parent of the execution job was not found among the ancestors of active leaves");
+				gum::debug!(target: LOG_TARGET, ?ttl, "Relay parent of the execution job was not found among the ancestors of active leaves");
 				self.active_leaves.values().map(|x| x.number).min() // Use the earliest block number as the current one.
 			})
 		else {
