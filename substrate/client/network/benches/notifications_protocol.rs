@@ -89,7 +89,7 @@ pub fn create_network_worker(
 	(worker, notification_service)
 }
 
-async fn run_consistently(size: usize, limit: usize) {
+async fn run_serially(size: usize, limit: usize) {
 	let mut received_counter = 0;
 	let listen_address1 = get_listen_address();
 	let listen_address2 = get_listen_address();
@@ -226,7 +226,7 @@ fn run_benchmark(c: &mut Criterion) {
 			BenchmarkId::new("consistently", label),
 			&(size, NOTIFICATIONS),
 			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| run_consistently(size, limit));
+				b.to_async(&rt).iter(|| run_serially(size, limit));
 			},
 		);
 		group.bench_with_input(
