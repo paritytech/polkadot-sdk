@@ -229,3 +229,26 @@ pub mod benchmark_helpers {
 		}
 	}
 }
+pub(crate) mod migrations {
+	use frame_support::pallet_prelude::*;
+	use snowbridge_core::TokenId;
+
+	#[frame_support::storage_alias]
+	pub type OldNativeToForeignId<T: snowbridge_pallet_system::Config> = StorageMap<snowbridge_pallet_system::Pallet<T>, Blake2_128Concat, xcm::v4::Location, TokenId, OptionQuery>;
+
+	/// One shot migration for NetworkId::Westend to NetworkId::ByGenesis(WESTEND_GENESIS_HASH)
+	pub struct MigrationForXcmV5<T: snowbridge_pallet_system::Config>(sp_std::marker::PhantomData<T>);
+	impl<T: snowbridge_pallet_system::Config> frame_support::traits::OnRuntimeUpgrade for MigrationForXcmV5<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+
+			let translate_westend =
+				|pre: xcm::v4::Location| -> Option<xcm::v5::Location> {
+					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+					Some(xcm::v5::Location::try_from(pre).expect("valid location"))
+				};
+			snowbridge_pallet_system::ForeignToNativeId::<T>::translate_values(translate_westend);
+			weight
+		}
+	}
+}
