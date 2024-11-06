@@ -46,11 +46,11 @@ use pallet_message_queue::OnQueueChanged;
 use polkadot_primitives::{
 	effective_minimum_backing_votes, supermajority_threshold,
 	vstaging::{
-		BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
+		skip_ump_signals, BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
 		CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
-	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Hash, HeadData,
+	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, HeadData,
 	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
 	ValidatorIndex, ValidityAttestation,
 };
@@ -161,16 +161,6 @@ impl<H, N> CandidatePendingAvailability<H, N> {
 		self.relay_parent_number.clone()
 	}
 
-	/// Get the candidate backing group.
-	pub(crate) fn backing_group(&self) -> GroupIndex {
-		self.backing_group
-	}
-
-	/// Get the candidate's backers.
-	pub(crate) fn backers(&self) -> &BitVec<u8, BitOrderLsb0> {
-		&self.backers
-	}
-
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub(crate) fn new(
 		core: CoreIndex,
@@ -205,24 +195,6 @@ pub trait RewardValidators {
 	// Validators are sent to this hook when they have contributed to the availability
 	// of a candidate by setting a bit in their bitfield.
 	fn reward_bitfields(validators: impl IntoIterator<Item = ValidatorIndex>);
-}
-
-/// Helper return type for `process_candidates`.
-#[derive(Encode, Decode, PartialEq, TypeInfo)]
-#[cfg_attr(test, derive(Debug))]
-pub(crate) struct ProcessedCandidates<H = Hash> {
-	pub(crate) core_indices: Vec<(CoreIndex, ParaId)>,
-	pub(crate) candidate_receipt_with_backing_validator_indices:
-		Vec<(CandidateReceipt<H>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
-}
-
-impl<H> Default for ProcessedCandidates<H> {
-	fn default() -> Self {
-		Self {
-			core_indices: Vec::new(),
-			candidate_receipt_with_backing_validator_indices: Vec::new(),
-		}
-	}
 }
 
 /// Reads the footprint of queues for a specific origin type.
@@ -440,11 +412,6 @@ pub(crate) enum UmpAcceptanceCheckErr {
 	TotalSizeExceeded { total_size: u64, limit: u64 },
 	/// A para-chain cannot send UMP messages while it is offboarding.
 	IsOffboarding,
-	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
-	/// Currenly only one such message is allowed.
-	TooManyUMPSignals { count: u32 },
-	/// The UMP queue contains an invalid `UMPSignal`
-	NoUmpSignal,
 }
 
 impl fmt::Debug for UmpAcceptanceCheckErr {
@@ -472,12 +439,6 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 			),
 			UmpAcceptanceCheckErr::IsOffboarding => {
 				write!(fmt, "upward message rejected because the para is off-boarding")
-			},
-			UmpAcceptanceCheckErr::TooManyUMPSignals { count } => {
-				write!(fmt, "the ump queue has too many `UMPSignal` messages ({} > 1 )", count)
-			},
-			UmpAcceptanceCheckErr::NoUmpSignal => {
-				write!(fmt, "Required UMP signal not found")
 			},
 		}
 	}
@@ -512,6 +473,14 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn cleanup_outgoing_ump_dispatch_queue(para: ParaId) {
 		T::MessageQueue::sweep_queue(AggregateMessageOrigin::Ump(UmpQueueId::Para(para)));
+	}
+
+	pub(crate) fn get_occupied_cores(
+	) -> impl Iterator<Item = (CoreIndex, CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>)>
+	{
+		PendingAvailability::<T>::iter_values().flat_map(|pending_candidates| {
+			pending_candidates.into_iter().map(|c| (c.core, c.clone()))
+		})
 	}
 
 	/// Extract the freed cores based on cores that became available.
@@ -640,12 +609,15 @@ impl<T: Config> Pallet<T> {
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
 		core_index_enabled: bool,
-	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
+	) -> Result<
+		Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
+		DispatchError,
+	>
 	where
 		GV: Fn(GroupIndex) -> Option<Vec<ValidatorIndex>>,
 	{
 		if candidates.is_empty() {
-			return Ok(ProcessedCandidates::default())
+			return Ok(Default::default())
 		}
 
 		let now = frame_system::Pallet::<T>::block_number();
@@ -654,7 +626,6 @@ impl<T: Config> Pallet<T> {
 		// Collect candidate receipts with backers.
 		let mut candidate_receipt_with_backing_validator_indices =
 			Vec::with_capacity(candidates.len());
-		let mut core_indices = Vec::with_capacity(candidates.len());
 
 		for (para_id, para_candidates) in candidates {
 			let mut latest_head_data = match Self::para_latest_head_data(para_id) {
@@ -708,7 +679,6 @@ impl<T: Config> Pallet<T> {
 				latest_head_data = candidate.candidate().commitments.head_data.clone();
 				candidate_receipt_with_backing_validator_indices
 					.push((candidate.receipt(), backer_idx_and_attestation));
-				core_indices.push((*core, *para_id));
 
 				// Update storage now
 				PendingAvailability::<T>::mutate(&para_id, |pending_availability| {
@@ -743,10 +713,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		Ok(ProcessedCandidates::<T::Hash> {
-			core_indices,
-			candidate_receipt_with_backing_validator_indices,
-		})
+		Ok(candidate_receipt_with_backing_validator_indices)
 	}
 
 	// Get the latest backed output head data of this para (including pending availability).
@@ -947,25 +914,7 @@ impl<T: Config> Pallet<T> {
 		upward_messages: &[UpwardMessage],
 	) -> Result<(), UmpAcceptanceCheckErr> {
 		// Filter any pending UMP signals and the separator.
-		let upward_messages = if let Some(separator_index) =
-			upward_messages.iter().position(|message| message.is_empty())
-		{
-			let (upward_messages, ump_signals) = upward_messages.split_at(separator_index);
-
-			if ump_signals.len() > 2 {
-				return Err(UmpAcceptanceCheckErr::TooManyUMPSignals {
-					count: ump_signals.len() as u32,
-				})
-			}
-
-			if ump_signals.len() == 1 {
-				return Err(UmpAcceptanceCheckErr::NoUmpSignal)
-			}
-
-			upward_messages
-		} else {
-			upward_messages
-		};
+		let upward_messages = skip_ump_signals(upward_messages.iter()).collect::<Vec<_>>();
 
 		// Cannot send UMP messages while off-boarding.
 		if paras::Pallet::<T>::is_offboarding(para) {
@@ -1019,10 +968,7 @@ impl<T: Config> Pallet<T> {
 	/// to deal with the messages as given. Messages that are too long will be ignored since such
 	/// candidates should have already been rejected in [`Self::check_upward_messages`].
 	pub(crate) fn receive_upward_messages(para: ParaId, upward_messages: &[Vec<u8>]) {
-		let bounded = upward_messages
-			.iter()
-			// Stop once we hit the `UMPSignal` separator.
-			.take_while(|message| !message.is_empty())
+		let bounded = skip_ump_signals(upward_messages.iter())
 			.filter_map(|d| {
 				BoundedSlice::try_from(&d[..])
 					.inspect_err(|_| {
@@ -1173,7 +1119,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns the first `CommittedCandidateReceipt` pending availability for the para provided, if
 	/// any.
-	pub(crate) fn candidate_pending_availability(
+	/// A para_id could have more than one candidates pending availability, if it's using elastic
+	/// scaling. These candidates form a chain. This function returns the first in the chain.
+	pub(crate) fn first_candidate_pending_availability(
 		para: ParaId,
 	) -> Option<CommittedCandidateReceipt<T::Hash>> {
 		PendingAvailability::<T>::get(&para).and_then(|p| {
@@ -1200,24 +1148,6 @@ impl<T: Config> Pallet<T> {
 					.collect()
 			})
 			.unwrap_or_default()
-	}
-
-	/// Returns the metadata around the first candidate pending availability for the
-	/// para provided, if any.
-	pub(crate) fn pending_availability(
-		para: ParaId,
-	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		PendingAvailability::<T>::get(&para).and_then(|p| p.get(0).cloned())
-	}
-
-	/// Returns the metadata around the candidate pending availability occupying the supplied core,
-	/// if any.
-	pub(crate) fn pending_availability_with_core(
-		para: ParaId,
-		core: CoreIndex,
-	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
-		PendingAvailability::<T>::get(&para)
-			.and_then(|p| p.iter().find(|c| c.core == core).cloned())
 	}
 }
 

@@ -18,7 +18,7 @@ use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::{
-	BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex, CoreState,
+	vstaging::CoreState, BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex,
 };
 use cumulus_relay_chain_interface::{
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
@@ -322,8 +322,8 @@ impl RelayChainInterface for Relaychain {
 		.to_vec();
 
 		Ok(RuntimeVersion {
-			spec_name: sp_version::create_runtime_str!("test"),
-			impl_name: sp_version::create_runtime_str!("test"),
+			spec_name: Cow::Borrowed("test"),
+			impl_name: Cow::Borrowed("test"),
 			authoring_version: 1,
 			spec_version: 1,
 			impl_version: 0,
@@ -532,7 +532,8 @@ fn make_candidate_chain(candidate_number_range: Range<u32>) -> Vec<CommittedCand
 				signature: collator.sign(&[0u8; 132]).into(),
 				para_head: PHash::zero(),
 				validation_code_hash: PHash::zero().into(),
-			},
+			}
+			.into(),
 			commitments: CandidateCommitments {
 				head_data: head_data.encode().into(),
 				upward_messages: vec![].try_into().expect("empty vec fits within bounds"),
