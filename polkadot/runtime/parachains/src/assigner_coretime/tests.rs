@@ -293,7 +293,6 @@ fn assign_core_enforces_higher_or_equal_block_number() {
 
 #[test]
 fn assign_core_enforces_well_formed_schedule() {
-	let para_id = ParaId::from(1u32);
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
