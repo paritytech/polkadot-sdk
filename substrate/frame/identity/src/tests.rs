@@ -26,7 +26,7 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Get, OnFinalize, OnInitialize, StoredMap},
+	traits::{fungible::Mutate, ConstU32, ConstU64, Get, OnFinalize, OnInitialize, StoredMap},
 	BoundedVec,
 };
 use frame_system::EnsureRoot;
