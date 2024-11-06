@@ -132,6 +132,36 @@ impl frame_system::ExtensionsWeightInfo for MockWeightInfo {
 	}
 }
 
+impl frame_system::WeightInfo for MockWeightInfo {
+	fn remark(_b: u32) -> Weight {
+		Weight::from_parts(400, 0)
+	}
+	fn set_code() -> Weight {
+		Weight::zero()
+	}
+	fn set_storage(_i: u32) -> Weight {
+		Weight::zero()
+	}
+	fn kill_prefix(_p: u32) -> Weight {
+		Weight::zero()
+	}
+	fn kill_storage(_i: u32) -> Weight {
+		Weight::zero()
+	}
+	fn set_heap_pages() -> Weight {
+		Weight::zero()
+	}
+	fn remark_with_event(_b: u32) -> Weight {
+		Weight::zero()
+	}
+	fn authorize_upgrade() -> Weight {
+		Weight::zero()
+	}
+	fn apply_authorized_upgrade() -> Weight {
+		Weight::zero()
+	}
+}
+
 impl crate::WeightInfo for MockWeightInfo {
 	fn storage_weight_reclaim() -> Weight {
 		STORAGE_WEIGHT_RECLAIM_WEIGHT.with_borrow(|v| *v)
@@ -434,7 +464,7 @@ fn test_incorporates_check_weight_unspent_weight_on_negative() {
 
 #[test]
 fn test_nothing_reclaimed() {
-	let mut test_ext = setup_test_externalities(&[100, 200]);
+	let mut test_ext = setup_test_externalities(&[0, 100]);
 
 	test_ext.execute_with(|| {
 		set_current_storage_weight(0);
@@ -458,7 +488,7 @@ fn test_nothing_reclaimed() {
 		assert_eq!(get_storage_weight().proof_size(), 250);
 
 		// Should return `setup_test_externalities` proof recorder value: 100.
-		assert_eq!(pre.0, Some(100));
+		assert_eq!(pre.0, Some(0));
 
 		// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 		// we always need to call `post_dispatch` to verify that they interoperate correctly.
@@ -519,9 +549,12 @@ fn full_basic_refund() {
 	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(36, mock_ext));
 	MOCK_EXT_REFUND.with_borrow_mut(|v| *v = Weight::from_parts(35, mock_ext_refund));
 
-	let initial_storage_weight = 1212;
+	let initial_storage_weight = 1212u64;
 
-	let mut test_ext = setup_test_externalities(&[3232, 3232 + actual_used_proof_size]);
+	let mut test_ext = setup_test_externalities(&[
+		initial_storage_weight as usize,
+		initial_storage_weight as usize + actual_used_proof_size,
+	]);
 
 	test_ext.execute_with(|| {
 		set_current_storage_weight(initial_storage_weight);
@@ -565,9 +598,12 @@ fn full_accrue() {
 	MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(36, mock_ext));
 	MOCK_EXT_REFUND.with_borrow_mut(|v| *v = Weight::from_parts(35, mock_ext_refund));
 
-	let initial_storage_weight = 1212;
+	let initial_storage_weight = 1212u64;
 
-	let mut test_ext = setup_test_externalities(&[3232, 3232 + actual_used_proof_size]);
+	let mut test_ext = setup_test_externalities(&[
+		initial_storage_weight as usize,
+		initial_storage_weight as usize + actual_used_proof_size,
+	]);
 
 	test_ext.execute_with(|| {
 		set_current_storage_weight(initial_storage_weight);
@@ -579,8 +615,6 @@ fn full_accrue() {
 		let post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
 
 		// Assertions:
-		let post_info_tx_proof_size =
-			check_weight + storage_weight_reclaim + mock_ext - mock_ext_refund;
 		assert_eq!(
 			post_info.actual_weight.unwrap().ref_time(),
 			call_info.call_weight.ref_time() + 3,
@@ -630,4 +664,69 @@ fn bare_is_reclaimed() {
 			Weight::from_parts(45 + 90, 45 + 90),
 		);
 	});
+}
+
+#[test]
+fn sets_to_node_storage_proof_if_higher() {
+	struct TestCfg {
+		initial_proof_size: u64,
+		post_dispatch_proof_size: u64,
+		mock_ext_proof_size: u64,
+		pre_dispatch_block_proof_size: u64,
+		assert_final_block_proof_size: u64,
+	}
+
+	let tests = vec![
+		// The storage proof reported by the proof recorder is higher than what is stored on
+		// the runtime side.
+		TestCfg {
+			initial_proof_size: 1000,
+			post_dispatch_proof_size: 1005,
+			mock_ext_proof_size: 0,
+			pre_dispatch_block_proof_size: 5,
+			// We expect that the storage weight was set to the node-side proof size (1005) +
+			// extrinsics length (150)
+			assert_final_block_proof_size: 1155,
+		},
+		// In this second scenario the proof size on the node side is only lower
+		// after reclaim happened.
+		TestCfg {
+			initial_proof_size: 175,
+			post_dispatch_proof_size: 180,
+			mock_ext_proof_size: 100,
+			pre_dispatch_block_proof_size: 85,
+			// After the pre_dispatch, the BlockWeight proof size will be
+			// 85 (initial) + 100 (benched) + 150 (tx length) = 335
+			//
+			// We expect that the storage weight was set to the node-side proof weight
+			// First we will reclaim 95 (mock ext reclaim), which leaves us with 240 BlockWeight.
+			// This is lower than 180 (proof size hf) + 150 (length).
+			// So we expect it to be set to 330.
+			assert_final_block_proof_size: 330,
+		},
+	];
+
+	for test in tests {
+		let mut test_ext = setup_test_externalities(&[
+			test.initial_proof_size as usize,
+			test.post_dispatch_proof_size as usize,
+		]);
+
+		CHECK_WEIGHT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(0, 0));
+		STORAGE_WEIGHT_RECLAIM_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(0, 0));
+		MOCK_EXT_WEIGHT.with_borrow_mut(|v| *v = Weight::from_parts(0, test.mock_ext_proof_size));
+
+		test_ext.execute_with(|| {
+			set_current_storage_weight(test.pre_dispatch_block_proof_size);
+
+			let extrinsic = new_extrinsic();
+			let call_info = extrinsic.function.get_dispatch_info();
+			assert_eq!(call_info.call_weight.proof_size(), 0);
+
+			let info = extrinsic.get_dispatch_info();
+			let _post_info = extrinsic.apply::<Test>(&info, LEN).unwrap().unwrap();
+
+			assert_eq!(get_storage_weight().proof_size(), test.assert_final_block_proof_size);
+		})
+	}
 }

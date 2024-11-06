@@ -230,6 +230,24 @@ where
 			current_weight.accrue(already_reclaimed, info.class);
 			current_weight.reduce(info.total_weight(), info.class);
 			current_weight.accrue(accurate_weight, info.class);
+
+			// If we encounter a situation where the node-side proof size is already higher than
+			// what we have in the runtime bookkeeping, we add the difference to the `BlockWeight`.
+			// This prevents that the proof size grows faster than the runtime proof size.
+			let extrinsic_len = frame_system::AllExtrinsicsLen::<T>::get().unwrap_or(0);
+			let node_side_pov_size = post_dispatch_proof_size.saturating_add(extrinsic_len.into());
+			let block_weight_proof_size = current_weight.total().proof_size();
+			let missing_from_node = node_side_pov_size.saturating_sub(block_weight_proof_size);
+			if missing_from_node > 0 {
+				log::warn!(
+					target: LOG_TARGET,
+					"Node-side PoV size higher than runtime proof size weight. node-side: \
+					{node_side_pov_size} extrinsic_len: {extrinsic_len} runtime: \
+					{block_weight_proof_size}, missing: {missing_from_node}. Setting to node-side \
+					proof size."
+				);
+				current_weight.accrue(Weight::from_parts(0, missing_from_node), info.class);
+			}
 		});
 
 		// The saturation will happen if the pre dispatch weight is underestimating the proof
