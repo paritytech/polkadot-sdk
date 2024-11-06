@@ -253,6 +253,6 @@ pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
 	// remove holds.
 	asset::kill_stake::<T>(&who).expect("remove hold failed");
 
-	// replicate old behaviour of explicitly increment consumer.
+	// replicate old behaviour of explicit increment of consumer.
 	frame_system::Pallet::<T>::inc_consumers(&who).expect("increment consumer failed");
 }

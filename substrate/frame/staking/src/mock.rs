@@ -461,7 +461,7 @@ impl ExtBuilder {
 				(101, self.balance_factor * 2000 + ed),
 				// aux accounts
 				(60, self.balance_factor),
-				(61, self.balance_factor * 2000),
+				(61, self.balance_factor * 2000 + ed),
 				(70, self.balance_factor),
 				(71, self.balance_factor * 2000),
 				(80, self.balance_factor),

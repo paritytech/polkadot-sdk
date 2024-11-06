@@ -28,7 +28,7 @@ use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	hypothetically,
 	pallet_prelude::*,
-	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency},
+	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency, fungible::Inspect},
 };
 
 use mock::*;
@@ -230,8 +230,7 @@ fn basic_setup_works() {
 		assert_eq!(active_era(), 0);
 
 		// Account 10 has `balance_factor` free balance
-		assert_eq!(asset::stakeable_balance::<Test>(&10), 1);
-		assert_eq!(asset::stakeable_balance::<Test>(&10), 1);
+		assert_eq!(Balances::balance(&10), 1);
 
 		// New era is not being forced
 		assert_eq!(Staking::force_era(), Forcing::NotForcing);
@@ -1002,14 +1001,14 @@ fn cannot_transfer_staked_balance() {
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		// Confirm account 11 is stashed
 		assert_eq!(Staking::bonded(&11), Some(11));
-		// Confirm account 11 has some free balance
+		// Confirm account 11 has some stakeable balance
 		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000);
-		// Confirm account 11 (via controller) is totally staked
+		// Confirm account 11 is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &11).total, 1000);
 		// Confirm account 11 cannot transfer as a result
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(11), 21, 1),
-			TokenError::FundsUnavailable,
+			TokenError::Frozen,
 		);
 
 		// Give account 11 extra free balance
@@ -1034,7 +1033,7 @@ fn cannot_transfer_staked_balance_2() {
 		// Confirm account 21 cannot transfer more than 1000
 		assert_noop!(
 			Balances::transfer_allow_death(RuntimeOrigin::signed(21), 21, 1001),
-			TokenError::FundsUnavailable,
+			TokenError::Frozen,
 		);
 		// Confirm account 21 needs to leave at least ED in free balance to be able to transfer
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(21), 21, 1000));
@@ -1047,12 +1046,13 @@ fn cannot_reserve_staked_balance() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Confirm account 11 is stashed
 		assert_eq!(Staking::bonded(&11), Some(11));
-		// Confirm account 11 has some free balance
+		// Confirm account 11 has some stakeable balance.
 		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000);
-		// Confirm account 11 (via controller 10) is totally staked
+		// Confirm account 11 is totally staked
 		assert_eq!(Staking::eras_stakers(active_era(), &11).own, 1000);
 		// Confirm account 11 cannot reserve as a result
-		assert_noop!(Balances::reserve(&11, 1), BalancesError::<Test, _>::InsufficientBalance);
+		assert_noop!(Balances::reserve(&11, 2), BalancesError::<Test, _>::InsufficientBalance);
+		assert_noop!(Balances::reserve(&11, 1), DispatchError::ConsumerRemaining);
 
 		// Give account 11 extra free balance
 		let _ = asset::set_stakeable_balance::<Test>(&11, 10000);
@@ -1305,11 +1305,12 @@ fn bond_extra_and_withdraw_unbonded_works() {
 		// Give account 11 some large free balance greater than total
 		let _ = asset::set_stakeable_balance::<Test>(&11, 1000000);
 
+		// ensure it has the correct balance.
+		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000000);
+
 		// Initial config should be correct
 		assert_eq!(active_era(), 0);
 
-		// check the balance of a validator accounts.
-		assert_eq!(asset::total_balance::<Test>(&11), 1000000);
 
 		// confirm that 10 is a normal validator and gets paid at the end of the era.
 		mock::start_active_era(1);
@@ -2921,7 +2922,8 @@ fn garbage_collection_after_slashing() {
 			// so we don't test those here.
 
 			assert_eq!(asset::stakeable_balance::<Test>(&11), 0);
-			assert_eq!(asset::total_balance::<Test>(&11), 0);
+			// Non staked balance is not touched.
+			assert_eq!(asset::total_balance::<Test>(&11), ExistentialDeposit::get());
 
 			let slashing_spans = SlashingSpans::<Test>::get(&11).unwrap();
 			assert_eq!(slashing_spans.iter().count(), 2);

@@ -41,7 +41,7 @@ pub fn total_issuance<T: Config>() -> BalanceOf<T> {
 	T::Currency::total_issuance()
 }
 
-/// Total balance of `who`. Includes both free and reserved.
+/// Total balance of `who`. Includes both free and staked.
 pub fn total_balance<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::total_balance(who)
 }
