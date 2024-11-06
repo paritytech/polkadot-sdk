@@ -2214,11 +2214,11 @@ impl<T: Config> Pallet<T> {
 		let already_reclaimed = crate::ExtrinsicWeightReclaimed::<T>::get();
 		let unspent = post_info.calc_unspent(info);
 		let accurate_reclaim = already_reclaimed.max(unspent);
-
-		if already_reclaimed != accurate_reclaim {
+		// Saturation never happens, we took the maximum above.
+		let to_reclaim_more = accurate_reclaim.saturating_sub(already_reclaimed);
+		if to_reclaim_more != Weight::zero() {
 			crate::BlockWeight::<T>::mutate(|current_weight| {
-				let to_reclaim = accurate_reclaim.saturating_sub(already_reclaimed);
-				current_weight.reduce(to_reclaim, info.class);
+				current_weight.reduce(to_reclaim_more, info.class);
 			});
 			crate::ExtrinsicWeightReclaimed::<T>::put(accurate_reclaim);
 		}
