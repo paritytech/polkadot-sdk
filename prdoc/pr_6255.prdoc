@@ -6,15 +6,23 @@ doc:
     child bounties from other parent bounties. This will allow for predictable indexes and the
     ability to batch creation and approval calls together.
 
-    - Introduces `ParentTotalChildBounties` storage item to keep the total child bounty count per
+    ### Migration for Runtime Pallet Instance
+    Use `migration::v1::MigrateToV1Impl` storage migration type to translate ids for the active
+    child bounties and migrate the state to the new schema.
+
+    ### Migration for Clients
+    - Use new `ParentTotalChildBounties` storage item to iterate over child bounties for a certain
     parent bounty;
-    - Translates `ChildBounties` keys from (parent_id, old_child_id) to (parent_id, new_child_id);
-    - Replaces `ChildBountyDescriptions` storage item by new `ChildBountyDescriptionsV1` storage
-    item indexed by (parent_id, child_id) instead of (child_id);
-    - `V0ToV1ChildBountyIds` storage item provides the old_child_id -> parent_id, new_child_id
-    mapping;
-    - Deprecates `ChildBountyCount` storage item which will be removed in May 2025;
-    - Provides the migration from v0 to new v1 storage version.
+    - Use new `ChildBountyDescriptionsV1` storage item to get the bounty description instead of
+    removed `ChildBountyDescriptions`;
+    - Use `V0ToV1ChildBountyIds` storage item to look up the new child bounty id for a given 
+    old child bounty id;
+    - Update the child bounty account id derivation from `PalletId + "cb" + child_id` to
+    `PalletId + "cb" + bounty_id + child_id`.
+
+    ### Additional Notes
+    - The `ChildBountyCount` storage item is deprecated and will be remove in May 2025.
+
 crates:
 - name: pallet-child-bounties
   bump: major
