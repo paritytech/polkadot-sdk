@@ -31,6 +31,7 @@ use syn::{
 	parse::{Error, Parse, ParseStream, Result},
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
+	visit_mut::{self, VisitMut},
 	Attribute, Ident, ImplItem, ItemImpl, Path, Signature, Type, TypePath,
 };
 
@@ -223,34 +224,34 @@ fn generate_wasm_interface(impls: &[ItemImpl]) -> Result<TokenStream> {
 	let c = generate_crate_access();
 
 	let impl_calls =
-		generate_impl_calls(impls, &input)?
-			.into_iter()
-			.map(|(trait_, fn_name, impl_, attrs)| {
-				let fn_name =
-					Ident::new(&prefix_function_with_trait(&trait_, &fn_name), Span::call_site());
+        generate_impl_calls(impls, &input)?
+            .into_iter()
+            .map(|(trait_, fn_name, impl_, attrs)| {
+                let fn_name =
+                    Ident::new(&prefix_function_with_trait(&trait_, &fn_name), Span::call_site());
 
-				quote!(
-					#c::std_disabled! {
-						#( #attrs )*
-						#[no_mangle]
-						#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
-						pub unsafe extern fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
-							let mut #input = if input_len == 0 {
-								&[0u8; 0]
-							} else {
-								unsafe {
-									::core::slice::from_raw_parts(input_data, input_len)
-								}
-							};
+                quote!(
+                    #c::std_disabled! {
+                        #( #attrs )*
+                        #[no_mangle]
+                        #[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
+                        pub unsafe extern fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
+                            let mut #input = if input_len == 0 {
+                                &[0u8; 0]
+                            } else {
+                                unsafe {
+                                    ::core::slice::from_raw_parts(input_data, input_len)
+                                }
+                            };
 
-							#c::init_runtime_logger();
+                            #c::init_runtime_logger();
 
-							let output = (move || { #impl_ })();
-							#c::to_substrate_wasm_fn_return_value(&output)
-						}
-					}
-				)
-			});
+                            let output = (move || { #impl_ })();
+                            #c::to_substrate_wasm_fn_return_value(&output)
+                        }
+                    }
+                )
+            });
 
 	Ok(quote!( #( #impl_calls )* ))
 }
@@ -392,10 +393,10 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 			impl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block>> RuntimeApiImpl<Block, C> {
 				fn commit_or_rollback_transaction(&self, commit: bool) {
 					let proof = "\
-					We only close a transaction when we opened one ourself.
-					Other parts of the runtime that make use of transactions (state-machine)
-					also balance their transactions. The runtime cannot close client initiated
-					transactions; qed";
+                    We only close a transaction when we opened one ourself.
+                    Other parts of the runtime that make use of transactions (state-machine)
+                    also balance their transactions. The runtime cannot close client initiated
+                    transactions; qed";
 
 					let res = if commit {
 						let res = if let Some(recorder) = &self.recorder {
@@ -736,8 +737,8 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 			let mut error = Error::new(
 				span,
 				"Two traits with the same name detected! \
-					The trait name is used to generate its ID. \
-					Please rename one trait at the declaration!",
+                    The trait name is used to generate its ID. \
+                    Please rename one trait at the declaration!",
 			);
 
 			error.combine(Error::new(other_span, "First trait implementation."));
@@ -783,17 +784,50 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 	))
 }
 
+/// replaces `Self` with explicit `ItemImpl.self_ty`.
+struct ReplaceSelfImpl {
+	self_ty: Box<Type>,
+}
+
+impl ReplaceSelfImpl {
+	/// Replace `Self` with `ItemImpl.self_ty`
+	fn replace(&mut self, trait_: &mut ItemImpl) {
+		visit_mut::visit_item_impl_mut(self, trait_)
+	}
+}
+
+impl VisitMut for ReplaceSelfImpl {
+	fn visit_type_mut(&mut self, ty: &mut syn::Type) {
+		match ty {
+			Type::Path(p) if p.path.is_ident("Self") => {
+				*ty = *self.self_ty.clone();
+			},
+			ty => syn::visit_mut::visit_type_mut(self, ty),
+		}
+	}
+}
+
+/// Rename `Self` to `ItemImpl.self_ty` in all items.
+fn rename_self_in_trait_impls(impls: &mut [ItemImpl]) {
+	impls.iter_mut().for_each(|i| {
+		let mut checker = ReplaceSelfImpl { self_ty: i.self_ty.clone() };
+		checker.replace(i);
+	});
+}
+
 /// The implementation of the `impl_runtime_apis!` macro.
 pub fn impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	// Parse all impl blocks
-	let RuntimeApiImpls { impls: api_impls } = parse_macro_input!(input as RuntimeApiImpls);
+	let RuntimeApiImpls { impls: mut api_impls } = parse_macro_input!(input as RuntimeApiImpls);
 
-	impl_runtime_apis_impl_inner(&api_impls)
+	impl_runtime_apis_impl_inner(&mut api_impls)
 		.unwrap_or_else(|e| e.to_compile_error())
 		.into()
 }
 
-fn impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
+fn impl_runtime_apis_impl_inner(api_impls: &mut [ItemImpl]) -> Result<TokenStream> {
+	rename_self_in_trait_impls(api_impls);
+
 	let dispatch_impl = generate_dispatch_function(api_impls)?;
 	let api_impls_for_runtime = generate_api_impl_for_runtime(api_impls)?;
 	let base_runtime_api = generate_runtime_api_base_structures()?;
@@ -858,5 +892,35 @@ mod tests {
 		assert_eq!(filtered.len(), 2);
 		assert_eq!(cfg_std, filtered[0]);
 		assert_eq!(cfg_benchmarks, filtered[1]);
+	}
+
+	#[test]
+	fn impl_trait_rename_self_param() {
+		let code = quote::quote! {
+			impl client::Core<Block> for Runtime {
+				fn initialize_block(header: &HeaderFor<Self>) -> Output<Self> {
+					let _: HeaderFor<Self> = header.clone();
+					example_fn::<Self>(header)
+				}
+			}
+		};
+		let expected = quote::quote! {
+			impl client::Core<Block> for Runtime {
+				fn initialize_block(header: &HeaderFor<Runtime>) -> Output<Runtime> {
+					let _: HeaderFor<Runtime> = header.clone();
+					example_fn::<Runtime>(header)
+				}
+			}
+		};
+
+		// Parse the items
+		let RuntimeApiImpls { impls: mut api_impls } =
+			syn::parse2::<RuntimeApiImpls>(code).unwrap();
+
+		// Run the renamer which is being run first in the `impl_runtime_apis!` macro.
+		rename_self_in_trait_impls(&mut api_impls);
+		let result: TokenStream = quote::quote! {  #(#api_impls)* };
+
+		assert_eq!(result.to_string(), expected.to_string());
 	}
 }
