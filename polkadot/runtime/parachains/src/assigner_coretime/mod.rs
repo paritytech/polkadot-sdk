@@ -35,7 +35,6 @@ use crate::{
 };
 
 use alloc::{vec, vec::Vec};
-use core::mem;
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
@@ -380,21 +379,21 @@ impl<T: Config> Pallet<T> {
 
 	/// Append another assignment for a core.
 	///
-	/// Important only appending is allowed or insertion into the last item is possible. Meaning,
-	/// all already existing assignments must have a begin smaller or equal than the one passed
-	/// here. This restriction exists, because it makes the insertion O(1) and the author could not
-	/// think of a reason, why this restriction should be causing any problems. Inserting
-	/// arbitrarily causes a `DispatchError::DisallowedInsert` error. This restriction could easily
-	/// be lifted if need be and in fact an implementation is available
-	/// [here](https://github.com/paritytech/polkadot-sdk/pull/1694/commits/c0c23b01fd2830910cde92c11960dad12cdff398#diff-0c85a46e448de79a5452395829986ee8747e17a857c27ab624304987d2dde8baR386).
-	/// The problem is that insertion complexity then depends on the size of the existing queue,
-	/// which makes determining weights hard and could lead to issues like overweight blocks (at
-	/// least in theory).
-	///
+	/// Important: Only appending is allowed or insertion into the last item. Meaning,
+	/// all already existing assignments must have a `begin` smaller or equal than the one passed
+	/// here.
 	/// Updating the last entry is supported to allow for making a core assignment multiple calls to
 	/// assign_core. Thus if you have too much interlacing for e.g. a single UMP message you can
 	/// split that up into multiple messages, each triggering a call to `assign_core`, together
 	/// forming the total assignment.
+	//With this restriction this function allows for O(1) complexity.This restriction exists,
+	// because it makes the insertion O(1) and the author could not think of a reason, why this
+	// restriction should be causing any problems. Inserting arbitrarily causes a
+	// `DispatchError::DisallowedInsert` error. This restriction could easily be lifted if need be
+	// and in fact an implementation is available [here](https://github.com/paritytech/polkadot-sdk/pull/1694/commits/c0c23b01fd2830910cde92c11960dad12cdff398#diff-0c85a46e448de79a5452395829986ee8747e17a857c27ab624304987d2dde8baR386).
+	// The problem is that insertion complexity then depends on the size of the existing queue,
+	// which makes determining weights hard and could lead to issues like overweight blocks (at
+	// least in theory).
 	pub fn assign_core(
 		core_idx: CoreIndex,
 		begin: BlockNumberFor<T>,
@@ -422,9 +421,9 @@ impl<T: Config> Pallet<T> {
 					}
 
 					CoreSchedules::<T>::mutate((begin, core_idx), |schedule| {
-						let assignments = if let Some(mut old_schedule) = mem::take(schedule) {
+						let assignments = if let Some(mut old_schedule) = schedule.take() {
 							old_schedule.assignments.append(&mut assignments);
-							mem::take(&mut old_schedule.assignments)
+							old_schedule.assignments
 						} else {
 							assignments
 						};
