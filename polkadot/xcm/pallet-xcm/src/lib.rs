@@ -815,8 +815,8 @@ pub mod pallet {
 	pub(super) type AuthorizedAliasesMap<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		Location,
-		BoundedVec<Location, MaxAuthorizedAliases>,
+		VersionedLocation,
+		BoundedVec<VersionedLocation, MaxAuthorizedAliases>,
 		ValueQuery,
 	>;
 
@@ -1466,15 +1466,17 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			aliaser: Box<VersionedLocation>,
 		) -> DispatchResult {
-			let origin = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let aliaser = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let origin: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let aliaser: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			ensure!(origin != aliaser, Error::<T>::BadLocation);
-			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&origin);
-			if !authorized_aliases.contains(&aliaser) {
+			let v_origin = VersionedLocation::from(origin);
+			let v_aliaser = VersionedLocation::from(aliaser);
+			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&v_origin);
+			if !authorized_aliases.contains(&v_aliaser) {
 				authorized_aliases
-					.try_push(aliaser)
+					.try_push(v_aliaser)
 					.map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
-				AuthorizedAliasesMap::<T>::insert(&origin, authorized_aliases);
+				AuthorizedAliasesMap::<T>::insert(&v_origin, authorized_aliases);
 			}
 			Ok(())
 		}
@@ -1486,14 +1488,16 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			aliaser: Box<VersionedLocation>,
 		) -> DispatchResult {
-			let origin = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let to_remove = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let origin: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let to_remove: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			ensure!(origin != to_remove, Error::<T>::BadLocation);
-			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&origin);
+			let v_origin = VersionedLocation::from(origin);
+			let v_to_remove = VersionedLocation::from(to_remove);
+			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&v_origin);
 			let original_length = authorized_aliases.len();
-			authorized_aliases.retain(|alias| to_remove.ne(alias));
+			authorized_aliases.retain(|alias| v_to_remove.ne(alias));
 			if original_length != authorized_aliases.len() {
-				AuthorizedAliasesMap::<T>::insert(&origin, authorized_aliases);
+				AuthorizedAliasesMap::<T>::insert(&v_origin, authorized_aliases);
 			}
 			Ok(())
 		}
@@ -3507,11 +3511,20 @@ where
 /// Note: users can authorize other locations to alias them by using
 /// `pallet_xcm::add_authorized_alias()`.
 pub struct AuthorizedAliases<T>(PhantomData<T>);
-impl<T: Config> ContainsPair<Location, Location> for AuthorizedAliases<T> {
-	fn contains(origin: &Location, target: &Location) -> bool {
-		AuthorizedAliasesMap::<T>::get(&origin).contains(target)
+impl<L: Into<VersionedLocation> + Clone, T: Config> ContainsPair<L, L> for AuthorizedAliases<T> {
+	fn contains(origin: &L, target: &L) -> bool {
+		let origin: VersionedLocation = origin.clone().into();
+		let target: VersionedLocation = target.clone().into();
+		AuthorizedAliasesMap::<T>::get(&origin).contains(&target)
 	}
 }
+// pub struct AuthorizedAliases<T>(PhantomData<T>);
+// impl<T: Config> ContainsPair<Location, Location> for AuthorizedAliases<T> {
+// 	fn contains(origin: &Location, target: &Location) -> bool {
+// 		let target = VersionedLocation::from(target.clone());
+// 		AuthorizedAliasesMap::<T>::get(&origin).contains(&target)
+// 	}
+// }
 
 /// Filter for `Location` to find those which represent a strict majority approval of an
 /// identified plurality.
