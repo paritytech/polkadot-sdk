@@ -350,7 +350,6 @@ pub use self::{
 	genesis_config_builder::{
 		GenesisConfigBuilderRuntimeCaller, DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET,
 	},
-	json_patch::merge as json_merge,
 };
 pub use sc_chain_spec_derive::{ChainSpecExtension, ChainSpecGroup};
 
