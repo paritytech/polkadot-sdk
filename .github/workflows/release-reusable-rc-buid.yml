@@ -58,7 +58,7 @@ jobs:
 
   build-rc:
     needs: [set-image]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-m
     environment: release
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
