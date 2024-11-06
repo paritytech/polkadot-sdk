@@ -169,6 +169,7 @@ async fn run_serially(size: usize, limit: usize) {
 
 // The libp2p request-response implementation does not provide any backpressure feedback.
 // So this benchmark is useless until we implement it for litep2p.
+#[allow(dead_code)]
 async fn run_with_backpressure(size: usize, limit: usize) {
 	let listen_address1 = get_listen_address();
 	let listen_address2 = get_listen_address();
@@ -246,13 +247,6 @@ fn run_benchmark(c: &mut Criterion) {
 			&(size, REQUESTS),
 			|b, &(size, limit)| {
 				b.to_async(&rt).iter(|| run_serially(size, limit));
-			},
-		);
-		group.bench_with_input(
-			BenchmarkId::new("with_backpressure", label),
-			&(size, REQUESTS),
-			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| run_with_backpressure(size, limit));
 			},
 		);
 	}
