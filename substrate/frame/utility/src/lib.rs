@@ -466,12 +466,12 @@ pub mod pallet {
 			res.map(|_| ()).map_err(|e| e.error)
 		}
 
-		#[pallet::call_index(7)]
+		#[pallet::call_index(6)]
 		#[pallet::weight(10_000)]
 		pub fn if_else(
     		origin: OriginFor<T>,
-    		main: <T as Config>::RuntimeCall,
-    		fallback: <T as Config>::RuntimeCall,
+    		main: Box<<T as Config>::RuntimeCall>,
+    		fallback: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
     		// Do not allow the `None` origin.
     		if ensure_none(origin.clone()).is_ok() {
@@ -482,7 +482,7 @@ pub mod pallet {
 
     		// Track the weights
     		let mut weight = Weight::zero();
-			
+
 			let info = main.get_dispatch_info();
 
     		// Execute the main call first
