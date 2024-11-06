@@ -19,7 +19,7 @@
 //! asset.
 
 use crate::{
-	BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf, SessionInterface,
+	BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf,
 };
 use frame_support::traits::{
 	fungible::{
@@ -28,7 +28,8 @@ use frame_support::traits::{
 	},
 	tokens::Precision,
 };
-use sp_runtime::{traits::Zero, DispatchResult, Saturating};
+use frame_support::traits::tokens::{Fortitude, Preservation};
+use sp_runtime::{DispatchResult, Saturating};
 
 /// Existential deposit for the chain.
 pub fn existential_deposit<T: Config>() -> BalanceOf<T> {
@@ -63,7 +64,7 @@ pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 ///
 /// Does not include the current stake.
 pub fn free_to_stake<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
-	T::Currency::balance(who)
+	T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite)
 }
 
 /// Set balance that can be staked for `who`.
@@ -75,15 +76,19 @@ pub fn free_to_stake<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 pub fn set_stakeable_balance<T: Config>(who: &T::AccountId, value: BalanceOf<T>) {
 	use frame_support::traits::fungible::Mutate;
 
+	// minimum free balance (non-staked) required to keep the account alive.
+	let ed = existential_deposit::<T>();
+	// currently on stake
 	let staked_balance = staked::<T>(who);
-	// if value is greater than staked balance, we need to increase the free balance.
+
+	// if new value is greater than staked balance, mint some free balance.
 	if value > staked_balance {
-		let _ = T::Currency::set_balance(who, value - staked_balance);
+		let _ = T::Currency::set_balance(who, value - staked_balance + ed);
 	} else {
 		// else reduce the staked balance.
 		update_stake::<T>(who, value).expect("can remove from what is staked");
-		// burn all free
-		let _ = T::Currency::set_balance(who, Zero::zero());
+		// burn all free, only leaving ED.
+		let _ = T::Currency::set_balance(who, ed);
 	}
 
 	// ensure new stakeable balance same as desired `value`.
