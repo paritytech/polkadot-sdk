@@ -1,0 +1,28 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor pallet identity
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds bounds on stored types for pallet claims.
+      Migrates benchmarking from v1 to v2 for pallet claims.
+
+crates:
+  - name: pallet-identity
+    bump: major
+  - name: people-rococo-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
+  - name: polkadot-runtime-common
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor
+  - name: pallet-alliance
+    bump: minor
