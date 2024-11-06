@@ -711,7 +711,9 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		pens_at_ahw
 			.interior()
 			.clone()
-			.pushed_front_with(Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH)))
+			.pushed_front_with(Junction::GlobalConsensus(NetworkId::ByGenesis(
+				WESTEND_GENESIS_HASH,
+			)))
 			.unwrap(),
 	);
 	let wnds_to_send = amount;

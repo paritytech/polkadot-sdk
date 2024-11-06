@@ -294,8 +294,10 @@ fn transfer_relay_token() {
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
 	let asset_id: Location = Location { parents: 1, interior: [].into() };
-	let expected_asset_id: Location =
-		Location { parents: 1, interior: [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))].into() };
+	let expected_asset_id: Location = Location {
+		parents: 1,
+		interior: [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))].into(),
+	};
 
 	let expected_token_id = TokenIdOf::convert_location(&expected_asset_id).unwrap();
 
@@ -465,10 +467,15 @@ fn transfer_ah_token() {
 		],
 	);
 
-	let asset_id_after_reanchored =
-		Location::new(1, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(AssetHubWestend::para_id().into())])
-			.appended_with(asset_id.clone().interior)
-			.unwrap();
+	let asset_id_after_reanchored = Location::new(
+		1,
+		[
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(AssetHubWestend::para_id().into()),
+		],
+	)
+	.appended_with(asset_id.clone().interior)
+	.unwrap();
 
 	let token_id = TokenIdOf::convert_location(&asset_id_after_reanchored).unwrap();
 

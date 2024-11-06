@@ -89,7 +89,7 @@ pub use sp_runtime::BuildStorage;
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 
 #[cfg(feature = "runtime-benchmarks")]
-use xcm::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::latest::ROCOCO_GENESIS_HASH;
 use xcm::prelude::*;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
