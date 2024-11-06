@@ -132,7 +132,7 @@ mod benchmarks {
 		{
 			executor.bench_process(xcm)?;
 		}
-		// The assert above is enough to show this XCM succeeded
+
 		Ok(())
 	}
 
