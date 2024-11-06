@@ -1149,7 +1149,7 @@ fn delegate_call() {
 }
 
 #[test]
-fn delegate_call_with_limits() {
+fn delegate_call_with_weight_limit() {
 	let (caller_wasm, _caller_code_hash) = compile_module("delegate_call").unwrap();
 	let (callee_wasm, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
 
@@ -1181,6 +1181,44 @@ fn delegate_call_with_limits() {
 		assert_ok!(builder::call(caller_addr)
 			.value(1337)
 			.data((callee_addr, 500_000_000u64, 100_000u64).encode())
+			.build());
+	});
+}
+
+#[test]
+fn delegate_call_with_deposit_limit() {
+	let (caller_pvm, _caller_code_hash) = compile_module("delegate_call_deposit_limit").unwrap();
+	let (callee_pvm, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Instantiate the 'caller'
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_pvm))
+				.value(300_000)
+				.build_and_unwrap_contract();
+
+		// Instantiate the 'callee'
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_pvm))
+				.value(100_000)
+				.build_and_unwrap_contract();
+
+		// Delegate call will write 1 storage and deposit of 2 (1 item) + 32 (bytes) is required.
+		// Fails, not enough deposit
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.value(1337)
+				.data((callee_addr, 33u64).encode())
+				.build()
+				.result,
+			Error::<Test>::StorageDepositLimitExhausted,
+		);
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 34u64).encode())
 			.build());
 	});
 }
