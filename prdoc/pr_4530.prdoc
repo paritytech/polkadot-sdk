@@ -17,6 +17,37 @@ doc:
         account that can be withdrawn or transferred, and will affect the ability for these accounts
         to be destroyed.
 
+        ### Example
+
+        Before the changes in the balance model, an asset account balance could look like something like this:
+
+        ```
+        |____________balance____________|
+               |__frozen__|
+        |__ed__|
+        |___untouchable___|__spendable__|
+        ```
+
+        In the previous model, you could spend funds up to `ed + frozen` where `ed` is the minimum balance for an asset
+        class, and `frozen` is the frozen amount (if any `freezes` are in place).
+
+        Now, the model looks like this:
+
+        ```
+        |__total__________________________________|
+        |__on_hold__|_____________free____________|
+        |__________frozen___________|
+        |__on_hold__|__ed__|
+                    |__untouchable__|__spendable__|
+        ```
+
+        There's now a balance `on_hold` and a `free` balance. The balance `on_hold` is managed by a `Holder` (typically
+        `pallet-assets-holder`) and `free` is the balance that remains in `pallet-assets`. The `frozen` amount can be
+        subsumed into the balance `on_hold`, and now you can spend funds up to `max(frozen, ed)`, so if for an account,
+        `frozen` is less or equal than `on_hold + ed`, you'd be able to spend your `free` balance up to `ed`. If for
+        the account, `frozen` is more than `on_hold + ed`, the remaining amount after subtracting `frozen` to
+        `on_hold + ed` is the amount you cannot spend from your `free` balance.
+
         See [sdk docs](https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/index.html#visualising-balance-components-together-)
         to understand how to calculate the spendable balance of an asset account on the client side.
 
