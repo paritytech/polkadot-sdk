@@ -25,7 +25,7 @@
 //! After the migration is complete, the pallet may be removed from both chains' runtimes as well as
 //! the `polkadot-runtime-common` crate.
 
-use frame_support::{dispatch::DispatchResult, traits::Currency, weights::Weight};
+use frame_support::{dispatch::DispatchResult, traits::fungible::Inspect, weights::Weight};
 pub use pallet::*;
 use pallet_identity;
 use sp_core::Get;
@@ -58,7 +58,7 @@ impl WeightInfo for TestWeightInfo {
 }
 
 // Must use the same `Balance` as `T`'s Identity pallet to handle deposits.
-type BalanceOf<T> = <<T as pallet_identity::Config>::Currency as Currency<
+type BalanceOf<T> = <<T as pallet_identity::Config>::Currency as Inspect<
 	<T as frame_system::Config>::AccountId,
 >>::Balance;
 
