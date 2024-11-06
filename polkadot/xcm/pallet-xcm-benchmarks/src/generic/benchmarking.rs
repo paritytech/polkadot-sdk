@@ -342,7 +342,7 @@ mod benchmarks {
 		let instruction = Instruction::Trap(10);
 		let xcm = Xcm(vec![instruction]);
 		// In order to access result in the verification below, it needs to be defined here.
-		let mut result = Ok(());
+		let result;
 
 		#[block]
 		{
@@ -451,7 +451,7 @@ mod benchmarks {
 
 		let instruction = Instruction::ExpectOrigin(Some(expected_origin));
 		let xcm = Xcm(vec![instruction]);
-		let mut result = Ok(());
+		let result;
 
 		#[block]
 		{
@@ -468,7 +468,7 @@ mod benchmarks {
 
 		let instruction = Instruction::ExpectError(None);
 		let xcm = Xcm(vec![instruction]);
-		let mut result = Ok(());
+		let result;
 
 		#[block]
 		{
@@ -487,7 +487,7 @@ mod benchmarks {
 
 		let instruction = Instruction::ExpectTransactStatus(worst_error());
 		let xcm = Xcm(vec![instruction]);
-		let mut result = Ok(());
+		let result;
 
 		#[block]
 		{
