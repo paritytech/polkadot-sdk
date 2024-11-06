@@ -327,8 +327,8 @@ pub trait HostFn: private::Sealed {
 	///   `T::AccountId`. Traps otherwise.
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit_limit`: The storage deposit limit for delegate call. Passing `None` means setting no
-	///   specific limit for the call, which implies storage usage up to the limit of the parent
+	/// - `deposit_limit`: The storage deposit limit for delegate call. Passing `None` means setting
+	///   no specific limit for the call, which implies storage usage up to the limit of the parent
 	///   call.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
