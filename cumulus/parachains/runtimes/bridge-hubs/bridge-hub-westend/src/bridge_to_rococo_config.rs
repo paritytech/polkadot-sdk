@@ -347,9 +347,7 @@ pub mod migration {
 		Runtime,
 		XcmOverBridgeHubRococoInstance,
 		AssetHubWestendToAssetHubRococoMessagesLane,
-		// the lanes are already created for AHR<>AHW, but we need to link them to the bridge
-		// structs
-		ConstBool<false>,
+		ConstBool<true>,
 		AssetHubWestendLocation,
 		AssetHubRococoUniversalLocation,
 	>;
