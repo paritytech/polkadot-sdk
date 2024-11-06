@@ -63,8 +63,8 @@ pub mod genesis_config_presets {
 
 	/// Get the set of the available genesis config presets.
 	pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-		let patch = match id.try_into() {
-			Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
+		let patch = match id.as_ref() {
+			sp_genesis_builder::DEV_RUNTIME_PRESET => development_config_genesis(),
 			_ => return None,
 		};
 		Some(
@@ -83,8 +83,8 @@ pub mod genesis_config_presets {
 /// The runtime version.
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("minimal-template-runtime"),
-	impl_name: create_runtime_str!("minimal-template-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("minimal-template-runtime"),
+	impl_name: alloc::borrow::Cow::Borrowed("minimal-template-runtime"),
 	authoring_version: 1,
 	spec_version: 0,
 	impl_version: 1,
