@@ -26,7 +26,6 @@ use polkadot_node_core_pvf::{
 };
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::{messages::PvfExecKind, ActiveLeavesUpdate};
-use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
 	ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
@@ -133,10 +132,6 @@ impl TestHost {
 			.await
 			.unwrap();
 		result_rx.await.unwrap()
-	}
-
-	async fn update_active_leaves(&self, update: ActiveLeavesUpdate, ancestors: Vec<Hash>) {
-		self.host.lock().await.update_active_leaves(update, ancestors).await.unwrap();
 	}
 
 	#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
