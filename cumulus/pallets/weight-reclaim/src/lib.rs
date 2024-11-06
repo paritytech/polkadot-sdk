@@ -255,7 +255,11 @@ where
 		// In this case the extrinsic proof size weight reclaimed is 0.
 		let accurate_unspent = info.total_weight().saturating_sub(accurate_weight);
 		frame_system::ExtrinsicWeightReclaimed::<T>::put(accurate_unspent);
-		Ok(accurate_unspent)
+
+		// Call have already returned their unspent amount.
+		// (also transaction extension prior in the pipeline, but there shouldn't be any.)
+		let already_unspent_in_tx_ext_pipeline = post_info.calc_unspent(info);
+		Ok(accurate_unspent.saturating_sub(already_unspent_in_tx_ext_pipeline))
 	}
 
 	fn bare_validate(
