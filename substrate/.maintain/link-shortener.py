@@ -104,7 +104,7 @@ class DocLinkProcessor:
             
             modified_content += '\n'
             for short_name, full_path in sorted(links):
-                modified_content += f'//! [`{short_name}`]: {full_path}\n'
+                modified_content += f'// [`{short_name}`]: {full_path}\n'
 
             # Handle dry run
             if self.dry_run:

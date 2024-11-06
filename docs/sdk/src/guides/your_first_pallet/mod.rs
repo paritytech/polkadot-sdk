@@ -393,7 +393,7 @@ pub mod pallet {
 			// ensure sender has enough balance, and if so, calculate what is left after `amount`.
 			let sender_balance = Balances::<T>::get(&sender).ok_or("NonExistentAccount")?;
 			if sender_balance < amount {
-				return Err("InsufficientBalance".into())
+				return Err("InsufficientBalance".into());
 			}
 			let remainder = sender_balance - amount;
 
@@ -787,25 +787,12 @@ pub mod pallet_v2 {
 	}
 }
 
-// Link References
 // [`RuntimeEvent`]: crate::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent
 // [`blockchain_state_machines`]: crate::reference_docs::blockchain_state_machines
 // [`defensive_programming`]: crate::reference_docs::defensive_programming
 // [`frame_origin`]: crate::reference_docs::frame_origin
 // [`frame_runtime`]: crate::polkadot_sdk::frame_runtime
 // [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
+// [`reference_docs`]: crate::reference_docs
 // [`templates`]: crate::polkadot_sdk::templates
 // [`trait_based_programming`]: crate::reference_docs::trait_based_programming
-
-// Link References
-// [`RuntimeEvent`]: crate::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent
-// [`blockchain_state_machines`]: crate::reference_docs::blockchain_state_machines
-// [`defensive_programming`]: crate::reference_docs::defensive_programming
-// [`frame_origin`]: crate::reference_docs::frame_origin
-// [`frame_runtime`]: crate::polkadot_sdk::frame_runtime
-// [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
-// [`templates`]: crate::polkadot_sdk::templates
-// [`trait_based_programming`]: crate::reference_docs::trait_based_programming
-
-//! Link References
-//! [`reference_docs`]: crate::reference_docs
