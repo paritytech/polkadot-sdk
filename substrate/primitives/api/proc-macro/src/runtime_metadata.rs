@@ -256,7 +256,7 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 			};
 
 			// Handle the case where eg `#[cfg_attr(feature = "foo", api_version(4))]` is
-			// present by using that version only when the feature is enabled and falling 
+			// present by using that version only when the feature is enabled and falling
 			// back to the above version if not.
 			if let Some(cfg_version) = api_version.feature_gated {
 				let cfg_feature = cfg_version.0;
