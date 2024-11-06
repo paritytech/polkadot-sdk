@@ -334,23 +334,12 @@ mod tests {
 pub mod migration {
 	use super::*;
 	use bp_messages::LegacyLaneId;
-	use frame_support::traits::ConstBool;
 
 	parameter_types! {
 		pub AssetHubWestendToAssetHubRococoMessagesLane: LegacyLaneId = LegacyLaneId([0, 0, 0, 2]);
 		pub AssetHubWestendLocation: Location = Location::new(1, [Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)]);
 		pub AssetHubRococoUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)].into();
 	}
-
-	/// Ensure that the existing lanes for the AHW<>AHR bridge are correctly configured.
-	pub type StaticToDynamicLanes = pallet_xcm_bridge_hub::migration::OpenBridgeForLane<
-		Runtime,
-		XcmOverBridgeHubRococoInstance,
-		AssetHubWestendToAssetHubRococoMessagesLane,
-		ConstBool<true>,
-		AssetHubWestendLocation,
-		AssetHubRococoUniversalLocation,
-	>;
 
 	mod v1_wrong {
 		use bp_messages::{LaneState, MessageNonce, UnrewardedRelayer};
