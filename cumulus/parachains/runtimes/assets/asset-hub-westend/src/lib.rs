@@ -1387,7 +1387,7 @@ impl_runtime_apis! {
 						.map(|asset_id| asset_id.0)
 						.any(|location| location == native_asset_v4) {
 						pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
-							location.clone(),
+							*location,
 							native_asset,
 							fee_in_native,
 							true, // We include the fee.
