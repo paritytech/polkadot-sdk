@@ -431,6 +431,7 @@ impl ExtBuilder {
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let ed = ExistentialDeposit::get();
 
 		let _ = pallet_balances::GenesisConfig::<Test> {
 			balances: vec![
@@ -445,16 +446,19 @@ impl ExtBuilder {
 				(40, self.balance_factor),
 				(50, self.balance_factor),
 				// stashes
-				(11, self.balance_factor * 1000),
-				(21, self.balance_factor * 2000),
-				(31, self.balance_factor * 2000),
-				(41, self.balance_factor * 2000),
-				(51, self.balance_factor * 2000),
-				(201, self.balance_factor * 2000),
-				(202, self.balance_factor * 2000),
+				// Note: Previously this pallet used locks and stakers could stake all their balance
+				// including ED. Now with holds, stakers are required to maintain (non-staked) ED in their
+				// accounts. Therefore, we drop an additional existential deposit to genesis stakers.
+				(11, self.balance_factor * 1000 + ed),
+				(21, self.balance_factor * 2000 + ed),
+				(31, self.balance_factor * 2000 + ed),
+				(41, self.balance_factor * 2000 + ed),
+				(51, self.balance_factor * 2000 + ed),
+				(201, self.balance_factor * 2000 + ed),
+				(202, self.balance_factor * 2000 + ed),
 				// optional nominator
-				(100, self.balance_factor * 2000),
-				(101, self.balance_factor * 2000),
+				(100, self.balance_factor * 2000 + ed),
+				(101, self.balance_factor * 2000 + ed),
 				// aux accounts
 				(60, self.balance_factor),
 				(61, self.balance_factor * 2000),
