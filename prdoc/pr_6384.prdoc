@@ -1,10 +1,12 @@
-title: 'Fix #6102'
+title: Relax requirements on `assign_core`.
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     Relax requirements for `assign_core` so that it accepts updates for the last scheduled entry.
+    This will allow the coretime chain to split up assignments into multiple
+    messages, which allows for interlacing down to single block granularity.
 
-    Fixes #6102
+    Fixes: https://github.com/paritytech/polkadot-sdk/issues/6102
 crates:
 - name: polkadot-runtime-parachains
-  bump: major
+  bump: minor
