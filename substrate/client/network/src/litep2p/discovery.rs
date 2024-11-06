@@ -599,7 +599,7 @@ impl Stream for Discovery {
 				let observed_address =
 					if let Some(Protocol::P2p(peer_id)) = observed_address.iter().last() {
 						if peer_id != *this.local_peer_id.as_ref() {
-							log::error!(
+							log::warn!(
 								target: LOG_TARGET,
 								"Discovered external address for a peer that is not us: {observed_address}",
 							);
