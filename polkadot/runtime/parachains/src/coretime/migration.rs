@@ -42,7 +42,9 @@ mod v_coretime {
 	use sp_arithmetic::traits::SaturatedConversion;
 	use sp_core::Get;
 	use sp_runtime::BoundedVec;
-	use xcm::prelude::{send_xcm, Instruction, Junction, Location, SendError, SendXcm, WeightLimit, Xcm};
+	use xcm::prelude::{
+		send_xcm, Instruction, Junction, Location, SendError, SendXcm, WeightLimit, Xcm,
+	};
 
 	/// Return information about a legacy lease of a parachain.
 	pub trait GetLegacyLease<N> {
@@ -198,9 +200,12 @@ mod v_coretime {
 			c.scheduler_params.num_cores = total_cores;
 		});
 
-		if let Err(err) =
-			migrate_send_assignments_to_coretime_chain::<T, XcmSender, LegacyLease, TIMESLICE_PERIOD>(
-			) {
+		if let Err(err) = migrate_send_assignments_to_coretime_chain::<
+			T,
+			XcmSender,
+			LegacyLease,
+			TIMESLICE_PERIOD,
+		>() {
 			log::error!("Sending legacy chain data to coretime chain failed: {:?}", err);
 		}
 
