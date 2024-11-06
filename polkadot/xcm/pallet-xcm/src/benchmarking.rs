@@ -385,6 +385,36 @@ benchmarks! {
 		let versioned_assets = VersionedAssets::V4(asset.into());
 	}: _<RuntimeOrigin<T>>(claim_origin.into(), Box::new(versioned_assets), Box::new(VersionedLocation::V4(claim_location)))
 
+	add_authorized_alias {
+		let origin = RawOrigin::Root;
+		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin.clone().into()).unwrap();
+		let mut existing_aliases = BoundedVec::<Location, MaxAuthorizedAliases>::new();
+		// prepopulate list with `max-1` aliases to benchmark worst case
+		for i in 1..MaxAuthorizedAliases::get() {
+			let alias = Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }]);
+			existing_aliases.try_push(alias).unwrap()
+		}
+		AuthorizedAliasesMap::<T>::insert(&origin_location, existing_aliases);
+		// now benchmark adding new alias
+		let aliaser: VersionedLocation =
+			Location::new(1, [Parachain(1234), AccountId32 { network: None, id: [42_u8; 32] }]).into();
+	}: _(origin, Box::new(aliaser))
+
+	remove_authorized_alias {
+		let origin = RawOrigin::Root;
+		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin.clone().into()).unwrap();
+		let mut existing_aliases = BoundedVec::<Location, MaxAuthorizedAliases>::new();
+		// prepopulate list with `max` aliases to benchmark worst case
+		for i in 1..MaxAuthorizedAliases::get()+1 {
+			let alias = Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }]);
+			existing_aliases.try_push(alias).unwrap()
+		}
+		AuthorizedAliasesMap::<T>::insert(&origin_location, existing_aliases);
+		// now benchmark adding new alias
+		let aliaser_to_remove: VersionedLocation =
+			Location::new(1, [Parachain(1), AccountId32 { network: None, id: [42_u8; 32] }]).into();
+	}: _(origin, Box::new(aliaser_to_remove))
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext_with_balances(Vec::new()),

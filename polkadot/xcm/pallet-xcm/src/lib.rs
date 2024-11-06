@@ -812,7 +812,7 @@ pub mod pallet {
 	/// Map of authorized aliasers of local origins. Each local location can authorize a list of
 	/// other locations to alias into it.
 	#[pallet::storage]
-	pub(super) type AuthorizedAliases<T: Config> = StorageMap<
+	pub(super) type AuthorizedAliasesMap<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		Location,
@@ -1469,12 +1469,12 @@ pub mod pallet {
 			let origin = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let aliaser = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			ensure!(origin != aliaser, Error::<T>::BadLocation);
-			let mut authorized_aliases = AuthorizedAliases::<T>::get(&origin);
+			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&origin);
 			if !authorized_aliases.contains(&aliaser) {
 				authorized_aliases
 					.try_push(aliaser)
 					.map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
-				AuthorizedAliases::<T>::insert(&origin, authorized_aliases);
+				AuthorizedAliasesMap::<T>::insert(&origin, authorized_aliases);
 			}
 			Ok(())
 		}
@@ -1489,11 +1489,11 @@ pub mod pallet {
 			let origin = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let to_remove = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			ensure!(origin != to_remove, Error::<T>::BadLocation);
-			let mut authorized_aliases = AuthorizedAliases::<T>::get(&origin);
+			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&origin);
 			let original_length = authorized_aliases.len();
 			authorized_aliases.retain(|alias| to_remove.ne(alias));
 			if original_length != authorized_aliases.len() {
-				AuthorizedAliases::<T>::insert(&origin, authorized_aliases);
+				AuthorizedAliasesMap::<T>::insert(&origin, authorized_aliases);
 			}
 			Ok(())
 		}
@@ -3509,7 +3509,7 @@ where
 pub struct AuthorizedAliases<T>(PhantomData<T>);
 impl<T: Config> ContainsPair<Location, Location> for AuthorizedAliases<T> {
 	fn contains(origin: &Location, target: &Location) -> bool {
-		pallet::AuthorizedAliases::<T>::get(&origin).contains(target)
+		AuthorizedAliasesMap::<T>::get(&origin).contains(target)
 	}
 }
 
