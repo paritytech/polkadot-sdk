@@ -1,7 +1,12 @@
 [package]
 name = "sp-facade-apis"
 version = "0.0.1"
-edition = "2021"
+license = "Apache-2.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Facade Runtime API definitions."
 
 [features]
 default = ["std", "decl-runtime-apis", "metadata"]
