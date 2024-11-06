@@ -174,7 +174,7 @@ mod benchmarks {
 	use super::*;
 	use alloc::{boxed::Box, vec, vec::Vec};
 	use codec::Encode;
-	use frame_support::traits::EnsureOrigin;
+	use frame_support::traits::{fungible::Mutate, EnsureOrigin};
 	use frame_system::RawOrigin;
 	use pallet_identity::{Data, IdentityInformationProvider, Judgement, Pallet as Identity};
 	use sp_runtime::{
@@ -201,7 +201,7 @@ mod benchmarks {
 		let target_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(target.clone()));
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&target, BalanceOf::<T>::max_value() / 2u32.into());
 
 		// set identity
 		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
@@ -226,7 +226,7 @@ mod benchmarks {
 			// registrar account
 			let registrar: T::AccountId = account("registrar", ii, SEED);
 			let registrar_lookup = T::Lookup::unlookup(registrar.clone());
-			let _ = <T as pallet_identity::Config>::Currency::make_free_balance_be(
+			let _ = <T as pallet_identity::Config>::Currency::set_balance(
 				&registrar,
 				<T as pallet_identity::Config>::Currency::minimum_balance(),
 			);
@@ -265,7 +265,7 @@ mod benchmarks {
 	#[benchmark]
 	fn poke_deposit() -> Result<(), BenchmarkError> {
 		let target: T::AccountId = account("target", 0, SEED);
-		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&target, BalanceOf::<T>::max_value() / 2u32.into());
 		let info = <T as pallet_identity::Config>::IdentityInformation::create_identity_info();
 
 		let _ = Identity::<T>::set_identity_no_deposit(&target, info.clone());
