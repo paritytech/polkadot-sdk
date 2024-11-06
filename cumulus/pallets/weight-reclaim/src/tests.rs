@@ -699,7 +699,7 @@ fn sets_to_node_storage_proof_if_higher() {
 			// 85 (initial) + 100 (benched) + 150 (tx length) = 335
 			//
 			// We expect that the storage weight was set to the node-side proof weight
-			// First we will reclaim 95 (mock ext reclaim), which leaves us with 240 BlockWeight.
+			// First we will reclaim 95, which leaves us with 240 BlockWeight.
 			// This is lower than 180 (proof size hf) + 150 (length).
 			// So we expect it to be set to 330.
 			assert_final_block_proof_size: 330,
