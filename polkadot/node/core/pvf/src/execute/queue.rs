@@ -891,6 +891,7 @@ impl Unscheduled {
 #[cfg(test)]
 mod tests {
 	use polkadot_node_primitives::BlockData;
+	use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 	use sp_core::H256;
 
 	use super::*;
@@ -1046,5 +1047,70 @@ mod tests {
 		}
 
 		assert_eq!(&priorities[..4], &[Approval, Backing, Approval, Approval]);
+	}
+
+	#[tokio::test]
+	async fn test_prunes_old_jobs_on_active_leaves_update() {
+		// Set up a queue, but without a real worker, we won't execute any jobs.
+		let (_, to_queue_rx) = mpsc::channel(1);
+		let (from_queue_tx, _) = mpsc::unbounded();
+		let mut queue = Queue::new(
+			Metrics::default(),
+			PathBuf::new(),
+			PathBuf::new(),
+			1,
+			Duration::from_secs(1),
+			None,
+			SecurityStatus::default(),
+			to_queue_rx,
+			from_queue_tx,
+		);
+		let old_relay_parent = Hash::random();
+		let relevant_relay_parent = Hash::random();
+
+		assert_eq!(queue.unscheduled.unscheduled.values().map(|x| x.len()).sum::<usize>(), 0);
+		let mut result_rxs = vec![];
+		let (result_tx, _result_rx) = oneshot::channel();
+		let relevant_job = ExecuteJob {
+			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			exec_timeout: Duration::from_secs(1),
+			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
+			pvd: Arc::new(PersistedValidationData::default()),
+			pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
+			executor_params: ExecutorParams::default(),
+			result_tx,
+			waiting_since: Instant::now(),
+		};
+		queue.unscheduled.add(relevant_job, Priority::Backing);
+		for _ in 0..10 {
+			let (result_tx, result_rx) = oneshot::channel();
+			let expired_job = ExecuteJob {
+				artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+				exec_timeout: Duration::from_secs(1),
+				exec_kind: PvfExecKind::Backing(old_relay_parent),
+				pvd: Arc::new(PersistedValidationData::default()),
+				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
+				executor_params: ExecutorParams::default(),
+				result_tx,
+				waiting_since: Instant::now(),
+			};
+			queue.unscheduled.add(expired_job, Priority::Backing);
+			result_rxs.push(result_rx);
+		}
+		assert_eq!(queue.unscheduled.unscheduled.values().map(|x| x.len()).sum::<usize>(), 11);
+
+		// Add an active leaf
+		queue
+			.update_active_leaves(
+				ActiveLeavesUpdate::start_work(new_leaf(Hash::random(), 1)),
+				vec![relevant_relay_parent],
+			)
+			.await;
+
+		// It recursively prunes all old jobs and drops them with an `ExecutionDeadline` error.
+		for rx in result_rxs {
+			assert!(matches!(rx.await, Ok(Err(ValidationError::ExecutionDeadline))));
+		}
+		assert_eq!(queue.unscheduled.unscheduled.values().map(|x| x.len()).sum::<usize>(), 1);
 	}
 }
