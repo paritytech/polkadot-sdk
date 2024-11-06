@@ -178,7 +178,7 @@ pub mod pallet {
 			.map_err(|_| Error::<T>::UndecodableCall)?;
 
 			ensure!(
-				call.get_dispatch_info().weight.all_lte(call_weight_witness),
+				call.get_dispatch_info().call_weight.all_lte(call_weight_witness),
 				Error::<T>::InvalidCallWeightWitness
 			);
 
@@ -191,7 +191,7 @@ pub mod pallet {
 
 		#[pallet::call_index(3)]
 		#[pallet::weight({
-			let call_weight = call.get_dispatch_info().weight;
+			let call_weight = call.get_dispatch_info().call_weight;
 			let call_len = call.encoded_size() as u32;
 
 			T::WeightInfo::dispatch_whitelisted_call_with_preimage(call_len)

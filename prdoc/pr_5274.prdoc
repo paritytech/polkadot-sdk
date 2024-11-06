@@ -1,0 +1,24 @@
+title: Enrich metadata IR with associated types of config traits
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This feature is part of the upcoming metadata V16. The associated types of the `Config` trait that require the `TypeInfo`
+      or `Parameter` bounds are included in the metadata of the pallet. The metadata is not yet exposed to the end-user, however
+      the metadata intermediate representation (IR) contains these types.
+
+      Developers can opt out of metadata collection of the associated types by specifying `without_metadata` optional attribute
+      to the `#[pallet::config]`.
+
+      Furthermore, the `without_metadata` argument can be used in combination with the newly added `#[pallet::include_metadata]`
+      attribute to selectively include only certain associated types in the metadata collection.
+
+crates:
+  - name: frame-support
+    bump: patch
+  - name: frame-support-procedural
+    bump: patch
+  - name: frame-support-procedural-tools
+    bump: patch
+  - name: sp-metadata-ir
+    bump: major

@@ -19,9 +19,10 @@ use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use parachains_common::{genesis_config_helpers::*, AccountId, AuraId};
-use sp_core::{crypto::UncheckedInto, sr25519};
+use parachains_common::{AccountId, AuraId};
+use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
+use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
@@ -75,8 +76,8 @@ mod preset_names {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
-	let patch = match id.try_into() {
-		Ok(PRESET_GENESIS) => asset_hub_westend_genesis(
+	let patch = match id.as_ref() {
+		PRESET_GENESIS => asset_hub_westend_genesis(
 			// initial collators.
 			vec![
 				(
@@ -104,46 +105,24 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			ASSET_HUB_WESTEND_ED * 4096,
 			1000.into(),
 		),
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => asset_hub_westend_genesis(
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => asset_hub_westend_genesis(
 			// initial collators.
 			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed::<AuraId>("Bob"),
-				),
+				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 			],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
+			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 			WND * 1_000_000,
 			1000.into(),
 		),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => asset_hub_westend_genesis(
+		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
 			// initial collators.
-			vec![(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed::<AuraId>("Alice"),
-			)],
+			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
 			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+				Sr25519Keyring::Alice.to_account_id(),
+				Sr25519Keyring::Bob.to_account_id(),
+				Sr25519Keyring::AliceStash.to_account_id(),
+				Sr25519Keyring::BobStash.to_account_id(),
 			],
 			WND * 1_000_000,
 			1000.into(),
