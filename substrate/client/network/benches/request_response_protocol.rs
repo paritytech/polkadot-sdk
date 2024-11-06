@@ -106,7 +106,6 @@ pub fn create_network_worker(
 }
 
 async fn run_serially(size: usize, limit: usize) {
-	let mut received_counter = 0;
 	let listen_address1 = get_listen_address();
 	let listen_address2 = get_listen_address();
 	let (mut worker1, _rx1, _notification_service1) = create_network_worker(listen_address1);
@@ -116,9 +115,12 @@ async fn run_serially(size: usize, limit: usize) {
 
 	worker1.add_known_address(peer_id2, listen_address2.into());
 
+	let network1_run = worker1.run();
+	let network2_run = worker2.run();
+	let (break_tx, break_rx) = async_channel::bounded(10);
 	let requests = async move {
-		while received_counter < limit {
-			received_counter += 1;
+		let mut sent_counter = 0;
+		while sent_counter < limit {
 			let _ = service1
 				.request(
 					peer_id2.into(),
@@ -129,29 +131,40 @@ async fn run_serially(size: usize, limit: usize) {
 				)
 				.await
 				.unwrap();
+			sent_counter += 1;
 		}
+		let _ = break_tx.send(()).await;
 	};
-	let network1_run = worker1.run();
-	let network2_run = worker2.run();
-	tokio::pin!(requests);
-	tokio::pin!(network1_run);
-	tokio::pin!(network2_run);
 
-	loop {
-		tokio::select! {
-			_ = &mut network1_run => {},
-			_ = &mut network2_run => {},
-			_ = &mut requests => break,
-			res = rx2.recv() => {
-				let IncomingRequest { pending_response, .. } = res.unwrap();
-				pending_response.send(OutgoingResponse {
-					result: Ok(vec![0; size]),
-					reputation_changes: vec![],
-					sent_feedback: None,
-				}).unwrap();
+	let network1 = tokio::spawn(async move {
+		tokio::pin!(requests);
+		tokio::pin!(network1_run);
+		loop {
+			tokio::select! {
+				_ = &mut network1_run => {},
+				_ = &mut requests => break,
 			}
 		}
-	}
+	});
+	let network2 = tokio::spawn(async move {
+		tokio::pin!(network2_run);
+		loop {
+			tokio::select! {
+				_ = &mut network2_run => {},
+				res = rx2.recv() => {
+					let IncomingRequest { pending_response, .. } = res.unwrap();
+					pending_response.send(OutgoingResponse {
+						result: Ok(vec![0; size]),
+						reputation_changes: vec![],
+						sent_feedback: None,
+					}).unwrap();
+				},
+				_ = break_rx.recv() => break,
+			}
+		}
+	});
+
+	let _ = tokio::join!(network1, network2);
 }
 
 async fn run_with_backpressure(size: usize, limit: usize) {
@@ -164,7 +177,10 @@ async fn run_with_backpressure(size: usize, limit: usize) {
 
 	worker1.add_known_address(peer_id2, listen_address2.into());
 
-	let requests = (0..limit).into_iter().map(|_| {
+	let network1_run = worker1.run();
+	let network2_run = worker2.run();
+	let (break_tx, break_rx) = async_channel::bounded(10);
+	let requests = futures::future::join_all((0..limit).into_iter().map(|_| {
 		let (tx, rx) = futures::channel::oneshot::channel();
 		service1.start_request(
 			peer_id2.into(),
@@ -175,35 +191,43 @@ async fn run_with_backpressure(size: usize, limit: usize) {
 			IfDisconnected::TryConnect,
 		);
 		rx
+	}));
+
+	let network1 = tokio::spawn(async move {
+		tokio::pin!(requests);
+		tokio::pin!(network1_run);
+		loop {
+			tokio::select! {
+				_ = &mut network1_run => {},
+				responses = &mut requests => {
+					for res in responses {
+						res.unwrap().unwrap();
+					}
+					let _ = break_tx.send(()).await;
+					break;
+				},
+			}
+		}
+	});
+	let network2 = tokio::spawn(async move {
+		tokio::pin!(network2_run);
+		loop {
+			tokio::select! {
+				_ = &mut network2_run => {},
+				res = rx2.recv() => {
+					let IncomingRequest { pending_response, .. } = res.unwrap();
+					pending_response.send(OutgoingResponse {
+						result: Ok(vec![0; size]),
+						reputation_changes: vec![],
+						sent_feedback: None,
+					}).unwrap();
+				},
+				_ = break_rx.recv() => break,
+			}
+		}
 	});
 
-	let requests = futures::future::join_all(requests);
-	let network1_run = worker1.run();
-	let network2_run = worker2.run();
-	tokio::pin!(requests);
-	tokio::pin!(network1_run);
-	tokio::pin!(network2_run);
-
-	loop {
-		tokio::select! {
-			_ = &mut network1_run => {},
-			_ = &mut network2_run => {},
-			responses = &mut requests => {
-				for res in responses {
-					res.unwrap().unwrap();
-				}
-				break;
-			},
-			res = rx2.recv() => {
-				let IncomingRequest { pending_response, .. } = res.unwrap();
-				pending_response.send(OutgoingResponse {
-					result: Ok(vec![0; size]),
-					reputation_changes: vec![],
-					sent_feedback: None,
-				}).unwrap();
-			},
-		}
-	}
+	let _ = tokio::join!(network1, network2);
 }
 
 fn run_benchmark(c: &mut Criterion) {

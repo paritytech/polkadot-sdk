@@ -90,7 +90,6 @@ pub fn create_network_worker(
 }
 
 async fn run_serially(size: usize, limit: usize) {
-	let mut received_counter = 0;
 	let listen_address1 = get_listen_address();
 	let listen_address2 = get_listen_address();
 	let (worker1, mut notification_service1) = create_network_worker(listen_address1);
@@ -103,43 +102,68 @@ async fn run_serially(size: usize, limit: usize) {
 
 	let network1_run = worker1.run();
 	let network2_run = worker2.run();
-	tokio::pin!(network1_run);
-	tokio::pin!(network2_run);
+	let (tx, rx) = async_channel::bounded(10);
 
-	loop {
-		tokio::select! {
-			_ = &mut network1_run => {},
-			_ = &mut network2_run => {},
-			event = notification_service1.next_event() => {
-				match event {
-					Some(NotificationEvent::NotificationStreamOpened { .. }) => {
-						notification_service1
-							.send_async_notification(&peer_id2, vec![0; size])
-							.await
-							.unwrap();
-					},
-					event => panic!("Unexpected event {:?}", event),
-				};
-			},
-			event = notification_service2.next_event() => {
-				match event {
-					Some(NotificationEvent::ValidateInboundSubstream { result_tx, .. }) => {
-						result_tx.send(sc_network::service::traits::ValidationResult::Accept).unwrap();
-					},
-					Some(NotificationEvent::NotificationStreamOpened { .. }) => {},
-					Some(NotificationEvent::NotificationReceived { .. }) => {
-						received_counter += 1;
-						if received_counter >= limit { break }
-						notification_service1
-							.send_async_notification(&peer_id2, vec![0; size])
-							.await
-							.unwrap();
-					},
-					event => panic!("Unexpected event {:?}", event),
-				};
-			},
+	let network1 = tokio::spawn(async move {
+		tokio::pin!(network1_run);
+		loop {
+			tokio::select! {
+				_ = &mut network1_run => {},
+				event = notification_service1.next_event() => {
+					match event {
+						Some(NotificationEvent::NotificationStreamOpened { .. }) => {
+							notification_service1
+								.send_async_notification(&peer_id2, vec![0; size])
+								.await
+								.unwrap();
+						},
+						event => panic!("Unexpected event {:?}", event),
+					};
+				},
+				message = rx.recv() => {
+					match message {
+						Ok(Some(_)) => {
+							notification_service1
+								.send_async_notification(&peer_id2, vec![0; size])
+								.await
+								.unwrap();
+						},
+						Ok(None) => break,
+						Err(err) => panic!("Unexpected error {:?}", err),
+
+					}
+				}
+			}
 		}
-	}
+	});
+	let network2 = tokio::spawn(async move {
+		let mut received_counter = 0;
+		tokio::pin!(network2_run);
+		loop {
+			tokio::select! {
+				_ = &mut network2_run => {},
+				event = notification_service2.next_event() => {
+					match event {
+						Some(NotificationEvent::ValidateInboundSubstream { result_tx, .. }) => {
+							result_tx.send(sc_network::service::traits::ValidationResult::Accept).unwrap();
+						},
+						Some(NotificationEvent::NotificationStreamOpened { .. }) => {},
+						Some(NotificationEvent::NotificationReceived { .. }) => {
+							received_counter += 1;
+							if received_counter >= limit {
+								let _ = tx.send(None).await;
+								break
+							}
+							let _ = tx.send(Some(())).await;
+						},
+						event => panic!("Unexpected event {:?}", event),
+					};
+				},
+			}
+		}
+	});
+
+	let _ = tokio::join!(network1, network2);
 }
 
 async fn run_with_backpressure(size: usize, limit: usize) {

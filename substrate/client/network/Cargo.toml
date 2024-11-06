@@ -70,7 +70,7 @@ mockall = { workspace = true }
 multistream-select = { workspace = true }
 rand = { workspace = true, default-features = true }
 tempfile = { workspace = true }
-tokio = { features = ["macros"], workspace = true, default-features = true }
+tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
 tokio-test = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
