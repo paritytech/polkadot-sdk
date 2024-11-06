@@ -36,7 +36,7 @@ use syn::{
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
 	visit_mut::{self, VisitMut},
-	Attribute, GenericArgument, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type,
+	Attribute, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type,
 	TypePath,
 };
 
@@ -804,9 +804,11 @@ impl ReplaceSelfImpl {
 impl VisitMut for ReplaceSelfImpl {
 	fn visit_type_mut(&mut self, ty: &mut syn::Type) {
 		match ty {
-			Type::Path(p) if p.path.is_ident("Self") => { *ty = self.self_ty.clone(); },
+			Type::Path(p) if p.path.is_ident("Self") => {
+				*ty = *self.self_ty.clone();
+			},
 			ty => syn::visit_mut::visit_type_mut(self, ty),
-		} 
+		}
 	}
 }
 
@@ -829,7 +831,7 @@ pub fn impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro::Tok
 }
 
 fn impl_runtime_apis_impl_inner(api_impls: &mut [ItemImpl]) -> Result<TokenStream> {
-	rename_self_in_trait_impls(api_impls)?;
+	rename_self_in_trait_impls(api_impls);
 
 	let dispatch_impl = generate_dispatch_function(api_impls)?;
 	let api_impls_for_runtime = generate_api_impl_for_runtime(api_impls)?;
