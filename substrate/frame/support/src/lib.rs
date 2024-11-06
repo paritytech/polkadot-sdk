@@ -2664,3 +2664,19 @@ mod test {
 		});
 	}
 }
+/*
+pub mod ahm {
+	use sp_runtime::DispatchError;
+
+	// TODO replace with enum
+	pub type EncodedPalletBalancesCall = Vec<u8>;
+
+	pub trait MigratorNamedReserve<ReserveIdentifier, AccountId, Balance> {
+		fn migrate_out_named_reserve(id: ReserveIdentifier, who: AccountId, amount: Balance) -> Result<EncodedPalletBalancesCall, DispatchError>;
+	}
+
+	pub trait MigratorAnonReserve<AccountId, Balance> {
+		fn migrate_out_anon_reserve(who: AccountId, amount: Balance) -> Result<EncodedPalletBalancesCall, DispatchError>;
+	}
+}
+*/

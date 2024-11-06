@@ -49,6 +49,7 @@ mod fungible_conformance_tests;
 mod fungible_tests;
 mod general_tests;
 mod reentrancy_tests;
+mod ahm_tests;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -215,6 +216,14 @@ type SystemAccountStore = frame_system::Pallet<Test>;
 pub struct TestAccountStore;
 impl KeyIterableStoredMap<u64, super::AccountData<u64>> for TestAccountStore {
 	type KeyIterator = frame_support::storage::KeyPrefixIterator<u64>;
+
+	fn iter_keys() -> Self::KeyIterator {
+		if UseSystem::get() {
+			<SystemAccountStore as KeyIterableStoredMap<_, _>>::iter_keys()
+		} else {
+			<BalancesAccountStore as KeyIterableStoredMap<_, _>>::iter_keys()
+		}
+	}
 	
 	fn iter_keys_from(from: Vec<u8>) -> Self::KeyIterator {
 		if UseSystem::get() {

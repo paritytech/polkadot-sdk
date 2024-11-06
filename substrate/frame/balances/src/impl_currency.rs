@@ -849,6 +849,33 @@ where
 	}
 }
 
+impl<T: Config<I>, I: 'static> Pallet<T, I>
+where
+	T::Balance: MaybeSerializeDeserialize + Debug
+{
+	pub(crate) fn set_lock_with_reason(
+		id: LockIdentifier,
+		who: &T::AccountId,
+		amount: T::Balance,
+		reasons: Reasons,
+	) {
+		if amount.is_zero() {
+			Self::remove_lock(id, who);
+			return
+		}
+
+		let mut new_lock = Some(BalanceLock { id, amount, reasons });
+		let mut locks = Self::locks(who)
+			.into_iter()
+			.filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
+			.collect::<Vec<_>>();
+		if let Some(lock) = new_lock {
+			locks.push(lock)
+		}
+		Self::update_locks(who, &locks[..]);
+	}
+}
+
 impl<T: Config<I>, I: 'static> LockableCurrency<T::AccountId> for Pallet<T, I>
 where
 	T::Balance: MaybeSerializeDeserialize + Debug,
@@ -864,20 +891,12 @@ where
 		amount: T::Balance,
 		reasons: WithdrawReasons,
 	) {
-		if reasons.is_empty() || amount.is_zero() {
+		if reasons.is_empty() {
 			Self::remove_lock(id, who);
 			return
 		}
 
-		let mut new_lock = Some(BalanceLock { id, amount, reasons: reasons.into() });
-		let mut locks = Self::locks(who)
-			.into_iter()
-			.filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
-			.collect::<Vec<_>>();
-		if let Some(lock) = new_lock {
-			locks.push(lock)
-		}
-		Self::update_locks(who, &locks[..]);
+		Self::set_lock_with_reason(id, who, amount, reasons.into())
 	}
 
 	// Extend a lock on the balance of `who`.

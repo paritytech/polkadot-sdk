@@ -67,6 +67,9 @@ pub mod pallet {
 		/// The currency trait.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
+		#[cfg(feature = "assethub-migration")]
+		type AhReserveMigrator: frame_support::ahm::MigratorAnonReserve<Self::AccountId, BalanceOf<Self>>;
+
 		/// The deposit needed for reserving an index.
 		#[pallet::constant]
 		type Deposit: Get<BalanceOf<Self>>;
