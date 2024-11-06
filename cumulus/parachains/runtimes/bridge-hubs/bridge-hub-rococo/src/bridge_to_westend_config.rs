@@ -175,8 +175,7 @@ where
 {
 	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
 	use sp_runtime::traits::Zero;
-	use xcm::latest::ROCOCO_GENESIS_HASH;
-	use xcm::VersionedInteriorLocation;
+	use xcm::{latest::ROCOCO_GENESIS_HASH, VersionedInteriorLocation};
 
 	// insert bridge metadata
 	let lane_id = with;
