@@ -1,0 +1,109 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Multi tree support for parity-db
+
+doc:
+  - audience: [Node Operator, Node Dev]
+    description: |
+      Introduces the paritydbmulti database option. Using this option parity-db is aware of the
+      tree structure and allows access to nodes using child locations. This PR deals with tracking
+      those database locations in order to use the tree API of parity-db.
+
+      This new option allows accessing of nodes in the database directly using locations. With
+      the standard paritydb database option addresses were first looked up in an index table in
+      the database. This step can be skipped when using paritydbmulti which is good for performance.
+
+crates:
+  - name: bridge-runtime-common
+    bump: minor
+  - name: pallet-bridge-messages
+    bump: patch
+  - name: bp-runtime
+    bump: minor
+  - name: cumulus-pallet-parachain-system
+    bump: major
+  - name: cumulus-primitives-proof-size-hostfunction
+    bump: patch
+  - name: cumulus-test-relay-sproof-builder
+    bump: patch
+  - name: cumulus-test-service
+    bump: patch
+  - name: polkadot-erasure-coding
+    bump: patch
+  - name: polkadot-node-metrics
+    bump: patch
+  - name: polkadot-test-service
+    bump: major
+  - name: test-parachain-adder-collator
+    bump: patch
+  - name: test-parachain-undying-collator
+    bump: patch
+  - name: polkadot
+    bump: patch
+  - name: node-bench
+    bump: minor
+  - name: staging-node-cli
+    bump: patch
+  - name: node-testing
+    bump: major
+  - name: sc-client-api
+    bump: major
+  - name: sc-basic-authorship
+    bump: patch
+  - name: sc-cli
+    bump: major
+  - name: sc-consensus-aura
+    bump: patch
+  - name: sc-consensus-babe
+    bump: patch
+  - name: sc-consensus-beefy
+    bump: patch
+  - name: sc-consensus-grandpa
+    bump: patch
+  - name: sc-client-db
+    bump: major
+  - name: sc-executor
+    bump: patch
+  - name: sc-network-test
+    bump: major
+  - name: sc-network
+    bump: patch
+  - name: sc-service
+    bump: patch
+  - name: sc-state-db
+    bump: minor
+  - name: pallet-message-queue
+    bump: patch
+  - name: pallet-session
+    bump: patch
+  - name: pallet-state-trie-migration
+    bump: patch
+  - name: frame-support
+    bump: patch
+  - name: sp-api
+    bump: minor
+  - name: sp-core
+    bump: minor
+  - name: sp-database
+    bump: major
+  - name: sp-io
+    bump: patch
+  - name: sp-runtime
+    bump: patch
+  - name: sp-state-machine
+    bump: major
+  - name: sp-transaction-storage-proof
+    bump: patch
+  - name: sp-trie
+    bump: major
+  - name: substrate-test-runtime
+    bump: patch
+  - name: binary-merkle-tree
+    bump: minor
+  - name: frame-benchmarking-cli
+    bump: major
+  - name: frame-remote-externalities
+    bump: patch
+  - name: substrate-state-trie-migration-rpc
+    bump: patch
