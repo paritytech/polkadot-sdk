@@ -19,7 +19,6 @@ use codec::Encode;
 use frame_support::sp_runtime::traits::Dispatchable;
 use parachains_common::AccountId;
 use people_rococo_runtime::people::IdentityInfo;
-use rococo_runtime;
 use rococo_system_emulated_network::people_rococo_emulated_chain::people_rococo_runtime;
 
 use pallet_identity::Data;
