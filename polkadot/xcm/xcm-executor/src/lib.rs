@@ -1679,7 +1679,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			validate_send::<Config::XcmSender>(destination.clone(), Xcm(message_to_weigh))?;
 		let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
 			tracing::trace!(
-				target: "xcm::DepositReserveAsset",
+				target: "xcm::fees::DepositReserveAsset",
 				"Asset provided to pay for fees {:?}, asset required for delivery fees: {:?}",
 				self.asset_used_in_buy_execution, asset_needed_for_fees,
 			);
@@ -1687,7 +1687,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
 			// set aside fee to be charged by XcmSender
 			let delivery_fee = self.holding.saturating_take(asset_to_pay_for_fees.into());
-			tracing::trace!(target: "xcm::DepositReserveAsset", ?delivery_fee);
+			tracing::trace!(target: "xcm::fees::DepositReserveAsset", ?delivery_fee);
 			delivery_fee
 		});
 		Ok(maybe_delivery_fee)
