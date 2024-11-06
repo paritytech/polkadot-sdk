@@ -74,7 +74,7 @@ use libp2p::{
 	PeerId,
 };
 use linked_hash_set::LinkedHashSet;
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace, warn};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
 	cmp,
