@@ -31,6 +31,7 @@ pallet-asset-tx-payment = { workspace = true }
 # Polkadot
 polkadot-runtime-common = { workspace = true, default-features = true }
 xcm = { workspace = true }
+xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 pallet-xcm = { workspace = true }
 xcm-runtime-apis = { workspace = true }

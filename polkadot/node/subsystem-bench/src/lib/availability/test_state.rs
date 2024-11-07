@@ -17,7 +17,7 @@
 use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	environment::GENESIS_HASH,
-	mock::runtime_api::node_features_with_chunk_mapping_enabled,
+	mock::runtime_api::default_node_features,
 };
 use bitvec::bitvec;
 use codec::Encode;
@@ -118,7 +118,7 @@ impl TestState {
 		test_state.chunk_indices = (0..config.n_cores)
 			.map(|core_index| {
 				availability_chunk_indices(
-					Some(&node_features_with_chunk_mapping_enabled()),
+					Some(&default_node_features()),
 					config.n_validators,
 					CoreIndex(core_index as u32),
 				)
