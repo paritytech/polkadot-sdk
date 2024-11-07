@@ -69,8 +69,8 @@ fn collectives_westend_genesis(
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
-	let patch = match id.try_into() {
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => collectives_westend_genesis(
+	let patch = match id.as_ref() {
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => collectives_westend_genesis(
 			// initial collators.
 			vec![
 				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
@@ -79,7 +79,7 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 			1001.into(),
 		),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => collectives_westend_genesis(
+		sp_genesis_builder::DEV_RUNTIME_PRESET => collectives_westend_genesis(
 			// initial collators.
 			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
 			vec![

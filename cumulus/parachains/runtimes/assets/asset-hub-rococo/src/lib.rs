@@ -42,7 +42,7 @@ use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSele
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Saturating, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Permill,
@@ -82,7 +82,7 @@ use parachains_common::{
 use sp_runtime::{Perbill, RuntimeDebug};
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
+	ForeignAssetsConvertedConcreteId, GovernanceLocation, LocationToAccountId,
 	PoolAssetsConvertedConcreteId, TokenLocation, TrustBackedAssetsConvertedConcreteId,
 	TrustBackedAssetsPalletLocation,
 };
@@ -120,10 +120,10 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("statemine"),
-	impl_name: create_runtime_str!("statemine"),
+	spec_name: alloc::borrow::Cow::Borrowed("statemine"),
+	impl_name: alloc::borrow::Cow::Borrowed("statemine"),
 	authoring_version: 1,
-	spec_version: 1_016_001,
+	spec_version: 1_016_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -330,11 +330,11 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	Assets,
 	ForeignAssets,
 	LocalFromLeft<
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, xcm::v4::Location>,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, xcm::v5::Location>,
 		AssetIdForTrustBackedAssets,
-		xcm::v4::Location,
+		xcm::v5::Location,
 	>,
-	xcm::v4::Location,
+	xcm::v5::Location,
 	AccountId,
 >;
 
@@ -342,21 +342,21 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
 	LocalAndForeignAssets,
-	TargetFromLeft<TokenLocation, xcm::v4::Location>,
-	xcm::v4::Location,
+	TargetFromLeft<TokenLocation, xcm::v5::Location>,
+	xcm::v5::Location,
 	AccountId,
 >;
 
 pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
 	AssetConversionPalletId,
-	(xcm::v4::Location, xcm::v4::Location),
+	(xcm::v5::Location, xcm::v5::Location),
 >;
 
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
-	type AssetKind = xcm::v4::Location;
+	type AssetKind = xcm::v5::Location;
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
@@ -381,7 +381,7 @@ impl pallet_asset_conversion::Config for Runtime {
 		TokenLocation,
 		parachain_info::Pallet<Runtime>,
 		xcm_config::TrustBackedAssetsPalletIndex,
-		xcm::v4::Location,
+		xcm::v5::Location,
 	>;
 }
 
@@ -415,18 +415,18 @@ pub type ForeignAssetsInstance = pallet_assets::Instance2;
 impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type AssetId = xcm::v4::Location;
-	type AssetIdParameter = xcm::v4::Location;
+	type AssetId = xcm::v5::Location;
+	type AssetIdParameter = xcm::v5::Location;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(
-			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v4::Location>,
-			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location>,
+			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v5::Location>,
+			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v5::Location>,
 			xcm_config::bridging::to_westend::WestendOrEthereumAssetFromAssetHubWestend,
 		),
-		ForeignCreatorsSovereignAccountOf,
+		LocationToAccountId,
 		AccountId,
-		xcm::v4::Location,
+		xcm::v5::Location,
 	>;
 	type ForceOrigin = AssetsForceOrigin;
 	type AssetDeposit = ForeignAssetsAssetDeposit;
@@ -813,7 +813,7 @@ parameter_types! {
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AssetId = xcm::v4::Location;
+	type AssetId = xcm::v5::Location;
 	type OnChargeAssetTransaction = SwapAssetAdapter<
 		TokenLocation,
 		NativeAndAssets,
@@ -1308,16 +1308,16 @@ impl_runtime_apis! {
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
-		xcm::v4::Location,
+		xcm::v5::Location,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: xcm::v4::Location, asset2: xcm::v4::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: xcm::v5::Location, asset2: xcm::v5::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn quote_price_tokens_for_exact_tokens(asset1: xcm::v4::Location, asset2: xcm::v4::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: xcm::v5::Location, asset2: xcm::v5::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn get_reserves(asset1: xcm::v4::Location, asset2: xcm::v4::Location) -> Option<(Balance, Balance)> {
+		fn get_reserves(asset1: xcm::v5::Location, asset2: xcm::v5::Location) -> Option<(Balance, Balance)> {
 			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
@@ -1412,31 +1412,41 @@ impl_runtime_apis! {
 			// We accept the native token to pay fees.
 			let mut acceptable_assets = vec![AssetId(native_token.clone())];
 			// We also accept all assets in a pool with the native token.
-			acceptable_assets.extend(
-				pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(
-					|(asset_1, asset_2)| {
-						if asset_1 == native_token {
-							Some(asset_2.clone().into())
-						} else if asset_2 == native_token {
-							Some(asset_1.clone().into())
-						} else {
-							None
-						}
-					},
-				),
-			);
+			let assets_in_pool_with_native = assets_common::get_assets_in_pool_with::<
+				Runtime,
+				xcm::v5::Location
+			>(&native_token).map_err(|()| XcmPaymentApiError::VersionedConversionFailed)?.into_iter();
+			acceptable_assets.extend(assets_in_pool_with_native);
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
+			let native_asset = xcm_config::TokenLocation::get();
+			let fee_in_native = WeightToFee::weight_to_fee(&weight);
 			match asset.try_as::<AssetId>() {
-				Ok(asset_id) if asset_id.0 == xcm_config::TokenLocation::get() => {
+				Ok(asset_id) if asset_id.0 == native_asset => {
 					// for native token
-					Ok(WeightToFee::weight_to_fee(&weight))
+					Ok(fee_in_native)
 				},
 				Ok(asset_id) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
-					Err(XcmPaymentApiError::AssetNotFound)
+					let assets_in_pool_with_this_asset: Vec<_> = assets_common::get_assets_in_pool_with::<
+						Runtime,
+						xcm::v5::Location
+					>(&asset_id.0).map_err(|()| XcmPaymentApiError::VersionedConversionFailed)?;
+					if assets_in_pool_with_this_asset
+						.into_iter()
+						.map(|asset_id| asset_id.0)
+						.any(|location| location == native_asset) {
+						pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
+							asset_id.clone().0,
+							native_asset,
+							fee_in_native,
+							true, // We include the fee.
+						).ok_or(XcmPaymentApiError::AssetNotFound)
+					} else {
+						log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
+						Err(XcmPaymentApiError::AssetNotFound)
+					}
 				},
 				Err(_) => {
 					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
@@ -1546,7 +1556,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 
@@ -1824,7 +1834,12 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					// Any location can alias to an internal location.
+					// Here parachain 1001 aliases to an internal account.
+					Ok((
+						Location::new(1, [Parachain(1001)]),
+						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
+					))
 				}
 			}
 

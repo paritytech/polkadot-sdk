@@ -134,7 +134,6 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1000000000, 200000),
 				call: request_core_count_call.encode().into(),
 			},
 		]);
@@ -164,7 +163,6 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1000000000, 200000),
 				call: request_revenue_info_at_call.encode().into(),
 			},
 		]);
@@ -193,7 +191,6 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1000000000, 200000),
 				call: credit_account_call.encode().into(),
 			},
 		]);
@@ -218,6 +215,36 @@ impl CoretimeInterface for CoretimeAllocator {
 		end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
 		use crate::coretime::CoretimeProviderCalls::AssignCore;
+
+		// The relay chain currently only allows `assign_core` to be called with a complete mask
+		// and only ever with increasing `begin`. The assignments must be truncated to avoid
+		// dropping that core's assignment completely.
+
+		// This shadowing of `assignment` is temporary and can be removed when the relay can accept
+		// multiple messages to assign a single core.
+		let assignment = if assignment.len() > 28 {
+			let mut total_parts = 0u16;
+			// Account for missing parts with a new `Idle` assignment at the start as
+			// `assign_core` on the relay assumes this is sorted. We'll add the rest of the
+			// assignments and sum the parts in one pass, so this is just initialized to 0.
+			let mut assignment_truncated = vec![(CoreAssignment::Idle, 0)];
+			// Truncate to first 27 non-idle assignments.
+			assignment_truncated.extend(
+				assignment
+					.into_iter()
+					.filter(|(a, _)| *a != CoreAssignment::Idle)
+					.take(27)
+					.inspect(|(_, parts)| total_parts += *parts)
+					.collect::<Vec<_>>(),
+			);
+
+			// Set the parts of the `Idle` assignment we injected at the start of the vec above.
+			assignment_truncated[0].1 = 57_600u16.saturating_sub(total_parts);
+			assignment_truncated
+		} else {
+			assignment
+		};
+
 		let assign_core_call =
 			RelayRuntimePallets::Coretime(AssignCore(core, begin, assignment, end_hint));
 
@@ -228,7 +255,6 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1_000_000_000, 200000),
 				call: assign_core_call.encode().into(),
 			},
 		]);
