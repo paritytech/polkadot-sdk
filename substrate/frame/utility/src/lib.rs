@@ -467,7 +467,16 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(6)]
-		#[pallet::weight(10_000)]
+		#[pallet::weight({
+			let main_dispatch_info = main.get_dispatch_info();
+			let fallback_dispatch_info = fallback.get_dispatch_info();
+			(
+				T::WeightInfo::dispatch_as()
+					.saturating_add(main_dispatch_info.call_weight)
+					.saturating_add(fallback_dispatch_info.call_weight),
+				main_dispatch_info.class,
+			)
+		})]
 		pub fn if_else(
     		origin: OriginFor<T>,
     		main: Box<<T as Config>::RuntimeCall>,
