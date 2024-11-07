@@ -16,8 +16,8 @@
 // limitations under the License.
 
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2024-04-08 (Y/M/D)
-//! HOSTNAME: `runner-anb7yjbi-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! DATE: 2024-11-07 (Y/M/D)
+//! HOSTNAME: `runner-vcatxqpx-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
 //! SHORT-NAME: `extrinsic`, LONG-NAME: `ExtrinsicBase`, RUNTIME: `Development`
 //! WARMUPS: `10`, REPEAT: `100`
@@ -39,21 +39,21 @@ use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 
 parameter_types! {
-	/// Time to execute a NO-OP extrinsic, for example `System::remark`.
+	/// Weight of executing a NO-OP extrinsic, for example `System::remark`.
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 106_559, 107_788
-	///   Average:  107_074
-	///   Median:   107_067
-	///   Std-Dev:  242.67
+	///   Min, Max: 108_812, 110_617
+	///   Average:  109_697
+	///   Median:   109_685
+	///   Std-Dev:  384.09
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 107_675
-	///   95th: 107_513
-	///   75th: 107_225
+	///   99th: 110_539
+	///   95th: 110_288
+	///   75th: 109_975
 	pub const ExtrinsicBaseWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(107_074), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(109_697), 0);
 }
 
 #[cfg(test)]
