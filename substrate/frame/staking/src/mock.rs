@@ -446,9 +446,10 @@ impl ExtBuilder {
 				(40, self.balance_factor),
 				(50, self.balance_factor),
 				// stashes
-				// Note: Previously this pallet used locks and stakers could stake all their balance
-				// including ED. Now with holds, stakers are required to maintain (non-staked) ED in their
-				// accounts. Therefore, we drop an additional existential deposit to genesis stakers.
+				// Note: Previously this pallet used locks and stakers could stake all their
+				// balance including ED. Now with holds, stakers are required to maintain
+				// (non-staked) ED in their accounts. Therefore, we drop an additional existential
+				// deposit to genesis stakers.
 				(11, self.balance_factor * 1000 + ed),
 				(21, self.balance_factor * 2000 + ed),
 				(31, self.balance_factor * 2000 + ed),

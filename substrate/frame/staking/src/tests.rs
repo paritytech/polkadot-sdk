@@ -28,7 +28,7 @@ use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	hypothetically,
 	pallet_prelude::*,
-	traits::{Currency, Get, InspectLockableCurrency, ReservableCurrency, fungible::Inspect},
+	traits::{fungible::Inspect, Currency, Get, InspectLockableCurrency, ReservableCurrency},
 };
 
 use mock::*;
@@ -1310,7 +1310,6 @@ fn bond_extra_and_withdraw_unbonded_works() {
 
 		// Initial config should be correct
 		assert_eq!(active_era(), 0);
-
 
 		// confirm that 10 is a normal validator and gets paid at the end of the era.
 		mock::start_active_era(1);
@@ -8495,7 +8494,11 @@ mod hold_migration {
 			);
 
 			// Get rid of the extra ED to emulate all their balance including ED is staked.
-			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 10, ExistentialDeposit::get()));
+			assert_ok!(Balances::transfer_allow_death(
+				RuntimeOrigin::signed(alice),
+				10,
+				ExistentialDeposit::get()
+			));
 
 			let expected_force_withdraw = ExistentialDeposit::get();
 

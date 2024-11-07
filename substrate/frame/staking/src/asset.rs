@@ -18,17 +18,14 @@
 //! Contains all the interactions with [`Config::Currency`] to manipulate the underlying staking
 //! asset.
 
-use crate::{
-	BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf,
-};
+use crate::{BalanceOf, Config, HoldReason, NegativeImbalanceOf, PositiveImbalanceOf};
 use frame_support::traits::{
 	fungible::{
 		hold::{Balanced as FunHoldBalanced, Inspect as FunHoldInspect, Mutate as FunHoldMutate},
 		Balanced, Inspect as FunInspect,
 	},
-	tokens::Precision,
+	tokens::{Fortitude, Precision, Preservation},
 };
-use frame_support::traits::tokens::{Fortitude, Preservation};
 use sp_runtime::{DispatchResult, Saturating};
 
 /// Existential deposit for the chain.
@@ -107,8 +104,7 @@ pub fn update_stake<T: Config>(who: &T::AccountId, amount: BalanceOf<T>) -> Disp
 ///
 /// Fails if there are consumers left on `who` that restricts it from being reaped.
 pub fn kill_stake<T: Config>(who: &T::AccountId) -> DispatchResult {
-	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort)
-		.map(|_| ())
+	T::Currency::release_all(&HoldReason::Staking.into(), who, Precision::BestEffort).map(|_| ())
 }
 
 /// Slash the value from `who`.
