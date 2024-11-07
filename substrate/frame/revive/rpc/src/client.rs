@@ -155,7 +155,7 @@ pub enum ClientError {
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		log::debug!(target: LOG_TARGET, "ClientError: {err:?}");
-		ErrorObjectOwned::owned::<()>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
+		ErrorObjectOwned::owned::<()>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
 	}
 }
 
