@@ -1,0 +1,23 @@
+title: Add networking benchmarks for libp2p
+doc:
+- audience: node_dev
+  description: |-
+    # Description
+
+    Implemented benchmarks for Notifications and RequestResponse protocols with libp2p implementation. These benchmarks allow us to monitor regressions and implement fixes before they are observed in real chain. In the future, they can be used for targeted optimizations of litep2p compared to libp2p.
+
+    Part of https://github.com/paritytech/polkadot-sdk/issues/5220
+
+    Next steps:
+    - Add benchmarks for litep2p implementation
+    - Optimize load to get better results
+    - Add benchmarks to CI to catch regressions
+
+
+
+    ## Integration
+
+    Benchmarks don't affect downstream projects.
+crates:
+- name: sc-network
+  validate: false
