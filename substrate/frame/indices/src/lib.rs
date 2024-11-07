@@ -34,6 +34,7 @@ use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
 };
+use frame_support::traits::tokens::Precision;
 use frame_support::ahm::MigratorAnonReserve;
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_MILLIS;
 use sp_std::prelude::*;
@@ -326,10 +327,12 @@ impl<T: Config> Pallet<T> {
 
 			// Remove from the relay storage:
 			Accounts::<T>::remove(index);
-			T::AhReserveMigrator::migrate_out_anon_reserve(who.clone(), deposit).defensive_proof("Should migrate the reserve out").ok()?;
-
-			batch.push((index, who, deposit, permanent));
+			// We have to ignore the error here if we want to get this over with.
+			let _ = T::AhReserveMigrator::migrate_out_anon_reserve(who.clone(), deposit, Precision::BestEffort)
+				.inspect_err(|e| log::error!("Failed to migrate reserve for index of account {:?}, proceeding: {:?}", &who, e));
+			
 			Self::deposit_event(Event::IndexMigratedOut { index });
+			batch.push((index, who, deposit, permanent));
 		}
 
 		if batch.is_empty() {

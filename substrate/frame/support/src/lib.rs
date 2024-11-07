@@ -2676,27 +2676,28 @@ mod test {
 
 pub mod ahm {
 	use sp_runtime::DispatchError;
+	use crate::traits::tokens::Precision;
 
 	// TODO replace with enum
 	pub type EncodedPalletBalancesCall = alloc::vec::Vec<u8>;
 
 	pub trait MigratorNamedReserve<ReserveIdentifier, AccountId, Balance> {
-		fn migrate_out_named_reserve(id: ReserveIdentifier, who: AccountId, amount: Balance) -> Result<EncodedPalletBalancesCall, DispatchError>;
+		fn migrate_out_named_reserve(id: ReserveIdentifier, who: AccountId, amount: Balance, prec: Precision) -> Result<EncodedPalletBalancesCall, DispatchError>;
 	}
 
 	pub trait MigratorAnonReserve<AccountId, Balance> {
-		fn migrate_out_anon_reserve(who: AccountId, amount: Balance) -> Result<EncodedPalletBalancesCall, DispatchError>;
+		fn migrate_out_anon_reserve(who: AccountId, amount: Balance, prec: Precision) -> Result<EncodedPalletBalancesCall, DispatchError>;
 		fn migrate_in_anon_reserve(who: AccountId, amount: Balance) -> Result<(), DispatchError>;
 	}
 
 	pub struct NoopMigrator<AccountId, Balance>(core::marker::PhantomData<(AccountId, Balance)>);
 	impl<AccountId, Balance> MigratorNamedReserve<u32, AccountId, Balance> for NoopMigrator<AccountId, Balance> {
-		fn migrate_out_named_reserve(_id: u32, _who: AccountId, _amount: Balance) -> Result<EncodedPalletBalancesCall, DispatchError> {
+		fn migrate_out_named_reserve(_id: u32, _who: AccountId, _amount: Balance, prec: Precision) -> Result<EncodedPalletBalancesCall, DispatchError> {
 			Err(DispatchError::Other("Not implemented"))
 		}
 	}
 	impl<AccountId, Balance> MigratorAnonReserve<AccountId, Balance> for NoopMigrator<AccountId, Balance> {
-		fn migrate_out_anon_reserve(_who: AccountId, _amount: Balance) -> Result<EncodedPalletBalancesCall, DispatchError> {
+		fn migrate_out_anon_reserve(_who: AccountId, _amount: Balance, prec: Precision) -> Result<EncodedPalletBalancesCall, DispatchError> {
 			Err(DispatchError::Other("Not implemented"))
 		}
 

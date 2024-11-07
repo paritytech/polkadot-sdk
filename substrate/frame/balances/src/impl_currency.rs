@@ -429,30 +429,7 @@ where
 		reasons: WithdrawReasons,
 		liveness: ExistenceRequirement,
 	) -> result::Result<Self::NegativeImbalance, DispatchError> {
-		if value.is_zero() {
-			return Ok(NegativeImbalance::zero())
-		}
-
-		Self::try_mutate_account_handling_dust(
-			who,
-			|account, _| -> Result<Self::NegativeImbalance, DispatchError> {
-				let new_free_account =
-					account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
-
-				// bail if we need to keep the account alive and this would kill it.
-				let ed = T::ExistentialDeposit::get();
-				let would_be_dead = new_free_account < ed;
-				let would_kill = would_be_dead && account.free >= ed;
-				ensure!(liveness == AllowDeath || !would_kill, Error::<T, I>::Expendability);
-
-				Self::ensure_can_withdraw(who, value, reasons, new_free_account)?;
-
-				account.free = new_free_account;
-
-				Self::deposit_event(Event::Withdraw { who: who.clone(), amount: value });
-				Ok(NegativeImbalance::new(value))
-			},
-		)
+		Self::withdraw_maybe_checks(who, value, reasons, liveness, true)
 	}
 
 	/// Force the new free balance of a target account `who` to some new value `balance`.
@@ -486,6 +463,43 @@ where
 			},
 		)
 		.unwrap_or_else(|_| SignedImbalance::Positive(Self::PositiveImbalance::zero()))
+	}
+}
+
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	pub(crate) fn withdraw_maybe_checks(
+		who: &T::AccountId,
+		value: T::Balance,
+		reasons: WithdrawReasons,
+		liveness: ExistenceRequirement,
+		check_liquidity_restriction: bool
+	) -> result::Result<NegativeImbalance<T, I>, DispatchError> {
+		if value.is_zero() {
+			return Ok(NegativeImbalance::zero())
+		}
+
+		Self::try_mutate_account_handling_dust(
+			who,
+			|account, _| -> Result<NegativeImbalance<T, I>, DispatchError> {
+				let new_free_account =
+					account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
+
+				// bail if we need to keep the account alive and this would kill it.
+				let ed = T::ExistentialDeposit::get();
+				let would_be_dead = new_free_account < ed;
+				let would_kill = would_be_dead && account.free >= ed;
+				ensure!(liveness == AllowDeath || !would_kill, Error::<T, I>::Expendability);
+
+				if check_liquidity_restriction {
+					Self::ensure_can_withdraw(who, value, reasons, new_free_account)?;
+				}				
+
+				account.free = new_free_account;
+
+				Self::deposit_event(Event::Withdraw { who: who.clone(), amount: value });
+				Ok(NegativeImbalance::new(value))
+			},
+		)
 	}
 }
 
