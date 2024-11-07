@@ -2136,7 +2136,7 @@ fn seconded_and_pending_for_para_above(
 ) -> Result<Vec<usize>> {
 	let outer_paths = implicit_view
 		.paths_to_relay_parent(relay_parent)
-		.map_err(Error::RelayParentError)?;
+		.map_err(Error::PathRelayParentError)?;
 	let mut result = vec![];
 	for path in outer_paths {
 		let r = path.iter().take(claim_queue_len).fold(0, |res, anc| {
@@ -2157,35 +2157,33 @@ fn unfulfilled_claim_queue_entries(
 	relay_parent: &Hash,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
 	implicit_view: &ImplicitView,
-) -> Option<Vec<ParaId>> {
-	let relay_parent_state = per_relay_parent.get(relay_parent)?;
+) -> Result<Vec<ParaId>> {
+	let relay_parent_state =
+		per_relay_parent.get(relay_parent).ok_or(Error::RelayParentStateNotFound)?;
 	let scheduled_paras = relay_parent_state.assignment.current.iter().collect::<HashSet<_>>();
-	let mut claims_per_para = scheduled_paras
+	let mut claims_per_para = HashMap::new();
+	for para_id in scheduled_paras {
+		let below = seconded_and_pending_for_para_below(
+			implicit_view,
+			per_relay_parent,
+			relay_parent,
+			para_id,
+			relay_parent_state.assignment.current.len(),
+		);
+		let above = seconded_and_pending_for_para_above(
+			implicit_view,
+			per_relay_parent,
+			relay_parent,
+			para_id,
+			relay_parent_state.assignment.current.len(),
+		)?
 		.into_iter()
-		.map(|para_id| {
-			let below = seconded_and_pending_for_para_below(
-				implicit_view,
-				per_relay_parent,
-				relay_parent,
-				para_id,
-				relay_parent_state.assignment.current.len(),
-			);
-			let above = seconded_and_pending_for_para_above(
-				implicit_view,
-				per_relay_parent,
-				relay_parent,
-				para_id,
-				relay_parent_state.assignment.current.len(),
-			)
-			.unwrap_or_default() //todo
-			.iter()
-			.max()
-			.copied()
-			.unwrap_or(0);
+		.max()
+		.unwrap_or(0);
 
-			(*para_id, below + above)
-		})
-		.collect::<HashMap<_, _>>();
+		claims_per_para.insert(*para_id, below + above);
+	}
+
 	let claim_queue_state = relay_parent_state
 		.assignment
 		.current
@@ -2198,7 +2196,7 @@ fn unfulfilled_claim_queue_entries(
 			_ => Some(*para_id),
 		})
 		.collect::<Vec<_>>();
-	Some(claim_queue_state)
+	Ok(claim_queue_state)
 }
 
 /// Returns the next collation to fetch from the `waiting_queue` and reset the status back to
@@ -2208,11 +2206,25 @@ fn get_next_collation_to_fetch(
 	relay_parent: Hash,
 	state: &mut State,
 ) -> Option<(PendingCollation, CollatorId)> {
-	let unfulfilled_entries = unfulfilled_claim_queue_entries(
+	let maybe_unfulfilled_entries = unfulfilled_claim_queue_entries(
 		&relay_parent,
 		&state.per_relay_parent,
 		&state.implicit_view,
-	)?;
+	);
+
+	let unfulfilled_entries = match maybe_unfulfilled_entries {
+		Ok(entries) => entries,
+		Err(err) => {
+			// This should never happen
+			gum::error!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?err,
+				"Failed to get unfulfilled claim queue entries"
+			);
+			return None
+		},
+	};
 	let rp_state = state.per_relay_parent.get_mut(&relay_parent)?;
 
 	// If finished one does not match waiting_collation, then we already dequeued another fetch
