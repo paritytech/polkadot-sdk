@@ -162,9 +162,10 @@ impl From<TransactionExtensionMetadataIR> for TransactionExtensionMetadata {
 
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
-		let versions = &[4, 5];
-
-		let transaction_extensions_by_version = versions
+		// Presume all extensions work for all versions.
+		// This is true for now.
+		let transaction_extensions_by_version = ir
+			.versions
 			.iter()
 			.map(|version| (*version, (0..ir.extensions.len()).map(|index| index as u32).collect()))
 			.collect();
