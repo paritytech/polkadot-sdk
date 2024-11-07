@@ -1026,8 +1026,7 @@ pub mod pallet {
 		/// that the `ElectableStashes` has been populated with all validators from all pages at
 		/// the time of the election.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			let pages: BlockNumberFor<T> =
-				<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get().into();
+			let pages: BlockNumberFor<T> = Self::election_pages().into();
 
 			// election ongoing, fetch the next page.
 			if let Some(started_at) = ElectingStartedAt::<T>::get() {
@@ -1040,8 +1039,6 @@ pub mod pallet {
 				if next_page == Zero::zero() {
 					crate::log!(trace, "elect(): finished fetching all paged solutions.");
 					Self::do_elect_paged(Zero::zero());
-
-					ElectingStartedAt::<T>::kill();
 				} else {
 					crate::log!(trace, "elect(): progressing, {:?} remaining pages.", next_page);
 					Self::do_elect_paged(next_page.saturated_into::<PageIndex>());
@@ -1057,6 +1054,7 @@ pub mod pallet {
 						pages
 					);
 
+					ElectingStartedAt::<T>::set(Some(now));
 					Self::do_elect_paged(pages.saturated_into::<PageIndex>().saturating_sub(1));
 				}
 			};

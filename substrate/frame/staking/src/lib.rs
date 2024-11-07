@@ -322,6 +322,8 @@ pub mod testing_utils;
 pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_paged_election;
 
 pub mod asset;
 pub mod election_size_tracker;

@@ -20,8 +20,8 @@
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, BoundedSupports, ElectionProvider, SequentialPhragmen, Support,
-	TryIntoBoundedSupports, VoteWeight,
+	onchain, BoundedSupports, BoundedSupportsOf, ElectionProvider, PageIndex, SequentialPhragmen,
+	Support, TryIntoBoundedSupports, VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -36,7 +36,7 @@ use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	OnStakingUpdate,
+	OnStakingUpdate, StakingInterface,
 };
 
 pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
@@ -209,7 +209,7 @@ parameter_types! {
 	pub static MaxValidatorSet: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
-	pub static MaxWinnersPerPage: u32 = u32::MAX;
+	pub static MaxWinnersPerPage: u32 = 10_000;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -220,6 +220,67 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
 	type Score = VoteWeight;
+}
+
+// multi-page types and controller.
+parameter_types! {
+	// default is single page EP.
+	pub static Pages: PageIndex = 1;
+	pub static MaxBackersPerWinner: u32 = 10_000;
+}
+
+// An election provider wrapper that allows testing with single and multi page modes.
+pub struct SingleOrMultipageElectionProvider<SP: ElectionProvider>(core::marker::PhantomData<SP>);
+impl<
+		// single page EP.
+		SP: ElectionProvider<
+			AccountId = AccountId,
+			MaxWinnersPerPage = MaxWinnersPerPage,
+			MaxBackersPerWinner = ConstU32<{ u32::MAX }>,
+			Error = onchain::Error,
+		>,
+	> ElectionProvider for SingleOrMultipageElectionProvider<SP>
+{
+	type AccountId = AccountId;
+	type BlockNumber = BlockNumber;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type Pages = Pages;
+	type DataProvider = Staking;
+	type Error = onchain::Error;
+
+	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
+		if Pages::get() == 1 {
+			SP::elect(page)
+		} else {
+			// will take first `MaxWinnersPerPage` in the validator set as winners. in this mock
+			// impl, we return a random nominator exposure per winner/page.
+			let supports: Vec<(AccountId, Support<AccountId>)> = Validators::<Test>::iter_keys()
+				.filter(|x| Staking::status(x) == Ok(StakerStatus::Validator))
+				.take(Self::MaxWinnersPerPage::get() as usize)
+				.map(|v| {
+					(
+						v,
+						Support {
+							total: (100 + page).into(),
+							voters: vec![(page as AccountId, (100 + page).into())],
+						},
+					)
+				})
+				.collect::<Vec<_>>();
+
+			Ok(to_bounded_supports(supports))
+		}
+	}
+	fn msp() -> PageIndex {
+		SP::msp()
+	}
+	fn lsp() -> PageIndex {
+		SP::lsp()
+	}
+	fn ongoing() -> bool {
+		SP::ongoing()
+	}
 }
 
 pub struct OnChainSeqPhragmen;
@@ -279,8 +340,9 @@ impl crate::pallet::pallet::Config for Test {
 	type NextNewSession = Session;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxValidatorSet = MaxValidatorSet;
-	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
-	type GenesisElectionProvider = Self::ElectionProvider;
+	type ElectionProvider =
+		SingleOrMultipageElectionProvider<onchain::OnChainExecution<OnChainSeqPhragmen>>;
+	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
 	type VoterList = VoterBagsList;
 	type TargetList = UseValidatorsMap<Self>;
@@ -432,8 +494,12 @@ impl ExtBuilder {
 		self.balance_factor = factor;
 		self
 	}
-	pub fn max_validator_set(self, max: u32) -> Self {
-		MaxValidatorSet::set(max);
+	pub fn multi_page_election_provider(self, pages: PageIndex) -> Self {
+		Pages::set(pages);
+		self
+	}
+	pub fn max_winners_per_page(self, max: u32) -> Self {
+		MaxWinnersPerPage::set(max);
 		self
 	}
 	pub fn try_state(self, enable: bool) -> Self {
@@ -474,6 +540,7 @@ impl ExtBuilder {
 				(71, self.balance_factor * 2000),
 				(80, self.balance_factor),
 				(81, self.balance_factor * 2000),
+				(91, self.balance_factor * 2000),
 				// This allows us to have a total_payout different from 0.
 				(999, 1_000_000_000_000),
 			],
@@ -725,6 +792,13 @@ pub(crate) fn validator_controllers() -> Vec<AccountId> {
 		.into_iter()
 		.map(|s| Staking::bonded(&s).expect("no controller for validator"))
 		.collect()
+}
+
+pub(crate) fn era_exposures(era: u32) -> Vec<(AccountId, Exposure<AccountId, Balance>)> {
+	validator_controllers()
+		.into_iter()
+		.map(|v| (v, Staking::eras_stakers(era, &v)))
+		.collect::<Vec<_>>()
 }
 
 pub(crate) fn on_offence_in_era(

@@ -75,6 +75,11 @@ use sp_runtime::TryRuntimeError;
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
 
 impl<T: Config> Pallet<T> {
+	/// Fetches the number of pages configured by the election provider.
+	pub fn election_pages() -> u32 {
+		<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get()
+	}
+
 	/// Fetches the ledger associated with a controller or stash account, if any.
 	pub fn ledger(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
 		StakingLedger::<T>::get(account)
@@ -628,6 +633,8 @@ impl<T: Config> Pallet<T> {
 		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
 			Self::clear_era_information(old_era);
 		}
+		// Including electing targets of previous era.
+		ElectingStartedAt::<T>::kill();
 	}
 
 	/// Potentially plan a new era.
