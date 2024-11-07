@@ -4072,3 +4072,13 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 		}
 	}
 }
+
+#[pallet::view_functions]
+impl<T: Config> Pallet<T> {
+	/// Query value no args.
+	pub fn pool_accounts(pool_id: PoolId) -> (T::AccountId, T::AccountId) {
+		let bonded_account = Self::generate_bonded_account(pool_id);
+		let reward_account = Self::generate_reward_account(pool_id);
+		(bonded_account, reward_account)
+	}
+}
