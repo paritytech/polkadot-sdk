@@ -280,7 +280,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 			// run notifications
 			let mut listener = self.listener.write();
 			for h in &removed {
-				listener.dropped(h, None, true);
+				listener.limit_enforced(h);
 			}
 
 			removed
@@ -453,7 +453,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 				match final_status {
 					Status::Future => listener.future(&hash),
 					Status::Ready => listener.ready(&hash, None),
-					Status::Dropped => listener.dropped(&hash, None, false),
+					Status::Dropped => listener.dropped(&hash),
 					Status::Failed => listener.invalid(&hash),
 				}
 			}
@@ -492,7 +492,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 				fire_events(&mut *listener, promoted);
 			}
 			for f in &status.failed {
-				listener.dropped(f, None, false);
+				listener.dropped(f);
 			}
 		}
 
@@ -682,7 +682,7 @@ where
 		base::Imported::Ready { ref promoted, ref failed, ref removed, ref hash } => {
 			listener.ready(hash, None);
 			failed.iter().for_each(|f| listener.invalid(f));
-			removed.iter().for_each(|r| listener.dropped(&r.hash, Some(hash), false));
+			removed.iter().for_each(|r| listener.usurped(&r.hash, hash));
 			promoted.iter().for_each(|p| listener.ready(p, None));
 		},
 		base::Imported::Future { ref hash } => listener.future(hash),

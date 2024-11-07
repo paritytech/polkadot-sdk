@@ -120,36 +120,42 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		self.fire(tx, |watcher| watcher.future());
 		if let Some(ref sink) = self.dropped_by_limits_sink {
 			if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Future)) {
-				trace!(target: LOG_TARGET, "[{:?}] dropped_sink/future: send message failed: {:?}", tx, e);
+				trace!(target: LOG_TARGET, "[{:?}] dropped_sink: send message failed: {:?}", tx, e);
 			}
 		}
 	}
 
-	/// Transaction was dropped from the pool because of the limit.
-	///
-	/// If the function was actually called due to enforcing limits, the `limits_enforced` flag
-	/// shall be set to true.
-	pub fn dropped(&mut self, tx: &H, by: Option<&H>, limits_enforced: bool) {
-		trace!(target: LOG_TARGET, "[{:?}] Dropped (replaced with {:?})", tx, by);
-		self.fire(tx, |watcher| match by {
-			Some(t) => watcher.usurped(t.clone()),
-			None => watcher.dropped(),
-		});
+	/// Transaction was dropped from the pool because of enforcing the limit.
+	pub fn limit_enforced(&mut self, tx: &H) {
+		trace!(target: LOG_TARGET, "[{:?}] Dropped (limit enforced)", tx);
+		self.fire(tx, |watcher| watcher.limit_enforced());
 
-		//note: LimitEnforced could be introduced as new status to get rid of this flag.
 		if let Some(ref sink) = self.dropped_by_limits_sink {
-			if let Some(t) = by {
-				if let Err(e) =
-					sink.unbounded_send((tx.clone(), TransactionStatus::Usurped(t.clone())))
-				{
-					trace!(target: LOG_TARGET, "[{:?}] dropped_sink/future: send message failed: {:?}", tx, e);
-				}
-			} else if limits_enforced {
-				if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Dropped)) {
-					trace!(target: LOG_TARGET, "[{:?}] dropped_sink/future: send message failed: {:?}", tx, e);
-				}
+			if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Dropped)) {
+				trace!(target: LOG_TARGET, "[{:?}] dropped_sink: send message failed: {:?}", tx, e);
 			}
 		}
+	}
+
+	/// Transaction was replaced with other extrinsic.
+	pub fn usurped(&mut self, tx: &H, by: &H) {
+		trace!(target: LOG_TARGET, "[{:?}] Dropped (replaced with {:?})", tx, by);
+		self.fire(tx, |watcher| watcher.usurped(by.clone()));
+
+		if let Some(ref sink) = self.dropped_by_limits_sink {
+			if let Err(e) =
+				sink.unbounded_send((tx.clone(), TransactionStatus::Usurped(by.clone())))
+			{
+				trace!(target: LOG_TARGET, "[{:?}] dropped_sink: send message failed: {:?}", tx, e);
+			}
+		}
+	}
+
+	/// Transaction was dropped from the pool because of the failure during the resubmission of
+	/// revalidate transactions or failure during pruning tags.
+	pub fn dropped(&mut self, tx: &H) {
+		trace!(target: LOG_TARGET, "[{:?}] Dropped", tx);
+		self.fire(tx, |watcher| watcher.dropped());
 	}
 
 	/// Transaction was removed as invalid.
