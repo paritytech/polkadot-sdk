@@ -499,7 +499,7 @@ fn staking_should_work() {
 			}
 		);
 		// e.g. it cannot reserve more than 500 that it has free from the total 2000
-		assert_noop!(Balances::reserve(&3, 501), BalancesError::<Test, _>::InsufficientBalance);
+		assert_noop!(Balances::reserve(&3, 501), DispatchError::ConsumerRemaining);
 		assert_ok!(Balances::reserve(&3, 409));
 	});
 }
@@ -698,7 +698,7 @@ fn nominating_and_rewards_should_work() {
 			);
 			// Nominator 3: has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11 from 21]'s reward. ==>
 			// 2/9 + 3/11
-			assert_eq!(asset::total_balance::<Test>(&3), initial_balance);
+			assert_eq!(asset::stakeable_balance::<Test>(&3), initial_balance);
 			// 333 is the reward destination for 3.
 			assert_eq_error_rate!(
 				asset::total_balance::<Test>(&333),
@@ -1068,9 +1068,9 @@ fn reward_destination_works() {
 		// Check that account 11 is a validator
 		assert!(Session::validators().contains(&11));
 		// Check the balance of the validator account
-		assert_eq!(asset::stakeable_balance::<Test>(&10), 1);
+		assert_eq!(asset::total_balance::<Test>(&10), 1);
 		// Check the balance of the stash account
-		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000);
+		assert_eq!(asset::total_balance::<Test>(&11), 1001);
 		// Check how much is at stake
 		assert_eq!(
 			Staking::ledger(11.into()).unwrap(),
@@ -1951,92 +1951,6 @@ fn reap_stash_works() {
 }
 
 #[test]
-fn reap_stash_fails_if_extra_consumer() {
-	ExtBuilder::default()
-		.existential_deposit(10)
-		.balance_factor(10)
-		.build_and_execute(|| {
-			// given a validator
-			let validator: AccountId = 300;
-			asset::set_stakeable_balance::<Test>(&validator, 1000);
-			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(validator),
-				1000,
-				RewardDestination::Account(validator)
-			));
-			assert_ok!(Staking::validate(
-				RuntimeOrigin::signed(validator),
-				ValidatorPrefs::default()
-			));
-			assert_ok!(Session::set_keys(
-				RuntimeOrigin::signed(validator),
-				SessionKeys { other: validator.into() },
-				vec![]
-			));
-
-			// and a nominator
-			let nominator: AccountId = 301;
-			asset::set_stakeable_balance::<Test>(&nominator, 500);
-			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(nominator),
-				500,
-				RewardDestination::Account(nominator)
-			));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(nominator), vec![validator]));
-
-			// assert setup
-			assert_eq!(asset::staked::<Test>(&validator), 1000);
-			assert_eq!(Staking::bonded(&validator), Some(validator));
-			assert_eq!(asset::staked::<Test>(&nominator), 500);
-			assert_eq!(Staking::bonded(&nominator), Some(nominator));
-
-			// the validator has an extra consumer from another pallet (session) in the runtime.
-			assert_eq!(System::consumers(&validator), 2);
-			assert_eq!(System::consumers(&nominator), 1);
-
-			// Slash their bonds to make their stake go below ED
-			let mut vledger = Staking::ledger(validator.into()).unwrap();
-			vledger.slash(vledger.total, 10, 1);
-			assert_ok!(vledger.update());
-			let mut nledger = Staking::ledger(nominator.into()).unwrap();
-			nledger.slash(nledger.total, 10, 1);
-			assert_ok!(nledger.update());
-
-			// ensure they don't have any extra balance to stake.
-			asset::set_stakeable_balance::<Test>(&validator, 0);
-			assert_eq!(asset::staked::<Test>(&validator), 0);
-			asset::set_stakeable_balance::<Test>(&nominator, 0);
-			assert_eq!(asset::staked::<Test>(&nominator), 0);
-
-			hypothetically!({
-				// Validator has an extra consumer coming from another pallet other than session.
-				System::inc_consumers(&validator)
-					.expect("stash has a provider so this should not fail");
-
-				// This would prevent the pallet to decrement provider from reaping the stash.
-				assert_noop!(
-					Staking::reap_stash(RuntimeOrigin::signed(20), validator, 0),
-					DispatchError::ConsumerRemaining
-				);
-
-				// Once the extra consumer is removed, the pallet can reap the stash as usual.
-				System::dec_consumers(&validator);
-				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), validator, 0));
-			});
-
-			// reap stash removes the extra consumer by purging keys.
-			assert!(pallet_session::NextKeys::<Test>::contains_key(&validator));
-			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), validator, 0));
-			assert!(!pallet_session::NextKeys::<Test>::contains_key(&validator));
-			assert_eq!(Staking::bonded(&validator), None);
-
-			// reap stash works for nominator
-			assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), nominator, 0));
-			assert_eq!(Staking::bonded(&nominator), None);
-		});
-}
-
-#[test]
 fn reap_stash_works_with_existential_deposit_zero() {
 	ExtBuilder::default()
 		.existential_deposit(0)
@@ -2436,7 +2350,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		EraInfo::<Test>::set_exposure(0, &11, exposure);
 		ErasValidatorReward::<Test>::insert(0, stake);
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
-		assert_eq!(asset::total_balance::<Test>(&11), stake * 2);
+		assert_eq!(asset::stakeable_balance::<Test>(&11), stake * 2);
 
 		// ensure ledger has `stake` and no more.
 		Ledger::<Test>::insert(
@@ -2475,8 +2389,8 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 			&[Perbill::from_percent(100)],
 		);
 
-		assert_eq!(asset::total_balance::<Test>(&11), stake - 1);
-		assert_eq!(asset::total_balance::<Test>(&2), 1);
+		assert_eq!(asset::stakeable_balance::<Test>(&11), stake - 1);
+		assert_eq!(asset::stakeable_balance::<Test>(&2), 1);
 	})
 }
 
@@ -2736,8 +2650,8 @@ fn reporters_receive_their_slice() {
 		// 50% * (10% * initial_balance / 2)
 		let reward = (initial_balance / 20) / 2;
 		let reward_each = reward / 2; // split into two pieces.
-		assert_eq!(asset::stakeable_balance::<Test>(&1), 10 + reward_each);
-		assert_eq!(asset::stakeable_balance::<Test>(&2), 20 + reward_each);
+		assert_eq!(asset::total_balance::<Test>(&1), 10 + reward_each);
+		assert_eq!(asset::total_balance::<Test>(&2), 20 + reward_each);
 	});
 }
 
@@ -2762,7 +2676,7 @@ fn subsequent_reports_in_same_span_pay_out_less() {
 		// F1 * (reward_proportion * slash - 0)
 		// 50% * (10% * initial_balance * 20%)
 		let reward = (initial_balance / 5) / 20;
-		assert_eq!(asset::stakeable_balance::<Test>(&1), 10 + reward);
+		assert_eq!(asset::total_balance::<Test>(&1), 10 + reward);
 
 		on_offence_now(
 			&[OffenceDetails {
@@ -2777,7 +2691,7 @@ fn subsequent_reports_in_same_span_pay_out_less() {
 		// F1 * (reward_proportion * slash - prior_payout)
 		// 50% * (10% * (initial_balance / 2) - prior_payout)
 		let reward = ((initial_balance / 20) - prior_payout) / 2;
-		assert_eq!(asset::stakeable_balance::<Test>(&1), 10 + prior_payout + reward);
+		assert_eq!(asset::total_balance::<Test>(&1), 10 + prior_payout + reward);
 	});
 }
 
@@ -6179,7 +6093,7 @@ fn nomination_quota_max_changes_decoding() {
 		.add_staker(70, 71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
 		.add_staker(30, 330, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
 		.add_staker(50, 550, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
-		.balance_factor(10)
+		.balance_factor(11)
 		.build_and_execute(|| {
 			// pre-condition.
 			assert_eq!(MaxNominationsOf::<Test>::get(), 16);
@@ -7212,7 +7126,7 @@ mod staking_unchecked {
 	fn virtual_bond_does_not_lock() {
 		ExtBuilder::default().build_and_execute(|| {
 			mock::start_active_era(1);
-			assert_eq!(asset::stakeable_balance::<Test>(&10), 1);
+			assert_eq!(asset::total_balance::<Test>(&10), 1);
 			// 10 can bond more than its balance amount since we do not require lock for virtual
 			// bonding.
 			assert_ok!(<Staking as StakingUnchecked>::virtual_bond(&10, 100, &15));
@@ -8539,8 +8453,8 @@ mod hold_migration {
 			assert_ok!(Staking::migrate_currency(RuntimeOrigin::signed(1), alice));
 
 			// THEN
-			// ensure consumer count stays same.
-			assert_eq!(System::consumers(&alice), pre_migrate_consumer);
+			// the extra consumer from old code is removed.
+			assert_eq!(System::consumers(&alice), pre_migrate_consumer - 1);
 			// ensure no lock
 			assert_eq!(Balances::balance_locked(STAKING_ID, &alice), 0);
 			// ensure stake and hold are same.
