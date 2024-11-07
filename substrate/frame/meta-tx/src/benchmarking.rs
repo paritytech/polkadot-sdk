@@ -25,8 +25,8 @@ use types::BenchmarkHelper;
 
 pub mod types {
 	use super::*;
-	use sp_keyring::AccountKeyring;
-	use sp_runtime::{AccountId32, MultiSignature};
+	use sp_io::crypto::{sr25519_generate, sr25519_sign};
+	use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
 
 	/// Trait for the config type that facilitates the benchmarking of the pallet.
 	pub trait BenchmarkHelper<AccountId, Signature, Call, Extension> {
@@ -55,12 +55,16 @@ pub mod types {
 			frame_system::Call::<T>::remark { remark: vec![] }.into()
 		}
 		fn create_signature(call: CallOf<T>, ext: ExtensionOf<T>) -> (AccountId32, MultiSignature) {
-			let alice_keyring = AccountKeyring::Alice;
+			let public = sr25519_generate(0.into(), None);
 			(
-				alice_keyring.public().into(),
+				MultiSigner::Sr25519(public).into_account().into(),
 				MultiSignature::Sr25519(
-					(call, ext.clone(), ext.implicit().unwrap())
-						.using_encoded(|e| alice_keyring.sign(&e)),
+					sr25519_sign(
+						0.into(),
+						&public,
+						&(call, ext.clone(), ext.implicit().unwrap()).encode(),
+					)
+					.unwrap(),
 				),
 			)
 		}
@@ -96,7 +100,7 @@ pub mod types {
 		type Pre = ();
 		type Val = ();
 		fn weight(&self, _call: &<T as Config>::RuntimeCall) -> Weight {
-			0.into()
+			Weight::from_all(0)
 		}
 		impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
 	}

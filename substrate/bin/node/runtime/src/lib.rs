@@ -2323,6 +2323,26 @@ impl pallet_parameters::Config for Runtime {
 	type WeightInfo = ();
 }
 
+pub type MetaTxExtension = (
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
+
+impl pallet_meta_tx::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Signature = Signature;
+	type PublicKey = <Signature as sp_runtime::traits::Verify>::Signer;
+	type Extension = MetaTxExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = pallet_meta_tx::BenchmarkHelperFor<Runtime>;
+}
+
 #[frame_support::runtime]
 mod runtime {
 	use super::*;
@@ -2587,6 +2607,9 @@ mod runtime {
 
 	#[runtime::pallet_index(81)]
 	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
+
+	#[runtime::pallet_index(82)]
+	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {

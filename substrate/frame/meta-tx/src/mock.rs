@@ -25,6 +25,7 @@ use frame_support::{
 	weights::{FixedFee, NoFee},
 };
 use sp_core::ConstU8;
+use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{traits::IdentityLookup, MultiSignature};
 
 pub type Balance = u64;
@@ -109,5 +110,6 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 		frame_system::GenesisConfig::<Runtime>::default().build();
 		System::set_block_number(1);
 	});
+	ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
 	ext
 }

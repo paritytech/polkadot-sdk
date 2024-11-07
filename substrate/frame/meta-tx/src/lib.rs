@@ -54,6 +54,8 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
+#[cfg(feature = "runtime-benchmarks")]
+pub use benchmarking::types::{BenchmarkHelper, BenchmarkHelperFor, WeightlessExtension};
 pub use pallet::*;
 
 use core::ops::Add;
