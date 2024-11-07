@@ -44,7 +44,7 @@ use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSyst
 use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::westend::currency::UNITS as WND;
 use xcm::{
-	latest::prelude::*,
+	latest::{prelude::*, ROCOCO_GENESIS_HASH},
 	prelude::{InteriorLocation, NetworkId},
 };
 use xcm_builder::{BridgeBlobDispatcher, ParentIsPreset, SiblingParachainConvertsVia};
@@ -57,7 +57,7 @@ parameter_types! {
 	pub const MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 
 	pub BridgeWestendToRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8)].into();
-	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
+	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
 	pub RococoGlobalConsensusNetworkLocation: Location = Location::new(
 		2,
 		[GlobalConsensus(RococoGlobalConsensusNetwork::get())]
@@ -204,13 +204,15 @@ where
 {
 	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
 	use sp_runtime::traits::Zero;
-	use xcm::VersionedInteriorLocation;
+	use xcm::{latest::WESTEND_GENESIS_HASH, VersionedInteriorLocation};
 
 	// insert bridge metadata
 	let lane_id = with;
 	let sibling_parachain = Location::new(1, [Parachain(sibling_para_id)]);
-	let universal_source = [GlobalConsensus(Westend), Parachain(sibling_para_id)].into();
-	let universal_destination = [GlobalConsensus(Rococo), Parachain(2075)].into();
+	let universal_source =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(sibling_para_id)].into();
+	let universal_destination =
+		[GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(2075)].into();
 	let bridge_id = BridgeId::new(&universal_source, &universal_destination);
 
 	// insert only bridge metadata, because the benchmarks create lanes
@@ -332,25 +334,12 @@ mod tests {
 pub mod migration {
 	use super::*;
 	use bp_messages::LegacyLaneId;
-	use frame_support::traits::ConstBool;
 
 	parameter_types! {
 		pub AssetHubWestendToAssetHubRococoMessagesLane: LegacyLaneId = LegacyLaneId([0, 0, 0, 2]);
 		pub AssetHubWestendLocation: Location = Location::new(1, [Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)]);
 		pub AssetHubRococoUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)].into();
 	}
-
-	/// Ensure that the existing lanes for the AHW<>AHR bridge are correctly configured.
-	pub type StaticToDynamicLanes = pallet_xcm_bridge_hub::migration::OpenBridgeForLane<
-		Runtime,
-		XcmOverBridgeHubRococoInstance,
-		AssetHubWestendToAssetHubRococoMessagesLane,
-		// the lanes are already created for AHR<>AHW, but we need to link them to the bridge
-		// structs
-		ConstBool<false>,
-		AssetHubWestendLocation,
-		AssetHubRococoUniversalLocation,
-	>;
 
 	mod v1_wrong {
 		use bp_messages::{LaneState, MessageNonce, UnrewardedRelayer};
