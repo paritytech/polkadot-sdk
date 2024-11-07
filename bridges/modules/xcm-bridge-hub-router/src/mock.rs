@@ -225,4 +225,7 @@ impl crate::benchmarking::Config<()> for TestRuntime {
 	fn ensure_bridged_target_destination() -> Result<Location, frame_benchmarking::BenchmarkError> {
 		Ok(Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]))
 	}
+	fn report_bridge_status_origin() -> Option<RuntimeOrigin> {
+		Some(RuntimeOrigin::root())
+	}
 }

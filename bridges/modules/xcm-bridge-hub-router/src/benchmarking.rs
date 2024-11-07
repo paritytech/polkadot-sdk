@@ -19,8 +19,8 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{BridgeState, Bridges, Call, ResolveBridgeId, MINIMAL_DELIVERY_FEE_FACTOR};
-use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError, BenchmarkResult};
-use frame_support::traits::{EnsureOriginWithArg, Hooks, UnfilteredDispatchable};
+use frame_benchmarking::v2::*;
+use frame_support::traits::{EnsureOriginWithArg, Hooks};
 use sp_runtime::{traits::Zero, Saturating};
 use xcm::prelude::*;
 
@@ -29,32 +29,43 @@ pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
 pub trait Config<I: 'static>: crate::Config<I> {
-	// /// Fill up queue so it becomes congested.
-	// fn make_congested();
-	//
 	/// Returns destination which is valid for this router instance.
 	fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError>;
+	/// Returns valid origin for `report_bridge_status` (if `T::BridgeHubOrigin` is supported).
+	fn report_bridge_status_origin() -> Option<Self::RuntimeOrigin>;
 }
 
-benchmarks_instance_pallet! {
-	on_initialize_when_bridge_state_removed {
+#[instance_benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn on_initialize_when_bridge_state_removed() -> Result<(), BenchmarkError> {
 		let bridge_id = T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
 			.ok_or(BenchmarkError::Weightless)?;
+
 		// uncongested and less than a minimal factor is removed
 		Bridges::<T, I>::insert(&bridge_id, BridgeState {
 			delivery_fee_factor: 0.into(),
 			is_congested: false,
 		});
 		assert!(Bridges::<T, I>::get(&bridge_id).is_some());
-	}: {
-		crate::Pallet::<T, I>::on_initialize(Zero::zero())
-	} verify {
+
+		#[block]
+		{
+			let _ = crate::Pallet::<T, I>::on_initialize(Zero::zero());
+		}
+
 		assert!(Bridges::<T, I>::get(bridge_id).is_none());
+
+		Ok(())
 	}
 
-	on_initialize_when_bridge_state_updated {
+	#[benchmark]
+	fn on_initialize_when_bridge_state_updated() -> Result<(), BenchmarkError> {
 		let bridge_id = T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
 			.ok_or(BenchmarkError::Weightless)?;
+
 		// uncongested and higher than a minimal factor is decreased
 		let old_delivery_fee_factor = MINIMAL_DELIVERY_FEE_FACTOR.saturating_mul(1000.into());
 		Bridges::<T, I>::insert(&bridge_id, BridgeState {
@@ -62,21 +73,29 @@ benchmarks_instance_pallet! {
 			is_congested: false,
 		});
 		assert!(Bridges::<T, I>::get(&bridge_id).is_some());
-	}: {
-		crate::Pallet::<T, I>::on_initialize(Zero::zero())
-	} verify {
+
+		#[block]
+		{
+			let _ = crate::Pallet::<T, I>::on_initialize(Zero::zero());
+		}
+
 		assert!(Bridges::<T, I>::get(bridge_id).unwrap().delivery_fee_factor < old_delivery_fee_factor);
+		Ok(())
 	}
 
-	report_bridge_status {
+	#[benchmark]
+	fn report_bridge_status() -> Result<(), BenchmarkError> {
 		let bridge_id = T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		let origin: T::RuntimeOrigin = T::BridgeHubOrigin::try_successful_origin(&bridge_id).map_err(|_| BenchmarkError::Weightless)?;
+		let origin = T::report_bridge_status_origin()
+			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let _ = T::BridgeHubOrigin::try_origin(origin.clone(), &bridge_id)
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let is_congested = true;
 
-		let call = Call::<T, I>::report_bridge_status { bridge_id: bridge_id.clone(), is_congested };
-	}: { call.dispatch_bypass_filter(origin)? }
-	verify {
+		#[extrinsic_call]
+		report_bridge_status(origin as T::RuntimeOrigin, bridge_id.clone(), is_congested);
+
 		assert_eq!(
 			Bridges::<T, I>::get(&bridge_id),
 			Some(BridgeState {
@@ -84,7 +103,8 @@ benchmarks_instance_pallet! {
 				is_congested,
 			})
 		);
+		Ok(())
 	}
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime)
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime);
 }
