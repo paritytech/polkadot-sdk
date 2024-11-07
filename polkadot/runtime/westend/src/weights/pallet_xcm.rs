@@ -48,20 +48,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_xcm`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
-	fn add_authorized_alias() -> Weight {
-		// TODO: benchmark
-		Weight::from_parts(3_724_000, 0)
-			.saturating_add(Weight::from_parts(0, 1517))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	fn remove_authorized_alias() -> Weight {
-		// TODO: benchmark
-		Weight::from_parts(3_724_000, 0)
-			.saturating_add(Weight::from_parts(0, 1517))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 	/// Storage: `Dmp::DeliveryFeeFactor` (r:1 w:0)
 	/// Proof: `Dmp::DeliveryFeeFactor` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::SupportedVersion` (r:1 w:0)
@@ -359,6 +345,28 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 		// Minimum execution time: 34_558_000 picoseconds.
 		Weight::from_parts(35_299_000, 0)
 			.saturating_add(Weight::from_parts(0, 3488))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `XcmPallet::AuthorizedAliasesMap` (r:1 w:1)
+	/// Proof: `XcmPallet::AuthorizedAliasesMap` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn add_authorized_alias() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `361`
+		//  Estimated: `3826`
+		// Minimum execution time: 15_975_000 picoseconds.
+		Weight::from_parts(16_398_000, 3826)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `XcmPallet::AuthorizedAliasesMap` (r:1 w:1)
+	/// Proof: `XcmPallet::AuthorizedAliasesMap` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn remove_authorized_alias() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `400`
+		//  Estimated: `3865`
+		// Minimum execution time: 17_326_000 picoseconds.
+		Weight::from_parts(17_622_000, 3865)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}

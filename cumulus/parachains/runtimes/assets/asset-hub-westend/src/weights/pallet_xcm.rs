@@ -48,17 +48,25 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_xcm`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
+	/// Storage: `PolkadotXcm::AuthorizedAliasesMap` (r:1 w:1)
+	/// Proof: `PolkadotXcm::AuthorizedAliasesMap` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_authorized_alias() -> Weight {
-		// TODO: benchmark
-		Weight::from_parts(3_724_000, 0)
-			.saturating_add(Weight::from_parts(0, 1517))
+		// Proof Size summary in bytes:
+		//  Measured:  `498`
+		//  Estimated: `3963`
+		// Minimum execution time: 19_789_000 picoseconds.
+		Weight::from_parts(20_317_000, 3963)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `PolkadotXcm::AuthorizedAliasesMap` (r:1 w:1)
+	/// Proof: `PolkadotXcm::AuthorizedAliasesMap` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn remove_authorized_alias() -> Weight {
-		// TODO: benchmark
-		Weight::from_parts(3_724_000, 0)
-			.saturating_add(Weight::from_parts(0, 1517))
+		// Proof Size summary in bytes:
+		//  Measured:  `537`
+		//  Estimated: `4002`
+		// Minimum execution time: 20_805_000 picoseconds.
+		Weight::from_parts(21_481_000, 4002)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
