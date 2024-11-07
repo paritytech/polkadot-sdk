@@ -60,6 +60,7 @@ pub type MetaTxExtension = (
 pub type MetaTxExtension = crate::benchmarking::types::WeightlessExtension<Runtime>;
 
 impl Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Signature = Signature;

@@ -48,7 +48,6 @@ pub mod types {
 	impl<T: Config> BenchmarkHelper<AccountId32, MultiSignature, CallOf<T>, ExtensionOf<T>>
 		for BenchmarkHelperFor<T>
 	where
-		T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 		CallOf<T>: From<frame_system::Call<T>>,
 	{
 		fn create_weightless_call() -> CallOf<T> {
@@ -74,26 +73,18 @@ pub mod types {
 	#[derive(TypeInfo, Eq, PartialEq, Clone, Encode, Decode)]
 	#[scale_info(skip_type_params(T))]
 	pub struct WeightlessExtension<T>(core::marker::PhantomData<T>);
-	impl<T: Config + Send + Sync> core::fmt::Debug for WeightlessExtension<T>
-	where
-		T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
-	{
+	impl<T: Config + Send + Sync> core::fmt::Debug for WeightlessExtension<T> {
 		fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 			write!(f, "WeightlessExtension")
 		}
 	}
-	impl<T: Config + Send + Sync> Default for WeightlessExtension<T>
-	where
-		T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
-	{
+	impl<T: Config + Send + Sync> Default for WeightlessExtension<T> {
 		fn default() -> Self {
 			WeightlessExtension(Default::default())
 		}
 	}
 	impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
 		for WeightlessExtension<T>
-	where
-		T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	{
 		const IDENTIFIER: &'static str = "WeightlessExtension";
 		type Implicit = ();
@@ -106,10 +97,7 @@ pub mod types {
 	}
 }
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent)
-where
-	<T as frame_system::Config>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
-{
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
@@ -118,7 +106,6 @@ where
         T: Config,
         <T as Config>::Extension: Default,
         <T as Config>::RuntimeCall: From<frame_system::Call<T>>,
-        <T as frame_system::Config>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
     )]
 mod benchmarks {
 	use super::*;
@@ -142,7 +129,8 @@ mod benchmarks {
 		let call = Call::<T>::dispatch { meta_tx: Box::new(meta_tx) };
 		let info = call.get_dispatch_info();
 		let caller = whitelisted_caller();
-		let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(caller).into();
+		let origin: <T as frame_system::Config>::RuntimeOrigin =
+			frame_system::RawOrigin::Signed(caller).into();
 
 		#[block]
 		{

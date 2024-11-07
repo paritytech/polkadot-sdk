@@ -1566,6 +1566,7 @@ pub type MetaTxExtension = (
 );
 
 impl pallet_meta_tx::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Signature = Signature;

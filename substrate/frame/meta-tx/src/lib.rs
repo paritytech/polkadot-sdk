@@ -62,9 +62,8 @@ use core::ops::Add;
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::OriginTrait,
 };
-use frame_system::pallet_prelude::*;
+use frame_system::{pallet_prelude::*, RawOrigin as SystemOrigin};
 use sp_runtime::traits::{
 	AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable, IdentifyAccount,
 	TransactionExtension, Verify,
@@ -112,10 +111,11 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config
-	where
-		Self::RuntimeOrigin: AsTransactionAuthorizedOrigin,
-	{
+	pub trait Config: frame_system::Config {
+		/// The overarching origin type.
+		type RuntimeOrigin: AsTransactionAuthorizedOrigin
+			+ From<SystemOrigin<Self::AccountId>>
+			+ IsType<<Self as frame_system::Config>::RuntimeOrigin>;
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The overarching call type.
@@ -124,7 +124,7 @@ pub mod pallet {
 			+ Dispatchable<
 				Info = DispatchInfo,
 				PostInfo = PostDispatchInfo,
-				RuntimeOrigin = Self::RuntimeOrigin,
+				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
 			> + IsType<<Self as frame_system::Config>::RuntimeCall>;
 		/// Signature type for meta transactions.
 		type Signature: Parameter + Verify<Signer = Self::PublicKey>;
@@ -168,10 +168,7 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
-	pub enum Event<T: Config>
-	where
-		T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
-	{
+	pub enum Event<T: Config> {
 		/// A meta transaction has been dispatched.
 		///
 		/// Contains the dispatch result of the meta transaction along with post-dispatch
@@ -183,10 +180,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	where
-		<T as frame_system::Config>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
-	{
+	impl<T: Config> Pallet<T> {
 		/// Dispatch a given meta transaction.
 		///
 		/// - `_origin`: Can be any kind of origin.
@@ -216,7 +210,7 @@ pub mod pallet {
 				return Err(Error::<T>::BadProof.into());
 			}
 
-			let origin = T::RuntimeOrigin::signed(meta_tx.address);
+			let origin = SystemOrigin::Signed(meta_tx.address);
 			let (call, extension, _) = signed_payload.deconstruct();
 			// `info` with worst-case call weight and extension weight.
 			let info = {
@@ -227,7 +221,7 @@ pub mod pallet {
 
 			// dispatch the meta transaction.
 			let meta_dispatch_res = extension
-				.dispatch_transaction(origin, call, &info, meta_tx_size)
+				.dispatch_transaction(origin.into(), call, &info, meta_tx_size)
 				.map_err(Error::<T>::from)?;
 
 			Self::deposit_event(Event::Dispatched { result: meta_dispatch_res });
