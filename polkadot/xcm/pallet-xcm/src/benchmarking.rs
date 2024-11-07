@@ -387,8 +387,8 @@ benchmarks! {
 
 	add_authorized_alias {
 		let origin = RawOrigin::Root;
-		let origin_location: VersionedLocation =
-			T::ExecuteXcmOrigin::ensure_origin(origin.clone().into()).unwrap().into();
+		let origin_location: VersionedLocation = T::ExecuteXcmOrigin::try_origin(origin.clone().into())
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?.into();
 		let mut existing_aliases = BoundedVec::<VersionedLocation, MaxAuthorizedAliases>::new();
 		// prepopulate list with `max-1` aliases to benchmark worst case
 		for i in 1..MaxAuthorizedAliases::get() {
@@ -403,8 +403,8 @@ benchmarks! {
 
 	remove_authorized_alias {
 		let origin = RawOrigin::Root;
-		let origin_location: VersionedLocation =
-			T::ExecuteXcmOrigin::ensure_origin(origin.clone().into()).unwrap().into();
+		let origin_location: VersionedLocation = T::ExecuteXcmOrigin::try_origin(origin.clone().into())
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?.into();
 		let mut existing_aliases = BoundedVec::<VersionedLocation, MaxAuthorizedAliases>::new();
 		// prepopulate list with `max` aliases to benchmark worst case
 		for i in 1..MaxAuthorizedAliases::get()+1 {
