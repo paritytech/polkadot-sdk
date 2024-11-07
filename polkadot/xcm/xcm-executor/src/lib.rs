@@ -1030,25 +1030,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			DescendOrigin(who) => self.do_descend_origin(who),
 			ClearOrigin => self.do_clear_origin(),
-			ExecuteWithOrigin { origin, xcm } => {
+			ExecuteWithOrigin { descendant_origin, xcm } => {
 				let previous_origin = self.context.origin.clone();
 
 				// Set new temporary origin.
-				if let Some(who) = origin {
+				if let Some(who) = descendant_origin {
 					self.do_descend_origin(who)?;
 				} else {
 					self.do_clear_origin()?;
 				}
 				// Process instructions.
-				self.process(xcm).map_err(|error| {
+				let result = self.process(xcm).map_err(|error| {
 					tracing::error!(target: "xcm::execute", ?error, origin = ?self.context.origin, "ExecuteWithOrigin inner xcm failure");
-					self.context.origin = previous_origin.clone();
 					error.xcm_error
-				})?;
+				});
 				// Reset origin to previous one.
 				self.context.origin = previous_origin;
-
-				Ok(())
+				result
 			},
 			ReportError(response_info) => {
 				// Report the given result by sending a QueryResponse XCM to a previously given
@@ -1633,7 +1631,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			.ok_or(XcmError::BadOrigin)?
 			.append_with(who)
 			.map_err(|e| {
-				tracing::error!(target: "xcm::process_instruction::descend_origin", ?e, "Failed to append junctions");
+				tracing::error!(target: "xcm::do_descend_origin", ?e, "Failed to append junctions");
 				XcmError::LocationFull
 			})
 	}

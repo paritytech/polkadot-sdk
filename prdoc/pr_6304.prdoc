@@ -6,7 +6,7 @@ title: XCMv5 - Add ExecuteWithOrigin instruction
 doc:
   - audience: [Runtime User, Runtime Dev]
     description: |
-      Added a new instruction to XCMv5, ExecuteWithOrigin, that allows you to specify an origin
+      Added a new instruction to XCMv5, ExecuteWithOrigin, that allows you to specify an interior origin
       and a set of instructions that will be executed using that origin.
       The origins you can choose are `None` to clear it during the execution of the inner instructions,
       or `Some(InteriorLocation)` to descend into an interior location.
