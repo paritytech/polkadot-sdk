@@ -718,7 +718,7 @@ version = "0.16.0"
 path = "../cumulus/pallets/parachain-system"
 default-features = false
 optional = true
-version = "0.16.1"
+version = "0.16.2"
 
 [dependencies.cumulus-pallet-parachain-system-proc-macro]
 path = "../cumulus/pallets/parachain-system/proc-macro"
@@ -1162,7 +1162,7 @@ version = "37.0.0"
 path = "../substrate/frame/message-queue"
 default-features = false
 optional = true
-version = "40.0.0"
+version = "40.0.1"
 
 [dependencies.pallet-migrations]
 path = "../substrate/frame/migrations"
@@ -1468,7 +1468,7 @@ version = "36.0.0"
 path = "../polkadot/xcm/pallet-xcm"
 default-features = false
 optional = true
-version = "16.0.1"
+version = "16.0.2"
 
 [dependencies.pallet-xcm-benchmarks]
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
@@ -1486,7 +1486,7 @@ version = "0.12.1"
 path = "../bridges/modules/xcm-bridge-hub-router"
 default-features = false
 optional = true
-version = "0.14.1"
+version = "0.14.2"
 
 [dependencies.parachains-common]
 path = "../cumulus/parachains/common"
@@ -1936,7 +1936,7 @@ version = "14.1.0"
 path = "../polkadot/xcm/xcm-builder"
 default-features = false
 optional = true
-version = "16.0.1"
+version = "16.0.2"
 
 [dependencies.staging-xcm-executor]
 path = "../polkadot/xcm/xcm-executor"
@@ -2086,7 +2086,7 @@ version = "0.15.0"
 path = "../cumulus/parachains/integration-tests/emulated/common"
 default-features = false
 optional = true
-version = "13.0.0"
+version = "13.1.0"
 
 [dependencies.fork-tree]
 path = "../substrate/utils/fork-tree"
