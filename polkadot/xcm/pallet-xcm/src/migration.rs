@@ -179,13 +179,13 @@ pub mod data {
 				self.1.iter().any(|alias| alias.identify_version() < XCM_VERSION)
 		}
 
-		fn try_migrate(self, new_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
-			if !self.needs_migration(new_version) {
+		fn try_migrate(self, _: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
+			if !self.needs_migration(XCM_VERSION) {
 				return Ok(None)
 			}
 
-			let key = if self.0.identify_version() < new_version {
-				let Ok(converted_key) = self.0.clone().into_version(new_version) else {
+			let key = if self.0.identify_version() < XCM_VERSION {
+				let Ok(converted_key) = self.0.clone().into_version(XCM_VERSION) else {
 					return Err(())
 				};
 				converted_key
@@ -195,8 +195,8 @@ pub mod data {
 			let mut aliases = BoundedVec::<VersionedLocation, M>::new();
 			for alias in self.1 {
 				if aliases
-					.try_push(if alias.identify_version() < new_version {
-						let Ok(new_alias) = alias.clone().into_version(new_version) else {
+					.try_push(if alias.identify_version() < XCM_VERSION {
+						let Ok(new_alias) = alias.clone().into_version(XCM_VERSION) else {
 							return Err(())
 						};
 						new_alias
