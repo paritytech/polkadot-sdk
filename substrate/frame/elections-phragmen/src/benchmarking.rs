@@ -260,7 +260,6 @@ mod benchmarks {
 		let m = T::DesiredMembers::get() + T::DesiredRunnersUp::get();
 
 		clean::<T>();
-		let stake = default_stake::<T>(c);
 
 		// Create `m` members and runners combined.
 		let _ = fill_seats_up_to::<T>(m)?;
