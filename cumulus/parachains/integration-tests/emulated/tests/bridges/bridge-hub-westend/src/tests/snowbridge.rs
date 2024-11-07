@@ -22,7 +22,7 @@ use hex_literal::hex;
 use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
 use snowbridge_core::{outbound::OperatingMode, AssetMetadata, TokenIdOf};
 use snowbridge_router_primitives::inbound::{
-	Command, Destination, GlobalConsensusEthereumConvertsFor, MessageV1, VersionedMessage,
+	Command, Destination, EthereumLocationsConverterFor, MessageV1, VersionedMessage,
 };
 use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
@@ -294,13 +294,15 @@ fn transfer_relay_token() {
 	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 
 	let asset_id: Location = Location { parents: 1, interior: [].into() };
-	let expected_asset_id: Location =
-		Location { parents: 1, interior: [GlobalConsensus(Westend)].into() };
+	let expected_asset_id: Location = Location {
+		parents: 1,
+		interior: [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))].into(),
+	};
 
 	let expected_token_id = TokenIdOf::convert_location(&expected_asset_id).unwrap();
 
 	let ethereum_sovereign: AccountId =
-		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&Location::new(
+		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&Location::new(
 			2,
 			[GlobalConsensus(EthereumNetwork::get())],
 		))
@@ -448,7 +450,7 @@ fn transfer_ah_token() {
 	let ethereum_destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
 
 	let ethereum_sovereign: AccountId =
-		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&ethereum_destination)
+		EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&ethereum_destination)
 			.unwrap()
 			.into();
 	AssetHubWestend::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
@@ -465,10 +467,15 @@ fn transfer_ah_token() {
 		],
 	);
 
-	let asset_id_after_reanchored =
-		Location::new(1, [GlobalConsensus(Westend), Parachain(AssetHubWestend::para_id().into())])
-			.appended_with(asset_id.clone().interior)
-			.unwrap();
+	let asset_id_after_reanchored = Location::new(
+		1,
+		[
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(AssetHubWestend::para_id().into()),
+		],
+	)
+	.appended_with(asset_id.clone().interior)
+	.unwrap();
 
 	let token_id = TokenIdOf::convert_location(&asset_id_after_reanchored).unwrap();
 

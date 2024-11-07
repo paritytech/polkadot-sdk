@@ -52,7 +52,7 @@ pub use traits::{
 	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v4 are unchanged in XCM v5, and are re-imported here.
-pub use super::v4::{MaybeErrorCode, OriginKind, WeightLimit};
+pub use super::v4::{MaxDispatchErrorLen, MaybeErrorCode, OriginKind, WeightLimit};
 
 pub const VERSION: super::Version = 5;
 
@@ -223,9 +223,6 @@ pub mod prelude {
 
 parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
-	/// Maximum size of the encoded error code coming from a `Dispatch` result, used for
-	/// `MaybeErrorCode`. This is not (yet) enforced, so it's just an indication of expectation.
-	pub MaxDispatchErrorLen: u32 = 128;
 	pub MaxPalletsInfo: u32 = 64;
 }
 

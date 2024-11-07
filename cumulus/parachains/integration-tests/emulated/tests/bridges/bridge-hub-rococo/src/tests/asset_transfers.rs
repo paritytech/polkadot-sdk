@@ -271,7 +271,7 @@ fn send_back_wnds_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 	create_foreign_on_ah_westend(bridged_weth_at_ah.clone(), true);
 	// prefund AHR's sovereign account on AHW to be able to withdraw USDT and wETH from reserves
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
-		Rococo,
+		ByGenesis(ROCOCO_GENESIS_HASH),
 		AssetHubRococo::para_id(),
 	);
 	AssetHubWestend::mint_asset(

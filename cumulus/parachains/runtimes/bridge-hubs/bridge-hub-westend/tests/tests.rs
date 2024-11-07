@@ -46,7 +46,7 @@ use sp_runtime::{
 	AccountId32, Perbill,
 };
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 // Random para id of sibling chain used in tests.

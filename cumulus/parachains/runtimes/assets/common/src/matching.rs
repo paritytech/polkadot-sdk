@@ -146,11 +146,11 @@ impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
 mod tests {
 	use super::*;
 	use frame_support::parameter_types;
-	use xcm::latest::ROCOCO_GENESIS_HASH;
+	use xcm::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 
 	parameter_types! {
 		pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(1000)].into();
-		pub ExpectedNetworkId: NetworkId = ByGenesis(WOCOCO_GENESIS_HASH);
+		pub ExpectedNetworkId: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
 	}
 
 	#[test]
@@ -159,14 +159,14 @@ mod tests {
 		let asset: Location = (
 			Parent,
 			Parent,
-			GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)),
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 			Parachain(1000),
 			PalletInstance(1),
 			GeneralIndex(1),
 		)
 			.into();
 		let origin: Location =
-			(Parent, Parent, GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)), Parachain(1000))
+			(Parent, Parent, GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000))
 				.into();
 		assert!(FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
@@ -201,7 +201,7 @@ mod tests {
 		)
 			.into();
 		let origin: Location =
-			(Parent, Parent, GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)), Parachain(1000))
+			(Parent, Parent, GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000))
 				.into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
@@ -209,7 +209,7 @@ mod tests {
 		let asset: Location = (
 			Parent,
 			Parent,
-			GlobalConsensus(ByGenesis(WOCOCO_GENESIS_HASH)),
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 			Parachain(1000),
 			PalletInstance(1),
 			GeneralIndex(1),

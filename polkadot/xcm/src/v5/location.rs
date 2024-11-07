@@ -71,7 +71,7 @@ pub struct Location {
 
 impl Default for Location {
 	fn default() -> Self {
-		Self { parents: 0, interior: Junctions::Here }
+		Self::here()
 	}
 }
 

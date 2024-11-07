@@ -79,7 +79,7 @@ pub struct RunCmd {
 
 	/// Disable the BEEFY gadget.
 	///
-	/// Currently enabled by default on 'Rococo' and 'Versi'.
+	/// Currently enabled by default.
 	#[arg(long)]
 	pub no_beefy: bool,
 

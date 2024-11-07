@@ -70,7 +70,7 @@ use parachains_common::{
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Saturating, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
@@ -124,8 +124,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// Note: "westmint" is the legacy name for this chain. It has been renamed to
 	// "asset-hub-westend". Many wallets/tools depend on the `spec_name`, so it remains "westmint"
 	// for the time being. Wallets/tools should update to treat "asset-hub-westend" equally.
-	spec_name: create_runtime_str!("westmint"),
-	impl_name: create_runtime_str!("westmint"),
+	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
+	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
 	spec_version: 1_016_004,
 	impl_version: 0,
@@ -1736,7 +1736,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 
@@ -2000,7 +2000,7 @@ impl_runtime_apis! {
 				fn fee_asset() -> Result<Asset, BenchmarkError> {
 					Ok(Asset {
 						id: AssetId(WestendLocation::get()),
-						fun: Fungible(1_000_000 * UNITS),
+						fun: Fungible(1_000 * UNITS),
 					})
 				}
 

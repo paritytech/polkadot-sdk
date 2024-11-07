@@ -103,8 +103,10 @@ benchmarks! {
 
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding);
+		// Set some weight to be paid for.
+		executor.set_message_weight(Weight::from_parts(100_000_000, 100_000));
 
-		let fee_asset = T::fee_asset().unwrap();
+		let fee_asset: Asset = T::fee_asset().unwrap();
 
 		let instruction = Instruction::<XcmCallOf<T>>::PayFees { asset: fee_asset };
 

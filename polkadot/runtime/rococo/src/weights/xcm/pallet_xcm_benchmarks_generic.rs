@@ -335,5 +335,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 710_000 picoseconds.
 		Weight::from_parts(770_000, 0)
+		// Minimum execution time: 798_000 picoseconds.
+		Weight::from_parts(845_000, 0)
 	}
 }
