@@ -16,9 +16,10 @@
 use crate::imports::*;
 
 use codec::Encode;
-use frame_support::sp_runtime::traits::Dispatchable;
+use frame_support::{sp_runtime::traits::Dispatchable, traits::ProcessMessageError};
 use parachains_common::AccountId;
 use people_rococo_runtime::people::IdentityInfo;
+use rococo_runtime::governance::pallet_custom_origins::Origin::GeneralAdmin as GeneralAdminOrigin;
 use rococo_system_emulated_network::people_rococo_emulated_chain::people_rococo_runtime;
 
 use pallet_identity::Data;
@@ -75,6 +76,64 @@ fn relay_commands_add_registrar() {
 				vec![
 					RuntimeEvent::Identity(pallet_identity::Event::RegistrarAdded { .. }) => {},
 					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
+				]
+			);
+		});
+	}
+}
+
+#[test]
+fn relay_commands_add_registrar_wrong_origin() {
+	let people_rococo_alice = PeopleRococo::account_id_of(ALICE);
+
+	let origins = vec![
+		(OriginKind::SovereignAccount, <Rococo as Chain>::RuntimeOrigin::signed(people_rococo_alice)),
+		(OriginKind::Xcm, GeneralAdminOrigin.into()),
+	];
+
+	for (origin_kind, origin) in origins {
+		let registrar: AccountId = [1; 32].into();
+		Rococo::execute_with(|| {
+			type Runtime = <Rococo as Chain>::Runtime;
+			type RuntimeCall = <Rococo as Chain>::RuntimeCall;
+			type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
+			type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
+			type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
+	
+			let add_registrar_call =
+				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_registrar {
+					account: registrar.into(),
+				});
+
+			let xcm_message = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
+				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
+				message: bx!(VersionedXcm::from(Xcm(vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					Transact {
+						origin_kind,
+						require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
+						call: add_registrar_call.encode().into(),
+					}
+				]))),
+			});
+	
+			assert_ok!(xcm_message.dispatch(origin));
+	
+			assert_expected_events!(
+				Rococo,
+				vec![
+					RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+				]
+			);
+		});
+	
+		PeopleRococo::execute_with(|| {
+			type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+	
+			assert_expected_events!(
+				PeopleRococo,
+				vec![
+					RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed { error: ProcessMessageError::Unsupported, .. }) => {},
 				]
 			);
 		});

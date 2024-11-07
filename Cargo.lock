@@ -13794,6 +13794,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "staging-xcm",
  "staging-xcm-executor",
+ "westend-runtime",
  "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
