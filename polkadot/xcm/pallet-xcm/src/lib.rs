@@ -1493,13 +1493,13 @@ pub mod pallet {
 			let to_remove: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin, ?to_remove);
 			ensure!(origin != to_remove, Error::<T>::BadLocation);
-			let v_origin = VersionedLocation::from(origin);
-			let v_to_remove = VersionedLocation::from(to_remove);
-			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&v_origin);
+			let versioned_origin = VersionedLocation::from(origin);
+			let versioned_to_remove = VersionedLocation::from(to_remove);
+			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&versioned_origin);
 			let original_length = authorized_aliases.len();
-			authorized_aliases.retain(|alias| v_to_remove.ne(alias));
+			authorized_aliases.retain(|alias| versioned_to_remove.ne(alias));
 			if original_length != authorized_aliases.len() {
-				AuthorizedAliasesMap::<T>::insert(&v_origin, authorized_aliases);
+				AuthorizedAliasesMap::<T>::insert(&versioned_origin, authorized_aliases);
 			}
 			Ok(())
 		}
