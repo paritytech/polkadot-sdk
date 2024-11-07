@@ -590,7 +590,6 @@ impl BenchKeyring {
 					preamble: Preamble::Signed(
 						sp_runtime::MultiAddress::Id(signed),
 						signature,
-						0,
 						tx_ext,
 					),
 					function: payload.0,
