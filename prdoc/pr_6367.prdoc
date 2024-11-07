@@ -11,4 +11,4 @@ doc:
 
 crates:
   - name: pallet-society
-    bump: patch
+    bump: minor
