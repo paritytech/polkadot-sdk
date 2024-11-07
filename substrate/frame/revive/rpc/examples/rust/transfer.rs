@@ -26,14 +26,14 @@ async fn main() -> anyhow::Result<()> {
 	let alith = Account::default();
 	let client = HttpClientBuilder::default().build("http://localhost:8545")?;
 
-	let baltathar = Account::from(subxt_signer::eth::dev::baltathar());
-	let value = 1_000_000_000_000_000_000u128.into(); // 1 ETH
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let value = 1_000_000_000_000_000_000_000u128.into();
 
 	let print_balance = || async {
 		let balance = client.get_balance(alith.address(), BlockTag::Latest.into()).await?;
 		println!("Alith     {:?} balance: {balance:?}", alith.address());
-		let balance = client.get_balance(baltathar.address(), BlockTag::Latest.into()).await?;
-		println!("Baltathar {:?} balance: {balance:?}", baltathar.address());
+		let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+		println!("ethan {:?} balance: {balance:?}", ethan.address());
 		anyhow::Result::<()>::Ok(())
 	};
 
@@ -41,14 +41,15 @@ async fn main() -> anyhow::Result<()> {
 	println!("\n\n=== Transferring  ===\n\n");
 
 	let hash =
-		send_transaction(&alith, &client, value, Bytes::default(), Some(baltathar.address()))
-			.await?;
+		send_transaction(&alith, &client, value, Bytes::default(), Some(ethan.address())).await?;
 	println!("Transaction hash: {hash:?}");
 
-	let ReceiptInfo { block_number, gas_used, .. } = wait_for_receipt(&client, hash).await?;
+	let ReceiptInfo { block_number, gas_used, status, .. } =
+		wait_for_receipt(&client, hash).await?;
 	println!("Receipt: ");
 	println!("- Block number: {block_number}");
 	println!("- Gas used: {gas_used}");
+	println!("- Success: {status:?}");
 
 	print_balance().await?;
 	Ok(())
