@@ -295,6 +295,13 @@ mod paged_on_initialize {
 					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
 					expected_elected
 				);
+                // exposures have been collected for all validators in the page.
+                // note that the mock election provider adds one exposures per winner for
+                // each page.
+                for s in expected_elected.iter() {
+                    // 1 page fetched, 1 `other` exposure collected per electable stash.
+                    assert_eq!(Staking::eras_stakers(current_era() + 1, s).others.len(), 1);
+                }
 
                 // 3. progress one block to fetch page 1.
                 run_to_block(System::block_number() + 1);
@@ -305,6 +312,11 @@ mod paged_on_initialize {
 				);
                 // election cursor reamins unchanged during intermediate pages.
 				assert_eq!(ElectingStartedAt::<Test>::get(), Some(next_election - pages));
+                // exposures have been collected for all validators in the page.
+                for s in expected_elected.iter() {
+                    // 2 pages fetched, 2 `other` exposures collected per electable stash.
+                    assert_eq!(Staking::eras_stakers(current_era() + 1, s).others.len(), 2);
+                }
 
                 // 4. progress one block to fetch lsp (i.e. 0).
                 run_to_block(System::block_number() + 1);
@@ -313,7 +325,12 @@ mod paged_on_initialize {
 					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
 					expected_elected
 				);
-                // upon fetchin page 0, the electing started at will remain in storage until the
+                // exposures have been collected for all validators in the page.
+                for s in expected_elected.iter() {
+                    // 3 pages fetched, 3 `other` exposures collected per electable stash.
+                    assert_eq!(Staking::eras_stakers(current_era() + 1, s).others.len(), 3);
+                }
+                // upon fetching page 0, the electing started at will remain in storage until the
                 // era rotates.
 				assert_eq!(current_era(), 0);
 				assert_eq!(ElectingStartedAt::<Test>::get(), Some(next_election - pages));
