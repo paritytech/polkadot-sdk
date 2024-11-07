@@ -1983,3 +1983,91 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		virtual_overseer
 	});
 }
+
+#[test]
+fn claim_queue_spot_claimed_at_next_relay_parent() {
+	let mut test_state = TestState::with_one_scheduled_para();
+
+	// Shorten the claim queue to make the test smaller
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[ParaId::from(test_state.chain_ids[0]), ParaId::from(test_state.chain_ids[0])]
+				.into_iter(),
+		),
+	);
+	test_state.claim_queue = Some(claim_queue);
+	test_state.async_backing_params.max_candidate_depth = 3;
+	test_state.async_backing_params.allowed_ancestry_len = 2;
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		let hash_a = Hash::from_low_u64_be(12);
+		let hash_b = Hash::from_low_u64_be(11);
+		let hash_c = Hash::from_low_u64_be(10);
+
+		let pair_a = CollatorPair::generate().0;
+		let collator_a = PeerId::random();
+		let para_id_a = test_state.chain_ids[0];
+
+		update_view(
+			&mut virtual_overseer,
+			&test_state,
+			vec![(hash_a, 0), (hash_b, 1), (hash_c, 2)],
+			3,
+		)
+		.await;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			collator_a,
+			pair_a.clone(),
+			para_id_a,
+			CollationVersion::V2,
+		)
+		.await;
+
+		// A collation at hash_a claims the spot at hash_a
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(test_state.chain_ids[0]),
+			hash_a,
+			collator_a,
+			HeadData(vec![0 as u8]),
+		)
+		.await;
+
+		// Another collation at hash_a claims the spot at hash_b
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(test_state.chain_ids[0]),
+			hash_a,
+			collator_a,
+			HeadData(vec![1 as u8]),
+		)
+		.await;
+
+		// Collation at hash_c claims its own spot
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(test_state.chain_ids[0]),
+			hash_c,
+			collator_a,
+			HeadData(vec![0 as u8]),
+		)
+		.await;
+
+		// Collation at hash_b should be ignored because the claim queue is satisfied
+		advertise_collation(&mut virtual_overseer, collator_a, hash_b, None).await;
+
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		virtual_overseer
+	});
+}
