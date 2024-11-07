@@ -531,6 +531,7 @@ experimental = [
 	"frame-support-procedural?/experimental",
 	"frame-support?/experimental",
 	"frame-system?/experimental",
+	"pallet-salary?/experimental",
 	"polkadot-sdk-frame?/experimental",
 ]
 with-tracing = [
