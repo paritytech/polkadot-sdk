@@ -216,7 +216,7 @@ impl Queue {
 			futures::select! {
 				to_queue = self.to_queue_rx.next() => {
 					if let Some(to_queue) = to_queue {
-						handle_to_queue(&mut self, to_queue).await;
+						handle_to_queue(&mut self, to_queue);
 					} else {
 						break;
 					}
@@ -295,10 +295,10 @@ impl Queue {
 		self.unscheduled.mark_scheduled(priority);
 	}
 
-	async fn update_active_leaves(&mut self, update: ActiveLeavesUpdate, ancestors: Vec<Hash>) {
+	fn update_active_leaves(&mut self, update: ActiveLeavesUpdate, ancestors: Vec<Hash>) {
 		self.prune_deactivated_leaves(&update);
 		self.insert_active_leaf(update, ancestors);
-		self.prune_old_jobs().await;
+		self.prune_old_jobs();
 	}
 
 	fn prune_deactivated_leaves(&mut self, update: &ActiveLeavesUpdate) {
@@ -314,7 +314,7 @@ impl Queue {
 		let _ = self.active_leaves.insert(leaf.hash, ancestors);
 	}
 
-	async fn prune_old_jobs(&mut self) {
+	fn prune_old_jobs(&mut self) {
 		for &priority in &[Priority::Backing, Priority::BackingSystemParas] {
 			let Some(queue) = self.unscheduled.get_mut(priority) else { continue };
 			let to_remove: Vec<usize> = queue
@@ -369,10 +369,10 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 	}
 }
 
-async fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
+fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 	match to_queue {
 		ToQueue::UpdateActiveLeaves { update, ancestors } => {
-			queue.update_active_leaves(update, ancestors).await;
+			queue.update_active_leaves(update, ancestors);
 		},
 		ToQueue::Enqueue { artifact, pending_execution_request } => {
 			let PendingExecutionRequest {
@@ -1100,14 +1100,12 @@ mod tests {
 		assert_eq!(queue.unscheduled.unscheduled.values().map(|x| x.len()).sum::<usize>(), 11);
 
 		// Add an active leaf
-		queue
-			.update_active_leaves(
-				ActiveLeavesUpdate::start_work(new_leaf(Hash::random(), 1)),
-				vec![relevant_relay_parent],
-			)
-			.await;
+		queue.update_active_leaves(
+			ActiveLeavesUpdate::start_work(new_leaf(Hash::random(), 1)),
+			vec![relevant_relay_parent],
+		);
 
-		// It recursively prunes all old jobs and drops them with an `ExecutionDeadline` error.
+		// It prunes all old jobs and drops them with an `ExecutionDeadline` error.
 		for rx in result_rxs {
 			assert!(matches!(rx.await, Ok(Err(ValidationError::ExecutionDeadline))));
 		}
