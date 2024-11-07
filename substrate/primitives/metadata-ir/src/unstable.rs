@@ -156,22 +156,23 @@ impl From<PalletConstantMetadataIR> for PalletConstantMetadata {
 
 impl From<TransactionExtensionMetadataIR> for TransactionExtensionMetadata {
 	fn from(ir: TransactionExtensionMetadataIR) -> Self {
-		TransactionExtensionMetadata {
-			identifier: ir.identifier,
-			ty: ir.ty,
-			additional_signed: ir.implicit,
-		}
+		TransactionExtensionMetadata { identifier: ir.identifier, ty: ir.ty, implicit: ir.implicit }
 	}
 }
 
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
+		let versions = &[4, 5];
+
+		let transaction_extensions_by_version = versions
+			.iter()
+			.map(|version| (*version, (0..ir.extensions.len()).map(|index| index as u32).collect()))
+			.collect();
+
 		ExtrinsicMetadata {
-			versions: ir.versions.into_iter().map(Into::into).collect(),
 			address_ty: ir.address_ty,
-			call_ty: ir.call_ty,
 			signature_ty: ir.signature_ty,
-			extra_ty: ir.extra_ty,
+			transaction_extensions_by_version,
 			transaction_extensions: ir.extensions.into_iter().map(Into::into).collect(),
 		}
 	}
