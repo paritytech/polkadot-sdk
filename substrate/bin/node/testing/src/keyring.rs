@@ -123,7 +123,6 @@ pub fn sign(
 				preamble: sp_runtime::generic::Preamble::Signed(
 					sp_runtime::MultiAddress::Id(signed),
 					signature,
-					0,
 					tx_ext,
 				),
 				function: payload.0,
