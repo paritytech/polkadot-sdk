@@ -509,7 +509,7 @@ fn v1_advertisement_accepted_and_seconded() {
 		candidate.descriptor.para_id = test_state.chain_ids[0];
 		candidate.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		let commitments = CandidateCommitments {
-			head_data: HeadData(vec![1 as u8]),
+			head_data: HeadData(vec![1u8]),
 			horizontal_messages: Default::default(),
 			upward_messages: Default::default(),
 			new_validation_code: None,
@@ -729,7 +729,7 @@ fn second_multiple_candidates_per_relay_parent() {
 		.await;
 
 		// `allowed_ancestry_len` equals the size of the claim queue
-		for i in 0..(test_state.async_backing_params.allowed_ancestry_len) {
+		for i in 0..test_state.async_backing_params.allowed_ancestry_len {
 			submit_second_and_assert(
 				&mut virtual_overseer,
 				keystore.clone(),
@@ -1433,7 +1433,7 @@ fn collations_outside_limits_are_not_fetched() {
 			ParaId::from(test_state.chain_ids[0]),
 			head_b,
 			peer_a,
-			HeadData(vec![1 as u8]),
+			HeadData(vec![1u8]),
 		)
 		.await;
 
@@ -1443,7 +1443,7 @@ fn collations_outside_limits_are_not_fetched() {
 			ParaId::from(test_state.chain_ids[1]),
 			head_b,
 			peer_b,
-			HeadData(vec![2 as u8]),
+			HeadData(vec![2u8]),
 		)
 		.await;
 
@@ -1453,7 +1453,7 @@ fn collations_outside_limits_are_not_fetched() {
 			ParaId::from(test_state.chain_ids[0]),
 			head_b,
 			peer_a,
-			HeadData(vec![3 as u8]),
+			HeadData(vec![3u8]),
 		)
 		.await;
 
@@ -1555,7 +1555,7 @@ fn fair_collation_fetches() {
 			ParaId::from(test_state.chain_ids[1]),
 			head_b,
 			peer_b,
-			HeadData(vec![0 as u8]),
+			HeadData(vec![0u8]),
 		)
 		.await;
 
@@ -1592,7 +1592,7 @@ fn fair_collation_fetches() {
 // This should not happen in practice since claim queue is supported on all networks but just in
 // case validate that the fallback works as expected
 #[test]
-fn collation_fetches_without_claimqueue() {
+fn collation_fetches_without_claim_queue() {
 	let test_state = TestState::without_claim_queue();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
@@ -1652,7 +1652,7 @@ fn collation_fetches_without_claimqueue() {
 			ParaId::from(test_state.chain_ids[0]),
 			head_b,
 			peer_a,
-			HeadData(vec![0 as u8]),
+			HeadData(vec![0u8]),
 		)
 		.await;
 
@@ -1711,17 +1711,17 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		.await;
 
 		let (candidate_a1, commitments_a1) =
-			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![0 as u8]), head);
+			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![0u8]), head);
 		let (candidate_b1, commitments_b1) =
-			create_dummy_candidate_and_commitments(para_id_b, HeadData(vec![1 as u8]), head);
+			create_dummy_candidate_and_commitments(para_id_b, HeadData(vec![1u8]), head);
 		let (candidate_a2, commitments_a2) =
-			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![2 as u8]), head);
+			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![2u8]), head);
 		let (candidate_a3, _) =
-			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![3 as u8]), head);
-		let parent_head_data_a1 = HeadData(vec![0 as u8]);
-		let parent_head_data_b1 = HeadData(vec![1 as u8]);
-		let parent_head_data_a2 = HeadData(vec![2 as u8]);
-		let parent_head_data_a3 = HeadData(vec![3 as u8]);
+			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![3u8]), head);
+		let parent_head_data_a1 = HeadData(vec![0u8]);
+		let parent_head_data_b1 = HeadData(vec![1u8]);
+		let parent_head_data_a2 = HeadData(vec![2u8]);
+		let parent_head_data_a3 = HeadData(vec![3u8]);
 
 		// advertise a collation for `para_id_a` but don't send the collation. This will be a
 		// pending fetch.
@@ -1891,7 +1891,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 			para_id_a,
 			relay_parent_2,
 			collator_a,
-			HeadData(vec![0 as u8]),
+			HeadData(vec![0u8]),
 		)
 		.await;
 
@@ -1901,7 +1901,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 			para_id_a,
 			relay_parent_2,
 			collator_a,
-			HeadData(vec![1 as u8]),
+			HeadData(vec![1u8]),
 		)
 		.await;
 
@@ -1919,7 +1919,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 			para_id_b,
 			relay_parent_4,
 			collator_b,
-			HeadData(vec![3 as u8]),
+			HeadData(vec![3u8]),
 		)
 		.await;
 
@@ -1927,12 +1927,9 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		// must be ignored
 
 		// Advertisement for `para_id_a` at `relay_parent_4` which must be ignored
-		let (candidate_a, _) = create_dummy_candidate_and_commitments(
-			para_id_a,
-			HeadData(vec![5 as u8]),
-			relay_parent_4,
-		);
-		let parent_head_data_a = HeadData(vec![5 as u8]);
+		let (candidate_a, _) =
+			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![5u8]), relay_parent_4);
+		let parent_head_data_a = HeadData(vec![5u8]);
 
 		advertise_collation(
 			&mut virtual_overseer,
@@ -1946,12 +1943,9 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		assert_matches!(virtual_overseer.recv().now_or_never(), None);
 
 		// Advertisement for `para_id_b` at `relay_parent_4` which must be ignored
-		let (candidate_b, _) = create_dummy_candidate_and_commitments(
-			para_id_b,
-			HeadData(vec![6 as u8]),
-			relay_parent_4,
-		);
-		let parent_head_data_b = HeadData(vec![6 as u8]);
+		let (candidate_b, _) =
+			create_dummy_candidate_and_commitments(para_id_b, HeadData(vec![6u8]), relay_parent_4);
+		let parent_head_data_b = HeadData(vec![6u8]);
 
 		advertise_collation(
 			&mut virtual_overseer,
@@ -1976,7 +1970,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 			para_id_a,
 			relay_parent_6,
 			collator_a,
-			HeadData(vec![3 as u8]),
+			HeadData(vec![3u8]),
 		)
 		.await;
 
@@ -2036,7 +2030,7 @@ fn claim_queue_spot_claimed_at_next_relay_parent() {
 			ParaId::from(test_state.chain_ids[0]),
 			hash_a,
 			collator_a,
-			HeadData(vec![0 as u8]),
+			HeadData(vec![0u8]),
 		)
 		.await;
 
@@ -2047,7 +2041,7 @@ fn claim_queue_spot_claimed_at_next_relay_parent() {
 			ParaId::from(test_state.chain_ids[0]),
 			hash_a,
 			collator_a,
-			HeadData(vec![1 as u8]),
+			HeadData(vec![1u8]),
 		)
 		.await;
 
@@ -2058,7 +2052,7 @@ fn claim_queue_spot_claimed_at_next_relay_parent() {
 			ParaId::from(test_state.chain_ids[0]),
 			hash_c,
 			collator_a,
-			HeadData(vec![0 as u8]),
+			HeadData(vec![0u8]),
 		)
 		.await;
 
