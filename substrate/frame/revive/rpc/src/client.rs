@@ -149,7 +149,6 @@ pub enum ClientError {
 	CacheEmpty,
 }
 
-// TODO use
 // TODO convert error code to https://eips.ethereum.org/EIPS/eip-1474#error-codes
 // Once we can downcast subxt error: https://github.com/paritytech/subxt/pull/1843
 impl From<ClientError> for ErrorObjectOwned {
