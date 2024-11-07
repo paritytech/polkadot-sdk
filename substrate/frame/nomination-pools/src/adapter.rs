@@ -183,6 +183,13 @@ pub trait StakeStrategy {
 		num_slashing_spans: u32,
 	) -> DispatchResult;
 
+	/// Immediately withdraw the given amount from the pool account.
+	fn force_withdraw(
+		who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
 	/// Dissolve the pool account.
 	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult;
 
@@ -306,6 +313,14 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		T::Currency::transfer(&pool_account.0, &who.0, amount, Preservation::Expendable)?;
 
 		Ok(())
+	}
+
+	fn force_withdraw(
+		_who: Member<Self::AccountId>,
+		pool_account: Pool<Self::AccountId>,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		Staking::force_withdraw(&pool_account.0, amount)
 	}
 
 	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
@@ -456,6 +471,15 @@ impl<
 		value: Self::Balance,
 	) -> DispatchResult {
 		Delegation::migrate_delegation(pool.into(), delegator.into(), value)
+	}
+
+	fn force_withdraw(
+		who: Member<Self::AccountId>,
+		pool: Pool<Self::AccountId>,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		Staking::force_withdraw(&pool.0, amount)?;
+		Delegation::withdraw_delegation(who.into(), pool.clone().into(), amount, 0)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

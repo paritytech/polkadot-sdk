@@ -23,7 +23,7 @@ use frame_support::{assert_noop, assert_ok, traits::Currency};
 use mock::*;
 use pallet_nomination_pools::{
 	BondExtra, BondedPools, Error as PoolsError, Event as PoolsEvent, LastPoolId, PoolMember,
-	PoolMembers, PoolState,
+	PoolMembers, PoolState, TotalValueLocked,
 };
 use pallet_staking::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,

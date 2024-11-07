@@ -2991,6 +2991,13 @@ pub mod pallet {
 			let member_account = T::Lookup::lookup(member_account)?;
 			Self::do_apply_slash(&member_account, Some(who))?;
 
+			let member =
+				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
+			let contribution = member.total_balance();
+			if contribution < T::Currency::minimum_balance() {
+				Self::reap_member(&member_account, contribution)?;
+			}
+
 			// If successful, refund the fees.
 			Ok(Pays::No.into())
 		}
@@ -3030,12 +3037,10 @@ pub mod pallet {
 			);
 
 			let pool_contribution = member.total_balance();
-			// ensure the pool contribution is greater than the existential deposit otherwise we
-			// cannot transfer funds to member account.
-			ensure!(
-				pool_contribution >= T::Currency::minimum_balance(),
-				Error::<T>::MinimumBondNotMet
-			);
+			if pool_contribution < T::Currency::minimum_balance() {
+				Self::reap_member(&member_account, pool_contribution)?;
+				return Err(Error::<T>::MinimumBondNotMet.into());
+			}
 
 			let delegation =
 				T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()));
@@ -3589,6 +3594,65 @@ impl<T: Config> Pallet<T> {
 			pending_slash,
 			reporter,
 		)
+	}
+
+	/// Reap member whose contribution to the pool is below ED.
+	fn reap_member(
+		member: &T::AccountId,
+		contribution: BalanceOf<T>,
+	) -> DispatchResult {
+		let (mut pool_member, mut bonded_pool, mut reward_pool) =
+			Self::get_member_with_pools(&member)?;
+		let pool_id = pool_member.pool_id;
+
+		reward_pool.update_records(
+			pool_id,
+			bonded_pool.points,
+			bonded_pool.commission.current(),
+		)?;
+
+		let _ =
+			Self::do_reward_payout(&member, &mut pool_member, &mut bonded_pool, &mut reward_pool);
+
+		if contribution > Zero::zero() {
+			T::StakeAdapter::force_withdraw(
+				Member::from(member.clone()),
+				Pool::from(bonded_pool.bonded_account()),
+				contribution,
+			)?;
+
+			// FIXME eagr update points and stuff
+		}
+
+		ClaimPermissions::<T>::remove(&member);
+		PoolMembers::<T>::remove(&member);
+
+		let released_dangling =
+			match T::StakeAdapter::member_delegation_balance(Member::from(member.clone())) {
+				Some(dangling_amount) => {
+					T::StakeAdapter::member_withdraw(
+						Member::from(member.clone()),
+						Pool::from(bonded_pool.bonded_account()),
+						dangling_amount,
+						0,
+					)?;
+					dangling_amount
+				},
+				None => Zero::zero(),
+			};
+
+		Self::deposit_event(Event::<T>::MemberRemoved {
+			pool_id,
+			member: member.clone(),
+			released_balance: released_dangling,
+		});
+
+		bonded_pool.dec_members().put();
+		// FIXME eagr update sub pools
+		let sub_pools = SubPoolsStorage::<T>::get(pool_id).unwrap_or_default();
+		SubPoolsStorage::<T>::insert(pool_id, sub_pools);
+
+		Ok(())
 	}
 
 	/// Pending slash for a member.

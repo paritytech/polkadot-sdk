@@ -203,6 +203,14 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		DelegateStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
 	}
 
+	fn force_withdraw(
+		who: Member<Self::AccountId>,
+		pool: Pool<Self::AccountId>,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		DelegateStake::force_withdraw(who, pool, amount)
+	}
+
 	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
 		if LegacyAdapter::get() {
 			return TransferStake::dissolve(pool_account)
