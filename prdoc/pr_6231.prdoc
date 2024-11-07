@@ -11,18 +11,30 @@ doc:
     - [ ] backport to the stable-2024-09-3 till 11.Nov
 crates:
 - name: pallet-xcm-bridge-hub-router
-  bump: patch
+  bump: major
 - name: pallet-xcm-bridge-hub
-  bump: patch
+  bump: major
 - name: bp-xcm-bridge-hub-router
-  bump: patch
+  bump: major
 - name: asset-hub-rococo-runtime
-  bump: patch
+  bump: major
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: major
 - name: bp-xcm-bridge-hub
   bump: major
 - name: bridge-hub-rococo-runtime
   bump: patch
 - name: bridge-hub-westend-runtime
+  bump: patch
+- name: asset-test-utils
+  bump: patch
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
+- name: bridge-hub-test-utils
+  bump: patch
+- name: emulated-integration-tests-common
+  bump: patch
+- name: bp-asset-hub-rococo
+  bump: patch
+- name: bp-asset-hub-westend
   bump: patch

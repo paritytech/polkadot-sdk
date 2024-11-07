@@ -1262,21 +1262,8 @@ impl_runtime_apis! {
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
 
-					let sibling_parachain_location = Location::new(1, [Parachain(5678)]);
-
-					// fund SA
-					use frame_support::traits::fungible::Mutate;
-					use xcm_executor::traits::ConvertLocation;
-					frame_support::assert_ok!(
-						Balances::mint_into(
-							&xcm_config::LocationToAccountId::convert_location(&sibling_parachain_location).expect("valid AccountId"),
-							bridge_to_westend_config::BridgeDeposit::get()
-								.saturating_add(ExistentialDeposit::get())
-								.saturating_add(UNITS * 5)
-						)
-					);
-
 					// open bridge
+					let sibling_parachain_location = Location::new(1, [Parachain(5678)]);
 					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH)), Parachain(8765)].into();
 					let _ = XcmOverBridgeHubWestend::open_bridge_for_benchmarks(
 						bp_messages::LegacyLaneId([1, 2, 3, 4]),
@@ -1284,6 +1271,17 @@ impl_runtime_apis! {
 						bridge_destination_universal_location.clone(),
 						true,
 						None,
+						|account_id, bridge_deposit| {
+							use frame_support::traits::fungible::Mutate;
+							frame_support::assert_ok!(
+								Balances::mint_into(
+									&account_id,
+									bridge_deposit
+										.saturating_add(ExistentialDeposit::get())
+										.saturating_add(UNITS * 5)
+								)
+							);
+						},
 					).map_err(|e| {
 						log::error!(
 							"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`, error: {:?}",
@@ -1359,6 +1357,17 @@ impl_runtime_apis! {
 						// do not create lanes, because they are already created `params.lane`
 						false,
 						None,
+						|account_id, bridge_deposit| {
+							use frame_support::traits::fungible::Mutate;
+							frame_support::assert_ok!(
+								Balances::mint_into(
+									&account_id,
+									bridge_deposit
+										.saturating_add(ExistentialDeposit::get())
+										.saturating_add(UNITS * 5)
+								)
+							);
+						},
 					).expect("valid bridge opened");
 					prepare_message_proof_from_parachain::<
 						Runtime,
@@ -1377,6 +1386,17 @@ impl_runtime_apis! {
 						// do not create lanes, because they are already created `params.lane`
 						false,
 						None,
+						|account_id, bridge_deposit| {
+							use frame_support::traits::fungible::Mutate;
+							frame_support::assert_ok!(
+								Balances::mint_into(
+									&account_id,
+									bridge_deposit
+										.saturating_add(ExistentialDeposit::get())
+										.saturating_add(UNITS * 5)
+								)
+							);
+						},
 					);
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
@@ -1410,6 +1430,17 @@ impl_runtime_apis! {
 						// do not create lanes, because they are already created `params.lane`
 						false,
 						None,
+						|account_id, bridge_deposit| {
+							use frame_support::traits::fungible::Mutate;
+							frame_support::assert_ok!(
+								Balances::mint_into(
+									&account_id,
+									bridge_deposit
+										.saturating_add(ExistentialDeposit::get())
+										.saturating_add(UNITS * 5)
+								)
+							);
+						},
 					).expect("valid bridge opened");
 					prepare_message_proof_from_grandpa_chain::<
 						Runtime,
@@ -1428,6 +1459,17 @@ impl_runtime_apis! {
 						// do not create lanes, because they are already created `params.lane`
 						false,
 						None,
+						|account_id, bridge_deposit| {
+							use frame_support::traits::fungible::Mutate;
+							frame_support::assert_ok!(
+								Balances::mint_into(
+									&account_id,
+									bridge_deposit
+										.saturating_add(ExistentialDeposit::get())
+										.saturating_add(UNITS * 5)
+								)
+							);
+						},
 					).expect("valid bridge opened");
 					prepare_message_delivery_proof_from_grandpa_chain::<
 						Runtime,

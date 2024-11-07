@@ -665,11 +665,18 @@ pub mod pallet {
 			bridge_destination_universal_location: InteriorLocation,
 			create_lanes: bool,
 			maybe_notify: Option<Receiver>,
+			fund_account: impl Fn(AccountIdOf<ThisChainOf<T, I>>, BalanceOf<ThisChainOf<T, I>>),
 		) -> Result<Box<BridgeLocations>, sp_runtime::DispatchError> {
 			let locations = Pallet::<T, I>::bridge_locations(
 				bridge_origin_relative_location.into(),
 				bridge_destination_universal_location.into(),
 			)?;
+
+			if !T::AllowWithoutBridgeDeposit::contains(locations.bridge_origin_relative_location()) {
+				let account_id = T::BridgeOriginAccountIdConverter::convert_location(locations.bridge_origin_relative_location())
+					.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
+				fund_account(account_id, T::BridgeDeposit::get());
+			}
 
 			Pallet::<T, I>::do_open_bridge(locations.clone(), lane_id, create_lanes, maybe_notify)?;
 
