@@ -1,0 +1,35 @@
+name: Benchmarks
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  benchmark:
+    runs-on: parity-weights
+    needs: [preflight]
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        run: |
+          cargo run --quiet --profile=production --bin=polkadot --features=runtime-benchmarks -- benchmark pallet --steps=50 \
+            --repeat=20 --extrinsic=* --wasm-execution=compiled --heap-pages=4096 \
+            --json-file=bench.json \
+            --pallet=pallet_balances --chain=westend-dev --header=./polkadot/file_header.txt \
+            --output=./polkadot/runtime/westend/src/weights/
+          cat ./polkadot/runtime/westend/src/weights/pallet_balances.rs
