@@ -552,7 +552,6 @@ impl Convert<Vec<u8>, Xcm<()>> for ReportBridgeStatusXcmProvider {
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				require_weight_at_most: Weight::from_parts(10_000_000_000, 8 * 1024),
 				call: encoded_call.into(),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),

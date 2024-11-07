@@ -112,9 +112,3 @@ pub enum RuntimeCall {
 	#[codec(index = 45)]
 	XcmOverBridgeHubRococo(bp_xcm_bridge_hub::XcmBridgeHubCall),
 }
-
-// TODO: remove when xcm:v5
-frame_support::parameter_types! {
-	/// Some sane weight to execute `xcm::Transact(pallet-xcm-bridge-hub-router::Call::report_bridge_status)`.
-	pub const XcmBridgeHubRouterTransactCallMaxWeight: Weight = Weight::from_parts(1_000_000_000, 1024*8);
-}

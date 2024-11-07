@@ -1263,8 +1263,6 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				require_weight_at_most:
-					bp_bridge_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
 				call: RuntimeCall::ToRococoXcmRouter(
 					pallet_xcm_bridge_hub_router::Call::report_bridge_status {
 						bridge_id,
@@ -1278,21 +1276,6 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 		]
 		.into()
 	})
-}
-
-#[test]
-fn check_sane_weight_report_bridge_status() {
-	use pallet_xcm_bridge_hub_router::WeightInfo;
-	let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
-		ToRococoXcmRouterInstance,
-	>>::WeightInfo::report_bridge_status();
-	let max_weight = bp_bridge_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get();
-	assert!(
-		actual.all_lte(max_weight),
-		"max_weight: {:?} should be adjusted to actual {:?}",
-		max_weight,
-		actual
-	);
 }
 
 #[test]

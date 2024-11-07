@@ -137,8 +137,6 @@ impl Convert<Vec<u8>, Xcm<()>> for ReportBridgeStatusXcmProvider {
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
 				origin_kind: OriginKind::Xcm,
-				require_weight_at_most:
-					bp_bridge_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
 				call: encoded_call.into(),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
