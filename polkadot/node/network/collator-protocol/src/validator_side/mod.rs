@@ -2134,9 +2134,7 @@ fn seconded_and_pending_for_para_above(
 	para_id: &ParaId,
 	claim_queue_len: usize,
 ) -> Result<Vec<usize>> {
-	let outer_paths = implicit_view
-		.paths_to_relay_parent(relay_parent)
-		.map_err(Error::PathRelayParentError)?;
+	let outer_paths = implicit_view.paths_to_relay_parent(relay_parent);
 	let mut result = vec![];
 	for path in outer_paths {
 		let r = path.iter().take(claim_queue_len).fold(0, |res, anc| {

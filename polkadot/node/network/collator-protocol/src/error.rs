@@ -64,9 +64,6 @@ pub enum Error {
 	#[error("CollationSeconded contained statement with invalid signature")]
 	InvalidStatementSignature(UncheckedSignedFullStatement),
 
-	#[error("Relay parent not found during path traversal")]
-	PathRelayParentError(backing_implicit_view::PathError),
-
 	#[error("No state for the relay parent")]
 	RelayParentStateNotFound,
 }

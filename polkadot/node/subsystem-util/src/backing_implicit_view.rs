@@ -22,7 +22,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
 	inclusion_emulator::RelayChainBlockInfo,
@@ -41,6 +41,7 @@ pub struct View {
 	leaves: HashMap<Hash, ActiveLeafPruningInfo>,
 	block_info_storage: HashMap<Hash, BlockInfo>,
 	collating_for: Option<ParaId>,
+	outer_leaves: HashSet<Hash>,
 }
 
 impl View {
@@ -49,7 +50,12 @@ impl View {
 	/// relay parents of a single paraid. When this is true, prospective-parachains is no longer
 	/// queried.
 	pub fn new(collating_for: Option<ParaId>) -> Self {
-		Self { leaves: Default::default(), block_info_storage: Default::default(), collating_for }
+		Self {
+			leaves: Default::default(),
+			block_info_storage: Default::default(),
+			collating_for,
+			outer_leaves: Default::default(),
+		}
 	}
 }
 
@@ -257,6 +263,8 @@ impl View {
 				parent_hash: leaf.parent_hash,
 			},
 		);
+		self.outer_leaves.remove(&leaf.parent_hash); // the parent is no longer an outer leaf
+		self.outer_leaves.insert(leaf.hash); // the new leaf is an outer leaf
 	}
 
 	/// Deactivate a leaf in the view. This prunes any outdated implicit ancestors as well.
@@ -284,6 +292,10 @@ impl View {
 				}
 				keep
 			});
+
+			for r in &removed {
+				self.outer_leaves.remove(r);
+			}
 
 			removed
 		}
@@ -329,54 +341,60 @@ impl View {
 			.map(|mins| mins.allowed_relay_parents_for(para_id, block_info.block_number))
 	}
 
-	/// Returns all relay parents grouped by block number
-	fn relay_parents_by_block_number(&self) -> BTreeMap<BlockNumber, HashSet<Hash>> {
-		self.block_info_storage.iter().fold(BTreeMap::new(), |mut acc, (hash, info)| {
-			acc.entry(info.block_number).or_insert_with(HashSet::new).insert(*hash);
-			acc
-		})
-	}
-
 	/// Returns all paths from each outer leaf to `relay_parent`. If no paths exist the function
 	/// will return an empty `Vec`.
 	///
 	/// The input is not included in the path so if `relay_parent` happens to be an outer leaf, no
 	/// paths will be returned.
-	pub fn paths_to_relay_parent(&self, relay_parent: &Hash) -> Result<Vec<Vec<Hash>>, PathError> {
-		let relay_parents_by_block_number = self.relay_parents_by_block_number();
-		let outer_leaves = relay_parents_by_block_number
-			.last_key_value()
-			.ok_or(PathError::NoRelayParentsToBuildOn)?
-			.1;
+	pub fn paths_to_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
+		if self.outer_leaves.is_empty() {
+			// No outer leaves so the view should be empty. Don't return any paths.
+			return vec![]
+		};
 
-		// handle the case where the relay parent is an outer leaf
-		if outer_leaves.contains(&relay_parent) {
-			return Ok(vec![]);
+		if !self.block_info_storage.contains_key(relay_parent) {
+			// `relay_parent` is not in the view - don't return any paths
+			return vec![]
 		}
 
+		// Find all paths from each outer leaf to `relay_parent`.
 		let mut paths = Vec::new();
-		for leaf in outer_leaves {
+		for outer_leaf in &self.outer_leaves {
 			let mut path = Vec::new();
-			let mut current_block = *leaf;
+			let mut current_leaf = *outer_leaf;
+			let mut visited = HashSet::new();
 
-			while current_block != *relay_parent {
-				path.push(current_block);
-				current_block = self
-					.block_info_storage
-					.get(&current_block)
-					.ok_or(PathError::UnknownRelayParent(current_block))?
-					.parent_hash;
+			loop {
+				// If `relay_parent` is an outer leaf we'll immediately return an empty path (which
+				// is the desired behaviour).
+				if current_leaf == *relay_parent {
+					// path is complete
+					paths.push(path);
+					break
+				}
+
+				path.push(current_leaf);
+
+				current_leaf = match self.block_info_storage.get(&current_leaf) {
+					Some(info) => {
+						let r = info.parent_hash;
+						if visited.contains(&r) {
+							// There is a cycle so this is not a path to `relay_parent`
+							break
+						}
+						visited.insert(r);
+						r
+					},
+					None => {
+						// Parent is not found there for it should be outside the view. Abandon this
+						// path.
+						break
+					},
+				}
 			}
-
-			// Don't add empty paths to the result
-			if path.is_empty() {
-				continue
-			}
-
-			paths.push(path);
 		}
 
-		Ok(paths)
+		paths
 	}
 
 	async fn fetch_fresh_leaf_and_insert_ancestry<Sender>(
@@ -507,6 +525,8 @@ impl View {
 		};
 
 		self.block_info_storage.insert(leaf_hash, leaf_block_info);
+		self.outer_leaves.remove(&leaf_header.parent_hash); // the parent is no longer an outer leaf
+		self.outer_leaves.insert(leaf_hash); // the new leaf is an outer leaf
 
 		Ok(fetched_ancestry)
 	}
@@ -859,6 +879,14 @@ mod tests {
 				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_A)), Some(&expected_ancestry[..(PARA_A_MIN_PARENT - 1) as usize]));
 				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)), Some(&expected_ancestry[..]));
 				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
+
+				assert_eq!(view.outer_leaves.len(), 1);
+				assert!(view.outer_leaves.contains(leaf));
+				assert!(view.paths_to_relay_parent(&CHAIN_B[0]).is_empty());
+				assert_eq!(
+					view.paths_to_relay_parent(&CHAIN_B[min_min_idx]),
+					vec![expected_ancestry.iter().take(expected_ancestry.len() - 1).copied().collect::<Vec<_>>()]
+				);
 			}
 		);
 
@@ -979,6 +1007,11 @@ mod tests {
 
 				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)).unwrap().is_empty());
 				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
+
+				assert_eq!(
+					view.paths_to_relay_parent(&CHAIN_B[min_min_idx]),
+					vec![expected_ancestry.iter().take(expected_ancestry.len() - 1).copied().collect::<Vec<_>>()]
+				);
 			}
 		);
 
@@ -1047,6 +1080,12 @@ mod tests {
 
 				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)).unwrap().is_empty());
 				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
+
+				assert!(view.paths_to_relay_parent(&GENESIS_HASH).is_empty());
+				assert_eq!(
+					view.paths_to_relay_parent(&CHAIN_A[0]),
+					vec![expected_ancestry.iter().take(expected_ancestry.len() - 1).copied().collect::<Vec<_>>()]
+				);
 			}
 		);
 	}
