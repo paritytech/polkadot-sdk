@@ -18,10 +18,10 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{BridgeState, ResolveBridgeId, Bridges, Call, MINIMAL_DELIVERY_FEE_FACTOR};
+use crate::{BridgeState, Bridges, Call, ResolveBridgeId, MINIMAL_DELIVERY_FEE_FACTOR};
 use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError, BenchmarkResult};
-use frame_support::traits::{UnfilteredDispatchable, EnsureOriginWithArg, Hooks};
-use sp_runtime::{Saturating, traits::Zero};
+use frame_support::traits::{EnsureOriginWithArg, Hooks, UnfilteredDispatchable};
+use sp_runtime::{traits::Zero, Saturating};
 use xcm::prelude::*;
 
 /// Pallet we're benchmarking here.

@@ -272,12 +272,12 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 pub type XcmOverBridgeByExportXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance2;
 #[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
 impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeByExportXcmRouterInstance> for TestRuntime {
-	// We use `UnpaidLocalExporter` with `ViaLocalBridgeHubExporter` here to test and ensure that `pallet_xcm_bridge_hub_router` can
-	// trigger directly `pallet_xcm_bridge_hub` as exporter.
+	// We use `UnpaidLocalExporter` with `ViaLocalBridgeHubExporter` here to test and ensure that
+	// `pallet_xcm_bridge_hub_router` can trigger directly `pallet_xcm_bridge_hub` as exporter.
 	type ToBridgeHubSender = pallet_xcm_bridge_hub_router::impls::ViaLocalBridgeHubExporter<
 		TestRuntime,
 		XcmOverBridgeByExportXcmRouterInstance,
-		UnpaidLocalExporter<XcmOverBridge, UniversalLocation>
+		UnpaidLocalExporter<XcmOverBridge, UniversalLocation>,
 	>;
 
 	type BridgeIdResolver =
@@ -550,10 +550,7 @@ impl Convert<Vec<u8>, Xcm<()>> for ReportBridgeStatusXcmProvider {
 	fn convert(encoded_call: Vec<u8>) -> Xcm<()> {
 		Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			Transact {
-				origin_kind: OriginKind::Xcm,
-				call: encoded_call.into(),
-			},
+			Transact { origin_kind: OriginKind::Xcm, call: encoded_call.into() },
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		])
 	}

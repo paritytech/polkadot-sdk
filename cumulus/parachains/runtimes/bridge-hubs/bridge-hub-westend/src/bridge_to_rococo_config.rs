@@ -166,10 +166,7 @@ impl Convert<Vec<u8>, Xcm<()>> for ReportBridgeStatusXcmProvider {
 	fn convert(encoded_call: Vec<u8>) -> Xcm<()> {
 		Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			Transact {
-				origin_kind: OriginKind::Xcm,
-				call: encoded_call.into(),
-			},
+			Transact { origin_kind: OriginKind::Xcm, call: encoded_call.into() },
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		])
 	}

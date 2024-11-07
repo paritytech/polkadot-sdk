@@ -16,7 +16,7 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::{Config, Pallet, LOG_TARGET, Receiver};
+use crate::{Config, Pallet, Receiver, LOG_TARGET};
 use frame_support::{
 	traits::{Get, OnRuntimeUpgrade, StorageVersion},
 	weights::Weight,
@@ -59,7 +59,15 @@ impl<
 		BridgedUniversalLocation: Get<InteriorLocation>,
 		MaybeNotifyRelativeLocation: Get<Option<Receiver>>,
 	> OnRuntimeUpgrade
-	for OpenBridgeForLane<T, I, Lane, CreateLane, SourceRelativeLocation, BridgedUniversalLocation, MaybeNotifyRelativeLocation>
+	for OpenBridgeForLane<
+		T,
+		I,
+		Lane,
+		CreateLane,
+		SourceRelativeLocation,
+		BridgedUniversalLocation,
+		MaybeNotifyRelativeLocation,
+	>
 {
 	fn on_runtime_upgrade() -> Weight {
 		let bridge_origin_relative_location = SourceRelativeLocation::get();
@@ -108,7 +116,9 @@ impl<
 			return T::DbWeight::get().reads(2)
 		}
 
-		if let Err(e) = Pallet::<T, I>::do_open_bridge(locations, lane_id, create_lane, maybe_notify) {
+		if let Err(e) =
+			Pallet::<T, I>::do_open_bridge(locations, lane_id, create_lane, maybe_notify)
+		{
 			log::error!(target: LOG_TARGET, "OpenBridgeForLane - do_open_bridge failed with error: {e:?}");
 			T::DbWeight::get().reads(6)
 		} else {
