@@ -103,7 +103,7 @@ pub type MetaTxFor<T> = MetaTx<
 	<T as Config>::Extension,
 >;
 
-/// The [`sp_runtime::generic::SignedPayload`] for the given config.
+/// The payload that has been signed for the [`MetaTx`].
 pub type SignedPayloadFor<T> =
 	sp_runtime::generic::SignedPayload<<T as Config>::RuntimeCall, <T as Config>::Extension>;
 
