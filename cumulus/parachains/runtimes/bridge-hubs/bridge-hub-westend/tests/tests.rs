@@ -46,7 +46,7 @@ use sp_runtime::{
 	AccountId32, Perbill,
 };
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 // Random para id of sibling chain used in tests.
@@ -296,7 +296,7 @@ fn relayed_incoming_message_works() {
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 		SIBLING_PARACHAIN_ID,
-		Westend,
+		ByGenesis(WESTEND_GENESIS_HASH),
 		|| {
 			// we need to create lane between sibling parachain and remote destination
 			bridge_hub_test_utils::ensure_opened_bridge::<
@@ -330,7 +330,7 @@ fn free_relay_extrinsic_works() {
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 		SIBLING_PARACHAIN_ID,
-		Westend,
+		ByGenesis(WESTEND_GENESIS_HASH),
 		|| {
 			// we need to create lane between sibling parachain and remote destination
 			bridge_hub_test_utils::ensure_opened_bridge::<
