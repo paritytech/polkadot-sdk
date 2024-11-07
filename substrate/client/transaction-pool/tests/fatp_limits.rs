@@ -373,7 +373,7 @@ fn fatp_limits_watcher_view_can_drop_transcation() {
 	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
 	let xt2_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 
-	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(3).collect::<Vec<_>>();
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(2).collect::<Vec<_>>();
 	assert_eq!(xt0_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped,]);
 
 	assert_ready_iterator!(header01.hash(), pool, [xt1, xt2]);
