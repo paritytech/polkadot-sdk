@@ -41,14 +41,15 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_when_bridge_state_removed() -> Result<(), BenchmarkError> {
-		let bridge_id = T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
-			.ok_or(BenchmarkError::Weightless)?;
+		let bridge_id =
+			T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
+				.ok_or(BenchmarkError::Weightless)?;
 
 		// uncongested and less than a minimal factor is removed
-		Bridges::<T, I>::insert(&bridge_id, BridgeState {
-			delivery_fee_factor: 0.into(),
-			is_congested: false,
-		});
+		Bridges::<T, I>::insert(
+			&bridge_id,
+			BridgeState { delivery_fee_factor: 0.into(), is_congested: false },
+		);
 		assert!(Bridges::<T, I>::get(&bridge_id).is_some());
 
 		#[block]
@@ -63,15 +64,16 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_when_bridge_state_updated() -> Result<(), BenchmarkError> {
-		let bridge_id = T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
-			.ok_or(BenchmarkError::Weightless)?;
+		let bridge_id =
+			T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
+				.ok_or(BenchmarkError::Weightless)?;
 
 		// uncongested and higher than a minimal factor is decreased
 		let old_delivery_fee_factor = MINIMAL_DELIVERY_FEE_FACTOR.saturating_mul(1000.into());
-		Bridges::<T, I>::insert(&bridge_id, BridgeState {
-			delivery_fee_factor: old_delivery_fee_factor,
-			is_congested: false,
-		});
+		Bridges::<T, I>::insert(
+			&bridge_id,
+			BridgeState { delivery_fee_factor: old_delivery_fee_factor, is_congested: false },
+		);
 		assert!(Bridges::<T, I>::get(&bridge_id).is_some());
 
 		#[block]
@@ -79,14 +81,17 @@ mod benchmarks {
 			let _ = crate::Pallet::<T, I>::on_initialize(Zero::zero());
 		}
 
-		assert!(Bridges::<T, I>::get(bridge_id).unwrap().delivery_fee_factor < old_delivery_fee_factor);
+		assert!(
+			Bridges::<T, I>::get(bridge_id).unwrap().delivery_fee_factor < old_delivery_fee_factor
+		);
 		Ok(())
 	}
 
 	#[benchmark]
 	fn report_bridge_status() -> Result<(), BenchmarkError> {
-		let bridge_id = T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
-			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let bridge_id =
+			T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
+				.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let origin = T::report_bridge_status_origin()
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let _ = T::BridgeHubOrigin::try_origin(origin.clone(), &bridge_id)
@@ -98,10 +103,7 @@ mod benchmarks {
 
 		assert_eq!(
 			Bridges::<T, I>::get(&bridge_id),
-			Some(BridgeState {
-				delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
-				is_congested,
-			})
+			Some(BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested })
 		);
 		Ok(())
 	}

@@ -671,12 +671,7 @@ pub mod pallet {
 				bridge_destination_universal_location.into(),
 			)?;
 
-			Pallet::<T, I>::do_open_bridge(
-				locations.clone(),
-				lane_id,
-				create_lanes,
-				maybe_notify,
-			)?;
+			Pallet::<T, I>::do_open_bridge(locations.clone(), lane_id, create_lanes, maybe_notify)?;
 
 			Ok(locations)
 		}
