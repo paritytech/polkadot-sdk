@@ -115,7 +115,6 @@ pub use pallet::*;
 
 type BalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
 type BeneficiaryLookupOf<T, I = ()> = pallet_treasury::BeneficiaryLookupOf<T, I>;
-
 type PositiveImbalanceOf<T, I = ()> = pallet_treasury::PositiveImbalanceOf<T, I>;
 
 /// An index of a bounty. Just a `u32`.
@@ -125,7 +124,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 /// A bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind> {
+pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary> where Beneficiary: Clone, PaymentId: Clone {
 	/// The account proposing it.
 	proposer: AccountId,
 	// TODO: new filed, migration required.
@@ -144,14 +143,14 @@ pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind> {
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
 	bond: Balance,
 	/// The status of this bounty.
-	status: BountyStatus<AccountId, BlockNumber>,
+	status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
 }
 
-impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone>
-	Bounty<AccountId, Balance, BlockNumber>
+impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone, AssetKind, PaymentId: Clone, Beneficiary: Clone>
+	Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary>
 {
 	/// Getter for bounty status, to be used for child bounties.
-	pub fn get_status(&self) -> BountyStatus<AccountId, BlockNumber> {
+	pub fn get_status(&self) -> BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 		self.status.clone()
 	}
 }
@@ -160,7 +159,7 @@ impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone>
 
 /// The status of a bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
+pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> where Beneficiary: Clone, PaymentId: Clone {
 	/// The bounty is proposed and waiting for approval.
 	Proposed,
 	/// The bounty is approved and waiting to confirm the funds allocation.
@@ -233,7 +232,6 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 }
 
 /// The state of the payment claim.
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 pub enum PaymentState<Id> {
 	/// Pending claim.
@@ -393,7 +391,14 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		BountyIndex,
-		Bounty<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>>,
+		Bounty<
+			T::AccountId,
+			BalanceOf<T, I>,
+			BlockNumberFor<T>,
+			T::AssetKind,
+			<<T as pallet_treasury::Config>::Paymaster as Pay>::Id,
+			T::Beneficiary,
+		>,
 	>;
 
 	/// The description of each bounty.
@@ -463,7 +468,7 @@ pub mod pallet {
 				);
 				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
 
-				bounty.status = BountyStatus::Approved;
+				bounty.status = BountyStatus::Approved { payment_status: PaymentState::Pending };
 
 				BountyApprovals::<T, I>::try_append(bounty_id)
 					.map_err(|()| Error::<T, I>::TooManyQueued)?;
@@ -911,20 +916,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// TODO: retries payment for funding the bounty or closing the bounty. updates the bounty
-		// status or removed it (when payment successful and bounty is closed).
-		#[pallet::call_index(11)]
-		pub fn process_payment(origin: OriginFor<T>, #[pallet::compact] bounty_id: BountyIndex) {}
-
-		// TODO: check payment statuses for all possible bounty statuses and updates it. Similar to
-		// `pallet_treasury` `check_status` call.
-		#[pallet::call_index(11)]
-		pub fn check_payment_status(
-			origin: OriginFor<T>,
-			#[pallet::compact] bounty_id: BountyIndex,
-		) {
-		}
-
 		/// Approve bountry and propose a curator simultaneously.
 		/// This call is a shortcut to calling `approve_bounty` and `propose_curator` separately.
 		///
@@ -969,6 +960,27 @@ pub mod pallet {
 			Self::deposit_event(Event::<T, I>::CuratorProposed { bounty_id, curator });
 
 			Ok(())
+		}
+
+		// TODO: retries payment for funding the bounty or closing the bounty. updates the bounty
+		// status or removed it (when payment successful and bounty is closed).
+		#[pallet::call_index(10)]
+		// TODO: change weight
+		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		pub fn process_payment(origin: OriginFor<T>, #[pallet::compact] bounty_id: BountyIndex) -> DispatchResult {
+			todo!()
+		}
+
+		// TODO: check payment statuses for all possible bounty statuses and updates it. Similar to
+		// `pallet_treasury` `check_status` call.
+		#[pallet::call_index(11)]
+		// TODO: change weight
+		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		pub fn check_payment_status(
+			origin: OriginFor<T>,
+			#[pallet::compact] bounty_id: BountyIndex,
+		) -> DispatchResult {
+			todo!()
 		}
 	}
 
