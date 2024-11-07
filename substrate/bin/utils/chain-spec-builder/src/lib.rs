@@ -271,10 +271,14 @@ impl ChainSpecBuilder {
 				// The original plain genesis ("genesis::runtimeGenesis") is no longer needed, so
 				// just remove it:
 				org_chain_spec_json
-					.as_object_mut()
-					.and_then(|map| map.get_mut("genesis"))
+					.get_mut("genesis")
 					.and_then(|genesis| genesis.as_object_mut())
 					.and_then(|genesis| genesis.remove("runtimeGenesis"));
+				// org_chain_spec_json
+				// 	.as_object_mut()
+				// 	.and_then(|map| map.get_mut("genesis"))
+				// 	.and_then(|genesis| genesis.as_object_mut())
+				// 	.and_then(|genesis| genesis.remove("runtimeGenesis"));
 
 				json_patch::merge(&mut org_chain_spec_json, genesis_json);
 
