@@ -1470,14 +1470,14 @@ pub mod pallet {
 			let aliaser: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin, ?aliaser);
 			ensure!(origin != aliaser, Error::<T>::BadLocation);
-			let v_origin = VersionedLocation::from(origin);
-			let v_aliaser = VersionedLocation::from(aliaser);
-			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&v_origin);
-			if !authorized_aliases.contains(&v_aliaser) {
+			let versioned_origin = VersionedLocation::from(origin);
+			let versioned_aliaser = VersionedLocation::from(aliaser);
+			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&versioned_origin);
+			if !authorized_aliases.contains(&versioned_aliaser) {
 				authorized_aliases
-					.try_push(v_aliaser)
+					.try_push(versioned_aliaser)
 					.map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
-				AuthorizedAliasesMap::<T>::insert(&v_origin, authorized_aliases);
+				AuthorizedAliasesMap::<T>::insert(&versioned_origin, authorized_aliases);
 			}
 			Ok(())
 		}
