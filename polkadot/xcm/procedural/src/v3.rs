@@ -127,12 +127,10 @@ pub mod junctions {
 		}
 
 		// Support up to 8 Parents in a tuple, assuming that most use cases don't go past 8 parents.
-		let from_v2 = generate_conversion_from_v2(MAX_JUNCTIONS);
 		let from_v4 = generate_conversion_from_v4();
 		let from_tuples = generate_conversion_from_tuples(MAX_JUNCTIONS);
 
 		Ok(quote! {
-			#from_v2
 			#from_v4
 			#from_tuples
 		})
@@ -188,34 +186,6 @@ pub mod junctions {
 					use Junctions::*;
 					Ok(match new {
 						crate::v4::Junctions::Here => Here,
-						#match_variants
-					})
-				}
-			}
-		}
-	}
-
-	fn generate_conversion_from_v2(max_junctions: usize) -> TokenStream {
-		let match_variants = (0..max_junctions)
-			.map(|cur_num| {
-				let num_ancestors = cur_num + 1;
-				let variant = format_ident!("X{}", num_ancestors);
-				let idents = (0..=cur_num).map(|i| format_ident!("j{}", i)).collect::<Vec<_>>();
-
-				quote! {
-					crate::v2::Junctions::#variant( #(#idents),* ) =>
-						#variant( #( core::convert::TryInto::try_into(#idents)? ),* ),
-				}
-			})
-			.collect::<TokenStream>();
-
-		quote! {
-			impl core::convert::TryFrom<crate::v2::Junctions> for Junctions {
-				type Error = ();
-				fn try_from(mut old: crate::v2::Junctions) -> core::result::Result<Self, ()> {
-					use Junctions::*;
-					Ok(match old {
-						crate::v2::Junctions::Here => Here,
 						#match_variants
 					})
 				}

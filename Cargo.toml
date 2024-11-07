@@ -792,7 +792,7 @@ frame-system-rpc-runtime-api = { path = "substrate/frame/system/rpc/runtime-api"
 frame-try-runtime = { path = "substrate/frame/try-runtime", default-features = false }
 fs4 = { version = "0.7.0" }
 fs_extra = { version = "1.3.0" }
-futures = { version = "0.3.30" }
+futures = { version = "0.3.31" }
 futures-channel = { version = "0.3.23" }
 futures-timer = { version = "3.0.2" }
 futures-util = { version = "0.3.30", default-features = false }
@@ -1205,12 +1205,11 @@ seccompiler = { version = "0.4.0" }
 secp256k1 = { version = "0.28.0", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
 separator = { version = "0.4.1" }
-serde = { version = "1.0.210", default-features = false }
+serde = { version = "1.0.214", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
 serde_json = { version = "1.0.132", default-features = false }
 serde_yaml = { version = "0.9" }
-serial_test = { version = "2.0.0" }
 sha1 = { version = "0.10.6" }
 sha2 = { version = "0.10.7", default-features = false }
 sha3 = { version = "0.10.0", default-features = false }
@@ -1319,7 +1318,7 @@ substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
 subxt = { version = "0.37", default-features = false }
 subxt-signer = { version = "0.37" }
-syn = { version = "2.0.82" }
+syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
