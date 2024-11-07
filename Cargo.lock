@@ -6390,6 +6390,16 @@ dependencies = [
  "cfg-if",
  "parity-scale-codec",
  "scale-info",
+]
+
+[[package]]
+name = "frame-metadata"
+version = "17.0.0"
+source = "git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16#743b690162edae12e35bdfff027858480fdf4ad9"
+dependencies = [
+ "cfg-if",
+ "parity-scale-codec",
+ "scale-info",
  "serde",
 ]
 
@@ -6400,7 +6410,7 @@ dependencies = [
  "array-bytes",
  "const-hex",
  "docify",
- "frame-metadata 17.0.0",
+ "frame-metadata 17.0.0 (git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16)",
  "frame-support",
  "frame-system",
  "log",
@@ -6463,7 +6473,7 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
- "frame-metadata 17.0.0",
+ "frame-metadata 17.0.0 (git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16)",
  "frame-support-procedural",
  "frame-system",
  "impl-trait-for-tuples",
@@ -6555,7 +6565,7 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
- "frame-metadata 17.0.0",
+ "frame-metadata 17.0.0 (git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16)",
  "frame-support",
  "frame-support-test-pallet",
  "frame-system",
@@ -9648,12 +9658,11 @@ dependencies = [
 [[package]]
 name = "merkleized-metadata"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f313fcff1d2a4bcaa2deeaa00bf7530d77d5f7bd0467a117dde2e29a75a7a17a"
+source = "git+https://github.com/lexnv/merkleized-metadata.git?branch=lexnv/update-frame-md#c72164a029302dd6ecfec365b8fafc3759891953"
 dependencies = [
  "array-bytes",
  "blake3",
- "frame-metadata 16.0.0",
+ "frame-metadata 17.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-scale-codec",
  "scale-decode",
  "scale-info",
@@ -22433,7 +22442,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 17.0.0",
+ "frame-metadata 17.0.0 (git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16)",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -24106,7 +24115,7 @@ dependencies = [
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 17.0.0",
+ "frame-metadata 17.0.0 (git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16)",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
