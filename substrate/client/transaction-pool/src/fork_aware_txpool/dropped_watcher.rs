@@ -180,6 +180,10 @@ where
 					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 				}
 			},
+			// todo:
+			// 1. usurpued shall be sent unconditionally
+			// 2. fatp shall act for every usurped message - it should remove tx from every view and
+			//    replace it with new one (also in mempool).
 			TransactionStatus::Usurped(by) => {
 				if let Entry::Occupied(mut views_keeping_tx_valid) =
 					self.transaction_states.entry(tx_hash)
