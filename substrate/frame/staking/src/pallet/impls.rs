@@ -349,6 +349,8 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
 			validator_stash: stash.clone(),
+			page,
+			next: EraInfo::<T>::get_next_claimable_page(era, &stash, &ledger),
 		});
 
 		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
@@ -1881,8 +1883,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	/// Whether `who` is a virtual staker whose funds are managed by another pallet.
+	///
+	/// There is an assumption that, this account is keyless and managed by another pallet in the
+	/// runtime. Hence, it can never sign its own transactions.
 	fn is_virtual_staker(who: &T::AccountId) -> bool {
-		VirtualStakers::<T>::contains_key(who)
+		frame_system::Pallet::<T>::account_nonce(who).is_zero() &&
+			VirtualStakers::<T>::contains_key(who)
 	}
 
 	fn slash_reward_fraction() -> Perbill {
@@ -2102,6 +2108,10 @@ impl<T: Config> Pallet<T> {
 					ensure!(
 						Ledger::<T>::get(stash.clone()).unwrap().stash == stash,
 						"ledger corrupted for virtual staker"
+					);
+					ensure!(
+						frame_system::Pallet::<T>::account_nonce(&stash).is_zero(),
+						"virtual stakers are keyless and should not have any nonce"
 					);
 					let reward_destination = <Payee<T>>::get(stash.clone()).unwrap();
 					if let RewardDestination::Account(payee) = reward_destination {
