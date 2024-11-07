@@ -274,12 +274,6 @@ impl ChainSpecBuilder {
 					.get_mut("genesis")
 					.and_then(|genesis| genesis.as_object_mut())
 					.and_then(|genesis| genesis.remove("runtimeGenesis"));
-				// org_chain_spec_json
-				// 	.as_object_mut()
-				// 	.and_then(|map| map.get_mut("genesis"))
-				// 	.and_then(|genesis| genesis.as_object_mut())
-				// 	.and_then(|genesis| genesis.remove("runtimeGenesis"));
-
 				json_patch::merge(&mut org_chain_spec_json, genesis_json);
 
 				let chain_spec_json = serde_json::to_string_pretty(&org_chain_spec_json)
