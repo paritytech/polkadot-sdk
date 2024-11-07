@@ -105,7 +105,7 @@ use xcm::{
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+	NetworkId, NonFungible, Parent, ParentThen, Response,
 };
 
 use xcm_runtime_apis::{
@@ -1891,31 +1891,8 @@ impl_runtime_apis! {
 			};
 
 			impl XcmBridgeHubRouterConfig<ToRococoXcmRouterInstance> for Runtime {
-				fn make_congested() {
-					cumulus_pallet_xcmp_queue::bridging::suspend_channel_for_benchmarks::<Runtime>(
-						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
-					);
-				}
 				fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
-					);
-					let bridged_asset_hub = xcm_config::bridging::to_rococo::AssetHubRococo::get();
-					let _ = PolkadotXcm::force_xcm_version(
-						RuntimeOrigin::root(),
-						alloc::boxed::Box::new(bridged_asset_hub.clone()),
-						XCM_VERSION,
-					).map_err(|e| {
-						log::error!(
-							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
-							RuntimeOrigin::root(),
-							bridged_asset_hub,
-							XCM_VERSION,
-							e
-						);
-						BenchmarkError::Stop("XcmVersion was not stored!")
-					})?;
-					Ok(bridged_asset_hub)
+					Ok(xcm_config::bridging::to_rococo::AssetHubRococo::get())
 				}
 			}
 

@@ -219,3 +219,10 @@ pub(crate) fn get_bridge_state_for<T: pallet_xcm_bridge_hub_router::Config<I>, I
 	let bridge_id = <T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
 	pallet_xcm_bridge_hub_router::Bridges::<T, I>::get(bridge_id)
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::benchmarking::Config<()> for TestRuntime {
+	fn ensure_bridged_target_destination() -> Result<Location, frame_benchmarking::BenchmarkError> {
+		Ok(Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]))
+	}
+}

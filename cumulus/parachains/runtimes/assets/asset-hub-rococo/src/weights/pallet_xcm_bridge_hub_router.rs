@@ -58,35 +58,7 @@ impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for Weigh
 	fn on_initialize_when_bridge_state_updated() -> Weight {
 		RocksDbWeight::get().writes(1)
 	}
-	/// Storage: `XcmpQueue::InboundXcmpSuspended` (r:1 w:0)
-	/// Proof: `XcmpQueue::InboundXcmpSuspended` (`max_values`: Some(1), `max_size`: Some(4002), added: 4497, mode: `MaxEncodedLen`)
-	/// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:0)
-	/// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1282), added: 1777, mode: `MaxEncodedLen`)
-	/// Storage: `ToWestendXcmRouter::DeliveryFeeFactor` (r:1 w:1)
-	/// Proof: `ToWestendXcmRouter::DeliveryFeeFactor` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
-	fn on_initialize_when_non_congested() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `153`
-		//  Estimated: `5487`
-		// Minimum execution time: 12_993_000 picoseconds.
-		Weight::from_parts(13_428_000, 0)
-			.saturating_add(Weight::from_parts(0, 5487))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
-	/// Storage: `XcmpQueue::InboundXcmpSuspended` (r:1 w:0)
-	/// Proof: `XcmpQueue::InboundXcmpSuspended` (`max_values`: Some(1), `max_size`: Some(4002), added: 4497, mode: `MaxEncodedLen`)
-	/// Storage: `XcmpQueue::OutboundXcmpStatus` (r:1 w:0)
-	/// Proof: `XcmpQueue::OutboundXcmpStatus` (`max_values`: Some(1), `max_size`: Some(1282), added: 1777, mode: `MaxEncodedLen`)
-	fn on_initialize_when_congested() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `144`
-		//  Estimated: `5487`
-		// Minimum execution time: 6_305_000 picoseconds.
-		Weight::from_parts(6_536_000, 0)
-			.saturating_add(Weight::from_parts(0, 5487))
-			.saturating_add(T::DbWeight::get().reads(2))
-	}
+
 	// TODO: FAIL-CI
 	fn report_bridge_status() -> Weight {
 		// Proof Size summary in bytes:

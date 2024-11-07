@@ -52,8 +52,6 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn on_initialize_when_bridge_state_removed() -> Weight;
 	fn on_initialize_when_bridge_state_updated() -> Weight;
-	fn on_initialize_when_non_congested() -> Weight;
-	fn on_initialize_when_congested() -> Weight;
 	fn report_bridge_status() -> Weight;
 }
 
@@ -68,32 +66,6 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 
 	fn on_initialize_when_bridge_state_updated() -> Weight {
 		RocksDbWeight::get().writes(1)
-	}
-	///
-	/// Storage: `XcmBridgeHubRouter::DeliveryFeeFactor` (r:1 w:1)
-	///
-	/// Proof: `XcmBridgeHubRouter::DeliveryFeeFactor` (`max_values`: Some(1), `max_size`: Some(16),
-	/// added: 511, mode: `MaxEncodedLen`)
-	fn on_initialize_when_non_congested() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `52`
-		//  Estimated: `3517`
-		// Minimum execution time: 11_141 nanoseconds.
-		Weight::from_parts(11_339_000, 3517)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
-	/// (r:1 w:0)
-	///
-	/// Proof: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765` (r:1
-	/// w:0)
-	fn on_initialize_when_congested() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `82`
-		//  Estimated: `3547`
-		// Minimum execution time: 4_239 nanoseconds.
-		Weight::from_parts(4_383_000, 3547).saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
 	///
@@ -120,37 +92,6 @@ impl WeightInfo for () {
 		RocksDbWeight::get().writes(1)
 	}
 
-	/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
-	/// (r:1 w:0)
-	///
-	/// Proof: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765` (r:1
-	/// w:0)
-	///
-	/// Storage: `XcmBridgeHubRouter::DeliveryFeeFactor` (r:1 w:1)
-	///
-	/// Proof: `XcmBridgeHubRouter::DeliveryFeeFactor` (`max_values`: Some(1), `max_size`: Some(16),
-	/// added: 511, mode: `MaxEncodedLen`)
-	fn on_initialize_when_non_congested() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `52`
-		//  Estimated: `3517`
-		// Minimum execution time: 11_141 nanoseconds.
-		Weight::from_parts(11_339_000, 3517)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765`
-	/// (r:1 w:0)
-	///
-	/// Proof: UNKNOWN KEY `0x456d756c617465645369626c696e6758636d704368616e6e656c2e436f6e6765` (r:1
-	/// w:0)
-	fn on_initialize_when_congested() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `82`
-		//  Estimated: `3547`
-		// Minimum execution time: 4_239 nanoseconds.
-		Weight::from_parts(4_383_000, 3547).saturating_add(RocksDbWeight::get().reads(1_u64))
-	}
 	/// Storage: `XcmBridgeHubRouter::Bridge` (r:1 w:1)
 	///
 	/// Proof: `XcmBridgeHubRouter::Bridge` (`max_values`: Some(1), `max_size`: Some(17), added:
