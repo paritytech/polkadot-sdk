@@ -14,7 +14,7 @@ for file in $DOCIFY_FILES; do
   
   # Go to the directory and run cargo build
   cd "$DIR"
-  cargo check --features generate-readme || echo "Readme generation for $DIR failed. Ensure the crate compiles successfully and has a `generate-readme` feature which guards markdown compilation in the crate as follows: https://docs.rs/docify/latest/docify/macro.compile_markdown.html#conventions." && exit 1
+  cargo check --features generate-readme || { echo "Readme generation for $DIR failed. Ensure the crate compiles successfully and has a `generate-readme` feature which guards markdown compilation in the crate as follows: https://docs.rs/docify/latest/docify/macro.compile_markdown.html#conventions." && exit 1; }
   
   # Check if README.md has any uncommitted changes
   git diff --exit-code README.md
