@@ -14697,6 +14697,7 @@ dependencies = [
  "polkadot-node-metrics",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "procfs",
@@ -14960,7 +14961,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-babe",
  "sp-runtime 31.0.1",
- "strum 0.26.3",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
