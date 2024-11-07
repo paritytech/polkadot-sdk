@@ -4,6 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+  merge_group:
 
 concurrency:
   group: check-semver-${{ github.event.pull_request.number || github.ref }}
