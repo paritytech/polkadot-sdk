@@ -2,7 +2,7 @@ name: Check README Updates
 
 on:
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -14,9 +14,6 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Make check-missing-readme-generation.sh executable
-        run: chmod +x .github/scripts/check-missing-readme-generation.sh
 
       - name: Find README.docify.md files and check generated READMEs
         run: .github/scripts/check-missing-readme-generation.sh
