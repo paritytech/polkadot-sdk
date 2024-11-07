@@ -236,6 +236,7 @@ pub type FellowshipSalaryPaymaster = PayOverXcm<
 >;
 
 impl pallet_salary::Config<FellowshipSalaryInstance> for Runtime {
+	type RuntimeTask = <Runtime as frame_system::Config>::RuntimeTask;
 	type WeightInfo = weights::pallet_salary_fellowship_salary::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 

@@ -66,6 +66,9 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+/// FRAME signed extension for verifying the metadata hash.
+pub use frame_metadata_hash_extension;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::{
@@ -91,7 +94,7 @@ use parachains_common::{
 	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, traits::{Verify, SaturatedConversion}};
 use testnet_parachains_constants::westend::{
 	account::*, consensus::*, currency::*, fee::WeightToFee, time::*,
 };
@@ -168,6 +171,94 @@ parameter_types! {
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
 	pub const SS58Prefix: u8 = 42;
+}
+
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
+
+impl frame_system::offchain::SigningTypes for Runtime {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Runtime
+where
+	RuntimeCall: From<C>,
+{
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = UncheckedExtrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type Extension = TxExtension;
+
+	fn create_transaction(call: RuntimeCall, extension: TxExtension) -> UncheckedExtrinsic {
+		UncheckedExtrinsic::new_transaction(call, extension)
+	}
+}
+
+/// Submits a transaction with the node's public and signature type. Adheres to the signed extension
+/// format of the chain.
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_signed_transaction<
+		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+	>(
+		call: RuntimeCall,
+		public: <Signature as Verify>::Signer,
+		account: AccountId,
+		nonce: <Runtime as frame_system::Config>::Nonce,
+	) -> Option<UncheckedExtrinsic> {
+		use sp_runtime::traits::StaticLookup;
+		// take the biggest period possible.
+		let period =
+			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+
+		let current_block = System::block_number()
+			.saturated_into::<u64>()
+			// The `System::block_number` is initialized with `n+1`,
+			// so the actual block number is `n`.
+			.saturating_sub(1);
+		let tip = 0;
+		let tx_ext: TxExtension = (
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckMortality::<Runtime>::from(generic::Era::mortal(
+				period,
+				current_block,
+			)),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+		)
+			.into();
+		let raw_payload = SignedPayload::new(call, tx_ext)
+			.map_err(|e| {
+				log::warn!("Unable to create signed payload: {:?}", e);
+			})
+			.ok()?;
+		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+		let (call, tx_ext, _) = raw_payload.deconstruct();
+		let address = <Runtime as frame_system::Config>::Lookup::unlookup(account);
+		let transaction = UncheckedExtrinsic::new_signed(call, address, signature, tx_ext);
+		Some(transaction)
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -724,6 +815,138 @@ construct_runtime!(
 	}
 );
 
+/*
+#[frame_support::runtime(legacy_ordering)]
+mod runtime {
+
+	// The main runtime types.
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+
+	#[runtime::pallet_index(1)]
+	pub type ParachainSystem = cumulus_pallet_parachain_system;
+
+	#[runtime::pallet_index(2)]
+	pub type Timestamp = pallet_timestamp;
+
+	#[runtime::pallet_index(3)]
+	pub type ParachainInfo = parachain_info;
+
+	#[runtime::pallet_index(10)]
+	pub type Balances = pallet_balances;
+
+	#[runtime::pallet_index(10)]
+	pub type TransactionPayment = pallet_transaction_payment;
+
+	#[runtime::pallet_index(11)]
+	pub type TransactionPayment = pallet_transaction_payment;
+
+	#[runtime::pallet_index(20)]
+	pub type Authorship = pallet_authorship;
+
+	#[runtime::pallet_index(21)]
+	pub type CollatorSelection = pallet_collator_selection;
+
+	#[runtime::pallet_index(22)]
+	pub type Session = pallet_session;
+
+	#[runtime::pallet_index(23)]
+	pub type Aura = pallet_aura;
+
+	#[runtime::pallet_index(24)]
+	pub type AuraExt = cumulus_pallet_aura_ext;
+
+	#[runtime::pallet_index(30)]
+	pub type XcmpQueue: cumulus_pallet_xcmp_queue;
+
+	#[runtime::pallet_index(31)]
+	pub type PolkadotXcm = pallet_xcm;
+
+	#[runtime::pallet_index(32)]
+	pub type CumulusXcm = cumulus_pallet_xcm;
+
+	#[runtime::pallet_index(34)]
+	pub type MessageQueue = pallet_message_queue;
+
+	#[runtime::pallet_index(40)]
+	pub type Utility = pallet_utility;
+
+	#[runtime::pallet_index(41)]
+	pub type Multisig = pallet_multisig;
+
+	#[runtime::pallet_index(42)]
+	pub type Proxy = pallet_proxy;
+
+	#[runtime::pallet_index(43)]
+	pub type Preimage = pallet_preimage;
+
+	#[runtime::pallet_index(44)]
+	pub type Scheduler = pallet_scheduler;
+
+	#[runtime::pallet_index(45)]
+	pub type AssetRate = pallet_asset_rate;
+
+	#[runtime::pallet_index(50)]
+	pub type Alliance = pallet_alliance;
+
+	#[runtime::pallet_index(51)]
+	pub type AllianceMotion = pallet_collective<Instance1>;
+
+	#[runtime::pallet_index(60)]
+	pub type FellowshipCollective = pallet_ranked_collective<Instance1>;
+
+	#[runtime::pallet_index(61)]
+	pub type FellowshipReferenda = pallet_referend<Instance1>;
+
+	#[runtime::pallet_index(62)]
+	pub type FellowshipOrigins = pallet_fellowship_origins<Instance1>;
+
+	#[runtime::pallet_index(63)]
+	pub type FellowshipCore = pallet_core_fellowship<Instance1>;
+
+	#[runtime::pallet_index(64)]
+	pub type FellowshipSalary = pallet_salary<Instance1>;
+
+	#[runtime::pallet_index(65)]
+	pub type FellowshipTreasury = pallet_treasury<Instance1>;
+
+	#[runtime::pallet_index(70)]
+	pub type AmbassadorCollective = pallet_ranked_collective<Instance2>;
+
+	#[runtime::pallet_index(71)]
+	pub type AmbassadorReferenda = pallet_referenda<Instance2>;
+
+	#[runtime::pallet_index(72)]
+	pub type AmbassadorOrigins = pallet_ambassador_origins;
+
+	#[runtime::pallet_index(73)]
+	pub type AmbassadorCore = pallet_core_fellowship<Instance2>;
+
+	#[runtime::pallet_index(74)]
+	pub type AmbassadorSalary = pallet_salary<Instance2>;
+
+	#[runtime::pallet_index(75)]
+	pub type AmbassadorContent = pallet_collective_content<Instance1>;
+
+	#[runtime::pallet_index(80)]
+	pub type StateTrieMigration = pallet_state_trie_migration;
+}
+*/
+
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 /// Block type as expected by this runtime.
@@ -741,7 +964,8 @@ pub type TxExtension = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
+	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =

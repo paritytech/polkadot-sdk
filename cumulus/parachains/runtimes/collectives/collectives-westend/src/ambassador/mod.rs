@@ -246,6 +246,7 @@ pub type AmbassadorSalaryPaymaster = PayOverXcm<
 >;
 
 impl pallet_salary::Config<AmbassadorSalaryInstance> for Runtime {
+	type RuntimeTask = <Runtime as frame_system::Config>::RuntimeTask;
 	type WeightInfo = weights::pallet_salary_ambassador_salary::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 
