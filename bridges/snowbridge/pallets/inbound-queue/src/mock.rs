@@ -19,7 +19,10 @@ use sp_runtime::{
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
-use xcm::{latest::SendXcm, prelude::*};
+use xcm::{
+	latest::{SendXcm, WESTEND_GENESIS_HASH},
+	prelude::*,
+};
 use xcm_executor::AssetsInHolding;
 
 use crate::{self as inbound_queue};
@@ -113,8 +116,8 @@ parameter_types! {
 	pub const InitialFund: u128 = 1_000_000_000_000;
 	pub const InboundQueuePalletInstance: u8 = 80;
 	pub UniversalLocation: InteriorLocation =
-		[GlobalConsensus(Westend), Parachain(1002)].into();
-	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(Westend),Parachain(1000)]);
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1002)].into();
+	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),Parachain(1000)]);
 }
 
 #[cfg(feature = "runtime-benchmarks")]
