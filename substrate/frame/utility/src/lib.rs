@@ -471,7 +471,7 @@ pub mod pallet {
 			let main_dispatch_info = main.get_dispatch_info();
 			let fallback_dispatch_info = fallback.get_dispatch_info();
 			(
-				T::WeightInfo::dispatch_as()
+				T::WeightInfo::if_else()
 					.saturating_add(main_dispatch_info.call_weight)
 					.saturating_add(fallback_dispatch_info.call_weight),
 				main_dispatch_info.class,
