@@ -1278,14 +1278,12 @@ impl_runtime_apis! {
 
 					// open bridge
 					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH)), Parachain(8765)].into();
-					let locations = XcmOverBridgeHubWestend::bridge_locations(
+					let _ = XcmOverBridgeHubWestend::open_bridge_for_benchmarks(
+						bp_messages::LegacyLaneId([1, 2, 3, 4]),
 						sibling_parachain_location.clone(),
 						bridge_destination_universal_location.clone(),
-					)?;
-					XcmOverBridgeHubWestend::do_open_bridge(
-						locations,
-						bp_messages::LegacyLaneId([1, 2, 3, 4]),
 						true,
+						None,
 					).map_err(|e| {
 						log::error!(
 							"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`, error: {:?}",
@@ -1354,26 +1352,32 @@ impl_runtime_apis! {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
-					let universal_source = bridge_to_westend_config::open_bridge_for_benchmarks::<
-						Runtime,
-						bridge_to_westend_config::XcmOverBridgeHubWestendInstance,
-						xcm_config::LocationToAccountId,
-					>(params.lane, 42);
+					let bridge_locations = XcmOverBridgeHubWestend::open_bridge_for_benchmarks(
+						params.lane,
+						Location::new(1, [Parachain(42)]),
+						[GlobalConsensus(bridge_to_westend_config::WestendGlobalConsensusNetwork::get()), Parachain(2075)].into(),
+						// do not create lanes, because they are already created `params.lane`
+						false,
+						None,
+					).expect("valid bridge opened");
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
 						bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample(universal_source))
+					>(params, generate_xcm_builder_bridge_message_sample(bridge_locations.bridge_origin_universal_location().clone()))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId, LaneIdOf<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>,
 				) -> bridge_to_westend_config::ToWestendBridgeHubMessagesDeliveryProof<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance> {
-					let _ = bridge_to_westend_config::open_bridge_for_benchmarks::<
-						Runtime,
-						bridge_to_westend_config::XcmOverBridgeHubWestendInstance,
-						xcm_config::LocationToAccountId,
-					>(params.lane, 42);
+					let _ = XcmOverBridgeHubWestend::open_bridge_for_benchmarks(
+						params.lane,
+						Location::new(1, [Parachain(42)]),
+						[GlobalConsensus(bridge_to_westend_config::WestendGlobalConsensusNetwork::get()), Parachain(2075)].into(),
+						// do not create lanes, because they are already created `params.lane`
+						false,
+						None,
+					);
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
@@ -1399,26 +1403,32 @@ impl_runtime_apis! {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
-					let universal_source = bridge_to_bulletin_config::open_bridge_for_benchmarks::<
-						Runtime,
-						bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance,
-						xcm_config::LocationToAccountId,
-					>(params.lane, 42);
+					let bridge_locations = XcmOverPolkadotBulletin::open_bridge_for_benchmarks(
+						params.lane,
+						Location::new(1, [Parachain(42)]),
+						[GlobalConsensus(bridge_to_bulletin_config::RococoBulletinGlobalConsensusNetwork::get())].into(),
+						// do not create lanes, because they are already created `params.lane`
+						false,
+						None,
+					).expect("valid bridge opened");
 					prepare_message_proof_from_grandpa_chain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
 						bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample(universal_source))
+					>(params, generate_xcm_builder_bridge_message_sample(bridge_locations.bridge_origin_universal_location().clone()))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId, LaneIdOf<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>>,
 				) -> bridge_to_bulletin_config::ToRococoBulletinMessagesDeliveryProof<bridge_to_bulletin_config::WithRococoBulletinMessagesInstance> {
-					let _ = bridge_to_bulletin_config::open_bridge_for_benchmarks::<
-						Runtime,
-						bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance,
-						xcm_config::LocationToAccountId,
-					>(params.lane, 42);
+					let _ = XcmOverPolkadotBulletin::open_bridge_for_benchmarks(
+						params.lane,
+						Location::new(1, [Parachain(42)]),
+						[GlobalConsensus(bridge_to_bulletin_config::RococoBulletinGlobalConsensusNetwork::get())].into(),
+						// do not create lanes, because they are already created `params.lane`
+						false,
+						None,
+					).expect("valid bridge opened");
 					prepare_message_delivery_proof_from_grandpa_chain::<
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,

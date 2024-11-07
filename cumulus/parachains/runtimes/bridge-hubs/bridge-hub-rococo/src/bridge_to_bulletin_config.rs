@@ -235,55 +235,6 @@ mod tests {
 	}
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-pub(crate) fn open_bridge_for_benchmarks<R, XBHI, C>(
-	with: pallet_xcm_bridge_hub::LaneIdOf<R, XBHI>,
-	sibling_para_id: u32,
-) -> InteriorLocation
-where
-	R: pallet_xcm_bridge_hub::Config<XBHI>,
-	XBHI: 'static,
-	C: xcm_executor::traits::ConvertLocation<
-		bp_runtime::AccountIdOf<pallet_xcm_bridge_hub::ThisChainOf<R, XBHI>>,
-	>,
-{
-	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
-	use sp_runtime::traits::Zero;
-	use xcm::{latest::ROCOCO_GENESIS_HASH, VersionedInteriorLocation};
-
-	// insert bridge metadata
-	let lane_id = with;
-	let sibling_parachain = Location::new(1, [Parachain(sibling_para_id)]);
-	let universal_source =
-		[GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(sibling_para_id)].into();
-	let universal_destination =
-		[GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get()), Parachain(2075)].into();
-	let bridge_id = BridgeId::new(&universal_source, &universal_destination);
-
-	// insert only bridge metadata, because the benchmarks create lanes
-	pallet_xcm_bridge_hub::Bridges::<R, XBHI>::insert(
-		bridge_id,
-		Bridge {
-			bridge_origin_relative_location: alloc::boxed::Box::new(
-				sibling_parachain.clone().into(),
-			),
-			bridge_origin_universal_location: alloc::boxed::Box::new(
-				VersionedInteriorLocation::from(universal_source.clone()),
-			),
-			bridge_destination_universal_location: alloc::boxed::Box::new(
-				VersionedInteriorLocation::from(universal_destination),
-			),
-			state: BridgeState::Opened,
-			bridge_owner_account: C::convert_location(&sibling_parachain).expect("valid AccountId"),
-			deposit: Zero::zero(),
-			lane_id,
-		},
-	);
-	pallet_xcm_bridge_hub::LaneToBridge::<R, XBHI>::insert(lane_id, bridge_id);
-
-	universal_source
-}
-
 /// Contains the migration for the PeopleRococo<>RococoBulletin bridge.
 pub mod migration {
 	use super::*;

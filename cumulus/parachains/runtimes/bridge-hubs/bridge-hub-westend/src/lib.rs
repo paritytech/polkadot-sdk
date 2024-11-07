@@ -1163,14 +1163,12 @@ impl_runtime_apis! {
 
 					// open bridge
 					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(8765)].into();
-					let locations = XcmOverBridgeHubRococo::bridge_locations(
+					let _ = XcmOverBridgeHubRococo::open_bridge_for_benchmarks(
+						bp_messages::LegacyLaneId([1, 2, 3, 4]),
 						sibling_parachain_location.clone(),
 						bridge_destination_universal_location.clone(),
-					)?;
-					XcmOverBridgeHubRococo::do_open_bridge(
-						locations,
-						bp_messages::LegacyLaneId([1, 2, 3, 4]),
 						true,
+						None,
 					).map_err(|e| {
 						log::error!(
 							"Failed to `XcmOverBridgeHubRococo::open_bridge`({:?}, {:?})`, error: {:?}",
@@ -1234,26 +1232,32 @@ impl_runtime_apis! {
 					use cumulus_primitives_core::XcmpMessageSource;
 					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
-					let universal_source = bridge_to_rococo_config::open_bridge_for_benchmarks::<
-						Runtime,
-						bridge_to_rococo_config::XcmOverBridgeHubRococoInstance,
-						xcm_config::LocationToAccountId,
-					>(params.lane, 42);
+					let bridge_locations = XcmOverBridgeHubRococo::open_bridge_for_benchmarks(
+						params.lane,
+						Location::new(1, [Parachain(42)]),
+						[GlobalConsensus(bridge_to_rococo_config::RococoGlobalConsensusNetwork::get()), Parachain(2075)].into(),
+						// do not create lanes, because they are already created `params.lane`
+						false,
+						None,
+					).expect("valid bridge opened");
 					prepare_message_proof_from_parachain::<
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 						bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
-					>(params, generate_xcm_builder_bridge_message_sample(universal_source))
+					>(params, generate_xcm_builder_bridge_message_sample(bridge_locations.bridge_origin_universal_location().clone()))
 				}
 
 				fn prepare_message_delivery_proof(
 					params: MessageDeliveryProofParams<AccountId, LaneIdOf<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>,
 				) -> bridge_to_rococo_config::ToRococoBridgeHubMessagesDeliveryProof<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance> {
-					let _ = bridge_to_rococo_config::open_bridge_for_benchmarks::<
-						Runtime,
-						bridge_to_rococo_config::XcmOverBridgeHubRococoInstance,
-						xcm_config::LocationToAccountId,
-					>(params.lane, 42);
+					let _ = XcmOverBridgeHubRococo::open_bridge_for_benchmarks(
+						params.lane,
+						Location::new(1, [Parachain(42)]),
+						[GlobalConsensus(bridge_to_rococo_config::RococoGlobalConsensusNetwork::get()), Parachain(2075)].into(),
+						// do not create lanes, because they are already created `params.lane`
+						false,
+						None,
+					);
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,

@@ -656,6 +656,32 @@ pub mod pallet {
 		}
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Open bridge for lane.
+		pub fn open_bridge_for_benchmarks(
+			lane_id: LaneIdOf<T, I>,
+			bridge_origin_relative_location: Location,
+			bridge_destination_universal_location: InteriorLocation,
+			create_lanes: bool,
+			maybe_notify: Option<Receiver>,
+		) -> Result<Box<BridgeLocations>, sp_runtime::DispatchError> {
+			let locations = Pallet::<T, I>::bridge_locations(
+				bridge_origin_relative_location.into(),
+				bridge_destination_universal_location.into(),
+			)?;
+
+			Pallet::<T, I>::do_open_bridge(
+				locations.clone(),
+				lane_id,
+				create_lanes,
+				maybe_notify,
+			)?;
+
+			Ok(locations)
+		}
+	}
+
 	#[cfg(any(test, feature = "try-runtime", feature = "std"))]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Ensure the correctness of the state of this pallet.
