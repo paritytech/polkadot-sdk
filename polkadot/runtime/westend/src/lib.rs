@@ -1705,6 +1705,8 @@ pub mod migrations {
 			MaxPoolsToMigrate,
 		>,
 		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
 }
 
