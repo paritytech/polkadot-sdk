@@ -21,7 +21,7 @@ use crate::{
 };
 use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
-use syn::{punctuated::Punctuated, token, Error};
+use syn::{punctuated::Punctuated, spanned::Spanned, token, Error};
 
 impl Pallet {
 	pub fn try_from(
@@ -30,6 +30,7 @@ impl Pallet {
 		pallet_index: u8,
 		disable_call: bool,
 		disable_unsigned: bool,
+		disable_metadata: bool,
 		bounds: &Punctuated<syn::TypeParamBound, token::Plus>,
 	) -> syn::Result<Self> {
 		let name = item.ident.clone();
@@ -72,13 +73,28 @@ impl Pallet {
 					(disable_unsigned, &part.keyword)
 				{
 					false
+				} else if let (true, &PalletPartKeyword::Pallet(_)) =
+					(disable_metadata, &part.keyword)
+				{
+					false
 				} else {
 					true
 				}
 			})
 			.collect();
 
-		let cfg_pattern = vec![];
+		let cfg_pattern = item
+			.attrs
+			.iter()
+			.filter(|attr| attr.path().segments.first().map_or(false, |s| s.ident == "cfg"))
+			.map(|attr| {
+				attr.parse_args_with(|input: syn::parse::ParseStream| {
+					let input = input.parse::<proc_macro2::TokenStream>()?;
+					cfg_expr::Expression::parse(&input.to_string())
+						.map_err(|e| syn::Error::new(attr.span(), e.to_string()))
+				})
+			})
+			.collect::<syn::Result<Vec<_>>>()?;
 
 		let docs = get_doc_literals(&item.attrs);
 
