@@ -24,7 +24,7 @@ use polkadot_node_subsystem::{
 	RuntimeApiError, SubsystemError,
 };
 use polkadot_node_subsystem_util::{runtime, Error as UtilError};
-use polkadot_primitives::{BackedCandidate, ValidationCodeHash};
+use polkadot_primitives::{vstaging::BackedCandidate, ValidationCodeHash};
 
 use crate::{ParaId, LOG_TARGET};
 

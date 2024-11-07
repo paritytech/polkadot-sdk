@@ -540,6 +540,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let listen_addresses = Arc::new(Default::default());
 		let (discovery, ping_config, identify_config, kademlia_config, maybe_mdns_config) =
 			Discovery::new(
+				local_peer_id,
 				&network_config,
 				params.genesis_hash,
 				params.fork_id.as_deref(),
@@ -933,6 +934,25 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									"🔍 Failed to add discovered external address {address:?}: {err:?}",
 								);
 							},
+						}
+					}
+					Some(DiscoveryEvent::ExternalAddressExpired{ address }) => {
+						let local_peer_id = self.litep2p.local_peer_id();
+
+						// Litep2p requires the peer ID to be present in the address.
+						let address = if !std::matches!(address.iter().last(), Some(Protocol::P2p(_))) {
+							address.with(Protocol::P2p(*local_peer_id.as_ref()))
+						} else {
+							address
+						};
+
+						if self.litep2p.public_addresses().remove_address(&address) {
+							log::info!(target: LOG_TARGET, "🔍 Expired external address for our node: {address}");
+						} else {
+							log::warn!(
+								target: LOG_TARGET,
+								"🔍 Failed to remove expired external address {address:?}"
+							);
 						}
 					}
 					Some(DiscoveryEvent::Ping { peer, rtt }) => {

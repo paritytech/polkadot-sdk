@@ -35,12 +35,12 @@ use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
 	relay_chain::{
 		self,
-		vstaging::{ClaimQueueOffset, CoreSelector},
+		vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
 	},
 	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
 	InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
-	XcmpMessageHandler, XcmpMessageSource, DEFAULT_CLAIM_QUEUE_OFFSET,
+	XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
@@ -1627,7 +1627,11 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
 			.collect();
 
-		vec![(VersionedLocation::V4(Parent.into()), messages)]
+		if messages.is_empty() {
+			vec![]
+		} else {
+			vec![(VersionedLocation::from(Location::parent()), messages)]
+		}
 	}
 }
 
