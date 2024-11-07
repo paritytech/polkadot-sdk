@@ -136,12 +136,8 @@ mod benchmarks {
 		let (signer, meta_sig) =
 			T::BenchmarkHelper::create_signature(meta_call.clone(), meta_ext.clone());
 
-		let meta_tx = MetaTxFor::<T>::new_signed(
-			signer.clone(),
-			meta_sig,
-			meta_ext.clone(),
-			meta_call.clone(),
-		);
+		let meta_tx =
+			MetaTxFor::<T>::new(signer.clone(), meta_sig, meta_call.clone(), meta_ext.clone());
 
 		let call = Call::<T>::dispatch { meta_tx: Box::new(meta_tx) };
 		let info = call.get_dispatch_info();

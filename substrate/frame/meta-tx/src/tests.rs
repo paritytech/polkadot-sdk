@@ -80,11 +80,11 @@ fn sign_and_execute_meta_tx() {
 				.using_encoded(|e| alice_keyring.sign(&e)),
 		);
 
-		let meta_tx = MetaTxFor::<Runtime>::new_signed(
+		let meta_tx = MetaTxFor::<Runtime>::new(
 			alice_account.clone(),
 			meta_tx_sig,
-			meta_tx_ext.clone(),
 			remark_call.clone(),
+			meta_tx_ext.clone(),
 		);
 
 		// Encode and share with the world.

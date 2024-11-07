@@ -76,40 +76,23 @@ use sp_std::prelude::*;
 /// The data that is provided and signed by the signer and shared with the relayer.
 #[derive(Encode, Decode, PartialEq, Eq, TypeInfo, Clone, RuntimeDebug)]
 pub struct MetaTx<Address, Signature, Call, Extension> {
-	/// Information regarding the type of the meta transaction.
-	preamble: Preamble<Address, Signature, Extension>,
+	/// The signer's address.
+	address: Address,
+	/// The signature of the meta transaction.
+	signature: Signature,
 	/// The target call to be executed on behalf of the signer.
 	call: Call,
+	/// The extension/s for the meta transaction.
+	///
+	/// The first byte can indicate the version, depending on a concrete `Extension` type.
+	extension: Extension,
 }
 
 impl<Address, Signature, Call, Extension> MetaTx<Address, Signature, Call, Extension> {
 	/// Create a new meta transaction.
-	pub fn new_signed(
-		address: Address,
-		signature: Signature,
-		extension: Extension,
-		call: Call,
-	) -> Self {
-		Self { preamble: Preamble::Signed(address, signature, extension), call }
+	pub fn new(address: Address, signature: Signature, call: Call, extension: Extension) -> Self {
+		Self { address, signature, call, extension }
 	}
-
-	/// Get the extension reference of the meta transaction.
-	pub fn extension_as_ref(&self) -> &Extension {
-		match &self.preamble {
-			Preamble::Signed(_, _, extension) => extension,
-		}
-	}
-}
-
-/// Proof of the authenticity of the meta transaction.
-///
-/// It could potentially be extended to support other type of meta transaction, similar to the
-/// [`sp_runtime::generic::Preamble::Bare`]` transaction extrinsic type.
-#[derive(Encode, Decode, PartialEq, Eq, TypeInfo, Clone, RuntimeDebug)]
-pub enum Preamble<Address, Signature, Extension> {
-	/// Meta transaction that contains the signature, signer's address and the extension with it's
-	/// version.
-	Signed(Address, Signature, Extension),
 }
 
 /// The [`MetaTx`] for the given config.
@@ -211,7 +194,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let dispatch_info = meta_tx.call.get_dispatch_info();
-			let extension_weight = meta_tx.extension_as_ref().weight(&meta_tx.call);
+			let extension_weight = meta_tx.extension.weight(&meta_tx.call);
 			// TODO: + dispatch weight
 			(
 				dispatch_info.call_weight.add(extension_weight),
@@ -224,18 +207,16 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let meta_tx_size = meta_tx.encoded_size();
 
-			let (signer, signature, extension) = match meta_tx.preamble {
-				Preamble::Signed(signer, signature, extension) => (signer, signature, extension),
-			};
-
-			let signed_payload = SignedPayloadFor::<T>::new(meta_tx.call, extension)
+			let signed_payload = SignedPayloadFor::<T>::new(meta_tx.call, meta_tx.extension)
 				.map_err(|_| Error::<T>::Invalid)?;
 
-			if !signed_payload.using_encoded(|payload| signature.verify(payload, &signer)) {
+			if !signed_payload
+				.using_encoded(|payload| meta_tx.signature.verify(payload, &meta_tx.address))
+			{
 				return Err(Error::<T>::BadProof.into());
 			}
 
-			let origin = T::RuntimeOrigin::signed(signer);
+			let origin = T::RuntimeOrigin::signed(meta_tx.address);
 			let (call, extension, _) = signed_payload.deconstruct();
 			// `info` with worst-case call weight and extension weight.
 			let info = {
