@@ -19,7 +19,7 @@ use codec::Encode;
 use frame_support::{sp_runtime::traits::Dispatchable, traits::ProcessMessageError};
 use parachains_common::AccountId;
 use people_westend_runtime::people::IdentityInfo;
-//use westend_runtime::governance::pallet_custom_origins::Origin::GeneralAdmin as GeneralAdminOrigin;
+use westend_runtime::governance::pallet_custom_origins::Origin::GeneralAdmin as GeneralAdminOrigin;
 use westend_system_emulated_network::people_westend_emulated_chain::people_westend_runtime;
 
 use pallet_identity::Data;
@@ -30,6 +30,7 @@ use emulated_integration_tests_common::accounts::{ALICE, BOB};
 fn relay_commands_add_registrar() {
 	let origins = vec![
 		(OriginKind::Superuser, <Westend as Chain>::RuntimeOrigin::root()),
+		(OriginKind::Xcm, GeneralAdminOrigin.into()),
 	];
 	for (origin_kind, origin) in origins {
 		let registrar: AccountId = [1; 32].into();
@@ -85,8 +86,10 @@ fn relay_commands_add_registrar() {
 fn relay_commands_add_registrar_wrong_origin() {
 	let people_westend_alice = PeopleWestend::account_id_of(ALICE);
 
-	let (origin_kind, origin) =
-		(OriginKind::SovereignAccount, <Westend as Chain>::RuntimeOrigin::signed(people_westend_alice));
+	let (origin_kind, origin) = (
+		OriginKind::SovereignAccount,
+		<Westend as Chain>::RuntimeOrigin::signed(people_westend_alice),
+	);
 
 	let registrar: AccountId = [1; 32].into();
 	Westend::execute_with(|| {
@@ -237,7 +240,9 @@ fn relay_commands_kill_identity_wrong_origin() {
 
 		let kill_identity_call =
 			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
-				target: people_westend_runtime::MultiAddress::Id(PeopleWestend::account_id_of(ALICE)),
+				target: people_westend_runtime::MultiAddress::Id(PeopleWestend::account_id_of(
+					ALICE,
+				)),
 			});
 
 		let xcm_message = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
@@ -279,9 +284,8 @@ fn relay_commands_add_remove_username_authority() {
 	let people_westend_alice = PeopleWestend::account_id_of(ALICE);
 	let people_westend_bob = PeopleWestend::account_id_of(BOB);
 
-	let origins = vec![
-		(OriginKind::Superuser, <Westend as Chain>::RuntimeOrigin::root(), "rootusername"),
-	];
+	let origins =
+		vec![(OriginKind::Superuser, <Westend as Chain>::RuntimeOrigin::root(), "rootusername")];
 	for (origin_kind, origin, usr) in origins {
 		// First, add a username authority.
 		Westend::execute_with(|| {
@@ -430,104 +434,108 @@ fn relay_commands_add_remove_username_authority() {
 fn relay_commands_add_remove_username_authority_wrong_origin() {
 	let people_westend_alice = PeopleWestend::account_id_of(ALICE);
 
-	let (origin_kind, origin) = (
-		OriginKind::SovereignAccount,
-		<Westend as Chain>::RuntimeOrigin::signed(people_westend_alice.clone()),
-	);
+	let origins = vec![
+		(OriginKind::Xcm, GeneralAdminOrigin.into()),
+		//(OriginKind::SovereignAccount, <Westend as Chain>::RuntimeOrigin::signed(people_westend_alice.clone())),
+	];
 
-	Westend::execute_with(|| {
-		type Runtime = <Westend as Chain>::Runtime;
-		type RuntimeCall = <Westend as Chain>::RuntimeCall;
-		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
-		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
-		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+	for (origin_kind, origin) in origins {
+		Westend::execute_with(|| {
+			type Runtime = <Westend as Chain>::Runtime;
+			type RuntimeCall = <Westend as Chain>::RuntimeCall;
+			type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
+			type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
+			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
 
-		let add_username_authority =
-			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_username_authority {
+			let add_username_authority = PeopleCall::Identity(pallet_identity::Call::<
+				PeopleRuntime,
+			>::add_username_authority {
 				authority: people_westend_runtime::MultiAddress::Id(people_westend_alice.clone()),
 				suffix: b"suffix1".into(),
 				allocation: 10,
 			});
 
-		let add_authority_xcm_msg = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
-			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
-			message: bx!(VersionedXcm::from(Xcm(vec![
-				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact {
-					origin_kind,
-					require_weight_at_most: Weight::from_parts(500_000_000, 500_000),
-					call: add_username_authority.encode().into(),
-				}
-			]))),
+			let add_authority_xcm_msg = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
+				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
+				message: bx!(VersionedXcm::from(Xcm(vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					Transact {
+						origin_kind,
+						require_weight_at_most: Weight::from_parts(500_000_000, 500_000),
+						call: add_username_authority.encode().into(),
+					}
+				]))),
+			});
+
+			assert_ok!(add_authority_xcm_msg.dispatch(origin));
+
+			assert_expected_events!(
+				Westend,
+				vec![
+					RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+				]
+			);
 		});
 
-		assert_ok!(add_authority_xcm_msg.dispatch(origin));
+		// Check events system-parachain-side
+		PeopleWestend::execute_with(|| {
+			type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
 
-		assert_expected_events!(
-			Westend,
-			vec![
-				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-			]
-		);
-	});
-
-	// Check events system-parachain-side
-	PeopleWestend::execute_with(|| {
-		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
-
-		assert_expected_events!(
-			PeopleWestend,
-			vec![
-				RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed { error: ProcessMessageError::Unsupported, .. }) => {},
-			]
-		);
-	});
-
-	Westend::execute_with(|| {
-		type Runtime = <Westend as Chain>::Runtime;
-		type RuntimeCall = <Westend as Chain>::RuntimeCall;
-		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
-		type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
-		type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
-
-		let remove_username_authority = PeopleCall::Identity(pallet_identity::Call::<
-			PeopleRuntime,
-		>::remove_username_authority {
-			authority: people_westend_runtime::MultiAddress::Id(people_westend_alice.clone()),
-			suffix: b"suffix1".into(),
+			assert_expected_events!(
+				PeopleWestend,
+				vec![
+					RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed { error: ProcessMessageError::Unsupported, .. }) => {},
+				]
+			);
 		});
 
-		let remove_authority_xcm_msg = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
-			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
-			message: bx!(VersionedXcm::from(Xcm(vec![
-				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact {
-					origin_kind: OriginKind::SovereignAccount,
-					require_weight_at_most: Weight::from_parts(500_000_000, 500_000),
-					call: remove_username_authority.encode().into(),
-				}
-			]))),
+		Westend::execute_with(|| {
+			type Runtime = <Westend as Chain>::Runtime;
+			type RuntimeCall = <Westend as Chain>::RuntimeCall;
+			type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
+			type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
+			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+
+			let remove_username_authority = PeopleCall::Identity(pallet_identity::Call::<
+				PeopleRuntime,
+			>::remove_username_authority {
+				authority: people_westend_runtime::MultiAddress::Id(people_westend_alice.clone()),
+				suffix: b"suffix1".into(),
+			});
+
+			let remove_authority_xcm_msg =
+				RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
+					dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
+					message: bx!(VersionedXcm::from(Xcm(vec![
+						UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+						Transact {
+							origin_kind: OriginKind::SovereignAccount,
+							require_weight_at_most: Weight::from_parts(500_000_000, 500_000),
+							call: remove_username_authority.encode().into(),
+						}
+					]))),
+				});
+
+			assert_ok!(remove_authority_xcm_msg
+				.dispatch(<Westend as Chain>::RuntimeOrigin::signed(people_westend_alice.clone())));
+
+			assert_expected_events!(
+				Westend,
+				vec![
+					RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+				]
+			);
 		});
 
-		assert_ok!(remove_authority_xcm_msg
-			.dispatch(<Westend as Chain>::RuntimeOrigin::signed(people_westend_alice)));
+		PeopleWestend::execute_with(|| {
+			type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
 
-		assert_expected_events!(
-			Westend,
-			vec![
-				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-			]
-		);
-	});
-
-	PeopleWestend::execute_with(|| {
-		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
-
-		assert_expected_events!(
-			PeopleWestend,
-			vec![
-				RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed { error: ProcessMessageError::Unsupported, .. }) => {},
-			]
-		);
-	});
+			assert_expected_events!(
+				PeopleWestend,
+				vec![
+					RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed { error: ProcessMessageError::Unsupported, .. }) => {},
+				]
+			);
+		});
+	}
 }
