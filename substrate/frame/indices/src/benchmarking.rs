@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
+use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
 
