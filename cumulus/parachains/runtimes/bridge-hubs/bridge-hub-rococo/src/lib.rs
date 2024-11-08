@@ -683,6 +683,8 @@ mod benches {
 		[pallet_bridge_messages, RococoToRococoBulletin]
 		[pallet_bridge_relayers, Legacy]
 		[pallet_bridge_relayers, PermissionlessLanes]
+		[pallet_xcm_bridge_hub, OverWestend]
+		[pallet_xcm_bridge_hub, OverBulletin]
 		// Ethereum Bridge
 		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
@@ -1063,10 +1065,12 @@ impl_runtime_apis! {
 			// Change weight file names.
 			type WestendFinality = BridgeWestendGrandpa;
 			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
-			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
-			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
+			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
+			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
 			type Legacy = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>;
 			type PermissionlessLanes = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForPermissionlessLanesInstance>;
+			type OverWestend = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_westend_config::XcmOverBridgeHubWestendInstance>;
+			type OverBulletin = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1271,17 +1275,7 @@ impl_runtime_apis! {
 						bridge_destination_universal_location.clone(),
 						true,
 						None,
-						|account_id, bridge_deposit| {
-							use frame_support::traits::fungible::Mutate;
-							frame_support::assert_ok!(
-								Balances::mint_into(
-									&account_id,
-									bridge_deposit
-										.saturating_add(ExistentialDeposit::get())
-										.saturating_add(UNITS * 5)
-								)
-							);
-						},
+						|| ExistentialDeposit::get(),
 					).map_err(|e| {
 						log::error!(
 							"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`, error: {:?}",
@@ -1315,6 +1309,8 @@ impl_runtime_apis! {
 			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
 			type Legacy = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>;
 			type PermissionlessLanes = BridgeRelayersBench::<Runtime, bridge_common_config::RelayersForPermissionlessLanesInstance>;
+			type OverWestend = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_westend_config::XcmOverBridgeHubWestendInstance>;
+			type OverBulletin = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_grandpa_chain,
@@ -1328,6 +1324,18 @@ impl_runtime_apis! {
 				MessageDeliveryProofParams,
 				MessageProofParams,
 			};
+
+			impl pallet_xcm_bridge_hub::benchmarking::Config<bridge_to_westend_config::XcmOverBridgeHubWestendInstance> for Runtime {
+				fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
+					None
+				}
+			}
+
+			impl pallet_xcm_bridge_hub::benchmarking::Config<bridge_to_bulletin_config::XcmOverPolkadotBulletinInstance> for Runtime {
+				fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
+					None
+				}
+			}
 
 			impl BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance> for Runtime {
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
@@ -1357,17 +1365,7 @@ impl_runtime_apis! {
 						// do not create lanes, because they are already created `params.lane`
 						false,
 						None,
-						|account_id, bridge_deposit| {
-							use frame_support::traits::fungible::Mutate;
-							frame_support::assert_ok!(
-								Balances::mint_into(
-									&account_id,
-									bridge_deposit
-										.saturating_add(ExistentialDeposit::get())
-										.saturating_add(UNITS * 5)
-								)
-							);
-						},
+						|| ExistentialDeposit::get(),
 					).expect("valid bridge opened");
 					prepare_message_proof_from_parachain::<
 						Runtime,
@@ -1386,17 +1384,7 @@ impl_runtime_apis! {
 						// do not create lanes, because they are already created `params.lane`
 						false,
 						None,
-						|account_id, bridge_deposit| {
-							use frame_support::traits::fungible::Mutate;
-							frame_support::assert_ok!(
-								Balances::mint_into(
-									&account_id,
-									bridge_deposit
-										.saturating_add(ExistentialDeposit::get())
-										.saturating_add(UNITS * 5)
-								)
-							);
-						},
+						|| ExistentialDeposit::get(),
 					);
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,
@@ -1430,17 +1418,7 @@ impl_runtime_apis! {
 						// do not create lanes, because they are already created `params.lane`
 						false,
 						None,
-						|account_id, bridge_deposit| {
-							use frame_support::traits::fungible::Mutate;
-							frame_support::assert_ok!(
-								Balances::mint_into(
-									&account_id,
-									bridge_deposit
-										.saturating_add(ExistentialDeposit::get())
-										.saturating_add(UNITS * 5)
-								)
-							);
-						},
+						|| ExistentialDeposit::get(),
 					).expect("valid bridge opened");
 					prepare_message_proof_from_grandpa_chain::<
 						Runtime,
@@ -1459,17 +1437,7 @@ impl_runtime_apis! {
 						// do not create lanes, because they are already created `params.lane`
 						false,
 						None,
-						|account_id, bridge_deposit| {
-							use frame_support::traits::fungible::Mutate;
-							frame_support::assert_ok!(
-								Balances::mint_into(
-									&account_id,
-									bridge_deposit
-										.saturating_add(ExistentialDeposit::get())
-										.saturating_add(UNITS * 5)
-								)
-							);
-						},
+						|| ExistentialDeposit::get(),
 					).expect("valid bridge opened");
 					prepare_message_delivery_proof_from_grandpa_chain::<
 						Runtime,

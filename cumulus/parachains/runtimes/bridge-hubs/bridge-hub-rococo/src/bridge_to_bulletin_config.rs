@@ -126,6 +126,7 @@ impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runt
 pub type XcmOverPolkadotBulletinInstance = pallet_xcm_bridge_hub::Instance2;
 impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
 
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetwork = RococoBulletinGlobalConsensusNetworkLocation;

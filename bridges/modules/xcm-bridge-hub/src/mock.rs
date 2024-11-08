@@ -210,6 +210,7 @@ pub(crate) type TestLocalXcmChannelManager = TestingLocalXcmChannelManager<
 
 impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
 
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetwork = BridgedRelayNetworkLocation;
@@ -234,6 +235,13 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
 	type BlobDispatcher = BlobDispatcherWithChannelStatus<TestBlobDispatcher, TestBlobDispatcher>;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::benchmarking::Config<()> for TestRuntime {
+	fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
+		Some((OpenBridgeOrigin::sibling_parachain_origin(), ExistentialDeposit::get()))
+	}
 }
 
 /// A router instance simulates a scenario where the router is deployed on a different chain than
@@ -705,6 +713,12 @@ impl MessageDispatch for TestMessageDispatch {
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
 	}
+}
+
+/// Return test externalities to use in tests.
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
+	sp_io::TestExternalities::new(t)
 }
 
 /// Run pallet test.

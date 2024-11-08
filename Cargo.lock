@@ -13243,6 +13243,7 @@ dependencies = [
  "bp-messages",
  "bp-runtime",
  "bp-xcm-bridge-hub",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",

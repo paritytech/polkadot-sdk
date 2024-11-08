@@ -176,6 +176,7 @@ impl Convert<Vec<u8>, Xcm<()>> for ReportBridgeStatusXcmProvider {
 pub type XcmOverBridgeHubRococoInstance = pallet_xcm_bridge_hub::Instance1;
 impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
 
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetwork = RococoGlobalConsensusNetworkLocation;

@@ -620,6 +620,7 @@ mod benches {
 		[pallet_bridge_grandpa, RococoFinality]
 		[pallet_bridge_parachains, WithinRococo]
 		[pallet_bridge_messages, WestendToRococo]
+		[pallet_xcm_bridge_hub, OverRococo]
 		// Ethereum Bridge
 		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
 		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
@@ -952,6 +953,7 @@ impl_runtime_apis! {
 			type RococoFinality = BridgeRococoGrandpa;
 			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::BridgeParachainRococoInstance>;
 			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>;
+			type OverRococo = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverBridgeHubRococoInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1156,17 +1158,7 @@ impl_runtime_apis! {
 						bridge_destination_universal_location.clone(),
 						true,
 						None,
-						|account_id, bridge_deposit| {
-							use frame_support::traits::fungible::Mutate;
-							frame_support::assert_ok!(
-								Balances::mint_into(
-									&account_id,
-									bridge_deposit
-										.saturating_add(ExistentialDeposit::get())
-										.saturating_add(UNITS * 5)
-								)
-							);
-						},
+						|| ExistentialDeposit::get(),
 					).map_err(|e| {
 						log::error!(
 							"Failed to `XcmOverBridgeHubRococo::open_bridge`({:?}, {:?})`, error: {:?}",
@@ -1197,6 +1189,7 @@ impl_runtime_apis! {
 			type RococoFinality = BridgeRococoGrandpa;
 			type WithinRococo = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::BridgeParachainRococoInstance>;
 			type WestendToRococo = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>;
+			type OverRococo = pallet_xcm_bridge_hub::benchmarking::Pallet::<Runtime, bridge_to_rococo_config::XcmOverBridgeHubRococoInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
 				prepare_message_delivery_proof_from_parachain,
@@ -1208,6 +1201,12 @@ impl_runtime_apis! {
 				MessageDeliveryProofParams,
 				MessageProofParams,
 			};
+
+			impl pallet_xcm_bridge_hub::benchmarking::Config<bridge_to_rococo_config::XcmOverBridgeHubRococoInstance> for Runtime {
+				fn open_bridge_origin() -> Option<(RuntimeOrigin, Balance)> {
+					None
+				}
+			}
 
 			impl BridgeMessagesConfig<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance> for Runtime {
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
@@ -1237,17 +1236,7 @@ impl_runtime_apis! {
 						// do not create lanes, because they are already created `params.lane`
 						false,
 						None,
-						|account_id, bridge_deposit| {
-							use frame_support::traits::fungible::Mutate;
-							frame_support::assert_ok!(
-								Balances::mint_into(
-									&account_id,
-									bridge_deposit
-										.saturating_add(ExistentialDeposit::get())
-										.saturating_add(UNITS * 5)
-								)
-							);
-						},
+						|| ExistentialDeposit::get(),
 					).expect("valid bridge opened");
 					prepare_message_proof_from_parachain::<
 						Runtime,
@@ -1266,17 +1255,7 @@ impl_runtime_apis! {
 						// do not create lanes, because they are already created `params.lane`
 						false,
 						None,
-						|account_id, bridge_deposit| {
-							use frame_support::traits::fungible::Mutate;
-							frame_support::assert_ok!(
-								Balances::mint_into(
-									&account_id,
-									bridge_deposit
-										.saturating_add(ExistentialDeposit::get())
-										.saturating_add(UNITS * 5)
-								)
-							);
-						},
+						|| ExistentialDeposit::get(),
 					);
 					prepare_message_delivery_proof_from_parachain::<
 						Runtime,

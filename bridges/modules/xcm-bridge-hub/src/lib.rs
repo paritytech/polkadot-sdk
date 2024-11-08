@@ -163,11 +163,14 @@ pub use dispatcher::XcmBlobMessageDispatchResult;
 pub use exporter::PalletAsHaulBlobExporter;
 pub use pallet::*;
 
+pub mod benchmarking;
 pub mod congestion;
 mod dispatcher;
 mod exporter;
 pub mod migration;
 mod mock;
+pub use weights::WeightInfo;
+pub mod weights;
 
 /// The target that will be used when publishing logs related to this pallet.
 pub const LOG_TARGET: &str = "runtime::bridge-xcm";
@@ -197,6 +200,8 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// Benchmarks results from runtime we're plugged into.
+		type WeightInfo: WeightInfo;
 
 		/// Runtime's universal location.
 		type UniversalLocation: Get<InteriorLocation>;
@@ -261,6 +266,8 @@ pub mod pallet {
 	/// An alias for the associated lanes manager.
 	pub type LanesManagerOf<T, I> =
 		pallet_bridge_messages::LanesManager<T, <T as Config<I>>::BridgeMessagesPalletInstance>;
+	/// Weight info of the given pallet.
+	pub type WeightInfoOf<T, I> = <T as Config<I>>::WeightInfo;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
@@ -300,7 +307,7 @@ pub mod pallet {
 		/// notifications can be sent to handle congestion. The notification contains an encoded
 		/// tuple `(BridgeId, bool)`, where `bool` is the `is_congested` flag.
 		#[pallet::call_index(0)]
-		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/parity-bridges-common/issues/3046 - add benchmarks impl FAIL-CI
+		#[pallet::weight(WeightInfoOf::<T, I>::open_bridge())]
 		pub fn open_bridge(
 			origin: OriginFor<T>,
 			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
@@ -339,7 +346,7 @@ pub mod pallet {
 		/// The states after this call: everything is either `Closed`, or purged from the
 		/// runtime storage.
 		#[pallet::call_index(1)]
-		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/parity-bridges-common/issues/3046 - add benchmarks impl FAIL-CI
+		#[pallet::weight(WeightInfoOf::<T, I>::close_bridge())]
 		pub fn close_bridge(
 			origin: OriginFor<T>,
 			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
@@ -467,7 +474,7 @@ pub mod pallet {
 		/// This can only be called by the "owner" of this side of the bridge, which means that the
 		/// inbound XCM channel with the local origin chain is functional.
 		#[pallet::call_index(2)]
-		#[pallet::weight(Weight::zero())] // TODO:(bridges-v2) - https://github.com/paritytech/parity-bridges-common/issues/3046 - add benchmarks impl FAIL-CI
+		#[pallet::weight(WeightInfoOf::<T, I>::update_notification_receiver())]
 		pub fn update_notification_receiver(
 			origin: OriginFor<T>,
 			bridge_destination_universal_location: Box<VersionedInteriorLocation>,
@@ -645,7 +652,7 @@ pub mod pallet {
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Returns some `NetworkId` if contains `GlobalConsensus` junction.
-		fn bridged_network_id() -> Result<NetworkId, sp_runtime::DispatchError> {
+		pub fn bridged_network_id() -> Result<NetworkId, sp_runtime::DispatchError> {
 			match T::BridgedNetwork::get().take_first_interior() {
 				Some(GlobalConsensus(network)) => Ok(network),
 				_ => Err(Error::<T, I>::BridgeLocations(
@@ -665,7 +672,7 @@ pub mod pallet {
 			bridge_destination_universal_location: InteriorLocation,
 			create_lanes: bool,
 			maybe_notify: Option<Receiver>,
-			fund_account: impl Fn(AccountIdOf<ThisChainOf<T, I>>, BalanceOf<ThisChainOf<T, I>>),
+			initial_balance: impl Fn() -> BalanceOf<ThisChainOf<T, I>>,
 		) -> Result<Box<BridgeLocations>, sp_runtime::DispatchError> {
 			let locations = Pallet::<T, I>::bridge_locations(
 				bridge_origin_relative_location.into(),
@@ -678,7 +685,14 @@ pub mod pallet {
 					locations.bridge_origin_relative_location(),
 				)
 				.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
-				fund_account(account_id, T::BridgeDeposit::get());
+
+				use frame_support::traits::fungible::Unbalanced;
+				use sp_runtime::Saturating;
+				T::Currency::increase_balance(
+					&account_id,
+					initial_balance().saturating_add(T::BridgeDeposit::get()),
+					Precision::BestEffort,
+				)?;
 			}
 
 			Pallet::<T, I>::do_open_bridge(locations.clone(), lane_id, create_lanes, maybe_notify)?;

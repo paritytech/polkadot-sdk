@@ -146,6 +146,7 @@ impl Convert<Vec<u8>, Xcm<()>> for ReportBridgeStatusXcmProvider {
 pub type XcmOverBridgeHubWestendInstance = pallet_xcm_bridge_hub::Instance1;
 impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
 
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetwork = WestendGlobalConsensusNetworkLocation;
