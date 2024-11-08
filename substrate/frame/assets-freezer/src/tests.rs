@@ -84,7 +84,6 @@ mod impl_frozen_balance {
 		});
 	}
 
-
 	#[test]
 	fn died_works() {
 		new_test_ext(|| {
