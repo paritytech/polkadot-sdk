@@ -1268,7 +1268,7 @@ where
 				let result = EthContractResult {
 					gas_required: result.gas_required,
 					storage_deposit: result.storage_deposit.charge_or_zero(),
-					result: result.result.map(|v| v.data),
+					result: result.result,
 					fee: Default::default(),
 				};
 				// Get the dispatch info of the call.
@@ -1313,7 +1313,7 @@ where
 				let result = EthContractResult {
 					gas_required: result.gas_required,
 					storage_deposit: result.storage_deposit.charge_or_zero(),
-					result: result.result.map(|v| v.result.data),
+					result: result.result.map(|v| v.result),
 					fee: Default::default(),
 				};
 

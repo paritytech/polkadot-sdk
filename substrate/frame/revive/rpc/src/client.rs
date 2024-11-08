@@ -134,7 +134,7 @@ pub enum ClientError {
 	CodecError(#[from] codec::Error),
 	/// The dry run failed.
 	#[error("Dry run failed")]
-	DryRunFailed,
+	DryRunFailed(String),
 	/// A decimal conversion failed.
 	#[error("Conversion failed")]
 	ConversionFailed,
@@ -154,7 +154,13 @@ pub enum ClientError {
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		log::debug!(target: LOG_TARGET, "ClientError: {err:?}");
-		ErrorObjectOwned::owned::<()>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
+
+		let message = err.to_string();
+		let data = match err {
+			ClientError::DryRunFailed(data) => Some(data),
+			_ => None,
+		};
+		ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, message, data)
 	}
 }
 
@@ -621,7 +627,7 @@ impl Client {
 		&self,
 		tx: &GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-	) -> Result<EthContractResult<Balance>, ClientError> {
+	) -> Result<EthContractResult<Balance, Vec<u8>>, ClientError> {
 		let runtime_api = self.runtime_api(&block).await?;
 
 		let value = self
@@ -642,8 +648,21 @@ impl Client {
 			None,
 			None,
 		);
-		let res = runtime_api.call(payload).await?.0;
-		Ok(res)
+
+		let EthContractResult { fee, gas_required, storage_deposit, result } =
+			runtime_api.call(payload).await?.0;
+		match result {
+			Err(err) => {
+				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
+				Err(ClientError::DryRunFailed(format!("{err:?}")))
+			},
+			Ok(result) if result.did_revert() => {
+				log::debug!(target: LOG_TARGET, "Dry run reverted");
+				Err(ClientError::DryRunFailed(format!("Reverted with: {result:?}")))
+			},
+			Ok(result) =>
+				Ok(EthContractResult { fee, gas_required, storage_deposit, result: result.0.data }),
+		}
 	}
 
 	/// Dry run a transaction and returns the gas estimate for the transaction.

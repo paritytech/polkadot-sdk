@@ -252,12 +252,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			.client
 			.dry_run(&transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
 			.await?;
-		let output = dry_run.result.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Dry run failed: {err:?}");
-			ClientError::DryRunFailed
-		})?;
-
-		Ok(output.into())
+		Ok(dry_run.result.into())
 	}
 
 	async fn get_block_by_number(
