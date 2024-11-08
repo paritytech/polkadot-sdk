@@ -7,4 +7,4 @@ doc:
     Also added a regression test for it. The existing unit test was exercising only the case where the full chain is reverted
 crates:
 - name: polkadot-node-core-prospective-parachains
-  bump: major
+  bump: patch
