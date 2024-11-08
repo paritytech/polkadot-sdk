@@ -1260,4 +1260,69 @@ mod tests {
 			Some(hashes) if hashes == &[GENESIS_HASH]
 		);
 	}
+
+	#[test]
+	fn path_with_fork() {
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+		let mut view = View::default();
+
+		assert_eq!(view.collating_for, None);
+
+		// Chain A
+		let prospective_response = vec![(PARA_A, 0)]; // was PARA_A_MIN_PARENT
+		let leaf = CHAIN_A.last().unwrap();
+		let blocks = [&[GENESIS_HASH], CHAIN_A].concat();
+		let leaf_idx = blocks.len() - 1;
+
+		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
+			res.expect("`activate_leaf` timed out").unwrap();
+		});
+		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[leaf_idx..]).await;
+			assert_min_relay_parents_request(&mut ctx_handle, leaf, prospective_response).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_A, &blocks[..leaf_idx]).await;
+		};
+		futures::executor::block_on(join(fut, overseer_fut));
+
+		// Chain B
+		let prospective_response = vec![(PARA_A, 1)];
+
+		let leaf = CHAIN_B.last().unwrap();
+		let leaf_idx = CHAIN_B.len() - 1;
+
+		let fut = view.activate_leaf(ctx.sender(), *leaf).timeout(TIMEOUT).map(|res| {
+			res.expect("`activate_leaf` timed out").unwrap();
+		});
+		let overseer_fut = async {
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[leaf_idx..]).await;
+			assert_min_relay_parents_request(&mut ctx_handle, leaf, prospective_response).await;
+			assert_block_header_requests(&mut ctx_handle, CHAIN_B, &CHAIN_B[0..leaf_idx]).await;
+		};
+		futures::executor::block_on(join(fut, overseer_fut));
+
+		assert_eq!(view.leaves.len(), 2);
+
+		let mut paths_to_genesis = view.paths_to_relay_parent(&GENESIS_HASH);
+		paths_to_genesis.sort();
+		let mut expected_paths_to_genesis = vec![
+			CHAIN_A.iter().rev().copied().collect::<Vec<_>>(),
+			CHAIN_B.iter().rev().copied().collect::<Vec<_>>(),
+		];
+		expected_paths_to_genesis.sort();
+		assert_eq!(paths_to_genesis, expected_paths_to_genesis);
+
+		let path_to_leaf_in_a = view.paths_to_relay_parent(&CHAIN_A[1]);
+		let expected_path_to_leaf_in_a =
+			vec![CHAIN_A[2..].iter().rev().copied().collect::<Vec<_>>()];
+		assert_eq!(path_to_leaf_in_a, expected_path_to_leaf_in_a);
+
+		let path_to_leaf_in_b = view.paths_to_relay_parent(&CHAIN_B[4]);
+		let expected_path_to_leaf_in_b =
+			vec![CHAIN_B[5..].iter().rev().copied().collect::<Vec<_>>()];
+		assert_eq!(path_to_leaf_in_b, expected_path_to_leaf_in_b);
+
+		assert_eq!(view.paths_to_relay_parent(&Hash::repeat_byte(0x0A)), Vec::<Vec<Hash>>::new());
+	}
 }
