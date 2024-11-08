@@ -12874,10 +12874,10 @@ dependencies = [
 name = "pallet-staking-reward-curve"
 version = "11.0.0"
 dependencies = [
+ "polkadot-sdk-frame",
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
- "sp-runtime 31.0.1",
  "syn 2.0.87",
 ]
 
