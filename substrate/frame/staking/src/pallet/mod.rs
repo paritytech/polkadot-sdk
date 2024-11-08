@@ -1013,75 +1013,75 @@ pub mod pallet {
 
 		/// Get the session index at which the era starts for the last [`Config::HistoryDepth`]
 		/// eras.
-		pub fn eras_start_session_index<EncodeLikeEra>(
-			era_index: EncodeLikeEra,
+		pub fn eras_start_session_index<EncodeLikeEraIndex>(
+			era_index: EncodeLikeEraIndex,
 		) -> Option<SessionIndex>
 		where
-			EncodeLikeEra: codec::EncodeLike<EraIndex>,
+			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 		{
 			ErasStartSessionIndex::<T>::get(era_index)
 		}
 
 		/// Get the clipped exposure of a given validator at an era.
-		pub fn eras_stakers_clipped<EncodeLikeEra, EncodeLikeAccountId>(
-			era_index: EncodeLikeEra,
+		pub fn eras_stakers_clipped<EncodeLikeEraIndex, EncodeLikeAccountId>(
+			era_index: EncodeLikeEraIndex,
 			account_id: EncodeLikeAccountId,
 		) -> Exposure<T::AccountId, BalanceOf<T>>
 		where
-			EncodeLikeEra: codec::EncodeLike<EraIndex>,
+			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
 		{
 			ErasStakersClipped::<T>::get(era_index, account_id)
 		}
 
 		/// Get the paged history of claimed rewards by era for given validator.
-		pub fn claimed_rewards<EncodeLikeEra, EncodeLikeAccountId>(
-			era_index: EncodeLikeEra,
+		pub fn claimed_rewards<EncodeLikeEraIndex, EncodeLikeAccountId>(
+			era_index: EncodeLikeEraIndex,
 			account_id: EncodeLikeAccountId,
 		) -> Vec<Page>
 		where
-			EncodeLikeEra: codec::EncodeLike<EraIndex>,
+			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
 		{
 			ClaimedRewards::<T>::get(era_index, account_id)
 		}
 
 		/// Get the preferences of given validator at given era.
-		pub fn eras_validator_prefs<EncodeLikeEra, EncodeLikeAccountId>(
-			era_index: EncodeLikeEra,
+		pub fn eras_validator_prefs<EncodeLikeEraIndex, EncodeLikeAccountId>(
+			era_index: EncodeLikeEraIndex,
 			account_id: EncodeLikeAccountId,
 		) -> ValidatorPrefs
 		where
-			EncodeLikeEra: codec::EncodeLike<EraIndex>,
+			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
 		{
 			ErasValidatorPrefs::<T>::get(era_index, account_id)
 		}
 
 		/// Get the total validator era payout for the last [`Config::HistoryDepth`] eras.
-		pub fn eras_validator_reward<EncodeLikeEra>(
-			era_index: EncodeLikeEra,
+		pub fn eras_validator_reward<EncodeLikeEraIndex>(
+			era_index: EncodeLikeEraIndex,
 		) -> Option<BalanceOf<T>>
 		where
-			EncodeLikeEra: codec::EncodeLike<EraIndex>,
+			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 		{
 			ErasValidatorReward::<T>::get(era_index)
 		}
 
 		/// Get the rewards for the last [`Config::HistoryDepth`] eras.
-		pub fn eras_reward_points<EncodeLikeEra>(
-			era_index: EncodeLikeEra,
+		pub fn eras_reward_points<EncodeLikeEraIndex>(
+			era_index: EncodeLikeEraIndex,
 		) -> EraRewardPoints<T::AccountId>
 		where
-			EncodeLikeEra: codec::EncodeLike<EraIndex>,
+			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 		{
 			ErasRewardPoints::<T>::get(era_index)
 		}
 
 		/// Get the total amount staked for the last [`Config::HistoryDepth`] eras.
-		pub fn eras_total_stake<EncodeLikeEra>(era_index: EncodeLikeEra) -> BalanceOf<T>
+		pub fn eras_total_stake<EncodeLikeEraIndex>(era_index: EncodeLikeEraIndex) -> BalanceOf<T>
 		where
-			EncodeLikeEra: codec::EncodeLike<EraIndex>,
+			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 		{
 			ErasTotalStake::<T>::get(era_index)
 		}
