@@ -253,7 +253,7 @@ fetch_debian_package_from_s3() {
   URL_BASE=$(get_s3_url_base $BINARY)
   echo "URL_BASE=$URL_BASE"
 
-  URL=$URL_BASE/$RELEASE_TAG/$BINARY_$VERSION_amd64.deb
+  URL=$URL_BASE/$RELEASE_TAG/${BINARY}_${VERSION}_amd64.deb
 
   mkdir -p "$OUTPUT_DIR"
   pushd "$OUTPUT_DIR" > /dev/null
