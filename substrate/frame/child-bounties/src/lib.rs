@@ -283,8 +283,8 @@ pub mod pallet {
 		pub fn add_child_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
-			// TODO: `value` should pallet_treasury::AssetBalanceOf<T, I>, 
-			// or better make pallet_treasury::AssetBalanceOf<T, I> and 
+			// TODO: `value` should pallet_treasury::AssetBalanceOf<T, I>,
+			// or better make pallet_treasury::AssetBalanceOf<T, I> and
 			// pallet_treasury::BalanceOf<T, I> same types for simplicity.
 			#[pallet::compact] value: BalanceOf<T>,
 			description: Vec<u8>,

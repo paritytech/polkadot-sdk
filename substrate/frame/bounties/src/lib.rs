@@ -124,7 +124,11 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 /// A bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary> where Beneficiary: Clone, PaymentId: Clone {
+pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary>
+where
+	Beneficiary: Clone,
+	PaymentId: Clone,
+{
 	/// The account proposing it.
 	proposer: AccountId,
 	// TODO: new filed, migration required.
@@ -146,8 +150,14 @@ pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Benefic
 	status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
 }
 
-impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone, AssetKind, PaymentId: Clone, Beneficiary: Clone>
-	Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary>
+impl<
+		AccountId: PartialEq + Clone + Ord,
+		Balance,
+		BlockNumber: Clone,
+		AssetKind,
+		PaymentId: Clone,
+		Beneficiary: Clone,
+	> Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary>
 {
 	/// Getter for bounty status, to be used for child bounties.
 	pub fn get_status(&self) -> BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
@@ -159,7 +169,11 @@ impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone, AssetKind,
 
 /// The status of a bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> where Beneficiary: Clone, PaymentId: Clone {
+pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>
+where
+	Beneficiary: Clone,
+	PaymentId: Clone,
+{
 	/// The bounty is proposed and waiting for approval.
 	Proposed,
 	/// The bounty is approved and waiting to confirm the funds allocation.
@@ -435,8 +449,8 @@ pub mod pallet {
 		pub fn propose_bounty(
 			origin: OriginFor<T>,
 			asset_kind: Box<T::AssetKind>,
-			// TODO: `value` should pallet_treasury::AssetBalanceOf<T, I>, 
-			// or better make pallet_treasury::AssetBalanceOf<T, I> and 
+			// TODO: `value` should pallet_treasury::AssetBalanceOf<T, I>,
+			// or better make pallet_treasury::AssetBalanceOf<T, I> and
 			// pallet_treasury::BalanceOf<T, I> same types for simplicity.
 			#[pallet::compact] value: BalanceOf<T, I>,
 			description: Vec<u8>,
@@ -967,7 +981,10 @@ pub mod pallet {
 		#[pallet::call_index(10)]
 		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
-		pub fn process_payment(origin: OriginFor<T>, #[pallet::compact] bounty_id: BountyIndex) -> DispatchResult {
+		pub fn process_payment(
+			origin: OriginFor<T>,
+			#[pallet::compact] bounty_id: BountyIndex,
+		) -> DispatchResult {
 			todo!()
 		}
 
@@ -1110,7 +1127,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 }
 
-// TODO: this should not be needed after we start using `process_payment` calls, 
+// TODO: this should not be needed after we start using `process_payment` calls,
 // review and remove. Additionally remove the trait if not used anymore.
 impl<T: Config<I>, I: 'static> pallet_treasury::SpendFunds<T, I> for Pallet<T, I> {
 	fn spend_funds(
