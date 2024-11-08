@@ -382,7 +382,10 @@ pub mod runtime {
 		};
 
 		/// Types to define your runtime version.
-		pub use sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
+		// TODO: Remove deprecation suppression once
+		#[allow(deprecated)]
+		pub use sp_version::create_runtime_str;
+		pub use sp_version::{runtime_version, RuntimeVersion};
 
 		#[cfg(feature = "std")]
 		pub use sp_version::NativeVersion;
