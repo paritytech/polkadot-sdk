@@ -167,8 +167,7 @@ impl PeerData {
 		let old_view = std::mem::replace(&mut self.view, new_view);
 		if let PeerState::Collating(ref mut peer_state) = self.state {
 			for removed in old_view.difference(&self.view) {
-				// Remove relay parent advertisements if it went out
-				// of our (implicit) view.
+				// Remove relay parent advertisements if it went out of our (implicit) view.
 				let keep = is_relay_parent_in_implicit_view(
 					removed,
 					implicit_view,
@@ -1039,8 +1038,7 @@ fn ensure_seconding_limit_is_respected(
 		&relay_parent,
 		&para_id,
 		assignment.current.len(),
-	)
-	.map_err(|_| AdvertisementError::RelayParentUnknown)?;
+	);
 
 	gum::trace!(
 		target: LOG_TARGET,
@@ -2133,7 +2131,7 @@ fn seconded_and_pending_for_para_above(
 	relay_parent: &Hash,
 	para_id: &ParaId,
 	claim_queue_len: usize,
-) -> Result<Vec<usize>> {
+) -> Vec<usize> {
 	let outer_paths = implicit_view.paths_to_relay_parent(relay_parent);
 	let mut result = vec![];
 	for path in outer_paths {
@@ -2146,7 +2144,7 @@ fn seconded_and_pending_for_para_above(
 		result.push(r);
 	}
 
-	Ok(result)
+	result
 }
 // Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
 // order in the claim queue so the earlier an element is located in the `Vec` the higher its
@@ -2174,7 +2172,7 @@ fn unfulfilled_claim_queue_entries(
 			relay_parent,
 			para_id,
 			relay_parent_state.assignment.current.len(),
-		)?
+		)
 		.into_iter()
 		.max()
 		.unwrap_or(0);
@@ -2204,16 +2202,13 @@ fn get_next_collation_to_fetch(
 	relay_parent: Hash,
 	state: &mut State,
 ) -> Option<(PendingCollation, CollatorId)> {
-	let maybe_unfulfilled_entries = unfulfilled_claim_queue_entries(
+	let unfulfilled_entries = match unfulfilled_claim_queue_entries(
 		&relay_parent,
 		&state.per_relay_parent,
 		&state.implicit_view,
-	);
-
-	let unfulfilled_entries = match maybe_unfulfilled_entries {
+	) {
 		Ok(entries) => entries,
 		Err(err) => {
-			// This should never happen
 			gum::error!(
 				target: LOG_TARGET,
 				?relay_parent,
@@ -2223,7 +2218,17 @@ fn get_next_collation_to_fetch(
 			return None
 		},
 	};
-	let rp_state = state.per_relay_parent.get_mut(&relay_parent)?;
+	let rp_state = match state.per_relay_parent.get_mut(&relay_parent) {
+		Some(rp_state) => rp_state,
+		None => {
+			gum::error!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"Failed to get relay parent state"
+			);
+			return None
+		},
+	};
 
 	// If finished one does not match waiting_collation, then we already dequeued another fetch
 	// to replace it.
