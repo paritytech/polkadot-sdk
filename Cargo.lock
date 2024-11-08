@@ -21589,6 +21589,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
  "sp-state-machine 0.35.0",
+ "sp-std 14.0.0",
  "sp-test-primitives",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
