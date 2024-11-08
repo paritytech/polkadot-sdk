@@ -89,19 +89,54 @@ impl WeightInfo for TestWeightInfo {
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// Queue data for on-demand.
+/// All queued on-demand orders.
 #[derive(Encode, Decode, TypeInfo)]
-struct OrderStatus<N> {
-	/// Last calculated traffic value.
-	traffic: FixedU128,
-
-	/// Enqueued orders.
+pub struct OrderQueue<N> {
 	queue: BoundedVec<EnqueuedOrder<N>, ConstU32<ON_DEMAND_MAX_QUEUE_MAX_SIZE>>,
 }
 
-impl<N> Default for OrderStatus<N> {
-	fn default() -> OrderStatus<N> {
-		OrderStatus { traffic: FixedU128::default(), queue: BoundedVec::new() }
+impl<N> OrderQueue<N> {
+	/// Pop `num_cores` from the queue, assuming `now` as the current block number.
+	pub fn pop_assignment_for_cores<T: Config>(
+		&mut self,
+		now: N,
+		mut num_cores: u32,
+	) -> impl Iterator<Item = ParaId>
+	where
+		N: Saturating + Ord + One + Copy,
+	{
+		let mut popped = BTreeSet::new();
+		let mut remaining_orders = Vec::with_capacity(self.queue.len());
+		for order in mem::take(&mut self.queue).into_iter() {
+			// Order is ready 2 blocks later (asynchronous backing):
+			let ready_at = order.ordered_at.saturating_plus_one().saturating_plus_one();
+			let is_ready = ready_at <= now;
+
+			if num_cores > 0 && is_ready && popped.insert(order.para_id) {
+				num_cores -= 1;
+			} else {
+				remaining_orders.push(order);
+			}
+		}
+		self.queue = BoundedVec::truncate_from(remaining_orders);
+		popped.into_iter()
+	}
+
+	fn new() -> Self {
+		OrderQueue { queue: BoundedVec::new() }
+	}
+
+	/// Try to push an additional order.
+	///
+	/// Fails if queue is already at capacity.
+	fn try_push(&mut self, now: N, para_id: ParaId) -> Result<(), ParaId> {
+		self.queue
+			.try_push(EnqueuedOrder { para_id, ordered_at: now })
+			.map_err(|o| o.para_id)
+	}
+
+	fn len(&self) -> usize {
+		self.queue.len()
 	}
 }
 
@@ -112,6 +147,22 @@ struct EnqueuedOrder<N> {
 	para_id: ParaId,
 	/// The block number the order came in.
 	ordered_at: N,
+}
+
+/// Queue data for on-demand.
+#[derive(Encode, Decode, TypeInfo)]
+struct OrderStatus<N> {
+	/// Last calculated traffic value.
+	traffic: FixedU128,
+
+	/// Enqueued orders.
+	queue: OrderQueue<N>,
+}
+
+impl<N> Default for OrderStatus<N> {
+	fn default() -> OrderStatus<N> {
+		OrderStatus { traffic: FixedU128::default(), queue: OrderQueue::new() }
+	}
 }
 
 /// Errors that can happen during spot traffic calculation.
@@ -284,26 +335,19 @@ where
 	/// Pop assignments for the given number of on-demand cores in a block.
 	pub fn pop_assignment_for_cores(
 		now: BlockNumberFor<T>,
-		mut num_cores: u32,
+		num_cores: u32,
 	) -> impl Iterator<Item = ParaId> {
 		pallet::OrderStatus::<T>::mutate(|order_status| {
-			let mut popped = BTreeSet::new();
-			let mut remaining_orders = Vec::with_capacity(order_status.queue.len());
-			for order in mem::take(&mut order_status.queue).into_iter() {
-				// Order is ready 2 blocks later (asynchronous backing):
-				let ready_at =
-					order.ordered_at.saturating_add(One::one()).saturating_add(One::one());
-				let is_ready = ready_at <= now;
-
-				if num_cores > 0 && is_ready && popped.insert(order.para_id) {
-					num_cores -= 1;
-				} else {
-					remaining_orders.push(order);
-				}
-			}
-			order_status.queue = BoundedVec::truncate_from(remaining_orders);
-			popped.into_iter()
+			order_status.queue.pop_assignment_for_cores::<T>(now, num_cores)
 		})
+	}
+
+	/// Look into upcoming orders.
+	///
+	/// The returned `OrderQueue` allows for simulating upcoming
+	/// `pop_assignment_for_cores` calls.
+	pub fn peek_order_queue() -> OrderQueue<BlockNumberFor<T>> {
+		pallet::OrderStatus::<T>::get().queue
 	}
 
 	/// Push an order back to the back of the queue.
@@ -315,9 +359,8 @@ where
 	pub fn push_back_order(para_id: ParaId) {
 		pallet::OrderStatus::<T>::mutate(|order_status| {
 			let now = <frame_system::Pallet<T>>::block_number();
-			if let Err(e) = order_status.queue.try_push(EnqueuedOrder { para_id, ordered_at: now })
-			{
-				log::debug!(target: LOG_TARGET, "Pushing back order failed (queue too long): {:?}", e.para_id);
+			if let Err(e) = order_status.queue.try_push(now, para_id) {
+				log::debug!(target: LOG_TARGET, "Pushing back order failed (queue too long): {:?}", e);
 			};
 		});
 	}
@@ -395,9 +438,8 @@ where
 			});
 
 			let now = <frame_system::Pallet<T>>::block_number();
-			if let Err(e) = order_status.queue.try_push(EnqueuedOrder { para_id, ordered_at: now })
-			{
-				log::error!(target: LOG_TARGET, "Placing order failed (queue too long): {:?}, but size has been checked above!", e.para_id);
+			if let Err(p) = order_status.queue.try_push(now, para_id) {
+				log::error!(target: LOG_TARGET, "Placing order failed (queue too long): {:?}, but size has been checked above!", p);
 			};
 
 			Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced {
@@ -538,24 +580,6 @@ where
 	/// Account of the pallet pot, where the funds from instantaneous coretime sale are accumulated.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
-	}
-
-	/// Getter for the affinity tracker.
-	#[cfg(test)]
-	fn get_affinity_map(para_id: ParaId) -> Option<CoreAffinityCount> {
-		ParaIdAffinity::<T>::get(para_id)
-	}
-
-	/// Getter for the affinity entries.
-	#[cfg(test)]
-	fn get_affinity_entries(core_index: CoreIndex) -> BinaryHeap<EnqueuedOrder> {
-		AffinityEntries::<T>::get(core_index)
-	}
-
-	/// Getter for the free entries.
-	#[cfg(test)]
-	fn get_free_entries() -> BinaryHeap<EnqueuedOrder> {
-		FreeEntries::<T>::get()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

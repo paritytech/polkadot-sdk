@@ -177,12 +177,51 @@ struct AssignmentState {
 }
 
 /// How storage is accessed.
-#[derive(Copy, Clone)]
-enum AccessMode {
+enum AccessMode<'a, T: Config> {
 	/// We only want to peek (no side effects).
-	Peek,
+	Peek { on_demand_orders: &'a mut on_demand::OrderQueue<BlockNumberFor<T>> },
 	/// We need to update state.
 	Pop,
+}
+
+impl<'a, T: Config> AccessMode<'a, T> {
+	/// Construct a peeking access mode.
+	fn peek(on_demand_orders: &'a mut on_demand::OrderQueue<BlockNumberFor<T>>) -> Self {
+		Self::Peek { on_demand_orders }
+	}
+
+	/// Construct popping/modifying access mode.
+	fn pop() -> Self {
+		Self::Pop
+	}
+
+	/// Pop pool assignments according to access mode.
+	fn pop_assignment_for_ondemand_cores(
+		&mut self,
+		now: BlockNumberFor<T>,
+		num_cores: u32,
+	) -> impl Iterator<Item = ParaId> {
+		match self {
+			Self::Peek { on_demand_orders } => on_demand_orders
+				.pop_assignment_for_cores::<T>(now, num_cores)
+				.collect::<Vec<_>>(),
+			Self::Pop =>
+				on_demand::Pallet::<T>::pop_assignment_for_cores(now, num_cores).collect::<Vec<_>>(),
+		}
+		.into_iter()
+	}
+
+	/// Get core schedule according to access mode (either take or get).
+	fn get_core_schedule(
+		&self,
+		next_scheduled: BlockNumberFor<T>,
+		core_idx: CoreIndex,
+	) -> Option<Schedule<BlockNumberFor<T>>> {
+		match self {
+			Self::Peek { .. } => CoreSchedules::<T>::get((next_scheduled, core_idx)),
+			Self::Pop => CoreSchedules::<T>::take((next_scheduled, core_idx)),
+		}
+	}
 }
 
 /// Assignments that got advanced.
@@ -287,7 +326,7 @@ impl<T: Config> Pallet<T> {
 	/// - This function is meant to be called from a runtime API and thus uses the state of the
 	/// block after the current one to show an accurate prediction of upcoming schedules.
 	pub fn peek_next_block(num_entries: u32) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-		let now = frame_system::Pallet::<T>::block_number().saturating_add(One::one());
+		let now = frame_system::Pallet::<T>::block_number().saturating_plus_one();
 		Self::peek_impl(now, num_entries)
 	}
 
@@ -308,7 +347,7 @@ impl<T: Config> Pallet<T> {
 		let now = frame_system::Pallet::<T>::block_number();
 
 		let assignments = CoreDescriptors::<T>::mutate(|core_states| {
-			Self::advance_assignments_single_impl(now, core_states, AccessMode::Pop)
+			Self::advance_assignments_single_impl(now, core_states, AccessMode::pop())
 		});
 
 		// Give blocked on-demand orders another chance:
@@ -327,11 +366,15 @@ impl<T: Config> Pallet<T> {
 
 		// Try to fill missing assignments from the next position (duplication to allow asynchronous
 		// backing even for first assignment coming in on a previously empty core):
-		let next = now.saturating_add(One::one());
+		let next = now.saturating_plus_one();
 		let mut core_states = CoreDescriptors::<T>::get();
-		let next_assignments =
-			Self::advance_assignments_single_impl(next, &mut core_states, AccessMode::Peek)
-				.into_iter();
+		let mut on_demand_orders = on_demand::Pallet::<T>::peek_order_queue();
+		let next_assignments = Self::advance_assignments_single_impl(
+			next,
+			&mut core_states,
+			AccessMode::peek(&mut on_demand_orders),
+		)
+		.into_iter();
 
 		for (core_idx, next_assignment) in
 			next_assignments.filter(|(core_idx, _)| !is_blocked(*core_idx))
@@ -339,152 +382,6 @@ impl<T: Config> Pallet<T> {
 			assignments.entry(core_idx).or_insert_with(|| next_assignment);
 		}
 		assignments
-	}
-
-	fn num_coretime_cores() -> u32 {
-		configuration::ActiveConfig::<T>::get().scheduler_params.num_cores
-	}
-
-	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(_: CoreIndex, para_id: polkadot_primitives::Id) -> Assignment {
-		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
-		// return a bulk assignment.
-		Assignment::Bulk(para_id)
-	}
-
-	fn peek_impl(
-		mut now: BlockNumberFor<T>,
-		num_entries: u32,
-	) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-		let mut core_states = CoreDescriptors::<T>::get();
-		let mut result = BTreeMap::new();
-		for i in 0..num_entries {
-			let assignments =
-				Self::advance_assignments_single_impl(now, &mut core_states, AccessMode::Peek)
-					.into_iter();
-			for (core_idx, para_id) in assignments {
-				let claim_queue: &mut VecDeque<ParaId> = result.entry(core_idx).or_default();
-				// Stop filling on holes, otherwise we get claims at the wrong positions.
-				if claim_queue.len() == i as usize {
-					claim_queue.push_back(para_id)
-				} else if claim_queue.len() == 0 && i == 1 {
-					// Except for position 1: Claim queue was empty before. We now have an incoming
-					// assignment on position 1: Duplicate it to position 0 so the chain will
-					// get a full asynchronous backing opportunity (and a bonus synchronous
-					// backing opportunity).
-					claim_queue.push_back(para_id);
-					// And fill position 1:
-					claim_queue.push_back(para_id);
-				}
-			}
-			now = now.saturating_add(One::one());
-		}
-		result
-	}
-
-	/// Pop assignments for `now`.
-	fn advance_assignments_single_impl(
-		now: BlockNumberFor<T>,
-		core_states: &mut BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>>,
-		mode: AccessMode,
-	) -> AdvancedAssignments {
-		let mut bulk_assignments = Vec::with_capacity(Self::num_coretime_cores() as _);
-		let mut pool_cores = Vec::with_capacity(Self::num_coretime_cores() as _);
-		for (core_idx, core_state) in core_states.iter_mut() {
-			Self::ensure_workload(now, *core_idx, core_state, mode);
-
-			let Some(work_state) = core_state.current_work.as_mut() else { continue };
-
-			// Wrap around:
-			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
-			let (a_type, a_state) = &mut work_state
-				.assignments
-				.get_mut(work_state.pos as usize)
-				.expect("We limited pos to the size of the vec one line above. qed");
-
-			// advance for next pop:
-			a_state.remaining = a_state.remaining.saturating_sub(work_state.step);
-			if a_state.remaining < work_state.step {
-				// Assignment exhausted, need to move to the next and credit remaining for
-				// next round.
-				work_state.pos += 1;
-				// Reset to ratio + still remaining "credits":
-				a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
-			}
-			match *a_type {
-				CoreAssignment::Pool => pool_cores.push(*core_idx),
-				CoreAssignment::Task(para_id) => bulk_assignments.push((*core_idx, para_id.into())),
-				CoreAssignment::Idle => {},
-			}
-		}
-
-		let pool_assignments =
-			on_demand::Pallet::<T>::pop_assignment_for_cores(now, pool_cores.len() as _);
-		let pool_assignments = pool_cores.into_iter().zip(pool_assignments).collect();
-
-		AdvancedAssignments { bulk_assignments, pool_assignments }
-	}
-
-	/// Ensure given workload for core is up to date.
-	fn ensure_workload(
-		now: BlockNumberFor<T>,
-		core_idx: CoreIndex,
-		descriptor: &mut CoreDescriptor<BlockNumberFor<T>>,
-		mode: AccessMode,
-	) {
-		// Workload expired?
-		if descriptor
-			.current_work
-			.as_ref()
-			.and_then(|w| w.end_hint)
-			.map_or(false, |e| e <= now)
-		{
-			descriptor.current_work = None;
-		}
-
-		let Some(queue) = descriptor.queue else {
-			// No queue.
-			return
-		};
-
-		let mut next_scheduled = queue.first;
-
-		if next_scheduled > now {
-			// Not yet ready.
-			return
-		}
-
-		// Update is needed:
-		let update = loop {
-			let Some(update) = (match mode {
-				AccessMode::Peek => CoreSchedules::<T>::get((next_scheduled, core_idx)),
-				AccessMode::Pop => CoreSchedules::<T>::take((next_scheduled, core_idx)),
-			}) else {
-				break None
-			};
-
-			// Still good?
-			if update.end_hint.map_or(true, |e| e > now) {
-				break Some(update)
-			}
-			// Move on if possible:
-			if let Some(n) = update.next_schedule {
-				next_scheduled = n;
-			} else {
-				break None
-			}
-		};
-
-		let new_first = update.as_ref().and_then(|u| u.next_schedule);
-		descriptor.current_work = update.map(Into::into);
-
-		descriptor.queue = new_first.map(|new_first| {
-			QueueDescriptor {
-				first: new_first,
-				// `last` stays unaffected, if not empty:
-				last: queue.last,
-			}
-		});
 	}
 
 	/// Append another assignment for a core.
@@ -555,6 +452,143 @@ impl<T: Config> Pallet<T> {
 			core_descriptor.queue = Some(new_queue);
 			Ok(())
 		})
+	}
+
+	fn num_coretime_cores() -> u32 {
+		configuration::ActiveConfig::<T>::get().scheduler_params.num_cores
+	}
+
+	fn peek_impl(
+		mut now: BlockNumberFor<T>,
+		num_entries: u32,
+	) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+		let mut core_states = CoreDescriptors::<T>::get();
+		let mut result = BTreeMap::new();
+		let mut on_demand_orders = on_demand::Pallet::<T>::peek_order_queue();
+		for i in 0..num_entries {
+			let assignments = Self::advance_assignments_single_impl(
+				now,
+				&mut core_states,
+				AccessMode::peek(&mut on_demand_orders),
+			)
+			.into_iter();
+			for (core_idx, para_id) in assignments {
+				let claim_queue: &mut VecDeque<ParaId> = result.entry(core_idx).or_default();
+				// Stop filling on holes, otherwise we get claims at the wrong positions.
+				if claim_queue.len() == i as usize {
+					claim_queue.push_back(para_id)
+				} else if claim_queue.len() == 0 && i == 1 {
+					// Except for position 1: Claim queue was empty before. We now have an incoming
+					// assignment on position 1: Duplicate it to position 0 so the chain will
+					// get a full asynchronous backing opportunity (and a bonus synchronous
+					// backing opportunity).
+					claim_queue.push_back(para_id);
+					// And fill position 1:
+					claim_queue.push_back(para_id);
+				}
+			}
+			now.saturating_inc();
+		}
+		result
+	}
+
+	/// Pop assignments for `now`.
+	fn advance_assignments_single_impl(
+		now: BlockNumberFor<T>,
+		core_states: &mut BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>>,
+		mut mode: AccessMode<T>,
+	) -> AdvancedAssignments {
+		let mut bulk_assignments = Vec::with_capacity(Self::num_coretime_cores() as _);
+		let mut pool_cores = Vec::with_capacity(Self::num_coretime_cores() as _);
+		for (core_idx, core_state) in core_states.iter_mut() {
+			Self::ensure_workload(now, *core_idx, core_state, &mode);
+
+			let Some(work_state) = core_state.current_work.as_mut() else { continue };
+
+			// Wrap around:
+			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
+			let (a_type, a_state) = &mut work_state
+				.assignments
+				.get_mut(work_state.pos as usize)
+				.expect("We limited pos to the size of the vec one line above. qed");
+
+			// advance for next pop:
+			a_state.remaining = a_state.remaining.saturating_sub(work_state.step);
+			if a_state.remaining < work_state.step {
+				// Assignment exhausted, need to move to the next and credit remaining for
+				// next round.
+				work_state.pos += 1;
+				// Reset to ratio + still remaining "credits":
+				a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
+			}
+			match *a_type {
+				CoreAssignment::Pool => pool_cores.push(*core_idx),
+				CoreAssignment::Task(para_id) => bulk_assignments.push((*core_idx, para_id.into())),
+				CoreAssignment::Idle => {},
+			}
+		}
+
+		let pool_assignments = mode.pop_assignment_for_ondemand_cores(now, pool_cores.len() as _);
+		let pool_assignments = pool_cores.into_iter().zip(pool_assignments).collect();
+
+		AdvancedAssignments { bulk_assignments, pool_assignments }
+	}
+
+	/// Ensure given workload for core is up to date.
+	fn ensure_workload(
+		now: BlockNumberFor<T>,
+		core_idx: CoreIndex,
+		descriptor: &mut CoreDescriptor<BlockNumberFor<T>>,
+		mode: &AccessMode<T>,
+	) {
+		// Workload expired?
+		if descriptor
+			.current_work
+			.as_ref()
+			.and_then(|w| w.end_hint)
+			.map_or(false, |e| e <= now)
+		{
+			descriptor.current_work = None;
+		}
+
+		let Some(queue) = descriptor.queue else {
+			// No queue.
+			return
+		};
+
+		let mut next_scheduled = queue.first;
+
+		if next_scheduled > now {
+			// Not yet ready.
+			return
+		}
+
+		// Update is needed:
+		let update = loop {
+			let Some(update) = mode.get_core_schedule(next_scheduled, core_idx) else { break None };
+
+			// Still good?
+			if update.end_hint.map_or(true, |e| e > now) {
+				break Some(update)
+			}
+			// Move on if possible:
+			if let Some(n) = update.next_schedule {
+				next_scheduled = n;
+			} else {
+				break None
+			}
+		};
+
+		let new_first = update.as_ref().and_then(|u| u.next_schedule);
+		descriptor.current_work = update.map(Into::into);
+
+		descriptor.queue = new_first.map(|new_first| {
+			QueueDescriptor {
+				first: new_first,
+				// `last` stays unaffected, if not empty:
+				last: queue.last,
+			}
+		});
 	}
 }
 
