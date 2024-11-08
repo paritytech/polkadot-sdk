@@ -50,7 +50,7 @@ mod benchmarks {
 	#[benchmark]
 	fn check_genesis() -> Result<(), BenchmarkError> {
 		let len = 0_usize;
-		let caller = account("caller", 0, 0);
+		let caller = whitelisted_caller();
 		let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
@@ -74,7 +74,7 @@ mod benchmarks {
 		let prev_block: BlockNumberFor<T> = 16u32.into();
 		let default_hash: T::Hash = Default::default();
 		frame_system::BlockHash::<T>::insert(prev_block, default_hash);
-		let caller = account("caller", 0, 0);
+		let caller = whitelisted_caller();
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(100, 0),
 			class: DispatchClass::Normal,
@@ -102,7 +102,7 @@ mod benchmarks {
 		frame_system::BlockHash::<T>::insert(prev_block, default_hash);
 		let genesis_block: BlockNumberFor<T> = 0u32.into();
 		frame_system::BlockHash::<T>::insert(genesis_block, default_hash);
-		let caller = account("caller", 0, 0);
+		let caller = whitelisted_caller();
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(100, 0),
 			class: DispatchClass::Normal,
