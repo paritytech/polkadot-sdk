@@ -751,14 +751,6 @@ pub mod pallet {
 	pub(crate) type VoterSnapshotStatus<T: Config> =
 		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
 
-	/// Target snapshot progress status.
-	///
-	/// If the status is `Ongoing`, it keeps track of the last target account returned in the
-	/// snapshot.
-	#[pallet::storage]
-	pub(crate) type TargetSnapshotStatus<T: Config> =
-		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
-
 	/// Keeps track of an ongoing multi-page election solution request.
 	///
 	/// Stores the block number of when the first election page was requested. `None` indicates
