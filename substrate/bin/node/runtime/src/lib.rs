@@ -24,6 +24,13 @@
 
 extern crate alloc;
 
+#[cfg(feature = "runtime-benchmarks")]
+use pallet_asset_rate::AssetKindFactory;
+#[cfg(feature = "runtime-benchmarks")]
+use pallet_treasury::ArgumentsFactory;
+#[cfg(feature = "runtime-benchmarks")]
+use polkadot_sdk::sp_core::crypto::FromEntropy;
+
 use polkadot_sdk::*;
 
 use alloc::{vec, vec::Vec};
@@ -47,7 +54,7 @@ use frame_support::{
 		},
 		tokens::{
 			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
-			GetSalary, PayFromAccount,
+			Fortitude::Polite, GetSalary, PayFromAccount, Preservation::Preserve,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, Contains,
 		Currency, EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
@@ -76,6 +83,7 @@ use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
+use pallet_nomination_pools::PoolId;
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_session::historical as pallet_session_historical;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
@@ -95,7 +103,6 @@ use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-	create_runtime_str,
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
@@ -161,8 +168,8 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 /// Runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("node"),
-	impl_name: create_runtime_str!("substrate-node"),
+	spec_name: alloc::borrow::Cow::Borrowed("node"),
+	impl_name: alloc::borrow::Cow::Borrowed("substrate-node"),
 	authoring_version: 10,
 	// Per convention: if the runtime behavior changes, increment spec_version
 	// and set impl_version to 0. If only runtime
@@ -264,6 +271,36 @@ impl Contains<RuntimeCallNameOf<Runtime>> for TxPauseWhitelistedCalls {
 			(b"Balances", b"transfer_keep_alive") => true,
 			_ => false,
 		}
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AssetRateArguments;
+#[cfg(feature = "runtime-benchmarks")]
+impl AssetKindFactory<NativeOrWithId<u32>> for AssetRateArguments {
+	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
+		if seed % 2 > 0 {
+			NativeOrWithId::Native
+		} else {
+			NativeOrWithId::WithId(seed / 2)
+		}
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PalletTreasuryArguments;
+#[cfg(feature = "runtime-benchmarks")]
+impl ArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletTreasuryArguments {
+	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
+		if seed % 2 > 0 {
+			NativeOrWithId::Native
+		} else {
+			NativeOrWithId::WithId(seed / 2)
+		}
+	}
+
+	fn create_beneficiary(seed: [u8; 32]) -> AccountId {
+		AccountId::from_entropy(&mut seed.as_slice()).unwrap()
 	}
 }
 
@@ -1260,15 +1297,15 @@ impl pallet_treasury::Config for Runtime {
 	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
 	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureWithSuccess<EnsureRoot<AccountId>, AccountId, MaxBalance>;
-	type AssetKind = u32;
+	type AssetKind = NativeOrWithId<u32>;
 	type Beneficiary = AccountId;
 	type BeneficiaryLookup = Indices;
-	type Paymaster = PayAssetFromAccount<Assets, TreasuryAccount>;
+	type Paymaster = PayAssetFromAccount<NativeAndAssets, TreasuryAccount>;
 	type BalanceConverter = AssetRate;
 	type PayoutPeriod = SpendPayoutPeriod;
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper = PalletTreasuryArguments;
 }
 
 impl pallet_asset_rate::Config for Runtime {
@@ -1276,11 +1313,11 @@ impl pallet_asset_rate::Config for Runtime {
 	type RemoveOrigin = EnsureRoot<AccountId>;
 	type UpdateOrigin = EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type AssetKind = u32;
+	type AssetKind = NativeOrWithId<u32>;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_asset_rate::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper = AssetRateArguments;
 }
 
 parameter_types! {
@@ -1427,6 +1464,7 @@ impl pallet_revive::Config for Runtime {
 	type Debug = ();
 	type Xcm = ();
 	type ChainId = ConstU64<420_420_420>;
+	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -2967,15 +3005,15 @@ impl_runtime_apis! {
 			NominationPools::api_pending_rewards(who).unwrap_or_default()
 		}
 
-		fn points_to_balance(pool_id: pallet_nomination_pools::PoolId, points: Balance) -> Balance {
+		fn points_to_balance(pool_id: PoolId, points: Balance) -> Balance {
 			NominationPools::api_points_to_balance(pool_id, points)
 		}
 
-		fn balance_to_points(pool_id: pallet_nomination_pools::PoolId, new_funds: Balance) -> Balance {
+		fn balance_to_points(pool_id: PoolId, new_funds: Balance) -> Balance {
 			NominationPools::api_balance_to_points(pool_id, new_funds)
 		}
 
-		fn pool_pending_slash(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+		fn pool_pending_slash(pool_id: PoolId) -> Balance {
 			NominationPools::api_pool_pending_slash(pool_id)
 		}
 
@@ -2983,7 +3021,7 @@ impl_runtime_apis! {
 			NominationPools::api_member_pending_slash(member)
 		}
 
-		fn pool_needs_delegate_migration(pool_id: pallet_nomination_pools::PoolId) -> bool {
+		fn pool_needs_delegate_migration(pool_id: PoolId) -> bool {
 			NominationPools::api_pool_needs_delegate_migration(pool_id)
 		}
 
@@ -2995,8 +3033,12 @@ impl_runtime_apis! {
 			NominationPools::api_member_total_balance(member)
 		}
 
-		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+		fn pool_balance(pool_id: PoolId) -> Balance {
 			NominationPools::api_pool_balance(pool_id)
+		}
+
+		fn pool_accounts(pool_id: PoolId) -> (AccountId, AccountId) {
+			NominationPools::api_pool_accounts(pool_id)
 		}
 	}
 
@@ -3164,8 +3206,9 @@ impl_runtime_apis! {
 	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
 		fn balance(address: H160) -> Balance {
+			use frame_support::traits::fungible::Inspect;
 			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
-			Balances::usable_balance(account)
+			Balances::reducible_balance(&account, Preserve, Polite)
 		}
 
 		fn nonce(address: H160) -> Nonce {
@@ -3574,7 +3617,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
 			use sp_storage::TrackedStorageKey;
 
