@@ -55,6 +55,10 @@ jobs:
       AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
 
   build-polkadot-parachain-binary:
     needs: [validate-inputs]
@@ -72,3 +76,7 @@ jobs:
       AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
