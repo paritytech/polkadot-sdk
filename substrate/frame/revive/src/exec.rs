@@ -53,7 +53,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Zero},
+	traits::{BadOrigin, Convert, Dispatchable, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -236,9 +236,6 @@ pub trait Ext: sealing::Sealed {
 	/// call stack.
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
 
-	/// Transfer some amount of funds into the specified account.
-	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult;
-
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
 	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
@@ -284,12 +281,18 @@ pub trait Ext: sealing::Sealed {
 	/// Returns the caller.
 	fn caller(&self) -> Origin<Self::T>;
 
+	/// Return the origin of the whole call stack.
+	fn origin(&self) -> &Origin<Self::T>;
+
 	/// Check if a contract lives at the specified `address`.
 	fn is_contract(&self, address: &H160) -> bool;
 
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
+
+	/// Returns the code size of the contract at the given `address` or zero.
+	fn code_size(&self, address: &H160) -> U256;
 
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
@@ -349,6 +352,10 @@ pub trait Ext: sealing::Sealed {
 
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
+
+	/// Returns the block hash at the given `block_number` or `None` if
+	/// `block_number` isn't within the range of the previous 256 blocks.
+	fn block_hash(&self, block_number: U256) -> Option<H256>;
 
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
@@ -733,6 +740,7 @@ where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	E: Executable<T>,
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Create and run a new call stack by calling into `dest`.
 	///
@@ -764,7 +772,7 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_from_origin(&origin, &dest, value)
+			Self::transfer_from_origin(&origin, &origin, &dest, value)
 		}
 	}
 
@@ -808,7 +816,7 @@ where
 			.map(|_| (address, stack.first_frame.last_frame_output))
 	}
 
-	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn bench_new_call(
 		dest: H160,
 		origin: Origin<T>,
@@ -1058,7 +1066,12 @@ where
 			// If it is a delegate call, then we've already transferred tokens in the
 			// last non-delegate frame.
 			if delegated_code_hash.is_none() {
-				Self::transfer_from_origin(&caller, &frame.account_id, frame.value_transferred)?;
+				Self::transfer_from_origin(
+					&self.origin,
+					&caller,
+					&frame.account_id,
+					frame.value_transferred,
+				)?;
 			}
 
 			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
@@ -1254,17 +1267,48 @@ where
 	}
 
 	/// Transfer some funds from `from` to `to`.
-	fn transfer(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) -> ExecResult {
-		// this avoids events to be emitted for zero balance transfers
-		if !value.is_zero() {
-			T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map_err(|_| Error::<T>::TransferFailed)?;
+	///
+	/// This is a no-op for zero `value`, avoiding events to be emitted for zero balance transfers.
+	///
+	/// If the destination account does not exist, it is pulled into existence by transferring the
+	/// ED from `origin` to the new account. The total amount transferred to `to` will be ED +
+	/// `value`. This makes the ED fully transparent for contracts.
+	/// The ED transfer is executed atomically with the actual transfer, avoiding the possibility of
+	/// the ED transfer succeeding but the actual transfer failing. In other words, if the `to` does
+	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
+	/// not provide the ED or transferring `value` from `from` to `to` fails.
+	/// Note: This will also fail if `origin` is root.
+	fn transfer(
+		origin: &Origin<T>,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		value: BalanceOf<T>,
+	) -> ExecResult {
+		if value.is_zero() {
+			return Ok(Default::default());
 		}
-		Ok(Default::default())
+
+		if <System<T>>::account_exists(to) {
+			return T::Currency::transfer(from, to, value, Preservation::Preserve)
+				.map(|_| Default::default())
+				.map_err(|_| Error::<T>::TransferFailed.into());
+		}
+
+		let origin = origin.account_id()?;
+		let ed = <T as Config>::Currency::minimum_balance();
+		with_transaction(|| -> TransactionOutcome<ExecResult> {
+			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+				.and_then(|_| T::Currency::transfer(from, to, value, Preservation::Preserve))
+			{
+				Ok(_) => TransactionOutcome::Commit(Ok(Default::default())),
+				Err(_) => TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into())),
+			}
+		})
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
 	fn transfer_from_origin(
+		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: BalanceOf<T>,
@@ -1276,7 +1320,7 @@ where
 			Origin::Root if value.is_zero() => return Ok(Default::default()),
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
-		Self::transfer(from, to, value)
+		Self::transfer(origin, from, to, value)
 	}
 
 	/// Reference to the current (top) frame.
@@ -1319,9 +1363,27 @@ where
 
 	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
 	/// on the configured entry point. Thus, we allow setting the export manually.
-	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn override_export(&mut self, export: ExportedFunction) {
 		self.top_frame_mut().entry_point = export;
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub(crate) fn set_block_number(&mut self, block_number: BlockNumberFor<T>) {
+		self.block_number = block_number;
+	}
+
+	fn block_hash(&self, block_number: U256) -> Option<H256> {
+		let Ok(block_number) = BlockNumberFor::<T>::try_from(block_number) else {
+			return None;
+		};
+		if block_number >= self.block_number {
+			return None;
+		}
+		if block_number < self.block_number.saturating_sub(256u32.into()) {
+			return None;
+		}
+		Some(System::<T>::block_hash(&block_number).into())
 	}
 }
 
@@ -1331,6 +1393,7 @@ where
 	E: Executable<T>,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	type T = T;
 
@@ -1381,7 +1444,13 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				Self::transfer(&self.account_id(), &dest, value).map(|_| ())
+				Self::transfer_from_origin(
+					&self.origin,
+					&Origin::from_account_id(self.account_id().clone()),
+					&dest,
+					value,
+				)?;
+				Ok(())
 			}
 		};
 
@@ -1479,16 +1548,6 @@ where
 		Ok(())
 	}
 
-	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult {
-		Self::transfer(
-			&self.top_frame().account_id,
-			&T::AddressMapper::to_account_id(to),
-			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
-		)
-		.map(|_| ())
-		.map_err(|error| error.error)
-	}
-
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
 		self.top_frame_mut().contract_info().read(key)
 	}
@@ -1547,6 +1606,10 @@ where
 		}
 	}
 
+	fn origin(&self) -> &Origin<T> {
+		&self.origin
+	}
+
 	fn is_contract(&self, address: &H160) -> bool {
 		ContractInfoOf::<T>::contains_key(&address)
 	}
@@ -1560,6 +1623,13 @@ where
 				}
 				H256::zero()
 			})
+	}
+
+	fn code_size(&self, address: &H160) -> U256 {
+		<ContractInfoOf<T>>::get(&address)
+			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
+			.map(|info| info.code_len())
+			.unwrap_or_default()
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -1629,6 +1699,10 @@ where
 
 	fn block_number(&self) -> U256 {
 		self.block_number.into()
+	}
+
+	fn block_hash(&self, block_number: U256) -> Option<H256> {
+		self.block_hash(block_number)
 	}
 
 	fn max_value_size(&self) -> u32 {
@@ -2011,10 +2085,50 @@ mod tests {
 			set_balance(&ALICE, 100);
 			set_balance(&BOB, 0);
 
-			MockStack::transfer(&ALICE, &BOB, 55).unwrap();
+			let origin = Origin::from_account_id(ALICE);
+			MockStack::transfer(&origin, &ALICE, &BOB, 55).unwrap();
 
-			assert_eq!(get_balance(&ALICE), 45);
-			assert_eq!(get_balance(&BOB), 55);
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			assert_eq!(get_balance(&ALICE), 45 - min_balance);
+			assert_eq!(get_balance(&BOB), 55 + min_balance);
+		});
+	}
+
+	#[test]
+	fn transfer_to_nonexistent_account_works() {
+		// This test verifies that a contract is able to transfer
+		// some funds to a nonexistant account and that those transfers
+		// are not able to reap accounts.
+		ExtBuilder::default().build().execute_with(|| {
+			let ed = <Test as Config>::Currency::minimum_balance();
+			let value = 1024;
+
+			// Transfers to nonexistant accounts should work
+			set_balance(&ALICE, ed * 2);
+			set_balance(&BOB, ed + value);
+
+			assert_ok!(MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &CHARLIE, value));
+			assert_eq!(get_balance(&ALICE), ed);
+			assert_eq!(get_balance(&BOB), ed);
+			assert_eq!(get_balance(&CHARLIE), ed + value);
+
+			// Do not reap the origin account
+			set_balance(&ALICE, ed);
+			set_balance(&BOB, ed + value);
+			assert_err!(
+				MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &DJANGO, value),
+				<Error<Test>>::TransferFailed
+			);
+
+			// Do not reap the sender account
+			set_balance(&ALICE, ed * 2);
+			set_balance(&BOB, value);
+			assert_err!(
+				MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &EVE, value),
+				<Error<Test>>::TransferFailed
+			);
+			// The ED transfer would work. But it should only be executed with the actual transfer
+			assert!(!System::account_exists(&EVE));
 		});
 	}
 
@@ -2125,16 +2239,17 @@ mod tests {
 	fn balance_too_low() {
 		// This test verifies that a contract can't send value if it's
 		// balance is too low.
-		let origin = ALICE;
+		let from = ALICE;
+		let origin = Origin::from_account_id(ALICE);
 		let dest = BOB;
 
 		ExtBuilder::default().build().execute_with(|| {
-			set_balance(&origin, 0);
+			set_balance(&from, 0);
 
-			let result = MockStack::transfer(&origin, &dest, 100);
+			let result = MockStack::transfer(&origin, &from, &dest, 100);
 
 			assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
-			assert_eq!(get_balance(&origin), 0);
+			assert_eq!(get_balance(&from), 0);
 			assert_eq!(get_balance(&dest), 0);
 		});
 	}
@@ -2379,6 +2494,71 @@ mod tests {
 
 		assert_eq!(WitnessedCallerBob::get(), Some(ALICE_ADDR));
 		assert_eq!(WitnessedCallerCharlie::get(), Some(BOB_ADDR));
+	}
+
+	#[test]
+	fn origin_returns_proper_values() {
+		parameter_types! {
+			static WitnessedCallerBob: Option<H160> = None;
+			static WitnessedCallerCharlie: Option<H160> = None;
+		}
+
+		let bob_ch = MockLoader::insert(Call, |ctx, _| {
+			// Record the origin for bob.
+			WitnessedCallerBob::mutate(|witness| {
+				let origin = ctx.ext.origin();
+				*witness = Some(<Test as Config>::AddressMapper::to_address(
+					&origin.account_id().unwrap(),
+				));
+			});
+
+			// Call into CHARLIE contract.
+			assert_matches!(
+				ctx.ext.call(
+					Weight::zero(),
+					U256::zero(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					true,
+					false
+				),
+				Ok(_)
+			);
+			exec_success()
+		});
+		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
+			// Record the origin for charlie.
+			WitnessedCallerCharlie::mutate(|witness| {
+				let origin = ctx.ext.origin();
+				*witness = Some(<Test as Config>::AddressMapper::to_address(
+					&origin.account_id().unwrap(),
+				));
+			});
+			exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, bob_ch);
+			place_contract(&CHARLIE, charlie_ch);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+
+			let result = MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				0,
+				vec![],
+				None,
+			);
+
+			assert_matches!(result, Ok(_));
+		});
+
+		assert_eq!(WitnessedCallerBob::get(), Some(ALICE_ADDR));
+		assert_eq!(WitnessedCallerCharlie::get(), Some(ALICE_ADDR));
 	}
 
 	#[test]
@@ -4273,12 +4453,19 @@ mod tests {
 					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
 				);
 
-				// Plain transfers should not set the output
-				ctx.ext.transfer(&address, U256::from(1)).unwrap();
-				assert_eq!(
-					ctx.ext.last_frame_output(),
-					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
-				);
+				// Balance transfers should reset the output
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&address,
+						U256::from(1),
+						vec![],
+						true,
+						false,
+					)
+					.unwrap();
+				assert_eq!(ctx.ext.last_frame_output(), &Default::default());
 
 				// Reverted instantiation should set the output
 				ctx.ext
@@ -4670,5 +4857,61 @@ mod tests {
 				)
 				.unwrap()
 			});
+	}
+
+	#[test]
+	fn block_hash_returns_proper_values() {
+		let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext.block_number = 1u32.into();
+			assert_eq!(ctx.ext.block_hash(U256::from(1)), None);
+			assert_eq!(ctx.ext.block_hash(U256::from(0)), Some(H256::from([1; 32])));
+
+			ctx.ext.block_number = 300u32.into();
+			assert_eq!(ctx.ext.block_hash(U256::from(300)), None);
+			assert_eq!(ctx.ext.block_hash(U256::from(43)), None);
+			assert_eq!(ctx.ext.block_hash(U256::from(44)), Some(H256::from([2; 32])));
+
+			exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			frame_system::BlockHash::<Test>::insert(
+				&BlockNumberFor::<Test>::from(0u32),
+				<tests::Test as frame_system::Config>::Hash::from([1; 32]),
+			);
+			frame_system::BlockHash::<Test>::insert(
+				&BlockNumberFor::<Test>::from(1u32),
+				<tests::Test as frame_system::Config>::Hash::default(),
+			);
+			frame_system::BlockHash::<Test>::insert(
+				&BlockNumberFor::<Test>::from(43u32),
+				<tests::Test as frame_system::Config>::Hash::default(),
+			);
+			frame_system::BlockHash::<Test>::insert(
+				&BlockNumberFor::<Test>::from(44u32),
+				<tests::Test as frame_system::Config>::Hash::from([2; 32]),
+			);
+			frame_system::BlockHash::<Test>::insert(
+				&BlockNumberFor::<Test>::from(300u32),
+				<tests::Test as frame_system::Config>::Hash::default(),
+			);
+
+			place_contract(&BOB, bob_code_hash);
+
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+			assert_matches!(
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![0],
+					None,
+				),
+				Ok(_)
+			);
+		});
 	}
 }

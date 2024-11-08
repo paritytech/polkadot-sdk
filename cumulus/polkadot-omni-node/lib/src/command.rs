@@ -48,6 +48,16 @@ pub struct RunConfig {
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
 }
 
+impl RunConfig {
+	/// Create a new `RunConfig`
+	pub fn new(
+		runtime_resolver: Box<dyn RuntimeResolver>,
+		chain_spec_loader: Box<dyn LoadSpec>,
+	) -> Self {
+		RunConfig { chain_spec_loader, runtime_resolver }
+	}
+}
+
 pub fn new_aura_node_spec<Block>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,

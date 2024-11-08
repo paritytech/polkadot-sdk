@@ -32,6 +32,7 @@ pub mod elastic_scaling {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
 }
 
+mod genesis_config_presets;
 mod test_pallet;
 
 extern crate alloc;
@@ -44,10 +45,10 @@ use sp_core::{ConstBool, ConstU32, ConstU64, OpaqueMetadata};
 
 use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, Verify},
+	generic, impl_opaque_keys,
+	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult, MultiAddress, MultiSignature,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -125,8 +126,8 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 #[cfg(not(feature = "increment-spec-version"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("cumulus-test-parachain"),
-	impl_name: create_runtime_str!("cumulus-test-parachain"),
+	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
 	authoring_version: 1,
 	// Read the note above.
 	spec_version: 1,
@@ -139,8 +140,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 #[cfg(feature = "increment-spec-version")]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("cumulus-test-parachain"),
-	impl_name: create_runtime_str!("cumulus-test-parachain"),
+	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
 	authoring_version: 1,
 	// Read the note above.
 	spec_version: 2,
@@ -208,8 +209,6 @@ parameter_types! {
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
-	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	type Lookup = IdentityLookup<AccountId>;
 	/// The index type for storing how many extrinsics an account has signed.
 	type Nonce = Nonce;
 	/// The type for hashing blocks and tries.
@@ -363,7 +362,7 @@ pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::Account
 pub type NodeBlock = generic::Block<Header, sp_runtime::OpaqueExtrinsic>;
 
 /// The address format for describing accounts.
-pub type Address = AccountId;
+pub type Address = MultiAddress<AccountId, ()>;
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
@@ -544,11 +543,11 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			genesis_config_presets::preset_names()
 		}
 	}
 }

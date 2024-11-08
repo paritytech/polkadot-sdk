@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarks for the contracts pallet
+//! Benchmarks for the revive pallet
 
-#![cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+#![cfg(feature = "runtime-benchmarks")]
 
 mod call_builder;
 mod code;
@@ -71,6 +71,7 @@ where
 	T: Config + pallet_balances::Config,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Create new contract and use a default account id as instantiator.
 	fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
@@ -168,7 +169,7 @@ where
 				};
 
 				if key == &key_new {
-					continue
+					continue;
 				}
 				child::put_raw(&child_trie_info, &key_new, &value);
 			}
@@ -224,6 +225,7 @@ fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,
+		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 )]
 mod benchmarks {
 	use super::*;
@@ -524,6 +526,24 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_origin() {
+		let len = H160::len_bytes();
+		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_origin(memory.as_mut_slice(), 0);
+		}
+
+		assert_ok!(result);
+		assert_eq!(
+			<H160 as Decode>::decode(&mut &memory[..]).unwrap(),
+			T::AddressMapper::to_address(&runtime.ext().origin().account_id().unwrap())
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_is_contract() {
 		let Contract { account_id, .. } =
 			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
@@ -572,6 +592,24 @@ mod benchmarks {
 		assert_eq!(
 			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
 			contract.info().unwrap().code_hash
+		);
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_code_size() {
+		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+		build_runtime!(runtime, memory: [contract.address.encode(), vec![0u8; 32], ]);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_code_size(memory.as_mut_slice(), 0, 20);
+		}
+
+		assert_ok!(result);
+		assert_eq!(
+			U256::from_little_endian(&memory[20..]),
+			U256::from(WasmModule::dummy().code.len())
 		);
 	}
 
@@ -745,6 +783,31 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().block_number());
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn seal_block_hash() {
+		let mut memory = vec![0u8; 64];
+		let mut setup = CallSetup::<T>::default();
+		let input = setup.data();
+		let (mut ext, _) = setup.ext();
+		ext.set_block_number(BlockNumberFor::<T>::from(1u32));
+
+		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
+
+		let block_hash = H256::from([1; 32]);
+		frame_system::BlockHash::<T>::insert(
+			&BlockNumberFor::<T>::from(0u32),
+			T::Hash::from(block_hash),
+		);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_block_hash(memory.as_mut_slice(), 32, 0);
+		}
+		assert_ok!(result);
+		assert_eq!(&memory[..32], &block_hash.0);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1442,36 +1505,6 @@ mod benchmarks {
 		assert!(&runtime.ext().get_transient_storage(&key).is_none());
 		assert_eq!(&value, &memory[out_ptr as usize..]);
 		Ok(())
-	}
-
-	// We transfer to unique accounts.
-	#[benchmark(pov_mode = Measured)]
-	fn seal_transfer() {
-		let account = account::<T::AccountId>("receiver", 0, 0);
-		let value = Pallet::<T>::min_balance();
-		assert!(value > 0u32.into());
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_balance(value);
-		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-
-		let account_bytes = account.encode();
-		let account_len = account_bytes.len() as u32;
-		let value_bytes = Into::<U256>::into(value).encode();
-		let mut memory = memory!(account_bytes, value_bytes,);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_transfer(
-				memory.as_mut_slice(),
-				0,           // account_ptr
-				account_len, // value_ptr
-			);
-		}
-
-		assert_ok!(result);
 	}
 
 	// t: with or without some value to transfer

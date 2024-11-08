@@ -100,7 +100,7 @@ use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
 use sp_core::{ConstU128, ConstU8, Get, OpaqueMetadata, H256};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{
 		AccountIdConversion, BlakeTwo256, Block as BlockT, ConstU32, ConvertInto, IdentityLookup,
 		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
@@ -168,8 +168,8 @@ pub mod fast_runtime_binary {
 /// Runtime version (Rococo).
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("rococo"),
-	impl_name: create_runtime_str!("parity-rococo-v2.0"),
+	spec_name: alloc::borrow::Cow::Borrowed("rococo"),
+	impl_name: alloc::borrow::Cow::Borrowed("parity-rococo-v2.0"),
 	authoring_version: 0,
 	spec_version: 1_016_001,
 	impl_version: 0,
@@ -224,6 +224,7 @@ impl frame_system::Config for Runtime {
 	type ExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo<Runtime>;
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MultiBlockMigrator = MultiBlockMigrations;
 }
 
 parameter_types! {
@@ -542,6 +543,7 @@ impl pallet_treasury::Config for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
@@ -712,6 +714,7 @@ parameter_types! {
 	// Minimum 100 bytes/ROC deposited (1 CENT/byte)
 	pub const BasicDeposit: Balance = 1000 * CENTS;       // 258 bytes on-chain
 	pub const ByteDeposit: Balance = deposit(0, 1);
+	pub const UsernameDeposit: Balance = deposit(0, 32);
 	pub const SubAccountDeposit: Balance = 200 * CENTS;   // 53 bytes on-chain
 	pub const MaxSubAccounts: u32 = 100;
 	pub const MaxAdditionalFields: u32 = 100;
@@ -723,6 +726,7 @@ impl pallet_identity::Config for Runtime {
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
 	type ByteDeposit = ByteDeposit;
+	type UsernameDeposit = UsernameDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
@@ -734,6 +738,7 @@ impl pallet_identity::Config for Runtime {
 	type SigningPublicKey = <Signature as Verify>::Signer;
 	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
 	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
+	type UsernameGracePeriod = ConstU32<{ 30 * DAYS }>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
@@ -1093,7 +1098,6 @@ impl parachains_scheduler::Config for Runtime {
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
-	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 
 pub struct BrokerPot;
@@ -1117,7 +1121,6 @@ impl coretime::Config for Runtime {
 		xcm_config::ThisNetwork,
 		<Runtime as frame_system::Config>::AccountId,
 	>;
-	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 parameter_types! {
@@ -1393,6 +1396,25 @@ impl validator_manager::Config for Runtime {
 	type PrivilegedOrigin = EnsureRoot<AccountId>;
 }
 
+parameter_types! {
+	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
+}
+
+impl pallet_migrations::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations = pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>;
+	// Benchmarks need mocked migrations to guarantee that they succeed.
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type CursorMaxLen = ConstU32<65_536>;
+	type IdentifierMaxLen = ConstU32<256>;
+	type MigrationStatusHandler = ();
+	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	type MaxServiceWeight = MbmServiceWeight;
+	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
+}
+
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -1525,6 +1547,9 @@ construct_runtime! {
 		Crowdloan: crowdloan = 73,
 		Coretime: coretime = 74,
 
+		// Migrations pallet
+		MultiBlockMigrations: pallet_migrations = 98,
+
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm = 99,
 
@@ -1634,6 +1659,7 @@ pub mod migrations {
 		pub const PhragmenElectionPalletId: LockIdentifier = *b"phrelect";
 		/// Weight for balance unreservations
 		pub BalanceUnreserveWeight: Weight = weights::pallet_balances_balances::WeightInfo::<Runtime>::force_unreserve();
+		pub BalanceTransferAllowDeath: Weight = weights::pallet_balances_balances::WeightInfo::<Runtime>::transfer_allow_death();
 	}
 
 	// Special Config for Gov V1 pallets, allowing us to run migrations for them without
@@ -1683,6 +1709,7 @@ pub mod migrations {
         paras_registrar::migration::MigrateToV1<Runtime, ()>,
         pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
         pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
+        pallet_child_bounties::migration::MigrateV0ToV1<Runtime, BalanceTransferAllowDeath>,
 
         // Unlock & unreserve Gov1 funds
 
@@ -1790,6 +1817,7 @@ mod benches {
 		[pallet_identity, Identity]
 		[pallet_indices, Indices]
 		[pallet_message_queue, MessageQueue]
+		[pallet_migrations, MultiBlockMigrations]
 		[pallet_mmr, Mmr]
 		[pallet_multisig, Multisig]
 		[pallet_parameters, Parameters]
@@ -2407,7 +2435,7 @@ sp_api::impl_runtime_apis! {
 			config: frame_benchmarking::BenchmarkConfig,
 		) -> Result<
 			Vec<frame_benchmarking::BenchmarkBatch>,
-			sp_runtime::RuntimeString,
+			alloc::string::String,
 		> {
 			use frame_support::traits::WhitelistedStorageKeys;
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
