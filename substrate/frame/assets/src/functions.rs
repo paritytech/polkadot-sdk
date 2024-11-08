@@ -27,8 +27,8 @@ pub(super) enum DeadConsequence {
 	Keep,
 }
 
-use DeadConsequence::*;
 use frame_support::storage::with_storage_layer;
+use DeadConsequence::*;
 
 // The main implementation block for the module.
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -388,7 +388,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				T::Currency::unreserve(&who, deposit);
 			}
 
-			if let Remove = Self::dead_account(id.clone(), &who, &mut details, &account.reason, false)?
+			if let Remove =
+				Self::dead_account(id.clone(), &who, &mut details, &account.reason, false)?
 			{
 				Account::<T, I>::remove(&id, &who);
 			} else {
@@ -429,7 +430,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		with_storage_layer(|| {
 			T::Currency::unreserve(&depositor, deposit);
 
-			if let Remove = Self::dead_account(id.clone(), &who, &mut details, &account.reason, false)?
+			if let Remove =
+				Self::dead_account(id.clone(), &who, &mut details, &account.reason, false)?
 			{
 				Account::<T, I>::remove(&id, &who);
 			} else {
@@ -701,8 +703,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Account::<T, I>::try_mutate(&id, &dest, |maybe_account| -> DispatchResult {
 					match maybe_account {
 						Some(ref mut account) => {
-							// Calculate new balance; this will not saturate since it's already checked
-							// in prep.
+							// Calculate new balance; this will not saturate since it's already
+							// checked in prep.
 							debug_assert!(
 								account.balance.checked_add(&credit).is_some(),
 								"checked in prep; qed"
