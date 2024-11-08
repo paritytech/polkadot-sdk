@@ -1640,8 +1640,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 
 	fn do_descend_origin(&mut self, who: InteriorLocation) -> XcmResult {
-		self
-			.context
+		self.context
 			.origin
 			.as_mut()
 			.ok_or(XcmError::BadOrigin)?
