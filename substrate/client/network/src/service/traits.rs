@@ -37,8 +37,8 @@ use prometheus_endpoint::Registry;
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::ObservedRole, ExHashT};
 pub use sc_network_types::{
-	multiaddr::Multiaddr,
 	kad::{Key as KademliaKey, Record},
+	multiaddr::Multiaddr,
 	PeerId,
 };
 use sp_runtime::traits::Block as BlockT;

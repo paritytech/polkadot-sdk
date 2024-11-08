@@ -50,8 +50,6 @@ use crate::{
 
 use codec::Encode;
 use futures::StreamExt;
-use sc_network_types::kad::{PeerRecord, Record as P2PRecord};
-use sc_network_types::kad::Key as RecordKey;
 use litep2p::{
 	config::ConfigBuilder,
 	crypto::ed25519::Keypair,
@@ -75,6 +73,7 @@ use litep2p::{
 	Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
 };
 use prometheus_endpoint::Registry;
+use sc_network_types::kad::{Key as RecordKey, PeerRecord, Record as P2PRecord};
 
 use sc_client_api::BlockBackend;
 use sc_network_common::{role::Roles, ExHashT};

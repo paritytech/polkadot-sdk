@@ -713,10 +713,8 @@ where
 			self.authorities_queried_at = Some(best_hash);
 		}
 
-		let authority_id = self
-			.known_authorities
-			.get(&record_key)
-			.ok_or(Error::UnknownAuthority)?;
+		let authority_id =
+			self.known_authorities.get(&record_key).ok_or(Error::UnknownAuthority)?;
 		let signed_record =
 			Self::check_record_signed_with_authority_id(record_value.as_slice(), authority_id)?;
 		self.check_record_signed_with_network_key(
@@ -735,8 +733,7 @@ where
 				})
 				.unwrap_or_default(); // 0 is a sane default for records that do not have creation time present.
 
-		let current_record_info =
-			self.last_known_records.get(&record_key);
+		let current_record_info = self.last_known_records.get(&record_key);
 		// If record creation time is older than the current record creation time,
 		// we don't store it since we want to give higher priority to newer records.
 		if let Some(current_record_info) = current_record_info {
@@ -751,12 +748,7 @@ where
 			}
 		}
 
-		self.network.store_record(
-			record_key,
-			record_value,
-			Some(publisher),
-			expires,
-		);
+		self.network.store_record(record_key, record_value, Some(publisher), expires);
 		Ok(())
 	}
 
@@ -810,19 +802,15 @@ where
 		// Ensure `values` is not empty and all its keys equal.
 		let remote_key = peer_record.record.key.clone();
 
-		let authority_id: AuthorityId = if let Some(authority_id) =
-			self.in_flight_lookups.remove(&remote_key)
-		{
-			self.known_lookups
-				.insert(remote_key.clone(), authority_id.clone());
-			authority_id
-		} else if let Some(authority_id) =
-			self.known_lookups.get(&remote_key)
-		{
-			authority_id.clone()
-		} else {
-			return Err(Error::ReceivingUnexpectedRecord);
-		};
+		let authority_id: AuthorityId =
+			if let Some(authority_id) = self.in_flight_lookups.remove(&remote_key) {
+				self.known_lookups.insert(remote_key.clone(), authority_id.clone());
+				authority_id
+			} else if let Some(authority_id) = self.known_lookups.get(&remote_key) {
+				authority_id.clone()
+			} else {
+				return Err(Error::ReceivingUnexpectedRecord);
+			};
 
 		let local_peer_id = self.network.local_peer_id();
 
