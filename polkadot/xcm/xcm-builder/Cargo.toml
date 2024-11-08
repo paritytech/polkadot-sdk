@@ -75,3 +75,9 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 ]
+
+experimental = [
+	"frame-support/experimental", 
+	"frame-system/experimental",
+	"pallet-salary/experimental",
+]
