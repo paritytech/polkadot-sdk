@@ -49,14 +49,14 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	request_async_backing_params, request_claim_queue, request_session_index_for_child
-	runtime::{fetch_claim_queue, recv_runtime, request_node_features},
+	request_async_backing_params, request_claim_queue, request_session_index_for_child,
+	runtime::{recv_runtime, request_node_features},
 };
 use polkadot_primitives::{
 	node_features,
-	vstaging::{CandidateDescriptorV2, CandidateDescriptorVersion, CoreState},
-	CandidateHash, CollatorId, CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, AsyncBackingParams
+	vstaging::{CandidateDescriptorV2, CandidateDescriptorVersion},
+	AsyncBackingParams, CandidateHash, CollatorId, CoreIndex, Hash, HeadData, Id as ParaId,
+	OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
 };
 
 use crate::error::{Error, FetchError, Result, SecondingError};
@@ -349,13 +349,6 @@ struct PerRelayParent {
 	session_index: SessionIndex,
 }
 
-impl PerRelayParent {
-	fn new(assignments: GroupAssignments) -> Self {
-		let collations = Collations::new(&assignments.current);
-		Self { assignment: assignments, collations, ..Default::default() }
-	}
-}
-
 /// All state relevant for the validator side of the protocol lives here.
 #[derive(Default)]
 struct State {
@@ -435,7 +428,6 @@ async fn construct_per_relay_parent<Sender>(
 	current_assignments: &mut HashMap<ParaId, usize>,
 	keystore: &KeystorePtr,
 	relay_parent: Hash,
-	relay_parent_mode: ProspectiveParachainsMode,
 	v2_receipts: bool,
 	session_index: SessionIndex,
 ) -> Result<Option<PerRelayParent>>
@@ -468,22 +460,12 @@ where
 		return Ok(None)
 	};
 
-	let claim_queue = request_claim_queue(relay_parent, sender)
+	let mut claim_queue = request_claim_queue(relay_parent, sender)
 		.await
 		.await
 		.map_err(Error::CancelledClaimQueue)??;
 
-	let paras_now = cores
-		.get(core_now.0 as usize)
-		.and_then(|c| match (c, relay_parent_mode) {
-			(CoreState::Occupied(_), ProspectiveParachainsMode::Disabled) => None,
-			(
-				CoreState::Occupied(_),
-				ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, .. },
-			) => None,
-			_ => claim_queue.get(&core_now).cloned(),
-		})
-		.unwrap_or_else(|| VecDeque::new());
+	let assigned_paras = claim_queue.remove(&core_now).unwrap_or_else(|| VecDeque::new());
 
 	for para_id in assigned_paras.iter() {
 		let entry = current_assignments.entry(*para_id).or_default();
@@ -498,10 +480,12 @@ where
 		}
 	}
 
+	let assignment = GroupAssignments { current: assigned_paras.into_iter().collect() };
+	let collations = Collations::new(&assignment.current);
+
 	Ok(Some(PerRelayParent {
-		prospective_parachains_mode: relay_parent_mode,
-		assignment: GroupAssignments { current: paras_now.into_iter().collect() },
-		collations: Collations::default(),
+		assignment,
+		collations,
 		v2_receipts,
 		session_index,
 		current_core: core_now,
@@ -1289,7 +1273,6 @@ where
 			&mut state.current_assignments,
 			keystore,
 			*leaf,
-			mode,
 			v2_receipts,
 			session_index,
 		)
@@ -1299,7 +1282,7 @@ where
 		};
 
 		state.active_leaves.insert(*leaf, async_backing_params);
-		state.per_relay_parent.insert(*leaf, PerRelayParent::new(assignments));
+		state.per_relay_parent.insert(*leaf, per_relay_parent);
 
 		state
 			.implicit_view
@@ -1307,28 +1290,26 @@ where
 			.await
 			.map_err(Error::ImplicitViewFetchError)?;
 
-			// Order is always descending.
-			let allowed_ancestry = state
-				.implicit_view
-				.known_allowed_relay_parents_under(leaf, None)
-				.unwrap_or_default();
-			for block_hash in allowed_ancestry {
-				if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
-					// Safe to use the same v2 receipts config for the allowed relay parents as well
-					// as the same session index since they must be in the same session.
-					if let Some(per_relay_parent) = construct_per_relay_parent(
-						sender,
-						&mut state.current_assignments,
-						keystore,
-						*block_hash,
-						mode,
-						v2_receipts,
-						session_index,
-					)
-					.await?
-					{
-						entry.insert(per_relay_parent);
-					}
+		// Order is always descending.
+		let allowed_ancestry = state
+			.implicit_view
+			.known_allowed_relay_parents_under(leaf, None)
+			.unwrap_or_default();
+		for block_hash in allowed_ancestry {
+			if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
+				// Safe to use the same v2 receipts config for the allowed relay parents as well
+				// as the same session index since they must be in the same session.
+				if let Some(per_relay_parent) = construct_per_relay_parent(
+					sender,
+					&mut state.current_assignments,
+					keystore,
+					*block_hash,
+					v2_receipts,
+					session_index,
+				)
+				.await?
+				{
+					entry.insert(per_relay_parent);
 				}
 			}
 		}

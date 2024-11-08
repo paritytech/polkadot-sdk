@@ -74,7 +74,8 @@ struct TestState {
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	group_rotation_info: GroupRotationInfo,
 	cores: Vec<CoreState>,
-	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	claim_queue: Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	async_backing_params: AsyncBackingParams,
 	node_features: NodeFeatures,
 	session_index: SessionIndex,
 }
@@ -136,7 +137,12 @@ impl Default for TestState {
 				.collect(),
 		);
 		claim_queue.insert(CoreIndex(1), VecDeque::new());
-		claim_queue.insert(CoreIndex(2), [chain_ids[1]].into_iter().collect());
+		claim_queue.insert(
+			CoreIndex(2),
+			iter::repeat(ParaId::from(Self::CHAIN_IDS[1]))
+				.take(Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize)
+				.collect(),
+		);
 
 		let mut node_features = NodeFeatures::EMPTY;
 		node_features.resize(node_features::FeatureIndex::CandidateReceiptV2 as usize + 1, false);
@@ -150,100 +156,11 @@ impl Default for TestState {
 			validator_groups,
 			group_rotation_info,
 			cores,
-			claim_queue,
+			claim_queue: Some(claim_queue),
+			async_backing_params: Self::ASYNC_BACKING_PARAMS,
 			node_features,
 			session_index: 1,
 		}
-	}
-}
-
-impl TestState {
-	const CHAIN_IDS: [u32; 2] = [1, 2];
-	const ASYNC_BACKING_PARAMS: AsyncBackingParams =
-		AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
-
-	fn with_shared_core() -> Self {
-		let mut state = Self::default();
-
-		let cores = vec![
-			CoreState::Scheduled(ScheduledCore {
-				para_id: ParaId::from(Self::CHAIN_IDS[0]),
-				collator: None,
-			}),
-			CoreState::Free,
-		];
-
-		let mut claim_queue = BTreeMap::new();
-		claim_queue.insert(
-			CoreIndex(0),
-			VecDeque::from_iter(
-				[
-					ParaId::from(Self::CHAIN_IDS[1]),
-					ParaId::from(Self::CHAIN_IDS[0]),
-					ParaId::from(Self::CHAIN_IDS[0]),
-				]
-				.into_iter(),
-			),
-		);
-
-		assert!(
-			claim_queue.get(&CoreIndex(0)).unwrap().len() ==
-				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
-		);
-
-		state.cores = cores;
-		state.claim_queue = Some(claim_queue);
-
-		state
-	}
-
-	fn without_claim_queue() -> Self {
-		let mut state = Self::default();
-		state.claim_queue = None;
-		state.cores = vec![
-			CoreState::Scheduled(ScheduledCore {
-				para_id: ParaId::from(Self::CHAIN_IDS[0]),
-				collator: None,
-			}),
-			CoreState::Free,
-		];
-
-		state
-	}
-
-	fn with_one_scheduled_para() -> Self {
-		let mut state = Self::default();
-
-		let cores = vec![CoreState::Scheduled(ScheduledCore {
-			para_id: ParaId::from(Self::CHAIN_IDS[0]),
-			collator: None,
-		})];
-
-		let validator_groups = vec![vec![ValidatorIndex(0), ValidatorIndex(1)]];
-
-		let mut claim_queue = BTreeMap::new();
-		claim_queue.insert(
-			CoreIndex(0),
-			VecDeque::from_iter(
-				[
-					ParaId::from(Self::CHAIN_IDS[0]),
-					ParaId::from(Self::CHAIN_IDS[0]),
-					ParaId::from(Self::CHAIN_IDS[0]),
-				]
-				.into_iter(),
-			),
-		);
-
-		assert!(
-			claim_queue.get(&CoreIndex(0)).unwrap().len() ==
-				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
-		);
-
-		state.cores = cores;
-		state.validator_groups = validator_groups;
-		state.claim_queue = Some(claim_queue);
-
-		state
 	}
 }
 
@@ -427,91 +344,6 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 		.timeout(TIMEOUT)
 		.await
 		.expect(&format!("{:?} is more than enough for sending signals.", TIMEOUT));
-}
-
-async fn respond_to_runtime_api_queries(
-	virtual_overseer: &mut VirtualOverseer,
-	test_state: &TestState,
-	hash: Hash,
-) {
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
-			RuntimeApiRequest::SessionIndexForChild(tx)
-		)) => {
-			assert_eq!(rp, hash);
-			tx.send(Ok(test_state.session_index)).unwrap();
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
-			RuntimeApiRequest::AsyncBackingParams(tx)
-		)) => {
-			assert_eq!(rp, hash);
-			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
-			RuntimeApiRequest::NodeFeatures(_, tx)
-		)) => {
-			assert_eq!(rp, hash);
-			tx.send(Ok(test_state.node_features.clone())).unwrap();
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
-			RuntimeApiRequest::Validators(tx),
-		)) => {
-			let _ = tx.send(Ok(test_state.validator_public.clone()));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
-			RuntimeApiRequest::ValidatorGroups(tx),
-		)) => {
-			assert_eq!(rp, hash);
-			let _ = tx.send(Ok((
-				test_state.validator_groups.clone(),
-				test_state.group_rotation_info.clone(),
-			)));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
-			RuntimeApiRequest::AvailabilityCores(tx),
-		)) => {
-			assert_eq!(rp, hash);
-			let _ = tx.send(Ok(test_state.cores.clone()));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
-			RuntimeApiRequest::ClaimQueue(tx),
-		)) => {
-			assert_eq!(rp, hash);
-			let _ = tx.send(Ok(test_state.claim_queue.clone()));
-		}
-	);
 }
 
 /// Assert that the next message is a `CandidateBacking(Second())`.

@@ -21,7 +21,7 @@ use super::*;
 use polkadot_node_subsystem::messages::ChainApiMessage;
 use polkadot_primitives::{
 	vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2},
-	AsyncBackingParams, BlockNumber, CandidateCommitments, Header, SigningContext, ValidatorId,
+	BlockNumber, CandidateCommitments, Header, SigningContext, ValidatorId,
 };
 use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
 use rstest::rstest;
@@ -77,7 +77,7 @@ async fn assert_construct_per_relay_parent(
 			parent,
 			RuntimeApiRequest::ClaimQueue(tx),
 		)) if parent == hash => {
-			let _ = tx.send(Ok(test_state.claim_queue.clone()));
+			let _ = tx.send(Ok(test_state.claim_queue.clone().unwrap()));	//todo
 		}
 	);
 }
@@ -123,7 +123,7 @@ pub(super) async fn update_view(
 				_,
 				RuntimeApiRequest::AsyncBackingParams(tx),
 			)) => {
-				tx.send(Ok(ASYNC_BACKING_PARAMETERS)).unwrap();
+				tx.send(Ok(test_state.async_backing_params)).unwrap();
 			}
 		);
 
@@ -1800,89 +1800,6 @@ fn fair_collation_fetches() {
 		advertise_collation(
 			&mut virtual_overseer,
 			peer_b,
-			head_b,
-			Some((candidate_hash, Hash::zero())),
-		)
-		.await;
-		test_helpers::Yield::new().await;
-		assert_matches!(virtual_overseer.recv().now_or_never(), None);
-
-		virtual_overseer
-	});
-}
-
-// This should not happen in practice since claim queue is supported on all networks but just in
-// case validate that the fallback works as expected
-#[test]
-fn collation_fetches_without_claim_queue() {
-	let test_state = TestState::without_claim_queue();
-
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, keystore } = test_harness;
-
-		let head_b = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
-		let head_b_num: u32 = 2;
-
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
-
-		let peer_a = PeerId::random();
-		let pair_a = CollatorPair::generate().0;
-
-		connect_and_declare_collator(
-			&mut virtual_overseer,
-			peer_a,
-			pair_a.clone(),
-			test_state.chain_ids[0],
-			CollationVersion::V2,
-		)
-		.await;
-
-		let peer_b = PeerId::random();
-		let pair_b = CollatorPair::generate().0;
-
-		// connect an unneeded collator
-		connect_and_declare_collator(
-			&mut virtual_overseer,
-			peer_b,
-			pair_b.clone(),
-			test_state.chain_ids[1],
-			CollationVersion::V2,
-		)
-		.await;
-		assert_matches!(
-				overseer_recv(&mut virtual_overseer).await,
-				AllMessages::NetworkBridgeTx(
-				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, _)),
-			) => {
-				assert_eq!(peer_id, peer_b);
-			}
-		);
-		assert_matches!(
-				overseer_recv(&mut virtual_overseer).await,
-				AllMessages::NetworkBridgeTx(
-				NetworkBridgeTxMessage::DisconnectPeer(peer_id, peer_set)
-			) => {
-				assert_eq!(peer_id, peer_b);
-				assert_eq!(peer_set, PeerSet::Collation);
-			}
-		);
-
-		// in fallback mode we only accept what's scheduled on the core
-		submit_second_and_assert(
-			&mut virtual_overseer,
-			keystore.clone(),
-			ParaId::from(test_state.chain_ids[0]),
-			head_b,
-			peer_a,
-			HeadData(vec![0u8]),
-		)
-		.await;
-
-		// `peer_a` sends another advertisement and it is ignored
-		let candidate_hash = CandidateHash(Hash::repeat_byte(0xAA));
-		advertise_collation(
-			&mut virtual_overseer,
-			peer_a,
 			head_b,
 			Some((candidate_hash, Hash::zero())),
 		)
