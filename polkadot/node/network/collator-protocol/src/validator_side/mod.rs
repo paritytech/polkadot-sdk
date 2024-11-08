@@ -49,12 +49,14 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
-	request_async_backing_params,
-	runtime::{fetch_claim_queue, recv_runtime},
+	request_async_backing_params, request_claim_queue, request_session_index_for_child
+	runtime::{fetch_claim_queue, recv_runtime, request_node_features},
 };
 use polkadot_primitives::{
-	vstaging::CoreState, AsyncBackingParams, CandidateHash, CollatorId, Hash, HeadData,
-	Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
+	node_features,
+	vstaging::{CandidateDescriptorV2, CandidateDescriptorVersion, CoreState},
+	CandidateHash, CollatorId, CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, SessionIndex, AsyncBackingParams
 };
 
 use crate::error::{Error, FetchError, Result, SecondingError};
@@ -342,12 +344,15 @@ struct GroupAssignments {
 struct PerRelayParent {
 	assignment: GroupAssignments,
 	collations: Collations,
+	v2_receipts: bool,
+	current_core: CoreIndex,
+	session_index: SessionIndex,
 }
 
 impl PerRelayParent {
 	fn new(assignments: GroupAssignments) -> Self {
 		let collations = Collations::new(&assignments.current);
-		Self { assignment: assignments, collations }
+		Self { assignment: assignments, collations, ..Default::default() }
 	}
 }
 
@@ -425,13 +430,15 @@ fn is_relay_parent_in_implicit_view(
 	})
 }
 
-// Returns the group assignments for the validator based on the information in the claim queue
-async fn assign_incoming<Sender>(
+async fn construct_per_relay_parent<Sender>(
 	sender: &mut Sender,
 	current_assignments: &mut HashMap<ParaId, usize>,
 	keystore: &KeystorePtr,
 	relay_parent: Hash,
-) -> Result<GroupAssignments>
+	relay_parent_mode: ProspectiveParachainsMode,
+	v2_receipts: bool,
+	session_index: SessionIndex,
+) -> Result<Option<PerRelayParent>>
 where
 	Sender: CollatorProtocolSenderTrait,
 {
@@ -458,32 +465,25 @@ where
 		rotation_info.core_for_group(group, cores.len())
 	} else {
 		gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
-		return Ok(GroupAssignments { current: Vec::new() })
+		return Ok(None)
 	};
 
-	let assigned_paras = match fetch_claim_queue(sender, relay_parent)
+	let claim_queue = request_claim_queue(relay_parent, sender)
 		.await
-		.map_err(Error::Runtime)?
-	{
-		// Runtime supports claim queue - use it
-		Some(mut claim_queue) => claim_queue.0.remove(&core_now),
-		// Should never happen since claim queue is released everywhere.
-		None => {
-			gum::warn!(
-				target: LOG_TARGET,
-				?relay_parent,
-				"Claim queue is not available, falling back to availability cores",
-			);
+		.await
+		.map_err(Error::CancelledClaimQueue)??;
 
-			cores.get(core_now.0 as usize).and_then(|c| match c {
-				CoreState::Occupied(core) =>
-					core.next_up_on_available.as_ref().map(|c| [c.para_id].into_iter().collect()),
-				CoreState::Scheduled(core) => Some([core.para_id].into_iter().collect()),
-				CoreState::Free => None,
-			})
-		},
-	};
-	let assigned_paras = assigned_paras.unwrap_or_else(|| VecDeque::new());
+	let paras_now = cores
+		.get(core_now.0 as usize)
+		.and_then(|c| match (c, relay_parent_mode) {
+			(CoreState::Occupied(_), ProspectiveParachainsMode::Disabled) => None,
+			(
+				CoreState::Occupied(_),
+				ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, .. },
+			) => None,
+			_ => claim_queue.get(&core_now).cloned(),
+		})
+		.unwrap_or_else(|| VecDeque::new());
 
 	for para_id in assigned_paras.iter() {
 		let entry = current_assignments.entry(*para_id).or_default();
@@ -498,7 +498,14 @@ where
 		}
 	}
 
-	Ok(GroupAssignments { current: assigned_paras.into_iter().collect::<Vec<ParaId>>() })
+	Ok(Some(PerRelayParent {
+		prospective_parachains_mode: relay_parent_mode,
+		assignment: GroupAssignments { current: paras_now.into_iter().collect() },
+		collations: Collations::default(),
+		v2_receipts,
+		session_index,
+		current_core: core_now,
+	}))
 }
 
 fn remove_outgoing(
@@ -1262,18 +1269,34 @@ where
 	let added = view.iter().filter(|h| !current_leaves.contains_key(h));
 
 	for leaf in added {
-		gum::trace!(
-			target: LOG_TARGET,
-			?view,
-			?leaf,
-			"handle_our_view_change - added",
-		);
+		let session_index = request_session_index_for_child(*leaf, sender)
+			.await
+			.await
+			.map_err(Error::CancelledSessionIndex)??;
 
 		let async_backing_params =
 			recv_runtime(request_async_backing_params(*leaf, sender).await).await?;
 
-		let assignments =
-			assign_incoming(sender, &mut state.current_assignments, keystore, *leaf).await?;
+		let v2_receipts = request_node_features(*leaf, session_index, sender)
+			.await?
+			.unwrap_or_default()
+			.get(node_features::FeatureIndex::CandidateReceiptV2 as usize)
+			.map(|b| *b)
+			.unwrap_or(false);
+
+		let Some(per_relay_parent) = construct_per_relay_parent(
+			sender,
+			&mut state.current_assignments,
+			keystore,
+			*leaf,
+			mode,
+			v2_receipts,
+			session_index,
+		)
+		.await?
+		else {
+			continue
+		};
 
 		state.active_leaves.insert(*leaf, async_backing_params);
 		state.per_relay_parent.insert(*leaf, PerRelayParent::new(assignments));
@@ -1284,25 +1307,29 @@ where
 			.await
 			.map_err(Error::ImplicitViewFetchError)?;
 
-		// Order is always descending.
-		let allowed_ancestry = state
-			.implicit_view
-			.known_allowed_relay_parents_under(leaf, None)
-			.unwrap_or_default();
-
-		for block_hash in allowed_ancestry {
-			if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
-				gum::trace!(
-					target: LOG_TARGET,
-					?view,
-					?block_hash,
-					"handle_our_view_change - allowed_ancestry",
-				);
-				let assignments =
-					assign_incoming(sender, &mut state.current_assignments, keystore, *block_hash)
-						.await?;
-
-				entry.insert(PerRelayParent::new(assignments));
+			// Order is always descending.
+			let allowed_ancestry = state
+				.implicit_view
+				.known_allowed_relay_parents_under(leaf, None)
+				.unwrap_or_default();
+			for block_hash in allowed_ancestry {
+				if let Entry::Vacant(entry) = state.per_relay_parent.entry(*block_hash) {
+					// Safe to use the same v2 receipts config for the allowed relay parents as well
+					// as the same session index since they must be in the same session.
+					if let Some(per_relay_parent) = construct_per_relay_parent(
+						sender,
+						&mut state.current_assignments,
+						keystore,
+						*block_hash,
+						mode,
+						v2_receipts,
+						session_index,
+					)
+					.await?
+					{
+						entry.insert(per_relay_parent);
+					}
+				}
 			}
 		}
 	}
@@ -1632,11 +1659,10 @@ async fn run_inner<Context>(
 					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => break,
 					Ok(FromOrchestra::Signal(_)) => continue,
 				}
-			}
+			},
 			_ = next_inactivity_stream.next() => {
 				disconnect_inactive_peers(ctx.sender(), &eviction_policy, &state.peer_data).await;
-			}
-
+			},
 			resp = state.collation_requests.select_next_some() => {
 				let res = match handle_collation_fetch_response(
 					&mut state,
@@ -1695,7 +1721,7 @@ async fn run_inner<Context>(
 					}
 					Ok(true) => {}
 				}
-			}
+			},
 			res = state.collation_fetch_timeouts.select_next_some() => {
 				let (collator_id, maybe_candidate_hash, relay_parent) = res;
 				gum::debug!(
@@ -1821,6 +1847,10 @@ async fn kick_off_seconding<Context>(
 			return Ok(false)
 		},
 	};
+
+	// Sanity check of the candidate receipt version.
+	descriptor_version_sanity_check(candidate_receipt.descriptor(), per_relay_parent)?;
+
 	let collations = &mut per_relay_parent.collations;
 
 	let fetched_collation = FetchedCollation::from(&candidate_receipt);
@@ -2030,7 +2060,9 @@ async fn handle_collation_fetch_response(
 		},
 		Ok(
 			request_v1::CollationFetchingResponse::Collation(receipt, _) |
-			request_v1::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. },
+			request_v2::CollationFetchingResponse::Collation(receipt, _) |
+			request_v1::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. } |
+			request_v2::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. },
 		) if receipt.descriptor().para_id() != pending_collation.para_id => {
 			gum::debug!(
 				target: LOG_TARGET,
@@ -2248,4 +2280,36 @@ fn get_next_collation_to_fetch(
 	}
 	rp_state.collations.status = CollationStatus::Waiting;
 	rp_state.collations.pick_a_collation_to_fetch(unfulfilled_entries)
+}
+
+// Sanity check the candidate descriptor version.
+fn descriptor_version_sanity_check(
+	descriptor: &CandidateDescriptorV2,
+	per_relay_parent: &PerRelayParent,
+) -> std::result::Result<(), SecondingError> {
+	match descriptor.version() {
+		CandidateDescriptorVersion::V1 => Ok(()),
+		CandidateDescriptorVersion::V2 if per_relay_parent.v2_receipts => {
+			if let Some(core_index) = descriptor.core_index() {
+				if core_index != per_relay_parent.current_core {
+					return Err(SecondingError::InvalidCoreIndex(
+						core_index.0,
+						per_relay_parent.current_core.0,
+					))
+				}
+			}
+
+			if let Some(session_index) = descriptor.session_index() {
+				if session_index != per_relay_parent.session_index {
+					return Err(SecondingError::InvalidSessionIndex(
+						session_index,
+						per_relay_parent.session_index,
+					))
+				}
+			}
+
+			Ok(())
+		},
+		descriptor_version => Err(SecondingError::InvalidReceiptVersion(descriptor_version)),
+	}
 }

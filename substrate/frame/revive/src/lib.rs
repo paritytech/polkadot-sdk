@@ -23,7 +23,6 @@
 extern crate alloc;
 mod address;
 mod benchmarking;
-mod benchmarking_dummy;
 mod exec;
 mod gas;
 mod limits;
@@ -304,6 +303,10 @@ pub mod pallet {
 		/// preventing replay attacks.
 		#[pallet::constant]
 		type ChainId: Get<u64>;
+
+		/// The ratio between the decimal representation of the native token and the ETH token.
+		#[pallet::constant]
+		type NativeToEthRatio: Get<u32>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -375,7 +378,8 @@ pub mod pallet {
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-			type ChainId = ConstU64<{ 0 }>;
+			type ChainId = ConstU64<0>;
+			type NativeToEthRatio = ConstU32<1_000_000>;
 		}
 	}
 
@@ -755,6 +759,7 @@ pub mod pallet {
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		MomentOf<T>: Into<U256>,
+		T::Hash: frame_support::traits::IsType<H256>,
 	{
 		/// A raw EVM transaction, typically dispatched by an Ethereum JSON-RPC server.
 		///
@@ -1077,6 +1082,7 @@ impl<T: Config> Pallet<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// A generalized version of [`Self::call`].
 	///
@@ -1236,7 +1242,9 @@ where
 		<T as Config>::RuntimeCall: Encode,
 		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		T::Nonce: Into<U256>,
+		T::Hash: frame_support::traits::IsType<H256>,
 	{
+		log::debug!(target: LOG_TARGET, "bare_eth_transact: dest: {dest:?} value: {value:?} gas_limit: {gas_limit:?} storage_deposit_limit: {storage_deposit_limit:?}");
 		// Get the nonce to encode in the tx.
 		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
 
@@ -1262,7 +1270,7 @@ where
 
 			// Get the encoded size of the transaction.
 			let tx = TransactionLegacyUnsigned {
-				value: value.into(),
+				value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
 				input: input.into(),
 				nonce: nonce.into(),
 				chain_id: Some(T::ChainId::get().into()),
@@ -1298,7 +1306,7 @@ where
 			)
 			.into();
 
-			log::debug!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
+			log::trace!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
 				gas_required: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
@@ -1337,7 +1345,7 @@ where
 			let tx = TransactionLegacyUnsigned {
 				gas: max_gas_fee.into(),
 				nonce: nonce.into(),
-				value: value.into(),
+				value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
 				input: input.clone().into(),
 				gas_price: GAS_PRICE.into(),
 				chain_id: Some(T::ChainId::get().into()),
@@ -1371,7 +1379,7 @@ where
 			)
 			.into();
 
-			log::debug!(target: LOG_TARGET, "Call dry run Result: dispatch_info: {dispatch_info:?} len: {encoded_len:?} fee: {fee:?}");
+			log::trace!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
 				gas_required: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
@@ -1453,12 +1461,19 @@ environmental!(executing_contract: bool);
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
 	#[api_version(1)]
-	pub trait ReviveApi<AccountId, Balance, BlockNumber, EventRecord> where
+	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber, EventRecord> where
 		AccountId: Codec,
 		Balance: Codec,
+		Nonce: Codec,
 		BlockNumber: Codec,
 		EventRecord: Codec,
 	{
+		/// Returns the free balance of the given `[H160]` address.
+		fn balance(address: H160) -> Balance;
+
+		/// Returns the nonce of the given `[H160]` address.
+		fn nonce(address: H160) -> Nonce;
+
 		/// Perform a call from a specified account to a given contract.
 		///
 		/// See [`crate::Pallet::bare_call`].
