@@ -155,7 +155,7 @@ pub enum ClientError {
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
 	/// The dry run failed.
-	#[error("Dry run failed")]
+	#[error("Dry run failed: {0}")]
 	DryRunFailed(String),
 	/// Contract reverted
 	#[error("Execution reverted: {}", extract_revert_message(.0).unwrap_or_default())]
@@ -182,10 +182,10 @@ impl From<ClientError> for ErrorObjectOwned {
 
 		let message = err.to_string();
 		let data = match err {
-			ClientError::DryRunFailed(data) => Some(data),
+			ClientError::Reverted(data) => Some(data),
 			_ => None,
 		};
-		ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, message, data)
+		ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, message, data)
 	}
 }
 
