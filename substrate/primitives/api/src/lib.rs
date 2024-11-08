@@ -127,7 +127,6 @@ use sp_runtime::{traits::Block as BlockT, ExtrinsicInclusionMode};
 pub use sp_state_machine::StorageProof;
 #[cfg(feature = "std")]
 use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
-use sp_std::vec::Vec;
 use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;
