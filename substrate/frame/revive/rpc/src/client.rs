@@ -99,6 +99,7 @@ struct BlockCache<const N: usize> {
 	tx_hashes_by_block_and_index: HashMap<H256, HashMap<U256, H256>>,
 }
 
+/// Unwrap the original `jsonrpsee::core::client::Error::Call` error.
 fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 	use subxt::backend::rpc::reconnecting_rpc_client;
 	match err {
@@ -106,8 +107,8 @@ fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 			match err.downcast_ref::<reconnecting_rpc_client::Error>() {
 				Some(reconnecting_rpc_client::Error::RpcError(
 					jsonrpsee::core::client::Error::Call(err),
-				)) => return Some(err.clone().into_owned()),
-				_ => return None,
+				)) => Some(err.clone().into_owned()),
+				_ => None,
 			},
 		_ => None,
 	}
@@ -126,9 +127,12 @@ fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
 
 	// Extract the offset (32 bytes from the start of data)
 	let offset = U256::from_big_endian(exec_data.get(4..36)?).as_usize();
+	if offset != 32 {
+		return None;
+	}
 
 	// Extract the length of the string (next 32 bytes)
-	let length = U256::from_big_endian(exec_data.get(36..36 + offset)?.try_into().ok()?);
+	let length = U256::from_big_endian(exec_data.get(36..68)?);
 
 	// Extract the string data based on the length
 	let string_data = exec_data.get(68..68 + length.as_usize())?;
