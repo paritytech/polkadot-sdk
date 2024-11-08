@@ -2120,14 +2120,6 @@ fn seconded_and_pending_for_para_below(
 	implicit_view
 		.known_allowed_relay_parents_under(relay_parent, Some(*para_id))
 		.map(|ancestors| {
-			gum::trace!(
-				target: LOG_TARGET,
-				?ancestors,
-				?relay_parent,
-				?para_id,
-				claim_queue_len,
-				"seconded_and_pending_for_para_below"
-			);
 			ancestors.iter().take(claim_queue_len).fold(0, |res, anc| {
 				res + per_relay_parent
 					.get(&anc)
