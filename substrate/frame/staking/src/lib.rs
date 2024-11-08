@@ -150,13 +150,19 @@
 //!
 //! The pallet supports a multi-page election. In a multi-page election, some key actions of the
 //! staking pallet progress over multi pages/blocks. Most notably:
-//! 1. **Snapshot creation**: Both the voter and target snapshots are created over multi blocks. The
+//! 1. **Snapshot creation**: The voter snapshot *may be* created over multi blocks. The
 //!    [`frame_election_provider_support::ElectionDataProvider`] trait supports that functionality
-//!    by parameterizing the electin voters and electable targets by the page index.
+//!    by parameterizing the electing voters by the page index. Even though the target snapshot
+//!    could be paged, this pallet implements a single-page target snapshot only.
 //! 2. **Election**: The election is multi-block, where a set of supports is fetched per page/block.
 //!    This pallet keeps track of the elected stashes and their exposures as the paged election is
 //!    called. The [`frame_election_provider_support::ElectionProvider`] trait supports this
 //!    functionaluty by parameterizing the elect call with the page index.
+//!
+//! Note: [`frame_election_provider_support::ElectionDataProvider`] trait supports mulit-paged
+//! target snaphsot. However, this pallet only supports and implements a single-page snapshot.
+//! Calling [`ElectionDataProvider::electable_targets`] with a different index than 0 is redundant
+//! and the single page idx 0 of targets be returned.
 //!
 //! ### Prepare an election ahead of time with `on_initialize`
 //!

@@ -1117,14 +1117,12 @@ impl<T: Config> Pallet<T> {
 		all_voters
 	}
 
-	/// Get all the targets associated with `page` that are eligible for the npos election.
+	/// Get all the targets associated are eligible for the npos election.
 	///
-	/// Note: in the context of the multi-page snapshot, we expect the *order* of `VoterList` and
-	/// `TargetList` not to change while the pages are being processed. This should be ensured by
-	/// the pallet, (e.g. using [`frame_election_provider_support::LockableElectionDataProvider`]).
+	/// The target snaphot is *always* single paged.
 	///
 	/// This function is self-weighing as [`DispatchClass::Mandatory`].
-	pub fn get_npos_targets(bounds: DataProviderBounds, page: PageIndex) -> Vec<T::AccountId> {
+	pub fn get_npos_targets(bounds: DataProviderBounds) -> Vec<T::AccountId> {
 		let mut targets_size_tracker: StaticTracker<Self> = StaticTracker::default();
 
 		let final_predicted_len = {
@@ -1134,18 +1132,8 @@ impl<T: Config> Pallet<T> {
 
 		let mut all_targets = Vec::<T::AccountId>::with_capacity(final_predicted_len as usize);
 		let mut targets_seen = 0;
-		let mut targets_taken = 0u32;
 
-		let mut targets_iter = match TargetSnapshotStatus::<T>::get() {
-			// start the snapshot processing, start from the beginning.
-			SnapshotStatus::Waiting => T::TargetList::iter(),
-			// snapshot continues, start from last iterated target in the list.
-			SnapshotStatus::Ongoing(start_at) =>
-				T::TargetList::iter_from(&start_at).unwrap_or(Box::new(vec![].into_iter())),
-			// all the targets have been consumed, return an empty iterator.
-			SnapshotStatus::Consumed => Box::new(vec![].into_iter()),
-		};
-
+		let mut targets_iter = T::TargetList::iter();
 		while all_targets.len() < final_predicted_len as usize &&
 			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
@@ -1167,34 +1155,8 @@ impl<T: Config> Pallet<T> {
 
 			if Validators::<T>::contains_key(&target) {
 				all_targets.push(target);
-				targets_taken.saturating_inc();
 			}
 		}
-
-		// update the target snapshot status.
-		TargetSnapshotStatus::<T>::mutate(|status| {
-			match (page, status.clone()) {
-				// last page, reset status for next round.
-				(0, _) => *status = SnapshotStatus::Waiting,
-
-				(_, SnapshotStatus::Waiting) | (_, SnapshotStatus::Ongoing(_)) => {
-					let maybe_last = all_targets.last().map(|x| x).cloned();
-
-					if let Some(ref last) = maybe_last {
-						if maybe_last == T::TargetList::iter().last() {
-							// all targets in the target list have been consumed.
-							*status = SnapshotStatus::Consumed;
-						} else {
-							*status = SnapshotStatus::Ongoing(last.clone());
-						}
-					} else {
-						debug_assert!(*status == SnapshotStatus::Consumed);
-					}
-				},
-				// do nothing.
-				(_, SnapshotStatus::Consumed) => (),
-			}
-		});
 
 		Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
 		log!(info, "generated {} npos targets", all_targets.len());
@@ -1389,7 +1351,11 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		bounds: DataProviderBounds,
 		page: PageIndex,
 	) -> data_provider::Result<Vec<T::AccountId>> {
-		let targets = Self::get_npos_targets(bounds, page);
+		if page > 0 {
+			log!(warn, "multi-page target snapshot not supported, returning page 0.");
+		}
+
+		let targets = Self::get_npos_targets(bounds);
 		// We can't handle this case yet -- return an error. WIP to improve handling this case in
 		// <https://github.com/paritytech/substrate/pull/13195>.
 		if bounds.exhausted(None, CountBound(targets.len() as u32).into()) {
