@@ -73,7 +73,7 @@ fn chain_can_claim_assets_for_its_users() {
 	for (location, assets) in &beneficiaries {
 		builder = builder.execute_with_origin(
 			// We take only the last part, the `AccountId32` junction.
-			Some(location.interior().last().unwrap().clone().into()),
+			Some((*location.interior().last().unwrap()).into()),
 			Xcm::<()>::builder_unsafe()
 				.claim_asset(assets.clone(), Location::new(0, [GeneralIndex(5)])) // Means lost assets were version 5.
 				.deposit_asset(assets.clone(), location.clone())
