@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Use frame umbrella crate in pallet-babe and pallet-staking-reward-curve
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Extends the FRAME umbrella crate and uses it in pallet-babe and pallet-staking-reward-curve.
+      Migrates benchmarking from v1 to v2 for pallet-babe.
+
+crates:
+  - name: polkadot-sdk-frame
+    bump: minor
+  - name: pallet-babe
+    bump: patch
+  - name: pallet-staking-reward-curve
+    bump: patch
