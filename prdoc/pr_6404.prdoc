@@ -1,0 +1,17 @@
+title: 'Remove stale extension version from UncheckedExtrinsic v4 structure'
+doc:
+- audience: Runtime Dev
+  description: |
+	This PR removes the redundant extension version byte from the signed v4 extrinsic, previously
+	unused and defaulted to 0. In this same PR, new weights are be generated for the modules
+	affected by the Transaction Extension changes.
+
+crates:
+- name: node-testing
+  bump: patch
+- name: pallet-example-offchain-worker
+  bump: patch
+- name: sp-runtime
+  bump: major
+- name: substrate-test-utils
+  bump: patch
