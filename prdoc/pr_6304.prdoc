@@ -17,29 +17,29 @@ doc:
       with another, claiming assets on behalf of many different ones, etc.
 
 crates:
-  - staging-xcm
+  - name: staging-xcm
     bump: major
-  - staging-xcm-executor
+  - name: staging-xcm-executor
     bump: minor
-  - staging-xcm-builder
+  - name: staging-xcm-builder
     bump: minor
-  - asset-hub-rococo-runtime
+  - name: asset-hub-rococo-runtime
     bump: minor
-  - asset-hub-westend-runtime
+  - name: asset-hub-westend-runtime
     bump: minor
-  - bridge-hub-rococo-runtime
+  - name: bridge-hub-rococo-runtime
     bump: minor
-  - bridge-hub-westend-runtime
+  - name: bridge-hub-westend-runtime
     bump: minor
-  - people-rococo-runtime
+  - name: people-rococo-runtime
     bump: minor
-  - people-westend-runtime
+  - name: people-westend-runtime
     bump: minor
-  - coretime-rococo-runtime
+  - name: coretime-rococo-runtime
     bump: minor
-  - coretime-westend-runtime
+  - name: coretime-westend-runtime
     bump: minor
-  - rococo-runtime
+  - name: rococo-runtime
     bump: minor
-  - westend-runtime
+  - name: westend-runtime
     bump: minor

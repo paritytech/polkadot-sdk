@@ -33,7 +33,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use pallet_xcm::TestWeightInfo;
-use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*, Version as XcmVersion};
+use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
 	AllowTopLevelPaidExecutionFrom, ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible,
 	FixedWeightBounds, FungibleAdapter, FungiblesAdapter, IsConcrete, MintLocation, NoChecking,
