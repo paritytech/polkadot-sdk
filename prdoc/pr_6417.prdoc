@@ -1,10 +1,5 @@
 title: fix prospective-parachains best backable chain reversion bug
 doc:
-- audience: Node Dev
-  description: |-
-    Kudos to @EclesioMeloJunior for noticing it
-
-    Also added a regression test for it. The existing unit test was exercising only the case where the full chain is reverted
 crates:
 - name: polkadot-node-core-prospective-parachains
   bump: patch
