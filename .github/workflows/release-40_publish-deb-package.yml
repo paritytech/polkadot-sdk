@@ -5,6 +5,7 @@ on:
     inputs:
       tag:
         description: Current final release tag in the format stableYYMM
+        default: stable2412
         required: true
         type: string
 
