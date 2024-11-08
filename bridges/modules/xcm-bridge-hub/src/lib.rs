@@ -672,9 +672,12 @@ pub mod pallet {
 				bridge_destination_universal_location.into(),
 			)?;
 
-			if !T::AllowWithoutBridgeDeposit::contains(locations.bridge_origin_relative_location()) {
-				let account_id = T::BridgeOriginAccountIdConverter::convert_location(locations.bridge_origin_relative_location())
-					.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
+			if !T::AllowWithoutBridgeDeposit::contains(locations.bridge_origin_relative_location())
+			{
+				let account_id = T::BridgeOriginAccountIdConverter::convert_location(
+					locations.bridge_origin_relative_location(),
+				)
+				.ok_or(Error::<T, I>::InvalidBridgeOriginAccount)?;
 				fund_account(account_id, T::BridgeDeposit::get());
 			}
 
