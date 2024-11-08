@@ -15,10 +15,10 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2024-02-29 (Y/M/D)
-//! HOSTNAME: `runner-bn-ce5rx-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! DATE: 2024-11-07 (Y/M/D)
+//! HOSTNAME: `runner-vcatxqpx-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
-//! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Development`
+//! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `rococo`
 //! WARMUPS: `10`, REPEAT: `100`
 //! WEIGHT-PATH: `./polkadot/runtime/rococo/constants/src/weights/`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
@@ -38,21 +38,21 @@ use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 
 parameter_types! {
-	/// Time to execute an empty block.
+	/// Weight of executing an empty block.
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 440_142, 476_907
-	///   Average:  450_240
-	///   Median:   448_633
-	///   Std-Dev:  7301.18
+	///   Min, Max: 468_070, 513_094
+	///   Average:  482_411
+	///   Median:   480_238
+	///   Std-Dev:  10511.34
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 470_733
-	///   95th: 465_082
-	///   75th: 452_536
+	///   99th: 510_520
+	///   95th: 504_607
+	///   75th: 486_171
 	pub const BlockExecutionWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(450_240), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(482_411), 0);
 }
 
 #[cfg(test)]

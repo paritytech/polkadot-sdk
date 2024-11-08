@@ -15,10 +15,10 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2024-02-29 (Y/M/D)
-//! HOSTNAME: `runner-bn-ce5rx-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! DATE: 2024-11-07 (Y/M/D)
+//! HOSTNAME: `runner-vcatxqpx-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
-//! SHORT-NAME: `extrinsic`, LONG-NAME: `ExtrinsicBase`, RUNTIME: `Development`
+//! SHORT-NAME: `extrinsic`, LONG-NAME: `ExtrinsicBase`, RUNTIME: `rococo`
 //! WARMUPS: `10`, REPEAT: `100`
 //! WEIGHT-PATH: `./polkadot/runtime/rococo/constants/src/weights/`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
@@ -38,21 +38,21 @@ use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 
 parameter_types! {
-	/// Time to execute a NO-OP extrinsic, for example `System::remark`.
+	/// Weight of executing a NO-OP extrinsic, for example `System::remark`.
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 92_961, 94_143
-	///   Average:  93_369
-	///   Median:   93_331
-	///   Std-Dev:  217.39
+	///   Min, Max: 102_697, 104_710
+	///   Average:  103_551
+	///   Median:   103_538
+	///   Std-Dev:  465.53
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 93_848
-	///   95th: 93_691
-	///   75th: 93_514
+	///   99th: 104_696
+	///   95th: 104_406
+	///   75th: 103_831
 	pub const ExtrinsicBaseWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(93_369), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(103_551), 0);
 }
 
 #[cfg(test)]
