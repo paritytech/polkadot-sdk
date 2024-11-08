@@ -37,7 +37,7 @@ use sp_runtime::{
 	AccountId32, Perbill,
 };
 use testnet_parachains_constants::rococo::{consensus::*, fee::WeightToFee};
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 parameter_types! {
@@ -377,7 +377,7 @@ mod bridge_hub_westend_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between sibling parachain and remote destination
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -411,7 +411,7 @@ mod bridge_hub_westend_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between sibling parachain and remote destination
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -643,7 +643,7 @@ mod bridge_hub_bulletin_tests {
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PEOPLE_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between RococoPeople and RococoBulletin
 				bridge_hub_test_utils::ensure_opened_bridge::<
@@ -676,7 +676,7 @@ mod bridge_hub_bulletin_tests {
 			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PEOPLE_PARACHAIN_ID,
-			Rococo,
+			ByGenesis(ROCOCO_GENESIS_HASH),
 			|| {
 				// we need to create lane between RococoPeople and RococoBulletin
 				bridge_hub_test_utils::ensure_opened_bridge::<
