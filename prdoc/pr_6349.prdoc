@@ -10,8 +10,7 @@ doc:
 
 crates:
   - name: frame-support
-    bump: minor
-    validate: false
+    bump: major
 
   - name: westend-runtime
     bump: patch
