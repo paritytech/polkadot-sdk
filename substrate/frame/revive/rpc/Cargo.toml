@@ -45,9 +45,7 @@ jsonrpsee = { workspace = true, features = ["full"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 sp-crypto-hashing = { workspace = true }
-subxt = { workspace = true, default-features = true, features = [
-	"unstable-reconnecting-rpc-client",
-] }
+subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
 tokio = { workspace = true, features = ["full"] }
 codec = { workspace = true, features = ["derive"] }
 log.workspace = true

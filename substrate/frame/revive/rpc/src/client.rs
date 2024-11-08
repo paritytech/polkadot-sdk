@@ -46,7 +46,7 @@ use subxt::{
 	backend::{
 		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
 		rpc::{
-			reconnecting_rpc_client::{Client as ReconnectingRpcClient, ExponentialBackoff},
+			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 			RpcClient,
 		},
 	},
@@ -99,24 +99,17 @@ struct BlockCache<const N: usize> {
 	tx_hashes_by_block_and_index: HashMap<H256, HashMap<U256, H256>>,
 }
 
-fn unwrap_subxt_err(err: &subxt::Error) -> String {
+fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
+	use subxt::backend::rpc::reconnecting_rpc_client;
 	match err {
-		subxt::Error::Rpc(err) => unwrap_rpc_err(err),
-		_ => err.to_string(),
-	}
-}
-
-fn unwrap_rpc_err(err: &subxt::error::RpcError) -> String {
-	match err {
-		subxt::error::RpcError::ClientError(err) => match err
-			// TODO use the re-export from subxt once available
-			.downcast_ref::<jsonrpsee::core::ClientError>()
-		{
-			Some(jsonrpsee::core::ClientError::Call(call_err)) => call_err.message().to_string(),
-			Some(other_err) => other_err.to_string(),
-			None => err.to_string(),
-		},
-		_ => err.to_string(),
+		subxt::error::RpcError::ClientError(err) =>
+			match err.downcast_ref::<reconnecting_rpc_client::Error>() {
+				Some(reconnecting_rpc_client::Error::RpcError(
+					jsonrpsee::core::client::Error::Call(err),
+				)) => return Some(err.clone().into_owned()),
+				_ => return None,
+			},
+		_ => None,
 	}
 }
 
@@ -145,11 +138,14 @@ fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
+	/// A [`jsonrpsee::core::ClientError`] wrapper error.
+	#[error(transparent)]
+	Jsonrpsee(#[from] jsonrpsee::core::ClientError),
 	/// A [`subxt::Error`] wrapper error.
-	#[error("{}",unwrap_subxt_err(.0))]
+	#[error(transparent)]
 	SubxtError(#[from] subxt::Error),
 	/// A [`RpcError`] wrapper error.
-	#[error("{}",unwrap_rpc_err(.0))]
+	#[error(transparent)]
 	RpcError(#[from] RpcError),
 	/// A [`codec::Error`] wrapper error.
 	#[error(transparent)]
@@ -175,17 +171,22 @@ pub enum ClientError {
 }
 
 // TODO convert error code to https://eips.ethereum.org/EIPS/eip-1474#error-codes
-// Once we can downcast subxt error: https://github.com/paritytech/subxt/pull/1843
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		log::debug!(target: LOG_TARGET, "ClientError: {err:?}");
 
-		let message = err.to_string();
-		let data = match err {
-			ClientError::Reverted(data) => Some(data),
-			_ => None,
-		};
-		ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, message, data)
+		let msg = err.to_string();
+		match err {
+			ClientError::SubxtError(subxt::Error::Rpc(err)) | ClientError::RpcError(err) => {
+				if let Some(err) = unwrap_call_err(&err) {
+					return err;
+				}
+				ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, msg, None)
+			},
+			ClientError::Reverted(data) =>
+				ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, msg, Some(data)),
+			_ => ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, msg, None),
+		}
 	}
 }
 
@@ -280,8 +281,6 @@ impl ClientInner {
 
 		// Filter extrinsics from pallet_revive
 		let extrinsics = extrinsics.iter().flat_map(|ext| {
-			let ext = ext.ok()?;
-
 			let call = ext.as_extrinsic::<EthTransact>().ok()??;
 			let tx = rlp::decode::<TransactionLegacySigned>(&call.payload).ok()?;
 			let from = tx.recover_eth_address().ok()?;
@@ -381,7 +380,6 @@ impl Client {
 		let (tx, mut updates) = tokio::sync::watch::channel(());
 
 		spawn_handle.spawn("subscribe-blocks", None, Self::subscribe_blocks(inner.clone(), tx));
-		spawn_handle.spawn("subscribe-reconnect", None, Self::subscribe_reconnect(inner.clone()));
 
 		updates.changed().await.expect("tx is not dropped");
 		Ok(Self { inner, updates })
@@ -439,18 +437,6 @@ impl Client {
 		}
 	}
 
-	/// Subscribe and log reconnection events.
-	async fn subscribe_reconnect(inner: Arc<ClientInner>) {
-		let rpc = inner.as_ref().rpc_client.clone();
-		loop {
-			let reconnected = rpc.reconnect_initiated().await;
-			log::info!(target: LOG_TARGET, "RPC client connection lost");
-			let now = std::time::Instant::now();
-			reconnected.await;
-			log::info!(target: LOG_TARGET, "RPC client reconnection took `{}s`", now.elapsed().as_secs());
-		}
-	}
-
 	/// Subscribe to new blocks and update the cache.
 	async fn subscribe_blocks(inner: Arc<ClientInner>, tx: Sender<()>) {
 		log::info!(target: LOG_TARGET, "Subscribing to new blocks");
@@ -458,7 +444,7 @@ impl Client {
 			Ok(s) => s,
 			Err(err) => {
 				log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
-				return
+				return;
 			},
 		};
 
@@ -475,7 +461,7 @@ impl Client {
 					}
 
 					log::error!(target: LOG_TARGET, "Failed to fetch block: {err:?}");
-					return
+					return;
 				},
 			};
 
