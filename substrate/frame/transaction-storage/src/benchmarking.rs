@@ -21,7 +21,7 @@
 
 use crate::*;
 use alloc::{vec, vec::Vec};
-use frame_benchmarking::{v2::*, whitelisted_caller, BenchmarkError};
+use frame_benchmarking::v2::*;
 use frame_support::traits::{Get, OnFinalize, OnInitialize};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, Pallet as System, RawOrigin};
 use sp_runtime::traits::{Bounded, CheckedDiv, One, Zero};
