@@ -18,16 +18,15 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use crate::{Call, Receiver, ThisChainOf};
 use bp_runtime::BalanceOf;
-use crate::{Call, ThisChainOf, Receiver};
-use frame_benchmarking::v2::*;
-use sp_std::boxed::Box;
 use bp_xcm_bridge_hub::BridgeLocations;
-use frame_support::traits::tokens::Precision;
-use frame_support::traits::Contains;
-use frame_support::traits::Get;
-use frame_support::traits::fungible::Unbalanced;
-use frame_support::assert_ok;
+use frame_benchmarking::v2::*;
+use frame_support::{
+	assert_ok,
+	traits::{fungible::Unbalanced, tokens::Precision, Contains, Get},
+};
+use sp_std::boxed::Box;
 use xcm_executor::traits::ConvertLocation;
 
 use sp_runtime::Saturating;
@@ -48,18 +47,23 @@ pub trait Config<I: 'static>: crate::Config<I> {
 mod benchmarks {
 	use super::*;
 
-	fn prepare_for_open_bridge<T: Config<I>, I: 'static>() -> Result<(T::RuntimeOrigin, Box<BridgeLocations>), BenchmarkError> {
+	fn prepare_for_open_bridge<T: Config<I>, I: 'static>(
+	) -> Result<(T::RuntimeOrigin, Box<BridgeLocations>), BenchmarkError> {
 		let (origin, initial_balance) = T::open_bridge_origin()
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		let bridge_destination_universal_location: Box<VersionedInteriorLocation> = Box::new([GlobalConsensus(crate::Pallet::<T, I>::bridged_network_id()?)].into());
-		let expected =
-			crate::Pallet::<T, I>::bridge_locations_from_origin(origin.clone(), bridge_destination_universal_location)?;
+		let bridge_destination_universal_location: Box<VersionedInteriorLocation> =
+			Box::new([GlobalConsensus(crate::Pallet::<T, I>::bridged_network_id()?)].into());
+		let expected = crate::Pallet::<T, I>::bridge_locations_from_origin(
+			origin.clone(),
+			bridge_destination_universal_location,
+		)?;
 
 		if !T::AllowWithoutBridgeDeposit::contains(expected.bridge_origin_relative_location()) {
 			// fund origin's sovereign account
 			let bridge_owner_account = T::BridgeOriginAccountIdConverter::convert_location(
 				expected.bridge_origin_relative_location(),
-			).ok_or(BenchmarkError::Stop("InvalidBridgeOriginAccount"))?;
+			)
+			.ok_or(BenchmarkError::Stop("InvalidBridgeOriginAccount"))?;
 
 			T::Currency::increase_balance(
 				&bridge_owner_account,
@@ -74,7 +78,8 @@ mod benchmarks {
 	#[benchmark]
 	fn open_bridge() -> Result<(), BenchmarkError> {
 		let (origin, locations) = prepare_for_open_bridge::<T, I>()?;
-		let bridge_destination_universal_location: Box<VersionedInteriorLocation> = Box::new(locations.bridge_destination_universal_location().clone().into());
+		let bridge_destination_universal_location: Box<VersionedInteriorLocation> =
+			Box::new(locations.bridge_destination_universal_location().clone().into());
 		assert!(crate::Pallet::<T, I>::bridge(locations.bridge_id()).is_none());
 
 		#[extrinsic_call]
@@ -87,7 +92,8 @@ mod benchmarks {
 	#[benchmark]
 	fn close_bridge() -> Result<(), BenchmarkError> {
 		let (origin, locations) = prepare_for_open_bridge::<T, I>()?;
-		let bridge_destination_universal_location: Box<VersionedInteriorLocation> = Box::new(locations.bridge_destination_universal_location().clone().into());
+		let bridge_destination_universal_location: Box<VersionedInteriorLocation> =
+			Box::new(locations.bridge_destination_universal_location().clone().into());
 		assert!(crate::Pallet::<T, I>::bridge(locations.bridge_id()).is_none());
 
 		// open bridge
@@ -108,7 +114,8 @@ mod benchmarks {
 	#[benchmark]
 	fn update_notification_receiver() -> Result<(), BenchmarkError> {
 		let (origin, locations) = prepare_for_open_bridge::<T, I>()?;
-		let bridge_destination_universal_location: Box<VersionedInteriorLocation> = Box::new(locations.bridge_destination_universal_location().clone().into());
+		let bridge_destination_universal_location: Box<VersionedInteriorLocation> =
+			Box::new(locations.bridge_destination_universal_location().clone().into());
 		assert!(crate::Pallet::<T, I>::bridge(locations.bridge_id()).is_none());
 
 		// open bridge with None
@@ -123,7 +130,11 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, bridge_destination_universal_location, Some(Receiver::new(1, 5)));
+		_(
+			origin as T::RuntimeOrigin,
+			bridge_destination_universal_location,
+			Some(Receiver::new(1, 5)),
+		);
 
 		assert_eq!(
 			crate::Pallet::<T, I>::bridge(locations.bridge_id()).map(|b| b.maybe_notify),
