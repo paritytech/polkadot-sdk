@@ -218,8 +218,8 @@ struct PerRelayParentState {
 	prospective_parachains_mode: ProspectiveParachainsMode,
 	/// The hash of the relay parent on top of which this job is doing it's work.
 	parent: Hash,
-	/// Session index.
-	session_index: SessionIndex,
+	/// The node features.
+	node_features: NodeFeatures,
 	/// The `CoreIndex` assigned to the local validator at this relay parent.
 	assigned_core: Option<CoreIndex>,
 	/// The candidates that are backed by enough validators in their group, by hash.
@@ -804,7 +804,7 @@ struct BackgroundValidationParams<S: overseer::CandidateBackingSenderTrait, F> {
 	tx_command: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	candidate: CandidateReceipt,
 	relay_parent: Hash,
-	session_index: SessionIndex,
+	node_features: NodeFeatures,
 	persisted_validation_data: PersistedValidationData,
 	pov: PoVData,
 	n_validators: usize,
@@ -823,7 +823,7 @@ async fn validate_and_make_available(
 		mut tx_command,
 		candidate,
 		relay_parent,
-		session_index,
+		node_features,
 		persisted_validation_data,
 		pov,
 		n_validators,
@@ -852,10 +852,6 @@ async fn validate_and_make_available(
 		Ok(ep) => ep,
 		Err(e) => return Err(Error::UtilError(e)),
 	};
-
-	let node_features = request_node_features(relay_parent, session_index, &mut sender)
-		.await?
-		.unwrap_or(NodeFeatures::EMPTY);
 
 	let pov = match pov {
 		PoVData::Ready(pov) => pov,
@@ -1241,10 +1237,12 @@ async fn construct_per_relay_parent_state<Context>(
 		.await;
 	let validators = try_runtime_api!(validators);
 
-	let inject_core_index = per_session_cache
+	let node_features = per_session_cache
 		.get_or_fetch_node_features(session_index, parent, ctx.sender())
 		.await?
-		.unwrap_or(NodeFeatures::EMPTY)
+		.unwrap_or(NodeFeatures::EMPTY);
+
+	let inject_core_index = node_features
 		.get(FeatureIndex::ElasticScalingMVP as usize)
 		.map(|b| *b)
 		.unwrap_or(false);
@@ -1348,7 +1346,7 @@ async fn construct_per_relay_parent_state<Context>(
 	Ok(Some(PerRelayParentState {
 		prospective_parachains_mode: mode,
 		parent,
-		session_index,
+		node_features,
 		assigned_core,
 		backed: HashSet::new(),
 		table: Table::new(table_config),
@@ -2026,7 +2024,7 @@ async fn kick_off_validation_work<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: attesting.candidate,
 			relay_parent: rp_state.parent,
-			session_index: rp_state.session_index,
+			node_features: rp_state.node_features.clone(),
 			persisted_validation_data,
 			pov,
 			n_validators: rp_state.table_context.validators.len(),
@@ -2180,7 +2178,7 @@ async fn validate_and_second<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: candidate.clone(),
 			relay_parent: rp_state.parent,
-			session_index: rp_state.session_index,
+			node_features: rp_state.node_features.clone(),
 			persisted_validation_data,
 			pov: PoVData::Ready(pov),
 			n_validators: rp_state.table_context.validators.len(),

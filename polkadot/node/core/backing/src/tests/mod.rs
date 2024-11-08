@@ -427,15 +427,6 @@ async fn assert_validation_requests(
 			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 		}
 	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(sess_idx, tx))
-		) if sess_idx == 1 => {
-			tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
-		}
-	);
 }
 
 async fn assert_validate_from_exhaustive(
@@ -2161,7 +2152,7 @@ fn retry_works() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		// Not deterministic which message comes first:
-		for _ in 0u32..6 {
+		for _ in 0u32..5 {
 			match virtual_overseer.recv().await {
 				AllMessages::Provisioner(ProvisionerMessage::ProvisionableData(
 					_,
