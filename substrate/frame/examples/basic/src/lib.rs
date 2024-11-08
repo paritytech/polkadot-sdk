@@ -188,17 +188,28 @@ pub mod pallet {
 			// Perform necessary data/state clean up here.
 		}
 
-		// A runtime code run after every block and have access to extended set of APIs.
-		//
-		// For instance you can generate extrinsics for the upcoming produced block.
-		fn offchain_worker(_n: BlockNumberFor<T>) {
-			// We don't do anything here.
-			// but we could dispatch extrinsic (transaction/unsigned/inherent) using
-			// sp_io::submit_extrinsic.
-			// To see example on offchain worker, please refer to example-offchain-worker pallet
-			// accompanied in this repository.
-		}
-	}
+		// A runtime code run after every block and has access to an extended set of APIs.
+//
+// For instance, you can generate extrinsics for the upcoming produced block.
+fn offchain_worker(_n: BlockNumberFor<T>) {
+    // We don't do anything here.
+    // But we could dispatch extrinsics (transaction/unsigned/inherent) using
+    // sp_io::submit_extrinsic.
+    // To see an example on offchain worker usage, please refer to the example-offchain-worker pallet
+    // in this repository.
+}
+
+// The on_idle hook is called when the system is idle, typically during periods when no extrinsics are being processed.
+fn on_idle(n: T::BlockNumber) -> Weight {
+    // Log the block number at which the on_idle hook is being called
+    log::info!("on_idle called at block number {:?}", n);
+
+    // Return weight for the operation; this indicates the computational cost
+    // In this case, we return Weight::zero() because we are not performing any heavy operations
+    Weight::zero()
+}
+
+		
 
 	// The call declaration. This states the entry points that we handle. The
 	// macro takes care of the marshalling of arguments and dispatch.
@@ -529,3 +540,4 @@ where
 	}
 	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; weight prepare);
 }
+
