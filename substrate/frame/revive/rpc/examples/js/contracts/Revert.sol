@@ -6,7 +6,6 @@ contract RevertExample {
     }
 
     function do_revert() public {
-	revert("revert message");
+		revert("revert message");
     }
-
 }
