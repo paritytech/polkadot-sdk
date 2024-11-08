@@ -21,9 +21,8 @@ use crate::{self as pallet_babe, Config, CurrentSlot};
 use codec::Encode;
 use frame::{
 	deps::sp_runtime::{curve::PiecewiseLinear, testing::Header},
-	prelude::*,
-	runtime::prelude::*,
 	testing_prelude::*,
+	traits::Header as _,
 };
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -117,7 +116,7 @@ impl pallet_balances::Config for Test {
 }
 
 pallet_staking_reward_curve::build! {
-	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
+	const REWARD_CURVE: frame::deps::sp_runtime::curve::PiecewiseLinear<'static> = curve!(
 		min_inflation: 0_025_000u64,
 		max_inflation: 0_100_000,
 		ideal_stake: 0_500_000,

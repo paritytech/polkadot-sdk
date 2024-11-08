@@ -79,14 +79,14 @@ pub fn build(input: TokenStream) -> TokenStream {
 	let declaration = generate_piecewise_linear(points);
 	let test_module = generate_test_module(&input);
 
-	let imports = match crate_name("sp-runtime") {
+	let imports = match crate_name("polkadot-sdk-frame") {
 		Ok(FoundCrate::Itself) => quote!(
 			#[doc(hidden)]
-			pub use frame::deps::sp_runtime as _sp_runtime;
+			pub use deps::sp_runtime as _sp_runtime;
 		),
 		Ok(FoundCrate::Name(sp_runtime)) => {
 			let ident = syn::Ident::new(&sp_runtime, Span::call_site());
-			quote!( #[doc(hidden)] pub use #ident as _sp_runtime; )
+			quote!( #[doc(hidden)] pub use #ident::deps::sp_runtime as _sp_runtime; )
 		},
 		Err(e) => match crate_name("polkadot-sdk") {
 			Ok(FoundCrate::Name(polkadot_sdk)) => {
