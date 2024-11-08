@@ -410,7 +410,7 @@ pub mod pallet {
 			BalanceOf<T, I>,
 			BlockNumberFor<T>,
 			T::AssetKind,
-			<<T as pallet_treasury::Config>::Paymaster as Pay>::Id,
+			<<T as pallet_treasury::Config<I>>::Paymaster as Pay>::Id,
 			T::Beneficiary,
 		>,
 	>;
@@ -572,17 +572,17 @@ pub mod pallet {
 					};
 
 				match bounty.status {
-					BountyStatus::Proposed | BountyStatus::Approved | BountyStatus::Funded => {
+					BountyStatus::Proposed | BountyStatus::Approved { .. } | BountyStatus::Funded => {
 						// No curator to unassign at this point.
 						return Err(Error::<T, I>::UnexpectedStatus.into());
 					},
-					BountyStatus::ApprovedWithCurator { ref curator } => {
+					BountyStatus::ApprovedWithCurator { ref curator, ref payment_status } => {
 						// Bounty not yet funded, but bounty was approved with curator.
 						// `RejectOrigin` or curator himself can unassign from this bounty.
 						ensure!(maybe_sender.map_or(true, |sender| sender == *curator), BadOrigin);
 						// This state can only be while the bounty is not yet funded so we return
 						// bounty to the `Approved` state without curator
-						bounty.status = BountyStatus::Approved;
+						bounty.status = BountyStatus::Approved { payment_status: payment_status.clone() };
 						return Ok(());
 					},
 					BountyStatus::CuratorProposed { ref curator } => {
@@ -590,7 +590,7 @@ pub mod pallet {
 						// Either `RejectOrigin` or the proposed curator can unassign the curator.
 						ensure!(maybe_sender.map_or(true, |sender| sender == *curator), BadOrigin);
 					},
-					BountyStatus::Active { ref curator, ref update_due } => {
+					BountyStatus::Active { ref curator, ref update_due, ref curator_stash } => {
 						// The bounty is active.
 						match maybe_sender {
 							// If the `RejectOrigin` is calling this function, slash the curator.
@@ -657,7 +657,7 @@ pub mod pallet {
 			stash: BeneficiaryLookupOf<T, I>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
-			let stash = T::BeneficiaryLookup::lookup(*stash)?;
+			let stash = T::BeneficiaryLookup::lookup(stash)?;
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
@@ -708,7 +708,7 @@ pub mod pallet {
 			beneficiary: BeneficiaryLookupOf<T, I>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
-			let beneficiary = T::BeneficiaryLookup::lookup(*beneficiary)?;
+			let beneficiary = T::BeneficiaryLookup::lookup(beneficiary)?;
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
@@ -720,16 +720,17 @@ pub mod pallet {
 				);
 
 				match &bounty.status {
-					BountyStatus::Active { curator, .. } => {
+					BountyStatus::Active { curator, curator_stash, .. } => {
 						ensure!(signer == *curator, Error::<T, I>::RequireCurator);
+						bounty.status = BountyStatus::PendingPayout {
+							curator: signer,
+							beneficiary: beneficiary.clone(),
+							unlock_at: Self::treasury_block_number() + T::BountyDepositPayoutDelay::get(),
+							curator_stash: curator_stash.clone(),
+						};
 					},
 					_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 				}
-				bounty.status = BountyStatus::PendingPayout {
-					curator: signer,
-					beneficiary: beneficiary.clone(),
-					unlock_at: Self::treasury_block_number() + T::BountyDepositPayoutDelay::get(),
-				};
 
 				Ok(())
 			})?;
@@ -757,7 +758,7 @@ pub mod pallet {
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.take().ok_or(Error::<T, I>::InvalidIndex)?;
-				if let BountyStatus::PendingPayout { curator, beneficiary, unlock_at } =
+				if let BountyStatus::PendingPayout { curator, beneficiary, unlock_at, curator_stash } =
 					bounty.status
 				{
 					ensure!(Self::treasury_block_number() >= unlock_at, Error::<T, I>::Premature);
