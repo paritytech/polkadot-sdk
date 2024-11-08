@@ -77,7 +77,7 @@ async fn assert_construct_per_relay_parent(
 			parent,
 			RuntimeApiRequest::ClaimQueue(tx),
 		)) if parent == hash => {
-			let _ = tx.send(Ok(test_state.claim_queue.clone().unwrap()));	//todo
+			let _ = tx.send(Ok(test_state.claim_queue.clone()));
 		}
 	);
 }
@@ -2130,7 +2130,7 @@ fn claim_queue_spot_claimed_at_next_relay_parent() {
 				.into_iter(),
 		),
 	);
-	test_state.claim_queue = Some(claim_queue);
+	test_state.claim_queue = claim_queue;
 	test_state.async_backing_params.max_candidate_depth = 3;
 	test_state.async_backing_params.allowed_ancestry_len = 2;
 

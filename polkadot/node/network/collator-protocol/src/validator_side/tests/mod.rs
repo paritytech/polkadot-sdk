@@ -74,7 +74,7 @@ struct TestState {
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	group_rotation_info: GroupRotationInfo,
 	cores: Vec<CoreState>,
-	claim_queue: Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	async_backing_params: AsyncBackingParams,
 	node_features: NodeFeatures,
 	session_index: SessionIndex,
@@ -156,7 +156,7 @@ impl Default for TestState {
 			validator_groups,
 			group_rotation_info,
 			cores,
-			claim_queue: Some(claim_queue),
+			claim_queue,
 			async_backing_params: Self::ASYNC_BACKING_PARAMS,
 			node_features,
 			session_index: 1,
@@ -199,21 +199,7 @@ impl TestState {
 		);
 
 		state.cores = cores;
-		state.claim_queue = Some(claim_queue);
-
-		state
-	}
-
-	fn without_claim_queue() -> Self {
-		let mut state = Self::default();
-		state.claim_queue = None;
-		state.cores = vec![
-			CoreState::Scheduled(ScheduledCore {
-				para_id: ParaId::from(Self::CHAIN_IDS[0]),
-				collator: None,
-			}),
-			CoreState::Free,
-		];
+		state.claim_queue = claim_queue;
 
 		state
 	}
@@ -248,7 +234,7 @@ impl TestState {
 
 		state.cores = cores;
 		state.validator_groups = validator_groups;
-		state.claim_queue = Some(claim_queue);
+		state.claim_queue = claim_queue;
 
 		state
 	}
