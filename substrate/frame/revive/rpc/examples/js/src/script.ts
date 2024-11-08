@@ -42,7 +42,7 @@ async function call(address: string) {
   const abi = ["function call(bytes data)"];
   const contract = new Contract(address, abi, signer);
 
-  const value = parseEther("0"); // Change to 0 to revert
+  const value = parseEther("10");
   const tx = await contract.call(str_to_bytes("world"), { value }) as TransactionResponse;
   console.log("Call transaction hash:", tx.hash);
   tx.wait();
