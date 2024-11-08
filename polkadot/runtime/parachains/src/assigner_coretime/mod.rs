@@ -150,7 +150,7 @@ struct WorkState<N> {
 	/// Position in the assignments we are currently in.
 	///
 	/// Aka which core assignment will be popped next on
-	/// `AssignmentProvider::pop_assignment_for_core`.
+	/// `AssignmentProvider::advance_assignments`.
 	pos: u16,
 	/// Step width
 	///
@@ -310,18 +310,17 @@ impl<T: Config> Pallet<T> {
 	/// Peek `num_entries` into the future.
 	///
 	/// First element for each `CoreIndex` will tell what would be retrieved when
-	/// `pop_assignment_for_core` is called at the next block. The second what one would get in the
-	/// block after the next block when one called `pop_assignment_for_core` again and so on.
+	/// `advance_assignments` is called at the next block. The second what one would get in the
+	/// block after the next block and so forth.
 	///
 	/// The predictions are accurate in the sense that if an assignment `B` was predicted, it will
-	/// never happen that `pop_assignment_for_core` at that block will retrieve an assignment `A`.
+	/// never happen that `advance_assignments` at that block will retrieve an assignment `A`.
 	/// What can happen though is that the prediction is empty (returned vec does not contain that
-	/// element), but `pop_assignment_for_core` at that block will then return something
-	/// regardless.
+	/// element), but `advance_assignments` at that block will then return something regardless.
 	///
 	/// Invariants:
 	///
-	/// - `pop_assignment_for_core` must be called for each core each block
+	/// - `advance_assignments` must be called for each core each block
 	/// exactly once for the prediction offered by `peek_next_block` to stay accurate.
 	/// - This function is meant to be called from a runtime API and thus uses the state of the
 	/// block after the current one to show an accurate prediction of upcoming schedules.
