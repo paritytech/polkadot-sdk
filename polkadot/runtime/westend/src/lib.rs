@@ -1130,8 +1130,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
@@ -1566,12 +1565,16 @@ pub type MetaTxExtension = (
 );
 
 impl pallet_meta_tx::Config for Runtime {
+	type WeightInfo = weights::pallet_meta_tx::WeightInfo<Runtime>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Signature = Signature;
 	type PublicKey = <Signature as sp_runtime::traits::Verify>::Signer;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Extension = MetaTxExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = pallet_meta_tx::BenchmarkHelperFor<Runtime>;
 }
@@ -1907,6 +1910,7 @@ mod benches {
 		[pallet_vesting, Vesting]
 		[pallet_whitelist, Whitelist]
 		[pallet_asset_rate, AssetRate]
+		[pallet_meta_tx, MetaTx]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.

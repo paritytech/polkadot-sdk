@@ -2339,7 +2339,10 @@ impl pallet_meta_tx::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type Signature = Signature;
 	type PublicKey = <Signature as sp_runtime::traits::Verify>::Signer;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Extension = MetaTxExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = pallet_meta_tx::BenchmarkHelperFor<Runtime>;
 }
@@ -2871,6 +2874,7 @@ mod benches {
 		[pallet_example_mbm, PalletExampleMbms]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
+		[pallet_meta_tx, MetaTx]
 	);
 }
 

@@ -54,9 +54,11 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::types::{BenchmarkHelper, BenchmarkHelperFor, WeightlessExtension};
 pub use pallet::*;
+pub use weights::WeightInfo;
 
 use core::ops::Add;
 use frame_support::{
@@ -112,6 +114,8 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// Weight information for calls in this pallet.
+		type WeightInfo: WeightInfo;
 		/// The overarching origin type.
 		// We need extra `AsTransactionAuthorizedOrigin` bound to use `DispatchTransaction` impl.
 		type RuntimeOrigin: AsTransactionAuthorizedOrigin
@@ -135,10 +139,14 @@ pub mod pallet {
 		type PublicKey: IdentifyAccount<AccountId = Self::AccountId>;
 		/// Transaction extension/s for meta transactions.
 		///
-		/// The extensions that must be present in every meta transaction. This
-		/// generally includes extensions like [frame_system::CheckSpecVersion],
-		/// [frame_system::CheckTxVersion], [frame_system::CheckGenesis],
-		/// [frame_system::CheckMortality], [frame_system::CheckNonce], etc.
+		/// The extensions that must be present in every meta transaction. This generally includes
+		/// extensions like [frame_system::CheckSpecVersion], [frame_system::CheckTxVersion],
+		/// [frame_system::CheckGenesis], [frame_system::CheckMortality],
+		/// [frame_system::CheckNonce], etc.
+		///
+		/// The extension weight for the benchmarks must be zero. Use
+		/// `pallet_meta_tx::WeightlessExtension` type with the `runtime-benchmarks` feature
+		/// enabled.
 		type Extension: TransactionExtension<<Self as Config>::RuntimeCall>;
 		/// The benchmark helper provides the necessary functions to create a call and a signature.
 		///
@@ -190,9 +198,9 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = meta_tx.call.get_dispatch_info();
 			let extension_weight = meta_tx.extension.weight(&meta_tx.call);
-			// TODO: + dispatch weight
+			let bare_call_weight = T::WeightInfo::bare_dispatch();
 			(
-				dispatch_info.call_weight.add(extension_weight),
+				dispatch_info.call_weight.add(extension_weight).add(bare_call_weight),
 				dispatch_info.class,
 			)
 		})]
@@ -232,10 +240,7 @@ pub mod pallet {
 				.map_or_else(|err| err.post_info.actual_weight, |info| info.actual_weight)
 				.unwrap_or(info.total_weight());
 
-			// // TODO: post_info + T::WeightInfo::dispatch_weight_without_call_and_ext_weight()
-			let dispatch_weight = Weight::from_all(1);
-
-			Ok((Some(dispatch_weight + meta_weight), true.into()).into())
+			Ok((Some(T::WeightInfo::bare_dispatch() + meta_weight), true.into()).into())
 		}
 	}
 

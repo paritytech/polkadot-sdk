@@ -117,7 +117,9 @@ mod benchmarks {
 
 		assert!(
 			meta_ext.weight(&meta_call).is_zero(),
-			"meta tx extension weight for the benchmarks must be zero.",
+			"meta tx extension weight for the benchmarks must be zero. \
+			use `pallet_meta_tx::WeightlessExtension` as `pallet_meta_tx::Config::Extension` \
+			with the `runtime-benchmarks` feature enabled.",
 		);
 
 		let (signer, meta_sig) =
@@ -126,17 +128,17 @@ mod benchmarks {
 		let meta_tx =
 			MetaTxFor::<T>::new(signer.clone(), meta_sig, meta_call.clone(), meta_ext.clone());
 
-		let call = Call::<T>::dispatch { meta_tx: Box::new(meta_tx) };
-		let info = call.get_dispatch_info();
 		let caller = whitelisted_caller();
 		let origin: <T as frame_system::Config>::RuntimeOrigin =
 			frame_system::RawOrigin::Signed(caller).into();
+		let call = Call::<T>::dispatch { meta_tx: Box::new(meta_tx) };
 
 		#[block]
 		{
 			let _ = call.dispatch_bypass_filter(origin);
 		}
 
+		let info = meta_call.get_dispatch_info();
 		assert_last_event::<T>(
 			Event::Dispatched {
 				result: Ok(PostDispatchInfo {

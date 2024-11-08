@@ -55,7 +55,7 @@ fn create_meta_tx_extension(account: AccountId) -> MetaTxExtension {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-fn create_meta_tx_extension(account: AccountId) -> MetaTxExtension {
+fn create_meta_tx_extension(_account: AccountId) -> MetaTxExtension {
 	crate::benchmarking::types::WeightlessExtension::<Runtime>::default()
 }
 
@@ -138,8 +138,7 @@ fn sign_and_execute_meta_tx() {
 
 		// Asserting the results and make sure the weight is correct.
 
-		// TODO: + dispatch weight
-		let tx_weight = tx_ext.weight(&call) + Weight::from_all(1);
+		let tx_weight = tx_ext.weight(&call) + <Runtime as Config>::WeightInfo::bare_dispatch();
 		let meta_tx_weight = remark_call
 			.get_dispatch_info()
 			.call_weight
@@ -227,6 +226,7 @@ fn invalid_signature() {
 	});
 }
 
+#[cfg(not(feature = "runtime-benchmarks"))]
 #[test]
 fn meta_tx_extension_work() {
 	new_test_ext().execute_with(|| {
@@ -341,8 +341,7 @@ fn meta_tx_call_fails() {
 
 		// Asserting the results and make sure the weight is correct.
 
-		// TODO: + dispatch weight
-		let tx_weight = tx_ext.weight(&call) + Weight::from_all(1);
+		let tx_weight = tx_ext.weight(&call) + <Runtime as Config>::WeightInfo::bare_dispatch();
 		let meta_tx_weight = transfer_call
 			.get_dispatch_info()
 			.call_weight
