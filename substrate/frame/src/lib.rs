@@ -222,7 +222,7 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		Bounded, DispatchInfoOf, Dispatchable, Header, OpaqueKeys, SaturatedConversion, Saturating,
+		Bounded, DispatchInfoOf, Dispatchable, OpaqueKeys, SaturatedConversion, Saturating,
 		StaticLookup, TrailingZeroInput, ValidateUnsigned,
 	};
 
@@ -506,8 +506,6 @@ pub mod runtime {
 			testing::{Digest, DigestItem, TestXt},
 			BuildStorage,
 		};
-		/// Re-export testing `Header` to unambiguate re-export `prelude::Header`.
-		pub type TestHeader = sp_runtime::testing::Header;
 	}
 }
 

@@ -20,7 +20,10 @@
 use crate::{self as pallet_babe, Config, CurrentSlot};
 use codec::Encode;
 use frame::{
-	deps::sp_runtime::curve::PiecewiseLinear, prelude::*, runtime::prelude::*, testing_prelude::*,
+	deps::sp_runtime::{curve::PiecewiseLinear, testing::Header},
+	prelude::*,
+	runtime::prelude::*,
+	testing_prelude::*,
 };
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -340,7 +343,7 @@ pub fn generate_equivocation_proof(
 	offender_authority_index: u32,
 	offender_authority_pair: &AuthorityPair,
 	slot: Slot,
-) -> sp_consensus_babe::EquivocationProof<TestHeader> {
+) -> sp_consensus_babe::EquivocationProof<Header> {
 	use sp_consensus_babe::digests::CompatibleDigestItem;
 
 	let current_block = System::block_number();
@@ -358,7 +361,7 @@ pub fn generate_equivocation_proof(
 
 	// sign the header prehash and sign it, adding it to the block as the seal
 	// digest item
-	let seal_header = |header: &mut TestHeader| {
+	let seal_header = |header: &mut Header| {
 		let prehash = header.hash();
 		let seal = <DigestItem as CompatibleDigestItem>::babe_seal(
 			offender_authority_pair.sign(prehash.as_ref()),

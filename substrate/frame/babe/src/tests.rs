@@ -618,7 +618,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 
 #[test]
 fn report_equivocation_invalid_equivocation_proof() {
-	use frame::prelude::Header as _;
+	use frame::traits::Header;
 
 	let (pairs, mut ext) = new_test_ext_with_pairs(3);
 
