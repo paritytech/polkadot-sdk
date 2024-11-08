@@ -22,6 +22,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::rococo::xcm_version::SAFE_XCM_VERSION;
+use xcm::latest::WESTEND_GENESIS_HASH;
 
 const BRIDGE_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
 
@@ -89,8 +90,8 @@ fn bridge_hub_rococo_genesis(
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
-	let patch = match id.try_into() {
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => bridge_hub_rococo_genesis(
+	let patch = match id.as_ref() {
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => bridge_hub_rococo_genesis(
 			// initial collators.
 			vec![
 				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
@@ -102,11 +103,11 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 			rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
 			vec![(
 				Location::new(1, [Parachain(1000)]),
-				Junctions::from([Westend.into(), Parachain(1000)]),
+				Junctions::from([ByGenesis(WESTEND_GENESIS_HASH).into(), Parachain(1000)]),
 				Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
 			)],
 		),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => bridge_hub_rococo_genesis(
+		sp_genesis_builder::DEV_RUNTIME_PRESET => bridge_hub_rococo_genesis(
 			// initial collators.
 			vec![
 				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),

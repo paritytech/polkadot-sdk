@@ -59,11 +59,13 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 pub use self::{
 	builder::{
-		build_network, build_polkadot_syncing_strategy, gen_rpc_module, init_telemetry, new_client,
-		new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
+		build_default_block_downloader, build_default_syncing_engine, build_network,
+		build_network_advanced, build_polkadot_syncing_strategy, gen_rpc_module, init_telemetry,
+		new_client, new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
 		new_full_parts_with_genesis_builder, new_wasm_executor,
-		propagate_transaction_notifications, spawn_tasks, BuildNetworkParams, KeystoreContainer,
-		NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor, TFullClient,
+		propagate_transaction_notifications, spawn_tasks, BuildNetworkAdvancedParams,
+		BuildNetworkParams, DefaultSyncingEngineConfig, KeystoreContainer, NetworkStarter,
+		SpawnTasksParams, TFullBackend, TFullCallExecutor, TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -98,7 +100,9 @@ pub use sc_transaction_pool::TransactionPoolOptions;
 pub use sc_transaction_pool_api::{error::IntoPoolError, InPoolTransaction, TransactionPool};
 #[doc(hidden)]
 pub use std::{ops::Deref, result::Result, sync::Arc};
-pub use task_manager::{SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME};
+pub use task_manager::{
+	SpawnEssentialTaskHandle, SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME,
+};
 use tokio::runtime::Handle;
 
 const DEFAULT_PROTOCOL_ID: &str = "sup";

@@ -31,6 +31,9 @@ use emulated_integration_tests_common::{
 	xcm_emulator::decl_test_parachains,
 };
 
+// Polkadot
+use xcm::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+
 // Penpal Parachain declaration
 decl_test_parachains! {
 	pub struct PenpalA {
@@ -39,7 +42,7 @@ decl_test_parachains! {
 			penpal_runtime::AuraExt::on_initialize(1);
 			frame_support::assert_ok!(penpal_runtime::System::set_storage(
 				penpal_runtime::RuntimeOrigin::root(),
-				vec![(PenpalRelayNetworkId::key().to_vec(), NetworkId::Rococo.encode())],
+				vec![(PenpalRelayNetworkId::key().to_vec(), NetworkId::ByGenesis(ROCOCO_GENESIS_HASH).encode())],
 			));
 		},
 		runtime = penpal_runtime,
@@ -63,7 +66,7 @@ decl_test_parachains! {
 			penpal_runtime::AuraExt::on_initialize(1);
 			frame_support::assert_ok!(penpal_runtime::System::set_storage(
 				penpal_runtime::RuntimeOrigin::root(),
-				vec![(PenpalRelayNetworkId::key().to_vec(), NetworkId::Westend.encode())],
+				vec![(PenpalRelayNetworkId::key().to_vec(), NetworkId::ByGenesis(WESTEND_GENESIS_HASH).encode())],
 			));
 		},
 		runtime = penpal_runtime,
