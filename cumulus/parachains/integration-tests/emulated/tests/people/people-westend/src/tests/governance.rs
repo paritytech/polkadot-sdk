@@ -18,7 +18,9 @@ use frame_support::traits::ProcessMessageError;
 
 use codec::Encode;
 use frame_support::{
-	assert_err, dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo}, pallet_prelude::{DispatchError, Pays},
+	assert_err,
+	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
+	pallet_prelude::{DispatchError, Pays},
 	sp_runtime::traits::Dispatchable,
 };
 use parachains_common::AccountId;
@@ -32,8 +34,7 @@ use emulated_integration_tests_common::accounts::{ALICE, BOB};
 
 #[test]
 fn relay_commands_add_registrar() {
-	let (origin_kind, origin) = 
-		(OriginKind::Superuser, <Westend as Chain>::RuntimeOrigin::root());
+	let (origin_kind, origin) = (OriginKind::Superuser, <Westend as Chain>::RuntimeOrigin::root());
 
 	let registrar: AccountId = [1; 32].into();
 	Westend::execute_with(|| {
@@ -123,13 +124,13 @@ fn relay_commands_add_registrar_wrong_origin() {
 				]))),
 			});
 
-				assert_ok!(xcm_message.dispatch(origin));
-				assert_expected_events!(
-					Westend,
-					vec![
-						RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-					]
-				);
+			assert_ok!(xcm_message.dispatch(origin));
+			assert_expected_events!(
+				Westend,
+				vec![
+					RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+				]
+			);
 		});
 
 		PeopleWestend::execute_with(|| {
@@ -141,7 +142,7 @@ fn relay_commands_add_registrar_wrong_origin() {
 					vec![
 						RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed { error: ProcessMessageError::Unsupported, .. }) => {},
 					]
-				);	
+				);
 			} else {
 				assert_expected_events!(
 					PeopleWestend,
@@ -259,14 +260,14 @@ fn relay_commands_kill_identity_wrong_origin() {
 			type PeopleCall = <PeopleWestend as Chain>::RuntimeCall;
 			type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 			type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
-	
+
 			let kill_identity_call =
 				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
 					target: people_westend_runtime::MultiAddress::Id(PeopleWestend::account_id_of(
 						ALICE,
 					)),
 				});
-	
+
 			let xcm_message = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
 				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 				message: bx!(VersionedXcm::from(Xcm(vec![
@@ -278,7 +279,7 @@ fn relay_commands_kill_identity_wrong_origin() {
 					}
 				]))),
 			});
-	
+
 			assert_ok!(xcm_message.dispatch(origin));
 			assert_expected_events!(
 				Westend,
@@ -286,13 +287,10 @@ fn relay_commands_kill_identity_wrong_origin() {
 					RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
 				]
 			);
-	});
-	
+		});
+
 		PeopleWestend::execute_with(|| {
-			assert_expected_events!(
-				PeopleWestend,
-				vec![]
-			);
+			assert_expected_events!(PeopleWestend, vec![]);
 		});
 	}
 }
@@ -302,9 +300,8 @@ fn relay_commands_add_remove_username_authority() {
 	let people_westend_alice = PeopleWestend::account_id_of(ALICE);
 	let people_westend_bob = PeopleWestend::account_id_of(BOB);
 
-	let origins = vec![
-		(OriginKind::Superuser, <Westend as Chain>::RuntimeOrigin::root(), "rootusername")
-		];
+	let origins =
+		vec![(OriginKind::Superuser, <Westend as Chain>::RuntimeOrigin::root(), "rootusername")];
 	for (origin_kind, origin, usr) in origins {
 		// First, add a username authority.
 		Westend::execute_with(|| {
@@ -454,7 +451,10 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 	let people_westend_alice = PeopleWestend::account_id_of(ALICE);
 
 	let origins = vec![
-		(OriginKind::SovereignAccount, <Westend as Chain>::RuntimeOrigin::signed(people_westend_alice.clone())),
+		(
+			OriginKind::SovereignAccount,
+			<Westend as Chain>::RuntimeOrigin::signed(people_westend_alice.clone()),
+		),
 		//(OriginKind::Xcm, GeneralAdminOrigin.into()),
 	];
 
@@ -500,17 +500,11 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 				assert_err!(
 					add_authority_xcm_msg.dispatch(origin.clone()),
 					DispatchErrorWithPostInfo {
-						post_info: PostDispatchInfo {
-							actual_weight: None,
-							pays_fee: Pays::Yes,
-						},
+						post_info: PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes },
 						error: DispatchError::BadOrigin,
 					},
 				);
-				assert_expected_events!(
-					Westend,
-					vec![]
-				);
+				assert_expected_events!(Westend, vec![]);
 			}
 		});
 

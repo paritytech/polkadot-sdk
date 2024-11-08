@@ -17,7 +17,9 @@ use crate::imports::*;
 
 use codec::Encode;
 use frame_support::{
-	assert_err, dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo}, pallet_prelude::{DispatchError, Pays},
+	assert_err,
+	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
+	pallet_prelude::{DispatchError, Pays},
 	sp_runtime::traits::Dispatchable,
 };
 use parachains_common::AccountId;
@@ -133,17 +135,11 @@ fn relay_commands_add_registrar_wrong_origin() {
 				assert_err!(
 					xcm_message.dispatch(origin),
 					DispatchErrorWithPostInfo {
-						post_info: PostDispatchInfo {
-							actual_weight: None,
-							pays_fee: Pays::Yes,
-						},
+						post_info: PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes },
 						error: DispatchError::BadOrigin,
 					},
 				);
-				assert_expected_events!(
-					Rococo,
-					vec![]
-				);
+				assert_expected_events!(Rococo, vec![]);
 			}
 		});
 
@@ -258,14 +254,14 @@ fn relay_commands_kill_identity_wrong_origin() {
 			type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
 			type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
 			type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
-	
+
 			let kill_identity_call =
 				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
 					target: people_rococo_runtime::MultiAddress::Id(PeopleRococo::account_id_of(
 						ALICE,
 					)),
 				});
-	
+
 			let xcm_message = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
 				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 				message: bx!(VersionedXcm::from(Xcm(vec![
@@ -277,7 +273,7 @@ fn relay_commands_kill_identity_wrong_origin() {
 					}
 				]))),
 			});
-	
+
 			if signed_origin {
 				assert_ok!(xcm_message.dispatch(origin));
 				assert_expected_events!(
@@ -290,25 +286,16 @@ fn relay_commands_kill_identity_wrong_origin() {
 				assert_err!(
 					xcm_message.dispatch(origin),
 					DispatchErrorWithPostInfo {
-						post_info: PostDispatchInfo {
-							actual_weight: None,
-							pays_fee: Pays::Yes,
-						},
+						post_info: PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes },
 						error: DispatchError::BadOrigin,
 					},
 				);
-				assert_expected_events!(
-					Rococo,
-					vec![]
-				);
+				assert_expected_events!(Rococo, vec![]);
 			}
 		});
-	
+
 		PeopleRococo::execute_with(|| {
-			assert_expected_events!(
-				PeopleRococo,
-				vec![]
-			);
+			assert_expected_events!(PeopleRococo, vec![]);
 		});
 
 		signed_origin = false;
@@ -473,7 +460,10 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 	let people_rococo_alice = PeopleRococo::account_id_of(ALICE);
 
 	let origins = vec![
-		(OriginKind::SovereignAccount, <Rococo as Chain>::RuntimeOrigin::signed(people_rococo_alice.clone())),
+		(
+			OriginKind::SovereignAccount,
+			<Rococo as Chain>::RuntimeOrigin::signed(people_rococo_alice.clone()),
+		),
 		(OriginKind::Xcm, GeneralAdminOrigin.into()),
 	];
 
@@ -519,17 +509,11 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 				assert_err!(
 					add_authority_xcm_msg.dispatch(origin.clone()),
 					DispatchErrorWithPostInfo {
-						post_info: PostDispatchInfo {
-							actual_weight: None,
-							pays_fee: Pays::Yes,
-						},
+						post_info: PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes },
 						error: DispatchError::BadOrigin,
 					},
 				);
-				assert_expected_events!(
-					Rococo,
-					vec![]
-				);
+				assert_expected_events!(Rococo, vec![]);
 			}
 		});
 
@@ -577,17 +561,11 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 				assert_err!(
 					remove_authority_xcm_msg.dispatch(origin),
 					DispatchErrorWithPostInfo {
-						post_info: PostDispatchInfo {
-							actual_weight: None,
-							pays_fee: Pays::Yes,
-						},
+						post_info: PostDispatchInfo { actual_weight: None, pays_fee: Pays::Yes },
 						error: DispatchError::BadOrigin,
 					},
 				);
-				assert_expected_events!(
-					Rococo,
-					vec![]
-				);
+				assert_expected_events!(Rococo, vec![]);
 			}
 		});
 
