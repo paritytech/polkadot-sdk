@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{mock::*, *};
-use frame_support::{assert_ok, testing_prelude::*};
+use frame_support::{assert_ok, testing_prelude::*, BoundedBTreeSet};
 use substrate_test_utils::assert_eq_uvec;
 
 use frame_election_provider_support::{
@@ -52,6 +52,9 @@ fn add_electable_stashes_work() {
 			ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
 			vec![1, 2, 3, 4, 6]
 		);
+
+		// skip final try state checks.
+		SkipTryStateCheck::set(true);
 	})
 }
 
@@ -100,8 +103,12 @@ mod paged_on_initialize {
 				assert_eq!(ElectingStartedAt::<Test>::get(), None);
 				assert!(ElectableStashes::<Test>::get().is_empty());
 
+				// try-state sanity check.
+				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
+
 				// 2. starts preparing election at the (election_prediction - n_pages) block.
 				run_to_block(next_election - pages);
+				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 				// electing started at cursor is set once the election starts to be prepared.
 				assert_eq!(ElectingStartedAt::<Test>::get(), Some(next_election - pages));
@@ -116,6 +123,7 @@ mod paged_on_initialize {
 
 				// 3. progress to election block, which matches with era rotation.
 				run_to_block(next_election);
+				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				assert_eq!(current_era(), 1);
 				// clears out election metadata for era.
 				assert!(ElectingStartedAt::<Test>::get().is_none());
@@ -174,7 +182,11 @@ mod paged_on_initialize {
 					]
 				);
 
+				// try-state sanity check.
+				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
+
 				start_session(1);
+				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				assert_eq!(current_era(), 0);
 				// election haven't started yet.
 				assert_eq!(ElectingStartedAt::<Test>::get(), None);
@@ -182,6 +194,7 @@ mod paged_on_initialize {
 
 				// progress to era rotation session.
 				start_session(SessionsPerEra::get());
+				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				assert_eq!(current_era(), 1);
 				assert_eq_uvec!(Session::validators(), vec![11, 21, 31]);
 				assert_eq!(
@@ -212,6 +225,7 @@ mod paged_on_initialize {
 
 				// progress session and rotate era.
 				start_session(SessionsPerEra::get() * 2);
+				assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				assert_eq!(current_era(), 2);
 				assert_eq_uvec!(Session::validators(), vec![11, 21]);
 
@@ -242,10 +256,10 @@ mod paged_on_initialize {
 	#[test]
 	fn multi_page_election_works() {
 		ExtBuilder::default()
-		    .add_staker(61, 61, 10, StakerStatus::Validator)
-		    .add_staker(71, 71, 10, StakerStatus::Validator)
-		    .add_staker(81, 81, 10, StakerStatus::Validator)
-		    .add_staker(91, 91, 10, StakerStatus::Validator)
+		    .add_staker(61, 61, 1000, StakerStatus::Validator)
+		    .add_staker(71, 71, 1000, StakerStatus::Validator)
+		    .add_staker(81, 81, 1000, StakerStatus::Validator)
+		    .add_staker(91, 91, 1000, StakerStatus::Validator)
 			.multi_page_election_provider(3)
             .max_winners_per_page(5)
 			.build_and_execute(|| {
@@ -278,15 +292,20 @@ mod paged_on_initialize {
 				ValidatorCount::<Test>::set(expected_elected.len() as u32);
 				assert_eq!(expected_elected.len(), 5);
 
+                // try-state sanity check.
+                assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
+
 				// 1. election prep hasn't started yet, election cursor and electable stashes are not
 				// set yet.
 				run_to_block(next_election - pages - 1);
+                assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 				assert_eq!(ElectingStartedAt::<Test>::get(), None);
 				assert!(ElectableStashes::<Test>::get().is_empty());
 
 				// 2. starts preparing election at the (election_prediction - n_pages) block.
                 //  fetches msp (i.e. 2).
 				run_to_block(next_election - pages);
+                assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
 
 				// electing started at cursor is set once the election starts to be prepared.
 				assert_eq!(ElectingStartedAt::<Test>::get(), Some(next_election - pages));
@@ -305,6 +324,7 @@ mod paged_on_initialize {
 
                 // 3. progress one block to fetch page 1.
                 run_to_block(System::block_number() + 1);
+                assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
                 // the electable stashes remain the same.
 				assert_eq_uvec!(
 					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
@@ -320,6 +340,7 @@ mod paged_on_initialize {
 
                 // 4. progress one block to fetch lsp (i.e. 0).
                 run_to_block(System::block_number() + 1);
+                assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
                 // the electable stashes remain the same.
 				assert_eq_uvec!(
 					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
@@ -336,6 +357,7 @@ mod paged_on_initialize {
 				assert_eq!(ElectingStartedAt::<Test>::get(), Some(next_election - pages));
 
                 // 5. rotate era.
+                assert_ok!(Staking::ensure_snapshot_metadata_state(System::block_number()));
                 start_active_era(current_era() + 1);
                 // the new era validators are the expected elected stashes.
                 assert_eq_uvec!(Session::validators(), expected_elected);
@@ -343,6 +365,62 @@ mod paged_on_initialize {
 				assert!(ElectingStartedAt::<Test>::get().is_none());
 				assert!(ElectableStashes::<Test>::get().is_empty());
 			})
+	}
+
+	#[test]
+	fn try_state_failure_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			let pages: BlockNumber =
+				<<Test as Config>::ElectionProvider as ElectionProvider>::Pages::get().into();
+			let next_election =
+				<Staking as ElectionDataProvider>::next_election_prediction(System::block_number());
+
+			let mut invalid_stashes = BoundedBTreeSet::new();
+
+			run_to_block(next_election - pages - 1);
+
+			// election hasn't started yet, no electable stashes expected in storage.
+			assert_ok!(invalid_stashes.try_insert(42));
+			ElectableStashes::<Test>::set(invalid_stashes);
+			assert_err!(
+				Staking::ensure_snapshot_metadata_state(System::block_number()),
+				"unexpected electable stashes in storage while election prep hasn't started."
+			);
+			Staking::clear_election_metadata();
+
+			// election hasn't started yet, no electable stashes expected in storage.
+			ElectingStartedAt::<Test>::set(Some(42));
+			assert_err!(
+				Staking::ensure_snapshot_metadata_state(System::block_number()),
+				"unexpected election metadata while election prep hasn't started."
+			);
+			Staking::clear_election_metadata();
+
+			run_to_block(next_election - pages);
+
+			// election prep started, metadata, electable stashes and exposures are expected to
+			// exist.
+			let _ = ErasStakersOverview::<Test>::clear(u32::MAX, None);
+			let _ = ErasStakersPaged::<Test>::clear(u32::MAX, None);
+			assert_err!(
+				Staking::ensure_snapshot_metadata_state(System::block_number()),
+				"no exposures collected for an electable stash."
+			);
+
+			ElectingStartedAt::<Test>::kill();
+			assert_err!(
+				Staking::ensure_snapshot_metadata_state(System::block_number()),
+				"election prep should have started already, no election metadata in storage."
+			);
+			ElectingStartedAt::<Test>::set(Some(424242));
+			assert_err!(
+				Staking::ensure_snapshot_metadata_state(System::block_number()),
+				"unexpected electing_started_at block number in storage."
+			);
+
+			// skip final try state checks.
+			SkipTryStateCheck::set(true);
+		})
 	}
 }
 

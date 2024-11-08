@@ -254,7 +254,7 @@ impl<
 			SP::elect(page)
 		} else {
 			// will take first `MaxWinnersPerPage` in the validator set as winners. in this mock
-			// impl, we return a random nominator exposure per winner/page.
+			// impl, we return an arbitratily but deterministic nominator exposure per winner/page.
 			let supports: Vec<(AccountId, Support<AccountId>)> = Validators::<Test>::iter_keys()
 				.filter(|x| Staking::status(x) == Ok(StakerStatus::Validator))
 				.take(Self::MaxWinnersPerPage::get() as usize)

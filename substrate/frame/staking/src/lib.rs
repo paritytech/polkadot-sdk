@@ -1360,7 +1360,7 @@ impl<T: Config> EraInfo<T> {
 			// insert metadata.
 			ErasStakersOverview::<T>::insert(era, &validator, exposure_metadata);
 
-			// insert or update validator's overview.
+			// insert validator's overview.
 			exposure_pages.iter().enumerate().for_each(|(idx, paged_exposure)| {
 				let append_at = idx as Page;
 				<ErasStakersPaged<T>>::insert((era, &validator, append_at), &paged_exposure);

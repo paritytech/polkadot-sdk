@@ -80,6 +80,12 @@ impl<T: Config> Pallet<T> {
 		<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get()
 	}
 
+	/// Clears up all election preparation metadata in storage.
+	pub(crate) fn clear_election_metadata() {
+		ElectingStartedAt::<T>::kill();
+		ElectableStashes::<T>::kill();
+	}
+
 	/// Fetches the ledger associated with a controller or stash account, if any.
 	pub fn ledger(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
 		StakingLedger::<T>::get(account)
@@ -633,8 +639,8 @@ impl<T: Config> Pallet<T> {
 		if let Some(old_era) = new_planned_era.checked_sub(T::HistoryDepth::get() + 1) {
 			Self::clear_era_information(old_era);
 		}
-		// Including electing targets of previous era.
-		ElectingStartedAt::<T>::kill();
+		// Including election prep metadata.
+		Self::clear_election_metadata();
 	}
 
 	/// Potentially plan a new era.
@@ -704,6 +710,9 @@ impl<T: Config> Pallet<T> {
 				_ => {},
 			}
 
+			// election failed, clear election prep metadata.
+			Self::clear_election_metadata();
+
 			Self::deposit_event(Event::StakingElectionFailed);
 			return None
 		}
@@ -726,12 +735,15 @@ impl<T: Config> Pallet<T> {
 			Ok(result) => result,
 			Err(e) => {
 				log!(warn, "election provider page failed due to {:?} (page: {})", e, page);
+				// election failed, clear election prep metadata.
+				Self::clear_election_metadata();
+
 				Self::deposit_event(Event::StakingElectionFailed);
 				return
 			},
 		};
 
-		// preparing the next era. Note: we expect elect paged to be called *only* during a
+		// preparing the next era. Note: we expect `do_elect_paged` to be called *only* during a
 		// non-genesis era, thus current era should be set by now.
 		let planning_era = CurrentEra::<T>::get().defensive_unwrap_or_default().saturating_add(1);
 
@@ -2112,13 +2124,14 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
-	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+	pub(crate) fn do_try_state(now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		ensure!(
 			T::VoterList::iter()
 				.all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x)),
 			"VoterList contains non-staker"
 		);
 
+		Self::ensure_snapshot_metadata_state(now)?;
 		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
@@ -2127,6 +2140,68 @@ impl<T: Config> Pallet<T> {
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
 		Self::ensure_disabled_validators_sorted()
+	}
+
+	/// Invariants:
+	/// TODO
+	pub fn ensure_snapshot_metadata_state(now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		let pages: BlockNumberFor<T> = Self::election_pages().into();
+		let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
+		let expect_election_start_at = next_election.saturating_sub(pages);
+
+		let election_prep_started = now >= expect_election_start_at;
+
+		// check election metadata, electable targets and era exposures if election should have
+		// already started.
+		match election_prep_started {
+			// election prep should have been started.
+			true =>
+				if let Some(started_at) = ElectingStartedAt::<T>::get() {
+					ensure!(
+						started_at == expect_election_start_at,
+						"unexpected electing_started_at block number in storage."
+					);
+					ensure!(
+						!ElectableStashes::<T>::get().is_empty(),
+						"election should have been started and the electable stashes non empty."
+					);
+
+					// all the current electable stashes exposures should have been collected and
+					// stored for the next era, and their total exposure suhould be > 0.
+					for s in ElectableStashes::<T>::get().iter() {
+						ensure!(
+							EraInfo::<T>::get_paged_exposure(
+								Self::current_era().unwrap_or_default().saturating_add(1),
+								s,
+								0
+							)
+							.defensive_proof("electable stash exposure does not exist, unexpected.")
+							.unwrap()
+							.exposure_metadata
+							.total != Zero::zero(),
+							"no exposures collected for an electable stash."
+						);
+					}
+				} else {
+					return Err(
+					"election prep should have started already, no election metadata in storage."
+						.into(),
+				);
+				},
+			// election prep should have not been started.
+			false => {
+				ensure!(
+					ElectableStashes::<T>::get().is_empty(),
+					"unexpected electable stashes in storage while election prep hasn't started."
+				);
+				ensure!(
+					ElectingStartedAt::<T>::get().is_none(),
+					"unexpected election metadata while election prep hasn't started.",
+				);
+			},
+		}
+
+		Ok(())
 	}
 
 	/// Invariants:
