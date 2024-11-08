@@ -120,6 +120,28 @@ fn unwrap_rpc_err(err: &subxt::error::RpcError) -> String {
 	}
 }
 
+/// Extract the revert message from a revert("msg") solidity statement.
+fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
+	// Check the first 4 bytes for the function selector (Error(string))
+	let function_selector = exec_data.get(0..4)?;
+
+	// keccak256("Error(string)") truncated
+	let expected_selector = [0x08, 0xC3, 0x79, 0xA0];
+	if function_selector != expected_selector {
+		return None;
+	}
+
+	// Extract the offset (32 bytes from the start of data)
+	let offset = U256::from_big_endian(exec_data.get(4..36)?).as_usize();
+
+	// Extract the length of the string (next 32 bytes)
+	let length = U256::from_big_endian(exec_data.get(36..36 + offset)?.try_into().ok()?);
+
+	// Extract the string data based on the length
+	let string_data = exec_data.get(68..68 + length.as_usize())?;
+	String::from_utf8(string_data.to_vec()).ok()
+}
+
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
@@ -135,6 +157,9 @@ pub enum ClientError {
 	/// The dry run failed.
 	#[error("Dry run failed")]
 	DryRunFailed(String),
+	/// Contract reverted
+	#[error("Execution reverted: {}", extract_revert_message(.0).unwrap_or_default())]
+	Reverted(Vec<u8>),
 	/// A decimal conversion failed.
 	#[error("Conversion failed")]
 	ConversionFailed,
@@ -658,7 +683,7 @@ impl Client {
 			},
 			Ok(result) if result.did_revert() => {
 				log::debug!(target: LOG_TARGET, "Dry run reverted");
-				Err(ClientError::DryRunFailed(format!("Reverted with: {result:?}")))
+				Err(ClientError::Reverted(result.0.data))
 			},
 			Ok(result) =>
 				Ok(EthContractResult { fee, gas_required, storage_deposit, result: result.0.data }),

@@ -2,8 +2,6 @@
 
 import { readFileSync } from "fs";
 import { Contract, ContractFactory, JsonRpcProvider, parseEther, TransactionResponse } from "ethers";
-import { ContractTransaction } from "ethers";
-import { Transaction } from "ethers";
 
 const provider = new JsonRpcProvider("http://localhost:8545");
 const signer = await provider.getSigner();
@@ -44,7 +42,7 @@ async function call(address: string) {
   const abi = ["function call(bytes data)"];
   const contract = new Contract(address, abi, signer);
 
-  const value = parseEther("42");
+  const value = parseEther("0"); // Change to 0 to revert
   const tx = await contract.call(str_to_bytes("world"), { value }) as TransactionResponse;
   console.log("Call transaction hash:", tx.hash);
   tx.wait();
