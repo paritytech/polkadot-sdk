@@ -554,7 +554,7 @@ async fn construct_and_distribute_receipt(
 
 		ccr.to_plain()
 	} else {
-		if commitments.selected_core().is_some() {
+		if commitments.core_selector().map_err(Error::CandidateReceiptCheck)?.is_some() {
 			gum::warn!(
 				target: LOG_TARGET,
 				?pov_hash,
