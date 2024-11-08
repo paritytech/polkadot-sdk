@@ -378,9 +378,9 @@ pub mod pallet {
 		/// A bounty proposal is funded and became active.
 		BountyBecameActive { index: BountyIndex },
 		/// A bounty is awarded to a beneficiary.
-		BountyAwarded { index: BountyIndex, beneficiary: T::AccountId },
+		BountyAwarded { index: BountyIndex, beneficiary: T::Beneficiary },
 		/// A bounty is claimed by beneficiary.
-		BountyClaimed { index: BountyIndex, payout: BalanceOf<T, I>, beneficiary: T::AccountId },
+		BountyClaimed { index: BountyIndex, payout: BalanceOf<T, I>, beneficiary: T::Beneficiary },
 		/// A bounty is cancelled.
 		BountyCanceled { index: BountyIndex },
 		/// A bounty expiry is extended.
