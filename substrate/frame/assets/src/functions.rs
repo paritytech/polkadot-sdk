@@ -697,46 +697,48 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			debug_assert!(source_account.balance >= debit, "checked in prep; qed");
 			source_account.balance = source_account.balance.saturating_sub(debit);
 
-			Account::<T, I>::try_mutate(&id, &dest, |maybe_account| -> DispatchResult {
-				match maybe_account {
-					Some(ref mut account) => {
-						// Calculate new balance; this will not saturate since it's already checked
-						// in prep.
-						debug_assert!(
-							account.balance.checked_add(&credit).is_some(),
-							"checked in prep; qed"
-						);
-						account.balance.saturating_accrue(credit);
-					},
-					maybe_account @ None => {
-						*maybe_account = Some(AssetAccountOf::<T, I> {
-							balance: credit,
-							status: AccountStatus::Liquid,
-							reason: Self::new_account(dest, details, None)?,
-							extra: T::Extra::default(),
-						});
-					},
-				}
-				Ok(())
-			})?;
+			with_storage_layer(|| {
+				Account::<T, I>::try_mutate(&id, &dest, |maybe_account| -> DispatchResult {
+					match maybe_account {
+						Some(ref mut account) => {
+							// Calculate new balance; this will not saturate since it's already checked
+							// in prep.
+							debug_assert!(
+								account.balance.checked_add(&credit).is_some(),
+								"checked in prep; qed"
+							);
+							account.balance.saturating_accrue(credit);
+						},
+						maybe_account @ None => {
+							*maybe_account = Some(AssetAccountOf::<T, I> {
+								balance: credit,
+								status: AccountStatus::Liquid,
+								reason: Self::new_account(dest, details, None)?,
+								extra: T::Extra::default(),
+							});
+						},
+					}
+					Ok(())
+				})?;
 
-			// Remove source account if it's now dead.
-			if source_account.balance < details.min_balance {
-				debug_assert!(source_account.balance.is_zero(), "checked in prep; qed");
-				source_died = Some(Self::dead_account(
-					id.clone(),
-					source,
-					details,
-					&source_account.reason,
-					false,
-				)?);
-				if let Some(Remove) = source_died {
-					Account::<T, I>::remove(&id, &source);
-					return Ok(())
+				// Remove source account if it's now dead.
+				if source_account.balance < details.min_balance {
+					debug_assert!(source_account.balance.is_zero(), "checked in prep; qed");
+					source_died = Some(Self::dead_account(
+						id.clone(),
+						source,
+						details,
+						&source_account.reason,
+						false,
+					)?);
+					if let Some(Remove) = source_died {
+						Account::<T, I>::remove(&id, &source);
+						return Ok(())
+					}
 				}
-			}
-			Account::<T, I>::insert(&id, &source, &source_account);
-			Ok(())
+				Account::<T, I>::insert(&id, &source, &source_account);
+				Ok(())
+			})
 		})?;
 
 		Self::deposit_event(Event::Transferred {
