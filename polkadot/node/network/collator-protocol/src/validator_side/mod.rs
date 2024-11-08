@@ -1170,8 +1170,8 @@ where
 	Ok(())
 }
 
-/// Enqueue collation for fetching. The advertisement is expected to be
-/// validated and the seconding limit checked.
+/// Enqueue collation for fetching. The advertisement is expected to be validated and the seconding
+/// limit checked.
 async fn enqueue_collation<Sender>(
 	sender: &mut Sender,
 	state: &mut State,
