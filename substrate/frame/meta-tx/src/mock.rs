@@ -33,7 +33,7 @@ pub type Balance = u64;
 pub type Signature = MultiSignature;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-pub type Extension = (
+pub type TxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -45,7 +45,7 @@ pub type Extension = (
 );
 
 pub type UncheckedExtrinsic =
-	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, Signature, Extension>;
+	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, Signature, TxExtension>;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 pub type MetaTxExtension = (

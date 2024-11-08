@@ -113,6 +113,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching origin type.
+		// We need extra `AsTransactionAuthorizedOrigin` bound to use `DispatchTransaction` impl.
 		type RuntimeOrigin: AsTransactionAuthorizedOrigin
 			+ From<SystemOrigin<Self::AccountId>>
 			+ IsType<<Self as frame_system::Config>::RuntimeOrigin>;
