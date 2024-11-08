@@ -19,37 +19,23 @@
 
 use crate::{self as pallet_babe, Config, CurrentSlot};
 use codec::Encode;
+use frame::{
+	deps::sp_runtime::curve::PiecewiseLinear, prelude::*, runtime::prelude::*, testing_prelude::*,
+};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, OnInitialize},
-};
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
-use sp_core::{
-	crypto::{Pair, VrfSecret},
-	U256,
-};
-use sp_io;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	impl_opaque_keys,
-	testing::{Digest, DigestItem, Header, TestXt},
-	traits::{Header as _, OpaqueKeys},
-	BuildStorage, Perbill,
-};
 use sp_staking::{EraIndex, SessionIndex};
 
 type DummyValidatorId = u64;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
-	pub enum Test
-	{
+construct_runtime!(
+	pub struct Test {
 		System: frame_system,
 		Authorship: pallet_authorship,
 		Balances: pallet_balances,
@@ -197,11 +183,11 @@ impl Config for Test {
 }
 
 pub fn go_to_block(n: u64, s: u64) {
-	use frame_support::traits::OnFinalize;
+	use frame::traits::OnFinalize;
 
-	Babe::on_finalize(System::block_number());
-	Session::on_finalize(System::block_number());
-	Staking::on_finalize(System::block_number());
+	<Babe as OnFinalize<_>>::on_finalize(System::block_number());
+	<Session as OnFinalize<_>>::on_finalize(System::block_number());
+	<Staking as OnFinalize<_>>::on_finalize(System::block_number());
 
 	let parent_hash = if System::block_number() > 1 {
 		let hdr = System::finalize();
@@ -292,13 +278,11 @@ pub fn make_vrf_signature_and_randomness(
 	(signature, randomness)
 }
 
-pub fn new_test_ext(authorities_len: usize) -> sp_io::TestExternalities {
+pub fn new_test_ext(authorities_len: usize) -> TestState {
 	new_test_ext_with_pairs(authorities_len).1
 }
 
-pub fn new_test_ext_with_pairs(
-	authorities_len: usize,
-) -> (Vec<AuthorityPair>, sp_io::TestExternalities) {
+pub fn new_test_ext_with_pairs(authorities_len: usize) -> (Vec<AuthorityPair>, TestState) {
 	let pairs = (0..authorities_len)
 		.map(|i| AuthorityPair::from_seed(&U256::from(i).to_little_endian()))
 		.collect::<Vec<_>>();
@@ -308,7 +292,7 @@ pub fn new_test_ext_with_pairs(
 	(pairs, new_test_ext_raw_authorities(public))
 }
 
-pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::TestExternalities {
+pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
@@ -356,7 +340,7 @@ pub fn generate_equivocation_proof(
 	offender_authority_index: u32,
 	offender_authority_pair: &AuthorityPair,
 	slot: Slot,
-) -> sp_consensus_babe::EquivocationProof<Header> {
+) -> sp_consensus_babe::EquivocationProof<TestHeader> {
 	use sp_consensus_babe::digests::CompatibleDigestItem;
 
 	let current_block = System::block_number();
@@ -374,7 +358,7 @@ pub fn generate_equivocation_proof(
 
 	// sign the header prehash and sign it, adding it to the block as the seal
 	// digest item
-	let seal_header = |header: &mut Header| {
+	let seal_header = |header: &mut TestHeader| {
 		let prehash = header.hash();
 		let seal = <DigestItem as CompatibleDigestItem>::babe_seal(
 			offender_authority_pair.sign(prehash.as_ref()),

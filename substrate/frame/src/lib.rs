@@ -213,19 +213,25 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
+	/// All hashing related things.
 	pub use super::hashing::*;
+
+	/// All arithmetic types used for safe math.
+	pub use super::arithmetic::*;
 
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion, Saturating, StaticLookup,
-		TrailingZeroInput,
+		Bounded, DispatchInfoOf, Dispatchable, Header, OpaqueKeys, SaturatedConversion, Saturating,
+		StaticLookup, TrailingZeroInput, ValidateUnsigned,
 	};
 
-	/// Other error/result types for runtime
+	/// Other error/result types for runtime.
 	#[doc(no_inline)]
-	pub use sp_runtime::{DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError};
+	pub use sp_runtime::{
+		BoundToRuntimeAppPublic, ConsensusEngineId, DispatchErrorWithPostInfo,
+		DispatchResultWithInfo, TokenError,
+	};
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -279,7 +285,10 @@ pub mod weights_prelude {
 	pub use frame_support::{
 		traits::Get,
 		weights::{
-			constants::{ParityDbWeight, RocksDbWeight},
+			constants::{
+				ParityDbWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_MICROS,
+				WEIGHT_REF_TIME_PER_NANOS,
+			},
 			Weight,
 		},
 	};
@@ -389,7 +398,7 @@ pub mod runtime {
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
 		pub use sp_keyring::AccountKeyring;
-		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
+		pub use sp_runtime::{impl_opaque_keys, ApplyExtrinsicResult, ExtrinsicInclusionMode};
 	}
 
 	/// Types and traits for runtimes that implement runtime APIs.
@@ -490,7 +499,12 @@ pub mod runtime {
 	#[cfg(feature = "std")]
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
-		pub use sp_runtime::BuildStorage;
+		pub use sp_runtime::{
+			testing::{Digest, DigestItem, TestXt},
+			BuildStorage,
+		};
+		/// Re-export testing `Header` to unambiguate re-export `prelude::Header`.
+		pub type TestHeader = sp_runtime::testing::Header;
 	}
 }
 
@@ -525,7 +539,11 @@ pub mod derive {
 }
 
 pub mod hashing {
-	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
+	pub use sp_core::{
+		crypto::{VrfPublic, VrfSecret, Wraps},
+		hashing::*,
+		Pair, H160, H256, H512, U256, U512,
+	};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
 }
 

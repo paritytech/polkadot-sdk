@@ -25,25 +25,19 @@ extern crate alloc;
 
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
-use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, Pays},
-	ensure,
-	traits::{ConstU32, DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
-	weights::Weight,
-	BoundedVec, WeakBoundedVec,
+use frame::{
+	deps::sp_runtime::generic::DigestItem,
+	prelude::*,
+	traits::{
+		DisabledValidators, EstimateNextSessionRotation, FindAuthor, IsMember,
+		Lateness as LatenessT, OnTimestampSet, OneSessionHandler, StorageInstance,
+	},
 };
-use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use sp_consensus_babe::{
 	digests::{NextConfigDescriptor, NextEpochDescriptor, PreDigest},
 	AllowedSlots, BabeAuthorityWeight, BabeEpochConfiguration, ConsensusLog, Epoch,
 	EquivocationProof, Randomness as BabeRandomness, Slot, BABE_ENGINE_ID, RANDOMNESS_LENGTH,
 	RANDOMNESS_VRF_CONTEXT,
-};
-use sp_core::crypto::Wraps;
-use sp_runtime::{
-	generic::DigestItem,
-	traits::{IsMember, One, SaturatedConversion, Saturating, Zero},
-	ConsensusEngineId, Permill,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
@@ -109,11 +103,9 @@ impl EpochChangeTrigger for SameAuthoritiesForever {
 
 const UNDER_CONSTRUCTION_SEGMENT_LENGTH: u32 = 256;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	/// The BABE Pallet
 	#[pallet::pallet]
@@ -311,7 +303,7 @@ pub mod pallet {
 	pub type SkippedEpochs<T> =
 		StorageValue<_, BoundedVec<(u64, SessionIndex), ConstU32<100>>, ValueQuery>;
 
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(frame::prelude::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: Vec<(AuthorityId, BabeAuthorityWeight)>,
@@ -369,7 +361,6 @@ pub mod pallet {
 							// execution. We don't run the verification again here to avoid slowing
 							// down the runtime.
 							debug_assert!({
-								use sp_core::crypto::VrfPublic;
 								public.vrf_verify(&transcript.clone().into_sign_data(), &signature)
 							});
 
@@ -943,9 +934,7 @@ impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T> {
 	}
 }
 
-impl<T: Config> frame_support::traits::EstimateNextSessionRotation<BlockNumberFor<T>>
-	for Pallet<T>
-{
+impl<T: Config> EstimateNextSessionRotation<BlockNumberFor<T>> for Pallet<T> {
 	fn average_session_length() -> BlockNumberFor<T> {
 		T::EpochDuration::get().saturated_into()
 	}
@@ -971,13 +960,13 @@ impl<T: Config> frame_support::traits::EstimateNextSessionRotation<BlockNumberFo
 	}
 }
 
-impl<T: Config> frame_support::traits::Lateness<BlockNumberFor<T>> for Pallet<T> {
+impl<T: Config> LatenessT<BlockNumberFor<T>> for Pallet<T> {
 	fn lateness(&self) -> BlockNumberFor<T> {
 		Lateness::<T>::get()
 	}
 }
 
-impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
+impl<T: Config> BoundToRuntimeAppPublic for Pallet<T> {
 	type Public = AuthorityId;
 }
 
@@ -1045,12 +1034,11 @@ fn compute_randomness(
 		s.extend_from_slice(&vrf_output[..]);
 	}
 
-	sp_io::hashing::blake2_256(&s)
+	blake2_256(&s)
 }
 
 pub mod migrations {
 	use super::*;
-	use frame_support::pallet_prelude::{StorageValue, ValueQuery};
 
 	/// Something that can return the storage prefix of the `Babe` pallet.
 	pub trait BabePalletPrefix: Config {
@@ -1058,7 +1046,7 @@ pub mod migrations {
 	}
 
 	struct __OldNextEpochConfig<T>(core::marker::PhantomData<T>);
-	impl<T: BabePalletPrefix> frame_support::traits::StorageInstance for __OldNextEpochConfig<T> {
+	impl<T: BabePalletPrefix> StorageInstance for __OldNextEpochConfig<T> {
 		fn pallet_prefix() -> &'static str {
 			T::pallet_prefix()
 		}
