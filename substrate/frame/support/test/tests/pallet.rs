@@ -458,7 +458,7 @@ pub mod pallet {
 		_myfield: u32,
 	}
 
-	#[pallet::view_functions]
+	#[pallet::view_functions_experimental]
 	impl<T: Config> Pallet<T>
 	where
 		T::AccountId: From<SomeType1> + SomeAssociation1,
