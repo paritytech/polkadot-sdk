@@ -103,6 +103,13 @@ pub trait Memory<T: Config> {
 		Ok(U256::from_little_endian(&buf))
 	}
 
+	/// Read a `H160` from the sandbox memory.
+	fn read_h160(&self, ptr: u32) -> Result<H160, DispatchError> {
+		let mut buf = H160::default();
+		self.read_into_buf(ptr, buf.as_bytes_mut())?;
+		Ok(buf)
+	}
+
 	/// Read a `H256` from the sandbox memory.
 	fn read_h256(&self, ptr: u32) -> Result<H256, DispatchError> {
 		let mut code_hash = H256::default();
@@ -291,12 +298,16 @@ pub enum RuntimeCosts {
 	CopyToContract(u32),
 	/// Weight of calling `seal_caller`.
 	Caller,
+	/// Weight of calling `seal_origin`.
+	Origin,
 	/// Weight of calling `seal_is_contract`.
 	IsContract,
 	/// Weight of calling `seal_code_hash`.
 	CodeHash,
 	/// Weight of calling `seal_own_code_hash`.
 	OwnCodeHash,
+	/// Weight of calling `seal_code_size`.
+	CodeSize,
 	/// Weight of calling `seal_caller_is_origin`.
 	CallerIsOrigin,
 	/// Weight of calling `caller_is_root`.
@@ -315,6 +326,8 @@ pub enum RuntimeCosts {
 	MinimumBalance,
 	/// Weight of calling `seal_block_number`.
 	BlockNumber,
+	/// Weight of calling `seal_block_hash`.
+	BlockHash,
 	/// Weight of calling `seal_now`.
 	Now,
 	/// Weight of calling `seal_weight_to_fee`.
@@ -345,8 +358,6 @@ pub enum RuntimeCosts {
 	GetTransientStorage(u32),
 	/// Weight of calling `seal_take_transient_storage` for the given size.
 	TakeTransientStorage(u32),
-	/// Weight of calling `seal_transfer`.
-	Transfer,
 	/// Base weight of calling `seal_call`.
 	CallBase,
 	/// Weight of calling `seal_delegate_call` for the given input size.
@@ -448,8 +459,10 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CopyToContract(len) => T::WeightInfo::seal_input(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			Caller => T::WeightInfo::seal_caller(),
+			Origin => T::WeightInfo::seal_origin(),
 			IsContract => T::WeightInfo::seal_is_contract(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
+			CodeSize => T::WeightInfo::seal_code_size(),
 			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
 			CallerIsOrigin => T::WeightInfo::seal_caller_is_origin(),
 			CallerIsRoot => T::WeightInfo::seal_caller_is_root(),
@@ -460,6 +473,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
+			BlockHash => T::WeightInfo::seal_block_hash(),
 			Now => T::WeightInfo::seal_now(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
@@ -487,7 +501,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			TakeTransientStorage(len) => {
 				cost_storage!(write_transient, seal_take_transient_storage, len)
 			},
-			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
@@ -994,8 +1007,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let call_outcome = match call_type {
 			CallType::Call { callee_ptr, value_ptr, deposit_ptr, weight } => {
-				let mut callee = H160::zero();
-				memory.read_into_buf(callee_ptr, callee.as_bytes_mut())?;
+				let callee = memory.read_h160(callee_ptr)?;
 				let deposit_limit = if deposit_ptr == SENTINEL {
 					U256::zero()
 				} else {
@@ -1125,8 +1137,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let count = self.ext.locked_delegate_dependencies_count() as _;
 		self.charge_gas(RuntimeCosts::Terminate(count))?;
 
-		let mut beneficiary = H160::zero();
-		memory.read_into_buf(beneficiary_ptr, beneficiary.as_bytes_mut())?;
+		let beneficiary = memory.read_h160(beneficiary_ptr)?;
 		self.ext.terminate(&beneficiary)?;
 		Err(TrapReason::Termination)
 	}
@@ -1219,30 +1230,6 @@ pub mod env {
 		out_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
-	}
-
-	/// Transfer some value to another account.
-	/// See [`pallet_revive_uapi::HostFn::transfer`].
-	#[api_version(0)]
-	#[mutating]
-	fn transfer(
-		&mut self,
-		memory: &mut M,
-		address_ptr: u32,
-		value_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::Transfer)?;
-		let mut callee = H160::zero();
-		memory.read_into_buf(address_ptr, callee.as_bytes_mut())?;
-		let value: U256 = memory.read_u256(value_ptr)?;
-		let result = self.ext.transfer(&callee, value);
-		match result {
-			Ok(()) => Ok(ReturnErrorCode::Success),
-			Err(err) => {
-				let code = Self::err_into_return_code(err)?;
-				Ok(code)
-			},
-		}
 	}
 
 	/// Make a call to another contract.
@@ -1388,13 +1375,27 @@ pub mod env {
 		)?)
 	}
 
+	/// Stores the address of the call stack origin into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::origin`].
+	#[api_version(0)]
+	fn origin(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::Origin)?;
+		let origin = <E::T as Config>::AddressMapper::to_address(self.ext.origin().account_id()?);
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			origin.as_bytes(),
+			false,
+			already_charged,
+		)?)
+	}
+
 	/// Checks whether a specified address belongs to a contract.
 	/// See [`pallet_revive_uapi::HostFn::is_contract`].
 	#[api_version(0)]
 	fn is_contract(&mut self, memory: &mut M, account_ptr: u32) -> Result<u32, TrapReason> {
 		self.charge_gas(RuntimeCosts::IsContract)?;
-		let mut address = H160::zero();
-		memory.read_into_buf(account_ptr, address.as_bytes_mut())?;
+		let address = memory.read_h160(account_ptr)?;
 		Ok(self.ext.is_contract(&address) as u32)
 	}
 
@@ -1403,12 +1404,26 @@ pub mod env {
 	#[api_version(0)]
 	fn code_hash(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CodeHash)?;
-		let mut address = H160::zero();
-		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
+		let address = memory.read_h160(addr_ptr)?;
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
 			&self.ext.code_hash(&address).as_bytes(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Retrieve the code size for a given contract address.
+	/// See [`pallet_revive_uapi::HostFn::code_size`].
+	#[api_version(0)]
+	fn code_size(&mut self, memory: &mut M, addr_ptr: u32, out_ptr: u32) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::CodeSize)?;
+		let address = memory.read_h160(addr_ptr)?;
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&self.ext.code_size(&address).to_little_endian(),
 			false,
 			already_charged,
 		)?)
@@ -1556,8 +1571,7 @@ pub mod env {
 		out_ptr: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::BalanceOf)?;
-		let mut address = H160::zero();
-		memory.read_into_buf(addr_ptr, address.as_bytes_mut())?;
+		let address = memory.read_h160(addr_ptr)?;
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
@@ -1671,6 +1685,27 @@ pub mod env {
 			memory,
 			out_ptr,
 			&self.ext.block_number().to_little_endian(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Stores the block hash at given block height into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::block_hash`].
+	#[api_version(0)]
+	fn block_hash(
+		&mut self,
+		memory: &mut M,
+		block_number_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BlockHash)?;
+		let block_number = memory.read_u256(block_number_ptr)?;
+		let block_hash = self.ext.block_hash(block_number).unwrap_or(H256::zero());
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&block_hash.as_bytes(),
 			false,
 			already_charged,
 		)?)
