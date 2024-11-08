@@ -16,7 +16,10 @@
 use crate::imports::*;
 
 use codec::Encode;
-use frame_support::{sp_runtime::traits::Dispatchable, traits::ProcessMessageError};
+use frame_support::{
+	assert_err, dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo}, pallet_prelude::{DispatchError, Pays},
+	sp_runtime::traits::Dispatchable,
+};
 use parachains_common::AccountId;
 use people_rococo_runtime::people::IdentityInfo;
 use rococo_runtime::governance::pallet_custom_origins::Origin::GeneralAdmin as GeneralAdminOrigin;
@@ -28,58 +31,54 @@ use emulated_integration_tests_common::accounts::{ALICE, BOB};
 
 #[test]
 fn relay_commands_add_registrar() {
-	let origins = vec![
-		//(OriginKind::Xcm, GeneralAdminOrigin.into()),
-		(OriginKind::Superuser, <Rococo as Chain>::RuntimeOrigin::root()),
-	];
-	for (origin_kind, origin) in origins {
-		let registrar: AccountId = [1; 32].into();
-		Rococo::execute_with(|| {
-			type Runtime = <Rococo as Chain>::Runtime;
-			type RuntimeCall = <Rococo as Chain>::RuntimeCall;
-			type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
-			type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
-			type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
+	let (origin_kind, origin) = (OriginKind::Superuser, <Rococo as Chain>::RuntimeOrigin::root());
 
-			let add_registrar_call =
-				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_registrar {
-					account: registrar.into(),
-				});
+	let registrar: AccountId = [1; 32].into();
+	Rococo::execute_with(|| {
+		type Runtime = <Rococo as Chain>::Runtime;
+		type RuntimeCall = <Rococo as Chain>::RuntimeCall;
+		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
+		type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
+		type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
 
-			let xcm_message = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
-				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
-				message: bx!(VersionedXcm::from(Xcm(vec![
-					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact {
-						origin_kind,
-						require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
-						call: add_registrar_call.encode().into(),
-					}
-				]))),
+		let add_registrar_call =
+			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_registrar {
+				account: registrar.into(),
 			});
 
-			assert_ok!(xcm_message.dispatch(origin));
-
-			assert_expected_events!(
-				Rococo,
-				vec![
-					RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-				]
-			);
+		let xcm_message = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
+			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
+			message: bx!(VersionedXcm::from(Xcm(vec![
+				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				Transact {
+					origin_kind,
+					require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
+					call: add_registrar_call.encode().into(),
+				}
+			]))),
 		});
 
-		PeopleRococo::execute_with(|| {
-			type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+		assert_ok!(xcm_message.dispatch(origin));
 
-			assert_expected_events!(
-				PeopleRococo,
-				vec![
-					RuntimeEvent::Identity(pallet_identity::Event::RegistrarAdded { .. }) => {},
-					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
-				]
-			);
-		});
-	}
+		assert_expected_events!(
+			Rococo,
+			vec![
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+			]
+		);
+	});
+
+	PeopleRococo::execute_with(|| {
+		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			PeopleRococo,
+			vec![
+				RuntimeEvent::Identity(pallet_identity::Event::RegistrarAdded { .. }) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
+			]
+		);
+	});
 }
 
 #[test]
@@ -87,9 +86,14 @@ fn relay_commands_add_registrar_wrong_origin() {
 	let people_rococo_alice = PeopleRococo::account_id_of(ALICE);
 
 	let origins = vec![
-		(OriginKind::SovereignAccount, <Rococo as Chain>::RuntimeOrigin::signed(people_rococo_alice)),
+		(
+			OriginKind::SovereignAccount,
+			<Rococo as Chain>::RuntimeOrigin::signed(people_rococo_alice),
+		),
 		(OriginKind::Xcm, GeneralAdminOrigin.into()),
 	];
+
+	let mut signed_origin = true;
 
 	for (origin_kind, origin) in origins {
 		let registrar: AccountId = [1; 32].into();
@@ -99,7 +103,7 @@ fn relay_commands_add_registrar_wrong_origin() {
 			type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
 			type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
 			type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
-	
+
 			let add_registrar_call =
 				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_registrar {
 					account: registrar.into(),
@@ -116,27 +120,38 @@ fn relay_commands_add_registrar_wrong_origin() {
 					}
 				]))),
 			});
-	
-			assert_ok!(xcm_message.dispatch(origin));
-	
-			assert_expected_events!(
-				Rococo,
-				vec![
-					RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-				]
-			);
+
+			if signed_origin {
+				assert_ok!(xcm_message.dispatch(origin));
+				assert_expected_events!(
+					Rococo,
+					vec![
+						RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+					]
+				);
+			} else {
+				assert_err!(
+					xcm_message.dispatch(origin),
+					DispatchErrorWithPostInfo {
+						post_info: PostDispatchInfo {
+							actual_weight: None,
+							pays_fee: Pays::Yes,
+						},
+						error: DispatchError::BadOrigin,
+					},
+				);
+				assert_expected_events!(
+					Rococo,
+					vec![]
+				);
+			}
 		});
-	
+
 		PeopleRococo::execute_with(|| {
-			type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
-	
-			assert_expected_events!(
-				PeopleRococo,
-				vec![
-					RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed { error: ProcessMessageError::Unsupported, .. }) => {},
-				]
-			);
+			assert_expected_events!(PeopleRococo, vec![]);
 		});
+
+		signed_origin = false;
 	}
 }
 
@@ -220,6 +235,84 @@ fn relay_commands_kill_identity() {
 			]
 		);
 	});
+}
+
+#[test]
+fn relay_commands_kill_identity_wrong_origin() {
+	let people_rococo_alice = PeopleRococo::account_id_of(BOB);
+
+	let origins = vec![
+		(
+			OriginKind::SovereignAccount,
+			<Rococo as Chain>::RuntimeOrigin::signed(people_rococo_alice),
+		),
+		(OriginKind::Xcm, GeneralAdminOrigin.into()),
+	];
+
+	let mut signed_origin: bool = true;
+
+	for (origin_kind, origin) in origins {
+		Rococo::execute_with(|| {
+			type Runtime = <Rococo as Chain>::Runtime;
+			type RuntimeCall = <Rococo as Chain>::RuntimeCall;
+			type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
+			type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
+			type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
+	
+			let kill_identity_call =
+				PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::kill_identity {
+					target: people_rococo_runtime::MultiAddress::Id(PeopleRococo::account_id_of(
+						ALICE,
+					)),
+				});
+	
+			let xcm_message = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
+				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
+				message: bx!(VersionedXcm::from(Xcm(vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					Transact {
+						origin_kind,
+						require_weight_at_most: Weight::from_parts(11_000_000_000, 500_000),
+						call: kill_identity_call.encode().into(),
+					}
+				]))),
+			});
+	
+			if signed_origin {
+				assert_ok!(xcm_message.dispatch(origin));
+				assert_expected_events!(
+					Rococo,
+					vec![
+						RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+					]
+				);
+			} else {
+				assert_err!(
+					xcm_message.dispatch(origin),
+					DispatchErrorWithPostInfo {
+						post_info: PostDispatchInfo {
+							actual_weight: None,
+							pays_fee: Pays::Yes,
+						},
+						error: DispatchError::BadOrigin,
+					},
+				);
+				assert_expected_events!(
+					Rococo,
+					vec![]
+				);
+			}
+		});
+	
+		PeopleRococo::execute_with(|| {
+			assert_expected_events!(
+				PeopleRococo,
+				vec![]
+			);
+		});
+
+		signed_origin = false;
+	}
 }
 
 #[test]
@@ -372,5 +465,136 @@ fn relay_commands_add_remove_username_authority() {
 				]
 			);
 		});
+	}
+}
+
+#[test]
+fn relay_commands_add_remove_username_authority_wrong_origin() {
+	let people_rococo_alice = PeopleRococo::account_id_of(ALICE);
+
+	let origins = vec![
+		(OriginKind::SovereignAccount, <Rococo as Chain>::RuntimeOrigin::signed(people_rococo_alice.clone())),
+		(OriginKind::Xcm, GeneralAdminOrigin.into()),
+	];
+
+	let mut signed_origin = true;
+
+	for (origin_kind, origin) in origins {
+		Rococo::execute_with(|| {
+			type Runtime = <Rococo as Chain>::Runtime;
+			type RuntimeCall = <Rococo as Chain>::RuntimeCall;
+			type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
+			type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
+			type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
+
+			let add_username_authority = PeopleCall::Identity(pallet_identity::Call::<
+				PeopleRuntime,
+			>::add_username_authority {
+				authority: people_rococo_runtime::MultiAddress::Id(people_rococo_alice.clone()),
+				suffix: b"suffix1".into(),
+				allocation: 10,
+			});
+
+			let add_authority_xcm_msg = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
+				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
+				message: bx!(VersionedXcm::from(Xcm(vec![
+					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+					Transact {
+						origin_kind,
+						require_weight_at_most: Weight::from_parts(500_000_000, 500_000),
+						call: add_username_authority.encode().into(),
+					}
+				]))),
+			});
+
+			if signed_origin {
+				assert_ok!(add_authority_xcm_msg.dispatch(origin.clone()));
+				assert_expected_events!(
+					Rococo,
+					vec![
+						RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+					]
+				);
+			} else {
+				assert_err!(
+					add_authority_xcm_msg.dispatch(origin.clone()),
+					DispatchErrorWithPostInfo {
+						post_info: PostDispatchInfo {
+							actual_weight: None,
+							pays_fee: Pays::Yes,
+						},
+						error: DispatchError::BadOrigin,
+					},
+				);
+				assert_expected_events!(
+					Rococo,
+					vec![]
+				);
+			}
+		});
+
+		// Check events system-parachain-side
+		PeopleRococo::execute_with(|| {
+			assert_expected_events!(PeopleRococo, vec![]);
+		});
+
+		Rococo::execute_with(|| {
+			type Runtime = <Rococo as Chain>::Runtime;
+			type RuntimeCall = <Rococo as Chain>::RuntimeCall;
+			type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
+			type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
+			type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
+
+			let remove_username_authority = PeopleCall::Identity(pallet_identity::Call::<
+				PeopleRuntime,
+			>::remove_username_authority {
+				authority: people_rococo_runtime::MultiAddress::Id(people_rococo_alice.clone()),
+				suffix: b"suffix1".into(),
+			});
+
+			let remove_authority_xcm_msg =
+				RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
+					dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
+					message: bx!(VersionedXcm::from(Xcm(vec![
+						UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+						Transact {
+							origin_kind: OriginKind::SovereignAccount,
+							require_weight_at_most: Weight::from_parts(500_000_000, 500_000),
+							call: remove_username_authority.encode().into(),
+						}
+					]))),
+				});
+
+			if signed_origin {
+				assert_ok!(remove_authority_xcm_msg.dispatch(origin));
+				assert_expected_events!(
+					Rococo,
+					vec![
+						RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+					]
+				);
+			} else {
+				assert_err!(
+					remove_authority_xcm_msg.dispatch(origin),
+					DispatchErrorWithPostInfo {
+						post_info: PostDispatchInfo {
+							actual_weight: None,
+							pays_fee: Pays::Yes,
+						},
+						error: DispatchError::BadOrigin,
+					},
+				);
+				assert_expected_events!(
+					Rococo,
+					vec![]
+				);
+			}
+		});
+
+		PeopleRococo::execute_with(|| {
+			assert_expected_events!(PeopleRococo, vec![]);
+		});
+
+		signed_origin = false;
 	}
 }
