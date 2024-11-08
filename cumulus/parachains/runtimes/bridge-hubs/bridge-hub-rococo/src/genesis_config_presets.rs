@@ -23,6 +23,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::rococo::xcm_version::SAFE_XCM_VERSION;
+use xcm::latest::WESTEND_GENESIS_HASH;
 
 const BRIDGE_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
 
@@ -84,7 +85,7 @@ pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<
 			rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
 			vec![(
 				Location::new(1, [Parachain(1000)]),
-				Junctions::from([Westend.into(), Parachain(1000)]),
+				Junctions::from([ByGenesis(WESTEND_GENESIS_HASH).into(), Parachain(1000)]),
 				Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
 			)],
 		),
