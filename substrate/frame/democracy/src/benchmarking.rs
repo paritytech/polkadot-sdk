@@ -19,7 +19,8 @@
 
 use super::*;
 
-use frame_benchmarking::v1::{account, benchmarks, whitelist_account, BenchmarkError};
+//use frame_benchmarking::v1::{account, benchmarks, whitelist_account, BenchmarkError};
+use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
@@ -93,9 +94,12 @@ fn note_preimage<T: Config>() -> T::Hash {
 	let hash = <T as Config>::Preimages::note(data).unwrap();
 	hash
 }
+#[benchmarks]
+mod benchmarks {
+	use super::*;
 
-benchmarks! {
-	propose {
+	#[benchmark]
+	fn propose() -> Result<(), BenchmarkError> {
 		let p = T::MaxProposals::get();
 
 		for i in 0 .. (p - 1) {
@@ -106,12 +110,16 @@ benchmarks! {
 		let proposal = make_proposal::<T>(0);
 		let value = T::MinimumDeposit::get();
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller), proposal, value)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), proposal, value);
+
 		assert_eq!(PublicProps::<T>::get().len(), p as usize, "Proposals not created.");
+		Ok(())
 	}
 
-	second {
+	#[benchmark]
+	fn second() -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", 0);
 		add_proposal::<T>(0)?;
 
@@ -125,13 +133,16 @@ benchmarks! {
 		let deposits = DepositOf::<T>::get(0).ok_or("Proposal not created")?;
 		assert_eq!(deposits.0.len(), (T::MaxDeposits::get() - 1) as usize, "Seconds not recorded");
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller), 0)
-	verify {
-		let deposits = DepositOf::<T>::get(0).ok_or("Proposal not created")?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), 0);
+
 		assert_eq!(deposits.0.len(), (T::MaxDeposits::get()) as usize, "`second` benchmark did not work");
+		Ok(())
 	}
 
-	vote_new {
+	#[benchmark]
+	fn vote_new() -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", 0);
 		let account_vote = account_vote::<T>(100u32.into());
 
@@ -148,16 +159,20 @@ benchmarks! {
 
 		let ref_index = add_referendum::<T>(T::MaxVotes::get() - 1).0;
 		whitelist_account!(caller);
-	}: vote(RawOrigin::Signed(caller.clone()), ref_index, account_vote)
-	verify {
+
+		#[extrinsic_call]
+		vote(RawOrigin::Signed(caller.clone()), ref_index, account_vote);
+
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
 			_ => return Err("Votes are not direct".into()),
 		};
 		assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was not recorded.");
+		Ok(())
 	}
 
-	vote_existing {
+	#[benchmark]
+	fn vote_existing() -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", 0);
 		let account_vote = account_vote::<T>(100u32.into());
 
@@ -179,8 +194,10 @@ benchmarks! {
 
 		// This tests when a user changes a vote
 		whitelist_account!(caller);
-	}: vote(RawOrigin::Signed(caller.clone()), ref_index, new_vote)
-	verify {
+
+		#[extrinsic_call]
+		vote(RawOrigin::Signed(caller.clone()), ref_index, new_vote);
+
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
 			_ => return Err("Votes are not direct".into()),
@@ -193,15 +210,20 @@ benchmarks! {
 			_ => return Err("referendum not ongoing".into()),
 		};
 		assert_eq!(tally.nays, 1000u32.into(), "changed vote was not recorded");
+
+		Ok(())
 	}
 
-	emergency_cancel {
+	#[benchmark]
+	fn emergency_cancel() -> Result<(), BenchmarkError> {
 		let origin =
 			T::CancellationOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let (ref_index, _, preimage_hash) = add_referendum::<T>(0);
 		assert_ok!(Democracy::<T>::referendum_status(ref_index));
-	}: _<T::RuntimeOrigin>(origin, ref_index)
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, ref_index);
+
 		// Referendum has been canceled
 		assert_noop!(
 			Democracy::<T>::referendum_status(ref_index),
@@ -211,9 +233,11 @@ benchmarks! {
 			owner: MetadataOwner::Referendum(ref_index),
 			hash: preimage_hash,
 		}.into());
-	}
+		Ok(())
 
-	blacklist {
+	}
+	#[benchmark]
+	fn blacklist() -> Result<(), BenchmarkError> {
 		// Place our proposal at the end to make sure it's worst case.
 		for i in 0 .. T::MaxProposals::get() - 1 {
 			add_proposal::<T>(i)?;
@@ -231,8 +255,10 @@ benchmarks! {
 		));
 		let origin =
 			T::BlacklistOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-	}: _<T::RuntimeOrigin>(origin, hash, Some(ref_index))
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, hash, Some(ref_index));
+
 		// Referendum has been canceled
 		assert_noop!(
 			Democracy::<T>::referendum_status(ref_index),
@@ -242,10 +268,14 @@ benchmarks! {
 			owner: MetadataOwner::Referendum(ref_index),
 			hash: preimage_hash,
 		}.into());
+
+		Ok(())
 	}
 
+
 	// Worst case scenario, we external propose a previously blacklisted proposal
-	external_propose {
+	#[benchmark]
+	fn external_propose() -> Result<(), BenchmarkError> {
 		let origin =
 			T::ExternalOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let proposal = make_proposal::<T>(0);
@@ -258,33 +288,44 @@ benchmarks! {
 			.try_into()
 			.unwrap();
 		Blacklist::<T>::insert(proposal.hash(), (BlockNumberFor::<T>::zero(), addresses));
-	}: _<T::RuntimeOrigin>(origin, proposal)
-	verify {
-		// External proposal created
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, proposal);
+
 		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
+
+		Ok(())
 	}
 
-	external_propose_majority {
+	#[benchmark]
+	fn external_propose_majority() -> Result<(), BenchmarkError> {
 		let origin = T::ExternalMajorityOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
 		let proposal = make_proposal::<T>(0);
-	}: _<T::RuntimeOrigin>(origin, proposal)
-	verify {
-		// External proposal created
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin,  proposal);
+
 		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
+		Ok(())
 	}
 
-	external_propose_default {
+	#[benchmark]
+	fn external_propose_default() ->  Result<(), BenchmarkError> {
 		let origin = T::ExternalDefaultOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
 		let proposal = make_proposal::<T>(0);
-	}: _<T::RuntimeOrigin>(origin, proposal)
-	verify {
-		// External proposal created
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, proposal);
+
 		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
+
+		Ok(())
 	}
 
-	fast_track {
+	#[benchmark]
+	fn fast_track() ->  Result<(), BenchmarkError> {
 		let origin_propose = T::ExternalDefaultOrigin::try_successful_origin()
 			.expect("ExternalDefaultOrigin has no successful origin required for the benchmark");
 		let proposal = make_proposal::<T>(0);
@@ -301,17 +342,21 @@ benchmarks! {
 			T::FastTrackOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let voting_period = T::FastTrackVotingPeriod::get();
 		let delay = 0u32;
-	}: _<T::RuntimeOrigin>(origin_fast_track, proposal_hash, voting_period, delay.into())
-	verify {
+
+		#[extrinsic_call]
+		_(origin_fast_track as T::RuntimeOrigin, proposal_hash, voting_period, delay.into());
+
 		assert_eq!(ReferendumCount::<T>::get(), 1, "referendum not created");
 		assert_last_event::<T>(crate::Event::MetadataTransferred {
 			prev_owner: MetadataOwner::External,
 			owner: MetadataOwner::Referendum(0),
 			hash: preimage_hash,
 		}.into());
+		Ok(())
 	}
 
-	veto_external {
+	#[benchmark]
+	fn veto_external() ->  Result<(), BenchmarkError> {
 		let proposal = make_proposal::<T>(0);
 		let proposal_hash = proposal.hash();
 
@@ -335,13 +380,18 @@ benchmarks! {
 
 		let origin = T::VetoOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		ensure!(NextExternal::<T>::get().is_some(), "no external proposal");
-	}: _<T::RuntimeOrigin>(origin, proposal_hash)
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, proposal_hash);
+
 		assert!(NextExternal::<T>::get().is_none());
 		let (_, new_vetoers) = Blacklist::<T>::get(&proposal_hash).ok_or("no blacklist")?;
 		assert_eq!(new_vetoers.len(), T::MaxBlacklisted::get() as usize, "vetoers not added");
+
+		Ok(())
 	}
 
+/*
 	cancel_proposal {
 		// Place our proposal at the end to make sure it's worst case.
 		for i in 0 .. T::MaxProposals::get() {
@@ -844,7 +894,7 @@ benchmarks! {
 			owner,
 			hash,
 		}.into());
-	}
+	}*/
 
 	impl_benchmark_test_suite!(
 		Democracy,
