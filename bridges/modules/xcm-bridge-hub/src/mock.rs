@@ -723,8 +723,5 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 /// Run pallet test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	sp_io::TestExternalities::new(
-		frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap(),
-	)
-	.execute_with(test)
+	new_test_ext().execute_with(test)
 }
