@@ -169,7 +169,7 @@ impl NetworkSigner for TestNetwork {
 	fn sign_with_local_identity(
 		&self,
 		msg: Vec<u8>,
-	) -> std::result::Result<Signature, sc_network::service::signature::SigningError> {
+	) -> std::result::Result<Signature, SigningError> {
 		Signature::sign_message(msg, &self.identity)
 	}
 

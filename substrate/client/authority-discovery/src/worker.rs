@@ -906,7 +906,7 @@ where
 		if new_record.creation_time > current_record_info.creation_time {
 			let peers_that_need_updating = current_record_info.peers_with_record.clone();
 			self.network.put_record_to(
-				new_record.record.clone().into(),
+				new_record.record.clone(),
 				peers_that_need_updating.clone(),
 				// If this is empty it means we received the answer from our node local
 				// storage, so we need to update that as well.

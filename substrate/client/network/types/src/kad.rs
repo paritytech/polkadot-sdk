@@ -19,7 +19,7 @@
 use crate::{multihash::Multihash, PeerId};
 use bytes::Bytes;
 use litep2p::protocol::libp2p::kademlia::{Record as LiteRecord, RecordKey};
-use std::{borrow::Borrow, error::Error, fmt, time::Instant};
+use std::{error::Error, fmt, time::Instant};
 
 /// The (opaque) key of a record.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -34,12 +34,6 @@ impl Key {
 	/// Copies the bytes of the key into a new vector.
 	pub fn to_vec(&self) -> Vec<u8> {
 		Vec::from(&self.0[..])
-	}
-}
-
-impl Borrow<[u8]> for Key {
-	fn borrow(&self) -> &[u8] {
-		&self.0[..]
 	}
 }
 
@@ -76,11 +70,9 @@ pub struct Record {
 
 impl Record {
 	/// Creates a new record for insertion into the DHT.
-	pub fn new<K>(key: K, value: Vec<u8>) -> Self
-	where
-		K: Into<Key>,
+	pub fn new(key: Key, value: Vec<u8>) -> Self
 	{
-		Record { key: key.into(), value, publisher: None, expires: None }
+		Record { key: key, value, publisher: None, expires: None }
 	}
 
 	/// Checks whether the record is expired w.r.t. the given `Instant`.
@@ -147,7 +139,6 @@ pub struct SigningError {
 /// An error during encoding of key material.
 #[allow(dead_code)]
 impl SigningError {
-	#[cfg(not(target_arch = "wasm32"))]
 	pub(crate) fn new<S: ToString>(msg: S) -> Self {
 		Self { msg: msg.to_string(), source: None }
 	}

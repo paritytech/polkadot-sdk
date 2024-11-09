@@ -964,7 +964,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					Some(DiscoveryEvent::IncomingRecord { record: Record { key, value, publisher, expires }} ) => {
 						self.event_streams.send(Event::Dht(
 							DhtEvent::PutRecordRequest(
-								sc_network_types::kad::Key::new::<sc_network_types::kad::Key>(&key.to_vec().into()),
+								sc_network_types::kad::Key::new(&key.to_vec()),
 								value,
 								publisher.map(Into::into),
 								expires,
