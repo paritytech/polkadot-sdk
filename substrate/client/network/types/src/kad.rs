@@ -70,9 +70,8 @@ pub struct Record {
 
 impl Record {
 	/// Creates a new record for insertion into the DHT.
-	pub fn new(key: Key, value: Vec<u8>) -> Self
-	{
-		Record { key: key, value, publisher: None, expires: None }
+	pub fn new(key: Key, value: Vec<u8>) -> Self {
+		Record { key, value, publisher: None, expires: None }
 	}
 
 	/// Checks whether the record is expired w.r.t. the given `Instant`.
