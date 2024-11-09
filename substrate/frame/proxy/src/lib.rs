@@ -37,7 +37,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec};
 use frame::{
 	prelude::*,
-	traits::{BlockNumberProvider, Currency, ReservableCurrency},
+	traits::{Currency, ReservableCurrency},
 };
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -46,6 +46,9 @@ type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -165,7 +168,7 @@ pub mod pallet {
 		type AnnouncementDepositFactor: Get<BalanceOf<Self>>;
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
-		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	#[pallet::call]

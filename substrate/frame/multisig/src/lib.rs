@@ -52,7 +52,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame::{
 	prelude::*,
-	traits::{BlockNumberProvider, Currency, ReservableCurrency},
+	traits::{Currency, ReservableCurrency},
 };
 use frame_system::RawOrigin;
 pub use weights::WeightInfo;
@@ -76,6 +76,9 @@ macro_rules! log {
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A global extrinsic index, formed as the extrinsic index within a block, together with that
 /// block's height. This allows a transaction in which a multisig operation of a particular
@@ -155,7 +158,7 @@ pub mod pallet {
 		type WeightInfo: weights::WeightInfo;
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
-		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	/// The in-code storage version.
@@ -238,7 +241,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
