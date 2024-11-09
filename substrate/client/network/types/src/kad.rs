@@ -152,7 +152,6 @@ impl SigningError {
 		Self { msg: msg.to_string(), source: None }
 	}
 
-	#[cfg(not(target_arch = "wasm32"))]
 	pub(crate) fn source(self, source: impl Error + Send + Sync + 'static) -> Self {
 		Self { source: Some(Box::new(source)), ..self }
 	}
