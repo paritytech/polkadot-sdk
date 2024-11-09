@@ -224,8 +224,9 @@ impl ExtBuilder {
 				.clone()
 				.into_iter()
 				.map(|(stash, _, balance)| (stash, balance * 2))
-				.chain(validators_range.clone().map(|x| (x, 7 + 100)))
-				.chain(nominators_range.clone().map(|x| (x, 7 + 100)))
+				// give stakers enough balance for stake, ed and fast unstake deposit.
+				.chain(validators_range.clone().map(|x| (x, 7 + 1 + 100)))
+				.chain(nominators_range.clone().map(|x| (x, 7 + 1 + 100)))
 				.collect::<Vec<_>>(),
 		}
 		.assimilate_storage(&mut storage);

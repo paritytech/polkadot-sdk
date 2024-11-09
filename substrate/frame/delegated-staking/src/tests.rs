@@ -671,14 +671,14 @@ mod staking_integration {
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(agent), vec![GENESIS_VALIDATOR],));
 			let init_stake = Staking::stake(&agent).unwrap();
-			// agent has an extra provider now added by CoreStaking.
-			assert_eq!(System::providers(&agent), 2);
+			// no extra provider added.
+			assert_eq!(System::providers(&agent), 1);
 
 			// scenario: 200 is a pool account, and the stake comes from its 4 delegators (300..304)
 			// in equal parts. lets try to migrate this nominator into delegate based stake.
 
 			// all balance currently is in 200
-			assert_eq!(pallet_staking::asset::stakeable_balance::<T>(&agent), agent_amount);
+			assert_eq!(pallet_staking::asset::total_balance::<T>(&agent), agent_amount);
 
 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
 			// will be moved and delegated back to this old nominator account. This should be funded

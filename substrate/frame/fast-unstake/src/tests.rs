@@ -19,7 +19,15 @@
 
 use super::*;
 use crate::{mock::*, types::*, Event};
-use frame_support::{pallet_prelude::*, testing_prelude::*, traits::Currency};
+use frame_support::{
+	pallet_prelude::*,
+	testing_prelude::*,
+	traits::{
+		fungible::Inspect,
+		tokens::{Fortitude::Polite, Preservation::Expendable},
+		Currency,
+	},
+};
 use pallet_staking::{CurrentEra, RewardDestination};
 
 use sp_runtime::traits::BadOrigin;
@@ -793,6 +801,8 @@ mod on_idle {
 				RuntimeOrigin::signed(VALIDATOR_PREFIX),
 				vec![VALIDATOR_PREFIX]
 			));
+
+			assert_eq!(Balances::reducible_balance(&VALIDATOR_PREFIX, Expendable, Polite), 7);
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(VALIDATOR_PREFIX)));
 
 			// but they indeed are exposed!
