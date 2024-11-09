@@ -20,7 +20,8 @@ use crate::{
 	rlp,
 	runtime::GAS_PRICE,
 	subxt_client::{
-		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
+		revive::{calls::types::EthTransact, events::ContractEmitted},
+		runtime_types::pallet_revive::storage::ContractInfo,
 	},
 	TransactionLegacySigned, LOG_TARGET,
 };
@@ -29,8 +30,8 @@ use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	create1,
 	evm::{
-		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, ReceiptInfo,
-		SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
+		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, Log,
+		ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
 	},
 	EthContractResult,
 };
@@ -101,13 +102,14 @@ struct BlockCache<const N: usize> {
 fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 	use subxt::backend::rpc::reconnecting_rpc_client;
 	match err {
-		subxt::error::RpcError::ClientError(err) =>
+		subxt::error::RpcError::ClientError(err) => {
 			match err.downcast_ref::<reconnecting_rpc_client::Error>() {
 				Some(reconnecting_rpc_client::Error::RpcError(
 					jsonrpsee::core::client::Error::Call(err),
 				)) => Some(err.clone().into_owned()),
 				_ => None,
-			},
+			}
+		},
 		_ => None,
 	}
 }
@@ -311,12 +313,34 @@ impl ClientInner {
 				let block_number = block.number().into();
 				let transaction_hash= ext.hash();
 
+				// get logs from ContractEmitted event
+				let logs = events.iter()
+					.filter_map(|event_details| {
+						let event_details = event_details.ok()?;
+						let event = event_details.as_event::<ContractEmitted>().ok()??;
+
+						Some(Log {
+							address: Some(event.contract),
+							topics: Some(event.topics),
+							data: Some(event.data.into()),
+							block_number: Some(block_number),
+							transaction_hash,
+							transaction_index: Some(transaction_index.into()),
+							block_hash: Some(block_hash),
+							log_index: Some(event_details.index().into()),
+							..Default::default()
+
+						})
+					}).collect();
+
+
 				log::debug!(target: LOG_TARGET, "Adding receipt for tx hash: {transaction_hash:?} - block: {block_number:?}");
 				let receipt = ReceiptInfo {
 					block_hash,
 					block_number,
 					contract_address,
 					from,
+					logs,
 					to: tx.transaction_legacy_unsigned.to,
 					effective_gas_price: gas_price,
 					gas_used: gas_used.into(),
