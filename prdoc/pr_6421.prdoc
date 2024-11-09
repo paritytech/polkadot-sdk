@@ -1,0 +1,9 @@
+title: Migrate pallet-democracy to benchmark v2
+doc:
+- audience: Runtime Dev
+  description: |-
+    Part of:
+    #6202
+crates:
+- name: pallet-democracy
+  bump: patch

@@ -19,7 +19,6 @@
 
 use super::*;
 
-//use frame_benchmarking::v1::{account, benchmarks, whitelist_account, BenchmarkError};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_noop, assert_ok,
@@ -391,8 +390,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-/*
-	cancel_proposal {
+	#[benchmark]
+	fn cancel_proposal() -> Result<(), BenchmarkError> {
 		// Place our proposal at the end to make sure it's worst case.
 		for i in 0 .. T::MaxProposals::get() {
 			add_proposal::<T>(i)?;
@@ -406,28 +405,35 @@ mod benchmarks {
 			Some(preimage_hash)));
 		let cancel_origin = T::CancelProposalOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
-	}: _<T::RuntimeOrigin>(cancel_origin, 0)
-	verify {
+
+		#[extrinsic_call]
+		_(cancel_origin as T::RuntimeOrigin, 0);
+
 		assert_last_event::<T>(crate::Event::MetadataCleared {
 			owner: MetadataOwner::Proposal(0),
 			hash: preimage_hash,
 		}.into());
+
+		Ok(())
 	}
 
-	cancel_referendum {
+	#[benchmark]
+	fn cancel_referendum() -> Result<(), BenchmarkError> {
 		let (ref_index, _, preimage_hash) = add_referendum::<T>(0);
-	}: _(RawOrigin::Root, ref_index)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, ref_index);
+
 		assert_last_event::<T>(crate::Event::MetadataCleared {
 			owner: MetadataOwner::Referendum(0),
 			hash: preimage_hash,
 		}.into());
+
+		Ok(())
 	}
 
-	#[extra]
-	on_initialize_external {
-		let r in 0 .. REFERENDUM_COUNT_HINT;
-
+	#[benchmark]
+	fn on_initialize_external(r: Linear<0,  REFERENDUM_COUNT_HINT >) -> Result<(), BenchmarkError> {
 		for i in 0..r {
 			add_referendum::<T>(i);
 		}
@@ -447,8 +453,10 @@ mod benchmarks {
 
 		let block_number = T::LaunchPeriod::get();
 
-	}: { Democracy::<T>::on_initialize(block_number) }
-	verify {
+		#[block] {
+			Pallet::<T>::on_initialize(block_number);
+		}
+
 		// One extra because of next external
 		assert_eq!(ReferendumCount::<T>::get(), r + 1, "referenda not created");
 		ensure!(!NextExternal::<T>::exists(), "External wasn't taken");
@@ -462,12 +470,11 @@ mod benchmarks {
 				}
 			}
 		}
+		Ok(())
 	}
 
-	#[extra]
-	on_initialize_public {
-		let r in 0 .. (T::MaxVotes::get() - 1);
-
+	#[benchmark]
+	fn on_initialize_public(r: Linear<0,  {T::MaxVotes::get() - 1} >) -> Result<(), BenchmarkError> {
 		for i in 0..r {
 			add_referendum::<T>(i);
 		}
@@ -480,8 +487,10 @@ mod benchmarks {
 
 		let block_number = T::LaunchPeriod::get();
 
-	}: { Democracy::<T>::on_initialize(block_number) }
-	verify {
+		#[block] {
+			Pallet::<T>::on_initialize(block_number);
+		}
+
 		// One extra because of next public
 		assert_eq!(ReferendumCount::<T>::get(), r + 1, "proposal not accepted");
 
@@ -494,11 +503,13 @@ mod benchmarks {
 				}
 			}
 		}
+
+		Ok(())
 	}
 
 	// No launch no maturing referenda.
-	on_initialize_base {
-		let r in 0 .. (T::MaxVotes::get() - 1);
+	#[benchmark]
+	fn on_initialize_base(r: Linear<0,  {T::MaxVotes::get() - 1} >) ->  Result<(), BenchmarkError> {
 
 		for i in 0..r {
 			add_referendum::<T>(i);
@@ -514,9 +525,10 @@ mod benchmarks {
 		assert_eq!(ReferendumCount::<T>::get(), r, "referenda not created");
 		assert_eq!(LowestUnbaked::<T>::get(), 0, "invalid referenda init");
 
-	}: { Democracy::<T>::on_initialize(1u32.into()) }
-	verify {
-		// All should be on going
+		#[block] {
+			Pallet::<T>::on_initialize(1u32.into());
+		}
+
 		for i in 0 .. r {
 			if let Some(value) = ReferendumInfoOf::<T>::get(i) {
 				match value {
@@ -525,11 +537,12 @@ mod benchmarks {
 				}
 			}
 		}
+
+		Ok(())
 	}
 
-	on_initialize_base_with_launch_period {
-		let r in 0 .. (T::MaxVotes::get() - 1);
-
+	#[benchmark]
+	fn on_initialize_base_with_launch_period(r: Linear<0,  {T::MaxVotes::get() - 1} >) -> Result<(), BenchmarkError> {
 		for i in 0..r {
 			add_referendum::<T>(i);
 		}
@@ -546,9 +559,10 @@ mod benchmarks {
 
 		let block_number = T::LaunchPeriod::get();
 
-	}: { Democracy::<T>::on_initialize(block_number) }
-	verify {
-		// All should be on going
+		#[block] {
+			Pallet::<T>::on_initialize(block_number);
+		}
+
 		for i in 0 .. r {
 			if let Some(value) = ReferendumInfoOf::<T>::get(i) {
 				match value {
@@ -557,10 +571,13 @@ mod benchmarks {
 				}
 			}
 		}
+
+		Ok(())
+
 	}
 
-	delegate {
-		let r in 0 .. (T::MaxVotes::get() - 1);
+	#[benchmark]
+	fn delegate(r: Linear<0,  {T::MaxVotes::get() - 1} >) -> Result<(), BenchmarkError> {
 
 		let initial_balance: BalanceOf<T> = 100u32.into();
 		let delegated_balance: BalanceOf<T> = 1000u32.into();
@@ -596,8 +613,10 @@ mod benchmarks {
 		};
 		assert_eq!(votes.len(), r as usize, "Votes were not recorded.");
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller.clone()), new_delegate_lookup, Conviction::Locked1x, delegated_balance)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), new_delegate_lookup, Conviction::Locked1x, delegated_balance);
+
 		let (target, balance) = match VotingOf::<T>::get(&caller) {
 			Voting::Delegating { target, balance, .. } => (target, balance),
 			_ => return Err("Votes are not direct".into()),
@@ -609,8 +628,10 @@ mod benchmarks {
 			_ => return Err("Votes are not direct".into()),
 		};
 		assert_eq!(delegations.capital, delegated_balance, "delegation was not recorded.");
+		Ok(())
 	}
 
+	/*
 	undelegate {
 		let r in 0 .. (T::MaxVotes::get() - 1);
 
