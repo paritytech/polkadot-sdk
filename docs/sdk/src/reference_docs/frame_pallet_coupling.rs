@@ -302,3 +302,12 @@ pub mod runtime {
 // Link References
 // [`frame_runtime`]: crate::polkadot_sdk::frame_runtime
 // [`frame_tokens`]: crate::reference_docs::frame_tokens
+
+// [`pallet_assets`]: pallet_assets
+// [`pallet_balances`]: pallet_balances
+
+// [`pallet_assets`]: pallet_assets
+// [`pallet_balances`]: pallet_balances
+
+// [`pallet_assets`]: pallet_assets
+// [`pallet_balances`]: pallet_balances

@@ -179,3 +179,9 @@ pub mod runtime {
 // Link References
 // [`runtime_vs_smart_contract`]: crate::reference_docs::runtime_vs_smart_contract
 // [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
+
+// [`pallet_examples`]: pallet_examples
+
+// [`pallet_examples`]: pallet_examples
+
+// [`pallet_examples`]: pallet_examples

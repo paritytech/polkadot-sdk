@@ -127,3 +127,21 @@
 //! - If you are interested in implementing a set of fungible tokens, continue reading the
 //!   [`fungibles`](`frame_support::traits::fungibles`) trait and [`pallet_assets`] docs.
 //! - If you are interested in implementing an NFT, continue reading the [`pallet_nfts`] docs.
+
+// [`pallet_assets`]: pallet_assets
+// [`pallet_balances`]: pallet_balances
+// [`pallet_nfts`]: pallet_nfts
+// [`pallet_preimage`]: pallet_preimage
+// [`pallet_uniques`]: pallet_uniques
+
+// [`pallet_assets`]: pallet_assets
+// [`pallet_balances`]: pallet_balances
+// [`pallet_nfts`]: pallet_nfts
+// [`pallet_preimage`]: pallet_preimage
+// [`pallet_uniques`]: pallet_uniques
+
+// [`pallet_assets`]: pallet_assets
+// [`pallet_balances`]: pallet_balances
+// [`pallet_nfts`]: pallet_nfts
+// [`pallet_preimage`]: pallet_preimage
+// [`pallet_uniques`]: pallet_uniques

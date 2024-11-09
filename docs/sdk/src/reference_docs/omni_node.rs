@@ -199,3 +199,15 @@
 // [`your_first_node`]: crate::guides::your_first_node
 // [`your_first_pallet`]: crate::guides::your_first_pallet
 // [`your_first_runtime`]: crate::guides::your_first_runtime
+
+// [`pallet_aura`]: pallet_aura
+// [`pallet_babe`]: pallet_babe
+// [`pallet_grandpa`]: pallet_grandpa
+
+// [`pallet_aura`]: pallet_aura
+// [`pallet_babe`]: pallet_babe
+// [`pallet_grandpa`]: pallet_grandpa
+
+// [`pallet_aura`]: pallet_aura
+// [`pallet_babe`]: pallet_babe
+// [`pallet_grandpa`]: pallet_grandpa

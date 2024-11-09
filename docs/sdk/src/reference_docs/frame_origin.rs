@@ -70,8 +70,7 @@
 //! In order to assert on a custom origin that is defined within your pallet, we need a way to first
 //! convert the `<T as frame_system::Config>::RuntimeOrigin` into the local `enum Origin` of the
 //! current pallet. This is a common process that is explained in
-//! [`frame_runtime_types#
-//! adding-further-constraints-to-runtime-composite-enums`].
+//! [`frame_runtime_types`].
 //!
 //! We use the same process here to express that `RuntimeOrigin` has a number of additional bounds,
 //! as follows.
@@ -259,16 +258,13 @@ pub mod runtime_for_external_origin {
 	}
 }
 
-// Link References
 // [`RuntimeOrigin`]: crate::reference_docs::frame_origin::runtime_for_origin::RuntimeOrigin
 // [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
-// [`frame_runtime_types#
-//! adding-further-constraints-to-runtime-composite-enums`]: crate::reference_docs::frame_runtime_types#
+// [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types#
 //! adding-further-constraints-to-runtime-composite-enums
-
-// Link References
-// [`RuntimeOrigin`]: crate::reference_docs::frame_origin::runtime_for_origin::RuntimeOrigin
-// [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
-// [`frame_runtime_types#
-//! adding-further-constraints-to-runtime-composite-enums`]: crate::reference_docs::frame_runtime_types#
-//! adding-further-constraints-to-runtime-composite-enums
+// [`pallet_collective`]: pallet_collective
+// [`pallet_collective::EnsureMember`]: pallet_collective::EnsureMember
+// [`pallet_collective::EnsureProportionMoreThan`]: pallet_collective::EnsureProportionMoreThan
+// [`pallet_democracy`]: pallet_democracy
+// [`sp_runtime::generic::CheckedExtrinsic#trait-implementations`]: sp_runtime::generic::CheckedExtrinsic#trait-implementations
+// [`sp_runtime::traits::Applyable`]: sp_runtime::traits::Applyable

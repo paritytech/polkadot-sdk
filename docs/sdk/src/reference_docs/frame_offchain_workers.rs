@@ -120,3 +120,11 @@
 // Link References
 // [`frame_runtime_upgrades_and_migrations`]: crate::reference_docs::frame_runtime_upgrades_and_migrations
 // [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
+
+// [`pallet_example_offchain_worker`]: pallet_example_offchain_worker
+// [`sp_runtime::offchain`]: sp_runtime::offchain
+// [`sp_runtime::offchain::http`]: sp_runtime::offchain::http
+
+// [`pallet_example_offchain_worker`]: pallet_example_offchain_worker
+// [`sp_runtime::offchain`]: sp_runtime::offchain
+// [`sp_runtime::offchain::http`]: sp_runtime::offchain::http

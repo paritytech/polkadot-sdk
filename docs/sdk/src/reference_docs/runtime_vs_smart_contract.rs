@@ -207,3 +207,12 @@
 //! - **For Smart Contract Developers**: Being mindful of the gas cost associated with contract
 //!   execution is crucial. Efficiently written contracts save costs and are less likely to hit gas
 //!   limits, ensuring smoother execution on the blockchain.
+
+// [`pallet_contracts`]: pallet_contracts
+// [`pallet_evm`]: pallet_evm
+
+// [`pallet_contracts`]: pallet_contracts
+// [`pallet_evm`]: pallet_evm
+
+// [`pallet_contracts`]: pallet_contracts
+// [`pallet_evm`]: pallet_evm

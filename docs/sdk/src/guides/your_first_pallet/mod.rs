@@ -796,3 +796,21 @@ pub mod pallet_v2 {
 // [`reference_docs`]: crate::reference_docs
 // [`templates`]: crate::polkadot_sdk::templates
 // [`trait_based_programming`]: crate::reference_docs::trait_based_programming
+
+// [`pallet::call`]: pallet::call
+// [`pallet::config`]: pallet::config
+// [`pallet::error`]: pallet::error
+// [`pallet::event`]: pallet::event
+// [`pallet::generate_deposit`]: pallet::generate_deposit
+// [`pallet::pallet`]: pallet::pallet
+// [`pallet::storage`]: pallet::storage
+// [`sp_runtime::DispatchError::Module`]: sp_runtime::DispatchError::Module
+
+// [`pallet::call`]: pallet::call
+// [`pallet::config`]: pallet::config
+// [`pallet::error`]: pallet::error
+// [`pallet::event`]: pallet::event
+// [`pallet::generate_deposit`]: pallet::generate_deposit
+// [`pallet::pallet`]: pallet::pallet
+// [`pallet::storage`]: pallet::storage
+// [`sp_runtime::DispatchError::Module`]: sp_runtime::DispatchError::Module

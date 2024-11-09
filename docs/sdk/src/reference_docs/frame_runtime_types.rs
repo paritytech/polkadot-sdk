@@ -316,3 +316,21 @@ pub mod runtime_with_specific_runtime_call {
 // Link References
 // [`frame_origin`]: crate::reference_docs::frame_origin
 // [`transaction_extensions`]: crate::reference_docs::transaction_extensions
+
+// [`pallet_bar`]: pallet_bar
+// [`pallet_bar::GenesisConfig`]: pallet_bar::GenesisConfig
+// [`pallet_foo`]: pallet_foo
+// [`pallet_foo::Call`]: pallet_foo::Call
+// [`pallet_foo::Pallet`]: pallet_foo::Pallet
+
+// [`pallet_bar`]: pallet_bar
+// [`pallet_bar::GenesisConfig`]: pallet_bar::GenesisConfig
+// [`pallet_foo`]: pallet_foo
+// [`pallet_foo::Call`]: pallet_foo::Call
+// [`pallet_foo::Pallet`]: pallet_foo::Pallet
+
+// [`pallet_bar`]: pallet_bar
+// [`pallet_bar::GenesisConfig`]: pallet_bar::GenesisConfig
+// [`pallet_foo`]: pallet_foo
+// [`pallet_foo::Call`]: pallet_foo::Call
+// [`pallet_foo::Pallet`]: pallet_foo::Pallet

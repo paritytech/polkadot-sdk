@@ -128,3 +128,12 @@ mod tests {
 		}
 	}
 }
+
+// [`pallet_aura`]: pallet_aura
+// [`pallet_timestamp`]: pallet_timestamp
+
+// [`pallet_aura`]: pallet_aura
+// [`pallet_timestamp`]: pallet_timestamp
+
+// [`pallet_aura`]: pallet_aura
+// [`pallet_timestamp`]: pallet_timestamp

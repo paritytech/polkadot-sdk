@@ -393,3 +393,9 @@ mod tests {
 		assert_eq!(saturated_defensive, u32::MAX);
 	}
 }
+
+// [`pallet_babe`]: pallet_babe
+
+// [`pallet_babe`]: pallet_babe
+
+// [`pallet_babe`]: pallet_babe

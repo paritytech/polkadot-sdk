@@ -31,3 +31,7 @@
 
 // Link References
 // [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
+
+// [`sp_runtime_interface`]: sp_runtime_interface
+
+// [`sp_runtime_interface`]: sp_runtime_interface

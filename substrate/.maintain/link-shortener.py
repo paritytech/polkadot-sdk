@@ -46,6 +46,11 @@ class DocLinkProcessor:
         r'\[`crate::\w+::[^`#]+(?:#[^`]+)?`\]' 
         r'\[`[^`]+`\]\(`crate::[^`]+`\)',
         r'\[`[^`]+`\]\(crate::[^)]+\)' # Added to catch links with anchors (#)
+
+         # New frame patterns
+        r'\[`frame[^`]+`\]',  # For frame system links
+        r'\[`pallet[^`]+`\]', # For pallet links
+        r'\[`sp_runtime[^`]+`\]'  
     ]
 
     def __init__(self, dry_run: bool = False):
@@ -75,17 +80,36 @@ class DocLinkProcessor:
             for pattern in self.PATTERNS:
                 def replacer(match):
                     full_path = match.group(0)
-                    
+                    short_name = None
+                    path_without_brackets = None
                     if '(' in full_path:
                         name_part = full_path.split('](')[0][2:-1]  # Extract name between [` and `]
                         path_part = full_path.split('](')[1][:-1]   # Extract path between ( and )
                         short_name = name_part
                         path_without_brackets = path_part
                     else:
-                        # Handle original format links
+                        # Handle direct links: [`path`]
                         path_without_brackets = full_path[2:-2] 
-                        short_name = path_without_brackets.split("::")[-1]  
-                    
+                        if path_without_brackets.startswith('crate::'):
+                            if '#' in path_without_brackets:
+                                # For links with anchors, keep full reference
+                                base_path = path_without_brackets.split('#')[0]
+                                anchor = path_without_brackets.split('#')[1]
+                                short_name = base_path.split('::')[-1]
+                                # Keep the full reference including anchor on one line
+                                path_without_brackets = f"{path_without_brackets}"
+                            else:
+                                short_name = path_without_brackets.split('::')[-1]
+                        elif path_without_brackets.startswith(('frame::', 'pallet_', 'sp_runtime::')):
+                            # Keep frame and pallet references as is
+                            short_name = path_without_brackets
+                        else:
+                            # Default case - use the full path as the short name
+                            short_name = path_without_brackets 
+                        # Verify we have both values before proceeding
+                    if short_name is None or path_without_brackets is None:
+                        print(f"Warning: Could not process link {full_path}")
+                        return full_path     
                     # Add to links set for reference section
                     links.add((short_name, path_without_brackets))
                     print(f"Found link: {full_path}")

@@ -331,3 +331,15 @@ pub mod encoding_example {
 		encoded_ext
 	}
 }
+
+// [`sp_runtime::MultiAddress::Id`]: sp_runtime::MultiAddress::Id
+// [`sp_runtime::MultiAddress<AccountId32>`]: sp_runtime::MultiAddress<AccountId32>
+// [`sp_runtime::MultiSignature`]: sp_runtime::MultiSignature
+// [`sp_runtime::generic::SignedPayload`]: sp_runtime::generic::SignedPayload
+// [`sp_runtime::generic::UncheckedExtrinsic`]: sp_runtime::generic::UncheckedExtrinsic
+
+// [`sp_runtime::MultiAddress::Id`]: sp_runtime::MultiAddress::Id
+// [`sp_runtime::MultiAddress<AccountId32>`]: sp_runtime::MultiAddress<AccountId32>
+// [`sp_runtime::MultiSignature`]: sp_runtime::MultiSignature
+// [`sp_runtime::generic::SignedPayload`]: sp_runtime::generic::SignedPayload
+// [`sp_runtime::generic::UncheckedExtrinsic`]: sp_runtime::generic::UncheckedExtrinsic
