@@ -329,7 +329,6 @@ impl ClientInner {
 							block_hash: Some(block_hash),
 							log_index: Some(event_details.index().into()),
 							..Default::default()
-
 						})
 					}).collect();
 
