@@ -24,7 +24,6 @@ use crate::{
 	},
 	TransactionLegacySigned, LOG_TARGET,
 };
-use codec::Encode;
 use futures::{stream, StreamExt};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
@@ -35,7 +34,6 @@ use pallet_revive::{
 	},
 	EthContractResult,
 };
-use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_weights::Weight;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -177,8 +175,6 @@ pub enum ClientError {
 // TODO convert error code to https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
-		log::debug!(target: LOG_TARGET, "ClientError: {err:?}");
-
 		let msg = err.to_string();
 		match err {
 			ClientError::SubxtError(subxt::Error::Rpc(err)) | ClientError::RpcError(err) => {
@@ -311,10 +307,11 @@ impl ClientInner {
 
 				let success = events.has::<ExtrinsicSuccess>()?;
 				let transaction_index = ext.index();
-				let transaction_hash = BlakeTwo256::hash(&Vec::from(ext.bytes()).encode());
 				let block_hash = block.hash();
 				let block_number = block.number().into();
+				let transaction_hash= ext.hash();
 
+				log::debug!(target: LOG_TARGET, "Adding receipt for tx hash: {transaction_hash:?} - block: {block_number:?}");
 				let receipt = ReceiptInfo {
 					block_hash,
 					block_number,
@@ -481,7 +478,6 @@ impl Client {
 				.unwrap_or_default();
 
 			if !receipts.is_empty() {
-				log::debug!(target: LOG_TARGET, "Adding {} receipts", receipts.len());
 				let values = receipts
 					.iter()
 					.map(|(hash, (_, receipt))| (receipt.transaction_index, *hash))

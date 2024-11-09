@@ -121,6 +121,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
+		log::debug!(target: LOG_TARGET, "transaction_receipt for {transaction_hash:?}: {}", receipt.is_some());
 		Ok(receipt)
 	}
 
@@ -167,6 +168,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			storage_deposit,
 		);
 		let hash = self.client.submit(call).await?;
+		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
 		Ok(hash)
 	}
 
