@@ -23,8 +23,8 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{EnsureSignedBy, RawOrigin};
-use sp_runtime::{BuildStorage, FixedU128};
-use sp_staking::{OnStakingUpdate, Stake};
+use sp_runtime::{BuildStorage, DispatchResult, FixedU128};
+use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate, Stake};
 
 pub type BlockNumber = u64;
 pub type AccountId = u128;
@@ -239,6 +239,59 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 }
 
+pub struct DelegateMock;
+impl DelegationInterface for DelegateMock {
+	type Balance = Balance;
+	type AccountId = AccountId;
+	fn agent_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
+		todo!()
+	}
+
+	fn agent_transferable_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
+		todo!()
+	}
+
+	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance> {
+		todo!()
+	}
+
+	fn register_agent(agent: Agent<Self::AccountId>, reward_account: &Self::AccountId) -> DispatchResult {
+		todo!()
+	}
+
+	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult {
+		todo!()
+	}
+
+	fn delegate(delegator: Delegator<Self::AccountId>, agent: Agent<Self::AccountId>, amount: Self::Balance) -> DispatchResult {
+		todo!()
+	}
+
+	fn withdraw_delegation(delegator: Delegator<Self::AccountId>, agent: Agent<Self::AccountId>, amount: Self::Balance, num_slashing_spans: u32) -> DispatchResult {
+		todo!()
+	}
+
+	fn pending_slash(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
+		todo!()
+	}
+
+	fn delegator_slash(agent: Agent<Self::AccountId>, delegator: Delegator<Self::AccountId>, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> DispatchResult {
+		todo!()
+	}
+}
+
+impl DelegationMigrator for DelegateMock {
+	type Balance = Balance;
+	type AccountId = AccountId;
+	fn migrate_nominator_to_agent(agent: Agent<Self::AccountId>, reward_account: &Self::AccountId) -> DispatchResult {
+		todo!()
+	}
+
+	fn migrate_delegation(agent: Agent<Self::AccountId>, delegator: Delegator<Self::AccountId>, value: Self::Balance) -> DispatchResult {
+		todo!()
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Nonce = u64;
@@ -295,7 +348,7 @@ impl pools::Config for Runtime {
 	type RewardCounter = RewardCounter;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type StakeAdapter = adapter::TransferStake<Self, StakingMock>;
+	type StakeAdapter = adapter::DelegateStake<Self, StakingMock, DelegateMock>;
 	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = MaxMetadataLen;
