@@ -386,7 +386,6 @@ members = [
 	"substrate/frame/nomination-pools/fuzzer",
 	"substrate/frame/nomination-pools/runtime-api",
 	"substrate/frame/nomination-pools/test-delegate-stake",
-	"substrate/frame/nomination-pools/test-transfer-stake",
 	"substrate/frame/offences",
 	"substrate/frame/offences/benchmarking",
 	"substrate/frame/paged-list",
