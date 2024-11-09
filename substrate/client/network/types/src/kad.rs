@@ -18,7 +18,7 @@
 
 use crate::{multihash::Multihash, PeerId};
 use bytes::Bytes;
-use litep2p::protocol::libp2p::kademlia::{Record as LiteRecord, RecordKey};
+use litep2p::protocol::libp2p::kademlia::{Record as Litep2pRecord, RecordKey as Litep2pKey};
 use std::{error::Error, fmt, time::Instant};
 
 /// The (opaque) key of a record.
@@ -90,12 +90,12 @@ impl From<libp2p_kad::Record> for Record {
 	}
 }
 
-impl From<Record> for LiteRecord {
+impl From<Record> for Litep2pRecord {
 	fn from(val: Record) -> Self {
 		let vec: Vec<u8> = val.key.to_vec();
-		let key: RecordKey = vec.into();
+		let key: Litep2pKey = vec.into();
 		let publisher = val.publisher.map(Into::into);
-		LiteRecord { key, value: val.value, publisher, expires: val.expires }
+		Litep2pRecord { key, value: val.value, publisher, expires: val.expires }
 	}
 }
 
