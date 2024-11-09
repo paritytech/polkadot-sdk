@@ -136,11 +136,8 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), 0);
 
-		assert_eq!(
-			deposits.0.len(),
-			(T::MaxDeposits::get()) as usize,
-			"`second` benchmark did not work"
-		);
+		let deposits = DepositOf::<T>::get(0).ok_or("Proposal not created")?;
+		assert_eq!(deposits.0.len(), (T::MaxDeposits::get()) as usize, "`second` benchmark did not work");
 		Ok(())
 	}
 
