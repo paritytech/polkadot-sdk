@@ -33,7 +33,7 @@ impl Key {
 
 	/// Copies the bytes of the key into a new vector.
 	pub fn to_vec(&self) -> Vec<u8> {
-		Vec::from(&self.0[..])
+		self.0.to_vec()
 	}
 }
 
