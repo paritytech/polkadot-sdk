@@ -245,7 +245,8 @@ mod benchmarks {
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
 		)?;
-		bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
+		bounty_setup.child_bounty_id =
+			ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 		Pallet::<T>::propose_curator(
 			RawOrigin::Signed(bounty_setup.curator.clone()).into(),
@@ -356,7 +357,8 @@ mod benchmarks {
 			bounty_setup.child_bounty_value,
 			bounty_setup.reason.clone(),
 		)?;
-		bounty_setup.child_bounty_id = ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
+		bounty_setup.child_bounty_id =
+			ParentTotalChildBounties::<T>::get(bounty_setup.bounty_id) - 1;
 
 		#[extrinsic_call]
 		close_child_bounty(RawOrigin::Root, bounty_setup.bounty_id, bounty_setup.child_bounty_id);
