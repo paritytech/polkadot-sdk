@@ -2425,7 +2425,7 @@ impl<T: Config> Pallet<T> {
 		let origin_dest = interior.clone().into();
 		let dest = dest.into();
 		let is_waived = <T::XcmExecutor as FeeManager>::is_waived(Some(&origin_dest), FeeReason::ChargeFees);
-		if !is_waived {
+		if interior != Junctions::Here {
 			message.0.insert(0, DescendOrigin(interior));
 		}
 		log::debug!(target: "xcm::send_xcm", "dest: {:?}, message: {:?}", &dest, &message);
