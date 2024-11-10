@@ -1,0 +1,83 @@
+name: Zombienet Substrate CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/*'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  zombienet-substrate:
+    runs-on: zombienet-arc-runner 
+
+
+
+    container:
+      image: docker.io/paritytech/zombienet:v1.3.116
+
+    env:
+      CI_IMAGE: "docker.io/paritytech/ci-unified:bullseye-1.81.0-2024-09-11-v202409111034"
+      DEBUG: "zombie,zombie::network-node,zombie::kube::client::logs"
+      ZOMBIE_PROVIDER: "k8s"
+      RUST_LOG: "info,zombienet_orchestrator=debug"
+      RUN_IN_CI: "1"
+      KUBERNETES_CPU_REQUEST: "512m"
+      KUBERNETES_MEMORY_REQUEST: "1Gi"
+      SUBSTRATE_IMAGE: "docker.io/paritypr/substrate"
+      LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/substrate/zombienet"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Prepare environment variables
+        run: |
+          export WASM_BUILD_WORKSPACE_HINT="$PWD"
+          echo "Environment setup complete"
+
+      # Job 0000 Block Building Test
+      - name: Run Zombienet Substrate 0000 Block Building Test
+        env:
+          SUBSTRATE_IMAGE_TAG: "${{ github.sha }}"
+          ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ env.SUBSTRATE_IMAGE }}:${{ env.SUBSTRATE_IMAGE_TAG }}"
+        run: |
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="${{ env.LOCAL_DIR }}/0000-block-building" \
+            --test="block-building.zndsl"
+
+      # Job 0001 Basic Warp Sync Test
+      - name: Run Zombienet Substrate 0001 Basic Warp Sync Test
+        env:
+          DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-9677807d738b951e9f6c82e5fd15518eb0ae0419.tgz"
+          DB_BLOCK_HEIGHT: 56687
+        run: |
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="${{ env.LOCAL_DIR }}/0001-basic-warp-sync" \
+            --test="test-warp-sync.zndsl"
+
+      # Job 0002 Validators Warp Sync Test
+      - name: Run Zombienet Substrate 0002 Validators Warp Sync Test
+        run: |
+          cp --remove-destination "${{ env.LOCAL_DIR }}/0001-basic-warp-sync/chain-spec.json" "${{ env.LOCAL_DIR }}/0002-validators-warp-sync"
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="${{ env.LOCAL_DIR }}/0002-validators-warp-sync" \
+            --test="test-validators-warp-sync.zndsl"
+
+      # Job 0003 Block Building Warp Sync Test
+      - name: Run Zombienet Substrate 0003 Block Building Warp Sync Test
+        run: |
+          cp --remove-destination "${{ env.LOCAL_DIR }}/0001-basic-warp-sync/chain-spec.json" "${{ env.LOCAL_DIR }}/0003-block-building-warp-sync"
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="${{ env.LOCAL_DIR }}/0003-block-building-warp-sync" \
+            --test="test-block-building-warp-sync.zndsl"
+
+#     - name: Upload Logs and Artifacts
+#       if: always()
+#       uses: actions/upload-artifact@v2
+#       with:
+#         name: zombienet-logs
+#         path: ./zombienet-logs/
+#         retention-days: 2
