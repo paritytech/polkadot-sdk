@@ -38,7 +38,7 @@ crates:
 - name: cumulus-pallet-weight-reclaim
   bump: major
 - name: cumulus-primitives-storage-weight-reclaim
-  bump: major
+  bump: minor
 - name: sp-runtime
   bump: patch
 - name: polkadot-sdk
