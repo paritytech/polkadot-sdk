@@ -1,0 +1,19 @@
+title: Introduce `ConstUint` to make dependent types in `DefaultConfig` more adaptable
+author: conr2d
+topic: runtime
+
+crates:
+  - name: frame-support
+    bump: patch
+  - name: frame-system
+    bump: none
+  - name: pallet-assets
+    bump: none
+  - name: pallet-balances
+    bump: none
+  - name: pallet-timestamp
+    bump: none
+  - name: sp-core
+    bump: patch
+  - name: sp-runtime
+    bump: patch
