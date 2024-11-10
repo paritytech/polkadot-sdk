@@ -35,6 +35,7 @@ use frame_support::{
 	traits::{ConstU32, Contains, ContainsPair, Everything, EverythingBut, Get, Nothing},
 	weights::Weight,
 };
+use frame_support::traits::Equals;
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, TREASURY_PALLET_ID};
@@ -192,6 +193,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 );
 
 parameter_types! {
+	pub const RootLocation: Location = Location::here();
 	// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
 	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	pub const MaxInstructions: u32 = 100;
@@ -316,12 +318,7 @@ pub type TrustedReserves = (
 pub type TrustedTeleporters =
 	(AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,);
 
-pub struct WaivedLocations;
-impl Contains<Location> for WaivedLocations {
-	fn contains(location: &Location) -> bool {
-		*location == Location::here()
-	}
-}
+pub type WaivedLocations = Equals<RootLocation>;
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;

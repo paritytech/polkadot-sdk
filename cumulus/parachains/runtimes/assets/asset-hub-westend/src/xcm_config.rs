@@ -61,6 +61,7 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
+	pub const RootLocation: Location = Location::here();
 	pub const WestendLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Westend);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
@@ -335,6 +336,7 @@ pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (
+	Equals<RootLocation>,
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 	Equals<RelayTreasuryLocation>,
 	FellowshipEntities,

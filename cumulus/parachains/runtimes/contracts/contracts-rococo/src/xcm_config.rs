@@ -50,6 +50,7 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
+	pub const RootLocation: Location = Location::here();
 	pub const RelayLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Rococo;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
@@ -163,6 +164,7 @@ pub type Barrier = TrailingSetTopicAsId<
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (
+	Equals<RootLocation>,
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 	Equals<RelayTreasuryLocation>,
 );
