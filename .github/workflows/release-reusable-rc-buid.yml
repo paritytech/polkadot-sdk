@@ -19,6 +19,12 @@ on:
         required: true
         type: string
 
+      runs_on:
+        description: Operating system used for the workflow call
+        required: true
+        type: string
+        default: ubuntu-latest
+
     secrets:
       PGP_KMS_KEY:
         required: true
@@ -55,6 +61,38 @@ jobs:
 
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
+
+  setup-macos-runner:
+    if: ${{ inputs.runs_on == 'parity-macos' }}
+    runs-on: parity-macos
+    env:
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Set rust version from env file
+        run: |
+          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
+          echo $RUST_VERSION
+          echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
+      - name: Install rust ${{ env.RUST_VERSION }}
+        uses: actions-rust-lang/setup-rust-toolchain@11df97af8e8102fd60b60a77dfbf58d40cd843b8 # v1.10.1
+        with:
+          cache: false
+          toolchain: ${{ env.RUST_VERSION }}
+          target: wasm32-unknown-unknown
+          components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
+      - name: Install protobuf
+        run: brew install protobuf
+      - name: cargo info
+        run: |
+          echo "######## rustup show ########"
+          rustup show
+          echo "######## cargo --version ########"
+          cargo --version
+      - name: Check bash
+        run: bash --version
 
   build-rc:
     needs: [set-image]
@@ -129,6 +167,80 @@ jobs:
         with:
           name: ${{ matrix.binaries }}
           path: /artifacts/${{ matrix.binaries }}
+
+  build-macos-rc:
+    if: ${{ inputs.runs_on == 'parity-macos' }}
+    needs: [setup-macos-runner]
+    runs-on: parity-macos
+    environment: release
+    strategy:
+      matrix:
+        binaries: ${{ fromJSON(inputs.binary) }}
+    env:
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    steps:
+      - name: Install pgpkkms
+        run: |
+          # Install pgpkms that is used to sign built artifacts
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
+          which pgpkms
+
+      - name: Checkout sources
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+
+      - name: Import gpg keys
+        shell: bash
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          import_gpg_keys
+
+      - name: Build binary
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
+          ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+        with:
+          subject-path: /artifacts/${{ matrix.binaries }}/${{ matrix.binaries }}
+
+      - name: Sign artifacts
+        working-directory: /artifacts/${{ matrix.binaries }}
+        run: |
+          python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
+
+      - name: Check sha256 ${{ matrix.binaries }}
+        working-directory: /artifacts/${{ matrix.binaries }}
+        shell: bash
+        run: |
+          .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+
+          echo "Checking binary  ${{ matrix.binaries }}"
+          check_sha256  ${{ matrix.binaries }}
+
+      - name: Check GPG ${{ matrix.binaries }}
+        working-directory: /artifacts/${{ matrix.binaries }}
+        shell: bash
+        run: |
+          . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+
+          check_gpg  ${{ matrix.binaries }}
+
+      - name: Upload ${{ matrix.binaries }} artifacts
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: ${{ matrix.binaries }}
+          path: /artifacts/${{ matrix.binaries }}
+
 
   build-polkadot-deb-package:
     if: ${{ inputs.package == 'polkadot' }}

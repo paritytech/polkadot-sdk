@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Set the new version by replacing the value of the constant given as patetrn
+# Set the new version by replacing the value of the constant given as pattern
 # in the file.
 #
 # input: pattern, version, file
