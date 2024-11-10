@@ -2477,7 +2477,7 @@ impl<T: Config> Pallet<T> {
 		}
 		tracing::debug!(target: "xcm::send_xcm", "{:?}, {:?}", dest.clone(), message.clone());
 		let (ticket, price) = validate_send::<T::XcmRouter>(dest, message)?;
-		if is_waived {
+		if !is_waived {
 			Self::charge_fees(local_origin, price).map_err(|e| {
 				tracing::error!(
 					target: "xcm::pallet_xcm::send_xcm",
