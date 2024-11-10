@@ -16,11 +16,9 @@ log = { workspace = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 
 # Bridge dependencies
-
 bp-xcm-bridge-hub-router = { workspace = true }
 
 # Substrate Dependencies
-
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -29,7 +27,6 @@ sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
 # Polkadot Dependencies
-
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 

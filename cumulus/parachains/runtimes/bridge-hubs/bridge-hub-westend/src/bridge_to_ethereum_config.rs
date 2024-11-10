@@ -30,9 +30,10 @@ use sp_core::H160;
 use testnet_parachains_constants::westend::{
 	currency::*,
 	fee::WeightToFee,
-	snowbridge::{EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX},
+	snowbridge::{EthereumLocation, EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX},
 };
 
+use crate::xcm_config::RelayNetwork;
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
@@ -41,6 +42,9 @@ use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
 	FixedU128,
 };
+use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain};
+
+pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
 
 /// Exports message to the Ethereum Gateway contract.
 pub type SnowbridgeExporter = EthereumBlobExporter<
@@ -48,6 +52,7 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	EthereumNetwork,
 	snowbridge_pallet_outbound_queue::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
+	EthereumSystem,
 >;
 
 // Ethereum Bridge
@@ -64,8 +69,9 @@ parameter_types! {
 		rewards: Rewards { local: 1 * UNITS, remote: meth(1) },
 		multiplier: FixedU128::from_rational(1, 1),
 	};
+	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(RelayNetwork::get()),Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
+	pub EthereumUniversalLocation: InteriorLocation = [GlobalConsensus(EthereumNetwork::get())].into();
 }
-
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
@@ -84,6 +90,9 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
 		AccountId,
 		Balance,
+		EthereumSystem,
+		EthereumUniversalLocation,
+		AssetHubFromEthereum,
 	>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -163,6 +172,7 @@ parameter_types! {
 impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
+	type FreeHeadersInterval = ConstU32<SLOTS_PER_EPOCH>;
 	type WeightInfo = crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>;
 }
 
@@ -178,6 +188,8 @@ impl snowbridge_pallet_system::Config for Runtime {
 	type Helper = ();
 	type DefaultPricingParameters = Parameters;
 	type InboundDeliveryCost = EthereumInboundQueue;
+	type UniversalLocation = UniversalLocation;
+	type EthereumLocation = EthereumLocation;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -214,6 +226,51 @@ pub mod benchmark_helpers {
 	impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+		}
+	}
+}
+
+pub(crate) mod migrations {
+	use alloc::vec::Vec;
+	use frame_support::pallet_prelude::*;
+	use snowbridge_core::TokenId;
+
+	#[frame_support::storage_alias]
+	pub type OldNativeToForeignId<T: snowbridge_pallet_system::Config> = StorageMap<
+		snowbridge_pallet_system::Pallet<T>,
+		Blake2_128Concat,
+		xcm::v4::Location,
+		TokenId,
+		OptionQuery,
+	>;
+
+	/// One shot migration for NetworkId::Westend to NetworkId::ByGenesis(WESTEND_GENESIS_HASH)
+	pub struct MigrationForXcmV5<T: snowbridge_pallet_system::Config>(core::marker::PhantomData<T>);
+	impl<T: snowbridge_pallet_system::Config> frame_support::traits::OnRuntimeUpgrade
+		for MigrationForXcmV5<T>
+	{
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = T::DbWeight::get().reads(1);
+
+			let translate_westend = |pre: xcm::v4::Location| -> Option<xcm::v5::Location> {
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+				Some(xcm::v5::Location::try_from(pre).expect("valid location"))
+			};
+			snowbridge_pallet_system::ForeignToNativeId::<T>::translate_values(translate_westend);
+
+			let old_keys = OldNativeToForeignId::<T>::iter_keys().collect::<Vec<_>>();
+			for old_key in old_keys {
+				if let Some(old_val) = OldNativeToForeignId::<T>::get(&old_key) {
+					snowbridge_pallet_system::NativeToForeignId::<T>::insert(
+						&xcm::v5::Location::try_from(old_key.clone()).expect("valid location"),
+						old_val,
+					);
+				}
+				OldNativeToForeignId::<T>::remove(old_key);
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+			}
+
+			weight
 		}
 	}
 }

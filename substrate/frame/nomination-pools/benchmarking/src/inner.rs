@@ -41,7 +41,7 @@ use sp_runtime::{
 	traits::{Bounded, StaticLookup, Zero},
 	Perbill,
 };
-use sp_staking::EraIndex;
+use sp_staking::{EraIndex, StakingUnchecked};
 // `frame_benchmarking::benchmarks!` macro needs this
 use pallet_nomination_pools::Call;
 
@@ -131,6 +131,8 @@ fn migrate_to_transfer_stake<T: Config>(pool_id: PoolId) {
 			)
 			.expect("member should have enough balance to transfer");
 		});
+
+	pallet_staking::Pallet::<T>::migrate_to_direct_staker(&pool_acc);
 }
 
 fn vote_to_balance<T: pallet_nomination_pools::Config>(

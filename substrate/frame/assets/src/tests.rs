@@ -1785,10 +1785,10 @@ fn multiple_transfer_alls_work_ok() {
 #[test]
 fn weights_sane() {
 	let info = crate::Call::<Test>::create { id: 10, admin: 4, min_balance: 3 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::create(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::create(), info.call_weight);
 
 	let info = crate::Call::<Test>::finish_destroy { id: 10 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::finish_destroy(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::finish_destroy(), info.call_weight);
 }
 
 #[test]

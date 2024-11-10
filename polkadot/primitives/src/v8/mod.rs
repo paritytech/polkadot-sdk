@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! `V7` Primitives.
-
 use alloc::{
 	vec,
 	vec::{IntoIter, Vec},
@@ -485,7 +484,7 @@ pub fn collator_signature_payload<H: AsRef<[u8]>>(
 	payload
 }
 
-fn check_collator_signature<H: AsRef<[u8]>>(
+pub(crate) fn check_collator_signature<H: AsRef<[u8]>>(
 	relay_parent: &H,
 	para_id: &Id,
 	persisted_validation_data_hash: &Hash,
@@ -1157,7 +1156,7 @@ pub enum OccupiedCoreAssumption {
 	Free,
 }
 
-/// An even concerning a candidate.
+/// An event concerning a candidate.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum CandidateEvent<H = Hash> {
@@ -2094,7 +2093,9 @@ pub struct SchedulerParams<BlockNumber> {
 	pub lookahead: u32,
 	/// How many cores are managed by the coretime chain.
 	pub num_cores: u32,
-	/// The max number of times a claim can time out in availability.
+	/// Deprecated and no longer used by the runtime.
+	/// Removal is tracked by <https://github.com/paritytech/polkadot-sdk/issues/6067>.
+	#[deprecated]
 	pub max_availability_timeouts: u32,
 	/// The maximum queue size of the pay as you go module.
 	pub on_demand_queue_max_size: u32,
@@ -2105,13 +2106,14 @@ pub struct SchedulerParams<BlockNumber> {
 	pub on_demand_fee_variability: Perbill,
 	/// The minimum amount needed to claim a slot in the spot pricing queue.
 	pub on_demand_base_fee: Balance,
-	/// The number of blocks a claim stays in the scheduler's claim queue before getting cleared.
-	/// This number should go reasonably higher than the number of blocks in the async backing
-	/// lookahead.
+	/// Deprecated and no longer used by the runtime.
+	/// Removal is tracked by <https://github.com/paritytech/polkadot-sdk/issues/6067>.
+	#[deprecated]
 	pub ttl: BlockNumber,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> {
+	#[allow(deprecated)]
 	fn default() -> Self {
 		Self {
 			group_rotation_frequency: 1u32.into(),
@@ -2130,7 +2132,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
 	use super::*;
 	use bitvec::bitvec;
 	use sp_core::sr25519;

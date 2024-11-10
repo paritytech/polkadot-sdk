@@ -242,6 +242,7 @@ fetch_release_artifacts() {
 # - GITHUB_TOKEN
 # - REPO in the form paritytech/polkadot
 fetch_release_artifacts_from_s3() {
+  BINARY=$1
   echo "Version    : $VERSION"
   echo "Repo       : $REPO"
   echo "Binary     : $BINARY"
@@ -299,23 +300,24 @@ function check_sha256() {
 }
 
 # Import GPG keys of the release team members
-# This is done in parallel as it can take a while sometimes
 function import_gpg_keys() {
-  GPG_KEYSERVER=${GPG_KEYSERVER:-"keyserver.ubuntu.com"}
+  GPG_KEYSERVER=${GPG_KEYSERVER:-"hkps://keyserver.ubuntu.com"}
   SEC="9D4B2B6EB8F97156D19669A9FF0812D491B96798"
   EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
   MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
+  PARITY_RELEASES="90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
+  PARITY_RELEASES_SIGN_COMMITS="D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
-  echo "Importing GPG keys from $GPG_KEYSERVER in parallel"
-  for key in $SEC $EGOR $MORGAN; do
+  echo "Importing GPG keys from $GPG_KEYSERVER"
+  for key in $SEC $EGOR $MORGAN $PARITY_RELEASES $PARITY_RELEASES_SIGN_COMMITS; do
     (
       echo "Importing GPG key $key"
       gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key
       echo -e "5\ny\n" | gpg --no-tty --command-fd 0 --expert --edit-key $key trust;
-    ) &
+    )
   done
   wait
-  gpg -k $SEC
+  gpg -k
 }
 
 # Check the GPG signature for a given binary
@@ -404,14 +406,10 @@ function find_runtimes() {
 # output: none
 filter_version_from_input() {
   version=$1
-  regex="(^v[0-9]+\.[0-9]+\.[0-9]+)$|(^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+)$"
+  regex="^(v)?[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$"
 
   if [[ $version =~ $regex ]]; then
-      if [ -n "${BASH_REMATCH[1]}" ]; then
-          echo "${BASH_REMATCH[1]}"
-      elif [ -n "${BASH_REMATCH[2]}" ]; then
-          echo "${BASH_REMATCH[2]}"
-      fi
+      echo $version
   else
       echo "Invalid version: $version"
       exit 1
@@ -461,7 +459,7 @@ function get_polkadot_node_version_from_code() {
 
 validate_stable_tag() {
     tag="$1"
-    pattern='^stable[0-9]+(-[0-9]+)?$'
+    pattern="^(polkadot-)?stable[0-9]{4}(-[0-9]+)?(-rc[0-9]+)?$"
 
     if [[ $tag =~ $pattern ]]; then
         echo $tag

@@ -18,11 +18,9 @@
 //! parachain finality proofs synchronization pipelines.
 
 use async_trait::async_trait;
+use bp_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
-use pallet_bridge_parachains::{
-	Call as BridgeParachainsCall, Config as BridgeParachainsConfig, RelayBlockHash,
-	RelayBlockHasher, RelayBlockNumber,
-};
+use pallet_bridge_parachains::{Call as BridgeParachainsCall, Config as BridgeParachainsConfig};
 use parachains_relay::ParachainsPipeline;
 use relay_substrate_client::{
 	CallOf, Chain, ChainWithTransactions, HeaderIdOf, Parachain, RelayChain,

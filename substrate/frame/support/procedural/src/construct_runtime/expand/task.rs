@@ -16,6 +16,7 @@
 // limitations under the License
 
 use crate::construct_runtime::Pallet;
+use core::str::FromStr;
 use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::quote;
 
@@ -28,7 +29,8 @@ pub fn expand_outer_task(
 	let mut from_impls = Vec::new();
 	let mut task_variants = Vec::new();
 	let mut variant_names = Vec::new();
-	let mut task_paths = Vec::new();
+	let mut task_types = Vec::new();
+	let mut cfg_attrs = Vec::new();
 	for decl in pallet_decls {
 		if decl.find_part("Task").is_none() {
 			continue
@@ -37,18 +39,31 @@ pub fn expand_outer_task(
 		let variant_name = &decl.name;
 		let path = &decl.path;
 		let index = decl.index;
+		let instance = decl.instance.as_ref().map(|instance| quote!(, #path::#instance));
+		let task_type = quote!(#path::Task<#runtime_name #instance>);
+
+		let attr = decl.cfg_pattern.iter().fold(TokenStream2::new(), |acc, pattern| {
+			let attr = TokenStream2::from_str(&format!("#[cfg({})]", pattern.original()))
+				.expect("was successfully parsed before; qed");
+			quote! {
+				#acc
+				#attr
+			}
+		});
 
 		from_impls.push(quote! {
-			impl From<#path::Task<#runtime_name>> for RuntimeTask {
-				fn from(hr: #path::Task<#runtime_name>) -> Self {
+			#attr
+			impl From<#task_type> for RuntimeTask {
+				fn from(hr: #task_type) -> Self {
 					RuntimeTask::#variant_name(hr)
 				}
 			}
 
-			impl TryInto<#path::Task<#runtime_name>> for RuntimeTask {
+			#attr
+			impl TryInto<#task_type> for RuntimeTask {
 				type Error = ();
 
-				fn try_into(self) -> Result<#path::Task<#runtime_name>, Self::Error> {
+				fn try_into(self) -> Result<#task_type, Self::Error> {
 					match self {
 						RuntimeTask::#variant_name(hr) => Ok(hr),
 						_ => Err(()),
@@ -58,13 +73,16 @@ pub fn expand_outer_task(
 		});
 
 		task_variants.push(quote! {
+			#attr
 			#[codec(index = #index)]
-			#variant_name(#path::Task<#runtime_name>),
+			#variant_name(#task_type),
 		});
 
 		variant_names.push(quote!(#variant_name));
 
-		task_paths.push(quote!(#path::Task));
+		task_types.push(task_type);
+
+		cfg_attrs.push(attr);
 	}
 
 	let prelude = quote!(#scrate::traits::tasks::__private);
@@ -91,35 +109,50 @@ pub fn expand_outer_task(
 
 			fn is_valid(&self) -> bool {
 				match self {
-					#(RuntimeTask::#variant_names(val) => val.is_valid(),)*
+					#(
+						#cfg_attrs
+						RuntimeTask::#variant_names(val) => val.is_valid(),
+					)*
 					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
 			fn run(&self) -> Result<(), #scrate::traits::tasks::__private::DispatchError> {
 				match self {
-					#(RuntimeTask::#variant_names(val) => val.run(),)*
+					#(
+						#cfg_attrs
+						RuntimeTask::#variant_names(val) => val.run(),
+					)*
 					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
 			fn weight(&self) -> #scrate::pallet_prelude::Weight {
 				match self {
-					#(RuntimeTask::#variant_names(val) => val.weight(),)*
+					#(
+						#cfg_attrs
+						RuntimeTask::#variant_names(val) => val.weight(),
+					)*
 					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
 			fn task_index(&self) -> u32 {
 				match self {
-					#(RuntimeTask::#variant_names(val) => val.task_index(),)*
+					#(
+						#cfg_attrs
+						RuntimeTask::#variant_names(val) => val.task_index(),
+					)*
 					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
 			fn iter() -> Self::Enumeration {
 				let mut all_tasks = Vec::new();
-				#(all_tasks.extend(#task_paths::iter().map(RuntimeTask::from).collect::<Vec<_>>());)*
+				#(
+					#cfg_attrs
+					all_tasks.extend(<#task_types>::iter().map(RuntimeTask::from).collect::<Vec<_>>());
+				)*
 				all_tasks.into_iter()
 			}
 		}

@@ -19,20 +19,24 @@
 use crate::{Config, LOG_TARGET};
 
 use bp_messages::{
-	ChainWithMessages, DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
+	ChainWithMessages, DeliveredMessages, LaneState, MessageNonce, OutboundLaneData,
+	UnrewardedRelayer,
 };
 use codec::{Decode, Encode};
 use frame_support::{traits::Get, BoundedVec, PalletError};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData};
+use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
 
 /// Outbound lane storage.
 pub trait OutboundLaneStorage {
+	/// Stored message payload type.
 	type StoredMessagePayload;
+	/// Lane identifier type.
+	type LaneId: Encode;
 
 	/// Lane id.
-	fn id(&self) -> LaneId;
+	fn id(&self) -> Self::LaneId;
 	/// Get lane data from the storage.
 	fn data(&self) -> OutboundLaneData;
 	/// Update lane data in the storage.
@@ -44,6 +48,8 @@ pub trait OutboundLaneStorage {
 	fn save_message(&mut self, nonce: MessageNonce, message_payload: Self::StoredMessagePayload);
 	/// Remove outbound message from the storage.
 	fn remove_message(&mut self, nonce: &MessageNonce);
+	/// Purge lane data from the storage.
+	fn purge(self);
 }
 
 /// Limit for the `StoredMessagePayload` vector.
@@ -75,6 +81,7 @@ pub enum ReceptionConfirmationError {
 }
 
 /// Outbound messages lane.
+#[derive(Debug, PartialEq, Eq)]
 pub struct OutboundLane<S> {
 	storage: S,
 }
@@ -88,6 +95,24 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 	/// Get this lane data.
 	pub fn data(&self) -> OutboundLaneData {
 		self.storage.data()
+	}
+
+	/// Get lane state.
+	pub fn state(&self) -> LaneState {
+		self.storage.data().state
+	}
+
+	/// Set lane state.
+	pub fn set_state(&mut self, state: LaneState) {
+		let mut data = self.storage.data();
+		data.state = state;
+		self.storage.set_data(data);
+	}
+
+	/// Return nonces of all currently queued messages.
+	pub fn queued_messages(&self) -> RangeInclusive<MessageNonce> {
+		let data = self.storage.data();
+		data.oldest_unpruned_nonce..=data.latest_generated_nonce
 	}
 
 	/// Send message over lane.
@@ -150,6 +175,19 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 
 		Ok(Some(confirmed_messages))
 	}
+
+	/// Remove message from the storage. Doesn't perform any checks.
+	pub fn remove_oldest_unpruned_message(&mut self) {
+		let mut data = self.storage.data();
+		self.storage.remove_message(&data.oldest_unpruned_nonce);
+		data.oldest_unpruned_nonce += 1;
+		self.storage.set_data(data);
+	}
+
+	/// Purge lane state from the storage.
+	pub fn purge(self) {
+		self.storage.purge()
+	}
 }
 
 /// Verifies unrewarded relayers vec.
@@ -187,10 +225,10 @@ fn ensure_unrewarded_relayers_are_correct<RelayerId>(
 mod tests {
 	use super::*;
 	use crate::{
-		outbound_lane,
+		active_outbound_lane,
 		tests::mock::{
-			outbound_message_data, run_test, unrewarded_relayer, TestRelayer, TestRuntime,
-			REGULAR_PAYLOAD, TEST_LANE_ID,
+			outbound_message_data, run_test, test_lane_id, unrewarded_relayer, TestRelayer,
+			TestRuntime, REGULAR_PAYLOAD,
 		},
 	};
 	use sp_std::ops::RangeInclusive;
@@ -212,7 +250,7 @@ mod tests {
 		relayers: &VecDeque<UnrewardedRelayer<TestRelayer>>,
 	) -> Result<Option<DeliveredMessages>, ReceptionConfirmationError> {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
@@ -228,7 +266,7 @@ mod tests {
 	#[test]
 	fn send_message_works() {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			assert_eq!(lane.storage.data().latest_generated_nonce, 0);
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 1);
 			assert!(lane.storage.message(&1).is_some());
@@ -239,7 +277,7 @@ mod tests {
 	#[test]
 	fn confirm_delivery_works() {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 1);
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 2);
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 3);
@@ -259,7 +297,7 @@ mod tests {
 	#[test]
 	fn confirm_partial_delivery_works() {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 1);
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 2);
 			assert_eq!(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), 3);
@@ -288,7 +326,7 @@ mod tests {
 	#[test]
 	fn confirm_delivery_rejects_nonce_lesser_than_latest_received() {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
@@ -368,7 +406,7 @@ mod tests {
 	#[test]
 	fn confirm_delivery_detects_when_more_than_expected_messages_are_confirmed() {
 		run_test(|| {
-			let mut lane = outbound_lane::<TestRuntime, _>(TEST_LANE_ID);
+			let mut lane = active_outbound_lane::<TestRuntime, _>(test_lane_id()).unwrap();
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));

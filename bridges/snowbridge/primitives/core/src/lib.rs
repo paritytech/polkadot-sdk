@@ -9,11 +9,13 @@
 mod tests;
 
 pub mod inbound;
+pub mod location;
 pub mod operating_mode;
 pub mod outbound;
 pub mod pricing;
 pub mod ringbuffer;
 
+pub use location::{AgentId, AgentIdOf, TokenId, TokenIdOf};
 pub use polkadot_parachain_primitives::primitives::{
 	Id as ParaId, IsSystem, Sibling as SiblingParaId,
 };
@@ -21,18 +23,16 @@ pub use ringbuffer::{RingBufferMap, RingBufferMapImpl};
 pub use sp_core::U256;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::Contains;
+use frame_support::{traits::Contains, BoundedVec};
 use hex_literal::hex;
 use scale_info::TypeInfo;
-use sp_core::H256;
+use sp_core::{ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
 use xcm::prelude::{Junction::Parachain, Location};
-use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
 
 /// The ID of an agent contract
-pub type AgentId = H256;
 pub use operating_mode::BasicOperatingMode;
 
 pub use pricing::{PricingParameters, Rewards};
@@ -151,16 +151,24 @@ pub const PRIMARY_GOVERNANCE_CHANNEL: ChannelId =
 pub const SECONDARY_GOVERNANCE_CHANNEL: ChannelId =
 	ChannelId::new(hex!("0000000000000000000000000000000000000000000000000000000000000002"));
 
-pub struct DescribeHere;
-impl DescribeLocation for DescribeHere {
-	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match l.unpack() {
-			(0, []) => Some(Vec::<u8>::new().encode()),
-			_ => None,
+/// Metadata to include in the instantiated ERC20 token contract
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct AssetMetadata {
+	pub name: BoundedVec<u8, ConstU32<METADATA_FIELD_MAX_LEN>>,
+	pub symbol: BoundedVec<u8, ConstU32<METADATA_FIELD_MAX_LEN>>,
+	pub decimals: u8,
+}
+
+#[cfg(any(test, feature = "std", feature = "runtime-benchmarks"))]
+impl Default for AssetMetadata {
+	fn default() -> Self {
+		AssetMetadata {
+			name: BoundedVec::truncate_from(vec![]),
+			symbol: BoundedVec::truncate_from(vec![]),
+			decimals: 0,
 		}
 	}
 }
 
-/// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
-/// Ethereum which acts as the sovereign account for the Location.
-pub type AgentIdOf = HashedDescription<H256, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
+/// Maximum length of a string field in ERC20 token metada
+const METADATA_FIELD_MAX_LEN: u32 = 32;

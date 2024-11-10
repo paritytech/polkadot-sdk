@@ -22,7 +22,7 @@ use bp_polkadot_core::Signature;
 use bridge_hub_westend_runtime::{
 	bridge_to_rococo_config, xcm_config::XcmConfig, AllPalletsWithoutSystem,
 	BridgeRejectObsoleteHeadersAndMessages, Executive, MessageQueueServiceWeight, Runtime,
-	RuntimeCall, RuntimeEvent, SessionKeys, SignedExtra, UncheckedExtrinsic,
+	RuntimeCall, RuntimeEvent, SessionKeys, TxExtension, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
@@ -86,11 +86,11 @@ pub fn transfer_token_to_ethereum_fee_not_enough() {
 		collator_session_keys(),
 		BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		ASSET_HUB_WESTEND_PARACHAIN_ID,
-		DefaultBridgeHubEthereumBaseFee::get() + 10_000_000_000,
+		DefaultBridgeHubEthereumBaseFee::get() + 20_000_000_000,
 		H160::random(),
 		H160::random(),
 		// fee not enough
-		10_000_000_000,
+		20_000_000_000,
 		NotHoldingFees,
 	)
 }
@@ -171,7 +171,7 @@ fn construct_extrinsic(
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
-	let extra: SignedExtra = (
+	let extra: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -184,8 +184,8 @@ fn construct_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 		frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 	);
 	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));

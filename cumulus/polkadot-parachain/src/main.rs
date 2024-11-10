@@ -21,7 +21,7 @@
 
 mod chain_spec;
 
-use polkadot_parachain_lib::{run, CliConfig as CliConfigT, RunConfig};
+use polkadot_omni_node_lib::{run, CliConfig as CliConfigT, RunConfig};
 
 struct CliConfig;
 
@@ -46,9 +46,9 @@ impl CliConfigT for CliConfig {
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
 
-	let config = RunConfig {
-		chain_spec_loader: Box::new(chain_spec::ChainSpecLoader),
-		runtime_resolver: Box::new(chain_spec::RuntimeResolver),
-	};
+	let config = RunConfig::new(
+		Box::new(chain_spec::RuntimeResolver),
+		Box::new(chain_spec::ChainSpecLoader),
+	);
 	Ok(run::<CliConfig>(config)?)
 }

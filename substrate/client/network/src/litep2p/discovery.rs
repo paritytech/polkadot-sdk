@@ -95,15 +95,6 @@ pub enum DiscoveryEvent {
 		/// Peer ID.
 		peer: PeerId,
 
-		/// Identify protocol version.
-		protocol_version: Option<String>,
-
-		/// Identify user agent version.
-		user_agent: Option<String>,
-
-		/// Observed address.
-		observed_address: Multiaddr,
-
 		/// Listen addresses.
 		listen_addresses: Vec<Multiaddr>,
 
@@ -125,7 +116,16 @@ pub enum DiscoveryEvent {
 
 	/// New external address discovered.
 	ExternalAddressDiscovered {
-		/// Discovered addresses.
+		/// Discovered address.
+		address: Multiaddr,
+	},
+
+	/// The external address has expired.
+	///
+	/// This happens when the internal buffers exceed the maximum number of external addresses,
+	/// and this address is the oldest one.
+	ExternalAddressExpired {
+		/// Expired address.
 		address: Multiaddr,
 	},
 
@@ -162,6 +162,9 @@ pub enum DiscoveryEvent {
 
 /// Discovery.
 pub struct Discovery {
+	/// Local peer ID.
+	local_peer_id: litep2p::PeerId,
+
 	/// Ping event stream.
 	ping_event_stream: Box<dyn Stream<Item = PingEvent> + Send + Unpin>,
 
@@ -233,6 +236,7 @@ impl Discovery {
 	/// Enables `/ipfs/ping/1.0.0` and `/ipfs/identify/1.0.0` by default and starts
 	/// the mDNS peer discovery if it was enabled.
 	pub fn new<Hash: AsRef<[u8]> + Clone>(
+		local_peer_id: litep2p::PeerId,
 		config: &NetworkConfiguration,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
@@ -243,11 +247,9 @@ impl Discovery {
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
 		let user_agent = format!("{} ({})", config.client_version, config.node_name);
-		let (identify_config, identify_event_stream) = IdentifyConfig::new(
-			"/substrate/1.0".to_string(),
-			Some(user_agent),
-			config.public_addresses.clone().into_iter().map(Into::into).collect(),
-		);
+
+		let (identify_config, identify_event_stream) =
+			IdentifyConfig::new("/substrate/1.0".to_string(), Some(user_agent));
 
 		let (mdns_config, mdns_event_stream) = match config.transport {
 			crate::config::TransportConfig::Normal { enable_mdns, .. } => match enable_mdns {
@@ -275,6 +277,7 @@ impl Discovery {
 
 		(
 			Self {
+				local_peer_id,
 				ping_event_stream,
 				identify_event_stream,
 				mdns_event_stream,
@@ -434,7 +437,13 @@ impl Discovery {
 	}
 
 	/// Check if `address` can be considered a new external address.
-	fn is_new_external_address(&mut self, address: &Multiaddr, peer: PeerId) -> bool {
+	///
+	/// If this address replaces an older address, the expired address is returned.
+	fn is_new_external_address(
+		&mut self,
+		address: &Multiaddr,
+		peer: PeerId,
+	) -> (bool, Option<Multiaddr>) {
 		log::trace!(target: LOG_TARGET, "verify new external address: {address}");
 
 		// is the address one of our known addresses
@@ -445,7 +454,7 @@ impl Discovery {
 			.chain(self.public_addresses.iter())
 			.any(|known_address| Discovery::is_known_address(&known_address, &address))
 		{
-			return true
+			return (true, None)
 		}
 
 		match self.address_confirmations.get(address) {
@@ -453,15 +462,31 @@ impl Discovery {
 				confirmations.insert(peer);
 
 				if confirmations.len() >= MIN_ADDRESS_CONFIRMATIONS {
-					return true
+					return (true, None)
 				}
 			},
 			None => {
+				let oldest = (self.address_confirmations.len() >=
+					self.address_confirmations.limiter().max_length() as usize)
+					.then(|| {
+						self.address_confirmations.pop_oldest().map(|(address, peers)| {
+							if peers.len() >= MIN_ADDRESS_CONFIRMATIONS {
+								return Some(address)
+							} else {
+								None
+							}
+						})
+					})
+					.flatten()
+					.flatten();
+
 				self.address_confirmations.insert(address.clone(), Default::default());
+
+				return (false, oldest)
 			},
 		}
 
-		false
+		(false, None)
 	}
 }
 
@@ -533,7 +558,7 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
 			},
-			Poll::Ready(Some(KademliaEvent::PutRecordSucess { query_id, key: _ })) =>
+			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
 				match this.find_node_query_id == Some(query_id) {
@@ -556,6 +581,9 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
+			// Content provider events are ignored for now.
+			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess { .. })) |
+			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},
 		}
 
 		match Pin::new(&mut this.identify_event_stream).poll_next(cx) {
@@ -563,24 +591,53 @@ impl Stream for Discovery {
 			Poll::Ready(None) => return Poll::Ready(None),
 			Poll::Ready(Some(IdentifyEvent::PeerIdentified {
 				peer,
-				protocol_version,
-				user_agent,
 				listen_addresses,
 				supported_protocols,
 				observed_address,
+				..
 			})) => {
-				if this.is_new_external_address(&observed_address, peer) {
-					this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
-						address: observed_address.clone(),
-					});
+				let observed_address =
+					if let Some(Protocol::P2p(peer_id)) = observed_address.iter().last() {
+						if peer_id != *this.local_peer_id.as_ref() {
+							log::warn!(
+								target: LOG_TARGET,
+								"Discovered external address for a peer that is not us: {observed_address}",
+							);
+							None
+						} else {
+							Some(observed_address)
+						}
+					} else {
+						Some(observed_address.with(Protocol::P2p(this.local_peer_id.into())))
+					};
+
+				// Ensure that an external address with a different peer ID does not have
+				// side effects of evicting other external addresses via `ExternalAddressExpired`.
+				if let Some(observed_address) = observed_address {
+					let (is_new, expired_address) =
+						this.is_new_external_address(&observed_address, peer);
+
+					if let Some(expired_address) = expired_address {
+						log::trace!(
+							target: LOG_TARGET,
+							"Removing expired external address expired={expired_address} is_new={is_new} observed={observed_address}",
+						);
+
+						this.pending_events.push_back(DiscoveryEvent::ExternalAddressExpired {
+							address: expired_address,
+						});
+					}
+
+					if is_new {
+						this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
+							address: observed_address.clone(),
+						});
+					}
 				}
 
 				return Poll::Ready(Some(DiscoveryEvent::Identified {
 					peer,
-					protocol_version,
-					user_agent,
 					listen_addresses,
-					observed_address,
 					supported_protocols,
 				}));
 			},

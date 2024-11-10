@@ -40,8 +40,11 @@ pub mod runtime_vs_smart_contract;
 /// Learn about how extrinsics are encoded to be transmitted to a node and stored in blocks.
 pub mod extrinsic_encoding;
 
-/// Learn about the signed extensions that form a part of extrinsics.
+/// Deprecated in favor of transaction extensions.
 pub mod signed_extensions;
+
+/// Learn about the transaction extensions that form a part of extrinsics.
+pub mod transaction_extensions;
 
 /// Learn about *Origins*, a topic in FRAME that enables complex account abstractions to be built.
 pub mod frame_origin;
@@ -75,7 +78,6 @@ pub mod frame_system_accounts;
 pub mod development_environment_advice;
 
 /// Learn about benchmarking and weight.
-// TODO: @shawntabrizi @ggwpez https://github.com/paritytech/polkadot-sdk-docs/issues/50
 pub mod frame_benchmarking_weight;
 
 /// Learn about the token-related logic in FRAME and how to apply it to your use case.
@@ -106,3 +108,6 @@ pub mod umbrella_crate;
 
 /// Learn about how to create custom RPC endpoints and runtime APIs.
 pub mod custom_runtime_api_rpc;
+
+/// The [`polkadot-omni-node`](https://crates.io/crates/polkadot-omni-node) and its related binaries.
+pub mod omni_node;

@@ -1,25 +1,3 @@
-# from substrate
-# not sure if it's needed in monorepo
-check-dependency-rules:
-  stage: check
-  extends:
-    - .kubernetes-env
-    - .test-refs-no-trigger-prs-only
-  variables:
-    CI_IMAGE: "paritytech/tools:latest"
-  allow_failure: true
-  script:
-    - cd substrate/
-    - ../.gitlab/ensure-deps.sh
-
-test-rust-features:
-  stage: check
-  extends:
-    - .kubernetes-env
-    - .test-refs-no-trigger-prs-only
-  script:
-    - bash .gitlab/rust-features.sh .
-
 job-starter:
   stage: check
   image: paritytech/tools:latest
@@ -29,20 +7,3 @@ job-starter:
   allow_failure: true
   script:
     - echo ok
-
-check-rust-feature-propagation:
-  stage: check
-  extends:
-    - .kubernetes-env
-    - .common-refs
-  script:
-    - zepter run check
-
-check-toml-format:
-  stage: check
-  extends:
-    - .kubernetes-env
-    - .common-refs
-  script:
-    - taplo format --check --config .config/taplo.toml
-    - echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"

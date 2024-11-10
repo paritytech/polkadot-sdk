@@ -26,14 +26,7 @@ pub trait WeightBounds<RuntimeCall> {
 
 	/// Return the maximum amount of weight that an attempted execution of this instruction could
 	/// consume.
-	fn instr_weight(instruction: &Instruction<RuntimeCall>) -> Result<Weight, ()>;
-}
-
-/// A means of getting approximate weight consumption for a given destination message executor and a
-/// message.
-pub trait UniversalWeigher {
-	/// Get the upper limit of weight required for `dest` to execute `message`.
-	fn weigh(dest: impl Into<Location>, message: Xcm<()>) -> Result<Weight, ()>;
+	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, ()>;
 }
 
 /// Charge for weight in order to execute XCM.

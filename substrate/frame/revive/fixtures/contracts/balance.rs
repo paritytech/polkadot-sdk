@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::output;
+use common::u64_output;
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -28,9 +28,6 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	// Initialize buffer with 1s so that we can check that it is overwritten.
-	output!(balance, [1u8; 8], api::balance,);
-
-	// Assert that the balance is 0.
-	assert_eq!(&[0u8; 8], balance);
+	let balance = u64_output!(api::balance,);
+	assert_eq!(balance, 0);
 }

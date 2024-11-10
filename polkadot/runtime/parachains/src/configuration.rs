@@ -29,7 +29,7 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
 	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
-	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
+	ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill, Percent};
 
@@ -45,6 +45,10 @@ pub use pallet::*;
 use polkadot_primitives::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
+
+// This value is derived from network layer limits. See `sc_network::MAX_RESPONSE_SIZE` and
+// `polkadot_node_network_protocol::POV_RESPONSE_SIZE`.
+const POV_SIZE_HARD_LIMIT: u32 = 16 * 1024 * 1024;
 
 /// All configuration of the runtime with respect to paras.
 #[derive(
@@ -310,7 +314,7 @@ pub enum InconsistentError<BlockNumber> {
 	MaxCodeSizeExceedHardLimit { max_code_size: u32 },
 	/// `max_head_data_size` exceeds the hard limit of `MAX_HEAD_DATA_SIZE`.
 	MaxHeadDataSizeExceedHardLimit { max_head_data_size: u32 },
-	/// `max_pov_size` exceeds the hard limit of `MAX_POV_SIZE`.
+	/// `max_pov_size` exceeds the hard limit of `POV_SIZE_HARD_LIMIT`.
 	MaxPovSizeExceedHardLimit { max_pov_size: u32 },
 	/// `minimum_validation_upgrade_delay` is less than `paras_availability_period`.
 	MinimumValidationUpgradeDelayLessThanChainAvailabilityPeriod {
@@ -333,8 +337,6 @@ pub enum InconsistentError<BlockNumber> {
 	ZeroMinimumBackingVotes,
 	/// `executor_params` are inconsistent.
 	InconsistentExecutorParams { inner: ExecutorParamError },
-	/// TTL should be bigger than lookahead
-	LookaheadExceedsTTL,
 	/// Lookahead is zero, while it must be at least 1 for parachains to work.
 	LookaheadZero,
 	/// Passed in queue size for on-demand was too large.
@@ -377,7 +379,7 @@ where
 			})
 		}
 
-		if self.max_pov_size > MAX_POV_SIZE {
+		if self.max_pov_size > POV_SIZE_HARD_LIMIT {
 			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size })
 		}
 
@@ -428,10 +430,6 @@ where
 
 		if let Err(inner) = self.executor_params.check_consistency() {
 			return Err(InconsistentExecutorParams { inner })
-		}
-
-		if self.scheduler_params.ttl < self.scheduler_params.lookahead.into() {
-			return Err(LookaheadExceedsTTL)
 		}
 
 		if self.scheduler_params.lookahead == 0 {
@@ -682,18 +680,7 @@ pub mod pallet {
 			Self::set_coretime_cores_unchecked(new)
 		}
 
-		/// Set the max number of times a claim may timeout on a core before it is abandoned
-		#[pallet::call_index(7)]
-		#[pallet::weight((
-			T::WeightInfo::set_config_with_u32(),
-			DispatchClass::Operational,
-		))]
-		pub fn set_max_availability_timeouts(origin: OriginFor<T>, new: u32) -> DispatchResult {
-			ensure_root(origin)?;
-			Self::schedule_config_update(|config| {
-				config.scheduler_params.max_availability_timeouts = new;
-			})
-		}
+		// Call index 7 used to be `set_max_availability_timeouts`, which was removed.
 
 		/// Set the parachain validator-group rotation frequency
 		#[pallet::call_index(8)]
@@ -1189,18 +1176,8 @@ pub mod pallet {
 				config.scheduler_params.on_demand_target_queue_utilization = new;
 			})
 		}
-		/// Set the on demand (parathreads) ttl in the claimqueue.
-		#[pallet::call_index(51)]
-		#[pallet::weight((
-			T::WeightInfo::set_config_with_block_number(),
-			DispatchClass::Operational
-		))]
-		pub fn set_on_demand_ttl(origin: OriginFor<T>, new: BlockNumberFor<T>) -> DispatchResult {
-			ensure_root(origin)?;
-			Self::schedule_config_update(|config| {
-				config.scheduler_params.ttl = new;
-			})
-		}
+
+		// Call index 51 used to be `set_on_demand_ttl`, which was removed.
 
 		/// Set the minimum backing votes threshold.
 		#[pallet::call_index(52)]

@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Use maximum allowed response size for request/response protocols
+
+doc:
+  - audience: Node Dev
+    description: |
+     Increase maximum PoV response size to 16MB which is equal to the default value used in the substrate.
+
+crates:
+  - name: sc-network
+    bump: patch
+  - name: sc-network-light
+    bump: patch
+  - name: sc-network-sync
+    bump: patch
+  - name: polkadot-node-network-protocol
+    bump: patch
+  - name: sc-network-transactions
+    bump: patch

@@ -24,12 +24,38 @@ pub mod builder;
 
 use crate::{BalanceOf, Config};
 use frame_support::weights::Weight;
+use sp_core::H160;
 pub use sp_runtime::AccountId32;
 
-pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
-pub const BOB: AccountId32 = AccountId32::new([2u8; 32]);
-pub const CHARLIE: AccountId32 = AccountId32::new([3u8; 32]);
-pub const DJANGO: AccountId32 = AccountId32::new([4u8; 32]);
+const fn ee_suffix(mut account: [u8; 32]) -> AccountId32 {
+	let mut i = 20;
+	while i < 32 {
+		account[i] = 0xee;
+		i += 1;
+	}
+	AccountId32::new(account)
+}
+
+pub const ALICE: AccountId32 = ee_suffix([1u8; 32]);
+pub const ALICE_ADDR: H160 = H160([1u8; 20]);
+pub const ALICE_FALLBACK: AccountId32 = ee_suffix([1u8; 32]);
+
+pub const BOB: AccountId32 = ee_suffix([2u8; 32]);
+pub const BOB_ADDR: H160 = H160([2u8; 20]);
+pub const BOB_FALLBACK: AccountId32 = ee_suffix([2u8; 32]);
+
+pub const CHARLIE: AccountId32 = ee_suffix([3u8; 32]);
+pub const CHARLIE_ADDR: H160 = H160([3u8; 20]);
+pub const CHARLIE_FALLBACK: AccountId32 = ee_suffix([3u8; 32]);
+
+pub const DJANGO: AccountId32 = ee_suffix([4u8; 32]);
+pub const DJANGO_ADDR: H160 = H160([4u8; 20]);
+pub const DJANGO_FALLBACK: AccountId32 = ee_suffix([4u8; 32]);
+
+/// Eve is a non ee account and hence needs a stateful mapping.
+pub const EVE: AccountId32 = AccountId32::new([5u8; 32]);
+pub const EVE_ADDR: H160 = H160([5u8; 20]);
+pub const EVE_FALLBACK: AccountId32 = ee_suffix([5u8; 32]);
 
 pub const GAS_LIMIT: Weight = Weight::from_parts(100_000_000_000, 3 * 1024 * 1024);
 

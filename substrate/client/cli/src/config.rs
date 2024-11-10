@@ -27,10 +27,10 @@ use log::warn;
 use names::{Generator, Name};
 use sc_service::{
 	config::{
-		BasePath, Configuration, DatabaseSource, IpNetwork, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role,
-		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
-		WasmExecutionMethod,
+		BasePath, Configuration, DatabaseSource, ExecutorConfiguration, IpNetwork, KeystoreConfig,
+		NetworkConfiguration, NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode,
+		Role, RpcBatchRequestConfig, RpcConfiguration, RpcMethods, TelemetryEndpoints,
+		TransactionPoolOptions, WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
@@ -530,26 +530,32 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
-			wasm_method: self.wasm_method()?,
+			executor: ExecutorConfiguration {
+				wasm_method: self.wasm_method()?,
+				default_heap_pages: self.default_heap_pages()?,
+				max_runtime_instances,
+				runtime_cache_size,
+			},
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
-			rpc_addr: rpc_addrs,
-			rpc_methods: self.rpc_methods()?,
-			rpc_max_connections: self.rpc_max_connections()?,
-			rpc_cors: self.rpc_cors(is_dev)?,
-			rpc_max_request_size: self.rpc_max_request_size()?,
-			rpc_max_response_size: self.rpc_max_response_size()?,
-			rpc_id_provider: None,
-			rpc_max_subs_per_conn: self.rpc_max_subscriptions_per_connection()?,
-			rpc_port: DCV::rpc_listen_port(),
-			rpc_message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
-			rpc_batch_config: self.rpc_batch_config()?,
-			rpc_rate_limit: self.rpc_rate_limit()?,
-			rpc_rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips()?,
-			rpc_rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers()?,
+			rpc: RpcConfiguration {
+				addr: rpc_addrs,
+				methods: self.rpc_methods()?,
+				max_connections: self.rpc_max_connections()?,
+				cors: self.rpc_cors(is_dev)?,
+				max_request_size: self.rpc_max_request_size()?,
+				max_response_size: self.rpc_max_response_size()?,
+				id_provider: None,
+				max_subs_per_conn: self.rpc_max_subscriptions_per_connection()?,
+				port: DCV::rpc_listen_port(),
+				message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
+				batch_config: self.rpc_batch_config()?,
+				rate_limit: self.rpc_rate_limit()?,
+				rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips()?,
+				rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers()?,
+			},
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
 			telemetry_endpoints,
-			default_heap_pages: self.default_heap_pages()?,
 			offchain_worker: self.offchain_worker(&role)?,
 			force_authoring: self.force_authoring()?,
 			disable_grandpa: self.disable_grandpa()?,
@@ -557,11 +563,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			tracing_targets: self.tracing_targets()?,
 			tracing_receiver: self.tracing_receiver()?,
 			chain_spec,
-			max_runtime_instances,
 			announce_block: self.announce_block()?,
 			role,
 			base_path,
-			runtime_cache_size,
 		})
 	}
 
@@ -618,15 +622,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// 	}
 	/// }
 	/// ```
-	fn init<F>(
-		&self,
-		support_url: &String,
-		impl_version: &String,
-		logger_hook: F,
-		config: &Configuration,
-	) -> Result<()>
+	fn init<F>(&self, support_url: &String, impl_version: &String, logger_hook: F) -> Result<()>
 	where
-		F: FnOnce(&mut LoggerBuilder, &Configuration),
+		F: FnOnce(&mut LoggerBuilder),
 	{
 		sp_panic_handler::set(support_url, impl_version);
 
@@ -645,17 +643,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		}
 
 		// Call hook for custom profiling setup.
-		logger_hook(&mut logger, config);
+		logger_hook(&mut logger);
 
 		logger.init()?;
-
-		if config.role.is_authority() && config.network.public_addresses.is_empty() {
-			warn!(
-				"WARNING: No public address specified, validator node may not be reachable.
-				Consider setting `--public-addr` to the public IP address of this node.
-				This will become a hard requirement in future versions."
-			);
-		}
 
 		match fdlimit::raise_fd_limit() {
 			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>

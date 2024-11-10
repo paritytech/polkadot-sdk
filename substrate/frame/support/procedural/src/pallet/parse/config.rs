@@ -16,9 +16,9 @@
 // limitations under the License.
 
 use super::helper;
-use frame_support_procedural_tools::{get_doc_literals, is_using_frame_crate};
+use frame_support_procedural_tools::{get_cfg_attributes, get_doc_literals, is_using_frame_crate};
 use quote::ToTokens;
-use syn::{spanned::Spanned, token, Token};
+use syn::{spanned::Spanned, token, Token, TraitItemType};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -36,6 +36,7 @@ mod keyword {
 	syn::custom_keyword!(no_default);
 	syn::custom_keyword!(no_default_bounds);
 	syn::custom_keyword!(constant);
+	syn::custom_keyword!(include_metadata);
 }
 
 #[derive(Default)]
@@ -55,6 +56,8 @@ pub struct ConfigDef {
 	pub has_instance: bool,
 	/// Const associated type.
 	pub consts_metadata: Vec<ConstMetadataDef>,
+	/// Associated types metadata.
+	pub associated_types_metadata: Vec<AssociatedTypeMetadataDef>,
 	/// Whether the trait has the associated type `Event`, note that those bounds are
 	/// checked:
 	/// * `IsType<Self as frame_system::Config>::RuntimeEvent`
@@ -70,6 +73,26 @@ pub struct ConfigDef {
 	pub default_sub_trait: Option<DefaultTrait>,
 }
 
+/// Input definition for an associated type in pallet config.
+pub struct AssociatedTypeMetadataDef {
+	/// Name of the associated type.
+	pub ident: syn::Ident,
+	/// The doc associated.
+	pub doc: Vec<syn::Expr>,
+	/// The cfg associated.
+	pub cfg: Vec<syn::Attribute>,
+}
+
+impl From<&syn::TraitItemType> for AssociatedTypeMetadataDef {
+	fn from(trait_ty: &syn::TraitItemType) -> Self {
+		let ident = trait_ty.ident.clone();
+		let doc = get_doc_literals(&trait_ty.attrs);
+		let cfg = get_cfg_attributes(&trait_ty.attrs);
+
+		Self { ident, doc, cfg }
+	}
+}
+
 /// Input definition for a constant in pallet config.
 pub struct ConstMetadataDef {
 	/// Name of the associated type.
@@ -78,6 +101,8 @@ pub struct ConstMetadataDef {
 	pub type_: syn::Type,
 	/// The doc associated
 	pub doc: Vec<syn::Expr>,
+	/// attributes
+	pub attrs: Vec<syn::Attribute>,
 }
 
 impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
@@ -100,22 +125,22 @@ impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
 			.ok_or_else(|| err(trait_ty.span(), "`Get<T>` trait bound not found"))?;
 
 		let syn::PathArguments::AngleBracketed(ref ab) = bound.arguments else {
-			return Err(err(bound.span(), "Expected trait generic args"))
+			return Err(err(bound.span(), "Expected trait generic args"));
 		};
 
 		// Only one type argument is expected.
 		if ab.args.len() != 1 {
-			return Err(err(bound.span(), "Expected a single type argument"))
+			return Err(err(bound.span(), "Expected a single type argument"));
 		}
 
 		let syn::GenericArgument::Type(ref type_arg) = ab.args[0] else {
-			return Err(err(ab.args[0].span(), "Expected a type argument"))
+			return Err(err(ab.args[0].span(), "Expected a type argument"));
 		};
 
 		let type_ = syn::parse2::<syn::Type>(replace_self_by_t(type_arg.to_token_stream()))
 			.expect("Internal error: replacing `Self` by `T` should result in valid type");
 
-		Ok(Self { ident, type_, doc })
+		Ok(Self { ident, type_, doc, attrs: trait_ty.attrs.clone() })
 	}
 }
 
@@ -144,6 +169,8 @@ pub enum PalletAttrType {
 	NoBounds(keyword::no_default_bounds),
 	#[peek(keyword::constant, name = "constant")]
 	Constant(keyword::constant),
+	#[peek(keyword::include_metadata, name = "include_metadata")]
+	IncludeMetadata(keyword::include_metadata),
 }
 
 /// Parsing for `#[pallet::X]`
@@ -220,7 +247,7 @@ fn check_event_type(
 	let syn::TraitItem::Type(type_) = trait_item else { return Ok(false) };
 
 	if type_.ident != "RuntimeEvent" {
-		return Ok(false)
+		return Ok(false);
 	}
 
 	// Check event has no generics
@@ -228,7 +255,7 @@ fn check_event_type(
 		let msg =
 			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must have\
 					no generics nor where_clause";
-		return Err(syn::Error::new(trait_item.span(), msg))
+		return Err(syn::Error::new(trait_item.span(), msg));
 	}
 
 	// Check bound contains IsType and From
@@ -242,7 +269,7 @@ fn check_event_type(
 			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
 					bound: `IsType<<Self as frame_system::Config>::RuntimeEvent>`"
 				.to_string();
-		return Err(syn::Error::new(type_.span(), msg))
+		return Err(syn::Error::new(type_.span(), msg));
 	}
 
 	let from_event_bound = type_
@@ -254,7 +281,7 @@ fn check_event_type(
 		let msg =
 			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
 				bound: `From<Event>` or `From<Event<Self>>` or `From<Event<Self, I>>`";
-		return Err(syn::Error::new(type_.span(), msg))
+		return Err(syn::Error::new(type_.span(), msg));
 	};
 
 	if from_event_bound.is_generic && (from_event_bound.has_instance != trait_has_instance) {
@@ -262,7 +289,7 @@ fn check_event_type(
 			"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` bounds inconsistent \
 					`From<Event..>`. Config and generic Event must be both with instance or \
 					without instance";
-		return Err(syn::Error::new(type_.span(), msg))
+		return Err(syn::Error::new(type_.span(), msg));
 	}
 
 	Ok(true)
@@ -274,7 +301,7 @@ fn check_event_type(
 fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool {
 	// Check if `frame_system` is actually 'frame_system'.
 	if path.segments.iter().all(|s| s.ident != "frame_system") {
-		return false
+		return false;
 	}
 
 	let mut expected_system_config =
@@ -320,21 +347,41 @@ pub fn replace_self_by_t(input: proc_macro2::TokenStream) -> proc_macro2::TokenS
 		.collect()
 }
 
+/// Check that the trait item requires the `TypeInfo` bound (or similar).
+fn contains_type_info_bound(ty: &TraitItemType) -> bool {
+	const KNOWN_TYPE_INFO_BOUNDS: &[&str] = &[
+		// Explicit TypeInfo trait.
+		"TypeInfo",
+		// Implicit known substrate traits that implement type info.
+		// Note: Aim to keep this list as small as possible.
+		"Parameter",
+	];
+
+	ty.bounds.iter().any(|bound| {
+		let syn::TypeParamBound::Trait(bound) = bound else { return false };
+
+		KNOWN_TYPE_INFO_BOUNDS
+			.iter()
+			.any(|known| bound.path.segments.last().map_or(false, |last| last.ident == *known))
+	})
+}
+
 impl ConfigDef {
 	pub fn try_from(
 		frame_system: &syn::Path,
 		index: usize,
 		item: &mut syn::Item,
 		enable_default: bool,
+		disable_associated_metadata: bool,
 	) -> syn::Result<Self> {
 		let syn::Item::Trait(item) = item else {
 			let msg = "Invalid pallet::config, expected trait definition";
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		};
 
 		if !matches!(item.vis, syn::Visibility::Public(_)) {
 			let msg = "Invalid pallet::config, trait must be public";
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		}
 
 		syn::parse2::<keyword::Config>(item.ident.to_token_stream())?;
@@ -349,7 +396,7 @@ impl ConfigDef {
 
 		if item.generics.params.len() > 1 {
 			let msg = "Invalid pallet::config, expected no more than one generic";
-			return Err(syn::Error::new(item.generics.params[2].span(), msg))
+			return Err(syn::Error::new(item.generics.params[2].span(), msg));
 		}
 
 		let has_instance = if item.generics.params.first().is_some() {
@@ -366,6 +413,7 @@ impl ConfigDef {
 
 		let mut has_event_type = false;
 		let mut consts_metadata = vec![];
+		let mut associated_types_metadata = vec![];
 		let mut default_sub_trait = if enable_default {
 			Some(DefaultTrait {
 				items: Default::default(),
@@ -381,6 +429,7 @@ impl ConfigDef {
 			let mut already_no_default = false;
 			let mut already_constant = false;
 			let mut already_no_default_bounds = false;
+			let mut already_collected_associated_type = None;
 
 			while let Ok(Some(pallet_attr)) =
 				helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)
@@ -391,7 +440,7 @@ impl ConfigDef {
 							return Err(syn::Error::new(
 								pallet_attr._bracket.span.join(),
 								"Duplicate #[pallet::constant] attribute not allowed.",
-							))
+							));
 						}
 						already_constant = true;
 						consts_metadata.push(ConstMetadataDef::try_from(typ)?);
@@ -401,19 +450,37 @@ impl ConfigDef {
 							trait_item.span(),
 							"Invalid #[pallet::constant] in #[pallet::config], expected type item",
 						)),
+					// Pallet developer has explicitly requested to include metadata for this associated type.
+					//
+					// They must provide a type item that implements `TypeInfo`.
+					(PalletAttrType::IncludeMetadata(_), syn::TraitItem::Type(ref typ)) => {
+						if already_collected_associated_type.is_some() {
+							return Err(syn::Error::new(
+								pallet_attr._bracket.span.join(),
+								"Duplicate #[pallet::include_metadata] attribute not allowed.",
+							));
+						}
+						already_collected_associated_type = Some(pallet_attr._bracket.span.join());
+						associated_types_metadata.push(AssociatedTypeMetadataDef::from(AssociatedTypeMetadataDef::from(typ)));
+					}
+					(PalletAttrType::IncludeMetadata(_), _) =>
+						return Err(syn::Error::new(
+							pallet_attr._bracket.span.join(),
+							"Invalid #[pallet::include_metadata] in #[pallet::config], expected type item",
+						)),
 					(PalletAttrType::NoDefault(_), _) => {
 						if !enable_default {
 							return Err(syn::Error::new(
 								pallet_attr._bracket.span.join(),
-								"`#[pallet:no_default]` can only be used if `#[pallet::config(with_default)]` \
+								"`#[pallet::no_default]` can only be used if `#[pallet::config(with_default)]` \
 								has been specified"
-							))
+							));
 						}
 						if already_no_default {
 							return Err(syn::Error::new(
 								pallet_attr._bracket.span.join(),
 								"Duplicate #[pallet::no_default] attribute not allowed.",
-							))
+							));
 						}
 
 						already_no_default = true;
@@ -424,16 +491,57 @@ impl ConfigDef {
 								pallet_attr._bracket.span.join(),
 								"`#[pallet:no_default_bounds]` can only be used if `#[pallet::config(with_default)]` \
 								has been specified"
-							))
+							));
 						}
 						if already_no_default_bounds {
 							return Err(syn::Error::new(
 								pallet_attr._bracket.span.join(),
 								"Duplicate #[pallet::no_default_bounds] attribute not allowed.",
-							))
+							));
 						}
 						already_no_default_bounds = true;
 					},
+				}
+			}
+
+			if let Some(span) = already_collected_associated_type {
+				// Events and constants are already propagated to the metadata
+				if is_event {
+					return Err(syn::Error::new(
+						span,
+						"Invalid #[pallet::include_metadata] for `type RuntimeEvent`. \
+						The associated type `RuntimeEvent` is already collected in the metadata.",
+					))
+				}
+
+				if already_constant {
+					return Err(syn::Error::new(
+						span,
+						"Invalid #[pallet::include_metadata]: conflict with #[pallet::constant]. \
+						Pallet constant already collect the metadata for the type.",
+					))
+				}
+
+				if let syn::TraitItem::Type(ref ty) = trait_item {
+					if !contains_type_info_bound(ty) {
+						let msg = format!(
+						"Invalid #[pallet::include_metadata] in #[pallet::config], collected type `{}` \
+						does not implement `TypeInfo` or `Parameter`",
+						ty.ident,
+					);
+						return Err(syn::Error::new(span, msg));
+					}
+				}
+			} else {
+				// Metadata of associated types is collected by default, if the associated type
+				// implements `TypeInfo`, or a similar trait that requires the `TypeInfo` bound.
+				if !disable_associated_metadata && !is_event && !already_constant {
+					if let syn::TraitItem::Type(ref ty) = trait_item {
+						// Collect the metadata of the associated type if it implements `TypeInfo`.
+						if contains_type_info_bound(ty) {
+							associated_types_metadata.push(AssociatedTypeMetadataDef::from(ty));
+						}
+					}
 				}
 			}
 
@@ -472,13 +580,14 @@ impl ConfigDef {
 				frame_system.to_token_stream(),
 				found,
 			);
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		}
 
 		Ok(Self {
 			index,
 			has_instance,
 			consts_metadata,
+			associated_types_metadata,
 			has_event_type,
 			where_clause,
 			default_sub_trait,

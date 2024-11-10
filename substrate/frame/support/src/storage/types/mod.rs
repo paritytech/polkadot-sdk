@@ -141,7 +141,11 @@ where
 /// Implemented by each of the storage types: value, map, countedmap, doublemap and nmap.
 pub trait StorageEntryMetadataBuilder {
 	/// Build into `entries` the storage metadata entries of a storage given some `docs`.
-	fn build_metadata(doc: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>);
+	fn build_metadata(
+		deprecation_status: sp_metadata_ir::DeprecationStatusIR,
+		doc: Vec<&'static str>,
+		entries: &mut Vec<StorageEntryMetadataIR>,
+	);
 }
 
 #[cfg(test)]
