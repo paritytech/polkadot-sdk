@@ -26,7 +26,6 @@ use testnet_parachains_constants::rococo::xcm_version::SAFE_XCM_VERSION;
 use xcm::latest::WESTEND_GENESIS_HASH;
 
 const BRIDGE_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
-use xcm::latest::WESTEND_GENESIS_HASH;
 
 fn bridge_hub_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
