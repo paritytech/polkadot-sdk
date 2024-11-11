@@ -44,7 +44,7 @@ impl From<MetadataIR> for RuntimeMetadataV16 {
 			ir.apis.into_iter().map(Into::into).collect(),
 			ir.outer_enums.into(),
 			// Substrate does not collect yet the custom metadata fields.
-			// This allows us to extend the V15 easily.
+			// This allows us to extend the V16 easily.
 			CustomMetadata { map: Default::default() },
 		)
 	}
@@ -162,15 +162,12 @@ impl From<TransactionExtensionMetadataIR> for TransactionExtensionMetadata {
 
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
-		// Presume all extensions work for all versions.
-		// This is true for now.
-		let transaction_extensions_by_version = ir
-			.versions
-			.iter()
-			.map(|version| (*version, (0..ir.extensions.len()).map(|index| index as u32).collect()))
-			.collect();
+		// Assume version 0 for all extensions.
+		let indexes = (0..ir.extensions.len()).map(|index| index as u32).collect::<Vec<_>>();
+		let transaction_extensions_by_version = [(0, indexes)].iter().cloned().collect();
 
 		ExtrinsicMetadata {
+			versions: ir.versions,
 			address_ty: ir.address_ty,
 			signature_ty: ir.signature_ty,
 			transaction_extensions_by_version,
