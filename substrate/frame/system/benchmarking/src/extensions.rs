@@ -23,6 +23,7 @@ use alloc::vec;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
+	pallet_prelude::Zero,
 	weights::Weight,
 };
 use frame_system::{
@@ -50,9 +51,12 @@ mod benchmarks {
 	#[benchmark]
 	fn check_genesis() -> Result<(), BenchmarkError> {
 		let len = 0_usize;
-		let caller = whitelisted_caller();
+		let caller = account("caller", 0, 0);
 		let info = DispatchInfo { call_weight: Weight::zero(), ..Default::default() };
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			frame_system::BlockHash::<T>::hashed_key_for(BlockNumberFor::<T>::zero()).into(),
+		);
 
 		#[block]
 		{
@@ -74,13 +78,16 @@ mod benchmarks {
 		let prev_block: BlockNumberFor<T> = 16u32.into();
 		let default_hash: T::Hash = Default::default();
 		frame_system::BlockHash::<T>::insert(prev_block, default_hash);
-		let caller = whitelisted_caller();
+		let caller = account("caller", 0, 0);
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(100, 0),
 			class: DispatchClass::Normal,
 			..Default::default()
 		};
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			frame_system::BlockHash::<T>::hashed_key_for(prev_block).into(),
+		);
 
 		#[block]
 		{
@@ -102,13 +109,16 @@ mod benchmarks {
 		frame_system::BlockHash::<T>::insert(prev_block, default_hash);
 		let genesis_block: BlockNumberFor<T> = 0u32.into();
 		frame_system::BlockHash::<T>::insert(genesis_block, default_hash);
-		let caller = whitelisted_caller();
+		let caller = account("caller", 0, 0);
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(100, 0),
 			class: DispatchClass::Normal,
 			..Default::default()
 		};
 		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+		frame_benchmarking::benchmarking::add_to_whitelist(
+			frame_system::BlockHash::<T>::hashed_key_for(BlockNumberFor::<T>::zero()).into(),
+		);
 
 		#[block]
 		{
