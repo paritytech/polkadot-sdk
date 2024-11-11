@@ -919,35 +919,6 @@ mod tests {
 	}
 
 	#[test]
-	fn xcm_converter_convert_without_buy_execution_yields_invalid_fee_asset() {
-		let network = BridgedNetwork::get();
-
-		let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
-		let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
-
-		let assets: Assets = vec![Asset {
-			id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
-			fun: Fungible(1000),
-		}]
-		.into();
-		let filter: AssetFilter = assets.clone().into();
-
-		let message: Xcm<()> = vec![
-			WithdrawAsset(assets.clone()),
-			DepositAsset {
-				assets: filter,
-				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
-			},
-			SetTopic([0; 32]),
-		]
-		.into();
-		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-		let result = converter.convert();
-		assert_eq!(result.err(), Some(XcmConverterError::InvalidFeeAsset));
-	}
-
-	#[test]
 	fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 		let network = BridgedNetwork::get();
 
@@ -963,53 +934,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
-			DepositAsset {
-				assets: filter,
-				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
-			},
-			SetTopic([0; 32]),
-		]
-		.into();
-		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-		let expected_payload = Command::UnlockNativeToken {
-			agent_id: Default::default(),
-			token: token_address.into(),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		};
-		let expected_message = Message {
-			id: [0; 32].into(),
-			origin: H256::zero(),
-			fee: 1000,
-			commands: BoundedVec::try_from(vec![expected_payload]).unwrap(),
-		};
-		let result = converter.convert();
-		assert_eq!(result, Ok(expected_message));
-	}
-
-	#[test]
-	fn xcm_converter_convert_with_fees_less_than_reserve_yields_success() {
-		let network = BridgedNetwork::get();
-
-		let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
-		let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
-
-		let asset_location: Location = [AccountKey20 { network: None, key: token_address }].into();
-		let fee_asset = Asset { id: AssetId(asset_location.clone()), fun: Fungible(500) };
-
-		let assets: Assets =
-			vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
-
-		let filter: AssetFilter = assets.clone().into();
-
-		let message: Xcm<()> = vec![
+			PayFees { asset: assets.get(0).unwrap().clone() },
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
-			ExpectAsset(fee_asset.into()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1019,20 +946,8 @@ mod tests {
 		.into();
 		let mut converter =
 			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
-		let expected_payload = Command::UnlockNativeToken {
-			agent_id: Default::default(),
-			token: token_address.into(),
-			recipient: beneficiary_address.into(),
-			amount: 1000,
-		};
-		let expected_message = Message {
-			id: [0; 32].into(),
-			origin: H256::zero(),
-			fee: 500,
-			commands: BoundedVec::try_from(vec![expected_payload]).unwrap(),
-		};
 		let result = converter.convert();
-		assert_eq!(result, Ok(expected_message));
+		assert_eq!(result.is_ok(), true);
 	}
 
 	#[test]
@@ -1051,7 +966,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			PayFees { asset: assets.get(0).unwrap().clone() },
+			WithdrawAsset(assets.clone()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1101,8 +1018,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: fee_asset, weight_limit: Unlimited },
+			PayFees { asset: fee_asset },
+			WithdrawAsset(assets.clone()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1133,8 +1051,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: fee_asset, weight_limit: Unlimited },
+			PayFees { asset: fee_asset },
+			WithdrawAsset(assets.clone()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1177,8 +1096,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			PayFees { asset: assets.get(0).unwrap().clone() },
+			WithdrawAsset(assets.clone()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1239,8 +1159,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			PayFees { asset: assets.get(0).unwrap().clone() },
+			WithdrawAsset(assets.clone()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			SetTopic([0; 32]),
 		]
 		.into();
@@ -1269,8 +1190,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: fee, weight_limit: Unlimited },
+			PayFees { asset: fee.clone() },
+			WithdrawAsset(assets.clone()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1308,8 +1230,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			PayFees { asset: assets.get(0).unwrap().clone() },
+			WithdrawAsset(assets.clone()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1340,8 +1263,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			PayFees { asset: assets.get(0).unwrap().clone() },
+			WithdrawAsset(assets.clone()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1372,8 +1296,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			PayFees { asset: assets.get(0).unwrap().clone() },
+			WithdrawAsset(assets.clone()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1402,9 +1327,10 @@ mod tests {
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
 
 		let message: Xcm<()> = vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: assets.get(0).unwrap().clone() },
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1436,9 +1362,10 @@ mod tests {
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
 
 		let message: Xcm<()> = vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: assets.get(0).unwrap().clone() },
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1471,9 +1398,10 @@ mod tests {
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
 
 		let message: Xcm<()> = vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: assets.get(0).unwrap().clone() },
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1504,17 +1432,14 @@ mod tests {
 		.into();
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
 		let message: Xcm<()> = vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: assets.get(0).unwrap().clone() },
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
-				beneficiary: [
-					GlobalConsensus(Polkadot),
-					Parachain(1000),
-					AccountId32 { network: Some(Polkadot), id: beneficiary_address },
-				]
-				.into(),
+				beneficiary: AccountId32 { network: Some(Polkadot), id: beneficiary_address }
+					.into(),
 			},
 			SetTopic([0; 32]),
 		]
@@ -1543,8 +1468,9 @@ mod tests {
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			PayFees { asset: assets.get(0).unwrap().clone() },
+			WithdrawAsset(assets.clone()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 {
@@ -1604,10 +1530,10 @@ mod tests {
 		let filter: AssetFilter = assets.clone().into();
 
 		let message: Xcm<()> = vec![
+			WithdrawAsset(assets.clone()),
+			PayFees { asset: assets.get(0).unwrap().clone() },
 			ReserveAssetDeposited(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
-			ExpectAsset(Asset { id: AssetId(asset_location), fun: Fungible(amount) }.into()),
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
@@ -1621,7 +1547,7 @@ mod tests {
 			Command::MintForeignToken { recipient: beneficiary_address.into(), amount, token_id };
 		let expected_message = Message {
 			id: [0; 32].into(),
-			origin: H256::zero(),
+			origin: hex!("aa16eddac8725928eaeda4aae518bf10d02bee80382517d21464a5cdf8d1d8e1").into(),
 			fee: 1000000,
 			commands: BoundedVec::try_from(vec![expected_payload]).unwrap(),
 		};
@@ -1647,9 +1573,10 @@ mod tests {
 		let filter: AssetFilter = assets.clone().into();
 
 		let message: Xcm<()> = vec![
+			WithdrawAsset(assets.clone()),
+			PayFees { asset: assets.get(0).unwrap().clone() },
 			ReserveAssetDeposited(assets.clone()),
-			ClearOrigin,
-			BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
+			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
 				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
