@@ -194,10 +194,10 @@ impl<T: Display, D: Get<T>> Display for TypeWithDefault<T, D> {
 }
 
 macro_rules! impl_from {
-    ($for_type:ty $(, $try_from_type:ty)*) => {
+    ($for_type:ty $(, $from_type:ty)*) => {
 		$(
-			impl<D: Get<$for_type>> From<$try_from_type> for TypeWithDefault<$for_type, D> {
-				fn from(value: $try_from_type) -> Self {
+			impl<D: Get<$for_type>> From<$from_type> for TypeWithDefault<$for_type, D> {
+				fn from(value: $from_type) -> Self {
 					Self::new(value.into())
 				}
 			}
