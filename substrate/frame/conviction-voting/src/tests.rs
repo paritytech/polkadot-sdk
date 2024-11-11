@@ -59,9 +59,12 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Who;
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum TestPollState {
-	Ongoing(TallyOf<Test>, u8),
+	Ongoing(TallyOf<Test>, u8, Who),
 	Completed(u64, bool),
 }
 use TestPollState::*;
@@ -70,7 +73,7 @@ parameter_types! {
 	pub static Polls: BTreeMap<u8, TestPollState> = vec![
 		(1, Completed(1, true)),
 		(2, Completed(2, false)),
-		(3, Ongoing(Tally::from_parts(0, 0, 0), 0)),
+		(3, Ongoing(Tally::from_parts(0, 0, 0), 0, Who)),
 	].into_iter().collect();
 }
 
@@ -80,13 +83,14 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	type Votes = u64;
 	type Moment = u64;
 	type Class = u8;
+	type Who = Who;
 	fn classes() -> Vec<u8> {
 		vec![0, 1, 2]
 	}
-	fn as_ongoing(index: u8) -> Option<(TallyOf<Test>, Self::Class)> {
+	fn as_ongoing(index: u8) -> Option<(TallyOf<Test>, Self::Class, Self::Who)> {
 		Polls::get().remove(&index).and_then(|x| {
-			if let TestPollState::Ongoing(t, c) = x {
-				Some((t, c))
+			if let TestPollState::Ongoing(t, c, w) = x {
+				Some((t, c, w))
 			} else {
 				None
 			}
@@ -94,13 +98,14 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	}
 	fn access_poll<R>(
 		index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, u64, u8>) -> R,
+		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, u64, u8, &Who>) -> R,
 	) -> R {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class, who)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class, who))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		};
@@ -109,13 +114,14 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	}
 	fn try_access_poll<R>(
 		index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, u64, u8>) -> Result<R, DispatchError>,
+		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, u64, u8, &Who>) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class, who)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class, who))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		}?;
@@ -127,7 +133,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	fn create_ongoing(class: Self::Class) -> Result<Self::Index, ()> {
 		let mut polls = Polls::get();
 		let i = polls.keys().rev().next().map_or(0, |x| x + 1);
-		polls.insert(i, Ongoing(Tally::new(0), class));
+		polls.insert(i, Ongoing(Tally::new(0), class, Who));
 		Polls::set(polls);
 		Ok(i)
 	}
@@ -388,10 +394,10 @@ fn classwise_delegation_works() {
 	new_test_ext().execute_with(|| {
 		Polls::set(
 			vec![
-				(0, Ongoing(Tally::new(0), 0)),
-				(1, Ongoing(Tally::new(0), 1)),
-				(2, Ongoing(Tally::new(0), 2)),
-				(3, Ongoing(Tally::new(0), 2)),
+				(0, Ongoing(Tally::new(0), 0, Who)),
+				(1, Ongoing(Tally::new(0), 1, Who)),
+				(2, Ongoing(Tally::new(0), 2, Who)),
+				(3, Ongoing(Tally::new(0), 2, Who)),
 			]
 			.into_iter()
 			.collect(),
@@ -415,10 +421,10 @@ fn classwise_delegation_works() {
 		assert_eq!(
 			Polls::get(),
 			vec![
-				(0, Ongoing(Tally::from_parts(6, 2, 15), 0)),
-				(1, Ongoing(Tally::from_parts(6, 2, 15), 1)),
-				(2, Ongoing(Tally::from_parts(6, 2, 15), 2)),
-				(3, Ongoing(Tally::from_parts(0, 0, 0), 2)),
+				(0, Ongoing(Tally::from_parts(6, 2, 15), 0, Who)),
+				(1, Ongoing(Tally::from_parts(6, 2, 15), 1, Who)),
+				(2, Ongoing(Tally::from_parts(6, 2, 15), 2, Who)),
+				(3, Ongoing(Tally::from_parts(0, 0, 0), 2, Who)),
 			]
 			.into_iter()
 			.collect()
@@ -429,10 +435,10 @@ fn classwise_delegation_works() {
 		assert_eq!(
 			Polls::get(),
 			vec![
-				(0, Ongoing(Tally::from_parts(6, 2, 15), 0)),
-				(1, Ongoing(Tally::from_parts(6, 2, 15), 1)),
-				(2, Ongoing(Tally::from_parts(6, 2, 15), 2)),
-				(3, Ongoing(Tally::from_parts(0, 6, 0), 2)),
+				(0, Ongoing(Tally::from_parts(6, 2, 15), 0, Who)),
+				(1, Ongoing(Tally::from_parts(6, 2, 15), 1, Who)),
+				(2, Ongoing(Tally::from_parts(6, 2, 15), 2, Who)),
+				(3, Ongoing(Tally::from_parts(0, 6, 0), 2, Who)),
 			]
 			.into_iter()
 			.collect()
@@ -444,10 +450,10 @@ fn classwise_delegation_works() {
 		assert_eq!(
 			Polls::get(),
 			vec![
-				(0, Ongoing(Tally::from_parts(6, 2, 15), 0)),
-				(1, Ongoing(Tally::from_parts(6, 2, 15), 1)),
-				(2, Ongoing(Tally::from_parts(1, 7, 10), 2)),
-				(3, Ongoing(Tally::from_parts(0, 1, 0), 2)),
+				(0, Ongoing(Tally::from_parts(6, 2, 15), 0, Who)),
+				(1, Ongoing(Tally::from_parts(6, 2, 15), 1, Who)),
+				(2, Ongoing(Tally::from_parts(1, 7, 10), 2, Who)),
+				(3, Ongoing(Tally::from_parts(0, 1, 0), 2, Who)),
 			]
 			.into_iter()
 			.collect()
@@ -463,10 +469,10 @@ fn classwise_delegation_works() {
 		assert_eq!(
 			Polls::get(),
 			vec![
-				(0, Ongoing(Tally::from_parts(4, 2, 13), 0)),
-				(1, Ongoing(Tally::from_parts(4, 2, 13), 1)),
-				(2, Ongoing(Tally::from_parts(4, 2, 13), 2)),
-				(3, Ongoing(Tally::from_parts(0, 4, 0), 2)),
+				(0, Ongoing(Tally::from_parts(4, 2, 13), 0, Who)),
+				(1, Ongoing(Tally::from_parts(4, 2, 13), 1, Who)),
+				(2, Ongoing(Tally::from_parts(4, 2, 13), 2, Who)),
+				(3, Ongoing(Tally::from_parts(0, 4, 0), 2, Who)),
 			]
 			.into_iter()
 			.collect()
@@ -495,10 +501,10 @@ fn classwise_delegation_works() {
 		assert_eq!(
 			Polls::get(),
 			vec![
-				(0, Ongoing(Tally::from_parts(7, 2, 16), 0)),
-				(1, Ongoing(Tally::from_parts(8, 2, 17), 1)),
-				(2, Ongoing(Tally::from_parts(9, 2, 18), 2)),
-				(3, Ongoing(Tally::from_parts(0, 9, 0), 2)),
+				(0, Ongoing(Tally::from_parts(7, 2, 16), 0, Who)),
+				(1, Ongoing(Tally::from_parts(8, 2, 17), 1, Who)),
+				(2, Ongoing(Tally::from_parts(9, 2, 18), 2, Who)),
+				(3, Ongoing(Tally::from_parts(0, 9, 0), 2, Who)),
 			]
 			.into_iter()
 			.collect()
@@ -509,7 +515,7 @@ fn classwise_delegation_works() {
 #[test]
 fn redelegation_after_vote_ending_should_keep_lock() {
 	new_test_ext().execute_with(|| {
-		Polls::set(vec![(0, Ongoing(Tally::new(0), 0))].into_iter().collect());
+		Polls::set(vec![(0, Ongoing(Tally::new(0), 0, Who))].into_iter().collect());
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, aye(10, 1)));
 		Polls::set(vec![(0, Completed(1, true))].into_iter().collect());
@@ -527,9 +533,9 @@ fn lock_amalgamation_valid_with_multiple_removed_votes() {
 	new_test_ext().execute_with(|| {
 		Polls::set(
 			vec![
-				(0, Ongoing(Tally::new(0), 0)),
-				(1, Ongoing(Tally::new(0), 0)),
-				(2, Ongoing(Tally::new(0), 0)),
+				(0, Ongoing(Tally::new(0), 0, Who)),
+				(1, Ongoing(Tally::new(0), 0, Who)),
+				(2, Ongoing(Tally::new(0), 0, Who)),
 			]
 			.into_iter()
 			.collect(),
@@ -599,7 +605,7 @@ fn lock_amalgamation_valid_with_multiple_delegations() {
 #[test]
 fn lock_amalgamation_valid_with_move_roundtrip_to_delegation() {
 	new_test_ext().execute_with(|| {
-		Polls::set(vec![(0, Ongoing(Tally::new(0), 0))].into_iter().collect());
+		Polls::set(vec![(0, Ongoing(Tally::new(0), 0, Who))].into_iter().collect());
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(5, 1)));
 		Polls::set(vec![(0, Completed(1, true))].into_iter().collect());
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 0));
@@ -611,7 +617,7 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_delegation() {
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
 
-		Polls::set(vec![(1, Ongoing(Tally::new(0), 0))].into_iter().collect());
+		Polls::set(vec![(1, Ongoing(Tally::new(0), 0, Who))].into_iter().collect());
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, aye(5, 2)));
 		Polls::set(vec![(1, Completed(1, true))].into_iter().collect());
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 1));
@@ -639,7 +645,7 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 5);
 
-		Polls::set(vec![(0, Ongoing(Tally::new(0), 0))].into_iter().collect());
+		Polls::set(vec![(0, Ongoing(Tally::new(0), 0, Who))].into_iter().collect());
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 1)));
 		Polls::set(vec![(0, Completed(1, true))].into_iter().collect());
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 0));
@@ -700,9 +706,9 @@ fn lock_aggregation_over_different_classes_with_casting_works() {
 	new_test_ext().execute_with(|| {
 		Polls::set(
 			vec![
-				(0, Ongoing(Tally::new(0), 0)),
-				(1, Ongoing(Tally::new(0), 1)),
-				(2, Ongoing(Tally::new(0), 2)),
+				(0, Ongoing(Tally::new(0), 0, Who)),
+				(1, Ongoing(Tally::new(0), 1, Who)),
+				(2, Ongoing(Tally::new(0), 2, Who)),
 			]
 			.into_iter()
 			.collect(),
@@ -768,10 +774,10 @@ fn errors_with_vote_work() {
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 		Polls::set(
 			vec![
-				(0, Ongoing(Tally::new(0), 0)),
-				(1, Ongoing(Tally::new(0), 0)),
-				(2, Ongoing(Tally::new(0), 0)),
-				(3, Ongoing(Tally::new(0), 0)),
+				(0, Ongoing(Tally::new(0), 0, Who)),
+				(1, Ongoing(Tally::new(0), 0, Who)),
+				(2, Ongoing(Tally::new(0), 0, Who)),
+				(3, Ongoing(Tally::new(0), 0, Who)),
 			]
 			.into_iter()
 			.collect(),
