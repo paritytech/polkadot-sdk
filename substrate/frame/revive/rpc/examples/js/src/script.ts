@@ -18,7 +18,7 @@ function str_to_bytes(str: string): Uint8Array {
 async function deploy() {
   console.log(`Deploying Contract...`);
 
-  const bytecode = readFileSync("rpc_demo.polkavm");
+  const bytecode = readFileSync("../rpc_demo.polkavm");
   const contractFactory = new ContractFactory(
     [
       "constructor(bytes memory _data)",
