@@ -37,7 +37,7 @@ crates:
     bump: patch
   - name: pallet-beefy-mmr
     bump: patch
-  - name: pallet-benchmarking
+  - name: frame-benchmarking
     bump: patch
   - name: pallet-bounties
     bump: patch
@@ -45,7 +45,7 @@ crates:
     bump: patch
   - name: pallet-child-bounties
     bump: patch
-  - name: pallet-collectives
+  - name: pallet-collective
     bump: patch
   - name: pallet-contracts
     bump: patch
