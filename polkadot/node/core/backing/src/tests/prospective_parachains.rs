@@ -188,6 +188,19 @@ async fn activate_leaf(
 			test_state.per_session_cache_state.has_cached_node_features = true;
 		}
 
+		if !test_state.per_session_cache_state.has_cached_executor_params {
+			// Check if subsystem job issues a request for the executor parameters.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionExecutorParams(_session_index, tx))
+				) if parent == hash => {
+					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_executor_params = true;
+		}
+
 		if !test_state.per_session_cache_state.has_cached_minimum_backing_votes {
 			// Check if subsystem job issues a request for the minimum backing votes.
 			assert_matches!(
@@ -1445,19 +1458,6 @@ fn concurrent_dependent_candidates() {
 					if backed_statements.len() == 2 {
 						break
 					}
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionIndexForChild(tx),
-				)) => {
-					tx.send(Ok(1u32.into())).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(sess_idx, tx),
-				)) => {
-					assert_eq!(sess_idx, 1);
-					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_parent,

@@ -99,7 +99,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::{FetchError as ImplicitViewFetchError, View as ImplicitView},
-	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
+	executor_params_by_session_index, request_from_runtime, request_session_index_for_child,
 	request_validator_groups, request_validators,
 	runtime::{
 		self, fetch_claim_queue, prospective_parachains_mode, request_min_backing_votes,
@@ -220,6 +220,8 @@ struct PerRelayParentState {
 	parent: Hash,
 	/// The node features.
 	node_features: NodeFeatures,
+	/// The executor parameters.
+	executor_params: Arc<ExecutorParams>,
 	/// The `CoreIndex` assigned to the local validator at this relay parent.
 	assigned_core: Option<CoreIndex>,
 	/// The candidates that are backed by enough validators in their group, by hash.
@@ -300,6 +302,8 @@ struct PerSessionCache {
 	validators_cache: LruMap<SessionIndex, Arc<Vec<ValidatorId>>>,
 	/// Cache for storing node features, retrieved from the runtime.
 	node_features_cache: LruMap<SessionIndex, Option<NodeFeatures>>,
+	/// Cache for storing executor parameters, retrieved from the runtime.
+	executor_params_cache: LruMap<SessionIndex, Arc<ExecutorParams>>,
 	/// Cache for storing the minimum backing votes threshold, retrieved from the runtime.
 	minimum_backing_votes_cache: LruMap<SessionIndex, u32>,
 	/// Cache for storing validator-to-group mappings, computed from validator groups.
@@ -320,6 +324,7 @@ impl PerSessionCache {
 		PerSessionCache {
 			validators_cache: LruMap::new(ByLength::new(capacity)),
 			node_features_cache: LruMap::new(ByLength::new(capacity)),
+			executor_params_cache: LruMap::new(ByLength::new(capacity)),
 			minimum_backing_votes_cache: LruMap::new(ByLength::new(capacity)),
 			validator_to_group_cache: LruMap::new(ByLength::new(capacity)),
 		}
@@ -372,6 +377,36 @@ impl PerSessionCache {
 		self.node_features_cache.insert(session_index, node_features.clone());
 
 		Ok(node_features)
+	}
+
+	/// Gets the executor parameters from the cache or
+	/// fetches them from the runtime if not present.
+	async fn get_or_fetch_executor_params(
+		&mut self,
+		session_index: SessionIndex,
+		parent: Hash,
+		sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+	) -> Result<Arc<ExecutorParams>, RuntimeApiError> {
+		// Try to get the executor parameters from the cache.
+		if let Some(executor_params) = self.executor_params_cache.get(&session_index) {
+			return Ok(Arc::clone(executor_params));
+		}
+
+		// Fetch the executor parameters from the runtime since it was not in the cache.
+		let executor_params = executor_params_by_session_index(parent, session_index, sender)
+			.await
+			.map_err(|err| RuntimeApiError::Execution {
+				runtime_api_name: "SessionExecutorParams",
+				source: Arc::new(err),
+			})?;
+
+		// Wrap the executor parameters in an Arc to avoid a deep copy when storing it in the cache.
+		let executor_params = Arc::new(executor_params);
+
+		// Cache the fetched executor parameters for future use.
+		self.executor_params_cache.insert(session_index, Arc::clone(&executor_params));
+
+		Ok(executor_params)
 	}
 
 	/// Gets the minimum backing votes threshold from the
@@ -805,6 +840,7 @@ struct BackgroundValidationParams<S: overseer::CandidateBackingSenderTrait, F> {
 	candidate: CandidateReceipt,
 	relay_parent: Hash,
 	node_features: NodeFeatures,
+	executor_params: Arc<ExecutorParams>,
 	persisted_validation_data: PersistedValidationData,
 	pov: PoVData,
 	n_validators: usize,
@@ -824,6 +860,7 @@ async fn validate_and_make_available(
 		candidate,
 		relay_parent,
 		node_features,
+		executor_params,
 		persisted_validation_data,
 		pov,
 		n_validators,
@@ -846,11 +883,6 @@ async fn validate_and_make_available(
 			Ok(None) => return Err(Error::NoValidationCode(validation_code_hash)),
 			Ok(Some(c)) => c,
 		}
-	};
-
-	let executor_params = match executor_params_at_relay_parent(relay_parent, &mut sender).await {
-		Ok(ep) => ep,
-		Err(e) => return Err(Error::UtilError(e)),
 	};
 
 	let pov = match pov {
@@ -888,7 +920,7 @@ async fn validate_and_make_available(
 			validation_code,
 			candidate.clone(),
 			pov.clone(),
-			executor_params,
+			executor_params.as_ref().clone(),
 		)
 		.await?
 	};
@@ -1247,6 +1279,11 @@ async fn construct_per_relay_parent_state<Context>(
 		.map(|b| *b)
 		.unwrap_or(false);
 
+	let executor_params = per_session_cache
+		.get_or_fetch_executor_params(session_index, parent, ctx.sender())
+		.await;
+	let executor_params = try_runtime_api!(executor_params);
+
 	gum::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
 
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
@@ -1347,6 +1384,7 @@ async fn construct_per_relay_parent_state<Context>(
 		prospective_parachains_mode: mode,
 		parent,
 		node_features,
+		executor_params,
 		assigned_core,
 		backed: HashSet::new(),
 		table: Table::new(table_config),
@@ -2025,6 +2063,7 @@ async fn kick_off_validation_work<Context>(
 			candidate: attesting.candidate,
 			relay_parent: rp_state.parent,
 			node_features: rp_state.node_features.clone(),
+			executor_params: Arc::clone(&rp_state.executor_params),
 			persisted_validation_data,
 			pov,
 			n_validators: rp_state.table_context.validators.len(),
@@ -2179,6 +2218,7 @@ async fn validate_and_second<Context>(
 			candidate: candidate.clone(),
 			relay_parent: rp_state.parent,
 			node_features: rp_state.node_features.clone(),
+			executor_params: Arc::clone(&rp_state.executor_params),
 			persisted_validation_data,
 			pov: PoVData::Ready(pov),
 			n_validators: rp_state.table_context.validators.len(),

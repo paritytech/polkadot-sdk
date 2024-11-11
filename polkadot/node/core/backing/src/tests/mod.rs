@@ -72,6 +72,7 @@ fn dummy_pvd() -> PersistedValidationData {
 struct PerSessionCacheState {
 	has_cached_validators: bool,
 	has_cached_node_features: bool,
+	has_cached_executor_params: bool,
 	has_cached_minimum_backing_votes: bool,
 }
 
@@ -80,6 +81,7 @@ impl PerSessionCacheState {
 		PerSessionCacheState {
 			has_cached_validators: false,
 			has_cached_node_features: false,
+			has_cached_executor_params: false,
 			has_cached_minimum_backing_votes: false,
 		}
 	}
@@ -342,6 +344,19 @@ async fn test_startup(virtual_overseer: &mut VirtualOverseer, test_state: &mut T
 		test_state.per_session_cache_state.has_cached_node_features = true;
 	}
 
+	if !test_state.per_session_cache_state.has_cached_executor_params {
+		// Check if subsystem job issues a request for the executor parameters.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_parent, RuntimeApiRequest::SessionExecutorParams(_session_index, tx))
+			) => {
+				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+			}
+		);
+		test_state.per_session_cache_state.has_cached_executor_params = true;
+	}
+
 	if !test_state.per_session_cache_state.has_cached_minimum_backing_votes {
 		// Check if subsystem job issues a request for the minimum backing votes.
 		assert_matches!(
@@ -407,24 +422,6 @@ async fn assert_validation_requests(
 			RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
 		) if hash == validation_code.hash() => {
 			tx.send(Ok(Some(validation_code))).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-		) => {
-			tx.send(Ok(1u32.into())).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-		) if sess_idx == 1 => {
-			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 		}
 	);
 }
@@ -2152,7 +2149,7 @@ fn retry_works() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		// Not deterministic which message comes first:
-		for _ in 0u32..5 {
+		for _ in 0u32..3 {
 			match virtual_overseer.recv().await {
 				AllMessages::Provisioner(ProvisionerMessage::ProvisionableData(
 					_,
@@ -2170,18 +2167,6 @@ fn retry_works() {
 					RuntimeApiRequest::ValidationCodeByHash(hash, tx),
 				)) if hash == validation_code_a.hash() => {
 					tx.send(Ok(Some(validation_code_a.clone()))).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionIndexForChild(tx),
-				)) => {
-					tx.send(Ok(1u32.into())).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(1, tx),
-				)) => {
-					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_,
