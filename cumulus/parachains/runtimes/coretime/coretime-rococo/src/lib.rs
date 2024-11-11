@@ -147,8 +147,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("coretime-rococo"),
-	impl_name: create_runtime_str!("coretime-rococo"),
+	spec_name: alloc::borrow::Cow::Borrowed("coretime-rococo"),
+	impl_name: alloc::borrow::Cow::Borrowed("coretime-rococo"),
 	authoring_version: 1,
 	spec_version: 1_017_000,
 	impl_version: 0,
@@ -938,7 +938,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 

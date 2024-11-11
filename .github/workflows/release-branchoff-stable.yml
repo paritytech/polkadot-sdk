@@ -13,13 +13,7 @@ on:
         required: true
 
 jobs:
-  check-workflow-can-run:
-    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
-
-
   prepare-tooling:
-    needs: [check-workflow-can-run]
-    if: needs.check-workflow-can-run.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
     outputs:
       node_version: ${{ steps.validate_inputs.outputs.node_version }}
@@ -45,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     env:
-      PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
       PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -58,10 +52,19 @@ jobs:
           # Install pgpkms that is used to sign commits
           pip install git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69
 
+      - name: Generate content write token for the release automation
+        id: generate_write_token
+        uses: actions/create-github-app-token@v1
+        with:
+            app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
+            private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+            owner: paritytech
+
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
         with:
           ref: master
+          token: ${{ steps.generate_write_token.outputs.token }}
 
       - name: Import gpg keys
         run: |
@@ -69,14 +72,13 @@ jobs:
 
           import_gpg_keys
 
-
       - name: Config git
         run: |
           git config --global commit.gpgsign true
           git config --global gpg.program /home/runner/.local/bin/pgpkms-git
           git config --global user.name "ParityReleases"
           git config --global user.email "release-team@parity.io"
-          git config --global user.signingKey "90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
+          git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
       - name: Create stable branch
         run: |
@@ -84,6 +86,8 @@ jobs:
           git show-ref "$STABLE_BRANCH_NAME"
 
       - name: Bump versions, reorder prdocs and push stable branch
+        env:
+          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
           . ./.github/scripts/release/release_lib.sh
 
@@ -100,5 +104,7 @@ jobs:
           # set_polkadot_parachain_binary_version $NODE_VERSION "cumulus/polkadot-parachain/Cargo.toml"
 
           reorder_prdocs $STABLE_BRANCH_NAME
+
+          gh auth setup-git
 
           git push origin "$STABLE_BRANCH_NAME"

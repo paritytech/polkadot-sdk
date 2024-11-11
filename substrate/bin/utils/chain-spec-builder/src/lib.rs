@@ -261,19 +261,19 @@ impl ChainSpecBuilder {
 						.map_err(|e| format!("Conversion to json failed: {e}"))?;
 
 				// We want to extract only raw genesis ("genesis::raw" key), and apply it as a patch
-				// for the original json file. However, the file also contains original plain
-				// genesis ("genesis::runtimeGenesis") so set it to null so the patch will erase it.
+				// for the original json file.
 				genesis_json.as_object_mut().map(|map| {
 					map.retain(|key, _| key == "genesis");
-					map.get_mut("genesis").map(|genesis| {
-						genesis.as_object_mut().map(|genesis_map| {
-							genesis_map
-								.insert("runtimeGenesis".to_string(), serde_json::Value::Null);
-						});
-					});
 				});
 
 				let mut org_chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
+
+				// The original plain genesis ("genesis::runtimeGenesis") is no longer needed, so
+				// just remove it:
+				org_chain_spec_json
+					.get_mut("genesis")
+					.and_then(|genesis| genesis.as_object_mut())
+					.and_then(|genesis| genesis.remove("runtimeGenesis"));
 				json_patch::merge(&mut org_chain_spec_json, genesis_json);
 
 				let chain_spec_json = serde_json::to_string_pretty(&org_chain_spec_json)
@@ -293,16 +293,6 @@ impl ChainSpecBuilder {
 				let presets = caller
 					.preset_names()
 					.map_err(|e| format!("getting default config from runtime should work: {e}"))?;
-				let presets: Vec<String> = presets
-					.into_iter()
-					.map(|preset| {
-						String::from(
-							TryInto::<&str>::try_into(&preset)
-								.unwrap_or_else(|_| "cannot display preset id")
-								.to_string(),
-						)
-					})
-					.collect();
 				println!("{}", serde_json::json!({"presets":presets}).to_string());
 			},
 			ChainSpecBuilderCmd::DisplayPreset(DisplayPresetCmd { runtime, preset_name }) => {
