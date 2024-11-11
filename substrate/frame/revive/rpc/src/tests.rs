@@ -47,7 +47,7 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 }
 
 fn get_contract(name: &str) -> anyhow::Result<(Vec<u8>, ethabi::Contract)> {
-	const PVM_CONTRACTS: &'static str = include_str!("../examples/js/pvm-contracts.json");
+	const PVM_CONTRACTS: &str = include_str!("../examples/js/pvm-contracts.json");
 	let pvm_contract: serde_json::Value = serde_json::from_str(PVM_CONTRACTS)?;
 	let pvm_contract = pvm_contract[name].as_object().unwrap();
 	let bytecode = pvm_contract["bytecode"].as_str().unwrap();
