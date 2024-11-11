@@ -98,7 +98,11 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	assert_eq!(U256::zero(), ethan_balance);
 
 	let value = 1_000_000_000_000_000_000_000u128.into();
-	let hash = TransactionBuilder::new().value(value).to(ethan.address()).send(&client).await?;
+	let hash = TransactionBuilder::default()
+		.value(value)
+		.to(ethan.address())
+		.send(&client)
+		.await?;
 
 	let receipt = wait_for_successful_receipt(&client, hash).await?;
 	assert_eq!(
@@ -116,7 +120,7 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let hash = TransactionBuilder::new().value(value).input(input).send(&client).await?;
+	let hash = TransactionBuilder::default().value(value).input(input).send(&client).await?;
 	let receipt = wait_for_successful_receipt(&client, hash).await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	assert_eq!(
@@ -129,7 +133,7 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	assert_eq!(value, balance, "Contract balance should be the same as the value sent.");
 
 	// Call contract
-	let hash = TransactionBuilder::new()
+	let hash = TransactionBuilder::default()
 		.value(value)
 		.to(contract_address)
 		.send(&client)
@@ -147,7 +151,7 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 
 	// Balance transfer to contract
 	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	let hash = TransactionBuilder::new()
+	let hash = TransactionBuilder::default()
 		.value(value)
 		.to(contract_address)
 		.send(&client)
@@ -159,13 +163,13 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 
 	// Deploy revert
 	let (bytecode, contract) = get_contract("revert")?;
-	let receipt = TransactionBuilder::new()
+	let receipt = TransactionBuilder::default()
 		.input(contract.constructor.clone().unwrap().encode_input(bytecode, &[]).unwrap())
 		.send_and_wait_for_receipt(&client)
 		.await?;
 
 	// Call doRevert
-	let res = TransactionBuilder::new()
+	let res = TransactionBuilder::default()
 		.to(receipt.contract_address.unwrap())
 		.input(contract.function("doRevert")?.encode_input(&[])?.to_vec())
 		.send(&client)
@@ -182,13 +186,13 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 
 	// Deploy event
 	let (bytecode, contract) = get_contract("event")?;
-	let receipt = TransactionBuilder::new()
+	let receipt = TransactionBuilder::default()
 		.input(bytecode)
 		.send_and_wait_for_receipt(&client)
 		.await?;
 
 	// Call triggerEvent
-	let receipt = TransactionBuilder::new()
+	let receipt = TransactionBuilder::default()
 		.to(receipt.contract_address.unwrap())
 		.input(contract.function("triggerEvent")?.encode_input(&[])?.to_vec())
 		.send_and_wait_for_receipt(&client)

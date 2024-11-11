@@ -604,7 +604,7 @@ mod test {
 			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
 			assert_eq!(
 				builder.check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))
+				Err(TrgnsactionValidityError::Invalid(InvalidTransaction::Stale))
 			);
 		});
 	}

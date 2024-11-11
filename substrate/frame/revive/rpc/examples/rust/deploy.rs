@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
 	println!("\n\n=== Deploying contract ===\n\n");
 
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let hash = TransactionBuilder::new()
+	let hash = TransactionBuilder::default()
 		.value(5_000_000_000_000u128.into())
 		.input(input)
 		.send(&client)
@@ -62,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
 	println!("- Contract balance: {balance:?}");
 
 	println!("\n\n=== Calling contract ===\n\n");
-	let hash = TransactionBuilder::new()
+	let hash = TransactionBuilder::default()
 		.value(U256::from(1_000_000u32))
 		.to(contract_address)
 		.send(&client)

@@ -62,9 +62,8 @@ pub struct TransactionBuilder {
 	mutate: Box<dyn FnOnce(&mut TransactionLegacyUnsigned)>,
 }
 
-impl TransactionBuilder {
-	/// Create a new transaction builder
-	pub fn new() -> Self {
+impl Default for TransactionBuilder {
+	fn default() -> Self {
 		Self {
 			signer: Account::default(),
 			value: U256::zero(),
@@ -73,7 +72,9 @@ impl TransactionBuilder {
 			mutate: Box::new(|_| {}),
 		}
 	}
+}
 
+impl TransactionBuilder {
 	/// Set the signer.
 	pub fn signer(mut self, signer: Account) -> Self {
 		self.signer = signer;

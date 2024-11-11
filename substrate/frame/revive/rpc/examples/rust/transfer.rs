@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
 	print_balance().await?;
 	println!("\n\n=== Transferring  ===\n\n");
 
-	let hash = TransactionBuilder::new()
+	let hash = TransactionBuilder::default()
 		.signer(alith)
 		.value(value)
 		.to(ethan.address())
