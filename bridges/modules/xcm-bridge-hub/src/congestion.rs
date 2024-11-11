@@ -18,11 +18,43 @@
 
 use crate::{Bridges, Config, DispatchChannelStatusProvider, LOG_TARGET};
 use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager, Receiver};
-use codec::Encode;
+use codec::{Decode, Encode};
 use sp_runtime::traits::Convert;
 use sp_std::{marker::PhantomData, vec::Vec};
 use xcm::latest::{send_xcm, Location, SendXcm, Xcm};
 use xcm_builder::{DispatchBlob, DispatchBlobError};
+
+/// Limits for handling congestion.
+#[derive(Debug, Decode, Encode)]
+pub struct CongestionLimits {
+	/// Maximal number of messages in the outbound bridge queue. Once we reach this limit, we
+	/// suspend a bridge.
+	pub outbound_lane_congested_threshold: bp_messages::MessageNonce,
+	/// After we have suspended the bridge, we wait until number of messages in the outbound bridge
+	/// queue drops to this count, before sending resuming the bridge.
+	pub outbound_lane_uncongested_threshold: bp_messages::MessageNonce,
+	/// Maximal number of messages in the outbound bridge queue after we have suspended the bridge.
+	/// Once we reach this limit, we stop exporting more messages.
+	pub outbound_lane_stop_threshold: bp_messages::MessageNonce,
+}
+
+impl CongestionLimits {
+	/// Checks if limits are valid.
+	pub fn is_valid(&self) -> bool {
+		self.outbound_lane_uncongested_threshold < self.outbound_lane_congested_threshold
+			&& self.outbound_lane_stop_threshold > self.outbound_lane_congested_threshold
+	}
+}
+
+impl Default for CongestionLimits {
+	fn default() -> Self {
+		Self {
+			outbound_lane_congested_threshold: 8_192,
+			outbound_lane_uncongested_threshold: 1_024,
+			outbound_lane_stop_threshold: 9216,
+		}
+	}
+}
 
 /// Switches the implementation of `LocalXcmChannelManager` based on the `local_origin`.
 ///

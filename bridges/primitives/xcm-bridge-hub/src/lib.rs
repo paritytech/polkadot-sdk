@@ -144,10 +144,10 @@ pub enum BridgeState {
 	/// Bridge is opened. Associated lanes are also opened.
 	Opened,
 	/// Bridge is suspended. Associated lanes are opened.
+	/// *suspended* means that we have sent the "Suspended" message/signal to the local bridge origin.
 	///
-	/// We keep accepting messages to the bridge. The only difference with the `Opened` state
-	/// is that we have sent the "Suspended" message/signal to the local bridge origin.
-	Suspended,
+	/// `bool` - `true` means that we keep accepting messages to the bridge.
+	Suspended(bool),
 	/// Bridge is closed. Associated lanes are also closed.
 	/// After all outbound messages will be pruned, the bridge will vanish without any traces.
 	Closed,

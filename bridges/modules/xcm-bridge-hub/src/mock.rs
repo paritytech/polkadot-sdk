@@ -17,7 +17,6 @@
 #![cfg(test)]
 
 use crate as pallet_xcm_bridge_hub;
-use crate::congestion::BlobDispatcherWithChannelStatus;
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
 	ChainWithMessages, HashedLaneId, MessageNonce,
@@ -32,6 +31,7 @@ use frame_support::{
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess};
 use pallet_xcm_bridge_hub::congestion::{
+	BlobDispatcherWithChannelStatus, CongestionLimits,
 	HereOrLocalConsensusXcmChannelManager, ReportBridgeStatusXcmChannelManager,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -185,6 +185,7 @@ parameter_types! {
 			)
 		];
 	pub UnitWeightCost: Weight = Weight::from_parts(10, 10);
+	pub storage TestCongestionLimits: CongestionLimits = CongestionLimits::default();
 }
 
 /// **Universal** `InteriorLocation` of bridged asset hub.
@@ -233,8 +234,8 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type AllowWithoutBridgeDeposit = (Equals<ParentRelayChainLocation>, Equals<HereLocation>);
 
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
-
 	type BlobDispatcher = BlobDispatcherWithChannelStatus<TestBlobDispatcher, TestBlobDispatcher>;
+	type CongestionLimits = TestCongestionLimits;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

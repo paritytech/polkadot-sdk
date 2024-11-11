@@ -253,6 +253,8 @@ pub mod pallet {
 		type LocalXcmChannelManager: LocalXcmChannelManager<BridgeId>;
 		/// XCM-level dispatcher for inbound bridge messages.
 		type BlobDispatcher: DispatchBlob + DispatchChannelStatusProvider;
+		/// Limits for handling congestion.
+		type CongestionLimits: Get<congestion::CongestionLimits>;
 	}
 
 	/// An alias for the bridge metadata.
@@ -278,9 +280,14 @@ pub mod pallet {
 		fn integrity_test() {
 			assert!(
 				Self::bridged_network_id().is_ok(),
-				"Configured `T::BridgedNetwork`: {:?} does not contain `GlobalConsensus` junction with `NetworkId`",
+				"Configured `T::BridgedNetwork`: {:?} does not contain `GlobalConsensus` junction with `NetworkId`!",
 				T::BridgedNetwork::get()
-			)
+			);
+			assert!(
+				T::CongestionLimits::get().is_valid(),
+				"Configured `T::CongestionLimits`: {:?} are not valid!",
+				T::CongestionLimits::get()
+			);
 		}
 
 		#[cfg(feature = "try-runtime")]
