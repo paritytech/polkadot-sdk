@@ -513,6 +513,7 @@ where
 			fork_choice,
 			intermediates,
 			import_existing,
+			create_gap,
 			..
 		} = import_block;
 
@@ -536,6 +537,8 @@ where
 		let height = (*import_headers.post().number()).saturated_into::<u64>();
 
 		*self.importing_block.write() = Some(hash);
+
+		operation.op.set_create_gap(create_gap);
 
 		let result = self.execute_and_import_block(
 			operation,
@@ -604,9 +607,8 @@ where
 		}
 
 		let info = self.backend.blockchain().info();
-		let gap_block = info
-			.block_gap
-			.map_or(false, |(start, _)| *import_headers.post().number() == start);
+		let gap_block =
+			info.block_gap.map_or(false, |gap| *import_headers.post().number() == gap.start);
 
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
@@ -1754,7 +1756,7 @@ where
 	/// If you are not sure that there are no BlockImport objects provided by the consensus
 	/// algorithm, don't use this function.
 	async fn import_block(
-		&mut self,
+		&self,
 		mut import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let span = tracing::span!(tracing::Level::DEBUG, "import_block");
@@ -1854,18 +1856,18 @@ where
 {
 	type Error = ConsensusError;
 
-	async fn import_block(
-		&mut self,
-		import_block: BlockImportParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		(&*self).import_block(import_block).await
-	}
-
 	async fn check_block(
 		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		(&self).check_block(block).await
+	}
+
+	async fn import_block(
+		&self,
+		import_block: BlockImportParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		(&self).import_block(import_block).await
 	}
 }
 

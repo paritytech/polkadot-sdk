@@ -111,21 +111,15 @@ pub enum ApprovalCheckError {
 }
 
 enum ApprovalVotingMessage {
-    /// Check if the assignment is valid and can be accepted by our view of the protocol.
-    /// Should not be sent unless the block hash is known.
-    CheckAndImportAssignment(
-        IndirectAssignmentCert,
-        CandidateIndex, // The index of the candidate included in the block.
-        ResponseChannel<AssignmentCheckResult>,
-    ),
-    /// Check if the approval vote is valid and can be accepted by our view of the
-    /// protocol.
-    ///
-    /// Should not be sent unless the block hash within the indirect vote is known.
-    CheckAndImportApproval(
-        IndirectSignedApprovalVote,
-        ResponseChannel<ApprovalCheckResult>,
-    ),
+	/// Import an assignment into the approval-voting database.
+	///
+	/// Should not be sent unless the block hash is known and the VRF assignment checks out.
+	ImportAssignment(CheckedIndirectAssignment, Option<oneshot::Sender<AssignmentCheckResult>>),
+	/// Import an approval vote into approval-voting database
+	///
+	/// Should not be sent unless the block hash within the indirect vote is known, vote is
+	/// correctly signed and we had a previous assignment for the candidate.
+	ImportApproval(CheckedIndirectSignedApprovalVote, Option<oneshot::Sender<ApprovalCheckResult>>),
     /// Returns the highest possible ancestor hash of the provided block hash which is
     /// acceptable to vote on finality for. Along with that, return the lists of candidate hashes
     /// which appear in every block from the (non-inclusive) base number up to (inclusive) the specified
@@ -907,22 +901,6 @@ const APPROVAL_EXECUTION_TIMEOUT: Duration = 6 seconds;
 /// or `Ok(ValidationResult::Invalid)`.
 #[derive(Debug)]
 pub enum CandidateValidationMessage {
-    /// Validate a candidate with provided parameters using relay-chain state.
-    ///
-    /// This will implicitly attempt to gather the `PersistedValidationData` and `ValidationCode`
-    /// from the runtime API of the chain, based on the `relay_parent`
-    /// of the `CandidateDescriptor`.
-    ///
-    /// This will also perform checking of validation outputs against the acceptance criteria.
-    ///
-    /// If there is no state available which can provide this data or the core for
-    /// the para is not free at the relay-parent, an error is returned.
-    ValidateFromChainState(
-        CandidateDescriptor,
-        Arc<PoV>,
-        Duration, // Execution timeout.
-        oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-    ),
     /// Validate a candidate with provided, exhaustive parameters for validation.
     ///
     /// Explicitly provide the `PersistedValidationData` and `ValidationCode` so this can do full

@@ -15,6 +15,7 @@ KNOWN_BAD_GIT_DEPS = {
 	'simple-mermaid': ['xcm-docs'],
 	# Fix in <https://github.com/paritytech/polkadot-sdk/issues/2922>
 	'bandersnatch_vrfs': ['sp-core'],
+	'subwasmlib': ['polkadot-zombienet-sdk-tests'],
 }
 
 root = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
@@ -24,7 +25,7 @@ errors = []
 def check_dep(dep, used_by):
 	if dep.location != DependencyLocation.GIT:
 		return
-	
+
 	if used_by in KNOWN_BAD_GIT_DEPS.get(dep.name, []):
 		print(f'🤨 Ignoring git dependency {dep.name} in {used_by}')
 	else:

@@ -19,7 +19,7 @@
 //! Implementations of public traits, namely [`DelegationInterface`] and [`OnStakingUpdate`].
 
 use super::*;
-use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate};
+use sp_staking::{DelegationInterface, DelegationMigrator, OnStakingUpdate};
 
 impl<T: Config> DelegationInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
@@ -124,7 +124,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 
 	/// Only used for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn migrate_to_direct_staker(agent: Agent<Self::AccountId>) {
+	fn force_kill_agent(agent: Agent<Self::AccountId>) {
 		<Agents<T>>::remove(agent.clone().get());
 		<Delegators<T>>::iter()
 			.filter(|(_, delegation)| delegation.agent == agent.clone().get())
@@ -136,8 +136,6 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 				);
 				<Delegators<T>>::remove(&delegator);
 			});
-
-		T::CoreStaking::migrate_to_direct_staker(&agent.get());
 	}
 }
 

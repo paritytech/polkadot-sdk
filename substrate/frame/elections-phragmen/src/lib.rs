@@ -829,7 +829,7 @@ impl<T: Config> Pallet<T> {
 				T::Currency::unreserve(who, removed.deposit);
 			}
 
-			let maybe_next_best = RunnersUp::<T>::mutate(|r| r.pop()).map(|next_best| {
+			let maybe_next_best = RunnersUp::<T>::mutate(|r| r.pop()).inspect(|next_best| {
 				// defensive-only: Members and runners-up are disjoint. This will always be err and
 				// give us an index to insert.
 				if let Err(index) = members.binary_search_by(|m| m.who.cmp(&next_best.who)) {
@@ -839,7 +839,6 @@ impl<T: Config> Pallet<T> {
 					// is already a member, so not much more to do.
 					log::error!(target: LOG_TARGET, "A member seems to also be a runner-up.");
 				}
-				next_best
 			});
 			Ok(maybe_next_best)
 		})?;
@@ -1409,7 +1408,7 @@ mod tests {
 
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 	pub type UncheckedExtrinsic =
-		sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
+		sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
 
 	frame_support::construct_runtime!(
 		pub enum Test

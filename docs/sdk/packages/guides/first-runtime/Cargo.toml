@@ -1,0 +1,60 @@
+[package]
+name = "polkadot-sdk-docs-first-runtime"
+description = "A simple runtime created for the polkadot-sdk-docs guides"
+version = "0.0.0"
+license = "MIT-0"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { workspace = true }
+scale-info = { workspace = true }
+serde_json = { workspace = true }
+
+# this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
+frame = { workspace = true, features = ["experimental", "runtime"] }
+
+# pallets that we want to use
+pallet-balances = { workspace = true }
+pallet-sudo = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true }
+
+# other polkadot-sdk-deps
+sp-keyring = { workspace = true }
+
+# local pallet templates
+first-pallet = { workspace = true }
+
+docify = { workspace = true }
+
+[build-dependencies]
+substrate-wasm-builder = { workspace = true, optional = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"serde_json/std",
+
+	"frame/std",
+
+	"pallet-balances/std",
+	"pallet-sudo/std",
+	"pallet-timestamp/std",
+	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-transaction-payment/std",
+
+	"first-pallet/std",
+	"sp-keyring/std",
+
+	"substrate-wasm-builder",
+]

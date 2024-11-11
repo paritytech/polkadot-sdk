@@ -20,7 +20,7 @@ use xcm::latest::prelude::*;
 /// spoofed origin. This essentially defines the behaviour of the `ExportMessage` XCM instruction.
 ///
 /// This is quite different to `SendXcm`; `SendXcm` assumes that the local side's location will be
-/// preserved to be represented as the value of the Origin register in the messages execution.
+/// preserved to be represented as the value of the Origin register during the message's execution.
 ///
 /// This trait on the other hand assumes that we do not necessarily want the Origin register to
 /// contain the local (i.e. the caller chain's) location, since it will generally be exporting a
@@ -44,8 +44,8 @@ pub trait ExportXcm {
 	/// The `destination` and `message` must be `Some` (or else an error will be returned) and they
 	/// may only be consumed if the `Err` is not `NotApplicable`.
 	///
-	/// If it is not a destination which can be reached with this type but possibly could by others,
-	/// then this *MUST* return `NotApplicable`. Any other error will cause the tuple
+	/// If it is not a destination that can be reached with this type, but possibly could be with
+	/// others, then this *MUST* return `NotApplicable`. Any other error will cause the tuple
 	/// implementation (used to compose routing systems from different delivery agents) to exit
 	/// early without trying alternative means of delivery.
 	fn validate(

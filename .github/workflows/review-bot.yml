@@ -15,7 +15,6 @@ on:
 jobs:
   review-approvals:
     runs-on: ubuntu-latest
-    environment: master
     steps:
       - name: Generate token
         id: app_token

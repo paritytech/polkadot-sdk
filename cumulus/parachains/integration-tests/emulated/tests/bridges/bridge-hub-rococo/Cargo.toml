@@ -28,9 +28,11 @@ sp-runtime = { workspace = true }
 xcm = { workspace = true }
 pallet-xcm = { workspace = true }
 xcm-executor = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 
 # Bridges
 pallet-bridge-messages = { workspace = true }
+pallet-xcm-bridge-hub = { workspace = true }
 
 # Cumulus
 cumulus-pallet-xcmp-queue = { workspace = true }
@@ -38,7 +40,7 @@ emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
 rococo-system-emulated-network = { workspace = true }
 rococo-westend-system-emulated-network = { workspace = true }
-testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }
+testnet-parachains-constants = { features = ["rococo", "westend"], workspace = true, default-features = true }
 
 # Snowbridge
 snowbridge-core = { workspace = true }

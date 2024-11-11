@@ -109,7 +109,7 @@ pub use cumulus_client_network;
 #[cfg(feature = "cumulus-client-parachain-inherent")]
 pub use cumulus_client_parachain_inherent;
 
-/// Cumulus-specific networking protocol.
+/// Parachain PoV recovery.
 #[cfg(feature = "cumulus-client-pov-recovery")]
 pub use cumulus_client_pov_recovery;
 
@@ -272,7 +272,7 @@ pub use frame_system_benchmarking;
 #[cfg(feature = "frame-system-rpc-runtime-api")]
 pub use frame_system_rpc_runtime_api;
 
-/// FRAME pallet for democracy.
+/// Supporting types for try-runtime, testing and dry-running commands.
 #[cfg(feature = "frame-try-runtime")]
 pub use frame_try_runtime;
 
@@ -576,6 +576,30 @@ pub use pallet_referenda;
 #[cfg(feature = "pallet-remark")]
 pub use pallet_remark;
 
+/// FRAME pallet for PolkaVM contracts.
+#[cfg(feature = "pallet-revive")]
+pub use pallet_revive;
+
+/// An Ethereum JSON-RPC server for pallet-revive.
+#[cfg(feature = "pallet-revive-eth-rpc")]
+pub use pallet_revive_eth_rpc;
+
+/// Fixtures for testing and benchmarking.
+#[cfg(feature = "pallet-revive-fixtures")]
+pub use pallet_revive_fixtures;
+
+/// A mock network for testing pallet-revive.
+#[cfg(feature = "pallet-revive-mock-network")]
+pub use pallet_revive_mock_network;
+
+/// Procedural macros used in pallet_revive.
+#[cfg(feature = "pallet-revive-proc-macro")]
+pub use pallet_revive_proc_macro;
+
+/// Exposes all the host functions that a contract can import.
+#[cfg(feature = "pallet-revive-uapi")]
+pub use pallet_revive_uapi;
+
 /// FRAME root offences pallet.
 #[cfg(feature = "pallet-root-offences")]
 pub use pallet_root_offences;
@@ -685,11 +709,15 @@ pub use pallet_uniques;
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
 
+/// FRAME verify signature pallet.
+#[cfg(feature = "pallet-verify-signature")]
+pub use pallet_verify_signature;
+
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]
 pub use pallet_vesting;
 
-/// FRAME pallet for whitelisting call, and dispatch from specific origin.
+/// FRAME pallet for whitelisting calls, and dispatching from a specific origin.
 #[cfg(feature = "pallet-whitelist")]
 pub use pallet_whitelist;
 
@@ -776,6 +804,10 @@ pub use polkadot_node_collation_generation;
 #[cfg(feature = "polkadot-node-core-approval-voting")]
 pub use polkadot_node_core_approval_voting;
 
+/// Approval Voting Subsystem running approval work in parallel.
+#[cfg(feature = "polkadot-node-core-approval-voting-parallel")]
+pub use polkadot_node_core_approval_voting_parallel;
+
 /// The Availability Store subsystem. Wrapper over the DB that stores availability data and
 /// chunks.
 #[cfg(feature = "polkadot-node-core-av-store")]
@@ -850,10 +882,6 @@ pub use polkadot_node_core_pvf_prepare_worker;
 #[cfg(feature = "polkadot-node-core-runtime-api")]
 pub use polkadot_node_core_runtime_api;
 
-/// Polkadot Jaeger primitives, but equally useful for Grafana/Tempo.
-#[cfg(feature = "polkadot-node-jaeger")]
-pub use polkadot_node_jaeger;
-
 /// Subsystem metric helpers.
 #[cfg(feature = "polkadot-node-metrics")]
 pub use polkadot_node_metrics;
@@ -877,6 +905,10 @@ pub use polkadot_node_subsystem_types;
 /// Subsystem traits and message definitions.
 #[cfg(feature = "polkadot-node-subsystem-util")]
 pub use polkadot_node_subsystem_util;
+
+/// Helper library that can be used to build a parachain node.
+#[cfg(feature = "polkadot-omni-node-lib")]
+pub use polkadot_omni_node_lib;
 
 /// System overseer of the Polkadot node.
 #[cfg(feature = "polkadot-overseer")]

@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix failing XCM from relay to Coretime Chain when revenue is zero
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The coretime assigner now always includes UnpaidExecution when calling `notify_revenue` via a
+      `Transact`, not just when revenue is nonzero. This fixes an issue where the XCM would fail to
+      process on the receiving side.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: patch

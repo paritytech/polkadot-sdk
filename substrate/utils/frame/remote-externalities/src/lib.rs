@@ -55,7 +55,7 @@ type ChildKeyValues = Vec<(ChildInfo, Vec<KeyValue>)>;
 type SnapshotVersion = Compact<u16>;
 
 const LOG_TARGET: &str = "remote-ext";
-const DEFAULT_HTTP_ENDPOINT: &str = "https://polkadot-try-runtime-node.parity-chains.parity.io:443";
+const DEFAULT_HTTP_ENDPOINT: &str = "https://try-runtime.polkadot.io:443";
 const SNAPSHOT_VERSION: SnapshotVersion = Compact(4);
 
 /// The snapshot that we store on disk.
@@ -1239,8 +1239,9 @@ where
 #[cfg(test)]
 mod test_prelude {
 	pub(crate) use super::*;
-	pub(crate) use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper, H256 as Hash};
-	pub(crate) type Block = RawBlock<ExtrinsicWrapper<Hash>>;
+	pub(crate) use sp_runtime::testing::{Block as RawBlock, MockCallU64};
+	pub(crate) type UncheckedXt = sp_runtime::testing::TestXt<MockCallU64, ()>;
+	pub(crate) type Block = RawBlock<UncheckedXt>;
 
 	pub(crate) fn init_logger() {
 		sp_tracing::try_init_simple();

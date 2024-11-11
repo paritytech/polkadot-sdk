@@ -20,11 +20,11 @@ mod imports {
 	pub use frame_support::assert_ok;
 
 	// Polkadot
-	pub use xcm::prelude::*;
+	pub use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
 	// Cumulus
 	pub use emulated_integration_tests_common::xcm_emulator::{
-		assert_expected_events, bx, TestExt,
+		assert_expected_events, bx, Chain, Parachain, TestExt,
 	};
 	pub use westend_system_emulated_network::{
 		coretime_westend_emulated_chain::{
@@ -33,7 +33,7 @@ mod imports {
 		},
 		CoretimeWestendPara as CoretimeWestend,
 		CoretimeWestendParaReceiver as CoretimeWestendReceiver,
-		CoretimeWestendParaSender as CoretimeWestendSender,
+		CoretimeWestendParaSender as CoretimeWestendSender, WestendRelay as Westend,
 	};
 }
 

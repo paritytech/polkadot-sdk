@@ -192,38 +192,63 @@ impl PeerStoreProvider for PeerstoreHandle {
 	}
 
 	/// Adjust peer reputation.
-	fn report_peer(&self, peer: PeerId, reputation_change: ReputationChange) {
+	fn report_peer(&self, peer_id: PeerId, change: ReputationChange) {
 		let mut lock = self.0.lock();
+		let peer_info = lock.peers.entry(peer_id).or_default();
+		let was_banned = peer_info.is_banned();
+		peer_info.add_reputation(change.value);
+		let peer_reputation = peer_info.reputation;
 
-		log::trace!(target: LOG_TARGET, "report peer {reputation_change:?}");
+		log::trace!(
+			target: LOG_TARGET,
+			"Report {}: {:+} to {}. Reason: {}.",
+			peer_id,
+			change.value,
+			peer_reputation,
+			change.reason,
+		);
 
-		match lock.peers.get_mut(&peer) {
-			Some(info) => {
-				info.add_reputation(reputation_change.value);
-			},
-			None => {
-				lock.peers.insert(
-					peer,
-					PeerInfo {
-						reputation: reputation_change.value,
-						last_updated: Instant::now(),
-						role: None,
-					},
+		if !peer_info.is_banned() {
+			if was_banned {
+				log::info!(
+					target: LOG_TARGET,
+					"Peer {} is now unbanned: {:+} to {}. Reason: {}.",
+					peer_id,
+					change.value,
+					peer_reputation,
+					change.reason,
 				);
-			},
+			}
+			return;
 		}
 
-		if lock
-			.peers
-			.get(&peer)
-			.expect("peer exist since it was just modified; qed")
-			.is_banned()
-		{
-			log::warn!(target: LOG_TARGET, "{peer:?} banned, disconnecting, reason: {}", reputation_change.reason);
+		// Peer is currently banned, disconnect it from all protocols.
+		lock.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id.into()));
 
-			for sender in &lock.protocols {
-				sender.disconnect_peer(peer);
-			}
+		// The peer is banned for the first time.
+		if !was_banned {
+			log::warn!(
+				target: LOG_TARGET,
+				"Report {}: {:+} to {}. Reason: {}. Banned, disconnecting.",
+				peer_id,
+				change.value,
+				peer_reputation,
+				change.reason,
+			);
+			return;
+		}
+
+		// The peer was already banned and it got another negative report.
+		// This may happen during a batch report.
+		if change.value < 0 {
+			log::debug!(
+				target: LOG_TARGET,
+				"Report {}: {:+} to {}. Reason: {}. Misbehaved during the ban threshold.",
+				peer_id,
+				change.value,
+				peer_reputation,
+				change.reason,
+			);
 		}
 	}
 

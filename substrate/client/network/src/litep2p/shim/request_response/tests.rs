@@ -271,7 +271,12 @@ async fn too_many_inbound_requests() {
 	match handle2.next().await {
 		Some(RequestResponseEvent::RequestFailed { peer, error, .. }) => {
 			assert_eq!(peer, peer1);
-			assert_eq!(error, RequestResponseError::Rejected);
+			assert_eq!(
+				error,
+				RequestResponseError::Rejected(
+					litep2p::protocol::request_response::RejectReason::SubstreamClosed
+				)
+			);
 		},
 		event => panic!("inavlid event: {event:?}"),
 	}

@@ -122,7 +122,7 @@ impl MockClient {
 		name: &[u8],
 		maybe_leaf_idx: Option<LeafIndex>,
 	) -> MmrBlock {
-		let mut client = self.client.lock();
+		let client = self.client.lock();
 
 		let hash = client.expect_block_hash_from_id(&at).unwrap();
 		let mut block_builder = BlockBuilderBuilder::new(&*client)
