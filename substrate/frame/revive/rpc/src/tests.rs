@@ -60,6 +60,15 @@ fn get_contract(name: &str) -> anyhow::Result<(Vec<u8>, ethabi::Contract)> {
 	Ok((bytecode, contract))
 }
 
+macro_rules! unwrap_call_err(
+	($err:expr) => {
+		match $err.downcast_ref::<jsonrpsee::core::client::Error>().unwrap() {
+			jsonrpsee::core::client::Error::Call(call) => call,
+			_ => panic!("Expected Call error"),
+		}
+	}
+);
+
 #[tokio::test]
 async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	// Start the node.
@@ -169,20 +178,15 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 		.await?;
 
 	// Call doRevert
-	let res = TransactionBuilder::default()
+	let err = TransactionBuilder::default()
 		.to(receipt.contract_address.unwrap())
 		.input(contract.function("doRevert")?.encode_input(&[])?.to_vec())
 		.send(&client)
-		.await;
+		.await
+		.unwrap_err();
 
-	let err = res.unwrap_err();
-	let err = err.source().unwrap();
-	let err = err.downcast_ref::<jsonrpsee::core::client::Error>().unwrap();
-	match err {
-		jsonrpsee::core::client::Error::Call(call) =>
-			assert_eq!(call.message(), "Execution reverted: revert message"),
-		_ => panic!("Expected Call error"),
-	}
+	let call_err = unwrap_call_err!(err.source().unwrap());
+	assert_eq!(call_err.message(), "Execution reverted: revert message");
 
 	// Deploy event
 	let (bytecode, contract) = get_contract("event")?;
@@ -197,7 +201,19 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 		.input(contract.function("triggerEvent")?.encode_input(&[])?.to_vec())
 		.send_and_wait_for_receipt(&client)
 		.await?;
-
 	assert_eq!(receipt.logs.len(), 1, "There should be one log.");
+
+	// Invalid transaction
+	let err = TransactionBuilder::default()
+		.value(value)
+		.to(ethan.address())
+		.mutate(|tx| tx.chain_id = Some(42u32.into()))
+		.send(&client)
+		.await
+		.unwrap_err();
+
+	let call_err = unwrap_call_err!(err.source().unwrap());
+	assert_eq!(call_err.message(), "Invalid Transaction");
+
 	Ok(())
 }

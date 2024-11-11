@@ -45,7 +45,6 @@ async fn main() -> anyhow::Result<()> {
 		.signer(alith)
 		.value(value)
 		.to(ethan.address())
-		.mutate(|tx| tx.chain_id = Some(42u32.into()))
 		.send(&client)
 		.await?;
 	println!("Transaction hash: {hash:?}");
