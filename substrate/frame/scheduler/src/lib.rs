@@ -100,10 +100,7 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use frame_system::{
-	pallet_prelude::BlockNumberFor,
-	{self as system},
-};
+use frame_system::{self as system};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
@@ -124,6 +121,8 @@ pub type CallOrHashOf<T> =
 
 pub type BoundedCallOf<T> =
 	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
+
+pub type BlockNumberFor<T> = <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The configuration of the retry mechanism for a given task along with its current state.
 #[derive(Clone, Copy, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
@@ -230,7 +229,7 @@ impl<T: WeightInfo> MarginalWeightInfo for T {}
 pub mod pallet {
 	use super::*;
 	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{OriginFor, BlockNumberFor as SystemBlockNumberFor};
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -294,15 +293,12 @@ pub mod pallet {
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
-		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
+		type BlockNumberProvider: BlockNumberProvider;
 
 		/// The maximum number of blocks that can be scheduled.
 		#[pallet::constant]
 		type MaxScheduledBlocks: Get<u32>;
 	}
-
-	#[pallet::storage]
-	pub type IncompleteSince<T: Config> = StorageValue<_, BlockNumberFor<T>>;
 
 	/// Items to be executed, indexed by the block number that they should be executed on.
 	#[pallet::storage]
@@ -386,9 +382,9 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		/// Execute the scheduled calls
-		fn on_initialize(_do_not_use_local_block_number: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_do_not_use_local_block_number: SystemBlockNumberFor<T>) -> Weight {
 			let now = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 			Self::service_agendas(&mut weight_counter, now, u32::max_value());

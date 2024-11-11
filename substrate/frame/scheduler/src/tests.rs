@@ -1645,7 +1645,6 @@ fn on_initialize_weight_is_correct() {
 				TestWeightInfo::execute_dispatch_unsigned() +
 				call_weight + Weight::from_parts(4, 0)
 		);
-		assert_eq!(IncompleteSince::<Test>::get(), None);
 		assert_eq!(logger::log(), vec![(root(), 2600u32)]);
 
 		// Will include anon and anon periodic
@@ -1661,7 +1660,6 @@ fn on_initialize_weight_is_correct() {
 				TestWeightInfo::execute_dispatch_unsigned() +
 				call_weight + Weight::from_parts(2, 0)
 		);
-		assert_eq!(IncompleteSince::<Test>::get(), None);
 		assert_eq!(logger::log(), vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32)]);
 
 		// Will include named only
@@ -1674,7 +1672,6 @@ fn on_initialize_weight_is_correct() {
 				TestWeightInfo::execute_dispatch_unsigned() +
 				call_weight + Weight::from_parts(1, 0)
 		);
-		assert_eq!(IncompleteSince::<Test>::get(), None);
 		assert_eq!(
 			logger::log(),
 			vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32), (root(), 3u32)]
