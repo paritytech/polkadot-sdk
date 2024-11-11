@@ -95,7 +95,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use frame_support::traits::{
-	tokens::Pay, Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced,
+	tokens::{ConversionFromAssetBalance, Pay}, Currency, ExistenceRequirement::AllowDeath, Get, OnUnbalanced,
 	ReservableCurrency,
 };
 
@@ -114,17 +114,27 @@ pub use weights::WeightInfo;
 pub use pallet::*;
 
 type BalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
+type AssetBalanceOf<T, I = ()> = pallet_treasury::AssetBalanceOf<T, I>;
 type BeneficiaryLookupOf<T, I = ()> = pallet_treasury::BeneficiaryLookupOf<T, I>;
-type PositiveImbalanceOf<T, I = ()> = pallet_treasury::PositiveImbalanceOf<T, I>;
 
 /// An index of a bounty. Just a `u32`.
 pub type BountyIndex = u32;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
+type BountyType<T, I> = Bounty<
+	<T as frame_system::Config>::AccountId,
+	BalanceOf<T, I>,
+	AssetBalanceOf<T, I>,
+	BlockNumberFor<T>,
+	<T as pallet_treasury::Config<I>>::AssetKind,
+	<<T as pallet_treasury::Config<I>>::Paymaster as Pay>::Id,
+	<T as pallet_treasury::Config<I>>::Beneficiary,
+>;
+
 /// A bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary>
+pub struct Bounty<AccountId, NativeBalance, AssetBalance, BlockNumber, AssetKind, PaymentId, Beneficiary>
 where
 	Beneficiary: Clone,
 	PaymentId: Clone,
@@ -135,29 +145,30 @@ where
 	/// The kind of asset this bounty is rewarded in.
 	asset_kind: AssetKind,
 	/// The (total) amount of the `asset_kind` that should be paid if the bounty is rewarded.
-	value: Balance,
+	value: AssetBalance,
 	/// The curator fee in the `asset_kind`. Included in value.
-	fee: Balance,
+	fee: AssetBalance,
 	/// The deposit of curator.
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
-	curator_deposit: Balance,
+	curator_deposit: NativeBalance,
 	/// The amount held on deposit (reserved) for making this proposal.
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
-	bond: Balance,
+	bond: NativeBalance,
 	/// The status of this bounty.
 	status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
 }
 
 impl<
 		AccountId: PartialEq + Clone + Ord,
-		Balance,
+		NativeBalance,
+		AssetBalance,
 		BlockNumber: Clone,
 		AssetKind,
 		PaymentId: Clone,
 		Beneficiary: Clone,
-	> Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary>
+	> Bounty<AccountId, NativeBalance, AssetBalance, BlockNumber, AssetKind, PaymentId, Beneficiary>
 {
 	/// Getter for bounty status, to be used for child bounties.
 	pub fn get_status(&self) -> BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
@@ -177,15 +188,7 @@ where
 	/// The bounty is proposed and waiting for approval.
 	Proposed,
 	/// The bounty is approved and waiting to confirm the funds allocation.
-	Approved {
-		/// The status of the bounty amount transfer from the source (e.g. Treasury) to
-		/// the bounty account.
-		///
-		/// Once the payment is confirmed, the bounty will transition to either
-		/// [`BountyStatus::Funded`] or [`BountyStatus::CuratorProposed`], depending on the value
-		/// of `maybe_curator`.
-		payment_status: PaymentState<PaymentId>,
-	},
+	Approved,
 	/// The bounty is funded and waiting for curator assignment.
 	Funded,
 	/// A curator has been proposed. Waiting for acceptance from the curator.
@@ -215,13 +218,6 @@ where
 	},
 	/// The bounty is approved with a curator and waiting to confirm the funds allocation.
 	ApprovedWithCurator {
-		/// The status of the bounty amount transfer from the source (e.g. Treasury) to
-		/// the bounty account.
-		///
-		/// Once the payment is confirmed, the bounty will transition to either
-		/// [`BountyStatus::Funded`] or [`BountyStatus::CuratorProposed`], depending on the value
-		/// of `maybe_curator`.
-		payment_status: PaymentState<PaymentId>,
 		/// The assigned curator of this bounty.
 		curator: AccountId,
 	},
@@ -333,7 +329,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The child bounty manager.
-		type ChildBountyManager: ChildBountyManager<BalanceOf<Self, I>>;
+		type ChildBountyManager: ChildBountyManager<AssetBalanceOf<Self, I>>;
 
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
@@ -380,7 +376,7 @@ pub mod pallet {
 		/// A bounty is awarded to a beneficiary.
 		BountyAwarded { index: BountyIndex, beneficiary: T::Beneficiary },
 		/// A bounty is claimed by beneficiary.
-		BountyClaimed { index: BountyIndex, payout: BalanceOf<T, I>, beneficiary: T::Beneficiary },
+		BountyClaimed { index: BountyIndex, asset_kind: T::AssetKind, asset_payout: AssetBalanceOf<T, I>, beneficiary: T::Beneficiary },
 		/// A bounty is cancelled.
 		BountyCanceled { index: BountyIndex },
 		/// A bounty expiry is extended.
@@ -405,14 +401,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		BountyIndex,
-		Bounty<
-			T::AccountId,
-			BalanceOf<T, I>,
-			BlockNumberFor<T>,
-			T::AssetKind,
-			<<T as pallet_treasury::Config<I>>::Paymaster as Pay>::Id,
-			T::Beneficiary,
-		>,
+		BountyType<T, I>,
 	>;
 
 	/// The description of each bounty.
@@ -452,7 +441,7 @@ pub mod pallet {
 			// TODO: `value` should pallet_treasury::AssetBalanceOf<T, I>,
 			// or better make pallet_treasury::AssetBalanceOf<T, I> and
 			// pallet_treasury::BalanceOf<T, I> same types for simplicity.
-			#[pallet::compact] value: BalanceOf<T, I>,
+			#[pallet::compact] value: AssetBalanceOf<T, I>,
 			description: Vec<u8>,
 		) -> DispatchResult {
 			let proposer = ensure_signed(origin)?;
@@ -476,13 +465,15 @@ pub mod pallet {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let native_amount = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(bounty.value, bounty.asset_kind.clone())
+					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 				ensure!(
-					bounty.value <= max_amount,
+					native_amount <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
 				);
 				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
 
-				bounty.status = BountyStatus::Approved { payment_status: PaymentState::Pending };
+				bounty.status = BountyStatus::Approved;
 
 				BountyApprovals::<T, I>::try_append(bounty_id)
 					.map_err(|()| Error::<T, I>::TooManyQueued)?;
@@ -506,15 +497,17 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			curator: AccountIdLookupOf<T>,
-			#[pallet::compact] fee: BalanceOf<T, I>,
+			#[pallet::compact] fee: AssetBalanceOf<T, I>,
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 
 			let curator = T::Lookup::lookup(curator)?;
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let native_amount = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(bounty.value, bounty.asset_kind.clone())
+					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 				ensure!(
-					bounty.value <= max_amount,
+					native_amount <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
 				);
 				match bounty.status {
@@ -572,17 +565,17 @@ pub mod pallet {
 					};
 
 				match bounty.status {
-					BountyStatus::Proposed | BountyStatus::Approved { .. } | BountyStatus::Funded => {
+					BountyStatus::Proposed | BountyStatus::Approved | BountyStatus::Funded | BountyStatus::PayoutAttempted { .. } | BountyStatus::RefundAttempted { .. } => {
 						// No curator to unassign at this point.
 						return Err(Error::<T, I>::UnexpectedStatus.into());
 					},
-					BountyStatus::ApprovedWithCurator { ref curator, ref payment_status } => {
+					BountyStatus::ApprovedWithCurator { ref curator } => {
 						// Bounty not yet funded, but bounty was approved with curator.
 						// `RejectOrigin` or curator himself can unassign from this bounty.
 						ensure!(maybe_sender.map_or(true, |sender| sender == *curator), BadOrigin);
 						// This state can only be while the bounty is not yet funded so we return
 						// bounty to the `Approved` state without curator
-						bounty.status = BountyStatus::Approved { payment_status: payment_status.clone() };
+						bounty.status = BountyStatus::Approved;
 						return Ok(());
 					},
 					BountyStatus::CuratorProposed { ref curator } => {
@@ -590,7 +583,7 @@ pub mod pallet {
 						// Either `RejectOrigin` or the proposed curator can unassign the curator.
 						ensure!(maybe_sender.map_or(true, |sender| sender == *curator), BadOrigin);
 					},
-					BountyStatus::Active { ref curator, ref update_due, ref curator_stash } => {
+					BountyStatus::Active { ref curator, ref update_due, .. } => {
 						// The bounty is active.
 						match maybe_sender {
 							// If the `RejectOrigin` is calling this function, slash the curator.
@@ -666,7 +659,7 @@ pub mod pallet {
 					BountyStatus::CuratorProposed { ref curator } => {
 						ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
-						let deposit = Self::calculate_curator_deposit(&bounty.fee);
+						let deposit = Self::calculate_curator_deposit(&bounty.fee, bounty.asset_kind.clone())?;
 						T::Currency::reserve(curator, deposit)?;
 						bounty.curator_deposit = deposit;
 
@@ -758,16 +751,12 @@ pub mod pallet {
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.take().ok_or(Error::<T, I>::InvalidIndex)?;
-				if let BountyStatus::PendingPayout { curator, beneficiary, unlock_at, curator_stash } =
+				if let BountyStatus::PendingPayout { beneficiary, unlock_at, curator_stash, .. } =
 					bounty.status
 				{
 					ensure!(Self::treasury_block_number() >= unlock_at, Error::<T, I>::Premature);
-					let bounty_account = Self::bounty_account_id(bounty_id);
-					let balance = T::Currency::free_balance(&bounty_account);
-					let fee = bounty.fee.min(balance); // just to be safe
-					let payout = balance.saturating_sub(fee);
-					let err_amount = T::Currency::unreserve(&curator, bounty.curator_deposit);
-					debug_assert!(err_amount.is_zero());
+					let fee = bounty.fee;
+					let payout = bounty.value - bounty.fee;
 
 					// Get total child bounties curator fees, and subtract it from the parent
 					// curator fee (the fee in present referenced bounty, `self`).
@@ -775,11 +764,9 @@ pub mod pallet {
 					debug_assert!(children_fee <= fee);
 
 					let final_fee = fee.saturating_sub(children_fee);
-					let res =
-						T::Currency::transfer(&bounty_account, &curator, final_fee, AllowDeath); // should not fail
+					let res = T::Paymaster::pay(&curator_stash, bounty.asset_kind.clone(), final_fee); // should not fail
 					debug_assert!(res.is_ok());
-					let res =
-						T::Currency::transfer(&bounty_account, &beneficiary, payout, AllowDeath); // should not fail
+					let res = T::Paymaster::pay(&beneficiary, bounty.asset_kind.clone(), payout); // should not fail
 					debug_assert!(res.is_ok());
 
 					*maybe_bounty = None;
@@ -789,7 +776,8 @@ pub mod pallet {
 
 					Self::deposit_event(Event::<T, I>::BountyClaimed {
 						index: bounty_id,
-						payout,
+						asset_kind: bounty.asset_kind,
+						asset_payout: payout,
 						beneficiary,
 					});
 					Ok(())
@@ -862,7 +850,7 @@ pub mod pallet {
 							debug_assert!(err_amount.is_zero());
 							// Then execute removal of the bounty below.
 						},
-						BountyStatus::PendingPayout { .. } => {
+						BountyStatus::PendingPayout { .. } | BountyStatus::PayoutAttempted { .. } | BountyStatus::RefundAttempted { .. } => {
 							// Bounty is already pending payout. If council wants to cancel
 							// this bounty, it should mean the curator was acting maliciously.
 							// So the council should first unassign the curator, slashing their
@@ -915,7 +903,7 @@ pub mod pallet {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
 				match bounty.status {
-					BountyStatus::Active { ref curator, ref mut update_due } => {
+					BountyStatus::Active { ref curator, ref mut update_due, .. } => {
 						ensure!(*curator == signer, Error::<T, I>::RequireCurator);
 						*update_due = (Self::treasury_block_number() +
 							T::BountyUpdatePeriod::get())
@@ -948,15 +936,18 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			curator: AccountIdLookupOf<T>,
-			#[pallet::compact] fee: BalanceOf<T, I>,
+			#[pallet::compact] fee: AssetBalanceOf<T, I>,
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			let curator = T::Lookup::lookup(curator)?;
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				// approve bounty
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let native_amount =
+				<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(bounty.value, bounty.asset_kind.clone())
+					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 				ensure!(
-					bounty.value <= max_amount,
+					native_amount <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
 				);
 				ensure!(bounty.status == BountyStatus::Proposed, Error::<T, I>::UnexpectedStatus);
@@ -983,8 +974,8 @@ pub mod pallet {
 		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
 		pub fn process_payment(
-			origin: OriginFor<T>,
-			#[pallet::compact] bounty_id: BountyIndex,
+			_origin: OriginFor<T>,
+			#[pallet::compact] _bounty_id: BountyIndex,
 		) -> DispatchResult {
 			todo!()
 		}
@@ -995,8 +986,8 @@ pub mod pallet {
 		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
 		pub fn check_payment_status(
-			origin: OriginFor<T>,
-			#[pallet::compact] bounty_id: BountyIndex,
+			_origin: OriginFor<T>,
+			#[pallet::compact] _bounty_id: BountyIndex,
 		) -> DispatchResult {
 			todo!()
 		}
@@ -1060,8 +1051,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Calculate the deposit required for a curator.
-	pub fn calculate_curator_deposit(fee: &BalanceOf<T, I>) -> BalanceOf<T, I> {
-		let mut deposit = T::CuratorDepositMultiplier::get() * *fee;
+	pub fn calculate_curator_deposit(fee: &AssetBalanceOf<T, I>, kind: T::AssetKind) -> Result<BalanceOf<T, I>, pallet_treasury::Error<T, I>> {
+		let fee = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(*fee, kind)
+			.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
+
+		let mut deposit = T::CuratorDepositMultiplier::get() * fee;
 
 		if let Some(max_deposit) = T::CuratorDepositMax::get() {
 			deposit = deposit.min(max_deposit)
@@ -1071,7 +1065,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			deposit = deposit.max(min_deposit)
 		}
 
-		deposit
+		Ok(deposit)
 	}
 
 	/// The account ID of the treasury pot.
@@ -1093,11 +1087,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		proposer: T::AccountId,
 		description: Vec<u8>,
 		asset_kind: T::AssetKind,
-		value: BalanceOf<T, I>,
+		value: AssetBalanceOf<T, I>,
 	) -> DispatchResult {
 		let bounded_description: BoundedVec<_, _> =
 			description.try_into().map_err(|_| Error::<T, I>::ReasonTooBig)?;
-		ensure!(value >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
+		let native_amount = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(value, asset_kind.clone())
+			.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
+
+		ensure!(native_amount >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
 
 		let index = BountyCount::<T, I>::get();
 
@@ -1109,7 +1106,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		BountyCount::<T, I>::put(index + 1);
 
-		let bounty = Bounty {
+		let bounty = BountyType::<T, I>{
 			proposer,
 			asset_kind,
 			value,
@@ -1118,67 +1115,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			bond,
 			status: BountyStatus::Proposed,
 		};
-
+		
 		Bounties::<T, I>::insert(index, &bounty);
 		BountyDescriptions::<T, I>::insert(index, bounded_description);
 
 		Self::deposit_event(Event::<T, I>::BountyProposed { index });
 
 		Ok(())
-	}
-}
-
-// TODO: this should not be needed after we start using `process_payment` calls,
-// review and remove. Additionally remove the trait if not used anymore.
-impl<T: Config<I>, I: 'static> pallet_treasury::SpendFunds<T, I> for Pallet<T, I> {
-	fn spend_funds(
-		budget_remaining: &mut BalanceOf<T, I>,
-		imbalance: &mut PositiveImbalanceOf<T, I>,
-		total_weight: &mut Weight,
-		missed_any: &mut bool,
-	) {
-		let bounties_len = BountyApprovals::<T, I>::mutate(|v| {
-			let bounties_approval_len = v.len() as u32;
-			v.retain(|&index| {
-				Bounties::<T, I>::mutate(index, |bounty| {
-					// Should always be true, but shouldn't panic if false or we're screwed.
-					if let Some(bounty) = bounty {
-						if bounty.value <= *budget_remaining {
-							*budget_remaining -= bounty.value;
-
-							// jump through the funded phase if we're already approved with curator
-							if let BountyStatus::ApprovedWithCurator { curator } = &bounty.status {
-								bounty.status =
-									BountyStatus::CuratorProposed { curator: curator.clone() };
-							} else {
-								bounty.status = BountyStatus::Funded;
-							}
-
-							// return their deposit.
-							let err_amount = T::Currency::unreserve(&bounty.proposer, bounty.bond);
-							debug_assert!(err_amount.is_zero());
-
-							// fund the bounty account
-							imbalance.subsume(T::Currency::deposit_creating(
-								&Self::bounty_account_id(index),
-								bounty.value,
-							));
-
-							Self::deposit_event(Event::<T, I>::BountyBecameActive { index });
-							false
-						} else {
-							*missed_any = true;
-							true
-						}
-					} else {
-						false
-					}
-				})
-			});
-			bounties_approval_len
-		});
-
-		*total_weight += <T as pallet::Config<I>>::WeightInfo::spend_funds(bounties_len);
 	}
 }
 
