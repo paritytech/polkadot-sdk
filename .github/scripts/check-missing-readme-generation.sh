@@ -1,5 +1,5 @@
 #!/bin/bash
-
+echo "Running script relative to `pwd`"
 # Find all README.docify.md files
 DOCIFY_FILES=$(find . -name "README.docify.md")
 
