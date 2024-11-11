@@ -319,6 +319,11 @@ specialize_requests! {
 /// session index at the relay-parent, relying on the fact that it should be cached by the runtime
 /// API caching layer even if the block itself has already been pruned. Then requests executor
 /// parameters by session index.
+/// Returns an error if failed to communicate to the runtime, or the parameters are not in the
+/// storage, which should never happen.
+/// Returns default execution parameters if the runtime doesn't yet support `SessionExecutorParams`
+/// API call.
+/// Otherwise, returns execution parameters returned by the runtime.
 pub async fn executor_params_at_relay_parent(
 	relay_parent: Hash,
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
@@ -332,41 +337,29 @@ pub async fn executor_params_at_relay_parent(
 			// Runtime has failed to obtain a session index at the relay-parent.
 			Err(Error::RuntimeApi(err))
 		},
-		Ok(Ok(session_index)) =>
-			executor_params_by_session_index(relay_parent, session_index, sender).await,
-	}
-}
-
-/// Requests executor parameters from the runtime by session index.
-/// Returns an error if failed to communicate to the runtime, or the
-/// parameters are not in the storage, which should never happen.
-/// Returns default execution parameters if the runtime doesn't yet support `SessionExecutorParams`
-/// API call. Otherwise, returns execution parameters returned by the runtime.
-pub async fn executor_params_by_session_index(
-	relay_parent: Hash,
-	session_index: SessionIndex,
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<ExecutorParams, Error> {
-	match request_session_executor_params(relay_parent, session_index, sender).await.await {
-		Err(err) => {
-			// Failed to communicate with the runtime
-			Err(Error::Oneshot(err))
+		Ok(Ok(session_index)) => {
+			match request_session_executor_params(relay_parent, session_index, sender).await.await {
+				Err(err) => {
+					// Failed to communicate with the runtime
+					Err(Error::Oneshot(err))
+				},
+				Ok(Err(RuntimeApiError::NotSupported { .. })) => {
+					// Runtime doesn't yet support the api requested, should execute anyway
+					// with default set of parameters
+					Ok(ExecutorParams::default())
+				},
+				Ok(Err(err)) => {
+					// Runtime failed to execute the request
+					Err(Error::RuntimeApi(err))
+				},
+				Ok(Ok(None)) => {
+					// Storage doesn't contain a parameter set for the given session; should
+					// never happen
+					Err(Error::DataNotAvailable)
+				},
+				Ok(Ok(Some(executor_params))) => Ok(executor_params),
+			}
 		},
-		Ok(Err(RuntimeApiError::NotSupported { .. })) => {
-			// Runtime doesn't yet support the api requested, should execute anyway
-			// with default set of parameters
-			Ok(ExecutorParams::default())
-		},
-		Ok(Err(err)) => {
-			// Runtime failed to execute the request
-			Err(Error::RuntimeApi(err))
-		},
-		Ok(Ok(None)) => {
-			// Storage doesn't contain a parameter set for the given session; should
-			// never happen
-			Err(Error::DataNotAvailable)
-		},
-		Ok(Ok(Some(executor_params))) => Ok(executor_params),
 	}
 }
 
