@@ -6384,18 +6384,7 @@ dependencies = [
 [[package]]
 name = "frame-metadata"
 version = "17.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "701bac17e9b55e0f95067c428ebcb46496587f08e8cf4ccc0fe5903bea10dbb8"
-dependencies = [
- "cfg-if",
- "parity-scale-codec",
- "scale-info",
-]
-
-[[package]]
-name = "frame-metadata"
-version = "17.0.0"
-source = "git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16#743b690162edae12e35bdfff027858480fdf4ad9"
+source = "git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16#2c2ffa63f7f04b5b8795a0bedb98f7c5dc388fe2"
 dependencies = [
  "cfg-if",
  "parity-scale-codec",
@@ -6410,7 +6399,7 @@ dependencies = [
  "array-bytes",
  "const-hex",
  "docify",
- "frame-metadata 17.0.0 (git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16)",
+ "frame-metadata 17.0.0",
  "frame-support",
  "frame-system",
  "log",
@@ -6473,7 +6462,7 @@ dependencies = [
  "bitflags 1.3.2",
  "docify",
  "environmental",
- "frame-metadata 17.0.0 (git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16)",
+ "frame-metadata 17.0.0",
  "frame-support-procedural",
  "frame-system",
  "impl-trait-for-tuples",
@@ -6565,7 +6554,7 @@ version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
- "frame-metadata 17.0.0 (git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16)",
+ "frame-metadata 17.0.0",
  "frame-support",
  "frame-support-test-pallet",
  "frame-system",
@@ -9657,12 +9646,12 @@ dependencies = [
 
 [[package]]
 name = "merkleized-metadata"
-version = "0.1.0"
-source = "git+https://github.com/lexnv/merkleized-metadata.git?branch=lexnv/update-frame-md#c72164a029302dd6ecfec365b8fafc3759891953"
+version = "0.1.1"
+source = "git+https://github.com/lexnv/merkleized-metadata.git?branch=lexnv/latest-frame-update#bdacb9314fbd08137813c2af213f86c08e57b128"
 dependencies = [
  "array-bytes",
  "blake3",
- "frame-metadata 17.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frame-metadata 17.0.0",
  "parity-scale-codec",
  "scale-decode",
  "scale-info",
@@ -22442,7 +22431,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
- "frame-metadata 17.0.0 (git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16)",
+ "frame-metadata 17.0.0",
  "parity-scale-codec",
  "scale-info",
 ]
@@ -24115,7 +24104,7 @@ dependencies = [
  "cargo_metadata",
  "console",
  "filetime",
- "frame-metadata 17.0.0 (git+https://github.com/paritytech/frame-metadata.git?branch=lexnv/extensions-v16)",
+ "frame-metadata 17.0.0",
  "jobserver",
  "merkleized-metadata",
  "parity-scale-codec",
