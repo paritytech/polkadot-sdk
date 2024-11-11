@@ -19,7 +19,7 @@ use crate::{account_and_location, new_executor, EnsureDelivery, XcmCallOf};
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use frame_benchmarking::v2::*;
-use frame_support::{dispatch::GetDispatchInfo, traits::fungible::Inspect};
+use frame_support::traits::fungible::Inspect;
 use xcm::{
 	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight, MAX_ITEMS_IN_ASSETS},
 	DoubleEncoded,
@@ -120,7 +120,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn pay_fees() -> Result<(), BenchmarkError>{
+	fn pay_fees() -> Result<(), BenchmarkError> {
 		let holding = T::worst_case_holding(0).into();
 
 		let mut executor = new_executor::<T>(Default::default());
@@ -146,7 +146,7 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(Default::default());
 		let (_, sender_location) = account_and_location::<T>(1);
 
-		let instruction = Instruction::SetAssetClaimer{ location:sender_location.clone() };
+		let instruction = Instruction::SetAssetClaimer { location: sender_location.clone() };
 		let xcm = Xcm(vec![instruction]);
 
 		#[block]
