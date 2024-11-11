@@ -56,13 +56,20 @@ pub trait FindAuthor<Author> {
 	/// Find the author of a block based on the pre-runtime digests.
 	fn find_author<'a, I>(digests: I) -> Option<Author>
 	where
-		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>;
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])> + Clone;
+
+	fn has_authorities_change<'a, I>(_digests: I) -> bool
+	where
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])> + Clone,
+	{
+		false
+	}
 }
 
 impl<A> FindAuthor<A> for () {
 	fn find_author<'a, I>(_: I) -> Option<A>
 	where
-		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])> + Clone,
 	{
 		None
 	}
