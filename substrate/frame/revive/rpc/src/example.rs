@@ -154,4 +154,12 @@ impl TransactionBuilder {
 
 		Ok(hash)
 	}
+
+	pub async fn send_and_wait_for_receipt(
+		self,
+		client: &(impl EthRpcClient + Send + Sync),
+	) -> anyhow::Result<ReceiptInfo> {
+		let hash = self.send(client).await?;
+		wait_for_successful_receipt(client, hash).await
+	}
 }

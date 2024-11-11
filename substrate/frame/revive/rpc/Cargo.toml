@@ -73,6 +73,7 @@ env_logger = { workspace = true }
 example = ["hex-literal", "rlp", "secp256k1", "subxt-signer"]
 
 [dev-dependencies]
+ethabi = { version = "18.0.0" }
 hex-literal = { workspace = true }
 pallet-revive-fixtures = { workspace = true }
 substrate-cli-test-utils = { workspace = true }

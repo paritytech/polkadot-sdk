@@ -46,6 +46,20 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 	.expect("Hit timeout")
 }
 
+fn get_contract(name: &str) -> anyhow::Result<(Vec<u8>, ethabi::Contract)> {
+	const PVM_CONTRACTS: &'static str = include_str!("../examples/js/pvm-contracts.json");
+	let pvm_contract: serde_json::Value = serde_json::from_str(PVM_CONTRACTS)?;
+	let pvm_contract = pvm_contract[name].as_object().unwrap();
+	let bytecode = pvm_contract["bytecode"].as_str().unwrap();
+	let bytecode = hex::decode(bytecode)?;
+
+	let abi = pvm_contract["abi"].clone();
+	let abi = serde_json::to_string(&abi)?;
+	let contract = ethabi::Contract::load(abi.as_bytes())?;
+
+	Ok((bytecode, contract))
+}
+
 #[tokio::test]
 async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	// Start the node.
@@ -143,5 +157,43 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	let increase = client.get_balance(contract_address, BlockTag::Latest.into()).await? - balance;
 	assert_eq!(value, increase, "contract's balance should have increased by the value sent.");
 
+	// Deploy revert
+	let (bytecode, contract) = get_contract("revert")?;
+	let receipt = TransactionBuilder::new()
+		.input(contract.constructor.clone().unwrap().encode_input(bytecode, &[]).unwrap())
+		.send_and_wait_for_receipt(&client)
+		.await?;
+
+	// Call doRevert
+	let res = TransactionBuilder::new()
+		.to(receipt.contract_address.unwrap())
+		.input(contract.function("doRevert")?.encode_input(&[])?.to_vec())
+		.send(&client)
+		.await;
+
+	let err = res.unwrap_err();
+	let err = err.source().unwrap();
+	let err = err.downcast_ref::<jsonrpsee::core::client::Error>().unwrap();
+	match err {
+		jsonrpsee::core::client::Error::Call(call) =>
+			assert_eq!(call.message(), "Execution reverted: revert message"),
+		_ => panic!("Expected Call error"),
+	}
+
+	// Deploy event
+	let (bytecode, contract) = get_contract("event")?;
+	let receipt = TransactionBuilder::new()
+		.input(bytecode)
+		.send_and_wait_for_receipt(&client)
+		.await?;
+
+	// Call triggerEvent
+	let receipt = TransactionBuilder::new()
+		.to(receipt.contract_address.unwrap())
+		.input(contract.function("triggerEvent")?.encode_input(&[])?.to_vec())
+		.send_and_wait_for_receipt(&client)
+		.await?;
+
+	assert_eq!(receipt.logs.len(), 1, "There should be one log.");
 	Ok(())
 }
