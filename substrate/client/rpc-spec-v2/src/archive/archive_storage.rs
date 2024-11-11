@@ -172,6 +172,17 @@ enum FetchStorageType {
 	Both,
 }
 
+/// The return value of the `fetch_storage` method.
+#[derive(Debug, PartialEq, Clone)]
+enum FetchedStorage {
+	/// Storage value under a key.
+	Value(StorageResult),
+	/// Storage hash under a key.
+	Hash(StorageResult),
+	/// Both storage value and hash under a key.
+	Both { value: StorageResult, hash: StorageResult },
+}
+
 pub struct ArchiveStorageDiff<Client, Block, BE> {
 	client: Storage<Client, Block, BE>,
 }
@@ -189,30 +200,24 @@ where
 	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
 {
 	/// Fetch the storage from the given key.
-	///
-	/// This method returns:
-	/// - `None` if the storage is not present.
-	/// - `Some((StorageResult, None))` for `FetchStorageType::Value`.
-	/// - `Some((StorageResult, None))` for `FetchStorageType::Hash`.
-	/// - `Some((StorageResult, Some(StorageResult)))` for `FetchStorageType::Both`.
 	fn fetch_storage(
 		&self,
 		hash: Block::Hash,
 		key: StorageKey,
 		maybe_child_trie: Option<ChildInfo>,
 		ty: FetchStorageType,
-	) -> Result<Option<(StorageResult, Option<StorageResult>)>, String> {
+	) -> Result<Option<FetchedStorage>, String> {
 		match ty {
 			FetchStorageType::Value => {
 				let result = self.client.query_value(hash, &key, maybe_child_trie.as_ref())?;
 
-				Ok(result.map(|res| (res, None)))
+				Ok(result.map(FetchedStorage::Value))
 			},
 
 			FetchStorageType::Hash => {
 				let result = self.client.query_hash(hash, &key, maybe_child_trie.as_ref())?;
 
-				Ok(result.map(|res| (res, None)))
+				Ok(result.map(FetchedStorage::Hash))
 			},
 
 			FetchStorageType::Both => {
@@ -226,7 +231,7 @@ where
 					return Ok(None);
 				};
 
-				Ok(Some((value, Some(hash))))
+				Ok(Some(FetchedStorage::Both { value, hash }))
 			},
 		}
 	}
@@ -265,26 +270,22 @@ where
 	/// Returns `false` if the sender has been closed.
 	fn send_result(
 		tx: &mpsc::Sender<ArchiveStorageDiffEvent>,
-		result: (StorageResult, Option<StorageResult>),
+		result: FetchedStorage,
 		operation_type: ArchiveStorageDiffOperationType,
 		child_trie_key: Option<String>,
 	) -> bool {
-		let res = ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
-			key: result.0.key,
-			result: result.0.result,
-			operation_type,
-			child_trie_key: child_trie_key.clone(),
-		});
-		if tx.blocking_send(res).is_err() {
-			return false
-		}
+		let items = match result {
+			FetchedStorage::Value(storage_result) | FetchedStorage::Hash(storage_result) =>
+				vec![storage_result],
+			FetchedStorage::Both { value, hash } => vec![value, hash],
+		};
 
-		if let Some(second) = result.1 {
+		for item in items {
 			let res = ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
-				key: second.key,
-				result: second.result,
+				key: item.key,
+				result: item.result,
 				operation_type,
-				child_trie_key,
+				child_trie_key: child_trie_key.clone(),
 			});
 			if tx.blocking_send(res).is_err() {
 				return false
@@ -368,7 +369,7 @@ where
 				continue
 			};
 
-			if storage_result.0.result != previous_storage_result.0.result {
+			if storage_result != previous_storage_result {
 				if !Self::send_result(
 					&tx,
 					storage_result,
