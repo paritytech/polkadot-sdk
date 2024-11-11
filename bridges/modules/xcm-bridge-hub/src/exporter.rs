@@ -247,7 +247,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				return
 			},
 			_ => {
-				// do nothing and continue
+				// otherwise, continue handling the suspension
 			},
 		}
 
@@ -302,6 +302,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let is_congested =
 			enqueued_messages > T::CongestionLimits::get().outbound_lane_uncongested_threshold;
 		if is_congested {
+			// and if it is bellow the `stop_threshold`
+			if enqueued_messages < T::CongestionLimits::get().outbound_lane_stop_threshold {
+				if let Some((bridge_id, bridge)) = Self::bridge_by_lane_id(&lane_id) {
+					if let BridgeState::Suspended(false) = bridge.state {
+						// we allow exporting again
+						Bridges::<T, I>::mutate_extant(bridge_id, |b| {
+							b.state = BridgeState::Suspended(true);
+						});
+					}
+				}
+			}
 			return
 		}
 
@@ -565,6 +576,94 @@ mod tests {
 
 			assert!(!TestLocalXcmChannelManager::is_bridge_resumed(&bridge_id));
 			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
+		});
+	}
+
+	#[test]
+	fn exporter_respects_stop_threshold() {
+		run_test(|| {
+			let (bridge_id, lane_id) =
+				open_lane_and_send_regular_message(OpenBridgeOrigin::sibling_parachain_origin());
+			let xcm: Xcm<()> = vec![ClearOrigin].into();
+
+			// Opened - exporter works
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
+			assert_ok!(
+				XcmOverBridge::validate(
+					BridgedRelayNetwork::get(),
+					0,
+					&mut Some(universal_source()),
+					&mut Some(bridged_relative_destination()),
+					&mut Some(xcm.clone()),
+				),
+			);
+
+			// Suspended(true) - exporter still works
+			XcmOverBridge::on_bridge_message_enqueued(
+				bridge_id,
+				XcmOverBridge::bridge(&bridge_id).unwrap(),
+				TestCongestionLimits::get().outbound_lane_congested_threshold + 1,
+			);
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Suspended(true));
+			assert_ok!(
+				XcmOverBridge::validate(
+					BridgedRelayNetwork::get(),
+					0,
+					&mut Some(universal_source()),
+					&mut Some(bridged_relative_destination()),
+					&mut Some(xcm.clone()),
+				),
+			);
+
+			// Suspended(false) - exporter stops working
+			XcmOverBridge::on_bridge_message_enqueued(
+				bridge_id,
+				XcmOverBridge::bridge(&bridge_id).unwrap(),
+				TestCongestionLimits::get().outbound_lane_stop_threshold + 1,
+			);
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Suspended(false));
+			assert_err!(
+				XcmOverBridge::validate(
+					BridgedRelayNetwork::get(),
+					0,
+					&mut Some(universal_source()),
+					&mut Some(bridged_relative_destination()),
+					&mut Some(xcm.clone()),
+				),
+				SendError::Transport("Exporter is suspended!"),
+			);
+
+			// Back to Suspended(true) - exporter again works
+			XcmOverBridge::on_bridge_messages_delivered(
+				lane_id,
+				TestCongestionLimits::get().outbound_lane_stop_threshold - 1,
+			);
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Suspended(true));
+			assert_ok!(
+				XcmOverBridge::validate(
+					BridgedRelayNetwork::get(),
+					0,
+					&mut Some(universal_source()),
+					&mut Some(bridged_relative_destination()),
+					&mut Some(xcm.clone()),
+				),
+			);
+
+			// Back to Opened - exporter works
+			XcmOverBridge::on_bridge_messages_delivered(
+				lane_id,
+				TestCongestionLimits::get().outbound_lane_uncongested_threshold - 1,
+			);
+			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
+			assert_ok!(
+				XcmOverBridge::validate(
+					BridgedRelayNetwork::get(),
+					0,
+					&mut Some(universal_source()),
+					&mut Some(bridged_relative_destination()),
+					&mut Some(xcm.clone()),
+				),
+			);
 		});
 	}
 

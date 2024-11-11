@@ -51,7 +51,7 @@ impl Default for CongestionLimits {
 		Self {
 			outbound_lane_congested_threshold: 8_192,
 			outbound_lane_uncongested_threshold: 1_024,
-			outbound_lane_stop_threshold: 9216,
+			outbound_lane_stop_threshold: 12_288,
 		}
 	}
 }
