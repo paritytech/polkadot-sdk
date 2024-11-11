@@ -119,7 +119,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	pay_fees {
+	#[benchmark]
+	fn pay_fees() -> Result<(), BenchmarkError>{
 		let holding = T::worst_case_holding(0).into();
 
 		let mut executor = new_executor::<T>(Default::default());
@@ -130,26 +131,33 @@ mod benchmarks {
 		let fee_asset: Asset = T::fee_asset().unwrap();
 
 		let instruction = Instruction::<XcmCallOf<T>>::PayFees { asset: fee_asset };
-
 		let xcm = Xcm(vec![instruction]);
-	} : {
-		executor.bench_process(xcm)?;
-	} verify {}
 
-	set_asset_claimer {
+		#[block]
+		{
+			executor.bench_process(xcm)?;
+		}
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_asset_claimer() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
 		let (_, sender_location) = account_and_location::<T>(1);
 
 		let instruction = Instruction::SetAssetClaimer{ location:sender_location.clone() };
-
 		let xcm = Xcm(vec![instruction]);
-	}: {
-		executor.bench_process(xcm)?;
-	} verify {
+
+		#[block]
+		{
+			executor.bench_process(xcm)?;
+		}
+
 		assert_eq!(executor.asset_claimer(), Some(sender_location.clone()));
+		Ok(())
 	}
 
-	query_response {
 	#[benchmark]
 	fn query_response() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
