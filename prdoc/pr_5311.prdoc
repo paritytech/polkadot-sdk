@@ -14,5 +14,3 @@ crates:
     bump: minor
   - name: frame-support
     bump: minor
-  - name: pallet-referenda
-    bump: minor
