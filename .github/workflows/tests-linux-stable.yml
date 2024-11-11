@@ -149,10 +149,8 @@ jobs:
         if: ${{ failure() && steps.required.conclusion == 'failure' }}
         uses: ./.github/actions/workflow-stopper
         with:
-          # app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-          # private-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
-          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID2 }}
-          private-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY2 }}
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
