@@ -421,6 +421,10 @@ pub mod pallet {
 		RegistrarAdded { registrar_index: RegistrarIndex },
 		/// A sub-identity was added to an identity and the deposit paid.
 		SubIdentityAdded { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
+		/// An account's sub-identities were set (in bulk).
+		SubIdentitiesSet { main: T::AccountId, number_of_subs: u32, new_deposit: BalanceOf<T> },
+		/// A given sub-account's associated name was changed by its super-identity.
+		SubIdentityRenamed { sub: T::AccountId, main: T::AccountId },
 		/// A sub-identity was removed from an identity and the deposit freed.
 		SubIdentityRemoved { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
 		/// A sub-identity was cleared, and the given deposit repatriated from the
@@ -590,6 +594,12 @@ pub mod pallet {
 			} else {
 				SubsOf::<T>::insert(&sender, (new_deposit, ids));
 			}
+
+			Self::deposit_event(Event::SubIdentitiesSet {
+				main: sender,
+				number_of_subs: new_subs as u32,
+				new_deposit,
+			});
 
 			Ok(Some(
 				T::WeightInfo::set_subs_old(old_ids.len() as u32) // P: Real number of old accounts removed.
@@ -992,7 +1002,9 @@ pub mod pallet {
 			let sub = T::Lookup::lookup(sub)?;
 			ensure!(IdentityOf::<T>::contains_key(&sender), Error::<T>::NoIdentity);
 			ensure!(SuperOf::<T>::get(&sub).map_or(false, |x| x.0 == sender), Error::<T>::NotOwned);
-			SuperOf::<T>::insert(&sub, (sender, data));
+			SuperOf::<T>::insert(&sub, (&sender, data));
+
+			Self::deposit_event(Event::SubIdentityRenamed { main: sender, sub });
 			Ok(())
 		}
 
