@@ -1,4 +1,4 @@
-title: 'pallet-membership: Do not verify the `MembershipChanged`'
+title: 'pallet-membership: Do not verify the `MembershipChanged` in bechmarks'
 doc:
 - audience: Runtime Dev
   description: |-
