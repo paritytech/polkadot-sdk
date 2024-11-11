@@ -1140,12 +1140,11 @@ dependencies = [
 
 [[package]]
 name = "async-channel"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f2776ead772134d55b62dd45e59a79e21612d85d0af729b8b7d3967d601a62a"
+checksum = "89b47800b0be77592da0afd425cc03468052844aff33b84e33cc696f64e77b6a"
 dependencies = [
  "concurrent-queue",
- "event-listener 5.2.0",
  "event-listener-strategy",
  "futures-core",
  "pin-project-lite",
@@ -1153,15 +1152,14 @@ dependencies = [
 
 [[package]]
 name = "async-executor"
-version = "1.5.1"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fa3dc5f2a8564f07759c008b9109dc0d39de92a88d5588b8a5036d286383afb"
+checksum = "30ca9a001c1e8ba5149f91a74362376cc6bc5b919d92d988668657bd570bdcec"
 dependencies = [
- "async-lock 2.8.0",
  "async-task",
  "concurrent-queue",
- "fastrand 1.9.0",
- "futures-lite 1.13.0",
+ "fastrand 2.1.0",
+ "futures-lite 2.0.0",
  "slab",
 ]
 
@@ -1190,16 +1188,16 @@ dependencies = [
 
 [[package]]
 name = "async-global-executor"
-version = "2.3.1"
+version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1b6f5d7df27bd294849f8eec66ecfc63d11814df7a4f5d74168a2394467b776"
+checksum = "05b1b633a2115cd122d73b955eadd9916c18c8f510ec9cd1686404c60ad1c29c"
 dependencies = [
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-executor",
- "async-io 1.13.0",
- "async-lock 2.8.0",
+ "async-io 2.3.3",
+ "async-lock 3.4.0",
  "blocking",
- "futures-lite 1.13.0",
+ "futures-lite 2.0.0",
  "once_cell",
 ]
 
@@ -1309,7 +1307,7 @@ version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63255f1dc2381611000436537bbedfe83183faa303a5a0edaf191edef06526bb"
 dependencies = [
- "async-channel 2.3.0",
+ "async-channel 2.3.1",
  "async-io 2.3.3",
  "async-lock 3.4.0",
  "async-signal",
@@ -1342,20 +1340,20 @@ dependencies = [
 
 [[package]]
 name = "async-std"
-version = "1.12.0"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62565bb4402e926b29953c785397c6dc0391b7b446e45008b0049eb43cec6f5d"
+checksum = "c634475f29802fde2b8f0b505b1bd00dfe4df7d4a000f0b36f7671197d5c3615"
 dependencies = [
  "async-attributes",
  "async-channel 1.9.0",
  "async-global-executor",
- "async-io 1.13.0",
- "async-lock 2.8.0",
+ "async-io 2.3.3",
+ "async-lock 3.4.0",
  "crossbeam-utils",
  "futures-channel",
  "futures-core",
  "futures-io",
- "futures-lite 1.13.0",
+ "futures-lite 2.0.0",
  "gloo-timers",
  "kv-log-macro",
  "log",
@@ -1825,17 +1823,15 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blocking"
-version = "1.3.1"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77231a1c8f801696fc0123ec6150ce92cffb8e164a02afb9c8ddee0e9b65ad65"
+checksum = "703f41c54fc768e63e091340b424302bb1c29ef4aa0c7f10fe849dfb114d29ea"
 dependencies = [
- "async-channel 1.9.0",
- "async-lock 2.8.0",
+ "async-channel 2.3.1",
  "async-task",
- "atomic-waker",
- "fastrand 1.9.0",
- "futures-lite 1.13.0",
- "log",
+ "futures-io",
+ "futures-lite 2.0.0",
+ "piper",
 ]
 
 [[package]]
@@ -3378,9 +3374,9 @@ dependencies = [
 
 [[package]]
 name = "concurrent-queue"
-version = "2.2.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62ec6771ecfa0762d24683ee5a32ad78487a3d3afdc0fb8cae19d2c5deb50b7c"
+checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -7053,9 +7049,9 @@ dependencies = [
 
 [[package]]
 name = "gloo-timers"
-version = "0.2.6"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b995a66bb87bebce9a0f4a95aed01daca4872c050bfcb21653361c03bc35e5c"
+checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -13958,6 +13954,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
+name = "piper"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96c8c490f422ef9a4efd2cb5b42b76c8613d7e7dfc1caf667b8a3350a5acc066"
+dependencies = [
+ "atomic-waker",
+ "fastrand 2.1.0",
+ "futures-io",
+]
+
+[[package]]
 name = "pkcs8"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14233,7 +14240,7 @@ name = "polkadot-dispute-distribution"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-trait",
  "derive_more",
  "fatality",
@@ -14861,7 +14868,7 @@ dependencies = [
 name = "polkadot-node-network-protocol"
 version = "7.0.0"
 dependencies = [
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-trait",
  "bitvec",
  "derive_more",
@@ -16032,7 +16039,7 @@ version = "7.0.0"
 dependencies = [
  "arrayvec 0.7.4",
  "assert_matches",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "bitvec",
  "fatality",
  "futures",
@@ -18938,7 +18945,7 @@ name = "sc-consensus-beefy"
 version = "13.0.0"
 dependencies = [
  "array-bytes",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-trait",
  "fnv",
  "futures",
@@ -19388,7 +19395,7 @@ version = "0.34.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-trait",
  "asynchronous-codec",
  "bytes",
@@ -19494,7 +19501,7 @@ name = "sc-network-light"
 version = "0.33.0"
 dependencies = [
  "array-bytes",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "futures",
  "log",
  "parity-scale-codec",
@@ -19514,7 +19521,7 @@ name = "sc-network-statement"
 version = "0.16.0"
 dependencies = [
  "array-bytes",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "futures",
  "log",
  "parity-scale-codec",
@@ -19533,7 +19540,7 @@ name = "sc-network-sync"
 version = "0.33.0"
 dependencies = [
  "array-bytes",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "async-trait",
  "fork-tree",
  "futures",
@@ -19892,7 +19899,7 @@ name = "sc-service-test"
 version = "2.0.0"
 dependencies = [
  "array-bytes",
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "fdlimit",
  "futures",
  "log",
@@ -20120,7 +20127,7 @@ dependencies = [
 name = "sc-utils"
 version = "14.0.0"
 dependencies = [
- "async-channel 1.9.0",
+ "async-channel 2.3.1",
  "futures",
  "futures-timer",
  "log",
@@ -20877,7 +20884,7 @@ version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a33bd3e260892199c3ccfc487c88b2da2265080acb316cd920da72fdfd7c599f"
 dependencies = [
- "async-channel 2.3.0",
+ "async-channel 2.3.1",
  "async-executor",
  "async-fs 2.1.2",
  "async-io 2.3.3",
@@ -21048,7 +21055,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5496f2d116b7019a526b1039ec2247dd172b8670633b1a64a614c9ea12c9d8c7"
 dependencies = [
- "async-channel 2.3.0",
+ "async-channel 2.3.1",
  "async-lock 3.4.0",
  "base64 0.21.7",
  "blake2-rfc",
