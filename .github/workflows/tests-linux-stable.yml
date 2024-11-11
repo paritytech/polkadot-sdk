@@ -148,6 +148,11 @@ jobs:
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' }}
         uses: ./.github/actions/workflow-stopper
+        with:
+          # app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          # private-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID2 }}
+          private-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY2 }}
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
