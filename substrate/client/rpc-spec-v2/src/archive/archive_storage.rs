@@ -40,6 +40,7 @@ use crate::{
 	},
 };
 use tokio::sync::mpsc;
+
 /// Generates the events of the `archive_storage` method.
 pub struct ArchiveStorage<Client, Block, BE> {
 	/// Storage client.
