@@ -973,6 +973,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "staging-xcm 7.0.0",
+ "staging-xcm-builder 7.0.0",
  "staging-xcm-executor 7.0.0",
  "westend-system-emulated-network",
  "xcm-runtime-apis 0.1.0",
@@ -16696,6 +16697,7 @@ dependencies = [
  "primitive-types 0.12.2",
  "scale-info",
  "smallvec",
+ "snowbridge-router-primitives 0.9.0",
  "sp-api 26.0.0",
  "sp-block-builder 26.0.0",
  "sp-consensus-aura 0.32.0",
@@ -17761,6 +17763,7 @@ dependencies = [
  "polkadot-node-metrics",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
  "polkadot-parachain-primitives 6.0.0",
  "polkadot-primitives 7.0.0",
  "procfs",
@@ -18024,7 +18027,6 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-babe 0.32.0",
  "sp-runtime 31.0.1",
- "strum 0.26.3",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -19506,7 +19508,6 @@ dependencies = [
  "sc-transaction-pool-api",
  "serde",
  "serde_json",
- "serial_test",
  "sp-api 26.0.0",
  "sp-authority-discovery 26.0.0",
  "sp-block-builder 26.0.0",
@@ -20620,7 +20621,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -20666,7 +20667,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acf0c195eebb4af52c752bec4f52f645da98b6e92077a04110c7f349477ae5ac"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
@@ -23108,6 +23109,7 @@ dependencies = [
  "asynchronous-codec",
  "bytes",
  "cid 0.9.0",
+ "criterion",
  "either",
  "fnv",
  "futures",
@@ -23129,6 +23131,7 @@ dependencies = [
  "rand",
  "sc-block-builder",
  "sc-client-api",
+ "sc-consensus",
  "sc-network-common",
  "sc-network-light",
  "sc-network-sync",
@@ -24484,31 +24487,6 @@ checksum = "a84f14a19e9a014bb9f4512488d9829a68e04ecabffb0f9904cd1ace94598177"
 dependencies = [
  "base16ct",
  "serde",
-]
-
-[[package]]
-name = "serial_test"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e56dd856803e253c8f298af3f4d7eb0ae5e23a737252cd90bb4f3b435033b2d"
-dependencies = [
- "dashmap",
- "futures",
- "lazy_static",
- "log",
- "parking_lot 0.12.3",
- "serial_test_derive",
-]
-
-[[package]]
-name = "serial_test_derive"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91d129178576168c589c9ec973feedf7d3126c01ac2bf08795109aa35b69fb8f"
-dependencies = [
- "proc-macro2 1.0.86",
- "quote 1.0.37",
- "syn 2.0.87",
 ]
 
 [[package]]
@@ -28525,6 +28503,7 @@ dependencies = [
  "bounded-collections",
  "derivative",
  "environmental",
+ "frame-support 28.0.0",
  "hex",
  "hex-literal",
  "impl-trait-for-tuples",

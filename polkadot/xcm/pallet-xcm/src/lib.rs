@@ -2536,7 +2536,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns execution result, events, and any forwarded XCMs to other locations.
 	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
-	pub fn dry_run_xcm<Runtime, Router, RuntimeCall, XcmConfig>(
+	pub fn dry_run_xcm<Runtime, Router, RuntimeCall: Decode + GetDispatchInfo, XcmConfig>(
 		origin_location: VersionedLocation,
 		xcm: VersionedXcm<RuntimeCall>,
 	) -> Result<XcmDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
@@ -3067,7 +3067,7 @@ impl<T: Config> xcm_executor::traits::AssetLock for Pallet<T> {
 }
 
 impl<T: Config> WrapVersion for Pallet<T> {
-	fn wrap_version<RuntimeCall>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		dest: &Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {

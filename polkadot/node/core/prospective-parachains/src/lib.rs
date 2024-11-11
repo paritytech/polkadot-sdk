@@ -524,7 +524,7 @@ async fn handle_introduce_seconded_candidate(
 		},
 	};
 
-	let mut added = false;
+	let mut added = Vec::with_capacity(view.per_relay_parent.len());
 	let mut para_scheduled = false;
 	// We don't iterate only through the active leaves. We also update the deactivated parents in
 	// the implicit view, so that their upcoming children may see these candidates.
@@ -536,18 +536,10 @@ async fn handle_introduce_seconded_candidate(
 
 		match chain.try_adding_seconded_candidate(&candidate_entry) {
 			Ok(()) => {
-				gum::debug!(
-					target: LOG_TARGET,
-					?para,
-					?relay_parent,
-					?is_active_leaf,
-					"Added seconded candidate {:?}",
-					candidate_hash
-				);
-				added = true;
+				added.push(*relay_parent);
 			},
 			Err(FragmentChainError::CandidateAlreadyKnown) => {
-				gum::debug!(
+				gum::trace!(
 					target: LOG_TARGET,
 					?para,
 					?relay_parent,
@@ -555,10 +547,10 @@ async fn handle_introduce_seconded_candidate(
 					"Attempting to introduce an already known candidate: {:?}",
 					candidate_hash
 				);
-				added = true;
+				added.push(*relay_parent);
 			},
 			Err(err) => {
-				gum::debug!(
+				gum::trace!(
 					target: LOG_TARGET,
 					?para,
 					?relay_parent,
@@ -580,16 +572,24 @@ async fn handle_introduce_seconded_candidate(
 		);
 	}
 
-	if !added {
+	if added.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
 			para = ?para,
 			candidate = ?candidate_hash,
 			"Newly-seconded candidate cannot be kept under any relay parent",
 		);
+	} else {
+		gum::debug!(
+			target: LOG_TARGET,
+			?para,
+			"Added/Kept seconded candidate {:?} on relay parents: {:?}",
+			candidate_hash,
+			added
+		);
 	}
 
-	let _ = tx.send(added);
+	let _ = tx.send(!added.is_empty());
 }
 
 async fn handle_candidate_backed(
@@ -779,16 +779,29 @@ fn answer_hypothetical_membership_request(
 					membership.push(*active_leaf);
 				},
 				Err(err) => {
-					gum::debug!(
+					gum::trace!(
 						target: LOG_TARGET,
 						para = ?para_id,
 						leaf = ?active_leaf,
 						candidate = ?candidate.candidate_hash(),
-						"Candidate is not a hypothetical member: {}",
+						"Candidate is not a hypothetical member on: {}",
 						err
 					)
 				},
 			};
+		}
+	}
+
+	for (candidate, membership) in &response {
+		if membership.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				para = ?candidate.candidate_para(),
+				active_leaves = ?view.active_leaves,
+				?required_active_leaf,
+				candidate = ?candidate.candidate_hash(),
+				"Candidate is not a hypothetical member on any of the active leaves",
+			)
 		}
 	}
 

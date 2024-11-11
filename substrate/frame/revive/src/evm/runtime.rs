@@ -190,7 +190,7 @@ impl<'a, Address: Decode, Signature: Decode, E: EthExtra> serde::Deserialize<'a>
 	{
 		let r = sp_core::bytes::deserialize(de)?;
 		Decode::decode(&mut &r[..])
-			.map_err(|e| serde::de::Error::custom(sp_runtime::format!("Decode error: {}", e)))
+			.map_err(|e| serde::de::Error::custom(alloc::format!("Decode error: {}", e)))
 	}
 }
 
