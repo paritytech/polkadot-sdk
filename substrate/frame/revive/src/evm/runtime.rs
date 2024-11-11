@@ -189,7 +189,7 @@ impl<'a, Address: Decode, Signature: Decode, E: EthExtra> serde::Deserialize<'a>
 	{
 		let r = sp_core::bytes::deserialize(de)?;
 		Decode::decode(&mut &r[..])
-			.map_err(|e| serde::de::Error::custom(sp_runtime::format!("Decode error: {}", e)))
+			.map_err(|e| serde::de::Error::custom(alloc::format!("Decode error: {}", e)))
 	}
 }
 
@@ -311,10 +311,14 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		}
 
+		let value = (value / U256::from(<Self::Config as crate::Config>::NativeToEthRatio::get()))
+			.try_into()
+			.map_err(|_| InvalidTransaction::Call)?;
+
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
 				dest,
-				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
+				value,
 				gas_limit,
 				storage_deposit_limit,
 				data: input.0,
@@ -334,7 +338,7 @@ pub trait EthExtra {
 			};
 
 			crate::Call::instantiate_with_code::<Self::Config> {
-				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
+				value,
 				gas_limit,
 				storage_deposit_limit,
 				code: code.to_vec(),
@@ -368,7 +372,7 @@ pub trait EthExtra {
 				Default::default(),
 			)
 			.into();
-		log::debug!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
+		log::trace!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
 
 		if eth_fee < actual_fee {
 			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee:?}");
@@ -379,10 +383,10 @@ pub trait EthExtra {
 		let max = actual_fee.max(eth_fee_no_tip);
 		let diff = Percent::from_rational(max - min, min);
 		if diff > Percent::from_percent(10) {
-			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
+			log::trace!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
 			return Err(InvalidTransaction::Call.into())
 		} else {
-			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
+			log::trace!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
 		}
 
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);

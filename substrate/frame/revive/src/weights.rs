@@ -103,7 +103,6 @@ pub trait WeightInfo {
 	fn seal_get_transient_storage(n: u32, ) -> Weight;
 	fn seal_contains_transient_storage(n: u32, ) -> Weight;
 	fn seal_take_transient_storage(n: u32, ) -> Weight;
-	fn seal_transfer() -> Weight;
 	fn seal_call(t: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
 	fn seal_instantiate(i: u32, ) -> Weight;
@@ -758,6 +757,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
 	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
+<<<<<<< HEAD
 	fn seal_transfer() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `352`
@@ -768,6 +768,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
 	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
+=======
+>>>>>>> upstream/master
 	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
 	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(1779), added: 4254, mode: `Measured`)
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
@@ -1568,6 +1570,7 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
 	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
+<<<<<<< HEAD
 	fn seal_transfer() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `352`
@@ -1578,6 +1581,8 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Revive::AddressSuffix` (r:1 w:0)
 	/// Proof: `Revive::AddressSuffix` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `Measured`)
+=======
+>>>>>>> upstream/master
 	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
 	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(1779), added: 4254, mode: `Measured`)
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)

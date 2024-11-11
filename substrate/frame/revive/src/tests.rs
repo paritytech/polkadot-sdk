@@ -624,24 +624,20 @@ impl Default for Origin<Test> {
 	}
 }
 
-/// We can only run the tests if we have a riscv toolchain installed
-#[cfg(feature = "riscv")]
-mod run_tests {
-	use super::*;
-	use pretty_assertions::{assert_eq, assert_ne};
-	use sp_core::U256;
-
-	#[test]
-	fn calling_plain_account_is_balance_transfer() {
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
-			assert!(!<ContractInfoOf<Test>>::contains_key(BOB_ADDR));
-			assert_eq!(test_utils::get_balance(&BOB_FALLBACK), 0);
-			let result = builder::bare_call(BOB_ADDR).value(42).build_and_unwrap_result();
-			assert_eq!(test_utils::get_balance(&BOB_FALLBACK), 42);
-			assert_eq!(result, Default::default());
-		});
-	}
+#[test]
+fn calling_plain_account_is_balance_transfer() {
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		assert!(!<ContractInfoOf<Test>>::contains_key(BOB_ADDR));
+		assert_eq!(test_utils::get_balance(&BOB_FALLBACK), 0);
+		let result = builder::bare_call(BOB_ADDR).value(42).build_and_unwrap_result();
+		assert_eq!(
+			test_utils::get_balance(&BOB_FALLBACK),
+			42 + <Test as Config>::Currency::minimum_balance()
+		);
+		assert_eq!(result, Default::default());
+	});
+}
 
 	#[test]
 	fn instantiate_and_call_and_deposit_event() {
@@ -1532,32 +1528,20 @@ mod run_tests {
 				.build_and_unwrap_result();
 			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
 
-			// Sending less than the minimum balance will also make the transfer fail
-			let result = builder::bare_call(bob.addr)
-				.data(
-					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
-						.iter()
-						.chain(&u256_bytes(42))
-						.cloned()
-						.collect(),
-				)
-				.build_and_unwrap_result();
-			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
-
-			// Sending at least the minimum balance should result in success but
-			// no code called.
-			assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), 0);
-			let result = builder::bare_call(bob.addr)
-				.data(
-					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
-						.iter()
-						.chain(&u256_bytes(55))
-						.cloned()
-						.collect(),
-				)
-				.build_and_unwrap_result();
-			assert_return_code!(result, RuntimeReturnCode::Success);
-			assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), 55);
+		// Sending below the minimum balance should result in success.
+		// The ED is charged from the call origin.
+		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), 0);
+		let result = builder::bare_call(bob.addr)
+			.data(
+				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+					.iter()
+					.chain(&u256_bytes(55))
+					.cloned()
+					.collect(),
+			)
+			.build_and_unwrap_result();
+		assert_return_code!(result, RuntimeReturnCode::Success);
+		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), 55 + min_balance);
 
 			let django = builder::bare_instantiate(Code::Upload(callee_code))
 				.origin(RuntimeOrigin::signed(CHARLIE))

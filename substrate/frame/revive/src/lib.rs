@@ -304,6 +304,10 @@ pub mod pallet {
 		/// preventing replay attacks.
 		#[pallet::constant]
 		type ChainId: Get<u64>;
+
+		/// The ratio between the decimal representation of the native token and the ETH token.
+		#[pallet::constant]
+		type NativeToEthRatio: Get<u32>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -375,7 +379,8 @@ pub mod pallet {
 			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-			type ChainId = ConstU64<{ 0 }>;
+			type ChainId = ConstU64<0>;
+			type NativeToEthRatio = ConstU32<1_000_000>;
 		}
 	}
 
@@ -1237,6 +1242,7 @@ where
 		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		T::Nonce: Into<U256>,
 	{
+		log::debug!(target: LOG_TARGET, "bare_eth_transact: dest: {dest:?} value: {value:?} gas_limit: {gas_limit:?} storage_deposit_limit: {storage_deposit_limit:?}");
 		// Get the nonce to encode in the tx.
 		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
 
@@ -1262,7 +1268,7 @@ where
 
 			// Get the encoded size of the transaction.
 			let tx = TransactionLegacyUnsigned {
-				value: value.into(),
+				value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
 				input: input.into(),
 				nonce: nonce.into(),
 				chain_id: Some(T::ChainId::get().into()),
@@ -1298,7 +1304,7 @@ where
 			)
 			.into();
 
-			log::debug!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
+			log::trace!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
 				gas_required: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),
@@ -1337,7 +1343,7 @@ where
 			let tx = TransactionLegacyUnsigned {
 				gas: max_gas_fee.into(),
 				nonce: nonce.into(),
-				value: value.into(),
+				value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
 				input: input.clone().into(),
 				gas_price: GAS_PRICE.into(),
 				chain_id: Some(T::ChainId::get().into()),
@@ -1371,7 +1377,7 @@ where
 			)
 			.into();
 
-			log::debug!(target: LOG_TARGET, "Call dry run Result: dispatch_info: {dispatch_info:?} len: {encoded_len:?} fee: {fee:?}");
+			log::trace!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
 			EthContractResult {
 				gas_required: result.gas_required,
 				storage_deposit: result.storage_deposit.charge_or_zero(),

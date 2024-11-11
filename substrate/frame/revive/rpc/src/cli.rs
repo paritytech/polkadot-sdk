@@ -16,6 +16,10 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{client::Client, EthRpcClient, EthRpcServer, EthRpcServerImpl, LOG_TARGET};
+use crate::{
+	client::Client, EthRpcServer, EthRpcServerImpl, SystemHealthRpcServer,
+	SystemHealthRpcServerImpl,
+};
 use clap::Parser;
 use hyper::Method;
 use jsonrpsee::{
@@ -58,74 +62,86 @@ pub async fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[cfg(feature = "dev")]
-mod dev {
-	use crate::LOG_TARGET;
-	use futures::{future::BoxFuture, FutureExt};
-	use jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Request, MethodResponse};
+/// Start the JSON-RPC server using the given command line arguments.
+pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
+	let CliCommand { rpc_params, prometheus_params, node_rpc_url, shared_params, .. } = cmd;
 
-	/// Dev Logger middleware, that logs the method and params of the request, along with the
-	/// success of the response.
-	#[derive(Clone)]
-	pub struct DevLogger<S>(pub S);
+	#[cfg(not(test))]
+	init_logger(&shared_params)?;
+	let is_dev = shared_params.dev;
+	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
+		.rpc_addr(is_dev, false, 8545)?
+		.map(|addrs| addrs.into_iter().map(Into::into).collect());
 
-	impl<'a, S> RpcServiceT<'a> for DevLogger<S>
-	where
-		S: RpcServiceT<'a> + Send + Sync + Clone + 'static,
-	{
-		type Future = BoxFuture<'a, MethodResponse>;
+	let rpc_config = RpcConfiguration {
+		addr: rpc_addrs,
+		methods: rpc_params.rpc_methods.into(),
+		max_connections: rpc_params.rpc_max_connections,
+		cors: rpc_params.rpc_cors(is_dev)?,
+		max_request_size: rpc_params.rpc_max_request_size,
+		max_response_size: rpc_params.rpc_max_response_size,
+		id_provider: None,
+		max_subs_per_conn: rpc_params.rpc_max_subscriptions_per_connection,
+		port: rpc_params.rpc_port.unwrap_or(DEFAULT_RPC_PORT),
+		message_buffer_capacity: rpc_params.rpc_message_buffer_capacity_per_connection,
+		batch_config: rpc_params.rpc_batch_config()?,
+		rate_limit: rpc_params.rpc_rate_limit,
+		rate_limit_whitelisted_ips: rpc_params.rpc_rate_limit_whitelisted_ips,
+		rate_limit_trust_proxy_headers: rpc_params.rpc_rate_limit_trust_proxy_headers,
+	};
 
-		fn call(&self, req: Request<'a>) -> Self::Future {
-			let service = self.0.clone();
-			let method = req.method.clone();
-			let params = req.params.clone().unwrap_or_default();
+	let prometheus_config =
+		prometheus_params.prometheus_config(DEFAULT_PROMETHEUS_PORT, "eth-rpc".into());
+	let prometheus_registry = prometheus_config.as_ref().map(|config| &config.registry);
 
-			async move {
-				log::info!(target: LOG_TARGET, "Method: {method} params: {params}");
-				let resp = service.call(req).await;
-				if resp.is_success() {
-					log::info!(target: LOG_TARGET, "✅ rpc: {method}");
-				} else {
-					log::info!(target: LOG_TARGET, "❌ rpc: {method} {}", resp.as_result());
-				}
-				resp
-			}
-			.boxed()
+	let tokio_runtime = sc_cli::build_runtime()?;
+	let tokio_handle = tokio_runtime.handle();
+	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
+	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
+	let essential_spawn_handle = task_manager.spawn_essential_handle();
+
+	let gen_rpc_module = || {
+		let signals = tokio_runtime.block_on(async { Signals::capture() })?;
+		let fut = Client::from_url(&node_rpc_url, &essential_spawn_handle).fuse();
+		pin_mut!(fut);
+
+		match tokio_handle.block_on(signals.try_until_signal(fut)) {
+			Ok(Ok(client)) => rpc_module(is_dev, client),
+			Ok(Err(err)) => {
+				log::error!("Error connecting to the node at {node_rpc_url}: {err}");
+				Err(sc_service::Error::Application(err.into()))
+			},
+			Err(_) => Err(sc_service::Error::Application("Client connection interrupted".into())),
 		}
+	};
+
+	// Prometheus metrics.
+	if let Some(PrometheusConfig { port, registry }) = prometheus_config.clone() {
+		task_manager.spawn_handle().spawn(
+			"prometheus-endpoint",
+			None,
+			prometheus_endpoint::init_prometheus(port, registry).map(drop),
+		);
 	}
+
+	let rpc_server_handle =
+		start_rpc_servers(&rpc_config, prometheus_registry, tokio_handle, gen_rpc_module, None)?;
+
+	task_manager.keep_alive(rpc_server_handle);
+	tokio_runtime.block_on(signals.run_until_signal(task_manager.future().fuse()))?;
+	Ok(())
 }
 
-/// Starts the rpc server and returns the server address.
-async fn run_server(client: Client, url: &str) -> anyhow::Result<SocketAddr> {
-	let cors = CorsLayer::new()
-		.allow_methods([Method::POST])
-		.allow_origin(Any)
-		.allow_headers([hyper::header::CONTENT_TYPE]);
-	let cors_middleware = tower::ServiceBuilder::new().layer(cors);
-
-	let builder = Server::builder().set_http_middleware(cors_middleware);
-
-	#[cfg(feature = "dev")]
-	let builder = builder
-		.set_rpc_middleware(jsonrpsee::server::RpcServiceBuilder::new().layer_fn(dev::DevLogger));
-
-	let server = builder.build(url.parse::<SocketAddr>()?).await?;
-	let addr = server.local_addr()?;
-
-	let eth_api = EthRpcServerImpl::new(client)
-		.with_accounts(if cfg!(feature = "dev") {
-			use pallet_revive::evm::Account;
-			vec![Account::default()]
-		} else {
-			vec![]
-		})
+/// Create the JSON-RPC module.
+fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
+	let eth_api = EthRpcServerImpl::new(client.clone())
+		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
 		.into_rpc();
 
+	let health_api = SystemHealthRpcServerImpl::new(client).into_rpc();
+
 	let mut module = RpcModule::new(());
-	module.merge(eth_api)?;
-
-	let handle = server.start(module);
-	tokio::spawn(handle.stopped());
-
-	Ok(addr)
+	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
+	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
+	Ok(module)
 }

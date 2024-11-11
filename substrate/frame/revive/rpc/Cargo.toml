@@ -57,10 +57,10 @@ sp-core = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
-
-tower.workspace = true
-tower-http = { workspace = true, features = ["full"] }
-hyper.workspace = true
+sc-rpc-api = { workspace = true, default-features = true }
+sc-cli = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 
 rlp = { workspace = true, optional = true }
 subxt-signer = { workspace = true, optional = true, features = [
@@ -81,3 +81,4 @@ riscv = ["pallet-revive/riscv"]
 hex-literal = { workspace = true }
 pallet-revive-fixtures = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }

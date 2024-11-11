@@ -35,8 +35,8 @@ use polkadot_node_core_pvf_common::{
 	SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::messages::PvfExecKind;
-use polkadot_primitives::{ExecutorParams, ExecutorParamsHash, PersistedValidationData};
+use polkadot_node_subsystem::{messages::PvfExecKind, ActiveLeavesUpdate};
+use polkadot_primitives::{ExecutorParams, ExecutorParamsHash, Hash, PersistedValidationData};
 use slotmap::HopSlotMap;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -45,7 +45,7 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
-use strum::IntoEnumIterator;
+use strum::{EnumIter, IntoEnumIterator};
 
 /// The amount of time a job for which the queue does not have a compatible worker may wait in the
 /// queue. After that time passes, the queue will kill the first worker which becomes idle to
@@ -58,6 +58,7 @@ slotmap::new_key_type! { struct Worker; }
 
 #[derive(Debug)]
 pub enum ToQueue {
+	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Vec<Hash> },
 	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
 }
 
@@ -82,6 +83,7 @@ pub struct PendingExecutionRequest {
 struct ExecuteJob {
 	artifact: ArtifactPathId,
 	exec_timeout: Duration,
+	exec_kind: PvfExecKind,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
@@ -172,6 +174,9 @@ struct Queue {
 	unscheduled: Unscheduled,
 	workers: Workers,
 	mux: Mux,
+
+	/// Active leaves and their ancestors to check the viability of backing jobs.
+	active_leaves: HashMap<Hash, Vec<Hash>>,
 }
 
 impl Queue {
@@ -202,6 +207,7 @@ impl Queue {
 				spawn_inflight: 0,
 				capacity: worker_capacity,
 			},
+			active_leaves: Default::default(),
 		}
 	}
 
@@ -278,14 +284,73 @@ impl Queue {
 		}
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
+		let exec_kind = job.exec_kind;
 
 		if let Some(worker) = worker {
 			assign(self, worker, job);
 		} else {
 			spawn_extra_worker(self, job);
 		}
-		self.metrics.on_execute_kind(priority);
+		self.metrics.on_execute_kind(exec_kind);
 		self.unscheduled.mark_scheduled(priority);
+	}
+
+	fn update_active_leaves(&mut self, update: ActiveLeavesUpdate, ancestors: Vec<Hash>) {
+		self.prune_deactivated_leaves(&update);
+		self.insert_active_leaf(update, ancestors);
+		self.prune_old_jobs();
+	}
+
+	fn prune_deactivated_leaves(&mut self, update: &ActiveLeavesUpdate) {
+		for hash in &update.deactivated {
+			let _ = self.active_leaves.remove(&hash);
+		}
+
+		gum::debug!(target: LOG_TARGET, size = ?self.active_leaves.len(), "Active leaves pruned");
+	}
+
+	fn insert_active_leaf(&mut self, update: ActiveLeavesUpdate, ancestors: Vec<Hash>) {
+		let Some(leaf) = update.activated else { return };
+		let _ = self.active_leaves.insert(leaf.hash, ancestors);
+	}
+
+	fn prune_old_jobs(&mut self) {
+		for &priority in &[Priority::Backing, Priority::BackingSystemParas] {
+			let Some(queue) = self.unscheduled.get_mut(priority) else { continue };
+			let to_remove: Vec<usize> = queue
+				.iter()
+				.enumerate()
+				.filter_map(|(index, job)| {
+					let relay_parent = match job.exec_kind {
+						PvfExecKind::Backing(x) | PvfExecKind::BackingSystemParas(x) => x,
+						_ => return None,
+					};
+					let in_active_fork = self.active_leaves.iter().any(|(hash, ancestors)| {
+						*hash == relay_parent || ancestors.contains(&relay_parent)
+					});
+					if in_active_fork {
+						None
+					} else {
+						Some(index)
+					}
+				})
+				.collect();
+
+			for &index in to_remove.iter().rev() {
+				if index > queue.len() {
+					continue
+				}
+
+				let Some(job) = queue.remove(index) else { continue };
+				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
+				gum::warn!(
+					target: LOG_TARGET,
+					?priority,
+					exec_kind = ?job.exec_kind,
+					"Job exceeded its deadline and was dropped without execution",
+				);
+			}
+		}
 	}
 }
 
@@ -305,27 +370,40 @@ async fn purge_dead(metrics: &Metrics, workers: &mut Workers) {
 }
 
 fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
-	let ToQueue::Enqueue { artifact, pending_execution_request } = to_queue;
-	let PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx, exec_kind } =
-		pending_execution_request;
-	gum::debug!(
-		target: LOG_TARGET,
-		validation_code_hash = ?artifact.id.code_hash,
-		"enqueueing an artifact for execution",
-	);
-	queue.metrics.observe_pov_size(pov.block_data.0.len(), true);
-	queue.metrics.execute_enqueued();
-	let job = ExecuteJob {
-		artifact,
-		exec_timeout,
-		pvd,
-		pov,
-		executor_params,
-		result_tx,
-		waiting_since: Instant::now(),
-	};
-	queue.unscheduled.add(job, exec_kind);
-	queue.try_assign_next_job(None);
+	match to_queue {
+		ToQueue::UpdateActiveLeaves { update, ancestors } => {
+			queue.update_active_leaves(update, ancestors);
+		},
+		ToQueue::Enqueue { artifact, pending_execution_request } => {
+			let PendingExecutionRequest {
+				exec_timeout,
+				pvd,
+				pov,
+				executor_params,
+				result_tx,
+				exec_kind,
+			} = pending_execution_request;
+			gum::debug!(
+				target: LOG_TARGET,
+				validation_code_hash = ?artifact.id.code_hash,
+				"enqueueing an artifact for execution",
+			);
+			queue.metrics.observe_pov_size(pov.block_data.0.len(), true);
+			queue.metrics.execute_enqueued();
+			let job = ExecuteJob {
+				artifact,
+				exec_timeout,
+				exec_kind,
+				pvd,
+				pov,
+				executor_params,
+				result_tx,
+				waiting_since: Instant::now(),
+			};
+			queue.unscheduled.add(job, exec_kind.into());
+			queue.try_assign_next_job(None);
+		},
+	}
 }
 
 async fn handle_mux(queue: &mut Queue, event: QueueEvent) {
@@ -648,9 +726,32 @@ pub fn start(
 	(to_queue_tx, from_queue_rx, run)
 }
 
+/// Priority of execution jobs based on PvfExecKind.
+///
+/// The order is important, because we iterate through the values and assume it is going from higher
+/// to lowest priority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
+enum Priority {
+	Dispute,
+	Approval,
+	BackingSystemParas,
+	Backing,
+}
+
+impl From<PvfExecKind> for Priority {
+	fn from(kind: PvfExecKind) -> Self {
+		match kind {
+			PvfExecKind::Dispute => Priority::Dispute,
+			PvfExecKind::Approval => Priority::Approval,
+			PvfExecKind::BackingSystemParas(_) => Priority::BackingSystemParas,
+			PvfExecKind::Backing(_) => Priority::Backing,
+		}
+	}
+}
+
 struct Unscheduled {
-	unscheduled: HashMap<PvfExecKind, VecDeque<ExecuteJob>>,
-	counter: HashMap<PvfExecKind, usize>,
+	unscheduled: HashMap<Priority, VecDeque<ExecuteJob>>,
+	counter: HashMap<Priority, usize>,
 }
 
 impl Unscheduled {
@@ -677,34 +778,34 @@ impl Unscheduled {
 	///   approvals could not exceed 24%, even if there are no disputes.
 	/// - We cannot fully prioritize backing system parachains over backing other parachains based
 	///   on the distribution of the original 100%.
-	const PRIORITY_ALLOCATION_THRESHOLDS: &'static [(PvfExecKind, usize)] = &[
-		(PvfExecKind::Dispute, 70),
-		(PvfExecKind::Approval, 80),
-		(PvfExecKind::BackingSystemParas, 100),
-		(PvfExecKind::Backing, 100),
+	const PRIORITY_ALLOCATION_THRESHOLDS: &'static [(Priority, usize)] = &[
+		(Priority::Dispute, 70),
+		(Priority::Approval, 80),
+		(Priority::BackingSystemParas, 100),
+		(Priority::Backing, 100),
 	];
 
 	fn new() -> Self {
 		Self {
-			unscheduled: PvfExecKind::iter().map(|priority| (priority, VecDeque::new())).collect(),
-			counter: PvfExecKind::iter().map(|priority| (priority, 0)).collect(),
+			unscheduled: Priority::iter().map(|priority| (priority, VecDeque::new())).collect(),
+			counter: Priority::iter().map(|priority| (priority, 0)).collect(),
 		}
 	}
 
-	fn select_next_priority(&self) -> PvfExecKind {
+	fn select_next_priority(&self) -> Priority {
 		gum::debug!(
 			target: LOG_TARGET,
-			unscheduled = ?self.unscheduled.iter().map(|(p, q)| (*p, q.len())).collect::<HashMap<PvfExecKind, usize>>(),
+			unscheduled = ?self.unscheduled.iter().map(|(p, q)| (*p, q.len())).collect::<HashMap<Priority, usize>>(),
 			counter = ?self.counter,
 			"Selecting next execution priority...",
 		);
 
-		let priority = PvfExecKind::iter()
+		let priority = Priority::iter()
 			.find(|priority| self.has_pending(priority) && !self.has_reached_threshold(priority))
 			.unwrap_or_else(|| {
-				PvfExecKind::iter()
+				Priority::iter()
 					.find(|priority| self.has_pending(priority))
-					.unwrap_or(PvfExecKind::Backing)
+					.unwrap_or(Priority::Backing)
 			});
 
 		gum::debug!(
@@ -716,19 +817,19 @@ impl Unscheduled {
 		priority
 	}
 
-	fn get_mut(&mut self, priority: PvfExecKind) -> Option<&mut VecDeque<ExecuteJob>> {
+	fn get_mut(&mut self, priority: Priority) -> Option<&mut VecDeque<ExecuteJob>> {
 		self.unscheduled.get_mut(&priority)
 	}
 
-	fn add(&mut self, job: ExecuteJob, priority: PvfExecKind) {
+	fn add(&mut self, job: ExecuteJob, priority: Priority) {
 		self.unscheduled.entry(priority).or_default().push_back(job);
 	}
 
-	fn has_pending(&self, priority: &PvfExecKind) -> bool {
+	fn has_pending(&self, priority: &Priority) -> bool {
 		!self.unscheduled.get(priority).unwrap_or(&VecDeque::new()).is_empty()
 	}
 
-	fn priority_allocation_threshold(priority: &PvfExecKind) -> Option<usize> {
+	fn priority_allocation_threshold(priority: &Priority) -> Option<usize> {
 		Self::PRIORITY_ALLOCATION_THRESHOLDS.iter().find_map(|&(p, value)| {
 			if p == *priority {
 				Some(value)
@@ -740,7 +841,7 @@ impl Unscheduled {
 
 	/// Checks if a given priority has reached its allocated threshold
 	/// The thresholds are defined in `PRIORITY_ALLOCATION_THRESHOLDS`.
-	fn has_reached_threshold(&self, priority: &PvfExecKind) -> bool {
+	fn has_reached_threshold(&self, priority: &Priority) -> bool {
 		let Some(threshold) = Self::priority_allocation_threshold(priority) else { return false };
 		let Some(count) = self.counter.get(&priority) else { return false };
 		// Every time we iterate by lower level priorities
@@ -769,22 +870,28 @@ impl Unscheduled {
 		has_reached_threshold
 	}
 
-	fn mark_scheduled(&mut self, priority: PvfExecKind) {
+	fn mark_scheduled(&mut self, priority: Priority) {
 		*self.counter.entry(priority).or_default() += 1;
 
 		if self.counter.values().sum::<usize>() >= Self::SCHEDULING_WINDOW_SIZE {
 			self.reset_counter();
 		}
+		gum::debug!(
+			target: LOG_TARGET,
+			?priority,
+			"Job marked as scheduled",
+		);
 	}
 
 	fn reset_counter(&mut self) {
-		self.counter = PvfExecKind::iter().map(|kind| (kind, 0)).collect();
+		self.counter = Priority::iter().map(|kind| (kind, 0)).collect();
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use polkadot_node_primitives::BlockData;
+	use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 	use sp_core::H256;
 
 	use super::*;
@@ -803,6 +910,7 @@ mod tests {
 		ExecuteJob {
 			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
 			exec_timeout: Duration::from_secs(10),
+			exec_kind: PvfExecKind::Approval,
 			pvd,
 			pov,
 			executor_params: ExecutorParams::default(),
@@ -815,11 +923,11 @@ mod tests {
 	fn test_unscheduled_add() {
 		let mut unscheduled = Unscheduled::new();
 
-		PvfExecKind::iter().for_each(|priority| {
+		Priority::iter().for_each(|priority| {
 			unscheduled.add(create_execution_job(), priority);
 		});
 
-		PvfExecKind::iter().for_each(|priority| {
+		Priority::iter().for_each(|priority| {
 			let queue = unscheduled.unscheduled.get(&priority).unwrap();
 			assert_eq!(queue.len(), 1);
 		});
@@ -827,7 +935,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution() {
-		use PvfExecKind::*;
+		use Priority::*;
 
 		let mut priorities = vec![];
 
@@ -852,7 +960,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution_without_backing_system_paras() {
-		use PvfExecKind::*;
+		use Priority::*;
 
 		let mut priorities = vec![];
 
@@ -876,7 +984,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution_without_disputes() {
-		use PvfExecKind::*;
+		use Priority::*;
 
 		let mut priorities = vec![];
 
@@ -900,7 +1008,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_priority_distribution_without_disputes_and_only_one_backing() {
-		use PvfExecKind::*;
+		use Priority::*;
 
 		let mut priorities = vec![];
 
@@ -922,7 +1030,7 @@ mod tests {
 
 	#[test]
 	fn test_unscheduled_does_not_postpone_backing() {
-		use PvfExecKind::*;
+		use Priority::*;
 
 		let mut priorities = vec![];
 
@@ -939,5 +1047,68 @@ mod tests {
 		}
 
 		assert_eq!(&priorities[..4], &[Approval, Backing, Approval, Approval]);
+	}
+
+	#[tokio::test]
+	async fn test_prunes_old_jobs_on_active_leaves_update() {
+		// Set up a queue, but without a real worker, we won't execute any jobs.
+		let (_, to_queue_rx) = mpsc::channel(1);
+		let (from_queue_tx, _) = mpsc::unbounded();
+		let mut queue = Queue::new(
+			Metrics::default(),
+			PathBuf::new(),
+			PathBuf::new(),
+			1,
+			Duration::from_secs(1),
+			None,
+			SecurityStatus::default(),
+			to_queue_rx,
+			from_queue_tx,
+		);
+		let old_relay_parent = Hash::random();
+		let relevant_relay_parent = Hash::random();
+
+		assert_eq!(queue.unscheduled.unscheduled.values().map(|x| x.len()).sum::<usize>(), 0);
+		let mut result_rxs = vec![];
+		let (result_tx, _result_rx) = oneshot::channel();
+		let relevant_job = ExecuteJob {
+			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			exec_timeout: Duration::from_secs(1),
+			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
+			pvd: Arc::new(PersistedValidationData::default()),
+			pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
+			executor_params: ExecutorParams::default(),
+			result_tx,
+			waiting_since: Instant::now(),
+		};
+		queue.unscheduled.add(relevant_job, Priority::Backing);
+		for _ in 0..10 {
+			let (result_tx, result_rx) = oneshot::channel();
+			let expired_job = ExecuteJob {
+				artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+				exec_timeout: Duration::from_secs(1),
+				exec_kind: PvfExecKind::Backing(old_relay_parent),
+				pvd: Arc::new(PersistedValidationData::default()),
+				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
+				executor_params: ExecutorParams::default(),
+				result_tx,
+				waiting_since: Instant::now(),
+			};
+			queue.unscheduled.add(expired_job, Priority::Backing);
+			result_rxs.push(result_rx);
+		}
+		assert_eq!(queue.unscheduled.unscheduled.values().map(|x| x.len()).sum::<usize>(), 11);
+
+		// Add an active leaf
+		queue.update_active_leaves(
+			ActiveLeavesUpdate::start_work(new_leaf(Hash::random(), 1)),
+			vec![relevant_relay_parent],
+		);
+
+		// It prunes all old jobs and drops them with an `ExecutionDeadline` error.
+		for rx in result_rxs {
+			assert!(matches!(rx.await, Ok(Err(ValidationError::ExecutionDeadline))));
+		}
+		assert_eq!(queue.unscheduled.unscheduled.values().map(|x| x.len()).sum::<usize>(), 1);
 	}
 }

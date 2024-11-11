@@ -235,10 +235,7 @@ fn assign_core_works_with_prior_schedule() {
 }
 
 #[test]
-// Invariants: We assume that CoreSchedules is append only and consumed. In other words new
-// schedules inserted for a core must have a higher block number than all of the already existing
-// schedules.
-fn assign_core_enforces_higher_block_number() {
+fn assign_core_enforces_higher_or_equal_block_number() {
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
@@ -255,7 +252,7 @@ fn assign_core_enforces_higher_block_number() {
 		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(15u32),
-			default_test_assignments(),
+			vec![(CoreAssignment::Idle, PartsOf57600(28800))],
 			None,
 		));
 
@@ -281,32 +278,27 @@ fn assign_core_enforces_higher_block_number() {
 			),
 			Error::<Test>::DisallowedInsert
 		);
+		// Call assign core again on last entry should work:
+		assert_eq!(
+			CoretimeAssigner::assign_core(
+				core_idx,
+				BlockNumberFor::<Test>::from(15u32),
+				vec![(CoreAssignment::Pool, PartsOf57600(28800))],
+				None,
+			),
+			Ok(())
+		);
 	});
 }
 
 #[test]
 fn assign_core_enforces_well_formed_schedule() {
-	let para_id = ParaId::from(1u32);
 	let core_idx = CoreIndex(0);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		let empty_assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![];
-		let overscheduled = vec![
-			(CoreAssignment::Pool, PartsOf57600::FULL),
-			(CoreAssignment::Task(para_id.into()), PartsOf57600::FULL),
-		];
-		let underscheduled = vec![(CoreAssignment::Pool, PartsOf57600(30000))];
-		let not_unique = vec![
-			(CoreAssignment::Pool, PartsOf57600::FULL / 2),
-			(CoreAssignment::Pool, PartsOf57600::FULL / 2),
-		];
-		let not_sorted = vec![
-			(CoreAssignment::Task(para_id.into()), PartsOf57600(19200)),
-			(CoreAssignment::Pool, PartsOf57600(19200)),
-			(CoreAssignment::Idle, PartsOf57600(19200)),
-		];
 
 		// Attempting assign_core with malformed assignments such that all error cases
 		// are tested
@@ -318,42 +310,6 @@ fn assign_core_enforces_well_formed_schedule() {
 				None,
 			),
 			Error::<Test>::AssignmentsEmpty
-		);
-		assert_noop!(
-			CoretimeAssigner::assign_core(
-				core_idx,
-				BlockNumberFor::<Test>::from(11u32),
-				overscheduled,
-				None,
-			),
-			Error::<Test>::OverScheduled
-		);
-		assert_noop!(
-			CoretimeAssigner::assign_core(
-				core_idx,
-				BlockNumberFor::<Test>::from(11u32),
-				underscheduled,
-				None,
-			),
-			Error::<Test>::UnderScheduled
-		);
-		assert_noop!(
-			CoretimeAssigner::assign_core(
-				core_idx,
-				BlockNumberFor::<Test>::from(11u32),
-				not_unique,
-				None,
-			),
-			Error::<Test>::AssignmentsNotSorted
-		);
-		assert_noop!(
-			CoretimeAssigner::assign_core(
-				core_idx,
-				BlockNumberFor::<Test>::from(11u32),
-				not_sorted,
-				None,
-			),
-			Error::<Test>::AssignmentsNotSorted
 		);
 	});
 }
@@ -374,7 +330,14 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 			Schedule { next_schedule: Some(start_4), ..default_test_schedule() };
 		let expected_schedule_4 =
 			Schedule { next_schedule: Some(start_5), ..default_test_schedule() };
-		let expected_schedule_5 = default_test_schedule();
+		let expected_schedule_5 = Schedule {
+			next_schedule: None,
+			end_hint: None,
+			assignments: vec![
+				(CoreAssignment::Pool, PartsOf57600(28800)),
+				(CoreAssignment::Idle, PartsOf57600(28800)),
+			],
+		};
 
 		// Call assign_core for each of five schedules
 		assert_ok!(CoretimeAssigner::assign_core(
@@ -408,7 +371,14 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_5),
-			default_test_assignments(),
+			vec![(CoreAssignment::Pool, PartsOf57600(28800))],
+			None,
+		));
+		// Test updating last entry once more:
+		assert_ok!(CoretimeAssigner::assign_core(
+			core_idx,
+			BlockNumberFor::<Test>::from(start_5),
+			vec![(CoreAssignment::Idle, PartsOf57600(28800))],
 			None,
 		));
 

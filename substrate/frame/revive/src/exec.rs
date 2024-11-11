@@ -236,9 +236,6 @@ pub trait Ext: sealing::Sealed {
 	/// call stack.
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
 
-	/// Transfer some amount of funds into the specified account.
-	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult;
-
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
 	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
@@ -764,7 +761,7 @@ where
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
-			Self::transfer_from_origin(&origin, &dest, value)
+			Self::transfer_from_origin(&origin, &origin, &dest, value)
 		}
 	}
 
@@ -1058,7 +1055,12 @@ where
 			// If it is a delegate call, then we've already transferred tokens in the
 			// last non-delegate frame.
 			if delegated_code_hash.is_none() {
-				Self::transfer_from_origin(&caller, &frame.account_id, frame.value_transferred)?;
+				Self::transfer_from_origin(
+					&self.origin,
+					&caller,
+					&frame.account_id,
+					frame.value_transferred,
+				)?;
 			}
 
 			let contract_address = T::AddressMapper::to_address(&top_frame!(self).account_id);
@@ -1254,17 +1256,48 @@ where
 	}
 
 	/// Transfer some funds from `from` to `to`.
-	fn transfer(from: &T::AccountId, to: &T::AccountId, value: BalanceOf<T>) -> ExecResult {
-		// this avoids events to be emitted for zero balance transfers
-		if !value.is_zero() {
-			T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map_err(|_| Error::<T>::TransferFailed)?;
+	///
+	/// This is a no-op for zero `value`, avoiding events to be emitted for zero balance transfers.
+	///
+	/// If the destination account does not exist, it is pulled into existence by transferring the
+	/// ED from `origin` to the new account. The total amount transferred to `to` will be ED +
+	/// `value`. This makes the ED fully transparent for contracts.
+	/// The ED transfer is executed atomically with the actual transfer, avoiding the possibility of
+	/// the ED transfer succeeding but the actual transfer failing. In other words, if the `to` does
+	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
+	/// not provide the ED or transferring `value` from `from` to `to` fails.
+	/// Note: This will also fail if `origin` is root.
+	fn transfer(
+		origin: &Origin<T>,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		value: BalanceOf<T>,
+	) -> ExecResult {
+		if value.is_zero() {
+			return Ok(Default::default());
 		}
-		Ok(Default::default())
+
+		if <System<T>>::account_exists(to) {
+			return T::Currency::transfer(from, to, value, Preservation::Preserve)
+				.map(|_| Default::default())
+				.map_err(|_| Error::<T>::TransferFailed.into());
+		}
+
+		let origin = origin.account_id()?;
+		let ed = <T as Config>::Currency::minimum_balance();
+		with_transaction(|| -> TransactionOutcome<ExecResult> {
+			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+				.and_then(|_| T::Currency::transfer(from, to, value, Preservation::Preserve))
+			{
+				Ok(_) => TransactionOutcome::Commit(Ok(Default::default())),
+				Err(_) => TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into())),
+			}
+		})
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
 	fn transfer_from_origin(
+		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: BalanceOf<T>,
@@ -1276,7 +1309,7 @@ where
 			Origin::Root if value.is_zero() => return Ok(Default::default()),
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
-		Self::transfer(from, to, value)
+		Self::transfer(origin, from, to, value)
 	}
 
 	/// Reference to the current (top) frame.
@@ -1381,7 +1414,13 @@ where
 			)? {
 				self.run(executable, input_data)
 			} else {
-				Self::transfer(&self.account_id(), &dest, value).map(|_| ())
+				Self::transfer_from_origin(
+					&self.origin,
+					&Origin::from_account_id(self.account_id().clone()),
+					&dest,
+					value,
+				)?;
+				Ok(())
 			}
 		};
 
@@ -1477,16 +1516,6 @@ where
 			beneficiary: *beneficiary,
 		});
 		Ok(())
-	}
-
-	fn transfer(&mut self, to: &H160, value: U256) -> DispatchResult {
-		Self::transfer(
-			&self.top_frame().account_id,
-			&T::AddressMapper::to_account_id(to),
-			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
-		)
-		.map(|_| ())
-		.map_err(|error| error.error)
 	}
 
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
@@ -2011,10 +2040,50 @@ mod tests {
 			set_balance(&ALICE, 100);
 			set_balance(&BOB, 0);
 
-			MockStack::transfer(&ALICE, &BOB, 55).unwrap();
+			let origin = Origin::from_account_id(ALICE);
+			MockStack::transfer(&origin, &ALICE, &BOB, 55).unwrap();
 
-			assert_eq!(get_balance(&ALICE), 45);
-			assert_eq!(get_balance(&BOB), 55);
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			assert_eq!(get_balance(&ALICE), 45 - min_balance);
+			assert_eq!(get_balance(&BOB), 55 + min_balance);
+		});
+	}
+
+	#[test]
+	fn transfer_to_nonexistent_account_works() {
+		// This test verifies that a contract is able to transfer
+		// some funds to a nonexistant account and that those transfers
+		// are not able to reap accounts.
+		ExtBuilder::default().build().execute_with(|| {
+			let ed = <Test as Config>::Currency::minimum_balance();
+			let value = 1024;
+
+			// Transfers to nonexistant accounts should work
+			set_balance(&ALICE, ed * 2);
+			set_balance(&BOB, ed + value);
+
+			assert_ok!(MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &CHARLIE, value));
+			assert_eq!(get_balance(&ALICE), ed);
+			assert_eq!(get_balance(&BOB), ed);
+			assert_eq!(get_balance(&CHARLIE), ed + value);
+
+			// Do not reap the origin account
+			set_balance(&ALICE, ed);
+			set_balance(&BOB, ed + value);
+			assert_err!(
+				MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &DJANGO, value),
+				<Error<Test>>::TransferFailed
+			);
+
+			// Do not reap the sender account
+			set_balance(&ALICE, ed * 2);
+			set_balance(&BOB, value);
+			assert_err!(
+				MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &EVE, value),
+				<Error<Test>>::TransferFailed
+			);
+			// The ED transfer would work. But it should only be executed with the actual transfer
+			assert!(!System::account_exists(&EVE));
 		});
 	}
 
@@ -2125,16 +2194,17 @@ mod tests {
 	fn balance_too_low() {
 		// This test verifies that a contract can't send value if it's
 		// balance is too low.
-		let origin = ALICE;
+		let from = ALICE;
+		let origin = Origin::from_account_id(ALICE);
 		let dest = BOB;
 
 		ExtBuilder::default().build().execute_with(|| {
-			set_balance(&origin, 0);
+			set_balance(&from, 0);
 
-			let result = MockStack::transfer(&origin, &dest, 100);
+			let result = MockStack::transfer(&origin, &from, &dest, 100);
 
 			assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
-			assert_eq!(get_balance(&origin), 0);
+			assert_eq!(get_balance(&from), 0);
 			assert_eq!(get_balance(&dest), 0);
 		});
 	}
@@ -4273,12 +4343,19 @@ mod tests {
 					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
 				);
 
-				// Plain transfers should not set the output
-				ctx.ext.transfer(&address, U256::from(1)).unwrap();
-				assert_eq!(
-					ctx.ext.last_frame_output(),
-					&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
-				);
+				// Balance transfers should reset the output
+				ctx.ext
+					.call(
+						Weight::zero(),
+						U256::zero(),
+						&address,
+						U256::from(1),
+						vec![],
+						true,
+						false,
+					)
+					.unwrap();
+				assert_eq!(ctx.ext.last_frame_output(), &Default::default());
 
 				// Reverted instantiation should set the output
 				ctx.ext
