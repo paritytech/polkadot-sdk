@@ -294,144 +294,139 @@ fn relay_commands_add_remove_username_authority() {
 	let people_rococo_alice = PeopleRococo::account_id_of(ALICE);
 	let people_rococo_bob = PeopleRococo::account_id_of(BOB);
 
-	let origins = vec![
-		//(OriginKind::Xcm, GeneralAdminOrigin.into(), "generaladmin"),
-		(OriginKind::Superuser, <Rococo as Chain>::RuntimeOrigin::root(), "rootusername"),
-	];
-	for (origin_kind, origin, usr) in origins {
-		// First, add a username authority.
-		Rococo::execute_with(|| {
-			type Runtime = <Rococo as Chain>::Runtime;
-			type RuntimeCall = <Rococo as Chain>::RuntimeCall;
-			type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
-			type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
-			type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
+	let (origin_kind, origin, usr) =
+		(OriginKind::Superuser, <Rococo as Chain>::RuntimeOrigin::root(), "rootusername");
 
-			let add_username_authority = PeopleCall::Identity(pallet_identity::Call::<
-				PeopleRuntime,
-			>::add_username_authority {
+	// First, add a username authority.
+	Rococo::execute_with(|| {
+		type Runtime = <Rococo as Chain>::Runtime;
+		type RuntimeCall = <Rococo as Chain>::RuntimeCall;
+		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
+		type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
+		type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
+
+		let add_username_authority =
+			PeopleCall::Identity(pallet_identity::Call::<PeopleRuntime>::add_username_authority {
 				authority: people_rococo_runtime::MultiAddress::Id(people_rococo_alice.clone()),
 				suffix: b"suffix1".into(),
 				allocation: 10,
 			});
 
-			let add_authority_xcm_msg = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
-				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
-				message: bx!(VersionedXcm::from(Xcm(vec![
-					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact { origin_kind, call: add_username_authority.encode().into() }
-				]))),
-			});
-
-			assert_ok!(add_authority_xcm_msg.dispatch(origin.clone()));
-
-			assert_expected_events!(
-				Rococo,
-				vec![
-					RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-				]
-			);
+		let add_authority_xcm_msg = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
+			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
+			message: bx!(VersionedXcm::from(Xcm(vec![
+				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				Transact { origin_kind, call: add_username_authority.encode().into() }
+			]))),
 		});
 
-		// Check events system-parachain-side
-		PeopleRococo::execute_with(|| {
-			type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+		assert_ok!(add_authority_xcm_msg.dispatch(origin.clone()));
 
-			assert_expected_events!(
-				PeopleRococo,
-				vec![
-					RuntimeEvent::Identity(pallet_identity::Event::AuthorityAdded { .. }) => {},
-					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
-				]
-			);
+		assert_expected_events!(
+			Rococo,
+			vec![
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+			]
+		);
+	});
+
+	// Check events system-parachain-side
+	PeopleRococo::execute_with(|| {
+		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			PeopleRococo,
+			vec![
+				RuntimeEvent::Identity(pallet_identity::Event::AuthorityAdded { .. }) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
+			]
+		);
+	});
+
+	// Now, use the previously added username authority to concede a username to an account.
+	PeopleRococo::execute_with(|| {
+		type PeopleRuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+		let full_username = [usr.to_owned(), ".suffix1".to_owned()].concat().into_bytes();
+
+		assert_ok!(<PeopleRococo as PeopleRococoPallet>::Identity::set_username_for(
+			<PeopleRococo as Chain>::RuntimeOrigin::signed(people_rococo_alice.clone()),
+			people_rococo_runtime::MultiAddress::Id(people_rococo_bob.clone()),
+			full_username,
+			None,
+			true
+		));
+
+		assert_expected_events!(
+			PeopleRococo,
+			vec![
+				PeopleRuntimeEvent::Identity(pallet_identity::Event::UsernameQueued { .. }) => {},
+			]
+		);
+	});
+
+	// Accept the given username
+	PeopleRococo::execute_with(|| {
+		type PeopleRuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+		let full_username = [usr.to_owned(), ".suffix1".to_owned()].concat().into_bytes();
+
+		assert_ok!(<PeopleRococo as PeopleRococoPallet>::Identity::accept_username(
+			<PeopleRococo as Chain>::RuntimeOrigin::signed(people_rococo_bob.clone()),
+			full_username.try_into().unwrap(),
+		));
+
+		assert_expected_events!(
+			PeopleRococo,
+			vec![
+				PeopleRuntimeEvent::Identity(pallet_identity::Event::UsernameSet { .. }) => {},
+			]
+		);
+	});
+
+	// Now, remove the username authority with another priviledged XCM call.
+	Rococo::execute_with(|| {
+		type Runtime = <Rococo as Chain>::Runtime;
+		type RuntimeCall = <Rococo as Chain>::RuntimeCall;
+		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
+		type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
+		type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
+
+		let remove_username_authority = PeopleCall::Identity(pallet_identity::Call::<
+			PeopleRuntime,
+		>::remove_username_authority {
+			authority: people_rococo_runtime::MultiAddress::Id(people_rococo_alice.clone()),
+			suffix: b"suffix1".into(),
 		});
 
-		// Now, use the previously added username authority to concede a username to an account.
-		PeopleRococo::execute_with(|| {
-			type PeopleRuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
-			let full_username = [usr.to_owned(), ".suffix1".to_owned()].concat().into_bytes();
-
-			assert_ok!(<PeopleRococo as PeopleRococoPallet>::Identity::set_username_for(
-				<PeopleRococo as Chain>::RuntimeOrigin::signed(people_rococo_alice.clone()),
-				people_rococo_runtime::MultiAddress::Id(people_rococo_bob.clone()),
-				full_username,
-				None,
-				true
-			));
-
-			assert_expected_events!(
-				PeopleRococo,
-				vec![
-					PeopleRuntimeEvent::Identity(pallet_identity::Event::UsernameQueued { .. }) => {},
-				]
-			);
+		let remove_authority_xcm_msg = RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
+			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
+			message: bx!(VersionedXcm::from(Xcm(vec![
+				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				Transact { origin_kind, call: remove_username_authority.encode().into() }
+			]))),
 		});
 
-		// Accept the given username
-		PeopleRococo::execute_with(|| {
-			type PeopleRuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
-			let full_username = [usr.to_owned(), ".suffix1".to_owned()].concat().into_bytes();
+		assert_ok!(remove_authority_xcm_msg.dispatch(origin));
 
-			assert_ok!(<PeopleRococo as PeopleRococoPallet>::Identity::accept_username(
-				<PeopleRococo as Chain>::RuntimeOrigin::signed(people_rococo_bob.clone()),
-				full_username.try_into().unwrap(),
-			));
+		assert_expected_events!(
+			Rococo,
+			vec![
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
+			]
+		);
+	});
 
-			assert_expected_events!(
-				PeopleRococo,
-				vec![
-					PeopleRuntimeEvent::Identity(pallet_identity::Event::UsernameSet { .. }) => {},
-				]
-			);
-		});
+	// Final event check.
+	PeopleRococo::execute_with(|| {
+		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
 
-		// Now, remove the username authority with another priviledged XCM call.
-		Rococo::execute_with(|| {
-			type Runtime = <Rococo as Chain>::Runtime;
-			type RuntimeCall = <Rococo as Chain>::RuntimeCall;
-			type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
-			type PeopleCall = <PeopleRococo as Chain>::RuntimeCall;
-			type PeopleRuntime = <PeopleRococo as Chain>::Runtime;
-
-			let remove_username_authority = PeopleCall::Identity(pallet_identity::Call::<
-				PeopleRuntime,
-			>::remove_username_authority {
-				authority: people_rococo_runtime::MultiAddress::Id(people_rococo_alice.clone()),
-				suffix: b"suffix1".into(),
-			});
-
-			let remove_authority_xcm_msg =
-				RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
-					dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
-					message: bx!(VersionedXcm::from(Xcm(vec![
-						UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-						Transact { origin_kind, call: remove_username_authority.encode().into() }
-					]))),
-				});
-
-			assert_ok!(remove_authority_xcm_msg.dispatch(origin));
-
-			assert_expected_events!(
-				Rococo,
-				vec![
-					RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent { .. }) => {},
-				]
-			);
-		});
-
-		// Final event check.
-		PeopleRococo::execute_with(|| {
-			type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
-
-			assert_expected_events!(
-				PeopleRococo,
-				vec![
-					RuntimeEvent::Identity(pallet_identity::Event::AuthorityRemoved { .. }) => {},
-					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
-				]
-			);
-		});
-	}
+		assert_expected_events!(
+			PeopleRococo,
+			vec![
+				RuntimeEvent::Identity(pallet_identity::Event::AuthorityRemoved { .. }) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true, .. }) => {},
+			]
+		);
+	});
 }
 
 #[test]
