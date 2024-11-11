@@ -344,19 +344,14 @@ where
 			};
 
 			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
-			for trie_queries in trie_items {
-				let storage_fut = storage_client.handle_trie_queries(
-					hash,
-					previous_hash,
-					trie_queries,
-					tx.clone(),
-				);
-				let result =
-					futures::future::join(storage_fut, process_events(&mut rx, &mut sink)).await;
-				if !result.1 {
-					log::debug!(target: LOG_TARGET, "Error processing trie queries");
-					return;
-				}
+			let storage_fut =
+				storage_client.handle_trie_queries(hash, previous_hash, trie_items, tx.clone());
+
+			let result =
+				futures::future::join(storage_fut, process_events(&mut rx, &mut sink)).await;
+			if !result.1 {
+				log::debug!(target: LOG_TARGET, "Error processing trie queries");
+				return;
 			}
 
 			let _ = sink.send(&ArchiveStorageDiffEvent::StorageDiffDone).await;

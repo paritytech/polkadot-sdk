@@ -424,37 +424,40 @@ where
 		&self,
 		hash: Block::Hash,
 		previous_hash: Block::Hash,
-		items: Vec<DiffDetails>,
+		trie_queries: Vec<Vec<DiffDetails>>,
 		tx: mpsc::Sender<ArchiveStorageDiffEvent>,
 	) -> Result<(), tokio::task::JoinError> {
 		let this = ArchiveStorageDiff { client: self.client.clone() };
 
 		tokio::task::spawn_blocking(move || {
-			log::trace!(
-				target: LOG_TARGET,
-				"handle_trie_queries: hash={:?}, previous_hash={:?}, items={:?}",
-				hash,
-				previous_hash,
-				items
-			);
-
-			let result = this.handle_trie_queries_inner(hash, previous_hash, items, &tx);
-
-			if let Err(error) = result {
+			for items in trie_queries {
 				log::trace!(
 					target: LOG_TARGET,
-					"handle_trie_queries: sending error={:?}",
-					error,
+					"handle_trie_queries: hash={:?}, previous_hash={:?}, items={:?}",
+					hash,
+					previous_hash,
+					items
 				);
 
-				let _ = tx.blocking_send(ArchiveStorageDiffEvent::err(error));
-			} else {
-				log::trace!(
-					target: LOG_TARGET,
-					"handle_trie_queries: sending storage diff done",
-				);
-				let _ = tx.blocking_send(ArchiveStorageDiffEvent::StorageDiffDone);
+				let result = this.handle_trie_queries_inner(hash, previous_hash, items, &tx);
+
+				if let Err(error) = result {
+					log::trace!(
+						target: LOG_TARGET,
+						"handle_trie_queries: sending error={:?}",
+						error,
+					);
+
+					let _ = tx.blocking_send(ArchiveStorageDiffEvent::err(error));
+				} else {
+					log::trace!(
+						target: LOG_TARGET,
+						"handle_trie_queries: sending storage diff done",
+					);
+				}
 			}
+
+			let _ = tx.blocking_send(ArchiveStorageDiffEvent::StorageDiffDone);
 		})
 		.await?;
 
