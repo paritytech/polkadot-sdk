@@ -21,9 +21,7 @@ use minimal_template_runtime::{interface::OpaqueBlock as Block, RuntimeApi};
 use polkadot_sdk::{
 	sc_client_api::backend::Backend,
 	sc_executor::WasmExecutor,
-	sc_service::{
-		build_polkadot_syncing_strategy, error::Error as ServiceError, Configuration, TaskManager,
-	},
+	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
 	sc_telemetry::{Telemetry, TelemetryWorker},
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
 	sp_runtime::traits::Block as BlockT,
@@ -124,7 +122,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		other: mut telemetry,
 	} = new_partial(&config)?;
 
-	let mut net_config = sc_network::config::FullNetworkConfiguration::<
+	let net_config = sc_network::config::FullNetworkConfiguration::<
 		Block,
 		<Block as BlockT>::Hash,
 		Network,
@@ -136,26 +134,16 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 	);
 
-	let syncing_strategy = build_polkadot_syncing_strategy(
-		config.protocol_id(),
-		config.chain_spec.fork_id(),
-		&mut net_config,
-		None,
-		client.clone(),
-		&task_manager.spawn_handle(),
-		config.prometheus_config.as_ref().map(|config| &config.registry),
-	)?;
-
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
+			net_config,
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
-			net_config,
 			block_announce_validator_builder: None,
-			syncing_strategy,
+			warp_sync_config: None,
 			block_relay: None,
 			metrics,
 		})?;
@@ -273,6 +261,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 				authorship_future,
 			);
 		},
+		_ => {},
 	}
 
 	network_starter.start_network();

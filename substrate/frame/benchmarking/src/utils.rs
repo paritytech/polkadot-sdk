@@ -238,7 +238,7 @@ sp_api::decl_runtime_apis! {
 		fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>);
 
 		/// Dispatch the given benchmark.
-		fn dispatch_benchmark(config: BenchmarkConfig) -> Result<Vec<BenchmarkBatch>, sp_runtime::RuntimeString>;
+		fn dispatch_benchmark(config: BenchmarkConfig) -> Result<Vec<BenchmarkBatch>, alloc::string::String>;
 	}
 }
 

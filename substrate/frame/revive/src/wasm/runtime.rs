@@ -326,6 +326,8 @@ pub enum RuntimeCosts {
 	MinimumBalance,
 	/// Weight of calling `seal_block_number`.
 	BlockNumber,
+	/// Weight of calling `seal_block_hash`.
+	BlockHash,
 	/// Weight of calling `seal_now`.
 	Now,
 	/// Weight of calling `seal_weight_to_fee`.
@@ -356,8 +358,6 @@ pub enum RuntimeCosts {
 	GetTransientStorage(u32),
 	/// Weight of calling `seal_take_transient_storage` for the given size.
 	TakeTransientStorage(u32),
-	/// Weight of calling `seal_transfer`.
-	Transfer,
 	/// Base weight of calling `seal_call`.
 	CallBase,
 	/// Weight of calling `seal_delegate_call` for the given input size.
@@ -473,6 +473,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
 			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
+			BlockHash => T::WeightInfo::seal_block_hash(),
 			Now => T::WeightInfo::seal_now(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate(locked_dependencies) => T::WeightInfo::seal_terminate(locked_dependencies),
@@ -500,7 +501,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			TakeTransientStorage(len) => {
 				cost_storage!(write_transient, seal_take_transient_storage, len)
 			},
-			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
@@ -1232,29 +1232,6 @@ pub mod env {
 		self.take_storage(memory, flags, key_ptr, key_len, out_ptr, out_len_ptr)
 	}
 
-	/// Transfer some value to another account.
-	/// See [`pallet_revive_uapi::HostFn::transfer`].
-	#[api_version(0)]
-	#[mutating]
-	fn transfer(
-		&mut self,
-		memory: &mut M,
-		address_ptr: u32,
-		value_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::Transfer)?;
-		let callee = memory.read_h160(address_ptr)?;
-		let value: U256 = memory.read_u256(value_ptr)?;
-		let result = self.ext.transfer(&callee, value);
-		match result {
-			Ok(()) => Ok(ReturnErrorCode::Success),
-			Err(err) => {
-				let code = Self::err_into_return_code(err)?;
-				Ok(code)
-			},
-		}
-	}
-
 	/// Make a call to another contract.
 	/// See [`pallet_revive_uapi::HostFn::call`].
 	#[api_version(0)]
@@ -1708,6 +1685,27 @@ pub mod env {
 			memory,
 			out_ptr,
 			&self.ext.block_number().to_little_endian(),
+			false,
+			already_charged,
+		)?)
+	}
+
+	/// Stores the block hash at given block height into the supplied buffer.
+	/// See [`pallet_revive_uapi::HostFn::block_hash`].
+	#[api_version(0)]
+	fn block_hash(
+		&mut self,
+		memory: &mut M,
+		block_number_ptr: u32,
+		out_ptr: u32,
+	) -> Result<(), TrapReason> {
+		self.charge_gas(RuntimeCosts::BlockHash)?;
+		let block_number = memory.read_u256(block_number_ptr)?;
+		let block_hash = self.ext.block_hash(block_number).unwrap_or(H256::zero());
+		Ok(self.write_fixed_sandbox_output(
+			memory,
+			out_ptr,
+			&block_hash.as_bytes(),
 			false,
 			already_charged,
 		)?)
