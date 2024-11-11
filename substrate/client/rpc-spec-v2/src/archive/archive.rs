@@ -347,42 +347,28 @@ where
 			let storage_fut =
 				storage_client.handle_trie_queries(hash, previous_hash, trie_items, tx.clone());
 
-			let result =
-				futures::future::join(storage_fut, process_events(&mut rx, &mut sink)).await;
-			if !result.1 {
-				log::debug!(target: LOG_TARGET, "Error processing trie queries");
-				return;
-			}
-
-			let _ = sink.send(&ArchiveStorageDiffEvent::StorageDiffDone).await;
+			// We don't care about the return value of this join:
+			// - process_events might encounter an error (if the client disconnected)
+			// - storage_fut might encounter an error while processing a trie queries and
+			// the error is propagated via the sink.
+			let _ = futures::future::join(storage_fut, process_events(&mut rx, &mut sink)).await;
 		};
 
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 	}
 }
 
-/// Returns true if the events where processed successfully, false otherwise.
-async fn process_events(
-	rx: &mut mpsc::Receiver<ArchiveStorageDiffEvent>,
-	sink: &mut Subscription,
-) -> bool {
+/// Sends all the events to the sink.
+async fn process_events(rx: &mut mpsc::Receiver<ArchiveStorageDiffEvent>, sink: &mut Subscription) {
 	while let Some(event) = rx.recv().await {
 		if event.is_done() {
 			log::debug!(target: LOG_TARGET, "Finished processing partial trie query");
-			break
+		} else if event.is_err() {
+			log::debug!(target: LOG_TARGET, "Error encountered while processing partial trie query");
 		}
 
-		let is_error_event = event.is_err();
-		if let Err(_) = sink.send(&event).await {
-			return false
-		}
-
-		if is_error_event {
-			log::debug!(target: LOG_TARGET, "Error event encountered while processing partial trie query");
-			// Stop further processing if an error event is received.
-			return false
+		if sink.send(&event).await.is_err() {
+			return
 		}
 	}
-
-	true
 }

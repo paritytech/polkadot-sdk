@@ -449,6 +449,9 @@ where
 					);
 
 					let _ = tx.blocking_send(ArchiveStorageDiffEvent::err(error));
+
+					// It ok to return here on the first encountered error.
+					return
 				} else {
 					log::trace!(
 						target: LOG_TARGET,
