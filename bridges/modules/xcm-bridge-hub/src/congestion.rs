@@ -41,8 +41,8 @@ pub struct CongestionLimits {
 impl CongestionLimits {
 	/// Checks if limits are valid.
 	pub fn is_valid(&self) -> bool {
-		self.outbound_lane_uncongested_threshold < self.outbound_lane_congested_threshold
-			&& self.outbound_lane_stop_threshold > self.outbound_lane_congested_threshold
+		self.outbound_lane_uncongested_threshold < self.outbound_lane_congested_threshold &&
+			self.outbound_lane_stop_threshold > self.outbound_lane_congested_threshold
 	}
 }
 

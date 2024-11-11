@@ -144,7 +144,8 @@ pub enum BridgeState {
 	/// Bridge is opened. Associated lanes are also opened.
 	Opened,
 	/// Bridge is suspended. Associated lanes are opened.
-	/// *suspended* means that we have sent the "Suspended" message/signal to the local bridge origin.
+	/// *suspended* means that we have sent the "Suspended" message/signal to the local bridge
+	/// origin.
 	///
 	/// `bool` - `true` means that we keep accepting messages to the bridge.
 	Suspended(bool),

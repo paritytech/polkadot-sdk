@@ -31,8 +31,8 @@ use frame_support::{
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess};
 use pallet_xcm_bridge_hub::congestion::{
-	BlobDispatcherWithChannelStatus, CongestionLimits,
-	HereOrLocalConsensusXcmChannelManager, ReportBridgeStatusXcmChannelManager,
+	BlobDispatcherWithChannelStatus, CongestionLimits, HereOrLocalConsensusXcmChannelManager,
+	ReportBridgeStatusXcmChannelManager,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::H256;
