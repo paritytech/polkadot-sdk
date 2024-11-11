@@ -17,7 +17,7 @@
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::{
 	create1,
-	evm::{Account, BlockTag, Bytes, ReceiptInfo, U256},
+	evm::{Account, BlockTag, ReceiptInfo, U256},
 };
 use pallet_revive_eth_rpc::{
 	example::{wait_for_receipt, TransactionBuilder},
