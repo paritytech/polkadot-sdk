@@ -32,7 +32,7 @@ use frame_support::{
 	},
 };
 use frame_system::EnsureRoot;
-use pallet_xcm::{AuthorizedAliases, XcmPassthrough};
+use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::{
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
@@ -357,7 +357,7 @@ pub type TrustedTeleporters = (
 ///
 /// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
 /// - Allow origins explicitly authorized by the alias target location.
-pub type TrustedAliasers = (AliasChildLocation, AuthorizedAliases<Runtime>);
+pub type TrustedAliasers = (AliasChildLocation, AuthorizedAliasers<Runtime>);
 
 /// Asset converter for pool assets.
 /// Used to convert one asset to another, when there is a pool available between the two.

@@ -395,7 +395,7 @@ benchmarks! {
 			let alias = Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }]).into();
 			existing_aliases.try_push(alias).unwrap()
 		}
-		AuthorizedAliasesMap::<T>::insert(&origin_location, existing_aliases);
+		AuthorizedAliases::<T>::insert(&origin_location, existing_aliases);
 		// now benchmark adding new alias
 		let aliaser: VersionedLocation =
 			Location::new(1, [Parachain(1234), AccountId32 { network: None, id: [42_u8; 32] }]).into();
@@ -411,7 +411,7 @@ benchmarks! {
 			let alias = Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }]).into();
 			existing_aliases.try_push(alias).unwrap()
 		}
-		AuthorizedAliasesMap::<T>::insert(&origin_location, existing_aliases);
+		AuthorizedAliases::<T>::insert(&origin_location, existing_aliases);
 		// now benchmark removing an alias
 		let aliaser_to_remove: VersionedLocation =
 			Location::new(1, [Parachain(1), AccountId32 { network: None, id: [42_u8; 32] }]).into();

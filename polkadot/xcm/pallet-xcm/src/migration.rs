@@ -170,7 +170,7 @@ pub mod data {
 		}
 	}
 
-	/// Implementation of `NeedsMigration` for `AuthorizedAliasesMap` data.
+	/// Implementation of `NeedsMigration` for `AuthorizedAliases` data.
 	impl<M: Get<u32>> NeedsMigration for (&VersionedLocation, &BoundedVec<VersionedLocation, M>) {
 		type MigratedData = (VersionedLocation, BoundedVec<VersionedLocation, M>);
 
@@ -367,8 +367,8 @@ pub mod data {
 				weight.saturating_add(T::DbWeight::get().writes(1));
 			}
 
-			// check and migrate `AuthorizedAliasesMap`
-			let aliases_to_migrate = AuthorizedAliasesMap::<T>::iter().filter_map(|(id, data)| {
+			// check and migrate `AuthorizedAliases`
+			let aliases_to_migrate = AuthorizedAliases::<T>::iter().filter_map(|(id, data)| {
 				weight.saturating_add(T::DbWeight::get().reads(1));
 				match (&id, &data).try_migrate(required_xcm_version) {
 					Ok(Some((new_id, new_data))) => Some((id, new_id, new_data)),
@@ -379,7 +379,7 @@ pub mod data {
 							?id,
 							?data,
 							?required_xcm_version,
-							"`AuthorizedAliasesMap` cannot be migrated!"
+							"`AuthorizedAliases` cannot be migrated!"
 						);
 						None
 					},
@@ -391,10 +391,10 @@ pub mod data {
 					target: LOG_TARGET,
 					?new_id,
 					?new_data,
-					"Migrating `AuthorizedAliasesMap`"
+					"Migrating `AuthorizedAliases`"
 				);
-				AuthorizedAliasesMap::<T>::remove(old_id);
-				AuthorizedAliasesMap::<T>::insert(new_id, new_data);
+				AuthorizedAliases::<T>::remove(old_id);
+				AuthorizedAliases::<T>::insert(new_id, new_data);
 				count = count + 1;
 			}
 			// two writes per key, one to remove old entry, one to write new entry

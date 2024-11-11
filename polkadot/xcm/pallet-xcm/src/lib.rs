@@ -813,7 +813,7 @@ pub mod pallet {
 	/// Map of authorized aliasers of local origins. Each local location can authorize a list of
 	/// other locations to alias into it.
 	#[pallet::storage]
-	pub(super) type AuthorizedAliasesMap<T: Config> = StorageMap<
+	pub(super) type AuthorizedAliases<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		VersionedLocation,
@@ -1473,12 +1473,12 @@ pub mod pallet {
 			ensure!(origin != aliaser, Error::<T>::BadLocation);
 			let versioned_origin = VersionedLocation::from(origin);
 			let versioned_aliaser = VersionedLocation::from(aliaser);
-			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&versioned_origin);
+			let mut authorized_aliases = AuthorizedAliases::<T>::get(&versioned_origin);
 			if !authorized_aliases.contains(&versioned_aliaser) {
 				authorized_aliases
 					.try_push(versioned_aliaser)
 					.map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
-				AuthorizedAliasesMap::<T>::insert(&versioned_origin, authorized_aliases);
+				AuthorizedAliases::<T>::insert(&versioned_origin, authorized_aliases);
 			}
 			Ok(())
 		}
@@ -1496,11 +1496,11 @@ pub mod pallet {
 			ensure!(origin != to_remove, Error::<T>::BadLocation);
 			let versioned_origin = VersionedLocation::from(origin);
 			let versioned_to_remove = VersionedLocation::from(to_remove);
-			let mut authorized_aliases = AuthorizedAliasesMap::<T>::get(&versioned_origin);
+			let mut authorized_aliases = AuthorizedAliases::<T>::get(&versioned_origin);
 			let original_length = authorized_aliases.len();
 			authorized_aliases.retain(|alias| versioned_to_remove.ne(alias));
 			if original_length != authorized_aliases.len() {
-				AuthorizedAliasesMap::<T>::insert(&versioned_origin, authorized_aliases);
+				AuthorizedAliases::<T>::insert(&versioned_origin, authorized_aliases);
 			}
 			Ok(())
 		}
@@ -3513,13 +3513,13 @@ where
 ///
 /// Note: users can authorize other locations to alias them by using
 /// `pallet_xcm::add_authorized_alias()`.
-pub struct AuthorizedAliases<T>(PhantomData<T>);
-impl<L: Into<VersionedLocation> + Clone, T: Config> ContainsPair<L, L> for AuthorizedAliases<T> {
+pub struct AuthorizedAliasers<T>(PhantomData<T>);
+impl<L: Into<VersionedLocation> + Clone, T: Config> ContainsPair<L, L> for AuthorizedAliasers<T> {
 	fn contains(origin: &L, target: &L) -> bool {
 		let origin: VersionedLocation = origin.clone().into();
 		let target: VersionedLocation = target.clone().into();
-		tracing::trace!(target: "xcm::pallet_xcm::AuthorizedAliases::contains", ?origin, ?target);
-		AuthorizedAliasesMap::<T>::get(&target).contains(&origin)
+		tracing::trace!(target: "xcm::pallet_xcm::AuthorizedAliasers::contains", ?origin, ?target);
+		AuthorizedAliases::<T>::get(&target).contains(&origin)
 	}
 }
 

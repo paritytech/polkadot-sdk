@@ -348,8 +348,8 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `XcmPallet::AuthorizedAliasesMap` (r:1 w:1)
-	/// Proof: `XcmPallet::AuthorizedAliasesMap` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `XcmPallet::AuthorizedAliases` (r:1 w:1)
+	/// Proof: `XcmPallet::AuthorizedAliases` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_authorized_alias() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `361`
@@ -359,8 +359,8 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `XcmPallet::AuthorizedAliasesMap` (r:1 w:1)
-	/// Proof: `XcmPallet::AuthorizedAliasesMap` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `XcmPallet::AuthorizedAliases` (r:1 w:1)
+	/// Proof: `XcmPallet::AuthorizedAliases` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn remove_authorized_alias() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `400`

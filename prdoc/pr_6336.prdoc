@@ -16,9 +16,9 @@ doc:
 
   - audience: Runtime Dev
     description: |
-      Added `AuthorizedAliases` type exposed by `pallet-xcm`, that acts as a filter for explicitly authorized
+      Added `AuthorizedAliasers` type exposed by `pallet-xcm`, that acts as a filter for explicitly authorized
       aliases using `pallet-xcm::add_authorized_alias()` and `pallet-xcm::remove_authorized_alias()`.
-      Runtime developers can simply plug this `pallet-xcm::AuthorizedAliases` type in their runtime's `XcmConfig`,
+      Runtime developers can simply plug this `pallet-xcm::AuthorizedAliasers` type in their runtime's `XcmConfig`,
       specifically in `<XcmConfig as xcm_executor::Config>::Aliasers`.
 
 crates:
