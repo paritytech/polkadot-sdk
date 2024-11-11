@@ -177,6 +177,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
       - name: Set rust version from env file
         run: |
           RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
