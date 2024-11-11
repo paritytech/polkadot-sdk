@@ -185,9 +185,11 @@ impl From<ClientError> for ErrorObjectOwned {
 				}
 				ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, msg, None)
 			},
-			ClientError::Reverted(data) =>
-				ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, msg, Some(data)),
-			_ => ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, msg, None),
+			ClientError::Reverted(data) => {
+				let data = format!("0x{}", hex::encode(data));
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, Some(data))
+			},
+			_ => ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
 		}
 	}
 }

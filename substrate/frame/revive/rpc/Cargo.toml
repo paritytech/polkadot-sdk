@@ -63,14 +63,14 @@ rlp = { workspace = true, optional = true }
 subxt-signer = { workspace = true, optional = true, features = [
 	"unstable-eth",
 ] }
-hex = { workspace = true, optional = true }
+hex = { workspace = true }
 hex-literal = { workspace = true, optional = true }
 scale-info = { workspace = true }
 secp256k1 = { workspace = true, optional = true, features = ["recovery"] }
 env_logger = { workspace = true }
 
 [features]
-example = ["hex", "hex-literal", "rlp", "secp256k1", "subxt-signer"]
+example = ["hex-literal", "rlp", "secp256k1", "subxt-signer"]
 
 [dev-dependencies]
 hex-literal = { workspace = true }

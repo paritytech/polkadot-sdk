@@ -5,7 +5,7 @@ contract RevertExample {
     constructor() {
     }
 
-    function do_revert() public {
+    function doRevert() public {
 		revert("revert message");
     }
 }
