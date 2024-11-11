@@ -1,0 +1,24 @@
+title: "Modify native asset to consider chain location"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `NativeAsset` filter from xcm-builder allows you to filter
+      assets whose location coincides with the origin that sends the message.
+      This PR changes that behavior to now accept any token whose location
+      has the origin as reserve chain.
+
+      ```Example
+      Previous behavior:
+        - origin: (1, Parachain(100))
+        - asset: (1, Parachain(100), GeneralIndex(1))
+        - result: **not accepted**
+
+      New behavior:
+        - origin: (1, Parachain(100))
+        - asset: (1, Parachain(100), GeneralIndex(1))
+        - result: **accepted**
+      ```
+
+crates:
+  - name: xcm-builder
