@@ -420,41 +420,6 @@ mod test {
 	};
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-	/// A simple account that can sign transactions
-	pub struct Account(subxt_signer::eth::Keypair);
-
-	impl Default for Account {
-		fn default() -> Self {
-			Self(subxt_signer::eth::dev::alith())
-		}
-	}
-
-	impl From<subxt_signer::eth::Keypair> for Account {
-		fn from(kp: subxt_signer::eth::Keypair) -> Self {
-			Self(kp)
-		}
-	}
-
-	impl Account {
-		/// Get the [`AccountId`] of the account.
-		pub fn account_id(&self) -> AccountIdOf<Test> {
-			let address = self.address();
-			<Test as crate::Config>::AddressMapper::to_fallback_account_id(&address)
-		}
-
-		/// Get the [`H160`] address of the account.
-		pub fn address(&self) -> H160 {
-			H160::from_slice(&self.0.account_id().as_ref())
-		}
-
-		/// Sign a transaction.
-		pub fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
-			let rlp_encoded = tx.rlp_bytes();
-			let signature = self.0.sign(&rlp_encoded);
-			TransactionLegacySigned::from(tx, signature.as_ref())
-		}
-	}
-
 	#[derive(Clone, PartialEq, Eq, Debug)]
 	pub struct Extra;
 	type SignedExtra = (frame_system::CheckNonce<Test>, ChargeTransactionPayment<Test>);
@@ -507,7 +472,7 @@ mod test {
 
 		fn estimate_gas(&mut self) {
 			let dry_run = crate::Pallet::<Test>::bare_eth_transact(
-				Account::default().account_id(),
+				Account::default().substrate_account(),
 				self.tx.to,
 				self.tx.value.try_into().unwrap(),
 				self.tx.input.clone().0,
@@ -553,7 +518,7 @@ mod test {
 			// Fund the account.
 			let account = Account::default();
 			let _ = <Test as crate::Config>::Currency::set_balance(
-				&account.account_id(),
+				&account.substrate_account(),
 				100_000_000_000_000,
 			);
 
@@ -634,7 +599,7 @@ mod test {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Future))
 			);
 
-			<crate::System<Test>>::inc_account_nonce(Account::default().account_id());
+			<crate::System<Test>>::inc_account_nonce(Account::default().substrate_account());
 
 			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
 			assert_eq!(
