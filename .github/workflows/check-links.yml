@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.0 (22. Sep 2023)
 
       - name: Lychee link checker
-        uses: lycheeverse/lychee-action@7cd0af4c74a61395d455af97419279d86aafaede # for v1.9.1 (10. Jan 2024)
+        uses: lycheeverse/lychee-action@f81112d0d2814ded911bd23e3beaa9dda9093915 # for v1.9.1 (10. Jan 2024)
         with:
           args: >-
             --config .config/lychee.toml
