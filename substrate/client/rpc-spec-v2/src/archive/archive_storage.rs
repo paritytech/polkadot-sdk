@@ -308,107 +308,108 @@ where
 			items.first().and_then(|item| item.child_trie_key_string.clone());
 
 		// Iterator over the current block.
-		let keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
+		let mut keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
+		let mut previous_keys_iter =
+			self.client.raw_keys_iter(previous_hash, maybe_child_trie.clone())?;
 
-		// Iterator over the previous block.
-		//
-		// The hashmap contains the keys and a boolean to indicate if the key is present in the
-		// current hash. This information is later used to determine if the key has been deleted.
-		//
-		// Note: `Itertools::contains` consumes the iterator until the given key is found,
-		// therefore we may lose keys and iterate over the previous block twice for deleted keys.
-		//
-		// Example:
-		// keys_iter: [0, 1, 2]
-		// previous_keys_iter: [1, 2, 3]
-		//  -> the `previous_keys_iter` is entirely consumed while searching for `0`.
-		let mut previous_keys_iter: indexmap::IndexMap<_, _> = self
-			.client
-			.raw_keys_iter(previous_hash, maybe_child_trie.clone())?
-			.map(|key| (key, false))
-			.collect();
+		let mut lhs = keys_iter.next();
+		let mut rhs = previous_keys_iter.next();
 
-		for key in keys_iter {
-			// Mark the key as present if it exists in the previous block.
-			previous_keys_iter.entry(key.clone()).and_modify(|e| *e = true);
+		loop {
+			// Check if the key was added or deleted or modified based on the
+			// lexicographical order of the keys.
+			let (operation_type, key) = match (&lhs, &rhs) {
+				(Some(lhs_key), Some(rhs_key)) =>
+					if lhs_key < rhs_key {
+						let key = lhs_key.clone();
+
+						lhs = keys_iter.next();
+
+						(ArchiveStorageDiffOperationType::Added, key)
+					} else if lhs_key > rhs_key {
+						let key = rhs_key.clone();
+
+						rhs = previous_keys_iter.next();
+
+						(ArchiveStorageDiffOperationType::Deleted, key)
+					} else {
+						let key = lhs_key.clone();
+
+						lhs = keys_iter.next();
+						rhs = previous_keys_iter.next();
+
+						(ArchiveStorageDiffOperationType::Modified, key)
+					},
+				(Some(lhs_key), None) => {
+					let key = lhs_key.clone();
+
+					lhs = keys_iter.next();
+
+					(ArchiveStorageDiffOperationType::Added, key)
+				},
+				(None, Some(rhs_key)) => {
+					let key = rhs_key.clone();
+
+					rhs = previous_keys_iter.next();
+
+					(ArchiveStorageDiffOperationType::Deleted, key)
+				},
+				(None, None) => break,
+			};
 
 			let Some(fetch_type) = Self::starts_with(&key, &items) else {
 				// The key does not start with any of the provided items.
 				continue;
 			};
 
-			let Some(storage_result) =
-				self.fetch_storage(hash, key.clone(), maybe_child_trie.clone(), fetch_type)?
-			else {
-				// There is no storage result for the key.
-				continue
+			let maybe_result = match operation_type {
+				ArchiveStorageDiffOperationType::Added =>
+					self.fetch_storage(hash, key.clone(), maybe_child_trie.clone(), fetch_type)?,
+				ArchiveStorageDiffOperationType::Deleted => self.fetch_storage(
+					previous_hash,
+					key.clone(),
+					maybe_child_trie.clone(),
+					fetch_type,
+				)?,
+				ArchiveStorageDiffOperationType::Modified => {
+					let Some(storage_result) = self.fetch_storage(
+						hash,
+						key.clone(),
+						maybe_child_trie.clone(),
+						fetch_type,
+					)?
+					else {
+						continue
+					};
+
+					let Some(previous_storage_result) = self.fetch_storage(
+						previous_hash,
+						key.clone(),
+						maybe_child_trie.clone(),
+						fetch_type,
+					)?
+					else {
+						continue
+					};
+
+					// For modified records we need to check the actual storage values.
+					if storage_result == previous_storage_result {
+						continue
+					}
+
+					Some(storage_result)
+				},
 			};
 
-			// The key is not present in the previous state.
-			if !previous_keys_iter.contains_key(&key) {
+			if let Some(storage_result) = maybe_result {
 				if !Self::send_result(
 					&tx,
 					storage_result,
-					ArchiveStorageDiffOperationType::Added,
+					operation_type,
 					maybe_child_trie_str.clone(),
 				) {
 					return Ok(())
 				}
-
-				continue
-			}
-
-			// Report the result only if the value has changed.
-			let Some(previous_storage_result) = self.fetch_storage(
-				previous_hash,
-				key.clone(),
-				maybe_child_trie.clone(),
-				fetch_type,
-			)?
-			else {
-				continue
-			};
-
-			if storage_result != previous_storage_result {
-				if !Self::send_result(
-					&tx,
-					storage_result,
-					ArchiveStorageDiffOperationType::Modified,
-					maybe_child_trie_str.clone(),
-				) {
-					return Ok(())
-				}
-			}
-		}
-
-		// Iterate over the keys of the previous block that are not found in the current block.
-		let deleted_keys =
-			previous_keys_iter
-				.into_iter()
-				.filter_map(|(key, present)| if !present { Some(key) } else { None });
-
-		for previous_key in deleted_keys {
-			let Some(fetch_type) = Self::starts_with(&previous_key, &items) else {
-				continue;
-			};
-
-			let Some(previous_storage_result) = self.fetch_storage(
-				previous_hash,
-				previous_key,
-				maybe_child_trie.clone(),
-				fetch_type,
-			)?
-			else {
-				continue
-			};
-
-			if !Self::send_result(
-				&tx,
-				previous_storage_result,
-				ArchiveStorageDiffOperationType::Deleted,
-				maybe_child_trie_str.clone(),
-			) {
-				return Ok(())
 			}
 		}
 

@@ -19777,7 +19777,6 @@ dependencies = [
  "futures",
  "futures-util",
  "hex",
- "indexmap 2.2.3",
  "itertools 0.11.0",
  "jsonrpsee 0.24.3",
  "log",
