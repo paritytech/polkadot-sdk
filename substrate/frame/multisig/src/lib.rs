@@ -49,28 +49,15 @@ mod tests;
 pub mod weights;
 
 extern crate alloc;
-
 use alloc::{boxed::Box, vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	dispatch::{
-		DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
-		PostDispatchInfo,
-	},
-	ensure,
-	traits::{Currency, Get, ReservableCurrency},
-	weights::Weight,
-	BoundedVec,
+use frame::{
+	prelude::*,
+	traits::{Currency, ReservableCurrency},
 };
-use frame_system::{self as system, pallet_prelude::BlockNumberFor, RawOrigin};
-use scale_info::TypeInfo;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	traits::{Dispatchable, TrailingZeroInput, Zero},
-	DispatchError, RuntimeDebug,
-};
+use frame_system::RawOrigin;
 pub use weights::WeightInfo;
 
+/// Re-export all pallet items.
 pub use pallet::*;
 
 /// The log target of this pallet.
@@ -127,11 +114,9 @@ enum CallOrHash<T: Config> {
 	Hash([u8; 32]),
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -167,7 +152,7 @@ pub mod pallet {
 		type MaxSignatories: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
-		type WeightInfo: WeightInfo;
+		type WeightInfo: weights::WeightInfo;
 	}
 
 	/// The in-code storage version.
@@ -641,8 +626,8 @@ impl<T: Config> Pallet<T> {
 	/// The current `Timepoint`.
 	pub fn timepoint() -> Timepoint<BlockNumberFor<T>> {
 		Timepoint {
-			height: <system::Pallet<T>>::block_number(),
-			index: <system::Pallet<T>>::extrinsic_index().unwrap_or_default(),
+			height: <frame_system::Pallet<T>>::block_number(),
+			index: <frame_system::Pallet<T>>::extrinsic_index().unwrap_or_default(),
 		}
 	}
 

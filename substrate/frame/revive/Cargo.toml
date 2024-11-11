@@ -20,7 +20,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 environmental = { workspace = true }
 paste = { workspace = true }
 polkavm = { version = "0.13.0", default-features = false }
-polkavm-common = { version = "0.13.0", default-features = false }
 bitflags = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -41,7 +40,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-balances = { optional = true, workspace = true }
-pallet-revive-fixtures = { workspace = true, default-features = false }
+pallet-revive-fixtures = { workspace = true, default-features = false, optional = true }
 pallet-revive-uapi = { workspace = true, default-features = true }
 pallet-revive-proc-macro = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true }
@@ -80,10 +79,6 @@ xcm-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-# enabling this feature will require having a riscv toolchain installed
-# if no tests are ran and runtime benchmarks will not work
-# apart from this the pallet will stay functional
-riscv = ["pallet-revive-fixtures/riscv"]
 std = [
 	"codec/std",
 	"environmental/std",
@@ -96,11 +91,10 @@ std = [
 	"log/std",
 	"pallet-balances?/std",
 	"pallet-proxy/std",
-	"pallet-revive-fixtures/std",
+	"pallet-revive-fixtures?/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
-	"polkavm-common/std",
 	"polkavm/std",
 	"rlp/std",
 	"scale-info/std",
@@ -127,6 +121,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-revive-fixtures",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
