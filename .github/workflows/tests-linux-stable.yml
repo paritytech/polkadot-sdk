@@ -183,6 +183,44 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
+  test-linux-worfklow2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # needs: [set-image]
+    # container:
+    #   image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        id: required
+        run: exit 1
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
+  test-linux-worfklow3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # needs: [set-image]
+    # container:
+    #   image: ${{ needs.set-image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        id: required
+        run: exit 1
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
     name: All tests passed
