@@ -105,6 +105,9 @@ pub enum Error {
 
 	#[error("Availability store error")]
 	StoreAvailableData(#[source] StoreAvailableDataError),
+
+	#[error("Data is not available")]
+	DataNotAvailable,
 }
 
 /// Utility for eating top level errors and log them.

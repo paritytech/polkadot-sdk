@@ -69,22 +69,12 @@ fn dummy_pvd() -> PersistedValidationData {
 	}
 }
 
+#[derive(Default)]
 struct PerSessionCacheState {
 	has_cached_validators: bool,
 	has_cached_node_features: bool,
 	has_cached_executor_params: bool,
 	has_cached_minimum_backing_votes: bool,
-}
-
-impl PerSessionCacheState {
-	fn new() -> Self {
-		PerSessionCacheState {
-			has_cached_validators: false,
-			has_cached_node_features: false,
-			has_cached_executor_params: false,
-			has_cached_minimum_backing_votes: false,
-		}
-	}
 }
 
 pub(crate) struct TestState {
@@ -176,7 +166,7 @@ impl Default for TestState {
 			chain_ids,
 			keystore,
 			validators,
-			per_session_cache_state: PerSessionCacheState::new(),
+			per_session_cache_state: PerSessionCacheState::default(),
 			validator_public,
 			validator_groups: (validator_groups, group_rotation_info),
 			validator_to_group,
@@ -2167,12 +2157,6 @@ fn retry_works() {
 					RuntimeApiRequest::ValidationCodeByHash(hash, tx),
 				)) if hash == validation_code_a.hash() => {
 					tx.send(Ok(Some(validation_code_a.clone()))).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::NodeFeatures(1, tx),
-				)) => {
-					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				},
 				msg => {
 					assert!(false, "Unexpected message: {:?}", msg);

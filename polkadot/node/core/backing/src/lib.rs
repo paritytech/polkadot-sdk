@@ -99,7 +99,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::{FetchError as ImplicitViewFetchError, View as ImplicitView},
-	executor_params_by_session_index, request_from_runtime, request_session_index_for_child,
+	request_from_runtime, request_session_executor_params, request_session_index_for_child,
 	request_validator_groups, request_validators,
 	runtime::{
 		self, fetch_claim_queue, prospective_parachains_mode, request_min_backing_votes,
@@ -393,11 +393,16 @@ impl PerSessionCache {
 		}
 
 		// Fetch the executor parameters from the runtime since it was not in the cache.
-		let executor_params = executor_params_by_session_index(parent, session_index, sender)
+		let executor_params = request_session_executor_params(parent, session_index, sender)
+			.await
 			.await
 			.map_err(|err| RuntimeApiError::Execution {
 				runtime_api_name: "SessionExecutorParams",
 				source: Arc::new(err),
+			})??
+			.ok_or_else(|| RuntimeApiError::Execution {
+				runtime_api_name: "SessionExecutorParams",
+				source: Arc::new(Error::DataNotAvailable),
 			})?;
 
 		// Wrap the executor parameters in an Arc to avoid a deep copy when storing it in the cache.
