@@ -540,6 +540,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		let listen_addresses = Arc::new(Default::default());
 		let (discovery, ping_config, identify_config, kademlia_config, maybe_mdns_config) =
 			Discovery::new(
+				local_peer_id,
 				&network_config,
 				params.genesis_hash,
 				params.fork_id.as_deref(),
