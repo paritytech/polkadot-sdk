@@ -38,9 +38,9 @@ static_assertions = { workspace = true, default-features = true }
 array-bytes = { workspace = true, default-features = true }
 rusty-fork = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
-sc-client-db.workspace = true
-sp-state-machine.workspace = true
-sp-externalities.workspace = true
+sc-client-db = { workspace = true }
+sp-state-machine = { workspace = true }
+sp-externalities = { workspace = true }
 
 [features]
 default = ["std"]
