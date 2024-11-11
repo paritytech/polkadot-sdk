@@ -114,9 +114,11 @@ mod benchmarks {
 	fn bare_dispatch() {
 		let meta_call = T::BenchmarkHelper::create_weightless_call();
 		let meta_ext = T::Extension::default();
+		let meta_ext_weight = meta_ext.weight(&meta_call);
 
+		#[cfg(not(test))]
 		assert!(
-			meta_ext.weight(&meta_call).is_zero(),
+			meta_ext_weight.is_zero(),
 			"meta tx extension weight for the benchmarks must be zero. \
 			use `pallet_meta_tx::WeightlessExtension` as `pallet_meta_tx::Config::Extension` \
 			with the `runtime-benchmarks` feature enabled.",
@@ -142,7 +144,7 @@ mod benchmarks {
 		assert_last_event::<T>(
 			Event::Dispatched {
 				result: Ok(PostDispatchInfo {
-					actual_weight: Some(info.call_weight),
+					actual_weight: Some(info.call_weight + meta_ext_weight),
 					pays_fee: Pays::Yes,
 				}),
 			}

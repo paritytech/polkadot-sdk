@@ -84,8 +84,6 @@ pub struct MetaTx<Address, Signature, Call, Extension> {
 	/// The target call to be executed on behalf of the signer.
 	call: Call,
 	/// The extension/s for the meta transaction.
-	///
-	/// The first byte can indicate the version, depending on a concrete `Extension` type.
 	extension: Extension,
 }
 
@@ -132,6 +130,8 @@ pub mod pallet {
 				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
 			> + IsType<<Self as frame_system::Config>::RuntimeCall>;
 		/// Signature type for meta transactions.
+		///
+		/// e.g., [`sp_runtime::MultiSignature`]
 		type Signature: Parameter + Verify<Signer = Self::PublicKey>;
 		/// Public key type used for signature verification.
 		///
@@ -144,9 +144,12 @@ pub mod pallet {
 		/// [frame_system::CheckGenesis], [frame_system::CheckMortality],
 		/// [frame_system::CheckNonce], etc.
 		///
-		/// The extension weight for the benchmarks must be zero. Use
-		/// `pallet_meta_tx::WeightlessExtension` type with the `runtime-benchmarks` feature
-		/// enabled.
+		/// The types implementing the [`TransactionExtension`] trait can be composed into a tuple
+		/// type that will implement the same trait by piping invocations through each type.
+		///
+		/// In the `runtime-benchmarks` environment the type must implement `Default` trait and the
+		/// extension weight must be zero. Use `pallet_meta_tx::WeightlessExtension` type when the
+		/// `runtime-benchmarks` feature enabled.
 		type Extension: TransactionExtension<<Self as Config>::RuntimeCall>;
 		/// The benchmark helper provides the necessary functions to create a call and a signature.
 		///
