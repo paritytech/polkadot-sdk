@@ -4,7 +4,7 @@
 title: Follow up work on TransactionExtension - fix weights and clean up UncheckedExtrinsic
 
 doc:
-  - audience: ...
+  - audience: Runtime Dev
     description: |
       This PR removes the redundant extension version byte from the signed v4 extrinsic, previously
       unused and defaulted to 0. Also, some system extensions benchmarks were adjusted through
