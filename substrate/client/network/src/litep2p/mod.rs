@@ -864,7 +864,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								);
 
 								self.event_streams.send(Event::Dht(
-									DhtEvent::ValuePut(sc_network_types::kad::Key::new(&key.to_vec()))
+									DhtEvent::ValuePut(key.into())
 								));
 
 								if let Some(ref metrics) = self.metrics {
@@ -890,7 +890,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									);
 
 									self.event_streams.send(Event::Dht(
-										DhtEvent::ValuePutFailed(sc_network_types::kad::Key::new(&key.to_vec()))
+										DhtEvent::ValuePutFailed(key.into())
 									));
 
 									if let Some(ref metrics) = self.metrics {
