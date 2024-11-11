@@ -68,12 +68,12 @@ hex-literal = { workspace = true, optional = true }
 scale-info = { workspace = true }
 secp256k1 = { workspace = true, optional = true, features = ["recovery"] }
 env_logger = { workspace = true }
+ethabi = { version = "18.0.0" }
 
 [features]
 example = ["hex-literal", "rlp", "secp256k1", "subxt-signer"]
 
 [dev-dependencies]
-ethabi = { version = "18.0.0" }
 hex-literal = { workspace = true }
 pallet-revive-fixtures = { workspace = true }
 substrate-cli-test-utils = { workspace = true }

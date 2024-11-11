@@ -116,27 +116,19 @@ fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 
 /// Extract the revert message from a revert("msg") solidity statement.
 fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
-	// Check the first 4 bytes for the function selector (Error(string))
 	let function_selector = exec_data.get(0..4)?;
 
-	// keccak256("Error(string)") truncated
+	// keccak256("Error(string)")
 	let expected_selector = [0x08, 0xC3, 0x79, 0xA0];
 	if function_selector != expected_selector {
 		return None;
 	}
 
-	// Extract the offset (32 bytes from the start of data)
-	let offset = U256::from_big_endian(exec_data.get(4..36)?).as_usize();
-	if offset != 32 {
-		return None;
+	let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
+	match decoded.first()? {
+		ethabi::Token::String(msg) => Some(msg.to_string()),
+		_ => None,
 	}
-
-	// Extract the length of the string (next 32 bytes)
-	let length = U256::from_big_endian(exec_data.get(36..68)?);
-
-	// Extract the string data based on the length
-	let string_data = exec_data.get(68..68 + length.as_usize())?;
-	String::from_utf8(string_data.to_vec()).ok()
 }
 
 /// The error type for the client.
