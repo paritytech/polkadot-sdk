@@ -354,8 +354,8 @@ where
 				let (function, tx_ext, _) = raw_payload.deconstruct();
 				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, tx_ext), function }
 			},
-			Preamble::General(_, tx_ext) => CheckedExtrinsic {
-				format: ExtrinsicFormat::General(tx_ext),
+			Preamble::General(extension_version, tx_ext) => CheckedExtrinsic {
+				format: ExtrinsicFormat::General(extension_version, tx_ext),
 				function: self.function,
 			},
 			Preamble::Bare(_) =>
@@ -369,15 +369,15 @@ where
 		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
 		Ok(match self.preamble {
-			Preamble::Signed(signed, _, extra) => {
+			Preamble::Signed(signed, _, tx_ext) => {
 				let signed = lookup.lookup(signed)?;
 				CheckedExtrinsic {
-					format: ExtrinsicFormat::Signed(signed, extra),
+					format: ExtrinsicFormat::Signed(signed, tx_ext),
 					function: self.function,
 				}
 			},
-			Preamble::General(_, extra) => CheckedExtrinsic {
-				format: ExtrinsicFormat::General(extra),
+			Preamble::General(extension_version, tx_ext) => CheckedExtrinsic {
+				format: ExtrinsicFormat::General(extension_version, tx_ext),
 				function: self.function,
 			},
 			Preamble::Bare(_) =>
@@ -837,7 +837,7 @@ mod tests {
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
 			Ok(CEx {
-				format: ExtrinsicFormat::General(DummyExtension),
+				format: ExtrinsicFormat::General(0, DummyExtension),
 				function: vec![0u8; 0].into()
 			}),
 		);
