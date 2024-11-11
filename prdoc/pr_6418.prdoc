@@ -7,8 +7,10 @@ doc:
   - audience: Runtime Dev
     description: |
       This PR removes the redundant extension version byte from the signed v4 extrinsic, previously
-      unused and defaulted to 0. Also, some system extensions benchmarks were adjusted through
-      whitelisting to not count the reads for frequently read storage keys.
+      unused and defaulted to 0. The extension version byte is also made to be part of the inherited
+      implication handed to extensions in General transactions. Also, some system extensions
+      benchmarks were adjusted through whitelisting to not count the reads for frequently read
+      storage keys.
 
 crates:
   - name: node-testing
@@ -145,3 +147,5 @@ crates:
     bump: patch
   - name: pallet-whitelist
     bump: patch
+  - name: sp-runtime
+    bump: major
