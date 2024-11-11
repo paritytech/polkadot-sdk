@@ -40,7 +40,7 @@ use sc_consensus::{
 use sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
 use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
-use sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncConfig};
+use sc_service::{Configuration, SpawnTaskHandle, TaskManager, WarpSyncConfig};
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
@@ -439,7 +439,6 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 	Arc<dyn NetworkService>,
 	TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 	TransactionsHandlerController<Block::Hash>,
-	NetworkStarter,
 	Arc<SyncingService<Block>>,
 )>
 where
