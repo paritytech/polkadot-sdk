@@ -232,9 +232,7 @@ where
 	}
 
 	/// Returns the number of bytes used by all extrinsics in the the pool.
-	///
-	/// Intended for testing.
-	#[allow(dead_code)]
+	#[cfg(test)]
 	pub fn bytes(&self) -> usize {
 		return self.transactions.bytes()
 	}
@@ -297,8 +295,8 @@ where
 		source: TransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
-		let (hash, lenght) = self.api.hash_and_length(&xt);
-		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), lenght))
+		let (hash, length) = self.api.hash_and_length(&xt);
+		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length))
 	}
 
 	/// Removes transactions from the memory pool which are specified by the given list of hashes
