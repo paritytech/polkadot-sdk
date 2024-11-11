@@ -53,12 +53,15 @@ sc-chain-spec.workspace = true
 sc-chain-spec.default-features = true
 sp-genesis-builder.workspace = true
 sp-genesis-builder.default-features = true
+sp-keyring.workspace = true
 xcm.workspace = true
 xcm.default-features = true
 cumulus-primitives-core.workspace = true
 cumulus-primitives-core.default-features = true
 bp-messages.workspace = true
 bp-messages.default-features = true
+cumulus-client-consensus-aura.workspace = true
+yet-another-parachain-runtime.workspace = true
 
 [build-dependencies]
 substrate-build-script-utils.workspace = true
@@ -85,6 +88,7 @@ runtime-benchmarks = [
 	"people-rococo-runtime/runtime-benchmarks",
 	"people-westend-runtime/runtime-benchmarks",
 	"rococo-parachain-runtime/runtime-benchmarks",
+	"yet-another-parachain-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"polkadot-parachain-lib/try-runtime",
@@ -109,3 +113,4 @@ fast-runtime = [
 	"coretime-rococo-runtime/fast-runtime",
 	"coretime-westend-runtime/fast-runtime",
 ]
+full-pov-size = ["cumulus-client-consensus-aura/full-pov-size"]

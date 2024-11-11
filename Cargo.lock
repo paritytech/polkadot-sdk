@@ -13890,6 +13890,7 @@ dependencies = [
  "contracts-rococo-runtime",
  "coretime-rococo-runtime",
  "coretime-westend-runtime",
+ "cumulus-client-consensus-aura",
  "cumulus-primitives-core",
  "glutton-westend-runtime",
  "hex-literal",
@@ -13909,9 +13910,11 @@ dependencies = [
  "shell-runtime",
  "sp-core",
  "sp-genesis-builder",
+ "sp-keyring",
  "staging-xcm",
  "substrate-build-script-utils",
  "testnet-parachains-constants",
+ "yet-another-parachain-runtime",
 ]
 
 [[package]]
@@ -24243,6 +24246,49 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
 dependencies = [
  "time",
+]
+
+[[package]]
+name = "yet-another-parachain-runtime"
+version = "0.6.0"
+dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-aura",
+ "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
+ "cumulus-primitives-utility",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "pallet-assets",
+ "pallet-aura",
+ "pallet-balances",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parachains-common",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives",
+ "polkadot-runtime-common",
+ "scale-info",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-transaction-pool",
+ "sp-version",
+ "staging-parachain-info",
+ "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
