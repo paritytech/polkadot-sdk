@@ -34,12 +34,11 @@ use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
 	traits::{
-		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, ContainsPair, Everything,
+		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, ContainsPair, Equals, Everything,
 		EverythingBut, Get, Nothing, PalletInfoAccess,
 	},
 	weights::Weight,
 };
-use frame_support::traits::Equals;
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, TREASURY_PALLET_ID};

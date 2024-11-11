@@ -304,7 +304,7 @@ impl<Config: config::Config> XcmAssetTransfers for XcmExecutor<Config> {
 	type AssetTransactor = Config::AssetTransactor;
 }
 
-impl <Config: config::Config> FeeManager for XcmExecutor<Config> {
+impl<Config: config::Config> FeeManager for XcmExecutor<Config> {
 	fn is_waived(origin: Option<&Location>, r: FeeReason) -> bool {
 		Config::FeeManager::is_waived(origin, r)
 	}
