@@ -54,7 +54,6 @@ fn relay_commands_add_registrar() {
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				Transact {
 					origin_kind,
-					require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
 					call: add_registrar_call.encode().into(),
 				}
 			]))),
@@ -117,7 +116,6 @@ fn relay_commands_add_registrar_wrong_origin() {
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
 						origin_kind,
-						require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
 						call: add_registrar_call.encode().into(),
 					}
 				]))),
@@ -204,7 +202,6 @@ fn relay_commands_kill_identity() {
 					// Making the weight's ref time any lower will prevent the XCM from triggering
 					// execution of the intended extrinsic on the People chain - beware of spurious
 					// test failure due to this.
-					require_weight_at_most: Weight::from_parts(11_000_000_000, 500_000),
 					call: kill_identity_call.encode().into(),
 				}
 			]))),
@@ -268,7 +265,6 @@ fn relay_commands_kill_identity_wrong_origin() {
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
 						origin_kind,
-						require_weight_at_most: Weight::from_parts(11_000_000_000, 500_000),
 						call: kill_identity_call.encode().into(),
 					}
 				]))),
@@ -334,7 +330,6 @@ fn relay_commands_add_remove_username_authority() {
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
 						origin_kind,
-						require_weight_at_most: Weight::from_parts(500_000_000, 500_000),
 						call: add_username_authority.encode().into(),
 					}
 				]))),
@@ -424,7 +419,6 @@ fn relay_commands_add_remove_username_authority() {
 						UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 						Transact {
 							origin_kind,
-							require_weight_at_most: Weight::from_parts(500_000_000, 500_000),
 							call: remove_username_authority.encode().into(),
 						}
 					]))),
@@ -491,7 +485,6 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 					Transact {
 						origin_kind,
-						require_weight_at_most: Weight::from_parts(500_000_000, 500_000),
 						call: add_username_authority.encode().into(),
 					}
 				]))),
@@ -543,7 +536,6 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 						UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 						Transact {
 							origin_kind: OriginKind::SovereignAccount,
-							require_weight_at_most: Weight::from_parts(500_000_000, 500_000),
 							call: remove_username_authority.encode().into(),
 						}
 					]))),
