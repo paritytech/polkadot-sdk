@@ -44,7 +44,7 @@ use std::{
 };
 use subxt::{
 	backend::{
-		legacy::LegacyRpcMethods,
+		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
 		rpc::{
 			reconnecting_rpc_client::{Client as ReconnectingRpcClient, ExponentialBackoff},
 			RpcClient,
@@ -192,6 +192,7 @@ impl<const N: usize> BlockCache<N> {
 }
 
 /// A client connect to a node and maintains a cache of the last `CACHE_SIZE` blocks.
+#[derive(Clone)]
 pub struct Client {
 	/// The inner state of the client.
 	inner: Arc<ClientInner>,
@@ -553,6 +554,12 @@ impl Client {
 	pub async fn receipts_count_per_block(&self, block_hash: &SubstrateBlockHash) -> Option<usize> {
 		let cache = self.inner.cache.read().await;
 		cache.tx_hashes_by_block_and_index.get(block_hash).map(|v| v.len())
+	}
+
+	/// Get the system health.
+	pub async fn system_health(&self) -> Result<SystemHealth, ClientError> {
+		let health = self.inner.rpc.system_health().await?;
+		Ok(health)
 	}
 
 	/// Get the balance of the given address.

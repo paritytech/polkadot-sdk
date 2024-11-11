@@ -632,6 +632,7 @@ async fn request_candidate_validation(
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 	let is_system = candidate_receipt.descriptor.para_id().is_system();
+	let relay_parent = candidate_receipt.descriptor.relay_parent();
 
 	sender
 		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
@@ -641,9 +642,9 @@ async fn request_candidate_validation(
 			pov,
 			executor_params,
 			exec_kind: if is_system {
-				PvfExecKind::BackingSystemParas
+				PvfExecKind::BackingSystemParas(relay_parent)
 			} else {
-				PvfExecKind::Backing
+				PvfExecKind::Backing(relay_parent)
 			},
 			response_sender: tx,
 		})

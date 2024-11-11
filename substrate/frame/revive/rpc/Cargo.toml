@@ -56,6 +56,7 @@ sp-core = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
+sc-rpc-api = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
