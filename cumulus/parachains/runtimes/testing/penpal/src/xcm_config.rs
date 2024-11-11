@@ -34,7 +34,7 @@ use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
 	traits::{
-		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, ContainsPair, Everything,
+		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, ContainsPair, Equals, Everything,
 		EverythingBut, Get, Nothing, PalletInfoAccess,
 	},
 	weights::Weight,
@@ -210,6 +210,7 @@ pub type XcmOriginToTransactDispatchOrigin = (
 );
 
 parameter_types! {
+	pub const RootLocation: Location = Location::here();
 	// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
 	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	pub const MaxInstructions: u32 = 100;
@@ -336,6 +337,7 @@ pub type TrustedReserves = (
 pub type TrustedTeleporters =
 	(AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,);
 
+pub type WaivedLocations = Equals<RootLocation>;
 /// `AssetId`/`Balance` converter for `TrustBackedAssets`.
 pub type TrustBackedAssetsConvertedConcreteId =
 	assets_common::TrustBackedAssetsConvertedConcreteId<AssetsPalletLocation, Balance>;
@@ -399,7 +401,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetLocker = ();
 	type AssetExchanger = PoolAssetsExchanger;
 	type FeeManager = XcmFeeManagerFromComponents<
-		(),
+		WaivedLocations,
 		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
 	type MessageExporter = ();

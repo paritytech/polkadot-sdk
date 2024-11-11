@@ -111,7 +111,7 @@ where
 							candidate_receipt,
 							pov: PoV { block_data: BlockData(Vec::new()) }.into(),
 							executor_params: Default::default(),
-							exec_kind: PvfExecKind::Backing,
+							exec_kind: PvfExecKind::Backing(dummy_hash()),
 							response_sender: tx,
 						})
 						.await;
@@ -811,7 +811,7 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 		candidate_receipt,
 		pov,
 		executor_params: Default::default(),
-		exec_kind: PvfExecKind::Backing,
+		exec_kind: PvfExecKind::Backing(dummy_hash()),
 		response_sender,
 	}
 }
