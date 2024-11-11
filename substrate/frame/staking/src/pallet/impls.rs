@@ -2143,7 +2143,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
-	/// TODO
+	/// * If the election preparation has started (i.e. `now`  >= `expected_election - n_pages`):
+	///     * The election preparation metadata should be set (`ElectingStartedAt`);
+	///     * The electable stashes should not be empty;
+	///     * The exposures for the current electable stashes should have been collected;
+	/// * If the election preparation has not started yet:
+	///     * The election preparation metadata is empty;
+	///     * The electable stashes for this era is empty;
 	pub fn ensure_snapshot_metadata_state(now: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 		let pages: BlockNumberFor<T> = Self::election_pages().into();
 		let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);

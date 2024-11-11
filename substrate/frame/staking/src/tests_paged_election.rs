@@ -368,6 +368,75 @@ mod paged_on_initialize {
 	}
 
 	#[test]
+	fn multi_page_election_with_mulit_page_exposures_rewards_work() {
+		ExtBuilder::default()
+			.add_staker(61, 61, 1000, StakerStatus::Validator)
+			.add_staker(71, 71, 1000, StakerStatus::Validator)
+            .add_staker(1, 1, 5, StakerStatus::Nominator(vec![21, 31, 71]))
+            .add_staker(2, 2, 5, StakerStatus::Nominator(vec![21, 31, 71]))
+            .add_staker(3, 3, 5, StakerStatus::Nominator(vec![21, 31, 71]))
+			.multi_page_election_provider(3)
+            .max_winners_per_page(3)
+            .exposures_page_size(2)
+			.build_and_execute(|| {
+				// election provider has 3 pages.
+				let pages: BlockNumber =
+					<<Test as Config>::ElectionProvider as ElectionProvider>::Pages::get().into();
+				assert_eq!(pages, 3);
+                // 3 max winners per page.
+                let max_winners_page = <<Test as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get();
+                assert_eq!(max_winners_page, 3);
+
+        		// setup validator payee prefs and 10% commission.
+                for s in vec![21, 31, 71] {
+        		    Payee::<Test>::insert(s, RewardDestination::Account(s));
+                    let prefs = ValidatorPrefs { commission: Perbill::from_percent(10), ..Default::default() };
+			        Validators::<Test>::insert(s, prefs.clone());
+                }
+
+                let init_balance_all = vec![21, 31, 71, 1, 2, 3].iter().fold(0, |mut acc, s| {
+                    acc += asset::total_balance::<Test>(&s);
+                    acc
+                });
+
+                // progress era.
+				assert_eq!(current_era(), 0);
+                start_active_era(1);
+				assert_eq!(current_era(), 1);
+                assert_eq!(Session::validators(), vec![21, 31, 71]);
+
+                // distribute reward,
+		        Pallet::<Test>::reward_by_ids(vec![(21, 50)]);
+		        Pallet::<Test>::reward_by_ids(vec![(31, 50)]);
+		        Pallet::<Test>::reward_by_ids(vec![(71, 50)]);
+
+        		let total_payout = current_total_payout_for_duration(reward_time_per_era());
+
+                start_active_era(2);
+
+                // all the validators exposed in era 1 have two pages of exposures, since exposure
+                // page size is 2.
+                assert_eq!(MaxExposurePageSize::get(), 2);
+                assert_eq!(EraInfo::<Test>::get_page_count(1, &21), 2);
+                assert_eq!(EraInfo::<Test>::get_page_count(1, &31), 2);
+                assert_eq!(EraInfo::<Test>::get_page_count(1, &71), 2);
+
+                make_all_reward_payment(1);
+
+                let balance_all = vec![21, 31, 71, 1, 2, 3].iter().fold(0, |mut acc, s| {
+                    acc += asset::total_balance::<Test>(&s);
+                    acc
+                });
+
+			    assert_eq_error_rate!(
+                    total_payout,
+                    balance_all - init_balance_all,
+                    4
+                );
+            })
+	}
+
+	#[test]
 	fn try_state_failure_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let pages: BlockNumber =
