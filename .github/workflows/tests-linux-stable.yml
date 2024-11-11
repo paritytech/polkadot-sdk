@@ -91,7 +91,7 @@ jobs:
             --release \
             --no-fail-fast \
             --cargo-quiet \
-            --features try-runtime,experimental,riscv,ci-only-tests \
+            --features try-runtime,experimental,ci-only-tests \
             --partition count:${{ matrix.partition }}
       # run runtime-api tests with `enable-staging-api` feature on the 1st node
       - name: runtime-api tests
@@ -129,7 +129,7 @@ jobs:
                    --release \
                    --no-fail-fast \
                    --cargo-quiet \
-                   --features experimental,riscv,ci-only-tests \
+                   --features experimental,ci-only-tests \
                    --filter-expr " !test(/all_security_features_work/) - test(/nonexistent_cache_dir/)" \
                    --partition count:${{ matrix.partition }} \
 

@@ -36,6 +36,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use assets_common::{
+	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForTrustBackedAssetsConvert,
 };
@@ -73,7 +74,7 @@ use sp_api::impl_runtime_apis;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Dispatchable},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
@@ -82,7 +83,7 @@ pub use sp_runtime::{traits::ConvertInto, MultiAddress, Perbill, Permill};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm_config::{ForeignAssetsAssetId, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{ForeignAssetsAssetId, LocationToAccountId, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -242,8 +243,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("penpal-parachain"),
-	impl_name: create_runtime_str!("penpal-parachain"),
+	spec_name: alloc::borrow::Cow::Borrowed("penpal-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("penpal-parachain"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 0,
@@ -494,7 +495,10 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetId = ForeignAssetsAssetId;
 	type AssetIdParameter = ForeignAssetsAssetId;
 	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	// This is to allow any other remote location to create foreign assets. Used in tests, not
+	// recommended on real chains.
+	type CreateOrigin =
+		ForeignCreators<Everything, LocationToAccountId, AccountId, xcm::latest::Location>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type AssetDeposit = ForeignAssetsAssetDeposit;
 	type MetadataDepositBase = ForeignAssetsMetadataDepositBase;
@@ -1117,7 +1121,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch};
 			use sp_storage::TrackedStorageKey;
 

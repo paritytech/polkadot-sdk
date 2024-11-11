@@ -1,0 +1,9 @@
+title: migrate pallet-remarks to v2 bench syntax
+doc:
+- audience: Runtime Dev
+  description: |-
+    Part of:
+    * #6202
+crates:
+- name: pallet-remark
+  bump: patch
