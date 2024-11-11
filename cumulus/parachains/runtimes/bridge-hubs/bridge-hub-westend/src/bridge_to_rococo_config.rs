@@ -221,6 +221,7 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 		// be dispatched to the sibling.
 		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider<Runtime>,
 	>;
+	type CongestionLimits = ();
 }
 
 #[cfg(test)]

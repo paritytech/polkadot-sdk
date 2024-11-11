@@ -161,6 +161,7 @@ impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime 
 		// no congestion checking
 		(),
 	>;
+	type CongestionLimits = ();
 }
 
 #[cfg(test)]
