@@ -111,11 +111,10 @@ use frame_support::{
 	weights::{Weight, WeightToFee},
 };
 use snowbridge_core::{
-	outbound::{Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS},
+	outbound::v1::{Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS},
 	BasicOperatingMode, ChannelId,
 };
-use snowbridge_outbound_queue_merkle_tree::merkle_root;
-pub use snowbridge_outbound_queue_merkle_tree::MerkleProof;
+use snowbridge_merkle_tree::merkle_root;
 use sp_core::{H256, U256};
 use sp_runtime::{
 	traits::{CheckedDiv, Hash},

@@ -210,13 +210,16 @@ impl xcm_executor::Config for XcmConfig {
 				WestendLocation,
 				EthereumNetwork,
 				Self::AssetTransactor,
-				crate::EthereumOutboundQueue,
+				crate::EthereumOutboundQueueV2,
 			>,
 			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 		),
 	>;
-	type MessageExporter =
-		(XcmOverBridgeHubRococo, crate::bridge_to_ethereum_config::SnowbridgeExporter);
+	type MessageExporter = (
+		XcmOverBridgeHubRococo,
+		crate::bridge_to_ethereum_config::SnowbridgeExporterV2,
+		crate::bridge_to_ethereum_config::SnowbridgeExporter,
+	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;

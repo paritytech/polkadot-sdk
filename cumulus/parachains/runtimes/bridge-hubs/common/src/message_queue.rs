@@ -23,6 +23,7 @@ use frame_support::{
 use pallet_message_queue::OnQueueChanged;
 use scale_info::TypeInfo;
 use snowbridge_core::ChannelId;
+use sp_core::H256;
 use xcm::latest::prelude::{Junction, Location};
 
 /// The aggregate origin of an inbound message.
@@ -44,6 +45,7 @@ pub enum AggregateMessageOrigin {
 	///
 	/// This is used by Snowbridge inbound queue.
 	Snowbridge(ChannelId),
+	SnowbridgeV2(H256),
 }
 
 impl From<AggregateMessageOrigin> for Location {
@@ -55,7 +57,7 @@ impl From<AggregateMessageOrigin> for Location {
 			Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
 			// NOTE: We don't need this conversion for Snowbridge. However, we have to
 			// implement it anyway as xcm_builder::ProcessXcmMessage requires it.
-			Snowbridge(_) => Location::default(),
+			_ => Location::default(),
 		}
 	}
 }
@@ -82,18 +84,19 @@ impl From<u32> for AggregateMessageOrigin {
 }
 
 /// Routes messages to either the XCMP or Snowbridge processor.
-pub struct BridgeHubMessageRouter<XcmpProcessor, SnowbridgeProcessor>(
-	PhantomData<(XcmpProcessor, SnowbridgeProcessor)>,
+pub struct BridgeHubMessageRouter<XcmpProcessor, SnowbridgeProcessor, SnowbridgeProcessorV2>(
+	PhantomData<(XcmpProcessor, SnowbridgeProcessor, SnowbridgeProcessorV2)>,
 )
 where
 	XcmpProcessor: ProcessMessage<Origin = AggregateMessageOrigin>,
 	SnowbridgeProcessor: ProcessMessage<Origin = AggregateMessageOrigin>;
 
-impl<XcmpProcessor, SnowbridgeProcessor> ProcessMessage
-	for BridgeHubMessageRouter<XcmpProcessor, SnowbridgeProcessor>
+impl<XcmpProcessor, SnowbridgeProcessor, SnowbridgeProcessorV2> ProcessMessage
+	for BridgeHubMessageRouter<XcmpProcessor, SnowbridgeProcessor, SnowbridgeProcessorV2>
 where
 	XcmpProcessor: ProcessMessage<Origin = AggregateMessageOrigin>,
 	SnowbridgeProcessor: ProcessMessage<Origin = AggregateMessageOrigin>,
+	SnowbridgeProcessorV2: ProcessMessage<Origin = AggregateMessageOrigin>,
 {
 	type Origin = AggregateMessageOrigin;
 
@@ -108,6 +111,7 @@ where
 			Here | Parent | Sibling(_) =>
 				XcmpProcessor::process_message(message, origin, meter, id),
 			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),
+			SnowbridgeV2(_) => SnowbridgeProcessorV2::process_message(message, origin, meter, id),
 		}
 	}
 }

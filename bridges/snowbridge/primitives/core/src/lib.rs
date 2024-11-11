@@ -13,6 +13,7 @@ pub mod location;
 pub mod operating_mode;
 pub mod outbound;
 pub mod pricing;
+pub mod reward;
 pub mod ringbuffer;
 
 pub use location::{AgentId, AgentIdOf, TokenId, TokenIdOf};
@@ -36,6 +37,8 @@ use xcm::prelude::{Junction::Parachain, Location};
 pub use operating_mode::BasicOperatingMode;
 
 pub use pricing::{PricingParameters, Rewards};
+
+pub use reward::RewardLedger;
 
 pub fn sibling_sovereign_account<T>(para_id: ParaId) -> T::AccountId
 where

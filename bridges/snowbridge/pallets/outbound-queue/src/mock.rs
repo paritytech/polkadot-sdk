@@ -10,7 +10,7 @@ use frame_support::{
 
 use snowbridge_core::{
 	gwei, meth,
-	outbound::*,
+	outbound::v1::*,
 	pricing::{PricingParameters, Rewards},
 	ParaId, PRIMARY_GOVERNANCE_CHANNEL,
 };

@@ -11,8 +11,9 @@ use sp_core::H256;
 use xcm_executor::traits::ConvertLocation;
 
 use snowbridge_core::{
-	gwei, meth, outbound::ConstantGasMeter, sibling_sovereign_account, AgentId, AllowSiblingsOnly,
-	ParaId, PricingParameters, Rewards,
+	gwei, meth,
+	outbound::{v1::ConstantGasMeter, v2::DefaultOutboundQueue},
+	sibling_sovereign_account, AgentId, AllowSiblingsOnly, ParaId, PricingParameters, Rewards,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Keccak256},
@@ -213,6 +214,7 @@ impl crate::Config for Test {
 	type EthereumLocation = EthereumDestination;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
+	type OutboundQueueV2 = DefaultOutboundQueue;
 }
 
 // Build genesis storage according to the mock runtime.

@@ -10,7 +10,10 @@ use frame_support::{
 
 use codec::Encode;
 use snowbridge_core::{
-	outbound::{Command, SendError, SendMessage},
+	outbound::{
+		v1::{Command, SendMessage},
+		SendError,
+	},
 	ParaId, PricingParameters, Rewards,
 };
 use sp_arithmetic::FixedU128;
