@@ -14,16 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Test error when there's no `BuyExecution` instruction.
+//! Unit tests for the XCM executor.
+//!
+//! These exclude any cross-chain functionality. For those, look at the
+//! `xcm-emulator` based tests in the cumulus folder.
+//! These tests deal with internal state changes of the XCVM.
 
-use xcm_procedural::Builder;
-
-struct Xcm<Call>(pub Vec<Instruction<Call>>);
-
-#[derive(Builder)]
-enum Instruction<Call> {
-    UnpaidExecution { weight_limit: (u32, u32) },
-    Transact { call: Call },
-}
-
-fn main() {}
+mod initiate_transfer;
+mod mock;
+mod pay_fees;
+mod set_asset_claimer;
