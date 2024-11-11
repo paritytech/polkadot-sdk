@@ -57,7 +57,9 @@ fn make_member<T: Config<I>, I: 'static>(rank: Rank) -> T::AccountId {
 	who
 }
 
-#[instance_benchmarks]
+#[instance_benchmarks(
+where <<T as pallet::Config<I>>::Polls as frame_support::traits::Polling<Tally<T, I, pallet::Pallet<T, I>>>>::Index: From<u8>
+)]
 mod benchmarks {
 	use super::*;
 
@@ -205,14 +207,11 @@ mod benchmarks {
 				Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, true);
 
 			// If the class exists, expect success; otherwise expect a "NotPolling" error.
-			match class {
-				Some(_) => {
-					assert_ok!(vote_result);
-				},
-				None => {
-					assert_err!(vote_result, crate::Error::<T, I>::NotPolling);
-				},
-			}
+			if class.is_some() {
+				assert_ok!(vote_result);
+			} else {
+				assert_err!(vote_result, crate::Error::<T, I>::NotPolling);
+			};
 		}
 
 		// Vote logic for a negative vote (false).
@@ -220,14 +219,11 @@ mod benchmarks {
 			Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, false);
 
 		// Check the result of the negative vote.
-		match class {
-			Some(_) => {
-				assert_ok!(vote_result);
-			},
-			None => {
-				assert_err!(vote_result, crate::Error::<T, I>::NotPolling);
-			},
-		}
+		if class.is_some() {
+			assert_ok!(vote_result);
+		} else {
+			assert_err!(vote_result, crate::Error::<T, I>::NotPolling);
+		};
 
 		// If the class exists, verify the vote event and tally.
 		if let Some(_) = class {

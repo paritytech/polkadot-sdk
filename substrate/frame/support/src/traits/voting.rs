@@ -82,7 +82,7 @@ impl<T, P: Polling<T>> sp_runtime::traits::Get<u32> for ClassCountOf<P, T> {
 }
 
 pub trait Polling<Tally> {
-	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen + From<u8>;
+	type Index: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
 	type Votes: Parameter + Member + Ord + PartialOrd + Copy + HasCompact + MaxEncodedLen;
 	type Class: Parameter + Member + Ord + PartialOrd + MaxEncodedLen;
 	type Moment;
@@ -127,6 +127,7 @@ pub trait Polling<Tally> {
 	}
 }
 
+/// NoOp polling is required if pallet-referenda functionality not needed.
 pub struct NoOpPoll;
 impl<Tally> Polling<Tally> for NoOpPoll {
 	type Index = u8;
