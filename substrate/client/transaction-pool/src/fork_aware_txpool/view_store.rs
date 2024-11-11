@@ -471,13 +471,16 @@ where
 			log::trace!(target:LOG_TARGET,"handle_finalized: inactive_views: {:?}", inactive_views.keys());
 		}
 
+		log::trace!(target:LOG_TARGET,"handle_finalized: dropped_views: {:?}", dropped_views);
+
+		self.listener.remove_stale_controllers();
+		self.dropped_stream_controller.remove_finalized_txs(finalized_xts.clone());
+
 		self.listener.remove_view(finalized_hash);
 		for view in dropped_views {
 			self.listener.remove_view(view);
 			self.dropped_stream_controller.remove_view(view);
 		}
-		self.listener.remove_stale_controllers();
-		self.dropped_stream_controller.remove_finalized_txs(finalized_xts.clone());
 
 		finalized_xts
 	}

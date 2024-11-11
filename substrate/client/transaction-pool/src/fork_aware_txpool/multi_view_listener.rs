@@ -270,6 +270,7 @@ where
 	/// stream map.
 	fn remove_view(&mut self, block_hash: BlockHash<ChainApi>) {
 		self.status_stream_map.remove(&block_hash);
+		self.views_keeping_tx_valid.remove(&block_hash);
 		trace!(target: LOG_TARGET, "[{:?}] RemoveView view: {:?} views:{:?}", self.tx_hash, block_hash, self.status_stream_map.keys().collect::<Vec<_>>());
 	}
 }
