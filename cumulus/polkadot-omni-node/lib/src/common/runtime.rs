@@ -69,8 +69,8 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 
 /// Logic that inspects runtime's metadata for Omni Node compatibility.
 pub mod metadata {
-	use codec::Decode;
-	use frame_metadata::RuntimeMetadata;
+	use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed};
+	use sp_core::Decode;
 
 	/// Checks if pallet exists in runtime's metadata.
 	///
@@ -80,9 +80,9 @@ pub mod metadata {
 		mut metadata: &'a [u8],
 		name: &str,
 	) -> Result<bool, sc_service::error::Error> {
-		let decoded_metadata: RuntimeMetadata = Decode::decode(&mut metadata)
+		let decoded_metadata = RuntimeMetadataPrefixed::decode(&mut metadata)
 			.map_err(|e| sc_service::error::Error::Application(Box::new(e) as Box<_>))?;
-		match decoded_metadata {
+		match decoded_metadata.1 {
 			RuntimeMetadata::V14(inner) => Ok(inner.pallets.iter().any(|p| p.name == name)),
 			RuntimeMetadata::V15(inner) => Ok(inner.pallets.iter().any(|p| p.name == name)),
 			_ => Err(sc_service::error::Error::Application(
