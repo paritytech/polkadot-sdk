@@ -1054,7 +1054,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				}
 				// Process instructions.
 				let result = self.process(xcm).map_err(|error| {
-					tracing::error!(target: "xcm::execute", ?error, actual_origin = ?self.context.origin, original_origin: ?previous_origin, "ExecuteWithOrigin inner xcm failure");
+					tracing::error!(target: "xcm::execute", ?error, actual_origin = ?self.context.origin, original_origin = ?previous_origin, "ExecuteWithOrigin inner xcm failure");
 					error.xcm_error
 				});
 				// Reset origin to previous one.
