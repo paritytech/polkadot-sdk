@@ -20,54 +20,95 @@ use frame_support::{assert_ok, testing_prelude::*, BoundedBTreeSet};
 use substrate_test_utils::assert_eq_uvec;
 
 use frame_election_provider_support::{
-	bounds::ElectionBoundsBuilder, ElectionDataProvider, SortedListProvider,
+	bounds::ElectionBoundsBuilder, ElectionDataProvider, SortedListProvider, Support,
 };
 use sp_staking::StakingInterface;
 
-#[test]
-fn add_electable_stashes_work() {
-	ExtBuilder::default().build_and_execute(|| {
-		MaxValidatorSet::set(5);
-		assert_eq!(MaxValidatorSet::get(), 5);
-		assert!(ElectableStashes::<Test>::get().is_empty());
+mod electable_stashes {
+	use super::*;
 
-		// adds stashes without duplicates, do not overflow bounds.
-		assert_ok!(Staking::add_electables(bounded_vec![1, 2, 3]));
-		assert_eq!(
-			ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
-			vec![1, 2, 3]
-		);
+	#[test]
+	fn add_electable_stashes_work() {
+		ExtBuilder::default().build_and_execute(|| {
+			MaxValidatorSet::set(5);
+			assert_eq!(MaxValidatorSet::get(), 5);
+			assert!(ElectableStashes::<Test>::get().is_empty());
 
-		// adds with duplicates which are deduplicated implicitly, no not overflow bounds.
-		assert_ok!(Staking::add_electables(bounded_vec![1, 2, 4]));
-		assert_eq!(
-			ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
-			vec![1, 2, 3, 4]
-		);
+			// adds stashes without duplicates, do not overflow bounds.
+			assert_ok!(Staking::add_electables(vec![1u64, 2, 3].into_iter()));
+			assert_eq!(
+				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				vec![1, 2, 3]
+			);
 
-		// skip final try state checks.
-		SkipTryStateCheck::set(true);
-	})
-}
+			// adds with duplicates which are deduplicated implicitly, no not overflow bounds.
+			assert_ok!(Staking::add_electables(vec![1u64, 2, 4].into_iter()));
+			assert_eq!(
+				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				vec![1, 2, 3, 4]
+			);
 
-#[test]
-fn add_electable_stashes_overflow_works() {
-	ExtBuilder::default().build_and_execute(|| {
-		MaxValidatorSet::set(5);
-		assert_eq!(MaxValidatorSet::get(), 5);
-		assert!(ElectableStashes::<Test>::get().is_empty());
+			// skip final try state checks.
+			SkipTryStateCheck::set(true);
+		})
+	}
 
-		// adds stashes so that bounds are overflown, fails and internal state changes so that
-		// all slots are filled.
-		assert!(Staking::add_electables(bounded_vec![1, 2, 3, 4, 5, 6]).is_err());
-		assert_eq!(
-			ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
-			vec![1, 2, 3, 4, 5]
-		);
+	#[test]
+	fn add_electable_stashes_overflow_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			MaxValidatorSet::set(5);
+			assert_eq!(MaxValidatorSet::get(), 5);
+			assert!(ElectableStashes::<Test>::get().is_empty());
 
-		// skip final try state checks.
-		SkipTryStateCheck::set(true);
-	})
+			// adds stashes so that bounds are overflown, fails and internal state changes so that
+			// all slots are filled.
+			assert!(Staking::add_electables(vec![1u64, 2, 3, 4, 5, 6].into_iter()).is_err());
+			assert_eq!(
+				ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
+				vec![1, 2, 3, 4, 5]
+			);
+
+			SkipTryStateCheck::set(true);
+		})
+	}
+
+	#[test]
+	fn overflow_electable_stashes_no_exposures_work() {
+		// ensures exposures are stored only for the electable stashes that fit within the
+		// electable stashes bounds in case of overflow.
+		ExtBuilder::default().build_and_execute(|| {
+			MaxValidatorSet::set(2);
+			assert_eq!(MaxValidatorSet::get(), 2);
+			assert!(ElectableStashes::<Test>::get().is_empty());
+
+			// current era is 0, preparing 1.
+			assert_eq!(current_era(), 0);
+
+			let supports = to_bounded_supports(vec![
+				(1, Support { total: 100, voters: vec![(10, 1_000)] }),
+				(2, Support { total: 200, voters: vec![(20, 2_000)] }),
+				(3, Support { total: 300, voters: vec![(30, 3_000)] }),
+				(4, Support { total: 400, voters: vec![(40, 4_000)] }),
+			]);
+
+			// error due to bounds.
+			assert!(Staking::do_elect_paged_inner(supports).is_err());
+
+			// electable stashes have been collected to the max bounds despite the error.
+			assert_eq!(ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(), vec![1, 2]);
+
+			let exposure_exists =
+				|acc, era| EraInfo::<Test>::get_full_exposure(era, &acc).total != 0;
+
+			// exposures were only collected for electable stashes in bounds (1 and 2).
+			assert!(exposure_exists(1, 1));
+			assert!(exposure_exists(2, 1));
+			assert!(!exposure_exists(3, 1));
+			assert!(!exposure_exists(4, 1));
+
+			SkipTryStateCheck::set(true);
+		})
+	}
 }
 
 mod paged_on_initialize {

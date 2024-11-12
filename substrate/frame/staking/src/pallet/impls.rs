@@ -729,6 +729,10 @@ impl<T: Config> Pallet<T> {
 	/// The results from the elect call shold be stored in the `ElectableStashes` storage. In
 	/// addition, it stores stakers' information for next planned era based on the paged solution
 	/// data returned.
+	///
+	/// If any new election winner does not fit in the electable stashes storage, it truncates the
+	/// result of the election. We ensure that only the winners that are part of the electable
+	/// stashes have exposures collected for the next era.
 	pub(crate) fn do_elect_paged(page: PageIndex) {
 		let paged_result = match <T::ElectionProvider>::elect(page) {
 			Ok(result) => result,
@@ -742,19 +746,41 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
+		if let Err(_) = Self::do_elect_paged_inner(paged_result) {
+			defensive!("electable stashes exceeded limit, unexpected but election proceeds.");
+		};
+	}
+
+	pub(crate) fn do_elect_paged_inner(
+		mut supports: BoundedSupportsOf<T::ElectionProvider>,
+	) -> Result<(), ()> {
 		// preparing the next era. Note: we expect `do_elect_paged` to be called *only* during a
 		// non-genesis era, thus current era should be set by now.
 		let planning_era = CurrentEra::<T>::get().defensive_unwrap_or_default().saturating_add(1);
 
-		let stashes = Self::store_stakers_info(
-			Self::collect_exposures(paged_result).into_inner(),
-			planning_era,
-		);
+		match Self::add_electables(supports.iter().map(|(s, _)| s.clone())) {
+			Ok(_) => {
+				let _ = Self::store_stakers_info(
+					Self::collect_exposures(supports).into_inner(),
+					planning_era,
+				);
+				Ok(())
+			},
+			Err(not_included) => {
+				log!(
+					warn,
+					"not all winners fit within the electable stashes, excluding tail: {:?}.",
+					not_included
+				);
 
-		match Self::add_electables(stashes) {
-			Ok(_) => (),
-			Err(_) => {
-				defensive!("electable stashes exceeded limit, unexpected.");
+				// filter out exposures of stashes that do not fit in electable stashes.
+				supports.retain(|(s, _)| !not_included.contains(s));
+
+				let _ = Self::store_stakers_info(
+					Self::collect_exposures(supports).into_inner(),
+					planning_era,
+				);
+				Err(())
 			},
 		}
 	}
@@ -850,20 +876,22 @@ impl<T: Config> Pallet<T> {
 
 	/// Adds a new set of stashes to the electable stashes.
 	///
-	/// Deduplicates stashes in place and returns an error if the bounds are exceeded.
+	/// Deduplicates stashes in place and returns an error if the bounds are exceeded. In case of
+	/// error, it returns the stashes that were not added to the storage.
 	pub(crate) fn add_electables(
-		stashes: BoundedVec<T::AccountId, MaxWinnersPerPageOf<T::ElectionProvider>>,
-	) -> Result<(), ()> {
+		mut stashes_iter: impl Iterator<Item = T::AccountId>,
+	) -> Result<(), Vec<T::AccountId>> {
 		ElectableStashes::<T>::mutate(|electable| {
-			for stash in stashes.into_iter() {
-				if let Err(_) = (*electable).try_insert(stash) {
-					return Err(())
+			while let Some(stash) = stashes_iter.next() {
+				if let Err(_) = (*electable).try_insert(stash.clone()) {
+					let mut not_included = stashes_iter.collect::<Vec<_>>();
+					not_included.push(stash);
+
+					return Err(not_included);
 				}
 			}
 			Ok(())
-		})?;
-
-		Ok(())
+		})
 	}
 
 	/// Remove all associated data of a stash account from the staking system.
