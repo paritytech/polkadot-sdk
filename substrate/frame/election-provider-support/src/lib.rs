@@ -326,7 +326,7 @@ pub trait ElectionDataProvider {
 	/// Maximum number of votes per voter that this data provider is providing.
 	type MaxVotesPerVoter: Get<u32>;
 
-	/// Returns the possible targets for the election associated with page `page`, i.e. the targets
+	/// Returns the possible targets for the election associated with the provided `page`, i.e. the targets
 	/// that could become elected, thus "electable".
 	///
 	/// This should be implemented as a self-weighing function. The implementor should register its
