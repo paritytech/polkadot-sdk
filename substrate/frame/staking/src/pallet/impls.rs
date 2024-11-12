@@ -751,6 +751,10 @@ impl<T: Config> Pallet<T> {
 		};
 	}
 
+	/// Inner implementation of [`Self::do_elect_paged`].
+	///
+	/// Returns an error if adding election winners to the electable stashes storage fails due to
+	/// exceeded bounds.
 	pub(crate) fn do_elect_paged_inner(
 		mut supports: BoundedSupportsOf<T::ElectionProvider>,
 	) -> Result<(), ()> {
@@ -773,7 +777,8 @@ impl<T: Config> Pallet<T> {
 					not_included
 				);
 
-				// filter out exposures of stashes that do not fit in electable stashes.
+				// filter out supports of stashes that do not fit within the electable stashes
+				// storage bounds to prevent collecting their exposures.
 				supports.retain(|(s, _)| !not_included.contains(s));
 
 				let _ = Self::store_stakers_info(
