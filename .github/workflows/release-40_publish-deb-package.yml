@@ -10,7 +10,7 @@ on:
         type: string
 
       distribution:
-        description: Distribution where to publish deb package (release, stage, stable2407, etc)
+        description: Distribution where to publish deb package (release, staging, stable2407, etc)
         default: release
         required: true
         type: string
