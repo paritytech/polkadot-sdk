@@ -156,7 +156,10 @@ use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion, StaticLookup},
+	traits::{
+		BlockNumberProvider, CheckedAdd, CheckedMul, Dispatchable, SaturatedConversion,
+		StaticLookup,
+	},
 	RuntimeDebug,
 };
 
@@ -235,6 +238,9 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -511,7 +517,7 @@ pub mod pallet {
 			T::Currency::reserve(&who, recovery_deposit)?;
 			// Create an active recovery status
 			let recovery_status = ActiveRecovery {
-				created: <frame_system::Pallet<T>>::block_number(),
+				created: T::BlockNumberProvider::current_block_number(),
 				deposit: recovery_deposit,
 				friends: Default::default(),
 			};
@@ -596,7 +602,7 @@ pub mod pallet {
 				Self::active_recovery(&account, &who).ok_or(Error::<T>::NotStarted)?;
 			ensure!(!Proxy::<T>::contains_key(&who), Error::<T>::AlreadyProxy);
 			// Make sure the delay period has passed
-			let current_block_number = <frame_system::Pallet<T>>::block_number();
+			let current_block_number = T::BlockNumberProvider::current_block_number();
 			let recoverable_block_number = active_recovery
 				.created
 				.checked_add(&recovery_config.delay_period)
