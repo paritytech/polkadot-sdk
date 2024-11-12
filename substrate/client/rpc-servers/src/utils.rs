@@ -196,7 +196,7 @@ pub(crate) fn host_filtering(enabled: bool, addr: SocketAddr) -> Option<HostFilt
 		let hosts = [
 			format!("localhost:{}", addr.port()),
 			format!("127.0.0.1:{}", addr.port()),
-			format!("[::1]:{}", addr.port())
+			format!("[::1]:{}", addr.port()),
 		];
 
 		Some(HostFilterLayer::new(hosts).expect("Valid hosts; qed"))
