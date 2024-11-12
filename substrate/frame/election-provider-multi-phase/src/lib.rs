@@ -192,8 +192,8 @@
 //!	## Multi-page election support
 //!
 //! The [`frame_election_provider_support::ElectionDataProvider`] and
-//! [`frame_election_provider_support::ElectionProvider`] traits used by this pallet support a
-//! multi page election.
+//! [`frame_election_provider_support::ElectionProvider`] traits used by this pallet can support a
+//! multi-page election.
 //!
 //! However, this pallet is meant to be used only in the context of a single-page election and data
 //! provider and all the relevant trait implementation ad configurations reflect that assumption.
