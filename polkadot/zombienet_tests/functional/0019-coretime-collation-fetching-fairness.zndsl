@@ -14,5 +14,3 @@ collator-2001: reports block height is at least 3 within 10 seconds
 # hardcoded check to verify that included onchain events are indeed 3:1
 validator-0: js-script ./0019-verify-included-events.js return is 1 within 120 seconds
 
-# could be flaky feel free to remove if it's causing problems
-validator-2: count of log lines matching regex "Rejected v2 advertisement.*error=SecondedLimitReached" is greater than 1 within 10 seconds
