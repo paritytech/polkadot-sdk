@@ -908,7 +908,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								);
 
 								self.event_streams.send(Event::Dht(
-									DhtEvent::ValueNotFound(sc_network_types::kad::Key::new(&key.to_vec()))
+									DhtEvent::ValueNotFound(key.into())
 								));
 
 								if let Some(ref metrics) = self.metrics {
@@ -964,7 +964,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					Some(DiscoveryEvent::IncomingRecord { record: Record { key, value, publisher, expires }} ) => {
 						self.event_streams.send(Event::Dht(
 							DhtEvent::PutRecordRequest(
-								sc_network_types::kad::Key::new(&key.to_vec()),
+								key.into(),
 								value,
 								publisher.map(Into::into),
 								expires,
