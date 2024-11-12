@@ -534,6 +534,7 @@ where
 			(Miner(x), Miner(y)) if x == y => true,
 			(DataProvider(x), DataProvider(y)) if x == y => true,
 			(Fallback(x), Fallback(y)) if x == y => true,
+			(MultiPageNotSupported, MultiPageNotSupported) => true,
 			_ => false,
 		}
 	}
@@ -2510,7 +2511,7 @@ mod tests {
 			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
 
 			// however, multi page calls will fail.
-			assert!(MultiPhase::elect(10).is_err());
+			assert_noop!(MultiPhase::elect(SINGLE_PAGE + 1), ElectionError::MultiPageNotSupported);
 		})
 	}
 

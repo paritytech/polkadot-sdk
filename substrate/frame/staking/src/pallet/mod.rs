@@ -763,13 +763,6 @@ pub mod pallet {
 	pub(crate) type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 
-	/// Lock state for election data mutations.
-	///
-	/// While the lock is set, there should be no mutations on the ledgers/staking data, ensuring
-	/// that the data provided to [`Config::ElectionDataProvider`] is stable during all pages.
-	#[pallet::storage]
-	pub(crate) type ElectionDataLock<T: Config> = StorageValue<_, (), OptionQuery>;
-
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {

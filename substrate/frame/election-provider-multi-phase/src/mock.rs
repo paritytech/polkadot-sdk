@@ -298,7 +298,6 @@ parameter_types! {
 	pub static MaxWinners: u32 = 200;
 	#[derive(Debug)]
 	pub static MaxBackersPerWinner: u32 = 200;
-	pub static Pages: u32 = 1;
 	// `ElectionBounds` and `OnChainElectionsBounds` are defined separately to set them independently in the tests.
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static OnChainElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();

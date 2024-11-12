@@ -64,12 +64,6 @@
 //! supporting an election to be performed over multiple pages. This enables the
 //! [`ElectionDataProvider`] implementor to provide all the election data over multiple pages.
 //! Similarly [`ElectionProvider::elect`] is parameterized by page index.
-////! ## [`LockableElectionDataProvider`] for multi-page election
-//!
-//! The [`LockableElectionDataProvider`] trait exposes a way for election data providers to lock
-//! and unlock election data mutations. This is an useful trait to ensure that the results of
-//! calling [`ElectionDataProvider::electing_voters`] and
-//! [`ElectionDataProvider::electable_targets`] remain consistent over multiple pages.
 //!
 //! ## Election Data
 //!
@@ -405,19 +399,6 @@ pub trait ElectionDataProvider {
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn set_desired_targets(_count: u32) {}
-}
-
-/// An [`ElectionDataProvider`] that exposes for an external entity to request lock/unlock on
-/// updates in the election data.
-///
-/// This functionality is useful when requesting multi-pages of election data, so that the data
-/// provided across pages (and potentially across blocks) is consistent.
-pub trait LockableElectionDataProvider: ElectionDataProvider {
-	/// Lock mutations in the election data provider.
-	fn set_lock() -> data_provider::Result<()>;
-
-	/// Unlocks mutations in the election data provider.
-	fn unlock();
 }
 
 /// Something that can compute the result of an election and pass it back to the caller in a paged

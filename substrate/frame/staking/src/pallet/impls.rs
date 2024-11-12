@@ -20,8 +20,7 @@
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	LockableElectionDataProvider, PageIndex, ScoreProvider, SortedListProvider, VoteWeight,
-	VoterOf,
+	PageIndex, ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
 };
 use frame_support::{
 	defensive,
@@ -1010,8 +1009,7 @@ impl<T: Config> Pallet<T> {
 	/// nominators.
 	///
 	/// Note: in the context of the multi-page snapshot, we expect the *order* of `VoterList` and
-	/// `TargetList` not to change while the pages are being processed. This should be ensured by
-	/// the pallet, (e.g. using [`frame_election_provider_support::LockableElectionDataProvider`]).
+	/// `TargetList` not to change while the pages are being processed.
 	///
 	/// This function is self-weighing as [`DispatchClass::Mandatory`].
 	pub fn get_npos_voters(bounds: DataProviderBounds, page: PageIndex) -> Vec<VoterOf<Self>> {
@@ -1343,26 +1341,6 @@ impl<T: Config> Pallet<T> {
 
 	pub fn api_pending_rewards(era: EraIndex, account: T::AccountId) -> bool {
 		EraInfo::<T>::pending_rewards(era, &account)
-	}
-}
-
-impl<T: Config> LockableElectionDataProvider for Pallet<T> {
-	// TODO: currently, setting the lock in the election data provider is a noop. Implement the
-	// logic that freezes and/or buffers the mutations to ledgers while the lock is set *before*
-	// the multi-page election is enabled.
-	// Tracking issue <https://github.com/paritytech/polkadot-sdk/issues/6328>.
-	fn set_lock() -> data_provider::Result<()> {
-		match ElectionDataLock::<T>::get() {
-			Some(_) => Err("lock already set"),
-			None => {
-				ElectionDataLock::<T>::set(Some(()));
-				Ok(())
-			},
-		}
-	}
-
-	fn unlock() {
-		ElectionDataLock::<T>::set(None);
 	}
 }
 
