@@ -10,3 +10,23 @@ doc:
 crates:
 - name: sp-runtime
   bump: major
+- name: bridge-runtime-common
+  bump: patch
+- name: frame-system
+  bump: patch
+- name: pallet-transaction-payment
+  bump: patch
+- name: polkadot-runtime-common
+  bump: patch
+- name: pallet-sudo
+  bump: patch
+- name: pallet-verify-signature
+  bump: patch
+- name: pallet-asset-tx-payment
+  bump: patch
+- name: pallet-bridge-relayers
+  bump: patch
+- name: pallet-asset-conversion-tx-payment
+  bump: patch
+- name: pallet-skip-feeless-payment
+  bump: patch
