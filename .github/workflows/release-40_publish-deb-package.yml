@@ -103,7 +103,7 @@ jobs:
 
       - name: Setup local deb repo
         run: |
-          apt-get install -y reprepro
+          sudo apt-get install -y reprepro
           which reprepro
 
           mkdir -p ~/deb/conf
