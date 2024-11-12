@@ -195,7 +195,7 @@
 //! [`frame_election_provider_support::ElectionProvider`] traits used by this pallet can support a
 //! multi-page election.
 //!
-//! However, this pallet is meant to be used only in the context of a single-page election and data
+//! However, this pallet only supports single-page election and data
 //! provider and all the relevant trait implementation ad configurations reflect that assumption.
 //!
 //! If external callers request the election of a page index higher than 0, the election will fail
