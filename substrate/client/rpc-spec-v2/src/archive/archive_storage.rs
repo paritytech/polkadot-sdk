@@ -236,10 +236,15 @@ where
 		}
 	}
 
-	/// Check if the key starts with any of the provided items.
+	/// Check if the key belongs to the provided query items.
 	///
-	/// Returns a `FetchStorage` to indicate if the key should be fetched.
-	fn starts_with(key: &StorageKey, items: &[DiffDetails]) -> Option<FetchStorageType> {
+	/// A key belongs to the query items when:
+	/// - the provided key is a prefix of the key in the query items.
+	/// - the query items are empty.
+	///
+	/// Returns an optional `FetchStorageType` based on the query items.
+	/// If the key does not belong to the query items, returns `None`.
+	fn belongs_to_query(key: &StorageKey, items: &[DiffDetails]) -> Option<FetchStorageType> {
 		// User has requested all keys, by default this fallbacks to fetching the value.
 		if items.is_empty() {
 			return Some(FetchStorageType::Value)
@@ -359,8 +364,8 @@ where
 				(None, None) => break,
 			};
 
-			let Some(fetch_type) = Self::starts_with(&key, &items) else {
-				// The key does not start with any of the provided items.
+			let Some(fetch_type) = Self::belongs_to_query(&key, &items) else {
+				// The key does not belong the the query items.
 				continue;
 			};
 
