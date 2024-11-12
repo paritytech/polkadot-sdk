@@ -283,7 +283,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 7_000_000 picoseconds.
 		Weight::from_parts(8_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 1541))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(RocksDbWeight::get().reads(1))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }

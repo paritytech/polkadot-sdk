@@ -403,7 +403,7 @@ pub mod pallet {
 			status.cycle_start.saturating_accrue(cycle_period);
 			now >= status.cycle_start
 		})]
-		#[pallet::task_weight(T::WeightInfo::bump_offchain())]
+		#[pallet::task_weight(T::DbWeight::get().reads(1))]
 		#[pallet::task_index(0)]
 		pub fn bump_offchain() -> DispatchResult {
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
