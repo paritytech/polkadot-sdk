@@ -331,7 +331,7 @@ impl PerSessionCache {
 	}
 
 	/// Gets validators from the cache or fetches them from the runtime if not present.
-	async fn get_or_fetch_validators(
+	async fn validators(
 		&mut self,
 		session_index: SessionIndex,
 		parent: Hash,
@@ -358,7 +358,7 @@ impl PerSessionCache {
 	}
 
 	/// Gets the node features from the cache or fetches it from the runtime if not present.
-	async fn get_or_fetch_node_features(
+	async fn node_features(
 		&mut self,
 		session_index: SessionIndex,
 		parent: Hash,
@@ -381,7 +381,7 @@ impl PerSessionCache {
 
 	/// Gets the executor parameters from the cache or
 	/// fetches them from the runtime if not present.
-	async fn get_or_fetch_executor_params(
+	async fn executor_params(
 		&mut self,
 		session_index: SessionIndex,
 		parent: Hash,
@@ -402,7 +402,7 @@ impl PerSessionCache {
 			})??
 			.ok_or_else(|| RuntimeApiError::Execution {
 				runtime_api_name: "SessionExecutorParams",
-				source: Arc::new(Error::DataNotAvailable),
+				source: Arc::new(Error::MissingExecutorParams),
 			})?;
 
 		// Wrap the executor parameters in an Arc to avoid a deep copy when storing it in the cache.
@@ -416,7 +416,7 @@ impl PerSessionCache {
 
 	/// Gets the minimum backing votes threshold from the
 	/// cache or fetches it from the runtime if not present.
-	async fn get_or_fetch_minimum_backing_votes(
+	async fn minimum_backing_votes(
 		&mut self,
 		session_index: SessionIndex,
 		parent: Hash,
@@ -442,7 +442,7 @@ impl PerSessionCache {
 	}
 
 	/// Gets or computes the validator-to-group mapping for a session.
-	fn get_or_compute_validator_to_group(
+	fn validator_to_group(
 		&mut self,
 		session_index: SessionIndex,
 		validators: &[ValidatorId],
@@ -1270,13 +1270,11 @@ async fn construct_per_relay_parent_state<Context>(
 
 	let session_index = try_runtime_api!(session_index);
 
-	let validators = per_session_cache
-		.get_or_fetch_validators(session_index, parent, ctx.sender())
-		.await;
+	let validators = per_session_cache.validators(session_index, parent, ctx.sender()).await;
 	let validators = try_runtime_api!(validators);
 
 	let node_features = per_session_cache
-		.get_or_fetch_node_features(session_index, parent, ctx.sender())
+		.node_features(session_index, parent, ctx.sender())
 		.await?
 		.unwrap_or(NodeFeatures::EMPTY);
 
@@ -1285,9 +1283,8 @@ async fn construct_per_relay_parent_state<Context>(
 		.map(|b| *b)
 		.unwrap_or(false);
 
-	let executor_params = per_session_cache
-		.get_or_fetch_executor_params(session_index, parent, ctx.sender())
-		.await;
+	let executor_params =
+		per_session_cache.executor_params(session_index, parent, ctx.sender()).await;
 	let executor_params = try_runtime_api!(executor_params);
 
 	gum::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
@@ -1296,7 +1293,7 @@ async fn construct_per_relay_parent_state<Context>(
 	let cores = try_runtime_api!(cores);
 
 	let minimum_backing_votes = per_session_cache
-		.get_or_fetch_minimum_backing_votes(session_index, parent, ctx.sender())
+		.minimum_backing_votes(session_index, parent, ctx.sender())
 		.await;
 	let minimum_backing_votes = try_runtime_api!(minimum_backing_votes);
 
@@ -1371,11 +1368,8 @@ async fn construct_per_relay_parent_state<Context>(
 	}
 	gum::debug!(target: LOG_TARGET, ?groups, "TableContext");
 
-	let validator_to_group = per_session_cache.get_or_compute_validator_to_group(
-		session_index,
-		&validators,
-		&validator_groups,
-	);
+	let validator_to_group =
+		per_session_cache.validator_to_group(session_index, &validators, &validator_groups);
 
 	let table_context =
 		TableContext { validator, groups, validators: validators.to_vec(), disabled_validators };
