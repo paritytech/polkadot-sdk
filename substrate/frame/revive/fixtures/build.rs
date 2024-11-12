@@ -106,7 +106,9 @@ fn create_cargo_toml<'a>(
 	);
 
 	let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
-	fs::write(output_dir.join("Cargo.toml"), cargo_toml).map_err(Into::into)
+	fs::write(output_dir.join("Cargo.toml"), cargo_toml.clone())
+		.with_context(|| format!("Failed to write {cargo_toml:?}"))?;
+	Ok(())
 }
 
 fn invoke_build(target: &Path, current_dir: &Path) -> Result<()> {
@@ -120,6 +122,7 @@ fn invoke_build(target: &Path, current_dir: &Path) -> Result<()> {
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTC_BOOTSTRAP", "1")
 		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
+		.env("RUSTUP_TOOLCHAIN", env::var("RUSTUP_TOOLCHAIN").unwrap_or_default())
 		.args([
 			"build",
 			"--release",
@@ -147,16 +150,17 @@ fn invoke_build(target: &Path, current_dir: &Path) -> Result<()> {
 
 /// Post-process the compiled code.
 fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
-	let strip = std::env::var(OVERRIDE_STRIP_ENV_VAR).map_or(false, |value| value == "1");
-	let optimize = std::env::var(OVERRIDE_OPTIMIZE_ENV_VAR).map_or(true, |value| value == "1");
+	let strip = env::var(OVERRIDE_STRIP_ENV_VAR).map_or(false, |value| value == "1");
+	let optimize = env::var(OVERRIDE_OPTIMIZE_ENV_VAR).map_or(true, |value| value == "1");
 
 	let mut config = polkavm_linker::Config::default();
 	config.set_strip(strip);
 	config.set_optimize(optimize);
-	let orig = fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
+	let orig = fs::read(input_path).with_context(|| format!("Failed to read {input_path:?}"))?;
 	let linked = polkavm_linker::program_from_elf(config, orig.as_ref())
 		.map_err(|err| anyhow::format_err!("Failed to link polkavm program: {}", err))?;
-	fs::write(output_path, linked).map_err(Into::into)
+	fs::write(output_path, linked).with_context(|| format!("Failed to write {output_path:?}"))?;
+	Ok(())
 }
 
 /// Write the compiled contracts to the given output directory.
@@ -208,9 +212,11 @@ pub fn main() -> Result<()> {
 		let symlink_dir: PathBuf = symlink_dir.into();
 		let symlink_dir: PathBuf = symlink_dir.join("target").join("pallet-revive-fixtures");
 		if symlink_dir.is_symlink() {
-			fs::remove_file(&symlink_dir)?
+			fs::remove_file(&symlink_dir)
+				.with_context(|| format!("Failed to remove_file {symlink_dir:?}"))?;
 		}
-		std::os::unix::fs::symlink(&out_dir, &symlink_dir)?;
+		std::os::unix::fs::symlink(&out_dir, &symlink_dir)
+			.with_context(|| format!("Failed to symlink {out_dir:?} -> {symlink_dir:?}"))?;
 	}
 
 	Ok(())
