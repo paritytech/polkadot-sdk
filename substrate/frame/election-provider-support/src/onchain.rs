@@ -42,7 +42,7 @@ pub enum Error {
 	/// Configurational error caused by `desired_targets` requested by data provider exceeding
 	/// `MaxWinners`.
 	TooManyWinners,
-	/// Single page election called with multi-page configs.
+	/// Election page index not supported.
 	UnsupportedPageIndex,
 }
 
@@ -181,7 +181,7 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		if page > 0 {
-			return Err(Error::SinglePageExpected)
+			return Err(Error::UnsupportedPageIndex)
 		}
 
 		let election_bounds = ElectionBoundsBuilder::from(T::Bounds::get()).build();

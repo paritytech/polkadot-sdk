@@ -625,9 +625,6 @@ impl<T: Config> Pallet<T> {
 	/// * Store start session index for the new planned era.
 	/// * Clean old era information.
 	///
-	/// Note: staking information for the new planned era has been processed and stored during the
-	/// `elect_paged(page_index)` calls.
-	///
 	/// The new validator set for this era is stored under [`ElectableStashes`].
 	pub fn trigger_new_era(start_session_index: SessionIndex) {
 		// Increment or set current era.
@@ -857,15 +854,14 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn add_electables(
 		stashes: BoundedVec<T::AccountId, MaxWinnersPerPageOf<T::ElectionProvider>>,
 	) -> Result<(), ()> {
-		let mut storage_stashes = ElectableStashes::<T>::get();
-		for stash in stashes.into_iter() {
-			storage_stashes.try_insert(stash).map_err(|_| {
-				// add as many stashes as possible before returning err.
-				ElectableStashes::<T>::set(storage_stashes.clone());
-			})?;
-		}
-
-		ElectableStashes::<T>::set(storage_stashes);
+		ElectableStashes::<T>::mutate(|electable| {
+			for stash in stashes.into_iter() {
+				if let Err(_) = (*electable).try_insert(stash) {
+					return Err(())
+				}
+			}
+			Ok(())
+		})?;
 
 		Ok(())
 	}

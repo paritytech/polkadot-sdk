@@ -45,12 +45,24 @@ fn add_electable_stashes_work() {
 			vec![1, 2, 3, 4]
 		);
 
+		// skip final try state checks.
+		SkipTryStateCheck::set(true);
+	})
+}
+
+#[test]
+fn add_electable_stashes_overflow_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		MaxValidatorSet::set(5);
+		assert_eq!(MaxValidatorSet::get(), 5);
+		assert!(ElectableStashes::<Test>::get().is_empty());
+
 		// adds stashes so that bounds are overflown, fails and internal state changes so that
 		// all slots are filled.
-		assert!(Staking::add_electables(bounded_vec![6, 7, 8, 9, 10]).is_err());
+		assert!(Staking::add_electables(bounded_vec![1, 2, 3, 4, 5, 6]).is_err());
 		assert_eq!(
 			ElectableStashes::<Test>::get().into_inner().into_iter().collect::<Vec<_>>(),
-			vec![1, 2, 3, 4, 6]
+			vec![1, 2, 3, 4, 5]
 		);
 
 		// skip final try state checks.
