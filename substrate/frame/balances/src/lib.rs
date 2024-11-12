@@ -205,7 +205,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, traits::ConstU64};
+		use frame_support::derive_impl;
 
 		pub struct TestDefaultConfig;
 
@@ -222,7 +222,7 @@ pub mod pallet {
 			type RuntimeFreezeReason = ();
 
 			type Balance = u64;
-			type ExistentialDeposit = ConstU64<1>;
+			type ExistentialDeposit = ConstUint<1>;
 
 			type ReserveIdentifier = ();
 			type FreezeIdentifier = Self::RuntimeFreezeReason;
