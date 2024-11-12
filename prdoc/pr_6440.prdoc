@@ -1,0 +1,15 @@
+title: Remove debug message about pruning active leaves
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    The debug message was added to identify a potential memory leak. However, recent observations show that pruning works as expected. Therefore, it is best to remove this line, as it generates quite annoying logs.
+
+
+    ## Integration
+
+    Doesn't affect downstream projects.
+crates:
+- name: polkadot-node-core-pvf
+  validate: false
