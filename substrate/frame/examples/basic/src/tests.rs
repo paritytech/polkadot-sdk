@@ -146,7 +146,7 @@ fn signed_ext_watch_dummy_works() {
 
 		assert_eq!(
 			WatchDummy::<Test>(PhantomData)
-				.validate_only(Some(1).into(), &call, &info, 150)
+				.validate_only(Some(1).into(), &call, &info, 150, 0)
 				.unwrap()
 				.0
 				.priority,
@@ -154,7 +154,7 @@ fn signed_ext_watch_dummy_works() {
 		);
 		assert_eq!(
 			WatchDummy::<Test>(PhantomData)
-				.validate_only(Some(1).into(), &call, &info, 250)
+				.validate_only(Some(1).into(), &call, &info, 250, 0)
 				.unwrap_err(),
 			InvalidTransaction::ExhaustsResources.into(),
 		);

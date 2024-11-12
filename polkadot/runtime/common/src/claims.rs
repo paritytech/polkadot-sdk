@@ -1075,7 +1075,7 @@ mod tests {
 			});
 			let di = c.get_dispatch_info();
 			assert_eq!(di.pays_fee, Pays::No);
-			let r = p.validate_only(Some(42).into(), &c, &di, 20);
+			let r = p.validate_only(Some(42).into(), &c, &di, 20, 0);
 			assert_eq!(r.unwrap().0, ValidTransaction::default());
 		});
 	}
@@ -1088,13 +1088,13 @@ mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = p.validate_only(Some(42).into(), &c, &di, 20);
+			let r = p.validate_only(Some(42).into(), &c, &di, 20, 0);
 			assert!(r.is_err());
 			let c = RuntimeCall::Claims(ClaimsCall::attest {
 				statement: StatementKind::Saft.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = p.validate_only(Some(69).into(), &c, &di, 20);
+			let r = p.validate_only(Some(69).into(), &c, &di, 20, 0);
 			assert!(r.is_err());
 		});
 	}
@@ -1736,7 +1736,7 @@ mod benchmarking {
 			#[block]
 			{
 				assert!(ext
-					.test_run(RawOrigin::Signed(account).into(), &call, &info, 0, |_| {
+					.test_run(RawOrigin::Signed(account).into(), &call, &info, 0, 0, |_| {
 						Ok(Default::default())
 					})
 					.unwrap()

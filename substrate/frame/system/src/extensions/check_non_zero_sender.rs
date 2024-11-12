@@ -96,7 +96,7 @@ mod tests {
 			let len = 0_usize;
 			assert_eq!(
 				CheckNonZeroSender::<Test>::new()
-					.validate_only(Some(0).into(), CALL, &info, len)
+					.validate_only(Some(0).into(), CALL, &info, len, 0)
 					.unwrap_err(),
 				TransactionValidityError::from(InvalidTransaction::BadSigner)
 			);
@@ -104,7 +104,8 @@ mod tests {
 				Some(1).into(),
 				CALL,
 				&info,
-				len
+				len,
+				0,
 			));
 		})
 	}

@@ -574,6 +574,7 @@ mod test {
 				&result.function,
 				&result.function.get_dispatch_info(),
 				encoded_len,
+				0,
 			)?;
 
 			Ok((result.function, extra))

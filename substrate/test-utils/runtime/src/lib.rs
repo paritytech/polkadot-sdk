@@ -1211,6 +1211,7 @@ mod tests {
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
 						len,
+						0,
 					)
 					.unwrap()
 					.0
@@ -1225,6 +1226,7 @@ mod tests {
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
 						len,
+						0,
 					)
 					.unwrap()
 					.0

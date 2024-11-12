@@ -203,13 +203,13 @@ mod tests {
 			assert_storage_noop!({
 				assert_eq!(
 					CheckNonce::<Test>(0u64.into())
-						.validate_only(Some(1).into(), CALL, &info, len)
+						.validate_only(Some(1).into(), CALL, &info, len, 0)
 						.unwrap_err(),
 					TransactionValidityError::Invalid(InvalidTransaction::Stale)
 				);
 				assert_eq!(
 					CheckNonce::<Test>(0u64.into())
-						.validate_and_prepare(Some(1).into(), CALL, &info, len)
+						.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
 						.unwrap_err(),
 					TransactionValidityError::Invalid(InvalidTransaction::Stale)
 				);
@@ -219,24 +219,27 @@ mod tests {
 				Some(1).into(),
 				CALL,
 				&info,
-				len
+				len,
+				0,
 			));
 			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
 				Some(1).into(),
 				CALL,
 				&info,
-				len
+				len,
+				0,
 			));
 			// future
 			assert_ok!(CheckNonce::<Test>(5u64.into()).validate_only(
 				Some(1).into(),
 				CALL,
 				&info,
-				len
+				len,
+				0,
 			));
 			assert_eq!(
 				CheckNonce::<Test>(5u64.into())
-					.validate_and_prepare(Some(1).into(), CALL, &info, len)
+					.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
 					.unwrap_err(),
 				TransactionValidityError::Invalid(InvalidTransaction::Future)
 			);
@@ -272,13 +275,13 @@ mod tests {
 			assert_storage_noop!({
 				assert_eq!(
 					CheckNonce::<Test>(1u64.into())
-						.validate_only(Some(1).into(), CALL, &info, len)
+						.validate_only(Some(1).into(), CALL, &info, len, 0)
 						.unwrap_err(),
 					TransactionValidityError::Invalid(InvalidTransaction::Payment)
 				);
 				assert_eq!(
 					CheckNonce::<Test>(1u64.into())
-						.validate_and_prepare(Some(1).into(), CALL, &info, len)
+						.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
 						.unwrap_err(),
 					TransactionValidityError::Invalid(InvalidTransaction::Payment)
 				);
@@ -288,26 +291,30 @@ mod tests {
 				Some(2).into(),
 				CALL,
 				&info,
-				len
+				len,
+				0,
 			));
 			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
 				Some(2).into(),
 				CALL,
 				&info,
-				len
+				len,
+				0,
 			));
 			// Non-zero sufficients
 			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
 				Some(3).into(),
 				CALL,
 				&info,
-				len
+				len,
+				0,
 			));
 			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
 				Some(3).into(),
 				CALL,
 				&info,
-				len
+				len,
+				0,
 			));
 		})
 	}
@@ -376,7 +383,7 @@ mod tests {
 			let len = CALL.encoded_size();
 
 			let origin = crate::RawOrigin::Root.into();
-			let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len).unwrap();
+			let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 			assert!(origin.as_system_ref().unwrap().is_root());
 
