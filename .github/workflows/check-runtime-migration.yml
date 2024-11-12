@@ -104,7 +104,7 @@ jobs:
         id: required1
         run: |
           echo "---------- Building ${{ matrix.package }} runtime ----------"
-          time forklift cargo build --release --locked -p ${{ matrix.package }} --features try-runtime -q
+          forklift cargo build --release --locked -p ${{ matrix.package }} --features try-runtime -q
 
       - name: Run Check
         id: required2
@@ -113,7 +113,7 @@ jobs:
           export RUST_LOG=remote-ext=debug,runtime=debug
 
           echo "---------- Executing on-runtime-upgrade for ${{ matrix.network }} ----------"
-          time ./try-runtime ${{ matrix.command_extra_args }} \
+          ./try-runtime ${{ matrix.command_extra_args }} \
               --runtime ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }} \
               on-runtime-upgrade --disable-spec-version-check --checks=all ${{ matrix.subcommand_extra_args }} snap -p snapshot.raw
           sleep 5

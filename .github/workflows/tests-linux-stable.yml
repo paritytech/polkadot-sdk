@@ -161,28 +161,6 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
-  test-linux-worfklow-stopper:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # needs: [set-image]
-    # container:
-    #   image: ${{ needs.set-image.outputs.IMAGE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: script
-        id: required1
-        run: echo ok
-      - name: script
-        id: required2
-        run: sleep 30; exit 1
-      - name: Stop all workflows if failed
-        if: ${{ failure() && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure') }}
-        uses: ./.github/actions/workflow-stopper
-        with:
-          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
-
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
     name: All tests passed
@@ -192,7 +170,6 @@ jobs:
         test-linux-stable-int,
         test-linux-stable-runtime-benchmarks,
         test-linux-stable,
-        test-linux-worfklow-stopper,
         test-linux-stable-no-try-runtime,
       ]
     if: always() && !cancelled()
