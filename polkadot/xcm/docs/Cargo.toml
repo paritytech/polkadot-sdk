@@ -30,6 +30,7 @@ sp-io = { workspace = true, default-features = true }
 # Some pallets
 pallet-message-queue = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-assets = { workspace = true, default-features = true }
 
 # For building docs
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }

@@ -25,3 +25,6 @@
 /// In the case of Polkadot, this recipe will show you how to launch a parachain with no native
 /// token -- dealing only on DOT.
 pub mod relay_token_transactor;
+
+/// Configuring a parachain to handle other parachain assets.
+pub mod other_parachain_tokens;
