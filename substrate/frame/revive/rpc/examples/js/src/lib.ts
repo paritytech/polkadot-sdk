@@ -4,15 +4,34 @@ import {
 	JsonRpcProvider,
 	TransactionReceipt,
 	TransactionResponse,
+	Wallet,
 } from 'ethers'
 import { readFileSync } from 'node:fs'
 import type { compile } from '@parity/revive'
 import { spawn } from 'node:child_process'
+import { parseArgs } from 'node:util'
 
 type CompileOutput = Awaited<ReturnType<typeof compile>>
 type Abi = CompileOutput['contracts'][string][string]['abi']
 
-const geth = process.argv.includes('--geth')
+const {
+	values: { geth, westend, ['private-key']: privateKey },
+} = parseArgs({
+	args: process.argv.slice(2),
+	options: {
+		['private-key']: {
+			type: 'string',
+			short: 'k',
+		},
+		geth: {
+			type: 'boolean',
+		},
+		westend: {
+			type: 'boolean',
+		},
+	},
+})
+
 if (geth) {
 	console.log('Testing with Geth')
 	const child = spawn(
@@ -31,13 +50,15 @@ if (geth) {
 	)
 
 	process.on('exit', () => child.kill())
-
 	child.unref()
 	await new Promise((resolve) => setTimeout(resolve, 500))
 }
 
-const provider = new JsonRpcProvider('http://localhost:8545')
-const signer = await provider.getSigner()
+const provider = new JsonRpcProvider(
+	westend ? 'https://westend-asset-hub-eth-rpc.polkadot.io' : 'http://localhost:8545'
+)
+
+const signer = privateKey ? new Wallet(privateKey, provider) : await provider.getSigner()
 console.log(`Signer address: ${await signer.getAddress()}, Nonce: ${await signer.getNonce()}`)
 
 /**
