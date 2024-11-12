@@ -126,7 +126,8 @@ filter = 'test(/(^ui$|_ui|ui_)/)'
 test-group = 'serial-integration'
 
 # Running eth-rpc tests sequentially
-# As they rely on a shared resource (the RPC and Node) and could run into race conditions with the nonces
+# These tests rely on a shared resource (the RPC and Node) 
+# and would cause race conditions due to transaction nonces if run in parallel.
 [[profile.default.overrides]]
 filter = 'package(pallet-revive-eth-rpc) and test(/^tests::/)'
 test-group = 'serial-integration'
