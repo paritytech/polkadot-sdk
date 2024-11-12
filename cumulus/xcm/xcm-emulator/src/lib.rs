@@ -59,7 +59,7 @@ pub use sp_core::{
 };
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
-pub use sp_runtime::BoundedSlice;
+pub use sp_runtime::{traits::Convert, BoundedSlice};
 pub use sp_tracing;
 
 // Cumulus
@@ -75,7 +75,7 @@ pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
 pub use polkadot_primitives;
-pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
+pub use polkadot_runtime_parachains::inclusion::{Config as InclusionConfig, UmpQueueId};
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
@@ -1452,15 +1452,17 @@ where
 	}
 }
 
+type GenericAMO<T> = <<T as Chain>::Runtime as InclusionConfig>::AggregateMessageOrigin;
+
 pub struct DefaultRelayMessageProcessor<T>(PhantomData<T>);
 // Process UMP messages on the relay
 impl<T> ProcessMessage for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
-	T::Runtime: MessageQueueConfig,
+	T::Runtime: MessageQueueConfig + InclusionConfig,
 	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<AggregateMessageOrigin>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOrigin> + ServiceQueues,
+		PartialEq<GenericAMO<T>>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<GenericAMO<T>> + ServiceQueues,
 {
 	type Origin = ParaId;
 
@@ -1472,7 +1474,9 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		MessageQueuePallet::<T::Runtime>::enqueue_message(
 			msg.try_into().expect("Message too long"),
-			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
+			<T::Runtime as InclusionConfig>::GetAggregateMessageOrigin::convert(UmpQueueId::Para(
+				para,
+			)),
 		);
 		MessageQueuePallet::<T::Runtime>::service_queues(Weight::MAX);
 
@@ -1483,10 +1487,10 @@ where
 impl<T> ServiceQueues for DefaultRelayMessageProcessor<T>
 where
 	T: RelayChain,
-	T::Runtime: MessageQueueConfig,
+	T::Runtime: MessageQueueConfig + InclusionConfig,
 	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<AggregateMessageOrigin>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<AggregateMessageOrigin> + ServiceQueues,
+		PartialEq<GenericAMO<T>>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<GenericAMO<T>> + ServiceQueues,
 {
 	type OverweightMessageAddress = ();
 
