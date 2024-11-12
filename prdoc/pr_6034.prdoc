@@ -3,7 +3,7 @@ title: Adds multi-block election types and refactors current single logic to sup
 doc:
   - audience: Runtime Dev
     description: |
-      This PR adds election types and structs required to run a multi-block election. In additoin,
+      This PR adds election types and structs required to run a multi-block election. In addition,
       it EPM, staking pallet and all dependent pallets and logic to use the multi-block types.
 
 crates:
