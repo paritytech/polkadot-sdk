@@ -114,7 +114,7 @@ jobs:
           mkdir -p ${{ github.workspace }}/deb/conf
           cp ${{ github.workspace }}/.github/scripts/release/distributions ${{ github.workspace }}/deb/conf/distributions
           cat ${{ github.workspace }}/deb/conf/distributions
- 
+
       - name: Publish deb package
         run: |
 
