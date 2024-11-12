@@ -291,7 +291,7 @@ where
 		network_service: service::network::NetworkServiceHandle,
 		import_queue: Box<dyn ImportQueueService<B>>,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
-        force_synced: bool,
+		force_synced: bool,
 	) -> Result<(Self, SyncingService<B>, N::NotificationProtocolConfig), ClientError>
 	where
 		N: NetworkBackend<B, <B as BlockT>::Hash>,
@@ -352,8 +352,8 @@ where
 				&net_config.network_config.default_peers_set,
 				network_metrics,
 				Arc::clone(&peer_store_handle),
-                force_synced,
-            );
+				force_synced,
+			);
 
 		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
@@ -420,16 +420,16 @@ where
 		))
 	}
 
-    fn is_synced(&self) -> bool {
-        if self.force_synced {
-            return true
-        }
+	fn is_synced(&self) -> bool {
+		if self.force_synced {
+			return true
+		}
 
-        !self.is_major_syncing.load(Ordering::Relaxed) &&
-            self.peers.iter().any(|(_peer_id, peer)| peer.info.is_synced)
-    }
+		!self.is_major_syncing.load(Ordering::Relaxed) &&
+			self.peers.iter().any(|(_peer_id, peer)| peer.info.is_synced)
+	}
 
-    fn update_peer_info(
+	fn update_peer_info(
 		&mut self,
 		peer_id: &PeerId,
 		best_hash: B::Hash,
@@ -439,7 +439,16 @@ where
 		if let Some(ref mut peer) = self.peers.get_mut(peer_id) {
 			peer.info.best_hash = best_hash;
 			peer.info.best_number = best_number;
+			let has_synced_changed = peer.info.is_synced != is_synced;
 			peer.info.is_synced = is_synced;
+
+			if has_synced_changed {
+				self.event_streams.retain(|stream| {
+					stream
+						.unbounded_send(SyncEvent::PeerSyncState { peer_id: *peer_id, is_synced })
+						.is_ok()
+				});
+			}
 		}
 	}
 
@@ -1003,8 +1012,11 @@ where
 			self.num_in_peers += 1;
 		}
 
-		self.event_streams
-			.retain(|stream| stream.unbounded_send(SyncEvent::PeerConnected(peer_id)).is_ok());
+		self.event_streams.retain(|stream| {
+			stream
+				.unbounded_send(SyncEvent::PeerConnected { peer_id, is_synced: status.is_synced })
+				.is_ok()
+		});
 
 		Ok(())
 	}
@@ -1088,7 +1100,7 @@ where
 		set_config: &SetConfig,
 		metrics: NotificationMetrics,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
-        force_synced: bool,
+		force_synced: bool,
 	) -> (N::NotificationProtocolConfig, Box<dyn NotificationService>) {
 		let block_announces_protocol = {
 			let genesis_hash = genesis_hash.as_ref();

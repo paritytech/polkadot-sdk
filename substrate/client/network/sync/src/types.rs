@@ -139,7 +139,10 @@ where
 /// Syncing-related events that other protocols can subscribe to.
 pub enum SyncEvent {
 	/// Peer that the syncing implementation is tracking connected.
-	PeerConnected(PeerId),
+	PeerConnected { peer_id: PeerId, is_synced: bool },
+
+	/// Change of peer sync state to/from synced.
+	PeerSyncState { peer_id: PeerId, is_synced: bool },
 
 	/// Peer that the syncing implementation was tracking disconnected.
 	PeerDisconnected(PeerId),

@@ -256,8 +256,11 @@ impl<B: BlockT> Future for GossipEngine<B> {
 
 					match sync_event_stream {
 						Poll::Ready(Some(event)) => match event {
-							SyncEvent::PeerConnected(remote) =>
+							SyncEvent::PeerConnected { peer_id: remote, is_synced: _ } =>
 								this.network.add_set_reserved(remote, this.protocol.clone()),
+							SyncEvent::PeerSyncState { .. } => {
+								// Ignore
+							},
 							SyncEvent::PeerDisconnected(remote) =>
 								this.network.remove_set_reserved(remote, this.protocol.clone()),
 						},

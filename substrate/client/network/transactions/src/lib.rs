@@ -199,6 +199,7 @@ impl TransactionsHandlerPrototype {
 			sync,
 			sync_event_stream: sync_event_stream.fuse(),
 			peers: HashMap::new(),
+			peers_sync_state: HashMap::new(),
 			transaction_pool,
 			from_controller,
 			metrics: if let Some(r) = metrics_registry {
@@ -267,6 +268,8 @@ pub struct TransactionsHandler<
 	sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
 	// All connected peers
 	peers: HashMap<PeerId, Peer<H>>,
+	/// Sync state of every connected peer, `true` for those who announce themselves as synced
+	peers_sync_state: HashMap<PeerId, bool>,
 	transaction_pool: Arc<dyn TransactionPool<H, B>>,
 	from_controller: TracingUnboundedReceiver<ToHandler<H>>,
 	/// Prometheus metrics.
@@ -377,7 +380,7 @@ where
 
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
-			SyncEvent::PeerConnected(remote) => {
+			SyncEvent::PeerConnected { peer_id: remote, is_synced } => {
 				let addr = iter::once(multiaddr::Protocol::P2p(remote.into()))
 					.collect::<multiaddr::Multiaddr>();
 				let result = self.network.add_peers_to_reserved_set(
@@ -386,6 +389,13 @@ where
 				);
 				if let Err(err) = result {
 					log::error!(target: LOG_TARGET, "Add reserved peer failed: {}", err);
+				}
+
+				self.peers_sync_state.insert(remote, is_synced);
+			},
+			SyncEvent::PeerSyncState { peer_id, is_synced } => {
+				if let Some(stored) = self.peers_sync_state.get_mut(&peer_id) {
+					*stored = is_synced;
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
@@ -396,6 +406,8 @@ where
 				if let Err(err) = result {
 					log::error!(target: LOG_TARGET, "Remove reserved peer failed: {}", err);
 				}
+
+				self.peers_sync_state.remove(&remote);
 			},
 		}
 	}
@@ -474,7 +486,10 @@ where
 		let mut propagated_to = HashMap::<_, Vec<_>>::new();
 		let mut propagated_transactions = 0;
 
-		for (who, peer) in self.peers.iter_mut() {
+		for (who, peer) in self.peers.iter_mut().filter(|(peer_id, _peer)| {
+			// Only send transactions to synced peers
+			self.peers_sync_state.get(peer_id).copied().unwrap_or_default()
+		}) {
 			// never send transactions to the light node
 			if matches!(peer.role, ObservedRole::Light) {
 				continue
