@@ -105,6 +105,7 @@ std = [
 	"pallet-collator-selection/std",
 	"pallet-identity/std",
 	"pallet-message-queue/std",
+	"pallet-migrations/std",
 	"pallet-multisig/std",
 	"pallet-proxy/std",
 	"pallet-session/std",

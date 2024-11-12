@@ -49,8 +49,9 @@ use polkadot_primitives::{
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	vstaging::{
-		CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
+		transpose_claim_queue, CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
 	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, PersistedValidationData,
 	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
@@ -151,6 +152,25 @@ impl<Context> CandidateValidationSubsystem {
 	}
 }
 
+// Returns the claim queue at relay parent and logs a warning if it is not available.
+async fn claim_queue<Sender>(relay_parent: Hash, sender: &mut Sender) -> Option<ClaimQueueSnapshot>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	match util::runtime::fetch_claim_queue(sender, relay_parent).await {
+		Ok(maybe_cq) => maybe_cq,
+		Err(err) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?err,
+				"Claim queue not available"
+			);
+			None
+		},
+	}
+}
+
 fn handle_validation_message<S>(
 	mut sender: S,
 	validation_host: ValidationHost,
@@ -170,24 +190,40 @@ where
 			exec_kind,
 			response_sender,
 			..
-		} => async move {
-			let _timer = metrics.time_validate_from_exhaustive();
-			let res = validate_candidate_exhaustive(
-				validation_host,
-				validation_data,
-				validation_code,
-				candidate_receipt,
-				pov,
-				executor_params,
-				exec_kind,
-				&metrics,
-			)
-			.await;
+		} =>
+			async move {
+				let _timer = metrics.time_validate_from_exhaustive();
+				let relay_parent = candidate_receipt.descriptor.relay_parent();
 
-			metrics.on_validation_event(&res);
-			let _ = response_sender.send(res);
-		}
-		.boxed(),
+				let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
+
+				let maybe_expected_session_index =
+					match util::request_session_index_for_child(relay_parent, &mut sender)
+						.await
+						.await
+					{
+						Ok(Ok(expected_session_index)) => Some(expected_session_index),
+						_ => None,
+					};
+
+				let res = validate_candidate_exhaustive(
+					maybe_expected_session_index,
+					validation_host,
+					validation_data,
+					validation_code,
+					candidate_receipt,
+					pov,
+					executor_params,
+					exec_kind,
+					&metrics,
+					maybe_claim_queue,
+				)
+				.await;
+
+				metrics.on_validation_event(&res);
+				let _ = response_sender.send(res);
+			}
+			.boxed(),
 		CandidateValidationMessage::PreCheck {
 			relay_parent,
 			validation_code_hash,
@@ -701,6 +737,7 @@ where
 }
 
 async fn validate_candidate_exhaustive(
+	maybe_expected_session_index: Option<SessionIndex>,
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -709,11 +746,13 @@ async fn validate_candidate_exhaustive(
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
+	maybe_claim_queue: Option<ClaimQueueSnapshot>,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
-
 	let validation_code_hash = validation_code.hash();
+	let relay_parent = candidate_receipt.descriptor.relay_parent();
 	let para_id = candidate_receipt.descriptor.para_id();
+
 	gum::debug!(
 		target: LOG_TARGET,
 		?validation_code_hash,
@@ -848,15 +887,21 @@ async fn validate_candidate_exhaustive(
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
-				let outputs = CandidateCommitments {
-					head_data: res.head_data,
-					upward_messages: res.upward_messages,
-					horizontal_messages: res.horizontal_messages,
-					new_validation_code: res.new_validation_code,
-					processed_downward_messages: res.processed_downward_messages,
-					hrmp_watermark: res.hrmp_watermark,
+				let committed_candidate_receipt = CommittedCandidateReceipt {
+					descriptor: candidate_receipt.descriptor.clone(),
+					commitments: CandidateCommitments {
+						head_data: res.head_data,
+						upward_messages: res.upward_messages,
+						horizontal_messages: res.horizontal_messages,
+						new_validation_code: res.new_validation_code,
+						processed_downward_messages: res.processed_downward_messages,
+						hrmp_watermark: res.hrmp_watermark,
+					},
 				};
-				if candidate_receipt.commitments_hash != outputs.hash() {
+
+				if candidate_receipt.commitments_hash !=
+					committed_candidate_receipt.commitments.hash()
+				{
 					gum::info!(
 						target: LOG_TARGET,
 						?para_id,
@@ -1157,6 +1202,7 @@ fn perform_basic_checks(
 		return Err(InvalidCandidate::CodeHashMismatch)
 	}
 
+	// No-op for `v2` receipts.
 	if let Err(()) = candidate.check_collator_signature() {
 		return Err(InvalidCandidate::BadSignature)
 	}
