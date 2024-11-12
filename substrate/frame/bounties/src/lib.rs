@@ -324,6 +324,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkDefaultAssetKind: Get<Self::AssetKind>;
+
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;

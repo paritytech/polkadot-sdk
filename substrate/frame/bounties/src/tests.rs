@@ -26,7 +26,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, OnInitialize,
+		ConstU32, ConstU64, Imbalance, OnInitialize,
 	},
 	PalletId,
 };
@@ -95,7 +95,7 @@ impl pallet_treasury::Config for Test {
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
-	type SpendFunds = Bounties;
+	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit>;
 	type AssetKind = ();
@@ -118,7 +118,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.
 	type WeightInfo = ();
-	type SpendFunds = Bounties1;
+	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit1>;
 	type AssetKind = ();
@@ -154,6 +154,8 @@ impl Config for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkDefaultAssetKind = ();
 }
 
 impl Config<Instance1> for Test {
@@ -170,6 +172,8 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ();
 	type OnSlash = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkDefaultAssetKind = ();
 }
 
 type TreasuryError = pallet_treasury::Error<Test>;
@@ -372,7 +376,12 @@ fn propose_bounty_works() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 10, b"1234567890".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			10,
+			b"1234567890".to_vec()
+		));
 
 		assert_eq!(last_event(), BountiesEvent::BountyProposed { index: 0 });
 
@@ -386,6 +395,7 @@ fn propose_bounty_works() {
 				proposer: 0,
 				fee: 0,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 10,
 				bond: deposit,
 				status: BountyStatus::Proposed,
@@ -408,13 +418,19 @@ fn propose_bounty_validation_works() {
 		assert_eq!(Treasury::pot(), 100);
 
 		assert_noop!(
-			Bounties::propose_bounty(RuntimeOrigin::signed(1), 0, [0; 17_000].to_vec()),
+			Bounties::propose_bounty(
+				RuntimeOrigin::signed(1),
+				Box::new(()),
+				0,
+				[0; 17_000].to_vec()
+			),
 			Error::<Test>::ReasonTooBig
 		);
 
 		assert_noop!(
 			Bounties::propose_bounty(
 				RuntimeOrigin::signed(1),
+				Box::new(()),
 				10,
 				b"12345678901234567890".to_vec()
 			),
@@ -422,7 +438,12 @@ fn propose_bounty_validation_works() {
 		);
 
 		assert_noop!(
-			Bounties::propose_bounty(RuntimeOrigin::signed(1), 0, b"12345678901234567890".to_vec()),
+			Bounties::propose_bounty(
+				RuntimeOrigin::signed(1),
+				Box::new(()),
+				0,
+				b"12345678901234567890".to_vec()
+			),
 			Error::<Test>::InvalidValue
 		);
 	});
@@ -435,7 +456,12 @@ fn close_bounty_works() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_noop!(Bounties::close_bounty(RuntimeOrigin::root(), 0), Error::<Test>::InvalidIndex);
 
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 10, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			10,
+			b"12345".to_vec()
+		));
 
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), 0));
 
@@ -462,7 +488,12 @@ fn approve_bounty_works() {
 			Error::<Test>::InvalidIndex
 		);
 
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
@@ -473,6 +504,7 @@ fn approve_bounty_works() {
 			Bounty {
 				proposer: 0,
 				fee: 0,
+				asset_kind: (),
 				value: 50,
 				curator_deposit: 0,
 				bond: deposit,
@@ -502,6 +534,7 @@ fn approve_bounty_works() {
 				proposer: 0,
 				fee: 0,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: deposit,
 				status: BountyStatus::Funded,
@@ -523,7 +556,12 @@ fn assign_curator_works() {
 			Error::<Test>::InvalidIndex
 		);
 
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
@@ -543,6 +581,7 @@ fn assign_curator_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::CuratorProposed { curator: 4 },
@@ -550,19 +589,19 @@ fn assign_curator_works() {
 		);
 
 		assert_noop!(
-			Bounties::accept_curator(RuntimeOrigin::signed(1), 0),
+			Bounties::accept_curator(RuntimeOrigin::signed(1), 0, 0),
 			Error::<Test>::RequireCurator
 		);
 		assert_noop!(
-			Bounties::accept_curator(RuntimeOrigin::signed(4), 0),
+			Bounties::accept_curator(RuntimeOrigin::signed(4), 0, 0),
 			pallet_balances::Error::<Test, _>::InsufficientBalance
 		);
 
 		Balances::make_free_balance_be(&4, 10);
 
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0, 0));
 
-		let expected_deposit = Bounties::calculate_curator_deposit(&fee);
+		let expected_deposit = Bounties::calculate_curator_deposit(&fee, ()).unwrap();
 
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
@@ -570,9 +609,10 @@ fn assign_curator_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: expected_deposit,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
-				status: BountyStatus::Active { curator: 4, update_due: 22 },
+				status: BountyStatus::Active { curator: 4, update_due: 22, curator_stash: 0 },
 			}
 		);
 
@@ -585,7 +625,12 @@ fn assign_curator_works() {
 fn unassign_curator_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
@@ -603,6 +648,7 @@ fn unassign_curator_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::Funded,
@@ -611,8 +657,8 @@ fn unassign_curator_works() {
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, fee));
 		Balances::make_free_balance_be(&4, 10);
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
-		let expected_deposit = Bounties::calculate_curator_deposit(&fee);
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0, 0));
+		let expected_deposit = Bounties::calculate_curator_deposit(&fee, ()).unwrap();
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), 0));
 
 		assert_eq!(
@@ -621,6 +667,7 @@ fn unassign_curator_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::Funded,
@@ -637,7 +684,12 @@ fn award_and_claim_bounty_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 10);
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
@@ -645,9 +697,9 @@ fn award_and_claim_bounty_works() {
 
 		let fee = 4;
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, fee));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0, 0));
 
-		let expected_deposit = Bounties::calculate_curator_deposit(&fee);
+		let expected_deposit = Bounties::calculate_curator_deposit(&fee, ()).unwrap();
 		assert_eq!(Balances::free_balance(4), 10 - expected_deposit);
 
 		assert_noop!(
@@ -663,9 +715,15 @@ fn award_and_claim_bounty_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: expected_deposit,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
-				status: BountyStatus::PendingPayout { curator: 4, beneficiary: 3, unlock_at: 5 },
+				status: BountyStatus::PendingPayout {
+					curator: 4,
+					beneficiary: 3,
+					unlock_at: 5,
+					curator_stash: 0
+				},
 			}
 		);
 
@@ -683,7 +741,12 @@ fn award_and_claim_bounty_works() {
 
 		assert_eq!(
 			last_event(),
-			BountiesEvent::BountyClaimed { index: 0, payout: 56, beneficiary: 3 }
+			BountiesEvent::BountyClaimed {
+				index: 0,
+				asset_kind: (),
+				asset_payout: 56,
+				beneficiary: 3
+			}
 		);
 
 		assert_eq!(Balances::free_balance(4), 14); // initial 10 + fee 4
@@ -701,14 +764,19 @@ fn claim_handles_high_fee() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 30);
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 49));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0, 0));
 
 		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(4), 0, 3));
 
@@ -722,7 +790,12 @@ fn claim_handles_high_fee() {
 
 		assert_eq!(
 			last_event(),
-			BountiesEvent::BountyClaimed { index: 0, payout: 0, beneficiary: 3 }
+			BountiesEvent::BountyClaimed {
+				index: 0,
+				asset_kind: (),
+				asset_payout: 0,
+				beneficiary: 3
+			}
 		);
 
 		assert_eq!(Balances::free_balance(4), 70); // 30 + 50 - 10
@@ -739,7 +812,12 @@ fn cancel_and_refund() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
@@ -757,6 +835,7 @@ fn cancel_and_refund() {
 				proposer: 0,
 				fee: 0,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::Funded,
@@ -778,14 +857,19 @@ fn cancel_and_refund() {
 fn award_and_cancel() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 0, 10));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(0), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(0), 0, 0));
 
 		assert_eq!(Balances::free_balance(0), 95);
 		assert_eq!(Balances::reserved_balance(0), 5);
@@ -819,14 +903,19 @@ fn award_and_cancel() {
 fn expire_and_unassign() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 1, 10));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(1), 0, 0));
 
 		assert_eq!(Balances::free_balance(1), 93);
 		assert_eq!(Balances::reserved_balance(1), 5);
@@ -848,6 +937,7 @@ fn expire_and_unassign() {
 				proposer: 0,
 				fee: 10,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::Funded,
@@ -864,7 +954,7 @@ fn extend_expiry() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&4, 10);
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), Box::new(()), 50, b"12345".to_vec()));
 
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
@@ -876,7 +966,7 @@ fn extend_expiry() {
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 10));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0, 0));
 
 		assert_eq!(Balances::free_balance(4), 5);
 		assert_eq!(Balances::reserved_balance(4), 5);
@@ -895,9 +985,10 @@ fn extend_expiry() {
 				proposer: 0,
 				fee: 10,
 				curator_deposit: 5,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
-				status: BountyStatus::Active { curator: 4, update_due: 30 },
+				status: BountyStatus::Active { curator: 4, curator_stash: 0, update_due: 30 },
 			}
 		);
 
@@ -909,9 +1000,10 @@ fn extend_expiry() {
 				proposer: 0,
 				fee: 10,
 				curator_deposit: 5,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
-				status: BountyStatus::Active { curator: 4, update_due: 30 }, // still the same
+				status: BountyStatus::Active { curator: 4, curator_stash: 0, update_due: 30 }, // still the same
 			}
 		);
 
@@ -934,13 +1026,14 @@ fn test_migration_v4() {
 
 	let index: u32 = 10;
 
-	let bounty = Bounty::<u128, u64, u64> {
+	let bounty = Bounty::<u128, u64, u64, u64, (), u64, u64> {
 		proposer: 0,
+		asset_kind: (),
 		value: 20,
 		fee: 20,
 		curator_deposit: 20,
 		bond: 50,
-		status: BountyStatus::<u128, u64>::Proposed,
+		status: BountyStatus::<u128, u64, u64, u64>::Proposed,
 	};
 
 	let data = vec![
@@ -995,13 +1088,18 @@ fn genesis_funding_works() {
 fn unassign_curator_self() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 1, 10));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(1), 0, 0));
 
 		assert_eq!(Balances::free_balance(1), 93);
 		assert_eq!(Balances::reserved_balance(1), 5);
@@ -1016,6 +1114,7 @@ fn unassign_curator_self() {
 				proposer: 0,
 				fee: 10,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::Funded,
@@ -1042,13 +1141,18 @@ fn accept_curator_handles_different_deposit_calculations() {
 		Balances::make_free_balance_be(&user, 100);
 		// Allow for a larger spend limit:
 		SpendLimit::set(value);
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), value, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			value,
+			b"12345".to_vec()
+		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_index));
 
 		go_to_block(2);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_index, user, fee));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(user), bounty_index));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(user), bounty_index, 0));
 
 		let expected_deposit = CuratorDepositMultiplier::get() * fee;
 		assert_eq!(Balances::free_balance(&user), 100 - expected_deposit);
@@ -1063,13 +1167,18 @@ fn accept_curator_handles_different_deposit_calculations() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&user, 100);
 
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), value, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			value,
+			b"12345".to_vec()
+		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_index));
 
 		go_to_block(4);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_index, user, fee));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(user), bounty_index));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(user), bounty_index, 0));
 
 		let expected_deposit = CuratorDepositMin::get();
 		assert_eq!(Balances::free_balance(&user), 100 - expected_deposit);
@@ -1088,13 +1197,18 @@ fn accept_curator_handles_different_deposit_calculations() {
 
 		// Allow for a larger spend limit:
 		SpendLimit::set(value);
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), value, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			value,
+			b"12345".to_vec()
+		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), bounty_index));
 
 		go_to_block(6);
 
 		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), bounty_index, user, fee));
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(user), bounty_index));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(user), bounty_index, 0));
 
 		let expected_deposit = CuratorDepositMax::get();
 		assert_eq!(Balances::free_balance(&user), starting_balance - expected_deposit);
@@ -1113,7 +1227,12 @@ fn approve_bounty_works_second_instance() {
 		assert_eq!(Balances::free_balance(&Treasury::account_id()), 101);
 		assert_eq!(Balances::free_balance(&Treasury1::account_id()), 201);
 
-		assert_ok!(Bounties1::propose_bounty(RuntimeOrigin::signed(0), 10, b"12345".to_vec()));
+		assert_ok!(Bounties1::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			10,
+			b"12345".to_vec()
+		));
 		assert_ok!(Bounties1::approve_bounty(RuntimeOrigin::root(), 0));
 		go_to_block(2);
 		<Treasury1 as OnInitialize<u64>>::on_initialize(2);
@@ -1133,7 +1252,12 @@ fn approve_bounty_insufficient_spend_limit_errors() {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
 
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 51, b"123".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			51,
+			b"123".to_vec()
+		));
 		// 51 will not work since the limit is 50.
 		SpendLimit::set(50);
 		assert_noop!(
@@ -1149,7 +1273,12 @@ fn approve_bounty_instance1_insufficient_spend_limit_errors() {
 		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
 		assert_eq!(Treasury1::pot(), 100);
 
-		assert_ok!(Bounties1::propose_bounty(RuntimeOrigin::signed(0), 51, b"123".to_vec()));
+		assert_ok!(Bounties1::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			51,
+			b"123".to_vec()
+		));
 		// 51 will not work since the limit is 50.
 		SpendLimit1::set(50);
 		assert_noop!(
@@ -1166,7 +1295,12 @@ fn propose_curator_insufficient_spend_limit_errors() {
 
 		// Temporarily set a larger spend limit;
 		SpendLimit::set(51);
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 51, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			51,
+			b"12345".to_vec()
+		));
 		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
 
 		go_to_block(2);
@@ -1187,7 +1321,12 @@ fn propose_curator_instance1_insufficient_spend_limit_errors() {
 
 		// Temporarily set a larger spend limit;
 		SpendLimit1::set(11);
-		assert_ok!(Bounties1::propose_bounty(RuntimeOrigin::signed(0), 11, b"12345".to_vec()));
+		assert_ok!(Bounties1::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			11,
+			b"12345".to_vec()
+		));
 		assert_ok!(Bounties1::approve_bounty(RuntimeOrigin::root(), 0));
 
 		<Treasury1 as OnInitialize<u64>>::on_initialize(2);
@@ -1209,7 +1348,12 @@ fn approve_bounty_with_curator_works() {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 		assert_noop!(
 			Bounties::approve_bounty_with_curator(RuntimeOrigin::signed(1), 0, curator, 10),
 			BadOrigin
@@ -1237,6 +1381,7 @@ fn approve_bounty_with_curator_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::ApprovedWithCurator { curator },
@@ -1265,6 +1410,7 @@ fn approve_bounty_with_curator_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::CuratorProposed { curator },
@@ -1272,11 +1418,11 @@ fn approve_bounty_with_curator_works() {
 		);
 
 		assert_noop!(
-			Bounties::accept_curator(RuntimeOrigin::signed(curator), 0),
+			Bounties::accept_curator(RuntimeOrigin::signed(curator), 0, 0),
 			pallet_balances::Error::<Test, _>::InsufficientBalance
 		);
 		Balances::make_free_balance_be(&curator, 6);
-		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(curator), 0));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(curator), 0, 0));
 
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
@@ -1284,9 +1430,10 @@ fn approve_bounty_with_curator_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: 5,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
-				status: BountyStatus::Active { curator, update_due: 22 },
+				status: BountyStatus::Active { curator, curator_stash: 0, update_due: 22 },
 			}
 		);
 
@@ -1296,7 +1443,12 @@ fn approve_bounty_with_curator_works() {
 		assert_ok!(Bounties::claim_bounty(RuntimeOrigin::signed(curator), 0));
 		assert_eq!(
 			last_event(),
-			BountiesEvent::BountyClaimed { index: 0, payout: 40, beneficiary: 5 }
+			BountiesEvent::BountyClaimed {
+				index: 0,
+				asset_kind: (),
+				asset_payout: 40,
+				beneficiary: 5
+			}
 		);
 		assert_eq!(Balances::free_balance(5), 40); // 50 - 10
 	});
@@ -1310,7 +1462,12 @@ fn approve_bounty_with_curator_early_unassign_works() {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 		assert_ok!(Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), 0, curator, 10));
 
 		// unassign curator while bounty is not yet funded
@@ -1322,6 +1479,7 @@ fn approve_bounty_with_curator_early_unassign_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::Approved,
@@ -1339,6 +1497,7 @@ fn approve_bounty_with_curator_early_unassign_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::Funded,
@@ -1356,6 +1515,7 @@ fn approve_bounty_with_curator_early_unassign_works() {
 				proposer: 0,
 				fee: new_fee,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::CuratorProposed { curator: new_curator },
@@ -1376,7 +1536,12 @@ fn approve_bounty_with_curator_proposed_unassign_works() {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
-		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(0),
+			Box::new(()),
+			50,
+			b"12345".to_vec()
+		));
 		assert_ok!(Bounties::approve_bounty_with_curator(RuntimeOrigin::root(), 0, curator, 10));
 
 		System::set_block_number(2);
@@ -1388,6 +1553,7 @@ fn approve_bounty_with_curator_proposed_unassign_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::CuratorProposed { curator },
@@ -1401,6 +1567,7 @@ fn approve_bounty_with_curator_proposed_unassign_works() {
 				proposer: 0,
 				fee,
 				curator_deposit: 0,
+				asset_kind: (),
 				value: 50,
 				bond: 85,
 				status: BountyStatus::Funded,
