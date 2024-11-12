@@ -9,7 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "ethers": "^6.13.1"
+    "ethers": "^6.13.1",
+    "solc": "^0.8.28"
   },
   "devDependencies": {
     "typescript": "^5.5.3",
