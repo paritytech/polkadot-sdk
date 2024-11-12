@@ -10,3 +10,7 @@ crates:
   bump: major
 - name: frame-benchmarking-cli
   bump: major
+- name: sc-client-db
+  bump: none
+- name: pallet-referenda
+  bump: none
