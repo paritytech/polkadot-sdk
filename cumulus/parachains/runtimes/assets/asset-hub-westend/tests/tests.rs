@@ -987,7 +987,8 @@ fn authorized_aliases_work() {
 			// Alice explicitly authorizes `alice_on_sibling_para` to alias her local account
 			assert_ok!(PolkadotXcm::add_authorized_alias(
 				RuntimeHelper::origin_of(alice.clone()),
-				Box::new(alice_on_sibling_para.clone().into())
+				Box::new(alice_on_sibling_para.clone().into()),
+				None
 			));
 
 			// `alice_on_sibling_para` now explicitly allowed to alias into `local_alice`
@@ -1006,7 +1007,8 @@ fn authorized_aliases_work() {
 			// Alice explicitly authorizes `alice_on_relay` to alias her local account
 			assert_ok!(PolkadotXcm::add_authorized_alias(
 				RuntimeHelper::origin_of(alice.clone()),
-				Box::new(alice_on_relay.clone().into())
+				Box::new(alice_on_relay.clone().into()),
+				None
 			));
 			// Now both `alice_on_relay` and `alice_on_sibling_para` can alias into her local
 			// account

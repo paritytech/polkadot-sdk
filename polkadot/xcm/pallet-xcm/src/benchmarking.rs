@@ -276,7 +276,7 @@ benchmarks! {
 		let loc = VersionedLocation::from(Location::from(Parent));
 		SupportedVersion::<T>::insert(old_version, loc, old_version);
 	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateSupportedVersion, Weight::zero());
+		crate::Pallet::<T>::lazy_migration(VersionMigrationStage::MigrateSupportedVersion, Weight::zero());
 	}
 
 	migrate_version_notifiers {
@@ -284,7 +284,7 @@ benchmarks! {
 		let loc = VersionedLocation::from(Location::from(Parent));
 		VersionNotifiers::<T>::insert(old_version, loc, 0);
 	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateVersionNotifiers, Weight::zero());
+		crate::Pallet::<T>::lazy_migration(VersionMigrationStage::MigrateVersionNotifiers, Weight::zero());
 	}
 
 	already_notified_target {
@@ -295,7 +295,7 @@ benchmarks! {
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), current_version));
 	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::NotifyCurrentTargets(None), Weight::zero());
+		crate::Pallet::<T>::lazy_migration(VersionMigrationStage::NotifyCurrentTargets(None), Weight::zero());
 	}
 
 	notify_current_targets {
@@ -307,7 +307,7 @@ benchmarks! {
 		let old_version = current_version - 1;
 		VersionNotifyTargets::<T>::insert(current_version, loc, (0, Weight::zero(), old_version));
 	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::NotifyCurrentTargets(None), Weight::zero());
+		crate::Pallet::<T>::lazy_migration(VersionMigrationStage::NotifyCurrentTargets(None), Weight::zero());
 	}
 
 	notify_target_migration_fail {
@@ -323,7 +323,7 @@ benchmarks! {
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(current_version, bad_location, (0, Weight::zero(), current_version));
 	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
+		crate::Pallet::<T>::lazy_migration(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
 	}
 
 	migrate_version_notify_targets {
@@ -332,7 +332,7 @@ benchmarks! {
 		let loc = VersionedLocation::from(Location::from(Parent));
 		VersionNotifyTargets::<T>::insert(old_version, loc, (0, Weight::zero(), current_version));
 	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
+		crate::Pallet::<T>::lazy_migration(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
 	}
 
 	migrate_and_notify_old_targets {
@@ -343,7 +343,7 @@ benchmarks! {
 		let old_version = T::AdvertisedXcmVersion::get() - 1;
 		VersionNotifyTargets::<T>::insert(old_version, loc, (0, Weight::zero(), old_version));
 	}: {
-		crate::Pallet::<T>::check_xcm_version_change(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
+		crate::Pallet::<T>::lazy_migration(VersionMigrationStage::MigrateAndNotifyOldTargets, Weight::zero());
 	}
 
 	new_query {
@@ -389,27 +389,29 @@ benchmarks! {
 		let origin = RawOrigin::Root;
 		let origin_location: VersionedLocation = T::ExecuteXcmOrigin::try_origin(origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?.into();
-		let mut existing_aliases = BoundedVec::<VersionedLocation, MaxAuthorizedAliases>::new();
+		let mut existing_aliases = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
 		// prepopulate list with `max-1` aliases to benchmark worst case
 		for i in 1..MaxAuthorizedAliases::get() {
 			let alias = Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }]).into();
-			existing_aliases.try_push(alias).unwrap()
+			let aliaser = OriginAliaser { location: alias, expiry: None };
+			existing_aliases.try_push(aliaser).unwrap()
 		}
 		AuthorizedAliases::<T>::insert(&origin_location, existing_aliases);
 		// now benchmark adding new alias
 		let aliaser: VersionedLocation =
 			Location::new(1, [Parachain(1234), AccountId32 { network: None, id: [42_u8; 32] }]).into();
-	}: _(origin, Box::new(aliaser))
+	}: _(origin, Box::new(aliaser), None)
 
 	remove_authorized_alias {
 		let origin = RawOrigin::Root;
 		let origin_location: VersionedLocation = T::ExecuteXcmOrigin::try_origin(origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?.into();
-		let mut existing_aliases = BoundedVec::<VersionedLocation, MaxAuthorizedAliases>::new();
+		let mut existing_aliases = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
 		// prepopulate list with `max` aliases to benchmark worst case
 		for i in 1..MaxAuthorizedAliases::get()+1 {
 			let alias = Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }]).into();
-			existing_aliases.try_push(alias).unwrap()
+			let aliaser = OriginAliaser { location: alias, expiry: None };
+			existing_aliases.try_push(aliaser).unwrap()
 		}
 		AuthorizedAliases::<T>::insert(&origin_location, existing_aliases);
 		// now benchmark removing an alias
