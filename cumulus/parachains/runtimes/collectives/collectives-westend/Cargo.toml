@@ -192,6 +192,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
+	"frame-metadata-hash-extension/std",
 	"log/std",
 	"pallet-alliance/std",
 	"pallet-asset-rate/std",
