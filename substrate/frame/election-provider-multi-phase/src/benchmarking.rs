@@ -289,7 +289,8 @@ mod benchmarks {
 		// We don't directly need the data-provider to be populated, but it is just easy to use it.
 		set_up_data_provider::<T>(v, t);
 		// default bounds are unbounded.
-		let targets = T::DataProvider::electable_targets(DataProviderBounds::default(), Zero::zero())?;
+		let targets =
+			T::DataProvider::electable_targets(DataProviderBounds::default(), Zero::zero())?;
 		let voters = T::DataProvider::electing_voters(DataProviderBounds::default(), Zero::zero())?;
 
 		let desired_targets = T::DataProvider::desired_targets()?;
