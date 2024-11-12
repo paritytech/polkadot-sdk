@@ -12,7 +12,7 @@ aws_deb_path="s3://releases-package-repos/deb"
 
 # Add a deb to our apt repo
 add_deb(){
-  alias aws='podman run --rm -it docker.io/paritytech/awscli -e AWS_ACCESS_KEY_ID=${AWS_RELEASE_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_RELEASE_SECRET_ACCESS_KEY} -e AWS_BUCKET aws'
+  alias aws='podman run --rm -it -e AWS_ACCESS_KEY_ID=${AWS_RELEASE_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_RELEASE_SECRET_ACCESS_KEY} -e AWS_BUCKET docker.io/paritytech/awscli aws'
 
   # Download the current state of the deb repo
   aws s3 sync "$aws_deb_path/db" "$local_deb_repo_path/db"
