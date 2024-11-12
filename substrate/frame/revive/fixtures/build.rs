@@ -106,7 +106,9 @@ fn create_cargo_toml<'a>(
 	);
 
 	let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
-	fs::write(output_dir.join("Cargo.toml"), cargo_toml).map_err(Into::into)
+	fs::write(output_dir.join("Cargo.toml"), cargo_toml.clone())
+		.with_context(|| format!("Failed to write {cargo_toml:?}"))?;
+	Ok(())
 }
 
 fn invoke_build(target: &Path, current_dir: &Path) -> Result<()> {
@@ -154,10 +156,11 @@ fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 	let mut config = polkavm_linker::Config::default();
 	config.set_strip(strip);
 	config.set_optimize(optimize);
-	let orig = fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
+	let orig = fs::read(input_path).with_context(|| format!("Failed to read {input_path:?}"))?;
 	let linked = polkavm_linker::program_from_elf(config, orig.as_ref())
 		.map_err(|err| anyhow::format_err!("Failed to link polkavm program: {}", err))?;
-	fs::write(output_path, linked).map_err(Into::into)
+	fs::write(output_path, linked).with_context(|| format!("Failed to write {output_path:?}"))?;
+	Ok(())
 }
 
 /// Write the compiled contracts to the given output directory.
@@ -209,9 +212,11 @@ pub fn main() -> Result<()> {
 		let symlink_dir: PathBuf = symlink_dir.into();
 		let symlink_dir: PathBuf = symlink_dir.join("target").join("pallet-revive-fixtures");
 		if symlink_dir.is_symlink() {
-			fs::remove_file(&symlink_dir)?
+			fs::remove_file(&symlink_dir)
+				.with_context(|| format!("Failed to remove_file {symlink_dir:?}"))?;
 		}
-		std::os::unix::fs::symlink(&out_dir, &symlink_dir)?;
+		std::os::unix::fs::symlink(&out_dir, &symlink_dir)
+			.with_context(|| format!("Failed to symlink {out_dir:?} -> {symlink_dir:?}"))?;
 	}
 
 	Ok(())

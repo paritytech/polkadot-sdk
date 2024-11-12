@@ -31,7 +31,7 @@ mod listener;
 mod pool;
 mod ready;
 mod rotator;
-mod tracked_map;
+pub(crate) mod tracked_map;
 mod validated_pool;
 
 pub mod base_pool;

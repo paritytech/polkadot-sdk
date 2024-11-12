@@ -40,7 +40,7 @@ impl From<subxt_signer::eth::Keypair> for Account {
 impl Account {
 	/// Get the [`H160`] address of the account.
 	pub fn address(&self) -> H160 {
-		H160::from_slice(&self.0.account_id().as_ref())
+		H160::from_slice(&self.0.public_key().to_account_id().as_ref())
 	}
 
 	/// Get the substrate [`AccountId32`] of the account.
