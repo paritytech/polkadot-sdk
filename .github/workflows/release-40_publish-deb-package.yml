@@ -112,4 +112,4 @@ jobs:
       - name: Publish deb package
         run: |
 
-          . /.github/scripts/release/publish-deb-package.sh ${{ inputs.distribution }} polkadot 1.16.1
+          . ${{ github.workspace }}/.github/scripts/release/publish-deb-package.sh ${{ inputs.distribution }} polkadot 1.16.1
