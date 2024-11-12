@@ -15,23 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use jsonrpsee::http_client::HttpClientBuilder;
-use pallet_revive::evm::{Account, BlockTag, Bytes, ReceiptInfo};
+use pallet_revive::evm::{Account, BlockTag, ReceiptInfo};
 use pallet_revive_eth_rpc::{
-	example::{send_transaction, wait_for_receipt},
+	example::{wait_for_receipt, TransactionBuilder},
 	EthRpcClient,
 };
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-	let alith = Account::default();
 	let client = HttpClientBuilder::default().build("http://localhost:8545")?;
 
+	let alith = Account::default();
+	let alith_address = alith.address();
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let value = 1_000_000_000_000_000_000_000u128.into();
 
 	let print_balance = || async {
-		let balance = client.get_balance(alith.address(), BlockTag::Latest.into()).await?;
-		println!("Alith     {:?} balance: {balance:?}", alith.address());
+		let balance = client.get_balance(alith_address, BlockTag::Latest.into()).await?;
+		println!("Alith     {:?} balance: {balance:?}", alith_address);
 		let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
 		println!("ethan {:?} balance: {balance:?}", ethan.address());
 		anyhow::Result::<()>::Ok(())
@@ -40,8 +41,12 @@ async fn main() -> anyhow::Result<()> {
 	print_balance().await?;
 	println!("\n\n=== Transferring  ===\n\n");
 
-	let hash =
-		send_transaction(&alith, &client, value, Bytes::default(), Some(ethan.address())).await?;
+	let hash = TransactionBuilder::default()
+		.signer(alith)
+		.value(value)
+		.to(ethan.address())
+		.send(&client)
+		.await?;
 	println!("Transaction hash: {hash:?}");
 
 	let ReceiptInfo { block_number, gas_used, status, .. } =
