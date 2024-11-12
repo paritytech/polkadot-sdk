@@ -1786,7 +1786,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		// Note: this pallet **MUST** only by used in the single-block mode.
-		ensure!(page.is_zero(), ElectionError::<T>::MultiPageNotSupported);
+		ensure!(page == SINGLE_PAGE, ElectionError::<T>::MultiPageNotSupported);
 
 		match Self::do_elect() {
 			Ok(bounded_supports) => {
