@@ -674,7 +674,7 @@ pub mod pallet {
 		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
 		type MaxWinners: Get<u32>;
 
-		/// Maximum number of voters that can support a winner target in an election solution.
+		/// Maximum number of voters that can support a winner in an election solution.
 		///
 		/// This limit must be set so that the memory limits of the rest of the system are
 		/// respected.
