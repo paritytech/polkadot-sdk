@@ -12,6 +12,16 @@ doc:
       Developers can start experimenting with the new features of the metadata v16. Please note that
       this metadata is under development and expect breaking changes until stabilization.
 
+      The `ExtrinsicMetadata` trait receives a breaking change. Its associated type `VERSION` is rename to `VERSIONS`
+      and now supports a constant static list of metadata versions. The versions implemented for `UncheckedExtrinsic`
+      are v4 (legacy version) and v5 (new version).
+
 crates:
   - name: sp-metadata-ir
-    bump: minor
+    bump: major
+  - name: sp-runtime
+    bump: major
+  - name: frame-support-procedural
+    bump: patch
+  - name: pallet-revive
+    bump: patch
