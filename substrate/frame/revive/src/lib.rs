@@ -23,7 +23,6 @@
 extern crate alloc;
 mod address;
 mod benchmarking;
-mod benchmarking_dummy;
 mod exec;
 mod gas;
 mod limits;
@@ -760,6 +759,7 @@ pub mod pallet {
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		MomentOf<T>: Into<U256>,
+		T::Hash: frame_support::traits::IsType<H256>,
 	{
 		/// A raw EVM transaction, typically dispatched by an Ethereum JSON-RPC server.
 		///
@@ -1082,6 +1082,7 @@ impl<T: Config> Pallet<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// A generalized version of [`Self::call`].
 	///
@@ -1241,6 +1242,7 @@ where
 		<T as Config>::RuntimeCall: Encode,
 		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		T::Nonce: Into<U256>,
+		T::Hash: frame_support::traits::IsType<H256>,
 	{
 		log::debug!(target: LOG_TARGET, "bare_eth_transact: dest: {dest:?} value: {value:?} gas_limit: {gas_limit:?} storage_deposit_limit: {storage_deposit_limit:?}");
 		// Get the nonce to encode in the tx.

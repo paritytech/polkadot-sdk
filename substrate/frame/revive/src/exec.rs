@@ -53,7 +53,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Zero},
+	traits::{BadOrigin, Convert, Dispatchable, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -281,12 +281,18 @@ pub trait Ext: sealing::Sealed {
 	/// Returns the caller.
 	fn caller(&self) -> Origin<Self::T>;
 
+	/// Return the origin of the whole call stack.
+	fn origin(&self) -> &Origin<Self::T>;
+
 	/// Check if a contract lives at the specified `address`.
 	fn is_contract(&self, address: &H160) -> bool;
 
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
+
+	/// Returns the code size of the contract at the given `address` or zero.
+	fn code_size(&self, address: &H160) -> U256;
 
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
@@ -346,6 +352,10 @@ pub trait Ext: sealing::Sealed {
 
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
+
+	/// Returns the block hash at the given `block_number` or `None` if
+	/// `block_number` isn't within the range of the previous 256 blocks.
+	fn block_hash(&self, block_number: U256) -> Option<H256>;
 
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
@@ -730,6 +740,7 @@ where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
 	E: Executable<T>,
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Create and run a new call stack by calling into `dest`.
 	///
@@ -805,7 +816,7 @@ where
 			.map(|_| (address, stack.first_frame.last_frame_output))
 	}
 
-	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn bench_new_call(
 		dest: H160,
 		origin: Origin<T>,
@@ -1352,9 +1363,27 @@ where
 
 	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
 	/// on the configured entry point. Thus, we allow setting the export manually.
-	#[cfg(all(feature = "runtime-benchmarks", feature = "riscv"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn override_export(&mut self, export: ExportedFunction) {
 		self.top_frame_mut().entry_point = export;
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub(crate) fn set_block_number(&mut self, block_number: BlockNumberFor<T>) {
+		self.block_number = block_number;
+	}
+
+	fn block_hash(&self, block_number: U256) -> Option<H256> {
+		let Ok(block_number) = BlockNumberFor::<T>::try_from(block_number) else {
+			return None;
+		};
+		if block_number >= self.block_number {
+			return None;
+		}
+		if block_number < self.block_number.saturating_sub(256u32.into()) {
+			return None;
+		}
+		Some(System::<T>::block_hash(&block_number).into())
 	}
 }
 
@@ -1364,6 +1393,7 @@ where
 	E: Executable<T>,
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
 {
 	type T = T;
 
@@ -1576,6 +1606,10 @@ where
 		}
 	}
 
+	fn origin(&self) -> &Origin<T> {
+		&self.origin
+	}
+
 	fn is_contract(&self, address: &H160) -> bool {
 		ContractInfoOf::<T>::contains_key(&address)
 	}
@@ -1589,6 +1623,13 @@ where
 				}
 				H256::zero()
 			})
+	}
+
+	fn code_size(&self, address: &H160) -> U256 {
+		<ContractInfoOf<T>>::get(&address)
+			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
+			.map(|info| info.code_len())
+			.unwrap_or_default()
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -1658,6 +1699,10 @@ where
 
 	fn block_number(&self) -> U256 {
 		self.block_number.into()
+	}
+
+	fn block_hash(&self, block_number: U256) -> Option<H256> {
+		self.block_hash(block_number)
 	}
 
 	fn max_value_size(&self) -> u32 {
@@ -2449,6 +2494,71 @@ mod tests {
 
 		assert_eq!(WitnessedCallerBob::get(), Some(ALICE_ADDR));
 		assert_eq!(WitnessedCallerCharlie::get(), Some(BOB_ADDR));
+	}
+
+	#[test]
+	fn origin_returns_proper_values() {
+		parameter_types! {
+			static WitnessedCallerBob: Option<H160> = None;
+			static WitnessedCallerCharlie: Option<H160> = None;
+		}
+
+		let bob_ch = MockLoader::insert(Call, |ctx, _| {
+			// Record the origin for bob.
+			WitnessedCallerBob::mutate(|witness| {
+				let origin = ctx.ext.origin();
+				*witness = Some(<Test as Config>::AddressMapper::to_address(
+					&origin.account_id().unwrap(),
+				));
+			});
+
+			// Call into CHARLIE contract.
+			assert_matches!(
+				ctx.ext.call(
+					Weight::zero(),
+					U256::zero(),
+					&CHARLIE_ADDR,
+					U256::zero(),
+					vec![],
+					true,
+					false
+				),
+				Ok(_)
+			);
+			exec_success()
+		});
+		let charlie_ch = MockLoader::insert(Call, |ctx, _| {
+			// Record the origin for charlie.
+			WitnessedCallerCharlie::mutate(|witness| {
+				let origin = ctx.ext.origin();
+				*witness = Some(<Test as Config>::AddressMapper::to_address(
+					&origin.account_id().unwrap(),
+				));
+			});
+			exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, bob_ch);
+			place_contract(&CHARLIE, charlie_ch);
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+
+			let result = MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage_meter,
+				0,
+				vec![],
+				None,
+			);
+
+			assert_matches!(result, Ok(_));
+		});
+
+		assert_eq!(WitnessedCallerBob::get(), Some(ALICE_ADDR));
+		assert_eq!(WitnessedCallerCharlie::get(), Some(ALICE_ADDR));
 	}
 
 	#[test]
@@ -4747,5 +4857,61 @@ mod tests {
 				)
 				.unwrap()
 			});
+	}
+
+	#[test]
+	fn block_hash_returns_proper_values() {
+		let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
+			ctx.ext.block_number = 1u32.into();
+			assert_eq!(ctx.ext.block_hash(U256::from(1)), None);
+			assert_eq!(ctx.ext.block_hash(U256::from(0)), Some(H256::from([1; 32])));
+
+			ctx.ext.block_number = 300u32.into();
+			assert_eq!(ctx.ext.block_hash(U256::from(300)), None);
+			assert_eq!(ctx.ext.block_hash(U256::from(43)), None);
+			assert_eq!(ctx.ext.block_hash(U256::from(44)), Some(H256::from([2; 32])));
+
+			exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			frame_system::BlockHash::<Test>::insert(
+				&BlockNumberFor::<Test>::from(0u32),
+				<tests::Test as frame_system::Config>::Hash::from([1; 32]),
+			);
+			frame_system::BlockHash::<Test>::insert(
+				&BlockNumberFor::<Test>::from(1u32),
+				<tests::Test as frame_system::Config>::Hash::default(),
+			);
+			frame_system::BlockHash::<Test>::insert(
+				&BlockNumberFor::<Test>::from(43u32),
+				<tests::Test as frame_system::Config>::Hash::default(),
+			);
+			frame_system::BlockHash::<Test>::insert(
+				&BlockNumberFor::<Test>::from(44u32),
+				<tests::Test as frame_system::Config>::Hash::from([2; 32]),
+			);
+			frame_system::BlockHash::<Test>::insert(
+				&BlockNumberFor::<Test>::from(300u32),
+				<tests::Test as frame_system::Config>::Hash::default(),
+			);
+
+			place_contract(&BOB, bob_code_hash);
+
+			let origin = Origin::from_account_id(ALICE);
+			let mut storage_meter = storage::meter::Meter::new(&origin, 0, 0).unwrap();
+			assert_matches!(
+				MockStack::run_call(
+					origin,
+					BOB_ADDR,
+					&mut GasMeter::<Test>::new(GAS_LIMIT),
+					&mut storage_meter,
+					0,
+					vec![0],
+					None,
+				),
+				Ok(_)
+			);
+		});
 	}
 }

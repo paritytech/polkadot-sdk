@@ -396,8 +396,8 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `Identity::PendingUsernames` (r:1 w:1)
-	/// Proof: `Identity::PendingUsernames` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
-	fn remove_expired_approval() -> Weight {
+	/// Proof: `Identity::PendingUsernames` (`max_values`: None, `max_size`: Some(77), added: 2552, mode: `MaxEncodedLen`)
+	fn remove_expired_approval(_p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `115`
 		//  Estimated: `3550`

@@ -51,7 +51,6 @@ subxt = { workspace = true, default-features = true, features = [
 tokio = { workspace = true, features = ["full"] }
 codec = { workspace = true, features = ["derive"] }
 log.workspace = true
-tracing-subscriber.workspace = true
 pallet-revive = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
@@ -73,9 +72,7 @@ secp256k1 = { workspace = true, optional = true, features = ["recovery"] }
 env_logger = { workspace = true }
 
 [features]
-dev = []
 example = ["hex", "hex-literal", "rlp", "secp256k1", "subxt-signer"]
-riscv = ["pallet-revive/riscv"]
 
 [dev-dependencies]
 hex-literal = { workspace = true }
