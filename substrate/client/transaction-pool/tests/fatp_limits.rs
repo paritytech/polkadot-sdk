@@ -642,12 +642,8 @@ fn fatp_limits_future_size_works() {
 	assert_eq!(pool.mempool_len().0, 3);
 }
 
-// this test is bad by design: xt0, xt1 cannot be dropped by the pool after finalizing 02 - there
-// can be new fork where xt0, xt1 will be valid.
-// todo: do we need this test?
 #[test]
-#[ignore]
-fn fatp_limits_watcher_xxx() {
+fn fatp_limits_watcher_ready_transactions_are_not_droped_when_view_is_dropped() {
 	sp_tracing::try_init_simple();
 
 	let builder = TestPoolBuilder::new();
@@ -670,8 +666,10 @@ fn fatp_limits_watcher_xxx() {
 	let xt4 = uxt(Eve, 600);
 	let xt5 = uxt(Ferdie, 700);
 
-	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let _xt0_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let _xt1_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
 
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 	assert_eq!(pool.mempool_len().1, 2);
@@ -679,8 +677,10 @@ fn fatp_limits_watcher_xxx() {
 	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
 
-	let xt2_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
-	let xt3_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
+	let _xt2_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	let _xt3_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
 
 	assert_pool_status!(header02.hash(), &pool, 2, 0);
 	assert_eq!(pool.mempool_len().1, 4);
@@ -688,8 +688,10 @@ fn fatp_limits_watcher_xxx() {
 	let header03 = api.push_block_with_parent(header02.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header02.hash()), header03.hash())));
 
-	let xt4_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4.clone())).unwrap();
-	let xt5_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt5.clone())).unwrap();
+	let _xt4_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4.clone())).unwrap();
+	let _xt5_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt5.clone())).unwrap();
 
 	assert_pool_status!(header03.hash(), &pool, 2, 0);
 	assert_eq!(pool.mempool_len().1, 6);
@@ -714,63 +716,32 @@ fn fatp_limits_watcher_xxx() {
 
 	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
 	assert!(!pool.status_all().contains_key(&header02.hash()));
+
+	//view 01 was dropped
 	assert!(pool.ready_at(header01.hash()).now_or_never().is_none());
-	//todo: can we do better? We don't have API to check if event was processed internally.
-	let mut counter = 0;
-	while pool.mempool_len().1 != 4 {
-		sleep(std::time::Duration::from_millis(1));
-		counter = counter + 1;
-		if counter > 20 {
-			assert!(false, "timeout");
-		}
-	}
-	assert_eq!(pool.mempool_len().1, 4);
+	assert_eq!(pool.mempool_len().1, 6);
 
 	block_on(pool.maintain(finalized_block_event(&pool, header02.hash(), header03.hash())));
-	log::info!("status: {:?}", pool.status_all());
+
+	//no revalidation has happened yet, all txs are kept
+	assert_eq!(pool.mempool_len().1, 6);
+
+	//view 03 is still there
 	assert!(!pool.status_all().contains_key(&header03.hash()));
+
+	//view 02 was dropped
 	assert!(pool.ready_at(header02.hash()).now_or_never().is_none());
 
-	//
-	//
-	//
-	//
+	let mut prev_header = header03;
+	for n in 5..=11 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
 
-	// assert_pool_status!(header02e.hash(), &pool, 0, 0);
-	//
-	// let header02f = api.push_block_with_parent(header01.hash(), vec![], true);
-	// block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()),
-	// header02f.hash()))); assert_pool_status!(header02f.hash(), &pool, 2, 0);
-	// assert_ready_iterator!(header02f.hash(), pool, [xt1, xt2]);
-	//
-	// let xt3_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE,
-	// xt3.clone())).unwrap(); let xt4_watcher = block_on(pool.submit_and_watch(invalid_hash(),
-	// SOURCE, xt4.clone())).unwrap(); let result5 = block_on(pool.submit_and_watch(invalid_hash(),
-	// SOURCE, xt5.clone())).map(|_| ());
-	//
-	// //xt5 hits internal mempool limit
-	// assert!(matches!(result5.unwrap_err().0, TxPoolError::ImmediatelyDropped));
-	//
-	// assert_pool_status!(header02e.hash(), &pool, 2, 0);
-	// assert_ready_iterator!(header02e.hash(), pool, [xt3, xt4]);
-	// assert_eq!(pool.mempool_len().1, 4);
-	//
-	// let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(2).collect::<Vec<_>>();
-	// assert_eq!(
-	// 	xt1_status,
-	// 	vec![TransactionStatus::Ready, TransactionStatus::InBlock((header02e.hash(), 1))]
-	// );
-	//
-	// let xt2_status = futures::executor::block_on_stream(xt2_watcher).take(2).collect::<Vec<_>>();
-	// assert_eq!(
-	// 	xt2_status,
-	// 	vec![TransactionStatus::Ready, TransactionStatus::InBlock((header02e.hash(), 2))]
-	// );
-	//
-	// let xt3_status = futures::executor::block_on_stream(xt3_watcher).take(1).collect::<Vec<_>>();
-	// assert_eq!(xt3_status, vec![TransactionStatus::Ready]);
-	// let xt4_status = futures::executor::block_on_stream(xt4_watcher).take(1).collect::<Vec<_>>();
-	// assert_eq!(xt4_status, vec![TransactionStatus::Ready]);
+	//now revalidation has happened, all txs are dropped
+	assert_eq!(pool.mempool_len().1, 0);
 }
 
 macro_rules! assert_future_iterator {
@@ -867,6 +838,7 @@ fn fatp_limits_watcher_future_transactions_are_droped_when_view_is_dropped() {
 		(xt4, xt4_watcher),
 		(xt5, xt5_watcher),
 	];
+
 	let future_hashes = pool.futures().iter().map(|t| t.hash).collect::<Vec<_>>();
 	to_be_checked.retain(|x| !future_hashes.contains(&api.hash_and_length(&x.0).0));
 

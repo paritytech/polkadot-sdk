@@ -2267,12 +2267,12 @@ fn fatp_avoid_stuck_transaction() {
 
 	assert_pool_status!(header06.hash(), &pool, 0, 0);
 
-	let event = finalized_block_event(&pool, header03.hash(), header06.hash());
+	let header07 = api.push_block(7, vec![], true);
+	let event = finalized_block_event(&pool, header03.hash(), header07.hash());
 	block_on(pool.maintain(event));
 
 	let xt4i_events = futures::executor::block_on_stream(xt4i_watcher).collect::<Vec<_>>();
 	log::debug!("xt4i_events: {:#?}", xt4i_events);
-
 	assert_eq!(xt4i_events, vec![TransactionStatus::Future, TransactionStatus::Dropped]);
 	assert_eq!(pool.mempool_len(), (0, 0));
 }
