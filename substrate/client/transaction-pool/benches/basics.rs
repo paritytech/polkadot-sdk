@@ -152,7 +152,7 @@ fn uxt(transfer: TransferData) -> Extrinsic {
 }
 
 fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
-	let source = TransactionSource::External;
+	let source = TimedTransactionSource::new_external(false);
 	let mut futures = Vec::new();
 	let mut tags = Vec::new();
 	let at = HashAndNumber {
@@ -171,7 +171,7 @@ fn bench_configured(pool: Pool<TestApi>, number: u64, api: Arc<TestApi>) {
 
 		tags.push(to_tag(nonce, AccountId::from_h256(H256::from_low_u64_be(1))));
 
-		futures.push(pool.submit_one(&at, source, xt));
+		futures.push(pool.submit_one(&at, source.clone(), xt));
 	}
 
 	let res = block_on(futures::future::join_all(futures.into_iter()));

@@ -33,7 +33,7 @@ use super::{
 use crate::{
 	common::log_xt::log_xt_trace,
 	graph,
-	graph::{tracked_map::Size, ExtrinsicFor, ExtrinsicHash},
+	graph::{base_pool::TimedTransactionSource, tracked_map::Size, ExtrinsicFor, ExtrinsicHash},
 	LOG_TARGET,
 };
 use futures::FutureExt;
@@ -77,7 +77,7 @@ where
 	/// Size of the extrinsics actual body.
 	bytes: usize,
 	/// Transaction source.
-	source: TransactionSource,
+	source: TimedTransactionSource,
 	/// When the transaction was revalidated, used to periodically revalidate the mem pool buffer.
 	validated_at: AtomicU64,
 	//todo: we need to add future / ready status at finalized block.
@@ -104,12 +104,24 @@ where
 
 	/// Creates a new instance of wrapper for unwatched transaction.
 	fn new_unwatched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>, bytes: usize) -> Self {
-		Self { watched: false, tx, source, validated_at: AtomicU64::new(0), bytes }
+		Self {
+			watched: false,
+			tx,
+			source: TimedTransactionSource::from_transaction_source(source, true),
+			validated_at: AtomicU64::new(0),
+			bytes,
+		}
 	}
 
 	/// Creates a new instance of wrapper for watched transaction.
 	fn new_watched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>, bytes: usize) -> Self {
-		Self { watched: true, tx, source, validated_at: AtomicU64::new(0), bytes }
+		Self {
+			watched: true,
+			tx,
+			source: TimedTransactionSource::from_transaction_source(source, true),
+			validated_at: AtomicU64::new(0),
+			bytes,
+		}
 	}
 
 	/// Provides a clone of actual transaction body.
@@ -120,8 +132,8 @@ where
 	}
 
 	/// Returns the source of the transaction.
-	pub(crate) fn source(&self) -> TransactionSource {
-		self.source
+	pub(crate) fn source(&self) -> TimedTransactionSource {
+		self.source.clone()
 	}
 }
 
@@ -177,6 +189,19 @@ where
 	max_transactions_total_bytes: usize,
 }
 
+/// Helper structure to encapsulate a result of [`TxMemPool::try_insert`].
+#[derive(Debug)]
+pub(super) struct InsertionInfo<Hash> {
+	pub(super) hash: Hash,
+	pub(super) source: TimedTransactionSource,
+}
+
+impl<Hash> InsertionInfo<Hash> {
+	fn new(hash: Hash, source: TimedTransactionSource) -> Self {
+		Self { hash, source }
+	}
+}
+
 impl<ChainApi, Block> TxMemPool<ChainApi, Block>
 where
 	Block: BlockT,
@@ -223,8 +248,8 @@ where
 	pub(super) fn get_by_hash(
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
-	) -> Option<ExtrinsicFor<ChainApi>> {
-		self.transactions.read().get(&hash).map(|t| t.tx())
+	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
+		self.transactions.read().get(&hash).map(Clone::clone)
 	}
 
 	/// Returns a tuple with the count of unwatched and watched transactions in the memory pool.
@@ -252,7 +277,7 @@ where
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
 		tx: TxInMemPool<ChainApi, Block>,
-	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, ChainApi::Error> {
 		let bytes = self.transactions.bytes();
 		let mut transactions = self.transactions.write();
 		let result = match (
@@ -260,14 +285,15 @@ where
 			transactions.contains_key(&hash),
 		) {
 			(true, false) => {
+				let source = tx.source();
 				transactions.insert(hash, Arc::from(tx));
-				Ok(hash)
+				Ok(InsertionInfo::new(hash, source))
 			},
 			(_, true) =>
 				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)).into()),
 			(false, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped.into()),
 		};
-		log::trace!(target: LOG_TARGET, "[{:?}] mempool::try_insert: {:?}", hash, result);
+		log::trace!(target: LOG_TARGET, "[{:?}] mempool::try_insert: {:?}", hash, result.as_ref().map(|r| r.hash));
 
 		result
 	}
@@ -280,7 +306,7 @@ where
 		&self,
 		source: TransactionSource,
 		xts: &[ExtrinsicFor<ChainApi>],
-	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
+	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, ChainApi::Error>> {
 		let result = xts
 			.iter()
 			.map(|xt| {
@@ -297,7 +323,7 @@ where
 		&self,
 		source: TransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, ChainApi::Error> {
 		let (hash, length) = self.api.hash_and_length(&xt);
 		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length))
 	}
@@ -367,13 +393,13 @@ where
 		};
 
 		let validations_futures = input.into_iter().map(|(xt_hash, xt)| {
-			self.api.validate_transaction(finalized_block.hash, xt.source, xt.tx()).map(
-				move |validation_result| {
+			self.api
+				.validate_transaction(finalized_block.hash, xt.source.source, xt.tx())
+				.map(move |validation_result| {
 					xt.validated_at
 						.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
 					(xt_hash, validation_result)
-				},
-			)
+				})
 		});
 		let validation_results = futures::future::join_all(validations_futures).await;
 		let input_len = validation_results.len();

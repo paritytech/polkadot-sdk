@@ -589,7 +589,6 @@ fn remove_item<T: PartialEq>(vec: &mut Vec<T>, item: &T) {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::transaction_validity::TransactionSource as Source;
 
 	fn tx(id: u8) -> Transaction<u64, Vec<u8>> {
 		Transaction {
@@ -601,7 +600,7 @@ mod tests {
 			requires: vec![vec![1], vec![2]],
 			provides: vec![vec![3], vec![4]],
 			propagate: true,
-			source: Source::External,
+			source: crate::TimedTransactionSource::new_external(false),
 		}
 	}
 
@@ -711,7 +710,7 @@ mod tests {
 			requires: vec![tx1.provides[0].clone()],
 			provides: vec![],
 			propagate: true,
-			source: Source::External,
+			source: crate::TimedTransactionSource::new_external(false),
 		};
 
 		// when

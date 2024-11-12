@@ -20,7 +20,7 @@
 //!
 //! For a more full-featured pool, have a look at the `pool` module.
 
-use std::{cmp::Ordering, collections::HashSet, fmt, hash, sync::Arc};
+use std::{cmp::Ordering, collections::HashSet, fmt, hash, sync::Arc, time::Instant};
 
 use crate::LOG_TARGET;
 use log::{trace, warn};
@@ -30,8 +30,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::{
 	traits::Member,
 	transaction_validity::{
-		TransactionLongevity as Longevity, TransactionPriority as Priority,
-		TransactionSource as Source, TransactionTag as Tag,
+		TransactionLongevity as Longevity, TransactionPriority as Priority, TransactionSource,
+		TransactionTag as Tag,
 	},
 };
 
@@ -83,6 +83,38 @@ pub struct PruneStatus<Hash, Ex> {
 	pub pruned: Vec<Arc<Transaction<Hash, Ex>>>,
 }
 
+/// A transaction source that includes a timestamp indicating when the transaction was submitted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimedTransactionSource {
+	/// The original source of the transaction.
+	pub source: TransactionSource,
+
+	/// The time at which the transaction was submitted.
+	pub timestamp: Option<Instant>,
+}
+
+impl TimedTransactionSource {
+	/// Creates a new instance with an internal `TransactionSource::InBlock` source and an optional
+	/// timestamp.
+	pub fn new_in_block(with_timestamp: bool) -> Self {
+		Self { source: TransactionSource::InBlock, timestamp: with_timestamp.then(Instant::now) }
+	}
+	/// Creates a new instance with an internal `TransactionSource::External` source and an optional
+	/// timestamp.
+	pub fn new_external(with_timestamp: bool) -> Self {
+		Self { source: TransactionSource::External, timestamp: with_timestamp.then(Instant::now) }
+	}
+	/// Creates a new instance with an internal `TransactionSource::Local` source and an optional
+	/// timestamp.
+	pub fn new_local(with_timestamp: bool) -> Self {
+		Self { source: TransactionSource::Local, timestamp: with_timestamp.then(Instant::now) }
+	}
+	/// Creates a new instance with an given source and an optional timestamp.
+	pub fn from_transaction_source(source: TransactionSource, with_timestamp: bool) -> Self {
+		Self { source, timestamp: with_timestamp.then(Instant::now) }
+	}
+}
+
 /// Immutable transaction
 #[derive(PartialEq, Eq, Clone)]
 pub struct Transaction<Hash, Extrinsic> {
@@ -102,8 +134,8 @@ pub struct Transaction<Hash, Extrinsic> {
 	pub provides: Vec<Tag>,
 	/// Should that transaction be propagated.
 	pub propagate: bool,
-	/// Source of that transaction.
-	pub source: Source,
+	/// Timed source of that transaction.
+	pub source: TimedTransactionSource,
 }
 
 impl<Hash, Extrinsic> AsRef<Extrinsic> for Transaction<Hash, Extrinsic> {
@@ -157,7 +189,7 @@ impl<Hash: Clone, Extrinsic: Clone> Transaction<Hash, Extrinsic> {
 			bytes: self.bytes,
 			hash: self.hash.clone(),
 			priority: self.priority,
-			source: self.source,
+			source: self.source.clone(),
 			valid_till: self.valid_till,
 			requires: self.requires.clone(),
 			provides: self.provides.clone(),
@@ -448,8 +480,16 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 			// find the worst transaction
 			let worst = self.future.fold(|worst, current| match worst {
 				None => Some(current.clone()),
-				Some(ref tx) if tx.imported_at > current.imported_at => Some(current.clone()),
-				other => other,
+				Some(worst) => Some(
+					match (worst.transaction.source.timestamp, current.transaction.source.timestamp)
+					{
+						(Some(worst_timestamp), Some(current_timestamp))
+							if worst_timestamp > current_timestamp =>
+							current.clone(),
+						_ if worst.imported_at > current.imported_at => current.clone(),
+						_ => worst,
+					},
+				),
 			});
 
 			if let Some(worst) = worst {
@@ -576,7 +616,7 @@ mod tests {
 			requires: vec![],
 			provides: vec![],
 			propagate: true,
-			source: Source::External,
+			source: TimedTransactionSource::new_external(false),
 		}
 	}
 
@@ -1095,7 +1135,7 @@ mod tests {
 			),
 			"Transaction { \
 hash: 4, priority: 1000, valid_till: 64, bytes: 1, propagate: true, \
-source: TransactionSource::External, requires: [03, 02], provides: [04], data: [4]}"
+source: TimedTransactionSource { source: TransactionSource::External, timestamp: None }, requires: [03, 02], provides: [04], data: [4]}"
 				.to_owned()
 		);
 	}

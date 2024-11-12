@@ -30,7 +30,7 @@ use serde::Serialize;
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::{self, SaturatedConversion},
-	transaction_validity::{TransactionSource, TransactionTag as Tag, ValidTransaction},
+	transaction_validity::{TransactionTag as Tag, ValidTransaction},
 };
 use std::time::Instant;
 
@@ -62,7 +62,7 @@ impl<Hash, Ex, Error> ValidatedTransaction<Hash, Ex, Error> {
 	pub fn valid_at(
 		at: u64,
 		hash: Hash,
-		source: TransactionSource,
+		source: base::TimedTransactionSource,
 		data: Ex,
 		bytes: usize,
 		validity: ValidTransaction,
@@ -666,10 +666,27 @@ impl<B: ChainApi> ValidatedPool<B> {
 		self.listener.write().retracted(block_hash)
 	}
 
+	//todo: doc + rename!
+	//MultiTransactionStatusStream
 	pub fn create_dropped_by_limits_stream(
 		&self,
 	) -> super::listener::DroppedByLimitsStream<ExtrinsicHash<B>, BlockHash<B>> {
 		self.listener.write().create_dropped_by_limits_stream()
+	}
+
+	/// Resends ready and future events for all the ready and future transactions that are already
+	/// in the pool.
+	///
+	/// Intended to be called after cloning the instance of `ValidatedPool`.
+	pub fn retrigger_notifications(&self) {
+		let pool = self.pool.read();
+		let mut listener = self.listener.write();
+		pool.ready().for_each(|r| {
+			listener.ready(&r.hash, None);
+		});
+		pool.futures().for_each(|f| {
+			listener.future(&f.hash);
+		});
 	}
 }
 

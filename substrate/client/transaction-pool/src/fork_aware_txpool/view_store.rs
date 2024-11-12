@@ -24,14 +24,17 @@ use super::{
 };
 use crate::{
 	fork_aware_txpool::dropped_watcher::MultiViewDroppedWatcherController,
-	graph,
-	graph::{base_pool::Transaction, ExtrinsicFor, ExtrinsicHash, TransactionFor},
+	graph::{
+		self,
+		base_pool::{TimedTransactionSource, Transaction},
+		ExtrinsicFor, ExtrinsicHash, TransactionFor,
+	},
 	ReadyIteratorFor, LOG_TARGET,
 };
 use futures::prelude::*;
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TransactionSource};
+use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus};
 use sp_blockchain::TreeRoute;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::{collections::HashMap, sync::Arc, time::Instant};
@@ -89,8 +92,7 @@ where
 	/// Imports a bunch of unverified extrinsics to every active view.
 	pub(super) async fn submit(
 		&self,
-		source: TransactionSource,
-		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>> + Clone,
+		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
 		let submit_futures = {
 			let active_views = self.active_views.read();
@@ -99,7 +101,7 @@ where
 				.map(|(_, view)| {
 					let view = view.clone();
 					let xts = xts.clone();
-					async move { (view.at.hash, view.submit_many(source, xts).await) }
+					async move { (view.at.hash, view.submit_many(xts).await) }
 				})
 				.collect::<Vec<_>>()
 		};
@@ -145,7 +147,7 @@ where
 	pub(super) async fn submit_and_watch(
 		&self,
 		_at: Block::Hash,
-		source: TransactionSource,
+		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<TxStatusStream<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
@@ -159,6 +161,7 @@ where
 				.map(|(_, view)| {
 					let view = view.clone();
 					let xt = xt.clone();
+					let source = source.clone();
 					async move {
 						match view.submit_and_watch(source, xt).await {
 							Ok(watcher) => {
