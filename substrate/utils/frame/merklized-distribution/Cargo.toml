@@ -1,0 +1,23 @@
+[package]
+name = "merklized-distribution"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Utility for creating a merkle root and proof from a CSV of token distributions."
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { features = ["derive"], workspace = true, default-features = true }
+csv = "1.3.0"
+serde = { workspace = true, features = ["derive"] }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
