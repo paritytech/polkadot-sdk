@@ -21,14 +21,10 @@ log = { workspace = true }
 parity-wasm = { workspace = true }
 tempfile = { workspace = true }
 toml = { workspace = true }
-polkavm-linker = { version = "0.13.0" }
+polkavm-linker = { version = "0.14.0" }
 anyhow = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-# only if the feature is set we are building the test fixtures
-# this is because it requires a custom toolchain supporting polkavm
-# we will remove this once there is an upstream toolchain
-riscv = []
 # only when std is enabled all fixtures are available
 std = ["anyhow", "frame-system", "log/std", "sp-core", "sp-io", "sp-runtime"]

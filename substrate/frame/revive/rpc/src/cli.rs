@@ -15,50 +15,64 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
-use crate::{client::Client, EthRpcClient, EthRpcServer, EthRpcServerImpl, LOG_TARGET};
 use crate::{
 	client::Client, EthRpcServer, EthRpcServerImpl, SystemHealthRpcServer,
 	SystemHealthRpcServerImpl,
 };
 use clap::Parser;
-use hyper::Method;
-use jsonrpsee::{
-	http_client::HttpClientBuilder,
-	server::{RpcModule, Server},
+use futures::{pin_mut, FutureExt};
+use jsonrpsee::server::RpcModule;
+use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
+use sc_service::{
+	config::{PrometheusConfig, RpcConfiguration},
+	start_rpc_servers, TaskManager,
 };
-use std::net::SocketAddr;
-use tower_http::cors::{Any, CorsLayer};
+
+// Default port if --prometheus-port is not specified
+const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
+
+// Default port if --rpc-port is not specified
+const DEFAULT_RPC_PORT: u16 = 8545;
 
 // Parsed command instructions from the command line
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(author, about, version)]
 pub struct CliCommand {
-	/// The server address to bind to
-	#[clap(long, default_value = "8545")]
-	pub rpc_port: String,
-
 	/// The node url to connect to
 	#[clap(long, default_value = "ws://127.0.0.1:9944")]
 	pub node_rpc_url: String,
+
+	#[allow(missing_docs)]
+	#[clap(flatten)]
+	pub shared_params: SharedParams,
+
+	#[allow(missing_docs)]
+	#[clap(flatten)]
+	pub rpc_params: RpcParams,
+
+	#[allow(missing_docs)]
+	#[clap(flatten)]
+	pub prometheus_params: PrometheusParams,
 }
 
-/// Run the JSON-RPC server.
-pub async fn run(cmd: CliCommand) -> anyhow::Result<()> {
-	let CliCommand { rpc_port, node_rpc_url } = cmd;
-	let client = Client::from_url(&node_rpc_url).await?;
-	let mut updates = client.updates.clone();
+/// Initialize the logger
+#[cfg(not(test))]
+fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
+	let mut logger = sc_cli::LoggerBuilder::new(params.log_filters().join(","));
+	logger
+		.with_log_reloading(params.enable_log_reloading)
+		.with_detailed_output(params.detailed_log_output);
 
-	let server_addr = run_server(client, &format!("127.0.0.1:{rpc_port}")).await?;
-	log::info!("Running JSON-RPC server: addr={server_addr}");
+	if let Some(tracing_targets) = &params.tracing_targets {
+		let tracing_receiver = params.tracing_receiver.into();
+		logger.with_profiling(tracing_receiver, tracing_targets);
+	}
 
-	let url = format!("http://{}", server_addr);
-	let client = HttpClientBuilder::default().build(url)?;
+	if params.disable_log_color {
+		logger.with_colors(false);
+	}
 
-	let block_number = client.block_number().await?;
-	log::info!(target: LOG_TARGET, "Client initialized - Current 📦 block: #{block_number:?}");
-
-	// keep running server until ctrl-c or client subscription fails
-	let _ = updates.wait_for(|_| false).await;
+	logger.init()?;
 	Ok(())
 }
 

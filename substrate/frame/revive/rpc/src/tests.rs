@@ -16,13 +16,12 @@
 // limitations under the License.
 //! Test the eth-rpc cli with the kitchensink node.
 
-// We require the `riscv` feature to get access to the compiled fixtures.
-#![cfg(feature = "riscv")]
 use crate::{
-	cli,
+	cli::{self, CliCommand},
 	example::{send_transaction, wait_for_receipt},
 	EthRpcClient,
 };
+use clap::Parser;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
@@ -51,16 +50,14 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 	// Start the node.
 	let _ = thread::spawn(move || {
-		match start_node_inline(vec![
+		if let Err(e) = start_node_inline(vec![
 			"--dev",
 			"--rpc-port=45789",
 			"--no-telemetry",
 			"--no-prometheus",
+			"-lerror,evm=debug,sc_rpc_server=info,runtime::revive=debug",
 		]) {
-			Ok(_) => {},
-			Err(e) => {
-				panic!("Node exited with error: {}", e);
-			},
+			panic!("Node exited with error: {e:?}");
 		}
 	});
 
@@ -70,12 +67,12 @@ async fn test_jsonrpsee_server() -> anyhow::Result<()> {
 		"--rpc-port=45788",
 		"--node-rpc-url=ws://localhost:45789",
 		"--no-prometheus",
+		"-linfo,eth-rpc=debug",
 	]);
-	let _ = thread::spawn(move || match cli::run(args) {
-		Ok(_) => {},
-		Err(e) => {
-			panic!("eth-rpc exited with error: {}", e);
-		},
+	let _ = thread::spawn(move || {
+		if let Err(e) = cli::run(args) {
+			panic!("eth-rpc exited with error: {e:?}");
+		}
 	});
 
 	let client = ws_client_with_retry("ws://localhost:45788").await;
