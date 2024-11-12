@@ -171,14 +171,17 @@ pub mod data {
 	}
 
 	/// Implementation of `NeedsMigration` for `AuthorizedAliases` data.
-	impl<M: Get<u32>, T: frame_system::Config> NeedsMigration
-		for (&VersionedLocation, &BoundedVec<OriginAliaser, M>, PhantomData<T>)
+	impl<M: Get<u32>, T: Config> NeedsMigration
+		for (&VersionedLocation, AuthorizedAliasesEntry<TicketOf<T>, M>, PhantomData<T>)
 	{
-		type MigratedData = (VersionedLocation, BoundedVec<OriginAliaser, M>);
+		type MigratedData = (VersionedLocation, AuthorizedAliasesEntry<TicketOf<T>, M>);
 
 		fn needs_migration(&self, _: XcmVersion) -> bool {
 			self.0.identify_version() < XCM_VERSION ||
-				self.1.iter().any(|alias| alias.location.identify_version() < XCM_VERSION)
+				self.1
+					.aliasers
+					.iter()
+					.any(|alias| alias.location.identify_version() < XCM_VERSION)
 		}
 
 		fn try_migrate(self, _: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
@@ -186,7 +189,6 @@ pub mod data {
 				return Ok(None)
 			}
 
-			let block_num = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
 			let key = if self.0.identify_version() < XCM_VERSION {
 				let Ok(converted_key) = self.0.clone().into_version(XCM_VERSION) else {
 					return Err(())
@@ -195,19 +197,18 @@ pub mod data {
 			} else {
 				self.0.clone()
 			};
+
 			let mut new_aliases = BoundedVec::<OriginAliaser, M>::new();
-			for alias in self.1 {
-				// skip expired aliases
-				if alias.expiry.map(|expiry| expiry <= block_num).unwrap_or(false) {
-					continue
-				}
+			let (aliasers, ticket) = (self.1.aliasers, self.1.ticket);
+			for alias in aliasers {
 				let OriginAliaser { mut location, expiry } = alias.clone();
 				if location.identify_version() < XCM_VERSION {
 					location = location.into_version(XCM_VERSION)?;
 				}
 				new_aliases.try_push(OriginAliaser { location, expiry }).map_err(|_| ())?;
 			}
-			Ok(Some((key, new_aliases)))
+
+			Ok(Some((key, AuthorizedAliasesEntry { aliasers: new_aliases, ticket })))
 		}
 	}
 
@@ -368,14 +369,13 @@ pub mod data {
 			// check and migrate `AuthorizedAliases`
 			let aliases_to_migrate = AuthorizedAliases::<T>::iter().filter_map(|(id, data)| {
 				weight.saturating_add(T::DbWeight::get().reads(1));
-				match (&id, &data, PhantomData::<T>).try_migrate(required_xcm_version) {
+				match (&id, data, PhantomData::<T>).try_migrate(required_xcm_version) {
 					Ok(Some((new_id, new_data))) => Some((id, new_id, new_data)),
 					Ok(None) => None,
 					Err(_) => {
 						tracing::error!(
 							target: LOG_TARGET,
 							?id,
-							?data,
 							?required_xcm_version,
 							"`AuthorizedAliases` cannot be migrated!"
 						);
@@ -392,9 +392,7 @@ pub mod data {
 					"Migrating `AuthorizedAliases`"
 				);
 				AuthorizedAliases::<T>::remove(old_id);
-				if !new_data.is_empty() {
-					AuthorizedAliases::<T>::insert(new_id, new_data);
-				}
+				AuthorizedAliases::<T>::insert(new_id, new_data);
 				count = count + 1;
 			}
 			// two writes per key, one to remove old entry, one to write new entry

@@ -38,8 +38,8 @@ use frame_support::{
 	},
 	pallet_prelude::*,
 	traits::{
-		Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency,
-		OriginTrait, WithdrawReasons,
+		Consideration, Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Footprint, Get,
+		LockableCurrency, OriginTrait, WithdrawReasons,
 	},
 	PalletId,
 };
@@ -194,6 +194,24 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
+/// Entry of an authorized aliaser for a local origin. The aliaser `location` is only authorized
+/// until its inner `expiry` block number.
+#[derive(Clone, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub(crate) struct OriginAliaser {
+	pub(crate) location: VersionedLocation,
+	pub(crate) expiry: Option<u64>,
+}
+
+#[derive(Clone, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub(crate) struct AuthorizedAliasesEntry<Ticket, MAX: Get<u32>> {
+	pub(crate) aliasers: BoundedVec<OriginAliaser, MAX>,
+	pub(crate) ticket: Ticket,
+}
+
+pub(crate) fn aliasers_footprint(aliasers_count: usize) -> Footprint {
+	Footprint::from_parts(aliasers_count, OriginAliaser::max_encoded_len())
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -211,6 +229,7 @@ pub mod pallet {
 		/// support.
 		pub const CurrentXcmVersion: u32 = XCM_VERSION;
 
+		#[derive(Debug, TypeInfo)]
 		/// The maximum number of distinct locations allowed as authorized aliases for a local origin.
 		pub const MaxAuthorizedAliases: u32 = 10;
 	}
@@ -224,6 +243,7 @@ pub mod pallet {
 
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	pub type TicketOf<T> = <T as Config>::Consideration;
 
 	#[pallet::config]
 	/// The module configuration trait.
@@ -237,6 +257,9 @@ pub mod pallet {
 
 		/// The `Asset` matcher for `Currency`.
 		type CurrencyMatcher: MatchesFungible<BalanceOf<Self>>;
+
+		/// A means of providing some cost while data is stored on-chain.
+		type Consideration: Consideration<Self::AccountId, Footprint>;
 
 		/// Required origin for sending XCM messages. If successful, it resolves to `Location`
 		/// which exists as an interior location within this chain's XCM context.
@@ -531,6 +554,13 @@ pub mod pallet {
 		}
 	}
 
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as storage deposit for an authorized alias.
+		AuthorizeAlias,
+	}
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The desired destination was unreachable, generally because there is a no way of routing
@@ -615,7 +645,7 @@ pub mod pallet {
 	}
 
 	/// The status of a query.
-	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub enum QueryStatus<BlockNumber> {
 		/// The query was sent but no response has yet been received.
 		Pending {
@@ -653,14 +683,6 @@ pub mod pallet {
 		NotifyCurrentTargets(Option<Vec<u8>>),
 		MigrateAndNotifyOldTargets,
 		RemoveExpiredAliasAuthorizations,
-	}
-
-	/// Entry of an authorized aliaser for a local origin. The aliaser `location` is only authorized
-	/// until its inner `expiry` block number.
-	#[derive(Clone, Encode, Decode, Debug, Eq, PartialEq, Ord, PartialOrd, TypeInfo)]
-	pub(crate) struct OriginAliaser {
-		pub(crate) location: VersionedLocation,
-		pub(crate) expiry: Option<u64>,
 	}
 
 	impl Default for VersionMigrationStage {
@@ -830,8 +852,8 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		VersionedLocation,
-		BoundedVec<OriginAliaser, MaxAuthorizedAliases>,
-		ValueQuery,
+		AuthorizedAliasesEntry<TicketOf<T>, MaxAuthorizedAliases>,
+		OptionQuery,
 	>;
 
 	#[pallet::genesis_config]
@@ -1482,40 +1504,47 @@ pub mod pallet {
 			aliaser: Box<VersionedLocation>,
 			expires: Option<u64>,
 		) -> DispatchResult {
-			let origin: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let signed_origin = ensure_signed(origin.clone())?;
+			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let aliaser: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin, ?aliaser, ?expires);
-			ensure!(origin != aliaser, Error::<T>::BadLocation);
+			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?aliaser, ?expires);
+			ensure!(origin_location != aliaser, Error::<T>::BadLocation);
 			if let Some(expiry) = expires {
 				ensure!(
 					expiry > frame_system::Pallet::<T>::block_number().saturated_into::<u64>(),
 					Error::<T>::ExpiresInPast
 				);
 			}
-			let versioned_origin = VersionedLocation::from(origin);
+			let versioned_origin = VersionedLocation::from(origin_location);
 			let versioned_aliaser = VersionedLocation::from(aliaser);
-			let mut authorized_aliases = AuthorizedAliases::<T>::get(&versioned_origin);
-			if authorized_aliases
-				.iter_mut()
-				.find_map(|aliaser| {
+
+			let entry = if let Some(entry) = AuthorizedAliases::<T>::get(&versioned_origin) {
+				// entry already exists, update it
+				let (mut aliasers, mut ticket) = (entry.aliasers, entry.ticket);
+				if let Some(aliaser) =
+					aliasers.iter_mut().find(|aliaser| aliaser.location == versioned_aliaser)
+				{
 					// if the aliaser already exists, just update its expiry block
-					if aliaser.location == versioned_aliaser {
-						aliaser.expiry = expires;
-						Some(())
-					} else {
-						None
-					}
-				})
-				.is_none()
-			{
-				// if the aliaser does not yet exist, add it to the list
+					aliaser.expiry = expires;
+				} else {
+					// if it doesn't, we try to add it
+					let aliaser = OriginAliaser { location: versioned_aliaser, expiry: expires };
+					aliasers.try_push(aliaser).map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
+					// we try to update the ticket (the storage deposit)
+					ticket = ticket.update(&signed_origin, aliasers_footprint(aliasers.len()))?;
+				}
+				AuthorizedAliasesEntry { aliasers, ticket }
+			} else {
+				// add new entry with its first alias
+				let ticket = TicketOf::<T>::new(&signed_origin, aliasers_footprint(1))?;
 				let aliaser = OriginAliaser { location: versioned_aliaser, expiry: expires };
-				authorized_aliases
-					.try_push(aliaser)
-					.map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
-				// todo: hold storage deposit
-			}
-			AuthorizedAliases::<T>::insert(&versioned_origin, authorized_aliases);
+				let mut aliasers = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
+				aliasers.try_push(aliaser).map_err(|_| Error::<T>::TooManyAuthorizedAliases)?;
+				AuthorizedAliasesEntry { aliasers, ticket }
+			};
+
+			// write to storage
+			AuthorizedAliases::<T>::insert(&versioned_origin, entry);
 			Ok(())
 		}
 
@@ -1526,20 +1555,28 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			aliaser: Box<VersionedLocation>,
 		) -> DispatchResult {
-			let origin: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			let signed_origin = ensure_signed(origin.clone())?;
+			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let to_remove: Location = (*aliaser).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin, ?to_remove);
-			ensure!(origin != to_remove, Error::<T>::BadLocation);
-			let versioned_origin = VersionedLocation::from(origin);
+			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?to_remove);
+			ensure!(origin_location != to_remove, Error::<T>::BadLocation);
+			let versioned_origin = VersionedLocation::from(origin_location);
 			let versioned_to_remove = VersionedLocation::from(to_remove);
-			let mut authorized_aliases = AuthorizedAliases::<T>::get(&versioned_origin);
-			let original_length = authorized_aliases.len();
-			authorized_aliases.retain(|alias| versioned_to_remove.ne(&alias.location));
-			if authorized_aliases.is_empty() {
-				// todo: return storage deposit
-				AuthorizedAliases::<T>::remove(&versioned_origin);
-			} else if original_length != authorized_aliases.len() {
-				AuthorizedAliases::<T>::insert(&versioned_origin, authorized_aliases);
+			if let Some(entry) = AuthorizedAliases::<T>::get(&versioned_origin) {
+				let (mut aliasers, mut ticket) = (entry.aliasers, entry.ticket);
+				let old_len = aliasers.len();
+				aliasers.retain(|alias| versioned_to_remove.ne(&alias.location));
+				let new_len = aliasers.len();
+				if new_len > 0 {
+					// remove entry altogether and return all storage deposit
+					ticket.drop(&signed_origin)?;
+					AuthorizedAliases::<T>::remove(&versioned_origin);
+				} else if old_len != new_len {
+					// update aliasers and storage deposit
+					ticket = ticket.update(&signed_origin, aliasers_footprint(new_len))?;
+					let entry = AuthorizedAliasesEntry { aliasers, ticket };
+					AuthorizedAliases::<T>::insert(&versioned_origin, entry);
+				}
 			}
 			Ok(())
 		}
@@ -2543,17 +2580,32 @@ impl<T: Config> Pallet<T> {
 			let keys: Vec<VersionedLocation> = AuthorizedAliases::<T>::iter_keys().collect();
 			weight_used.saturating_add(T::DbWeight::get().reads(keys.len() as u64));
 			for key in keys {
-				let mut aliases = AuthorizedAliases::<T>::get(&key);
-				let old_len = aliases.len();
-				aliases.retain(|aliaser| {
-					aliaser.expiry.map(|expiry| expiry > block_num).unwrap_or(true)
-				});
-				if aliases.is_empty() {
-					AuthorizedAliases::<T>::remove(&key);
-					writes = writes + 1;
-				} else if aliases.len() != old_len {
-					AuthorizedAliases::<T>::insert(key, aliases);
-					writes = writes + 1;
+				if let Some(entry) = AuthorizedAliases::<T>::get(&key) {
+					let (mut aliases, ticket) = (entry.aliasers, entry.ticket);
+					let Some(who) = Location::try_from(key.clone())
+						.ok()
+						.and_then(|key| T::SovereignAccountOf::convert_location(&key))
+					else {
+						continue
+					};
+					let old_len = aliases.len();
+					aliases.retain(|aliaser| {
+						aliaser.expiry.map(|expiry| expiry > block_num).unwrap_or(true)
+					});
+					let new_len = aliases.len();
+					if new_len > 0 {
+						// remove entry altogether and return all storage deposit
+						let _ = ticket.drop(&who);
+						AuthorizedAliases::<T>::remove(&key);
+						writes = writes + 2;
+					} else if old_len != new_len {
+						// update aliasers and storage deposit
+						if let Ok(ticket) = ticket.update(&who, aliasers_footprint(new_len)) {
+							let entry = AuthorizedAliasesEntry { aliasers: aliases, ticket };
+							AuthorizedAliases::<T>::insert(&key, entry);
+							writes = writes + 2;
+						}
+					}
 				}
 			}
 			weight_used.saturating_add(T::DbWeight::get().writes(writes));
@@ -3584,15 +3636,20 @@ impl<L: Into<VersionedLocation> + Clone, T: Config> ContainsPair<L, L> for Autho
 		// return true if the `origin` has been explicitly authorized by `target` as aliaser, and
 		// the authorization has not expired
 		AuthorizedAliases::<T>::get(&target)
-			.iter()
-			.find(|&aliaser| {
+			.map(|authorized| {
 				let current_block =
 					frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
-				let not_expired =
-					aliaser.expiry.map(|expiry| expiry < current_block).unwrap_or(true);
-				aliaser.location == origin && not_expired
+				authorized
+					.aliasers
+					.iter()
+					.find(|&aliaser| {
+						let not_expired =
+							aliaser.expiry.map(|expiry| expiry < current_block).unwrap_or(true);
+						not_expired && aliaser.location == origin
+					})
+					.is_some()
 			})
-			.is_some()
+			.unwrap_or(false)
 	}
 }
 
