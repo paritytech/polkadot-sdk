@@ -1,32 +1,7 @@
-title: 'rpc server: fix host filter for localhost'
+title: 'rpc server: fix ipv6 host filter for localhost'
 doc:
 - audience: Node Operator
-  description: "So, this PR fixes an issue that I discovered using cURL where it tries\
-    \ the ipv6 before the ipv4 interface when querying `localhost` which messed up\
-    \ the http host filter whereas it would connect to the address `[::1]::9944  host_header:\
-    \ localhost:9944` but the ipv6 interface only whitelisted `[::1]:9944` which this\
-    \ fixes.\n\nSo let's whitelist all localhost interfaces to avoid such weird edge-cases.\n\
-    \n### Behavior before this PR\n\n```bash\n$ polkadot --chain westend-dev &\n$\
-    \ curl -v \\\n     -H 'Content-Type: application/json' \\\n     -d '{\"jsonrpc\"\
-    :\"2.0\",\"id\":\"id\",\"method\":\"system_name\"}' \\\n     http://localhost:9944\n\
-    * Host localhost:9944 was resolved.\n* IPv6: ::1\n* IPv4: 127.0.0.1\n*   Trying\
-    \ [::1]:9944...\n* Connected to localhost (::1) port 9944\n> POST / HTTP/1.1\n\
-    > Host: localhost:9944\n> User-Agent: curl/8.5.0\n> Accept: */*\n> Content-Type:\
-    \ application/json\n> Content-Length: 50\n>\n< HTTP/1.1 403 Forbidden\n< content-type:\
-    \ text/plain\n< content-length: 41\n< date: Tue, 12 Nov 2024 13:03:49 GMT\n<\n\
-    Provided Host header is not whitelisted.\n* Connection #0 to host localhost left\
-    \ intact\n```\n\n### Behavior after this PR\n```bash\n$ polkadot --chain westend-dev\
-    \ &\n\u279C wasm-tests (update-artifacts-1731284930) \u2717 curl -v \\\n     -H\
-    \ 'Content-Type: application/json' \\\n     -d '{\"jsonrpc\":\"2.0\",\"id\":\"\
-    id\",\"method\":\"system_name\"}' \\\n     http://localhost:9944\n* Host localhost:9944\
-    \ was resolved.\n* IPv6: ::1\n* IPv4: 127.0.0.1\n*   Trying [::1]:9944...\n* Connected\
-    \ to localhost (::1) port 9944\n> POST / HTTP/1.1\n> Host: localhost:9944\n> User-Agent:\
-    \ curl/8.5.0\n> Accept: */*\n> Content-Type: application/json\n> Content-Length:\
-    \ 50\n>\n< HTTP/1.1 200 OK\n< content-type: application/json; charset=utf-8\n\
-    < vary: origin, access-control-request-method, access-control-request-headers\n\
-    < content-length: 54\n< date: Tue, 12 Nov 2024 13:02:57 GMT\n<\n* Connection #0\
-    \ to host localhost left intact\n{\"jsonrpc\":\"2.0\",\"id\":\"id\",\"result\"\
-    :\"Parity Polkadot\"}%\n```"
+  description: "This PR fixes that ipv6 connections to localhost was faulty rejected by the host filter because only [::1] was allowed"
 crates:
 - name: sc-rpc-server
   bump: minor
