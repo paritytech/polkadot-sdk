@@ -669,7 +669,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type SignedDepositWeight: Get<BalanceOf<Self>>;
 
-		/// Maximum number of winners that an electio supports.
+		/// Maximum number of winners that an election supports.
 		///
 		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
 		type MaxWinners: Get<u32>;
