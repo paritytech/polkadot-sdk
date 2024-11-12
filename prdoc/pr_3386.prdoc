@@ -21,6 +21,8 @@ crates:
     bump: patch
   - name: bp-runtime
     bump: minor
+  - name: bp-test-utils
+    bump: patch
   - name: cumulus-pallet-parachain-system
     bump: major
   - name: cumulus-primitives-proof-size-hostfunction
@@ -80,6 +82,8 @@ crates:
   - name: pallet-state-trie-migration
     bump: patch
   - name: frame-support
+    bump: patch
+  - name: sp-api-proc-macro
     bump: patch
   - name: sp-api
     bump: minor
