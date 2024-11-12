@@ -196,8 +196,6 @@ pub enum CollationStatus {
 	Waiting,
 	/// We are currently fetching a collation for the specified `ParaId`.
 	Fetching(ParaId),
-	/// We are waiting that a collation is being validated for the specified `ParaId`.
-	WaitingOnValidation(ParaId),
 }
 
 impl Default for CollationStatus {
@@ -296,36 +294,11 @@ impl Collations {
 		None
 	}
 
-	// Returns `true` if there is a pending collation for the specified `ParaId`.
-	fn is_pending_for_para(&self, para_id: &ParaId) -> bool {
-		match self.status {
-			CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => true,
-			CollationStatus::WaitingOnValidation(pending_para_id)
-				if pending_para_id == *para_id =>
-				true,
-			_ => false,
-		}
-	}
-
-	// Returns the number of seconded and likely soon to be seconded collations for the specified
-	// `ParaId`.
-	pub(super) fn seconded_and_pending_for_para(&self, para_id: &ParaId) -> usize {
-		let seconded_for_para = self
-			.candidates_state
+	pub(super) fn seconded_for_para(&self, para_id: &ParaId) -> usize {
+		self.candidates_state
 			.get(&para_id)
 			.map(|state| state.seconded_per_para)
-			.unwrap_or_default();
-		let pending_for_para = self.is_pending_for_para(para_id) as usize;
-
-		gum::trace!(
-			target: LOG_TARGET,
-			?para_id,
-			seconded_for_para,
-			pending_for_para,
-			"Seconded and pending for para."
-		);
-
-		seconded_for_para + pending_for_para
+			.unwrap_or_default()
 	}
 
 	// Returns the number of claims in the claim queue for the specified `ParaId`.

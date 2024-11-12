@@ -409,6 +409,57 @@ struct State {
 	reputation: ReputationAggregator,
 }
 
+impl State {
+	// Returns the number of seconded and pending collations for a specific `ParaId`. Pending
+	// collations are:
+	// 1. Collations being fetched from a collator.
+	// 2. Collations waiting for validation from backing subsystem.
+	// 3. Collations blocked from seconding due to parent not being known by backing subsystem.
+	fn seconded_and_pending_for_para(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
+		let seconded = self
+			.per_relay_parent
+			.get(relay_parent)
+			.map_or(0, |per_relay_parent| per_relay_parent.collations.seconded_for_para(para_id));
+
+		let pending_fetch = self.per_relay_parent.get(relay_parent).map_or(0, |rp_state| {
+			match rp_state.collations.status {
+				CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => 1,
+				_ => 0,
+			}
+		});
+
+		let waiting_for_validation = self
+			.fetched_candidates
+			.keys()
+			.filter(|fc| fc.relay_parent == *relay_parent && fc.para_id == *para_id)
+			.count();
+
+		let blocked_from_seconding =
+			self.blocked_from_seconding.values().fold(0, |acc, blocked_collations| {
+				acc + blocked_collations
+					.iter()
+					.filter(|pc| {
+						pc.candidate_receipt.descriptor.para_id() == *para_id &&
+							pc.candidate_receipt.descriptor.relay_parent() == *relay_parent
+					})
+					.count()
+			});
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?para_id,
+			seconded,
+			pending_fetch,
+			waiting_for_validation,
+			blocked_from_seconding,
+			"Seconded and pending collations for para",
+		);
+
+		seconded + pending_fetch + waiting_for_validation + blocked_from_seconding
+	}
+}
+
 fn is_relay_parent_in_implicit_view(
 	relay_parent: &Hash,
 	implicit_view: &ImplicitView,
@@ -1014,8 +1065,7 @@ fn ensure_seconding_limit_is_respected(
 	// Seconding and pending candidates below the relay parent of the candidate. These are
 	// candidates which might have claimed slots at the current view of the claim queue.
 	let seconded_and_pending_below = seconded_and_pending_for_para_below(
-		&state.implicit_view,
-		&state.per_relay_parent,
+		&state,
 		&relay_parent,
 		&para_id,
 		assignment.current.len(),
@@ -1024,8 +1074,7 @@ fn ensure_seconding_limit_is_respected(
 	// Seconding and pending candidates above the relay parent of the candidate. These are
 	// candidates at a newer relay parent which have already claimed a slot within their view.
 	let seconded_and_pending_above = seconded_and_pending_for_para_above(
-		&state.implicit_view,
-		&state.per_relay_parent,
+		&state,
 		&relay_parent,
 		&para_id,
 		assignment.current.len(),
@@ -1219,7 +1268,7 @@ where
 		PendingCollation::new(relay_parent, para_id, &peer_id, prospective_candidate);
 
 	match collations.status {
-		CollationStatus::Fetching(_) | CollationStatus::WaitingOnValidation(_) => {
+		CollationStatus::Fetching(_) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				peer_id = ?peer_id,
@@ -1647,6 +1696,7 @@ async fn run_inner<Context>(
 				disconnect_inactive_peers(ctx.sender(), &eviction_policy, &state.peer_data).await;
 			},
 			resp = state.collation_requests.select_next_some() => {
+				let relay_parent = resp.0.pending_collation.relay_parent;
 				let res = match handle_collation_fetch_response(
 					&mut state,
 					resp,
@@ -1655,9 +1705,17 @@ async fn run_inner<Context>(
 				).await {
 					Err(Some((peer_id, rep))) => {
 						modify_reputation(&mut state.reputation, ctx.sender(), peer_id, rep).await;
+						// Reset the status for the relay parent
+						state.per_relay_parent.get_mut(&relay_parent).map(|rp| {
+							rp.collations.status = CollationStatus::Waiting;
+						});
 						continue
 					},
 					Err(None) => {
+						// Reset the status for the relay parent
+						state.per_relay_parent.get_mut(&relay_parent).map(|rp| {
+							rp.collations.status = CollationStatus::Waiting;
+						});
 						continue
 					},
 					Ok(res) => res
@@ -1736,6 +1794,11 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	// The collator we tried to fetch from last, optionally which candidate.
 	previous_fetch: (CollatorId, Option<CandidateHash>),
 ) {
+	// Reset the status before trying to fetch another collation
+	state.per_relay_parent.get_mut(&relay_parent).map(|rp| {
+		rp.collations.status = CollationStatus::Waiting;
+	});
+
 	while let Some((next, id)) = get_next_collation_to_fetch(&previous_fetch, relay_parent, state) {
 		gum::debug!(
 			target: LOG_TARGET,
@@ -1920,8 +1983,6 @@ async fn kick_off_seconding<Context>(
 			maybe_parent_head.and_then(|head| maybe_parent_head_hash.map(|hash| (head, hash))),
 		)?;
 
-		let para_id = candidate_receipt.descriptor().para_id();
-
 		ctx.send_message(CandidateBackingMessage::Second(
 			relay_parent,
 			candidate_receipt,
@@ -1931,7 +1992,7 @@ async fn kick_off_seconding<Context>(
 		.await;
 		// There's always a single collation being fetched at any moment of time.
 		// In case of a failure, we reset the status back to waiting.
-		collations.status = CollationStatus::WaitingOnValidation(para_id);
+		collations.status = CollationStatus::Waiting;
 
 		entry.insert(collation_event);
 		Ok(true)
@@ -2111,43 +2172,38 @@ async fn handle_collation_fetch_response(
 // Returns how many seconded candidates and pending fetches are there within the view at a specific
 // relay parent
 fn seconded_and_pending_for_para_below(
-	implicit_view: &ImplicitView,
-	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+	state: &State,
 	relay_parent: &Hash,
 	para_id: &ParaId,
 	claim_queue_len: usize,
 ) -> usize {
 	// `known_allowed_relay_parents_under` returns all leaves within the view for the specified
 	// block hash including the block hash itself.
-	implicit_view
+	state
+		.implicit_view
 		.known_allowed_relay_parents_under(relay_parent, Some(*para_id))
 		.map(|ancestors| {
-			ancestors.iter().take(claim_queue_len).fold(0, |res, anc| {
-				res + per_relay_parent
-					.get(&anc)
-					.map(|rp| rp.collations.seconded_and_pending_for_para(para_id))
-					.unwrap_or(0)
-			})
+			ancestors
+				.iter()
+				.take(claim_queue_len)
+				.fold(0, |res, anc| res + state.seconded_and_pending_for_para(anc, para_id))
 		})
 		.unwrap_or(0)
 }
 
 fn seconded_and_pending_for_para_above(
-	implicit_view: &ImplicitView,
-	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+	state: &State,
 	relay_parent: &Hash,
 	para_id: &ParaId,
 	claim_queue_len: usize,
 ) -> Vec<usize> {
-	let outer_paths = implicit_view.paths_to_relay_parent(relay_parent);
+	let outer_paths = state.implicit_view.paths_to_relay_parent(relay_parent);
 	let mut result = vec![];
 	for path in outer_paths {
-		let r = path.iter().take(claim_queue_len).fold(0, |res, anc| {
-			res + per_relay_parent
-				.get(&anc)
-				.map(|rp| rp.collations.seconded_and_pending_for_para(para_id))
-				.unwrap_or(0)
-		});
+		let r = path
+			.iter()
+			.take(claim_queue_len)
+			.fold(0, |res, anc| res + state.seconded_and_pending_for_para(&anc, para_id));
 		result.push(r);
 	}
 
@@ -2156,26 +2212,22 @@ fn seconded_and_pending_for_para_above(
 // Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
 // order in the claim queue so the earlier an element is located in the `Vec` the higher its
 // priority is.
-fn unfulfilled_claim_queue_entries(
-	relay_parent: &Hash,
-	per_relay_parent: &HashMap<Hash, PerRelayParent>,
-	implicit_view: &ImplicitView,
-) -> Result<Vec<ParaId>> {
-	let relay_parent_state =
-		per_relay_parent.get(relay_parent).ok_or(Error::RelayParentStateNotFound)?;
+fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<Vec<ParaId>> {
+	let relay_parent_state = state
+		.per_relay_parent
+		.get(relay_parent)
+		.ok_or(Error::RelayParentStateNotFound)?;
 	let scheduled_paras = relay_parent_state.assignment.current.iter().collect::<HashSet<_>>();
 	let mut claims_per_para = HashMap::new();
 	for para_id in scheduled_paras {
 		let below = seconded_and_pending_for_para_below(
-			implicit_view,
-			per_relay_parent,
+			state,
 			relay_parent,
 			para_id,
 			relay_parent_state.assignment.current.len(),
 		);
 		let above = seconded_and_pending_for_para_above(
-			implicit_view,
-			per_relay_parent,
+			state,
 			relay_parent,
 			para_id,
 			relay_parent_state.assignment.current.len(),
@@ -2209,11 +2261,7 @@ fn get_next_collation_to_fetch(
 	relay_parent: Hash,
 	state: &mut State,
 ) -> Option<(PendingCollation, CollatorId)> {
-	let unfulfilled_entries = match unfulfilled_claim_queue_entries(
-		&relay_parent,
-		&state.per_relay_parent,
-		&state.implicit_view,
-	) {
+	let unfulfilled_entries = match unfulfilled_claim_queue_entries(&relay_parent, &state) {
 		Ok(entries) => entries,
 		Err(err) => {
 			gum::error!(
