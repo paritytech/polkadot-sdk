@@ -58,6 +58,7 @@ pub trait WeightInfo {
 	fn payout() -> Weight;
 	fn payout_other() -> Weight;
 	fn check_payment() -> Weight;
+	fn bump_offchain() -> Weight;
 }
 
 /// Weights for `pallet_salary` using the Substrate node and recommended hardware.
@@ -160,6 +161,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	/// Storage: `Salary::Status` (r:1 w:1)
+	/// Proof: `Salary::Status` (`max_values`: Some(1), `max_size`: Some(56), added: 551, mode: `MaxEncodedLen`)
+	fn bump_offchain() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `258`
+		//  Estimated: `1541`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 1541))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -260,5 +273,17 @@ impl WeightInfo for () {
 		Weight::from_parts(11_109_000, 3543)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `Salary::Status` (r:1 w:1)
+	/// Proof: `Salary::Status` (`max_values`: Some(1), `max_size`: Some(56), added: 551, mode: `MaxEncodedLen`)
+	fn bump_offchain() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `258`
+		//  Estimated: `1541`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 1541))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
