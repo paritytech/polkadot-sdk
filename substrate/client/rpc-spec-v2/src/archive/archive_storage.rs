@@ -307,7 +307,9 @@ where
 		let maybe_child_trie_str =
 			items.first().and_then(|item| item.child_trie_key_string.clone());
 
-		// Iterator over the current block.
+		// Iterator over the current block and previous block
+		// at the same time to compare the keys. This approach effectively
+		// leverages backpressure to avoid memory consumption.
 		let mut keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
 		let mut previous_keys_iter =
 			self.client.raw_keys_iter(previous_hash, maybe_child_trie.clone())?;
@@ -453,7 +455,6 @@ where
 
 					let _ = tx.blocking_send(ArchiveStorageDiffEvent::err(error));
 
-					// It ok to return here on the first encountered error.
 					return
 				} else {
 					log::trace!(
