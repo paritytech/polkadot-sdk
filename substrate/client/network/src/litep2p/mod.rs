@@ -703,21 +703,21 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					None => return,
 					Some(command) => match command {
 						NetworkServiceCommand::GetValue{ key } => {
-							let query_id = self.discovery.get_value(key.to_vec().into()).await;
-							self.pending_get_values.insert(query_id, (key.to_vec().into(), Instant::now()));
+							let query_id = self.discovery.get_value(key.clone()).await;
+							self.pending_get_values.insert(query_id, (key, Instant::now()));
 						}
 						NetworkServiceCommand::PutValue { key, value } => {
-							let query_id = self.discovery.put_value(key.to_vec().into(), value).await;
-							self.pending_put_values.insert(query_id, (key.to_vec().into(), Instant::now()));
+							let query_id = self.discovery.put_value(key.clone(), value).await;
+							self.pending_put_values.insert(query_id, (key, Instant::now()));
 						}
 						NetworkServiceCommand::PutValueTo { record, peers, update_local_storage} => {
-							let kademlia_key = record.key.to_vec().into();
+							let kademlia_key = record.key.clone();
 							let query_id = self.discovery.put_value_to_peers(record.into(), peers, update_local_storage).await;
 							self.pending_put_values.insert(query_id, (kademlia_key, Instant::now()));
 						}
 
 						NetworkServiceCommand::StoreRecord { key, value, publisher, expires } => {
-							self.discovery.store_record(key.to_vec().into(), value, publisher.map(Into::into), expires).await;
+							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
 						}
 						NetworkServiceCommand::EventStream { tx } => {
 							self.event_streams.push(tx);
@@ -864,7 +864,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								);
 
 								self.event_streams.send(Event::Dht(
-									DhtEvent::ValuePut(key.into())
+									DhtEvent::ValuePut(key)
 								));
 
 								if let Some(ref metrics) = self.metrics {
@@ -890,7 +890,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									);
 
 									self.event_streams.send(Event::Dht(
-										DhtEvent::ValuePutFailed(key.into())
+										DhtEvent::ValuePutFailed(key)
 									));
 
 									if let Some(ref metrics) = self.metrics {
@@ -908,7 +908,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								);
 
 								self.event_streams.send(Event::Dht(
-									DhtEvent::ValueNotFound(key.into())
+									DhtEvent::ValueNotFound(key)
 								));
 
 								if let Some(ref metrics) = self.metrics {
