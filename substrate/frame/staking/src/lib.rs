@@ -157,7 +157,7 @@
 //! 2. **Election**: The election is multi-block, where a set of supports is fetched per page/block.
 //!    This pallet keeps track of the elected stashes and their exposures as the paged election is
 //!    called. The [`frame_election_provider_support::ElectionProvider`] trait supports this
-//!    functionaluty by parameterizing the elect call with the page index.
+//!    functionality by parameterizing the elect call with the page index.
 //!
 //! Note: [`frame_election_provider_support::ElectionDataProvider`] trait supports mulit-paged
 //! target snaphsot. However, this pallet only supports and implements a single-page snapshot.
