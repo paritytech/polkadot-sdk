@@ -13,4 +13,6 @@ doc:
 
 crates:
   - name: sc-rpc-spec-v2
-    bump: minor
+    bump: major
+  - name: sc-service
+    bump: patch
