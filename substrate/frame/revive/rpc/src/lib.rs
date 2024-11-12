@@ -91,13 +91,13 @@ pub enum EthRpcError {
 	TransactionTypeNotSupported(Byte),
 }
 
+// TODO use https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<EthRpcError> for ErrorObjectOwned {
 	fn from(value: EthRpcError) -> Self {
-		let code = match value {
-			EthRpcError::ClientError(_) => ErrorCode::InternalError,
-			_ => ErrorCode::InvalidRequest,
-		};
-		Self::owned::<String>(code.code(), value.to_string(), None)
+		match value {
+			EthRpcError::ClientError(err) => Self::from(err),
+			_ => Self::owned::<String>(ErrorCode::InvalidRequest.code(), value.to_string(), None),
+		}
 	}
 }
 
@@ -121,6 +121,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
+		log::debug!(target: LOG_TARGET, "transaction_receipt for {transaction_hash:?}: {}", receipt.is_some());
 		Ok(receipt)
 	}
 
@@ -167,6 +168,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			storage_deposit,
 		);
 		let hash = self.client.submit(call).await?;
+		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
 		Ok(hash)
 	}
 
@@ -252,12 +254,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			.client
 			.dry_run(&transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
 			.await?;
-		let output = dry_run.result.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Dry run failed: {err:?}");
-			ClientError::DryRunFailed
-		})?;
-
-		Ok(output.into())
+		Ok(dry_run.result.into())
 	}
 
 	async fn get_block_by_number(
