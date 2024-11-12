@@ -96,3 +96,4 @@ std = [
 ]
 increment-spec-version = []
 elastic-scaling = []
+experimental-ump-signals = ["cumulus-pallet-parachain-system/experimental-ump-signals"]

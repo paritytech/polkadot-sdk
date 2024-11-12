@@ -29,6 +29,14 @@ fn main() {
 		.with_current_project()
 		.enable_feature("elastic-scaling")
 		.import_memory()
+		.set_file_name("wasm_binary_elastic_scaling_mvp.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("elastic-scaling")
+		.enable_feature("experimental-ump-signals")
+		.import_memory()
 		.set_file_name("wasm_binary_elastic_scaling.rs")
 		.build();
 }
