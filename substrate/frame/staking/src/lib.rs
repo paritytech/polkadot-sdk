@@ -422,13 +422,6 @@ pub struct ActiveEraInfo {
 	pub start: Option<u64>,
 }
 
-/// Pointer to the last iterated indices for targets and voters used when generating the snapshot.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub(crate) struct LastIteratedStakers<AccountId> {
-	voter: AccountId,
-	target: AccountId,
-}
-
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
@@ -488,20 +481,15 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 }
 
 /// Status of a paged snapshot progress.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
 pub enum SnapshotStatus<AccountId> {
 	/// Paged snapshot is in progress, the `AccountId` was the last staker iterated in the list.
 	Ongoing(AccountId),
 	/// All the stakers in the system have been consumed since the snapshot started.
 	Consumed,
 	/// Waiting for a new snapshot to be requested.
+	#[default]
 	Waiting,
-}
-
-impl<AccountId> Default for SnapshotStatus<AccountId> {
-	fn default() -> Self {
-		Self::Waiting
-	}
 }
 
 /// The ledger of a (bonded) stash.

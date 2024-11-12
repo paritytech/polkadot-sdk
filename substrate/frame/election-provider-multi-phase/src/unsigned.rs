@@ -19,8 +19,8 @@
 
 use crate::{
 	helpers, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error, FeasibilityError,
-	Pallet, QueuedSolution, RawSolution, ReadySolution, Round, RoundSnapshot, Snapshot,
-	SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
+	Pallet, QueuedSolution, RawSolution, ReadySolution, ReadySolutionOf, Round, RoundSnapshot,
+	Snapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
@@ -429,7 +429,8 @@ pub trait MinerConfig {
 	///
 	/// The weight is computed using `solution_weight`.
 	type MaxWeight: Get<Weight>;
-	/// The maximum number of winners that can be elected per page (and  overall).
+	/// The maximum number of winners that can be elected in the single page supported by this
+	/// pallet.
 	type MaxWinners: Get<u32>;
 	/// The maximum number of backers per winner in the last solution.
 	type MaxBackersPerWinner: Get<u32>;
@@ -751,8 +752,7 @@ impl<T: MinerConfig> Miner<T> {
 		snapshot: RoundSnapshot<T::AccountId, MinerVoterOf<T>>,
 		current_round: u32,
 		minimum_untrusted_score: Option<ElectionScore>,
-	) -> Result<ReadySolution<T::AccountId, T::MaxWinners, T::MaxBackersPerWinner>, FeasibilityError>
-	{
+	) -> Result<ReadySolutionOf<T>, FeasibilityError> {
 		let RawSolution { solution, score, round } = raw_solution;
 		let RoundSnapshot { voters: snapshot_voters, targets: snapshot_targets } = snapshot;
 

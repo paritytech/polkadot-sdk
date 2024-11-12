@@ -308,6 +308,12 @@ pub type SolutionTargetIndexOf<T> = <SolutionOf<T> as NposSolution>::TargetIndex
 /// The accuracy of the election, when submitted from offchain. Derived from [`SolutionOf`].
 pub type SolutionAccuracyOf<T> =
 	<SolutionOf<<T as crate::Config>::MinerConfig> as NposSolution>::Accuracy;
+/// A ready solution parameterized with this pallet's miner config.
+pub type ReadySolutionOf<T> = ReadySolution<
+	<T as MinerConfig>::AccountId,
+	<T as MinerConfig>::MaxWinners,
+	<T as MinerConfig>::MaxBackersPerWinner,
+>;
 /// The fallback election type.
 pub type FallbackErrorOf<T> = <<T as crate::Config>::Fallback as ElectionProvider>::Error;
 
@@ -1000,7 +1006,7 @@ pub mod pallet {
 			ensure!(CurrentPhase::<T>::get().is_emergency(), Error::<T>::CallNotAllowed);
 
 			// bound supports with T::MaxWinners.
-			let supports: BoundedSupports<_, _, _> =
+			let supports: BoundedSupportsOf<Pallet<T>> =
 				supports.try_into_bounded_supports().map_err(|_| Error::<T>::TooManyWinners)?;
 
 			// Note: we don't `rotate_round` at this point; the next call to
@@ -1280,8 +1286,7 @@ pub mod pallet {
 	///
 	/// Always sorted by score.
 	#[pallet::storage]
-	pub type QueuedSolution<T: Config> =
-		StorageValue<_, ReadySolution<T::AccountId, T::MaxWinners, T::MaxBackersPerWinner>>;
+	pub type QueuedSolution<T: Config> = StorageValue<_, ReadySolutionOf<T::MinerConfig>>;
 
 	/// Snapshot data of the round.
 	///
@@ -1413,8 +1418,7 @@ impl<T: Config> Pallet<T> {
 	/// Current best solution, signed or unsigned, queued to be returned upon `elect`.
 	///
 	/// Always sorted by score.
-	pub fn queued_solution(
-	) -> Option<ReadySolution<T::AccountId, T::MaxWinners, T::MaxBackersPerWinner>> {
+	pub fn queued_solution() -> Option<ReadySolutionOf<T::MinerConfig>> {
 		QueuedSolution::<T>::get()
 	}
 
@@ -1600,8 +1604,7 @@ impl<T: Config> Pallet<T> {
 	pub fn feasibility_check(
 		raw_solution: RawSolution<SolutionOf<T::MinerConfig>>,
 		compute: ElectionCompute,
-	) -> Result<ReadySolution<T::AccountId, T::MaxWinners, T::MaxBackersPerWinner>, FeasibilityError>
-	{
+	) -> Result<ReadySolutionOf<T::MinerConfig>, FeasibilityError> {
 		let desired_targets =
 			DesiredTargets::<T>::get().ok_or(FeasibilityError::SnapshotUnavailable)?;
 
@@ -1681,9 +1684,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// record the weight of the given `supports`.
-	fn weigh_supports(
-		supports: &BoundedSupports<T::AccountId, T::MaxWinners, T::MaxBackersPerWinner>,
-	) {
+	fn weigh_supports(supports: &BoundedSupportsOf<Self>) {
 		let active_voters = supports
 			.iter()
 			.map(|(_, x)| x)
