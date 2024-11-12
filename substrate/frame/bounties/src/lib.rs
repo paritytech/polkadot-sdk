@@ -95,8 +95,10 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use frame_support::traits::{
-	tokens::{ConversionFromAssetBalance, Pay}, Currency, ExistenceRequirement::AllowDeath, Get, OnUnbalanced,
-	ReservableCurrency,
+	tokens::{ConversionFromAssetBalance, Pay},
+	Currency,
+	ExistenceRequirement::AllowDeath,
+	Get, OnUnbalanced, ReservableCurrency,
 };
 
 use sp_runtime::{
@@ -134,8 +136,15 @@ type BountyType<T, I> = Bounty<
 
 /// A bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Bounty<AccountId, NativeBalance, AssetBalance, BlockNumber, AssetKind, PaymentId, Beneficiary>
-where
+pub struct Bounty<
+	AccountId,
+	NativeBalance,
+	AssetBalance,
+	BlockNumber,
+	AssetKind,
+	PaymentId,
+	Beneficiary,
+> where
 	Beneficiary: Clone,
 	PaymentId: Clone,
 {
@@ -376,7 +385,12 @@ pub mod pallet {
 		/// A bounty is awarded to a beneficiary.
 		BountyAwarded { index: BountyIndex, beneficiary: T::Beneficiary },
 		/// A bounty is claimed by beneficiary.
-		BountyClaimed { index: BountyIndex, asset_kind: T::AssetKind, asset_payout: AssetBalanceOf<T, I>, beneficiary: T::Beneficiary },
+		BountyClaimed {
+			index: BountyIndex,
+			asset_kind: T::AssetKind,
+			asset_payout: AssetBalanceOf<T, I>,
+			beneficiary: T::Beneficiary,
+		},
 		/// A bounty is cancelled.
 		BountyCanceled { index: BountyIndex },
 		/// A bounty expiry is extended.
@@ -397,12 +411,8 @@ pub mod pallet {
 
 	/// Bounties that have been made.
 	#[pallet::storage]
-	pub type Bounties<T: Config<I>, I: 'static = ()> = StorageMap<
-		_,
-		Twox64Concat,
-		BountyIndex,
-		BountyType<T, I>,
-	>;
+	pub type Bounties<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Twox64Concat, BountyIndex, BountyType<T, I>>;
 
 	/// The description of each bounty.
 	#[pallet::storage]
@@ -465,7 +475,11 @@ pub mod pallet {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
-				let native_amount = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(bounty.value, bounty.asset_kind.clone())
+				let native_amount =
+					<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+						bounty.value,
+						bounty.asset_kind.clone(),
+					)
 					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 				ensure!(
 					native_amount <= max_amount,
@@ -504,7 +518,11 @@ pub mod pallet {
 			let curator = T::Lookup::lookup(curator)?;
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
-				let native_amount = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(bounty.value, bounty.asset_kind.clone())
+				let native_amount =
+					<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+						bounty.value,
+						bounty.asset_kind.clone(),
+					)
 					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 				ensure!(
 					native_amount <= max_amount,
@@ -565,7 +583,11 @@ pub mod pallet {
 					};
 
 				match bounty.status {
-					BountyStatus::Proposed | BountyStatus::Approved | BountyStatus::Funded | BountyStatus::PayoutAttempted { .. } | BountyStatus::RefundAttempted { .. } => {
+					BountyStatus::Proposed |
+					BountyStatus::Approved |
+					BountyStatus::Funded |
+					BountyStatus::PayoutAttempted { .. } |
+					BountyStatus::RefundAttempted { .. } => {
 						// No curator to unassign at this point.
 						return Err(Error::<T, I>::UnexpectedStatus.into());
 					},
@@ -659,7 +681,10 @@ pub mod pallet {
 					BountyStatus::CuratorProposed { ref curator } => {
 						ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
-						let deposit = Self::calculate_curator_deposit(&bounty.fee, bounty.asset_kind.clone())?;
+						let deposit = Self::calculate_curator_deposit(
+							&bounty.fee,
+							bounty.asset_kind.clone(),
+						)?;
 						T::Currency::reserve(curator, deposit)?;
 						bounty.curator_deposit = deposit;
 
@@ -718,7 +743,8 @@ pub mod pallet {
 						bounty.status = BountyStatus::PendingPayout {
 							curator: signer,
 							beneficiary: beneficiary.clone(),
-							unlock_at: Self::treasury_block_number() + T::BountyDepositPayoutDelay::get(),
+							unlock_at: Self::treasury_block_number() +
+								T::BountyDepositPayoutDelay::get(),
 							curator_stash: curator_stash.clone(),
 						};
 					},
@@ -751,8 +777,9 @@ pub mod pallet {
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.take().ok_or(Error::<T, I>::InvalidIndex)?;
-				if let BountyStatus::PendingPayout { beneficiary, unlock_at, curator_stash, .. } =
-					bounty.status
+				if let BountyStatus::PendingPayout {
+					beneficiary, unlock_at, curator_stash, ..
+				} = bounty.status
 				{
 					ensure!(Self::treasury_block_number() >= unlock_at, Error::<T, I>::Premature);
 					let fee = bounty.fee;
@@ -764,7 +791,8 @@ pub mod pallet {
 					debug_assert!(children_fee <= fee);
 
 					let final_fee = fee.saturating_sub(children_fee);
-					let res = T::Paymaster::pay(&curator_stash, bounty.asset_kind.clone(), final_fee); // should not fail
+					let res =
+						T::Paymaster::pay(&curator_stash, bounty.asset_kind.clone(), final_fee); // should not fail
 					debug_assert!(res.is_ok());
 					let res = T::Paymaster::pay(&beneficiary, bounty.asset_kind.clone(), payout); // should not fail
 					debug_assert!(res.is_ok());
@@ -850,7 +878,9 @@ pub mod pallet {
 							debug_assert!(err_amount.is_zero());
 							// Then execute removal of the bounty below.
 						},
-						BountyStatus::PendingPayout { .. } | BountyStatus::PayoutAttempted { .. } | BountyStatus::RefundAttempted { .. } => {
+						BountyStatus::PendingPayout { .. } |
+						BountyStatus::PayoutAttempted { .. } |
+						BountyStatus::RefundAttempted { .. } => {
 							// Bounty is already pending payout. If council wants to cancel
 							// this bounty, it should mean the curator was acting maliciously.
 							// So the council should first unassign the curator, slashing their
@@ -944,7 +974,10 @@ pub mod pallet {
 				// approve bounty
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 				let native_amount =
-				<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(bounty.value, bounty.asset_kind.clone())
+					<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+						bounty.value,
+						bounty.asset_kind.clone(),
+					)
 					.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 				ensure!(
 					native_amount <= max_amount,
@@ -1051,9 +1084,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Calculate the deposit required for a curator.
-	pub fn calculate_curator_deposit(fee: &AssetBalanceOf<T, I>, kind: T::AssetKind) -> Result<BalanceOf<T, I>, pallet_treasury::Error<T, I>> {
-		let fee = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(*fee, kind)
-			.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
+	pub fn calculate_curator_deposit(
+		fee: &AssetBalanceOf<T, I>,
+		kind: T::AssetKind,
+	) -> Result<BalanceOf<T, I>, pallet_treasury::Error<T, I>> {
+		let fee =
+			<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(*fee, kind)
+				.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 
 		let mut deposit = T::CuratorDepositMultiplier::get() * fee;
 
@@ -1091,7 +1128,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		let bounded_description: BoundedVec<_, _> =
 			description.try_into().map_err(|_| Error::<T, I>::ReasonTooBig)?;
-		let native_amount = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(value, asset_kind.clone())
+		let native_amount =
+			<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+				value,
+				asset_kind.clone(),
+			)
 			.map_err(|_| pallet_treasury::Error::<T, I>::FailedToConvertBalance)?;
 
 		ensure!(native_amount >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
@@ -1106,7 +1147,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		BountyCount::<T, I>::put(index + 1);
 
-		let bounty = BountyType::<T, I>{
+		let bounty = BountyType::<T, I> {
 			proposer,
 			asset_kind,
 			value,
@@ -1115,7 +1156,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			bond,
 			status: BountyStatus::Proposed,
 		};
-		
+
 		Bounties::<T, I>::insert(index, &bounty);
 		BountyDescriptions::<T, I>::insert(index, bounded_description);
 
