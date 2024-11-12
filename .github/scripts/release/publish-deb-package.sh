@@ -6,8 +6,8 @@ set -e
 repo="$1"
 package="$2"
 version="$3"
+local_deb_repo_path="$4"
 
-local_deb_repo_path="~/deb"
 aws_deb_path="s3://releases-package-repos/deb"
 
 # Add a deb to our apt repo
