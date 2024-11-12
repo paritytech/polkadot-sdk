@@ -88,7 +88,7 @@ jobs:
       - name: Install awscli
         run: |
           python3 -m pip install awscli
-          which awscli
+          # which awscli
 
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
