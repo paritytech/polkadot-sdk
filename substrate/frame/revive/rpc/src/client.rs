@@ -329,20 +329,20 @@ impl ClientInner {
 
 
 				log::debug!(target: LOG_TARGET, "Adding receipt for tx hash: {transaction_hash:?} - block: {block_number:?}");
-				let receipt = ReceiptInfo {
+				let receipt = ReceiptInfo::new(
 					block_hash,
 					block_number,
 					contract_address,
 					from,
 					logs,
-					to: tx.transaction_legacy_unsigned.to,
-					effective_gas_price: gas_price,
-					gas_used: gas_used.into(),
-					status: Some(if success { U256::one() } else { U256::zero() }),
+					tx.transaction_legacy_unsigned.to,
+					gas_price,
+					gas_used.into(),
+					success,
 					transaction_hash,
 					transaction_index: transaction_index.into(),
-					..Default::default()
-				};
+					tx.r#type.bytes()
+				);
 
 				Ok::<_, ClientError>((receipt.transaction_hash, (tx.into(), receipt)))
 			})
