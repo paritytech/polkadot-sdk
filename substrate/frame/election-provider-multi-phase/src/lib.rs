@@ -1785,7 +1785,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type DataProvider = T::DataProvider;
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		// Note: this pallet **MUST** only by used in the single-block mode.
+		// Note: this pallet **MUST** only by used in the single-page mode.
 		ensure!(page == SINGLE_PAGE, ElectionError::<T>::MultiPageNotSupported);
 
 		match Self::do_elect() {
