@@ -13,3 +13,5 @@ crates:
       bump: patch
     - name: pallet-salary
       bump: patch
+    - name: polkadot-sdk
+      bump: patch
