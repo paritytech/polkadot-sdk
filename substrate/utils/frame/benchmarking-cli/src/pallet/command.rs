@@ -19,7 +19,14 @@ use super::{
 	types::{ComponentRange, ComponentRangeMap},
 	writer, ListOutput, PalletCmd,
 };
-use crate::pallet::{types::FetchedCode, GenesisBuilderPolicy};
+use crate::{
+	pallet::{types::FetchedCode, GenesisBuilderPolicy},
+	shared::{
+		genesis_state,
+		genesis_state::{GenesisStateHandler, SpecGenesisSource, WARN_SPEC_GENESIS_CTOR},
+	},
+};
+use clap::{error::ErrorKind, CommandFactory};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
 	Analysis, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList, BenchmarkParameter,

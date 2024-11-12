@@ -96,4 +96,3 @@ See [this guide][import-account] for more info on how to import an account.
 [add-network]: https://support.metamask.io/networks-and-sidechains/managing-networks/how-to-add-a-custom-network-rpc/#adding-a-network-manually
 [import-account]: https://support.metamask.io/managing-my-wallet/accounts-and-addresses/how-to-import-an-account/
 [reset-account]: https://support.metamask.io/managing-my-wallet/resetting-deleting-and-restoring/how-to-clear-your-account-activity-reset-account
-
