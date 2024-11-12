@@ -24,7 +24,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use log::debug;
-use sc_client_api::{CompactProof, KeyValueStates, KeyValueStorageLevel, ProofProvider};
+use sc_client_api::{CompactProof, KeyValueStates, ProofProvider};
 use sc_consensus::ImportedState;
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
@@ -140,32 +140,34 @@ where
 	) {
 		let is_top = state_root.is_empty();
 
-		let (child_key_values, top_key_values): (Vec<_>, Vec<_>) =
-			key_values.into_iter().partition(|key_value| {
-				is_top && well_known_keys::is_child_storage_key(key_value.0.as_slice())
-			});
-
 		let entry = self.state.entry(state_root).or_default();
 
 		if entry.0.len() > 0 && entry.1.len() > 1 {
 			// Already imported child_trie with same root.
 			// Warning this will not work with parallel download.
-		} else {
-			self.imported_bytes +=
-				top_key_values.iter().map(|(key, _value)| key.len()).sum::<usize>() as u64;
+			return;
+		}
 
-			entry.0.extend(top_key_values);
+		let mut child_storage_roots = Vec::new();
 
-			for key_value in child_key_values {
-				self.state.entry(key_value.1).or_default().1.push(key_value.0);
+		for (key, value) in key_values {
+			// Skip all child key root (will be recalculated on import)
+			if is_top && well_known_keys::is_child_storage_key(key.as_slice()) {
+				child_storage_roots.push((value, key));
+			} else {
+				self.imported_bytes += key.len() as u64;
+				entry.0.push((key, value));
 			}
+		}
+
+		for (root, storage_key) in child_storage_roots {
+			self.state.entry(root).or_default().1.push(storage_key);
 		}
 	}
 
 	fn process_state_verified(&mut self, values: KeyValueStates) {
 		for values in values.0 {
-			let KeyValueStorageLevel { state_root, parent_storage_keys: _, key_values } = values;
-			self.process_state_key_values(state_root, key_values);
+			self.process_state_key_values(values.state_root, values.key_values);
 		}
 	}
 
