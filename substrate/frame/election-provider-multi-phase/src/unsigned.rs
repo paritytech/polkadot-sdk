@@ -431,7 +431,7 @@ pub trait MinerConfig {
 	type MaxWeight: Get<Weight>;
 	/// The maximum number of winners that can be elected per page (and  overall).
 	type MaxWinners: Get<u32>;
-	/// The maximum number of backers (edges) per winner in the last solution.
+	/// The maximum number of backers per winner in the last solution.
 	type MaxBackersPerWinner: Get<u32>;
 	/// Something that can compute the weight of a solution.
 	///
