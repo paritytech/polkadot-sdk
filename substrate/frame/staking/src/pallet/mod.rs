@@ -911,13 +911,13 @@ pub mod pallet {
 		/// The election failed. No new era is planned.
 		StakingElectionFailed,
 		/// An account has stopped participating as either a validator or nominator.
-		Chilled {
-			stash: T::AccountId,
-		},
-		/// The stakers' rewards are getting paid.
+		Chilled { stash: T::AccountId },
+		/// A Page of stakers rewards are getting paid. `next` is `None` if all pages are claimed.
 		PayoutStarted {
 			era_index: EraIndex,
 			validator_stash: T::AccountId,
+			page: Page,
+			next: Option<Page>,
 		},
 		/// A validator has set their preferences.
 		ValidatorPrefsSet {

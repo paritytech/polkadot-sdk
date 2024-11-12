@@ -90,7 +90,7 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::Pair;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{codec::Encode, generic};
+use sp_runtime::{codec::Encode, generic, MultiAddress};
 use sp_state_machine::BasicExternalities;
 use std::sync::Arc;
 use substrate_test_client::{
@@ -367,7 +367,7 @@ where
 		prometheus_registry.clone(),
 	);
 
-	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
 			net_config,
@@ -541,8 +541,6 @@ where
 			}
 		}
 	}
-
-	start_network.start_network();
 
 	Ok((task_manager, client, network, rpc_handlers, transaction_pool, backend))
 }
@@ -991,7 +989,7 @@ pub fn construct_extrinsic(
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(
 		function,
-		caller.public().into(),
+		MultiAddress::Id(caller.public().into()),
 		runtime::Signature::Sr25519(signature),
 		tx_ext,
 	)

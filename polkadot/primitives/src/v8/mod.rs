@@ -484,7 +484,7 @@ pub fn collator_signature_payload<H: AsRef<[u8]>>(
 	payload
 }
 
-fn check_collator_signature<H: AsRef<[u8]>>(
+pub(crate) fn check_collator_signature<H: AsRef<[u8]>>(
 	relay_parent: &H,
 	para_id: &Id,
 	persisted_validation_data_hash: &Hash,
