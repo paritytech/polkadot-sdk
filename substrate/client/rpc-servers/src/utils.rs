@@ -39,8 +39,18 @@ pub(crate) fn host_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<
 
 	if enabled {
 		// NOTE: The listening addresses are whitelisted by default.
+<<<<<<< HEAD
 		let hosts =
 			[format!("localhost:{port}"), format!("127.0.0.1:{port}"), format!("[::1]:{port}")];
+=======
+
+		let hosts = [
+			format!("localhost:{}", addr.port()),
+			format!("127.0.0.1:{}", addr.port()),
+			format!("[::1]:{}", addr.port()),
+		];
+
+>>>>>>> 0a0af0e (rpc server: fix host filter for localhost on ipv6 (#6454))
 		Some(HostFilterLayer::new(hosts).expect("Valid hosts; qed"))
 	} else {
 		None
