@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+use alloc::vec;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_support::ensure;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
