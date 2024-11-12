@@ -1038,6 +1038,7 @@ fn ensure_seconding_limit_is_respected(
 		claims_for_para,
 		seconded_and_pending_below,
 		?seconded_and_pending_above,
+		claim_queue = ?assignment.current,
 		"Checking if seconded limit is reached"
 	);
 
@@ -1065,6 +1066,7 @@ fn ensure_seconding_limit_is_respected(
 				?relay_parent,
 				?para_id,
 				claims_for_para,
+				seconded_and_pending_below,
 				claims_at_path,
 				"Seconding limit exceeded"
 			);
