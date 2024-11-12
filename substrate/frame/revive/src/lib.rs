@@ -1244,134 +1244,115 @@ where
 		T::Nonce: Into<U256>,
 		T::Hash: frame_support::traits::IsType<H256>,
 	{
-		log::debug!(target: LOG_TARGET, "bare_eth_transact: dest: {dest:?} value: {value:?} gas_limit: {gas_limit:?} storage_deposit_limit: {storage_deposit_limit:?}");
+		log::debug!(target: LOG_TARGET, "bare_eth_transact: dest: {dest:?} value: {value:?}
+		 gas_limit: {gas_limit:?} storage_deposit_limit: {storage_deposit_limit:?}");
+
 		// Get the nonce to encode in the tx.
 		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
 
-		// Use a big enough gas price to ensure that the encoded size is large enough.
-		let max_gas_fee: BalanceOf<T> =
-			(pallet_transaction_payment::Pallet::<T>::weight_to_fee(Weight::MAX) /
-				GAS_PRICE.into())
-			.into();
-
-		// A contract call.
-		if let Some(dest) = dest {
-			// Dry run the call.
-			let result = crate::Pallet::<T>::bare_call(
-				T::RuntimeOrigin::signed(origin),
-				dest,
-				value,
-				gas_limit,
-				storage_deposit_limit,
-				input.clone(),
-				debug,
-				collect_events,
-			);
-
-			// Get the encoded size of the transaction.
-			let tx = TransactionLegacyUnsigned {
-				value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
-				input: input.into(),
-				nonce: nonce.into(),
-				chain_id: Some(T::ChainId::get().into()),
-				gas_price: GAS_PRICE.into(),
-				gas: max_gas_fee.into(),
-				to: Some(dest),
-				..Default::default()
-			};
-
-			let eth_dispatch_call = crate::Call::<T>::eth_transact {
-				payload: tx.dummy_signed_payload(),
-				gas_limit: result.gas_required,
-				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-			};
-			let encoded_len = utx_encoded_size(eth_dispatch_call);
-
-			// Get the dispatch info of the call.
-			let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
-				dest,
-				value,
-				gas_limit: result.gas_required,
-				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-				data: tx.input.0,
-			}
-			.into();
-			let dispatch_info = dispatch_call.get_dispatch_info();
-
-			// Compute the fee.
-			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
-				encoded_len,
-				&dispatch_info,
-				0u32.into(),
-			)
-			.into();
-
-			log::trace!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
-			EthContractResult {
-				gas_required: result.gas_required,
-				storage_deposit: result.storage_deposit.charge_or_zero(),
-				result: result.result.map(|v| v.data),
-				fee,
-			}
-			// A contract deployment
-		} else {
-			// Extract code and data from the input.
-			let (code, data) = match polkavm::ProgramBlob::blob_length(&input) {
-				Some(blob_len) => blob_len
-					.try_into()
-					.ok()
-					.and_then(|blob_len| (input.split_at_checked(blob_len)))
-					.unwrap_or_else(|| (&input[..], &[][..])),
-				_ => {
-					log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
-					(&input[..], &[][..])
-				},
-			};
-
-			// Dry run the call.
-			let result = crate::Pallet::<T>::bare_instantiate(
-				T::RuntimeOrigin::signed(origin),
-				value,
-				gas_limit,
-				storage_deposit_limit,
-				Code::Upload(code.to_vec()),
-				data.to_vec(),
-				None,
-				debug,
-				collect_events,
-			);
-
-			// Get the encoded size of the transaction.
-			let tx = TransactionLegacyUnsigned {
-				gas: max_gas_fee.into(),
-				nonce: nonce.into(),
-				value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
-				input: input.clone().into(),
-				gas_price: GAS_PRICE.into(),
-				chain_id: Some(T::ChainId::get().into()),
-				..Default::default()
-			};
-			let eth_dispatch_call = crate::Call::<T>::eth_transact {
-				payload: tx.dummy_signed_payload(),
-				gas_limit: result.gas_required,
-				storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-			};
-			let encoded_len = utx_encoded_size(eth_dispatch_call);
-
-			// Get the dispatch info of the call.
-			let dispatch_call: <T as Config>::RuntimeCall =
-				crate::Call::<T>::instantiate_with_code {
+		// Dry run the call
+		let (mut result, dispatch_info) = match dest {
+			// A contract call.
+			Some(dest) => {
+				// Dry run the call.
+				let result = crate::Pallet::<T>::bare_call(
+					T::RuntimeOrigin::signed(origin),
+					dest,
+					value,
+					gas_limit,
+					storage_deposit_limit,
+					input.clone(),
+					debug,
+					collect_events,
+				);
+				let result = EthContractResult {
+					gas_required: result.gas_required,
+					storage_deposit: result.storage_deposit.charge_or_zero(),
+					result: result.result,
+					fee: Default::default(),
+				};
+				// Get the dispatch info of the call.
+				let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
+					dest,
 					value,
 					gas_limit: result.gas_required,
-					storage_deposit_limit: result.storage_deposit.charge_or_zero(),
-					code: code.to_vec(),
-					data: data.to_vec(),
-					salt: None,
+					storage_deposit_limit: result.storage_deposit,
+					data: input.clone(),
 				}
 				.into();
-			let dispatch_info = dispatch_call.get_dispatch_info();
+				(result, dispatch_call.get_dispatch_info())
+			},
+			// A contract deployment
+			None => {
+				// Extract code and data from the input.
+				let (code, data) = match polkavm::ProgramBlob::blob_length(&input) {
+					Some(blob_len) => blob_len
+						.try_into()
+						.ok()
+						.and_then(|blob_len| (input.split_at_checked(blob_len)))
+						.unwrap_or_else(|| (&input[..], &[][..])),
+					_ => {
+						log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
+						(&input[..], &[][..])
+					},
+				};
 
-			// Compute the fee.
+				// Dry run the call.
+				let result = crate::Pallet::<T>::bare_instantiate(
+					T::RuntimeOrigin::signed(origin),
+					value,
+					gas_limit,
+					storage_deposit_limit,
+					Code::Upload(code.to_vec()),
+					data.to_vec(),
+					None,
+					debug,
+					collect_events,
+				);
+
+				let result = EthContractResult {
+					gas_required: result.gas_required,
+					storage_deposit: result.storage_deposit.charge_or_zero(),
+					result: result.result.map(|v| v.result),
+					fee: Default::default(),
+				};
+
+				// Get the dispatch info of the call.
+				let dispatch_call: <T as Config>::RuntimeCall =
+					crate::Call::<T>::instantiate_with_code {
+						value,
+						gas_limit: result.gas_required,
+						storage_deposit_limit: result.storage_deposit,
+						code: code.to_vec(),
+						data: data.to_vec(),
+						salt: None,
+					}
+					.into();
+				(result, dispatch_call.get_dispatch_info())
+			},
+		};
+
+		let mut tx = TransactionLegacyUnsigned {
+			value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
+			input: input.into(),
+			nonce: nonce.into(),
+			chain_id: Some(T::ChainId::get().into()),
+			gas_price: GAS_PRICE.into(),
+			to: dest,
+			..Default::default()
+		};
+
+		// The transaction fees depend on the extrinsic's length, which in turn is influenced by
+		// the encoded length of the gas limit specified in the transaction (tx.gas).
+		// We iteratively compute the fee by adjusting tx.gas until the fee stabilizes.
+		// with a maximum of 3 iterations to avoid an infinite loop.
+		for _ in 0..3 {
+			let eth_dispatch_call = crate::Call::<T>::eth_transact {
+				payload: tx.dummy_signed_payload(),
+				gas_limit: result.gas_required,
+				storage_deposit_limit: result.storage_deposit,
+			};
+			let encoded_len = utx_encoded_size(eth_dispatch_call);
 			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
 				encoded_len,
 				&dispatch_info,
@@ -1379,14 +1360,16 @@ where
 			)
 			.into();
 
-			log::trace!(target: LOG_TARGET, "bare_eth_call: len: {encoded_len:?} fee: {fee:?}");
-			EthContractResult {
-				gas_required: result.gas_required,
-				storage_deposit: result.storage_deposit.charge_or_zero(),
-				result: result.result.map(|v| v.result.data),
-				fee,
+			if fee == result.fee {
+				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} fee: {fee:?}");
+				break;
 			}
+			result.fee = fee;
+			tx.gas = (fee / GAS_PRICE.into()).into();
+			log::debug!(target: LOG_TARGET, "Adjusting Eth gas to: {:?}", tx.gas);
 		}
+
+		result
 	}
 
 	/// A generalized version of [`Self::upload_code`].
