@@ -26,7 +26,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
-use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage, testing::TestXt};
+use sp_runtime::{generic, testing::TestXt, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 pub type TxExtension = (

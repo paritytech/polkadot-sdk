@@ -28,7 +28,9 @@ use frame_support::{
 use pallet_ranked_collective::{EnsureRanked, Geometric};
 use sp_core::{ConstU16, Get};
 use sp_runtime::{
-	testing::TestXt, traits::{Convert, ReduceBy, ReplaceWithDefault}, BuildStorage
+	testing::TestXt,
+	traits::{Convert, ReduceBy, ReplaceWithDefault},
+	BuildStorage,
 };
 
 type Rank = u16;

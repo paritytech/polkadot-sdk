@@ -21,12 +21,12 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use scale_info::{TypeInfo, prelude::vec};
-use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::{Perbill, RuntimeDebug};
 use frame_system::offchain::CreateInherent;
 #[cfg(feature = "experimental")]
 use frame_system::offchain::SubmitTransaction;
+use scale_info::{prelude::vec, TypeInfo};
+use sp_arithmetic::traits::{Saturating, Zero};
+use sp_runtime::{Perbill, RuntimeDebug};
 
 use frame_support::{
 	defensive,
@@ -101,7 +101,8 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: CreateInherent<frame_system::Call<Self>> + frame_system::Config
+	pub trait Config<I: 'static = ()>:
+		CreateInherent<frame_system::Call<Self>> + frame_system::Config
 	{
 		type RuntimeTask: frame_support::traits::Task
 			+ IsType<<Self as frame_system::Config>::RuntimeTask>
