@@ -129,11 +129,8 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 		});
 
 		// execute XCM with Transacts to `initialize bridge` as governance does
-		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
-			initialize_call.encode(),
-			initialize_call.get_dispatch_info().call_weight,
-		)
-		.ensure_complete());
+		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(initialize_call.encode(),)
+			.ensure_complete());
 
 		// check mode after
 		assert_eq!(
@@ -172,7 +169,6 @@ pub fn change_bridge_grandpa_pallet_mode_by_governance_works<Runtime, GrandpaPal
 			// execute XCM with Transacts to `initialize bridge` as governance does
 			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().call_weight,
 			)
 			.ensure_complete());
 
@@ -225,7 +221,6 @@ pub fn change_bridge_parachains_pallet_mode_by_governance_works<Runtime, Paracha
 			// execute XCM with Transacts to `initialize bridge` as governance does
 			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().call_weight,
 			)
 			.ensure_complete());
 
@@ -278,7 +273,6 @@ pub fn change_bridge_messages_pallet_mode_by_governance_works<Runtime, MessagesP
 			// execute XCM with Transacts to `initialize bridge` as governance does
 			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
 				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().call_weight,
 			)
 			.ensure_complete());
 

@@ -317,7 +317,7 @@ async fn assert_validate_from_exhaustive(
 		) if validation_data == *assert_pvd &&
 			validation_code == *assert_validation_code &&
 			*pov == *assert_pov && candidate_receipt.descriptor == assert_candidate.descriptor &&
-			exec_kind == PvfExecKind::BackingSystemParas &&
+			matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 			candidate_receipt.commitments_hash == assert_candidate.commitments.hash() =>
 		{
 			response_sender.send(Ok(ValidationResult::Valid(
@@ -632,20 +632,21 @@ async fn assert_validate_seconded_candidate(
 
 	assert_matches!(
 		virtual_overseer.recv().await,
-		AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive {
-			validation_data,
-			validation_code,
-			candidate_receipt,
-			pov,
-			exec_kind,
-			response_sender,
-			..
-		}) if &validation_data == assert_pvd &&
-			&validation_code == assert_validation_code &&
-			&*pov == assert_pov &&
-			candidate_receipt.descriptor == candidate.descriptor &&
-			exec_kind == PvfExecKind::BackingSystemParas &&
-			candidate.commitments.hash() == candidate_receipt.commitments_hash =>
+		AllMessages::CandidateValidation(
+			CandidateValidationMessage::ValidateFromExhaustive {
+				pov,
+				validation_data,
+				validation_code,
+				candidate_receipt,
+				exec_kind,
+				response_sender,
+				..
+			},
+		) if validation_data == *assert_pvd &&
+			validation_code == *assert_validation_code &&
+			*pov == *assert_pov && candidate_receipt.descriptor == candidate.descriptor &&
+			matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
+			candidate_receipt.commitments_hash == candidate.commitments.hash() =>
 		{
 			response_sender.send(Ok(ValidationResult::Valid(
 				CandidateCommitments {
@@ -1542,7 +1543,7 @@ fn backing_works_while_validation_ongoing() {
 			) if validation_data == pvd_abc &&
 				validation_code == validation_code_abc &&
 				*pov == pov_abc && candidate_receipt.descriptor == candidate_a.descriptor &&
-				exec_kind == PvfExecKind::BackingSystemParas &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate_a_commitments_hash == candidate_receipt.commitments_hash =>
 			{
 				// we never validate the candidate. our local node
@@ -1825,7 +1826,7 @@ fn backing_doesnt_second_invalid() {
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
 				*pov == pov_block_a && candidate_receipt.descriptor == candidate_a.descriptor &&
-				exec_kind == PvfExecKind::BackingSystemParas &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate_a.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::BadReturn))).unwrap();
@@ -2014,7 +2015,7 @@ fn backing_second_after_first_fails_works() {
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
 				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
-				exec_kind == PvfExecKind::BackingSystemParas &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Ok(ValidationResult::Invalid(InvalidCandidate::BadReturn))).unwrap();
@@ -2173,7 +2174,7 @@ fn backing_works_after_failed_validation() {
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
 				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
-				exec_kind == PvfExecKind::BackingSystemParas &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 			{
 				response_sender.send(Err(ValidationFailed("Internal test error".into()))).unwrap();
@@ -2474,7 +2475,7 @@ fn retry_works() {
 			) if validation_data == pvd_a &&
 				validation_code == validation_code_a &&
 				*pov == pov_a && candidate_receipt.descriptor == candidate.descriptor &&
-				exec_kind == PvfExecKind::BackingSystemParas &&
+				matches!(exec_kind, PvfExecKind::BackingSystemParas(_)) &&
 				candidate.commitments.hash() == candidate_receipt.commitments_hash
 		);
 		virtual_overseer
