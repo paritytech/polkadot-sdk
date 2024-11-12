@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Implementation for [`snowbridge_outbound_queue_primitives::v1::SendMessage`]
 use super::*;
-use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_support::{
 	ensure,
@@ -19,8 +18,9 @@ use sp_core::H256;
 use sp_runtime::BoundedVec;
 
 /// The maximal length of an enqueued message, as determined by the MessageQueue pallet
-pub type MaxEnqueuedMessageSizeOf<T> =
-	<<T as Config>::MessageQueue as EnqueueMessage<AggregateMessageOrigin>>::MaxMessageLen;
+pub type MaxEnqueuedMessageSizeOf<T> = <<T as Config>::MessageQueue as EnqueueMessage<
+	<T as Config>::AggregateMessageOrigin,
+>>::MaxMessageLen;
 
 #[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
 pub struct Ticket<T>
@@ -74,7 +74,7 @@ where
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError> {
-		let origin = AggregateMessageOrigin::Snowbridge(ticket.channel_id);
+		let origin = T::GetAggregateMessageOrigin::convert(ticket.channel_id);
 
 		if ticket.channel_id != PRIMARY_GOVERNANCE_CHANNEL {
 			ensure!(!Self::operating_mode().is_halted(), SendError::Halted);

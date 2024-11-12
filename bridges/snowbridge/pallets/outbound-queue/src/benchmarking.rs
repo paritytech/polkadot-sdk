@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use snowbridge_core::ChannelId;
@@ -34,7 +33,7 @@ mod benchmarks {
 				}),
 			},
 		};
-		let origin = AggregateMessageOrigin::Snowbridge([1; 32].into());
+		let origin = T::GetAggregateMessageOrigin::convert([1; 32].into());
 		let encoded_enqueued_message = enqueued_message.encode();
 
 		#[block]
