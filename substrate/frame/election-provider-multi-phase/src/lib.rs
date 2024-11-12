@@ -683,8 +683,7 @@ pub mod pallet {
 
 		/// Maximum number of voters that can support a winner in an election solution.
 		///
-		/// This limit must be set so that the memory limits of the rest of the system are
-		/// respected.
+		/// This is needed to ensure election computation is bounded.
 		type MaxBackersPerWinner: Get<u32>;
 
 		/// Something that calculates the signed deposit base based on the signed submissions queue
@@ -1787,7 +1786,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type DataProvider = T::DataProvider;
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		// Note: this pallet **MUST** only by used in the single-block mode.
+		// Note: this pallet **MUST** only by used in the single-page mode.
 		ensure!(page == SINGLE_PAGE, ElectionError::<T>::MultiPageNotSupported);
 
 		match Self::do_elect() {
