@@ -8,8 +8,8 @@ doc:
 
 crates:
     - name: collectives-westend-runtime
-      bump: Major
+      bump: major
     - name: staging-xcm-builder
-      bump: Patch
+      bump: patch
     - name: pallet-salary
-      bump: Patch
+      bump: patch
