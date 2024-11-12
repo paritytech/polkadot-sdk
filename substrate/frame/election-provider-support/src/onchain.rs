@@ -43,7 +43,7 @@ pub enum Error {
 	/// `MaxWinners`.
 	TooManyWinners,
 	/// Single page election called with multi-page configs.
-	SinglePageExpected,
+	UnsupportedPageIndex,
 }
 
 impl From<sp_npos_elections::Error> for Error {
