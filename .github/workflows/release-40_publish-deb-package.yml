@@ -112,7 +112,7 @@ jobs:
           which reprepro
 
           mkdir -p ~/deb/conf
-          cp ${{ github.workspace }}/.github/scripts/release/deb-conf-distributions ${{ github.workspace }}/deb/conf/distributions
+          cp ${{ github.workspace }}/.github/scripts/release/distributions ${{ github.workspace }}/deb/conf/distributions
           cat ${{ github.workspace }}/deb/conf/distributions
  
       - name: Publish deb package
