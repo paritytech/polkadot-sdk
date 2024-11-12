@@ -483,11 +483,19 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 				Some(worst) => Some(
 					match (worst.transaction.source.timestamp, current.transaction.source.timestamp)
 					{
-						(Some(worst_timestamp), Some(current_timestamp))
-							if worst_timestamp > current_timestamp =>
-							current.clone(),
-						_ if worst.imported_at > current.imported_at => current.clone(),
-						_ => worst,
+						(Some(worst_timestamp), Some(current_timestamp)) => {
+							if worst_timestamp > current_timestamp {
+								current.clone()
+							} else {
+								worst
+							}
+						},
+						_ =>
+							if worst.imported_at > current.imported_at {
+								current.clone()
+							} else {
+								worst
+							},
 					},
 				),
 			});

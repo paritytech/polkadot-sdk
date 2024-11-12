@@ -1088,6 +1088,7 @@ where
 
 		let watched_xts_filtered = watched_xts
 			.into_iter()
+			.filter(|(hash, _)| !view.pool.validated_pool().pool.read().is_imported(hash))
 			.filter(|(hash, _)| !included_xts.contains(&hash))
 			.map(|(tx_hash, tx)| (tx_hash, tx.source(), tx.tx()))
 			.collect::<Vec<_>>();

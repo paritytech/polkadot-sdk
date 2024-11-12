@@ -813,6 +813,7 @@ fn fatp_limits_watcher_future_transactions_are_droped_when_view_is_dropped() {
 
 	assert_pool_status!(header04.hash(), &pool, 0, 2);
 	assert_eq!(pool.futures().len(), 2);
+	assert_future_iterator!(pool, [xt4, xt5]);
 
 	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header04.hash())));
 	assert_eq!(pool.active_views_count(), 1);
@@ -830,20 +831,15 @@ fn fatp_limits_watcher_future_transactions_are_droped_when_view_is_dropped() {
 	assert_pool_status!(header04.hash(), &pool, 0, 2);
 	assert_eq!(pool.futures().len(), 2);
 
-	let mut to_be_checked = vec![
-		(xt0, xt0_watcher),
-		(xt1, xt1_watcher),
-		(xt2, xt2_watcher),
-		(xt3, xt3_watcher),
-		(xt4, xt4_watcher),
-		(xt5, xt5_watcher),
-	];
-
-	let future_hashes = pool.futures().iter().map(|t| t.hash).collect::<Vec<_>>();
-	to_be_checked.retain(|x| !future_hashes.contains(&api.hash_and_length(&x.0).0));
-
+	let to_be_checked = vec![xt0_watcher, xt1_watcher, xt2_watcher, xt3_watcher];
 	for x in to_be_checked {
-		let x_status = futures::executor::block_on_stream(x.1).take(2).collect::<Vec<_>>();
+		let x_status = futures::executor::block_on_stream(x).take(2).collect::<Vec<_>>();
 		assert_eq!(x_status, vec![TransactionStatus::Future, TransactionStatus::Dropped]);
+	}
+
+	let to_be_checked = vec![xt4_watcher, xt5_watcher];
+	for x in to_be_checked {
+		let x_status = futures::executor::block_on_stream(x).take(1).collect::<Vec<_>>();
+		assert_eq!(x_status, vec![TransactionStatus::Future]);
 	}
 }
