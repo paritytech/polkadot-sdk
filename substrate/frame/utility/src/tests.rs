@@ -947,7 +947,7 @@ fn if_else_with_signed_works() {
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::if_else(
 			RuntimeOrigin::signed(1),
-			Box::new(call_transfer(2, 11)), 
+			Box::new(call_transfer(2, 11)),
 			Box::new(call_transfer(2, 5))
 		));
 		assert_eq!(Balances::free_balance(1), 5);

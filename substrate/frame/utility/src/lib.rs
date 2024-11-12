@@ -64,10 +64,10 @@ use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo},
 	traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
 };
+use scale_info::TypeInfo;
 use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
-use scale_info::TypeInfo;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -169,7 +169,7 @@ pub mod pallet {
 		/// Too many calls batched.
 		TooManyCalls,
 		/// Multiple call failure.
-		InvalidCalls
+		InvalidCalls,
 	}
 
 	#[pallet::call]
@@ -478,57 +478,57 @@ pub mod pallet {
 			)
 		})]
 		pub fn if_else(
-    		origin: OriginFor<T>,
-    		main: Box<<T as Config>::RuntimeCall>,
-    		fallback: Box<<T as Config>::RuntimeCall>,
+			origin: OriginFor<T>,
+			main: Box<<T as Config>::RuntimeCall>,
+			fallback: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
-    		// Do not allow the `None` origin.
-    		if ensure_none(origin.clone()).is_ok() {
-        		return Err(BadOrigin.into());
-    		}
+			// Do not allow the `None` origin.
+			if ensure_none(origin.clone()).is_ok() {
+				return Err(BadOrigin.into());
+			}
 
-    		let is_root = ensure_root(origin.clone()).is_ok();
+			let is_root = ensure_root(origin.clone()).is_ok();
 
-    		// Track the weights
-    		let mut weight = Weight::zero();
+			// Track the weights
+			let mut weight = Weight::zero();
 
 			let info = main.get_dispatch_info();
 
-    		// Execute the main call first
-    		let main_result = if is_root {
-        		main.dispatch_bypass_filter(origin.clone())
-    		} else {
-        		main.dispatch(origin.clone())
-    		};
+			// Execute the main call first
+			let main_result = if is_root {
+				main.dispatch_bypass_filter(origin.clone())
+			} else {
+				main.dispatch(origin.clone())
+			};
 
-    		// Add weight of the main call
-    		weight = weight.saturating_add(extract_actual_weight(&main_result, &info));
+			// Add weight of the main call
+			weight = weight.saturating_add(extract_actual_weight(&main_result, &info));
 
-    		if let Err(_main_call_error) = main_result {
-        		// If the main call failed, execute the fallback call
+			if let Err(_main_call_error) = main_result {
+				// If the main call failed, execute the fallback call
 				let fallback_info = fallback.get_dispatch_info();
 
-        		let fallback_result = if is_root {
-            		fallback.dispatch_bypass_filter(origin.clone())
-        		} else {
-            		fallback.dispatch(origin.clone())
-        		};
+				let fallback_result = if is_root {
+					fallback.dispatch_bypass_filter(origin.clone())
+				} else {
+					fallback.dispatch(origin.clone())
+				};
 
-        		// Add weight of the fallback call
-        		weight = weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
+				// Add weight of the fallback call
+				weight =
+					weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
 
-        		if let Err(_fallback_error) = fallback_result {
-            		// Both calls have faild.
+				if let Err(_fallback_error) = fallback_result {
+					// Both calls have faild.
 					return Err(Error::<T>::InvalidCalls.into())
-            		
-        		}
-        		// Fallback succeeded.
-        		Self::deposit_event(Event::IfElseCompleted { call: Which::Fallback });
-            	return Ok(Some(weight).into());
-    		}
+				}
+				// Fallback succeeded.
+				Self::deposit_event(Event::IfElseCompleted { call: Which::Fallback });
+				return Ok(Some(weight).into());
+			}
 			// Main call succeeded.
-    		Self::deposit_event(Event::IfElseCompleted { call: Which::Main });
-    		Ok(Some(weight).into())
+			Self::deposit_event(Event::IfElseCompleted { call: Which::Main });
+			Ok(Some(weight).into())
 		}
 	}
 
