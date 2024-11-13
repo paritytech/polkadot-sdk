@@ -1455,9 +1455,9 @@ where
 	fn handle_worker_message(&mut self, msg: ServiceToWorkerMsg) {
 		match msg {
 			ServiceToWorkerMsg::GetValue(key) =>
-				self.network_service.behaviour_mut().get_value(key.to_vec().into()),
+				self.network_service.behaviour_mut().get_value(key.into()),
 			ServiceToWorkerMsg::PutValue(key, value) =>
-				self.network_service.behaviour_mut().put_value(key.to_vec().into(), value),
+				self.network_service.behaviour_mut().put_value(key.into(), value),
 			ServiceToWorkerMsg::PutRecordTo { record, peers, update_local_storage } => self
 				.network_service
 				.behaviour_mut()
@@ -1465,7 +1465,7 @@ where
 			ServiceToWorkerMsg::StoreRecord(key, value, publisher, expires) => self
 				.network_service
 				.behaviour_mut()
-				.store_record(key.to_vec().into(), value, publisher, expires),
+				.store_record(key.into(), value, publisher, expires),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =>
 				self.network_service.behaviour_mut().add_known_address(peer_id, addr),
 			ServiceToWorkerMsg::EventStream(sender) => self.event_streams.push(sender),
