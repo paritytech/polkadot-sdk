@@ -63,7 +63,47 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 /// Migrating all unbounded storage items to bounded
 pub mod v16 {
 	use super::*;
-	// TODO
+
+	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
+		fn on_runtime_upgrade() -> Weight {
+			// BoundedVec with MaxActiveValidators limit, this should always work
+			let disabled_validators = BoundedVec::try_from(DisabledValidators::<T>::get());
+			if disabled_validators.is_ok() {
+				DisabledValidators::<T>::set(disabled_validators.unwrap());
+			} else {
+				log!(warn, "Could not insert disabled validators in bounded vector.");
+			}
+
+			// BoundedVec with MaxActiveValidators limit, this should always work
+			let invulnerables = BoundedVec::try_from(Invulnerables::<T>::get());
+			if invulnerables.is_ok() {
+				Invulnerables::<T>::set(invulnerables.unwrap());
+			} else {
+				log!(warn, "Could not insert invulnerables in bounded vector.");
+			}
+
+			let eras_rewards = ErasRewardPoints::<T>::get();
+			for 
+
+			log!(info, "v15 applied successfully.");
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+
+		// TODO
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			Ok(())
+		}
+	}
+
+	pub type MigrateV15ToV16<T> = VersionedMigration<
+		15,
+		16,
+		VersionUncheckedMigrateV15ToV16<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 }
 
 /// Migrating `OffendingValidators` from `Vec<(u32, bool)>` to `Vec<u32>`

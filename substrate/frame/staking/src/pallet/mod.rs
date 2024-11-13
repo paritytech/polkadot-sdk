@@ -371,7 +371,6 @@ pub mod pallet {
 	/// easy to initialize and the performance hit is minimal (we expect no more than four
 	/// invulnerables) and restricted to testnets.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type Invulnerables<T: Config> =
 		StorageValue<_, BoundedVec<T::AccountId, T::MaxInvulnerables>, ValueQuery>;
 
@@ -619,7 +618,6 @@ pub mod pallet {
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
-	#[pallet::getter(fn eras_reward_points)]
 	pub type ErasRewardPoints<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -1004,7 +1002,7 @@ pub mod pallet {
 		}
 
 		/// Get the validators that may never be slashed or forcibly kicked out.
-		pub fn invulnerables() -> Vec<T::AccountId> {
+		pub fn invulnerables() -> BoundedVec<T::AccountId, T::MaxInvulnerables> {
 			Invulnerables::<T>::get()
 		}
 
@@ -1096,7 +1094,7 @@ pub mod pallet {
 		/// Get the rewards for the last [`Config::HistoryDepth`] eras.
 		pub fn eras_reward_points<EncodeLikeEraIndex>(
 			era_index: EncodeLikeEraIndex,
-		) -> EraRewardPoints<T::AccountId>
+		) -> EraRewardPoints<T::AccountId, T::MaxActiveValidators>
 		where
 			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 		{
