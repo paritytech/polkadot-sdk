@@ -70,7 +70,7 @@ mockall = { workspace = true }
 multistream-select = { workspace = true }
 rand = { workspace = true, default-features = true }
 tempfile = { workspace = true }
-tokio = { features = ["macros"], workspace = true, default-features = true }
+tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
 tokio-test = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
@@ -83,5 +83,17 @@ sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 
+criterion = { workspace = true, default-features = true, features = ["async_tokio"] }
+sc-consensus = { workspace = true, default-features = true }
+
 [features]
 default = []
+
+
+[[bench]]
+name = "notifications_protocol"
+harness = false
+
+[[bench]]
+name = "request_response_protocol"
+harness = false

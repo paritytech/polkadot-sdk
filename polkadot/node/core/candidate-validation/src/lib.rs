@@ -31,13 +31,16 @@ use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
-		CandidateValidationMessage, PreCheckOutcome, PvfExecKind, RuntimeApiMessage,
-		RuntimeApiRequest, ValidationFailed,
+		CandidateValidationMessage, ChainApiMessage, PreCheckOutcome, PvfExecKind,
+		RuntimeApiMessage, RuntimeApiRequest, ValidationFailed,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
 };
-use polkadot_node_subsystem_util::{self as util, runtime::ClaimQueueSnapshot};
+use polkadot_node_subsystem_util::{
+	self as util,
+	runtime::{prospective_parachains_mode, ClaimQueueSnapshot, ProspectiveParachainsMode},
+};
 use polkadot_overseer::ActiveLeavesUpdate;
 use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
@@ -279,6 +282,7 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
+							update_active_leaves(ctx.sender(), validation_host.clone(), update.clone()).await;
 							maybe_prepare_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
@@ -551,6 +555,66 @@ where
 	Some(processed_code_hashes)
 }
 
+async fn update_active_leaves<Sender>(
+	sender: &mut Sender,
+	mut validation_backend: impl ValidationBackend,
+	update: ActiveLeavesUpdate,
+) where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	let ancestors = get_block_ancestors(sender, update.activated.as_ref().map(|x| x.hash)).await;
+	if let Err(err) = validation_backend.update_active_leaves(update, ancestors).await {
+		gum::warn!(
+			target: LOG_TARGET,
+			?err,
+			"cannot update active leaves in validation backend",
+		);
+	};
+}
+
+async fn get_allowed_ancestry_len<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<usize>
+where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	match prospective_parachains_mode(sender, relay_parent).await {
+		Ok(ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. }) =>
+			Some(allowed_ancestry_len),
+		res => {
+			gum::warn!(target: LOG_TARGET, ?res, "async backing is disabled");
+			None
+		},
+	}
+}
+
+async fn get_block_ancestors<Sender>(
+	sender: &mut Sender,
+	maybe_relay_parent: Option<Hash>,
+) -> Vec<Hash>
+where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	let Some(relay_parent) = maybe_relay_parent else { return vec![] };
+	let Some(allowed_ancestry_len) = get_allowed_ancestry_len(sender, relay_parent).await else {
+		return vec![]
+	};
+
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(ChainApiMessage::Ancestors {
+			hash: relay_parent,
+			k: allowed_ancestry_len,
+			response_channel: tx,
+		})
+		.await;
+	match rx.await {
+		Ok(Ok(x)) => x,
+		res => {
+			gum::warn!(target: LOG_TARGET, ?res, "cannot request ancestors");
+			vec![]
+		},
+	}
+}
+
 struct RuntimeRequestFailed;
 
 async fn runtime_api_request<T, Sender>(
@@ -698,7 +762,7 @@ async fn validate_candidate_exhaustive(
 
 	// We only check the session index for backing.
 	match (exec_kind, candidate_receipt.descriptor.session_index()) {
-		(PvfExecKind::Backing | PvfExecKind::BackingSystemParas, Some(session_index)) => {
+		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) => {
 			let Some(expected_session_index) = maybe_expected_session_index else {
 				let error = "cannot fetch session index from the runtime";
 				gum::warn!(
@@ -731,7 +795,7 @@ async fn validate_candidate_exhaustive(
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
-		PvfExecKind::Backing | PvfExecKind::BackingSystemParas => {
+		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
@@ -809,6 +873,15 @@ async fn validate_candidate_exhaustive(
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
+		Err(e @ ValidationError::ExecutionDeadline) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?para_id,
+				?e,
+				"Job assigned too late, execution queue probably overloaded",
+			);
+			Err(ValidationFailed(e.to_string()))
+		},
 		Ok(res) =>
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head() {
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
@@ -846,7 +919,7 @@ async fn validate_candidate_exhaustive(
 						// descriptor core index.
 						(
 							Some(_core_index),
-							PvfExecKind::Backing | PvfExecKind::BackingSystemParas,
+							PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_),
 						) => {
 							let Some(claim_queue) = maybe_claim_queue else {
 								let error = "cannot fetch the claim queue from the runtime";
@@ -994,7 +1067,12 @@ trait ValidationBackend {
 					retry_immediately = true;
 				},
 
-				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
+				Ok(_) |
+				Err(
+					ValidationError::Invalid(_) |
+					ValidationError::Preparation(_) |
+					ValidationError::ExecutionDeadline,
+				) => break,
 			}
 
 			// If we got a possibly transient error, retry once after a brief delay, on the
@@ -1035,6 +1113,12 @@ trait ValidationBackend {
 	async fn precheck_pvf(&mut self, pvf: PvfPrepData) -> Result<(), PrepareError>;
 
 	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String>;
+
+	async fn update_active_leaves(
+		&mut self,
+		update: ActiveLeavesUpdate,
+		ancestors: Vec<Hash>,
+	) -> Result<(), String>;
 }
 
 #[async_trait]
@@ -1084,6 +1168,14 @@ impl ValidationBackend for ValidationHost {
 
 	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		self.heads_up(active_pvfs).await
+	}
+
+	async fn update_active_leaves(
+		&mut self,
+		update: ActiveLeavesUpdate,
+		ancestors: Vec<Hash>,
+	) -> Result<(), String> {
+		self.update_active_leaves(update, ancestors).await
 	}
 }
 
