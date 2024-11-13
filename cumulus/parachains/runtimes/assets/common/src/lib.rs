@@ -177,16 +177,11 @@ impl<
 		amount: Runtime::Balance,
 		include_fees: bool,
 	) -> Result<Option<Runtime::Balance>, ()> {
-		// convert latest to the `L` version.
+		// Convert latest to the `L` version.
 		let asset_1: L = asset_1.try_into().map_err(|_| ())?;
 		let asset_2: L = asset_2.try_into().map_err(|_| ())?;
 
-		// check if we have a pool for `(asset_1, asset_2)`.
-		if !Self::iter_assets_in_pool_with(&asset_1).any(|a| a == asset_2) {
-			return Ok(None)
-		}
-
-		// if so, let's do a conversion.
+		// Quote swap price.
 		Ok(pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
 			asset_1,
 			asset_2,
