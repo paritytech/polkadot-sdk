@@ -109,6 +109,15 @@ fn crate_metadata(cargo_manifest: &Path) -> Metadata {
 	crate_metadata
 }
 
+/// Keep the build directories separate so that when switching between the
+/// targets we won't trigger unnecessary rebuilds.
+fn build_subdirectory(target: RuntimeTarget) -> &'static str {
+	match target {
+		RuntimeTarget::Wasm => "wbuild",
+		RuntimeTarget::Riscv => "rbuild",
+	}
+}
+
 /// Creates the WASM project, compiles the WASM binary and compacts the WASM binary.
 ///
 /// # Returns
@@ -125,7 +134,7 @@ pub(crate) fn create_and_compile(
 	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
 ) -> (Option<WasmBinary>, WasmBinaryBloaty) {
 	let runtime_workspace_root = get_wasm_workspace_root();
-	let runtime_workspace = runtime_workspace_root.join(target.build_subdirectory());
+	let runtime_workspace = runtime_workspace_root.join(build_subdirectory(target));
 
 	let crate_metadata = crate_metadata(orig_project_cargo_toml);
 
@@ -770,7 +779,7 @@ impl BuildConfiguration {
 				.collect::<Vec<_>>()
 				.iter()
 				.rev()
-				.take_while(|c| c.as_os_str() != target.build_subdirectory())
+				.take_while(|c| c.as_os_str() != build_subdirectory(target))
 				.last()
 				.expect("We put the runtime project within a `target/.../[rw]build` path; qed")
 				.as_os_str()
@@ -852,7 +861,7 @@ fn build_bloaty_blob(
 
 	build_cmd
 		.arg("rustc")
-		.arg(format!("--target={}", target.rustc_target()))
+		.arg(format!("--target={}", target.parameter()))
 		.arg(format!("--manifest-path={}", manifest_path.display()))
 		.env("RUSTFLAGS", rustflags)
 		// Manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock (cargo locks a target dir
@@ -910,7 +919,10 @@ fn build_bloaty_blob(
 	if crate::build_std_required() {
 		// Unfortunately this is still a nightly-only flag, but FWIW it is pretty widely used
 		// so it's unlikely to break without a replacement.
-		build_cmd.arg("-Z").arg("build-std");
+		match target {
+			RuntimeTarget::Wasm => build_cmd.arg("-Z").arg("build-std"),
+			RuntimeTarget::Riscv => build_cmd.arg("-Z").arg("build-std=core,alloc"),
+		};
 		if !cargo_cmd.supports_nightly_features() {
 			build_cmd.env("RUSTC_BOOTSTRAP", "1");
 		}
@@ -934,7 +946,7 @@ fn build_bloaty_blob(
 	let blob_name = get_blob_name(target, &manifest_path);
 	let target_directory = project
 		.join("target")
-		.join(target.rustc_target())
+		.join(target.directory())
 		.join(blob_build_profile.directory());
 	match target {
 		RuntimeTarget::Riscv => {

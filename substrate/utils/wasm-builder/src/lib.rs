@@ -112,7 +112,6 @@
 //! wasm32-unknown-unknown --toolchain nightly-2020-02-20`.
 
 use std::{
-	collections::BTreeSet,
 	env, fs,
 	io::BufRead,
 	path::{Path, PathBuf},
@@ -254,26 +253,22 @@ struct CargoCommand {
 	program: String,
 	args: Vec<String>,
 	version: Option<Version>,
-	target_list: Option<BTreeSet<String>>,
 }
 
 impl CargoCommand {
 	fn new(program: &str) -> Self {
 		let version = Self::extract_version(program, &[]);
-		let target_list = Self::extract_target_list(program, &[]);
 
-		CargoCommand { program: program.into(), args: Vec::new(), version, target_list }
+		CargoCommand { program: program.into(), args: Vec::new(), version }
 	}
 
 	fn new_with_args(program: &str, args: &[&str]) -> Self {
 		let version = Self::extract_version(program, args);
-		let target_list = Self::extract_target_list(program, args);
 
 		CargoCommand {
 			program: program.into(),
 			args: args.iter().map(ToString::to_string).collect(),
 			version,
-			target_list,
 		}
 	}
 
@@ -294,23 +289,6 @@ impl CargoCommand {
 		Version::extract(&version)
 	}
 
-	fn extract_target_list(program: &str, args: &[&str]) -> Option<BTreeSet<String>> {
-		// This is technically an unstable option, but we don't care because we only need this
-		// to build RISC-V runtimes, and those currently require a specific nightly toolchain
-		// anyway, so it's totally fine for this to fail in other cases.
-		let list = Command::new(program)
-			.args(args)
-			.args(&["rustc", "-Z", "unstable-options", "--print", "target-list"])
-			// Make sure if we're called from within a `build.rs` the host toolchain won't override
-			// a rustup toolchain we've picked.
-			.env_remove("RUSTC")
-			.output()
-			.ok()
-			.and_then(|o| String::from_utf8(o.stdout).ok())?;
-
-		Some(list.trim().split("\n").map(ToString::to_string).collect())
-	}
-
 	/// Returns the version of this cargo command or `None` if it failed to extract the version.
 	fn version(&self) -> Option<Version> {
 		self.version
@@ -326,17 +304,8 @@ impl CargoCommand {
 	fn supports_substrate_runtime_env(&self, target: RuntimeTarget) -> bool {
 		match target {
 			RuntimeTarget::Wasm => self.supports_substrate_runtime_env_wasm(),
-			RuntimeTarget::Riscv => self.supports_substrate_runtime_env_riscv(),
+			RuntimeTarget::Riscv => true,
 		}
-	}
-
-	/// Check if the supplied cargo command supports our RISC-V runtime environment.
-	fn supports_substrate_runtime_env_riscv(&self) -> bool {
-		let Some(target_list) = self.target_list.as_ref() else { return false };
-		// This is our custom target which currently doesn't exist on any upstream toolchain,
-		// so if it exists it's guaranteed to be our custom toolchain and have have everything
-		// we need, so any further version checks are unnecessary at this point.
-		target_list.contains("riscv32ema-unknown-none-elf")
 	}
 
 	/// Check if the supplied cargo command supports our Substrate wasm environment.
@@ -411,7 +380,7 @@ fn get_bool_environment_variable(name: &str) -> Option<bool> {
 
 /// Returns whether we need to also compile the standard library when compiling the runtime.
 fn build_std_required() -> bool {
-	let default = runtime_target() == RuntimeTarget::Wasm;
+	let default = RuntimeTarget::new() != None;
 
 	crate::get_bool_environment_variable(crate::WASM_BUILD_STD).unwrap_or(default)
 }
@@ -423,36 +392,35 @@ enum RuntimeTarget {
 }
 
 impl RuntimeTarget {
-	fn rustc_target(self) -> &'static str {
-		match self {
-			RuntimeTarget::Wasm => "wasm32-unknown-unknown",
-			RuntimeTarget::Riscv => "riscv32ema-unknown-none-elf",
+	/// Creates a new instance.
+	fn new() -> Option<Self> {
+		let Some(value) = env::var_os(RUNTIME_TARGET) else {
+			return Some(Self::Wasm);
+		};
+		if value == "wasm" {
+			Some(Self::Wasm)
+		} else if value == "riscv" {
+			Some(Self::Riscv)
+		} else {
+			None
 		}
 	}
 
-	fn build_subdirectory(self) -> &'static str {
-		// Keep the build directories separate so that when switching between
-		// the targets we won't trigger unnecessary rebuilds.
-		match self {
-			RuntimeTarget::Wasm => "wbuild",
-			RuntimeTarget::Riscv => "rbuild",
+	/// Figures out the target parameter value for rustc.
+	fn parameter(self) -> String {
+		if self == RuntimeTarget::Wasm {
+			return "wasm32-unknown-unknown".to_string();
 		}
+		let path: &'static str = env!("CARGO_MANIFEST_DIR");
+		format!("{path}/riscv32emac-unknown-none-polkavm.json")
 	}
-}
 
-fn runtime_target() -> RuntimeTarget {
-	let Some(value) = env::var_os(RUNTIME_TARGET) else {
-		return RuntimeTarget::Wasm;
-	};
-
-	if value == "wasm" {
-		RuntimeTarget::Wasm
-	} else if value == "riscv" {
-		RuntimeTarget::Riscv
-	} else {
-		build_helper::warning!(
-			"the '{RUNTIME_TARGET}' environment variable has an invalid value; it must be either 'wasm' or 'riscv'"
-		);
-		std::process::exit(1);
+	/// Figures out the target directory name used by cargo.
+	fn directory(self) -> &'static str {
+		if self == RuntimeTarget::Wasm {
+			"wasm32-unknown-unknown"
+		} else {
+			"riscv32emac-unknown-none-polkavm"
+		}
 	}
 }

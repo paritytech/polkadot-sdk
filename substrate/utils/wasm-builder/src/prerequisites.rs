@@ -115,7 +115,7 @@ impl<'a> DummyCrate<'a> {
 		// by accident - it can happen in some CI environments.
 		cmd.current_dir(&self.temp);
 		cmd.arg(subcommand)
-			.arg(format!("--target={}", self.target.rustc_target()))
+			.arg(format!("--target={}", self.target.parameter()))
 			.args(&["--manifest-path", &self.manifest_path.display().to_string()]);
 
 		if super::color_output_enabled() {

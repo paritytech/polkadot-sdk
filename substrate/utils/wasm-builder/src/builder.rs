@@ -235,7 +235,13 @@ impl WasmBuilder {
 
 	/// Build the WASM binary.
 	pub fn build(mut self) {
-		let target = crate::runtime_target();
+		let Some(target) = RuntimeTarget::new() else {
+			build_helper::warning!(
+				"RUNTIME_TARGET environment variable must be set to either \"wasm\" or \"riscv\""
+			);
+			std::process::exit(1);
+		};
+
 		if target == RuntimeTarget::Wasm {
 			if self.export_heap_base {
 				self.rust_flags.push("-Clink-arg=--export=__heap_base".into());
