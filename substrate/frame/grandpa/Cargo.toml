@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet for GRANDPA finality gadget"
 readme = "README.md"
@@ -16,33 +16,32 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-pallet-authorship = { path = "../authorship", default-features = false }
-pallet-session = { path = "../session", default-features = false }
-sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
-sp-consensus-grandpa = { path = "../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
-sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-sp-session = { path = "../../primitives/session", default-features = false }
-sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
-sp-std = { path = "../../primitives/std", default-features = false }
+scale-info = { features = ["derive", "serde"], workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-session = { workspace = true }
+sp-application-crypto = { features = ["serde"], workspace = true }
+sp-consensus-grandpa = { features = ["serde"], workspace = true }
+sp-core = { features = ["serde"], workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-session = { workspace = true }
+sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-grandpa = { package = "finality-grandpa", version = "0.16.2", features = ["derive-codec"] }
-frame-benchmarking = { path = "../benchmarking" }
-frame-election-provider-support = { path = "../election-provider-support" }
-pallet-balances = { path = "../balances" }
-pallet-offences = { path = "../offences" }
-pallet-staking = { path = "../staking" }
-pallet-staking-reward-curve = { path = "../staking/reward-curve" }
-pallet-timestamp = { path = "../timestamp" }
-sp-keyring = { path = "../../primitives/keyring" }
+finality-grandpa = { features = ["derive-codec"], workspace = true, default-features = true }
+frame-benchmarking = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-offences = { workspace = true, default-features = true }
+pallet-staking = { workspace = true, default-features = true }
+pallet-staking-reward-curve = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -67,7 +66,6 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

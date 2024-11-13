@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "substrate-offchain: upgrade hyper to v1"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Bump depencency `hyper` of `substrait-offchain` for http from `0.14` to `1`.
+      This changed APIs a bit;
+      - `sc_offchain::Offchainworker::new()` now returns `std::io::Result<Self>` (Previously was `Self`)
+
+crates:
+  - name: sc-offchain
+    bump: major
+  - name: polkadot-service
+    bump: patch
+  - name: staging-node-cli
+    bump: patch

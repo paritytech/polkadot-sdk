@@ -26,7 +26,7 @@ use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 use frame_support::dispatch::DispatchClass;
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, StateVersion};
 
 /// BridgeHubPolkadot parachain.
 #[derive(RuntimeDebug)]
@@ -44,6 +44,8 @@ impl Chain for BridgeHubPolkadot {
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;
+
+	const STATE_VERSION: StateVersion = StateVersion::V1;
 
 	fn max_extrinsic_size() -> u32 {
 		*BlockLength::get().max.get(DispatchClass::Normal)
@@ -83,4 +85,4 @@ pub const WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME: &str = "BridgePolkadotM
 pub const WITH_BRIDGE_HUB_POLKADOT_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
 decl_bridge_finality_runtime_apis!(bridge_hub_polkadot);
-decl_bridge_messages_runtime_apis!(bridge_hub_polkadot);
+decl_bridge_messages_runtime_apis!(bridge_hub_polkadot, LegacyLaneId);

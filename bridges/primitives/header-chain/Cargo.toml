@@ -11,27 +11,27 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false }
-finality-grandpa = { version = "0.16.2", default-features = false }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { workspace = true }
+finality-grandpa = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 
 # Bridge dependencies
 
-bp-runtime = { path = "../runtime", default-features = false }
+bp-runtime = { workspace = true }
 
 # Substrate Dependencies
 
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, features = ["serde"] }
-sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa", default-features = false, features = ["serde"] }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-support = { workspace = true }
+sp-core = { features = ["serde"], workspace = true }
+sp-consensus-grandpa = { features = ["serde"], workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-std = { workspace = true }
 
 [dev-dependencies]
-bp-test-utils = { path = "../test-utils" }
-hex = "0.4"
-hex-literal = "0.4"
+bp-test-utils = { workspace = true, default-features = true }
+hex = { workspace = true, default-features = true }
+hex-literal = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

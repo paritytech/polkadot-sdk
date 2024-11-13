@@ -6,7 +6,7 @@ edition.workspace = true
 description = "Integration tests for application-crypto"
 license = "Apache-2.0"
 publish = false
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 
 [lints]
@@ -16,8 +16,8 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { path = "../../api" }
-sp-application-crypto = { path = ".." }
-sp-core = { path = "../../core", default-features = false }
-sp-keystore = { path = "../../keystore", default-features = false }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+sp-api = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-core = { workspace = true }
+sp-keystore = { workspace = true }
+substrate-test-runtime-client = { workspace = true }

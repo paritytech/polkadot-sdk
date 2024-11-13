@@ -17,20 +17,20 @@
 
 //! Substrate blockchain trait
 
-use log::warn;
+use codec::{Decode, Encode};
 use parking_lot::RwLock;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
 	Justifications,
 };
-use std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
-
-use crate::header_metadata::HeaderMetadata;
+use std::collections::{btree_set::BTreeSet, HashMap, VecDeque};
+use tracing::{debug, warn};
 
 use crate::{
 	error::{Error, Result},
-	tree_route, TreeRoute,
+	header_metadata::HeaderMetadata,
+	tree_route, CachedHeaderMetadata,
 };
 
 /// Blockchain database header backend. Does not perform any validation.
@@ -110,7 +110,7 @@ pub trait ForkBackend<Block: BlockT>:
 					for block in tree_route.retracted() {
 						expanded_forks.insert(block.hash);
 					}
-					continue
+					continue;
 				},
 				Err(_) => {
 					// There are cases when blocks are missing (e.g. warp-sync).
@@ -127,6 +127,32 @@ where
 	Block: BlockT,
 	T: HeaderMetadata<Block> + HeaderBackend<Block> + Send + Sync,
 {
+}
+
+struct MinimalBlockMetadata<Block: BlockT> {
+	number: NumberFor<Block>,
+	hash: Block::Hash,
+	parent: Block::Hash,
+}
+
+impl<Block> Clone for MinimalBlockMetadata<Block>
+where
+	Block: BlockT,
+{
+	fn clone(&self) -> Self {
+		Self { number: self.number, hash: self.hash, parent: self.parent }
+	}
+}
+
+impl<Block> Copy for MinimalBlockMetadata<Block> where Block: BlockT {}
+
+impl<Block> From<&CachedHeaderMetadata<Block>> for MinimalBlockMetadata<Block>
+where
+	Block: BlockT,
+{
+	fn from(value: &CachedHeaderMetadata<Block>) -> Self {
+		Self { number: value.number, hash: value.hash, parent: value.parent }
+	}
 }
 
 /// Blockchain database backend. Does not perform any validation.
@@ -171,7 +197,7 @@ pub trait Backend<Block: BlockT>:
 			let info = self.info();
 			if info.finalized_number > *base_header.number() {
 				// `base_header` is on a dead fork.
-				return Ok(None)
+				return Ok(None);
 			}
 			self.leaves()?
 		};
@@ -182,7 +208,7 @@ pub trait Backend<Block: BlockT>:
 			// go backwards through the chain (via parent links)
 			loop {
 				if current_hash == base_hash {
-					return Ok(Some(leaf_hash))
+					return Ok(Some(leaf_hash));
 				}
 
 				let current_header = self
@@ -191,7 +217,7 @@ pub trait Backend<Block: BlockT>:
 
 				// stop search in this chain once we go below the target's block number
 				if current_header.number() < base_header.number() {
-					break
+					break;
 				}
 
 				current_hash = *current_header.parent_hash();
@@ -203,6 +229,7 @@ pub trait Backend<Block: BlockT>:
 		//
 		// FIXME #1558 only issue this warning when not on a dead fork
 		warn!(
+			target: crate::LOG_TARGET,
 			"Block {:?} exists in chain but not found when following all leaves backwards",
 			base_hash,
 		);
@@ -227,64 +254,317 @@ pub trait Backend<Block: BlockT>:
 		finalized_block_hash: Block::Hash,
 		finalized_block_number: NumberFor<Block>,
 	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
-		let mut result = DisplacedLeavesAfterFinalization::default();
+		let leaves = self.leaves()?;
 
-		if finalized_block_number == Zero::zero() {
-			return Ok(result)
+		let now = std::time::Instant::now();
+		debug!(
+			target: crate::LOG_TARGET,
+			?leaves,
+			?finalized_block_hash,
+			?finalized_block_number,
+			"Checking for displaced leaves after finalization."
+		);
+
+		// If we have only one leaf there are no forks, and we can return early.
+		if finalized_block_number == Zero::zero() || leaves.len() == 1 {
+			return Ok(DisplacedLeavesAfterFinalization::default());
 		}
 
-		// For each leaf determine whether it belongs to a non-canonical branch.
-		for leaf_hash in self.leaves()? {
-			let leaf_block_header = self.expect_header(leaf_hash)?;
-			let leaf_number = *leaf_block_header.number();
+		// Store hashes of finalized blocks for quick checking later, the last block is the
+		// finalized one
+		let mut finalized_chain = VecDeque::new();
+		let current_finalized = match self.header_metadata(finalized_block_hash) {
+			Ok(metadata) => metadata,
+			Err(Error::UnknownBlock(_)) => {
+				debug!(
+					target: crate::LOG_TARGET,
+					hash = ?finalized_block_hash,
+					elapsed = ?now.elapsed(),
+					"Tried to fetch unknown block, block ancestry has gaps.",
+				);
+				return Ok(DisplacedLeavesAfterFinalization::default());
+			},
+			Err(e) => {
+				debug!(
+					target: crate::LOG_TARGET,
+					hash = ?finalized_block_hash,
+					err = ?e,
+					elapsed = ?now.elapsed(),
+					"Failed to fetch block.",
+				);
+				return Err(e);
+			},
+		};
+		finalized_chain.push_front(MinimalBlockMetadata::from(&current_finalized));
 
-			let leaf_tree_route = match tree_route(self, leaf_hash, finalized_block_hash) {
-				Ok(tree_route) => tree_route,
-				Err(Error::UnknownBlock(_)) => {
-					// Sometimes routes can't be calculated. E.g. after warp sync.
+		// Local cache is a performance optimization in case of finalized block deep below the
+		// tip of the chain with a lot of leaves above finalized block
+		let mut local_cache = HashMap::<Block::Hash, MinimalBlockMetadata<Block>>::new();
+
+		let mut result = DisplacedLeavesAfterFinalization {
+			displaced_leaves: Vec::with_capacity(leaves.len()),
+			displaced_blocks: Vec::with_capacity(leaves.len()),
+		};
+
+		let mut displaced_blocks_candidates = Vec::new();
+
+		let genesis_hash = self.info().genesis_hash;
+
+		for leaf_hash in leaves {
+			let mut current_header_metadata =
+				MinimalBlockMetadata::from(&self.header_metadata(leaf_hash).map_err(|err| {
+					debug!(
+						target: crate::LOG_TARGET,
+						?leaf_hash,
+						?err,
+						elapsed = ?now.elapsed(),
+						"Failed to fetch leaf header.",
+					);
+					err
+				})?);
+			let leaf_number = current_header_metadata.number;
+
+			// The genesis block is part of the canonical chain.
+			if leaf_hash == genesis_hash {
+				result.displaced_leaves.push((leaf_number, leaf_hash));
+				debug!(
+					target: crate::LOG_TARGET,
+					?leaf_hash,
+					elapsed = ?now.elapsed(),
+					"Added genesis leaf to displaced leaves."
+				);
+				continue;
+			}
+
+			debug!(
+				target: crate::LOG_TARGET,
+				?leaf_number,
+				?leaf_hash,
+				elapsed = ?now.elapsed(),
+				"Handle displaced leaf.",
+			);
+
+			// Collect all block hashes until the height of the finalized block
+			displaced_blocks_candidates.clear();
+			while current_header_metadata.number > finalized_block_number {
+				displaced_blocks_candidates.push(current_header_metadata.hash);
+
+				let parent_hash = current_header_metadata.parent;
+				match local_cache.get(&parent_hash) {
+					Some(metadata_header) => {
+						current_header_metadata = *metadata_header;
+					},
+					None => {
+						current_header_metadata = MinimalBlockMetadata::from(
+							&self.header_metadata(parent_hash).map_err(|err| {
+								debug!(
+									target: crate::LOG_TARGET,
+									?err,
+									?parent_hash,
+									?leaf_hash,
+									elapsed = ?now.elapsed(),
+									"Failed to fetch parent header during leaf tracking.",
+								);
+
+								err
+							})?,
+						);
+						// Cache locally in case more branches above finalized block reference
+						// the same block hash
+						local_cache.insert(parent_hash, current_header_metadata);
+					},
+				}
+			}
+
+			// If points back to the finalized header then nothing left to do, this leaf will be
+			// checked again later
+			if current_header_metadata.hash == finalized_block_hash {
+				debug!(
+					target: crate::LOG_TARGET,
+					?leaf_hash,
+					elapsed = ?now.elapsed(),
+					"Leaf points to the finalized header, skipping for now.",
+				);
+
+				continue;
+			}
+
+			// We reuse `displaced_blocks_candidates` to store the current metadata.
+			// This block is not displaced if there is a gap in the ancestry. We
+			// check for this gap later.
+			displaced_blocks_candidates.push(current_header_metadata.hash);
+
+			debug!(
+				target: crate::LOG_TARGET,
+				current_hash = ?current_header_metadata.hash,
+				current_num = ?current_header_metadata.number,
+				?finalized_block_number,
+				elapsed = ?now.elapsed(),
+				"Looking for path from finalized block number to current leaf number"
+			);
+
+			// Collect the rest of the displaced blocks of leaf branch
+			for distance_from_finalized in 1_u32.. {
+				// Find block at `distance_from_finalized` from finalized block
+				let (finalized_chain_block_number, finalized_chain_block_hash) =
+					match finalized_chain.iter().rev().nth(distance_from_finalized as usize) {
+						Some(header) => (header.number, header.hash),
+						None => {
+							let to_fetch = finalized_chain.front().expect("Not empty; qed");
+							let metadata = match self.header_metadata(to_fetch.parent) {
+								Ok(metadata) => metadata,
+								Err(Error::UnknownBlock(_)) => {
+									debug!(
+										target: crate::LOG_TARGET,
+										distance_from_finalized,
+										hash = ?to_fetch.parent,
+										number = ?to_fetch.number,
+										elapsed = ?now.elapsed(),
+										"Tried to fetch unknown block, block ancestry has gaps."
+									);
+									break;
+								},
+								Err(err) => {
+									debug!(
+										target: crate::LOG_TARGET,
+										hash = ?to_fetch.parent,
+										number = ?to_fetch.number,
+										?err,
+										elapsed = ?now.elapsed(),
+										"Failed to fetch header for parent hash.",
+									);
+									return Err(err);
+								},
+							};
+							let metadata = MinimalBlockMetadata::from(&metadata);
+							let result = (metadata.number, metadata.hash);
+							finalized_chain.push_front(metadata);
+							result
+						},
+					};
+
+				if current_header_metadata.hash == finalized_chain_block_hash {
+					// Found the block on the finalized chain, nothing left to do
+					result.displaced_leaves.push((leaf_number, leaf_hash));
+
+					debug!(
+						target: crate::LOG_TARGET,
+						?leaf_hash,
+						elapsed = ?now.elapsed(),
+						"Leaf is ancestor of finalized block."
+					);
+					break;
+				}
+
+				if current_header_metadata.number <= finalized_chain_block_number {
+					// Skip more blocks until we get all blocks on finalized chain until the height
+					// of the parent block
 					continue;
-				},
-				Err(e) => Err(e)?,
-			};
+				}
 
-			// Is it a stale fork?
-			let needs_pruning = leaf_tree_route.common_block().hash != finalized_block_hash;
+				let parent_hash = current_header_metadata.parent;
+				if finalized_chain_block_hash == parent_hash {
+					// Reached finalized chain, nothing left to do
+					result.displaced_blocks.extend(displaced_blocks_candidates.drain(..));
+					result.displaced_leaves.push((leaf_number, leaf_hash));
 
-			if needs_pruning {
-				result.displaced_leaves.insert(leaf_hash, leaf_number);
-				result.tree_routes.insert(leaf_hash, leaf_tree_route);
+					debug!(
+						target: crate::LOG_TARGET,
+						?leaf_hash,
+						elapsed = ?now.elapsed(),
+						"Found displaced leaf."
+					);
+					break;
+				}
+
+				// Store displaced block and look deeper for block on finalized chain
+				debug!(
+					target: crate::LOG_TARGET,
+					?parent_hash,
+					elapsed = ?now.elapsed(),
+					"Found displaced block. Looking further.",
+				);
+				displaced_blocks_candidates.push(parent_hash);
+				current_header_metadata = MinimalBlockMetadata::from(
+					&self.header_metadata(parent_hash).map_err(|err| {
+						debug!(
+							target: crate::LOG_TARGET,
+							?err,
+							?parent_hash,
+							elapsed = ?now.elapsed(),
+							"Failed to fetch header for parent during displaced block collection",
+						);
+						err
+					})?,
+				);
 			}
 		}
 
-		Ok(result)
+		// There could be duplicates shared by multiple branches, clean them up
+		result.displaced_blocks.sort_unstable();
+		result.displaced_blocks.dedup();
+
+		debug!(
+			target: crate::LOG_TARGET,
+			%finalized_block_hash,
+			?finalized_block_number,
+			?result,
+			elapsed = ?now.elapsed(),
+			"Finished checking for displaced leaves after finalization.",
+		);
+
+		return Ok(result);
 	}
 }
 
 /// Result of  [`Backend::displaced_leaves_after_finalizing`].
 #[derive(Clone, Debug)]
 pub struct DisplacedLeavesAfterFinalization<Block: BlockT> {
-	/// A collection of hashes and block numbers for displaced leaves.
-	pub displaced_leaves: BTreeMap<Block::Hash, NumberFor<Block>>,
+	/// A list of hashes and block numbers of displaced leaves.
+	pub displaced_leaves: Vec<(NumberFor<Block>, Block::Hash)>,
 
-	/// A collection of tree routes from the leaves to finalized block.
-	pub tree_routes: BTreeMap<Block::Hash, TreeRoute<Block>>,
+	/// A list of hashes displaced blocks from all displaced leaves.
+	pub displaced_blocks: Vec<Block::Hash>,
 }
 
 impl<Block: BlockT> Default for DisplacedLeavesAfterFinalization<Block> {
 	fn default() -> Self {
-		Self { displaced_leaves: Default::default(), tree_routes: Default::default() }
+		Self { displaced_leaves: Vec::new(), displaced_blocks: Vec::new() }
 	}
 }
 
 impl<Block: BlockT> DisplacedLeavesAfterFinalization<Block> {
 	/// Returns a collection of hashes for the displaced leaves.
 	pub fn hashes(&self) -> impl Iterator<Item = Block::Hash> + '_ {
-		self.displaced_leaves.keys().cloned()
+		self.displaced_leaves.iter().map(|(_, hash)| *hash)
 	}
 }
 
+/// Represents the type of block gaps that may result from either warp sync or fast sync.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Encode, Decode)]
+pub enum BlockGapType {
+	/// Both the header and body are missing, as a result of warp sync.
+	MissingHeaderAndBody,
+	/// The block body is missing, as a result of fast sync.
+	MissingBody,
+}
+
+/// Represents the block gap resulted by warp sync or fast sync.
+///
+/// A block gap is a range of blocks where either the bodies, or both headers and bodies are
+/// missing.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Encode, Decode)]
+pub struct BlockGap<N> {
+	/// The starting block number of the gap (inclusive).
+	pub start: N,
+	/// The ending block number of the gap (inclusive).
+	pub end: N,
+	/// The type of gap.
+	pub gap_type: BlockGapType,
+}
+
 /// Blockchain info
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Info<Block: BlockT> {
 	/// Best block hash.
 	pub best_hash: Block::Hash,
@@ -300,8 +580,8 @@ pub struct Info<Block: BlockT> {
 	pub finalized_state: Option<(Block::Hash, <<Block as BlockT>::Header as HeaderT>::Number)>,
 	/// Number of concurrent leave forks.
 	pub number_leaves: usize,
-	/// Missing blocks after warp sync. (start, end).
-	pub block_gap: Option<(NumberFor<Block>, NumberFor<Block>)>,
+	/// Missing blocks after warp sync or fast sync.
+	pub block_gap: Option<BlockGap<NumberFor<Block>>>,
 }
 
 /// Block status.

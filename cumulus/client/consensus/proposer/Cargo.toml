@@ -10,15 +10,15 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-anyhow = "1.0"
-async-trait = "0.1.79"
+anyhow = { workspace = true, default-features = true }
+async-trait = { workspace = true }
 thiserror = { workspace = true }
 
 # Substrate
-sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
-sp-inherents = { path = "../../../../substrate/primitives/inherents" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime" }
-sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
+sp-consensus = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 
 # Cumulus
-cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent" }
+cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }

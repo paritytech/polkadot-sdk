@@ -145,11 +145,8 @@ impl BenchCli {
 						availability::TestDataAvailability::Read(opts),
 						true,
 					);
-					env.runtime().block_on(availability::benchmark_availability_read(
-						&benchmark_name,
-						&mut env,
-						&state,
-					))
+					env.runtime()
+						.block_on(availability::benchmark_availability_read(&mut env, &state))
 				},
 				TestObjective::DataAvailabilityWrite => {
 					let state = availability::TestState::new(&test_config);
@@ -158,32 +155,22 @@ impl BenchCli {
 						availability::TestDataAvailability::Write,
 						true,
 					);
-					env.runtime().block_on(availability::benchmark_availability_write(
-						&benchmark_name,
-						&mut env,
-						&state,
-					))
+					env.runtime()
+						.block_on(availability::benchmark_availability_write(&mut env, &state))
 				},
 				TestObjective::ApprovalVoting(ref options) => {
 					let (mut env, state) =
 						approval::prepare_test(test_config.clone(), options.clone(), true);
-					env.runtime().block_on(approval::bench_approvals(
-						&benchmark_name,
-						&mut env,
-						state,
-					))
+					env.runtime().block_on(approval::bench_approvals(&mut env, state))
 				},
 				TestObjective::StatementDistribution => {
 					let state = statement::TestState::new(&test_config);
 					let (mut env, _protocol_config) = statement::prepare_test(&state, true);
-					env.runtime().block_on(statement::benchmark_statement_distribution(
-						&benchmark_name,
-						&mut env,
-						&state,
-					))
+					env.runtime()
+						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
 				},
 			};
-			println!("{}", usage);
+			println!("\n{}\n{}", benchmark_name.purple(), usage);
 		}
 
 		if let Some(agent_running) = agent_running {
@@ -195,16 +182,20 @@ impl BenchCli {
 	}
 }
 
+#[cfg(feature = "memprofile")]
+#[global_allocator]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+#[cfg(feature = "memprofile")]
+#[allow(non_upper_case_globals)]
+#[export_name = "malloc_conf"]
+// See https://jemalloc.net/jemalloc.3.html for more information on the configuration options.
+pub static malloc_conf: &[u8] =
+	b"prof:true,prof_active:true,lg_prof_interval:30,lg_prof_sample:21,prof_prefix:/tmp/subsystem-bench\0";
+
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
-	env_logger::builder()
-		.filter(Some("hyper"), log::LevelFilter::Info)
-		// Avoid `Terminating due to subsystem exit subsystem` warnings
-		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)
-		.filter(None, log::LevelFilter::Info)
-		.format_timestamp_millis()
-		.try_init()
-		.unwrap();
+	sp_tracing::try_init_simple();
 
 	let cli: BenchCli = BenchCli::parse();
 	cli.launch()?;

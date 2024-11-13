@@ -4,7 +4,7 @@ version = "26.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "NPoS election algorithm primitives"
 readme = "README.md"
@@ -16,16 +16,16 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-sp-arithmetic = { path = "../arithmetic", default-features = false }
-sp-core = { path = "../core", default-features = false }
-sp-runtime = { path = "../runtime", default-features = false }
+sp-arithmetic = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
 
 [dev-dependencies]
-rand = "0.8.5"
-substrate-test-utils = { path = "../../test-utils" }
+rand = { workspace = true, default-features = true }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]

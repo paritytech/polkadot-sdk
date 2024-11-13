@@ -10,17 +10,18 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-polkadot-overseer = { path = "../../../polkadot/node/overseer" }
+polkadot-overseer = { workspace = true, default-features = true }
 
-cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-primitives-core = { workspace = true, default-features = true }
 
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-sc-client-api = { path = "../../../substrate/client/api" }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sp-version = { workspace = true }
 
-futures = "0.3.28"
-async-trait = "0.1.79"
+futures = { workspace = true }
+async-trait = { workspace = true }
 thiserror = { workspace = true }
-jsonrpsee-core = "0.22"
-parity-scale-codec = "3.6.12"
+jsonrpsee-core = { workspace = true }
+codec = { workspace = true, default-features = true }

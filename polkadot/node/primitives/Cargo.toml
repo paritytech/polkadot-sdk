@@ -10,24 +10,27 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-bounded-vec = "0.7"
-futures = "0.3.30"
-polkadot-primitives = { path = "../../primitives" }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
-sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
-sp-keystore = { path = "../../../substrate/primitives/keystore" }
-sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
-schnorrkel = "0.11.4"
+bounded-vec = { workspace = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true }
+sp-core = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-consensus-slots = { workspace = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true }
+schnorrkel = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+bitvec = { features = ["alloc"], workspace = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
+sc-keystore = { workspace = true }
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]
 zstd = { version = "0.12.4", default-features = false }
 
 [dev-dependencies]
-polkadot-erasure-coding = { path = "../../erasure-coding" }
+polkadot-erasure-coding = { workspace = true, default-features = true }

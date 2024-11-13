@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Aura consensus algorithm for substrate"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 
@@ -16,37 +16,37 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = "0.1.79"
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-futures = "0.3.30"
+async-trait = { workspace = true }
+codec = { workspace = true, default-features = true }
+futures = { workspace = true }
 log = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
-sc-block-builder = { path = "../../block-builder" }
-sc-client-api = { path = "../../api" }
-sc-consensus = { path = "../common" }
-sc-consensus-slots = { path = "../slots" }
-sc-telemetry = { path = "../../telemetry" }
-sp-api = { path = "../../../primitives/api" }
-sp-application-crypto = { path = "../../../primitives/application-crypto" }
-sp-block-builder = { path = "../../../primitives/block-builder" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-consensus-aura = { path = "../../../primitives/consensus/aura" }
-sp-consensus-slots = { path = "../../../primitives/consensus/slots" }
-sp-core = { path = "../../../primitives/core" }
-sp-inherents = { path = "../../../primitives/inherents" }
-sp-keystore = { path = "../../../primitives/keystore" }
-sp-runtime = { path = "../../../primitives/runtime" }
+prometheus-endpoint = { workspace = true, default-features = true }
+sc-block-builder = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-consensus-slots = { workspace = true, default-features = true }
+sc-telemetry = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-block-builder = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-consensus-aura = { workspace = true, default-features = true }
+sp-consensus-slots = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-inherents = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]
-parking_lot = "0.12.1"
-tempfile = "3.1.0"
-sc-keystore = { path = "../../keystore" }
-sc-network = { path = "../../network" }
-sc-network-test = { path = "../../network/test" }
-sp-keyring = { path = "../../../primitives/keyring" }
-sp-timestamp = { path = "../../../primitives/timestamp" }
-sp-tracing = { path = "../../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
-tokio = { version = "1.22.0" }
+parking_lot = { workspace = true, default-features = true }
+tempfile = { workspace = true }
+sc-keystore = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-test = { workspace = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
+tokio = { workspace = true, default-features = true }

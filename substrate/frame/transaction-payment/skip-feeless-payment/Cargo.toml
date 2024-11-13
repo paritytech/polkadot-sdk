@@ -15,15 +15,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # Substrate dependencies
-sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
+sp-runtime = { workspace = true }
 
-frame-support = { path = "../../support", default-features = false }
-frame-system = { path = "../../system", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
 # Other dependencies
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 [features]
 default = ["std"]
@@ -33,7 +32,6 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",

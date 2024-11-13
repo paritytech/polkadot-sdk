@@ -82,6 +82,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::*,
@@ -92,7 +95,7 @@ use frame_support::{
 	BoundedSlice, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{SendTransactionTypes, SubmitTransaction},
+	offchain::{CreateInherent, SubmitTransaction},
 	pallet_prelude::*,
 };
 pub use pallet::*;
@@ -107,7 +110,6 @@ use sp_staking::{
 	offence::{Kind, Offence, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 pub mod sr25519 {
@@ -196,8 +198,8 @@ enum OffchainErr<BlockNumber> {
 	SubmitTransaction,
 }
 
-impl<BlockNumber: sp_std::fmt::Debug> sp_std::fmt::Debug for OffchainErr<BlockNumber> {
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<BlockNumber: core::fmt::Debug> core::fmt::Debug for OffchainErr<BlockNumber> {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match *self {
 			OffchainErr::TooEarly => write!(fmt, "Too early to send heartbeat."),
 			OffchainErr::WaitingForInclusion(ref block) => {
@@ -259,7 +261,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: SendTransactionTypes<Call<Self>> + frame_system::Config {
+	pub trait Config: CreateInherent<Call<Self>> + frame_system::Config {
 		/// The identifier type for an authority.
 		type AuthorityId: Member
 			+ Parameter
@@ -640,7 +642,8 @@ impl<T: Config> Pallet<T> {
 				call,
 			);
 
-			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			let xt = T::create_inherent(call.into());
+			SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 				.map_err(|_| OffchainErr::SubmitTransaction)?;
 
 			Ok(())

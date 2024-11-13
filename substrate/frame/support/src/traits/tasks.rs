@@ -18,20 +18,22 @@
 //! Contains the [`Task`] trait, which defines a general-purpose way for defining and executing
 //! service work, and supporting types.
 
+use alloc::{vec, vec::IntoIter};
 use codec::FullCodec;
+use core::{fmt::Debug, iter::Iterator};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
-use sp_std::{fmt::Debug, iter::Iterator, vec, vec::IntoIter};
 use sp_weights::Weight;
 
 /// Contain's re-exports of all the supporting types for the [`Task`] trait. Used in the macro
 /// expansion of `RuntimeTask`.
 #[doc(hidden)]
 pub mod __private {
+	pub use alloc::{vec, vec::IntoIter};
 	pub use codec::FullCodec;
+	pub use core::{fmt::Debug, iter::Iterator};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::DispatchError;
-	pub use sp_std::{fmt::Debug, iter::Iterator, vec, vec::IntoIter};
 	pub use sp_weights::Weight;
 }
 

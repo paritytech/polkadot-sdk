@@ -4,7 +4,7 @@ version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet for inclusive on-chain decisions"
 readme = "README.md"
@@ -16,27 +16,26 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-assert_matches = { version = "1.5", optional = true }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+assert_matches = { optional = true, workspace = true }
+codec = { features = [
 	"derive",
-] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
+sp-arithmetic = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
-assert_matches = { version = "1.5" }
-pallet-balances = { path = "../balances" }
-pallet-preimage = { path = "../preimage" }
-pallet-scheduler = { path = "../scheduler" }
-sp-core = { path = "../../primitives/core" }
+assert_matches = { workspace = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-preimage = { workspace = true, default-features = true }
+pallet-scheduler = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -55,7 +54,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"assert_matches",

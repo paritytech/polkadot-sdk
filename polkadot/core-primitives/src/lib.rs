@@ -20,7 +20,9 @@
 //!
 //! These core Polkadot types are used by the relay chain and the Parachains.
 
-use parity_scale_codec::{Decode, Encode};
+extern crate alloc;
+
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	generic,
@@ -81,8 +83,8 @@ impl std::fmt::Display for CandidateHash {
 	}
 }
 
-impl sp_std::fmt::Debug for CandidateHash {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for CandidateHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "{:?}", self.0)
 	}
 }
@@ -119,7 +121,7 @@ pub type Remark = [u8; 32];
 /// A message sent from the relay-chain down to a parachain.
 ///
 /// The size of the message is limited by the `config.max_downward_message_size` parameter.
-pub type DownwardMessage = sp_std::vec::Vec<u8>;
+pub type DownwardMessage = alloc::vec::Vec<u8>;
 
 /// A wrapped version of `DownwardMessage`. The difference is that it has attached the block number
 /// when the message was sent.
@@ -139,7 +141,7 @@ pub struct InboundHrmpMessage<BlockNumber = crate::BlockNumber> {
 	/// enacted.
 	pub sent_at: BlockNumber,
 	/// The message payload.
-	pub data: sp_std::vec::Vec<u8>,
+	pub data: alloc::vec::Vec<u8>,
 }
 
 /// An HRMP message seen from the perspective of a sender.
@@ -148,7 +150,7 @@ pub struct OutboundHrmpMessage<Id> {
 	/// The para that will get this message in its downward message queue.
 	pub recipient: Id,
 	/// The message payload.
-	pub data: sp_std::vec::Vec<u8>,
+	pub data: alloc::vec::Vec<u8>,
 }
 
 /// `V2` primitives.

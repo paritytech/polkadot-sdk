@@ -21,16 +21,15 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{format, vec::Vec};
 use frame_support::traits::BuildGenesisConfig;
 use sp_genesis_builder::{PresetId, Result as BuildResult};
-use sp_runtime::format_runtime_string;
 
 /// Build `GenesisConfig` from a JSON blob not using any defaults and store it in the storage. For
 /// more info refer to [`sp_genesis_builder::GenesisBuilder::build_state`].
 pub fn build_state<GC: BuildGenesisConfig>(json: Vec<u8>) -> BuildResult {
-	let gc = serde_json::from_slice::<GC>(&json)
-		.map_err(|e| format_runtime_string!("Invalid JSON blob: {}", e))?;
+	let gc =
+		serde_json::from_slice::<GC>(&json).map_err(|e| format!("Invalid JSON blob: {}", e))?;
 	<GC as BuildGenesisConfig>::build(&gc);
 	Ok(())
 }
@@ -41,7 +40,7 @@ pub fn build_state<GC: BuildGenesisConfig>(json: Vec<u8>) -> BuildResult {
 /// to [`sp_genesis_builder::GenesisBuilder::get_preset`].
 pub fn get_preset<GC>(
 	name: &Option<PresetId>,
-	preset_for_name: impl FnOnce(&sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>>,
+	preset_for_name: impl FnOnce(&PresetId) -> Option<Vec<u8>>,
 ) -> Option<Vec<u8>>
 where
 	GC: BuildGenesisConfig + Default,

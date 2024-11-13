@@ -4,7 +4,7 @@ version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Minimal fixed point arithmetic primitives and types for runtime."
 documentation = "https://docs.rs/sp-arithmetic"
@@ -17,23 +17,22 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+codec = { features = [
 	"derive",
 	"max-encoded-len",
-] }
-integer-sqrt = "0.1.2"
-num-traits = { version = "0.2.17", default-features = false }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+], workspace = true }
+integer-sqrt = { workspace = true }
+num-traits = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], optional = true, workspace = true }
-static_assertions = "1.1.0"
-sp-std = { path = "../std", default-features = false }
-docify = "0.2.8"
+static_assertions = { workspace = true, default-features = true }
+docify = { workspace = true }
 
 [dev-dependencies]
-criterion = "0.5.1"
-primitive-types = "0.12.0"
-sp-crypto-hashing = { path = "../crypto/hashing" }
-rand = "0.8.5"
+criterion = { workspace = true, default-features = true }
+primitive-types = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -43,7 +42,6 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-crypto-hashing/std",
-	"sp-std/std",
 ]
 # Serde support without relying on std features.
 serde = ["dep:serde", "scale-info/serde"]

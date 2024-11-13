@@ -102,7 +102,10 @@ impl<'a> DummyCrate<'a> {
 			"#,
 		);
 
-		write_file_if_changed(project_dir.join("src/main.rs"), "fn main() {}");
+		write_file_if_changed(
+			project_dir.join("src/main.rs"),
+			"#![allow(missing_docs)] fn main() {}",
+		);
 		DummyCrate { cargo_command, temp, manifest_path, target }
 	}
 

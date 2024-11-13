@@ -18,13 +18,20 @@
 //! Tests regarding the functionality of the `fungible` trait set implementations.
 
 use super::*;
-use frame_support::traits::tokens::{
-	Fortitude::{Force, Polite},
-	Precision::{BestEffort, Exact},
-	Preservation::{Expendable, Preserve, Protect},
-	Restriction::Free,
+use frame_support::traits::{
+	tokens::{
+		Fortitude::{Force, Polite},
+		Precision::{BestEffort, Exact},
+		Preservation::{Expendable, Preserve, Protect},
+		Restriction::Free,
+	},
+	Consideration, Footprint, LinearStoragePrice, MaybeConsideration,
 };
-use fungible::{Inspect, InspectFreeze, InspectHold, Mutate, MutateFreeze, MutateHold, Unbalanced};
+use fungible::{
+	FreezeConsideration, HoldConsideration, Inspect, InspectFreeze, InspectHold,
+	LoneFreezeConsideration, LoneHoldConsideration, Mutate, MutateFreeze, MutateHold, Unbalanced,
+};
+use sp_core::ConstU64;
 
 #[test]
 fn inspect_trait_reducible_balance_basic_works() {
@@ -491,5 +498,173 @@ fn withdraw_precision_exact_works() {
 				<Balances as fungible::Balanced<_>>::withdraw(&1, 5, Exact, Preserve, Polite),
 				TokenError::FundsUnavailable
 			);
+		});
+}
+
+#[test]
+fn freeze_consideration_works() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			type Consideration = FreezeConsideration<
+				u64,
+				Balances,
+				FooReason,
+				LinearStoragePrice<ConstU64<0>, ConstU64<1>, u64>,
+				Footprint,
+			>;
+
+			let who = 4;
+			// freeze amount taken somewhere outside of our (Consideration) scope.
+			let extend_freeze = 15;
+
+			let ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
+			assert!(ticket.is_none());
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0);
+
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 10);
+
+			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 4);
+
+			assert_ok!(Balances::increase_frozen(&TestId::Foo, &who, extend_freeze));
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 4 + extend_freeze);
+
+			let ticket = ticket.update(&who, Footprint::from_parts(8, 1)).unwrap();
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 8 + extend_freeze);
+
+			let ticket = ticket.update(&who, Footprint::from_parts(0, 0)).unwrap();
+			assert!(ticket.is_none());
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0 + extend_freeze);
+
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 10 + extend_freeze);
+
+			let _ = ticket.drop(&who).unwrap();
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0 + extend_freeze);
+		});
+}
+
+#[test]
+fn hold_consideration_works() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			type Consideration = HoldConsideration<
+				u64,
+				Balances,
+				FooReason,
+				LinearStoragePrice<ConstU64<0>, ConstU64<1>, u64>,
+				Footprint,
+			>;
+
+			let who = 4;
+			// hold amount taken somewhere outside of our (Consideration) scope.
+			let extend_hold = 15;
+
+			let ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
+			assert!(ticket.is_none());
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0);
+
+			let ticket = ticket.update(&who, Footprint::from_parts(10, 1)).unwrap();
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10);
+
+			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 4);
+
+			assert_ok!(Balances::hold(&TestId::Foo, &who, extend_hold));
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 4 + extend_hold);
+
+			let ticket = ticket.update(&who, Footprint::from_parts(8, 1)).unwrap();
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 8 + extend_hold);
+
+			let ticket = ticket.update(&who, Footprint::from_parts(0, 0)).unwrap();
+			assert!(ticket.is_none());
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0 + extend_hold);
+
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10 + extend_hold);
+
+			let _ = ticket.drop(&who).unwrap();
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0 + extend_hold);
+		});
+}
+
+#[test]
+fn lone_freeze_consideration_works() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			type Consideration = LoneFreezeConsideration<
+				u64,
+				Balances,
+				FooReason,
+				LinearStoragePrice<ConstU64<0>, ConstU64<1>, u64>,
+				Footprint,
+			>;
+
+			let who = 4;
+			let zero_ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0);
+
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 10);
+
+			assert_ok!(Balances::increase_frozen(&TestId::Foo, &who, 5));
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 15);
+
+			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 4);
+
+			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), zero_ticket);
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0);
+
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 10);
+
+			let _ = ticket.drop(&who).unwrap();
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &who), 0);
+		});
+}
+
+#[test]
+fn lone_hold_consideration_works() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			type Consideration = LoneHoldConsideration<
+				u64,
+				Balances,
+				FooReason,
+				LinearStoragePrice<ConstU64<0>, ConstU64<1>, u64>,
+				Footprint,
+			>;
+
+			let who = 4;
+			let zero_ticket = Consideration::new(&who, Footprint::from_parts(0, 0)).unwrap();
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0);
+
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10);
+
+			assert_ok!(Balances::hold(&TestId::Foo, &who, 5));
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 15);
+
+			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 4);
+
+			assert_eq!(ticket.update(&who, Footprint::from_parts(0, 0)).unwrap(), zero_ticket);
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0);
+
+			let ticket = Consideration::new(&who, Footprint::from_parts(10, 1)).unwrap();
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10);
+
+			let _ = ticket.drop(&who).unwrap();
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 0);
 		});
 }

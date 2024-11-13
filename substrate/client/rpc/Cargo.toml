@@ -4,7 +4,7 @@ version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Substrate Client RPC"
 readme = "README.md"
@@ -16,46 +16,44 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-futures = "0.3.30"
-jsonrpsee = { version = "0.22", features = ["server"] }
+codec = { workspace = true, default-features = true }
+futures = { workspace = true }
+jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
-parking_lot = "0.12.1"
+parking_lot = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sc-block-builder = { path = "../block-builder" }
-sc-chain-spec = { path = "../chain-spec" }
-sc-client-api = { path = "../api" }
-sc-mixnet = { path = "../mixnet" }
-sc-rpc-api = { path = "../rpc-api" }
-sc-tracing = { path = "../tracing" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sc-utils = { path = "../utils" }
-sp-api = { path = "../../primitives/api" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-offchain = { path = "../../primitives/offchain" }
-sp-rpc = { path = "../../primitives/rpc" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-session = { path = "../../primitives/session" }
-sp-version = { path = "../../primitives/version" }
-sp-statement-store = { path = "../../primitives/statement-store" }
-tokio = "1.37"
+sc-block-builder = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-mixnet = { workspace = true, default-features = true }
+sc-rpc-api = { workspace = true, default-features = true }
+sc-tracing = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-offchain = { workspace = true, default-features = true }
+sp-rpc = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-session = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
+tokio = { workspace = true, default-features = true }
 
 [dev-dependencies]
-env_logger = "0.11"
-assert_matches = "1.3.0"
-sc-block-builder = { path = "../block-builder" }
-sc-network = { path = "../network" }
-sc-network-common = { path = "../network/common" }
-sc-transaction-pool = { path = "../transaction-pool" }
-sp-consensus = { path = "../../primitives/consensus/common" }
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
-tokio = "1.37"
-sp-io = { path = "../../primitives/io" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
-pretty_assertions = "1.2.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+assert_matches = { workspace = true }
+sc-block-builder = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
+sc-transaction-pool = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+tokio = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
+pretty_assertions = { workspace = true }
 
 [features]
 test-helpers = []

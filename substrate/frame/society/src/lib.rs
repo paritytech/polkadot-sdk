@@ -257,6 +257,9 @@ pub mod weights;
 
 pub mod migrations;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use frame_support::{
 	impl_ensure_origin_with_arg_ignoring_arg,
 	pallet_prelude::*,
@@ -282,7 +285,6 @@ use sp_runtime::{
 	ArithmeticError::Overflow,
 	Percent, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 pub use weights::WeightInfo;
 
@@ -1362,7 +1364,7 @@ pub mod pallet {
 }
 
 /// Simple ensure origin struct to filter for the founder account.
-pub struct EnsureFounder<T>(sp_std::marker::PhantomData<T>);
+pub struct EnsureFounder<T>(core::marker::PhantomData<T>);
 impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureFounder<T> {
 	type Success = T::AccountId;
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
@@ -1383,18 +1385,6 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	impl<{ T: Config, A }>
 		EnsureOriginWithArg<T::RuntimeOrigin, A> for EnsureFounder<T>
 	{}
-}
-
-struct InputFromRng<'a, T>(&'a mut T);
-impl<'a, T: RngCore> codec::Input for InputFromRng<'a, T> {
-	fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
-		return Ok(None)
-	}
-
-	fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
-		self.0.fill_bytes(into);
-		Ok(())
-	}
 }
 
 pub enum Period<BlockNumber> {

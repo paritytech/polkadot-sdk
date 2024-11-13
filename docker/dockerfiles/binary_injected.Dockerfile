@@ -32,7 +32,7 @@ LABEL io.parity.image.authors=${AUTHORS} \
 USER root
 WORKDIR /app
 
-# add polkadot binary to docker image
+# add binary to docker image
 # sample for polkadot: COPY ./polkadot ./polkadot-*-worker /usr/local/bin/
 COPY entrypoint.sh .
 COPY "bin/*" "/usr/local/bin/"

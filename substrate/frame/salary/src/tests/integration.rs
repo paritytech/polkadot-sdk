@@ -17,21 +17,20 @@
 
 //! The crate's tests.
 
+use crate as pallet_salary;
+use crate::*;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{ConstU64, EitherOf, MapSuccess, PollStatus, Polling},
+	traits::{ConstU64, EitherOf, MapSuccess, NoOpPoll},
 };
-use pallet_ranked_collective::{EnsureRanked, Geometric, TallyOf, Votes};
+use pallet_ranked_collective::{EnsureRanked, Geometric};
 use sp_core::{ConstU16, Get};
 use sp_runtime::{
 	traits::{Convert, ReduceBy, ReplaceWithDefault},
-	BuildStorage, DispatchError,
+	BuildStorage,
 };
-
-use crate as pallet_salary;
-use crate::*;
 
 type Rank = u16;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -53,45 +52,6 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-}
-
-pub struct TestPolls;
-impl Polling<TallyOf<Test>> for TestPolls {
-	type Index = u8;
-	type Votes = Votes;
-	type Moment = u64;
-	type Class = Rank;
-
-	fn classes() -> Vec<Self::Class> {
-		unimplemented!()
-	}
-	fn as_ongoing(_index: u8) -> Option<(TallyOf<Test>, Self::Class)> {
-		unimplemented!()
-	}
-	fn access_poll<R>(
-		_index: Self::Index,
-		_f: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
-	) -> R {
-		unimplemented!()
-	}
-	fn try_access_poll<R>(
-		_index: Self::Index,
-		_f: impl FnOnce(
-			PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>,
-		) -> Result<R, DispatchError>,
-	) -> Result<R, DispatchError> {
-		unimplemented!()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn create_ongoing(_class: Self::Class) -> Result<Self::Index, ()> {
-		unimplemented!()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn end_ongoing(_index: Self::Index, _approved: bool) -> Result<(), ()> {
-		unimplemented!()
-	}
 }
 
 pub struct MinRankOfClass<Delta>(PhantomData<Delta>);
@@ -176,10 +136,11 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can exchange up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
-	type Polls = TestPolls;
+	type Polls = NoOpPoll;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = Salary;
 	type VoteWeight = Geometric;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = Salary;
 }

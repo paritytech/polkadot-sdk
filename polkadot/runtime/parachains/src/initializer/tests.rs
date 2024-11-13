@@ -20,8 +20,8 @@ use crate::{
 	paras::ParaKind,
 	session_info,
 };
-use primitives::{HeadData, Id as ParaId};
-use test_helpers::dummy_validation_code;
+use polkadot_primitives::{HeadData, Id as ParaId};
+use polkadot_primitives_test_helpers::dummy_validation_code;
 
 use frame_support::{
 	assert_ok,

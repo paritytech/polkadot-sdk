@@ -90,6 +90,10 @@ where
 	<OutgoingMessage as TryFrom<overseer::AllMessages>>::Error: std::fmt::Debug,
 {
 	async fn send_message(&mut self, msg: OutgoingMessage) {
+		self.send_message_with_priority::<overseer::NormalPriority>(msg).await;
+	}
+
+	async fn send_message_with_priority<P: Priority>(&mut self, msg: OutgoingMessage) {
 		let msg = <
 					<<Fil as MessageInterceptor<Sender>>::Message as overseer::AssociateOutgoing
 				>::OutgoingMessages as From<OutgoingMessage>>::from(msg);
@@ -103,7 +107,14 @@ where
 		}
 	}
 
-	fn try_send_message(&mut self, msg: OutgoingMessage) -> Result<(), TrySendError<OutgoingMessage>> {
+	fn try_send_message(
+		&mut self,
+		msg: OutgoingMessage,
+	) -> Result<(), polkadot_node_subsystem_util::metered::TrySendError<OutgoingMessage>> {
+		self.try_send_message_with_priority::<overseer::NormalPriority>(msg)
+	}
+
+	fn try_send_message_with_priority<P: Priority>(&mut self, msg: OutgoingMessage) -> Result<(), TrySendError<OutgoingMessage>> {
 		let msg = <
 				<<Fil as MessageInterceptor<Sender>>::Message as overseer::AssociateOutgoing
 			>::OutgoingMessages as From<OutgoingMessage>>::from(msg);

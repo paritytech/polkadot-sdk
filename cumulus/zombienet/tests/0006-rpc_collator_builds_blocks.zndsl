@@ -13,3 +13,7 @@ two: restart after 1 seconds
 three: restart after 20 seconds
 dave: is up
 dave: reports block height is at least 30 within 200 seconds
+
+# We want to make sure that none of the consensus hook checks fail, even if the chain makes progress
+dave: count of log lines containing "set_validation_data inherent needs to be present in every block" is 0 within 10 seconds
+eve: count of log lines containing "set_validation_data inherent needs to be present in every block" is 0 within 10 seconds

@@ -177,6 +177,14 @@ pub async fn run<P: ParachainsPipeline>(
 where
 	P::SourceRelayChain: Chain<BlockNumber = RelayBlockNumber>,
 {
+	log::info!(
+		target: "bridge",
+		"Starting {} -> {} finality proof relay: relaying (only_free_headers: {:?}) headers",
+		P::SourceParachain::NAME,
+		P::TargetChain::NAME,
+		only_free_headers,
+	);
+
 	let exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
 		.with_metrics(metrics_params)
@@ -496,7 +504,7 @@ where
 		},
 		(AvailableHeader::Missing, Some(_)) => {
 			// parachain/parathread has been offboarded removed from the system. It needs to
-			// be propageted to the target client
+			// be propagated to the target client
 			true
 		},
 		(AvailableHeader::Missing, None) => {
@@ -680,7 +688,6 @@ impl<P: ParachainsPipeline> SubmittedHeadsTracker<P> {
 mod tests {
 	use super::*;
 	use async_std::sync::{Arc, Mutex};
-	use codec::Encode;
 	use futures::{SinkExt, StreamExt};
 	use relay_substrate_client::test_chain::{TestChain, TestParachain};
 	use relay_utils::{HeaderId, MaybeConnectionError};
@@ -821,8 +828,7 @@ mod tests {
 			let head_result =
 				SourceClient::<TestParachainsPipeline>::parachain_head(self, at_block).await?;
 			let head = head_result.as_available().unwrap();
-			let storage_proof = vec![head.hash().encode()];
-			let proof = (ParaHeadsProof { storage_proof }, head.hash());
+			let proof = (ParaHeadsProof { storage_proof: Default::default() }, head.hash());
 			self.data.lock().await.source_proof.clone().map(|_| proof)
 		}
 	}

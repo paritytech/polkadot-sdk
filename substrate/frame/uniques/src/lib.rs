@@ -42,6 +42,9 @@ mod types;
 pub mod migration;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::traits::{
 	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
@@ -51,7 +54,6 @@ use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
 	ArithmeticError, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 pub use pallet::*;
 pub use types::*;
@@ -221,7 +223,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::storage_prefix = "ClassMetadataOf"]
 	/// Metadata of a collection.
-	pub(super) type CollectionMetadataOf<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type CollectionMetadataOf<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -232,7 +234,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::storage_prefix = "InstanceMetadataOf"]
 	/// Metadata of an item.
-	pub(super) type ItemMetadataOf<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type ItemMetadataOf<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::CollectionId,

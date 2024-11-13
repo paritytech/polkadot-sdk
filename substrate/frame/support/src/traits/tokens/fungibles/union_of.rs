@@ -41,7 +41,7 @@ use sp_runtime::{
 /// - `AssetKind` is a superset type encompassing asset kinds from `Left` and `Right` sets.
 /// - `AccountId` is an account identifier type.
 pub struct UnionOf<Left, Right, Criterion, AssetKind, AccountId>(
-	sp_std::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
+	core::marker::PhantomData<(Left, Right, Criterion, AssetKind, AccountId)>,
 );
 
 impl<
@@ -622,7 +622,7 @@ pub struct ConvertImbalanceDropHandler<
 	Balance,
 	AccountId,
 >(
-	sp_std::marker::PhantomData<(
+	core::marker::PhantomData<(
 		Left,
 		Right,
 		LeftAssetId,
@@ -825,8 +825,10 @@ impl<
 }
 
 impl<
-		Left: fungibles::BalancedHold<AccountId>,
-		Right: fungibles::BalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>,
+		Left: fungibles::BalancedHold<AccountId>
+			+ fungibles::hold::DoneSlash<Self::AssetId, Self::Reason, AccountId, Self::Balance>,
+		Right: fungibles::BalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>
+			+ fungibles::hold::DoneSlash<Self::AssetId, Self::Reason, AccountId, Self::Balance>,
 		Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
 		AssetKind: AssetId,
 		AccountId,
@@ -848,6 +850,31 @@ impl<
 				let (credit, amount) =
 					<Right as fungibles::BalancedHold<AccountId>>::slash(a, reason, who, amount);
 				(imbalance::from_fungibles(credit, asset), amount)
+			},
+		}
+	}
+}
+
+impl<
+		Reason,
+		Balance,
+		Left: fungibles::Inspect<AccountId>
+			+ fungibles::hold::DoneSlash<Left::AssetId, Reason, AccountId, Balance>,
+		Right: fungibles::Inspect<AccountId>
+			+ fungibles::hold::DoneSlash<Right::AssetId, Reason, AccountId, Balance>,
+		Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::hold::DoneSlash<AssetKind, Reason, AccountId, Balance>
+	for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	fn done_slash(asset: AssetKind, reason: &Reason, who: &AccountId, amount: Balance) {
+		match Criterion::convert(asset.clone()) {
+			Left(a) => {
+				Left::done_slash(a, reason, who, amount);
+			},
+			Right(a) => {
+				Right::done_slash(a, reason, who, amount);
 			},
 		}
 	}

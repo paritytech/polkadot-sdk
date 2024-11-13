@@ -1,0 +1,47 @@
+title: "Remove jaeger from polkadot"
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+      Jaeger was remove from the codebase because it was not used by anyone
+      and it did not help with the debugging.
+
+crates:
+  - name: polkadot-sdk
+    bump: patch
+  - name: polkadot-overseer
+    bump: major
+  - name: polkadot-node-subsystem
+    bump: patch
+  - name: polkadot-node-subsystem-types
+    bump: major
+  - name: polkadot-node-network-protocol
+    bump: major
+  - name: polkadot-service
+    bump: major
+  - name: polkadot-availability-distribution
+    bump: patch
+  - name: polkadot-availability-recovery
+    bump: patch
+  - name: polkadot-node-core-av-store
+    bump: patch
+  - name: polkadot-statement-distribution
+    bump: patch
+  - name: polkadot-collator-protocol
+    bump: patch
+  - name: polkadot-availability-bitfield-distribution
+    bump: patch
+  - name: polkadot-network-bridge
+    bump: patch
+  - name: polkadot-node-collation-generation
+    bump: patch
+  - name: polkadot-node-core-bitfield-signing
+    bump: patch
+  - name: polkadot-node-core-candidate-validation
+    bump: patch
+  - name: polkadot-node-core-provisioner
+    bump: patch
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: patch
+  - name: polkadot-cli
+    bump: major

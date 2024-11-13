@@ -27,7 +27,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced, StorageMapShim,
-		StoredMap, VariantCount, WhitelistedStorageKeys,
+		StoredMap, VariantCount, VariantCountOf, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},
 };
@@ -37,7 +37,7 @@ use scale_info::TypeInfo;
 use sp_core::hexdisplay::HexDisplay;
 use sp_io;
 use sp_runtime::{
-	traits::{BadOrigin, SignedExtension, Zero},
+	traits::{BadOrigin, Zero},
 	ArithmeticError, BuildStorage, DispatchError, DispatchResult, FixedPointNumber, RuntimeDebug,
 	TokenError,
 };
@@ -104,25 +104,23 @@ impl pallet_transaction_payment::Config for Test {
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<u64>;
 	type LengthToFee = IdentityFee<u64>;
-	type FeeMultiplierUpdate = ();
 }
 
-pub(crate) type Balance = u64;
+parameter_types! {
+	pub FooReason: TestId = TestId::Foo;
+}
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl Config for Test {
-	type Balance = Balance;
 	type DustRemoval = DustTrap;
-	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = TestAccountStore;
-	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ConstU32<2>;
 	type ReserveIdentifier = TestId;
-	type WeightInfo = ();
 	type RuntimeHoldReason = TestId;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeFreezeReason = TestId;
 	type FreezeIdentifier = TestId;
-	type MaxFreezes = ConstU32<2>;
+	type MaxFreezes = VariantCountOf<TestId>;
 }
 
 #[derive(Clone)]
@@ -276,7 +274,7 @@ pub fn events() -> Vec<RuntimeEvent> {
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
-	DispatchInfo { weight: w, ..Default::default() }
+	DispatchInfo { call_weight: w, ..Default::default() }
 }
 
 /// Check that the total-issuance matches the sum of all accounts' total balances.
@@ -299,10 +297,10 @@ pub fn ensure_ti_valid() {
 #[test]
 fn weights_sane() {
 	let info = crate::Call::<Test>::transfer_allow_death { dest: 10, value: 4 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::transfer_allow_death(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::transfer_allow_death(), info.call_weight);
 
 	let info = crate::Call::<Test>::force_unreserve { who: 10, amount: 4 }.get_dispatch_info();
-	assert_eq!(<() as crate::WeightInfo>::force_unreserve(), info.weight);
+	assert_eq!(<() as crate::WeightInfo>::force_unreserve(), info.call_weight);
 }
 
 #[test]

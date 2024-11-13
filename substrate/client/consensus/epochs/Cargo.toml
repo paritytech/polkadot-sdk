@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Generic epochs-based utilities for consensus"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 
@@ -16,9 +16,9 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
-fork-tree = { path = "../../../utils/fork-tree" }
-sc-client-api = { path = "../../api" }
-sc-consensus = { path = "../common" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-runtime = { path = "../../../primitives/runtime" }
+codec = { features = ["derive"], workspace = true, default-features = true }
+fork-tree = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }

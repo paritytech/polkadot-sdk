@@ -24,8 +24,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod assigner_coretime;
-pub mod assigner_on_demand;
-pub mod assigner_parachains;
 pub mod configuration;
 pub mod coretime;
 pub mod disputes;
@@ -34,6 +32,7 @@ pub mod hrmp;
 pub mod inclusion;
 pub mod initializer;
 pub mod metrics;
+pub mod on_demand;
 pub mod origin;
 pub mod paras;
 pub mod paras_inherent;
@@ -53,9 +52,11 @@ mod mock;
 #[cfg(test)]
 mod ump_tests;
 
+extern crate alloc;
+
 pub use origin::{ensure_parachain, Origin};
 pub use paras::{ParaLifecycle, UpgradeStrategy};
-use primitives::{HeadData, Id as ParaId, ValidationCode};
+use polkadot_primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_runtime::{DispatchResult, FixedU128};
 
 /// Trait for tracking message delivery fees on a transport protocol.
@@ -86,7 +87,7 @@ pub fn schedule_para_initialize<T: paras::Config>(
 }
 
 /// Schedule a para to be cleaned up at the start of the next session.
-pub fn schedule_para_cleanup<T: paras::Config>(id: primitives::Id) -> Result<(), ()> {
+pub fn schedule_para_cleanup<T: paras::Config>(id: polkadot_primitives::Id) -> Result<(), ()> {
 	paras::Pallet::<T>::schedule_para_cleanup(id).map_err(|_| ())
 }
 

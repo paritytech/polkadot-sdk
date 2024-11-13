@@ -23,7 +23,7 @@
 
 use polkadot_subsystem_bench::{
 	availability::{
-		benchmark_availability_read, prepare_test, DataAvailabilityReadOptions,
+		benchmark_availability_read, prepare_test, DataAvailabilityReadOptions, Strategy,
 		TestDataAvailability, TestState,
 	},
 	configuration::TestConfiguration,
@@ -37,7 +37,7 @@ const BENCH_COUNT: usize = 10;
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
 
-	let options = DataAvailabilityReadOptions { fetch_from_backers: true };
+	let options = DataAvailabilityReadOptions { strategy: Strategy::FullFromBackers };
 	let mut config = TestConfiguration::default();
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
@@ -51,11 +51,7 @@ fn main() -> Result<(), String> {
 			std::io::stdout().flush().unwrap();
 			let (mut env, _cfgs) =
 				prepare_test(&state, TestDataAvailability::Read(options.clone()), false);
-			env.runtime().block_on(benchmark_availability_read(
-				"data_availability_read",
-				&mut env,
-				&state,
-			))
+			env.runtime().block_on(benchmark_availability_read(&mut env, &state))
 		})
 		.collect();
 	println!("\rDone!{}", " ".repeat(BENCH_COUNT));

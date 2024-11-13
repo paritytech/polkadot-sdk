@@ -153,14 +153,14 @@ impl<RA, Block: traits::Block, Storage> OffchainWorkers<RA, Block, Storage> {
 			enable_http_requests,
 			custom_extensions,
 		}: OffchainWorkerOptions<RA, Block, Storage, CE>,
-	) -> Self {
-		Self {
+	) -> std::io::Result<Self> {
+		Ok(Self {
 			runtime_api_provider,
 			thread_pool: Mutex::new(ThreadPool::with_name(
 				"offchain-worker".into(),
 				num_cpus::get(),
 			)),
-			shared_http_client: api::SharedClient::new(),
+			shared_http_client: api::SharedClient::new()?,
 			enable_http_requests,
 			keystore,
 			offchain_db: offchain_db.map(OffchainDb::new),
@@ -168,7 +168,7 @@ impl<RA, Block: traits::Block, Storage> OffchainWorkers<RA, Block, Storage> {
 			is_validator,
 			network_provider,
 			custom_extensions: Box::new(custom_extensions),
-		}
+		})
 	}
 }
 
@@ -446,8 +446,13 @@ mod tests {
 
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 		let network = Arc::new(TestNetwork());
 		let header = client.header(client.chain_info().genesis_hash).unwrap().unwrap();
 
@@ -461,7 +466,8 @@ mod tests {
 			is_validator: false,
 			enable_http_requests: false,
 			custom_extensions: |_| Vec::new(),
-		});
+		})
+		.unwrap();
 		futures::executor::block_on(offchain.on_block_imported(&header));
 
 		// then
@@ -481,7 +487,7 @@ mod tests {
 		let (client, backend) = substrate_test_runtime_client::TestClientBuilder::new()
 			.enable_offchain_indexing_api()
 			.build_with_backend();
-		let mut client = Arc::new(client);
+		let client = Arc::new(client);
 		let offchain_db = backend.offchain_storage().unwrap();
 
 		let key = &b"hello"[..];

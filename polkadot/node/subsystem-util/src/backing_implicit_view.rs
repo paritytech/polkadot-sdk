@@ -25,6 +25,7 @@ use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
 use std::collections::HashMap;
 
 use crate::{
+	inclusion_emulator::RelayChainBlockInfo,
 	request_session_index_for_child,
 	runtime::{self, prospective_parachains_mode, recv_runtime, ProspectiveParachainsMode},
 };
@@ -121,6 +122,26 @@ struct BlockInfo {
 	parent_hash: Hash,
 }
 
+/// Information about a relay-chain block, to be used when calling this module from prospective
+/// parachains.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlockInfoProspectiveParachains {
+	/// The hash of the relay-chain block.
+	pub hash: Hash,
+	/// The hash of the parent relay-chain block.
+	pub parent_hash: Hash,
+	/// The number of the relay-chain block.
+	pub number: BlockNumber,
+	/// The storage-root of the relay-chain block.
+	pub storage_root: Hash,
+}
+
+impl From<BlockInfoProspectiveParachains> for RelayChainBlockInfo {
+	fn from(value: BlockInfoProspectiveParachains) -> Self {
+		Self { hash: value.hash, number: value.number, storage_root: value.storage_root }
+	}
+}
+
 impl View {
 	/// Get an iterator over active leaves in the view.
 	pub fn leaves(&self) -> impl Iterator<Item = &Hash> {
@@ -176,6 +197,61 @@ impl View {
 			},
 			Err(e) => Err(e),
 		}
+	}
+
+	/// Activate a leaf in the view. To be used by the prospective parachains subsystem.
+	///
+	/// This will not request any additional data, as prospective parachains already provides all
+	/// the required info.
+	/// NOTE: using `activate_leaf` instead of this function will result in a
+	/// deadlock, as it calls prospective-parachains under the hood.
+	///
+	/// No-op for known leaves.
+	pub fn activate_leaf_from_prospective_parachains(
+		&mut self,
+		leaf: BlockInfoProspectiveParachains,
+		ancestors: &[BlockInfoProspectiveParachains],
+	) {
+		if self.leaves.contains_key(&leaf.hash) {
+			return
+		}
+
+		// Retain at least `MINIMUM_RETAIN_LENGTH` blocks in storage.
+		// This helps to avoid Chain API calls when activating leaves in the
+		// same chain.
+		let retain_minimum = std::cmp::min(
+			ancestors.last().map(|a| a.number).unwrap_or(0),
+			leaf.number.saturating_sub(MINIMUM_RETAIN_LENGTH),
+		);
+
+		self.leaves.insert(leaf.hash, ActiveLeafPruningInfo { retain_minimum });
+		let mut allowed_relay_parents = AllowedRelayParents {
+			allowed_relay_parents_contiguous: Vec::with_capacity(ancestors.len()),
+			// In this case, initialise this to an empty map, as prospective parachains already has
+			// this data and it won't query the implicit view for it.
+			minimum_relay_parents: HashMap::new(),
+		};
+
+		for ancestor in ancestors {
+			self.block_info_storage.insert(
+				ancestor.hash,
+				BlockInfo {
+					block_number: ancestor.number,
+					maybe_allowed_relay_parents: None,
+					parent_hash: ancestor.parent_hash,
+				},
+			);
+			allowed_relay_parents.allowed_relay_parents_contiguous.push(ancestor.hash);
+		}
+
+		self.block_info_storage.insert(
+			leaf.hash,
+			BlockInfo {
+				block_number: leaf.number,
+				maybe_allowed_relay_parents: Some(allowed_relay_parents),
+				parent_hash: leaf.parent_hash,
+			},
+		);
 	}
 
 	/// Deactivate a leaf in the view. This prunes any outdated implicit ancestors as well.

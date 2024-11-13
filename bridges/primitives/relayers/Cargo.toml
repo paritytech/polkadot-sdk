@@ -11,31 +11,37 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive"] }
+codec = { features = ["bit-vec", "derive"], workspace = true }
+scale-info = { features = ["bit-vec", "derive"], workspace = true }
 
 # Bridge Dependencies
-
-bp-messages = { path = "../messages", default-features = false }
-bp-runtime = { path = "../runtime", default-features = false }
+bp-header-chain = { workspace = true }
+bp-messages = { workspace = true }
+bp-parachains = { workspace = true }
+bp-runtime = { workspace = true }
 
 # Substrate Dependencies
-
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-system = { workspace = true }
+frame-support = { workspace = true }
+pallet-utility = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 [dev-dependencies]
-hex = "0.4"
-hex-literal = "0.4"
+hex = { workspace = true, default-features = true }
+hex-literal = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
+	"bp-header-chain/std",
 	"bp-messages/std",
+	"bp-parachains/std",
 	"bp-runtime/std",
 	"codec/std",
 	"frame-support/std",
+	"frame-system/std",
+	"pallet-utility/std",
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",

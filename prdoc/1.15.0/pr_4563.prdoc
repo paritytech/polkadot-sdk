@@ -1,0 +1,12 @@
+title: Try State Hook for Bounties.
+
+doc:
+  - audience: Runtime User
+    description: |
+      Invariants for storage items in the bounties pallet. Enforces the following Invariants:
+      1.`BountyCount` should be greater or equals to the length of the number of items in `Bounties`.
+      2.`BountyCount` should be greater or equals to the length of the number of items in `BountyDescriptions`.
+      3. Number of items in `Bounties` should be the same as `BountyDescriptions` length.
+crates:
+- name: pallet-bounties
+  bump: minor

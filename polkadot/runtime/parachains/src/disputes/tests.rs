@@ -29,7 +29,7 @@ use frame_support::{
 	traits::{OnFinalize, OnInitialize},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::BlockNumber;
+use polkadot_primitives::BlockNumber;
 use sp_core::{crypto::CryptoType, Pair};
 
 const VOTE_FOR: VoteKind = VoteKind::ExplicitValid;

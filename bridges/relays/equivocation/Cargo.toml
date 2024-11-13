@@ -12,12 +12,12 @@ publish = false
 workspace = true
 
 [dependencies]
-async-std = { version = "1.9.0", features = ["attributes"] }
-async-trait = "0.1.79"
-bp-header-chain = { path = "../../primitives/header-chain" }
-finality-relay = { path = "../finality" }
-frame-support = { path = "../../../substrate/frame/support" }
-futures = "0.3.30"
+async-std = { features = ["attributes"], workspace = true }
+async-trait = { workspace = true }
+bp-header-chain = { workspace = true, default-features = true }
+finality-relay = { workspace = true }
+frame-support = { workspace = true, default-features = true }
+futures = { workspace = true }
 log = { workspace = true }
-num-traits = "0.2"
-relay-utils = { path = "../utils" }
+num-traits = { workspace = true, default-features = true }
+relay-utils = { workspace = true }

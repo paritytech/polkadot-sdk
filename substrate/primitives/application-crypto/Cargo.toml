@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 description = "Provides facilities for generating application specific crypto wrapper types."
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 documentation = "https://docs.rs/sp-application-crypto"
 readme = "README.md"
@@ -18,12 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 
 [dependencies]
-sp-core = { path = "../core", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+sp-core = { workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
-sp-std = { path = "../std", default-features = false }
-sp-io = { path = "../io", default-features = false }
+sp-io = { workspace = true }
 
 [features]
 default = ["std"]
@@ -34,7 +33,6 @@ std = [
 	"serde/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-std/std",
 ]
 
 # Serde support without relying on std features.

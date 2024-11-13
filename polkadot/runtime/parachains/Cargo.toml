@@ -10,66 +10,68 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-impl-trait-for-tuples = "0.2.2"
-bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
+impl-trait-for-tuples = { workspace = true }
+bitvec = { features = ["alloc"], workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 log = { workspace = true }
-rustc-hex = { version = "2.1.0", default-features = false }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-derive_more = "0.99.17"
-bitflags = "1.3.2"
+derive_more = { workspace = true, default-features = true }
+bitflags = { workspace = true }
 
-sp-api = { path = "../../../substrate/primitives/api", default-features = false }
-inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }
-sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
-sp-session = { path = "../../../substrate/primitives/session", default-features = false }
-sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, features = ["serde"] }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, features = ["serde"] }
-sp-keystore = { path = "../../../substrate/primitives/keystore", optional = true, default-features = false }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false, optional = true }
-sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false, optional = true }
-sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
+sp-api = { workspace = true }
+sp-inherents = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { features = ["serde"], workspace = true }
+sp-session = { workspace = true }
+sp-staking = { features = ["serde"], workspace = true }
+sp-core = { features = ["serde"], workspace = true }
+sp-keystore = { optional = true, workspace = true }
+sp-application-crypto = { optional = true, workspace = true }
+sp-tracing = { optional = true, workspace = true }
+sp-arithmetic = { workspace = true }
+sp-std = { workspace = true, optional = true }
 
-pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false }
-pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
-pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
-pallet-babe = { path = "../../../substrate/frame/babe", default-features = false }
-pallet-broker = { path = "../../../substrate/frame/broker", default-features = false }
-pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
-pallet-session = { path = "../../../substrate/frame/session", default-features = false }
-pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
-pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
-pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false }
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
+pallet-authority-discovery = { workspace = true }
+pallet-authorship = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-babe = { workspace = true }
+pallet-broker = { workspace = true }
+pallet-message-queue = { workspace = true }
+pallet-mmr = { workspace = true, optional = true }
+pallet-session = { workspace = true }
+pallet-staking = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-vesting = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 
-xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
-primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+polkadot-primitives = { workspace = true }
 
-rand = { version = "0.8.5", default-features = false }
-rand_chacha = { version = "0.3.1", default-features = false }
-static_assertions = { version = "1.1.0", optional = true }
-polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
-polkadot-runtime-metrics = { path = "../metrics", default-features = false }
-polkadot-core-primitives = { path = "../../core-primitives", default-features = false }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+static_assertions = { optional = true, workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true }
+polkadot-runtime-metrics = { workspace = true }
+polkadot-core-primitives = { workspace = true }
 
 [dev-dependencies]
-futures = "0.3.30"
-hex-literal = "0.4.1"
-keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
-frame-support-test = { path = "../../../substrate/frame/support/test" }
-sc-keystore = { path = "../../../substrate/client/keystore" }
-test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
-sp-tracing = { path = "../../../substrate/primitives/tracing" }
-sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
-thousands = "0.2.0"
-assert_matches = "1"
-rstest = "0.18.2"
+polkadot-primitives = { workspace = true, features = ["test"] }
+
+futures = { workspace = true }
+hex-literal = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+frame-support-test = { workspace = true }
+sc-keystore = { workspace = true, default-features = true }
+polkadot-primitives-test-helpers = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+thousands = { workspace = true }
+assert_matches = { workspace = true }
+rstest = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 
 [features]
@@ -77,10 +79,10 @@ default = ["std"]
 no_std = []
 std = [
 	"bitvec/std",
+	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"inherents/std",
 	"log/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
@@ -88,31 +90,31 @@ std = [
 	"pallet-balances/std",
 	"pallet-broker/std",
 	"pallet-message-queue/std",
+	"pallet-mmr?/std",
 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-timestamp/std",
 	"pallet-vesting/std",
-	"parity-scale-codec/std",
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-primitives/std",
 	"polkadot-runtime-metrics/std",
-	"primitives/std",
 	"rand/std",
 	"rand_chacha/std",
-	"rustc-hex/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-api/std",
 	"sp-application-crypto?/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
+	"sp-inherents/std",
 	"sp-io/std",
 	"sp-keystore",
 	"sp-keystore?/std",
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"sp-std/std",
+	"sp-std?/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
@@ -124,14 +126,16 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-broker/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-mmr/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
-	"primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"sp-application-crypto",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"sp-std",
 	"static_assertions",
 	"xcm-executor/runtime-benchmarks",
 ]
@@ -145,6 +149,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-broker/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-mmr/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",

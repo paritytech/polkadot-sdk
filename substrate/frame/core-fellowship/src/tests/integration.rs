@@ -21,15 +21,15 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, PollStatus, Polling, TryMapSuccess},
+	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, NoOpPoll, TryMapSuccess},
 };
 use frame_system::EnsureSignedBy;
-use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, TallyOf, Votes};
+use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
 use sp_core::{ConstU32, Get};
 use sp_runtime::{
 	bounded_vec,
 	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
-	BuildStorage, DispatchError,
+	BuildStorage,
 };
 type Class = Rank;
 
@@ -78,47 +78,9 @@ impl Config for Test {
 	type InductOrigin = EnsureInducted<Test, (), 1>;
 	type ApproveOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type PromoteOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
+	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = EvidenceSize;
 	type MaxRank = ConstU32<9>;
-}
-
-pub struct TestPolls;
-impl Polling<TallyOf<Test>> for TestPolls {
-	type Index = u8;
-	type Votes = Votes;
-	type Moment = u64;
-	type Class = Class;
-
-	fn classes() -> Vec<Self::Class> {
-		unimplemented!()
-	}
-	fn as_ongoing(_: u8) -> Option<(TallyOf<Test>, Self::Class)> {
-		unimplemented!()
-	}
-	fn access_poll<R>(
-		_: Self::Index,
-		_: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
-	) -> R {
-		unimplemented!()
-	}
-	fn try_access_poll<R>(
-		_: Self::Index,
-		_: impl FnOnce(
-			PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>,
-		) -> Result<R, DispatchError>,
-	) -> Result<R, DispatchError> {
-		unimplemented!()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn create_ongoing(_: Self::Class) -> Result<Self::Index, ()> {
-		unimplemented!()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn end_ongoing(_: Self::Index, _: bool) -> Result<(), ()> {
-		unimplemented!()
-	}
 }
 
 /// Convert the tally class into the minimum rank required to vote on the poll.
@@ -153,10 +115,11 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can exchange up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
-	type Polls = TestPolls;
+	type Polls = NoOpPoll;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = CoreFellowship;
 	type VoteWeight = Geometric;
+	type MaxMemberCount = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = CoreFellowship;
 }

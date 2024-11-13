@@ -17,7 +17,7 @@
 use crate::configuration::*;
 use frame_benchmarking::{benchmarks, BenchmarkError, BenchmarkResult};
 use frame_system::RawOrigin;
-use primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
+use polkadot_primitives::{ExecutorParam, ExecutorParams, PvfExecKind, PvfPrepKind};
 use sp_runtime::traits::One;
 
 benchmarks! {

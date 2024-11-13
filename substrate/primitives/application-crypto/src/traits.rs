@@ -18,8 +18,9 @@
 use codec::Codec;
 use scale_info::TypeInfo;
 
+use alloc::vec::Vec;
+use core::fmt::Debug;
 use sp_core::crypto::{CryptoType, CryptoTypeId, IsWrappedBy, KeyTypeId, Pair, Public};
-use sp_std::{fmt::Debug, vec::Vec};
 
 /// Application-specific cryptographic object.
 ///
@@ -47,8 +48,8 @@ pub trait AppCrypto: 'static + Sized + CryptoType {
 }
 
 /// Type which implements Hash in std, not when no-std (std variant).
-pub trait MaybeHash: sp_std::hash::Hash {}
-impl<T: sp_std::hash::Hash> MaybeHash for T {}
+pub trait MaybeHash: core::hash::Hash {}
+impl<T: core::hash::Hash> MaybeHash for T {}
 
 /// Application-specific key pair.
 pub trait AppPair:

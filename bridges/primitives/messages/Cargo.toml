@@ -11,24 +11,24 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["bit-vec", "derive"] }
-scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive"] }
+codec = { features = ["bit-vec", "derive"], workspace = true }
+scale-info = { features = ["bit-vec", "derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 
 # Bridge dependencies
-
-bp-runtime = { path = "../runtime", default-features = false }
-bp-header-chain = { path = "../header-chain", default-features = false }
+bp-runtime = { workspace = true }
+bp-header-chain = { workspace = true }
 
 # Substrate Dependencies
-
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-support = { workspace = true }
+sp-core = { workspace = true }
+sp-std = { workspace = true }
+sp-io = { workspace = true }
 
 [dev-dependencies]
-hex = "0.4"
-hex-literal = "0.4"
+hex = { workspace = true, default-features = true }
+hex-literal = { workspace = true, default-features = true }
+bp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
@@ -40,5 +40,6 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
+	"sp-io/std",
 	"sp-std/std",
 ]

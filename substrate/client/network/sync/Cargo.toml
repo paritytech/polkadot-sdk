@@ -5,7 +5,7 @@ version = "0.33.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 documentation = "https://docs.rs/sc-network-sync"
 
@@ -16,43 +16,42 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [build-dependencies]
-prost-build = "0.12.4"
+prost-build = { workspace = true }
 
 [dependencies]
-array-bytes = "6.2.2"
-async-channel = "1.8.0"
-async-trait = "0.1.79"
-codec = { package = "parity-scale-codec", version = "3.6.12", features = ["derive"] }
-futures = "0.3.30"
-futures-timer = "3.0.2"
-libp2p = "0.51.4"
+array-bytes = { workspace = true, default-features = true }
+async-channel = { workspace = true }
+async-trait = { workspace = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
-mockall = "0.11.3"
-prost = "0.12.4"
-schnellru = "0.2.1"
-smallvec = "1.11.0"
+mockall = { workspace = true }
+prost = { workspace = true }
+schnellru = { workspace = true }
+smallvec = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-tokio-stream = "0.1.14"
-tokio = { version = "1.32.0", features = ["macros", "time"] }
-fork-tree = { path = "../../../utils/fork-tree" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
-sc-client-api = { path = "../../api" }
-sc-consensus = { path = "../../consensus/common" }
-sc-network = { path = ".." }
-sc-network-common = { path = "../common" }
-sc-network-types = { path = "../types" }
-sc-utils = { path = "../../utils" }
-sp-arithmetic = { path = "../../../primitives/arithmetic" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-core = { path = "../../../primitives/core" }
-sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
-sp-runtime = { path = "../../../primitives/runtime" }
+tokio-stream = { workspace = true }
+tokio = { features = ["macros", "time"], workspace = true, default-features = true }
+fork-tree = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-common = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-consensus-grandpa = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]
-mockall = "0.11.3"
-quickcheck = { version = "1.0.3", default-features = false }
-sc-block-builder = { path = "../../block-builder" }
-sp-test-primitives = { path = "../../../primitives/test-primitives" }
-sp-tracing = { path = "../../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+mockall = { workspace = true }
+quickcheck = { workspace = true }
+sc-block-builder = { workspace = true, default-features = true }
+sp-test-primitives = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }

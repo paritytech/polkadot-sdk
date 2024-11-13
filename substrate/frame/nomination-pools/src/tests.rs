@@ -2364,10 +2364,10 @@ mod claim_payout {
 					Event::StateChanged { pool_id: 1, new_state: PoolState::Destroying },
 					Event::Unbonded { member: 20, pool_id: 1, balance: 20, points: 20, era: 3 },
 					Event::Withdrawn { member: 20, pool_id: 1, balance: 20, points: 20 },
-					Event::MemberRemoved { pool_id: 1, member: 20 },
+					Event::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 					Event::Unbonded { member: 10, pool_id: 1, balance: 10, points: 10, era: 6 },
 					Event::Withdrawn { member: 10, pool_id: 1, balance: 10, points: 10 },
-					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 					Event::Destroyed { pool_id: 1 }
 				]
 			);
@@ -2939,9 +2939,9 @@ mod unbond {
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 40, pool_id: 1, points: 6, balance: 6 },
-						Event::MemberRemoved { pool_id: 1, member: 40 },
+						Event::MemberRemoved { pool_id: 1, member: 40, released_balance: 0 },
 						Event::Withdrawn { member: 550, pool_id: 1, points: 92, balance: 92 },
-						Event::MemberRemoved { pool_id: 1, member: 550 },
+						Event::MemberRemoved { pool_id: 1, member: 550, released_balance: 0 },
 						Event::PaidOut { member: 10, pool_id: 1, payout: 10 },
 						Event::Unbonded { member: 10, pool_id: 1, points: 2, balance: 2, era: 6 }
 					]
@@ -3688,7 +3688,7 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 550, pool_id: 1, balance: 275, points: 550 },
-						Event::MemberRemoved { pool_id: 1, member: 550 }
+						Event::MemberRemoved { pool_id: 1, member: 550, released_balance: 0 }
 					]
 				);
 				assert_eq!(
@@ -3709,7 +3709,7 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 40, pool_id: 1, balance: 20, points: 40 },
-						Event::MemberRemoved { pool_id: 1, member: 40 }
+						Event::MemberRemoved { pool_id: 1, member: 40, released_balance: 0 }
 					]
 				);
 				assert_eq!(
@@ -3731,7 +3731,7 @@ mod withdraw_unbonded {
 					vec![
 						Event::Unbonded { member: 10, pool_id: 1, balance: 5, points: 5, era: 9 },
 						Event::Withdrawn { member: 10, pool_id: 1, balance: 5, points: 5 },
-						Event::MemberRemoved { pool_id: 1, member: 10 },
+						Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 						Event::Destroyed { pool_id: 1 }
 					]
 				);
@@ -3806,7 +3806,7 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 40, pool_id: 1, balance: 20, points: 20 },
-						Event::MemberRemoved { pool_id: 1, member: 40 }
+						Event::MemberRemoved { pool_id: 1, member: 40, released_balance: 0 }
 					]
 				);
 
@@ -3827,7 +3827,7 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 550, pool_id: 1, balance: 275, points: 275 },
-						Event::MemberRemoved { pool_id: 1, member: 550 }
+						Event::MemberRemoved { pool_id: 1, member: 550, released_balance: 0 }
 					]
 				);
 				assert!(SubPoolsStorage::<Runtime>::get(1).unwrap().with_era.is_empty());
@@ -3862,7 +3862,7 @@ mod withdraw_unbonded {
 					vec![
 						Event::Unbonded { member: 10, pool_id: 1, points: 5, balance: 5, era: 6 },
 						Event::Withdrawn { member: 10, pool_id: 1, points: 5, balance: 5 },
-						Event::MemberRemoved { pool_id: 1, member: 10 },
+						Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 						Event::Destroyed { pool_id: 1 }
 					]
 				);
@@ -4018,9 +4018,9 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![
 						Event::Withdrawn { member: 100, pool_id: 1, points: 100, balance: 100 },
-						Event::MemberRemoved { pool_id: 1, member: 100 },
+						Event::MemberRemoved { pool_id: 1, member: 100, released_balance: 0 },
 						Event::Withdrawn { member: 200, pool_id: 1, points: 200, balance: 200 },
-						Event::MemberRemoved { pool_id: 1, member: 200 }
+						Event::MemberRemoved { pool_id: 1, member: 200, released_balance: 0 }
 					]
 				);
 			});
@@ -4070,7 +4070,7 @@ mod withdraw_unbonded {
 					Event::Bonded { member: 100, pool_id: 1, bonded: 100, joined: true },
 					Event::Unbonded { member: 100, pool_id: 1, points: 100, balance: 100, era: 3 },
 					Event::Withdrawn { member: 100, pool_id: 1, points: 100, balance: 100 },
-					Event::MemberRemoved { pool_id: 1, member: 100 }
+					Event::MemberRemoved { pool_id: 1, member: 100, released_balance: 0 }
 				]
 			);
 		});
@@ -4310,7 +4310,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![
 					Event::Withdrawn { member: 100, pool_id: 1, points: 25, balance: 25 },
-					Event::MemberRemoved { pool_id: 1, member: 100 }
+					Event::MemberRemoved { pool_id: 1, member: 100, released_balance: 0 }
 				]
 			);
 		})
@@ -4548,7 +4548,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![
 					Event::Withdrawn { member: 10, pool_id: 1, points: 13, balance: 13 },
-					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 					Event::Destroyed { pool_id: 1 },
 				]
 			);
@@ -4588,7 +4588,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![
 					Event::Withdrawn { member: 20, pool_id: 1, balance: 20, points: 20 },
-					Event::MemberRemoved { pool_id: 1, member: 20 }
+					Event::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 }
 				]
 			);
 
@@ -4626,7 +4626,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![
 					Event::Withdrawn { member: 10, pool_id: 1, points: 10, balance: 10 },
-					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 					Event::Destroyed { pool_id: 1 },
 				]
 			);
@@ -4672,7 +4672,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![
 					Event::Withdrawn { member: 10, pool_id: 1, points: 10, balance: 10 },
-					Event::MemberRemoved { pool_id: 1, member: 10 },
+					Event::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 					Event::Destroyed { pool_id: 1 },
 				]
 			);
@@ -5020,6 +5020,10 @@ mod set_state {
 				Pools::apply_slash(RuntimeOrigin::signed(11), 10),
 				Error::<Runtime>::NotSupported
 			);
+
+			// pending slash api should return zero as well.
+			assert_eq!(Pools::api_pool_pending_slash(1), 0);
+			assert_eq!(Pools::api_member_pending_slash(10), 0);
 
 			// When
 			assert_ok!(Pools::set_state(RuntimeOrigin::signed(11), 1, PoolState::Destroying));
@@ -7518,12 +7522,14 @@ mod delegate_stake {
 			);
 
 			// ensure pool 1 cannot be migrated.
+			assert!(!Pools::api_pool_needs_delegate_migration(1));
 			assert_noop!(
 				Pools::migrate_pool_to_delegate_stake(RuntimeOrigin::signed(10), 1),
 				Error::<Runtime>::NotSupported
 			);
 
 			// members cannot be migrated either.
+			assert!(!Pools::api_member_needs_delegate_migration(10));
 			assert_noop!(
 				Pools::migrate_delegation(RuntimeOrigin::signed(10), 11),
 				Error::<Runtime>::NotSupported

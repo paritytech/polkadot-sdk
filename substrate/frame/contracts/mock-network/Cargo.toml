@@ -4,7 +4,7 @@ version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "A mock network for testing pallet-contracts"
 
@@ -12,41 +12,40 @@ description = "A mock network for testing pallet-contracts"
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 
-frame-support = { path = "../../support", default-features = false }
-frame-system = { path = "../../system", default-features = false }
-pallet-assets = { path = "../../assets" }
-pallet-balances = { path = "../../balances" }
-pallet-contracts = { path = ".." }
-pallet-contracts-uapi = { path = "../uapi", default-features = false }
-pallet-contracts-proc-macro = { path = "../proc-macro" }
-pallet-insecure-randomness-collective-flip = { path = "../../insecure-randomness-collective-flip" }
-pallet-message-queue = { path = "../../message-queue" }
-pallet-proxy = { path = "../../proxy" }
-pallet-timestamp = { path = "../../timestamp" }
-pallet-utility = { path = "../../utility" }
-pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false }
-polkadot-parachain-primitives = { path = "../../../../polkadot/parachain" }
-polkadot-primitives = { path = "../../../../polkadot/primitives" }
-polkadot-runtime-parachains = { path = "../../../../polkadot/runtime/parachains" }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
-sp-api = { path = "../../../primitives/api", default-features = false }
-sp-core = { path = "../../../primitives/core", default-features = false }
-sp-io = { path = "../../../primitives/io", default-features = false }
-sp-keystore = { path = "../../../primitives/keystore" }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
-sp-tracing = { path = "../../../primitives/tracing" }
-xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false }
-xcm-simulator = { path = "../../../../polkadot/xcm/xcm-simulator" }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-assets = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-contracts = { workspace = true, default-features = true }
+pallet-contracts-uapi = { workspace = true }
+pallet-contracts-proc-macro = { workspace = true, default-features = true }
+pallet-insecure-randomness-collective-flip = { workspace = true, default-features = true }
+pallet-message-queue = { workspace = true, default-features = true }
+pallet-proxy = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
+pallet-xcm = { workspace = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
+sp-api = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true, default-features = true }
+xcm-executor = { workspace = true }
+xcm-simulator = { workspace = true, default-features = true }
 
 [dev-dependencies]
-assert_matches = "1"
-pretty_assertions = "1"
-pallet-contracts-fixtures = { path = "../fixtures" }
+assert_matches = { workspace = true }
+pretty_assertions = { workspace = true }
+pallet-contracts-fixtures = { workspace = true }
 
 [features]
 default = ["std"]
@@ -67,7 +66,6 @@ std = [
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

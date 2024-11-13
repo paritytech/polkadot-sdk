@@ -11,24 +11,22 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.12" }
-frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../substrate/frame/system" }
-futures = "0.3.30"
-pallet-transaction-payment = { path = "../../../../substrate/frame/transaction-payment" }
-pallet-xcm = { path = "../../pallet-xcm" }
-polkadot-test-client = { path = "../../../node/test/client" }
-polkadot-test-runtime = { path = "../../../runtime/test-runtime" }
-polkadot-test-service = { path = "../../../node/test/service" }
-polkadot-service = { path = "../../../node/service" }
-sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
-sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
-xcm = { package = "staging-xcm", path = "../..", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = ".." }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-sp-core = { path = "../../../../substrate/primitives/core" }
+codec = { workspace = true, default-features = true }
+frame-support = { workspace = true }
+futures = { workspace = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
+pallet-xcm = { workspace = true, default-features = true }
+polkadot-test-client = { workspace = true }
+polkadot-test-runtime = { workspace = true }
+polkadot-test-service = { workspace = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-runtime = { workspace = true }
+sp-state-machine = { workspace = true, default-features = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

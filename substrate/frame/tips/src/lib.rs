@@ -60,12 +60,14 @@ mod tests;
 pub mod migrations;
 pub mod weights;
 
+extern crate alloc;
+
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
 	Percent, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	ensure,
@@ -169,6 +171,9 @@ pub mod pallet {
 		/// update weights file when altering this method.
 		type Tippers: SortedMembers<Self::AccountId> + ContainsLengthBound;
 
+		/// Handler for the unbalanced decrease when slashing for a removed tip.
+		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -177,7 +182,6 @@ pub mod pallet {
 	/// This has the insecure enumerable hash function since the key itself is already
 	/// guaranteed to be a secure hash.
 	#[pallet::storage]
-	#[pallet::getter(fn tips)]
 	pub type Tips<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -189,7 +193,6 @@ pub mod pallet {
 	/// Simple preimage lookup from the reason's hash to the original data. Again, has an
 	/// insecure enumerable hash since the key is guaranteed to be the result of a secure hash.
 	#[pallet::storage]
-	#[pallet::getter(fn reasons)]
 	pub type Reasons<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, Vec<u8>, OptionQuery>;
 
@@ -488,6 +491,18 @@ pub mod pallet {
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Add public immutables and private mutables.
+
+	/// Access tips storage from outside
+	pub fn tips(
+		hash: T::Hash,
+	) -> Option<OpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>> {
+		Tips::<T, I>::get(hash)
+	}
+
+	/// Access reasons storage from outside
+	pub fn reasons(hash: T::Hash) -> Option<Vec<u8>> {
+		Reasons::<T, I>::get(hash)
+	}
 
 	/// The account ID of the treasury pot.
 	///

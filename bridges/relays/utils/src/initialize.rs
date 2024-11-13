@@ -17,7 +17,14 @@
 //! Relayer initialization functions.
 
 use parking_lot::Mutex;
-use std::{cell::RefCell, fmt::Display, io::Write};
+use sp_tracing::{
+	tracing::Level,
+	tracing_subscriber::{
+		fmt::{time::OffsetTime, SubscriberBuilder},
+		EnvFilter,
+	},
+};
+use std::cell::RefCell;
 
 /// Relayer version that is provided as metric. Must be set by a binary
 /// (get it with `option_env!("CARGO_PKG_VERSION")` from a binary package code).
@@ -40,102 +47,25 @@ pub fn initialize_logger(with_timestamp: bool) {
 	)
 	.expect("static format string is valid");
 
-	let mut builder = env_logger::Builder::new();
-	builder.filter_level(log::LevelFilter::Warn);
-	builder.filter_module("bridge", log::LevelFilter::Info);
-	builder.parse_default_env();
+	let local_time = OffsetTime::new(
+		time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC),
+		format,
+	);
+
+	let env_filter = EnvFilter::from_default_env()
+		.add_directive(Level::WARN.into())
+		.add_directive("bridge=info".parse().expect("static filter string is valid"));
+
+	let builder = SubscriberBuilder::default().with_env_filter(env_filter);
+
 	if with_timestamp {
-		builder.format(move |buf, record| {
-			let timestamp = time::OffsetDateTime::now_local()
-				.unwrap_or_else(|_| time::OffsetDateTime::now_utc());
-			let timestamp = timestamp.format(&format).unwrap_or_else(|_| timestamp.to_string());
-
-			let log_level = color_level(record.level());
-			let log_target = color_target(record.target());
-			let timestamp = if cfg!(windows) {
-				Either::Left(timestamp)
-			} else {
-				Either::Right(ansi_term::Colour::Fixed(8).bold().paint(timestamp))
-			};
-
-			writeln!(
-				buf,
-				"{}{} {} {} {}",
-				loop_name_prefix(),
-				timestamp,
-				log_level,
-				log_target,
-				record.args(),
-			)
-		});
+		builder.with_timer(local_time).init();
 	} else {
-		builder.format(move |buf, record| {
-			let log_level = color_level(record.level());
-			let log_target = color_target(record.target());
-
-			writeln!(buf, "{}{log_level} {log_target} {}", loop_name_prefix(), record.args(),)
-		});
+		builder.without_time().init();
 	}
-
-	builder.init();
 }
 
 /// Initialize relay loop. Must only be called once per every loop task.
 pub(crate) fn initialize_loop(loop_name: String) {
 	LOOP_NAME.with(|g_loop_name| *g_loop_name.borrow_mut() = loop_name);
-}
-
-/// Returns loop name prefix to use in logs. The prefix is initialized with the `initialize_loop`
-/// call.
-fn loop_name_prefix() -> String {
-	// try_with to avoid panic outside of async-std task context
-	LOOP_NAME
-		.try_with(|loop_name| {
-			// using borrow is ok here, because loop is only initialized once (=> borrow_mut will
-			// only be called once)
-			let loop_name = loop_name.borrow();
-			if loop_name.is_empty() {
-				String::new()
-			} else {
-				format!("[{loop_name}] ")
-			}
-		})
-		.unwrap_or_else(|_| String::new())
-}
-
-enum Either<A, B> {
-	Left(A),
-	Right(B),
-}
-impl<A: Display, B: Display> Display for Either<A, B> {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			Self::Left(a) => write!(fmt, "{a}"),
-			Self::Right(b) => write!(fmt, "{b}"),
-		}
-	}
-}
-
-fn color_target(target: &str) -> impl Display + '_ {
-	if cfg!(windows) {
-		Either::Left(target)
-	} else {
-		Either::Right(ansi_term::Colour::Fixed(8).paint(target))
-	}
-}
-
-fn color_level(level: log::Level) -> impl Display {
-	if cfg!(windows) {
-		Either::Left(level)
-	} else {
-		let s = level.to_string();
-		use ansi_term::Colour as Color;
-		Either::Right(match level {
-			log::Level::Error => Color::Fixed(9).bold().paint(s),
-			log::Level::Warn => Color::Fixed(11).bold().paint(s),
-			log::Level::Info => Color::Fixed(10).paint(s),
-			log::Level::Debug => Color::Fixed(14).paint(s),
-			log::Level::Trace => Color::Fixed(12).paint(s),
-		})
-	}
 }

@@ -24,13 +24,13 @@ use std::{
 	time::Duration,
 };
 
+use codec::{Decode, Encode};
 use finality_grandpa::{
 	round::State as RoundState, voter, voter_set::VoterSet, BlockNumberOps, Error as GrandpaError,
 };
 use futures::prelude::*;
 use futures_timer::Delay;
 use log::{debug, warn};
-use parity_scale_codec::{Decode, Encode};
 use parking_lot::RwLock;
 use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, U64};
 
@@ -104,12 +104,10 @@ impl<Block: BlockT> Encode for CompletedRounds<Block> {
 	}
 }
 
-impl<Block: BlockT> parity_scale_codec::EncodeLike for CompletedRounds<Block> {}
+impl<Block: BlockT> codec::EncodeLike for CompletedRounds<Block> {}
 
 impl<Block: BlockT> Decode for CompletedRounds<Block> {
-	fn decode<I: parity_scale_codec::Input>(
-		value: &mut I,
-	) -> Result<Self, parity_scale_codec::Error> {
+	fn decode<I: codec::Input>(value: &mut I) -> Result<Self, codec::Error> {
 		<(Vec<CompletedRound<Block>>, SetId, Vec<AuthorityId>)>::decode(value)
 			.map(|(rounds, set_id, voters)| CompletedRounds { rounds, set_id, voters })
 	}
@@ -1216,14 +1214,20 @@ where
 			.header(target_hash)?
 			.expect("Header known to exist after `finality_target` call; qed"),
 		Err(err) => {
-			warn!(
+			debug!(
 				target: LOG_TARGET,
 				"Encountered error finding best chain containing {:?}: couldn't find target block: {}",
 				block,
 				err,
 			);
 
-			return Ok(None)
+			// NOTE: in case the given `SelectChain` doesn't provide any block we fallback to using
+			// the given base block provided by the GRANDPA voter.
+			//
+			// For example, `LongestChain` will error if the given block to use as base isn't part
+			// of the best chain (as defined by `LongestChain`), which could happen if there was a
+			// re-org.
+			base_header.clone()
 		},
 	};
 

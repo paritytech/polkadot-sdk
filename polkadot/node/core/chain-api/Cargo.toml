@@ -10,20 +10,20 @@ description = "The Chain API subsystem provides access to chain related utility 
 workspace = true
 
 [dependencies]
-futures = "0.3.30"
-gum = { package = "tracing-gum", path = "../../gum" }
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-types = { path = "../../subsystem-types" }
-sc-client-api = { path = "../../../../substrate/client/api" }
-sc-consensus-babe = { path = "../../../../substrate/client/consensus/babe" }
+futures = { workspace = true }
+gum = { workspace = true, default-features = true }
+polkadot-node-metrics = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-types = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-consensus-babe = { workspace = true, default-features = true }
 
 [dev-dependencies]
-futures = { version = "0.3.30", features = ["thread-pool"] }
-maplit = "1.0.2"
-parity-scale-codec = "3.6.12"
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }
+futures = { features = ["thread-pool"], workspace = true }
+maplit = { workspace = true }
+codec = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+sp-core = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }

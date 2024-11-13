@@ -6,23 +6,30 @@ edition.workspace = true
 license = "Apache-2.0"
 repository.workspace = true
 description = "A no-std/Substrate compatible library to construct binary merkle tree."
-homepage = "https://substrate.io"
+homepage.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-array-bytes = { version = "6.2.2", optional = true }
+codec = { workspace = true, features = ["derive"] }
+array-bytes = { optional = true, workspace = true, default-features = true }
 log = { optional = true, workspace = true }
-hash-db = { version = "0.16.0", default-features = false }
+hash-db = { workspace = true }
 
 [dev-dependencies]
-array-bytes = "6.2.2"
-env_logger = "0.11"
-sp-core = { path = "../../primitives/core" }
-sp-runtime = { path = "../../primitives/runtime" }
+array-bytes = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [features]
 debug = ["array-bytes", "log"]
 default = ["debug", "std"]
-std = ["hash-db/std", "log/std", "sp-core/std", "sp-runtime/std"]
+std = [
+	"codec/std",
+	"hash-db/std",
+	"log/std",
+	"sp-core/std",
+	"sp-runtime/std",
+]

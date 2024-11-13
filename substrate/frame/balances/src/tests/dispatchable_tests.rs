@@ -187,9 +187,9 @@ fn set_balance_handles_killing_account() {
 #[test]
 fn set_balance_handles_total_issuance() {
 	ExtBuilder::default().build_and_execute_with(|| {
-		let old_total_issuance = Balances::total_issuance();
+		let old_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 69));
-		assert_eq!(Balances::total_issuance(), old_total_issuance + 69);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), old_total_issuance + 69);
 		assert_eq!(Balances::total_balance(&1337), 69);
 		assert_eq!(Balances::free_balance(&1337), 69);
 	});
@@ -236,12 +236,12 @@ fn force_adjust_total_issuance_example() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		// First we set the TotalIssuance to 64 by giving Alice a balance of 64.
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), ALICE, 64));
-		let old_ti = Balances::total_issuance();
+		let old_ti = pallet_balances::TotalIssuance::<Test>::get();
 		assert_eq!(old_ti, 64, "TI should be 64");
 
 		// Now test the increase:
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 32));
-		let new_ti = Balances::total_issuance();
+		let new_ti = pallet_balances::TotalIssuance::<Test>::get();
 		assert_eq!(old_ti + 32, new_ti, "Should increase by 32");
 
 		// If Alice tries to call it, it errors:
@@ -256,11 +256,11 @@ fn force_adjust_total_issuance_example() {
 fn force_adjust_total_issuance_works() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 64));
-		let ti = Balances::total_issuance();
+		let ti = pallet_balances::TotalIssuance::<Test>::get();
 
 		// Increase works:
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 32));
-		assert_eq!(Balances::total_issuance(), ti + 32);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), ti + 32);
 		System::assert_last_event(RuntimeEvent::Balances(Event::TotalIssuanceForced {
 			old: 64,
 			new: 96,
@@ -268,7 +268,7 @@ fn force_adjust_total_issuance_works() {
 
 		// Decrease works:
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 64));
-		assert_eq!(Balances::total_issuance(), ti - 32);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), ti - 32);
 		System::assert_last_event(RuntimeEvent::Balances(Event::TotalIssuanceForced {
 			old: 96,
 			new: 32,
@@ -280,19 +280,19 @@ fn force_adjust_total_issuance_works() {
 fn force_adjust_total_issuance_saturates() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 64));
-		let ti = Balances::total_issuance();
-		let max = Balance::max_value();
+		let ti = pallet_balances::TotalIssuance::<Test>::get();
+		let max = <Test as Config>::Balance::max_value();
 		assert_eq!(ti, 64);
 
 		// Increment saturates:
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, max));
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 123));
-		assert_eq!(Balances::total_issuance(), max);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), max);
 
 		// Decrement saturates:
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, max));
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 123));
-		assert_eq!(Balances::total_issuance(), 0);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 0);
 	});
 }
 
@@ -316,13 +316,13 @@ fn force_adjust_total_issuance_rejects_more_than_inactive() {
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 64));
 		Balances::deactivate(16u32.into());
 
-		assert_eq!(Balances::total_issuance(), 64);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 64);
 		assert_eq!(Balances::active_issuance(), 48);
 
 		// Works with up to 48:
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 40),);
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 8),);
-		assert_eq!(Balances::total_issuance(), 16);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 16);
 		assert_eq!(Balances::active_issuance(), 0);
 		// Errors with more than 48:
 		assert_noop!(
@@ -331,7 +331,7 @@ fn force_adjust_total_issuance_rejects_more_than_inactive() {
 		);
 		// Increasing again increases the inactive issuance:
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 10),);
-		assert_eq!(Balances::total_issuance(), 26);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 26);
 		assert_eq!(Balances::active_issuance(), 10);
 	});
 }
@@ -342,7 +342,7 @@ fn burn_works() {
 		// Prepare account with initial balance
 		let (account, init_balance) = (1, 37);
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account, init_balance));
-		let init_issuance = Balances::total_issuance();
+		let init_issuance = pallet_balances::TotalIssuance::<Test>::get();
 		let (keep_alive, allow_death) = (true, false);
 
 		// 1. Cannot burn more than what's available
@@ -358,7 +358,7 @@ fn burn_works() {
 			who: account,
 			amount: burn_amount_1,
 		}));
-		assert_eq!(Balances::total_issuance(), init_issuance - burn_amount_1);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_issuance - burn_amount_1);
 		assert_eq!(Balances::total_balance(&account), init_balance - burn_amount_1);
 
 		// 3. Cannot burn funds below existential deposit if `keep_alive` is `true`
@@ -375,7 +375,10 @@ fn burn_works() {
 			who: account,
 			amount: burn_amount_2,
 		}));
-		assert_eq!(Balances::total_issuance(), init_issuance - burn_amount_1 - burn_amount_2);
+		assert_eq!(
+			pallet_balances::TotalIssuance::<Test>::get(),
+			init_issuance - burn_amount_1 - burn_amount_2
+		);
 		assert!(Balances::total_balance(&account).is_zero());
 	});
 }

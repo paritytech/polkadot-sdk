@@ -36,18 +36,21 @@ use sp_std::{fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
 	HasherOf, HeaderOf, NonceOf, Parachain, ParachainIdOf, SignatureOf, TransactionEraOf,
-	UnderlyingChainOf, UnderlyingChainProvider,
+	UnderlyingChainOf, UnderlyingChainProvider, __private,
 };
 pub use frame_support::storage::storage_prefix as storage_value_final_key;
 use num_traits::{CheckedAdd, CheckedSub, One, SaturatingAdd, Zero};
-pub use storage_proof::{
-	record_all_keys as record_all_trie_keys, Error as StorageProofError,
-	ProofSize as StorageProofSize, RawStorageProof, StorageProofChecker,
-};
-pub use storage_types::BoundedStorageValue;
-
 #[cfg(feature = "std")]
 pub use storage_proof::craft_valid_storage_proof;
+#[cfg(feature = "test-helpers")]
+pub use storage_proof::{
+	grow_storage_proof, grow_storage_value, record_all_keys as record_all_trie_keys,
+	UnverifiedStorageProofParams,
+};
+pub use storage_proof::{
+	raw_storage_proof_size, RawStorageProof, StorageProofChecker, StorageProofError,
+};
+pub use storage_types::BoundedStorageValue;
 
 pub mod extensions;
 pub mod messages;
@@ -255,9 +258,9 @@ pub trait StorageMapKeyProvider {
 	/// The same as `StorageMap::Hasher1`.
 	type Hasher: StorageHasher;
 	/// The same as `StorageMap::Key1`.
-	type Key: FullCodec;
+	type Key: FullCodec + Send + Sync;
 	/// The same as `StorageMap::Value`.
-	type Value: FullCodec;
+	type Value: 'static + FullCodec;
 
 	/// This is a copy of the
 	/// `frame_support::storage::generator::StorageMap::storage_map_final_key`.
@@ -269,7 +272,7 @@ pub trait StorageMapKeyProvider {
 	}
 }
 
-/// Can be use to access the runtime storage key of a `StorageDoubleMap`.
+/// Can be used to access the runtime storage key of a `StorageDoubleMap`.
 pub trait StorageDoubleMapKeyProvider {
 	/// The name of the variable that holds the `StorageDoubleMap`.
 	const MAP_NAME: &'static str;
@@ -277,13 +280,13 @@ pub trait StorageDoubleMapKeyProvider {
 	/// The same as `StorageDoubleMap::Hasher1`.
 	type Hasher1: StorageHasher;
 	/// The same as `StorageDoubleMap::Key1`.
-	type Key1: FullCodec;
+	type Key1: FullCodec + Send + Sync;
 	/// The same as `StorageDoubleMap::Hasher2`.
 	type Hasher2: StorageHasher;
 	/// The same as `StorageDoubleMap::Key2`.
-	type Key2: FullCodec;
+	type Key2: FullCodec + Send + Sync;
 	/// The same as `StorageDoubleMap::Value`.
-	type Value: FullCodec;
+	type Value: 'static + FullCodec;
 
 	/// This is a copy of the
 	/// `frame_support::storage::generator::StorageDoubleMap::storage_double_map_final_key`.
@@ -459,38 +462,6 @@ macro_rules! generate_static_str_provider {
 			}
 		}
 	};
-}
-
-/// Error message that is only displayable in `std` environment.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct StrippableError<T> {
-	_phantom_data: sp_std::marker::PhantomData<T>,
-	#[codec(skip)]
-	#[cfg(feature = "std")]
-	message: String,
-}
-
-impl<T: Debug> From<T> for StrippableError<T> {
-	fn from(_err: T) -> Self {
-		Self {
-			_phantom_data: Default::default(),
-			#[cfg(feature = "std")]
-			message: format!("{:?}", _err),
-		}
-	}
-}
-
-impl<T> Debug for StrippableError<T> {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		f.write_str(&self.message)
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
-		f.write_str("Stripped error")
-	}
 }
 
 /// A trait defining helper methods for `RangeInclusive` (start..=end)

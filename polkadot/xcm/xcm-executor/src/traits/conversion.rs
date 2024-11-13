@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use core::{marker::PhantomData, result::Result};
 use frame_support::traits::{Contains, OriginTrait};
 use sp_runtime::{traits::Dispatchable, DispatchErrorWithPostInfo};
-use sp_std::{marker::PhantomData, result::Result};
 use xcm::latest::prelude::*;
 
 /// Means of converting a location into an account identifier.
@@ -88,19 +88,45 @@ pub trait ConvertOrigin<Origin> {
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl<O> ConvertOrigin<O> for Tuple {
 	fn convert_origin(origin: impl Into<Location>, kind: OriginKind) -> Result<O, Location> {
+		let origin = origin.into();
+
+		tracing::trace!(
+			target: "xcm::convert_origin",
+			?origin,
+			?kind,
+			"Converting origin",
+		);
+
 		for_tuples!( #(
+			let convert_origin = core::any::type_name::<Tuple>();
+
 			let origin = match Tuple::convert_origin(origin, kind) {
-				Err(o) => o,
-				r => return r
+				Err(o) => {
+					tracing::trace!(
+						target: "xcm::convert_origin",
+						%convert_origin,
+						"Convert origin step failed",
+					);
+
+					o
+				},
+				Ok(o) => {
+					tracing::trace!(
+						target: "xcm::convert_origin",
+						%convert_origin,
+						"Convert origin step succeeded",
+					);
+
+					return Ok(o)
+				}
 			};
 		)* );
-		let origin = origin.into();
-		log::trace!(
+
+		tracing::trace!(
 			target: "xcm::convert_origin",
-			"could not convert: origin: {:?}, kind: {:?}",
-			origin,
-			kind,
+			"Converting origin failed",
 		);
+
 		Err(origin)
 	}
 }

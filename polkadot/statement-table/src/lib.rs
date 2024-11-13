@@ -34,9 +34,9 @@ pub use generic::{Config, Context, Table};
 /// Concrete instantiations suitable for v2 primitives.
 pub mod v2 {
 	use crate::generic;
-	use primitives::{
-		CandidateHash, CommittedCandidateReceipt, CompactStatement as PrimitiveStatement,
-		CoreIndex, ValidatorIndex, ValidatorSignature,
+	use polkadot_primitives::{
+		vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash,
+		CompactStatement as PrimitiveStatement, CoreIndex, ValidatorIndex, ValidatorSignature,
 	};
 
 	/// Statements about candidates on the network.

@@ -10,17 +10,20 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-cpu-time = "1.0.0"
-gum = { package = "tracing-gum", path = "../../../gum" }
-cfg-if = "1.0"
-nix = { version = "0.28.0", features = ["process", "resource", "sched"] }
-libc = "0.2.152"
+cpu-time = { workspace = true }
+gum = { workspace = true, default-features = true }
+cfg-if = { workspace = true }
+nix = { features = ["process", "resource", "sched"], workspace = true }
+libc = { workspace = true }
 
-parity-scale-codec = { version = "3.6.12", default-features = false, features = ["derive"] }
+codec = { features = ["derive"], workspace = true }
 
-polkadot-node-core-pvf-common = { path = "../common" }
-polkadot-parachain-primitives = { path = "../../../../parachain" }
-polkadot-primitives = { path = "../../../../primitives" }
+polkadot-node-core-pvf-common = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
 
 [features]
 builder = []

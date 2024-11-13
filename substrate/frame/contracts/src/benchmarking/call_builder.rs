@@ -17,17 +17,18 @@
 
 use crate::{
 	benchmarking::{Contract, WasmModule},
-	exec::Stack,
+	exec::{Ext, Key, Stack},
 	storage::meter::Meter,
+	transient_storage::MeterEntry,
 	wasm::Runtime,
-	BalanceOf, Config, DebugBufferVec, Determinism, ExecReturnValue, GasMeter, Origin, Schedule,
-	TypeInfo, WasmBlob, Weight,
+	BalanceOf, Config, DebugBufferVec, Determinism, Error, ExecReturnValue, GasMeter, Origin,
+	Schedule, TypeInfo, WasmBlob, Weight,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
 use frame_benchmarking::benchmarking;
 use sp_core::Get;
-use sp_std::prelude::*;
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
@@ -56,6 +57,7 @@ pub struct CallSetup<T: Config> {
 	debug_message: Option<DebugBufferVec<T>>,
 	determinism: Determinism,
 	data: Vec<u8>,
+	transient_storage_size: u32,
 }
 
 impl<T> Default for CallSetup<T>
@@ -103,6 +105,7 @@ where
 			debug_message: None,
 			determinism: Determinism::Enforced,
 			data: vec![],
+			transient_storage_size: 0,
 		}
 	}
 
@@ -124,6 +127,11 @@ where
 	/// Set the call's input data.
 	pub fn set_data(&mut self, value: Vec<u8>) {
 		self.data = value;
+	}
+
+	/// Set the transient storage size.
+	pub fn set_transient_storage_size(&mut self, size: u32) {
+		self.transient_storage_size = size;
 	}
 
 	/// Set the debug message.
@@ -148,7 +156,7 @@ where
 
 	/// Build the call stack.
 	pub fn ext(&mut self) -> (StackExt<'_, T>, WasmBlob<T>) {
-		StackExt::bench_new_call(
+		let mut ext = StackExt::bench_new_call(
 			self.dest.clone(),
 			self.origin.clone(),
 			&mut self.gas_meter,
@@ -157,7 +165,11 @@ where
 			self.value,
 			self.debug_message.as_mut(),
 			self.determinism,
-		)
+		);
+		if self.transient_storage_size > 0 {
+			Self::with_transient_storage(&mut ext.0, self.transient_storage_size).unwrap();
+		}
+		ext
 	}
 
 	/// Prepare a call to the module.
@@ -168,6 +180,30 @@ where
 	) -> PreparedCall<'a, T> {
 		let (func, store) = module.bench_prepare_call(ext, input);
 		PreparedCall { func, store }
+	}
+
+	/// Add transient_storage
+	fn with_transient_storage(ext: &mut StackExt<T>, size: u32) -> Result<(), &'static str> {
+		let &MeterEntry { amount, limit } = ext.transient_storage().meter().current();
+		ext.transient_storage().meter().current_mut().limit = size;
+		for i in 1u32.. {
+			let mut key_data = i.to_le_bytes().to_vec();
+			while key_data.last() == Some(&0) {
+				key_data.pop();
+			}
+			let key = Key::<T>::try_from_var(key_data).unwrap();
+			if let Err(e) = ext.set_transient_storage(&key, Some(Vec::new()), false) {
+				// Restore previous settings.
+				ext.transient_storage().meter().current_mut().limit = limit;
+				ext.transient_storage().meter().current_mut().amount = amount;
+				if e == Error::<T>::OutOfTransientStorage.into() {
+					break;
+				} else {
+					return Err("Initialization of the transient storage failed");
+				}
+			}
+		}
+		Ok(())
 	}
 }
 

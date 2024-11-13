@@ -34,7 +34,7 @@ use sp_runtime::{bounded_btree_map, traits::Zero};
 fn pool_lifecycle_e2e() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::minimum_balance(), 5);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
@@ -145,9 +145,9 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, points: 10, balance: 10 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 20 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, points: 10, balance: 10 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 21 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 },
 			]
 		);
 
@@ -186,7 +186,7 @@ fn pool_lifecycle_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, points: 50, balance: 50 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -275,7 +275,7 @@ fn destroy_pool_with_erroneous_consumer() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, points: 50, balance: 50 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -286,7 +286,7 @@ fn destroy_pool_with_erroneous_consumer() {
 fn pool_chill_e2e() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::minimum_balance(), 5);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
@@ -412,7 +412,7 @@ fn pool_slash_e2e() {
 	new_test_ext().execute_with(|| {
 		ExistentialDeposit::set(1);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -558,10 +558,10 @@ fn pool_slash_e2e() {
 			vec![
 				// 20 had unbonded 10 safely, and 10 got slashed by half.
 				PoolsEvent::Withdrawn { member: 20, pool_id: 1, balance: 10 + 5, points: 20 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 20 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 20, released_balance: 0 },
 				// 21 unbonded all of it after the slash
 				PoolsEvent::Withdrawn { member: 21, pool_id: 1, balance: 5 + 5, points: 15 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 21 }
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 21, released_balance: 0 }
 			]
 		);
 		assert_eq!(
@@ -607,7 +607,7 @@ fn pool_slash_e2e() {
 			pool_events_since_last_call(),
 			vec![
 				PoolsEvent::Withdrawn { member: 10, pool_id: 1, balance: 10 + 15, points: 30 },
-				PoolsEvent::MemberRemoved { pool_id: 1, member: 10 },
+				PoolsEvent::MemberRemoved { pool_id: 1, member: 10, released_balance: 0 },
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
@@ -622,7 +622,7 @@ fn pool_slash_proportional() {
 		ExistentialDeposit::set(1);
 		BondingDuration::set(28);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -759,7 +759,7 @@ fn pool_slash_non_proportional_only_bonded_pool() {
 		ExistentialDeposit::set(1);
 		BondingDuration::set(28);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -838,7 +838,7 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 		ExistentialDeposit::set(1);
 		BondingDuration::set(28);
 		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(CurrentEra::<T>::get(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));

@@ -18,7 +18,7 @@
 
 use crate::{
 	cli::{bridge::*, chain_schema::*, HexLaneId, PrometheusParams},
-	messages_lane::MessagesRelayParams,
+	messages::MessagesRelayParams,
 	TransactionParams,
 };
 
@@ -29,15 +29,17 @@ use structopt::StructOpt;
 use bp_messages::MessageNonce;
 use bp_runtime::HeaderIdProvider;
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithRuntimeVersion, ChainWithTransactions,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, Chain, ChainWithRuntimeVersion,
+	ChainWithTransactions, Client,
 };
 use relay_utils::UniqueSaturatedInto;
+use sp_runtime::traits::TryConvert;
 
 /// Messages relaying params.
 #[derive(StructOpt)]
 pub struct RelayMessagesParams {
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	#[structopt(long, default_value = "00000000")]
+	/// Hex-encoded lane id that should be served by the relay.
+	#[structopt(long)]
 	lane: HexLaneId,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
@@ -58,8 +60,8 @@ pub struct RelayMessagesRangeParams {
 	/// This header must be previously proved to the target chain.
 	#[structopt(long)]
 	at_source_block: u128,
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	#[structopt(long, default_value = "00000000")]
+	/// Hex-encoded lane id that should be served by the relay.
+	#[structopt(long)]
 	lane: HexLaneId,
 	/// Nonce (inclusive) of the first message to relay.
 	#[structopt(long)]
@@ -87,8 +89,8 @@ pub struct RelayMessagesDeliveryConfirmationParams {
 	/// delivery proof. This header must be previously proved to the source chain.
 	#[structopt(long)]
 	at_target_block: u128,
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	#[structopt(long, default_value = "00000000")]
+	/// Hex-encoded lane id that should be served by the relay.
+	#[structopt(long)]
 	lane: HexLaneId,
 	#[structopt(flatten)]
 	source: SourceConnectionParams,
@@ -115,8 +117,13 @@ where
 		let target_client = data.target.into_client::<Self::Target>().await?;
 		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 		let target_transactions_mortality = data.target_sign.transactions_mortality()?;
+		let lane_id = HexLaneId::try_convert(data.lane).map_err(|invalid_lane_id| {
+			anyhow::format_err!("Invalid laneId: {:?}!", invalid_lane_id)
+		})?;
 
-		crate::messages_lane::run::<Self::MessagesLane>(MessagesRelayParams {
+		Self::start_relay_guards(&target_client, target_client.can_start_version_guard()).await?;
+
+		crate::messages::run::<Self::MessagesLane, _, _>(MessagesRelayParams {
 			source_client,
 			source_transaction_params: TransactionParams {
 				signer: source_sign,
@@ -129,7 +136,7 @@ where
 			},
 			source_to_target_headers_relay: None,
 			target_to_source_headers_relay: None,
-			lane_id: data.lane.into(),
+			lane_id,
 			limits: Self::maybe_messages_limits(),
 			metrics_params: data.prometheus_params.into_metrics_params()?,
 		})
@@ -145,6 +152,9 @@ where
 		let source_transactions_mortality = data.source_sign.transactions_mortality()?;
 		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
 		let target_transactions_mortality = data.target_sign.transactions_mortality()?;
+		let lane_id = HexLaneId::try_convert(data.lane).map_err(|invalid_lane_id| {
+			anyhow::format_err!("Invalid laneId: {:?}!", invalid_lane_id)
+		})?;
 
 		let at_source_block = source_client
 			.header_by_number(data.at_source_block.unique_saturated_into())
@@ -160,13 +170,13 @@ where
 			})?
 			.id();
 
-		crate::messages_lane::relay_messages_range::<Self::MessagesLane>(
+		crate::messages::relay_messages_range::<Self::MessagesLane>(
 			source_client,
 			target_client,
 			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },
 			TransactionParams { signer: target_sign, mortality: target_transactions_mortality },
 			at_source_block,
-			data.lane.into(),
+			lane_id,
 			data.messages_start..=data.messages_end,
 			data.outbound_state_proof_required,
 		)
@@ -181,6 +191,9 @@ where
 		let target_client = data.target.into_client::<Self::Target>().await?;
 		let source_sign = data.source_sign.to_keypair::<Self::Source>()?;
 		let source_transactions_mortality = data.source_sign.transactions_mortality()?;
+		let lane_id = HexLaneId::try_convert(data.lane).map_err(|invalid_lane_id| {
+			anyhow::format_err!("Invalid laneId: {:?}!", invalid_lane_id)
+		})?;
 
 		let at_target_block = target_client
 			.header_by_number(data.at_target_block.unique_saturated_into())
@@ -196,13 +209,27 @@ where
 			})?
 			.id();
 
-		crate::messages_lane::relay_messages_delivery_confirmation::<Self::MessagesLane>(
+		crate::messages::relay_messages_delivery_confirmation::<Self::MessagesLane>(
 			source_client,
 			target_client,
 			TransactionParams { signer: source_sign, mortality: source_transactions_mortality },
 			at_target_block,
-			data.lane.into(),
+			lane_id,
 		)
 		.await
+	}
+
+	/// Add relay guards if required.
+	async fn start_relay_guards(
+		target_client: &impl Client<Self::Target>,
+		enable_version_guard: bool,
+	) -> relay_substrate_client::Result<()> {
+		if enable_version_guard {
+			relay_substrate_client::guard::abort_on_spec_version_change(
+				target_client.clone(),
+				target_client.simple_runtime_version().await?.spec_version,
+			);
+		}
+		Ok(())
 	}
 }

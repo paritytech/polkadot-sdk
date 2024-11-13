@@ -6,34 +6,34 @@ edition.workspace = true
 license = "Apache-2.0"
 description = "BEEFY + MMR runtime utilities"
 repository.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-array-bytes = { version = "6.2.2", optional = true }
-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
+array-bytes = { optional = true, workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
-binary-merkle-tree = { path = "../../utils/binary-merkle-tree", default-features = false }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-pallet-beefy = { path = "../beefy", default-features = false }
-pallet-mmr = { path = "../merkle-mountain-range", default-features = false }
-pallet-session = { path = "../session", default-features = false }
-sp-consensus-beefy = { path = "../../primitives/consensus/beefy", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-api = { path = "../../primitives/api", default-features = false }
-sp-state-machine = { path = "../../primitives/state-machine", default-features = false }
+binary-merkle-tree = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-beefy = { workspace = true }
+pallet-mmr = { workspace = true }
+pallet-session = { workspace = true }
+sp-consensus-beefy = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-api = { workspace = true }
+sp-state-machine = { workspace = true }
 
 [dev-dependencies]
-array-bytes = "6.2.2"
-sp-staking = { path = "../../primitives/staking" }
+array-bytes = { workspace = true, default-features = true }
+sp-staking = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -41,6 +41,7 @@ std = [
 	"array-bytes",
 	"binary-merkle-tree/std",
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -56,7 +57,6 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -65,4 +65,12 @@ try-runtime = [
 	"pallet-mmr/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-mmr/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]

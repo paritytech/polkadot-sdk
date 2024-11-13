@@ -4,7 +4,7 @@ version = "5.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Exposes all the host functions that a contract can import."
 
@@ -12,20 +12,17 @@ description = "Exposes all the host functions that a contract can import."
 workspace = true
 
 [dependencies]
-paste = { version = "1.0", default-features = false }
-bitflags = "1.0"
-scale-info = { version = "2.11.1", default-features = false, features = ["derive"], optional = true }
-scale = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+paste = { workspace = true }
+bitflags = { workspace = true }
+scale-info = { features = ["derive"], optional = true, workspace = true }
+codec = { features = [
 	"derive",
 	"max-encoded-len",
-], optional = true }
-
-[target.'cfg(target_arch = "riscv32")'.dependencies]
-polkavm-derive = { workspace = true }
+], optional = true, workspace = true }
 
 [package.metadata.docs.rs]
 default-target = ["wasm32-unknown-unknown"]
 
 [features]
 default = ["scale"]
-scale = ["dep:scale", "scale-info"]
+scale = ["dep:codec", "scale-info"]

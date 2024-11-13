@@ -9,40 +9,45 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [lints]
 workspace = true
 
+[dev-dependencies]
+portpicker = "0.1.1"
+
 [dependencies]
-polkadot-overseer = { path = "../../../polkadot/node/overseer" }
+polkadot-overseer = { workspace = true, default-features = true }
 
-cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
-sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-sp-storage = { path = "../../../substrate/primitives/storage" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-version = { path = "../../../substrate/primitives/version" }
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-rpc-api = { path = "../../../substrate/client/rpc-api" }
-sc-service = { path = "../../../substrate/client/service" }
+sp-api = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-rpc-api = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 
-tokio = { version = "1.32.0", features = ["sync"] }
-tokio-util = { version = "0.7.8", features = ["compat"] }
+tokio = { features = ["sync"], workspace = true, default-features = true }
+tokio-util = { features = ["compat"], workspace = true }
 
-futures = "0.3.28"
-futures-timer = "3.0.2"
-parity-scale-codec = "3.6.12"
-jsonrpsee = { version = "0.22", features = ["ws-client"] }
-tracing = "0.1.37"
-async-trait = "0.1.79"
-url = "2.4.0"
+futures = { workspace = true }
+futures-timer = { workspace = true }
+codec = { workspace = true, default-features = true }
+jsonrpsee = { features = ["ws-client"], workspace = true }
+tracing = { workspace = true, default-features = true }
+async-trait = { workspace = true }
+url = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
-schnellru = "0.2.1"
-smoldot = { version = "0.11.0", default_features = false, features = ["std"] }
-smoldot-light = { version = "0.9.0", default_features = false, features = ["std"] }
-either = "1.8.1"
+schnellru = { workspace = true }
+smoldot = { default_features = false, features = ["std"], workspace = true }
+smoldot-light = { default_features = false, features = ["std"], workspace = true }
+either = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-rand = "0.8.5"
-pin-project = "1.1.3"
+rand = { workspace = true, default-features = true }
+pin-project = { workspace = true }
+prometheus = { workspace = true }

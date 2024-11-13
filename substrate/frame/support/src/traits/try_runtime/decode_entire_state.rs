@@ -26,10 +26,10 @@ use crate::{
 	traits::{PartialStorageInfoTrait, StorageInfo},
 	StorageHasher,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeAll, FullCodec};
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_core::Get;
-use sp_std::prelude::*;
 
 /// Decode the entire data under the given storage type.
 ///
@@ -82,8 +82,8 @@ impl core::fmt::Display for TryDecodeEntireStorageError {
 		write!(
 			f,
 			"`{}::{}` key `{}` is undecodable",
-			&sp_std::str::from_utf8(&self.info.pallet_name).unwrap_or("<invalid>"),
-			&sp_std::str::from_utf8(&self.info.storage_name).unwrap_or("<invalid>"),
+			&alloc::str::from_utf8(&self.info.pallet_name).unwrap_or("<invalid>"),
+			&alloc::str::from_utf8(&self.info.storage_name).unwrap_or("<invalid>"),
 			array_bytes::bytes2hex("0x", &self.key)
 		)
 	}
@@ -197,7 +197,8 @@ impl<Prefix, Hasher, Key, Value, QueryKind, OnEmpty, MaxValues> TryDecodeEntireS
 		QueryKind,
 		OnEmpty,
 		MaxValues,
-	> where
+	>
+where
 	Prefix: CountedStorageMapInstance,
 	Hasher: StorageHasher,
 	Key: FullCodec,
@@ -229,7 +230,8 @@ impl<Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues>
 		QueryKind,
 		OnEmpty,
 		MaxValues,
-	> where
+	>
+where
 	Prefix: StorageInstance,
 	Hasher1: StorageHasher,
 	Key1: FullCodec,
