@@ -315,8 +315,8 @@ impl ClientInner {
 						let event = event_details.as_event::<ContractEmitted>().ok()??;
 
 						Some(Log {
-							address: Some(event.contract),
-							topics: Some(event.topics),
+							address: event.contract,
+							topics: event.topics,
 							data: Some(event.data.into()),
 							block_number: Some(block_number),
 							transaction_hash,
@@ -340,7 +340,7 @@ impl ClientInner {
 					gas_used.into(),
 					success,
 					transaction_hash,
-					transaction_index: transaction_index.into(),
+					transaction_index.into(),
 					tx.r#type.bytes()
 				);
 
