@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Utility impl for the RPC types.
-use super::{ReceiptInfo, TransactionInfo, TransactionSigned};
+use super::{GenericTransaction, ReceiptInfo, TransactionInfo, TransactionSigned};
 use sp_core::U256;
 
 impl TransactionInfo {
@@ -36,5 +36,11 @@ impl ReceiptInfo {
 	/// Returns `true` if the transaction was successful.
 	pub fn is_success(&self) -> bool {
 		self.status.map_or(false, |status| status == U256::one())
+	}
+}
+
+impl From<TransactionSigned> for GenericTransaction {
+	fn from(_tx: TransactionSigned) -> Self {
+		todo!()
 	}
 }

@@ -15,8 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Ethereum signature utilities
-use super::{TransactionLegacySigned, TransactionLegacyUnsigned};
-use rlp::Encodable;
+use super::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionSigned};
 use sp_core::{H160, U256};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 
@@ -73,12 +72,12 @@ impl TransactionLegacySigned {
 impl TransactionSigned {
 	/// Get the raw 65 bytes signature from the signed transaction.
 	pub fn raw_signature(&self) -> Result<[u8; 65], ()> {
-		use TransactionSigned::*;
-		let mut s = [0u8; 65];
+		//let mut s = [0u8; 65];
 
-		self.r.write_as_big_endian(s[0..32].as_mut());
-		self.s.write_as_big_endian(s[32..64].as_mut());
-		s[64] = self.extract_recovery_id().ok_or(())?;
-		Ok(s)
+		//self.r.write_as_big_endian(s[0..32].as_mut());
+		//self.s.write_as_big_endian(s[32..64].as_mut());
+		//s[64] = self.extract_recovery_id().ok_or(())?;
+		//Ok(s)
+		todo!()
 	}
 }
