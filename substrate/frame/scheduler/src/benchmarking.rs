@@ -22,17 +22,20 @@ use alloc::vec;
 use frame_benchmarking::v1::{account, benchmarks, BenchmarkError};
 use frame_support::{
 	ensure,
+	testing_prelude::*,
 	traits::{schedule::Priority, BoundedInline},
 	weights::WeightMeter,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use frame_system::RawOrigin;
 
 use crate::Pallet as Scheduler;
 use frame_system::{Call as SystemCall, EventRecord};
 
 const SEED: u32 = 0;
 
-const BLOCK_NUMBER: u32 = 2;
+fn block_number<T: Config>() -> u32 {
+	T::MaxScheduledBlocks::get()
+}
 
 type SystemOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
@@ -44,6 +47,15 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	assert_eq!(event, &system_event);
 }
 
+fn fill_queue<T: Config>(n: u32) {
+	let mut vec = Vec::<BlockNumberFor<T>>::new();
+	for i in 0..n {
+		vec.push(i.into());
+	}
+	let bounded_vec = BoundedVec::try_from(vec).unwrap();
+	Queue::<T>::put::<BoundedVec<_, _>>(bounded_vec);
+}
+
 /// Add `n` items to the schedule.
 ///
 /// For `resolved`:
@@ -52,7 +64,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 /// - `Some(true)`: hash resolves into call if possible, plain call otherwise
 /// - `Some(false)`: plain call
 fn fill_schedule<T: Config>(
-	when: frame_system::pallet_prelude::BlockNumberFor<T>,
+	when: BlockNumberFor<T>,
 	n: u32,
 ) -> Result<(), &'static str> {
 	let t = DispatchTime::At(when);
@@ -137,17 +149,19 @@ fn make_origin<T: Config>(signed: bool) -> <T as Config>::PalletsOrigin {
 benchmarks! {
 	// `service_agendas` when no work is done.
 	service_agendas_base {
-		let now = BlockNumberFor::<T>::from(BLOCK_NUMBER);
-		IncompleteSince::<T>::put(now - One::one());
+		let now = BlockNumberFor::<T>::from(block_number::<T>());
+		Queue::<T>::put::<BoundedVec<_, _>>(bounded_vec![now + One::one()]);
 	}: {
 		Scheduler::<T>::service_agendas(&mut WeightMeter::new(), now, 0);
 	} verify {
-		assert_eq!(IncompleteSince::<T>::get(), Some(now - One::one()));
+		let expected: BoundedVec<BlockNumberFor<T>, T::MaxScheduledBlocks> =
+			bounded_vec![now + One::one()];
+		assert_eq!(Queue::<T>::get(), expected);
 	}
 
 	// `service_agenda` when no work is done.
 	service_agenda_base {
-		let now = BLOCK_NUMBER.into();
+		let now = block_number::<T>().into();
 		let s in 0 .. T::MaxScheduledPerBlock::get();
 		fill_schedule::<T>(now, s)?;
 		let mut executed = 0;
@@ -160,7 +174,7 @@ benchmarks! {
 	// `service_task` when the task is a non-periodic, non-named, non-fetched call which is not
 	// dispatched (e.g. due to being overweight).
 	service_task_base {
-		let now = BLOCK_NUMBER.into();
+		let now = block_number::<T>().into();
 		let task = make_task::<T>(false, false, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -178,7 +192,7 @@ benchmarks! {
 	}]
 	service_task_fetched {
 		let s in (BoundedInline::bound() as u32) .. (T::Preimages::MAX_LENGTH as u32);
-		let now = BLOCK_NUMBER.into();
+		let now = block_number::<T>().into();
 		let task = make_task::<T>(false, false, false, Some(s), 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -190,7 +204,7 @@ benchmarks! {
 	// `service_task` when the task is a non-periodic, named, non-fetched call which is not
 	// dispatched (e.g. due to being overweight).
 	service_task_named {
-		let now = BLOCK_NUMBER.into();
+		let now = block_number::<T>().into();
 		let task = make_task::<T>(false, true, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -202,7 +216,7 @@ benchmarks! {
 	// `service_task` when the task is a periodic, non-named, non-fetched call which is not
 	// dispatched (e.g. due to being overweight).
 	service_task_periodic {
-		let now = BLOCK_NUMBER.into();
+		let now = block_number::<T>().into();
 		let task = make_task::<T>(true, false, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -235,26 +249,32 @@ benchmarks! {
 
 	schedule {
 		let s in 0 .. (T::MaxScheduledPerBlock::get() - 1);
-		let when = BLOCK_NUMBER.into();
+		let when = block_number::<T>().into();
 		let periodic = Some((BlockNumberFor::<T>::one(), 100));
 		let priority = 0;
 		// Essentially a no-op call.
 		let call = Box::new(SystemCall::set_storage { items: vec![] }.into());
 
 		fill_schedule::<T>(when, s)?;
+		fill_queue::<T>(T::MaxScheduledBlocks::get() - 1);
 	}: _(RawOrigin::Root, when, periodic, priority, call)
 	verify {
 		ensure!(
 			Agenda::<T>::get(when).len() == (s + 1) as usize,
 			"didn't add to schedule"
 		);
+		ensure!(
+			Queue::<T>::get().len() == T::MaxScheduledBlocks::get() as usize,
+			"didn't add to queue"
+		);
 	}
 
 	cancel {
 		let s in 1 .. T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+		let when = (block_number::<T>() - 1).into();
 
 		fill_schedule::<T>(when, s)?;
+		fill_queue::<T>(T::MaxScheduledBlocks::get());
 		assert_eq!(Agenda::<T>::get(when).len(), s as usize);
 		let schedule_origin =
 			T::ScheduleOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -273,31 +293,41 @@ benchmarks! {
 			s > 1 || Agenda::<T>::get(when).len() == 0,
 			"remove from schedule if only 1 task scheduled for `when`"
 		);
+		ensure!(
+			s > 1 || Queue::<T>::get().len() == T::MaxScheduledBlocks::get() as usize - 1,
+			"didn't remove from queue"
+		);
 	}
 
 	schedule_named {
 		let s in 0 .. (T::MaxScheduledPerBlock::get() - 1);
 		let id = u32_to_name(s);
-		let when = BLOCK_NUMBER.into();
+		let when = block_number::<T>().into();
 		let periodic = Some((BlockNumberFor::<T>::one(), 100));
 		let priority = 0;
 		// Essentially a no-op call.
 		let call = Box::new(SystemCall::set_storage { items: vec![] }.into());
 
 		fill_schedule::<T>(when, s)?;
+		fill_queue::<T>(T::MaxScheduledBlocks::get() - 1);
 	}: _(RawOrigin::Root, id, when, periodic, priority, call)
 	verify {
 		ensure!(
 			Agenda::<T>::get(when).len() == (s + 1) as usize,
 			"didn't add to schedule"
 		);
+		ensure!(
+			Queue::<T>::get().len() == T::MaxScheduledBlocks::get() as usize,
+			"didn't add to queue"
+		);
 	}
 
 	cancel_named {
 		let s in 1 .. T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+		let when = (block_number::<T>() - 1).into();
 
 		fill_schedule::<T>(when, s)?;
+		fill_queue::<T>(T::MaxScheduledBlocks::get());
 	}: _(RawOrigin::Root, u32_to_name(0))
 	verify {
 		ensure!(
@@ -313,11 +343,15 @@ benchmarks! {
 			s > 1 || Agenda::<T>::get(when).len() == 0,
 			"remove from schedule if only 1 task scheduled for `when`"
 		);
+		ensure!(
+			s > 1 || Queue::<T>::get().len() == T::MaxScheduledBlocks::get() as usize - 1,
+			"didn't remove from queue"
+		);
 	}
 
 	schedule_retry {
 		let s in 1 .. T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+		let when = block_number::<T>().into();
 
 		fill_schedule::<T>(when, s)?;
 		let name = u32_to_name(s - 1);
@@ -341,7 +375,7 @@ benchmarks! {
 
 	set_retry {
 		let s = T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+		let when = block_number::<T>().into();
 
 		fill_schedule::<T>(when, s)?;
 		let name = u32_to_name(s - 1);
@@ -361,7 +395,7 @@ benchmarks! {
 
 	set_retry_named {
 		let s = T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+		let when = block_number::<T>().into();
 
 		fill_schedule::<T>(when, s)?;
 		let name = u32_to_name(s - 1);
@@ -381,7 +415,7 @@ benchmarks! {
 
 	cancel_retry {
 		let s = T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+		let when = block_number::<T>().into();
 
 		fill_schedule::<T>(when, s)?;
 		let name = u32_to_name(s - 1);
@@ -399,7 +433,7 @@ benchmarks! {
 
 	cancel_retry_named {
 		let s = T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+		let when = block_number::<T>().into();
 
 		fill_schedule::<T>(when, s)?;
 		let name = u32_to_name(s - 1);
