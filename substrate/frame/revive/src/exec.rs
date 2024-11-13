@@ -2091,7 +2091,7 @@ mod tests {
 			set_balance(&BOB, 0);
 
 			let origin = Origin::from_account_id(ALICE);
-			MockStack::transfer(&origin, &ALICE, &BOB, 55).unwrap();
+			MockStack::transfer(&origin, &ALICE, &BOB, 55u64.into()).unwrap();
 
 			let min_balance = <Test as Config>::Currency::minimum_balance();
 			assert_eq!(get_balance(&ALICE), 45 - min_balance);
@@ -2112,7 +2112,12 @@ mod tests {
 			set_balance(&ALICE, ed * 2);
 			set_balance(&BOB, ed + value);
 
-			assert_ok!(MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &CHARLIE, value));
+			assert_ok!(MockStack::transfer(
+				&Origin::from_account_id(ALICE),
+				&BOB,
+				&CHARLIE,
+				value.into()
+			));
 			assert_eq!(get_balance(&ALICE), ed);
 			assert_eq!(get_balance(&BOB), ed);
 			assert_eq!(get_balance(&CHARLIE), ed + value);
@@ -2121,7 +2126,7 @@ mod tests {
 			set_balance(&ALICE, ed);
 			set_balance(&BOB, ed + value);
 			assert_err!(
-				MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &DJANGO, value),
+				MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &DJANGO, value.into()),
 				<Error<Test>>::TransferFailed
 			);
 
@@ -2129,7 +2134,7 @@ mod tests {
 			set_balance(&ALICE, ed * 2);
 			set_balance(&BOB, value);
 			assert_err!(
-				MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &EVE, value),
+				MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &EVE, value.into()),
 				<Error<Test>>::TransferFailed
 			);
 			// The ED transfer would work. But it should only be executed with the actual transfer
@@ -2251,7 +2256,7 @@ mod tests {
 		ExtBuilder::default().build().execute_with(|| {
 			set_balance(&from, 0);
 
-			let result = MockStack::transfer(&origin, &from, &dest, 100);
+			let result = MockStack::transfer(&origin, &from, &dest, 100u64.into());
 
 			assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
 			assert_eq!(get_balance(&from), 0);
