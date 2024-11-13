@@ -815,6 +815,16 @@ pub mod pallet {
 			)?;
 			Ok(())
 		}
+
+		/// Mint some money to the origin account.
+		#[pallet::call_index(11)]
+		pub fn magic_mint_experimental(
+			origin: OriginFor<T>,
+		) -> DispatchResultWithPostInfo {
+			let source = ensure_signed(origin)?;
+			<Self as fungible::Mutate<_>>::mint_into(&source, T::Balance::from(16_000u32))?;
+			Ok(Pays::No.into())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
