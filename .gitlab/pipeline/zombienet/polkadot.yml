@@ -195,6 +195,8 @@ zombienet-polkadot-elastic-scaling-0003-slot-based-3cores:
     - .zombienet-polkadot-common
   variables:
     FORCED_INFRA_INSTANCE: "spot-iops"
+    # override COL_IMAGE to use test-parachain
+    COL_IMAGE: "docker.io/paritypr/test-parachain":${PIPELINE_IMAGE_TAG}
   before_script:
     - !reference [ .zombienet-polkadot-common, before_script ]
     - cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/elastic_scaling
