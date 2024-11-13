@@ -28,7 +28,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
 	node_features,
-	vstaging::{MutateDescriptorV2, OccupiedCore},
+	vstaging::{CoreState, MutateDescriptorV2, OccupiedCore},
 	BlockNumber, CandidateDescriptor, GroupRotationInfo, HeadData, Header, PersistedValidationData,
 	ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
@@ -418,7 +418,6 @@ async fn activate_leaf(
 	leaf: TestLeaf,
 	test_state: &TestState,
 ) {
-	const RUNTIME_VERSION: u32 = RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT;
 	let TestLeaf { activated, min_relay_parents } = leaf;
 	let leaf_hash = activated.hash;
 	let leaf_number = activated.number;
@@ -540,6 +539,27 @@ async fn activate_leaf(
 			}
 		);
 
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ClaimQueue(tx))
+			) if parent == hash => {
+				tx.send(Ok(
+					test_state.claim_queue.clone()
+				)).unwrap();
+			}
+		);
+
+		// Check that the subsystem job issues a request for the disabled validators.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
+			) if parent == hash => {
+				tx.send(Ok(test_state.disabled_validators.clone())).unwrap();
+			}
+		);
+
 		// Node features request from runtime: all features are disabled.
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -558,46 +578,6 @@ async fn activate_leaf(
 				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
 			)) if parent == hash && session_index == test_state.signing_context.session_index => {
 				tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
-			}
-		);
-
-		// Check that subsystem job issues a request for the runtime version.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
-			) if parent == hash => {
-				tx.send(Ok(RUNTIME_VERSION)).unwrap();
-			}
-		);
-
-		// Check that the subsystem job issues a request for the disabled validators.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
-			) if parent == hash => {
-				tx.send(Ok(test_state.disabled_validators.clone())).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
-			) if parent == hash => {
-				tx.send(Ok(RUNTIME_VERSION)).unwrap();
-			}
-		);
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ClaimQueue(tx))
-			) if parent == hash => {
-				tx.send(Ok(
-					test_state.claim_queue.clone()
-				)).unwrap();
 			}
 		);
 	}

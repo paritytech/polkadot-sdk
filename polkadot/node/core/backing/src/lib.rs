@@ -98,9 +98,10 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::View as ImplicitView,
-	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
-	request_validator_groups, request_validators,
-	runtime::{self, fetch_claim_queue, request_min_backing_votes, ClaimQueueSnapshot},
+	executor_params_at_relay_parent, request_claim_queue, request_disabled_validators,
+	request_from_runtime, request_session_index_for_child, request_validator_groups,
+	request_validators,
+	runtime::{self, request_min_backing_votes, ClaimQueueSnapshot},
 	Validator,
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
@@ -108,7 +109,7 @@ use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{
 		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
 	CandidateCommitments, CandidateHash, CoreIndex, ExecutorParams, GroupIndex, GroupRotationInfo,
 	Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData, SessionIndex,
@@ -124,7 +125,7 @@ use polkadot_statement_table::{
 	Context as TableContextTrait, Table,
 };
 use sp_keystore::KeystorePtr;
-use util::runtime::{get_disabled_validators_with_fallback, request_node_features};
+use util::runtime::request_node_features;
 
 mod error;
 
@@ -992,16 +993,19 @@ async fn construct_per_relay_parent_state<Context>(
 ) -> Result<Option<PerRelayParentState>, Error> {
 	let parent = relay_parent;
 
-	let (session_index, validators, groups, cores) = futures::try_join!(
-		request_session_index_for_child(parent, ctx.sender()).await,
-		request_validators(parent, ctx.sender()).await,
-		request_validator_groups(parent, ctx.sender()).await,
-		request_from_runtime(parent, ctx.sender(), |tx| {
-			RuntimeApiRequest::AvailabilityCores(tx)
-		},)
-		.await,
-	)
-	.map_err(Error::JoinMultiple)?;
+	let (session_index, validators, groups, cores, claim_queue, disabled_validators) =
+		futures::try_join!(
+			request_session_index_for_child(parent, ctx.sender()).await,
+			request_validators(parent, ctx.sender()).await,
+			request_validator_groups(parent, ctx.sender()).await,
+			request_from_runtime(parent, ctx.sender(), |tx| {
+				RuntimeApiRequest::AvailabilityCores(tx)
+			},)
+			.await,
+			request_claim_queue(parent, ctx.sender()).await,
+			request_disabled_validators(parent, ctx.sender()).await,
+		)
+		.map_err(Error::JoinMultiple)?;
 
 	let session_index = try_runtime_api!(session_index);
 
@@ -1019,17 +1023,8 @@ async fn construct_per_relay_parent_state<Context>(
 	let cores = try_runtime_api!(cores);
 	let minimum_backing_votes =
 		try_runtime_api!(request_min_backing_votes(parent, session_index, ctx.sender()).await);
-
-	// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-	// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this call to
-	// `get_disabled_validators_with_fallback`, add `request_disabled_validators` call to the
-	// `try_join!` above and use `try_runtime_api!` to get `disabled_validators`
-	let disabled_validators =
-		get_disabled_validators_with_fallback(ctx.sender(), parent).await.map_err(|e| {
-			Error::UtilError(TryFrom::try_from(e).expect("the conversion is infallible; qed"))
-		})?;
-
-	let maybe_claim_queue = try_runtime_api!(fetch_claim_queue(ctx.sender(), parent).await);
+	let claim_queue = try_runtime_api!(claim_queue);
+	let disabled_validators = try_runtime_api!(disabled_validators);
 
 	let signing_context = SigningContext { parent_hash: parent, session_index };
 	let validator = match Validator::construct(
@@ -1056,29 +1051,10 @@ async fn construct_per_relay_parent_state<Context>(
 	let mut groups = HashMap::<CoreIndex, Vec<ValidatorIndex>>::new();
 	let mut assigned_core = None;
 
-	let has_claim_queue = maybe_claim_queue.is_some();
-	let mut claim_queue = maybe_claim_queue.unwrap_or_default().0;
-
-	for (idx, core) in cores.iter().enumerate() {
+	for (idx, _) in cores.iter().enumerate() {
 		let core_index = CoreIndex(idx as _);
 
-		if !has_claim_queue {
-			gum::warn!(target: LOG_TARGET, has_claim_queue, "ClaimQueue runtime api not available. Using availability cores.");
-			match core {
-				CoreState::Scheduled(scheduled) =>
-					claim_queue.insert(core_index, [scheduled.para_id].into_iter().collect()),
-				CoreState::Occupied(occupied) => {
-					// Async backing makes it legal to build on top of
-					// occupied core.
-					if let Some(next) = &occupied.next_up_on_available {
-						claim_queue.insert(core_index, [next.para_id].into_iter().collect())
-					} else {
-						continue
-					}
-				},
-				_ => continue,
-			};
-		} else if !claim_queue.contains_key(&core_index) {
+		if !claim_queue.contains_key(&core_index) {
 			continue
 		}
 
@@ -1148,7 +1124,7 @@ async fn seconding_sanity_check<Context>(
 	let candidate_relay_parent = hypothetical_candidate.relay_parent();
 	let candidate_hash = hypothetical_candidate.candidate_hash();
 
-	for head in implicit_view.all_allowed_relay_parents() {
+	for head in implicit_view.leaves() {
 		// Check that the candidate relay parent is allowed for para, skip the
 		// leaf otherwise.
 		let allowed_parents_for_para =
