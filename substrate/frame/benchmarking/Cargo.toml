@@ -56,10 +56,12 @@ std = [
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
+	"sp-externalities/std",
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
+	"sp-state-machine/std",
 	"sp-storage/std",
 ]
 runtime-benchmarks = [
