@@ -127,8 +127,8 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get, OneSessionHandler,
-		ValidatorRegistration, ValidatorSet, Defensive,
+		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
+		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
 	weights::Weight,
 	Parameter,
