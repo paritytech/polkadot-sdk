@@ -47,7 +47,7 @@ use crate::{
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
-use alloc::{boxed::Box, string::String};
+use alloc::boxed::Box;
 use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
@@ -1268,12 +1268,6 @@ where
 					collect_events,
 				);
 
-				log::debug!(target: LOG_TARGET, "Result: {}, Revert: {}, Debug message: {:?}",
-					result.result.is_ok(),
-					result.result.as_ref().map_or(false, |v| v.did_revert()),
-					String::from_utf8(result.debug_message)
-				);
-
 				let result = EthContractResult {
 					gas_required: result.gas_required,
 					storage_deposit: result.storage_deposit.charge_or_zero(),
@@ -1317,12 +1311,6 @@ where
 					None,
 					debug,
 					collect_events,
-				);
-
-				log::debug!(target: LOG_TARGET, "Result: {}, Revert: {}, Debug message: {:?}",
-					result.result.is_ok(),
-					result.result.as_ref().map_or(false, |v| v.result.did_revert()),
-					String::from_utf8(result.debug_message)
 				);
 
 				let result = EthContractResult {
@@ -1441,12 +1429,12 @@ where
 	}
 
 	/// Convert a native balance to EVM balance.
-	pub fn convert_native_to_evm(value: BalanceOf<T>) -> U256 {
+	fn convert_native_to_evm(value: BalanceOf<T>) -> U256 {
 		value.into().saturating_mul(T::NativeToEthRatio::get().into())
 	}
 
 	/// Convert an EVM balance to a native balance.
-	pub fn convert_evm_to_native(value: U256) -> Result<BalanceOf<T>, Error<T>> {
+	fn convert_evm_to_native(value: U256) -> Result<BalanceOf<T>, Error<T>> {
 		if value.is_zero() {
 			return Ok(Zero::zero())
 		}

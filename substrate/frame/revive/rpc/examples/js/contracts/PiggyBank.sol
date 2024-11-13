@@ -16,6 +16,10 @@ contract PiggyBank {
         return balance;
     }
 
+    function getDeposit() public view returns (uint) {
+        return balance;
+    }
+
     function withdraw(uint withdrawAmount) public returns (uint remainingBal) {
         require(msg.sender == owner);
         balance -= withdrawAmount;
