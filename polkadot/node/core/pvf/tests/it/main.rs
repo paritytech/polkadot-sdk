@@ -28,8 +28,8 @@ use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::PvfExecKind;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationResult};
 use polkadot_primitives::{
-	ExecutorParam, ExecutorParams, PersistedValidationData, PvfExecKind as RuntimePvfExecKind,
-	PvfPrepKind,
+	ExecutorParam, ExecutorParams, Hash, PersistedValidationData,
+	PvfExecKind as RuntimePvfExecKind, PvfPrepKind,
 };
 use sp_core::H256;
 
@@ -108,6 +108,7 @@ impl TestHost {
 		pvd: PersistedValidationData,
 		pov: PoV,
 		executor_params: ExecutorParams,
+		relay_parent: Hash,
 	) -> Result<ValidationResult, ValidationError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
@@ -125,7 +126,7 @@ impl TestHost {
 				Arc::new(pvd),
 				Arc::new(pov),
 				polkadot_node_core_pvf::Priority::Normal,
-				PvfExecKind::Backing,
+				PvfExecKind::Backing(relay_parent),
 				result_tx,
 			)
 			.await
@@ -171,7 +172,13 @@ async fn execute_job_terminates_on_timeout() {
 
 	let start = std::time::Instant::now();
 	let result = host
-		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			pvd,
+			pov,
+			Default::default(),
+			H256::default(),
+		)
 		.await;
 
 	match result {
@@ -201,12 +208,14 @@ async fn ensure_parallel_execution() {
 		pvd.clone(),
 		pov.clone(),
 		Default::default(),
+		H256::default(),
 	);
 	let execute_pvf_future_2 = host.validate_candidate(
 		test_parachain_halt::wasm_binary_unwrap(),
 		pvd,
 		pov,
 		Default::default(),
+		H256::default(),
 	);
 
 	let start = std::time::Instant::now();
@@ -254,6 +263,7 @@ async fn execute_queue_doesnt_stall_if_workers_died() {
 			pvd.clone(),
 			pov.clone(),
 			Default::default(),
+			H256::default(),
 		)
 	}))
 	.await;
@@ -303,6 +313,7 @@ async fn execute_queue_doesnt_stall_with_varying_executor_params() {
 				0 => executor_params_1.clone(),
 				_ => executor_params_2.clone(),
 			},
+			H256::default(),
 		)
 	}))
 	.await;
@@ -359,7 +370,13 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 
 	// Try to validate, artifact should get recreated.
 	let result = host
-		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			pvd,
+			pov,
+			Default::default(),
+			H256::default(),
+		)
 		.await;
 
 	assert_matches!(result, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)));
@@ -410,7 +427,13 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 
 	// Try to validate, artifact should get removed because of the corruption.
 	let result = host
-		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			pvd,
+			pov,
+			Default::default(),
+			H256::default(),
+		)
 		.await;
 
 	assert_matches!(
@@ -684,7 +707,9 @@ async fn invalid_compressed_code_fails_validation() {
 	let validation_code =
 		sp_maybe_compressed_blob::compress(&raw_code, VALIDATION_CODE_BOMB_LIMIT + 1).unwrap();
 
-	let result = host.validate_candidate(&validation_code, pvd, pov, Default::default()).await;
+	let result = host
+		.validate_candidate(&validation_code, pvd, pov, Default::default(), H256::default())
+		.await;
 
 	assert_matches!(
 		result,
@@ -708,7 +733,13 @@ async fn invalid_compressed_pov_fails_validation() {
 	let pov = PoV { block_data: BlockData(block_data) };
 
 	let result = host
-		.validate_candidate(test_parachain_halt::wasm_binary_unwrap(), pvd, pov, Default::default())
+		.validate_candidate(
+			test_parachain_halt::wasm_binary_unwrap(),
+			pvd,
+			pov,
+			Default::default(),
+			H256::default(),
+		)
 		.await;
 
 	assert_matches!(
