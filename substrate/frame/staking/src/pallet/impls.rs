@@ -857,8 +857,22 @@ impl<T: Config> Pallet<T> {
 		if let Some(active_era) = Self::active_era() {
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
-					*era_rewards.individual.entry(validator).or_default() += points;
-					era_rewards.total += points;
+					match era_rewards.individual.get_mut(&validator) {
+						Some(value) => *value += points,
+						None => {
+							if let Ok(_) =
+								era_rewards.individual.try_insert(validator.clone(), points)
+							{
+								era_rewards.total += points;
+							} else {
+								log!(
+									warn,
+									"Could not add reward points to {}: max numbers of rewarded validators reached",
+									validator
+								);
+							}
+						},
+					};
 				}
 			});
 		}

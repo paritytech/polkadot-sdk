@@ -335,13 +335,14 @@ fn rewards_should_work() {
 		assert_eq!(asset::total_balance::<Test>(&11), init_balance_11);
 		assert_eq!(asset::total_balance::<Test>(&21), init_balance_21);
 		assert_eq!(asset::total_balance::<Test>(&101), init_balance_101);
-		assert_eq!(
-			Staking::eras_reward_points(active_era()),
-			EraRewardPoints {
-				total: 50 * 3,
-				individual: vec![(11, 100), (21, 50)].into_iter().collect(),
-			}
-		);
+
+		let eras_reward_points = Staking::eras_reward_points(active_era());
+
+		assert_eq!(eras_reward_points.total, 50 * 3);
+		assert_eq!(eras_reward_points.individual.get(&11), Some(&100));
+		assert_eq!(eras_reward_points.individual.get(&21), Some(&50));
+		assert_eq!(eras_reward_points.individual.keys().cloned().collect::<Vec<_>>(), [11, 21]);
+
 		let part_for_11 = Perbill::from_rational::<u32>(1000, 1125);
 		let part_for_21 = Perbill::from_rational::<u32>(1000, 1375);
 		let part_for_101_from_11 = Perbill::from_rational::<u32>(125, 1125);
@@ -2328,9 +2329,11 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		let _ = asset::set_stakeable_balance::<Test>(&11, stake);
 
 		let exposure = Exposure::<AccountId, Balance> { total: stake, own: stake, others: vec![] };
-		let reward = EraRewardPoints::<AccountId> {
+		let mut reward_map = BoundedBTreeMap::new();
+		assert_ok!(reward_map.try_insert(11, 1));
+		let reward = EraRewardPoints::<AccountId, <Test as Config>::MaxActiveValidators> {
 			total: 1,
-			individual: vec![(11, 1)].into_iter().collect(),
+			individual: reward_map,
 		};
 
 		// Check reward
@@ -2386,10 +2389,11 @@ fn reward_from_authorship_event_handler_works() {
 
 		// 21 is rewarded as an uncle producer
 		// 11 is rewarded as a block producer and uncle referencer and uncle producer
-		assert_eq!(
-			ErasRewardPoints::<Test>::get(active_era()),
-			EraRewardPoints { individual: vec![(11, 20 * 2)].into_iter().collect(), total: 40 },
-		);
+
+		let eras_reward_points = ErasRewardPoints::<Test>::get(active_era());
+		assert_eq!(eras_reward_points.total, 40);
+		assert_eq!(eras_reward_points.individual.get(&11), Some(&(20 * 2)));
+		assert_eq!(eras_reward_points.individual.keys().cloned().collect::<Vec<_>>(), [11]);
 	})
 }
 
@@ -2403,10 +2407,11 @@ fn add_reward_points_fns_works() {
 
 		Pallet::<Test>::reward_by_ids(vec![(21, 1), (11, 1), (11, 1)]);
 
-		assert_eq!(
-			ErasRewardPoints::<Test>::get(active_era()),
-			EraRewardPoints { individual: vec![(11, 4), (21, 2)].into_iter().collect(), total: 6 },
-		);
+		let eras_reward_points = ErasRewardPoints::<Test>::get(active_era());
+		assert_eq!(eras_reward_points.total, 40);
+		assert_eq!(eras_reward_points.individual.get(&11), Some(&4));
+		assert_eq!(eras_reward_points.individual.get(&21), Some(&2));
+		assert_eq!(eras_reward_points.individual.keys().cloned().collect::<Vec<_>>(), [11, 21]);
 	})
 }
 
@@ -6880,12 +6885,14 @@ fn test_runtime_api_pending_rewards() {
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(v), stake, RewardDestination::Staked));
 		}
 
+		let mut reward_map = BoundedBTreeMap::new();
+		assert_ok!(reward_map.try_insert(validator_one, 1));
+		assert_ok!(reward_map.try_insert(validator_two, 1));
+		assert_ok!(reward_map.try_insert(validator_three, 1));
 		// Add reward points
-		let reward = EraRewardPoints::<AccountId> {
+		let reward = EraRewardPoints::<AccountId, <Test as Config>::MaxActiveValidators> {
 			total: 1,
-			individual: vec![(validator_one, 1), (validator_two, 1), (validator_three, 1)]
-				.into_iter()
-				.collect(),
+			individual: reward_map,
 		};
 		ErasRewardPoints::<Test>::insert(0, reward);
 

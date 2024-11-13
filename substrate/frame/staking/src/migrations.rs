@@ -60,6 +60,12 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+/// Migrating all unbounded storage items to bounded
+pub mod v16 {
+	use super::*;
+	// TODO
+}
+
 /// Migrating `OffendingValidators` from `Vec<(u32, bool)>` to `Vec<u32>`
 pub mod v15 {
 	use super::*;

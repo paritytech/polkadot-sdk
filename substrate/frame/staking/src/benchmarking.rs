@@ -24,6 +24,7 @@ use testing_utils::*;
 use codec::Decode;
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
+	assert_ok,
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
 	traits::{Get, Imbalance, UnfilteredDispatchable},
@@ -122,10 +123,14 @@ pub fn create_validator_with_nominators<T: Config>(
 	assert_ne!(Validators::<T>::count(), 0);
 	assert_eq!(Nominators::<T>::count(), original_nominator_count + nominators.len() as u32);
 
+	let mut reward_map = BoundedBTreeMap::new();
+	for (validator, reward) in points_individual {
+		assert_ok!(reward_map.try_insert(validator, reward));
+	}
 	// Give Era Points
-	let reward = EraRewardPoints::<T::AccountId> {
+	let reward = EraRewardPoints::<T::AccountId, T::MaxActiveValidators> {
 		total: points_total,
-		individual: points_individual.into_iter().collect(),
+		individual: reward_map,
 	};
 
 	let current_era = CurrentEra::<T>::get().unwrap();
@@ -865,10 +870,14 @@ mod benchmarks {
 			payout_calls_arg.push((validator.clone(), current_era));
 		}
 
+		let mut reward_map = BoundedBTreeMap::new();
+		for (validator, reward) in points_individual {
+			assert_ok!(reward_map.try_insert(validator, reward));
+		}
 		// Give Era Points
-		let reward = EraRewardPoints::<T::AccountId> {
+		let reward = EraRewardPoints::<T::AccountId, T::MaxActiveValidators> {
 			total: points_total,
-			individual: points_individual.into_iter().collect(),
+			individual: reward_map,
 		};
 
 		ErasRewardPoints::<T>::insert(current_era, reward);

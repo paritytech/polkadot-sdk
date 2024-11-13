@@ -321,7 +321,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
-	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
+	BoundedBTreeMap, Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, ReportOffence},
@@ -385,17 +385,20 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct EraRewardPoints<AccountId: Ord> {
+#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(MaxActiveValidators))]
+pub struct EraRewardPoints<AccountId: Ord, MaxActiveValidators: Get<u32>> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
 	/// The reward points earned by a given validator.
-	pub individual: BTreeMap<AccountId, RewardPoint>,
+	pub individual: BoundedBTreeMap<AccountId, RewardPoint, MaxActiveValidators>,
 }
 
-impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
+impl<AccountId: Ord, MaxActiveValidators: Get<u32>> Default
+	for EraRewardPoints<AccountId, MaxActiveValidators>
+{
 	fn default() -> Self {
-		EraRewardPoints { total: Default::default(), individual: BTreeMap::new() }
+		EraRewardPoints { total: Default::default(), individual: BoundedBTreeMap::new() }
 	}
 }
 

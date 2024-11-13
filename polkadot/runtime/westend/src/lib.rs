@@ -756,6 +756,8 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type MaxInvulnerables = frame_support::traits::ConstU32<4>;
+	type MaxActiveValidators = MaxActiveValidators;
 }
 
 impl pallet_fast_unstake::Config for Runtime {

@@ -300,6 +300,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
 
+		/// Maximum number of active validators in an era.
+		#[pallet::constant]
+		type MaxActiveValidators: Get<u32>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -348,6 +352,7 @@ pub mod pallet {
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
 			type MaxInvulnerables = ConstU32<4>;
+			type MaxActiveValidators = ConstU32<100>;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -626,10 +631,14 @@ pub mod pallet {
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	#[pallet::getter(fn eras_reward_points)]
-	pub type ErasRewardPoints<T: Config> =
-		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T::AccountId>, ValueQuery>;
+	pub type ErasRewardPoints<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		EraRewardPoints<T::AccountId, T::MaxActiveValidators>,
+		ValueQuery,
+	>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -729,11 +738,11 @@ pub mod pallet {
 	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
 	/// implicitly means that the implementor also controls the max number of disabled validators.
 	///
-	/// The vec is always kept sorted so that we can find whether a given validator has previously
-	/// offended using binary search.
+	/// The bounded vec is always kept sorted so that we can find whether a given validator has
+	/// previously offended using binary search.
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type DisabledValidators<T: Config> = StorageValue<_, Vec<u32>, ValueQuery>;
+	pub type DisabledValidators<T: Config> =
+		StorageValue<_, BoundedVec<u32, T::MaxActiveValidators>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators

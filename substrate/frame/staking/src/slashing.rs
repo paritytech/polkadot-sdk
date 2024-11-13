@@ -330,7 +330,7 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 			// Add the validator to `DisabledValidators` and disable it. Do nothing if it is
 			// already disabled.
 			if let Err(index) = disabled.binary_search_by_key(&offender, |index| *index) {
-				disabled.insert(index, offender);
+				disabled.try_insert(index, offender);
 				T::SessionInterface::disable_validator(offender);
 			}
 		}
