@@ -1336,7 +1336,7 @@ where
 		};
 
 		let mut tx = TransactionLegacyUnsigned {
-			value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
+			value: Self::convert_native_to_evm(value),
 			input: input.into(),
 			nonce: nonce.into(),
 			chain_id: Some(T::ChainId::get().into()),
