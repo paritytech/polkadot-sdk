@@ -3,18 +3,19 @@
 # This is used to build our binaries:
 # - polkadot
 # - polkadot-parachain
-# - polkadot-omni-node is not built by this script, but it is built as part of
-#  `release-30_publish_release_draft.yml`, along other binaries like `frame-omni-bencher`,
-#  or `staging-chain-spec-builder`. The plan is to unify the building of all binaries within
-#  a single workflow. Currently this script is used in `release-reusable-rc-build.yml`.
-#
+# - polkadot-omni-node (the x86_64 linux version is built as part of 
+# `release-30_publish_release_draft.yml`). This script is used in
+# `release_reusable-rc-build.yml`, but the plan is to build all the
+# macOS ARM64/x86_64 Linux binaries in a single workflow.
 # set -e
 
 BIN=$1
 PACKAGE=${2:-$BIN}
 
 PROFILE=${PROFILE:-production}
-ARTIFACTS=/artifacts/$BIN
+# parity-macos runner needs a path where it can
+# write, so make it relative to github workspace.
+ARTIFACTS=$GITHUB_WORKSPACE/artifacts/$BIN
 VERSION=$(git tag -l --contains HEAD | grep -E "^v.*")
 
 echo "Artifacts will be copied into $ARTIFACTS"

@@ -19,12 +19,6 @@ on:
         required: true
         type: string
 
-      runs_on:
-        description: Operating system used for the workflow call
-        required: true
-        type: string
-        default: ubuntu-latest
-
     secrets:
       PGP_KMS_KEY:
         required: true
@@ -61,38 +55,6 @@ jobs:
 
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
-
-  setup-macos-runner:
-    if: ${{ inputs.runs_on == 'parity-macos' }}
-    runs-on: parity-macos
-    env:
-      SKIP_WASM_BUILD: 1
-    steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      - name: Set rust version from env file
-        run: |
-          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
-          echo $RUST_VERSION
-          echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
-      - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@11df97af8e8102fd60b60a77dfbf58d40cd843b8 # v1.10.1
-        with:
-          cache: false
-          toolchain: ${{ env.RUST_VERSION }}
-          target: wasm32-unknown-unknown
-          components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
-      - name: Install protobuf
-        run: brew install protobuf
-      - name: cargo info
-        run: |
-          echo "######## rustup show ########"
-          rustup show
-          echo "######## cargo --version ########"
-          cargo --version
-      - name: Check bash
-        run: bash --version
 
   build-rc:
     needs: [set-image]
@@ -169,8 +131,6 @@ jobs:
           path: /artifacts/${{ matrix.binaries }}
 
   build-macos-rc:
-    if: ${{ inputs.runs_on == 'parity-macos' }}
-    needs: [setup-macos-runner]
     runs-on: parity-macos
     environment: release
     strategy:
@@ -182,19 +142,63 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-
+      SKIP_WASM_BUILD: 1
     steps:
-      - name: Install pgpkkms
-        run: |
-          # Install pgpkms that is used to sign built artifacts
-          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
-          which pgpkms
-
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
         with:
           ref: ${{ inputs.release_tag }}
           fetch-depth: 0
+
+      - name: Set rust version from env file
+        run: |
+          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
+          echo $RUST_VERSION
+          echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
+      - name: Set workspace environment variable
+        # relevant for artifacts upload, which can not interpolate Github Action variable syntax when
+        # used within valid paths. We can not use root-based paths either, since it is set as read-only
+        # on the `parity-macos` runner.
+        run: echo "ARTIFACTS_PATH=${GITHUB_WORKSPACE}/artifacts/${{ matrix.binaries }}" >> $GITHUB_ENV
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
+      - name: Set homebrew binaries location on path
+        run: echo "/opt/homebrew/bin" >>  $GITHUB_PATH
+
+      - name: Install rust ${{ env.RUST_VERSION }}
+        uses: actions-rust-lang/setup-rust-toolchain@11df97af8e8102fd60b60a77dfbf58d40cd843b8 # v1.10.1
+        with:
+          cache: false
+          toolchain: ${{ env.RUST_VERSION }}
+          target: wasm32-unknown-unknown
+          components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
+      - name: cargo info
+        run: |
+          echo "######## rustup show ########"
+          rustup show
+          echo "######## cargo --version ########"
+          cargo --version
+
+      - name: Install protobuf
+        run: brew install protobuf
+      - name: Install gpg
+        run: |
+          brew install gnupg
+          # Setup for being able to resolve: keyserver.ubuntu.com.
+          # See: https://github.com/actions/runner-images/issues/9777
+          mkdir -p ~/.gnupg/
+          touch ~/.gnupg/dirmngr.conf
+          echo "standard-resolver" >  ~/.gnupg/dirmngr.conf
+      - name: Install sha256sum
+        run: |
+          brew install coreutils
+
+      - name: Install pgpkkms
+        run: |
+          # Install pgpkms that is used to sign built artifacts
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
+          which pgpkms
 
       - name: Import gpg keys
         shell: bash
@@ -206,20 +210,20 @@ jobs:
       - name: Build binary
         run: |
           git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
-          ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
+          ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
         with:
-          subject-path: /artifacts/${{ matrix.binaries }}/${{ matrix.binaries }}
+          subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
       - name: Sign artifacts
-        working-directory: /artifacts/${{ matrix.binaries }}
+        working-directory: ${{ env.ARTIFACTS_PATH }}
         run: |
           python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
 
       - name: Check sha256 ${{ matrix.binaries }}
-        working-directory: /artifacts/${{ matrix.binaries }}
+        working-directory: ${{ env.ARTIFACTS_PATH }}
         shell: bash
         run: |
           .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
@@ -228,7 +232,7 @@ jobs:
           check_sha256  ${{ matrix.binaries }}
 
       - name: Check GPG ${{ matrix.binaries }}
-        working-directory: /artifacts/${{ matrix.binaries }}
+        working-directory: ${{ env.ARTIFACTS_PATH }}
         shell: bash
         run: |
           . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
@@ -239,67 +243,103 @@ jobs:
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: ${{ matrix.binaries }}
-          path: /artifacts/${{ matrix.binaries }}
+          path: ${{ env.ARTIFACTS_PATH }}
+
+  build-polkadot-deb-package:
+    if: ${{ inputs.package == 'polkadot' }}
+    needs: [build-rc]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+      with:
+        ref: ${{ inputs.release_tag }}
+        fetch-depth: 0
+
+    - name: Download artifacts
+      uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+      with:
+        path: target/production
+        merge-multiple: true
+
+    - name: Build polkadot deb package
+      shell: bash
+      run: |
+        . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+        VERSION=$(get_polkadot_node_version_from_code)
+        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
+
+    - name: Generate artifact attestation
+      uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+      with:
+        subject-path: target/production/*.deb
+
+    - name: Upload ${{inputs.package }} artifacts
+      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+      with:
+        name: ${{ inputs.package }}
+        path: target/production
+        overwrite: true
+
+  upload-polkadot-artifacts-to-s3:
+    if: ${{ inputs.package == 'polkadot' }}
+    needs: [build-polkadot-deb-package]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: ${{ inputs.package }}
+      release_tag: ${{ inputs.release_tag }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
 
 
-  # build-polkadot-deb-package:
-  #   if: ${{ inputs.package == 'polkadot' }}
-  #   needs: [build-rc]
-  #   runs-on: ubuntu-latest
-  #
-  #   steps:
-  #   - name: Checkout sources
-  #     uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
-  #     with:
-  #       ref: ${{ inputs.release_tag }}
-  #       fetch-depth: 0
-  #
-  #   - name: Download artifacts
-  #     uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-  #     with:
-  #       path: target/production
-  #       merge-multiple: true
-  #
-  #   - name: Build polkadot deb package
-  #     shell: bash
-  #     run: |
-  #       . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
-  #       VERSION=$(get_polkadot_node_version_from_code)
-  #       . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
-  #
-  #   - name: Generate artifact attestation
-  #     uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
-  #     with:
-  #       subject-path: target/production/*.deb
-  #
-  #   - name: Upload ${{inputs.package }} artifacts
-  #     uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
-  #     with:
-  #       name: ${{ inputs.package }}
-  #       path: target/production
-  #       overwrite: true
-  #
-  # upload-polkadot-artifacts-to-s3:
-  #   if: ${{ inputs.package == 'polkadot' }}
-  #   needs: [build-polkadot-deb-package]
-  #   uses: ./.github/workflows/release-reusable-s3-upload.yml
-  #   with:
-  #     package: ${{ inputs.package }}
-  #     release_tag: ${{ inputs.release_tag }}
-  #   secrets:
-  #     AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-  #     AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-  #     AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-  #
-  #
-  # upload-polkadot-parachain-artifacts-to-s3:
-  #   if: ${{ inputs.package == 'polkadot-parachain-bin' }}
-  #   needs: [build-rc]
-  #   uses: ./.github/workflows/release-reusable-s3-upload.yml
-  #   with:
-  #     package: polkadot-parachain
-  #     release_tag: ${{ inputs.release_tag }}
-  #   secrets:
-  #     AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-  #     AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-  #     AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+  upload-polkadot-parachain-artifacts-to-s3:
+    if: ${{ inputs.package == 'polkadot-parachain-bin' }}
+    needs: [build-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: polkadot-parachain
+      release_tag: ${{ inputs.release_tag }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+  upload-polkadot-macos-artifacts-to-s3:
+    if: ${{ inputs.package == 'polkadot' }}
+    needs: [build-macos-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: ${{ inputs.package }}
+      release_tag: ${{ inputs.release_tag }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+
+  upload-polkadot-parachain-macos-artifacts-to-s3:
+    if: ${{ inputs.package == 'polkadot-parachain-bin' }}
+    needs: [build-macos-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: polkadot-parachain
+      release_tag: ${{ inputs.release_tag }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+
+  upload-polkadot-omni-node-macos-artifacts-to-s3:
+    if: ${{ inputs.package == 'polkadot-omni-node' }}
+    needs: [build-macos-rc]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: polkadot-omni-node
+      release_tag: ${{ inputs.release_tag }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}

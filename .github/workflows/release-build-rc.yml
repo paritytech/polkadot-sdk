@@ -39,47 +39,47 @@ jobs:
           RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
-  # build-polkadot-binary:
-  #   needs: [validate-inputs]
-  #   if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
-  #   uses: "./.github/workflows/release-reusable-rc-buid.yml"
-  #   with:
-  #     binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
-  #     package: polkadot
-  #     release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
-  #   secrets:
-  #     PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-  #     PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-  #     AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #     AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-  #     AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-  #     AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-  #   permissions:
-  #     id-token: write
-  #     attestations: write
-  #     contents: read
-  #
-  # build-polkadot-parachain-binary:
-  #   needs: [validate-inputs]
-  #   if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
-  #   uses: "./.github/workflows/release-reusable-rc-buid.yml"
-  #   with:
-  #     binary: '["polkadot-parachain"]'
-  #     package: "polkadot-parachain-bin"
-  #     release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
-  #   secrets:
-  #     PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-  #     PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-  #     AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #     AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-  #     AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-  #     AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-  #   permissions:
-  #     id-token: write
-  #     attestations: write
-  #     contents: read
+  build-polkadot-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    with:
+      binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
+      package: polkadot
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+    secrets:
+      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  build-polkadot-parachain-binary:
+    needs: [validate-inputs]
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
+    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    with:
+      binary: '["polkadot-parachain"]'
+      package: "polkadot-parachain-bin"
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+    secrets:
+      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
+      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
 
   build-polkadot-macos-binary:
     needs: [validate-inputs]
@@ -89,7 +89,6 @@ jobs:
       binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
       package: polkadot
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
-      runs_on: parity-macos
     secrets:
       PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
@@ -111,7 +110,6 @@ jobs:
       binary: '["polkadot-parachain"]'
       package: "polkadot-parachain-bin"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
-      runs_on: parity-macos
     secrets:
       PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
