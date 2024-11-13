@@ -19,6 +19,7 @@ doc:
 crates:
   - name: staging-xcm
     bump: major
+    validate: false
   - name: staging-xcm-executor
     bump: minor
   - name: staging-xcm-builder
