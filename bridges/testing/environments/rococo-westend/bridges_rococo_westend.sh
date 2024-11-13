@@ -279,7 +279,7 @@ case "$1" in
           "//Alice" \
           1000 \
           "ws://127.0.0.1:9910" \
-          "$(jq --null-input --argjson genesis $WESTEND_GENESIS_HASH '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: $genesis } }] } }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')" \
           "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
@@ -298,7 +298,7 @@ case "$1" in
           "//Alice" \
           1000 \
           "ws://127.0.0.1:9910" \
-          "$(jq --null-input --argjson genesis $WESTEND_GENESIS_HASH '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: $genesis } }, { "Parachain": 1000 } ] } }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
           $XCM_VERSION
       ;;
   init-bridge-hub-rococo-local)
@@ -327,7 +327,7 @@ case "$1" in
           "//Alice" \
           1013 \
           "ws://127.0.0.1:8943" \
-          "$(jq --null-input --argjson genesis $WESTEND_GENESIS_HASH '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: $genesis } }, { "Parachain": 1002 } ] } }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1002 } ] } }')" \
           $XCM_VERSION
       ;;
   init-asset-hub-westend-local)
@@ -338,7 +338,7 @@ case "$1" in
           "//Alice" \
           1000 \
           "ws://127.0.0.1:9010" \
-          "$(jq --null-input --argjson genesis $ROCOCO_GENESIS_HASH '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: $genesis } }] } }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
           "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
@@ -357,7 +357,7 @@ case "$1" in
           "//Alice" \
           1000 \
           "ws://127.0.0.1:9010" \
-          "$(jq --null-input --argjson genesis $ROCOCO_GENESIS_HASH '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: $genesis } }, { "Parachain": 1000 } ] } }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
           $XCM_VERSION
       ;;
   init-bridge-hub-westend-local)
@@ -385,7 +385,7 @@ case "$1" in
           "//Alice" \
           1002 \
           "ws://127.0.0.1:8945" \
-          "$(jq --null-input --argjson genesis $ROCOCO_GENESIS_HASH '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: $genesis } }, { "Parachain": 1013 } ] } }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1013 } ] } }')" \
           $XCM_VERSION
       ;;
   reserve-transfer-assets-from-asset-hub-rococo-local)
@@ -395,7 +395,7 @@ case "$1" in
       limited_reserve_transfer_assets \
           "ws://127.0.0.1:9910" \
           "//Alice" \
-          "$(jq --null-input --argjson genesis $WESTEND_GENESIS_HASH '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: $genesis } }, { "Parachain": 1000 } ] } } }')" \
+          "$(jq --null-input '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V5": { "parents": 0, "interior": { "X1": [{ "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } }] } } }')" \
           "$(jq --null-input '{ "V5": [ { "id": { "parents": 1, "interior": "Here" }, "fun": { "Fungible": '$amount' } } ] }')" \
           0 \
@@ -408,9 +408,9 @@ case "$1" in
       limited_reserve_transfer_assets \
           "ws://127.0.0.1:9910" \
           "//Alice" \
-          "$(jq --null-input --argjson genesis $WESTEND_GENESIS_HASH '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: $genesis } }, { "Parachain": 1000 } ] } } }')" \
+          "$(jq --null-input '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V5": { "parents": 0, "interior": { "X1": [{ "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } }] } } }')" \
-          "$(jq --null-input --argjson genesis $WESTEND_GENESIS_HASH '{ "V5": [ { "id": { "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: $genesis } }] } }, "fun": { "Fungible": '$amount' } } ] }')" \
+          "$(jq --null-input '{ "V5": [ { "id": { "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }, "fun": { "Fungible": '$amount' } } ] }')" \
           0 \
           "Unlimited"
       ;;
@@ -421,7 +421,7 @@ case "$1" in
       limited_reserve_transfer_assets \
           "ws://127.0.0.1:9010" \
           "//Alice" \
-          "$(jq --null-input --argjson genesis $ROCOCO_GENESIS_HASH '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: $genesis } }, { "Parachain": 1000 } ] } } }')" \
+          "$(jq --null-input '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V5": { "parents": 0, "interior": { "X1": [{ "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } }] } } }')" \
           "$(jq --null-input '{ "V5": [ { "id": { "parents": 1, "interior": "Here" }, "fun": { "Fungible": '$amount' } } ] }')" \
           0 \
@@ -434,9 +434,9 @@ case "$1" in
       limited_reserve_transfer_assets \
           "ws://127.0.0.1:9010" \
           "//Alice" \
-          "$(jq --null-input --argjson genesis $ROCOCO_GENESIS_HASH '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: $genesis } }, { "Parachain": 1000 } ] } } }')" \
+          "$(jq --null-input '{ "V5": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V5": { "parents": 0, "interior": { "X1": [{ "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } }] } } }')" \
-          "$(jq --null-input --argjson genesis $ROCOCO_GENESIS_HASH '{ "V5": [ { "id": { "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: $genesis } }] } }, "fun": { "Fungible": '$amount' } } ] }')" \
+          "$(jq --null-input '{ "V5": [ { "id": { "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }, "fun": { "Fungible": '$amount' } } ] }')" \
           0 \
           "Unlimited"
       ;;
