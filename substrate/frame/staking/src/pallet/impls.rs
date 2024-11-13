@@ -193,7 +193,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
-		if let Some(current_era) = Self::current_era() {
+		if let Some(current_era) = CurrentEra::<T>::get() {
 			ledger = ledger.consolidate_unlocked(current_era)
 		}
 		let new_total = ledger.total;
@@ -450,9 +450,9 @@ impl<T: Config> Pallet<T> {
 		session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
-		if let Some(current_era) = Self::current_era() {
+		if let Some(current_era) = CurrentEra::<T>::get() {
 			// Initial era has been set.
-			let current_era_start_session_index = Self::eras_start_session_index(current_era)
+			let current_era_start_session_index = ErasStartSessionIndex::<T>::get(current_era)
 				.unwrap_or_else(|| {
 					frame_support::print("Error: start_session_index must be set for current_era");
 					0
@@ -492,12 +492,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Start a session potentially starting an era.
 	fn start_session(start_session: SessionIndex) {
-		let next_active_era = Self::active_era().map(|e| e.index + 1).unwrap_or(0);
+		let next_active_era = ActiveEra::<T>::get().map(|e| e.index + 1).unwrap_or(0);
 		// This is only `Some` when current era has already progressed to the next era, while the
 		// active era is one behind (i.e. in the *last session of the active era*, or *first session
 		// of the new current era*, depending on how you look at it).
 		if let Some(next_active_era_start_session_index) =
-			Self::eras_start_session_index(next_active_era)
+			ErasStartSessionIndex::<T>::get(next_active_era)
 		{
 			if next_active_era_start_session_index == start_session {
 				Self::start_era(start_session);
@@ -517,9 +517,9 @@ impl<T: Config> Pallet<T> {
 
 	/// End a session potentially ending an era.
 	fn end_session(session_index: SessionIndex) {
-		if let Some(active_era) = Self::active_era() {
+		if let Some(active_era) = ActiveEra::<T>::get() {
 			if let Some(next_active_era_start_session_index) =
-				Self::eras_start_session_index(active_era.index + 1)
+				ErasStartSessionIndex::<T>::get(active_era.index + 1)
 			{
 				if next_active_era_start_session_index == session_index + 1 {
 					Self::end_era(active_era, session_index);
@@ -577,7 +577,7 @@ impl<T: Config> Pallet<T> {
 
 			let era_duration = (now_as_millis_u64.defensive_saturating_sub(active_era_start))
 				.saturated_into::<u64>();
-			let staked = Self::eras_total_stake(&active_era.index);
+			let staked = ErasTotalStake::<T>::get(&active_era.index);
 			let issuance = asset::total_issuance::<T>();
 
 			let (validator_payout, remainder) =
@@ -668,7 +668,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		let exposures = Self::collect_exposures(election_result);
-		if (exposures.len() as u32) < Self::minimum_validator_count().max(1) {
+		if (exposures.len() as u32) < MinimumValidatorCount::<T>::get().max(1) {
 			// Session will panic if we ever return an empty validator set, thus max(1) ^^.
 			match CurrentEra::<T>::get() {
 				Some(current_era) if current_era > 0 => log!(
@@ -677,7 +677,7 @@ impl<T: Config> Pallet<T> {
 					elected, minimum is {})",
 					CurrentEra::<T>::get().unwrap_or(0),
 					exposures.len(),
-					Self::minimum_validator_count(),
+					MinimumValidatorCount::<T>::get(),
 				),
 				None => {
 					// The initial era is allowed to have no exposures.
@@ -729,7 +729,7 @@ impl<T: Config> Pallet<T> {
 
 		// Collect the pref of all winners.
 		for stash in &elected_stashes {
-			let pref = Self::validators(stash);
+			let pref = Validators::<T>::get(stash);
 			<ErasValidatorPrefs<T>>::insert(&new_planned_era, stash, pref);
 		}
 
@@ -854,7 +854,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// COMPLEXITY: Complexity is `number_of_validator_to_reward x current_elected_len`.
 	pub fn reward_by_ids(validators_points: impl IntoIterator<Item = (T::AccountId, u32)>) {
-		if let Some(active_era) = Self::active_era() {
+		if let Some(active_era) = ActiveEra::<T>::get() {
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
 					match era_rewards.individual.get_mut(&validator) {
@@ -1210,7 +1210,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 	fn desired_targets() -> data_provider::Result<u32> {
 		Self::register_weight(T::DbWeight::get().reads(1));
-		Ok(Self::validator_count())
+		Ok(ValidatorCount::<T>::get())
 	}
 
 	fn electing_voters(bounds: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Self>>> {
@@ -1243,10 +1243,10 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 	}
 
 	fn next_election_prediction(now: BlockNumberFor<T>) -> BlockNumberFor<T> {
-		let current_era = Self::current_era().unwrap_or(0);
-		let current_session = Self::current_planned_session();
+		let current_era = CurrentEra::<T>::get().unwrap_or(0);
+		let current_session = CurrentPlannedSession::<T>::get();
 		let current_era_start_session_index =
-			Self::eras_start_session_index(current_era).unwrap_or(0);
+			ErasStartSessionIndex::<T>::get(current_era).unwrap_or(0);
 		// Number of session in the current era or the maximum session per era if reached.
 		let era_progress = current_session
 			.saturating_sub(current_era_start_session_index)
@@ -1380,7 +1380,7 @@ impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, 
 		new_index: SessionIndex,
 	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session(new_index).map(|validators| {
-			let current_era = Self::current_era()
+			let current_era = CurrentEra::<T>::get()
 				// Must be some as a new era has been created.
 				.unwrap_or(0);
 
@@ -1398,7 +1398,7 @@ impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, 
 	) -> Option<Vec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>)>> {
 		<Self as pallet_session::SessionManager<_>>::new_session_genesis(new_index).map(
 			|validators| {
-				let current_era = Self::current_era()
+				let current_era = CurrentEra::<T>::get()
 					// Must be some as a new era has been created.
 					.unwrap_or(0);
 
@@ -1463,7 +1463,7 @@ where
 		};
 
 		let active_era = {
-			let active_era = Self::active_era();
+			let active_era = ActiveEra::<T>::get();
 			add_db_reads_writes(1, 0);
 			if active_era.is_none() {
 				// This offence need not be re-submitted.
@@ -1471,7 +1471,7 @@ where
 			}
 			active_era.expect("value checked not to be `None`; qed").index
 		};
-		let active_era_start_session_index = Self::eras_start_session_index(active_era)
+		let active_era_start_session_index = ErasStartSessionIndex::<T>::get(active_era)
 			.unwrap_or_else(|| {
 				frame_support::print("Error: start_session_index must be set for current_era");
 				0
@@ -1500,7 +1500,7 @@ where
 
 		let slash_defer_duration = T::SlashDeferDuration::get();
 
-		let invulnerables = Self::invulnerables();
+		let invulnerables = Invulnerables::<T>::get();
 		add_db_reads_writes(1, 0);
 
 		for (details, slash_fraction) in offenders.iter().zip(slash_fraction) {
@@ -1775,7 +1775,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn current_era() -> EraIndex {
-		Self::current_era().unwrap_or(Zero::zero())
+		CurrentEra::<T>::get().unwrap_or(Zero::zero())
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<BalanceOf<T>>, DispatchError> {
@@ -1856,7 +1856,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn force_unstake(who: Self::AccountId) -> sp_runtime::DispatchResult {
-		let num_slashing_spans = Self::slashing_spans(&who).map_or(0, |s| s.iter().count() as u32);
+		let num_slashing_spans =
+			SlashingSpans::<T>::get(&who).map_or(0, |s| s.iter().count() as u32);
 		Self::force_unstake(RawOrigin::Root.into(), who.clone(), num_slashing_spans)
 	}
 
@@ -2156,7 +2157,7 @@ impl<T: Config> Pallet<T> {
 	/// * For each era exposed validator, check if the exposure total is sane (exposure.total  =
 	/// exposure.own + exposure.own).
 	fn check_exposures() -> Result<(), TryRuntimeError> {
-		let era = Self::active_era().unwrap().index;
+		let era = ActiveEra::<T>::get().unwrap().index;
 		ErasStakers::<T>::iter_prefix_values(era)
 			.map(|expo| {
 				ensure!(
@@ -2184,7 +2185,7 @@ impl<T: Config> Pallet<T> {
 		// Sanity check for the paged exposure of the active era.
 		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
 			BTreeMap::new();
-		let era = Self::active_era().unwrap().index;
+		let era = ActiveEra::<T>::get().unwrap().index;
 		let accumulator_default = PagedExposureMetadata {
 			total: Zero::zero(),
 			own: Zero::zero(),
@@ -2246,7 +2247,7 @@ impl<T: Config> Pallet<T> {
 	fn check_nominators() -> Result<(), TryRuntimeError> {
 		// a check per nominator to ensure their entire stake is correctly distributed. Will only
 		// kick-in if the nomination was submitted before the current era.
-		let era = Self::active_era().unwrap().index;
+		let era = ActiveEra::<T>::get().unwrap().index;
 
 		// cache era exposures to avoid too many db reads.
 		let era_exposures = T::SessionInterface::validators()
