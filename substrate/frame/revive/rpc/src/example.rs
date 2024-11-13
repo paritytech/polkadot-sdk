@@ -125,7 +125,7 @@ impl TransactionBuilder {
 				None,
 			)
 			.await
-			.with_context(|| "Failed to fetch gas estimate")?;
+			.with_context(|| "eth_call failed")?;
 		Ok(result.0)
 	}
 

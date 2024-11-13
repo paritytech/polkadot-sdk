@@ -299,14 +299,8 @@ async fn native_evm_ratio_works() -> anyhow::Result<()> {
 		.send_and_wait_for_receipt(&client)
 		.await?;
 
-	let get_deposit = contract.function("getDeposit")?;
-	let output = TransactionBuilder::default()
-		.to(contract_address)
-		.input(get_deposit.encode_input(&[])?.to_vec())
-		.eth_call(&client)
-		.await?;
-	let output = get_deposit.decode_output(&output)?;
-	assert_eq!(output[0], Token::Uint(value.into()));
+	let contract_value = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	assert_eq!(contract_value, value.into());
 
 	let withdraw_value = 1_000_000_000_000_000_000u128; // 1 eth
 	TransactionBuilder::default()
@@ -320,13 +314,8 @@ async fn native_evm_ratio_works() -> anyhow::Result<()> {
 		.send_and_wait_for_receipt(&client)
 		.await?;
 
-	let output = TransactionBuilder::default()
-		.to(contract_address)
-		.input(get_deposit.encode_input(&[])?.to_vec())
-		.eth_call(&client)
-		.await?;
-	let output = get_deposit.decode_output(&output)?;
-	assert_eq!(output[0], Token::Uint((value - withdraw_value).into()));
+	let contract_value = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	assert_eq!(contract_value, (value - withdraw_value).into());
 
 	Ok(())
 }
