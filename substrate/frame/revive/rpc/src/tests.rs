@@ -299,7 +299,7 @@ async fn native_evm_ratio_works() -> anyhow::Result<()> {
 		.send_and_wait_for_receipt(&client)
 		.await?;
 
-	let contract_value = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	let contract_value = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
 	assert_eq!(contract_value, value.into());
 
 	let withdraw_value = 1_000_000_000_000_000_000u128; // 1 eth
@@ -314,7 +314,7 @@ async fn native_evm_ratio_works() -> anyhow::Result<()> {
 		.send_and_wait_for_receipt(&client)
 		.await?;
 
-	let contract_value = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	let contract_value = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
 	assert_eq!(contract_value, (value - withdraw_value).into());
 
 	Ok(())

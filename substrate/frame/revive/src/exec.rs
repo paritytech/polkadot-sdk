@@ -834,7 +834,7 @@ where
 			origin,
 			gas_meter,
 			storage_meter,
-			value,
+			value.into(),
 			debug_message,
 		)
 		.unwrap()
@@ -843,7 +843,7 @@ where
 
 	/// Create a new call stack.
 	///
-	/// Returns `None` when calling a non existant contract. This is not an error case
+	/// Returns `None` when calling a non existent contract. This is not an error case
 	/// since this will result in a value transfer.
 	fn new(
 		args: FrameArgs<T, E>,
