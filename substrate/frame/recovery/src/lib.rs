@@ -240,7 +240,7 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>;
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
-		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
+		type BlockNumberProvider: BlockNumberProvider;
 
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
