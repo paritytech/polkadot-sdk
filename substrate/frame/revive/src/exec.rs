@@ -569,8 +569,8 @@ struct Frame<T: Config> {
 	account_id: T::AccountId,
 	/// The cached in-storage data of the contract.
 	contract_info: CachedContract<T>,
-	/// The amount of balance transferred by the caller as part of the call.
-	value_transferred: BalanceOf<T>,
+	/// The EVM balance transferred by the caller as part of the call.
+	value_transferred: U256,
 	/// Determines whether this is a call or instantiate frame.
 	entry_point: ExportedFunction,
 	/// The gas meter capped to the supplied gas limit.
@@ -757,7 +757,7 @@ where
 		dest: H160,
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
-		value: BalanceOf<T>,
+		value: U256,
 		input_data: Vec<u8>,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> ExecResult {
@@ -791,7 +791,7 @@ where
 		executable: E,
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
-		value: BalanceOf<T>,
+		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 		debug_message: Option<&'a mut DebugBuffer>,
@@ -850,7 +850,7 @@ where
 		origin: Origin<T>,
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
-		value: BalanceOf<T>,
+		value: U256,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<Option<(Self, E)>, ExecError> {
 		origin.ensure_mapped()?;
@@ -890,7 +890,7 @@ where
 	/// not initialized, yet.
 	fn new_frame<S: storage::meter::State + Default + Debug>(
 		frame_args: FrameArgs<T, E>,
-		value_transferred: BalanceOf<T>,
+		value_transferred: U256,
 		gas_meter: &mut GasMeter<T>,
 		gas_limit: Weight,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
@@ -975,7 +975,7 @@ where
 	fn push_frame(
 		&mut self,
 		frame_args: FrameArgs<T, E>,
-		value_transferred: BalanceOf<T>,
+		value_transferred: U256,
 		gas_limit: Weight,
 		deposit_limit: BalanceOf<T>,
 		read_only: bool,
@@ -1282,8 +1282,9 @@ where
 		origin: &Origin<T>,
 		from: &T::AccountId,
 		to: &T::AccountId,
-		value: BalanceOf<T>,
+		value: U256,
 	) -> ExecResult {
+		let value = crate::Pallet::<T>::convert_evm_to_native(value)?;
 		if value.is_zero() {
 			return Ok(Default::default());
 		}
@@ -1311,7 +1312,7 @@ where
 		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
-		value: BalanceOf<T>,
+		value: U256,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
@@ -1358,7 +1359,11 @@ where
 
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
-		T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite).into()
+		crate::Pallet::<T>::convert_native_to_evm(T::Currency::reducible_balance(
+			who,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		))
 	}
 
 	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
@@ -2066,7 +2071,7 @@ mod tests {
 					BOB_ADDR,
 					&mut gas_meter,
 					&mut storage_meter,
-					value,
+					value.into(),
 					vec![],
 					None,
 				),
@@ -2153,7 +2158,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				value,
+				value.into(),
 				vec![],
 				None,
 			)
@@ -2191,7 +2196,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				value,
+				value.into(),
 				vec![],
 				None,
 			)
@@ -2223,7 +2228,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				55,
+				55u64.into(),
 				vec![],
 				None,
 			)
@@ -2272,7 +2277,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			);
@@ -2301,7 +2306,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			);
@@ -2330,7 +2335,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![1, 2, 3, 4],
 				None,
 			);
@@ -2365,7 +2370,7 @@ mod tests {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					min_balance,
+					min_balance.into(),
 					vec![1, 2, 3, 4],
 					Some(&[0; 32]),
 					None,
@@ -2420,7 +2425,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				value,
+				value.into(),
 				vec![],
 				None,
 			);
@@ -2484,7 +2489,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			);
@@ -2549,7 +2554,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			);
@@ -2581,7 +2586,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			);
@@ -2618,7 +2623,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![0],
 				None,
 			);
@@ -2644,7 +2649,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![0],
 				None,
 			);
@@ -2688,7 +2693,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![0],
 				None,
 			);
@@ -2714,7 +2719,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![0],
 				None,
 			);
@@ -2740,7 +2745,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				1,
+				1u64.into(),
 				vec![0],
 				None,
 			);
@@ -2784,7 +2789,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![0],
 				None,
 			);
@@ -2829,7 +2834,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			);
@@ -2854,7 +2859,7 @@ mod tests {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					0, // <- zero value
+					U256::zero(), // <- zero value
 					vec![],
 					Some(&[0; 32]),
 					None,
@@ -2889,8 +2894,7 @@ mod tests {
 						executable,
 						&mut gas_meter,
 						&mut storage_meter,
-
-						min_balance,
+						min_balance.into(),
 						vec![],
 						Some(&[0 ;32]),
 						None,
@@ -2945,7 +2949,7 @@ mod tests {
 						&mut gas_meter,
 						&mut storage_meter,
 
-						min_balance,
+						min_balance.into(),
 						vec![],
 						Some(&[0; 32]),
 						None,
@@ -3010,7 +3014,7 @@ mod tests {
 						BOB_ADDR,
 						&mut GasMeter::<Test>::new(GAS_LIMIT),
 						&mut storage_meter,
-						min_balance * 10,
+						(min_balance * 10).into(),
 						vec![],
 						None,
 					),
@@ -3090,7 +3094,7 @@ mod tests {
 						BOB_ADDR,
 						&mut GasMeter::<Test>::new(GAS_LIMIT),
 						&mut storage_meter,
-						0,
+						U256::zero(),
 						vec![],
 						None,
 					),
@@ -3132,7 +3136,7 @@ mod tests {
 						executable,
 						&mut gas_meter,
 						&mut storage_meter,
-						100,
+						100u64.into(),
 						vec![],
 						Some(&[0; 32]),
 						None,
@@ -3197,7 +3201,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![0],
 				None,
 			);
@@ -3258,7 +3262,7 @@ mod tests {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					10,
+					10u64.into(),
 					vec![],
 					Some(&[0; 32]),
 					None,
@@ -3305,7 +3309,7 @@ mod tests {
 					BOB_ADDR,
 					&mut gas_meter,
 					&mut storage_meter,
-					0,
+					U256::zero(),
 					vec![],
 					None,
 				)
@@ -3336,7 +3340,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				Some(&mut debug_buffer),
 			)
@@ -3369,7 +3373,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				Some(&mut debug_buffer),
 			);
@@ -3402,7 +3406,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				Some(&mut debug_buf_after),
 			)
@@ -3435,7 +3439,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				CHARLIE_ADDR.as_bytes().to_vec(),
 				None,
 			));
@@ -3447,7 +3451,7 @@ mod tests {
 					BOB_ADDR,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					0,
+					U256::zero(),
 					BOB_ADDR.as_bytes().to_vec(),
 					None,
 				)
@@ -3497,7 +3501,7 @@ mod tests {
 					BOB_ADDR,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					0,
+					U256::zero(),
 					vec![0],
 					None,
 				)
@@ -3531,7 +3535,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			)
@@ -3615,7 +3619,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			)
@@ -3740,7 +3744,7 @@ mod tests {
 					fail_executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					min_balance * 100,
+					(min_balance * 100).into(),
 					vec![],
 					Some(&[0; 32]),
 					None,
@@ -3753,7 +3757,7 @@ mod tests {
 					success_executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					min_balance * 100,
+					(min_balance * 100).into(),
 					vec![],
 					Some(&[0; 32]),
 					None,
@@ -3765,7 +3769,7 @@ mod tests {
 					succ_fail_executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					min_balance * 200,
+					(min_balance * 200).into(),
 					vec![],
 					Some(&[0; 32]),
 					None,
@@ -3777,7 +3781,7 @@ mod tests {
 					succ_succ_executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					min_balance * 200,
+					(min_balance * 200).into(),
 					vec![],
 					Some(&[0; 32]),
 					None,
@@ -3846,7 +3850,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			));
@@ -3957,7 +3961,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			));
@@ -3996,7 +4000,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			));
@@ -4035,7 +4039,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			));
@@ -4088,7 +4092,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			));
@@ -4144,7 +4148,7 @@ mod tests {
 				BOB_ADDR,
 				&mut gas_meter,
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			));
@@ -4219,7 +4223,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			));
@@ -4289,7 +4293,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![0],
 				None,
 			);
@@ -4327,7 +4331,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			));
@@ -4389,7 +4393,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![0],
 				None,
 			);
@@ -4422,7 +4426,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			);
@@ -4505,7 +4509,7 @@ mod tests {
 					BOB_ADDR,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					0,
+					U256::zero(),
 					vec![],
 					None,
 				)
@@ -4573,7 +4577,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![0],
 				None,
 			);
@@ -4639,7 +4643,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			);
@@ -4690,7 +4694,7 @@ mod tests {
 					BOB_ADDR,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					0,
+					U256::zero(),
 					vec![],
 					None,
 				)
@@ -4761,7 +4765,7 @@ mod tests {
 					BOB_ADDR,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					0,
+					U256::zero(),
 					vec![],
 					None,
 				)
@@ -4807,7 +4811,7 @@ mod tests {
 					BOB_ADDR,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					0,
+					U256::zero(),
 					vec![],
 					None,
 				)
@@ -4851,7 +4855,7 @@ mod tests {
 					BOB_ADDR,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					0,
+					U256::zero(),
 					vec![],
 					None,
 				)
@@ -4906,7 +4910,7 @@ mod tests {
 					BOB_ADDR,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					0,
+					U256::zero(),
 					vec![0],
 					None,
 				),

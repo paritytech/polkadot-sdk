@@ -73,7 +73,7 @@ use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Saturating},
+	traits::{BadOrigin, Convert, Dispatchable, Saturating, Zero},
 	DispatchError,
 };
 
@@ -379,7 +379,7 @@ pub mod pallet {
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<0>;
-			type NativeToEthRatio = ConstU32<1_000_000>;
+			type NativeToEthRatio = ConstU32<1>;
 		}
 	}
 
@@ -561,6 +561,8 @@ pub mod pallet {
 		ExecutionFailed,
 		/// Failed to convert a U256 to a Balance.
 		BalanceConversionFailed,
+		/// Failed to convert an EVM balance to a native balance.
+		DecimalPrecisionLoss,
 		/// Immutable data can only be set during deploys and only be read during calls.
 		/// Additionally, it is only valid to set the data once and it must not be empty.
 		InvalidImmutableAccess,
@@ -1115,7 +1117,7 @@ where
 				dest,
 				&mut gas_meter,
 				&mut storage_meter,
-				value,
+				Self::convert_native_to_evm(value),
 				data,
 				debug_message.as_mut(),
 			)?;
@@ -1180,7 +1182,7 @@ where
 				executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				value,
+				Self::convert_native_to_evm(value),
 				data,
 				salt.as_ref(),
 				debug_message.as_mut(),
@@ -1436,6 +1438,25 @@ where
 				.map(|_| f())
 				.and_then(|r| r)
 		})
+	}
+
+	/// Convert a native balance to EVM balance.
+	pub fn convert_native_to_evm(value: BalanceOf<T>) -> U256 {
+		value.into().saturating_mul(T::NativeToEthRatio::get().into())
+	}
+
+	/// Convert an EVM balance to a native balance.
+	pub fn convert_evm_to_native(value: U256) -> Result<BalanceOf<T>, Error<T>> {
+		if value.is_zero() {
+			return Ok(Zero::zero())
+		}
+		let ratio = T::NativeToEthRatio::get().into();
+		let res = value.checked_div(ratio).expect("divisor is non-zero; qed");
+		if res.saturating_mul(ratio) == value {
+			res.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)
+		} else {
+			Err(Error::<T>::DecimalPrecisionLoss)
+		}
 	}
 }
 
