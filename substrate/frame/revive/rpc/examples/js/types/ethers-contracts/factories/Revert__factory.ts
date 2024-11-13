@@ -2,30 +2,30 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import { Contract, Interface, type ContractRunner } from "ethers";
-import type { Revert, RevertInterface } from "../Revert";
+import { Contract, Interface, type ContractRunner } from 'ethers'
+import type { Revert, RevertInterface } from '../Revert'
 
 const _abi = [
-  {
-    inputs: [],
-    stateMutability: "nonpayable",
-    type: "constructor",
-  },
-  {
-    inputs: [],
-    name: "doRevert",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-] as const;
+	{
+		inputs: [],
+		stateMutability: 'nonpayable',
+		type: 'constructor',
+	},
+	{
+		inputs: [],
+		name: 'doRevert',
+		outputs: [],
+		stateMutability: 'nonpayable',
+		type: 'function',
+	},
+] as const
 
 export class Revert__factory {
-  static readonly abi = _abi;
-  static createInterface(): RevertInterface {
-    return new Interface(_abi) as RevertInterface;
-  }
-  static connect(address: string, runner?: ContractRunner | null): Revert {
-    return new Contract(address, _abi, runner) as unknown as Revert;
-  }
+	static readonly abi = _abi
+	static createInterface(): RevertInterface {
+		return new Interface(_abi) as RevertInterface
+	}
+	static connect(address: string, runner?: ContractRunner | null): Revert {
+		return new Contract(address, _abi, runner) as unknown as Revert
+	}
 }

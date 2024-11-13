@@ -2,83 +2,77 @@
 /* tslint:disable */
 /* eslint-disable */
 import type {
-  BaseContract,
-  BytesLike,
-  FunctionFragment,
-  Result,
-  Interface,
-  ContractRunner,
-  ContractMethod,
-  Listener,
-} from "ethers";
+	BaseContract,
+	BytesLike,
+	FunctionFragment,
+	Result,
+	Interface,
+	ContractRunner,
+	ContractMethod,
+	Listener,
+} from 'ethers'
 import type {
-  TypedContractEvent,
-  TypedDeferredTopicFilter,
-  TypedEventLog,
-  TypedListener,
-  TypedContractMethod,
-} from "./common";
+	TypedContractEvent,
+	TypedDeferredTopicFilter,
+	TypedEventLog,
+	TypedListener,
+	TypedContractMethod,
+} from './common'
 
 export interface RevertInterface extends Interface {
-  getFunction(nameOrSignature: "doRevert"): FunctionFragment;
+	getFunction(nameOrSignature: 'doRevert'): FunctionFragment
 
-  encodeFunctionData(functionFragment: "doRevert", values?: undefined): string;
+	encodeFunctionData(functionFragment: 'doRevert', values?: undefined): string
 
-  decodeFunctionResult(functionFragment: "doRevert", data: BytesLike): Result;
+	decodeFunctionResult(functionFragment: 'doRevert', data: BytesLike): Result
 }
 
 export interface Revert extends BaseContract {
-  connect(runner?: ContractRunner | null): Revert;
-  waitForDeployment(): Promise<this>;
+	connect(runner?: ContractRunner | null): Revert
+	waitForDeployment(): Promise<this>
 
-  interface: RevertInterface;
+	interface: RevertInterface
 
-  queryFilter<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
-    fromBlockOrBlockhash?: string | number | undefined,
-    toBlock?: string | number | undefined
-  ): Promise<Array<TypedEventLog<TCEvent>>>;
-  queryFilter<TCEvent extends TypedContractEvent>(
-    filter: TypedDeferredTopicFilter<TCEvent>,
-    fromBlockOrBlockhash?: string | number | undefined,
-    toBlock?: string | number | undefined
-  ): Promise<Array<TypedEventLog<TCEvent>>>;
+	queryFilter<TCEvent extends TypedContractEvent>(
+		event: TCEvent,
+		fromBlockOrBlockhash?: string | number | undefined,
+		toBlock?: string | number | undefined
+	): Promise<Array<TypedEventLog<TCEvent>>>
+	queryFilter<TCEvent extends TypedContractEvent>(
+		filter: TypedDeferredTopicFilter<TCEvent>,
+		fromBlockOrBlockhash?: string | number | undefined,
+		toBlock?: string | number | undefined
+	): Promise<Array<TypedEventLog<TCEvent>>>
 
-  on<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
-  on<TCEvent extends TypedContractEvent>(
-    filter: TypedDeferredTopicFilter<TCEvent>,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
+	on<TCEvent extends TypedContractEvent>(
+		event: TCEvent,
+		listener: TypedListener<TCEvent>
+	): Promise<this>
+	on<TCEvent extends TypedContractEvent>(
+		filter: TypedDeferredTopicFilter<TCEvent>,
+		listener: TypedListener<TCEvent>
+	): Promise<this>
 
-  once<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
-  once<TCEvent extends TypedContractEvent>(
-    filter: TypedDeferredTopicFilter<TCEvent>,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
+	once<TCEvent extends TypedContractEvent>(
+		event: TCEvent,
+		listener: TypedListener<TCEvent>
+	): Promise<this>
+	once<TCEvent extends TypedContractEvent>(
+		filter: TypedDeferredTopicFilter<TCEvent>,
+		listener: TypedListener<TCEvent>
+	): Promise<this>
 
-  listeners<TCEvent extends TypedContractEvent>(
-    event: TCEvent
-  ): Promise<Array<TypedListener<TCEvent>>>;
-  listeners(eventName?: string): Promise<Array<Listener>>;
-  removeAllListeners<TCEvent extends TypedContractEvent>(
-    event?: TCEvent
-  ): Promise<this>;
+	listeners<TCEvent extends TypedContractEvent>(
+		event: TCEvent
+	): Promise<Array<TypedListener<TCEvent>>>
+	listeners(eventName?: string): Promise<Array<Listener>>
+	removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>
 
-  doRevert: TypedContractMethod<[], [void], "nonpayable">;
+	doRevert: TypedContractMethod<[], [void], 'nonpayable'>
 
-  getFunction<T extends ContractMethod = ContractMethod>(
-    key: string | FunctionFragment
-  ): T;
+	getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T
 
-  getFunction(
-    nameOrSignature: "doRevert"
-  ): TypedContractMethod<[], [void], "nonpayable">;
+	getFunction(nameOrSignature: 'doRevert'): TypedContractMethod<[], [void], 'nonpayable'>
 
-  filters: {};
+	filters: {}
 }

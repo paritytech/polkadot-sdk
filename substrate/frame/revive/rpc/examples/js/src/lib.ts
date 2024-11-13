@@ -59,8 +59,8 @@ export const provider = new JsonRpcProvider(
 	westend
 		? 'https://westend-asset-hub-eth-rpc.polkadot.io'
 		: geth
-		? 'http://localhost:8546'
-		: 'http://localhost:8545'
+			? 'http://localhost:8546'
+			: 'http://localhost:8545'
 )
 
 export const signer = privateKey ? new Wallet(privateKey, provider) : await provider.getSigner()
