@@ -307,7 +307,15 @@ impl WeightInfo for () {
 		// Minimum execution time: 20_055_000 picoseconds.
 		Weight::from_parts(20_711_000, 0)
 	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn magic_mint_experimental() -> Weight {
-		Weight::zero()
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 47_552_000 picoseconds.
+		Weight::from_parts(48_363_000, 3593)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
