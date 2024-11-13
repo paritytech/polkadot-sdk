@@ -21,7 +21,7 @@
 
 use crate::{types::*, *};
 use alloc::{vec, vec::Vec};
-use frame_benchmarking::{v2::*, whitelist_account, BenchmarkError};
+use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
 	traits::{Currency, EnsureOrigin, Get, Hooks},
@@ -97,15 +97,13 @@ mod benchmarks {
 	use super::*;
 	// on_idle, we don't check anyone, but fully unbond them.
 	#[benchmark]
-	fn on_idle_unstake(b: Linear<1, {T::BatchSize::get()}>) {
+	fn on_idle_unstake(b: Linear<1, { T::BatchSize::get() }>) {
 		ErasToCheckPerBlock::<T>::put(1);
 		for who in create_unexposed_batch::<T>(b).into_iter() {
-			assert_ok!(Pallet::<T>::register_fast_unstake(
-				RawOrigin::Signed(who.clone()).into(),
-			));
+			assert_ok!(Pallet::<T>::register_fast_unstake(RawOrigin::Signed(who.clone()).into(),));
 		}
 
-		// run on_idle once. This will check era 0.
+		// Run on_idle once. This will check era 0.
 		assert_eq!(Head::<T>::get(), None);
 		on_idle_full_block::<T>();
 
@@ -129,9 +127,10 @@ mod benchmarks {
 		));
 	}
 
-	// on_idle, when we check some number of eras and the queue is already set.
 	#[benchmark]
-	fn on_idle_check(v: Linear<1, 256>, b: Linear<1, {T::BatchSize::get()}>) {
+	fn on_idle_check(v: Linear<1, 256>, b: Linear<1, { T::BatchSize::get() }>) {
+		// on_idle: When we check some number of eras and the queue is already set.
+
 		let u = T::MaxErasToCheckPerBlock::get().min(T::Staking::bonding_duration());
 
 		ErasToCheckPerBlock::<T>::put(u);
@@ -140,17 +139,23 @@ mod benchmarks {
 		// setup staking with v validators and u eras of data (0..=u+1)
 		setup_staking::<T>(v, u);
 
-		let stashes = create_unexposed_batch::<T>(b).into_iter().map(|s| {
-			assert_ok!(Pallet::<T>::register_fast_unstake(
-				RawOrigin::Signed(s.clone()).into(),
-			));
-			(s, T::Deposit::get())
-		}).collect::<Vec<_>>();
+		let stashes = create_unexposed_batch::<T>(b)
+			.into_iter()
+			.map(|s| {
+				assert_ok!(
+					Pallet::<T>::register_fast_unstake(RawOrigin::Signed(s.clone()).into(),)
+				);
+				(s, T::Deposit::get())
+			})
+			.collect::<Vec<_>>();
 
 		// no one is queued thus far.
 		assert_eq!(Head::<T>::get(), None);
 
-		Head::<T>::put(UnstakeRequest { stashes: stashes.clone().try_into().unwrap(), checked: Default::default() });
+		Head::<T>::put(UnstakeRequest {
+			stashes: stashes.clone().try_into().unwrap(),
+			checked: Default::default(),
+		});
 
 		#[block]
 		{
@@ -160,10 +165,7 @@ mod benchmarks {
 		let checked = (1..=u).rev().collect::<Vec<EraIndex>>();
 		let request = Head::<T>::get().unwrap();
 		assert_eq!(checked, request.checked.into_inner());
-		assert!(matches!(
-			fast_unstake_events::<T>().last(),
-			Some(Event::BatchChecked { .. })
-		));
+		assert!(matches!(fast_unstake_events::<T>().last(), Some(Event::BatchChecked { .. })));
 		assert!(stashes.iter().all(|(s, _)| request.stashes.iter().any(|(ss, _)| ss == s)));
 	}
 
@@ -175,7 +177,7 @@ mod benchmarks {
 		assert_eq!(Queue::<T>::count(), 0);
 
 		#[extrinsic_call]
-		(RawOrigin::Signed(who.clone()));
+		_(RawOrigin::Signed(who.clone()));
 
 		assert_eq!(Queue::<T>::count(), 1);
 	}
@@ -184,14 +186,12 @@ mod benchmarks {
 	fn deregister() {
 		ErasToCheckPerBlock::<T>::put(1);
 		let who = create_unexposed_batch::<T>(1).get(0).cloned().unwrap();
-		assert_ok!(Pallet::<T>::register_fast_unstake(
-			RawOrigin::Signed(who.clone()).into(),
-		));
+		assert_ok!(Pallet::<T>::register_fast_unstake(RawOrigin::Signed(who.clone()).into(),));
 		assert_eq!(Queue::<T>::count(), 1);
 		whitelist_account!(who);
 
 		#[extrinsic_call]
-		(RawOrigin::Signed(who.clone()));
+		_(RawOrigin::Signed(who.clone()));
 
 		assert_eq!(Queue::<T>::count(), 0);
 	}
@@ -202,8 +202,9 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_<T::RuntimeOrigin>(origin, T::MaxErasToCheckPerBlock::get())
+		_(origin as T::RuntimeOrigin, T::MaxErasToCheckPerBlock::get());
 
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(Pallet, mock::ExtBuilder::default().build(), mock::Runtime);
