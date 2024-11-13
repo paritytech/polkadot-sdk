@@ -18,7 +18,8 @@ use super::*;
 use assert_matches::assert_matches;
 use polkadot_node_subsystem_util::inclusion_emulator::InboundHrmpLimitations;
 use polkadot_primitives::{
-	BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData, Id as ParaId,
+	vstaging::MutateDescriptorV2, BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData,
+	Id as ParaId,
 };
 use polkadot_primitives_test_helpers as test_helpers;
 use rand::{seq::SliceRandom, thread_rng};
@@ -70,10 +71,11 @@ fn make_committed_candidate(
 			persisted_validation_data_hash: persisted_validation_data.hash(),
 			pov_hash: Hash::repeat_byte(1),
 			erasure_root: Hash::repeat_byte(1),
-			signature: test_helpers::dummy_collator_signature(),
+			signature: test_helpers::zero_collator_signature(),
 			para_head: para_head.hash(),
 			validation_code_hash: Hash::repeat_byte(42).into(),
-		},
+		}
+		.into(),
 		commitments: CandidateCommitments {
 			upward_messages: Default::default(),
 			horizontal_messages: Default::default(),
@@ -283,7 +285,7 @@ fn candidate_storage_methods() {
 		candidate.commitments.head_data = HeadData(vec![1; 10]);
 		let mut pvd = pvd.clone();
 		pvd.parent_head = HeadData(vec![1; 10]);
-		candidate.descriptor.persisted_validation_data_hash = pvd.hash();
+		candidate.descriptor.set_persisted_validation_data_hash(pvd.hash());
 		assert_matches!(
 			CandidateEntry::new_seconded(candidate_hash, candidate, pvd),
 			Err(CandidateEntryError::ZeroLengthCycle)
@@ -291,7 +293,7 @@ fn candidate_storage_methods() {
 	}
 	assert!(!storage.contains(&candidate_hash));
 	assert_eq!(storage.possible_backed_para_children(&parent_head_hash).count(), 0);
-	assert_eq!(storage.head_data_by_hash(&candidate.descriptor.para_head), None);
+	assert_eq!(storage.head_data_by_hash(&candidate.descriptor.para_head()), None);
 	assert_eq!(storage.head_data_by_hash(&parent_head_hash), None);
 
 	// Add a valid candidate.
@@ -305,9 +307,9 @@ fn candidate_storage_methods() {
 	storage.add_candidate_entry(candidate_entry.clone()).unwrap();
 	assert!(storage.contains(&candidate_hash));
 	assert_eq!(storage.possible_backed_para_children(&parent_head_hash).count(), 0);
-	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head).count(), 0);
+	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head()).count(), 0);
 	assert_eq!(
-		storage.head_data_by_hash(&candidate.descriptor.para_head).unwrap(),
+		storage.head_data_by_hash(&candidate.descriptor.para_head()).unwrap(),
 		&candidate.commitments.head_data
 	);
 	assert_eq!(storage.head_data_by_hash(&parent_head_hash).unwrap(), &pvd.parent_head);
@@ -323,7 +325,7 @@ fn candidate_storage_methods() {
 			.collect::<Vec<_>>(),
 		vec![candidate_hash]
 	);
-	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head).count(), 0);
+	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head()).count(), 0);
 
 	// Re-adding a candidate fails.
 	assert_matches!(
@@ -339,7 +341,7 @@ fn candidate_storage_methods() {
 	storage.remove_candidate(&candidate_hash);
 	assert!(!storage.contains(&candidate_hash));
 	assert_eq!(storage.possible_backed_para_children(&parent_head_hash).count(), 0);
-	assert_eq!(storage.head_data_by_hash(&candidate.descriptor.para_head), None);
+	assert_eq!(storage.head_data_by_hash(&candidate.descriptor.para_head()), None);
 	assert_eq!(storage.head_data_by_hash(&parent_head_hash), None);
 
 	storage
@@ -354,7 +356,7 @@ fn candidate_storage_methods() {
 			.collect::<Vec<_>>(),
 		vec![candidate_hash]
 	);
-	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head).count(), 0);
+	assert_eq!(storage.possible_backed_para_children(&candidate.descriptor.para_head()).count(), 0);
 
 	// Now add a second candidate in Seconded state. This will be a fork.
 	let (pvd_2, candidate_2) = make_committed_candidate(
@@ -1163,8 +1165,9 @@ fn test_populate_and_check_potential() {
 		Err(Error::CandidateAlreadyKnown)
 	);
 
-	// Simulate a best chain reorg by backing a2.
+	// Simulate some best chain reorgs.
 	{
+		// Back A2. The reversion should happen right at the root.
 		let mut chain = chain.clone();
 		chain.candidate_backed(&candidate_a2_hash);
 		assert_eq!(chain.best_chain_vec(), vec![candidate_a2_hash, candidate_b2_hash]);
@@ -1182,6 +1185,66 @@ fn test_populate_and_check_potential() {
 		assert_matches!(
 			chain.can_add_candidate_as_potential(&candidate_a_entry),
 			Err(Error::ForkChoiceRule(_))
+		);
+
+		// Simulate a more complex chain reorg.
+		// A2 points to B2, which is backed.
+		// A2 has underneath a subtree A2 -> B2 -> C3 and A2 -> B2 -> C4. B2 and C3 are backed. C4
+		// is kept because it has a lower candidate hash than C3. Backing C4 will cause a chain
+		// reorg.
+
+		// Candidate C3.
+		let (pvd_c3, candidate_c3) = make_committed_candidate(
+			para_id,
+			relay_parent_y_info.hash,
+			relay_parent_y_info.number,
+			vec![0xb4].into(),
+			vec![0xc2].into(),
+			relay_parent_y_info.number,
+		);
+		let candidate_c3_hash = candidate_c3.hash();
+		let candidate_c3_entry =
+			CandidateEntry::new(candidate_c3_hash, candidate_c3, pvd_c3, CandidateState::Seconded)
+				.unwrap();
+
+		// Candidate C4.
+		let (pvd_c4, candidate_c4) = make_committed_candidate(
+			para_id,
+			relay_parent_y_info.hash,
+			relay_parent_y_info.number,
+			vec![0xb4].into(),
+			vec![0xc3].into(),
+			relay_parent_y_info.number,
+		);
+		let candidate_c4_hash = candidate_c4.hash();
+		// C4 should have a lower candidate hash than C3.
+		assert_eq!(fork_selection_rule(&candidate_c4_hash, &candidate_c3_hash), Ordering::Less);
+		let candidate_c4_entry =
+			CandidateEntry::new(candidate_c4_hash, candidate_c4, pvd_c4, CandidateState::Seconded)
+				.unwrap();
+
+		let mut storage = storage.clone();
+		storage.add_candidate_entry(candidate_c3_entry).unwrap();
+		storage.add_candidate_entry(candidate_c4_entry).unwrap();
+		let mut chain = populate_chain_from_previous_storage(&scope, &storage);
+		chain.candidate_backed(&candidate_a2_hash);
+		chain.candidate_backed(&candidate_c3_hash);
+
+		assert_eq!(
+			chain.best_chain_vec(),
+			vec![candidate_a2_hash, candidate_b2_hash, candidate_c3_hash]
+		);
+
+		// Backing C4 will cause a reorg.
+		chain.candidate_backed(&candidate_c4_hash);
+		assert_eq!(
+			chain.best_chain_vec(),
+			vec![candidate_a2_hash, candidate_b2_hash, candidate_c4_hash]
+		);
+
+		assert_eq!(
+			chain.unconnected().map(|c| c.candidate_hash).collect::<HashSet<_>>(),
+			[candidate_f_hash].into_iter().collect()
 		);
 	}
 

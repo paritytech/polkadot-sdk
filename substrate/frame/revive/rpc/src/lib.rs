@@ -24,7 +24,7 @@ use jsonrpsee::{
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::{evm::*, EthContractResult};
-use sp_core::{H160, H256, U256};
+use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
 
 pub mod cli;
@@ -34,6 +34,9 @@ pub mod subxt_client;
 
 #[cfg(test)]
 mod tests;
+
+mod rpc_health;
+pub use rpc_health::*;
 
 mod rpc_methods_gen;
 pub use rpc_methods_gen::*;
@@ -88,13 +91,13 @@ pub enum EthRpcError {
 	TransactionTypeNotSupported(Byte),
 }
 
+// TODO use https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<EthRpcError> for ErrorObjectOwned {
 	fn from(value: EthRpcError) -> Self {
-		let code = match value {
-			EthRpcError::ClientError(_) => ErrorCode::InternalError,
-			_ => ErrorCode::InvalidRequest,
-		};
-		Self::owned::<String>(code.code(), value.to_string(), None)
+		match value {
+			EthRpcError::ClientError(err) => Self::from(err),
+			_ => Self::owned::<String>(ErrorCode::InvalidRequest.code(), value.to_string(), None),
+		}
 	}
 }
 
@@ -118,6 +121,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
+		log::debug!(target: LOG_TARGET, "transaction_receipt for {transaction_hash:?}: {}", receipt.is_some());
 		Ok(receipt)
 	}
 
@@ -131,6 +135,8 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
+		let hash = H256(keccak_256(&transaction.0));
+
 		let tx = rlp::decode::<TransactionLegacySigned>(&transaction.0).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
 			EthRpcError::from(err)
@@ -163,7 +169,8 @@ impl EthRpcServer for EthRpcServerImpl {
 			gas_required.into(),
 			storage_deposit,
 		);
-		let hash = self.client.submit(call).await?;
+		self.client.submit(call).await?;
+		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
 		Ok(hash)
 	}
 
@@ -249,12 +256,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			.client
 			.dry_run(&transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
 			.await?;
-		let output = dry_run.result.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Dry run failed: {err:?}");
-			ClientError::DryRunFailed
-		})?;
-
-		Ok(output.into())
+		Ok(dry_run.result.into())
 	}
 
 	async fn get_block_by_number(
