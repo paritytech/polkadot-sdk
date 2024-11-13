@@ -2,27 +2,7 @@ title: Add litep2p network protocol benches
 doc:
 - audience: Node Dev
   description: |-
-    # Description
-
-    Add support to run networking protocol benchmarks with litep2p backend.
-
-    Now we can compare the work of both libp2p and litep2p backends for notifications and request-response protocols.
-
-    Next step: extract worker initialization from the benchmark loop.
-
-    ### Example run on local machine
-    <img width="916" alt="image" src="https://github.com/user-attachments/assets/6bb9f90a-76a4-417e-b9d3-db27aa8a356f">
-
-
-    ## Integration
-
-    Does not affect downstream projects.
-
-    ## Review Notes
-
-    https://github.com/paritytech/polkadot-sdk/blob/d4d9502538e8a940b809ecc77843af3cea101e19/substrate/client/network/src/litep2p/service.rs#L510-L520
-
-    This method should be implemented to run request benchmarks.
+    Adds networking protocol benchmarks with litep2p backend
 crates:
 - name: sc-network
   validate: false
