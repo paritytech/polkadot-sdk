@@ -19,6 +19,7 @@ use crate::{limits::BlockWeights, Config, Pallet, LOG_TARGET};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
+	pallet_prelude::TransactionSource,
 	traits::Get,
 };
 use scale_info::TypeInfo;
@@ -231,8 +232,17 @@ where
 		_call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
 		Self::do_validate(info, len)
+=======
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		let (validity, next_len) = Self::do_validate(info, len)?;
+		Ok((validity, next_len, origin))
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 	}
 
 	fn pre_dispatch_unsigned(

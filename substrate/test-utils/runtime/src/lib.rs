@@ -285,7 +285,17 @@ impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
+=======
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> Result<
+		(ValidTransaction, Self::Val, <RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		log::trace!(target: LOG_TARGET, "validate");
 		match call {
 			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
@@ -1050,8 +1060,13 @@ mod tests {
 	use sp_consensus::BlockOrigin;
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_runtime::{
+<<<<<<< HEAD
 		traits::{Hash as _, SignedExtension},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
+=======
+		traits::{DispatchTransaction, Hash as _},
+		transaction_validity::{InvalidTransaction, TransactionSource::External, ValidTransaction},
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 	};
 	use substrate_test_runtime_client::{
 		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,
@@ -1208,7 +1223,12 @@ mod tests {
 						&x,
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
+<<<<<<< HEAD
 						len
+=======
+						len,
+						External,
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 					)
 					.unwrap()
 					.priority,
@@ -1221,7 +1241,12 @@ mod tests {
 						&x,
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
+<<<<<<< HEAD
 						len
+=======
+						len,
+						External,
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 					)
 					.unwrap()
 					.propagate,

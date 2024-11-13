@@ -303,6 +303,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				call: &Self::Call,
 				_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
 				_len: usize,
+<<<<<<< HEAD
 			) -> sp_runtime::transaction_validity::TransactionValidity {
 				let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
 				let to_prepare = ();
@@ -317,6 +318,20 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				)*
 				Ok(tx_validity)
 			}
+=======
+				_self_implicit: Self::Implicit,
+				_inherited_implication: &impl codec::Encode,
+				_source: sp_runtime::transaction_validity::TransactionSource,
+			) -> Result<
+				(
+					sp_runtime::transaction_validity::ValidTransaction,
+					Self::Val,
+					<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				), sp_runtime::transaction_validity::TransactionValidityError
+			> {
+				use $crate::extensions::__private::tuplex::PushBack;
+				use sp_runtime::traits::AsSystemOriginSigner;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 
 			#[allow(unused_variables)]
 			fn pre_dispatch(
@@ -384,8 +399,18 @@ mod tests {
 	use pallet_bridge_grandpa::{Call as GrandpaCall, StoredAuthoritySet};
 	use pallet_bridge_parachains::Call as ParachainsCall;
 	use sp_runtime::{
+<<<<<<< HEAD
 		traits::{parameter_types, ConstU64, Header as _, SignedExtension},
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+=======
+		traits::{
+			parameter_types, AsSystemOriginSigner, AsTransactionAuthorizedOrigin, ConstU64,
+			DispatchTransaction, Header as _, TransactionExtension,
+		},
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidity, ValidTransaction,
+		},
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		DispatchError,
 	};
 
@@ -579,7 +604,17 @@ mod tests {
 
 		run_test(|| {
 			assert_err!(
+<<<<<<< HEAD
 				BridgeRejectObsoleteHeadersAndMessages.validate(&42, &MockCall { data: 1 }, &(), 0),
+=======
+				BridgeRejectObsoleteHeadersAndMessages.validate_only(
+					42u64.into(),
+					&MockCall { data: 1 },
+					&(),
+					0,
+					External,
+				),
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 				InvalidTransaction::Custom(1)
 			);
 			assert_err!(
@@ -593,7 +628,17 @@ mod tests {
 			);
 
 			assert_err!(
+<<<<<<< HEAD
 				BridgeRejectObsoleteHeadersAndMessages.validate(&42, &MockCall { data: 2 }, &(), 0),
+=======
+				BridgeRejectObsoleteHeadersAndMessages.validate_only(
+					42u64.into(),
+					&MockCall { data: 2 },
+					&(),
+					0,
+					External,
+				),
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 				InvalidTransaction::Custom(2)
 			);
 			assert_err!(
@@ -608,8 +653,14 @@ mod tests {
 
 			assert_eq!(
 				BridgeRejectObsoleteHeadersAndMessages
+<<<<<<< HEAD
 					.validate(&42, &MockCall { data: 3 }, &(), 0)
 					.unwrap(),
+=======
+					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0, External)
+					.unwrap()
+					.0,
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 				ValidTransaction { priority: 3, ..Default::default() },
 			);
 			assert_eq!(

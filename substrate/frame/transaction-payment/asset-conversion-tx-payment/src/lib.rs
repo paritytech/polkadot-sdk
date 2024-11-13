@@ -47,6 +47,7 @@ extern crate alloc;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
+	pallet_prelude::TransactionSource,
 	traits::IsType,
 	DefaultNoBound,
 };
@@ -231,9 +232,22 @@ where
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
 		use pallet_transaction_payment::ChargeTransactionPayment;
 		let (fee, _) = self.withdraw_fee(who, call, info, len)?;
+=======
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		let Some(who) = origin.as_system_origin_signer() else {
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin))
+		};
+		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
+		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
+		self.can_withdraw_fee(&who, call, info, fee)?;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
 		Ok(ValidTransaction { priority, ..Default::default() })
 	}

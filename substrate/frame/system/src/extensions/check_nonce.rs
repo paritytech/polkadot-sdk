@@ -18,7 +18,13 @@
 use crate::Config;
 use alloc::vec;
 use codec::{Decode, Encode};
+<<<<<<< HEAD
 use frame_support::dispatch::DispatchInfo;
+=======
+use frame_support::{
+	dispatch::DispatchInfo, pallet_prelude::TransactionSource, RuntimeDebugNoBound,
+};
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, Zero},
@@ -78,8 +84,19 @@ where
 		_call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
+<<<<<<< HEAD
 	) -> Result<(), TransactionValidityError> {
 		let mut account = crate::Account::<T>::get(who);
+=======
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		let Some(who) = origin.as_system_origin_signer() else {
+			return Ok((Default::default(), Val::Refund(self.weight(call)), origin))
+		};
+		let account = crate::Account::<T>::get(who);
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		if account.providers.is_zero() && account.sufficients.is_zero() {
 			// Nonce storage not paid for
 			return Err(InvalidTransaction::Payment.into())
@@ -133,8 +150,19 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+<<<<<<< HEAD
 	use crate::mock::{new_test_ext, Test, CALL};
 	use frame_support::{assert_noop, assert_ok};
+=======
+	use crate::mock::{new_test_ext, RuntimeCall, Test, CALL};
+	use frame_support::{
+		assert_ok, assert_storage_noop, dispatch::GetDispatchInfo, traits::OriginTrait,
+	};
+	use sp_runtime::{
+		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction},
+		transaction_validity::TransactionSource::External,
+	};
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 
 	#[test]
 	fn signed_ext_check_nonce_works() {
@@ -152,6 +180,7 @@ mod tests {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			// stale
+<<<<<<< HEAD
 			assert_noop!(
 				CheckNonce::<Test>(0u64.into()).validate(&1, CALL, &info, len),
 				InvalidTransaction::Stale
@@ -168,6 +197,49 @@ mod tests {
 			assert_noop!(
 				CheckNonce::<Test>(5u64.into()).pre_dispatch(&1, CALL, &info, len),
 				InvalidTransaction::Future
+=======
+			assert_storage_noop!({
+				assert_eq!(
+					CheckNonce::<Test>(0u64.into())
+						.validate_only(Some(1).into(), CALL, &info, len, External)
+						.unwrap_err(),
+					TransactionValidityError::Invalid(InvalidTransaction::Stale)
+				);
+				assert_eq!(
+					CheckNonce::<Test>(0u64.into())
+						.validate_and_prepare(Some(1).into(), CALL, &info, len)
+						.unwrap_err(),
+					TransactionValidityError::Invalid(InvalidTransaction::Stale)
+				);
+			});
+			// correct
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				Some(1).into(),
+				CALL,
+				&info,
+				len,
+				External,
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
+				Some(1).into(),
+				CALL,
+				&info,
+				len
+			));
+			// future
+			assert_ok!(CheckNonce::<Test>(5u64.into()).validate_only(
+				Some(1).into(),
+				CALL,
+				&info,
+				len,
+				External,
+			));
+			assert_eq!(
+				CheckNonce::<Test>(5u64.into())
+					.validate_and_prepare(Some(1).into(), CALL, &info, len)
+					.unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Future)
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 			);
 		})
 	}
@@ -198,6 +270,7 @@ mod tests {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			// Both providers and sufficients zero
+<<<<<<< HEAD
 			assert_noop!(
 				CheckNonce::<Test>(1u64.into()).validate(&1, CALL, &info, len),
 				InvalidTransaction::Payment
@@ -212,6 +285,137 @@ mod tests {
 			// Non-zero sufficients
 			assert_ok!(CheckNonce::<Test>(1u64.into()).validate(&3, CALL, &info, len));
 			assert_ok!(CheckNonce::<Test>(1u64.into()).pre_dispatch(&3, CALL, &info, len));
+=======
+			assert_storage_noop!({
+				assert_eq!(
+					CheckNonce::<Test>(1u64.into())
+						.validate_only(Some(1).into(), CALL, &info, len, External)
+						.unwrap_err(),
+					TransactionValidityError::Invalid(InvalidTransaction::Payment)
+				);
+				assert_eq!(
+					CheckNonce::<Test>(1u64.into())
+						.validate_and_prepare(Some(1).into(), CALL, &info, len)
+						.unwrap_err(),
+					TransactionValidityError::Invalid(InvalidTransaction::Payment)
+				);
+			});
+			// Non-zero providers
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				Some(2).into(),
+				CALL,
+				&info,
+				len,
+				External,
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
+				Some(2).into(),
+				CALL,
+				&info,
+				len
+			));
+			// Non-zero sufficients
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_only(
+				Some(3).into(),
+				CALL,
+				&info,
+				len,
+				External,
+			));
+			assert_ok!(CheckNonce::<Test>(1u64.into()).validate_and_prepare(
+				Some(3).into(),
+				CALL,
+				&info,
+				len
+			));
+		})
+	}
+
+	#[test]
+	fn unsigned_check_nonce_works() {
+		new_test_ext().execute_with(|| {
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
+				.validate(None.into(), CALL, &info, len, (), CALL, External)
+				.unwrap();
+			assert!(!origin.is_transaction_authorized());
+			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(val, &origin, CALL, &info, len));
+		})
+	}
+
+	#[test]
+	fn check_nonce_preserves_account_data() {
+		new_test_ext().execute_with(|| {
+			crate::Account::<Test>::insert(
+				1,
+				crate::AccountInfo {
+					nonce: 1u64.into(),
+					consumers: 0,
+					providers: 1,
+					sufficients: 0,
+					data: 0,
+				},
+			);
+			let info = DispatchInfo::default();
+			let len = 0_usize;
+			// run the validation step
+			let (_, val, origin) = CheckNonce::<Test>(1u64.into())
+				.validate(Some(1).into(), CALL, &info, len, (), CALL, External)
+				.unwrap();
+			// mutate `AccountData` for the caller
+			crate::Account::<Test>::mutate(1, |info| {
+				info.data = 42;
+			});
+			// run the preparation step
+			assert_ok!(CheckNonce::<Test>(1u64.into()).prepare(val, &origin, CALL, &info, len));
+			// only the nonce should be altered by the preparation step
+			let expected_info = crate::AccountInfo {
+				nonce: 2u64.into(),
+				consumers: 0,
+				providers: 1,
+				sufficients: 0,
+				data: 42,
+			};
+			assert_eq!(crate::Account::<Test>::get(1), expected_info);
+		})
+	}
+
+	#[test]
+	fn check_nonce_skipped_and_refund_for_other_origins() {
+		new_test_ext().execute_with(|| {
+			let ext = CheckNonce::<Test>(1u64.into());
+
+			let mut info = CALL.get_dispatch_info();
+			info.extension_weight = ext.weight(CALL);
+
+			// Ensure we test the refund.
+			assert!(info.extension_weight != Weight::zero());
+
+			let len = CALL.encoded_size();
+
+			let origin = crate::RawOrigin::Root.into();
+			let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len).unwrap();
+
+			assert!(origin.as_system_ref().unwrap().is_root());
+
+			let pd_res = Ok(());
+			let mut post_info = frame_support::dispatch::PostDispatchInfo {
+				actual_weight: Some(info.total_weight()),
+				pays_fee: Default::default(),
+			};
+
+			<CheckNonce<Test> as TransactionExtension<RuntimeCall>>::post_dispatch(
+				pre,
+				&info,
+				&mut post_info,
+				len,
+				&pd_res,
+			)
+			.unwrap();
+
+			assert_eq!(post_info.actual_weight, Some(info.call_weight));
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		})
 	}
 }

@@ -17,6 +17,7 @@
 
 use crate::{pallet_prelude::BlockNumberFor, BlockHash, Config, Pallet};
 use codec::{Decode, Encode};
+use frame_support::pallet_prelude::TransactionSource;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	generic::Era,
@@ -98,6 +99,32 @@ impl<T: Config + Send + Sync> SignedExtension for CheckMortality<T> {
 	) -> Result<Self::Pre, TransactionValidityError> {
 		self.validate(who, call, info, len).map(|_| ())
 	}
+<<<<<<< HEAD
+=======
+
+	fn validate(
+		&self,
+		origin: <T as Config>::RuntimeOrigin,
+		_call: &T::RuntimeCall,
+		_info: &DispatchInfoOf<T::RuntimeCall>,
+		_len: usize,
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		let current_u64 = <Pallet<T>>::block_number().saturated_into::<u64>();
+		let valid_till = self.0.death(current_u64);
+		Ok((
+			ValidTransaction {
+				longevity: valid_till.saturating_sub(current_u64),
+				..Default::default()
+			},
+			(),
+			origin,
+		))
+	}
+	impl_tx_ext_default!(T::RuntimeCall; prepare);
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 }
 
 #[cfg(test)]
@@ -109,6 +136,12 @@ mod tests {
 		weights::Weight,
 	};
 	use sp_core::H256;
+<<<<<<< HEAD
+=======
+	use sp_runtime::{
+		traits::DispatchTransaction, transaction_validity::TransactionSource::External,
+	};
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 
 	#[test]
 	fn signed_ext_check_era_should_work() {
@@ -145,7 +178,17 @@ mod tests {
 			System::set_block_number(17);
 			<BlockHash<Test>>::insert(16, H256::repeat_byte(1));
 
+<<<<<<< HEAD
 			assert_eq!(ext.validate(&1, CALL, &normal, len).unwrap().longevity, 15);
+=======
+			assert_eq!(
+				ext.validate_only(Some(1).into(), CALL, &normal, len, External)
+					.unwrap()
+					.0
+					.longevity,
+				15
+			);
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		})
 	}
 }

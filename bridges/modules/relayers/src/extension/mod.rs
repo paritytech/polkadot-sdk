@@ -33,6 +33,11 @@ use bp_runtime::{Chain, RangeInclusiveExt, StaticStrProvider};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
+<<<<<<< HEAD
+=======
+	pallet_prelude::TransactionSource,
+	weights::Weight,
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use frame_system::Config as SystemConfig;
@@ -302,6 +307,7 @@ where
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
 		// this is the only relevant line of code for the `pre_dispatch`
 		//
@@ -309,6 +315,19 @@ where
 		// reasons, so if you're adding some code that may fail here, please check if it needs
 		// to be added to the `pre_dispatch` as well
 		let parsed_call = C::parse_and_check_for_obsolete_call(call)?;
+=======
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> ValidateResult<Self::Val, R::RuntimeCall> {
+		// Prepare relevant data for `prepare`
+		let parsed_call = match C::parse_and_check_for_obsolete_call(call)? {
+			Some(parsed_call) => parsed_call,
+			None => return Ok((Default::default(), None, origin)),
+		};
+		// Those calls are only for signed transactions.
+		let relayer = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 
 		// the following code just plays with transaction priority and never returns an error
 
@@ -463,8 +482,15 @@ mod tests {
 	use pallet_bridge_parachains::{Call as ParachainsCall, Pallet as ParachainsPallet};
 	use pallet_utility::Call as UtilityCall;
 	use sp_runtime::{
+<<<<<<< HEAD
 		traits::{ConstU64, Header as HeaderT},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
+=======
+		traits::{ConstU64, DispatchTransaction, Header as HeaderT},
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidity, ValidTransaction,
+		},
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		DispatchError,
 	};
 
@@ -1067,6 +1093,7 @@ mod tests {
 	}
 
 	fn run_validate(call: RuntimeCall) -> TransactionValidity {
+<<<<<<< HEAD
 		let extension: TestExtension = BridgeRelayersSignedExtension(PhantomData);
 		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
 	}
@@ -1079,6 +1106,44 @@ mod tests {
 	fn run_messages_validate(call: RuntimeCall) -> TransactionValidity {
 		let extension: TestMessagesExtension = BridgeRelayersSignedExtension(PhantomData);
 		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+=======
+		let extension: TestExtension = BridgeRelayersTransactionExtension(PhantomData);
+		extension
+			.validate_only(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+				External,
+			)
+			.map(|t| t.0)
+	}
+
+	fn run_grandpa_validate(call: RuntimeCall) -> TransactionValidity {
+		let extension: TestGrandpaExtension = BridgeRelayersTransactionExtension(PhantomData);
+		extension
+			.validate_only(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+				External,
+			)
+			.map(|t| t.0)
+	}
+
+	fn run_messages_validate(call: RuntimeCall) -> TransactionValidity {
+		let extension: TestMessagesExtension = BridgeRelayersTransactionExtension(PhantomData);
+		extension
+			.validate_only(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+				External,
+			)
+			.map(|t| t.0)
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 	}
 
 	fn ignore_priority(tx: TransactionValidity) -> TransactionValidity {
