@@ -260,19 +260,6 @@ struct State {
 	implicit_view: ImplicitView,
 	/// State tracked for all relay-parents backing work is ongoing for. This includes
 	/// all active leaves.
-	///
-	/// relay-parents fall into one of 3 categories.
-	///   1. active leaves which do support prospective parachains
-	///   2. active leaves which do not support prospective parachains
-	///   3. relay-chain blocks which are ancestors of an active leaf and do support prospective
-	///      parachains.
-	///
-	/// Relay-chain blocks which don't support prospective parachains are
-	/// never included in the fragment chains of active leaves which do.
-	///
-	/// While it would be technically possible to support such leaves in
-	/// fragment chains, it only benefits the transition period when asynchronous
-	/// backing is being enabled and complicates code.
 	per_relay_parent: HashMap<Hash, PerRelayParentState>,
 	/// State tracked for all candidates relevant to the implicit view.
 	///
@@ -834,9 +821,6 @@ async fn handle_active_leaves_update<Context>(
 
 	// clean up `per_candidate` according to which relay-parents
 	// are known.
-	//
-	// when prospective parachains are disabled, we clean up all candidates
-	// because we've cleaned up all relay parents. this is correct.
 	state
 		.per_candidate
 		.retain(|_, pc| state.per_relay_parent.contains_key(&pc.relay_parent));
@@ -1424,13 +1408,11 @@ fn sign_statement(
 
 /// Import a statement into the statement table and return the summary of the import.
 ///
-/// This will fail with `Error::RejectedByProspectiveParachains` if the message type
-/// is seconded, the candidate is fresh,
-/// and any of the following are true:
+/// This will fail with `Error::RejectedByProspectiveParachains` if the message type is seconded,
+/// the candidate is fresh, and any of the following are true:
 /// 1. There is no `PersistedValidationData` attached.
-/// 2. Prospective parachains are enabled for the relay parent and the prospective parachains
-///    subsystem returned an empty `HypotheticalMembership` i.e. did not recognize the candidate as
-///    being applicable to any of the active leaves.
+/// 2. Prospective parachains subsystem returned an empty `HypotheticalMembership` i.e. did not
+///    recognize the candidate as being applicable to any of the active leaves.
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn import_statement<Context>(
 	ctx: &mut Context,
@@ -1451,8 +1433,7 @@ async fn import_statement<Context>(
 	// If this is a new candidate (statement is 'seconded' and candidate is unknown),
 	// we need to create an entry in the `PerCandidateState` map.
 	//
-	// If the relay parent supports prospective parachains, we also need
-	// to inform the prospective parachains subsystem of the seconded candidate.
+	// We also need to inform the prospective parachains subsystem of the seconded candidate.
 	// If `ProspectiveParachainsMessage::Second` fails, then we return
 	// Error::RejectedByProspectiveParachains.
 	//

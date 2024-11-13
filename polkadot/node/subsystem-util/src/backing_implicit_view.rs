@@ -396,7 +396,7 @@ where
 		+ SubsystemSender<RuntimeApiMessage>
 		+ SubsystemSender<ChainApiMessage>,
 {
-	let AsyncBackingParams { allowed_ancestry_len, max_candidate_depth: _ } =
+	let AsyncBackingParams { allowed_ancestry_len, .. } =
 		recv_runtime(request_async_backing_params(leaf_hash, sender).await).await?;
 
 	// Fetch the session of the leaf. We must make sure that we stop at the ancestor which has a
