@@ -1391,7 +1391,7 @@ impl<T: Config> historical::SessionManager<T::AccountId, Exposure<T::AccountId, 
 				validators
 					.into_iter()
 					.map(|v| {
-						let exposure = ErasStakersClipped::<T>::get(current_era, &v);
+						let exposure = Self::eras_stakers(current_era, &v);
 						(v, exposure)
 					})
 					.collect()
