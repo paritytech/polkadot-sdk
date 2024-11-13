@@ -304,6 +304,13 @@ impl pallet_aura::Config for Runtime {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
 construct_runtime! {
 	pub enum Runtime
 	{
@@ -317,8 +324,10 @@ construct_runtime! {
 
 		Balances: pallet_balances = 30,
 
-		Aura: pallet_aura,
-		AuraExt: cumulus_pallet_aura_ext,
+		Aura: pallet_aura = 31,
+		AuraExt: cumulus_pallet_aura_ext = 32,
+
+		Utility: pallet_utility = 40,
 	}
 }
 
