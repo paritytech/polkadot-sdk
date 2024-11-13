@@ -2408,7 +2408,6 @@ impl<T: Config> Pallet<T> {
 			own: Zero::zero(),
 			nominator_count: 0,
 			page_count: 0,
-			last_page_empty_slots: Default::default(),
 		};
 
 		ErasStakersPaged::<T>::iter_prefix((era,))
@@ -2427,8 +2426,6 @@ impl<T: Config> Pallet<T> {
 						own: metadata.own,
 						nominator_count: metadata.nominator_count + expo.others.len() as u32,
 						page_count: metadata.page_count + 1,
-						last_page_empty_slots: (T::MaxExposurePageSize::get()
-							.saturating_sub(expo.others.len() as u32)),
 					},
 				);
 

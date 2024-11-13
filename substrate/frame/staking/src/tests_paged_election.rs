@@ -723,23 +723,11 @@ mod paged_exposures {
 			// Stakers overview OK for validator 1 and 2.
 			assert_eq!(
 				ErasStakersOverview::<Test>::get(0, &1).unwrap(),
-				PagedExposureMetadata {
-					total: 1700,
-					own: 1000,
-					nominator_count: 3,
-					page_count: 2,
-					last_page_empty_slots: 1,
-				},
+				PagedExposureMetadata { total: 1700, own: 1000, nominator_count: 3, page_count: 2 },
 			);
 			assert_eq!(
 				ErasStakersOverview::<Test>::get(0, &2).unwrap(),
-				PagedExposureMetadata {
-					total: 2000,
-					own: 1000,
-					nominator_count: 2,
-					page_count: 1,
-					last_page_empty_slots: 0,
-				},
+				PagedExposureMetadata { total: 2000, own: 1000, nominator_count: 2, page_count: 1 },
 			);
 
 			// stores exposure page with exposures of validator 1, returns exposed validator
@@ -752,13 +740,7 @@ mod paged_exposures {
 			// Stakers overview OK for validator 1.
 			assert_eq!(
 				ErasStakersOverview::<Test>::get(0, &1).unwrap(),
-				PagedExposureMetadata {
-					total: 2200,
-					own: 1000,
-					nominator_count: 5,
-					page_count: 3,
-					last_page_empty_slots: 1,
-				},
+				PagedExposureMetadata { total: 2200, own: 1000, nominator_count: 5, page_count: 3 },
 			);
 
 			// validator 1 has 3 paged exposures.

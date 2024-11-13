@@ -809,8 +809,6 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 				own: exposure.own,
 				nominator_count: exposure.others.len() as u32,
 				page_count: 1,
-				// set to default for legacy compat.
-				last_page_empty_slots: Default::default(),
 			},
 			exposure_page: ExposurePage { page_total: exposure.total, others: exposure.others },
 		}
@@ -1287,10 +1285,16 @@ impl<T: Config> EraInfo<T> {
 		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
 
 		if let Some(stored_overview) = ErasStakersOverview::<T>::get(era, &validator) {
-			let exposures_append = exposure.split_others(stored_overview.last_page_empty_slots);
 			let last_page_idx = stored_overview.page_count.saturating_sub(1);
 
-			let last_page_idx = ErasStakersOverview::<T>::mutate(era, &validator, |stored| {
+			let mut last_page =
+				ErasStakersPaged::<T>::get((era, validator, last_page_idx)).unwrap_or_default();
+			let last_page_empty_slots =
+				T::MaxExposurePageSize::get().saturating_sub(last_page.others.len() as u32);
+
+			let exposures_append = exposure.split_others(last_page_empty_slots);
+
+			ErasStakersOverview::<T>::mutate(era, &validator, |stored| {
 				// new metadata is updated based on 3 different set of exposures: the
 				// current one, the exposure split to be "fitted" into the current last page and
 				// the exposure set that will be appended from the new page onwards.
@@ -1308,14 +1312,9 @@ impl<T: Config> EraInfo<T> {
 							}),
 					);
 				*stored = new_metadata.into();
-
-				last_page_idx
 			});
 
 			// fill up last page with exposures.
-			let mut last_page =
-				ErasStakersPaged::<T>::get((era, validator, last_page_idx)).unwrap_or_default();
-
 			last_page.page_total = last_page
 				.page_total
 				.saturating_add(exposures_append.total)

@@ -409,7 +409,6 @@ impl<
 		let individual_chunks = self.others.chunks(page_size as usize);
 		let mut exposure_pages: Vec<ExposurePage<AccountId, Balance>> =
 			Vec::with_capacity(individual_chunks.len());
-		let mut total_chunks_last_page = Default::default();
 
 		for chunk in individual_chunks {
 			let mut page_total: Balance = Zero::zero();
@@ -422,8 +421,6 @@ impl<
 					value: individual.value,
 				})
 			}
-
-			total_chunks_last_page = others.len() as u32;
 			exposure_pages.push(ExposurePage { page_total, others });
 		}
 
@@ -433,7 +430,6 @@ impl<
 				own: self.own,
 				nominator_count: self.others.len() as u32,
 				page_count: exposure_pages.len() as Page,
-				last_page_empty_slots: page_size.saturating_sub(total_chunks_last_page),
 			},
 			exposure_pages,
 		)
@@ -499,8 +495,6 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub nominator_count: u32,
 	/// Number of pages of nominators.
 	pub page_count: Page,
-	/// Number of empty slots in the last page.
-	pub last_page_empty_slots: u32,
 }
 
 impl<Balance> PagedExposureMetadata<Balance>
@@ -532,7 +526,6 @@ where
 			own: self.own,
 			nominator_count: new_nominator_count,
 			page_count: new_page_count,
-			last_page_empty_slots: Max::get().saturating_sub(new_nominator_count % Max::get()),
 		}
 	}
 }
