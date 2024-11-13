@@ -20,7 +20,7 @@ use crate::{
 	verifier::{impls::pallet::*, *},
 	Phase,
 };
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::Perbill;
 
@@ -295,5 +295,162 @@ mod async_verifier {
 	#[test]
 	fn async_verifier_simple_works() {
 		ExtBuilder::default().build_and_execute(|| {})
+	}
+
+	mod force_finalize_verification {
+		use frame_support::assert_err;
+		use sp_npos_elections::ElectionScore;
+
+		use super::{AsyncVerifier, VerifierPallet, *};
+
+		#[test]
+		fn failed_score_computation_returns_underlying_error() {
+			ExtBuilder::default().build_and_execute(|| {
+				let claimed_score: ElectionScore = Default::default();
+				assert_err!(
+					<VerifierPallet as AsyncVerifier>::force_finalize_verification(claimed_score),
+					FeasibilityError::Incomplete
+				);
+			});
+		}
+
+		#[test]
+		fn final_score_differs_from_claimed_score() {
+			ExtBuilder::default().pages(1).build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+				QueuedSolution::<T>::set_page(0, Default::default());
+
+				let claimed_score: ElectionScore = Default::default();
+				assert_err!(
+					<VerifierPallet as AsyncVerifier>::force_finalize_verification(claimed_score),
+					FeasibilityError::InvalidScore
+				);
+			});
+		}
+
+		#[test]
+		fn winner_count_differs_from_desired_targets() {
+			ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+				let solution = mine_full(0).unwrap();
+				let supports =
+					VerifierPallet::feasibility_check(solution.solution_pages[0].clone(), 0);
+				assert!(supports.is_ok());
+				let supports = supports.unwrap();
+
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), solution.score));
+				QueuedSolution::<T>::set_page(0, supports);
+
+				// setting desired targets value to a lower one, to make the solution verification
+				// fail
+				self::DesiredTargets::set(Ok(1));
+				assert_eq!(crate::Snapshot::<Runtime>::desired_targets(), Some(1));
+
+				// just to make sure there's more winners in the current solution than desired
+				// targets
+				let winner_count = QueuedSolution::<Runtime>::compute_current_score()
+					.map(|(_, winner_count)| winner_count)
+					.unwrap();
+				assert_eq!(winner_count, 2);
+
+				assert_err!(
+					<VerifierPallet as AsyncVerifier>::force_finalize_verification(solution.score),
+					FeasibilityError::WrongWinnerCount
+				);
+			});
+		}
+
+		#[test]
+		fn valid_score_results_with_solution_finalized() {
+			ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+				let solution = mine_full(0).unwrap();
+				let supports =
+					VerifierPallet::feasibility_check(solution.solution_pages[0].clone(), 0);
+				assert!(supports.is_ok());
+				let supports = supports.unwrap();
+
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), solution.score));
+				QueuedSolution::<T>::set_page(0, supports);
+
+				// no stored score so far
+				assert!(QueuedSolution::<Runtime>::queued_score().is_none());
+
+				assert_ok!(<VerifierPallet as AsyncVerifier>::force_finalize_verification(
+					solution.score
+				));
+
+				// stored score is not the submitted one
+				assert_eq!(QueuedSolution::<Runtime>::queued_score(), Some(solution.score));
+			});
+		}
+	}
+
+	#[test]
+	fn stopping_the_verification_cleans_storage_items() {
+		ExtBuilder::default().build_and_execute(|| {
+			roll_to_phase(Phase::Signed);
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+			QueuedSolution::<T>::set_page(0, Default::default());
+
+			assert_ne!(
+				QueuedSolutionX::<Runtime>::iter().count() +
+					QueuedSolutionY::<Runtime>::iter().count(),
+				0
+			);
+			assert_ne!(QueuedSolutionBackings::<Runtime>::iter().count(), 0);
+
+			<VerifierPallet as AsyncVerifier>::stop();
+
+			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Nothing);
+			assert_eq!(QueuedSolutionX::<Runtime>::iter().count(), 0);
+			assert_eq!(QueuedSolutionY::<Runtime>::iter().count(), 0);
+			assert_eq!(QueuedSolutionBackings::<Runtime>::iter().count(), 0);
+		});
+	}
+
+	mod verification_start {
+		use super::*;
+		use crate::signed::pallet::Submissions;
+
+		#[test]
+		fn fails_if_verification_is_ongoing() {
+			ExtBuilder::default().build_and_execute(|| {
+				<VerifierPallet as AsyncVerifier>::set_status(Status::Ongoing(0));
+				assert_err!(<VerifierPallet as AsyncVerifier>::start(), "verification ongoing");
+			});
+		}
+
+		// #[test]
+		// fn reports_result_rejection_for_too_low_score() {
+		// 	ExtBuilder::default().build_and_execute(|| {
+		// 		let current_round = MultiPhase::current_round();
+
+		// 		<VerifierPallet as AsyncVerifier>::set_status(Status::Nothing);
+
+		// 		let leader = Submissions::leader(current_round);
+		// 		assert!(leader.is_some());
+
+		// 		assert_ok!(<VerifierPallet as AsyncVerifier>::start());
+
+		// 		let leader_metadata = Submissions::metadata_for(current_round, leader.unwrap().0);
+		// 	});
+		// }
+
+		#[test]
+		fn given_better_score_sets_verification_status_to_ongoing() {
+			ExtBuilder::default().build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+				let msp = crate::Pallet::<T>::msp();
+
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+				assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Nothing);
+
+				assert_ok!(<VerifierPallet as AsyncVerifier>::start());
+
+				assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Ongoing(msp));
+			});
+		}
 	}
 }
