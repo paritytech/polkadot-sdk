@@ -121,10 +121,7 @@ mod benchmarks {
 			on_idle_full_block::<T>();
 		}
 
-		assert!(matches!(
-			fast_unstake_events::<T>().last(),
-			Some(Event::BatchFinished { size: b })
-		));
+		assert_eq!(fast_unstake_events::<T>().last(), Some(&Event::BatchFinished { size: b }));
 	}
 
 	#[benchmark]
