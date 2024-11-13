@@ -299,6 +299,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				_len: usize,
 				_self_implicit: Self::Implicit,
 				_inherited_implication: &impl codec::Encode,
+				_source: sp_runtime::transaction_validity::TransactionSource,
 			) -> Result<
 				(
 					sp_runtime::transaction_validity::ValidTransaction,
@@ -390,7 +391,9 @@ mod tests {
 			parameter_types, AsSystemOriginSigner, AsTransactionAuthorizedOrigin, ConstU64,
 			DispatchTransaction, Header as _, TransactionExtension,
 		},
-		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidity, ValidTransaction,
+		},
 		DispatchError,
 	};
 
@@ -611,6 +614,7 @@ mod tests {
 					&MockCall { data: 1 },
 					&(),
 					0,
+					External,
 					0,
 				),
 				InvalidTransaction::Custom(1)
@@ -632,6 +636,7 @@ mod tests {
 					&MockCall { data: 2 },
 					&(),
 					0,
+					External,
 					0,
 				),
 				InvalidTransaction::Custom(2)
@@ -649,7 +654,7 @@ mod tests {
 
 			assert_eq!(
 				BridgeRejectObsoleteHeadersAndMessages
-					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0, 0)
+					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0, External, 0)
 					.unwrap()
 					.0,
 				ValidTransaction { priority: 3, ..Default::default() },

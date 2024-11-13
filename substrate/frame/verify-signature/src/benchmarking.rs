@@ -27,7 +27,10 @@ use super::*;
 use crate::{extension::VerifySignature, Config, Pallet as VerifySignaturePallet};
 use alloc::vec;
 use frame_benchmarking::{v2::*, BenchmarkError};
-use frame_support::dispatch::{DispatchInfo, GetDispatchInfo};
+use frame_support::{
+	dispatch::{DispatchInfo, GetDispatchInfo},
+	pallet_prelude::TransactionSource,
+};
 use frame_system::{Call as SystemCall, RawOrigin};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
@@ -60,7 +63,14 @@ mod benchmarks {
 		#[block]
 		{
 			assert!(ext
-				.validate_only(RawOrigin::None.into(), &call, &info, 0, ext_version)
+				.validate_only(
+					RawOrigin::None.into(),
+					&call,
+					&info,
+					0,
+					TransactionSource::External,
+					ext_version
+				)
 				.is_ok());
 		}
 

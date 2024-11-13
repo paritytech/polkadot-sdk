@@ -25,7 +25,7 @@ use extension::VerifySignature;
 use frame_support::{
 	derive_impl,
 	dispatch::GetDispatchInfo,
-	pallet_prelude::{InvalidTransaction, TransactionValidityError},
+	pallet_prelude::{InvalidTransaction, TransactionSource, TransactionValidityError},
 	traits::OriginTrait,
 };
 use frame_system::Call as SystemCall;
@@ -86,7 +86,7 @@ fn verification_works() {
 	let info = call.get_dispatch_info();
 
 	let (_, _, origin) = VerifySignature::<Test>::new_with_signature(sig, who)
-		.validate_only(None.into(), &call, &info, 0, 0)
+		.validate_only(None.into(), &call, &info, 0, TransactionSource::External, 0)
 		.unwrap();
 	assert_eq!(origin.as_signer().unwrap(), &who)
 }
@@ -101,7 +101,7 @@ fn bad_inherited_implication() {
 
 	assert_eq!(
 		VerifySignature::<Test>::new_with_signature(sig, who)
-			.validate_only(None.into(), &call, &info, 0, 0)
+			.validate_only(None.into(), &call, &info, 0, TransactionSource::External, 0)
 			.unwrap_err(),
 		TransactionValidityError::Invalid(InvalidTransaction::BadProof)
 	);
@@ -116,7 +116,7 @@ fn bad_signature() {
 
 	assert_eq!(
 		VerifySignature::<Test>::new_with_signature(sig, who)
-			.validate_only(None.into(), &call, &info, 0, 0)
+			.validate_only(None.into(), &call, &info, 0, TransactionSource::External, 0)
 			.unwrap_err(),
 		TransactionValidityError::Invalid(InvalidTransaction::BadProof)
 	);
@@ -131,7 +131,7 @@ fn bad_starting_origin() {
 
 	assert_eq!(
 		VerifySignature::<Test>::new_with_signature(sig, who)
-			.validate_only(Some(42).into(), &call, &info, 0, 0)
+			.validate_only(Some(42).into(), &call, &info, 0, TransactionSource::External, 0)
 			.unwrap_err(),
 		TransactionValidityError::Invalid(InvalidTransaction::BadSigner)
 	);
@@ -144,7 +144,7 @@ fn disabled_extension_works() {
 	let info = call.get_dispatch_info();
 
 	let (_, _, origin) = VerifySignature::<Test>::new_disabled()
-		.validate_only(Some(who).into(), &call, &info, 0, 0)
+		.validate_only(Some(who).into(), &call, &info, 0, TransactionSource::External, 0)
 		.unwrap();
 	assert_eq!(origin.as_signer().unwrap(), &who)
 }
