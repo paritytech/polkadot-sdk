@@ -1006,6 +1006,12 @@ mod benchmarks {
 			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(Perbill::max_value()),
 			ConfigOp::Set(Percent::max_value()),
+      ConfigOp::Set(UnbondingQueueConfig {
+			min_slashable_share: Perbill::max_value();
+			unbond_period_lower_bound: u32::MAX;
+			unbond_period_upper_bound: u32::MAX;
+			back_of_unbonding_queue_era: u32::MAX;
+		}),
 		);
 
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
@@ -1015,6 +1021,12 @@ mod benchmarks {
 		assert_eq!(ChillThreshold::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
+		assert_eq!(UnbondingQueueParams::<T>::get(), Some(UnbondingQueueConfig {
+			min_slashable_share: Perbill::from_percent(100);
+			unbond_period_lower_bound: u32::MAX;
+			unbond_period_upper_bound: u32::MAX;
+			back_of_unbonding_queue_era: u32::MAX;
+		}));
 	}
 
 	#[benchmark]
@@ -1029,6 +1041,7 @@ mod benchmarks {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+      ConfigOp::Remove
 		);
 
 		assert!(!MinNominatorBond::<T>::exists());
@@ -1038,6 +1051,7 @@ mod benchmarks {
 		assert!(!ChillThreshold::<T>::exists());
 		assert!(!MinCommission::<T>::exists());
 		assert!(!MaxStakedRewards::<T>::exists());
+		assert!(!UnbondingQueueParams::<T>::exists());
 	}
 
 	#[benchmark]
@@ -1061,6 +1075,7 @@ mod benchmarks {
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 		)?;
 
