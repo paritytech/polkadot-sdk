@@ -51,14 +51,6 @@ impl Account {
 		account_id
 	}
 
-	/// Get the substrate [`AccountId32`] of the account.
-	pub fn substrate_account(&self) -> AccountId32 {
-		let mut account_id = AccountId32::new([0xEE; 32]);
-		<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
-			.copy_from_slice(self.address().as_ref());
-		account_id
-	}
-
 	/// Sign a transaction.
 	pub fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
 		let rlp_encoded = tx.rlp_bytes();

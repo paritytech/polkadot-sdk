@@ -76,18 +76,6 @@ impl TransactionSigned {
 		use TransactionSigned::*;
 		let mut s = [0u8; 65];
 
-		match self {
-			TransactionLegacySigned(tx) => {
-			},
-			Transaction2930Signed(tx)=> {
-			},
-			Transaction1559Signed(tx) => {
-			},
-			},Transaction4844Signed(tx) => {
-			},
-		}
-
-
 		self.r.write_as_big_endian(s[0..32].as_mut());
 		self.s.write_as_big_endian(s[32..64].as_mut());
 		s[64] = self.extract_recovery_id().ok_or(())?;
