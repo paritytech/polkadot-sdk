@@ -22,6 +22,7 @@ frame-system-rpc-runtime-api = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-skip-feeless-payment = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }

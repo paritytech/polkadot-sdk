@@ -81,7 +81,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("yet-another-parachain"),
 	impl_name: create_runtime_str!("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_001_003,
+	spec_version: 1_001_005,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -240,6 +240,10 @@ impl pallet_transaction_payment::Config for Runtime {
 	type OperationalFeeMultiplier = ConstU8<5>;
 }
 
+impl pallet_skip_feeless_payment::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
+
 impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
@@ -328,6 +332,8 @@ construct_runtime! {
 		AuraExt: cumulus_pallet_aura_ext = 32,
 
 		Utility: pallet_utility = 40,
+
+		SkipFeelessPayment: pallet_skip_feeless_payment = 50,
 	}
 }
 
@@ -358,7 +364,10 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	pallet_skip_feeless_payment::SkipCheckIfFeeless<
+		Runtime,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	>,
 	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
