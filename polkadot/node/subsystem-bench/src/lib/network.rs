@@ -353,8 +353,11 @@ impl NetworkInterface {
 							let tx_network = tx_network.clone();
 							let send_task = async move {
 								let receiver = tx_network.peer(&peer);
+								if !receiver.is_connected() {
+									return
+								}
 								let latency_ms = receiver.latency_ms();
-								if latency_ms > 0 && receiver.is_connected() {
+								if latency_ms > 0 {
 									emulate_latency(latency_ms).await;
 								}
 								tx_network.send_message_to_peer(&peer, message);
