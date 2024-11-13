@@ -25,8 +25,6 @@ function evmCompile(sources: CompileInput) {
 
 console.log('Compiling contracts...')
 
-let pvmContracts: Map<string, { abi: Abi; bytecode: string }> = new Map()
-let evmContracts: Map<string, { abi: Abi; bytecode: string }> = new Map()
 const input = [
 	{ file: 'Event.sol', contract: 'EventExample', keypath: 'event' },
 	{ file: 'Revert.sol', contract: 'RevertExample', keypath: 'revert' },
@@ -42,16 +40,17 @@ for (const { keypath, contract, file } of input) {
 		console.log(`Compile with solc ${file}`)
 		const out = JSON.parse(evmCompile(input))
 		const entry = out.contracts[file][contract]
-		evmContracts.set(keypath, { abi: entry.abi, bytecode: entry.evm.bytecode.object })
+		writeFileSync(join('evm', `${keypath}.bin`), Buffer.from(entry.evm.bytecode.object, 'hex'))
+		writeFileSync(join('abi', `${keypath}.json`), JSON.stringify(entry.abi, null, 2))
 	}
 
 	{
 		console.log(`Compile with revive ${file}`)
 		const out = await compile(input)
 		const entry = out.contracts[file][contract]
-		pvmContracts.set(keypath, { abi: entry.abi, bytecode: entry.evm.bytecode.object })
+		writeFileSync(
+			join('pvm', `${keypath}.polkavm`),
+			Buffer.from(entry.evm.bytecode.object, 'hex')
+		)
 	}
 }
-
-writeFileSync('pvm-contracts.json', JSON.stringify(Object.fromEntries(pvmContracts), null, 2))
-writeFileSync('evm-contracts.json', JSON.stringify(Object.fromEntries(evmContracts), null, 2))

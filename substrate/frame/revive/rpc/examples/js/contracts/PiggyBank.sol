@@ -19,7 +19,6 @@ contract PiggyBank {
     function withdraw(uint withdrawAmount) public returns (uint remainingBal) {
         require(msg.sender == owner);
         balance -= withdrawAmount;
-         // Use call to transfer Ether
         (bool success, ) = payable(msg.sender).call{value: withdrawAmount}("");
         require(success, "Transfer failed");
 
