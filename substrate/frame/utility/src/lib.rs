@@ -72,12 +72,6 @@ pub use weights::WeightInfo;
 
 pub use pallet::*;
 
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo)]
-pub enum Which {
-	Main,
-	Fallback,
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -127,8 +121,12 @@ pub mod pallet {
 		ItemFailed { error: DispatchError },
 		/// A call was dispatched.
 		DispatchedAs { result: DispatchResult },
-		/// if_else completed.
-		IfElseCompleted { call: Which },
+		/// Main call was dispatched.
+		IfElseMainSuccess,
+		/// The fallback call was dispatched.
+		IfElseFallbackSuccess { main_error: DispatchError }, 
+		/// Both calls failed.
+		IfElseBothFailure { main_error: DispatchError, fallback_error: DispatchError },
 	}
 
 	// Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
@@ -466,6 +464,32 @@ pub mod pallet {
 			res.map(|_| ()).map_err(|e| e.error)
 		}
 
+		/// Dispatch a fallback call in the event the main call fails to execute.
+		///
+		/// This function first attempts to dispatch the `main` call. If the `main` call fails, the `fallback` call
+		/// is dispatched instead. Both calls are executed with the same origin, and the weight of both calls
+		/// is accumulated and returned. The success or failure of the main and fallback calls is tracked and
+		/// appropriate events are deposited.
+		///
+		/// May be called from any origin except `None`.
+		///
+		/// - `main`: The main call to be dispatched. This is the primary action to execute.
+		/// - `fallback`: The fallback call to be dispatched in case the `main` call fails.
+		///
+		/// ## Dispatch Logic
+		/// - If the origin is `root`, both the main and fallback calls are executed without applying any origin filters.
+		/// - If the origin is not `root`, the origin filter is applied to both the `main` and `fallback` calls.
+		///
+		/// ## Complexity
+		/// - O(1) for the origin check and dispatching the main call.
+		/// - O(1) for the origin check and dispatching the fallback call (if needed).
+		/// - Overall complexity is O(1) since we only dispatch at most two calls.
+		///
+		/// ## Weight
+		/// The weight of this call is calculated as the sum of:
+		/// - The weight of the `main` call (if it is executed),
+		/// - The weight of the `fallback` call (if the `main` call fails and the `fallback` is executed),
+		/// - A base weight (`WeightInfo::if_else()`), which accounts for the logic involved in dispatching and handling both calls.
 		#[pallet::call_index(6)]
 		#[pallet::weight({
 			let main_dispatch_info = main.get_dispatch_info();
@@ -490,7 +514,7 @@ pub mod pallet {
 			let is_root = ensure_root(origin.clone()).is_ok();
 
 			// Track the weights
-			let mut weight = Weight::zero();
+			let mut weight = T::WeightInfo::if_else();
 
 			let info = main.get_dispatch_info();
 
@@ -504,30 +528,31 @@ pub mod pallet {
 			// Add weight of the main call
 			weight = weight.saturating_add(extract_actual_weight(&main_result, &info));
 
-			if let Err(_main_call_error) = main_result {
+			if let Err(main_error) = main_result {
 				// If the main call failed, execute the fallback call
 				let fallback_info = fallback.get_dispatch_info();
 
 				let fallback_result = if is_root {
 					fallback.dispatch_bypass_filter(origin.clone())
 				} else {
-					fallback.dispatch(origin.clone())
+					fallback.dispatch(origin)
 				};
 
 				// Add weight of the fallback call
 				weight =
 					weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
 
-				if let Err(_fallback_error) = fallback_result {
+				if let Err(fallback_error) = fallback_result {
 					// Both calls have faild.
+					Self::deposit_event(Event::IfElseBothFailure { main_error: main_error.error, fallback_error: fallback_error.error });
 					return Err(Error::<T>::InvalidCalls.into())
 				}
 				// Fallback succeeded.
-				Self::deposit_event(Event::IfElseCompleted { call: Which::Fallback });
+				Self::deposit_event(Event::IfElseFallbackSuccess { main_error: main_error.error });
 				return Ok(Some(weight).into());
 			}
 			// Main call succeeded.
-			Self::deposit_event(Event::IfElseCompleted { call: Which::Main });
+			Self::deposit_event(Event::IfElseMainSuccess);
 			Ok(Some(weight).into())
 		}
 	}

@@ -952,5 +952,41 @@ fn if_else_with_signed_works() {
 		));
 		assert_eq!(Balances::free_balance(1), 5);
 		assert_eq!(Balances::free_balance(2), 15);
+
+		System::assert_last_event(utility::Event::IfElseFallbackSuccess { main_error: TokenError::FundsUnavailable.into() }.into());
 	});
+}
+
+#[test]
+fn if_else_successful_main_call() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			Box::new(call_transfer(2, 9)),
+			Box::new(call_transfer(2, 1))
+		));
+		assert_eq!(Balances::free_balance(1), 1);
+		assert_eq!(Balances::free_balance(2), 19);
+
+		System::assert_last_event(utility::Event::IfElseMainSuccess.into());
+	})
+}
+
+#[test]
+fn if_else_failing_else_call() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+		assert_noop!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			Box::new(call_transfer(2, 11)),
+			Box::new(call_transfer(2, 11))
+		), utility::Error::<Test>::InvalidCalls);
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+
+		System::assert_last_event(utility::Event::IfElseBothFailure { main_error: TokenError::FundsUnavailable.into(), fallback_error: TokenError::FundsUnavailable.into()}.into());
+	})
 }

@@ -101,7 +101,7 @@ mod benchmark {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), main_call, fallback_call);
 
-		assert_last_event::<T>(Event::IfElseCompleted { call: Which::Main }.into());
+		assert_last_event::<T>(Event::IfElseMainSuccess.into());
 	}
 
 	impl_benchmark_test_suite! {
