@@ -30,6 +30,7 @@ let evmContracts: Map<string, { abi: Abi; bytecode: string }> = new Map()
 const input = [
 	{ file: 'Event.sol', contract: 'EventExample', keypath: 'event' },
 	{ file: 'Revert.sol', contract: 'RevertExample', keypath: 'revert' },
+	{ file: 'PiggyBank.sol', contract: 'PiggyBank', keypath: 'piggyBank' },
 ]
 
 for (const { keypath, contract, file } of input) {
