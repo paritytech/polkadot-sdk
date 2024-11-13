@@ -81,7 +81,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("yet-another-parachain"),
 	impl_name: create_runtime_str!("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_001_002,
+	spec_version: 1_001_016,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -304,6 +304,13 @@ impl pallet_aura::Config for Runtime {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
 construct_runtime! {
 	pub enum Runtime
 	{
@@ -317,8 +324,10 @@ construct_runtime! {
 
 		Balances: pallet_balances = 30,
 
-		Aura: pallet_aura,
-		AuraExt: cumulus_pallet_aura_ext,
+		Aura: pallet_aura = 31,
+		AuraExt: cumulus_pallet_aura_ext = 32,
+
+		Utility: pallet_utility = 40,
 	}
 }
 

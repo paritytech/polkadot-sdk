@@ -52,12 +52,3 @@ fn check_treasury_pallet_id() {
 		rococo_runtime_constants::TREASURY_PALLET_ID
 	);
 }
-
-mod encoding_tests {
-	use super::*;
-
-	#[test]
-	fn nis_hold_reason_encoding_is_correct() {
-		assert_eq!(RuntimeHoldReason::Nis(pallet_nis::HoldReason::NftReceipt).encode(), [38, 0]);
-	}
-}

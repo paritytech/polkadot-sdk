@@ -24270,6 +24270,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-utility",
  "parachains-common",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
