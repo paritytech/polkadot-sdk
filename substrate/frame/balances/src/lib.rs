@@ -823,10 +823,10 @@ pub mod pallet {
 		})]
 		pub fn magic_mint_experimental(
 			origin: OriginFor<T>,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let source = ensure_signed(origin)?;
-			<Self as fungible::Mutate<_>>::mint_into(&source, T::Balance::from(16_000u32))?;
-			Ok(Pays::No.into())
+			<Self as fungible::Mutate<_>>::mint_into(&source, T::Balance::from(4_000_000_000u32))?;
+			Ok(())
 		}
 	}
 
