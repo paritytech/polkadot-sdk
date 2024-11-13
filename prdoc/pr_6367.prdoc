@@ -6,8 +6,8 @@ title: Refactor pallet society
 doc:
   - audience: Runtime Dev
     description: |
-      Adds bounds on stored types for pallet society.
-      Migrates benchmarking from v1 to v2 for pallet society.
+      Derives `MaxEncodedLen` implementation for stored types and removes `without_storage_info` attribute.
+      Migrates benchmarks from v1 to v2 API.
 
 crates:
   - name: pallet-society
