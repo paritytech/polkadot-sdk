@@ -2675,34 +2675,208 @@ mod test {
 }
 
 pub mod ahm {
+	use super::*;
 	use sp_runtime::DispatchError;
 	use crate::traits::tokens::Precision;
+	use scale_info::TypeInfo;
+	use codec::MaxEncodedLen;
+	use sp_core::RuntimeDebug;
 
-	// TODO replace with enum
-	pub type EncodedPalletBalancesCall = alloc::vec::Vec<u8>;
+	/// An in-flight reserve.
+	#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+	#[must_use]
+	pub struct TeleportedAnonReserve<AccountId, Balance> {
+		/// Whos reserve is being teleported over.
+		pub who: AccountId,
+		
+		/// The reserved amount that is being teleported over.
+		///
+		/// This amount must be MINTED, transferred to `who` and reserved. Must be treated like a
+		/// `NegativeImbalance`.
+		pub teleported_reserve: Balance,
+		
+		/// Additional dust amount that is teleported over.
+		///
+		/// This amount must be MINTED and transferred to `who`. Must be treated like a
+		/// `NegativeImbalance`.
+		pub teleported_dust: Balance,
+	}
+
+	/*#[cfg(feature = "std")]
+	impl<A, B> Drop for TeleportedAnonReserve {
+		fn drop(&mut self) {
+			if !teleported_reserve.is_zero() {
+				panic!("TeleportedAnonReserve::teleported_reserve was not consumed.");
+			}
+
+			if !teleported_dust.is_zero() {
+				panic!("TeleportedAnonReserve::teleported_dust was not consumed.");
+			}
+		}
+	}*/
+
+	#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+	#[must_use]
+	pub struct TeleportedNamedReserve<ReserveIdentifier, AccountId, Balance>(pub TeleportedAnonReserve<AccountId, Balance>, pub ReserveIdentifier);
+
+	pub enum BalanceMigrationCommand<ReserveIdentifier, AccountId, Balance> {
+		AnonReserve { reserve: TeleportedAnonReserve<AccountId, Balance> },
+		NamedReserve { reserve: TeleportedNamedReserve<ReserveIdentifier, AccountId, Balance> },
+	}
 
 	pub trait MigratorNamedReserve<ReserveIdentifier, AccountId, Balance> {
-		fn migrate_out_named_reserve(id: ReserveIdentifier, who: AccountId, amount: Balance, prec: Precision) -> Result<EncodedPalletBalancesCall, DispatchError>;
+		fn migrate_out_named_reserve(id: ReserveIdentifier, who: AccountId, amount: Balance, prec: Precision) -> Result<TeleportedNamedReserve<ReserveIdentifier, AccountId, Balance>, DispatchError>;
+
+		fn migrate_in_named_reserve(reserve: TeleportedNamedReserve<ReserveIdentifier, AccountId, Balance>) -> Result<(), DispatchError>;
 	}
 
 	pub trait MigratorAnonReserve<AccountId, Balance> {
-		fn migrate_out_anon_reserve(who: AccountId, amount: Balance, prec: Precision) -> Result<EncodedPalletBalancesCall, DispatchError>;
-		fn migrate_in_anon_reserve(who: AccountId, amount: Balance) -> Result<(), DispatchError>;
+		fn migrate_out_anon_reserve(who: AccountId, amount: Balance, prec: Precision) -> Result<TeleportedAnonReserve<AccountId, Balance>, DispatchError>;
+		fn migrate_in_anon_reserve(reserve: TeleportedAnonReserve<AccountId, Balance>) -> Result<(), DispatchError>;
 	}
 
-	pub struct NoopMigrator<AccountId, Balance>(core::marker::PhantomData<(AccountId, Balance)>);
-	impl<AccountId, Balance> MigratorNamedReserve<u32, AccountId, Balance> for NoopMigrator<AccountId, Balance> {
-		fn migrate_out_named_reserve(_id: u32, _who: AccountId, _amount: Balance, prec: Precision) -> Result<EncodedPalletBalancesCall, DispatchError> {
-			Err(DispatchError::Other("Not implemented"))
-		}
-	}
-	impl<AccountId, Balance> MigratorAnonReserve<AccountId, Balance> for NoopMigrator<AccountId, Balance> {
-		fn migrate_out_anon_reserve(_who: AccountId, _amount: Balance, prec: Precision) -> Result<EncodedPalletBalancesCall, DispatchError> {
+	pub struct NoopMigrator<ReserveIdentifier, AccountId, Balance>(core::marker::PhantomData<(ReserveIdentifier, AccountId, Balance)>);
+	impl<ReserveIdentifier, AccountId, Balance> MigratorNamedReserve<ReserveIdentifier, AccountId, Balance> for NoopMigrator<ReserveIdentifier, AccountId, Balance> {
+		fn migrate_out_named_reserve(_id: ReserveIdentifier, _who: AccountId, _amount: Balance, prec: Precision) -> Result<TeleportedNamedReserve<ReserveIdentifier, AccountId, Balance>, DispatchError> {
 			Err(DispatchError::Other("Not implemented"))
 		}
 
-		fn migrate_in_anon_reserve(_who: AccountId, _amount: Balance) -> Result<(), DispatchError> {
+		fn migrate_in_named_reserve(_reserve: TeleportedNamedReserve<ReserveIdentifier, AccountId, Balance>) -> Result<(), DispatchError> {
 			Err(DispatchError::Other("Not implemented"))
 		}
+	}
+	impl<AccountId, Balance> MigratorAnonReserve<AccountId, Balance> for NoopMigrator<(), AccountId, Balance> {
+		fn migrate_out_anon_reserve(_who: AccountId, _amount: Balance, prec: Precision) -> Result<TeleportedAnonReserve<AccountId, Balance>, DispatchError> {
+			Err(DispatchError::Other("Not implemented"))
+		}
+
+		fn migrate_in_anon_reserve(_reserve: TeleportedAnonReserve<AccountId, Balance>) -> Result<(), DispatchError> {
+			Err(DispatchError::Other("Not implemented"))
+		}
+	}
+}
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", feature = "try-runtime", test))]
+pub mod snapshot {
+	use super::*;
+	use alloc::collections::btree_map::BTreeMap;
+
+	#[derive(Clone, Debug, PartialEq, Eq)]
+	pub struct Snapshot {
+		pub kvs: BTreeMap<Key, Vec<u8>>,
+		pub root: Vec<u8>,
+	}
+
+	pub type Key = Vec<u8>;
+
+	#[derive(Clone, Debug, PartialEq, Eq)]
+	pub struct SnapshotDiff {
+		pub kv_changes: Vec<(Key, ChangedValue)>,
+		pub old_root: Vec<u8>,
+		pub new_root: Vec<u8>,
+	}
+
+	impl core::fmt::Display for SnapshotDiff {
+		fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+			let mut changes = self.clone();
+			// sort by kind and key
+			changes.kv_changes.sort_by(|a, b| {
+				match a.1.cmp(&b.1) {
+					core::cmp::Ordering::Equal => a.0.cmp(&b.0),
+					other => other,
+				}
+			});
+
+			write!(f, "SnapshotDiff root mismatch: {:?} != {:?}", self.old_root, self.new_root)?;
+			write!(f, "SnapshotDiff changes({}):", changes.kv_changes.len())?;
+
+			for (k, v) in changes.kv_changes.iter() {
+				match v {
+					ChangedValue::Added(v) => write!(f, "+  {}: {}\n", hex(k), hex(v))?,
+					ChangedValue::Changed(old, new) => write!(f, "!= {}: {} -> {}\n", hex(k), hex(old), hex(new))?,
+					ChangedValue::Removed(v) => write!(f, "-  {}: {}\n", hex(k), hex(v))?,
+				}
+			}
+
+			Ok(())
+		}
+	}
+
+	#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+	pub enum ChangedValue {
+		Added(Vec<u8>),
+		Changed(Vec<u8>, Vec<u8>),
+		Removed(Vec<u8>),
+	}
+
+	impl Snapshot {
+		pub fn take() -> Self {
+			let mut kvs = BTreeMap::new();
+			let mut key = Vec::new();
+
+			loop {
+				match sp_io::storage::next_key(&key) {
+					Some(next) => {
+						key = next;
+
+						let value = sp_io::storage::get(&key).unwrap();
+						kvs.insert(key.clone(), value.to_vec());
+					},
+					None => break,
+				}
+			}
+
+			Self { kvs, root: root() }
+		}
+
+		/// Calculate the difference between the two snapshots. Returns `None` if they are equal.
+		pub fn diff(&self, other: &Self) -> Option<SnapshotDiff> {
+			if self.root == other.root {
+				return None;
+			}
+			let mut kv_changes = Vec::new();
+
+			for (k, v) in self.kvs.iter() {
+				match other.kvs.get(k) {
+					Some(v2) if v == v2 => {},
+					Some(v2) => kv_changes.push((k.clone(), ChangedValue::Changed(v.clone(), v2.clone()))),
+					None => kv_changes.push((k.clone(), ChangedValue::Removed(v.clone()))),
+				}
+			}
+
+			for (k, v) in other.kvs.iter() {
+				if !self.kvs.contains_key(k) {
+					kv_changes.push((k.clone(), ChangedValue::Added(v.clone())));
+				}
+			}
+
+			Some(SnapshotDiff { kv_changes, old_root: self.root.clone(), new_root: other.root.clone() })
+		}
+
+		pub fn assert_eq(&self, other: &Self) {
+			if let Some(diff) = self.diff(other) {
+				panic!("{}", diff);
+			}
+		}
+	}
+
+	fn hex(v: &[u8]) -> String {
+		array_bytes::bytes2hex("0x", v)
+	}
+
+	fn root() -> Vec<u8> {
+		sp_io::storage::root(sp_runtime::StateVersion::V1)
+	}
+
+	#[macro_export]
+	#[cfg(feature = "experimental")]
+	macro_rules! snapshot {
+		( $e:expr ) => {
+			$crate::hypothetically!({
+				$e;
+
+				$crate::snapshot::Snapshot::take()
+			})
+		};
 	}
 }

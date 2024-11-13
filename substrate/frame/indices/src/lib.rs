@@ -34,6 +34,7 @@ use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
 };
+use frame_support::ahm::TeleportedAnonReserve;
 use frame_support::traits::tokens::Precision;
 use frame_support::ahm::MigratorAnonReserve;
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_MILLIS;
@@ -242,18 +243,19 @@ pub mod pallet {
 
 		#[pallet::call_index(5)]
 		#[pallet::weight(Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS, 10_000))]
-		pub fn migrate_in_index(origin: OriginFor<T>, batch: Vec<(T::AccountIndex, T::AccountId, BalanceOf<T>, bool)>) -> DispatchResult {
+		pub fn migrate_in_index(origin: OriginFor<T>, batch: Vec<(T::AccountIndex, T::AccountId, bool, TeleportedAnonReserve<T::AccountId, BalanceOf<T>>)>) -> DispatchResult {
 			//ensure_root(origin)?; // FAIL-CI
 
-			for (index, who, deposit, permanent) in batch {
+			log::error!("Migrating in indices: {:?}", batch.len());
+			for (index, who, permanent, reserve) in batch {
 				if let Some((who_ah, _, _)) = Accounts::<T>::get(index) {
 					Self::deposit_event(Event::IndexMigrationConflict { index, who_relay: who.clone(), who_ah });
 					continue;
 				}
 
-				Accounts::<T>::insert(index, (who.clone(), deposit, permanent));
+				Accounts::<T>::insert(index, (who.clone(), reserve.teleported_reserve, permanent));
 				// We still do it in the error case...
-				let reserve_ok = T::AhReserveMigrator::migrate_in_anon_reserve(who, deposit).defensive().is_ok();
+				let reserve_ok = T::AhReserveMigrator::migrate_in_anon_reserve(reserve).defensive().is_ok();
 				Self::deposit_event(Event::IndexMigratedIn { index, reserve_ok });
 			}
 
@@ -325,14 +327,20 @@ impl<T: Config> Pallet<T> {
 			};
 			let (index, (who, deposit, permanent)) = next;
 
+			let reserve = match T::AhReserveMigrator::migrate_out_anon_reserve(who.clone(), deposit, Precision::BestEffort) {
+				Err(e) => {
+					// Depending on our policy, we could also allow these indices to migrate for free.
+					log::error!("Failed to migrate reserve for index of account {:?}, proceeding: {:?}", &who, e);
+					continue;
+				}
+				Ok(reserve) => reserve,
+			};
+
 			// Remove from the relay storage:
 			Accounts::<T>::remove(index);
-			// We have to ignore the error here if we want to get this over with.
-			let _ = T::AhReserveMigrator::migrate_out_anon_reserve(who.clone(), deposit, Precision::BestEffort)
-				.inspect_err(|e| log::error!("Failed to migrate reserve for index of account {:?}, proceeding: {:?}", &who, e));
 			
 			Self::deposit_event(Event::IndexMigratedOut { index });
-			batch.push((index, who, deposit, permanent));
+			batch.push((index, who, permanent, reserve));
 		}
 
 		if batch.is_empty() {

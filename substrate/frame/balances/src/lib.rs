@@ -165,6 +165,7 @@ use frame_support::{
 		},
 		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap, KeyIterableStoredMap,
 	},
+	ahm::*,
 	BoundedSlice, WeakBoundedVec,
 };
 use frame_support::traits::TryDrop;
@@ -391,10 +392,12 @@ pub mod pallet {
 		MigratedOutLock { who: T::AccountId, id: LockIdentifier },
 		MigratedInLock { who: T::AccountId, id: LockIdentifier },
 
-		MigratedOutReserve { who: T::AccountId, id: Option<T::ReserveIdentifier>, amount: T::Balance },
-		MigratedInReserve { who: T::AccountId, id: Option<T::ReserveIdentifier>, amount: T::Balance },
-		MigrationSufficientRefSet { who: T::AccountId },
-		MigrationSufficientRefUnset { who: T::AccountId },
+		MigratedOutReserve { who: T::AccountId, id: Option<T::ReserveIdentifier>, teleported_reserve: T::Balance, teleported_dust: T::Balance },
+		MigratedInReserve { who: T::AccountId, id: Option<T::ReserveIdentifier>, teleported_reserve: T::Balance, teleported_dust: T::Balance },
+		/// An account has been pinned with a sufficient ref during migration.
+		MigrationSufficientPinned { who: T::AccountId },
+		/// An account has been unpinned after migration.
+		MigrationSufficientUnpinned { who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -906,48 +909,10 @@ pub mod pallet {
 
 			Ok(())
 		}
-
-		#[pallet::call_index(13)]
-		#[pallet::weight(T::WeightInfo::burn_keep_alive())] // TODO
-		pub fn migrate_in_reserves(
-			origin: OriginFor<T>,
-			reserves: Vec<TeleportedReserveOf<T, I>>,
-		) -> DispatchResult {
-			// TODO ensure origin
-
-			for r in reserves {
-				Self::mint_into(r.who.clone(), r.teleported_dust)?;
-				Self::migrate_in_reserve(r.id, r.who, r.teleported_reserve)?;
-			}
-
-			Ok(())
-		}
 	}
 
-	/// An in-flight reserve.
-	#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-	#[must_use]
-	pub struct TeleportedReserve<AccountId, Balance, ReserveIdentifier> {
-		/// Whos reserve is being teleported over.
-		who: AccountId,
-		
-		/// Possibly id of the reserve.
-		id: Option<ReserveIdentifier>,
-		
-		/// The reserved amount that is being teleported over.
-		///
-		/// This amount must be MINTED, transferred to `who` and reserved. Must be treated like a
-		/// `NegativeImbalance`.
-		teleported_reserve: Balance,
-		
-		/// Additional dust amount that is teleported over.
-		///
-		/// This amount must be MINTED and transferred to `who`. Must be treated like a
-		/// `NegativeImbalance`.
-		teleported_dust: Balance,
-	}
-
-	pub type TeleportedReserveOf<T, I> = TeleportedReserve<<T as frame_system::Config>::AccountId, <T as Config<I>>::Balance, <T as Config<I>>::ReserveIdentifier>;
+	pub type TeleportedAnonReserveOf<T, I> = TeleportedAnonReserve<<T as frame_system::Config>::AccountId, <T as Config<I>>::Balance>;
+	pub type TeleportedNamedReserveOf<T, I> = TeleportedNamedReserve<<T as Config<I>>::ReserveIdentifier, <T as frame_system::Config>::AccountId, <T as Config<I>>::Balance>;
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Integrate a migrated reserve into our runtime.
@@ -958,24 +923,34 @@ pub mod pallet {
 		/// dual to each other in the mathematical sense. There are some storage changes that would
 		/// persist (like sufficient ref and MigrationMinted/BurnedAmount), but these need to be
 		/// cleaned at the end of the migration anyway for all accounts.
-		pub fn migrate_in_reserve(id: Option<T::ReserveIdentifier>, who: T::AccountId, amount: T::Balance) -> Result<(), DispatchError> {
+		pub fn migrate_in_reserve(r: either::Either<TeleportedAnonReserveOf<T, I>, TeleportedNamedReserveOf<T, I>>) -> DispatchResult {
+			let (who, teleported_reserve, teleported_dust, id) = match r {
+				either::Left(TeleportedAnonReserve { who, teleported_reserve, teleported_dust }) =>
+					(who, teleported_reserve, teleported_dust, None),
+				either::Right(TeleportedNamedReserve(TeleportedAnonReserve { who, teleported_reserve, teleported_dust }, id)) =>
+					(who, teleported_reserve, teleported_dust, Some(id)),
+			};
 			Self::ensure_sufficient(&who);
-			Self::mint_into(who.clone(), amount)?;
+
+			Self::mint_into(who.clone(), teleported_reserve)?;
+			Self::mint_into(who.clone(), teleported_dust)?;
 
 			if let Some(id) = id {
-				Self::reserve_named(&id, &who, amount);
+				Self::reserve_named(&id, &who, teleported_reserve);
 			} else {
-				Self::reserve(&who, amount);
+				Self::reserve(&who, teleported_reserve);
 			}
 
-			Self::deposit_event(Event::MigratedInReserve { who, id, amount });
+			Self::deposit_event(Event::MigratedInReserve { who, id, teleported_reserve, teleported_dust });
 			Ok(())
 		}
 
 		/// Must be run in a transactional context that reverts all changes upon error.
-		pub fn migrate_out_named_reserve(id: T::ReserveIdentifier, who: T::AccountId, amount: T::Balance, prec: Precision) -> Result<Call<T, I>, DispatchError> {
+		pub fn migrate_out_named_reserve(id: T::ReserveIdentifier, who: T::AccountId, amount: T::Balance, prec: Precision) -> Result<TeleportedNamedReserveOf<T, I>, DispatchError> {
 			Self::ensure_sufficient(&who);
 			let remainder = Self::unreserve_named(&id, &who, amount);
+
+			// TODO factor into shared function
 			if !remainder.is_zero() {
 				log::error!("Could not unreserve full named amount of account {:?}, amount: {:?}, remainder: {:?}", who, amount, remainder);
 
@@ -984,41 +959,32 @@ pub mod pallet {
 				}
 			}
 			let unreserved = amount.saturating_sub(remainder);
-			Self::deposit_event(Event::MigratedOutReserve { who: who.clone(), id: Some(id), amount: unreserved });
+			Self::deposit_event(Event::MigratedOutReserve { who: who.clone(), id: Some(id.clone()), teleported_reserve: unreserved, teleported_dust: remainder });
 
-			Self::burn_from(who.clone(), unreserved).inspect_err(|e| log::error!("Could not burn from account {:?}, error: {:?}", who, e))?;
+			let (burnt, dust_lost) = Self::burn_from(who.clone(), unreserved).inspect_err(|e| log::error!("Could not burn from account {:?}, error: {:?}", who, e))?;
+			let anon_reserve = TeleportedAnonReserve { who, teleported_reserve: burnt, teleported_dust: dust_lost };
 
-			let call = Call::<T, I>::migrate_in_reserves {
-				// We only migrate as much as we could unreserve.
-				reserves: vec![TeleportedReserve { who, id: Some(id), teleported_reserve: amount, teleported_dust: Zero::zero() }],
-			};
-
-			Ok(call)
+			Ok(TeleportedNamedReserve(anon_reserve, id))
 		}
-		// dust lost 13QNk663wuHUJXT6MU5WjsdcZgGD3YdFjym94TtiLnCP6xXQ
 
-		/// Must be run in a transactional context that reverts all changes upon error.
-		pub fn migrate_out_anon_reserve(who: T::AccountId, amount: T::Balance, prec: Precision) -> Result<Call<T, I>, DispatchError> {
+		pub fn migrate_out_anon_reserve(who: T::AccountId, amount: T::Balance, prec: Precision) -> Result<TeleportedAnonReserveOf<T, I>, DispatchError> {
 			Self::ensure_sufficient(&who);
 			let remainder = Self::unreserve(&who, amount);
+
 			if !remainder.is_zero() {
-				log::error!("Could not unreserve full anon amount of account {:?}, amount: {:?}, remainder: {:?}", who, amount, remainder);
+				log::error!("Could not unreserve full named amount of account {:?}, amount: {:?}, remainder: {:?}", who, amount, remainder);
 
 				if prec == Precision::Exact {
 					return Err(Error::<T, I>::AhmReserveAmountInexact.into());
 				}
 			}
 			let unreserved = amount.saturating_sub(remainder);
-			Self::deposit_event(Event::MigratedOutReserve { who: who.clone(), id: None, amount: unreserved });
+			Self::deposit_event(Event::MigratedOutReserve { who: who.clone(), id: None, teleported_reserve: unreserved, teleported_dust: remainder });
 
-			let (burned, dust_lost) = Self::burn_from(who.clone(), unreserved).inspect_err(|e| log::error!("Could not burn from account {:?}, error: {:?}", who, e))?;
+			let (burnt, dust_lost) = Self::burn_from(who.clone(), unreserved).inspect_err(|e| log::error!("Could not burn from account {:?}, error: {:?}", who, e))?;
+			let anon_reserve = TeleportedAnonReserve { who, teleported_reserve: burnt, teleported_dust: dust_lost };
 
-			let call = Call::<T, I>::migrate_in_reserves {
-				// We only migrate as much as we could unreserve.
-				reserves: vec![TeleportedReserve { who, id: None, teleported_reserve: burned, teleported_dust: dust_lost }],
-			};
-
-			Ok(call)
+			Ok(anon_reserve)
 		}
 
 		/// Burn some balance from an account and from the total issuance.
@@ -1030,7 +996,7 @@ pub mod pallet {
 				return Ok((Zero::zero(), Zero::zero()));
 			}
 			Self::ensure_sufficient(&who);
-			let free = T::AccountStore::get(&who).free;
+			let old_acc = T::AccountStore::get(&who);
 
 			// We have to use `ExistenceRequirement` here, since the balance pallet is quite coarse
 			// in its check of whether it would kill the account. It misses quiet a few cases where
@@ -1050,7 +1016,13 @@ pub mod pallet {
 				return Err(Error::<T, I>::AhmCannotBurnOffset.into());			
 			}
 
-			let dust_lost = free.saturating_sub(T::AccountStore::get(&who).free);
+			// We somehow have to Calculate the amount that was dusted.
+			let acc = T::AccountStore::get(&who);
+			let dust_lost = if old_acc.free < Self::ed() && acc.free.is_zero() {
+				defensive_assert!(acc.reserved.is_zero(), "Dusting only happens when there are no reserves");
+				old_acc.free
+			} else { Zero::zero() };
+			log::error!("Dust: old_acc: {:?}, new_acc: {:?}, dust_lost predicted: {:?}", old_acc, acc, dust_lost);
 
 			Ok((withdrawn, dust_lost))
 		}
@@ -1088,7 +1060,7 @@ pub mod pallet {
 			} else {
 				SufficientAccounts::<T, I>::insert(who, ());
 				frame_system::Pallet::<T>::inc_sufficients(who);
-				Self::deposit_event(Event::MigrationSufficientRefSet { who: who.clone() });
+				Self::deposit_event(Event::MigrationSufficientPinned { who: who.clone() });
 			}
 		}
 
@@ -1608,21 +1580,23 @@ pub mod pallet {
 
 	impl<T: Config<I>, I: 'static> frame_support::ahm::MigratorNamedReserve<T::ReserveIdentifier, T::AccountId, T::Balance> for Pallet<T, I>
 	{
-		fn migrate_out_named_reserve(id: T::ReserveIdentifier, who: T::AccountId, amount: T::Balance, prec: Precision) -> Result<frame_support::ahm::EncodedPalletBalancesCall, DispatchError> {
-			let call = Self::migrate_out_named_reserve(id.into(), who.into(), amount.into(), prec)?;
-			Ok(call.encode())
+		fn migrate_out_named_reserve(id: T::ReserveIdentifier, who: T::AccountId, amount: T::Balance, prec: Precision) -> Result<TeleportedNamedReserveOf<T, I>, DispatchError> {
+			Self::migrate_out_named_reserve(id, who, amount, prec)
+		}
+
+		fn migrate_in_named_reserve(reserve: TeleportedNamedReserveOf<T, I>) -> Result<(), DispatchError> {
+			Self::migrate_in_reserve(either::Right(reserve))
 		}
 	}
 
 	impl<T: Config<I>, I: 'static> frame_support::ahm::MigratorAnonReserve<T::AccountId, T::Balance> for Pallet<T, I>
 	{
-		fn migrate_out_anon_reserve(who: T::AccountId, amount: T::Balance, prec: Precision) -> Result<frame_support::ahm::EncodedPalletBalancesCall, DispatchError> {
-			let call = Self::migrate_out_anon_reserve(who.into(), amount.into(), prec)?;
-			Ok(call.encode())
+		fn migrate_out_anon_reserve(who: T::AccountId, amount: T::Balance, prec: Precision) -> Result<TeleportedAnonReserveOf<T, I>, DispatchError> {
+			Self::migrate_out_anon_reserve(who, amount, prec)
 		}
 
-		fn migrate_in_anon_reserve(who: T::AccountId, amount: T::Balance) -> Result<(), DispatchError> {
-			Self::migrate_in_reserve(None, who.into(), amount.into())
+		fn migrate_in_anon_reserve(reserve: TeleportedAnonReserveOf<T, I>) -> Result<(), DispatchError> {
+			Self::migrate_in_reserve(either::Left(reserve))
 		}
 	}
 }

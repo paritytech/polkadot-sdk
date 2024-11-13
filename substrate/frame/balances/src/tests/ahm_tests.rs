@@ -17,7 +17,7 @@
 
 //! Test that the AssetHub migration works as expected.
 //!
-//! The tests in this file extensively compare storage diffs, to ensure that all changes to storage are correct. The error cases are also tested to ensure that no storage changes are leaked.
+//! The tests in this file extensively compare storage diffs, to ensure that all changes to storage are 100% as expected. The error cases are also tested to ensure that no storage changes are leaked.
 
 use super::*;
 use crate::*;
@@ -29,6 +29,7 @@ use frame_support::{
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
 		Hooks, InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
 		ReservableCurrency, WithdrawReasons,
+		tokens::Precision,
 	},
 	StorageNoopGuard,
 };
@@ -57,6 +58,7 @@ fn migrate_out_named_reserve() {
 				RSV1,
 				ALICE,
 				100,
+				Precision::Exact,
 			).unwrap();
 
 			// No reserve anymore
@@ -97,15 +99,15 @@ fn migrate_out_and_in_named_reserve() {
 
 		let _g = StorageNoopGuard::new();
 		// Move the reserve out and store the root hash
-		let call = Balances::migrate_out_named_reserve(
+		let in_flight_reserve = Balances::migrate_out_named_reserve(
 			RSV1,
 			ALICE,
 			100,
+			Precision::Exact,
 		).unwrap();
 
 		// Migrate it back in
-		let runtime_call: RuntimeCall = call.into();
-		runtime_call.dispatch(frame_system::RawOrigin::Root.into()).unwrap();
+		Balances::migrate_in_named_reserve(in_flight_reserve).unwrap();
 
 		// These two will stay for manual verification
 		assert_eq!(MigrationMintedAmount::<T, ()>::take(), MigrationBurnedAmount::<T, ()>::take());

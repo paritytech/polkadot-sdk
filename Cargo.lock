@@ -9862,6 +9862,7 @@ name = "pallet-balances"
 version = "37.0.0"
 dependencies = [
  "docify",
+ "either",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10727,6 +10728,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
