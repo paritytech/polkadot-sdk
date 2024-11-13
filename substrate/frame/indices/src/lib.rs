@@ -25,12 +25,19 @@ mod mock;
 mod tests;
 pub mod weights;
 
+use frame_support::pallet_prelude::Weight;
 use codec::Codec;
+use frame_support::traits::DefensiveResult;
+use frame_support::traits::Defensive;
 use frame_support::traits::{BalanceStatus::Reserved, Currency, ReservableCurrency};
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
 };
+use frame_support::ahm::TeleportedAnonReserve;
+use frame_support::traits::tokens::Precision;
+use frame_support::ahm::MigratorAnonReserve;
+use frame_support::weights::constants::WEIGHT_REF_TIME_PER_MILLIS;
 use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
@@ -62,6 +69,9 @@ pub mod pallet {
 
 		/// The currency trait.
 		type Currency: ReservableCurrency<Self::AccountId>;
+
+		//#[cfg(feature = "assethub-migration")]
+		type AhReserveMigrator: MigratorAnonReserve<Self::AccountId, BalanceOf<Self>>;
 
 		/// The deposit needed for reserving an index.
 		#[pallet::constant]
@@ -230,6 +240,27 @@ pub mod pallet {
 			Self::deposit_event(Event::IndexFrozen { index, who });
 			Ok(())
 		}
+
+		#[pallet::call_index(5)]
+		#[pallet::weight(Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS, 10_000))]
+		pub fn migrate_in_index(origin: OriginFor<T>, batch: Vec<(T::AccountIndex, T::AccountId, bool, TeleportedAnonReserve<T::AccountId, BalanceOf<T>>)>) -> DispatchResult {
+			//ensure_root(origin)?; // FAIL-CI
+
+			log::error!("Migrating in indices: {:?}", batch.len());
+			for (index, who, permanent, reserve) in batch {
+				if let Some((who_ah, _, _)) = Accounts::<T>::get(index) {
+					Self::deposit_event(Event::IndexMigrationConflict { index, who_relay: who.clone(), who_ah });
+					continue;
+				}
+
+				Accounts::<T>::insert(index, (who.clone(), reserve.teleported_reserve, permanent));
+				// We still do it in the error case...
+				let reserve_ok = T::AhReserveMigrator::migrate_in_anon_reserve(reserve).defensive().is_ok();
+				Self::deposit_event(Event::IndexMigratedIn { index, reserve_ok });
+			}
+
+			Ok(())
+		}
 	}
 
 	#[pallet::event]
@@ -241,6 +272,10 @@ pub mod pallet {
 		IndexFreed { index: T::AccountIndex },
 		/// A account index has been frozen to its current account ID.
 		IndexFrozen { index: T::AccountIndex, who: T::AccountId },
+
+		IndexMigratedOut { index: T::AccountIndex },
+		IndexMigrationConflict { index: T::AccountIndex, who_relay: T::AccountId, who_ah: T::AccountId },
+		IndexMigratedIn { index: T::AccountIndex, reserve_ok: bool },
 	}
 
 	#[pallet::error]
@@ -279,7 +314,42 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	// PUBLIC IMMUTABLES
+	// Must be run transactional.
+	pub fn migrate_next(batch_size: u32) -> Option<(Call<T>, Weight)> {
+		let mut batch = Vec::new();
+
+		loop {
+			if batch.len() >= batch_size as usize {
+				break;
+			}
+			let Some(next) = Accounts::<T>::iter().next() else {
+				break;
+			};
+			let (index, (who, deposit, permanent)) = next;
+
+			let reserve = match T::AhReserveMigrator::migrate_out_anon_reserve(who.clone(), deposit, Precision::BestEffort) {
+				Err(e) => {
+					// Depending on our policy, we could also allow these indices to migrate for free.
+					log::error!("Failed to migrate reserve for index of account {:?}, proceeding: {:?}", &who, e);
+					continue;
+				}
+				Ok(reserve) => reserve,
+			};
+
+			// Remove from the relay storage:
+			Accounts::<T>::remove(index);
+			
+			Self::deposit_event(Event::IndexMigratedOut { index });
+			batch.push((index, who, permanent, reserve));
+		}
+
+		if batch.is_empty() {
+			return None;
+		}
+
+		let call = Call::<T>::migrate_in_index { batch };
+		Some((call, Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS, 10000))) // FAIL-CI
+	}
 
 	/// Lookup an T::AccountIndex to get an Id, if there's one there.
 	pub fn lookup_index(index: T::AccountIndex) -> Option<T::AccountId> {

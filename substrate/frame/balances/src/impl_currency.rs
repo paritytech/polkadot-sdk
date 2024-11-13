@@ -429,30 +429,7 @@ where
 		reasons: WithdrawReasons,
 		liveness: ExistenceRequirement,
 	) -> result::Result<Self::NegativeImbalance, DispatchError> {
-		if value.is_zero() {
-			return Ok(NegativeImbalance::zero())
-		}
-
-		Self::try_mutate_account_handling_dust(
-			who,
-			|account, _| -> Result<Self::NegativeImbalance, DispatchError> {
-				let new_free_account =
-					account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
-
-				// bail if we need to keep the account alive and this would kill it.
-				let ed = T::ExistentialDeposit::get();
-				let would_be_dead = new_free_account < ed;
-				let would_kill = would_be_dead && account.free >= ed;
-				ensure!(liveness == AllowDeath || !would_kill, Error::<T, I>::Expendability);
-
-				Self::ensure_can_withdraw(who, value, reasons, new_free_account)?;
-
-				account.free = new_free_account;
-
-				Self::deposit_event(Event::Withdraw { who: who.clone(), amount: value });
-				Ok(NegativeImbalance::new(value))
-			},
-		)
+		Self::withdraw_maybe_checks(who, value, reasons, liveness, true)
 	}
 
 	/// Force the new free balance of a target account `who` to some new value `balance`.
@@ -486,6 +463,43 @@ where
 			},
 		)
 		.unwrap_or_else(|_| SignedImbalance::Positive(Self::PositiveImbalance::zero()))
+	}
+}
+
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	pub(crate) fn withdraw_maybe_checks(
+		who: &T::AccountId,
+		value: T::Balance,
+		reasons: WithdrawReasons,
+		liveness: ExistenceRequirement,
+		check_liquidity_restriction: bool
+	) -> result::Result<NegativeImbalance<T, I>, DispatchError> {
+		if value.is_zero() {
+			return Ok(NegativeImbalance::zero())
+		}
+
+		Self::try_mutate_account_handling_dust(
+			who,
+			|account, _| -> Result<NegativeImbalance<T, I>, DispatchError> {
+				let new_free_account =
+					account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
+
+				// bail if we need to keep the account alive and this would kill it.
+				let ed = T::ExistentialDeposit::get();
+				let would_be_dead = new_free_account < ed;
+				let would_kill = would_be_dead && account.free >= ed;
+				ensure!(liveness == AllowDeath || !would_kill, Error::<T, I>::Expendability);
+
+				if check_liquidity_restriction {
+					Self::ensure_can_withdraw(who, value, reasons, new_free_account)?;
+				}				
+
+				account.free = new_free_account;
+
+				Self::deposit_event(Event::Withdraw { who: who.clone(), amount: value });
+				Ok(NegativeImbalance::new(value))
+			},
+		)
 	}
 }
 
@@ -849,6 +863,33 @@ where
 	}
 }
 
+impl<T: Config<I>, I: 'static> Pallet<T, I>
+where
+	T::Balance: MaybeSerializeDeserialize + Debug
+{
+	pub(crate) fn set_lock_with_reason(
+		id: LockIdentifier,
+		who: &T::AccountId,
+		amount: T::Balance,
+		reasons: Reasons,
+	) {
+		if amount.is_zero() {
+			Self::remove_lock(id, who);
+			return
+		}
+
+		let mut new_lock = Some(BalanceLock { id, amount, reasons });
+		let mut locks = Self::locks(who)
+			.into_iter()
+			.filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
+			.collect::<Vec<_>>();
+		if let Some(lock) = new_lock {
+			locks.push(lock)
+		}
+		Self::update_locks(who, &locks[..]);
+	}
+}
+
 impl<T: Config<I>, I: 'static> LockableCurrency<T::AccountId> for Pallet<T, I>
 where
 	T::Balance: MaybeSerializeDeserialize + Debug,
@@ -864,20 +905,12 @@ where
 		amount: T::Balance,
 		reasons: WithdrawReasons,
 	) {
-		if reasons.is_empty() || amount.is_zero() {
+		if reasons.is_empty() {
 			Self::remove_lock(id, who);
 			return
 		}
 
-		let mut new_lock = Some(BalanceLock { id, amount, reasons: reasons.into() });
-		let mut locks = Self::locks(who)
-			.into_iter()
-			.filter_map(|l| if l.id == id { new_lock.take() } else { Some(l) })
-			.collect::<Vec<_>>();
-		if let Some(lock) = new_lock {
-			locks.push(lock)
-		}
-		Self::update_locks(who, &locks[..]);
+		Self::set_lock_with_reason(id, who, amount, reasons.into())
 	}
 
 	// Extend a lock on the balance of `who`.

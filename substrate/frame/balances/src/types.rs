@@ -100,6 +100,7 @@ pub struct AccountData<Balance> {
 }
 
 const IS_NEW_LOGIC: u128 = 0x80000000_00000000_00000000_00000000u128;
+const IS_AHM_MIGRATED: u128 = 0x40000000_00000000_00000000_00000000u128;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct ExtraFlags(pub(crate) u128);
@@ -117,6 +118,12 @@ impl ExtraFlags {
 	}
 	pub fn is_new_logic(&self) -> bool {
 		(self.0 & IS_NEW_LOGIC) == IS_NEW_LOGIC
+	}
+	pub fn set_ahm_migrated(&mut self) {
+		self.0 = self.0 | IS_AHM_MIGRATED
+	}
+	pub fn is_ahm_migrated(&self) -> bool {
+		(self.0 & IS_AHM_MIGRATED) == IS_AHM_MIGRATED
 	}
 }
 
