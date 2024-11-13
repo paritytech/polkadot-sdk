@@ -83,9 +83,6 @@ pub mod v16 {
 				log!(warn, "Could not insert invulnerables in bounded vector.");
 			}
 
-			let eras_rewards = ErasRewardPoints::<T>::get();
-			for 
-
 			log!(info, "v15 applied successfully.");
 			T::DbWeight::get().reads_writes(1, 1)
 		}
