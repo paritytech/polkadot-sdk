@@ -2276,7 +2276,6 @@ fn retry_works() {
 			persisted_validation_data_hash: pvd_a.hash(),
 			validation_code: validation_code_a.0.clone(),
 			head_data: expected_head_data.clone(),
-			..Default::default()
 		}
 		.build();
 
