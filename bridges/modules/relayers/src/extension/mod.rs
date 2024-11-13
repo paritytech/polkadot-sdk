@@ -1110,7 +1110,6 @@ mod tests {
 				0,
 				External,
 				0,
-				r,
 			)
 			.map(|t| t.0)
 	}
