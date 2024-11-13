@@ -54,6 +54,7 @@ use frame_support::{
 	dispatch::{
 		DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays, PostDispatchInfo,
 	},
+	pallet_prelude::TransactionSource,
 	traits::{Defensive, EstimateCallFee, Get},
 	weights::{Weight, WeightToFee},
 };
@@ -843,8 +844,22 @@ where
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
 		let (final_fee, _) = self.withdraw_fee(who, call, info, len)?;
+=======
+		_: (),
+		_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> Result<
+		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
+		let Ok(who) = frame_system::ensure_signed(origin.clone()) else {
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
+		};
+		let final_fee = self.can_withdraw_fee(&who, call, info, len)?;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		let tip = self.0;
 		Ok(ValidTransaction {
 			priority: Self::get_priority(info, len, tip, final_fee),

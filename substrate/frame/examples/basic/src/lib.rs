@@ -60,6 +60,7 @@ use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
+	pallet_prelude::TransactionSource,
 	traits::IsSubType,
 	weights::Weight,
 };
@@ -516,7 +517,14 @@ where
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
+=======
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		// if the transaction is too big, just drop it.
 		if len > 200 {
 			return InvalidTransaction::ExhaustsResources.into()

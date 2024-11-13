@@ -282,9 +282,31 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 				)* ),
 			);
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/check_obsolete_extension.rs
 			fn additional_signed(&self) -> sp_std::result::Result<
 				(),
 				sp_runtime::transaction_validity::TransactionValidityError,
+=======
+			fn weight(&self, _: &$call) -> frame_support::pallet_prelude::Weight {
+				frame_support::pallet_prelude::Weight::zero()
+			}
+
+			fn validate(
+				&self,
+				origin: <$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				call: &$call,
+				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
+				_len: usize,
+				_self_implicit: Self::Implicit,
+				_inherited_implication: &impl codec::Encode,
+				_source: sp_runtime::transaction_validity::TransactionSource,
+			) -> Result<
+				(
+					sp_runtime::transaction_validity::ValidTransaction,
+					Self::Val,
+					<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				), sp_runtime::transaction_validity::TransactionValidityError
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323)):bridges/bin/runtime-common/src/extensions.rs
 			> {
 				Ok(())
 			}
@@ -371,6 +393,7 @@ mod tests {
 			},
 			RefundableParachain,
 		},
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/check_obsolete_extension.rs
 		mock::*,
 	};
 	use bp_polkadot_core::parachains::ParaId;
@@ -379,6 +402,11 @@ mod tests {
 	use sp_runtime::{
 		traits::{ConstU64, SignedExtension},
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+=======
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidity, ValidTransaction,
+		},
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323)):bridges/bin/runtime-common/src/extensions.rs
 		DispatchError,
 	};
 
@@ -466,7 +494,17 @@ mod tests {
 
 		run_test(|| {
 			assert_err!(
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/check_obsolete_extension.rs
 				BridgeRejectObsoleteHeadersAndMessages.validate(&42, &MockCall { data: 1 }, &(), 0),
+=======
+				BridgeRejectObsoleteHeadersAndMessages.validate_only(
+					42u64.into(),
+					&MockCall { data: 1 },
+					&(),
+					0,
+					External,
+				),
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323)):bridges/bin/runtime-common/src/extensions.rs
 				InvalidTransaction::Custom(1)
 			);
 			assert_err!(
@@ -480,7 +518,17 @@ mod tests {
 			);
 
 			assert_err!(
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/check_obsolete_extension.rs
 				BridgeRejectObsoleteHeadersAndMessages.validate(&42, &MockCall { data: 2 }, &(), 0),
+=======
+				BridgeRejectObsoleteHeadersAndMessages.validate_only(
+					42u64.into(),
+					&MockCall { data: 2 },
+					&(),
+					0,
+					External,
+				),
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323)):bridges/bin/runtime-common/src/extensions.rs
 				InvalidTransaction::Custom(2)
 			);
 			assert_err!(
@@ -495,8 +543,14 @@ mod tests {
 
 			assert_eq!(
 				BridgeRejectObsoleteHeadersAndMessages
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/check_obsolete_extension.rs
 					.validate(&42, &MockCall { data: 3 }, &(), 0)
 					.unwrap(),
+=======
+					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0, External)
+					.unwrap()
+					.0,
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323)):bridges/bin/runtime-common/src/extensions.rs
 				ValidTransaction { priority: 3, ..Default::default() },
 			);
 			assert_eq!(

@@ -59,12 +59,29 @@ where
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
 	) -> TransactionValidity {
+<<<<<<< HEAD
 		if let Some((ref id, ref extra)) = self.signed {
 			Extra::validate(extra, id, &self.function, info, len)
 		} else {
 			let valid = Extra::validate_unsigned(&self.function, info, len)?;
 			let unsigned_validation = U::validate_unsigned(source, &self.function)?;
 			Ok(valid.combine_with(unsigned_validation))
+=======
+		match self.format {
+			ExtrinsicFormat::Bare => {
+				let inherent_validation = I::validate_unsigned(source, &self.function)?;
+				#[allow(deprecated)]
+				let legacy_validation = Extension::bare_validate(&self.function, info, len)?;
+				Ok(legacy_validation.combine_with(inherent_validation))
+			},
+			ExtrinsicFormat::Signed(ref signer, ref extension) => {
+				let origin = Some(signer.clone()).into();
+				extension.validate_only(origin, &self.function, info, len, source).map(|x| x.0)
+			},
+			ExtrinsicFormat::General(ref extension) => extension
+				.validate_only(None.into(), &self.function, info, len, source)
+				.map(|x| x.0),
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		}
 	}
 

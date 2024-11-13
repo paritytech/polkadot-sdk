@@ -18,7 +18,7 @@
 use crate::{Config, Key};
 use codec::{Decode, Encode};
 use core::{fmt, marker::PhantomData};
-use frame_support::{dispatch::DispatchInfo, ensure};
+use frame_support::{dispatch::DispatchInfo, ensure, pallet_prelude::TransactionSource};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, SignedExtension},
@@ -85,7 +85,22 @@ where
 		_call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
+=======
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> Result<
+		(
+			ValidTransaction,
+			Self::Val,
+			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin,
+		),
+		TransactionValidityError,
+	> {
+		let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		let sudo_key: T::AccountId = Key::<T>::get().ok_or(UnknownTransaction::CannotLookup)?;
 		ensure!(*who == sudo_key, InvalidTransaction::BadSigner);
 

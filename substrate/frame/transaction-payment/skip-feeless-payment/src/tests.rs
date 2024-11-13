@@ -18,6 +18,10 @@ use crate::mock::{
 	pallet_dummy::Call, DummyExtension, PreDispatchCount, Runtime, RuntimeCall, ValidateCount,
 };
 use frame_support::dispatch::DispatchInfo;
+<<<<<<< HEAD
+=======
+use sp_runtime::{traits::DispatchTransaction, transaction_validity::TransactionSource};
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 
 #[test]
 fn skip_feeless_payment_works() {
@@ -40,13 +44,33 @@ fn validate_works() {
 
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+<<<<<<< HEAD
 		.validate(&0, &call, &DispatchInfo::default(), 0)
+=======
+		.validate_only(
+			Some(0).into(),
+			&call,
+			&DispatchInfo::default(),
+			0,
+			TransactionSource::External,
+		)
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		.unwrap();
 	assert_eq!(ValidateCount::get(), 1);
 
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 0 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+<<<<<<< HEAD
 		.validate(&0, &call, &DispatchInfo::default(), 0)
+=======
+		.validate_only(
+			Some(0).into(),
+			&call,
+			&DispatchInfo::default(),
+			0,
+			TransactionSource::External,
+		)
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		.unwrap();
 	assert_eq!(ValidateCount::get(), 1);
 }

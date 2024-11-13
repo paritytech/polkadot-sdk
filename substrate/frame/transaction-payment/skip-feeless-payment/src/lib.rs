@@ -39,6 +39,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
+	pallet_prelude::TransactionSource,
 	traits::{IsType, OriginTrait},
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
@@ -129,11 +130,31 @@ where
 		call: &Self::Call,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
 		if call.is_feeless(&<T as frame_system::Config>::RuntimeOrigin::signed(who.clone())) {
 			Ok(ValidTransaction::default())
 		} else {
 			self.0.validate(who, call, info, len)
+=======
+		self_implicit: S::Implicit,
+		inherited_implication: &impl Encode,
+		source: TransactionSource,
+	) -> ValidateResult<Self::Val, T::RuntimeCall> {
+		if call.is_feeless(&origin) {
+			Ok((Default::default(), Skip(origin.caller().clone()), origin))
+		} else {
+			let (x, y, z) = self.0.validate(
+				origin,
+				call,
+				info,
+				len,
+				self_implicit,
+				inherited_implication,
+				source,
+			)?;
+			Ok((x, Apply(y), z))
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		}
 	}
 

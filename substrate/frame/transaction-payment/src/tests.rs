@@ -21,7 +21,14 @@ use crate as pallet_transaction_payment;
 use codec::Encode;
 
 use sp_runtime::{
+<<<<<<< HEAD
 	testing::TestXt, traits::One, transaction_validity::InvalidTransaction, BuildStorage,
+=======
+	generic::UncheckedExtrinsic,
+	traits::{DispatchTransaction, One},
+	transaction_validity::{InvalidTransaction, TransactionSource::External},
+	BuildStorage,
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 };
 
 use frame_support::{
@@ -237,12 +244,16 @@ fn signed_extension_allows_free_transactions() {
 				class: DispatchClass::Operational,
 				pays_fee: Pays::No,
 			};
+<<<<<<< HEAD
 			assert_ok!(ChargeTransactionPayment::<Runtime>::from(0).validate(
 				&1,
 				CALL,
 				&operational_transaction,
 				len
 			));
+=======
+			assert_ok!(Ext::from(0).validate_only(Some(1).into(), CALL, &op_tx, len, External));
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 
 			// like a InsecureFreeNormal
 			let free_transaction = DispatchInfo {
@@ -250,6 +261,7 @@ fn signed_extension_allows_free_transactions() {
 				class: DispatchClass::Normal,
 				pays_fee: Pays::Yes,
 			};
+<<<<<<< HEAD
 			assert_noop!(
 				ChargeTransactionPayment::<Runtime>::from(0).validate(
 					&1,
@@ -257,6 +269,12 @@ fn signed_extension_allows_free_transactions() {
 					&free_transaction,
 					len
 				),
+=======
+			assert_eq!(
+				Ext::from(0)
+					.validate_only(Some(1).into(), CALL, &free_tx, len, External)
+					.unwrap_err(),
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 				TransactionValidityError::Invalid(InvalidTransaction::Payment),
 			);
 		});
@@ -678,6 +696,7 @@ fn should_alter_operational_priority() {
 			.unwrap()
 			.priority;
 
+<<<<<<< HEAD
 		assert_eq!(priority, 60);
 
 		let priority = ChargeTransactionPayment::<Runtime>(2 * tip)
@@ -685,6 +704,22 @@ fn should_alter_operational_priority() {
 			.unwrap()
 			.priority;
 
+=======
+		let ext = Ext::from(tip);
+		let priority = ext
+			.validate_only(Some(2).into(), CALL, &normal, len, External)
+			.unwrap()
+			.0
+			.priority;
+		assert_eq!(priority, 60);
+
+		let ext = Ext::from(2 * tip);
+		let priority = ext
+			.validate_only(Some(2).into(), CALL, &normal, len, External)
+			.unwrap()
+			.0
+			.priority;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		assert_eq!(priority, 110);
 	});
 
@@ -694,6 +729,7 @@ fn should_alter_operational_priority() {
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
+<<<<<<< HEAD
 		let priority = ChargeTransactionPayment::<Runtime>(tip)
 			.validate(&2, CALL, &op, len)
 			.unwrap()
@@ -704,6 +740,17 @@ fn should_alter_operational_priority() {
 			.validate(&2, CALL, &op, len)
 			.unwrap()
 			.priority;
+=======
+
+		let ext = Ext::from(tip);
+		let priority =
+			ext.validate_only(Some(2).into(), CALL, &op, len, External).unwrap().0.priority;
+		assert_eq!(priority, 5810);
+
+		let ext = Ext::from(2 * tip);
+		let priority =
+			ext.validate_only(Some(2).into(), CALL, &op, len, External).unwrap().0.priority;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		assert_eq!(priority, 6110);
 	});
 }
@@ -719,11 +766,20 @@ fn no_tip_has_some_priority() {
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes,
 		};
+<<<<<<< HEAD
 		let priority = ChargeTransactionPayment::<Runtime>(tip)
 			.validate(&2, CALL, &normal, len)
 			.unwrap()
 			.priority;
 
+=======
+		let ext = Ext::from(tip);
+		let priority = ext
+			.validate_only(Some(2).into(), CALL, &normal, len, External)
+			.unwrap()
+			.0
+			.priority;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		assert_eq!(priority, 10);
 	});
 
@@ -733,10 +789,16 @@ fn no_tip_has_some_priority() {
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes,
 		};
+<<<<<<< HEAD
 		let priority = ChargeTransactionPayment::<Runtime>(tip)
 			.validate(&2, CALL, &op, len)
 			.unwrap()
 			.priority;
+=======
+		let ext = Ext::from(tip);
+		let priority =
+			ext.validate_only(Some(2).into(), CALL, &op, len, External).unwrap().0.priority;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		assert_eq!(priority, 5510);
 	});
 }
@@ -753,9 +815,17 @@ fn higher_tip_have_higher_priority() {
 				class: DispatchClass::Normal,
 				pays_fee: Pays::Yes,
 			};
+<<<<<<< HEAD
 			priority1 = ChargeTransactionPayment::<Runtime>(tip)
 				.validate(&2, CALL, &normal, len)
 				.unwrap()
+=======
+			let ext = Ext::from(tip);
+			pri1 = ext
+				.validate_only(Some(2).into(), CALL, &normal, len, External)
+				.unwrap()
+				.0
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 				.priority;
 		});
 
@@ -765,10 +835,15 @@ fn higher_tip_have_higher_priority() {
 				class: DispatchClass::Operational,
 				pays_fee: Pays::Yes,
 			};
+<<<<<<< HEAD
 			priority2 = ChargeTransactionPayment::<Runtime>(tip)
 				.validate(&2, CALL, &op, len)
 				.unwrap()
 				.priority;
+=======
+			let ext = Ext::from(tip);
+			pri2 = ext.validate_only(Some(2).into(), CALL, &op, len, External).unwrap().0.priority;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		});
 
 		(priority1, priority2)

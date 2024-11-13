@@ -55,7 +55,14 @@ impl SignedExtension for DummyExtension {
 		_call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
+=======
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> ValidateResult<Self::Val, RuntimeCall> {
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		ValidateCount::mutate(|c| *c += 1);
 		Ok(Default::default())
 	}

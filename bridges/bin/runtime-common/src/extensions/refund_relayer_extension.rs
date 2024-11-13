@@ -27,8 +27,13 @@ use bp_relayers::{ExplicitOrAccountParams, RewardsAccountOwner, RewardsAccountPa
 use bp_runtime::{Chain, Parachain, RangeInclusiveExt, StaticStrProvider};
 use codec::{Codec, Decode, Encode};
 use frame_support::{
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	dispatch::{CallableCallFor, DispatchInfo, PostDispatchInfo},
 	traits::IsSubType,
+=======
+	dispatch::{DispatchInfo, PostDispatchInfo},
+	pallet_prelude::TransactionSource,
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323)):bridges/modules/relayers/src/extension/mod.rs
 	weights::Weight,
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -450,6 +455,7 @@ where
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 	) -> TransactionValidity {
 		// this is the only relevant line of code for the `pre_dispatch`
 		//
@@ -457,6 +463,19 @@ where
 		// reasons, so if you're adding some code that may fail here, please check if it needs
 		// to be added to the `pre_dispatch` as well
 		let parsed_call = T::parse_and_check_for_obsolete_call(call)?;
+=======
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> ValidateResult<Self::Val, R::RuntimeCall> {
+		// Prepare relevant data for `prepare`
+		let parsed_call = match C::parse_and_check_for_obsolete_call(call)? {
+			Some(parsed_call) => parsed_call,
+			None => return Ok((Default::default(), None, origin)),
+		};
+		// Those calls are only for signed transactions.
+		let relayer = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323)):bridges/modules/relayers/src/extension/mod.rs
 
 		// the following code just plays with transaction priority and never returns an error
 
@@ -962,8 +981,15 @@ pub(crate) mod tests {
 		Call as ParachainsCall, Pallet as ParachainsPallet, RelayBlockHash,
 	};
 	use sp_runtime::{
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 		traits::{ConstU64, Header as HeaderT},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
+=======
+		traits::{ConstU64, DispatchTransaction, Header as HeaderT},
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidity, ValidTransaction,
+		},
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323)):bridges/modules/relayers/src/extension/mod.rs
 		DispatchError,
 	};
 
@@ -1545,6 +1571,7 @@ pub(crate) mod tests {
 	}
 
 	fn run_validate(call: RuntimeCall) -> TransactionValidity {
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 		let extension: TestExtension =
 			RefundSignedExtensionAdapter(RefundBridgedParachainMessages(PhantomData));
 		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
@@ -1560,6 +1587,44 @@ pub(crate) mod tests {
 		let extension: TestMessagesExtension =
 			RefundSignedExtensionAdapter(RefundBridgedMessages(PhantomData));
 		extension.validate(&relayer_account_at_this_chain(), &call, &DispatchInfo::default(), 0)
+=======
+		let extension: TestExtension = BridgeRelayersTransactionExtension(PhantomData);
+		extension
+			.validate_only(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+				External,
+			)
+			.map(|t| t.0)
+	}
+
+	fn run_grandpa_validate(call: RuntimeCall) -> TransactionValidity {
+		let extension: TestGrandpaExtension = BridgeRelayersTransactionExtension(PhantomData);
+		extension
+			.validate_only(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+				External,
+			)
+			.map(|t| t.0)
+	}
+
+	fn run_messages_validate(call: RuntimeCall) -> TransactionValidity {
+		let extension: TestMessagesExtension = BridgeRelayersTransactionExtension(PhantomData);
+		extension
+			.validate_only(
+				Some(relayer_account_at_this_chain()).into(),
+				&call,
+				&DispatchInfo::default(),
+				0,
+				External,
+			)
+			.map(|t| t.0)
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323)):bridges/modules/relayers/src/extension/mod.rs
 	}
 
 	fn ignore_priority(tx: TransactionValidity) -> TransactionValidity {

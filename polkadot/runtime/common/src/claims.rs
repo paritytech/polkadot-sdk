@@ -35,7 +35,8 @@ use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 use sp_runtime::{
 	traits::{CheckedSub, DispatchInfoOf, SignedExtension, Zero},
 	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
+		ValidTransaction,
 	},
 	RuntimeDebug,
 };
@@ -650,6 +651,7 @@ where
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
+<<<<<<< HEAD
 	) -> TransactionValidity {
 		if let Some(local_call) = call.is_sub_type() {
 			if let Call::attest { statement: attested_statement } = local_call {
@@ -659,6 +661,22 @@ where
 					let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
 					ensure!(&attested_statement[..] == s.to_text(), e);
 				}
+=======
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> Result<
+		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
+		if let Some(Call::attest { statement: attested_statement }) = call.is_sub_type() {
+			let who = origin.as_system_origin_signer().ok_or(InvalidTransaction::BadSigner)?;
+			let signer = Preclaims::<T>::get(who)
+				.ok_or(InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()))?;
+			if let Some(s) = Signing::<T>::get(signer) {
+				let e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
+				ensure!(&attested_statement[..] == s.to_text(), e);
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 			}
 		}
 		Ok(ValidTransaction::default())
@@ -699,6 +717,7 @@ mod tests {
 	use super::*;
 	use hex_literal::hex;
 	use secp_utils::*;
+	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	use codec::Encode;
 	// The testing primitives are very useful for avoiding having to work with signatures
@@ -1055,8 +1074,13 @@ mod tests {
 			});
 			let di = c.get_dispatch_info();
 			assert_eq!(di.pays_fee, Pays::No);
+<<<<<<< HEAD
 			let r = p.validate(&42, &c, &di, 20);
 			assert_eq!(r, TransactionValidity::Ok(ValidTransaction::default()));
+=======
+			let r = p.validate_only(Some(42).into(), &c, &di, 20, External);
+			assert_eq!(r.unwrap().0, ValidTransaction::default());
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 		});
 	}
 
@@ -1068,13 +1092,21 @@ mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
+<<<<<<< HEAD
 			let r = p.validate(&42, &c, &di, 20);
+=======
+			let r = p.validate_only(Some(42).into(), &c, &di, 20, External);
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 			assert!(r.is_err());
 			let c = RuntimeCall::Claims(ClaimsCall::attest {
 				statement: StatementKind::Saft.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
+<<<<<<< HEAD
 			let r = p.validate(&69, &c, &di, 20);
+=======
+			let r = p.validate_only(Some(69).into(), &c, &di, 20, External);
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 			assert!(r.is_err());
 		});
 	}

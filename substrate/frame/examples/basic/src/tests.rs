@@ -27,7 +27,12 @@ use sp_core::H256;
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use sp_runtime::{
+<<<<<<< HEAD
 	traits::{BlakeTwo256, IdentityLookup},
+=======
+	traits::{BlakeTwo256, DispatchTransaction, IdentityLookup},
+	transaction_validity::TransactionSource::External,
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 	BuildStorage,
 };
 // Reexport crate as its pallet name for construct_runtime.
@@ -146,13 +151,23 @@ fn signed_ext_watch_dummy_works() {
 
 		assert_eq!(
 			WatchDummy::<Test>(PhantomData)
+<<<<<<< HEAD
 				.validate(&1, &call, &info, 150)
+=======
+				.validate_only(Some(1).into(), &call, &info, 150, External)
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 				.unwrap()
 				.priority,
 			u64::MAX,
 		);
 		assert_eq!(
+<<<<<<< HEAD
 			WatchDummy::<Test>(PhantomData).validate(&1, &call, &info, 250),
+=======
+			WatchDummy::<Test>(PhantomData)
+				.validate_only(Some(1).into(), &call, &info, 250, External)
+				.unwrap_err(),
+>>>>>>> 8e3d9296 ([Tx ext stage 2: 1/4] Add `TransactionSource` as argument in `TransactionExtension::validate` (#6323))
 			InvalidTransaction::ExhaustsResources.into(),
 		);
 	})
