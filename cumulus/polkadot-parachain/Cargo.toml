@@ -68,7 +68,7 @@ substrate-build-script-utils.workspace = true
 substrate-build-script-utils.default-features = true
 
 [features]
-default = []
+default = ['full-pov-size']
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
