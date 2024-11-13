@@ -128,7 +128,7 @@ use frame_support::{
 	ensure,
 	traits::{
 		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get, OneSessionHandler,
-		ValidatorRegistration, ValidatorSet,
+		ValidatorRegistration, ValidatorSet, Defensive,
 	},
 	weights::Weight,
 	Parameter,
@@ -737,7 +737,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Re-enable the validator of index `i`, returns `false` if the validator was already enabled.
 	pub fn enable_index(i: u32) -> bool {
-		if i >= Validators::<T>::decode_len().unwrap_or(0) as u32 {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
 			return false
 		}
 
