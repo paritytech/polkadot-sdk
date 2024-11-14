@@ -381,8 +381,10 @@ impl<
 		Balance: HasCompact + AtLeast32BitUnsigned + Copy + codec::MaxEncodedLen,
 	> Exposure<AccountId, Balance>
 {
-	/// Splits self into two where the returned partial `Exposure` has max of `n_others` individual
-	/// exposures while the remaining exposures are left in `self`.
+	/// Splits self into two instances of exposures.
+	///
+	/// `n_others` individual exposures are consumed from self and returned as part of the new
+	/// exposure.
 	pub fn split_others(&mut self, n_others: u32) -> Self {
 		let head_others: Vec<_> =
 			self.others.drain(..(n_others as usize).min(self.others.len())).collect();
@@ -715,5 +717,56 @@ mod tests {
 
 		let exposure_page: ExposurePage<u32, u32> = empty_exposures.into();
 		assert_eq!(exposure_page, ExposurePage { page_total: 0, others: vec![] });
+	}
+
+	#[test]
+	fn exposure_split_others_works() {
+		let exposure = Exposure {
+			total: 100,
+			own: 20,
+			others: vec![
+				IndividualExposure { who: 1, value: 20u32 },
+				IndividualExposure { who: 2, value: 20 },
+				IndividualExposure { who: 3, value: 20 },
+				IndividualExposure { who: 4, value: 20 },
+			],
+		};
+
+		let mut exposure_0 = exposure.clone();
+		// split others with with 0 `n_others` is a noop and returns an exposure with own only.
+		let split_exposure = exposure_0.split_others(0);
+		assert_eq!(exposure_0, exposure);
+		assert_eq!(split_exposure, Exposure { total: 20, own: 20, others: vec![] });
+
+		let mut exposure_1 = exposure.clone();
+		// split individual exposures so that the returned exposure has 1 individual exposure.
+		let split_exposure = exposure_1.split_others(1);
+		assert_eq!(exposure_1.own, 20);
+		assert_eq!(exposure_1.total, 20 + 3 * 20);
+		assert_eq!(exposure_1.others.len(), 3);
+
+		assert_eq!(split_exposure.own, 20);
+		assert_eq!(split_exposure.total, 20 + 1 * 20);
+		assert_eq!(split_exposure.others.len(), 1);
+
+		let mut exposure_3 = exposure.clone();
+		// split individual exposures so that the returned exposure has 3 individual exposures,
+		// which are consumed from the original exposure.
+		let split_exposure = exposure_3.split_others(3);
+		assert_eq!(exposure_3.own, 20);
+		assert_eq!(exposure_3.total, 20 + 1 * 20);
+		assert_eq!(exposure_3.others.len(), 1);
+
+		assert_eq!(split_exposure.own, 20);
+		assert_eq!(split_exposure.total, 20 + 3 * 20);
+		assert_eq!(split_exposure.others.len(), 3);
+
+		let mut exposure_100 = exposure.clone();
+		// split others with with more `n_others` than the number of others in the exposure returns
+		// consumes all the individual exposures of the original Exposure and returns them in the
+		// new exposure.
+		let split_exposure = exposure_100.split_others(100);
+		assert_eq!(split_exposure, exposure);
+		assert_eq!(exposure_100, Exposure { total: 20, own: 20, others: vec![] });
 	}
 }
