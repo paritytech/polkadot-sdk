@@ -28,7 +28,6 @@ use std::{
 	collections::HashSet,
 	env, fs,
 	hash::{Hash, Hasher},
-	io::Read,
 	ops::Deref,
 	path::{Path, PathBuf},
 	process,
