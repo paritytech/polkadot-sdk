@@ -59,6 +59,7 @@ use frame_support::{
 	pallet_prelude::DispatchClass,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
+		tokens::{Fortitude::Polite, Preservation::Preserve},
 		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::{Weight, WeightMeter},
@@ -1216,7 +1217,7 @@ where
 	///
 	/// - `origin`: The origin of the call.
 	/// - `dest`: The destination address of the call.
-	/// - `value`: The value to transfer.
+	/// - `value`: The EVM value to transfer.
 	/// - `input`: The input data.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
 	/// - `storage_deposit_limit`: The maximum balance that can be charged to the caller for storage
@@ -1228,7 +1229,7 @@ where
 	pub fn bare_eth_transact(
 		origin: T::AccountId,
 		dest: Option<H160>,
-		value: BalanceOf<T>,
+		value: U256,
 		input: Vec<u8>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
@@ -1252,6 +1253,18 @@ where
 		// Get the nonce to encode in the tx.
 		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
 
+		// Convert the value to the native balance type.
+		let native_value = match Self::convert_evm_to_native(value) {
+			Ok(v) => v,
+			Err(err) =>
+				return EthContractResult {
+					gas_required: Default::default(),
+					storage_deposit: Default::default(),
+					fee: Default::default(),
+					result: Err(err.into()),
+				},
+		};
+
 		// Dry run the call
 		let (mut result, dispatch_info) = match dest {
 			// A contract call.
@@ -1260,7 +1273,7 @@ where
 				let result = crate::Pallet::<T>::bare_call(
 					T::RuntimeOrigin::signed(origin),
 					dest,
-					value,
+					native_value,
 					gas_limit,
 					storage_deposit_limit,
 					input.clone(),
@@ -1277,7 +1290,7 @@ where
 				// Get the dispatch info of the call.
 				let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
 					dest,
-					value,
+					value: native_value,
 					gas_limit: result.gas_required,
 					storage_deposit_limit: result.storage_deposit,
 					data: input.clone(),
@@ -1303,7 +1316,7 @@ where
 				// Dry run the call.
 				let result = crate::Pallet::<T>::bare_instantiate(
 					T::RuntimeOrigin::signed(origin),
-					value,
+					native_value,
 					gas_limit,
 					storage_deposit_limit,
 					Code::Upload(code.to_vec()),
@@ -1323,7 +1336,7 @@ where
 				// Get the dispatch info of the call.
 				let dispatch_call: <T as Config>::RuntimeCall =
 					crate::Call::<T>::instantiate_with_code {
-						value,
+						value: native_value,
 						gas_limit: result.gas_required,
 						storage_deposit_limit: result.storage_deposit,
 						code: code.to_vec(),
@@ -1336,7 +1349,7 @@ where
 		};
 
 		let mut tx = TransactionLegacyUnsigned {
-			value: Self::convert_native_to_evm(value),
+			value,
 			input: input.into(),
 			nonce: nonce.into(),
 			chain_id: Some(T::ChainId::get().into()),
@@ -1373,6 +1386,12 @@ where
 		}
 
 		result
+	}
+
+	/// Get the balance with EVM decimals of the given `address`.
+	pub fn evm_balance(address: &H160) -> U256 {
+		let account = T::AddressMapper::to_account_id(&address);
+		Self::convert_native_to_evm(T::Currency::reducible_balance(&account, Preserve, Polite))
 	}
 
 	/// A generalized version of [`Self::upload_code`].
@@ -1473,8 +1492,8 @@ sp_api::decl_runtime_apis! {
 		BlockNumber: Codec,
 		EventRecord: Codec,
 	{
-		/// Returns the free balance of the given `[H160]` address.
-		fn balance(address: H160) -> Balance;
+		/// Returns the free balance of the given `[H160]` address, using EVM decimals.
+		fn balance(address: H160) -> U256;
 
 		/// Returns the nonce of the given `[H160]` address.
 		fn nonce(address: H160) -> Nonce;
@@ -1511,7 +1530,7 @@ sp_api::decl_runtime_apis! {
 		fn eth_transact(
 			origin: H160,
 			dest: Option<H160>,
-			value: Balance,
+			value: U256,
 			input: Vec<u8>,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
