@@ -294,6 +294,8 @@ fn prepare_pjr_input<AccountId: IdentifierT>(
 				score: Default::default(),
 				approval_stake: Default::default(),
 				round: Default::default(),
+				// TODO: check if we need to pass the bounds here.
+				bounded_backers: supports.iter().map(|(a, _)| a).cloned().collect(),
 			}
 			.to_ptr()
 		})
@@ -324,6 +326,7 @@ fn prepare_pjr_input<AccountId: IdentifierT>(
 						candidate: Rc::clone(&candidates[*idx]),
 						weight,
 						load: Default::default(),
+						skip: false,
 					});
 				}
 			}
@@ -402,6 +405,7 @@ mod tests {
 					score: Default::default(),
 					approval_stake: Default::default(),
 					round: Default::default(),
+					bounded_backers: Default::default(),
 				}
 			})
 			.collect::<Vec<_>>();
@@ -412,6 +416,7 @@ mod tests {
 				weight: c.backed_stake,
 				candidate: c.to_ptr(),
 				load: Default::default(),
+				skip: false,
 			})
 			.collect::<Vec<_>>();
 		voter.edges = edges;
@@ -454,6 +459,7 @@ mod tests {
 			approval_stake: Default::default(),
 			backed_stake: Default::default(),
 			round: Default::default(),
+			bounded_backers: Default::default(),
 		}
 		.to_ptr();
 		let score = pre_score(unelected, &vec![v1, v2, v3], 15);
