@@ -59,41 +59,11 @@ use tokio::sync::mpsc;
 
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2::archive";
 
-/// The configuration of [`Archive`].
-pub struct ArchiveConfig {
-	/// The maximum number of items the `archive_storage` can return for a descendant query before
-	/// pagination is required.
-	pub max_descendant_responses: usize,
-	/// The maximum number of queried items allowed for the `archive_storage` at a time.
-	pub max_queried_items: usize,
-}
-
-/// The maximum number of items the `archive_storage` can return for a descendant query before
-/// pagination is required.
-///
-/// Note: this is identical to the `chainHead` value.
-const MAX_DESCENDANT_RESPONSES: usize = 5;
-
-/// The maximum number of queried items allowed for the `archive_storage` at a time.
-///
-/// Note: A queried item can also be a descendant query which can return up to
-/// `MAX_DESCENDANT_RESPONSES`.
-const MAX_QUERIED_ITEMS: usize = 8;
-
 /// The buffer capacity for each storage query.
 ///
 /// This is small because the underlying JSON-RPC server has
 /// its down buffer capacity per connection as well.
 const STORAGE_QUERY_BUF: usize = 16;
-
-impl Default for ArchiveConfig {
-	fn default() -> Self {
-		Self {
-			max_descendant_responses: MAX_DESCENDANT_RESPONSES,
-			max_queried_items: MAX_QUERIED_ITEMS,
-		}
-	}
-}
 
 /// An API for archive RPC calls.
 pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
@@ -105,11 +75,6 @@ pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	executor: SubscriptionTaskExecutor,
 	/// The hexadecimal encoded hash of the genesis block.
 	genesis_hash: String,
-	/// The maximum number of items the `archive_storage` can return for a descendant query before
-	/// pagination is required.
-	storage_max_descendant_responses: usize,
-	/// The maximum number of queried items allowed for the `archive_storage` at a time.
-	storage_max_queried_items: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
 }
@@ -121,18 +86,9 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 		backend: Arc<BE>,
 		genesis_hash: GenesisHash,
 		executor: SubscriptionTaskExecutor,
-		config: ArchiveConfig,
 	) -> Self {
 		let genesis_hash = hex_string(&genesis_hash.as_ref());
-		Self {
-			client,
-			backend,
-			executor,
-			genesis_hash,
-			storage_max_descendant_responses: config.max_descendant_responses,
-			storage_max_queried_items: config.max_queried_items,
-			_phantom: PhantomData,
-		}
+		Self { client, backend, executor, genesis_hash, _phantom: PhantomData }
 	}
 }
 
