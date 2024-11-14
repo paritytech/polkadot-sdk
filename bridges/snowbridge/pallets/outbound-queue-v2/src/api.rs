@@ -6,7 +6,7 @@ use crate::{Config, MessageLeaves};
 use frame_support::storage::StorageStreamIter;
 use snowbridge_core::{
 	outbound::{
-		v2::{CommandWrapper, Fee, GasMeter, InboundMessage, Message},
+		v2::{CommandWrapper, GasMeter, InboundMessage, Message},
 		DryRunError,
 	},
 	AgentIdOf,

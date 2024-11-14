@@ -133,8 +133,6 @@ use alloy_sol_types::SolValue;
 
 use alloy_primitives::FixedBytes;
 
-use sp_runtime::traits::TrailingZeroInput;
-
 use sp_runtime::traits::MaybeEquivalence;
 
 use xcm::prelude::{Location, NetworkId};
@@ -320,8 +318,8 @@ pub mod pallet {
 				.map_err(|e| Error::<T>::Verification(e))?;
 
 			// Decode event log into an Envelope
-			let envelope =
-				Envelope::try_from(&message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+			let envelope = Envelope::<T>::try_from(&message.event_log)
+				.map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
@@ -330,12 +328,10 @@ pub mod pallet {
 			ensure!(<PendingOrders<T>>::contains_key(nonce), Error::<T>::PendingNonceNotExist);
 
 			let order = <PendingOrders<T>>::get(nonce).ok_or(Error::<T>::PendingNonceNotExist)?;
-			let account = T::AccountId::decode(&mut &envelope.reward_address[..]).unwrap_or(
-				T::AccountId::decode(&mut TrailingZeroInput::zeroes()).expect("zero address"),
-			);
+
 			// No fee for governance order
 			if !order.fee.is_zero() {
-				T::RewardLedger::deposit(account, order.fee.into())?;
+				T::RewardLedger::deposit(envelope.reward_address, order.fee.into())?;
 			}
 
 			<PendingOrders<T>>::remove(nonce);
