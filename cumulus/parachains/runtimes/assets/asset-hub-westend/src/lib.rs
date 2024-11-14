@@ -45,7 +45,10 @@ use frame_support::{
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles,
-		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
+		tokens::{
+			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, Fortitude::Polite,
+			Preservation::Expendable,
+		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, InstanceFilter,
 		Nothing, TransformOrigin,
 	},
@@ -58,7 +61,7 @@ use frame_system::{
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_nfts::{DestroyWitness, PalletFeatures};
-use pallet_revive::evm::runtime::EthExtra;
+use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -67,7 +70,7 @@ use parachains_common::{
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Saturating, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
@@ -79,9 +82,9 @@ use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, fee::WeightToFee, snowbridge::EthereumNetwork, time::*,
 };
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf,
-	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId,
-	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
+	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
+	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocation, WestendLocation,
+	XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -121,10 +124,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// Note: "westmint" is the legacy name for this chain. It has been renamed to
 	// "asset-hub-westend". Many wallets/tools depend on the `spec_name`, so it remains "westmint"
 	// for the time being. Wallets/tools should update to treat "asset-hub-westend" equally.
-	spec_name: create_runtime_str!("westmint"),
-	impl_name: create_runtime_str!("westmint"),
+	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
+	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_016_002,
+	spec_version: 1_016_005,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -333,11 +336,11 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	Assets,
 	ForeignAssets,
 	LocalFromLeft<
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, xcm::v4::Location>,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, xcm::v5::Location>,
 		AssetIdForTrustBackedAssets,
-		xcm::v4::Location,
+		xcm::v5::Location,
 	>,
-	xcm::v4::Location,
+	xcm::v5::Location,
 	AccountId,
 >;
 
@@ -345,21 +348,21 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
 	LocalAndForeignAssets,
-	TargetFromLeft<WestendLocation, xcm::v4::Location>,
-	xcm::v4::Location,
+	TargetFromLeft<WestendLocation, xcm::v5::Location>,
+	xcm::v5::Location,
 	AccountId,
 >;
 
 pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
 	AssetConversionPalletId,
-	(xcm::v4::Location, xcm::v4::Location),
+	(xcm::v5::Location, xcm::v5::Location),
 >;
 
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
-	type AssetKind = xcm::v4::Location;
+	type AssetKind = xcm::v5::Location;
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
@@ -384,7 +387,7 @@ impl pallet_asset_conversion::Config for Runtime {
 		WestendLocation,
 		parachain_info::Pallet<Runtime>,
 		xcm_config::TrustBackedAssetsPalletIndex,
-		xcm::v4::Location,
+		xcm::v5::Location,
 	>;
 }
 
@@ -418,18 +421,18 @@ pub type ForeignAssetsInstance = pallet_assets::Instance2;
 impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type AssetId = xcm::v4::Location;
-	type AssetIdParameter = xcm::v4::Location;
+	type AssetId = xcm::v5::Location;
+	type AssetIdParameter = xcm::v5::Location;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(
-			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v4::Location>,
-			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v4::Location>,
+			FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v5::Location>,
+			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork, xcm::v5::Location>,
 			xcm_config::bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		),
-		ForeignCreatorsSovereignAccountOf,
+		LocationToAccountId,
 		AccountId,
-		xcm::v4::Location,
+		xcm::v5::Location,
 	>;
 	type ForceOrigin = AssetsForceOrigin;
 	type AssetDeposit = ForeignAssetsAssetDeposit;
@@ -811,7 +814,7 @@ parameter_types! {
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AssetId = xcm::v4::Location;
+	type AssetId = xcm::v5::Location;
 	type OnChargeAssetTransaction = SwapAssetAdapter<
 		WestendLocation,
 		NativeAndAssets,
@@ -961,7 +964,7 @@ impl pallet_revive::Config for Runtime {
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type ChainExtension = ();
-	type AddressMapper = pallet_revive::DefaultAddressMapper;
+	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 	type UnsafeUnstableInterface = ConstBool<false>;
@@ -972,6 +975,7 @@ impl pallet_revive::Config for Runtime {
 	type Debug = ();
 	type Xcm = pallet_xcm::Pallet<Self>;
 	type ChainId = ConstU64<420_420_421>;
+	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 }
 
 impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
@@ -1489,18 +1493,18 @@ impl_runtime_apis! {
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
-		xcm::v4::Location,
+		xcm::v5::Location,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: xcm::v4::Location, asset2: xcm::v4::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: xcm::v5::Location, asset2: xcm::v5::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn quote_price_tokens_for_exact_tokens(asset1: xcm::v4::Location, asset2: xcm::v4::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: xcm::v5::Location, asset2: xcm::v5::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn get_reserves(asset1: xcm::v4::Location, asset2: xcm::v4::Location) -> Option<(Balance, Balance)> {
+		fn get_reserves(asset1: xcm::v5::Location, asset2: xcm::v5::Location) -> Option<(Balance, Balance)> {
 			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
@@ -1534,7 +1538,7 @@ impl_runtime_apis! {
 			// We also accept all assets in a pool with the native token.
 			let assets_in_pool_with_native = assets_common::get_assets_in_pool_with::<
 				Runtime,
-				xcm::v4::Location
+				xcm::v5::Location
 			>(&native_token).map_err(|()| XcmPaymentApiError::VersionedConversionFailed)?.into_iter();
 			acceptable_assets.extend(assets_in_pool_with_native);
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
@@ -1552,7 +1556,7 @@ impl_runtime_apis! {
 					// We recognize assets in a pool with the native one.
 					let assets_in_pool_with_this_asset: Vec<_> = assets_common::get_assets_in_pool_with::<
 						Runtime,
-						xcm::v4::Location
+						xcm::v5::Location
 					>(&asset_id.0).map_err(|()| XcmPaymentApiError::VersionedConversionFailed)?;
 					if assets_in_pool_with_this_asset
 						.into_iter()
@@ -1740,7 +1744,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 
@@ -2004,7 +2008,7 @@ impl_runtime_apis! {
 				fn fee_asset() -> Result<Asset, BenchmarkError> {
 					Ok(Asset {
 						id: AssetId(WestendLocation::get()),
-						fun: Fungible(1_000_000 * UNITS),
+						fun: Fungible(1_000 * UNITS),
 					})
 				}
 
@@ -2018,7 +2022,12 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					// Any location can alias to an internal location.
+					// Here parachain 1001 aliases to an internal account.
+					Ok((
+						Location::new(1, [Parachain(1001)]),
+						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
+					))
 				}
 			}
 
@@ -2077,8 +2086,18 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, BlockNumber, EventRecord> for Runtime
+	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
+		fn balance(address: H160) -> Balance {
+			use frame_support::traits::fungible::Inspect;
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			Balances::reducible_balance(&account, Expendable, Polite)
+		}
+
+		fn nonce(address: H160) -> Nonce {
+			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
+			System::account_nonce(account)
+		}
 		fn eth_transact(
 			from: H160,
 			dest: Option<H160>,
