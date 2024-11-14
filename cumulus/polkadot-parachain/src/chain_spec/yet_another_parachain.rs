@@ -16,9 +16,10 @@
 
 //! ChainSpecs dedicated to parachain setups for testing and example purposes
 
+use parachains_common::AccountId;
 use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_chain_spec::ChainType;
-use sp_core::{sr25519::Pair as SrPair, Pair};
+use sp_core::{hex2array, sr25519::Pair as SrPair, Pair};
 use sp_keyring::Sr25519Keyring as Keyring;
 use yet_another_parachain_runtime::AuraId;
 
@@ -61,7 +62,18 @@ pub fn yet_another_parachain_config(
 	chain_type: ChainType,
 	para_id: u32,
 ) -> GenericChainSpec {
+	// 	> subkey inspect --network kusama --public \
+	// 6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15
+	//
+	// Network ID/Version: kusama
+	//   Public key (hex):   0x6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15
+	//   Account ID:         0x6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15
+	//   Public key (SS58):  EnqtFmsXcGdSnWk5JWUMXyPVamjiFQurXxcNgJEg1C3sw6W
+	//   SS58 Address:       EnqtFmsXcGdSnWk5JWUMXyPVamjiFQurXxcNgJEg1C3sw6W
+	let yap_sudo: AccountId =
+		hex2array!("6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15").into();
 	let mut endowed_accounts = vec![
+		yap_sudo.clone(),
 		Keyring::Alice.to_account_id(),
 		Keyring::Bob.to_account_id(),
 		Keyring::AliceStash.to_account_id(),
@@ -91,7 +103,7 @@ pub fn yet_another_parachain_config(
 		"balances": {
 			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
 		},
-		"sudo": { "key": Some(Keyring::Alice.to_account_id()) },
+		"sudo": { "key": Some(yap_sudo) },
 		"parachainInfo": {
 			"parachainId": para_id,
 		},
