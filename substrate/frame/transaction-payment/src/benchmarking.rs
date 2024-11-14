@@ -68,7 +68,7 @@ mod benchmarks {
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 10, |_| Ok(
+				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 10, 0, |_| Ok(
 					post_info
 				))
 				.unwrap()
