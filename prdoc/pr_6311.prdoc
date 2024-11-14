@@ -5,9 +5,7 @@ title: Migrate pallet-fast-unstake and pallet-babe benchmark to v2
 doc:
 - audience: Runtime Dev
   description: |-
-    Part of:
-
-    - #6202.
+    Migrate pallet-fast-unstake and pallet-babe benchmark to v2
 crates:
 - name: pallet-babe
   bump: patch
