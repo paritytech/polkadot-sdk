@@ -37,7 +37,7 @@ pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
 pub trait Config<I: 'static>: crate::Config<I> {
-	/// Returns a valida origin along with the initial balance (e.g., existential deposit),
+	/// Returns a valid origin along with the initial balance (e.g., existential deposit),
 	/// required for operation `open_bridge`.
 	/// If `None`, that means that `open_bridge` is not supported.
 	fn open_bridge_origin() -> Option<(Self::RuntimeOrigin, BalanceOf<ThisChainOf<Self, I>>)>;
