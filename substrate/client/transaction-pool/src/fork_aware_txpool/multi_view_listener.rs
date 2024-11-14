@@ -285,6 +285,11 @@ where
 		Self { controllers: Default::default() }
 	}
 
+	/// Returns `true` if the listener contains a stream controller for the specified hash.
+	pub fn contains_tx(&self, tx_hash: &ExtrinsicHash<ChainApi>) -> bool {
+		self.controllers.read().contains_key(tx_hash)
+	}
+
 	/// Creates an external aggregated stream of events for given transaction.
 	///
 	/// This method initializes an `ExternalWatcherContext` for the provided transaction hash, sets

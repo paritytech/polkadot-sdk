@@ -191,8 +191,9 @@ where
 	) -> Option<DroppedTransaction<ExtrinsicHash<C>>> {
 		trace!(
 			target: LOG_TARGET,
-			"dropped_watcher: handle_event: event:{:?} views:{:?}, ",
-			event,
+			"dropped_watcher: handle_event: event:{event:?} from:{block_hash:?} future_views:{:?} ready_views:{:?} stream_map views:{:?}, ",
+			self.future_transaction_views.get(&event.0),
+			self.ready_transaction_views.get(&event.0),
 			self.stream_map.keys().collect::<Vec<_>>(),
 		);
 		let (tx_hash, status) = event;
@@ -219,23 +220,8 @@ where
 					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 				}
 			},
-			// todo:
-			// 1. usurpued shall be sent unconditionally
-			// 2. fatp shall act for every usurped message - it should remove tx from every view and
-			//    replace it with new one (also in mempool).
-			TransactionStatus::Usurped(by) => {
-				if let Entry::Occupied(mut views_keeping_tx_valid) =
-					self.ready_transaction_views.entry(tx_hash)
-				{
-					views_keeping_tx_valid.get_mut().remove(&block_hash);
-					if views_keeping_tx_valid.get().is_empty() {
-						return Some(DroppedTransaction::new_usurped(tx_hash, by))
-					}
-				} else {
-					debug!("[{:?}] dropped_watcher: removing (non-tracked) tx", tx_hash);
-					return Some(DroppedTransaction::new_usurped(tx_hash, by))
-				}
-			},
+			TransactionStatus::Usurped(by) =>
+				return Some(DroppedTransaction::new_usurped(tx_hash, by)),
 			_ => {},
 		};
 		None

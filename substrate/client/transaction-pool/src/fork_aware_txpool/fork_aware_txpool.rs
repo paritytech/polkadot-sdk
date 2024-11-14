@@ -31,7 +31,7 @@ use crate::{
 	api::FullChainApi,
 	common::log_xt::log_xt_trace,
 	enactment_state::{EnactmentAction, EnactmentState},
-	fork_aware_txpool::revalidation_worker,
+	fork_aware_txpool::{dropped_watcher::DroppedReason, revalidation_worker},
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
@@ -201,9 +201,14 @@ where
 
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
+
+		let view_store =
+			Arc::new(ViewStore::new(pool_api.clone(), listener, dropped_stream_controller));
+
 		let dropped_monitor_task = Self::dropped_monitor_task(
 			dropped_stream,
 			mempool.clone(),
+			view_store.clone(),
 			import_notification_sink.clone(),
 		);
 
@@ -220,8 +225,8 @@ where
 		(
 			Self {
 				mempool,
-				api: pool_api.clone(),
-				view_store: Arc::new(ViewStore::new(pool_api, listener, dropped_stream_controller)),
+				api: pool_api,
+				view_store,
 				ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
 				enactment_state: Arc::new(Mutex::new(EnactmentState::new(
 					best_block_hash,
@@ -237,14 +242,17 @@ where
 		)
 	}
 
-	/// Monitors the stream of dropped transactions and removes them from the mempool.
+	/// Monitors the stream of dropped transactions and removes them from the mempool and
+	/// view_store.
 	///
 	/// This asynchronous task continuously listens for dropped transaction notifications provided
 	/// within `dropped_stream` and ensures that these transactions are removed from the `mempool`
-	/// and `import_notification_sink` instances.
+	/// and `import_notification_sink` instances. For Usurped events, the transaction is also
+	/// removed from the view_store.
 	async fn dropped_monitor_task(
 		mut dropped_stream: StreamOfDropped<ChainApi>,
 		mempool: Arc<TxMemPool<ChainApi, Block>>,
+		view_store: Arc<ViewStore<ChainApi, Block>>,
 		import_notification_sink: MultiViewImportNotificationSink<
 			Block::Hash,
 			ExtrinsicHash<ChainApi>,
@@ -255,10 +263,33 @@ where
 				log::debug!(target: LOG_TARGET, "fatp::dropped_monitor_task: terminated...");
 				break;
 			};
-			log::trace!(target: LOG_TARGET, "[{:?}] fatp::dropped notification, removing", dropped);
-			let tx_hash = dropped.tx_hash;
-			mempool.remove_dropped_transaction(dropped).await;
-			import_notification_sink.clean_notified_items(&[tx_hash]);
+			let dropped_tx_hash = dropped.tx_hash;
+			log::trace!(target: LOG_TARGET, "[{:?}] fatp::dropped notification {:?}, removing", dropped_tx_hash,dropped.reason);
+			match dropped.reason {
+				DroppedReason::Usurped(new_tx_hash) => {
+					if let Some(new_tx) = mempool.get_by_hash(new_tx_hash) {
+						view_store
+							.replace_transaction(
+								new_tx.source(),
+								new_tx.tx(),
+								dropped_tx_hash,
+								new_tx.is_watched(),
+							)
+							.await;
+					} else {
+						log::trace!(
+							target:LOG_TARGET,
+							"error: dropped_monitor_task: no entry in mempool for new transaction {:?}",
+							new_tx_hash,
+						);
+					}
+				},
+				DroppedReason::LimitsEnforced => {},
+			};
+
+			mempool.remove_dropped_transaction(&dropped_tx_hash).await;
+			view_store.listener.transaction_dropped(dropped);
+			import_notification_sink.clean_notified_items(&[dropped_tx_hash]);
 		}
 	}
 
@@ -293,9 +324,13 @@ where
 
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
+
+		let view_store =
+			Arc::new(ViewStore::new(pool_api.clone(), listener, dropped_stream_controller));
 		let dropped_monitor_task = Self::dropped_monitor_task(
 			dropped_stream,
 			mempool.clone(),
+			view_store.clone(),
 			import_notification_sink.clone(),
 		);
 
@@ -311,8 +346,8 @@ where
 
 		Self {
 			mempool,
-			api: pool_api.clone(),
-			view_store: Arc::new(ViewStore::new(pool_api, listener, dropped_stream_controller)),
+			api: pool_api,
+			view_store,
 			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
 			enactment_state: Arc::new(Mutex::new(EnactmentState::new(
 				best_block_hash,

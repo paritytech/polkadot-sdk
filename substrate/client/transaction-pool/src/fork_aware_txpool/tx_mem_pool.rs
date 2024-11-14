@@ -98,7 +98,7 @@ where
 	/// Shall the progress of transaction be watched.
 	///
 	/// Was transaction sent with `submit_and_watch`.
-	fn is_watched(&self) -> bool {
+	pub(crate) fn is_watched(&self) -> bool {
 		self.watched
 	}
 
@@ -328,15 +328,13 @@ where
 		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length))
 	}
 
-	/// Removes transactions from the memory pool which are specified by the given list of hashes
-	/// and send the `Dropped` event to the listeners of these transactions.
+	/// Removes transaction from the memory pool which are specified by the given list of hashes.
 	pub(super) async fn remove_dropped_transaction(
 		&self,
-		dropped: DroppedTransaction<ExtrinsicHash<ChainApi>>,
-	) {
+		dropped: &ExtrinsicHash<ChainApi>,
+	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
 		log::debug!(target: LOG_TARGET, "[{:?}] mempool::remove_dropped_transaction", dropped);
-		self.transactions.write().remove(&dropped.tx_hash);
-		self.listener.transaction_dropped(dropped);
+		self.transactions.write().remove(dropped)
 	}
 
 	/// Clones and returns a `HashMap` of references to all unwatched transactions in the memory

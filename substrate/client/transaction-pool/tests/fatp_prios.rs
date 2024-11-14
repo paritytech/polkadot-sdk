@@ -20,15 +20,10 @@
 
 pub mod fatp_common;
 
-use fatp_common::{
-	finalized_block_event, invalid_hash, new_best_block_event, TestPoolBuilder, LOG_TARGET, SOURCE,
-};
+use fatp_common::{new_best_block_event, TestPoolBuilder, LOG_TARGET, SOURCE};
 use futures::{executor::block_on, FutureExt};
 use sc_transaction_pool::ChainApi;
-use sc_transaction_pool_api::{
-	error::Error as TxPoolError, MaintainedTransactionPool, TransactionPool, TransactionStatus,
-};
-use std::{thread::sleep, time::Duration};
+use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool, TransactionStatus};
 use substrate_test_runtime_client::AccountKeyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 
@@ -59,28 +54,6 @@ fn fatp_prio_ready_higher_evicts_lower() {
 	log::info!("len: {:?}", pool.status_all()[&header01.hash()]);
 	assert_ready_iterator!(header01.hash(), pool, [xt1]);
 	assert_pool_status!(header01.hash(), &pool, 1, 0);
-
-	// let results = block_on(futures::future::join_all(submissions));
-	// assert!(results.iter().all(Result::is_ok));
-	// //charlie was not included into view:
-	// assert_pool_status!(header01.hash(), &pool, 2, 0);
-
-	// //branch with alice transactions:
-	// let header02b = api.push_block(2, vec![xt1.clone(), xt2.clone()], true);
-	// let event = new_best_block_event(&pool, Some(header01.hash()), header02b.hash());
-	// block_on(pool.maintain(event));
-	// assert_eq!(pool.mempool_len().0, 2);
-	// assert_pool_status!(header02b.hash(), &pool, 0, 0);
-	// assert_ready_iterator!(header02b.hash(), pool, []);
-	//
-	// //branch with alice/charlie transactions shall also work:
-	// let header02a = api.push_block(2, vec![xt0.clone(), xt1.clone()], true);
-	// api.set_nonce(header02a.hash(), Alice.into(), 201);
-	// let event = new_best_block_event(&pool, Some(header02b.hash()), header02a.hash());
-	// block_on(pool.maintain(event));
-	// assert_eq!(pool.mempool_len().0, 2);
-	// // assert_pool_status!(header02a.hash(), &pool, 1, 0);
-	// assert_ready_iterator!(header02a.hash(), pool, [xt2]);
 }
 
 #[test]
@@ -160,4 +133,55 @@ fn fatp_prio_watcher_future_higher_evicts_lower() {
 	assert_eq!(pool.mempool_len().1, 2);
 	assert_ready_iterator!(header01.hash(), pool, [xt2, xt1]);
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
+}
+
+#[test]
+fn fatp_prio_watcher_ready_lower_prio_gets_dropped_from_all_views() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_mempool_count_limit(3).with_ready_count(2).build();
+
+	let header01 = api.push_block(1, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 200);
+
+	api.set_priority(&xt0, 2);
+	api.set_priority(&xt1, 3);
+
+	let xt0_watcher =
+		block_on(pool.submit_and_watch(header01.hash(), SOURCE, xt0.clone())).unwrap();
+
+	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
+
+	let header03a = api.push_block_with_parent(header02.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header03a.hash())));
+
+	let header03b = api.push_block_with_parent(header02.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header03a.hash()), header03b.hash())));
+
+	assert_pool_status!(header03a.hash(), &pool, 1, 0);
+	assert_ready_iterator!(header03a.hash(), pool, [xt0]);
+	assert_pool_status!(header03b.hash(), &pool, 1, 0);
+	assert_ready_iterator!(header03b.hash(), pool, [xt0]);
+	assert_ready_iterator!(header01.hash(), pool, [xt0]);
+	assert_ready_iterator!(header02.hash(), pool, [xt0]);
+
+	let xt1_watcher =
+		block_on(pool.submit_and_watch(header01.hash(), SOURCE, xt1.clone())).unwrap();
+
+	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(1).collect::<Vec<_>>();
+	assert_eq!(xt1_status, vec![TransactionStatus::Ready]);
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(2).collect::<Vec<_>>();
+	assert_eq!(
+		xt0_status,
+		vec![TransactionStatus::Ready, TransactionStatus::Usurped(api.hash_and_length(&xt1).0)]
+	);
+	assert_ready_iterator!(header03a.hash(), pool, [xt1]);
+	assert_ready_iterator!(header03b.hash(), pool, [xt1]);
+	assert_ready_iterator!(header01.hash(), pool, [xt1]);
+	assert_ready_iterator!(header02.hash(), pool, [xt1]);
 }

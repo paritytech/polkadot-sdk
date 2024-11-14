@@ -454,4 +454,10 @@ where
 			);
 		}
 	}
+
+	/// Returns true if the transaction hash is already imported into the view
+	pub(super) fn is_imported(&self, tx_hash: &ExtrinsicHash<ChainApi>) -> bool {
+		const IGNORE_BANNED: bool = false;
+		self.pool.validated_pool().check_is_known(tx_hash, IGNORE_BANNED).is_ok()
+	}
 }

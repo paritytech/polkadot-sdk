@@ -37,7 +37,38 @@ use parking_lot::RwLock;
 use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus};
 use sp_blockchain::TreeRoute;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{
+	collections::{hash_map::Entry, HashMap},
+	sync::Arc,
+	time::Instant,
+};
+
+/// Helper struct to keep the context for transaction replacements.
+#[derive(Clone)]
+struct PendingTxReplacement<ChainApi>
+where
+	ChainApi: graph::ChainApi,
+{
+	/// Indicates if the new transaction was already submitted to all the views in the view_store.
+	/// If true, it can be removed after inserting any new view.
+	processed: bool,
+	/// New transaction replacing the old one.
+	xt: ExtrinsicFor<ChainApi>,
+	/// Source of the transaction.
+	source: TimedTransactionSource,
+	/// Inidicates if transaction is watched.
+	watched: bool,
+}
+
+impl<ChainApi> PendingTxReplacement<ChainApi>
+where
+	ChainApi: graph::ChainApi,
+{
+	/// Creates new unprocessed instance of pending transaction replacement.
+	fn new(xt: ExtrinsicFor<ChainApi>, source: TimedTransactionSource, watched: bool) -> Self {
+		Self { processed: false, xt, source, watched }
+	}
+}
 
 /// The helper structure encapsulates all the views.
 pub(super) struct ViewStore<ChainApi, Block>
@@ -65,6 +96,13 @@ where
 	pub(super) most_recent_view: RwLock<Option<Block::Hash>>,
 	/// The controller of multi view dropped stream.
 	pub(super) dropped_stream_controller: MultiViewDroppedWatcherController<ChainApi>,
+	/// The map used to synchronize replacement of transactions between maintain and dropped
+	/// notifcication threads. It is meant to assure that replaced transaction is also removed from
+	/// newly built views in maintain process.
+	///
+	/// The map's key is hash of replaced extrinsic.
+	pending_txs_replacements:
+		RwLock<HashMap<ExtrinsicHash<ChainApi>, PendingTxReplacement<ChainApi>>>,
 }
 
 impl<ChainApi, Block> ViewStore<ChainApi, Block>
@@ -86,6 +124,7 @@ where
 			listener,
 			most_recent_view: RwLock::from(None),
 			dropped_stream_controller,
+			pending_txs_replacements: Default::default(),
 		}
 	}
 
@@ -332,12 +371,16 @@ where
 	/// - moved to the inactive views set (`inactive_views`),
 	/// - removed from the multi view listeners.
 	///
-	/// The `most_recent_view` is update with the reference to the newly inserted view.
+	/// The `most_recent_view` is updated with the reference to the newly inserted view.
+	///
+	/// If there are any pending tx replacments, they are applied to the new view.
 	pub(super) async fn insert_new_view(
 		&self,
 		view: Arc<View<ChainApi>>,
 		tree_route: &TreeRoute<Block>,
 	) {
+		self.apply_pending_tx_replacements(view.clone()).await;
+
 		//note: most_recent_view must be synced with changes in in/active_views.
 		{
 			let mut most_recent_view_lock = self.most_recent_view.write();
@@ -389,8 +432,10 @@ where
 		let mut removed_views = vec![];
 
 		{
-			self.active_views
-				.read()
+			let active_views = self.active_views.read();
+			let inactive_views = self.inactive_views.read();
+
+			active_views
 				.iter()
 				.filter(|(hash, v)| !match finalized_number {
 					Err(_) | Ok(None) => **hash == finalized_hash,
@@ -399,11 +444,8 @@ where
 				})
 				.map(|(_, v)| removed_views.push(v.at.hash))
 				.for_each(drop);
-		}
 
-		{
-			self.inactive_views
-				.read()
+			inactive_views
 				.iter()
 				.filter(|(_, v)| !match finalized_number {
 					Err(_) | Ok(None) => false,
@@ -445,6 +487,7 @@ where
 		//clean up older then finalized
 		{
 			let mut active_views = self.active_views.write();
+			let mut inactive_views = self.inactive_views.write();
 			active_views.retain(|hash, v| {
 				let retain = match finalized_number {
 					Err(_) | Ok(None) => *hash == finalized_hash,
@@ -456,10 +499,7 @@ where
 				}
 				retain
 			});
-		}
 
-		{
-			let mut inactive_views = self.inactive_views.write();
 			inactive_views.retain(|hash, v| {
 				let retain = match finalized_number {
 					Err(_) | Ok(None) => false,
@@ -506,5 +546,140 @@ where
 		};
 		futures::future::join_all(finish_revalidation_futures).await;
 		log::trace!(target:LOG_TARGET,"finish_background_revalidations took {:?}", start.elapsed());
+	}
+
+	/// Replaces an existing transaction in the view_store with a new one.
+	///
+	/// Attempts to replace a transaction identified by `replaced` with a new transaction `xt`.
+	///
+	/// Before submitting a transaction to the views, the new *unprocessed* transaction replacement
+	/// record will be inserted into a pending replacement map. Once the submission to all the views
+	/// is accomplished, the record is marked as *processed*.
+	///
+	/// This map is later applied in `insert_new_view` method executed from different thread.
+	///
+	/// If the transaction is already being replaced, it will simply return without making
+	/// changes.
+	pub(super) async fn replace_transaction(
+		&self,
+		source: TimedTransactionSource,
+		xt: ExtrinsicFor<ChainApi>,
+		replaced: ExtrinsicHash<ChainApi>,
+		watched: bool,
+	) {
+		if let Entry::Vacant(entry) = self.pending_txs_replacements.write().entry(replaced) {
+			entry.insert(PendingTxReplacement::new(xt.clone(), source.clone(), watched));
+		} else {
+			return
+		};
+
+		let xt_hash = self.api.hash_and_length(&xt).0;
+		log::trace!(target:LOG_TARGET,"[{replaced:?}] replace_transaction wtih {xt_hash:?}, w:{watched}");
+
+		self.replace_transaction_in_views(source, xt, xt_hash, replaced, watched).await;
+
+		if let Some(replacement) = self.pending_txs_replacements.write().get_mut(&replaced) {
+			replacement.processed = true;
+		}
+	}
+
+	/// Applies pending transaction replacements to the specified view.
+	///
+	/// After application, all already processed replacements are removed.
+	async fn apply_pending_tx_replacements(&self, view: Arc<View<ChainApi>>) {
+		let mut futures = vec![];
+		for replacement in self.pending_txs_replacements.read().values() {
+			let xt_hash = self.api.hash_and_length(&replacement.xt).0;
+			futures.push(self.replace_transaction_in_view(
+				view.clone(),
+				replacement.source.clone(),
+				replacement.xt.clone(),
+				xt_hash,
+				replacement.watched,
+			));
+		}
+		let _results = futures::future::join_all(futures).await;
+		self.pending_txs_replacements.write().retain(|_, r| r.processed);
+	}
+
+	/// Submits `xt` to the given view.
+	///
+	/// For watched transaction stream is added to the listener.
+	async fn replace_transaction_in_view(
+		&self,
+		view: Arc<View<ChainApi>>,
+		source: TimedTransactionSource,
+		xt: ExtrinsicFor<ChainApi>,
+		xt_hash: ExtrinsicHash<ChainApi>,
+		watched: bool,
+	) {
+		if watched {
+			match view.submit_and_watch(source, xt).await {
+				Ok(watcher) => {
+					self.listener.add_view_watcher_for_tx(
+						xt_hash,
+						view.at.hash,
+						watcher.into_stream().boxed(),
+					);
+				},
+				Err(e) => {
+					log::trace!(
+						target:LOG_TARGET,
+						"[{:?}] replace_transaction: submit_and_watch to {} failed {}",
+						xt_hash, view.at.hash, e
+					);
+				},
+			}
+		} else {
+			if let Some(Err(e)) = view.submit_many(std::iter::once((source, xt))).await.pop() {
+				log::trace!(
+					target:LOG_TARGET,
+					"[{:?}] replace_transaction: submit to {} failed {}",
+					xt_hash, view.at.hash, e
+				);
+			}
+		}
+	}
+
+	/// Sends `xt` to every view (both active and inactive) containing `replaced` extrinsics.
+	///
+	/// It is assumed that transaction is already known by the pool. Intended to ba called when `xt`
+	/// is replacing `replaced` extrinsic.
+	async fn replace_transaction_in_views(
+		&self,
+		source: TimedTransactionSource,
+		xt: ExtrinsicFor<ChainApi>,
+		xt_hash: ExtrinsicHash<ChainApi>,
+		replaced: ExtrinsicHash<ChainApi>,
+		watched: bool,
+	) {
+		if watched && !self.listener.contains_tx(&xt_hash) {
+			log::trace!(
+				target:LOG_TARGET,
+				"error: replace_transaction_in_views: no listener for watched transaction {:?}",
+				xt_hash,
+			);
+			return;
+		}
+
+		let submit_futures = {
+			let active_views = self.active_views.read();
+			let inactive_views = self.inactive_views.read();
+			active_views
+				.iter()
+				.chain(inactive_views.iter())
+				.filter(|(_, view)| !view.is_imported(&replaced))
+				.map(|(_, view)| {
+					self.replace_transaction_in_view(
+						view.clone(),
+						source.clone(),
+						xt.clone(),
+						xt_hash,
+						watched,
+					)
+				})
+				.collect::<Vec<_>>()
+		};
+		let _results = futures::future::join_all(submit_futures).await;
 	}
 }
