@@ -26,10 +26,7 @@
 //!   it), while on other forks tx can be valid. Depending on which view is chosen to be cloned,
 //!   such transaction could not be present in the newly created view.
 
-use super::{
-	dropped_watcher::DroppedTransaction, metrics::MetricsLink as PrometheusMetrics,
-	multi_view_listener::MultiViewListener,
-};
+use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
 use crate::{
 	common::log_xt::log_xt_trace,
 	graph,
