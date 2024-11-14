@@ -74,7 +74,7 @@ pub mod metadata {
 
 	/// Checks if pallet exists in runtime's metadata.
 	///
-	/// Metadata (as plain byte array) is decoded with `frame_metadata::Decode` and
+	/// Metadata (as plain byte array) is decoded with `sp_core::Decode` and
 	/// pallets existance is checked by looking for pallets with certain names.
 	pub fn pallet_exists<'a>(
 		mut metadata: &'a [u8],

@@ -224,6 +224,13 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 				// Best effort check of parachain-system pallet by pallet name.
 				let best_block = client.chain_info().finalized_hash;
+				// The `Metadata::metadata()` API returns only metadata according
+				// to V14 schema. It would be great to return the latest stable
+				// version in the future. There is an alternative to pick the latest
+				// by going through `metadata_versions` and then pick the maximum
+				// with `metadata_at_version`, but that's more code for no real benefit.
+				// The following code is fine with whichever metadata version
+				// contains pallet information, includding their names.
 				let metadata = client
 					.runtime_api()
 					.metadata(best_block)
