@@ -861,7 +861,7 @@ fn build_bloaty_blob(
 
 	build_cmd
 		.arg("rustc")
-		.arg(format!("--target={}", target.parameter()))
+		.arg(format!("--target={}", target.rustc_target()))
 		.arg(format!("--manifest-path={}", manifest_path.display()))
 		.env("RUSTFLAGS", rustflags)
 		// Manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock (cargo locks a target dir
@@ -946,7 +946,7 @@ fn build_bloaty_blob(
 	let blob_name = get_blob_name(target, &manifest_path);
 	let target_directory = project
 		.join("target")
-		.join(target.directory())
+		.join(target.rustc_target_dir())
 		.join(blob_build_profile.directory());
 	match target {
 		RuntimeTarget::Riscv => {

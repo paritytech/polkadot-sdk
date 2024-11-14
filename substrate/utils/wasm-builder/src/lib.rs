@@ -405,7 +405,7 @@ impl RuntimeTarget {
 	}
 
 	/// Figures out the target parameter value for rustc.
-	fn parameter(self) -> String {
+	fn rustc_target(self) -> String {
 		if self == RuntimeTarget::Wasm {
 			return "wasm32-unknown-unknown".to_string();
 		}
@@ -414,7 +414,7 @@ impl RuntimeTarget {
 	}
 
 	/// Figures out the target directory name used by cargo.
-	fn directory(self) -> &'static str {
+	fn rustc_target_dir(self) -> &'static str {
 		if self == RuntimeTarget::Wasm {
 			"wasm32-unknown-unknown"
 		} else {
