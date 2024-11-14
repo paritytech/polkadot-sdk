@@ -60,7 +60,6 @@ pub trait WeightInfo {
 	fn force_adjust_total_issuance() -> Weight;
 	fn burn_allow_death() -> Weight;
 	fn burn_keep_alive() -> Weight;
-	fn magic_mint_experimental() -> Weight;
 }
 
 /// Weights for `pallet_balances` using the Substrate node and recommended hardware.
@@ -179,17 +178,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 20_055_000 picoseconds.
 		Weight::from_parts(20_711_000, 0)
 	}
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn magic_mint_experimental() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `3593`
-		// Minimum execution time: 47_552_000 picoseconds.
-		Weight::from_parts(48_363_000, 3593)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
 }
 
 // For backwards compatibility and tests.
@@ -306,16 +294,5 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 20_055_000 picoseconds.
 		Weight::from_parts(20_711_000, 0)
-	}
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	fn magic_mint_experimental() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `3593`
-		// Minimum execution time: 47_552_000 picoseconds.
-		Weight::from_parts(48_363_000, 3593)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
