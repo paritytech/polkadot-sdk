@@ -620,7 +620,7 @@ workspace = true
 path = "../cumulus/parachains/runtimes/assets/common"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.18.1"
 
 [dependencies.binary-merkle-tree]
 path = "../substrate/utils/binary-merkle-tree"
@@ -1160,7 +1160,7 @@ version = "38.0.0"
 path = "../substrate/frame/message-queue"
 default-features = false
 optional = true
-version = "41.0.1"
+version = "41.0.2"
 
 [dependencies.pallet-migrations]
 path = "../substrate/frame/migrations"
@@ -1490,7 +1490,7 @@ version = "37.0.0"
 path = "../polkadot/xcm/pallet-xcm"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.0.1"
 
 [dependencies.pallet-xcm-benchmarks]
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
@@ -2096,7 +2096,7 @@ version = "0.16.0"
 path = "../cumulus/parachains/integration-tests/emulated/common"
 default-features = false
 optional = true
-version = "14.1.0"
+version = "14.2.0"
 
 [dependencies.fork-tree]
 path = "../substrate/utils/fork-tree"
@@ -2288,7 +2288,7 @@ version = "18.0.0"
 path = "../polkadot/node/core/prospective-parachains"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.0.1"
 
 [dependencies.polkadot-node-core-provisioner]
 path = "../polkadot/node/core/provisioner"
@@ -2348,7 +2348,7 @@ version = "18.0.0"
 path = "../polkadot/node/network/protocol"
 default-features = false
 optional = true
-version = "18.0.1"
+version = "18.0.2"
 
 [dependencies.polkadot-node-primitives]
 path = "../polkadot/node/primitives"
@@ -2648,7 +2648,7 @@ version = "0.44.0"
 path = "../substrate/client/rpc-servers"
 default-features = false
 optional = true
-version = "17.0.0"
+version = "17.1.0"
 
 [dependencies.sc-rpc-spec-v2]
 path = "../substrate/client/rpc-spec-v2"
