@@ -28,7 +28,7 @@ use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
-use std::{collections::HashSet, thread::sleep};
+use std::thread::sleep;
 use substrate_test_runtime_client::AccountKeyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 
@@ -744,19 +744,6 @@ fn fatp_limits_watcher_ready_transactions_are_not_droped_when_view_is_dropped() 
 	assert_eq!(pool.mempool_len().1, 0);
 }
 
-macro_rules! assert_future_iterator {
-	($pool:expr, [$( $xt:expr ),*]) => {{
-		let futures = $pool.futures();
-		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),*];
-		log::debug!(target:LOG_TARGET, "expected: {:#?}", futures);
-		log::debug!(target:LOG_TARGET, "output: {:#?}", expected);
-		assert_eq!(expected.len(), futures.len());
-		let hsf = futures.iter().map(|a| a.hash).collect::<HashSet<_>>();
-		let hse = expected.into_iter().collect::<HashSet<_>>();
-		assert_eq!(hse,hsf);
-	}};
-}
-
 #[test]
 fn fatp_limits_watcher_future_transactions_are_droped_when_view_is_dropped() {
 	sp_tracing::try_init_simple();
@@ -786,7 +773,7 @@ fn fatp_limits_watcher_future_transactions_are_droped_when_view_is_dropped() {
 
 	assert_pool_status!(header01.hash(), &pool, 0, 2);
 	assert_eq!(pool.mempool_len().1, 2);
-	assert_future_iterator!(pool, [xt0, xt1]);
+	assert_future_iterator!(header01.hash(), pool, [xt0, xt1]);
 
 	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
@@ -796,7 +783,7 @@ fn fatp_limits_watcher_future_transactions_are_droped_when_view_is_dropped() {
 
 	assert_pool_status!(header02.hash(), &pool, 0, 2);
 	assert_eq!(pool.mempool_len().1, 4);
-	assert_future_iterator!(pool, [xt2, xt3]);
+	assert_future_iterator!(header02.hash(), pool, [xt2, xt3]);
 
 	let header03 = api.push_block_with_parent(header02.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header02.hash()), header03.hash())));
@@ -806,14 +793,14 @@ fn fatp_limits_watcher_future_transactions_are_droped_when_view_is_dropped() {
 
 	assert_pool_status!(header03.hash(), &pool, 0, 2);
 	assert_eq!(pool.mempool_len().1, 6);
-	assert_future_iterator!(pool, [xt4, xt5]);
+	assert_future_iterator!(header03.hash(), pool, [xt4, xt5]);
 
 	let header04 = api.push_block_with_parent(header03.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header03.hash()), header04.hash())));
 
 	assert_pool_status!(header04.hash(), &pool, 0, 2);
 	assert_eq!(pool.futures().len(), 2);
-	assert_future_iterator!(pool, [xt4, xt5]);
+	assert_future_iterator!(header04.hash(), pool, [xt4, xt5]);
 
 	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header04.hash())));
 	assert_eq!(pool.active_views_count(), 1);

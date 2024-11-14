@@ -303,10 +303,18 @@ where
 	) -> Vec<Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>> {
 		self.most_recent_view
 			.read()
-			.map(|at| self.get_view_at(at, true))
+			.map(|at| self.futures_at(at))
 			.flatten()
-			.map(|(v, _)| v.pool.validated_pool().pool.read().futures().cloned().collect())
 			.unwrap_or_default()
+	}
+
+	/// Returns a list of future transactions in the view at given block hash.
+	pub(super) fn futures_at(
+		&self,
+		at: Block::Hash,
+	) -> Option<Vec<Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>>> {
+		self.get_view_at(at, true)
+			.map(|(v, _)| v.pool.validated_pool().pool.read().futures().cloned().collect())
 	}
 
 	/// Collects all the transactions included in the blocks on the provided `tree_route` and

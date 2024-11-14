@@ -406,6 +406,16 @@ where
 		self.mempool.unwatched_and_watched_count()
 	}
 
+	/// Returns a set of future transactions for given block hash.
+	///
+	/// Intended for logging / tests.
+	pub fn futures_at(
+		&self,
+		at: Block::Hash,
+	) -> Option<Vec<Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>>> {
+		self.view_store.futures_at(at)
+	}
+
 	/// Returns a best-effort set of ready transactions for a given block, without executing full
 	/// maintain process.
 	///
