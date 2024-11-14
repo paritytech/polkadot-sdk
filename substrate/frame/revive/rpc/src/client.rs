@@ -341,7 +341,7 @@ impl ClientInner {
 					success,
 					transaction_hash,
 					transaction_index.into(),
-					tx.r#type.bytes()
+					tx.transaction_legacy_unsigned.r#type.bytes()
 				);
 
 				Ok::<_, ClientError>((receipt.transaction_hash, (tx.into(), receipt)))
