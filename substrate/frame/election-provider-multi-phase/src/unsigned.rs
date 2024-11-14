@@ -1881,13 +1881,14 @@ mod tests {
 		let snapshot = RoundSnapshot { voters: voters.clone(), targets: targets.clone() };
 		let (round, desired_targets) = (1, 3);
 
-		let score_unbounded =
+		let expected_score_unbounded =
 			ElectionScore { minimal_stake: 12, sum_stake: 50, sum_stake_squared: 874 };
-		let score_bounded =
+		let expected_score_bounded =
 			ElectionScore { minimal_stake: 2, sum_stake: 10, sum_stake_squared: 44 };
 
-		// solution with max backers per winner will be lower.
-		assert!(score_unbounded > score_bounded);
+		// solution without max_backers_per_winner set will be higher than the score when bounds
+		// are set, confirming the trimming when using the same snapshot state.
+		assert!(expected_score_unbounded > expected_score_bounded);
 
 		// election with unbounded max backers per winnner.
 		ExtBuilder::default().max_backers_per_winner(u32::MAX).build_and_execute(|| {
@@ -1900,7 +1901,7 @@ mod tests {
 			.0;
 
 			let ready_solution = Miner::<Runtime>::feasibility_check(
-				RawSolution { solution, score: score_unbounded, round },
+				RawSolution { solution, score: expected_score_unbounded, round },
 				Default::default(),
 				desired_targets,
 				snapshot.clone(),
@@ -1933,7 +1934,7 @@ mod tests {
 			.0;
 
 			let ready_solution = Miner::<Runtime>::feasibility_check(
-				RawSolution { solution, score: score_bounded, round },
+				RawSolution { solution, score: expected_score_bounded, round },
 				Default::default(),
 				desired_targets,
 				snapshot,
