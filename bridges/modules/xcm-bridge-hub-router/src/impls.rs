@@ -234,7 +234,7 @@ impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeHubExporter
 				// return original ticket with possibly extended fees
 				Ok((ticket, fees))
 			},
-			e => e,
+			error => error,
 		}
 	}
 
