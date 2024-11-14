@@ -16,6 +16,7 @@
 // limitations under the License.
 //! Utility impl for the RPC types.
 use super::{ReceiptInfo, TransactionInfo, TransactionSigned};
+use sp_core::U256;
 
 impl TransactionInfo {
 	/// Create a new [`TransactionInfo`] from a receipt and a signed transaction.
@@ -28,5 +29,12 @@ impl TransactionInfo {
 			transaction_index: receipt.transaction_index,
 			transaction_signed,
 		}
+	}
+}
+
+impl ReceiptInfo {
+	/// Returns `true` if the transaction was successful.
+	pub fn is_success(&self) -> bool {
+		self.status.map_or(false, |status| status == U256::one())
 	}
 }
