@@ -15,6 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Various implementations supporting easier configuration of the pallet.
+
 use crate::{BridgeIdOf, Bridges, Config, Pallet, LOG_TARGET};
 use bp_xcm_bridge_hub_router::ResolveBridgeId;
 use codec::Encode;
