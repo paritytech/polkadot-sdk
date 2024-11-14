@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Account for parameters weight
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR addresses potential discrepancies in weight measurement by accounting for all parameters at block initialization.
+      It introduces a mechanism to account for the weight (both `ref_time` and `proof_size`) of all parameters at the start of each block.
+      This is necessary to account for parameters that might be accessed in scenarios not covered by benchmarking.
+      An example could be the parameter usage within the `OnChargeTransaction` of the `pallet_transaction_payment`.
+
+crates:
+- name: pallet-parameters
+  bump: minor
