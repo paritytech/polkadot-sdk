@@ -166,7 +166,7 @@ pub mod pallet {
 		type BridgeHubOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, BridgeIdOf<Self, I>>;
 
 		/// Additional fee that is paid for every byte of the outbound message.
-		/// See `calculate_message_size_fees` for more details.
+		/// See `calculate_message_size_fee` for more details.
 		type ByteFee: Get<u128>;
 		/// Asset used to pay the `ByteFee`.
 		/// If not specified, the `ByteFee` is ignored.
@@ -194,7 +194,7 @@ pub mod pallet {
 				// If no longer congested, we can start decreasing the fee factor.
 				if !bridge_state.is_congested {
 					let previous_factor = bridge_state.delivery_fee_factor;
-					let new_factor = previous_factor / EXPONENTIAL_FEE_BASE;
+						let new_factor = previous_factor / EXPONENTIAL_FEE_BASE;
 					if new_factor >= MINIMAL_DELIVERY_FEE_FACTOR {
 						bridge_state.delivery_fee_factor = new_factor;
 						bridges_to_update.push((bridge_id, previous_factor, bridge_state));
@@ -324,13 +324,13 @@ pub mod pallet {
 			}
 		}
 
-		/// Calculates dynamic fees for a given asset based on the bridge state.
+		/// Returns the recalculated dynamic fee for a given asset based on the bridge state.
 		///
 		/// This function adjusts the amount of a fungible asset according to the delivery fee
 		/// factor specified in the `bridge_state`. If the asset is fungible, the
 		/// `delivery_fee_factor` is applied to the asset’s amount, potentially altering its
 		/// value.
-		pub(crate) fn calculate_dynamic_fees_for_asset(
+		pub(crate) fn calculate_dynamic_fee(
 			bridge_state: &BridgeState,
 			mut asset: Asset,
 		) -> Asset {
@@ -341,7 +341,7 @@ pub mod pallet {
 		}
 
 		/// Calculates an (optional) fee for message size based on `T::ByteFee` and `T::FeeAsset`.
-		pub(crate) fn calculate_message_size_fees(
+		pub(crate) fn calculate_message_size_fee(
 			message_size: impl FnOnce() -> u32,
 		) -> Option<Asset> {
 			// Apply message size `T::ByteFee/T::FeeAsset` feature (if configured).

@@ -138,7 +138,7 @@ where
 
 		// calculate message size fees (if configured)
 		let maybe_message_size_fees =
-			Pallet::<T, I>::calculate_message_size_fees(|| message.encoded_size() as _);
+			Pallet::<T, I>::calculate_message_size_fee(|| message.encoded_size() as _);
 
 		// compute actual fees - sum(actual payment, message size fees) if possible
 		let fees = match (maybe_payment, maybe_message_size_fees) {
@@ -179,7 +179,7 @@ where
 		let fees = fees.map(|fees| {
 			if let Some(bridge_id) = T::BridgeIdResolver::resolve_for(network, remote_location) {
 				if let Some(bridge_state) = Bridges::<T, I>::get(bridge_id) {
-					Pallet::<T, I>::calculate_dynamic_fees_for_asset(&bridge_state, fees)
+					Pallet::<T, I>::calculate_dynamic_fee(&bridge_state, fees)
 				} else {
 					fees
 				}
@@ -211,7 +211,7 @@ impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeHubExporter
 			Ok((ticket, mut fees)) => {
 				// calculate message size fees (if configured)
 				let maybe_message_size_fees =
-					Pallet::<T, I>::calculate_message_size_fees(|| message_size);
+					Pallet::<T, I>::calculate_message_size_fee(|| message_size);
 				if let Some(message_size_fees) = maybe_message_size_fees {
 					fees.push(message_size_fees);
 				}
@@ -222,7 +222,7 @@ impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeHubExporter
 					if let Some(bridge_state) = Bridges::<T, I>::get(bridge_id) {
 						let mut dynamic_fees = sp_std::vec::Vec::with_capacity(fees.len());
 						for fee in fees.into_inner() {
-							dynamic_fees.push(Pallet::<T, I>::calculate_dynamic_fees_for_asset(
+							dynamic_fees.push(Pallet::<T, I>::calculate_dynamic_fee(
 								&bridge_state,
 								fee,
 							));
