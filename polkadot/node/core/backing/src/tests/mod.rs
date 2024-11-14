@@ -262,7 +262,7 @@ impl TestCandidateBuilder {
 	}
 }
 
-async fn assert_validation_requests(
+async fn assert_validation_request(
 	virtual_overseer: &mut VirtualOverseer,
 	validation_code: ValidationCode,
 ) {
@@ -272,33 +272,6 @@ async fn assert_validation_requests(
 			RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
 		) if hash == validation_code.hash() => {
 			tx.send(Ok(Some(validation_code))).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))
-		) => {
-			tx.send(Ok(1u32.into())).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(sess_idx, tx))
-		) if sess_idx == 1 => {
-			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-		}
-	);
-
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(sess_idx, tx))
-		) if sess_idx == 1 => {
-			tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 		}
 	);
 }
@@ -350,7 +323,7 @@ async fn assert_validate_from_exhaustive(
 // tests.
 async fn activate_initial_leaf(
 	virtual_overseer: &mut VirtualOverseer,
-	test_state: &TestState,
+	test_state: &mut TestState,
 ) -> ParaId {
 	const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
 	const LEAF_A_ANCESTRY_LEN: BlockNumber = 3;
@@ -360,7 +333,7 @@ async fn activate_initial_leaf(
 	let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
 	let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
-	activate_leaf(virtual_overseer, test_leaf_a, &test_state).await;
+	activate_leaf(virtual_overseer, test_leaf_a, test_state).await;
 	para_id
 }
 
@@ -426,7 +399,7 @@ fn get_parent_hash(hash: Hash) -> Hash {
 async fn activate_leaf(
 	virtual_overseer: &mut VirtualOverseer,
 	leaf: TestLeaf,
-	test_state: &TestState,
+	test_state: &mut TestState,
 ) {
 	let TestLeaf { activated, min_relay_parents } = leaf;
 	let leaf_hash = activated.hash;
@@ -517,16 +490,6 @@ async fn activate_leaf(
 			}
 		);
 
-		// Check that subsystem job issues a request for a validator set.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Validators(tx))
-			) if parent == hash => {
-				tx.send(Ok(test_state.validator_public.clone())).unwrap();
-			}
-		);
-
 		// Check that subsystem job issues a request for the validator groups.
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -570,26 +533,58 @@ async fn activate_leaf(
 			}
 		);
 
-		// Node features request from runtime: all features are disabled.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
-			) if parent == hash => {
-				tx.send(Ok(test_state.node_features.clone())).unwrap();
-			}
-		);
+		if !test_state.per_session_cache_state.has_cached_validators {
+			// Check that subsystem job issues a request for a validator set.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(parent, RuntimeApiRequest::Validators(tx))
+				) if parent == hash => {
+					tx.send(Ok(test_state.validator_public.clone())).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_validators = true;
+		}
 
-		// Check if subsystem job issues a request for the minimum backing votes.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				parent,
-				RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
-			)) if parent == hash && session_index == test_state.signing_context.session_index => {
-				tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
-			}
-		);
+		if !test_state.per_session_cache_state.has_cached_node_features {
+			// Node features request from runtime: all features are disabled.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
+				) if parent == hash => {
+					tx.send(Ok(test_state.node_features.clone())).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_node_features = true;
+		}
+
+		if !test_state.per_session_cache_state.has_cached_executor_params {
+			// Check if subsystem job issues a request for the executor parameters.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionExecutorParams(_session_index, tx))
+				) if parent == hash => {
+					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_executor_params = true;
+		}
+
+		if !test_state.per_session_cache_state.has_cached_minimum_backing_votes {
+			// Check if subsystem job issues a request for the minimum backing votes.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					parent,
+					RuntimeApiRequest::MinimumBackingVotes(session_index, tx),
+				)) if parent == hash && session_index == test_state.signing_context.session_index => {
+					tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
+				}
+			);
+			test_state.per_session_cache_state.has_cached_minimum_backing_votes = true;
+		}
 	}
 }
 
@@ -603,7 +598,7 @@ async fn assert_validate_seconded_candidate(
 	expected_head_data: &HeadData,
 	fetch_pov: bool,
 ) {
-	assert_validation_requests(virtual_overseer, assert_validation_code.clone()).await;
+	assert_validation_request(virtual_overseer, assert_validation_code.clone()).await;
 
 	if fetch_pov {
 		assert_matches!(
@@ -709,7 +704,7 @@ pub(crate) fn make_hypothetical_membership_response(
 fn backing_second_works() {
 	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -810,7 +805,7 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 	}
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_ab = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pvd_ab = dummy_pvd();
@@ -982,7 +977,7 @@ fn get_backed_candidate_preserves_order() {
 		.insert(CoreIndex(2), [test_state.chain_ids[1]].into_iter().collect());
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pov_b = PoV { block_data: BlockData(vec![3, 4, 5]) };
@@ -1403,7 +1398,7 @@ fn extract_core_index_from_statement_works() {
 fn backing_works_while_validation_ongoing() {
 	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_abc = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pvd_abc = dummy_pvd();
@@ -1498,7 +1493,7 @@ fn backing_works_while_validation_ongoing() {
 			}
 		);
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_abc.clone()).await;
+		assert_validation_request(&mut virtual_overseer, validation_code_abc.clone()).await;
 
 		// Sending a `Statement::Seconded` for our assignment will start
 		// validation process. The first thing requested is PoV from the
@@ -1608,7 +1603,7 @@ fn backing_works_while_validation_ongoing() {
 fn backing_misbehavior_works() {
 	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![1, 2, 3]) };
 
@@ -1746,9 +1741,9 @@ fn backing_misbehavior_works() {
 // afterwards.
 #[test]
 fn backing_doesnt_second_invalid() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_block_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -1799,7 +1794,7 @@ fn backing_doesnt_second_invalid() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
+		assert_validation_request(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -1839,7 +1834,7 @@ fn backing_doesnt_second_invalid() {
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_b.clone()).await;
+		assert_validation_request(&mut virtual_overseer, validation_code_b.clone()).await;
 
 		assert_validate_from_exhaustive(
 			&mut virtual_overseer,
@@ -1915,7 +1910,7 @@ fn backing_doesnt_second_invalid() {
 fn backing_second_after_first_fails_works() {
 	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -1973,7 +1968,7 @@ fn backing_second_after_first_fails_works() {
 			}
 		);
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
+		assert_validation_request(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		assert_matches!(
@@ -2056,7 +2051,7 @@ fn backing_second_after_first_fails_works() {
 		// triggered on the prev step.
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_to_second.clone()).await;
+		assert_validation_request(&mut virtual_overseer, validation_code_to_second.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -2076,7 +2071,7 @@ fn backing_second_after_first_fails_works() {
 fn backing_works_after_failed_validation() {
 	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -2132,7 +2127,7 @@ fn backing_works_after_failed_validation() {
 			}
 		);
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
+		assert_validation_request(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		assert_matches!(
@@ -2267,9 +2262,9 @@ fn candidate_backing_reorders_votes() {
 // Test whether we retry on failed PoV fetching.
 #[test]
 fn retry_works() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd_a = dummy_pvd();
@@ -2358,7 +2353,7 @@ fn retry_works() {
 			}
 		);
 
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
+		assert_validation_request(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		// Subsystem requests PoV and requests validation.
 		// We cancel - should mean retry on next backing statement.
@@ -2380,7 +2375,7 @@ fn retry_works() {
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		// Not deterministic which message comes first:
-		for _ in 0u32..7 {
+		for _ in 0u32..3 {
 			match virtual_overseer.recv().await {
 				AllMessages::ProspectiveParachains(
 					ProspectiveParachainsMessage::CandidateBacked(
@@ -2414,8 +2409,6 @@ fn retry_works() {
 		let statement =
 			CandidateBackingMessage::Statement(test_state.relay_parent, signed_c.clone());
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
-
-		assert_validation_requests(&mut virtual_overseer, validation_code_a.clone()).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -2458,7 +2451,7 @@ fn observes_backing_even_if_not_validator() {
 	let mut test_state = TestState::default();
 	let empty_keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
 	test_harness(empty_keystore, |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![1, 2, 3]) };
 		let pvd = dummy_pvd();
@@ -2589,7 +2582,7 @@ fn new_leaf_view_doesnt_clobber_old() {
 	let relay_parent_2 = Hash::repeat_byte(1);
 	assert_ne!(test_state.relay_parent, relay_parent_2);
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		// New leaf that doesn't clobber old.
 		{
@@ -2603,7 +2596,7 @@ fn new_leaf_view_doesnt_clobber_old() {
 			let min_relay_parents = vec![(para_id, LEAF_B_BLOCK_NUMBER - LEAF_B_ANCESTRY_LEN)];
 			let test_leaf_b = TestLeaf { activated, min_relay_parents };
 
-			activate_leaf(&mut virtual_overseer, test_leaf_b, &test_state).await;
+			activate_leaf(&mut virtual_overseer, test_leaf_b, &mut test_state).await;
 			test_state.relay_parent = old_relay_parent;
 		}
 
@@ -2656,7 +2649,7 @@ fn disabled_validator_doesnt_distribute_statement_on_receiving_second() {
 	test_state.disabled_validators.push(ValidatorIndex(0));
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -2704,7 +2697,7 @@ fn disabled_validator_doesnt_distribute_statement_on_receiving_statement() {
 	test_state.disabled_validators.push(ValidatorIndex(0));
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -2781,7 +2774,7 @@ fn validator_ignores_statements_from_disabled_validators() {
 	test_state.disabled_validators.push(ValidatorIndex(2));
 
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
-		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
+		let para_id = activate_initial_leaf(&mut virtual_overseer, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -2900,7 +2893,7 @@ fn validator_ignores_statements_from_disabled_validators() {
 // for all leaves.
 #[test]
 fn seconding_sanity_check_allowed_on_all() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		// Candidate is seconded in a parent of the activated `leaf_a`.
 		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
@@ -2922,8 +2915,8 @@ fn seconding_sanity_check_allowed_on_all() {
 		let min_relay_parents = vec![(para_id, LEAF_B_BLOCK_NUMBER - LEAF_B_ANCESTRY_LEN)];
 		let test_leaf_b = TestLeaf { activated, min_relay_parents };
 
-		activate_leaf(&mut virtual_overseer, test_leaf_a, &test_state).await;
-		activate_leaf(&mut virtual_overseer, test_leaf_b, &test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_b, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -3016,7 +3009,7 @@ fn seconding_sanity_check_allowed_on_all() {
 // for all leaves.
 #[test]
 fn seconding_sanity_check_disallowed() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		// Candidate is seconded in a parent of the activated `leaf_a`.
 		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
@@ -3038,13 +3031,13 @@ fn seconding_sanity_check_disallowed() {
 		let min_relay_parents = vec![(para_id, LEAF_B_BLOCK_NUMBER - LEAF_B_ANCESTRY_LEN)];
 		let test_leaf_b = TestLeaf { activated, min_relay_parents };
 
-		activate_leaf(&mut virtual_overseer, test_leaf_a, &test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
 		let validation_code = ValidationCode(vec![1, 2, 3]);
 
-		let expected_head_data = test_state.head_data.get(&para_id).unwrap();
+		let expected_head_data = test_state.head_data.get(&para_id).unwrap().clone();
 
 		let pov_hash = pov.hash();
 		let candidate = TestCandidateBuilder {
@@ -3074,7 +3067,7 @@ fn seconding_sanity_check_disallowed() {
 			&pov,
 			&pvd,
 			&validation_code,
-			expected_head_data,
+			&expected_head_data,
 			false,
 		)
 		.await;
@@ -3114,7 +3107,7 @@ fn seconding_sanity_check_disallowed() {
 
 		assert_candidate_is_shared_and_seconded(&mut virtual_overseer, &leaf_a_parent).await;
 
-		activate_leaf(&mut virtual_overseer, test_leaf_b, &test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_b, &mut test_state).await;
 		let leaf_a_grandparent = get_parent_hash(leaf_a_parent);
 		let candidate = TestCandidateBuilder {
 			para_id,
@@ -3143,7 +3136,7 @@ fn seconding_sanity_check_disallowed() {
 			&pov,
 			&pvd,
 			&validation_code,
-			expected_head_data,
+			&expected_head_data,
 			false,
 		)
 		.await;
@@ -3187,7 +3180,7 @@ fn seconding_sanity_check_disallowed() {
 // leaf.
 #[test]
 fn seconding_sanity_check_allowed_on_at_least_one_leaf() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		// Candidate is seconded in a parent of the activated `leaf_a`.
 		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
@@ -3209,8 +3202,8 @@ fn seconding_sanity_check_allowed_on_at_least_one_leaf() {
 		let min_relay_parents = vec![(para_id, LEAF_B_BLOCK_NUMBER - LEAF_B_ANCESTRY_LEN)];
 		let test_leaf_b = TestLeaf { activated, min_relay_parents };
 
-		activate_leaf(&mut virtual_overseer, test_leaf_a, &test_state).await;
-		activate_leaf(&mut virtual_overseer, test_leaf_b, &test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_b, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -3302,7 +3295,7 @@ fn seconding_sanity_check_allowed_on_at_least_one_leaf() {
 // subsystem doesn't change the view.
 #[test]
 fn prospective_parachains_reject_candidate() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		// Candidate is seconded in a parent of the activated `leaf_a`.
 		const LEAF_A_BLOCK_NUMBER: BlockNumber = 100;
@@ -3315,7 +3308,7 @@ fn prospective_parachains_reject_candidate() {
 		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
-		activate_leaf(&mut virtual_overseer, test_leaf_a, &test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -3449,7 +3442,7 @@ fn prospective_parachains_reject_candidate() {
 // Test that a validator can second multiple candidates per single relay parent.
 #[test]
 fn second_multiple_candidates_per_relay_parent() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		// Candidate `a` is seconded in a parent of the activated `leaf`.
 		const LEAF_BLOCK_NUMBER: BlockNumber = 100;
@@ -3463,7 +3456,7 @@ fn second_multiple_candidates_per_relay_parent() {
 		let min_relay_parents = vec![(para_id, LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
-		activate_leaf(&mut virtual_overseer, test_leaf_a, &test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -3559,7 +3552,7 @@ fn second_multiple_candidates_per_relay_parent() {
 // Tests that validators start work on consecutive prospective parachain blocks.
 #[test]
 fn concurrent_dependent_candidates() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		// Candidate `a` is seconded in a grandparent of the activated `leaf`,
 		// candidate `b` -- in parent.
@@ -3574,7 +3567,7 @@ fn concurrent_dependent_candidates() {
 		let min_relay_parents = vec![(para_id, LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
-		activate_leaf(&mut virtual_overseer, test_leaf_a, &test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
 
 		let head_data = &[
 			HeadData(vec![10, 20, 30]), // Before `a`.
@@ -3819,7 +3812,7 @@ fn concurrent_dependent_candidates() {
 // in a given relay parent.
 #[test]
 fn seconding_sanity_check_occupy_same_depth() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		// Candidate `a` is seconded in a parent of the activated `leaf`.
 		const LEAF_BLOCK_NUMBER: BlockNumber = 100;
@@ -3836,7 +3829,7 @@ fn seconding_sanity_check_occupy_same_depth() {
 		let min_relay_parents = vec![(para_id_a, min_block_number), (para_id_b, min_block_number)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
-		activate_leaf(&mut virtual_overseer, test_leaf_a, &test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();
@@ -3969,7 +3962,7 @@ fn occupied_core_assignment() {
 		let min_relay_parents = vec![(para_id, LEAF_A_BLOCK_NUMBER - LEAF_A_ANCESTRY_LEN)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
 
-		activate_leaf(&mut virtual_overseer, test_leaf_a, &test_state).await;
+		activate_leaf(&mut virtual_overseer, test_leaf_a, &mut test_state).await;
 
 		let pov = PoV { block_data: BlockData(vec![42, 43, 44]) };
 		let pvd = dummy_pvd();

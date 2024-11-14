@@ -1040,7 +1040,6 @@ async fn handle_active_leaves_update<Context>(
 			maybe_new,
 			&state.keystore,
 			&mut state.per_session_cache,
-			mode,
 		)
 		.await?;
 
