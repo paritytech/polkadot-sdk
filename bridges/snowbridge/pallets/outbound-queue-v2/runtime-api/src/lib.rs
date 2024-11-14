@@ -11,7 +11,7 @@ use snowbridge_merkle_tree::MerkleProof;
 use xcm::prelude::Xcm;
 
 sp_api::decl_runtime_apis! {
-	pub trait OutboundQueueApiV2<Balance> where Balance: BalanceT
+	pub trait OutboundQueueV2Api<Balance> where Balance: BalanceT
 	{
 		/// Generate a merkle proof for a committed message identified by `leaf_index`.
 		/// The merkle root is stored in the block header as a
