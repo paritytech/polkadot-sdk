@@ -69,6 +69,14 @@ fn dummy_pvd() -> PersistedValidationData {
 	}
 }
 
+#[derive(Default)]
+struct PerSessionCacheState {
+	has_cached_validators: bool,
+	has_cached_node_features: bool,
+	has_cached_executor_params: bool,
+	has_cached_minimum_backing_votes: bool,
+}
+
 pub(crate) struct TestState {
 	chain_ids: Vec<ParaId>,
 	keystore: KeystorePtr,
@@ -85,6 +93,7 @@ pub(crate) struct TestState {
 	minimum_backing_votes: u32,
 	disabled_validators: Vec<ValidatorIndex>,
 	node_features: NodeFeatures,
+	per_session_cache_state: PerSessionCacheState,
 }
 
 impl TestState {
@@ -157,6 +166,7 @@ impl Default for TestState {
 			chain_ids,
 			keystore,
 			validators,
+			per_session_cache_state: PerSessionCacheState::default(),
 			validator_public,
 			validator_groups: (validator_groups, group_rotation_info),
 			validator_to_group,
@@ -697,7 +707,7 @@ pub(crate) fn make_hypothetical_membership_response(
 // successful issues correct messages.
 #[test]
 fn backing_second_works() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
 
@@ -1391,7 +1401,7 @@ fn extract_core_index_from_statement_works() {
 
 #[test]
 fn backing_works_while_validation_ongoing() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
 
@@ -1596,7 +1606,7 @@ fn backing_works_while_validation_ongoing() {
 // Issuing conflicting statements on the same candidate should be a misbehavior.
 #[test]
 fn backing_misbehavior_works() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
 
@@ -1903,7 +1913,7 @@ fn backing_doesnt_second_invalid() {
 // will not be issuing a `Seconded` statement on it.
 #[test]
 fn backing_second_after_first_fails_works() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
 
@@ -2064,7 +2074,7 @@ fn backing_second_after_first_fails_works() {
 // subsystem and so it is not fatal to the node.
 #[test]
 fn backing_works_after_failed_validation() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
 		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;
 
@@ -2395,24 +2405,6 @@ fn retry_works() {
 				)) if hash == validation_code_a.hash() => {
 					tx.send(Ok(Some(validation_code_a.clone()))).unwrap();
 				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionIndexForChild(tx),
-				)) => {
-					tx.send(Ok(1u32.into())).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(1, tx),
-				)) => {
-					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::NodeFeatures(1, tx),
-				)) => {
-					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
-				},
 				msg => {
 					assert!(false, "Unexpected message: {:?}", msg);
 				},
@@ -2463,7 +2455,7 @@ fn retry_works() {
 
 #[test]
 fn observes_backing_even_if_not_validator() {
-	let test_state = TestState::default();
+	let mut test_state = TestState::default();
 	let empty_keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
 	test_harness(empty_keystore, |mut virtual_overseer| async move {
 		let para_id = activate_initial_leaf(&mut virtual_overseer, &test_state).await;

@@ -74,6 +74,7 @@ ethabi = { version = "18.0.0" }
 example = ["hex-literal", "rlp", "secp256k1", "subxt-signer"]
 
 [dev-dependencies]
+static_init = { workspace = true }
 hex-literal = { workspace = true }
 pallet-revive-fixtures = { workspace = true }
 substrate-cli-test-utils = { workspace = true }

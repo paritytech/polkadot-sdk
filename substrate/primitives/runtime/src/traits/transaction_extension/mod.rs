@@ -19,7 +19,9 @@
 
 use crate::{
 	scale_info::{MetaType, StaticTypeInfo},
-	transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
+	transaction_validity::{
+		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
+	},
 	DispatchResult,
 };
 use codec::{Codec, Decode, Encode};
@@ -243,6 +245,7 @@ pub trait TransactionExtension<Call: Dispatchable>:
 		len: usize,
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
+		source: TransactionSource,
 	) -> ValidateResult<Self::Val, Call>;
 
 	/// Do any pre-flight stuff for a transaction after validation.
@@ -429,6 +432,7 @@ macro_rules! impl_tx_ext_default {
 			_len: usize,
 			_self_implicit: Self::Implicit,
 			_inherited_implication: &impl $crate::codec::Encode,
+			_source: $crate::transaction_validity::TransactionSource,
 		) -> $crate::traits::ValidateResult<Self::Val, $call> {
 			Ok((Default::default(), Default::default(), origin))
 		}
@@ -496,6 +500,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 		len: usize,
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
+		source: TransactionSource,
 	) -> Result<
 		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
@@ -521,7 +526,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for Tuple {
 					// passed into the next items in this pipeline-tuple.
 					&following_implicit_implications,
 				);
-				Tuple.validate(origin, call, info, len, item_implicit, &implications)?
+				Tuple.validate(origin, call, info, len, item_implicit, &implications, source)?
 			};
 			let valid = valid.combine_with(item_valid);
 			let val = val.push_back(item_val);
@@ -616,6 +621,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for () {
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> Result<
 		(ValidTransaction, (), <Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,

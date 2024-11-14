@@ -953,6 +953,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-test-utils 7.0.0",
+ "assets-common 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "emulated-integration-tests-common",
@@ -6922,15 +6923,18 @@ dependencies = [
  "parity-scale-codec",
  "paste",
  "rusty-fork",
+ "sc-client-db",
  "scale-info",
  "serde",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
  "sp-io 30.0.0",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
+ "sp-state-machine 0.35.0",
  "sp-storage 19.0.0",
  "static_assertions",
 ]
@@ -14699,6 +14703,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
+ "static_init",
  "substrate-cli-test-utils",
  "substrate-prometheus-endpoint",
  "subxt",
@@ -20397,7 +20402,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -20443,7 +20448,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acf0c195eebb4af52c752bec4f52f645da98b6e92077a04110c7f349477ae5ac"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
@@ -20926,7 +20931,7 @@ checksum = "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-automata 0.4.8",
+ "regex-automata 0.4.9",
  "regex-syntax 0.8.5",
 ]
 
@@ -20947,9 +20952,9 @@ checksum = "fed1ceff11a1dddaee50c9dc8e4938bd106e9d89ae372f192311e7da498e3b69"
 
 [[package]]
 name = "regex-automata"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "368758f23274712b504848e9d5a6f010445cc8b87a7cdb4d7cbee666c1288da3"
+checksum = "809e8dc61f6de73b46c85f4c96486310fe304c434cfa43669d7b40f711150908"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -21984,7 +21989,6 @@ dependencies = [
  "futures",
  "futures-timer",
  "ip_network",
- "libp2p",
  "linked_hash_set",
  "log",
  "multihash 0.19.1",
@@ -23087,8 +23091,10 @@ name = "sc-network-types"
 version = "0.10.0"
 dependencies = [
  "bs58",
+ "bytes",
  "ed25519-dalek",
  "libp2p-identity",
+ "libp2p-kad",
  "litep2p",
  "log",
  "multiaddr 0.18.1",
