@@ -196,7 +196,7 @@
 //! multi-page election.
 //!
 //! However, this pallet only supports single-page election and data
-//! provider and all the relevant trait implementation ad configurations reflect that assumption.
+//! provider and all the relevant trait implementation and configurations reflect that assumption.
 //!
 //! If external callers request the election of a page index higher than 0, the election will fail
 //! with [`ElectionError::MultiPageNotSupported`].
