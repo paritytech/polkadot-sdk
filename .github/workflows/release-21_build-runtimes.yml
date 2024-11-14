@@ -1,0 +1,49 @@
+name: Release - Build runtimes and upload to s3
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM-rcX or polkasdot-stableYYMM
+        type: string
+
+
+jobs:
+  # check-synchronization:
+  #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+
+  validate-inputs:
+    # needs: [check-synchronization]
+    # if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+        release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Validate inputs
+        id: validate_inputs
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
+          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+
+  build-runtimes:
+    needs: [validate-inputs]
+    uses: "./.github/workflows/release-srtool.yml"
+    with:
+       excluded_runtimes: "asset-hub-rococo bridge-hub-rococo contracts-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first"
+       build_opts: "--features on-chain-release-build"
+
+  upload-to-s3:
+    needs: [build-runtimes]
+    uses: ./.github/workflows/release-reusable-s3-upload.yml
+    with:
+      package: polkadot
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+    secrets:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}

@@ -2,9 +2,9 @@ name: Release - Publish draft
 
 on:
   push:
-    tags:
+    # tags:
       # Catches v1.2.3 and v1.2.3-rc1
-      - v[0-9]+.[0-9]+.[0-9]+*
+      # - v[0-9]+.[0-9]+.[0-9]+*
       # - polkadot-stable[0-9]+* Activate when the release process from release org is setteled
 
   workflow_dispatch:
@@ -23,12 +23,14 @@ jobs:
           RUST_STABLE_VERSION=$(curl -sS https://raw.githubusercontent.com/paritytech/scripts/master/dockerfiles/ci-unified/Dockerfile | grep -oP 'ARG RUST_STABLE_VERSION=\K[^ ]+')
           echo "stable=$RUST_STABLE_VERSION" >> $GITHUB_OUTPUT
 
+  # replace this job with fertch-runtimes-from-s3
   build-runtimes:
     uses: "./.github/workflows/release-srtool.yml"
     with:
        excluded_runtimes: "asset-hub-rococo bridge-hub-rococo contracts-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first"
        build_opts: "--features on-chain-release-build"
 
+  # replace this job with fetch-binaries-from-s3
   build-binaries:
     runs-on: ubuntu-latest
     strategy:

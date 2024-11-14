@@ -1,7 +1,7 @@
 name: Srtool build
 
 env:
-  SUBWASM_VERSION: 0.20.0
+  SUBWASM_VERSION: 0.21.0
   TOML_CLI_VERSION: 0.2.4
 
 on:
