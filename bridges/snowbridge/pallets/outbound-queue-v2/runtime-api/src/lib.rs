@@ -18,6 +18,6 @@ sp_api::decl_runtime_apis! {
 		/// `sp_runtime::generic::DigestItem::Other`
 		fn prove_message(leaf_index: u64) -> Option<MerkleProof>;
 
-		fn dry_run(xcm: Xcm<()>) -> Result<(InboundMessage,Fee<Balance>),DryRunError>;
+		fn dry_run(xcm: Xcm<()>) -> Result<(InboundMessage,Balance),DryRunError>;
 	}
 }

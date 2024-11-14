@@ -33,7 +33,7 @@ where
 	Some(proof)
 }
 
-pub fn dry_run<T>(xcm: Xcm<()>) -> Result<(InboundMessage, Fee<T::Balance>), DryRunError>
+pub fn dry_run<T>(xcm: Xcm<()>) -> Result<(InboundMessage, T::Balance), DryRunError>
 where
 	T: Config,
 {
@@ -46,7 +46,7 @@ where
 
 	let message: Message = converter.convert().map_err(|_| DryRunError::ConvertXcmFailed)?;
 
-	let fee = Fee::from(crate::Pallet::<T>::calculate_local_fee());
+	let fee = crate::Pallet::<T>::calculate_local_fee();
 
 	let commands: Vec<CommandWrapper> = message
 		.commands

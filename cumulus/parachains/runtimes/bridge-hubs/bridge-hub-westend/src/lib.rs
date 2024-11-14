@@ -912,7 +912,7 @@ impl_runtime_apis! {
 		fn prove_message(leaf_index: u64) -> Option<snowbridge_merkle_tree::MerkleProof> {
 			snowbridge_pallet_outbound_queue_v2::api::prove_message::<Runtime>(leaf_index)
 		}
-		fn dry_run(xcm: Xcm<()>) -> Result<(InboundMessage,FeeV2<Balance>),DryRunError> {
+		fn dry_run(xcm: Xcm<()>) -> Result<(InboundMessage,Balance),DryRunError> {
 			snowbridge_pallet_outbound_queue_v2::api::dry_run::<Runtime>(xcm)
 		}
 	}
