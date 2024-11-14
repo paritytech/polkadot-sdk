@@ -25,7 +25,7 @@ extern crate alloc;
 use crate::currency_to_vote::CurrencyToVote;
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
-use core::ops::Sub;
+use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
@@ -357,8 +357,6 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 
 /// A snapshot of the stake backing a single validator in the system.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[codec(mel_bound(T: Config))]
-#[scale_info(skip_type_params(T))]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -385,6 +383,9 @@ impl<
 	///
 	/// `n_others` individual exposures are consumed from self and returned as part of the new
 	/// exposure.
+	///
+	/// Since this method splits `others` of a single exposure, `total.own` will be the same for
+	/// both `self` and the returned exposure.
 	pub fn split_others(&mut self, n_others: u32) -> Self {
 		let head_others: Vec<_> =
 			self.others.drain(..(n_others as usize).min(self.others.len())).collect();
@@ -455,8 +456,8 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 }
 
 /// Returns an exposure page from a set of individual exposures.
-impl<A, B: HasCompact + Default + sp_std::ops::AddAssign + sp_std::ops::SubAssign + Clone>
-	From<Vec<IndividualExposure<A, B>>> for ExposurePage<A, B>
+impl<A, B: HasCompact + Default + AddAssign + SubAssign + Clone> From<Vec<IndividualExposure<A, B>>>
+	for ExposurePage<A, B>
 {
 	fn from(exposures: Vec<IndividualExposure<A, B>>) -> Self {
 		exposures.into_iter().fold(ExposurePage::default(), |mut page, e| {
@@ -503,8 +504,8 @@ impl<Balance> PagedExposureMetadata<Balance>
 where
 	Balance: HasCompact
 		+ codec::MaxEncodedLen
-		+ sp_std::ops::Add<Output = Balance>
-		+ sp_std::ops::Sub<Output = Balance>
+		+ Add<Output = Balance>
+		+ Sub<Output = Balance>
 		+ sp_runtime::Saturating
 		+ PartialEq
 		+ Copy
@@ -733,7 +734,8 @@ mod tests {
 		};
 
 		let mut exposure_0 = exposure.clone();
-		// split others with with 0 `n_others` is a noop and returns an exposure with own only.
+		// split others with with 0 `n_others` is a noop and returns an empty exposure (with `own`
+		// only).
 		let split_exposure = exposure_0.split_others(0);
 		assert_eq!(exposure_0, exposure);
 		assert_eq!(split_exposure, Exposure { total: 20, own: 20, others: vec![] });
@@ -761,12 +763,12 @@ mod tests {
 		assert_eq!(split_exposure.total, 20 + 3 * 20);
 		assert_eq!(split_exposure.others.len(), 3);
 
-		let mut exposure_100 = exposure.clone();
-		// split others with with more `n_others` than the number of others in the exposure returns
+		let mut exposure_max = exposure.clone();
+		// split others with with more `n_others` than the number of others in the exposure
 		// consumes all the individual exposures of the original Exposure and returns them in the
 		// new exposure.
-		let split_exposure = exposure_100.split_others(100);
+		let split_exposure = exposure_max.split_others(u32::MAX);
 		assert_eq!(split_exposure, exposure);
-		assert_eq!(exposure_100, Exposure { total: 20, own: 20, others: vec![] });
+		assert_eq!(exposure_max, Exposure { total: 20, own: 20, others: vec![] });
 	}
 }
