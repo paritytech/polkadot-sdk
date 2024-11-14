@@ -248,7 +248,7 @@ use codec::{Decode, Encode};
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder, SizeBound},
 	BoundedSupports, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	InstantElectionProvider, NposSolution, PageIndex, TryIntoBoundedSupports,
+	InstantElectionProvider, NposSolution, PageIndex,
 };
 use frame_support::{
 	dispatch::DispatchClass,
@@ -1007,7 +1007,7 @@ pub mod pallet {
 
 			// bound supports with T::MaxWinners.
 			let supports: BoundedSupportsOf<Pallet<T>> =
-				supports.try_into_bounded_supports().map_err(|_| Error::<T>::TooManyWinners)?;
+				supports.try_into().map_err(|_| Error::<T>::TooManyWinners)?;
 
 			// Note: we don't `rotate_round` at this point; the next call to
 			// `ElectionProvider::elect` will succeed and take care of that.
@@ -2534,7 +2534,7 @@ mod tests {
 				(30, Support { total: 40, voters: vec![(2, 5), (4, 5), (30, 30)] }),
 				(40, Support { total: 60, voters: vec![(2, 5), (3, 10), (4, 5), (40, 40)] }),
 			]
-			.try_into_bounded_supports()
+			.try_into()
 			.unwrap();
 
 			assert_eq!(supports, expected_supports);

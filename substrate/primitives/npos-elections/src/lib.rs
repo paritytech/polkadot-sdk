@@ -127,6 +127,8 @@ pub enum Error {
 	InvalidSupportEdge,
 	/// The number of voters is bigger than the `MaxVoters` bound.
 	TooManyVoters,
+	/// Some bounds were exceeded when converting election types.
+	BoundsExceeded,
 }
 
 /// A type which is used in the API of this crate as a numeric weight of a vote, most often the

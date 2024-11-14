@@ -21,7 +21,7 @@ use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, BoundedSupports, BoundedSupportsOf, ElectionProvider, PageIndex, SequentialPhragmen,
-	Support, TryIntoBoundedSupports, VoteWeight,
+	Support, VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -1023,5 +1023,5 @@ pub(crate) fn to_bounded_supports(
 	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
 	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
 > {
-	supports.try_into_bounded_supports().unwrap()
+	supports.try_into().unwrap()
 }

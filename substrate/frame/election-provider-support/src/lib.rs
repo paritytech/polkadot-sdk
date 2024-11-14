@@ -849,33 +849,30 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> IntoIterator
 	}
 }
 
-/// An extension trait to convert from [`sp_npos_elections::Supports<AccountId>`] into
-/// [`BoundedSupports`].
-pub trait TryIntoBoundedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>> {
-	/// Perform the conversion.
-	fn try_into_bounded_supports(self) -> Result<BoundedSupports<AccountId, BOuter, BInner>, ()>;
-}
-
-impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>>
-	TryIntoBoundedSupports<AccountId, BOuter, BInner> for sp_npos_elections::Supports<AccountId>
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> TryFrom<sp_npos_elections::Supports<AccountId>>
+	for BoundedSupports<AccountId, BOuter, BInner>
 {
-	fn try_into_bounded_supports(self) -> Result<BoundedSupports<AccountId, BOuter, BInner>, ()> {
+	type Error = crate::Error;
+
+	fn try_from(supports: sp_npos_elections::Supports<AccountId>) -> Result<Self, Self::Error> {
 		// optimization note: pre-allocate outer bounded vec.
 		let mut outer_bounded_supports = BoundedVec::<
 			(AccountId, BoundedSupport<AccountId, BInner>),
 			BOuter,
 		>::with_bounded_capacity(
-			self.len().min(BOuter::get() as usize)
+			supports.len().min(BOuter::get() as usize)
 		);
 
 		// optimization note: avoid intermediate allocations.
-		self.into_iter()
+		supports
+			.into_iter()
 			.map(|(account, support)| (account, support.try_into().map_err(|_| ())))
 			.try_for_each(|(account, maybe_bounded_supports)| {
 				outer_bounded_supports
 					.try_push((account, maybe_bounded_supports?))
 					.map_err(|_| ())
-			})?;
+			})
+			.map_err(|_| crate::Error::BoundsExceeded)?;
 
 		Ok(outer_bounded_supports.into())
 	}

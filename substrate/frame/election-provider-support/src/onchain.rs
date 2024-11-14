@@ -22,7 +22,7 @@
 use crate::{
 	bounds::{DataProviderBounds, ElectionBounds, ElectionBoundsBuilder},
 	BoundedSupportsOf, Debug, ElectionDataProvider, ElectionProvider, InstantElectionProvider,
-	NposSolver, PageIndex, TryIntoBoundedSupports, WeightInfo, Zero,
+	NposSolver, PageIndex, WeightInfo, Zero,
 };
 use alloc::collections::btree_map::BTreeMap;
 use core::marker::PhantomData;
@@ -147,9 +147,8 @@ impl<T: Config> OnChainExecution<T> {
 
 		// defensive: Since npos solver returns a result always bounded by `desired_targets`, this
 		// is never expected to happen as long as npos solver does what is expected for it to do.
-		let supports: BoundedSupportsOf<Self> = to_supports(&staked)
-			.try_into_bounded_supports()
-			.map_err(|_| Error::TooManyWinners)?;
+		let supports: BoundedSupportsOf<Self> =
+			to_supports(&staked).try_into().map_err(|_| Error::TooManyWinners)?;
 
 		Ok(supports)
 	}
@@ -321,7 +320,7 @@ mod tests {
 				),
 				(30, Support { total: 35, voters: vec![(2, 20), (3, 15)] }),
 			]
-			.try_into_bounded_supports()
+			.try_into()
 			.unwrap();
 
 			assert_eq!(
@@ -357,7 +356,7 @@ mod tests {
 					),
 					(30, Support { total: 35, voters: vec![(2, 20), (3, 15)] })
 				]
-				.try_into_bounded_supports()
+				.try_into()
 				.unwrap()
 			);
 		})
