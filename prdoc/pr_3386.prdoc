@@ -24,7 +24,7 @@ crates:
   - name: bp-test-utils
     bump: patch
   - name: cumulus-pallet-parachain-system
-    bump: major
+    bump: patch
   - name: cumulus-primitives-proof-size-hostfunction
     bump: patch
   - name: cumulus-test-relay-sproof-builder
@@ -50,7 +50,7 @@ crates:
   - name: node-testing
     bump: major
   - name: sc-client-api
-    bump: major
+    bump: minor
   - name: sc-basic-authorship
     bump: patch
   - name: sc-cli
