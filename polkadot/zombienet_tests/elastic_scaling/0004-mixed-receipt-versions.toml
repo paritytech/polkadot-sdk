@@ -33,6 +33,6 @@ add_to_genesis = true
   [[parachains.collators]]
   name = "old-collator-elastic"
   # Use an old image here, this is roughly the commit where the stable2407 release branched off.
-  image = "{{COL_IMAGE}}:master-b862b181"
+  image = "docker.io/paritypr/test-parachain:master-b862b181"
   command = "test-parachain"
   args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--experimental-use-slot-based"]
