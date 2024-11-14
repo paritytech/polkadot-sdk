@@ -46,8 +46,6 @@ use std::collections::BTreeSet;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_core::{sr25519::Pair as SrPair, Pair};
 
-use frame_support::traits::BuildGenesisConfig;
-
 mod currency_tests;
 mod dispatchable_tests;
 mod fungible_conformance_tests;
@@ -292,7 +290,7 @@ pub fn ensure_ti_valid() {
     #[cfg(feature = "runtime-benchmarks")]
     let dev_accounts = (10, 100, "//Sender/{}".to_string()); // You can customize this as needed
     #[cfg(feature = "runtime-benchmarks")]
-    let (num_accounts, balance, ref derivation) = dev_accounts;
+    let (num_accounts, _balance, ref derivation) = dev_accounts;
 
     // Generate the dev account public keys.
     #[cfg(feature = "runtime-benchmarks")]

@@ -719,9 +719,7 @@ fn cannot_set_genesis_value_below_ed() {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let _ = crate::GenesisConfig::<Test> { 
 		balances: vec![(1, 10)],
-		
-		#[cfg(feature = "runtime-benchmarks")]
-		dev_accounts: (1000000, 500, "//Sender/{}".to_string())
+		..Default::default()
 	}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -733,9 +731,7 @@ fn cannot_set_genesis_value_twice() {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let _ = crate::GenesisConfig::<Test> { 
 		balances: vec![(1, 10), (2, 20), (1, 15)],
-
-		#[cfg(feature = "runtime-benchmarks")]
-		dev_accounts: (1000000, 500, "//Sender/{}".to_string())
+		..Default::default()
 	}
 		.assimilate_storage(&mut t)
 		.unwrap();

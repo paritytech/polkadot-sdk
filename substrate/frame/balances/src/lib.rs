@@ -152,7 +152,7 @@ pub mod weights;
 
 extern crate alloc;
 
-use alloc::{vec::Vec, string::{String, ToString}};
+use alloc::vec::Vec;
 use codec::{Codec, MaxEncodedLen};
 use core::{cmp, fmt::Debug, mem, result};
 use frame_support::{
@@ -556,7 +556,6 @@ pub mod pallet {
 			#[cfg(feature = "runtime-benchmarks")]
 			{
 				let (num_accounts, balance, ref derivation) = self.dev_accounts;
-				let num_balance = <T as pallet::Config<I>>::Balance::from(num_accounts);
 				for index in 0..num_accounts {
 					assert!(
 						balance >= <T as Config<I>>::ExistentialDeposit::get(),
