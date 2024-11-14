@@ -45,7 +45,6 @@ use futures::{
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	error::{Error, IntoPoolError},
 	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolFuture, PoolStatus,
 	TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
 };
@@ -193,6 +192,7 @@ where
 			listener.clone(),
 			Default::default(),
 			mempool_max_transactions_count,
+			ready_limits.total_bytes + future_limits.total_bytes,
 		));
 
 		let (dropped_stream_controller, dropped_stream) =
@@ -283,6 +283,7 @@ where
 			listener.clone(),
 			metrics.clone(),
 			TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER * (options.ready.count + options.future.count),
+			options.ready.total_bytes + options.future.total_bytes,
 		));
 
 		let (dropped_stream_controller, dropped_stream) =
@@ -599,48 +600,36 @@ where
 		log::debug!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.active_views_count());
 		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
-		let mempool_result = self.mempool.extend_unwatched(source, xts.clone());
+		let mempool_results = self.mempool.extend_unwatched(source, &xts);
 
 		if view_store.is_empty() {
-			return future::ready(Ok(mempool_result)).boxed()
+			return future::ready(Ok(mempool_results)).boxed()
 		}
 
-		let (hashes, to_be_submitted): (Vec<TxHash<Self>>, Vec<ExtrinsicFor<ChainApi>>) =
-			mempool_result
-				.iter()
-				.zip(xts)
-				.filter_map(|(result, xt)| result.as_ref().ok().map(|xt_hash| (xt_hash, xt)))
-				.unzip();
+		let to_be_submitted = mempool_results
+			.iter()
+			.zip(xts)
+			.filter_map(|(result, xt)| result.as_ref().ok().map(|_| xt))
+			.collect::<Vec<_>>();
 
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
 
 		let mempool = self.mempool.clone();
 		async move {
-			let results_map = view_store.submit(source, to_be_submitted.into_iter(), hashes).await;
+			let results_map = view_store.submit(source, to_be_submitted.into_iter()).await;
 			let mut submission_results = reduce_multiview_result(results_map).into_iter();
 
-			Ok(mempool_result
+			Ok(mempool_results
 				.into_iter()
 				.map(|result| {
 					result.and_then(|xt_hash| {
-						let result = submission_results
+						submission_results
 							.next()
-							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed.");
-						result.or_else(|error| {
-							let error = error.into_pool_error();
-							match error {
-								Ok(
-									// The transaction is still in mempool it may get included into the view for the next block.
-									Error::ImmediatelyDropped
-								) => Ok(xt_hash),
-								Ok(e) => {
-									mempool.remove(xt_hash);
-									Err(e.into())
-								},
-								Err(e) => Err(e),
-							}
-						})
+							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed.")
+							.inspect_err(|_|
+								mempool.remove(xt_hash)
+							)
 					})
 				})
 				.collect::<Vec<_>>())
@@ -692,26 +681,10 @@ where
 		let view_store = self.view_store.clone();
 		let mempool = self.mempool.clone();
 		async move {
-			let result = view_store.submit_and_watch(at, source, xt).await;
-			let result = result.or_else(|(e, maybe_watcher)| {
-				let error = e.into_pool_error();
-				match (error, maybe_watcher) {
-					(
-						Ok(
-							// The transaction is still in mempool it may get included into the
-							// view for the next block.
-							Error::ImmediatelyDropped,
-						),
-						Some(watcher),
-					) => Ok(watcher),
-					(Ok(e), _) => {
-						mempool.remove(xt_hash);
-						Err(e.into())
-					},
-					(Err(e), _) => Err(e),
-				}
-			});
-			result
+			view_store
+				.submit_and_watch(at, source, xt)
+				.await
+				.inspect_err(|_| mempool.remove(xt_hash))
 		}
 		.boxed()
 	}
@@ -838,16 +811,16 @@ where
 	fn submit_local(
 		&self,
 		_at: Block::Hash,
-		_xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
+		xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
-		//todo [#5493]
-		//looks like view_store / view needs non async submit_local method ?.
-		let e = Err(sc_transaction_pool_api::error::Error::Unactionable.into());
-		log::warn!(
-			target: LOG_TARGET,
-			"LocalTransactionPool::submit_local is not implemented for ForkAwareTxPool, returning error: {e:?}",
-		);
-		e
+		log::debug!(target: LOG_TARGET, "fatp::submit_local views:{}", self.active_views_count());
+		let xt = Arc::from(xt);
+		let result = self
+			.mempool
+			.extend_unwatched(TransactionSource::Local, &[xt.clone()])
+			.remove(0)?;
+
+		self.view_store.submit_local(xt).or_else(|_| Ok(result))
 	}
 }
 
@@ -1056,7 +1029,7 @@ where
 		future::join_all(results).await
 	}
 
-	/// Updates the given view with the transaction from the internal mempol.
+	/// Updates the given view with the transactions from the internal mempol.
 	///
 	/// All transactions from the mempool (excluding those which are either already imported or
 	/// already included in blocks since recently finalized block) are submitted to the
@@ -1139,12 +1112,9 @@ where
 		// out the invalid event, and remove transaction.
 		if self.view_store.is_empty() {
 			for result in watched_results {
-				match result {
-					Err(tx_hash) => {
-						self.view_store.listener.invalidate_transactions(&[tx_hash]);
-						self.mempool.remove(tx_hash);
-					},
-					Ok(_) => {},
+				if let Err(tx_hash) = result {
+					self.view_store.listener.invalidate_transactions(&[tx_hash]);
+					self.mempool.remove(tx_hash);
 				}
 			}
 		}
