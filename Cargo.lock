@@ -1112,7 +1112,7 @@ dependencies = [
  "pallet-collator-selection 19.0.0",
  "pallet-session 38.0.0",
  "pallet-timestamp 37.0.0",
- "pallet-xcm 17.0.1",
+ "pallet-xcm 17.0.0",
  "pallet-xcm-bridge-hub-router 0.15.1",
  "parachains-common 18.0.0",
  "parachains-runtimes-test-utils 17.0.0",
@@ -1150,9 +1150,9 @@ dependencies = [
 
 [[package]]
 name = "assets-common"
-version = "0.18.1"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93438e31a4449fbeab87210931edc8cd156292354f1fc15f17d819ecded6bf25"
+checksum = "4556e56f9206b129c3f96249cd907b76e8d7ad5265fe368c228c708789a451a3"
 dependencies = [
  "cumulus-primitives-core 0.16.0",
  "frame-support 38.0.0",
@@ -1160,7 +1160,7 @@ dependencies = [
  "log",
  "pallet-asset-conversion 20.0.0",
  "pallet-assets 40.0.0",
- "pallet-xcm 17.0.1",
+ "pallet-xcm 17.0.0",
  "parachains-common 18.0.0",
  "parity-scale-codec",
  "scale-info",
@@ -2460,7 +2460,7 @@ checksum = "c31b53c53d627e2da38f8910807944bf3121e154b5c0ac9e122995af9dfb13ed"
 dependencies = [
  "cumulus-primitives-core 0.16.0",
  "frame-support 38.0.0",
- "pallet-message-queue 41.0.2",
+ "pallet-message-queue 41.0.1",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-core 0.10.0",
@@ -2691,7 +2691,7 @@ dependencies = [
  "pallet-bridge-relayers 0.18.0",
  "pallet-timestamp 37.0.0",
  "pallet-utility 38.0.0",
- "pallet-xcm 17.0.1",
+ "pallet-xcm 17.0.0",
  "pallet-xcm-bridge-hub 0.13.0",
  "parachains-common 18.0.0",
  "parachains-runtimes-test-utils 17.0.0",
@@ -4836,7 +4836,7 @@ dependencies = [
  "frame-system 38.0.0",
  "impl-trait-for-tuples",
  "log",
- "pallet-message-queue 41.0.2",
+ "pallet-message-queue 41.0.1",
  "parity-scale-codec",
  "polkadot-parachain-primitives 14.0.0",
  "polkadot-runtime-common 17.0.0",
@@ -5022,7 +5022,7 @@ dependencies = [
  "frame-support 38.0.0",
  "frame-system 38.0.0",
  "log",
- "pallet-message-queue 41.0.2",
+ "pallet-message-queue 41.0.1",
  "parity-scale-codec",
  "polkadot-runtime-common 17.0.0",
  "polkadot-runtime-parachains 17.0.1",
@@ -8548,7 +8548,7 @@ dependencies = [
  "hyper 1.3.1",
  "hyper-util",
  "log",
- "rustls 0.23.16",
+ "rustls 0.23.14",
  "rustls-native-certs 0.8.0",
  "rustls-pki-types",
  "tokio",
@@ -9163,7 +9163,7 @@ dependencies = [
  "http 1.1.0",
  "jsonrpsee-core",
  "pin-project",
- "rustls 0.23.16",
+ "rustls 0.23.14",
  "rustls-pki-types",
  "rustls-platform-verifier",
  "soketto 0.8.0",
@@ -9216,7 +9216,7 @@ dependencies = [
  "hyper-util",
  "jsonrpsee-core",
  "jsonrpsee-types",
- "rustls 0.23.16",
+ "rustls 0.23.14",
  "rustls-platform-verifier",
  "serde",
  "serde_json",
@@ -12849,11 +12849,11 @@ dependencies = [
  "pallet-contracts-proc-macro 23.0.1",
  "pallet-contracts-uapi 12.0.0",
  "pallet-insecure-randomness-collective-flip 26.0.0",
- "pallet-message-queue 41.0.2",
+ "pallet-message-queue 41.0.1",
  "pallet-proxy 38.0.0",
  "pallet-timestamp 37.0.0",
  "pallet-utility 38.0.0",
- "pallet-xcm 17.0.1",
+ "pallet-xcm 17.0.0",
  "parity-scale-codec",
  "polkadot-parachain-primitives 14.0.0",
  "polkadot-primitives 16.0.0",
@@ -13751,9 +13751,9 @@ dependencies = [
 
 [[package]]
 name = "pallet-message-queue"
-version = "41.0.2"
+version = "41.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "983f7d1be18e9a089a3e23670918f5085705b4403acd3fdde31878d57b76a1a8"
+checksum = "0faa48b29bf5a178580c164ef00de87319a37da7547a9cd6472dfd160092811a"
 dependencies = [
  "environmental",
  "frame-benchmarking 38.0.0",
@@ -14808,14 +14808,14 @@ dependencies = [
  "frame-system 38.0.0",
  "pallet-assets 40.0.0",
  "pallet-balances 39.0.0",
- "pallet-message-queue 41.0.2",
+ "pallet-message-queue 41.0.1",
  "pallet-proxy 38.0.0",
  "pallet-revive 0.2.0",
  "pallet-revive-proc-macro 0.1.1",
  "pallet-revive-uapi 0.1.1",
  "pallet-timestamp 37.0.0",
  "pallet-utility 38.0.0",
- "pallet-xcm 17.0.1",
+ "pallet-xcm 17.0.0",
  "parity-scale-codec",
  "polkadot-parachain-primitives 14.0.0",
  "polkadot-primitives 16.0.0",
@@ -15902,9 +15902,9 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "17.0.1"
+version = "17.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "989676964dbda5f5275650fbdcd3894fe7fac626d113abf89d572b4952adcc36"
+checksum = "0b1760b6589e53f4ad82216c72c0e38fcb4df149c37224ab3301dc240c85d1d4"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking 38.0.0",
@@ -15921,7 +15921,6 @@ dependencies = [
  "staging-xcm 14.2.0",
  "staging-xcm-builder 17.0.1",
  "staging-xcm-executor 17.0.0",
- "tracing",
  "xcm-runtime-apis 0.4.0",
 ]
 
@@ -16136,8 +16135,8 @@ dependencies = [
  "pallet-authorship 38.0.0",
  "pallet-balances 39.0.0",
  "pallet-collator-selection 19.0.0",
- "pallet-message-queue 41.0.2",
- "pallet-xcm 17.0.1",
+ "pallet-message-queue 41.0.1",
+ "pallet-xcm 17.0.0",
  "parity-scale-codec",
  "polkadot-primitives 16.0.0",
  "scale-info",
@@ -16213,7 +16212,7 @@ dependencies = [
  "pallet-collator-selection 19.0.0",
  "pallet-session 38.0.0",
  "pallet-timestamp 37.0.0",
- "pallet-xcm 17.0.1",
+ "pallet-xcm 17.0.0",
  "parity-scale-codec",
  "polkadot-parachain-primitives 14.0.0",
  "sp-consensus-aura 0.40.0",
@@ -18385,7 +18384,7 @@ dependencies = [
  "pallet-babe 38.0.0",
  "pallet-balances 39.0.0",
  "pallet-broker 0.17.0",
- "pallet-message-queue 41.0.2",
+ "pallet-message-queue 41.0.1",
  "pallet-mmr 38.0.0",
  "pallet-session 38.0.0",
  "pallet-staking 38.0.0",
@@ -18805,7 +18804,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb819108697967452fa6d8d96ab4c0d48cbaa423b3156499dcb24f1cf95d6775"
 dependencies = [
  "asset-test-utils 18.0.0",
- "assets-common 0.18.1",
+ "assets-common 0.18.0",
  "binary-merkle-tree 15.0.1",
  "bp-header-chain 0.18.1",
  "bp-messages 0.18.0",
@@ -18894,7 +18893,7 @@ dependencies = [
  "pallet-insecure-randomness-collective-flip 26.0.0",
  "pallet-lottery 38.0.0",
  "pallet-membership 38.0.0",
- "pallet-message-queue 41.0.2",
+ "pallet-message-queue 41.0.1",
  "pallet-migrations 8.0.0",
  "pallet-mixnet 0.14.0",
  "pallet-mmr 38.0.0",
@@ -18947,7 +18946,7 @@ dependencies = [
  "pallet-utility 38.0.0",
  "pallet-vesting 38.0.0",
  "pallet-whitelist 37.0.0",
- "pallet-xcm 17.0.1",
+ "pallet-xcm 17.0.0",
  "pallet-xcm-benchmarks 17.0.0",
  "pallet-xcm-bridge-hub 0.13.0",
  "pallet-xcm-bridge-hub-router 0.15.1",
@@ -20628,7 +20627,7 @@ dependencies = [
  "quinn-proto 0.11.8",
  "quinn-udp 0.5.4",
  "rustc-hash 2.0.0",
- "rustls 0.23.16",
+ "rustls 0.23.14",
  "socket2 0.5.7",
  "thiserror",
  "tokio",
@@ -20662,7 +20661,7 @@ dependencies = [
  "rand",
  "ring 0.17.7",
  "rustc-hash 2.0.0",
- "rustls 0.23.16",
+ "rustls 0.23.14",
  "slab",
  "thiserror",
  "tinyvec",
@@ -21149,7 +21148,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "quinn 0.11.5",
- "rustls 0.23.16",
+ "rustls 0.23.14",
  "rustls-pemfile 2.0.0",
  "rustls-pki-types",
  "serde",
@@ -21753,9 +21752,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.16"
+version = "0.23.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eee87ff5d9b36712a58574e12e9f0ea80f915a5b0ac518d322b24a465617925e"
+checksum = "415d9944693cb90382053259f89fbb077ea730ad7273047ec63b19bc9b160ba8"
 dependencies = [
  "log",
  "once_cell",
@@ -21825,9 +21824,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.10.0"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16f1201b3c9a7ee8039bcadc17b7e605e2945b27eee7631788c1bd2b0643674b"
+checksum = "0e696e35370c65c9c541198af4543ccd580cf17fc25d8e05c5a242b202488c55"
 
 [[package]]
 name = "rustls-platform-verifier"
@@ -21840,7 +21839,7 @@ dependencies = [
  "jni",
  "log",
  "once_cell",
- "rustls 0.23.16",
+ "rustls 0.23.14",
  "rustls-native-certs 0.7.0",
  "rustls-platform-verifier-android",
  "rustls-webpki 0.102.8",
@@ -23147,7 +23146,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rand",
- "rustls 0.23.16",
+ "rustls 0.23.14",
  "sc-block-builder",
  "sc-client-api",
  "sc-client-db",
@@ -24067,9 +24066,9 @@ checksum = "f97841a747eef040fcd2e7b3b9a220a7205926e60488e673d9e4926d27772ce5"
 
 [[package]]
 name = "serde"
-version = "1.0.215"
+version = "1.0.214"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6513c1ad0b11a9376da888e3e0baa0077f1aed55c17f50e7b2397136129fb88f"
+checksum = "f55c3193aca71c12ad7890f1785d2b73e1b9f63a0bbc353c08ef26fe03fc56b5"
 dependencies = [
  "serde_derive",
 ]
@@ -24104,9 +24103,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.215"
+version = "1.0.214"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad1e866f866923f252f05c889987993144fb74e722403468a4ebd70c3cd756c0"
+checksum = "de523f781f095e28fa605cdce0f8307e451cc0fd14e2eb4cd2e98a355b147766"
 dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
@@ -25233,11 +25232,11 @@ dependencies = [
  "frame-system 38.0.0",
  "pallet-balances 39.0.0",
  "pallet-collator-selection 19.0.0",
- "pallet-message-queue 41.0.2",
+ "pallet-message-queue 41.0.1",
  "pallet-session 38.0.0",
  "pallet-timestamp 37.0.0",
  "pallet-utility 38.0.0",
- "pallet-xcm 17.0.1",
+ "pallet-xcm 17.0.0",
  "parachains-runtimes-test-utils 17.0.0",
  "parity-scale-codec",
  "snowbridge-core 0.10.0",
@@ -29310,9 +29309,9 @@ checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
 
 [[package]]
 name = "thiserror"
-version = "1.0.64"
+version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d50af8abc119fb8bb6dbabcfa89656f46f84aa0ac7688088608076ad2b459a84"
+checksum = "5d11abd9594d9b38965ef50805c5e469ca9cc6f197f883f717e0269a3057b3d5"
 dependencies = [
  "thiserror-impl",
 ]
@@ -29339,9 +29338,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.64"
+version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08904e7672f5eb876eaaf87e0ce17857500934f4981c4a0ab2b4aa98baac7fc3"
+checksum = "ae71770322cbd277e69d762a16c444af02aa0575ac0d174f0b9562d3b37f8602"
 dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
@@ -29547,7 +29546,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c7bc40d0e5a97695bb96e27995cd3a08538541b0a846f65bba7a359f36700d4"
 dependencies = [
- "rustls 0.23.16",
+ "rustls 0.23.14",
  "rustls-pki-types",
  "tokio",
 ]
@@ -30258,7 +30257,7 @@ dependencies = [
  "flate2",
  "log",
  "once_cell",
- "rustls 0.23.16",
+ "rustls 0.23.14",
  "rustls-pki-types",
  "serde",
  "serde_json",
