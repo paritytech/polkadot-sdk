@@ -72,17 +72,34 @@ pub mod v16 {
 				BoundedVec::try_from(v15::DisabledValidators::<T>::get());
 			match disabled_validators_maybe {
 				Ok(disabled_validators) => DisabledValidators::<T>::set(disabled_validators),
-				Err(_) => log!(warn, "Could not insert disabled validators in bounded vector."),
+				Err(_) => log!(warn, "Migration failed for DisabledValidators from v15 to v16."),
 			}
 
 			// BoundedVec with MaxActiveValidators limit, this should always work
 			let invulnerables_maybe = BoundedVec::try_from(v15::Invulnerables::<T>::get());
 			match invulnerables_maybe {
 				Ok(invulnerables) => Invulnerables::<T>::set(invulnerables),
-				Err(_) => log!(warn, "Could not insert invulnerables in bounded vector."),
+				Err(_) => log!(warn, "Migration failed for Invulnerables from v15 to v16."),
 			}
 
-			log!(info, "v15 applied successfully.");
+			for (era_index, era_rewards) in v15::ErasRewardPoints::<T>::iter() {
+				let individual_rewards_maybe = BoundedBTreeMap::try_from(era_rewards.individual);
+				match individual_rewards_maybe {
+					Ok(individual_rewards) => {
+						let bounded_era_rewards = EraRewardPoints::<
+							<T as frame_system::Config>::AccountId,
+							<T as Config>::MaxActiveValidators,
+						> {
+							individual: individual_rewards,
+							total: era_rewards.total,
+						};
+						ErasRewardPoints::<T>::insert(era_index, bounded_era_rewards);
+					},
+					Err(_) => log!(warn, "Migration failed for ErasRewardPoints from v15 to v16."),
+				}
+			}
+
+			log!(info, "v16 applied successfully.");
 			T::DbWeight::get().reads_writes(1, 1)
 		}
 
@@ -105,6 +122,7 @@ pub mod v16 {
 /// Migrating `OffendingValidators` from `Vec<(u32, bool)>` to `Vec<u32>`
 pub mod v15 {
 	use super::*;
+	use frame_support::Twox64Concat;
 
 	#[frame_support::storage_alias]
 	pub(crate) type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
@@ -112,6 +130,27 @@ pub mod v15 {
 	#[frame_support::storage_alias]
 	pub(crate) type Invulnerables<T: Config> =
 		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
+
+	#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+	pub struct EraRewardPoints<AccountId: Ord> {
+		pub total: u32,
+		pub individual: BTreeMap<AccountId, u32>,
+	}
+
+	impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
+		fn default() -> Self {
+			EraRewardPoints { total: Default::default(), individual: BTreeMap::new() }
+		}
+	}
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasRewardPoints<T: Config> = StorageMap<
+		Pallet<T>,
+		Twox64Concat,
+		u32,
+		EraRewardPoints<<T as frame_system::Config>::AccountId>,
+		ValueQuery,
+	>;
 
 	// The disabling strategy used by staking pallet
 	type DefaultDisablingStrategy = UpToLimitDisablingStrategy;

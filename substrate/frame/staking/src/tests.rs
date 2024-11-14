@@ -28,6 +28,7 @@ use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
 	traits::{Currency, Get, ReservableCurrency},
+	BoundedVec,
 };
 
 use mock::*;
@@ -335,7 +336,7 @@ fn rewards_should_work() {
 		assert_eq!(asset::total_balance::<Test>(&11), init_balance_11);
 		assert_eq!(asset::total_balance::<Test>(&21), init_balance_21);
 		assert_eq!(asset::total_balance::<Test>(&101), init_balance_101);
-    
+
 		let eras_reward_points = Staking::eras_reward_points(active_era());
 
 		assert_eq!(eras_reward_points.total, 50 * 3);
@@ -8395,7 +8396,7 @@ mod getters {
 		sp_io::TestExternalities::default().execute_with(|| {
 			// given
 			let v: Vec<mock::AccountId> = vec![1, 2, 3];
-			Invulnerables::<Test>::put(v.clone());
+			Invulnerables::<Test>::put(BoundedVec::try_from(v.clone()).unwrap());
 
 			// when
 			let result = Staking::invulnerables();
