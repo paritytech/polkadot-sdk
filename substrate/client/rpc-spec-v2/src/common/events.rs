@@ -122,6 +122,11 @@ impl ArchiveStorageEvent {
 		Self::StorageErr(ArchiveStorageMethodErr { error })
 	}
 
+	/// Create a new `ArchiveStorageEvent::StorageResult` event.
+	pub fn result(result: StorageResult) -> Self {
+		Self::StorageResult(result)
+	}
+
 	/// Checks if the event is a `StorageDone` event.
 	pub fn is_done(&self) -> bool {
 		matches!(self, Self::StorageDone)
