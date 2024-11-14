@@ -7,14 +7,14 @@
 //! Messages come either from sibling parachains via XCM, or BridgeHub itself
 //! via the `snowbridge-pallet-system`:
 //!
-//! 1. `snowbridge_router_primitives::outbound::EthereumBlobExporter::deliver`
-//! 2. `snowbridge_pallet_system::Pallet::send`
+//! 1. `snowbridge_router_primitives::outbound::v2::EthereumBlobExporter::deliver`
+//! 2. `snowbridge_pallet_system::Pallet::send_v2`
 //!
 //! The message submission pipeline works like this:
 //! 1. The message is first validated via the implementation for
-//!    [`snowbridge_core::outbound::SendMessage::validate`]
+//!    [`snowbridge_core::outbound::v2::SendMessage::validate`]
 //! 2. The message is then enqueued for later processing via the implementation for
-//!    [`snowbridge_core::outbound::SendMessage::deliver`]
+//!    [`snowbridge_core::outbound::v2::SendMessage::deliver`]
 //! 3. The underlying message queue is implemented by [`Config::MessageQueue`]
 //! 4. The message queue delivers messages back to this pallet via the implementation for
 //!    [`frame_support::traits::ProcessMessage::process_message`]
@@ -35,50 +35,6 @@
 //! allows us to pause processing of normal user messages while still allowing
 //! governance commands to be sent to Ethereum.
 //!
-//! # Fees
-//!
-//! An upfront fee must be paid for delivering a message. This fee covers several
-//! components:
-//! 1. The weight of processing the message locally
-//! 2. The gas refund paid out to relayers for message submission
-//! 3. An additional reward paid out to relayers for message submission
-//!
-//! Messages are weighed to determine the maximum amount of gas they could
-//! consume on Ethereum. Using this upper bound, a final fee can be calculated.
-//!
-//! The fee calculation also requires the following parameters:
-//! * Average ETH/DOT exchange rate over some period
-//! * Max fee per unit of gas that bridge is willing to refund relayers for
-//!
-//! By design, it is expected that governance should manually update these
-//! parameters every few weeks using the `set_pricing_parameters` extrinsic in the
-//! system pallet.
-//!
-//! This is an interim measure. Once ETH/DOT liquidity pools are available in the Polkadot network,
-//! we'll use them as a source of pricing info, subject to certain safeguards.
-//!
-//! ## Fee Computation Function
-//!
-//! ```text
-//! LocalFee(Message) = WeightToFee(ProcessMessageWeight(Message))
-//! RemoteFee(Message) = MaxGasRequired(Message) * Params.MaxFeePerGas + Params.Reward
-//! RemoteFeeAdjusted(Message) = Params.Multiplier * (RemoteFee(Message) / Params.Ratio("ETH/DOT"))
-//! Fee(Message) = LocalFee(Message) + RemoteFeeAdjusted(Message)
-//! ```
-//!
-//! By design, the computed fee includes a safety factor (the `Multiplier`) to cover
-//! unfavourable fluctuations in the ETH/DOT exchange rate.
-//!
-//! ## Fee Settlement
-//!
-//! On the remote side, in the gateway contract, the relayer accrues
-//!
-//! ```text
-//! Min(GasPrice, Message.MaxFeePerGas) * GasUsed() + Message.Reward
-//! ```
-//! Or in plain english, relayers are refunded for gas consumption, using a
-//! price that is a minimum of the actual gas price, or `Message.MaxFeePerGas`.
-//!
 //! # Extrinsics
 //!
 //! * [`Call::set_operating_mode`]: Set the operating mode
@@ -86,7 +42,7 @@
 //! # Runtime API
 //!
 //! * `prove_message`: Generate a merkle proof for a committed message
-//! * `calculate_fee`: Calculate the delivery fee for a message
+//! * `dry_run`: Convert xcm to InboundMessage
 #![cfg_attr(not(feature = "std"), no_std)]
 pub mod api;
 pub mod envelope;
