@@ -80,7 +80,7 @@ use snowbridge_merkle_tree::merkle_root;
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Hash, MaybeEquivalence},
-	ArithmeticError, DigestItem,
+	DigestItem,
 };
 use sp_std::prelude::*;
 pub use types::{PendingOrder, ProcessMessageOriginOf};
@@ -357,18 +357,12 @@ pub mod pallet {
 			Messages::<T>::append(Box::new(inbound_message));
 			MessageLeaves::<T>::append(message_abi_encoded_hash);
 
-			<PendingOrders<T>>::try_mutate(nonce, |maybe_locked| -> DispatchResult {
-				let mut locked = maybe_locked.clone().unwrap_or_else(|| PendingOrder {
-					nonce,
-					fee: 0,
-					block_number: frame_system::Pallet::<T>::current_block_number(),
-				});
-				locked.fee =
-					locked.fee.checked_add(message.fee).ok_or(ArithmeticError::Overflow)?;
-				*maybe_locked = Some(locked);
-				Ok(())
-			})
-			.map_err(|_| Unsupported)?;
+			let order = PendingOrder {
+				nonce,
+				fee: message.fee,
+				block_number: frame_system::Pallet::<T>::current_block_number(),
+			};
+			<PendingOrders<T>>::insert(nonce, order);
 
 			Nonce::<T>::set(nonce.checked_add(1).ok_or(Unsupported)?);
 
