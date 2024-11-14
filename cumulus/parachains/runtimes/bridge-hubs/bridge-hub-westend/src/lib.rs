@@ -101,7 +101,7 @@ use parachains_common::{
 use snowbridge_core::{
 	outbound::{
 		v1::{Command, Fee},
-		v2::InboundMessage,
+		v2::abi::InboundMessage,
 		DryRunError,
 	},
 	AgentId, PricingParameters,

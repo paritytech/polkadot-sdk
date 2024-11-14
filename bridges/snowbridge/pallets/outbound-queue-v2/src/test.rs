@@ -13,7 +13,7 @@ use frame_support::{
 use codec::Encode;
 use snowbridge_core::{
 	outbound::{
-		v2::{primary_governance_origin, Command, InboundMessageWrapper, SendMessage},
+		v2::{abi::InboundMessageWrapper, primary_governance_origin, Command, SendMessage},
 		SendError,
 	},
 	ChannelId, ParaId,

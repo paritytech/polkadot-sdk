@@ -73,7 +73,10 @@ use frame_support::{
 pub use pallet::*;
 use snowbridge_core::{
 	inbound::{Message as DeliveryMessage, VerificationError, Verifier},
-	outbound::v2::{CommandWrapper, GasMeter, InboundMessage, InboundMessageWrapper, Message},
+	outbound::v2::{
+		abi::{CommandWrapper, InboundMessage, InboundMessageWrapper},
+		GasMeter, Message,
+	},
 	BasicOperatingMode, RewardLedger, TokenId,
 };
 use snowbridge_merkle_tree::merkle_root;

@@ -3,7 +3,6 @@
 //! # Outbound V2 primitives
 
 use crate::outbound::{OperatingMode, SendError};
-use alloy_sol_types::sol;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::ConstU32, BoundedVec};
 use hex_literal::hex;
@@ -12,89 +11,103 @@ use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::{vec, vec::Vec};
 
+use crate::outbound::v2::abi::{
+	CreateAgentParams, MintForeignTokenParams, RegisterForeignTokenParams, SetOperatingModeParams,
+	UnlockNativeTokenParams, UpgradeParams,
+};
 use alloy_primitives::{Address, FixedBytes};
 use alloy_sol_types::SolValue;
 
-sol! {
-	struct InboundMessageWrapper {
-		// origin
-		bytes32 origin;
-		// Message nonce
-		uint64 nonce;
-		// Commands
-		CommandWrapper[] commands;
+pub mod abi {
+	use super::MAX_COMMANDS;
+	use alloy_sol_types::sol;
+	use codec::{Decode, Encode};
+	use frame_support::BoundedVec;
+	use scale_info::TypeInfo;
+	use sp_core::{ConstU32, RuntimeDebug, H256};
+	use sp_std::vec::Vec;
+
+	sol! {
+		struct InboundMessageWrapper {
+			// origin
+			bytes32 origin;
+			// Message nonce
+			uint64 nonce;
+			// Commands
+			CommandWrapper[] commands;
+		}
+
+		#[derive(Encode, Decode, RuntimeDebug, PartialEq,TypeInfo)]
+		struct CommandWrapper {
+			uint8 kind;
+			uint64 gas;
+			bytes payload;
+		}
+
+		// Payload for Upgrade
+		struct UpgradeParams {
+			// The address of the implementation contract
+			address implAddress;
+			// Codehash of the new implementation contract.
+			bytes32 implCodeHash;
+			// Parameters used to upgrade storage of the gateway
+			bytes initParams;
+		}
+
+		// Payload for CreateAgent
+		struct CreateAgentParams {
+			/// @dev The agent ID of the consensus system
+			bytes32 agentID;
+		}
+
+		// Payload for SetOperatingMode instruction
+		struct SetOperatingModeParams {
+			/// The new operating mode
+			uint8 mode;
+		}
+
+		// Payload for NativeTokenUnlock instruction
+		struct UnlockNativeTokenParams {
+			// Token address
+			address token;
+			// Recipient address
+			address recipient;
+			// Amount to unlock
+			uint128 amount;
+		}
+
+		// Payload for RegisterForeignToken
+		struct RegisterForeignTokenParams {
+			/// @dev The token ID (hash of stable location id of token)
+			bytes32 foreignTokenID;
+			/// @dev The name of the token
+			bytes name;
+			/// @dev The symbol of the token
+			bytes symbol;
+			/// @dev The decimal of the token
+			uint8 decimals;
+		}
+
+		// Payload for MintForeignTokenParams instruction
+		struct MintForeignTokenParams {
+			// Foreign token ID
+			bytes32 foreignTokenID;
+			// Recipient address
+			address recipient;
+			// Amount to mint
+			uint128 amount;
+		}
 	}
 
-	#[derive(Encode, Decode, RuntimeDebug, PartialEq,TypeInfo)]
-	struct CommandWrapper {
-		uint8 kind;
-		uint64 gas;
-		bytes payload;
+	#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
+	pub struct InboundMessage {
+		/// Origin
+		pub origin: H256,
+		/// Nonce
+		pub nonce: u64,
+		/// Commands
+		pub commands: BoundedVec<CommandWrapper, ConstU32<MAX_COMMANDS>>,
 	}
-
-	// Payload for Upgrade
-	struct UpgradeParams {
-		// The address of the implementation contract
-		address implAddress;
-		// Codehash of the new implementation contract.
-		bytes32 implCodeHash;
-		// Parameters used to upgrade storage of the gateway
-		bytes initParams;
-	}
-
-	// Payload for CreateAgent
-	struct CreateAgentParams {
-		/// @dev The agent ID of the consensus system
-		bytes32 agentID;
-	}
-
-	// Payload for SetOperatingMode instruction
-	struct SetOperatingModeParams {
-		/// The new operating mode
-		uint8 mode;
-	}
-
-	// Payload for NativeTokenUnlock instruction
-	struct UnlockNativeTokenParams {
-		// Token address
-		address token;
-		// Recipient address
-		address recipient;
-		// Amount to unlock
-		uint128 amount;
-	}
-
-	// Payload for RegisterForeignToken
-	struct RegisterForeignTokenParams {
-		/// @dev The token ID (hash of stable location id of token)
-		bytes32 foreignTokenID;
-		/// @dev The name of the token
-		bytes name;
-		/// @dev The symbol of the token
-		bytes symbol;
-		/// @dev The decimal of the token
-		uint8 decimals;
-	}
-
-	// Payload for MintForeignTokenParams instruction
-	struct MintForeignTokenParams {
-		// Foreign token ID
-		bytes32 foreignTokenID;
-		// Recipient address
-		address recipient;
-		// Amount to mint
-		uint128 amount;
-	}
-}
-
-#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
-pub struct InboundMessage {
-	/// Origin
-	pub origin: H256,
-	/// Nonce
-	pub nonce: u64,
-	/// Commands
-	pub commands: BoundedVec<CommandWrapper, ConstU32<MAX_COMMANDS>>,
 }
 
 pub const MAX_COMMANDS: u32 = 8;
