@@ -2493,7 +2493,7 @@ mod tests {
 
 	#[test]
 	fn try_elect_multi_page_fails() {
-		ExtBuilder::default().onchain_fallback(false).build_and_execute(|| {
+		let prepare_election = || {
 			roll_to_signed();
 			assert!(Snapshot::<Runtime>::get().is_some());
 
@@ -2505,11 +2505,17 @@ mod tests {
 			));
 			roll_to(30);
 			assert!(QueuedSolution::<Runtime>::get().is_some());
+		};
 
+		ExtBuilder::default().onchain_fallback(false).build_and_execute(|| {
+			prepare_election();
 			// single page elect call works as expected.
 			assert_ok!(MultiPhase::elect(SINGLE_PAGE));
+		});
 
-			// however, multi page calls will fail.
+		ExtBuilder::default().onchain_fallback(false).build_and_execute(|| {
+			prepare_election();
+			// multi page calls will fail with multipage not supported error.
 			assert_noop!(MultiPhase::elect(SINGLE_PAGE + 1), ElectionError::MultiPageNotSupported);
 		})
 	}
