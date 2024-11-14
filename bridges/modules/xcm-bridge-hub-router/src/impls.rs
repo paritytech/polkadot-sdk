@@ -23,7 +23,7 @@ use frame_support::{ensure, pallet_prelude::PhantomData, traits::Get};
 use xcm::prelude::*;
 use xcm_builder::{ensure_is_remote, ExporterFor};
 
-/// Implementation of `LocalXcmChannelManager` which tracks and updates `is_congested` for a given
+/// Implementation of [`bp_xcm_bridge_hub::LocalXcmChannelManager`] which tracks and updates `is_congested` for a given
 /// `BridgeId`. This implementation is useful for managing congestion and dynamic fees with the
 /// local `ExportXcm` implementation.
 impl<T: Config<I>, I: 'static> bp_xcm_bridge_hub::LocalXcmChannelManager<BridgeIdOf<T, I>>
@@ -69,10 +69,10 @@ impl<T: Config<I>, I: 'static> bp_xcm_bridge_hub::LocalXcmChannelManager<BridgeI
 	}
 }
 
-/// Adapter implementation for `ExporterFor` that allows exporting message size fee and/or dynamic
+/// Adapter implementation for [`ExporterFor`] that allows exporting message size fee and/or dynamic
 /// fees based on the `BridgeId` resolved by the `T::BridgeIdResolver` resolver, if and only if the
-/// `E` exporter supports bridging. This adapter acts as an `ExporterFor`, for example, for the
-/// `SovereignPaidRemoteExporter`, enabling it to compute message and/or dynamic fees using a fee
+/// `E` exporter supports bridging. This adapter acts as an [`ExporterFor`], for example, for the
+/// [`xcm_builder::SovereignPaidRemoteExporter`], enabling it to compute message and/or dynamic fees using a fee
 /// factor.
 pub struct ViaRemoteBridgeHubExporter<T, I, E, BNF, BHLF>(PhantomData<(T, I, E, BNF, BHLF)>);
 impl<T: Config<I>, I: 'static, E, BridgedNetworkIdFilter, BridgeHubLocationFilter> ExporterFor
@@ -192,10 +192,10 @@ where
 	}
 }
 
-/// Adapter implementation for `SendXcm` that allows adding a message size fee and/or dynamic fees
+/// Adapter implementation for [`SendXcm`] that allows adding a message size fee and/or dynamic fees
 /// based on the `BridgeId` resolved by the `T::BridgeIdResolver` resolver, if and only if `E`
 /// supports routing. This adapter can be used, for example, as a wrapper over
-/// `UnpaidLocalExporter`, enabling it to compute message and/or dynamic fees using a fee factor.
+/// [`xcm_builder::UnpaidLocalExporter`], enabling it to compute message and/or dynamic fees using a fee factor.
 pub struct ViaLocalBridgeHubExporter<T, I, E>(PhantomData<(T, I, E)>);
 impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeHubExporter<T, I, E> {
 	type Ticket = E::Ticket;
@@ -243,7 +243,7 @@ impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeHubExporter
 	}
 }
 
-/// Implementation of `ResolveBridgeId` returning `bp_xcm_bridge_hub::BridgeId` based on the
+/// Implementation of [`ResolveBridgeId`] returning [`bp_xcm_bridge_hub::BridgeId`] based on the
 /// configured `UniversalLocation` and remote universal location.
 pub struct EnsureIsRemoteBridgeIdResolver<UniversalLocation>(PhantomData<UniversalLocation>);
 impl<UniversalLocation: Get<InteriorLocation>> ResolveBridgeId
