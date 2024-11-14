@@ -1115,46 +1115,35 @@ where
 			self.active_views_count()
 		);
 		let included_xts = self.extrinsics_included_since_finalized(view.at.hash).await;
-		let xts = self.mempool.clone_unwatched();
 
-		let mut all_submitted_count = 0;
-		if !xts.is_empty() {
-			let unwatched_count = xts.len();
-			let xts_with_src = xts
-				.into_iter()
-				.filter(|(hash, _)| !view.pool.validated_pool().pool.read().is_imported(hash))
-				.filter(|(hash, _)| !included_xts.contains(&hash))
-				.map(|(_, tx)| (tx.source(), tx.tx()));
-
-			let results = view.submit_many(xts_with_src).await;
-			all_submitted_count = results.len();
-			log::debug!(target: LOG_TARGET, "update_view_with_mempool: at {:?} unwatched {}/{}", view.at.hash, all_submitted_count, unwatched_count);
-		}
-
-		let watched_xts_filtered = watched_xts
+		let (hashes, xts_filtered): (Vec<_>, Vec<_>) = watched_xts
 			.into_iter()
-			.filter(|(hash, _)| !view.pool.validated_pool().pool.read().is_imported(hash))
+			.chain(self.mempool.clone_unwatched().into_iter())
+			.filter(|(hash, _)| !view.is_imported(hash))
 			.filter(|(hash, _)| !included_xts.contains(&hash))
-			.map(|(tx_hash, tx)| (tx_hash, tx.source(), tx.tx()))
-			.collect::<Vec<_>>();
+			.map(|(tx_hash, tx)| (tx_hash, (tx.source(), tx.tx())))
+			.unzip();
 
-		let watched_submitted_count = watched_xts_filtered.len();
-
-		let hashes = watched_xts_filtered.iter().map(|i| i.0).collect::<Vec<_>>();
 		let watched_results = view
-			.submit_many(watched_xts_filtered.into_iter().map(|i| (i.1, i.2)))
+			.submit_many(xts_filtered)
 			.await
 			.into_iter()
 			.zip(hashes)
 			.map(|(result, tx_hash)| result.or_else(|_| Err(tx_hash)))
 			.collect::<Vec<_>>();
 
-		log::debug!(target: LOG_TARGET, "update_view_with_mempool: at {:?} watched {}/{}", view.at.hash, watched_submitted_count, self.mempool_len().1);
+		let submitted_count = watched_results.len();
 
-		all_submitted_count += watched_submitted_count;
-		let _ = all_submitted_count
-			.try_into()
-			.map(|v| self.metrics.report(|metrics| metrics.submitted_from_mempool_txs.inc_by(v)));
+		log::debug!(
+			target: LOG_TARGET,
+			"update_view_with_mempool: at {:?} submitted {}/{}",
+			view.at.hash,
+			submitted_count,
+			self.mempool.len()
+		);
+
+		self.metrics
+			.report(|metrics| metrics.submitted_from_mempool_txs.inc_by(submitted_count as _));
 
 		// if there are no views yet, and a single newly created view is reporting error, just send
 		// out the invalid event, and remove transaction.
