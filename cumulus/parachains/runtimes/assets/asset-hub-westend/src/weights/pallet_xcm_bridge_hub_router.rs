@@ -50,7 +50,7 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for WeightInfo<T> {
 	/// Storage: `ToRococoXcmRouter::Bridges` (r:2 w:1)
 	/// Proof: `ToRococoXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
-	fn on_initialize_when_bridge_state_removed() -> Weight {
+	fn on_idle_when_bridge_state_removed() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `204`
 		//  Estimated: `6070`
@@ -62,7 +62,7 @@ impl<T: frame_system::Config> pallet_xcm_bridge_hub_router::WeightInfo for Weigh
 	}
 	/// Storage: `ToRococoXcmRouter::Bridges` (r:2 w:1)
 	/// Proof: `ToRococoXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
-	fn on_initialize_when_bridge_state_updated() -> Weight {
+	fn on_idle_when_bridge_state_updated() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `204`
 		//  Estimated: `6070`

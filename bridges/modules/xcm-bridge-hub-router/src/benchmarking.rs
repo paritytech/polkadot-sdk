@@ -40,7 +40,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn on_initialize_when_bridge_state_removed() -> Result<(), BenchmarkError> {
+	fn on_idle_when_bridge_state_removed() -> Result<(), BenchmarkError> {
 		let bridge_id =
 			T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
 				.ok_or(BenchmarkError::Weightless)?;
@@ -54,7 +54,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = crate::Pallet::<T, I>::on_initialize(Zero::zero());
+			let _ = crate::Pallet::<T, I>::on_idle(Zero::zero(), Weight::MAX);
 		}
 
 		assert!(Bridges::<T, I>::get(bridge_id).is_none());
@@ -63,7 +63,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn on_initialize_when_bridge_state_updated() -> Result<(), BenchmarkError> {
+	fn on_indle_when_bridge_state_updated() -> Result<(), BenchmarkError> {
 		let bridge_id =
 			T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
 				.ok_or(BenchmarkError::Weightless)?;
@@ -78,7 +78,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = crate::Pallet::<T, I>::on_initialize(Zero::zero());
+			let _ = crate::Pallet::<T, I>::on_idle(Zero::zero(), Weight::MAX);
 		}
 
 		assert!(

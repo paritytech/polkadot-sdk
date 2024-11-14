@@ -106,6 +106,7 @@ pub const LOG_TARGET: &str = "runtime::bridge-xcm-router";
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
+	use frame_support::weights::WeightMeter;
 	use frame_system::pallet_prelude::*;
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -182,14 +183,14 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
-		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			let mut weight_used = Weight::zero();
+		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			let mut meter = WeightMeter::with_limit(remaining_weight);
 
-			// Iterate all uncongested bridges
+			// Iterate all congested bridges
 			let mut bridges_to_update = Vec::new();
 			let mut bridges_to_remove = Vec::new();
 			for (bridge_id, mut bridge_state) in Bridges::<T, I>::iter() {
-				weight_used.saturating_accrue(T::DbWeight::get().reads(1));
+				meter.consume(T::DbWeight::get().reads(1));
 
 				// If no longer congested, we can start decreasing the fee factor.
 				if !bridge_state.is_congested {
@@ -197,8 +198,14 @@ pub mod pallet {
 						let new_factor = previous_factor / EXPONENTIAL_FEE_BASE;
 					if new_factor >= MINIMAL_DELIVERY_FEE_FACTOR {
 						bridge_state.delivery_fee_factor = new_factor;
+						if meter.try_consume(T::WeightInfo::on_idle_when_bridge_state_updated()).is_err() {
+							break;
+						}
 						bridges_to_update.push((bridge_id, previous_factor, bridge_state));
 					} else {
+						if meter.try_consume(T::WeightInfo::on_idle_when_bridge_state_removed()).is_err() {
+							break;
+						}
 						bridges_to_remove.push((bridge_id, previous_factor));
 					}
 				}
@@ -217,8 +224,6 @@ pub mod pallet {
 					new_value: 0.into(),
 					bridge_id,
 				});
-				weight_used
-					.saturating_accrue(T::WeightInfo::on_initialize_when_bridge_state_removed());
 			}
 			// update
 			for (bridge_id, previous_value, bridge_state) in bridges_to_update.into_iter() {
@@ -236,11 +241,9 @@ pub mod pallet {
 					new_value,
 					bridge_id,
 				});
-				weight_used
-					.saturating_accrue(T::WeightInfo::on_initialize_when_bridge_state_updated());
 			}
 
-			weight_used
+			meter.consumed()
 		}
 	}
 
@@ -539,6 +542,7 @@ mod tests {
 		run_test(|| {
 			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]);
 			let initial_fee_factor = FixedU128::from_rational(125, 100);
+			let mut remaining_weight = Weight::MAX;
 
 			// make bridge uncongested + update fee factor
 			let bridge_id = set_bridge_state_for::<TestRuntime, ()>(
@@ -550,8 +554,14 @@ mod tests {
 			let mut last_delivery_fee_factor = initial_fee_factor;
 			while let Some(bridge_state) = get_bridge_state_for::<TestRuntime, ()>(&dest) {
 				last_delivery_fee_factor = bridge_state.delivery_fee_factor;
-				XcmBridgeHubRouter::on_initialize(One::one());
+				remaining_weight = XcmBridgeHubRouter::on_idle(One::one(), remaining_weight.clone());
+
+				// avoid infinite loops (decreasing is expected)
+				if let Some(bridge_state) = get_bridge_state_for::<TestRuntime, ()>(&dest) {
+					assert!(bridge_state.delivery_fee_factor < last_delivery_fee_factor);
+				}
 			}
+			assert!(remaining_weight.all_lt(Weight::MAX));
 
 			// check emitted event
 			// (first one for updating)
