@@ -643,14 +643,14 @@ impl Client {
 		let runtime_api = self.runtime_api(&block).await?;
 
 		// TODO: remove once subxt is updated
-		let value = tx.value.unwrap_or_default();
+		let value = subxt::utils::Static(tx.value.unwrap_or_default());
 		let from = tx.from.map(|v| v.0.into());
 		let to = tx.to.map(|v| v.0.into());
 
 		let payload = subxt_client::apis().revive_api().eth_transact(
 			from.unwrap_or_default(),
 			to,
-			subxt::utils::Static(value),
+			value,
 			tx.input.clone().unwrap_or_default().0,
 			None,
 			None,
