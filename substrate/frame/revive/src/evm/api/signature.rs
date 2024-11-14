@@ -45,15 +45,6 @@ impl TransactionLegacySigned {
 		TransactionLegacySigned { transaction_legacy_unsigned, r, s, v }
 	}
 
-	/// Get the raw 65 bytes signature from the signed transaction.
-	pub fn raw_signature(&self) -> Result<[u8; 65], ()> {
-		let mut s = [0u8; 65];
-		self.r.write_as_big_endian(s[0..32].as_mut());
-		self.s.write_as_big_endian(s[32..64].as_mut());
-		s[64] = self.extract_recovery_id().ok_or(())?;
-		Ok(s)
-	}
-
 	/// Get the recovery ID from the signed transaction.
 	/// See https://eips.ethereum.org/EIPS/eip-155
 	fn extract_recovery_id(&self) -> Option<u8> {
@@ -72,12 +63,19 @@ impl TransactionLegacySigned {
 impl TransactionSigned {
 	/// Get the raw 65 bytes signature from the signed transaction.
 	pub fn raw_signature(&self) -> Result<[u8; 65], ()> {
-		//let mut s = [0u8; 65];
-
-		//self.r.write_as_big_endian(s[0..32].as_mut());
-		//self.s.write_as_big_endian(s[32..64].as_mut());
-		//s[64] = self.extract_recovery_id().ok_or(())?;
-		//Ok(s)
-		todo!()
+		use TransactionSigned::*;
+		let (r, s, v) = match self {
+			TransactionLegacySigned(tx) => (tx.r, tx.s, tx.extract_recovery_id().ok_or(())?),
+			Transaction4844Signed(tx) =>
+				(tx.r, tx.s, tx.y_parity.unwrap_or_default().try_into().map_err(|_| (()))?),
+			Transaction1559Signed(tx) =>
+				(tx.r, tx.s, tx.y_parity.unwrap_or_default().try_into().map_err(|_| (()))?),
+			Transaction2930Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| (()))?),
+		};
+		let mut sig = [0u8; 65];
+		r.write_as_big_endian(sig[0..32].as_mut());
+		s.write_as_big_endian(sig[32..64].as_mut());
+		sig[64] = v;
+		Ok(sig)
 	}
 }
