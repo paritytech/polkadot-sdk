@@ -41,7 +41,6 @@ pub struct View {
 	leaves: HashMap<Hash, ActiveLeafPruningInfo>,
 	block_info_storage: HashMap<Hash, BlockInfo>,
 	collating_for: Option<ParaId>,
-	outer_leaves: HashSet<Hash>,
 }
 
 impl View {
@@ -50,12 +49,7 @@ impl View {
 	/// relay parents of a single paraid. When this is true, prospective-parachains is no longer
 	/// queried.
 	pub fn new(collating_for: Option<ParaId>) -> Self {
-		Self {
-			leaves: Default::default(),
-			block_info_storage: Default::default(),
-			collating_for,
-			outer_leaves: Default::default(),
-		}
+		Self { leaves: Default::default(), block_info_storage: Default::default(), collating_for }
 	}
 }
 
@@ -263,8 +257,6 @@ impl View {
 				parent_hash: leaf.parent_hash,
 			},
 		);
-		self.outer_leaves.remove(&leaf.parent_hash); // the parent is no longer an outer leaf
-		self.outer_leaves.insert(leaf.hash); // the new leaf is an outer leaf
 	}
 
 	/// Deactivate a leaf in the view. This prunes any outdated implicit ancestors as well.
@@ -292,10 +284,6 @@ impl View {
 				}
 				keep
 			});
-
-			for r in &removed {
-				self.outer_leaves.remove(r);
-			}
 
 			removed
 		}
@@ -341,13 +329,13 @@ impl View {
 			.map(|mins| mins.allowed_relay_parents_for(para_id, block_info.block_number))
 	}
 
-	/// Returns all paths from each outer leaf to `relay_parent`. If no paths exist the function
+	/// Returns all paths from a leaf to `relay_parent`. If no paths exist the function
 	/// will return an empty `Vec`.
 	///
 	/// The input is not included in the path so if `relay_parent` happens to be an outer leaf, no
 	/// paths will be returned.
 	pub fn paths_to_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
-		if self.outer_leaves.is_empty() {
+		if self.leaves.is_empty() {
 			// No outer leaves so the view should be empty. Don't return any paths.
 			return vec![]
 		};
@@ -359,9 +347,9 @@ impl View {
 
 		// Find all paths from each outer leaf to `relay_parent`.
 		let mut paths = Vec::new();
-		for outer_leaf in &self.outer_leaves {
+		for (leaf, _) in &self.leaves {
 			let mut path = Vec::new();
-			let mut current_leaf = *outer_leaf;
+			let mut current_leaf = *leaf;
 			let mut visited = HashSet::new();
 
 			loop {
@@ -525,8 +513,6 @@ impl View {
 		};
 
 		self.block_info_storage.insert(leaf_hash, leaf_block_info);
-		self.outer_leaves.remove(&leaf_header.parent_hash); // the parent is no longer an outer leaf
-		self.outer_leaves.insert(leaf_hash); // the new leaf is an outer leaf
 
 		Ok(fetched_ancestry)
 	}
@@ -880,8 +866,8 @@ mod tests {
 				assert_eq!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)), Some(&expected_ancestry[..]));
 				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
 
-				assert_eq!(view.outer_leaves.len(), 1);
-				assert!(view.outer_leaves.contains(leaf));
+				assert_eq!(view.leaves.len(), 1);
+				assert!(view.leaves.contains_key(leaf));
 				assert!(view.paths_to_relay_parent(&CHAIN_B[0]).is_empty());
 				assert_eq!(
 					view.paths_to_relay_parent(&CHAIN_B[min_min_idx]),
