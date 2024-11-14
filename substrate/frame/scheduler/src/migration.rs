@@ -563,7 +563,9 @@ mod test {
 
 pub mod v5 {
 	use super::*;
-	use frame_support::{migrations::VersionedMigration, traits::UncheckedOnRuntimeUpgrade, pallet_prelude::*};
+	use frame_support::{
+		migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
+	};
 
 	#[frame_support::storage_alias]
 	pub(crate) type IncompleteSince<T: Config> = StorageValue<Pallet<T>, BlockNumberFor<T>>;
@@ -573,7 +575,7 @@ pub mod v5 {
 		fn on_runtime_upgrade() -> Weight {
 			IncompleteSince::<T>::kill();
 			let mut weight = T::DbWeight::get().writes(1);
-			
+
 			let mut queue = vec![];
 			Agenda::<T>::iter().for_each(|(k, _)| {
 				queue.push(k);
@@ -582,7 +584,8 @@ pub mod v5 {
 			queue.sort_unstable();
 			queue.dedup();
 
-			let queue = BoundedVec::<BlockNumberFor<T>, T::MaxScheduledBlocks>::try_from(queue).unwrap();
+			let queue =
+				BoundedVec::<BlockNumberFor<T>, T::MaxScheduledBlocks>::try_from(queue).unwrap();
 			Queue::<T>::put(queue);
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
 
@@ -611,8 +614,7 @@ pub mod v5 {
 #[cfg(test)]
 pub mod test {
 	use super::*;
-	use crate::mock::*;
-	use crate::migration::v5::IncompleteSince;
+	use crate::{migration::v5::IncompleteSince, mock::*};
 	use frame_support::testing_prelude::*;
 
 	#[test]
@@ -620,14 +622,24 @@ pub mod test {
 		new_test_ext().execute_with(|| {
 			StorageVersion::new(4).put::<Scheduler>();
 			IncompleteSince::<Test>::put(1);
-			Agenda::<Test>::insert::<u64, BoundedVec<Option<ScheduledOf<Test>>, <Test as Config>::MaxScheduledPerBlock>>(2, bounded_vec![None]);
-			Agenda::<Test>::insert::<u64, BoundedVec<Option<ScheduledOf<Test>>, <Test as Config>::MaxScheduledPerBlock>>(3, bounded_vec![None]);
+			Agenda::<Test>::insert::<
+				u64,
+				BoundedVec<Option<ScheduledOf<Test>>, <Test as Config>::MaxScheduledPerBlock>,
+			>(2, bounded_vec![None]);
+			Agenda::<Test>::insert::<
+				u64,
+				BoundedVec<Option<ScheduledOf<Test>>, <Test as Config>::MaxScheduledPerBlock>,
+			>(3, bounded_vec![None]);
 
 			v5::MigrateV4ToV5::<Test>::on_runtime_upgrade();
 
 			assert_eq!(StorageVersion::get::<Scheduler>(), 5);
 			assert_eq!(IncompleteSince::<Test>::get(), None);
-			let queue = BoundedVec::<BlockNumberFor<Test>, <Test as Config>::MaxScheduledBlocks>::try_from(vec![2, 3]).unwrap();
+			let queue =
+				BoundedVec::<BlockNumberFor<Test>, <Test as Config>::MaxScheduledBlocks>::try_from(
+					vec![2, 3],
+				)
+				.unwrap();
 			assert_eq!(Queue::<Test>::get(), queue);
 		});
 	}

@@ -122,7 +122,8 @@ pub type CallOrHashOf<T> =
 pub type BoundedCallOf<T> =
 	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
-pub type BlockNumberFor<T> = <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The configuration of the retry mechanism for a given task along with its current state.
 #[derive(Clone, Copy, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
@@ -229,7 +230,7 @@ impl<T: WeightInfo> MarginalWeightInfo for T {}
 pub mod pallet {
 	use super::*;
 	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::*};
-	use frame_system::pallet_prelude::{OriginFor, BlockNumberFor as SystemBlockNumberFor};
+	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, OriginFor};
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
