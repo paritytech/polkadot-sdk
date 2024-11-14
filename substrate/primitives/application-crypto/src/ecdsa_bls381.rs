@@ -53,7 +53,7 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		// TODO: Implement Special Case
+		// TODO: Implement Special Case by calling both pop generations
 		None
 	}
 

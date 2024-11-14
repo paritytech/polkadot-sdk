@@ -56,10 +56,8 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		let pub_key_as_bytes = self.to_raw_vec();
-		let pop_context_tag: &[u8] = b"POP_";
-		let pop_statement = [pop_context_tag, pub_key_as_bytes.as_slice()].concat();
-		sp_io::crypto::bls381_sign(key_type, self, pop_statement.as_slice())
+		// TODO: Add host function
+		// sp_io::crypto::generate_pop()
 	}
 
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
