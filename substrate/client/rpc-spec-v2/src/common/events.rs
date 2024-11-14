@@ -105,24 +105,15 @@ pub struct StorageResultErr {
 
 /// The result of a storage call.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ArchiveStorageResult {
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "event")]
+pub enum ArchiveStorageEvent {
 	/// Query generated a result.
-	Ok(ArchiveStorageMethodOk),
+	StorageResult(StorageResult),
 	/// Query encountered an error.
-	Err(ArchiveStorageMethodErr),
-}
-
-impl ArchiveStorageResult {
-	/// Create a new `ArchiveStorageResult::Ok` result.
-	pub fn ok(result: Vec<StorageResult>, discarded_items: usize) -> Self {
-		Self::Ok(ArchiveStorageMethodOk { result, discarded_items })
-	}
-
-	/// Create a new `ArchiveStorageResult::Err` result.
-	pub fn err(error: String) -> Self {
-		Self::Err(ArchiveStorageMethodErr { error })
-	}
+	StorageErr(ArchiveStorageMethodErr),
+	/// Operation storage is done.
+	StorageDone,
 }
 
 /// The result of a storage call.
