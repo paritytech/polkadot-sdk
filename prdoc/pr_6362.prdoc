@@ -7,10 +7,10 @@ doc:
       This is needed for the scheduler pallet to work on a parachain which does not produce blocks
       on a regular schedule, thus can use the relay chain as a block provider. Because blocks are
       not produced regularly, we cannot make the assumption that the block number increases 
-      monotonically, and thus have a new logic to handle multiple blocks with valid agenda passed 
-      between them.
+      monotonically, and thus have a new logic via a `Queue` to handle multiple blocks with valid 
+      agenda passed between them.
 
-      This change is backwards compatible:
+      This change only needs a migration for the `Queue`:
       1. If the `BlockNumberProvider` continues to use the system pallet's block number
       2. When a pallet deployed on the relay chain is moved to a parachain, but still uses the 
       relay chain's block number
