@@ -174,7 +174,7 @@ where
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		let (pre_dispatch_proof_size, inner_pre) = pre;
+		let (proof_size_before_dispatch, inner_pre) = pre;
 
 		let mut post_info_with_inner = *post_info;
 		S::post_dispatch(inner_pre, info, &mut post_info_with_inner, len, result)?;
@@ -187,21 +187,19 @@ where
 			Weight::zero()
 		};
 
-		let Some(pre_dispatch_proof_size) = pre_dispatch_proof_size else {
+		let Some(proof_size_before_dispatch) = proof_size_before_dispatch else {
 			// We have no proof size information, there is nothing we can do.
 			return Ok(inner_refund);
 		};
 
-		let Some(post_dispatch_proof_size) = get_proof_size() else {
-			log::debug!(
-				target: LOG_TARGET,
-				"Proof recording enabled during prepare, now disabled. This should not happen."
-			);
+		let Some(proof_size_after_dispatch) = get_proof_size().defensive_proof(
+			"Proof recording enabled during prepare, now disabled. This should not happen.",
+		) else {
 			return Ok(inner_refund)
 		};
 
 		// The consumed proof size as measured by the host.
-		let measured_proof_size = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
+		let measured_proof_size = proof_size_after_dispatch.saturating_sub(proof_size_before_dispatch);
 
 		// The consumed weight as benchmarked. Calculated from post info and info.
 		// NOTE: `calc_actual_weight` will take the minimum of `post_info` and `info` weights.
@@ -235,7 +233,7 @@ where
 			// what we have in the runtime bookkeeping, we add the difference to the `BlockWeight`.
 			// This prevents that the proof size grows faster than the runtime proof size.
 			let extrinsic_len = frame_system::AllExtrinsicsLen::<T>::get().unwrap_or(0);
-			let node_side_pov_size = post_dispatch_proof_size.saturating_add(extrinsic_len.into());
+			let node_side_pov_size = proof_size_after_dispatch.saturating_add(extrinsic_len.into());
 			let block_weight_proof_size = current_weight.total().proof_size();
 			let missing_from_node = node_side_pov_size.saturating_sub(block_weight_proof_size);
 			if missing_from_node > 0 {
