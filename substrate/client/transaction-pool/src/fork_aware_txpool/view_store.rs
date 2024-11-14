@@ -676,7 +676,7 @@ where
 			active_views
 				.iter()
 				.chain(inactive_views.iter())
-				.filter(|(_, view)| !view.is_imported(&replaced))
+				.filter(|(_, view)| view.is_imported(&replaced))
 				.map(|(_, view)| {
 					self.replace_transaction_in_view(
 						view.clone(),
