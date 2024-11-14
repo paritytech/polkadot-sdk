@@ -100,7 +100,7 @@ use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
 use sp_core::{ConstU128, ConstU8, Get, OpaqueMetadata, H256};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::{
 		AccountIdConversion, BlakeTwo256, Block as BlockT, ConstU32, ConvertInto, IdentityLookup,
 		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
@@ -168,8 +168,8 @@ pub mod fast_runtime_binary {
 /// Runtime version (Rococo).
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("rococo"),
-	impl_name: create_runtime_str!("parity-rococo-v2.0"),
+	spec_name: alloc::borrow::Cow::Borrowed("rococo"),
+	impl_name: alloc::borrow::Cow::Borrowed("parity-rococo-v2.0"),
 	authoring_version: 0,
 	spec_version: 1_016_001,
 	impl_version: 0,
@@ -546,6 +546,7 @@ impl pallet_treasury::Config for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
@@ -1100,7 +1101,6 @@ impl parachains_scheduler::Config for Runtime {
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
-	pub MaxXcmTransactWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 
 pub struct BrokerPot;
@@ -1124,7 +1124,6 @@ impl coretime::Config for Runtime {
 		xcm_config::ThisNetwork,
 		<Runtime as frame_system::Config>::AccountId,
 	>;
-	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 }
 
 parameter_types! {
@@ -1663,6 +1662,7 @@ pub mod migrations {
 		pub const PhragmenElectionPalletId: LockIdentifier = *b"phrelect";
 		/// Weight for balance unreservations
 		pub BalanceUnreserveWeight: Weight = weights::pallet_balances_balances::WeightInfo::<Runtime>::force_unreserve();
+		pub BalanceTransferAllowDeath: Weight = weights::pallet_balances_balances::WeightInfo::<Runtime>::transfer_allow_death();
 	}
 
 	// Special Config for Gov V1 pallets, allowing us to run migrations for them without
@@ -1712,6 +1712,7 @@ pub mod migrations {
         paras_registrar::migration::MigrateToV1<Runtime, ()>,
         pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
         pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
+        pallet_child_bounties::migration::MigrateV0ToV1<Runtime, BalanceTransferAllowDeath>,
 
         // Unlock & unreserve Gov1 funds
 
@@ -2437,7 +2438,7 @@ sp_api::impl_runtime_apis! {
 			config: frame_benchmarking::BenchmarkConfig,
 		) -> Result<
 			Vec<frame_benchmarking::BenchmarkBatch>,
-			sp_runtime::RuntimeString,
+			alloc::string::String,
 		> {
 			use frame_support::traits::WhitelistedStorageKeys;
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
