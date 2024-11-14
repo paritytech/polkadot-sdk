@@ -314,11 +314,9 @@ impl<UniversalLocation: Get<InteriorLocation>> ResolveBridgeId
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::__private::sp_tracing;
 
 	#[test]
 	fn ensure_is_remote_bridge_id_resolver_works() {
-		sp_tracing::try_init_simple();
 		frame_support::parameter_types! {
 			pub ThisNetwork: NetworkId = NetworkId::ByGenesis([0; 32]);
 			pub BridgedNetwork: NetworkId = NetworkId::ByGenesis([1; 32]);
