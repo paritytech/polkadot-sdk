@@ -35,6 +35,7 @@ use pallet_revive::{
 	},
 	EthContractResult,
 };
+use sp_core::keccak_256;
 use sp_weights::Weight;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -278,6 +279,7 @@ impl ClientInner {
 		// Filter extrinsics from pallet_revive
 		let extrinsics = extrinsics.iter().flat_map(|ext| {
 			let call = ext.as_extrinsic::<EthTransact>().ok()??;
+			let transaction_hash = H256(keccak_256(&call.payload));
 			let tx = rlp::decode::<TransactionLegacySigned>(&call.payload).ok()?;
 			let from = tx.recover_eth_address().ok()?;
 			let contract_address = if tx.transaction_legacy_unsigned.to.is_none() {
@@ -286,12 +288,12 @@ impl ClientInner {
 				None
 			};
 
-			Some((from, tx, contract_address, ext))
+			Some((from, tx, transaction_hash, contract_address, ext))
 		});
 
 		// Map each extrinsic to a receipt
 		stream::iter(extrinsics)
-			.map(|(from, tx, contract_address, ext)| async move {
+			.map(|(from, tx, transaction_hash, contract_address, ext)| async move {
 				let events = ext.events().await?;
 				let tx_fees =
 					events.find_first::<TransactionFeePaid>()?.ok_or(ClientError::TxFeeNotFound)?;
@@ -305,7 +307,6 @@ impl ClientInner {
 				let transaction_index = ext.index();
 				let block_hash = block.hash();
 				let block_number = block.number().into();
-				let transaction_hash= ext.hash();
 
 				// get logs from ContractEmitted event
 				let logs = events.iter()
