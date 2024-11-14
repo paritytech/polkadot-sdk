@@ -32,7 +32,7 @@ mod bench {
 	use frame_benchmarking::impl_test_function;
 
 	#[benchmark]
-	fn storage_weight_reclaim() -> Result<(), frame_benchmarking::BenchmarkError> {
+	fn storage_weight_reclaim() {
 		let ext = StorageWeightReclaim::<T, ()>::new(());
 
 		let origin = RawOrigin::Root.into();
