@@ -20,12 +20,15 @@
 
 use crate::{
 	archive::{
-		archive_storage::{deduplicate_storage_diff_items, ArchiveStorage, ArchiveStorageDiff},
+		archive_storage::{deduplicate_storage_diff_items, ArchiveStorageDiff},
 		error::Error as ArchiveError,
 		ArchiveApiServer,
 	},
-	common::events::{
-		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageEvent, PaginatedStorageQuery,
+	common::{
+		events::{
+			ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageEvent, StorageQuery,
+		},
+		storage::{QueryResult, StorageSubscriptionClient},
 	},
 	hex_string, MethodResult, SubscriptionTaskExecutor,
 };
@@ -259,47 +262,53 @@ where
 
 	fn archive_unstable_storage(
 		&self,
+		pending: PendingSubscriptionSink,
 		hash: Block::Hash,
-		items: Vec<PaginatedStorageQuery<String>>,
+		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
-	) -> RpcResult<ArchiveStorageEvent> {
-		let items = items
-			.into_iter()
-			.map(|query| {
-				let key = StorageKey(parse_hex_param(query.key)?);
-				let pagination_start_key = query
-					.pagination_start_key
-					.map(|key| parse_hex_param(key).map(|key| StorageKey(key)))
-					.transpose()?;
+	) {
+		let mut storage_client =
+			StorageSubscriptionClient::<Client, Block, BE>::new(self.client.clone());
 
-				// Paginated start key is only supported
-				if pagination_start_key.is_some() && !query.query_type.is_descendant_query() {
-					return Err(ArchiveError::InvalidParam(
-						"Pagination start key is only supported for descendants queries"
-							.to_string(),
-					))
-				}
+		let fut = async move {
+			let Ok(mut sink) = pending.accept().await.map(Subscription::from) else { return };
 
-				Ok(PaginatedStorageQuery {
-					key,
-					query_type: query.query_type,
-					pagination_start_key,
+			let items = match items
+				.into_iter()
+				.map(|query| {
+					let key = StorageKey(parse_hex_param(query.key)?);
+					Ok(StorageQuery { key, query_type: query.query_type })
 				})
-			})
-			.collect::<Result<Vec<_>, ArchiveError>>()?;
+				.collect::<Result<Vec<_>, ArchiveError>>()
+			{
+				Ok(items) => items,
+				Err(error) => {
+					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string()));
+					return
+				},
+			};
 
-		let child_trie = child_trie
-			.map(|child_trie| parse_hex_param(child_trie))
-			.transpose()?
-			.map(ChildInfo::new_default_from_vec);
+			let child_trie = child_trie.map(|child_trie| parse_hex_param(child_trie)).transpose();
+			let child_trie = match child_trie {
+				Ok(child_trie) => child_trie.map(ChildInfo::new_default_from_vec),
+				Err(error) => {
+					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string()));
+					return
+				},
+			};
 
-		let storage_client = ArchiveStorage::new(
-			self.client.clone(),
-			self.storage_max_descendant_responses,
-			self.storage_max_queried_items,
-		);
+			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			let storage_fut = storage_client.generate_events(hash, items, child_trie, tx);
 
-		Ok(storage_client.handle_query(hash, items, child_trie))
+			// We don't care about the return value of this join:
+			// - process_events might encounter an error (if the client disconnected)
+			// - storage_fut might encounter an error while processing a trie queries and
+			// the error is propagated via the sink.
+			let _ = futures::future::join(storage_fut, process_storage_events(&mut rx, &mut sink))
+				.await;
+		};
+
+		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 	}
 
 	fn archive_unstable_storage_diff(
@@ -370,4 +379,25 @@ async fn process_events(rx: &mut mpsc::Receiver<ArchiveStorageDiffEvent>, sink: 
 			return
 		}
 	}
+}
+
+/// Sends all the events to the sink.
+async fn process_storage_events(rx: &mut mpsc::Receiver<QueryResult>, sink: &mut Subscription) {
+	while let Some(event) = rx.recv().await {
+		match event {
+			Ok(None) => continue,
+
+			Ok(Some(event)) =>
+				if sink.send(&ArchiveStorageEvent::result(event)).await.is_err() {
+					return
+				},
+
+			Err(error) =>
+				if sink.send(&ArchiveStorageEvent::err(error)).await.is_err() {
+					return
+				},
+		}
+	}
+
+	let _ = sink.send(&ArchiveStorageEvent::StorageDone).await;
 }
