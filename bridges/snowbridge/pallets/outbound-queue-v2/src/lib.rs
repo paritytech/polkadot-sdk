@@ -60,6 +60,8 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+use alloy_primitives::FixedBytes;
+use alloy_sol_types::SolValue;
 use bridge_hub_common::{AggregateMessageOrigin, CustomDigestItem};
 use codec::Decode;
 use envelope::Envelope;
@@ -68,34 +70,22 @@ use frame_support::{
 	traits::{tokens::Balance, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
+pub use pallet::*;
 use snowbridge_core::{
-	inbound::Message as DeliveryMessage,
+	inbound::{Message as DeliveryMessage, VerificationError, Verifier},
 	outbound::v2::{CommandWrapper, Fee, GasMeter, InboundMessage, InboundMessageWrapper, Message},
 	BasicOperatingMode, RewardLedger, TokenId,
 };
 use snowbridge_merkle_tree::merkle_root;
-use sp_core::H256;
+use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Hash},
+	traits::{BlockNumberProvider, Hash, MaybeEquivalence},
 	ArithmeticError, DigestItem,
 };
 use sp_std::prelude::*;
 pub use types::{PendingOrder, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
-
-pub use pallet::*;
-
-use alloy_sol_types::SolValue;
-
-use alloy_primitives::FixedBytes;
-
-use sp_runtime::traits::MaybeEquivalence;
-
 use xcm::prelude::{Location, NetworkId};
-
-use snowbridge_core::inbound::{VerificationError, Verifier};
-
-use sp_core::H160;
 
 #[frame_support::pallet]
 pub mod pallet {
