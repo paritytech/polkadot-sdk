@@ -256,7 +256,7 @@ where
 		(transactions.len() - watched_count, watched_count)
 	}
 
-	/// Returns a total number of transactions kept withing mempool.
+	/// Returns a total number of transactions kept within mempool.
 	pub fn len(&self) -> usize {
 		self.transactions.read().len()
 	}
