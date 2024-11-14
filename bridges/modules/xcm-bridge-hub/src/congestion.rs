@@ -134,8 +134,8 @@ impl<
 /// Manages the local XCM channels by sending XCM messages with the `report_bridge_status` extrinsic
 /// to the `local_origin`. The `XcmProvider` type converts the encoded call to `XCM`, which is then
 /// sent by `XcmSender` to the `local_origin`. This is useful, for example, when a router with
-/// [`xcm::prelude::ExportMessage`] is deployed on a different chain, and we want to control congestion by sending
-/// XCMs.
+/// [`xcm::prelude::ExportMessage`] is deployed on a different chain, and we want to control
+/// congestion by sending XCMs.
 pub struct ReportBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>(
 	PhantomData<(T, I, XcmProvider, XcmSender)>,
 );
@@ -209,9 +209,9 @@ impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender
 }
 
 /// Adapter that ties together the [`DispatchBlob`] trait with the [`DispatchChannelStatusProvider`]
-/// trait. The idea is that [`DispatchBlob`] triggers message dispatch/delivery on the receiver side,
-/// while [`DispatchChannelStatusProvider`] provides a status check to ensure the dispatch channel is
-/// active (not congested).
+/// trait. The idea is that [`DispatchBlob`] triggers message dispatch/delivery on the receiver
+/// side, while [`DispatchChannelStatusProvider`] provides a status check to ensure the dispatch
+/// channel is active (not congested).
 pub struct BlobDispatcherWithChannelStatus<ChannelDispatch, ChannelStatus>(
 	PhantomData<(ChannelDispatch, ChannelStatus)>,
 );

@@ -105,8 +105,7 @@ pub const LOG_TARGET: &str = "runtime::bridge-xcm-router";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_support::weights::WeightMeter;
+	use frame_support::{pallet_prelude::*, weights::WeightMeter};
 	use frame_system::pallet_prelude::*;
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
@@ -195,15 +194,21 @@ pub mod pallet {
 				// If no longer congested, we can start decreasing the fee factor.
 				if !bridge_state.is_congested {
 					let previous_factor = bridge_state.delivery_fee_factor;
-						let new_factor = previous_factor / EXPONENTIAL_FEE_BASE;
+					let new_factor = previous_factor / EXPONENTIAL_FEE_BASE;
 					if new_factor >= MINIMAL_DELIVERY_FEE_FACTOR {
 						bridge_state.delivery_fee_factor = new_factor;
-						if meter.try_consume(T::WeightInfo::on_idle_when_bridge_state_updated()).is_err() {
+						if meter
+							.try_consume(T::WeightInfo::on_idle_when_bridge_state_updated())
+							.is_err()
+						{
 							break;
 						}
 						bridges_to_update.push((bridge_id, previous_factor, bridge_state));
 					} else {
-						if meter.try_consume(T::WeightInfo::on_idle_when_bridge_state_removed()).is_err() {
+						if meter
+							.try_consume(T::WeightInfo::on_idle_when_bridge_state_removed())
+							.is_err()
+						{
 							break;
 						}
 						bridges_to_remove.push((bridge_id, previous_factor));
@@ -333,10 +338,7 @@ pub mod pallet {
 		/// factor specified in the `bridge_state`. If the asset is fungible, the
 		/// `delivery_fee_factor` is applied to the asset’s amount, potentially altering its
 		/// value.
-		pub(crate) fn calculate_dynamic_fee(
-			bridge_state: &BridgeState,
-			mut asset: Asset,
-		) -> Asset {
+		pub(crate) fn calculate_dynamic_fee(bridge_state: &BridgeState, mut asset: Asset) -> Asset {
 			if let Fungibility::Fungible(ref mut amount) = asset.fun {
 				*amount = bridge_state.delivery_fee_factor.saturating_mul_int(*amount);
 			}
@@ -554,7 +556,8 @@ mod tests {
 			let mut last_delivery_fee_factor = initial_fee_factor;
 			while let Some(bridge_state) = get_bridge_state_for::<TestRuntime, ()>(&dest) {
 				last_delivery_fee_factor = bridge_state.delivery_fee_factor;
-				remaining_weight = XcmBridgeHubRouter::on_idle(One::one(), remaining_weight.clone());
+				remaining_weight =
+					XcmBridgeHubRouter::on_idle(One::one(), remaining_weight.clone());
 
 				// avoid infinite loops (decreasing is expected)
 				if let Some(bridge_state) = get_bridge_state_for::<TestRuntime, ()>(&dest) {
