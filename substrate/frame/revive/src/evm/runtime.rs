@@ -298,12 +298,7 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		let (unsigned_payload, raw_signature) = payload.split_at(payload.len() - 65);
-		let signer = recover_eth_address(
-			unsigned_payload,
-			raw_signature.try_into().expect("array length is 65, qed"),
-		)
-		.map_err(|err| {
+		let signer = tx.recover_eth_address().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
 			InvalidTransaction::BadProof
 		})?;
