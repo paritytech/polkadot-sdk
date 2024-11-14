@@ -52,9 +52,16 @@ impl RuntimePublic for Public {
 		false
 	}
 
-	// fn verify_pop(&self, pop: &Self::Signature) -> bool {
-	// 	AppPair::verify_proof_of_possession(pop.as_ptr(), self)
-	// }
+	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
+		// TODO: Implement Special Case
+		None
+	}
+
+	fn verify_pop(&self, pop: &Self::Signature) -> bool {
+		let pop = AppSignature::from(pop.clone());
+		let pub_key = AppPublic::from(self.clone());
+		AppPair::verify_proof_of_possession(&pop, &pub_key)
+	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
 		sp_core::crypto::ByteArray::to_raw_vec(self)

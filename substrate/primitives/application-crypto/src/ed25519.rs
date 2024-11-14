@@ -52,12 +52,12 @@ impl RuntimePublic for Public {
 		sp_io::crypto::ed25519_verify(signature, msg.as_ref(), self)
 	}
 
-	// fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-	// 	let pub_key_as_bytes = self.public().to_raw_vec();
-	// 	let pop_context_tag: &[u8] = b"POP_";
-	// 	let pop_statement = [pop_context_tag, pub_key_as_bytes.as_slice()].concat();
-	// 	self.sign(key_type, pop_statement.as_slice())
-	// }
+	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
+		let pub_key_as_bytes = self.to_raw_vec();
+		let pop_context_tag: &[u8] = b"POP_";
+		let pop_statement = [pop_context_tag, pub_key_as_bytes.as_slice()].concat();
+		sp_io::crypto::ed25519_sign(key_type, self, pop_statement.as_slice())
+	}
 
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
 		let pop = AppSignature::from(pop.clone());

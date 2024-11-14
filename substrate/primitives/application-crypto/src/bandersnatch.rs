@@ -54,6 +54,13 @@ impl RuntimePublic for Public {
 		false
 	}
 
+	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
+		let pub_key_as_bytes = self.to_raw_vec();
+		let pop_context_tag: &[u8] = b"POP_";
+		let pop_statement = [pop_context_tag, pub_key_as_bytes.as_slice()].concat();
+		sp_io::crypto::bandersnatch_sign(key_type, self, pop_statement.as_slice())
+	}
+
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
 		let pop = AppSignature::from(pop.clone());
 		let pub_key = AppPublic::from(self.clone());
