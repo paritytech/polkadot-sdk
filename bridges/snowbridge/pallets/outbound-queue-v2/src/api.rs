@@ -15,7 +15,7 @@ use snowbridge_core::{
 	AgentIdOf,
 };
 use snowbridge_merkle_tree::{merkle_proof, MerkleProof};
-use snowbridge_router_primitives::outbound::v2::XcmConverter;
+use snowbridge_router_primitives::outbound::v2::convert::XcmConverter;
 use sp_core::Get;
 use sp_std::{default::Default, vec::Vec};
 use xcm::{
