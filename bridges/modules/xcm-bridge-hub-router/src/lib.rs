@@ -58,7 +58,7 @@
 //! **Note on Terminology**: When we refer to the bridge hub, we mean the chain that has the
 //! `pallet-bridge-messages` with an `ExportXcm` implementation deployed, such as
 //! `pallet-xcm-bridge-hub`. Depending on the deployment setup, `T::ToBridgeHubSender` can be
-//! configured accordingly—see `T::ToBridgeHubSender` for additional documentation.
+//! configured accordingly — see `T::ToBridgeHubSender` for additional documentation.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
