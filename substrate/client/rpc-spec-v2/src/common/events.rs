@@ -116,6 +116,23 @@ pub enum ArchiveStorageEvent {
 	StorageDone,
 }
 
+impl ArchiveStorageEvent {
+	/// Create a new `ArchiveStorageEvent::StorageErr` event.
+	pub fn err(error: String) -> Self {
+		Self::StorageErr(ArchiveStorageMethodErr { error })
+	}
+
+	/// Checks if the event is a `StorageDone` event.
+	pub fn is_done(&self) -> bool {
+		matches!(self, Self::StorageDone)
+	}
+
+	/// Checks if the event is a `StorageErr` event.
+	pub fn is_err(&self) -> bool {
+		matches!(self, Self::StorageErr(_))
+	}
+}
+
 /// The result of a storage call.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
