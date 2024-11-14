@@ -65,8 +65,6 @@ mod bench {
 			final_block_proof_size < overestimate,
 			"The proof size measured should be less than {overestimate}"
 		);
-
-		Ok(())
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::tests::setup_test_ext_default(), crate::tests::Test);
