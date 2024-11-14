@@ -28,15 +28,15 @@ impl TransactionSigned {
 		let mut s = rlp::RlpStream::new();
 		match self {
 			Transaction2930Signed(ref tx) => {
-				s.append(&Type1::value());
+				s.append(&tx.transaction_2930_unsigned.r#type.value());
 				s.append(tx);
 			},
 			Transaction1559Signed(ref tx) => {
-				s.append(&Type2::value());
+				s.append(&tx.transaction_1559_unsigned.r#type.value());
 				s.append(tx);
 			},
 			Transaction4844Signed(ref tx) => {
-				s.append(&Type3::value());
+				s.append(&tx.transaction_4844_unsigned.r#type.value());
 				s.append(tx);
 			},
 			TransactionLegacySigned(ref tx) => {

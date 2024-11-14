@@ -82,17 +82,17 @@ impl TransactionSigned {
 			},
 			Transaction4844Signed(tx) => {
 				let tx = &tx.transaction_4844_unsigned;
-				s.append(&tx.r#type.as_u8());
+				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
 			Transaction1559Signed(tx) => {
 				let tx = &tx.transaction_1559_unsigned;
-				s.append(&tx.r#type.as_u8());
+				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
 			Transaction2930Signed(tx) => {
 				let tx = &tx.transaction_2930_unsigned;
-				s.append(&tx.r#type.as_u8());
+				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
 		}

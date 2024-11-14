@@ -37,13 +37,8 @@ macro_rules! transaction_type {
 		}
 
 		impl $name {
-			/// Get the value of the type
-			pub const fn value() -> u8 {
-				$value
-			}
-
-			/// Convert to Byte
-			pub fn as_u8(&self) -> u8 {
+			/// Convert to u8
+			pub fn value(&self) -> u8 {
 				$value
 			}
 
