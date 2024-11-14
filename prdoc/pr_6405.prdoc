@@ -2,27 +2,8 @@ title: '`fatxpool`: handling limits and priorities improvements'
 doc:
 - audience: Node Dev
   description: |-
-    This PR provides a number of improvements around handling limits and priorities in the fork-aware transaction pool.
+    This PR provides a number of improvements and fixes around handling limits and priorities in the fork-aware transaction pool.
 
-
-    #### Notes to reviewers.
-    Following are the major changes:
-    1. #### [Better support](https://github.com/paritytech/polkadot-sdk/pull/6405/commits/414ec3ccad154c9a2aab0586bfa2d2c884fd140f) for `Usurped` transactions
-
-        When any view reports an `Usurped` transaction (replaced by other with higher priority) it is removed from all the views (also inactive). Removal is implemented by simply submitting usurper transaction to all the views. It is also ensured that usurped tx will not sneak into the `view_store` in newly created view.
-
-    1. #### [`TimedTransactionSource`](https://github.com/paritytech/polkadot-sdk/pull/6405/commits/f10590f3bde69b31250761a5b10802fb139ab2b2) introduced:
-
-        Every view now has an information when the transaction entered the pool. Enforce limits (now only for future txs) uses this timestamp to find worst transactions. Having common timestamp ensures coherent assessment of the transaction's  transaction across different views. This also could later be used to select which ready transaction shall be dropped.
-
-    1. #### `DroppedWatcher` [improved logic](https://github.com/paritytech/polkadot-sdk/pull/6405/commits/560db28c987dd1e634119788ebc8318967df206b) for future transactions
-        For future transaction - if the last referencing view is removed, the transaction will be dropped from the pool. This prevents future unincluded and un-promoted transactions from staying in the pool for long time.
-
-    And some minor changes:
-    - `graph::BasePool`: [handling priorities](https://github.com/paritytech/polkadot-sdk/pull/6405/commits/c9f2d39355853d034fdbc6ea31e4e0e5bf34cb6a) for future transaction improved (previously transaction with lower prio was reported as failed),
-    - `graph::listener`: dedicated `limit_enforced`/`usurped`/`dropped` [calls added](https://github.com/paritytech/polkadot-sdk/pull/6405/commits/7b58a68cccfcf372321ea41826fbe9d4222829cf),
-    - flaky test [fixed](https://github.com/paritytech/polkadot-sdk/pull/6405/commits/e0a7bc6c048245943796839b166505e2aecdbd7d)
-    - new tests added.
 crates:
 - name: sc-transaction-pool
-  bump: major
+  bump: minor
