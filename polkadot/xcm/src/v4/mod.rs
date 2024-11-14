@@ -1421,8 +1421,11 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 				weight_limit,
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
 			},
-			InitiateTransfer { .. } | PayFees { .. } | SetAssetClaimer { .. } => {
-				log::debug!(target: "xcm::v5tov4", "`{new_instruction:?}` not supported by v4");
+			InitiateTransfer { .. } |
+			PayFees { .. } |
+			SetAssetClaimer { .. } |
+			ExecuteWithOrigin { .. } => {
+				log::debug!(target: "xcm::versions::v5tov4", "`{new_instruction:?}` not supported by v4");
 				return Err(());
 			},
 		})

@@ -1180,7 +1180,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// The second argument is the Column that stores the State.
 	///
 	/// Should only be needed for benchmarking.
-	#[cfg(any(feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn expose_db(&self) -> (Arc<dyn sp_database::Database<DbHash>>, sp_database::ColumnId) {
 		(self.storage.db.clone(), columns::STATE)
 	}
@@ -1188,7 +1188,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// Expose the Storage that is used by this backend.
 	///
 	/// Should only be needed for benchmarking.
-	#[cfg(any(feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn expose_storage(&self) -> Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> {
 		self.storage.clone()
 	}
