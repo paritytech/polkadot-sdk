@@ -136,6 +136,11 @@ impl ArchiveStorageEvent {
 	pub fn is_err(&self) -> bool {
 		matches!(self, Self::StorageErr(_))
 	}
+
+	/// Checks if the event is a `StorageResult` event.
+	pub fn is_result(&self) -> bool {
+		matches!(self, Self::StorageResult(_))
+	}
 }
 
 /// The result of a storage call.
