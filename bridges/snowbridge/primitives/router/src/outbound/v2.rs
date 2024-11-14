@@ -483,7 +483,7 @@ mod tests {
 	use frame_support::parameter_types;
 	use hex_literal::hex;
 	use snowbridge_core::{
-		outbound::{v2::Fee, SendError, SendMessageFeeProvider},
+		outbound::{SendError, SendMessageFeeProvider},
 		AgentIdOf,
 	};
 	use sp_std::default::Default;
@@ -504,8 +504,10 @@ mod tests {
 	impl SendMessage for MockOkOutboundQueue {
 		type Ticket = ();
 
-		fn validate(_: &Message) -> Result<(Self::Ticket, Fee<Self::Balance>), SendError> {
-			Ok(((), Fee { local: 1 }))
+		type Balance = u128;
+
+		fn validate(_: &Message) -> Result<(Self::Ticket, Self::Balance), SendError> {
+			Ok(((), 1_u128))
 		}
 
 		fn deliver(_: Self::Ticket) -> Result<H256, SendError> {
@@ -524,7 +526,9 @@ mod tests {
 	impl SendMessage for MockErrOutboundQueue {
 		type Ticket = ();
 
-		fn validate(_: &Message) -> Result<(Self::Ticket, Fee<Self::Balance>), SendError> {
+		type Balance = u128;
+
+		fn validate(_: &Message) -> Result<(Self::Ticket, Self::Balance), SendError> {
 			Err(SendError::MessageTooLarge)
 		}
 

@@ -12,7 +12,11 @@ use xcm_executor::traits::ConvertLocation;
 
 use snowbridge_core::{
 	gwei, meth,
-	outbound::{v1::ConstantGasMeter, v2::DefaultOutboundQueue},
+	outbound::{
+		v1::ConstantGasMeter,
+		v2::{Message, SendMessage},
+		SendError as OutboundSendError, SendMessageFeeProvider,
+	},
 	sibling_sovereign_account, AgentId, AllowSiblingsOnly, ParaId, PricingParameters, Rewards,
 };
 use sp_runtime::{
@@ -200,6 +204,29 @@ impl BenchmarkHelper<RuntimeOrigin> for () {
 	}
 }
 
+pub struct MockOkOutboundQueue;
+impl SendMessage for MockOkOutboundQueue {
+	type Ticket = ();
+
+	type Balance = u128;
+
+	fn validate(_: &Message) -> Result<(Self::Ticket, Self::Balance), OutboundSendError> {
+		Ok(((), 1_u128))
+	}
+
+	fn deliver(_: Self::Ticket) -> Result<H256, OutboundSendError> {
+		Ok(H256::zero())
+	}
+}
+
+impl SendMessageFeeProvider for MockOkOutboundQueue {
+	type Balance = u128;
+
+	fn local_fee() -> Self::Balance {
+		1
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = OutboundQueue;
@@ -214,7 +241,7 @@ impl crate::Config for Test {
 	type EthereumLocation = EthereumDestination;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
-	type OutboundQueueV2 = DefaultOutboundQueue;
+	type OutboundQueueV2 = MockOkOutboundQueue;
 }
 
 // Build genesis storage according to the mock runtime.

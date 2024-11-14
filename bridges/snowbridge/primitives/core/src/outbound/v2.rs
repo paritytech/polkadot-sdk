@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! # Outbound V2 primitives
 
-use crate::outbound::{OperatingMode, SendError, SendMessageFeeProvider};
+use crate::outbound::{OperatingMode, SendError};
 use alloy_sol_types::sol;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::ConstU32, BoundedVec};
@@ -230,68 +230,18 @@ pub struct Initializer {
 	pub maximum_required_gas: u64,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(PartialEq))]
-/// Fee for delivering message
-pub struct Fee<Balance>
-where
-	Balance: BaseArithmetic + Unsigned + Copy,
-{
-	/// Fee to cover cost of processing the message locally
-	pub local: Balance,
-}
-
-impl<Balance> Fee<Balance>
-where
-	Balance: BaseArithmetic + Unsigned + Copy,
-{
-	pub fn total(&self) -> Balance {
-		self.local
-	}
-}
-
-impl<Balance> From<Balance> for Fee<Balance>
-where
-	Balance: BaseArithmetic + Unsigned + Copy,
-{
-	fn from(local: Balance) -> Self {
-		Self { local }
-	}
-}
-
-pub trait SendMessage: SendMessageFeeProvider {
+pub trait SendMessage {
 	type Ticket: Clone + Encode + Decode;
+
+	type Balance: BaseArithmetic + Unsigned + Copy;
 
 	/// Validate an outbound message and return a tuple:
 	/// 1. Ticket for submitting the message
 	/// 2. Delivery fee
-	fn validate(
-		message: &Message,
-	) -> Result<(Self::Ticket, Fee<<Self as SendMessageFeeProvider>::Balance>), SendError>;
+	fn validate(message: &Message) -> Result<(Self::Ticket, Self::Balance), SendError>;
 
 	/// Submit the message ticket for eventual delivery to Ethereum
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError>;
-}
-
-pub struct DefaultOutboundQueue;
-impl SendMessage for DefaultOutboundQueue {
-	type Ticket = ();
-
-	fn validate(_: &Message) -> Result<(Self::Ticket, Fee<Self::Balance>), SendError> {
-		Ok(((), Fee { local: Default::default() }))
-	}
-
-	fn deliver(_: Self::Ticket) -> Result<H256, SendError> {
-		Ok(H256::zero())
-	}
-}
-
-impl SendMessageFeeProvider for DefaultOutboundQueue {
-	type Balance = u128;
-
-	fn local_fee() -> Self::Balance {
-		Default::default()
-	}
 }
 
 pub trait GasMeter {

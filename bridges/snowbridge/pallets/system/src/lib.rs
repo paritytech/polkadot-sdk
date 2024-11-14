@@ -844,7 +844,7 @@ pub mod pallet {
 				T::OutboundQueueV2::validate(&message).map_err(|err| Error::<T>::Send(err))?;
 
 			let payment = match pays_fee {
-				PaysFee::Yes(account) | PaysFee::Partial(account) => Some((account, fee.total())),
+				PaysFee::Yes(account) | PaysFee::Partial(account) => Some((account, fee)),
 				PaysFee::No => None,
 			};
 

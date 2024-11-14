@@ -25,7 +25,7 @@ use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
 use snowbridge_router_primitives::{inbound::v1::MessageToXcm, outbound::v1::EthereumBlobExporter};
-use sp_core::H160;
+use sp_core::{H160, H256};
 use testnet_parachains_constants::rococo::{
 	currency::*,
 	fee::WeightToFee,
@@ -37,7 +37,10 @@ use crate::xcm_config::RelayNetwork;
 use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
 use pallet_xcm::EnsureXcm;
-use snowbridge_core::outbound::v2::DefaultOutboundQueue;
+use snowbridge_core::outbound::{
+	v2::{Message, SendMessage},
+	SendError, SendMessageFeeProvider,
+};
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
 	FixedU128,
@@ -176,6 +179,29 @@ impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	// Free consensus update every epoch. Works out to be 225 updates per day.
 	type FreeHeadersInterval = ConstU32<SLOTS_PER_EPOCH>;
 	type WeightInfo = crate::weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>;
+}
+
+pub struct DefaultOutboundQueue;
+impl SendMessage for DefaultOutboundQueue {
+	type Ticket = ();
+
+	type Balance = Balance;
+
+	fn validate(_: &Message) -> Result<(Self::Ticket, Self::Balance), SendError> {
+		Ok(((), Default::default()))
+	}
+
+	fn deliver(_: Self::Ticket) -> Result<H256, SendError> {
+		Ok(H256::zero())
+	}
+}
+
+impl SendMessageFeeProvider for DefaultOutboundQueue {
+	type Balance = Balance;
+
+	fn local_fee() -> Self::Balance {
+		Default::default()
+	}
 }
 
 impl snowbridge_pallet_system::Config for Runtime {

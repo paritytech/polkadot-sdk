@@ -25,9 +25,9 @@ where
 {
 	type Ticket = Message;
 
-	fn validate(
-		message: &Message,
-	) -> Result<(Self::Ticket, Fee<<Self as SendMessageFeeProvider>::Balance>), SendError> {
+	type Balance = T::Balance;
+
+	fn validate(message: &Message) -> Result<(Self::Ticket, Self::Balance), SendError> {
 		// The inner payload should not be too large
 		let payload = message.encode();
 		ensure!(
@@ -35,7 +35,7 @@ where
 			SendError::MessageTooLarge
 		);
 
-		let fee = Fee::from(Self::calculate_local_fee());
+		let fee = Self::calculate_local_fee();
 
 		Ok((message.clone(), fee))
 	}
