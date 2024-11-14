@@ -2298,7 +2298,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-std 14.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "trie-db",
 ]
 
@@ -2342,7 +2342,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -2885,7 +2885,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-weights 27.0.0",
  "staging-xcm 7.0.0",
  "static_assertions",
@@ -4529,7 +4529,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-timestamp 26.0.0",
  "sp-tracing 16.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "substrate-prometheus-endpoint",
  "tracing",
@@ -4625,7 +4625,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-storage 19.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "tracing",
 ]
 
@@ -4811,7 +4811,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
@@ -5097,7 +5097,7 @@ dependencies = [
  "scale-info",
  "sp-api 26.0.0",
  "sp-runtime 31.0.1",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "staging-xcm 7.0.0",
 ]
 
@@ -5128,7 +5128,7 @@ dependencies = [
  "scale-info",
  "sp-core 28.0.0",
  "sp-inherents 26.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -5155,7 +5155,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime-interface 24.0.0",
  "sp-state-machine 0.35.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -5185,7 +5185,7 @@ dependencies = [
  "scale-info",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -5426,7 +5426,7 @@ dependencies = [
  "polkadot-primitives 7.0.0",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -7017,7 +7017,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-timestamp 26.0.0",
  "sp-transaction-pool 26.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
@@ -7336,7 +7336,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-timestamp 26.0.0",
  "sp-tracing 16.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-weights 27.0.0",
  "static_assertions",
  "tt-call",
@@ -11112,7 +11112,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-timestamp 26.0.0",
  "sp-tracing 16.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "tempfile",
 ]
 
@@ -12384,7 +12384,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -15097,7 +15097,7 @@ dependencies = [
  "sp-session 27.0.0",
  "sp-staking 26.0.0",
  "sp-state-machine 0.35.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -17118,7 +17118,7 @@ dependencies = [
  "quickcheck",
  "reed-solomon-novelpoly",
  "sp-core 28.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "thiserror",
 ]
 
@@ -18747,7 +18747,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-transaction-pool 26.0.0",
  "sp-transaction-storage-proof 26.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "sp-version-proc-macro 13.0.0",
  "sp-wasm-interface 20.0.0",
@@ -19553,7 +19553,7 @@ dependencies = [
  "sp-session 27.0.0",
  "sp-staking 26.0.0",
  "sp-transaction-pool 26.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
@@ -21012,7 +21012,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-std 14.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "staging-xcm 7.0.0",
  "thiserror",
@@ -21419,7 +21419,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "sp-transaction-pool 26.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
@@ -22049,7 +22049,7 @@ dependencies = [
  "sp-inherents 26.0.0",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "substrate-test-runtime-client",
 ]
 
@@ -22162,7 +22162,7 @@ dependencies = [
  "sp-statement-store 10.0.0",
  "sp-storage 19.0.0",
  "sp-test-primitives",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "thiserror",
@@ -22196,7 +22196,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "substrate-test-runtime-client",
  "tempfile",
 ]
@@ -22599,7 +22599,7 @@ dependencies = [
  "sp-runtime-interface 24.0.0",
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
@@ -23345,7 +23345,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "sp-transaction-pool 26.0.0",
  "sp-transaction-storage-proof 26.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "static_init",
  "substrate-prometheus-endpoint",
@@ -23387,7 +23387,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "tempfile",
@@ -25407,7 +25407,7 @@ dependencies = [
  "sp-runtime-interface 24.0.0",
  "sp-state-machine 0.35.0",
  "sp-test-primitives",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "thiserror",
 ]
@@ -26471,7 +26471,7 @@ dependencies = [
  "sp-runtime-interface 24.0.0",
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "tracing",
  "tracing-core",
 ]
@@ -26834,7 +26834,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-weights 27.0.0",
  "substrate-test-runtime-client",
  "tracing",
@@ -27183,7 +27183,7 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-panic-handler 13.0.0",
  "sp-runtime 31.0.1",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "thiserror",
  "tracing",
  "trie-db",
@@ -27477,7 +27477,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-inherents 26.0.0",
  "sp-runtime 31.0.1",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
 ]
 
 [[package]]
@@ -27497,7 +27497,7 @@ dependencies = [
 
 [[package]]
 name = "sp-trie"
-version = "29.0.1"
+version = "29.0.0"
 dependencies = [
  "ahash 0.8.11",
  "array-bytes",
@@ -28401,7 +28401,7 @@ dependencies = [
  "sp-consensus-grandpa 13.0.0",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "structopt",
  "strum 0.26.3",
  "thiserror",
@@ -28450,7 +28450,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "trie-db",
 ]
 
@@ -28524,7 +28524,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
  "sp-transaction-pool 26.0.0",
- "sp-trie 29.0.1",
+ "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "substrate-test-runtime-client",
  "substrate-wasm-builder 17.0.0",
