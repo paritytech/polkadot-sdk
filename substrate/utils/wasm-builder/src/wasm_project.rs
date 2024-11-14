@@ -28,6 +28,7 @@ use std::{
 	collections::HashSet,
 	env, fs,
 	hash::{Hash, Hasher},
+	io::Read,
 	ops::Deref,
 	path::{Path, PathBuf},
 	process,
@@ -978,7 +979,7 @@ fn build_bloaty_blob(
 					},
 				};
 
-				std::fs::write(&polkavm_path, program.as_bytes())
+				std::fs::write(&polkavm_path, program)
 					.expect("writing the blob to a file always works");
 			}
 
