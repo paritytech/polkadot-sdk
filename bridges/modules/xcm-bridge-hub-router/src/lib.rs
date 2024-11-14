@@ -95,11 +95,6 @@ const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0
 pub const HARD_MESSAGE_SIZE_LIMIT: u32 = 32 * 1024;
 
 /// The target that will be used when publishing logs related to this pallet.
-///
-/// This doesn't match the pattern used by other bridge pallets (`runtime::bridge-*`). But this
-/// pallet has significant differences with those pallets. The main one is that is intended to
-/// be deployed at sending chains. Other bridge pallets are likely to be deployed at the separate
-/// bridge hub parachain.
 pub const LOG_TARGET: &str = "runtime::bridge-xcm-router";
 
 #[frame_support::pallet]
