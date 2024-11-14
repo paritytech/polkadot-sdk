@@ -17,7 +17,7 @@ pub struct PendingOrder<BlockNumber> {
 	pub nonce: u64,
 	/// The block number in which the message was committed
 	pub block_number: BlockNumber,
-	/// The fee
+	/// The fee in Ether provided by the user to incentivize message delivery
 	#[codec(compact)]
 	pub fee: u128,
 }
