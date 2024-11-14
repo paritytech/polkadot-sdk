@@ -106,7 +106,7 @@ impl<T, S: core::fmt::Debug> core::fmt::Debug for StorageWeightReclaim<T, S> {
 		let _ = write!(f, "StorageWeightReclaim<{:?}>", self.0);
 
 		#[cfg(not(feature = "std"))]
-		let _ = f;
+		let _ = write!(f, "StorageWeightReclaim<wasm-stripped>");
 
 		Ok(())
 	}
