@@ -68,19 +68,18 @@ pub mod v16 {
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
 		fn on_runtime_upgrade() -> Weight {
 			// BoundedVec with MaxActiveValidators limit, this should always work
-			let disabled_validators = BoundedVec::try_from(DisabledValidators::<T>::get());
-			if disabled_validators.is_ok() {
-				DisabledValidators::<T>::set(disabled_validators.unwrap());
-			} else {
-				log!(warn, "Could not insert disabled validators in bounded vector.");
+			let disabled_validators_maybe =
+				BoundedVec::try_from(v15::DisabledValidators::<T>::get());
+			match disabled_validators_maybe {
+				Ok(disabled_validators) => DisabledValidators::<T>::set(disabled_validators),
+				Err(_) => log!(warn, "Could not insert disabled validators in bounded vector."),
 			}
 
 			// BoundedVec with MaxActiveValidators limit, this should always work
-			let invulnerables = BoundedVec::try_from(Invulnerables::<T>::get());
-			if invulnerables.is_ok() {
-				Invulnerables::<T>::set(invulnerables.unwrap());
-			} else {
-				log!(warn, "Could not insert invulnerables in bounded vector.");
+			let invulnerables_maybe = BoundedVec::try_from(v15::Invulnerables::<T>::get());
+			match invulnerables_maybe {
+				Ok(invulnerables) => Invulnerables::<T>::set(invulnerables),
+				Err(_) => log!(warn, "Could not insert invulnerables in bounded vector."),
 			}
 
 			log!(info, "v15 applied successfully.");
@@ -106,6 +105,13 @@ pub mod v16 {
 /// Migrating `OffendingValidators` from `Vec<(u32, bool)>` to `Vec<u32>`
 pub mod v15 {
 	use super::*;
+
+	#[frame_support::storage_alias]
+	pub(crate) type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type Invulnerables<T: Config> =
+		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
 
 	// The disabling strategy used by staking pallet
 	type DefaultDisablingStrategy = UpToLimitDisablingStrategy;
