@@ -16,7 +16,7 @@
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
-	evm::api::{recover_eth_address, GenericTransaction, TransactionSigned},
+	evm::api::{GenericTransaction, TransactionSigned},
 	AccountIdOf, AddressMapper, BalanceOf, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};

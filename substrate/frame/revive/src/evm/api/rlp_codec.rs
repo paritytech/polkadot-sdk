@@ -169,6 +169,25 @@ impl Decodable for AccessListEntry {
 }
 
 /// See <https://eips.ethereum.org/EIPS/eip-1559>
+impl Encodable for Transaction1559Unsigned {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(9);
+		s.append(&self.chain_id);
+		s.append(&self.nonce);
+		s.append(&self.max_priority_fee_per_gas);
+		s.append(&self.max_fee_per_gas);
+		s.append(&self.gas);
+		match self.to {
+			Some(ref to) => s.append(to),
+			None => s.append_empty_data(),
+		};
+		s.append(&self.value);
+		s.append(&self.input.0);
+		s.append_list(&self.access_list);
+	}
+}
+
+/// See <https://eips.ethereum.org/EIPS/eip-1559>
 impl Encodable for Transaction1559Signed {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		let tx = &self.transaction_1559_unsigned;
@@ -235,6 +254,24 @@ impl Decodable for Transaction1559Signed {
 }
 
 //See https://eips.ethereum.org/EIPS/eip-2930
+impl Encodable for Transaction2930Unsigned {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(8);
+		s.append(&self.chain_id);
+		s.append(&self.nonce);
+		s.append(&self.gas_price);
+		s.append(&self.gas);
+		match self.to {
+			Some(ref to) => s.append(to),
+			None => s.append_empty_data(),
+		};
+		s.append(&self.value);
+		s.append(&self.input.0);
+		s.append_list(&self.access_list);
+	}
+}
+
+//See https://eips.ethereum.org/EIPS/eip-2930
 impl Encodable for Transaction2930Signed {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		let tx = &self.transaction_2930_unsigned;
@@ -284,6 +321,24 @@ impl Decodable for Transaction2930Signed {
 			s: rlp.val_at(10)?,
 			..Default::default()
 		})
+	}
+}
+
+//See https://eips.ethereum.org/EIPS/eip-4844
+impl Encodable for Transaction4844Unsigned {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(11);
+		s.append(&self.chain_id);
+		s.append(&self.nonce);
+		s.append(&self.max_priority_fee_per_gas);
+		s.append(&self.max_fee_per_gas);
+		s.append(&self.gas);
+		s.append(&self.to);
+		s.append(&self.value);
+		s.append(&self.input.0);
+		s.append_list(&self.access_list);
+		s.append(&self.max_fee_per_blob_gas);
+		s.append_list(&self.blob_versioned_hashes);
 	}
 }
 
@@ -539,25 +594,5 @@ mod test {
 		let signed_tx = Account::default().sign_transaction(tx.clone());
 		let rlp_bytes = rlp::encode(&signed_tx);
 		assert_eq!(tx.dummy_signed_payload().len(), rlp_bytes.len());
-	}
-
-	#[test]
-	fn recover_address_works() {
-		let account = Account::default();
-
-		let unsigned_tx = TransactionLegacyUnsigned {
-			value: 200_000_000_000_000_000_000u128.into(),
-			gas_price: 100_000_000_200u64.into(),
-			gas: 100_107u32.into(),
-			nonce: 3.into(),
-			to: Some(Account::from(subxt_signer::eth::dev::baltathar()).address()),
-			chain_id: Some(596.into()),
-			..Default::default()
-		};
-
-		let tx = account.sign_transaction(unsigned_tx.clone());
-		let recovered_address = tx.recover_eth_address().unwrap();
-
-		assert_eq!(account.address(), recovered_address);
 	}
 }

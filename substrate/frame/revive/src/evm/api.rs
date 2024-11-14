@@ -36,4 +36,3 @@ mod account;
 pub use account::*;
 
 mod signature;
-pub use signature::*;

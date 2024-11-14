@@ -19,15 +19,6 @@ use super::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionSigne
 use sp_core::{H160, U256};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 
-/// Recover the Ethereum address, from an encoded transaction and a 65 bytes signature.
-pub fn recover_eth_address(bytes: &[u8], signature: &[u8; 65]) -> Result<H160, ()> {
-	let hash = keccak_256(bytes);
-	let mut addr = H160::default();
-	let pk = secp256k1_ecdsa_recover(&signature, &hash).map_err(|_| ())?;
-	addr.assign_from_slice(&keccak_256(&pk[..])[12..]);
-	Ok(addr)
-}
-
 impl TransactionLegacySigned {
 	/// Create a signed transaction from an [`TransactionLegacyUnsigned`] and a signature.
 	pub fn from(
@@ -77,5 +68,65 @@ impl TransactionSigned {
 		s.write_as_big_endian(sig[32..64].as_mut());
 		sig[64] = v;
 		Ok(sig)
+	}
+
+	/// Recover the Ethereum address, from a signed transaction.
+	pub fn recover_eth_address(&self) -> Result<H160, ()> {
+		use TransactionSigned::*;
+
+		let mut s = rlp::RlpStream::new();
+		match self {
+			TransactionLegacySigned(tx) => {
+				let tx = &tx.transaction_legacy_unsigned;
+				s.append(tx);
+			},
+			Transaction4844Signed(tx) => {
+				let tx = &tx.transaction_4844_unsigned;
+				s.append(&tx.r#type.as_u8());
+				s.append(tx);
+			},
+			Transaction1559Signed(tx) => {
+				let tx = &tx.transaction_1559_unsigned;
+				s.append(&tx.r#type.as_u8());
+				s.append(tx);
+			},
+			Transaction2930Signed(tx) => {
+				let tx = &tx.transaction_2930_unsigned;
+				s.append(&tx.r#type.as_u8());
+				s.append(tx);
+			},
+		}
+		let bytes = s.out().to_vec();
+		let signature = self.raw_signature()?;
+
+		let hash = keccak_256(&bytes);
+		let mut addr = H160::default();
+		let pk = secp256k1_ecdsa_recover(&signature, &hash).map_err(|_| ())?;
+		addr.assign_from_slice(&keccak_256(&pk[..])[12..]);
+		Ok(addr)
+	}
+}
+
+#[test]
+fn recover_eth_address_work() {
+	let txs = [
+		// Legacy
+		"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808026a07b2e762a17a71a46b422e60890a04512cf0d907ccf6b78b5bd6e6977efdc2bf5a01ea673d50bbe7c2236acb498ceb8346a8607c941f0b8cbcde7cf439aa9369f1f",
+		//// type 1: EIP2930
+		"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0c45a61b3d1d00169c649e7326e02857b850efb96e587db4b9aad29afc80d0752a070ae1eb47ab4097dbed2f19172ae286492621b46ac737ee6c32fb18a00c94c9c",
+		// type 2: EIP1559
+		"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a055d72bbc3047d4b9d3e4b8099f187143202407746118204cc2e0cb0c85a68baea04f6ef08a1418c70450f53398d9f0f2d78d9e9d6b8a80cba886b67132c4a744f2",
+		// type 3: EIP4844
+		"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000001a0672b8bac466e2cf1be3148c030988d40d582763ecebbc07700dfc93bb070d8a4a07c635887005b11cb58964c04669ac2857fa633aa66f662685dadfd8bcacb0f21",
+	];
+	for tx in txs {
+		let raw_tx = hex::decode(tx).unwrap();
+		let tx = TransactionSigned::decode(&raw_tx).unwrap();
+
+		let address = tx.recover_eth_address();
+		assert_eq!(
+			address,
+			Ok(hex_literal::hex!("75e480db528101a381ce68544611c169ad7eb342").into())
+		);
 	}
 }

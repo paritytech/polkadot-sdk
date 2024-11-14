@@ -43,6 +43,11 @@ macro_rules! transaction_type {
 			}
 
 			/// Convert to Byte
+			pub fn as_u8(&self) -> u8 {
+				$value
+			}
+
+			/// Convert to Byte
 			pub fn as_byte(&self) -> Byte {
 				Byte::from($value)
 			}
