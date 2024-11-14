@@ -191,7 +191,7 @@ pub mod pallet {
 			for (bridge_id, mut bridge_state) in Bridges::<T, I>::iter() {
 				weight_used.saturating_accrue(T::DbWeight::get().reads(1));
 
-				// if not congested anymore, we can start to decreasing fee factor
+				// If no longer congested, we can start decreasing the fee factor.
 				if !bridge_state.is_congested {
 					let previous_factor = bridge_state.delivery_fee_factor;
 					let new_factor = previous_factor / EXPONENTIAL_FEE_BASE;
