@@ -850,9 +850,7 @@ fn build_bloaty_blob(
 				"-C target-cpu=mvp -C target-feature=-sign-ext -C link-arg=--export-table ",
 			);
 		},
-		RuntimeTarget::Riscv => {
-			rustflags.push_str("-C target-feature=+lui-addi-fusion -C relocation-model=pie -C link-arg=--emit-relocs -C link-arg=--unique ");
-		},
+		RuntimeTarget::Riscv => (),
 	}
 
 	rustflags.push_str(default_rustflags);
