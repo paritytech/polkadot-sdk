@@ -25,11 +25,29 @@ use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
 };
+use frame_support::traits::Currency;
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use sp_core::crypto::FromEntropy;
 use sp_runtime::traits::BlockNumberProvider;
 
 use crate::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;
+
+/// Trait describing factory functions for dispatchables' parameters.
+pub trait ArgumentsFactory<AssetKind> {
+	/// Factory function for an asset kind.
+	fn create_asset_kind(seed: u32) -> AssetKind;
+}
+
+/// Implementation that expects the parameters implement the [`FromEntropy`] trait.
+impl<AssetKind> ArgumentsFactory<AssetKind> for ()
+where
+	AssetKind: FromEntropy,
+{
+	fn create_asset_kind(seed: u32) -> AssetKind {
+		AssetKind::from_entropy(&mut seed.encode().as_slice()).unwrap()
+	}
+}
 
 const SEED: u32 = 0;
 
@@ -45,15 +63,15 @@ fn setup_bounty<T: Config<I>, I: 'static>(
 	T::AccountId,
 	T::AccountId,
 	T::AssetKind,
-	AssetBalanceOf<T, I>,
-	AssetBalanceOf<T, I>,
+	BountyBalanceOf<T, I>,
+	BountyBalanceOf<T, I>,
 	T::Beneficiary,
 	Vec<u8>,
 ) {
 	let caller = account("caller", u, SEED);
 	// let value: BalanceOf<T, I> = T::BountyValueMinimum::get().saturating_mul(100u32.into());
-	let asset_kind = T::BenchmarkDefaultAssetKind::get();
-	let asset_balance: AssetBalanceOf<T, I> = 100_000u32.into();
+	let asset_kind = <T as Config<I>>::BenchmarkHelper::create_asset_kind(SEED);
+	let asset_balance: BountyBalanceOf<T, I> = 100_000u32.into();
 	// TODO: revisit asset conversion
 	// let native_value =
 	// 	T::BalanceConverter::from_asset_balance(100u32.into(), asset_kind).unwrap_or(100u32.into());

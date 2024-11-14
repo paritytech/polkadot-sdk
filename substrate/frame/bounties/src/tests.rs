@@ -26,7 +26,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, Imbalance, OnInitialize,
+		ConstU32, ConstU64, Currency, Imbalance, OnInitialize,
 	},
 	PalletId,
 };
@@ -155,7 +155,7 @@ impl Config for Test {
 	type ChildBountyManager = ();
 	type OnSlash = ();
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkDefaultAssetKind = ();
+	type BenchmarkHelper = ();
 }
 
 impl Config<Instance1> for Test {
@@ -173,7 +173,7 @@ impl Config<Instance1> for Test {
 	type ChildBountyManager = ();
 	type OnSlash = ();
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkDefaultAssetKind = ();
+	type BenchmarkHelper = ();
 }
 
 type TreasuryError = pallet_treasury::Error<Test>;
@@ -508,7 +508,7 @@ fn approve_bounty_works() {
 				value: 50,
 				curator_deposit: 0,
 				bond: deposit,
-				status: BountyStatus::Approved,
+				status: BountyStatus::Approved { payment_status: PaymentState::Pending },
 			}
 		);
 		assert_eq!(pallet_bounties::BountyApprovals::<Test>::get(), vec![0]);
@@ -1384,7 +1384,10 @@ fn approve_bounty_with_curator_works() {
 				asset_kind: (),
 				value: 50,
 				bond: 85,
-				status: BountyStatus::ApprovedWithCurator { curator },
+				status: BountyStatus::ApprovedWithCurator {
+					curator,
+					payment_status: PaymentState::Pending
+				},
 			}
 		);
 
@@ -1482,7 +1485,7 @@ fn approve_bounty_with_curator_early_unassign_works() {
 				asset_kind: (),
 				value: 50,
 				bond: 85,
-				status: BountyStatus::Approved,
+				status: BountyStatus::Approved { payment_status: PaymentState::Pending },
 			}
 		);
 
