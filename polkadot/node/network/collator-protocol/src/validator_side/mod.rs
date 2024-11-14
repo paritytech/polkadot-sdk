@@ -1268,7 +1268,7 @@ where
 		PendingCollation::new(relay_parent, para_id, &peer_id, prospective_candidate);
 
 	match collations.status {
-		CollationStatus::Fetching(_) => {
+		CollationStatus::Fetching(_) | CollationStatus::WaitingOnValidation => {
 			gum::trace!(
 				target: LOG_TARGET,
 				peer_id = ?peer_id,
@@ -1566,7 +1566,6 @@ async fn process_msg<Context>(
 				}
 
 				if let Some(rp_state) = state.per_relay_parent.get_mut(&parent) {
-					rp_state.collations.status = CollationStatus::Waiting;
 					rp_state.collations.note_seconded(para_id);
 				}
 
@@ -1707,14 +1706,14 @@ async fn run_inner<Context>(
 						modify_reputation(&mut state.reputation, ctx.sender(), peer_id, rep).await;
 						// Reset the status for the relay parent
 						state.per_relay_parent.get_mut(&relay_parent).map(|rp| {
-							rp.collations.status = CollationStatus::Waiting;
+							rp.collations.status.back_to_waiting();
 						});
 						continue
 					},
 					Err(None) => {
 						// Reset the status for the relay parent
 						state.per_relay_parent.get_mut(&relay_parent).map(|rp| {
-							rp.collations.status = CollationStatus::Waiting;
+							rp.collations.status.back_to_waiting();
 						});
 						continue
 					},
@@ -1794,11 +1793,6 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	// The collator we tried to fetch from last, optionally which candidate.
 	previous_fetch: (CollatorId, Option<CandidateHash>),
 ) {
-	// Reset the status before trying to fetch another collation
-	state.per_relay_parent.get_mut(&relay_parent).map(|rp| {
-		rp.collations.status = CollationStatus::Waiting;
-	});
-
 	while let Some((next, id)) = get_next_collation_to_fetch(&previous_fetch, relay_parent, state) {
 		gum::debug!(
 			target: LOG_TARGET,
@@ -1992,7 +1986,7 @@ async fn kick_off_seconding<Context>(
 		.await;
 		// There's always a single collation being fetched at any moment of time.
 		// In case of a failure, we reset the status back to waiting.
-		collations.status = CollationStatus::Waiting;
+		collations.status = CollationStatus::WaitingOnValidation;
 
 		entry.insert(collation_event);
 		Ok(true)
@@ -2301,7 +2295,7 @@ fn get_next_collation_to_fetch(
 			return None
 		}
 	}
-	rp_state.collations.status = CollationStatus::Waiting;
+	rp_state.collations.status.back_to_waiting();
 	rp_state.collations.pick_a_collation_to_fetch(unfulfilled_entries)
 }
 

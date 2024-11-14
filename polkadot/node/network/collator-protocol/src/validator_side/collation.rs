@@ -196,11 +196,20 @@ pub enum CollationStatus {
 	Waiting,
 	/// We are currently fetching a collation for the specified `ParaId`.
 	Fetching(ParaId),
+	/// We are waiting that a collation is being validated.
+	WaitingOnValidation,
 }
 
 impl Default for CollationStatus {
 	fn default() -> Self {
 		Self::Waiting
+	}
+}
+
+impl CollationStatus {
+	/// Downgrades to `Waiting`
+	pub fn back_to_waiting(&mut self) {
+		*self = Self::Waiting
 	}
 }
 
@@ -248,7 +257,13 @@ impl Collations {
 	/// Note a seconded collation for a given para.
 	pub(super) fn note_seconded(&mut self, para_id: ParaId) {
 		self.candidates_state.entry(para_id).or_default().seconded_per_para += 1;
-		gum::trace!(target: LOG_TARGET, ?para_id, new_count=self.candidates_state.entry(para_id).or_default().seconded_per_para, "Note seconded.");
+		gum::trace!(
+			target: LOG_TARGET,
+			?para_id,
+			new_count=self.candidates_state.entry(para_id).or_default().seconded_per_para,
+			"Note seconded."
+		);
+		self.status.back_to_waiting();
 	}
 
 	/// Adds a new collation to the waiting queue for the relay parent. This function doesn't
