@@ -56,12 +56,14 @@ use sp_runtime::traits::{Block as BlockT, Member};
 use std::{sync::Arc, time::Duration};
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
+pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 
 mod block_builder_task;
+mod block_import;
 mod collation_task;
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -93,11 +95,13 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// Drift slots by a fixed duration. This can be used to create more preferrable authoring
 	/// timings.
 	pub slot_drift: Duration,
+	/// The handle returned by [`SlotBasedBlockImport`].
+	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
 }
 
 /// Run aura-based block building and collation task.
 pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
-	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+	params: Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
 ) -> (impl futures::Future<Output = ()>, impl futures::Future<Output = ()>)
 where
 	Block: BlockT,
@@ -132,6 +136,7 @@ where
 		reinitialize: params.reinitialize,
 		collator_service: params.collator_service.clone(),
 		collator_receiver: rx,
+		block_import_handle: params.block_import_handle,
 	};
 
 	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
