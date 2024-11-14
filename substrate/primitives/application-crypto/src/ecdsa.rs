@@ -22,9 +22,13 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 
 pub use sp_core::ecdsa::*;
+use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::ECDSA);
+
+	use sp_core::crypto::SingleScheme;
+	impl SingleScheme for Pair {}
 }
 
 pub use app::{Pair as AppPair, Public as AppPublic, Signature as AppSignature};
@@ -46,6 +50,12 @@ impl RuntimePublic for Public {
 
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
 		sp_io::crypto::ecdsa_verify(signature, msg.as_ref(), self)
+	}
+
+	fn verify_pop(&self, pop: &Self::Signature) -> bool {
+		let pop = AppSignature::from(pop.clone());
+		let pub_key = AppPublic::from(self.clone());
+		AppPair::verify_proof_of_possession(&pop, &pub_key)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

@@ -100,7 +100,7 @@ pub trait RuntimePublic: Sized {
 	/// Verify that the given signature matches the given message using this public key.
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool;
 
-	fn generate_pop(&mut self) -> Option<Self::Signature>;
+	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature>;
 
 	fn verify_pop(&self, pop: &Self::Signature) -> bool;
 
@@ -179,7 +179,7 @@ where
 	}
 
 	fn generate_pop(&mut self) -> Option<Self::Signature> {
-		<<T as AppPublic>::Generic as RuntimePublic>::generate_pop(self.as_mut())
+		<<T as AppPublic>::Generic as RuntimePublic>::generate_pop(self.as_mut(), Self::ID)
 			.map(|s| s.into())
 	}
 

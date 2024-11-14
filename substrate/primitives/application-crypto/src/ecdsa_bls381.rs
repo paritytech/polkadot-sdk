@@ -52,6 +52,10 @@ impl RuntimePublic for Public {
 		false
 	}
 
+	// fn verify_pop(&self, pop: &Self::Signature) -> bool {
+	// 	AppPair::verify_proof_of_possession(pop.as_ptr(), self)
+	// }
+
 	fn to_raw_vec(&self) -> Vec<u8> {
 		sp_core::crypto::ByteArray::to_raw_vec(self)
 	}

@@ -23,6 +23,9 @@ pub use sp_core::bandersnatch::*;
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BANDERSNATCH);
+
+	use sp_core::crypto::SingleScheme;
+	impl SingleScheme for Pair {}
 }
 
 #[cfg(feature = "full_crypto")]
@@ -49,6 +52,12 @@ impl RuntimePublic for Public {
 	/// Dummy implementation. Returns `false`.
 	fn verify<M: AsRef<[u8]>>(&self, _msg: &M, _signature: &Self::Signature) -> bool {
 		false
+	}
+
+	fn verify_pop(&self, pop: &Self::Signature) -> bool {
+		let pop = AppSignature::from(pop.clone());
+		let pub_key = AppPublic::from(self.clone());
+		AppPair::verify_proof_of_possession(&pop, &pub_key)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

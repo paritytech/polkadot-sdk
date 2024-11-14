@@ -1008,6 +1008,16 @@ where
 	}
 }
 
+pub trait SingleScheme {}
+
+impl<T> ProofOfPossessionVerifier for T
+where
+	T: Pair + SingleScheme,
+	T::Public: CryptoType,
+{
+
+}
+
 /// One type is wrapped by another.
 pub trait IsWrappedBy<Outer>: From<Outer> + Into<Outer> {
 	/// Get a reference to the inner from the outer.

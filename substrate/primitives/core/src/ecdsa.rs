@@ -157,7 +157,7 @@ fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
 }
 
 /// A key pair.
-#[derive(Clone, ProofOfPossession)]
+#[derive(Clone)]
 pub struct Pair {
 	public: Public,
 	secret: SecretKey,

@@ -148,7 +148,6 @@ impl From<schnorrkel::Signature> for Signature {
 }
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
-#[derive(ProofOfPossession)]
 pub struct Pair(Keypair);
 
 impl Clone for Pair {

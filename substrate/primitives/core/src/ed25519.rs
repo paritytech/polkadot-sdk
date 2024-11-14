@@ -52,7 +52,7 @@ pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519Tag>;
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Ed25519Tag>;
 
 /// A key pair.
-#[derive(Copy, Clone, ProofOfPossession)]
+#[derive(Copy, Clone)]
 pub struct Pair {
 	public: VerificationKey,
 	secret: SigningKey,
