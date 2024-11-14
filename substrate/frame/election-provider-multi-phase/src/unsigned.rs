@@ -430,7 +430,7 @@ pub trait MinerConfig {
 	/// The maximum number of winners that can be elected in the single page supported by this
 	/// pallet.
 	type MaxWinners: Get<u32>;
-	/// The maximum number of backers per winner in the last solution.
+	/// The maximum number of backers per winner in a solution.
 	type MaxBackersPerWinner: Get<u32>;
 	/// Something that can compute the weight of a solution.
 	///
