@@ -38,7 +38,9 @@ async function run(nodeName, networkInfo) {
     });
 
     console.log(`Result: 2000: ${blocks_per_para[2000]}, 2001: ${blocks_per_para[2001]}`);
-    return (blocks_per_para[2000] > 7) && (blocks_per_para[2001] < 4);
+    // This check assumes that para 2000 runs slot based collator which respects its claim queue
+    // and para 2001 runs lookahead which generates blocks for each relay parent.
+    return (blocks_per_para[2000] >= 7) && (blocks_per_para[2001] <= 4);
 }
 
 module.exports = { run };
