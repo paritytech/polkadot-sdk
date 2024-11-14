@@ -14,10 +14,6 @@ default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
 chain = "rococo-local"
 default_command = "polkadot"
 
-  [relaychain.default_resources]
-  limits = { memory = "4G", cpu = "3" }
-  requests = { memory = "4G", cpu = "3" }
-
   [[relaychain.node_groups]]
   name = "elastic-validator"
   count = 3
