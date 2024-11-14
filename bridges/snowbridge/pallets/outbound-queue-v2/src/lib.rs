@@ -309,7 +309,7 @@ pub mod pallet {
 			// Create merkle root of messages
 			let root = merkle_root::<<T as Config>::Hashing, _>(MessageLeaves::<T>::stream_iter());
 
-			let digest_item: DigestItem = CustomDigestItem::Snowbridge(root).into();
+			let digest_item: DigestItem = CustomDigestItem::SnowbridgeV2(root).into();
 
 			// Insert merkle root into the header digest
 			<frame_system::Pallet<T>>::deposit_log(digest_item);
