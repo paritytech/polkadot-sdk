@@ -20,7 +20,7 @@
 
 use crate::{
 	common::events::{
-		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageEvent, PaginatedStorageQuery,
+		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageEvent, StorageQuery,
 	},
 	MethodResult,
 };
@@ -107,7 +107,7 @@ pub trait ArchiveApi<Hash> {
 	fn archive_unstable_storage(
 		&self,
 		hash: Hash,
-		items: Vec<PaginatedStorageQuery<String>>,
+		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
 	);
 
