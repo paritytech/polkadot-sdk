@@ -4,4 +4,4 @@ doc:
   description: "This PR fixes that ipv6 connections to localhost was faulty rejected by the host filter because only [::1] was allowed"
 crates:
 - name: sc-rpc-server
-  bump: minor
+  bump: patch
