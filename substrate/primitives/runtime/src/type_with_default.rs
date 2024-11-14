@@ -103,24 +103,6 @@ impl<T, D: Get<T>> Default for TypeWithDefault<T, D> {
 	}
 }
 
-impl<T: From<u16>, D: Get<T>> From<u16> for TypeWithDefault<T, D> {
-	fn from(value: u16) -> Self {
-		Self::new(value.into())
-	}
-}
-
-impl<T: From<u32>, D: Get<T>> From<u32> for TypeWithDefault<T, D> {
-	fn from(value: u32) -> Self {
-		Self::new(value.into())
-	}
-}
-
-impl<T: From<u64>, D: Get<T>> From<u64> for TypeWithDefault<T, D> {
-	fn from(value: u64) -> Self {
-		Self::new(value.into())
-	}
-}
-
 impl<T: CheckedNeg, D: Get<T>> CheckedNeg for TypeWithDefault<T, D> {
 	fn checked_neg(&self) -> Option<Self> {
 		self.0.checked_neg().map(Self::new)
@@ -217,24 +199,45 @@ impl<T: AddAssign, D: Get<T>> AddAssign for TypeWithDefault<T, D> {
 	}
 }
 
-impl<T: From<u8>, D: Get<T>> From<u8> for TypeWithDefault<T, D> {
-	fn from(value: u8) -> Self {
-		Self::new(value.into())
-	}
-}
-
 impl<T: Display, D: Get<T>> Display for TypeWithDefault<T, D> {
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "{}", self.0)
 	}
 }
 
-impl<T: TryFrom<u128>, D: Get<T>> TryFrom<u128> for TypeWithDefault<T, D> {
-	type Error = <T as TryFrom<u128>>::Error;
-	fn try_from(n: u128) -> Result<TypeWithDefault<T, D>, Self::Error> {
-		T::try_from(n).map(Self::new)
-	}
+macro_rules! impl_from {
+    ($for_type:ty $(, $from_type:ty)*) => {
+		$(
+			impl<D: Get<$for_type>> From<$from_type> for TypeWithDefault<$for_type, D> {
+				fn from(value: $from_type) -> Self {
+					Self::new(value.into())
+				}
+			}
+		)*
+    }
 }
+impl_from!(u128, u128, u64, u32, u16, u8);
+impl_from!(u64, u64, u32, u16, u8);
+impl_from!(u32, u32, u16, u8);
+impl_from!(u16, u16, u8);
+impl_from!(u8, u8);
+
+macro_rules! impl_try_from {
+    ($for_type:ty $(, $try_from_type:ty)*) => {
+		$(
+			impl<D: Get<$for_type>> TryFrom<$try_from_type> for TypeWithDefault<$for_type, D> {
+				type Error = <$for_type as TryFrom<$try_from_type>>::Error;
+				fn try_from(n: $try_from_type) -> Result<TypeWithDefault<$for_type, D>, Self::Error> {
+					<$for_type as TryFrom<$try_from_type>>::try_from(n).map(Self::new)
+				}
+			}
+		)*
+    }
+}
+impl_try_from!(u8, u16, u32, u64, u128);
+impl_try_from!(u16, u32, u64, u128);
+impl_try_from!(u32, u64, u128);
+impl_try_from!(u64, u128);
 
 impl<T: TryFrom<usize>, D: Get<T>> TryFrom<usize> for TypeWithDefault<T, D> {
 	type Error = <T as TryFrom<usize>>::Error;
@@ -514,5 +517,65 @@ impl<T: HasCompact, D: Get<T>> CompactAs for TypeWithDefault<T, D> {
 
 	fn decode_from(val: Self::As) -> Result<Self, codec::Error> {
 		Ok(Self::new(val))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::TypeWithDefault;
+	use sp_arithmetic::traits::{AtLeast16Bit, AtLeast32Bit, AtLeast8Bit};
+	use sp_core::Get;
+
+	#[test]
+	#[allow(dead_code)]
+	fn test_type_with_default_impl_base_arithmetic() {
+		trait WrapAtLeast8Bit: AtLeast8Bit {}
+		trait WrapAtLeast16Bit: AtLeast16Bit {}
+		trait WrapAtLeast32Bit: AtLeast32Bit {}
+
+		struct Getu8;
+		impl Get<u8> for Getu8 {
+			fn get() -> u8 {
+				0
+			}
+		}
+		type U8WithDefault = TypeWithDefault<u8, Getu8>;
+		impl WrapAtLeast8Bit for U8WithDefault {}
+
+		struct Getu16;
+		impl Get<u16> for Getu16 {
+			fn get() -> u16 {
+				0
+			}
+		}
+		type U16WithDefault = TypeWithDefault<u16, Getu16>;
+		impl WrapAtLeast16Bit for U16WithDefault {}
+
+		struct Getu32;
+		impl Get<u32> for Getu32 {
+			fn get() -> u32 {
+				0
+			}
+		}
+		type U32WithDefault = TypeWithDefault<u32, Getu32>;
+		impl WrapAtLeast32Bit for U32WithDefault {}
+
+		struct Getu64;
+		impl Get<u64> for Getu64 {
+			fn get() -> u64 {
+				0
+			}
+		}
+		type U64WithDefault = TypeWithDefault<u64, Getu64>;
+		impl WrapAtLeast32Bit for U64WithDefault {}
+
+		struct Getu128;
+		impl Get<u128> for Getu128 {
+			fn get() -> u128 {
+				0
+			}
+		}
+		type U128WithDefault = TypeWithDefault<u128, Getu128>;
+		impl WrapAtLeast32Bit for U128WithDefault {}
 	}
 }
