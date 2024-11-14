@@ -25,8 +25,7 @@ use crate::{
 		ArchiveApiServer,
 	},
 	common::events::{
-		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageResult,
-		PaginatedStorageQuery,
+		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageEvent, PaginatedStorageQuery,
 	},
 	hex_string, MethodResult, SubscriptionTaskExecutor,
 };
@@ -263,7 +262,7 @@ where
 		hash: Block::Hash,
 		items: Vec<PaginatedStorageQuery<String>>,
 		child_trie: Option<String>,
-	) -> RpcResult<ArchiveStorageResult> {
+	) -> RpcResult<ArchiveStorageEvent> {
 		let items = items
 			.into_iter()
 			.map(|query| {

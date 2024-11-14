@@ -235,7 +235,7 @@ pub struct OperationCallDone {
 	pub output: String,
 }
 
-/// The response of the `chainHead_call` method.
+/// The response of the `chainHead_storage` method.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OperationStorageItems {

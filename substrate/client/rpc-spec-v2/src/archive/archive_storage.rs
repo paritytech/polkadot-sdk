@@ -33,7 +33,7 @@ use crate::{
 	common::{
 		events::{
 			ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
-			ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageResult,
+			ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageEvent,
 			PaginatedStorageQuery, StorageQueryType, StorageResult,
 		},
 		storage::{IterQueryType, QueryIter, Storage},
@@ -78,7 +78,7 @@ where
 		hash: Block::Hash,
 		mut items: Vec<PaginatedStorageQuery<StorageKey>>,
 		child_key: Option<ChildInfo>,
-	) -> ArchiveStorageResult {
+	) -> ArchiveStorageEvent {
 		let discarded_items = items.len().saturating_sub(self.storage_max_queried_items);
 		items.truncate(self.storage_max_queried_items);
 
@@ -89,20 +89,20 @@ where
 					match self.client.query_value(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
-						Err(error) => return ArchiveStorageResult::err(error),
+						Err(error) => return ArchiveStorageEvent::err(error),
 					}
 				},
 				StorageQueryType::Hash =>
 					match self.client.query_hash(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
-						Err(error) => return ArchiveStorageResult::err(error),
+						Err(error) => return ArchiveStorageEvent::err(error),
 					},
 				StorageQueryType::ClosestDescendantMerkleValue =>
 					match self.client.query_merkle_value(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
-						Err(error) => return ArchiveStorageResult::err(error),
+						Err(error) => return ArchiveStorageEvent::err(error),
 					},
 				StorageQueryType::DescendantsValues => {
 					match self.client.query_iter_pagination(
@@ -116,7 +116,7 @@ where
 						self.storage_max_descendant_responses,
 					) {
 						Ok((results, _)) => storage_results.extend(results),
-						Err(error) => return ArchiveStorageResult::err(error),
+						Err(error) => return ArchiveStorageEvent::err(error),
 					}
 				},
 				StorageQueryType::DescendantsHashes => {
@@ -131,13 +131,13 @@ where
 						self.storage_max_descendant_responses,
 					) {
 						Ok((results, _)) => storage_results.extend(results),
-						Err(error) => return ArchiveStorageResult::err(error),
+						Err(error) => return ArchiveStorageEvent::err(error),
 					}
 				},
 			};
 		}
 
-		ArchiveStorageResult::ok(storage_results, discarded_items)
+		ArchiveStorageEvent::ok(storage_results, discarded_items)
 	}
 }
 

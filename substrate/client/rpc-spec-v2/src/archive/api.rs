@@ -99,7 +99,6 @@ pub trait ArchiveApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "archive_unstable_storage", blocking)]
 	#[subscription(
 		name = "archive_unstable_storage" => "archive_unstable_storageEvent",
 		unsubscribe = "archive_unstable_stopStorage",

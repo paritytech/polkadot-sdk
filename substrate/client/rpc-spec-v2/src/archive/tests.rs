@@ -20,7 +20,7 @@ use crate::{
 	common::events::{
 		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
 		ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageMethodOk,
-		ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType, StorageResultType,
+		ArchiveStorageEvent, PaginatedStorageQuery, StorageQueryType, StorageResultType,
 	},
 	hex_string, MethodResult,
 };
@@ -392,13 +392,13 @@ async fn archive_storage_hashes_values() {
 		},
 	];
 
-	let result: ArchiveStorageResult = api
+	let result: ArchiveStorageEvent = api
 		.call("archive_unstable_storage", rpc_params![&block_hash, items.clone()])
 		.await
 		.unwrap();
 
 	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+		ArchiveStorageEvent::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
 			// Key has not been imported yet.
 			assert_eq!(result.len(), 0);
 			assert_eq!(discarded_items, 0);
@@ -420,13 +420,13 @@ async fn archive_storage_hashes_values() {
 	let expected_hash = format!("{:?}", Blake2Hasher::hash(&VALUE));
 	let expected_value = hex_string(&VALUE);
 
-	let result: ArchiveStorageResult = api
+	let result: ArchiveStorageEvent = api
 		.call("archive_unstable_storage", rpc_params![&block_hash, items])
 		.await
 		.unwrap();
 
 	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+		ArchiveStorageEvent::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
 			assert_eq!(result.len(), 4);
 			assert_eq!(discarded_items, 0);
 
@@ -457,7 +457,7 @@ async fn archive_storage_closest_merkle_value() {
 		api: &RpcModule<Archive<Backend, Block, Client<Backend>>>,
 		block_hash: String,
 	) -> HashMap<String, String> {
-		let result: ArchiveStorageResult = api
+		let result: ArchiveStorageEvent = api
 			.call(
 				"archive_unstable_storage",
 				rpc_params![
@@ -514,7 +514,7 @@ async fn archive_storage_closest_merkle_value() {
 			.unwrap();
 
 		let merkle_values: HashMap<_, _> = match result {
-			ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, .. }) => result
+			ArchiveStorageEvent::Ok(ArchiveStorageMethodOk { result, .. }) => result
 				.into_iter()
 				.map(|res| {
 					let value = match res.result {
@@ -625,7 +625,7 @@ async fn archive_storage_paginate_iterations() {
 
 	// Calling with an invalid hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
-	let result: ArchiveStorageResult = api
+	let result: ArchiveStorageEvent = api
 		.call(
 			"archive_unstable_storage",
 			rpc_params![
@@ -640,12 +640,12 @@ async fn archive_storage_paginate_iterations() {
 		.await
 		.unwrap();
 	match result {
-		ArchiveStorageResult::Err(_) => (),
+		ArchiveStorageEvent::Err(_) => (),
 		_ => panic!("Unexpected result"),
 	};
 
 	// Valid call with storage at the key.
-	let result: ArchiveStorageResult = api
+	let result: ArchiveStorageEvent = api
 		.call(
 			"archive_unstable_storage",
 			rpc_params![
@@ -660,7 +660,7 @@ async fn archive_storage_paginate_iterations() {
 		.await
 		.unwrap();
 	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+		ArchiveStorageEvent::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
 			assert_eq!(result.len(), 1);
 			assert_eq!(discarded_items, 0);
 
@@ -671,7 +671,7 @@ async fn archive_storage_paginate_iterations() {
 	};
 
 	// Continue with pagination.
-	let result: ArchiveStorageResult = api
+	let result: ArchiveStorageEvent = api
 		.call(
 			"archive_unstable_storage",
 			rpc_params![
@@ -686,7 +686,7 @@ async fn archive_storage_paginate_iterations() {
 		.await
 		.unwrap();
 	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+		ArchiveStorageEvent::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
 			assert_eq!(result.len(), 1);
 			assert_eq!(discarded_items, 0);
 
@@ -697,7 +697,7 @@ async fn archive_storage_paginate_iterations() {
 	};
 
 	// Continue with pagination.
-	let result: ArchiveStorageResult = api
+	let result: ArchiveStorageEvent = api
 		.call(
 			"archive_unstable_storage",
 			rpc_params![
@@ -712,7 +712,7 @@ async fn archive_storage_paginate_iterations() {
 		.await
 		.unwrap();
 	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+		ArchiveStorageEvent::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
 			assert_eq!(result.len(), 1);
 			assert_eq!(discarded_items, 0);
 
@@ -723,7 +723,7 @@ async fn archive_storage_paginate_iterations() {
 	};
 
 	// Continue with pagination.
-	let result: ArchiveStorageResult = api
+	let result: ArchiveStorageEvent = api
 		.call(
 			"archive_unstable_storage",
 			rpc_params![
@@ -738,7 +738,7 @@ async fn archive_storage_paginate_iterations() {
 		.await
 		.unwrap();
 	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+		ArchiveStorageEvent::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
 			assert_eq!(result.len(), 1);
 			assert_eq!(discarded_items, 0);
 
@@ -749,7 +749,7 @@ async fn archive_storage_paginate_iterations() {
 	};
 
 	// Continue with pagination.
-	let result: ArchiveStorageResult = api
+	let result: ArchiveStorageEvent = api
 		.call(
 			"archive_unstable_storage",
 			rpc_params![
@@ -764,7 +764,7 @@ async fn archive_storage_paginate_iterations() {
 		.await
 		.unwrap();
 	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+		ArchiveStorageEvent::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
 			assert_eq!(result.len(), 1);
 			assert_eq!(discarded_items, 0);
 
@@ -775,7 +775,7 @@ async fn archive_storage_paginate_iterations() {
 	};
 
 	// Continue with pagination until no keys are returned.
-	let result: ArchiveStorageResult = api
+	let result: ArchiveStorageEvent = api
 		.call(
 			"archive_unstable_storage",
 			rpc_params![
@@ -790,7 +790,7 @@ async fn archive_storage_paginate_iterations() {
 		.await
 		.unwrap();
 	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+		ArchiveStorageEvent::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
 			assert_eq!(result.len(), 0);
 			assert_eq!(discarded_items, 0);
 		},
@@ -815,7 +815,7 @@ async fn archive_storage_discarded_items() {
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
 	// Valid call with storage at the key.
-	let result: ArchiveStorageResult = api
+	let result: ArchiveStorageEvent = api
 		.call(
 			"archive_unstable_storage",
 			rpc_params![
@@ -842,7 +842,7 @@ async fn archive_storage_discarded_items() {
 		.await
 		.unwrap();
 	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
+		ArchiveStorageEvent::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
 			assert_eq!(result.len(), 1);
 			assert_eq!(discarded_items, 2);
 
