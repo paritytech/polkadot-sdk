@@ -64,7 +64,6 @@ use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo},
 	traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
 };
-use scale_info::TypeInfo;
 use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
@@ -545,7 +544,7 @@ pub mod pallet {
 				if let Err(fallback_error) = fallback_result {
 					// Both calls have faild.
 					Self::deposit_event(Event::IfElseBothFailure { main_error: main_error.error, fallback_error: fallback_error.error });
-					return Err(Error::<T>::InvalidCalls.into())
+					return Err(sp_runtime::DispatchErrorWithPostInfo { error: Error::<T>::InvalidCalls.into(), post_info: Some(weight).into() })
 				}
 				// Fallback succeeded.
 				Self::deposit_event(Event::IfElseFallbackSuccess { main_error: main_error.error });

@@ -979,7 +979,7 @@ fn if_else_failing_else_call() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
-		assert_noop!(Utility::if_else(
+		assert_err_ignore_postinfo!(Utility::if_else(
 			RuntimeOrigin::signed(1),
 			Box::new(call_transfer(2, 11)),
 			Box::new(call_transfer(2, 11))
