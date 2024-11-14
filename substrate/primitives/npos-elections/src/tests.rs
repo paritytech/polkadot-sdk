@@ -313,6 +313,13 @@ fn phragmen_poc_works_with_max_backers_per_candidate() {
 	assert_eq!(with_bounded_backers.get(&1).unwrap().voters.len(), 2);
 	assert_eq!(with_bounded_backers.get(&2).unwrap().voters.len(), 2);
 	assert_eq!(with_bounded_backers.get(&3).unwrap().voters.len(), 2);
+
+	// max 1 backers per candidate.
+	let with_bounded_backers = run_election(Some(1));
+
+	assert_eq!(with_bounded_backers.get(&1).unwrap().voters.len(), 1);
+	assert_eq!(with_bounded_backers.get(&2).unwrap().voters.len(), 1);
+	assert_eq!(with_bounded_backers.get(&3).unwrap().voters.len(), 1);
 }
 
 #[test]

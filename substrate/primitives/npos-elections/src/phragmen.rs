@@ -141,7 +141,7 @@ pub fn seq_phragmen_core<AccountId: IdentifierT>(
 			}
 		}
 
-		// loop 2: increment score and number of backers.
+		// loop 2: increment score and the included backers of a candidate.
 		for voter in &mut voters {
 			for edge in &mut voter.edges {
 				let mut candidate = edge.candidate.borrow_mut();
@@ -151,7 +151,7 @@ pub fn seq_phragmen_core<AccountId: IdentifierT>(
 					!candidate.bounded_backers.contains(&voter.who)
 				{
 					// if the candidate has reached max backers and the voter is not part of the
-					// bounded backers, tain the edge with skip and continue.
+					// bounded backers, taint the edge with skip and continue.
 					edge.skip = true;
 					continue
 				}
@@ -199,7 +199,7 @@ pub fn seq_phragmen_core<AccountId: IdentifierT>(
 	for voter in &mut voters {
 		for edge in &mut voter.edges {
 			if edge.skip {
-				// skip this edge as its candidate has reached max backers.
+				// skip this edge as its candidate has already reached max backers.
 				continue
 			}
 
