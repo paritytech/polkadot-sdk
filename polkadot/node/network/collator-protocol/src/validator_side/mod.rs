@@ -1086,7 +1086,7 @@ fn ensure_seconding_limit_is_respected(
 		"Checking if seconded limit is reached"
 	);
 
-	// Relay parent is an outer leaf. There are no paths to it.
+	// Relay parent is a leaf. There are no paths to it.
 	if seconded_and_pending_above.is_empty() {
 		if seconded_and_pending_below >= claims_for_para {
 			gum::trace!(
@@ -1094,7 +1094,8 @@ fn ensure_seconding_limit_is_respected(
 				?relay_parent,
 				?para_id,
 				claims_for_para,
-				"Seconding limit exceeded for an outer leaf"
+				?seconded_and_pending_above,
+				"Seconding limit exceeded for a leaf"
 			);
 			return Err(AdvertisementError::SecondedLimitReached)
 		}
@@ -1102,7 +1103,7 @@ fn ensure_seconding_limit_is_respected(
 
 	// Checks if another collation can be accepted. The number of collations that can be seconded
 	// per parachain is limited by the entries in claim queue for the `ParaId` in question.
-	// No op for for outer leaves
+	// No op for for leaves
 	for claims_at_path in seconded_and_pending_above {
 		if claims_at_path + seconded_and_pending_below >= claims_for_para {
 			gum::trace!(
@@ -2186,9 +2187,9 @@ fn seconded_and_pending_for_para_above(
 	para_id: &ParaId,
 	claim_queue_len: usize,
 ) -> Vec<usize> {
-	let outer_paths = state.implicit_view.paths_to_relay_parent(relay_parent);
+	let leaf_paths = state.implicit_view.paths_to_relay_parent(relay_parent);
 	let mut result = vec![];
-	for path in outer_paths {
+	for path in leaf_paths {
 		let r = path
 			.iter()
 			.take(claim_queue_len)
