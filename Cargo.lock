@@ -8156,9 +8156,15 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
+<<<<<<< HEAD
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f46c51c205264b834ceed95c8b195026e700494bc3991aaba3b4ea9e20626d9"
+=======
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b67484b8ac41e1cfdf012f65fa81e88c2ef5f8a7d6dec0e2678c2d06dc04530"
+>>>>>>> 8bea091 (network/litep2p: Update litep2p network backend to version 0.8.1 (#6484))
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -15375,7 +15381,11 @@ checksum = "80b776a1b2dc779f5ee0641f8ade0125bc1298dd41a9a0c16d8bd57b42d222b1"
 dependencies = [
  "bytes",
  "heck 0.5.0",
+<<<<<<< HEAD
  "itertools 0.11.0",
+=======
+ "itertools 0.13.0",
+>>>>>>> 8bea091 (network/litep2p: Update litep2p network backend to version 0.8.1 (#6484))
  "log",
  "multimap",
  "once_cell",
@@ -15408,10 +15418,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81bddcdb20abf9501610992b6759a4c888aef7d1a7247ef75e2404275ac24af1"
 dependencies = [
  "anyhow",
+<<<<<<< HEAD
  "itertools 0.11.0",
  "proc-macro2 1.0.82",
  "quote 1.0.35",
  "syn 2.0.61",
+=======
+ "itertools 0.12.1",
+ "proc-macro2 1.0.86",
+ "quote 1.0.37",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "prost-derive"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acf0c195eebb4af52c752bec4f52f645da98b6e92077a04110c7f349477ae5ac"
+dependencies = [
+ "anyhow",
+ "itertools 0.13.0",
+ "proc-macro2 1.0.86",
+ "quote 1.0.37",
+ "syn 2.0.87",
+>>>>>>> 8bea091 (network/litep2p: Update litep2p network backend to version 0.8.1 (#6484))
 ]
 
 [[package]]
