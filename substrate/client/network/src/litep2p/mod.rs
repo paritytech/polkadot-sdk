@@ -920,7 +920,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						}
 					}
-					Some(DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols, .. }) => {
+					Some(DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols }) => {
 						self.discovery.add_self_reported_address(peer, supported_protocols, listen_addresses).await;
 					}
 					Some(DiscoveryEvent::ExternalAddressDiscovered { address }) => {
