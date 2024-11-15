@@ -362,8 +362,7 @@ struct State {
 	/// ancestry of some active leaf, then it does support prospective parachains.
 	implicit_view: ImplicitView,
 
-	/// All active leaves observed by us, including both that do and do not
-	/// support prospective parachains. This mapping works as a replacement for
+	/// All active leaves observed by us. This mapping works as a replacement for
 	/// [`polkadot_node_network_protocol::View`] and can be dropped once the transition
 	/// to asynchronous backing is done.
 	active_leaves: HashMap<Hash, AsyncBackingParams>,
@@ -2176,7 +2175,8 @@ fn seconded_and_pending_for_para_below(
 			ancestors
 				.iter()
 				.take(claim_queue_len)
-				.fold(0, |res, anc| res + state.seconded_and_pending_for_para(anc, para_id))
+				.map(|anc| state.seconded_and_pending_for_para(anc, para_id))
+				.sum()
 		})
 		.unwrap_or(0)
 }
@@ -2193,7 +2193,8 @@ fn seconded_and_pending_for_para_above(
 		let r = path
 			.iter()
 			.take(claim_queue_len)
-			.fold(0, |res, anc| res + state.seconded_and_pending_for_para(&anc, para_id));
+			.map(|anc| state.seconded_and_pending_for_para(anc, para_id))
+			.sum();
 		result.push(r);
 	}
 
