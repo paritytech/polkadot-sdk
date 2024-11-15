@@ -313,9 +313,10 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		}
 
-		let value = (value / U256::from(<Self::Config as crate::Config>::NativeToEthRatio::get()))
-			.try_into()
-			.map_err(|_| InvalidTransaction::Call)?;
+		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(value).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
+			InvalidTransaction::Call
+		})?;
 
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
