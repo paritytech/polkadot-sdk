@@ -22,14 +22,13 @@
 use crate::{
 	bridge_common_config::RelayersForPermissionlessLanesInstance, weights,
 	xcm_config::UniversalLocation, AccountId, Balance, Balances, BridgeRococoBulletinGrandpa,
-	BridgeRococoBulletinMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeHoldReason,
-	XcmOverRococoBulletin, XcmRouter,
+	BridgeRococoBulletinMessages, Runtime, RuntimeEvent, RuntimeHoldReason, XcmOverRococoBulletin,
+	XcmRouter,
 };
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LegacyLaneId,
 };
-use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
 
 use frame_support::{
 	parameter_types,
@@ -46,6 +45,7 @@ use testnet_parachains_constants::rococo::currency::UNITS as ROC;
 use xcm::{
 	latest::prelude::*,
 	prelude::{InteriorLocation, NetworkId},
+	AlwaysV5,
 };
 use xcm_builder::{BridgeBlobDispatcher, ParentIsPreset, SiblingParachainConvertsVia};
 
@@ -139,8 +139,7 @@ impl pallet_xcm_bridge_hub::Config<XcmOverPolkadotBulletinInstance> for Runtime 
 	type BridgeMessagesPalletInstance = WithRococoBulletinMessagesInstance;
 
 	type MessageExportPrice = ();
-	type DestinationVersion =
-		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, RococoBulletinGlobalConsensusNetworkLocation>;
+	type DestinationVersion = AlwaysV5;
 
 	type ForceOrigin = EnsureRoot<AccountId>;
 	// We don't want to allow creating bridges for this instance.
@@ -253,7 +252,7 @@ where
 	let universal_source =
 		[GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(sibling_para_id)].into();
 	let universal_destination =
-		[GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get()), Parachain(2075)].into();
+		[GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
 	let bridge_id = BridgeId::new(&universal_source, &universal_destination);
 
 	// insert only bridge metadata, because the benchmarks create lanes
