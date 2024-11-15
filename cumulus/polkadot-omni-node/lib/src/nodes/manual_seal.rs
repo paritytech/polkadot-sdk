@@ -61,7 +61,7 @@ impl<NodeSpec: NodeSpecT> BaseNodeSpec for ManualSealNode<NodeSpec> {
 	type Block = NodeSpec::Block;
 	type RuntimeApi = NodeSpec::RuntimeApi;
 	type BuildImportQueue = Self;
-	type WrapBlockImport = ClientBlockImport;
+	type InitBlockImport = ClientBlockImport;
 }
 
 impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {

@@ -59,7 +59,7 @@ pub(crate) trait BuildImportQueue<
 	) -> sc_service::error::Result<DefaultImportQueue<Block>>;
 }
 
-pub(crate) trait StartConsensus<Block: BlockT, RuntimeApi, BI, BIExtraReturnValue>
+pub(crate) trait StartConsensus<Block: BlockT, RuntimeApi, BI, BIAuxiliaryData>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
@@ -79,7 +79,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
-		block_import_extra_return_value: BIExtraReturnValue,
+		block_import_extra_return_value: BIAuxiliaryData,
 	) -> Result<(), sc_service::Error>;
 }
 
@@ -100,11 +100,11 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 
 pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
 	type BlockImport: sc_consensus::BlockImport<Block> + Clone + Send + Sync;
-	type ExtraReturnValue;
+	type BlockImportAuxiliaryData;
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<(Self::BlockImport, Self::ExtraReturnValue)>;
+	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)>;
 }
 
 pub(crate) struct ClientBlockImport;
@@ -114,11 +114,11 @@ where
 	RuntimeApi: Send + ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
 	type BlockImport = Arc<ParachainClient<Block, RuntimeApi>>;
-	type ExtraReturnValue = ();
+	type BlockImportAuxiliaryData = ();
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<(Self::BlockImport, Self::ExtraReturnValue)> {
+	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
 		Ok((client.clone(), ()))
 	}
 }
@@ -134,10 +134,10 @@ pub(crate) trait BaseNodeSpec {
 	type BuildImportQueue: BuildImportQueue<
 		Self::Block,
 		Self::RuntimeApi,
-		<Self::WrapBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
 	>;
 
-	type WrapBlockImport: InitBlockImport<Self::Block, Self::RuntimeApi>;
+	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
 
 	/// Starts a `ServiceBuilder` for a full service.
 	///
@@ -149,8 +149,8 @@ pub(crate) trait BaseNodeSpec {
 		ParachainService<
 			Self::Block,
 			Self::RuntimeApi,
-			<Self::WrapBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-			<Self::WrapBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::ExtraReturnValue
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData
 		>
 	>{
 		let telemetry = config
@@ -205,7 +205,7 @@ pub(crate) trait BaseNodeSpec {
 		);
 
 		let (block_import, extra_return_value) =
-			Self::WrapBlockImport::init_block_import(client.clone())?;
+			Self::InitBlockImport::init_block_import(client.clone())?;
 
 		let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
@@ -240,8 +240,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	type StartConsensus: StartConsensus<
 		Self::Block,
 		Self::RuntimeApi,
-		<Self::WrapBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-		<Self::WrapBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::ExtraReturnValue,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData,
 	>;
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;

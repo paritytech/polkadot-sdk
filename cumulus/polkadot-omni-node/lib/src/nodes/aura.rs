@@ -167,12 +167,12 @@ where
 /// Uses the lookahead collator to support async backing.
 ///
 /// Start an aura powered parachain node. Some system chains use this.
-pub(crate) struct AuraNode<Block, RuntimeApi, AuraId, StartConsensus, WrapBlockImport>(
-	pub PhantomData<(Block, RuntimeApi, AuraId, StartConsensus, WrapBlockImport)>,
+pub(crate) struct AuraNode<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport>(
+	pub PhantomData<(Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport)>,
 );
 
-impl<Block, RuntimeApi, AuraId, StartConsensus, WrapBlockImport> Default
-	for AuraNode<Block, RuntimeApi, AuraId, StartConsensus, WrapBlockImport>
+impl<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport> Default
+	for AuraNode<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport>
 {
 	fn default() -> Self {
 		Self(Default::default())
@@ -196,7 +196,7 @@ where
 	type RuntimeApi = RuntimeApi;
 	type BuildImportQueue =
 		BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, InitBlockImport::BlockImport>;
-	type WrapBlockImport = InitBlockImport;
+	type InitBlockImport = InitBlockImport;
 }
 
 impl<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport> NodeSpec
@@ -212,7 +212,7 @@ where
 			Block,
 			RuntimeApi,
 			InitBlockImport::BlockImport,
-			InitBlockImport::ExtraReturnValue,
+			InitBlockImport::BlockImportAuxiliaryData,
 		> + 'static,
 	InitBlockImport: self::InitBlockImport<Block, RuntimeApi> + Send,
 	InitBlockImport::BlockImport:
@@ -407,11 +407,11 @@ where
 		Arc<ParachainClient<Block, RuntimeApi>>,
 		ParachainClient<Block, RuntimeApi>,
 	>;
-	type ExtraReturnValue = SlotBasedBlockImportHandle<Block>;
+	type BlockImportAuxiliaryData = SlotBasedBlockImportHandle<Block>;
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<(Self::BlockImport, Self::ExtraReturnValue)> {
+	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
 		Ok(SlotBasedBlockImport::new(client.clone(), client))
 	}
 }
