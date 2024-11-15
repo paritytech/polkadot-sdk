@@ -263,7 +263,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn transfer_assets() -> Result<(), BenchmarkError> {
-		let (assets, fee_index, destination, verify) = T::set_up_complex_asset_transfer()
+		let (assets, fee_index, destination, verify_fn) = T::set_up_complex_asset_transfer()
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
@@ -284,7 +284,7 @@ mod benchmarks {
 		);
 
 		// run provided verification function
-		// verify();
+		verify_fn();
 		Ok(())
 	}
 
