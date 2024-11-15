@@ -27,7 +27,7 @@ use asset_hub_westend_runtime::{
 	AllPalletsWithoutSystem, Assets, Balances, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
 	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	TrustBackedAssetsInstance, XcmpQueue,
+	TrustBackedAssetsInstance, XcmpQueue, Block,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -1448,26 +1448,6 @@ fn location_conversion_works() {
 }
 
 #[test]
-fn calling_payment_api_with_a_lower_version_works() {
-	use xcm::prelude::*;
-	use xcm_runtime_apis::fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1;
-
-	ExtBuilder::<Runtime>::default().build().execute_with(|| {
-		let transfer_amount = 100u128;
-		let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
-			.withdraw_asset((Here, transfer_amount))
-			.buy_execution((Here, transfer_amount), Unlimited)
-			.deposit_asset(AllCounted(1), [1u8; 32])
-			.build();
-		let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.clone().into());
-		let lower_version_xcm_to_weigh =
-			versioned_xcm_to_weigh.into_version(XCM_VERSION - 1).unwrap();
-		let xcm_weight = Runtime::query_xcm_weight(lower_version_xcm_to_weigh);
-		assert!(xcm_weight.is_ok());
-		let native_token = VersionedAssetId::from(AssetId(Parent.into()));
-		let lower_version_native_token = native_token.into_version(XCM_VERSION - 1).unwrap();
-		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), lower_version_native_token);
-		assert!(execution_fees.is_ok());
-	});
+fn xcm_payment_api_works() {
+	asset_test_utils::test_cases::xcm_payment_api_works::<Runtime, RuntimeCall, Block>();
 }

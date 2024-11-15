@@ -34,7 +34,7 @@ use parachains_runtimes_test_utils::{
 	CollatorSessionKeys, ExtBuilder, SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{
-	traits::{MaybeEquivalence, StaticLookup, Zero},
+	traits::{MaybeEquivalence, StaticLookup, Zero, Block as BlockT},
 	DispatchError, Saturating,
 };
 use xcm::{latest::prelude::*, VersionedAssets};
@@ -1583,4 +1583,42 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				existential_deposit + balance_to_transfer.into()
 			);
 		})
+}
+
+use xcm_runtime_apis::fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1;
+
+pub fn xcm_payment_api_works<Runtime, RuntimeCall, Block: BlockT>()
+where
+	Runtime: XcmPaymentApiV1<Block>
+		+ frame_system::Config
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+{
+	use xcm::prelude::*;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let transfer_amount = 100u128;
+		let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
+			.withdraw_asset((Here, transfer_amount))
+			.buy_execution((Here, transfer_amount), Unlimited)
+			.deposit_asset(AllCounted(1), [1u8; 32])
+			.build();
+		let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.clone().into());
+		let lower_version_xcm_to_weigh =
+			versioned_xcm_to_weigh.into_version(XCM_VERSION - 1).unwrap();
+		let xcm_weight = Runtime::query_xcm_weight(lower_version_xcm_to_weigh);
+		assert!(xcm_weight.is_ok());
+		let native_token = VersionedAssetId::from(AssetId(Parent.into()));
+		let lower_version_native_token = native_token.into_version(XCM_VERSION - 1).unwrap();
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), lower_version_native_token);
+		assert!(execution_fees.is_ok());
+	});
 }

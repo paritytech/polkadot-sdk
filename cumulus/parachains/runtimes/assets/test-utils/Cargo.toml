@@ -36,6 +36,7 @@ xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 pallet-xcm = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 
 # Bridges
 pallet-xcm-bridge-hub-router = { workspace = true }
