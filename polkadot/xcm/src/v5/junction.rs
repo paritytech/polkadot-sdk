@@ -143,16 +143,20 @@ pub enum NetworkId {
 	/// The Kusama canary-net Relay-chain.
 	Kusama,
 	/// An Ethereum network specified by its chain ID.
+	#[codec(index = 7)]
 	Ethereum {
 		/// The EIP-155 chain ID.
 		#[codec(compact)]
 		chain_id: u64,
 	},
 	/// The Bitcoin network, including hard-forks supported by Bitcoin Core development team.
+	#[codec(index = 8)]
 	BitcoinCore,
 	/// The Bitcoin network, including hard-forks supported by Bitcoin Cash developers.
+	#[codec(index = 9)]
 	BitcoinCash,
 	/// The Polkadot Bulletin chain.
+	#[codec(index = 10)]
 	PolkadotBulletin,
 }
 
