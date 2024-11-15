@@ -76,6 +76,7 @@ impl From<TransactionSigned> for GenericTransaction {
 					max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
 					chain_id: Some(tx.chain_id),
 					gas: Some(tx.gas),
+					gas_price: Some(tx.max_fee_per_blob_gas),
 					to: Some(tx.to)
 				})
 			},

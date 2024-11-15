@@ -137,7 +137,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
 		let hash = H256(keccak_256(&transaction.0));
 
-		let tx = rlp::decode::<TransactionLegacySigned>(&transaction.0).map_err(|err| {
+		let tx = TransactionSigned::decode(&transaction.0).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
 			EthRpcError::from(err)
 		})?;
@@ -147,21 +147,11 @@ impl EthRpcServer for EthRpcServerImpl {
 			EthRpcError::InvalidSignature
 		})?;
 
+		let mut tx = GenericTransaction::from(tx);
+		tx.from = Some(eth_addr);
+
 		// Dry run the transaction to get the weight limit and storage deposit limit
-		let TransactionLegacyUnsigned { to, input, value, .. } = tx.transaction_legacy_unsigned;
-		let dry_run = self
-			.client
-			.dry_run(
-				&GenericTransaction {
-					from: Some(eth_addr),
-					input: Some(input.clone()),
-					to,
-					value: Some(value),
-					..Default::default()
-				},
-				BlockTag::Latest.into(),
-			)
-			.await?;
+		let dry_run = self.client.dry_run(&tx, BlockTag::Latest.into()).await?;
 
 		let EthContractResult { gas_required, storage_deposit, .. } = dry_run;
 		let call = subxt_client::tx().revive().eth_transact(
