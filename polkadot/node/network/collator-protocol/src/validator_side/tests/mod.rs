@@ -519,7 +519,7 @@ fn collator_reporting_works() {
 		let head = Hash::from_low_u64_be(128);
 		let head_num: u32 = 0;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head, head_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head, head_num)]).await;
 
 		let peer_b = PeerId::random();
 		let peer_c = PeerId::random();
@@ -625,7 +625,6 @@ fn fetch_one_collation_at_a_time_for_v1_advertisement() {
 			&mut virtual_overseer,
 			&test_state,
 			vec![(test_state.relay_parent, 0), (second, 1)],
-			2,
 		)
 		.await;
 
@@ -717,7 +716,6 @@ fn fetches_next_collation() {
 			&mut virtual_overseer,
 			&test_state,
 			vec![(test_state.relay_parent, 0), (second, 1)],
-			2,
 		)
 		.await;
 
@@ -834,8 +832,7 @@ fn reject_connection_to_next_group() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
-			.await;
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)]).await;
 
 		let peer_b = PeerId::random();
 
@@ -879,7 +876,6 @@ fn fetch_next_collation_on_invalid_collation() {
 			&mut virtual_overseer,
 			&test_state,
 			vec![(test_state.relay_parent, 0), (second, 1)],
-			2,
 		)
 		.await;
 
@@ -980,8 +976,7 @@ fn inactive_disconnected() {
 
 		let pair = CollatorPair::generate().0;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
-			.await;
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)]).await;
 
 		let peer_b = PeerId::random();
 
@@ -1027,7 +1022,6 @@ fn activity_extends_life() {
 			&mut virtual_overseer,
 			&test_state,
 			vec![(hash_a, 0), (hash_b, 1), (hash_c, 2)],
-			3,
 		)
 		.await;
 
@@ -1093,8 +1087,7 @@ fn disconnect_if_no_declare() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
-			.await;
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)]).await;
 
 		let peer_b = PeerId::random();
 
@@ -1124,8 +1117,7 @@ fn disconnect_if_wrong_declare() {
 		let pair = CollatorPair::generate().0;
 		let peer_b = PeerId::random();
 
-		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
-			.await;
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)]).await;
 
 		overseer_send(
 			&mut virtual_overseer,
@@ -1176,8 +1168,7 @@ fn delay_reputation_change() {
 		let pair = CollatorPair::generate().0;
 		let peer_b = PeerId::random();
 
-		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
-			.await;
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)]).await;
 
 		overseer_send(
 			&mut virtual_overseer,
@@ -1254,8 +1245,7 @@ fn view_change_clears_old_collators() {
 
 		let peer = PeerId::random();
 
-		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)], 1)
-			.await;
+		update_view(&mut virtual_overseer, &test_state, vec![(test_state.relay_parent, 0)]).await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
@@ -1268,7 +1258,7 @@ fn view_change_clears_old_collators() {
 
 		test_state.group_rotation_info = test_state.group_rotation_info.bump_rotation();
 
-		update_view(&mut virtual_overseer, &test_state, vec![], 0).await;
+		update_view(&mut virtual_overseer, &test_state, vec![]).await;
 
 		assert_collator_disconnect(&mut virtual_overseer, peer).await;
 

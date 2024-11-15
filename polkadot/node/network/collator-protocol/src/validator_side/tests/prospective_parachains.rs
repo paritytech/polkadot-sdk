@@ -78,7 +78,6 @@ pub(super) async fn update_view(
 	virtual_overseer: &mut VirtualOverseer,
 	test_state: &TestState,
 	new_view: Vec<(Hash, u32)>, // Hash and block number.
-	activated: u8,              // How many new heads does this update contain?
 ) -> Option<AllMessages> {
 	let new_view: HashMap<Hash, u32> = HashMap::from_iter(new_view);
 
@@ -91,7 +90,7 @@ pub(super) async fn update_view(
 	.await;
 
 	let mut next_overseer_message = None;
-	for _ in 0..activated {
+	for _ in 0..new_view.len() {
 		let msg = match next_overseer_message.take() {
 			Some(msg) => msg,
 			None => overseer_recv(virtual_overseer).await,
@@ -474,7 +473,7 @@ fn v1_advertisement_accepted_and_seconded() {
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 0;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)]).await;
 
 		let peer_a = PeerId::random();
 
@@ -553,7 +552,7 @@ fn v1_advertisement_rejected_on_non_active_leaf() {
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 5;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)]).await;
 
 		let peer_a = PeerId::random();
 
@@ -603,7 +602,7 @@ fn accept_advertisements_from_implicit_view() {
 		let head_d = get_parent_hash(head_c);
 
 		// Activated leaf is `b`, but the collation will be based on `c`.
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)]).await;
 
 		let peer_a = PeerId::random();
 		let peer_b = PeerId::random();
@@ -706,7 +705,6 @@ fn second_multiple_candidates_per_relay_parent() {
 			&mut virtual_overseer,
 			&test_state,
 			vec![(head_a, head_a_num), (head_b, head_b_num)],
-			2,
 		)
 		.await;
 
@@ -796,7 +794,7 @@ fn fetched_collation_sanity_check() {
 		let head_c = Hash::from_low_u64_be(130);
 
 		// Activated leaf is `b`, but the collation will be based on `c`.
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)]).await;
 
 		let peer_a = PeerId::random();
 
@@ -900,7 +898,7 @@ fn sanity_check_invalid_parent_head_data() {
 		let head_c = Hash::from_low_u64_be(130);
 		let head_c_num = 3;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head_c, head_c_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head_c, head_c_num)]).await;
 
 		let peer_a = PeerId::random();
 
@@ -1023,7 +1021,7 @@ fn advertisement_spam_protection() {
 		let head_c = get_parent_hash(head_b);
 
 		// Activated leaf is `b`, but the collation will be based on `c`.
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)]).await;
 
 		let peer_a = PeerId::random();
 		connect_and_declare_collator(
@@ -1101,7 +1099,7 @@ fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		let head_c = Hash::from_low_u64_be(130);
 
 		// Activated leaf is `b`, but the collation will be based on `c`.
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)]).await;
 
 		let peer_a = PeerId::random();
 
@@ -1402,7 +1400,7 @@ fn v2_descriptor(#[case] v2_feature_enabled: bool) {
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 0;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)]).await;
 
 		let peer_a = PeerId::random();
 
@@ -1510,7 +1508,7 @@ fn invalid_v2_descriptor() {
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 0;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)]).await;
 
 		let peer_a = PeerId::random();
 
@@ -1614,7 +1612,7 @@ fn fair_collation_fetches() {
 		let head_b = Hash::from_low_u64_be(128);
 		let head_b_num: u32 = 2;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)]).await;
 
 		let peer_a = PeerId::random();
 		let pair_a = CollatorPair::generate().0;
@@ -1724,7 +1722,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		let head = Hash::from_low_u64_be(128);
 		let head_num: u32 = 2;
 
-		update_view(&mut virtual_overseer, &test_state, vec![(head, head_num)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(head, head_num)]).await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
@@ -1898,7 +1896,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 
 		let relay_parent_2 = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
 
-		update_view(&mut virtual_overseer, &test_state, vec![(relay_parent_2, 2)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(relay_parent_2, 2)]).await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
@@ -1944,7 +1942,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		// them fall in the same view.
 		let relay_parent_4 = Hash::from_low_u64_be(relay_parent_2.to_low_u64_be() - 2);
 
-		update_view(&mut virtual_overseer, &test_state, vec![(relay_parent_4, 4)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(relay_parent_4, 4)]).await;
 
 		// One advertisement for `para_id_b` at `relay_parent_4`
 		submit_second_and_assert(
@@ -1996,7 +1994,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		// At `relay_parent_6` the advertisement for `para_id_b` falls out of the view so a new one
 		// can be accepted
 		let relay_parent_6 = Hash::from_low_u64_be(relay_parent_4.to_low_u64_be() - 2);
-		update_view(&mut virtual_overseer, &test_state, vec![(relay_parent_6, 6)], 1).await;
+		update_view(&mut virtual_overseer, &test_state, vec![(relay_parent_6, 6)]).await;
 
 		submit_second_and_assert(
 			&mut virtual_overseer,
@@ -2044,7 +2042,6 @@ fn claim_queue_spot_claimed_at_next_relay_parent() {
 			&mut virtual_overseer,
 			&test_state,
 			vec![(hash_a, 0), (hash_b, 1), (hash_c, 2)],
-			3,
 		)
 		.await;
 
