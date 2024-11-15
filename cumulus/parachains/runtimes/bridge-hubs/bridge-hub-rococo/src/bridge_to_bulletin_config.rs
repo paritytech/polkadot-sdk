@@ -27,7 +27,7 @@ use crate::{
 };
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
-	target_chain::FromBridgedChainMessagesProof, HashedLaneId,
+	target_chain::FromBridgedChainMessagesProof, LegacyLaneId,
 };
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
 
@@ -120,7 +120,7 @@ impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runt
 
 	type OutboundPayload = XcmAsPlainPayload;
 	type InboundPayload = XcmAsPlainPayload;
-	type LaneId = HashedLaneId;
+	type LaneId = LegacyLaneId;
 
 	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = ();
@@ -278,30 +278,4 @@ where
 	pallet_xcm_bridge_hub::LaneToBridge::<R, XBHI>::insert(lane_id, bridge_id);
 
 	universal_source
-}
-
-/// Contains the migration for the PeopleRococo<>RococoBulletin bridge.
-pub mod migration {
-	use super::*;
-	use frame_support::traits::ConstBool;
-
-	parameter_types! {
-		pub BulletinRococoLocation: InteriorLocation = [GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())].into();
-		pub RococoPeopleToRococoBulletinMessagesLane: HashedLaneId = pallet_xcm_bridge_hub::Pallet::< Runtime, XcmOverPolkadotBulletinInstance >::bridge_locations(
-				PeopleRococoLocation::get(),
-				BulletinRococoLocation::get()
-			)
-			.unwrap()
-			.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations");
-	}
-
-	/// Ensure that the existing lanes for the People<>Bulletin bridge are correctly configured.
-	pub type StaticToDynamicLanes = pallet_xcm_bridge_hub::migration::OpenBridgeForLane<
-		Runtime,
-		XcmOverPolkadotBulletinInstance,
-		RococoPeopleToRococoBulletinMessagesLane,
-		ConstBool<true>,
-		PeopleRococoLocation,
-		BulletinRococoLocation,
-	>;
 }
