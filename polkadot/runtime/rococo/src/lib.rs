@@ -232,7 +232,7 @@ parameter_types! {
 		BlockWeights::get().max_block;
 	pub const MaxScheduledPerBlock: u32 = 50;
 	pub const MaxScheduledBlocks: u32 = 50;
-	pub const MaxStaleTaskAge: u64 = 10;
+	pub const MaxStaleTaskAge: u32 = 10;
 	pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
 

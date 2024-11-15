@@ -605,13 +605,14 @@ parameter_types! {
 parameter_types! {
 	pub const MaxScheduledPerBlock: u32 = 50;
 	pub const MaxScheduledBlocks: u32 = 50;
+	pub const MaxStaleTaskAge: u32 = 10;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub const MaxScheduledPerBlock: u32 = 200;
 	pub const MaxScheduledBlocks: u32 = 200;
-	pub const MaxStaleTaskAge: u64 = 10;
+	pub const MaxStaleTaskAge: u32 = 40;
 }
 
 impl pallet_scheduler::Config for Runtime {
