@@ -41,14 +41,11 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	node_features,
-	vstaging::{CandidateReceiptV2 as CandidateReceipt, CoreState, OccupiedCore},
-	AsyncBackingParams, CollatorPair, CoreIndex, GroupIndex, GroupRotationInfo, HeadData,
-	NodeFeatures, PersistedValidationData, ScheduledCore, ValidatorId, ValidatorIndex,
+	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, AsyncBackingParams,
+	CollatorPair, CoreIndex, GroupRotationInfo, HeadData, NodeFeatures, PersistedValidationData,
+	ValidatorId, ValidatorIndex,
 };
-use polkadot_primitives_test_helpers::{
-	dummy_candidate_descriptor, dummy_candidate_receipt_bad_sig, dummy_hash,
-};
+use polkadot_primitives_test_helpers::{dummy_candidate_receipt_bad_sig, dummy_hash};
 
 mod prospective_parachains;
 
@@ -73,7 +70,6 @@ struct TestState {
 	validator_public: Vec<ValidatorId>,
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	group_rotation_info: GroupRotationInfo,
-	cores: Vec<CoreState>,
 	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	async_backing_params: AsyncBackingParams,
 	node_features: NodeFeatures,
@@ -103,32 +99,6 @@ impl Default for TestState {
 		let group_rotation_info =
 			GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 1, now: 0 };
 
-		let cores = vec![
-			CoreState::Scheduled(ScheduledCore {
-				para_id: ParaId::from(Self::CHAIN_IDS[0]),
-				collator: None,
-			}),
-			CoreState::Free,
-			CoreState::Occupied(OccupiedCore {
-				next_up_on_available: Some(ScheduledCore {
-					para_id: ParaId::from(Self::CHAIN_IDS[1]),
-					collator: None,
-				}),
-				occupied_since: 0,
-				time_out_at: 1,
-				next_up_on_time_out: None,
-				availability: Default::default(),
-				group_responsible: GroupIndex(0),
-				candidate_hash: Default::default(),
-				candidate_descriptor: {
-					let mut d = dummy_candidate_descriptor(dummy_hash());
-					d.para_id = ParaId::from(Self::CHAIN_IDS[1]);
-
-					d.into()
-				},
-			}),
-		];
-
 		let mut claim_queue = BTreeMap::new();
 		claim_queue.insert(
 			CoreIndex(0),
@@ -155,7 +125,6 @@ impl Default for TestState {
 			validator_public,
 			validator_groups,
 			group_rotation_info,
-			cores,
 			claim_queue,
 			async_backing_params: Self::ASYNC_BACKING_PARAMS,
 			node_features,
@@ -171,14 +140,6 @@ impl TestState {
 
 	fn with_shared_core() -> Self {
 		let mut state = Self::default();
-
-		let cores = vec![
-			CoreState::Scheduled(ScheduledCore {
-				para_id: ParaId::from(Self::CHAIN_IDS[0]),
-				collator: None,
-			}),
-			CoreState::Free,
-		];
 
 		let mut claim_queue = BTreeMap::new();
 		claim_queue.insert(
@@ -199,7 +160,6 @@ impl TestState {
 				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
 		);
 
-		state.cores = cores;
 		state.claim_queue = claim_queue;
 
 		state
@@ -207,11 +167,6 @@ impl TestState {
 
 	fn with_one_scheduled_para() -> Self {
 		let mut state = Self::default();
-
-		let cores = vec![CoreState::Scheduled(ScheduledCore {
-			para_id: ParaId::from(Self::CHAIN_IDS[0]),
-			collator: None,
-		})];
 
 		let validator_groups = vec![vec![ValidatorIndex(0), ValidatorIndex(1)]];
 
@@ -233,7 +188,6 @@ impl TestState {
 				Self::ASYNC_BACKING_PARAMS.allowed_ancestry_len as usize
 		);
 
-		state.cores = cores;
 		state.validator_groups = validator_groups;
 		state.claim_queue = claim_queue;
 
