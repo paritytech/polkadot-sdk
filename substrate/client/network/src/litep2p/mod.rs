@@ -1022,7 +1022,13 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							metrics.pending_connections_errors_total.with_label_values(&[reason]).inc();
 						}
 					}
-					_ => {}
+					None => {
+						log::error!(
+								target: LOG_TARGET,
+								"Litep2p backend terminated"
+						);
+						return
+					}
 				},
 			}
 		}
