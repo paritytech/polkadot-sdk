@@ -20,7 +20,6 @@ use crate::{
 	mock::*, verifier::QueuedSolution, PagedVoterSnapshot, Phase, Snapshot, TargetSnapshot,
 	Verifier,
 };
-use sp_externalities::Extension;
 
 use frame_election_provider_support::ElectionProvider;
 use frame_support::{assert_err, assert_ok};

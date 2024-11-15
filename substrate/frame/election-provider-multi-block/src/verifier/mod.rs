@@ -80,7 +80,8 @@ use sp_runtime::RuntimeDebug;
 // public re-exports.
 pub use impls::pallet::{
 	Call, Config, Event, Pallet, QueuedSolution, __substrate_call_check, __substrate_event_check,
-	tt_default_parts, tt_default_parts_v2, tt_error_token,
+	__substrate_genesis_config_check, tt_default_parts, tt_default_parts_v2, tt_error_token,
+	GenesisConfig,
 };
 
 /// Errors related to the solution feasibility checks.

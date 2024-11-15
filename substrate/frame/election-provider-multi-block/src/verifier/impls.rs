@@ -27,7 +27,7 @@ use frame_support::{
 	BoundedVec,
 };
 use sp_runtime::{traits::Zero, Perbill};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
+use sp_std::{collections::btree_map::BTreeMap, marker::PhantomData, vec::Vec};
 
 #[frame_support::pallet]
 pub(crate) mod pallet {
@@ -98,7 +98,7 @@ pub(crate) mod pallet {
 	/// [`MininumScore`].
 	/// - The [`QueuedSolutionBackings`] are always the backings corresponding to the *invalid*
 	/// variant.
-	pub struct QueuedSolution<T: Config>(sp_std::marker::PhantomData<T>);
+	pub struct QueuedSolution<T: Config>(PhantomData<T>);
 
 	impl<T: Config> QueuedSolution<T> {
 		fn mutate_checked<R>(mutate: impl FnOnce() -> R) -> R {
@@ -284,6 +284,22 @@ pub(crate) mod pallet {
 	pub(crate) type RemainingUnsignedPages<T: Config> =
 		StorageValue<_, BoundedVec<PageIndex, T::Pages>, ValueQuery>;
 
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		pub minimum_score: Option<ElectionScore>,
+		pub _phantom: PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			if let Some(min_score) = self.minimum_score {
+				Pallet::<T>::set_minimum_score(min_score);
+			}
+		}
+	}
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
@@ -429,7 +445,7 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 					FeasibilityError::ScoreTooLow,
 				));
 				// report to the solution data provider that the page verification failed.
-				T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+				Self::SolutionDataProvider::report_result(VerificationResult::Rejected);
 				// despite the verification failed, this was a successful `start` operation.
 				Ok(())
 			} else {
@@ -650,6 +666,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 			.map_or(true, |min_score| score.strict_threshold_better(min_score, Perbill::zero()));
 
 		ensure!(is_greater_than_min_trusted, FeasibilityError::ScoreTooLow);
+
 		Ok(())
 	}
 
