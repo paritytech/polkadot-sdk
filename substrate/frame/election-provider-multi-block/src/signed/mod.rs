@@ -485,10 +485,6 @@ pub mod pallet {
 			who: &T::AccountId,
 			metadata: SubmissionMetadata<T>,
 		) {
-			// TODO: remove comment
-			//debug_assert!(SortedScores::<T>::get(round).iter().any(|(account, _)| who ==
-			// account));
-
 			Self::mutate_checked(round, || {
 				SubmissionMetadataStorage::<T>::insert(round, who, metadata);
 			});
@@ -634,6 +630,18 @@ pub mod pallet {
 			if let Some(metadata) = maybe_metadata {
 				SubmissionMetadataStorage::<T>::insert(round, who.clone(), metadata);
 			}
+		}
+
+		pub(crate) fn get_submission_metadata(
+			round: u32,
+			who: &T::AccountId,
+		) -> Option<(ElectionScore, BoundedVec<bool, PagesOf<T>>, BalanceOf<T>, ReleaseStrategy)>
+		{
+			Submissions::<T>::metadata_for(round, who).map(
+				|SubmissionMetadata { claimed_score, pages, deposit, release_strategy }| {
+					(claimed_score, pages, deposit, release_strategy)
+				},
+			)
 		}
 	}
 

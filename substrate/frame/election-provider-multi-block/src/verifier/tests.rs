@@ -423,23 +423,6 @@ mod async_verifier {
 			});
 		}
 
-		// #[test]
-		// fn reports_result_rejection_for_too_low_score() {
-		// 	ExtBuilder::default().build_and_execute(|| {
-		// 		let current_round = MultiPhase::current_round();
-
-		// 		<VerifierPallet as AsyncVerifier>::set_status(Status::Nothing);
-
-		// 		let leader = Submissions::leader(current_round);
-		// 		assert!(leader.is_some());
-
-		// 		assert_ok!(<VerifierPallet as AsyncVerifier>::start());
-
-		// 		let leader_metadata = Submissions::metadata_for(current_round, leader.unwrap().0);
-		// 	});
-		// }
-		//
-
 		#[test]
 		#[should_panic(expected = "unexpected: selected leader without active submissions.")]
 		fn reports_result_rejection_no_metadata_fails() {
@@ -526,13 +509,39 @@ mod async_verifier {
 					);
 					assert!(Submissions::<T>::scores_for(current_round()).len() == 1);
 
-					// insert a score lower than minimum score.
+					// submission metadata as expected before starting the verification of the
+					// submission.
+					assert_eq!(
+						Submissions::<T>::get_submission_metadata(current_round(), &1).unwrap(),
+						(
+							ElectionScore {
+								minimal_stake: 10,
+								sum_stake: 10,
+								sum_stake_squared: 10
+							},
+							bounded_vec![],
+							0,
+							signed::ReleaseStrategy::All
+						),
+					);
+
+					// start verification, it will fail due to low score.
 					assert_ok!(<VerifierPallet as AsyncVerifier>::start());
 
-					// score too low event submitted.
+					// submission metadata now signals that the deposit should ALL be burned, due
+					// to the bad submission.
 					assert_eq!(
-						verifier_events(),
-						vec![Event::<T>::VerificationFailed(2, FeasibilityError::ScoreTooLow,)]
+						Submissions::<T>::get_submission_metadata(current_round(), &1).unwrap(),
+						(
+							ElectionScore {
+								minimal_stake: 10,
+								sum_stake: 10,
+								sum_stake_squared: 10
+							},
+							bounded_vec![],
+							0,
+							signed::ReleaseStrategy::BurnAll
+						),
 					);
 				})
 		}
