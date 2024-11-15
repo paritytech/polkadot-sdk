@@ -204,7 +204,7 @@ pub(crate) trait BaseNodeSpec {
 			.build(),
 		);
 
-		let (block_import, extra_return_value) =
+		let (block_import, block_import_auxiliary_data) =
 			Self::InitBlockImport::init_block_import(client.clone())?;
 
 		let block_import = ParachainBlockImport::new(block_import, backend.clone());
@@ -225,7 +225,7 @@ pub(crate) trait BaseNodeSpec {
 			task_manager,
 			transaction_pool,
 			select_chain: (),
-			other: (block_import, telemetry, telemetry_worker_handle, extra_return_value),
+			other: (block_import, telemetry, telemetry_worker_handle, block_import_auxiliary_data),
 		})
 	}
 }
@@ -269,7 +269,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					block_import,
 					mut telemetry,
 					telemetry_worker_handle,
-					block_import_extra_return_value,
+					block_import_auxiliary_data,
 				) = params.other;
 
 				let client = params.client.clone();
@@ -400,7 +400,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						announce_block,
 						backend.clone(),
 						node_extra_args,
-						block_import_extra_return_value,
+						block_import_auxiliary_data,
 					)?;
 				}
 
