@@ -281,7 +281,7 @@ impl ClientInner {
 			let transaction_hash = H256(keccak_256(&call.payload));
 			let signed_tx = TransactionSigned::decode(&call.payload).ok()?;
 			let from = signed_tx.recover_eth_address().ok()?;
-			let tx_info: GenericTransaction = signed_tx.clone().into();
+			let tx_info = GenericTransaction::from_signed(signed_tx.clone(), Some(from));
 			let contract_address = if tx_info.to.is_none() {
 				Some(create1(&from, tx_info.nonce.unwrap_or_default().try_into().ok()?))
 			} else {

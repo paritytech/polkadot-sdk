@@ -147,8 +147,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			EthRpcError::InvalidSignature
 		})?;
 
-		let mut tx = GenericTransaction::from(tx);
-		tx.from = Some(eth_addr);
+		let tx = GenericTransaction::from_signed(tx, Some(eth_addr));
 
 		// Dry run the transaction to get the weight limit and storage deposit limit
 		let dry_run = self.client.dry_run(&tx, BlockTag::Latest.into()).await?;
