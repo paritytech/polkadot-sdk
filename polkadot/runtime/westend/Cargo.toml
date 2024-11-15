@@ -11,6 +11,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+pallet-ah-migrator = { path = "../pallets/ah-migrator", default-features = false }
+
 bitvec = { features = ["alloc"], workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }

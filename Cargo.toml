@@ -208,6 +208,7 @@ members = [
 	"polkadot/runtime/common",
 	"polkadot/runtime/common/slot_range_helper",
 	"polkadot/runtime/metrics",
+	"polkadot/runtime/pallets/ah-migrator",
 	"polkadot/runtime/parachains",
 	"polkadot/runtime/rococo",
 	"polkadot/runtime/rococo/constants",

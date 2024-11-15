@@ -1431,6 +1431,10 @@ impl OnSwap for SwapLeases {
 	}
 }
 
+impl pallet_ah_migrator::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
+
 #[frame_support::runtime(legacy_ordering)]
 mod runtime {
 	#[runtime::runtime]
@@ -1626,6 +1630,9 @@ mod runtime {
 	pub type Mmr = pallet_mmr;
 	#[runtime::pallet_index(202)]
 	pub type BeefyMmrLeaf = pallet_beefy_mmr;
+
+	#[runtime::pallet_index(247)]
+	pub type AhMigrator = pallet_ah_migrator;
 
 	// Pallet for migrating Identity to a parachain. To be removed post-migration.
 	#[runtime::pallet_index(248)]
