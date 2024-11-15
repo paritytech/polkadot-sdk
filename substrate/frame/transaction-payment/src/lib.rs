@@ -403,6 +403,7 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub type NextFeeMultiplier<T: Config> =
 		StorageValue<_, Multiplier, ValueQuery, NextFeeMultiplierOnEmpty>;
 
