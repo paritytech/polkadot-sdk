@@ -613,7 +613,7 @@ pub mod v5 {
 }
 
 #[cfg(test)]
-pub mod test {
+pub mod test_v5 {
 	use super::*;
 	use crate::{migration::v5::IncompleteSince, mock::*};
 	use alloc::vec;
