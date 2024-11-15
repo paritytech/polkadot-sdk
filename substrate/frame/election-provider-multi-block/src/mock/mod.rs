@@ -274,6 +274,7 @@ impl ElectionProvider for MockFallback {
 
 #[derive(Default)]
 pub struct ExtBuilder {
+	minimum_score: Option<ElectionScore>,
 	with_verifier: bool,
 }
 
@@ -344,8 +345,13 @@ impl ExtBuilder {
 		self
 	}
 
+	pub(crate) fn minimum_score(mut self, score: ElectionScore) -> Self {
+		self.minimum_score = Some(score);
+		self
+	}
+
 	pub(crate) fn verifier() -> Self {
-		ExtBuilder { with_verifier: true }
+		ExtBuilder { with_verifier: true, ..Default::default() }
 	}
 
 	pub(crate) fn build(self) -> sp_io::TestExternalities {
@@ -374,6 +380,12 @@ impl ExtBuilder {
 				(999, 100),
 				(9999, 100),
 			],
+		}
+		.assimilate_storage(&mut storage);
+
+		let _ = verifier_pallet::GenesisConfig::<T> {
+			minimum_score: self.minimum_score,
+			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
@@ -618,6 +630,16 @@ pub(crate) fn signed_events() -> Vec<crate::signed::Event<T>> {
 		.into_iter()
 		.map(|r| r.event)
 		.filter_map(|e| if let RuntimeEvent::SignedPallet(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
+pub(crate) fn verifier_events() -> Vec<crate::verifier::Event<T>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(
+			|e| if let RuntimeEvent::VerifierPallet(inner) = e { Some(inner) } else { None },
+		)
 		.collect()
 }
 

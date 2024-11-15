@@ -17,10 +17,11 @@
 
 use crate::{
 	mock::*,
-	verifier::{impls::pallet::*, *},
+	signed,
+	verifier::{impls::pallet::*, SolutionDataProvider, *},
 	Phase,
 };
-use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
+use frame_support::{assert_err, assert_noop, assert_ok, testing_prelude::*, StorageMap};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::Perbill;
 
@@ -412,7 +413,7 @@ mod async_verifier {
 
 	mod verification_start {
 		use super::*;
-		use crate::signed::pallet::Submissions;
+		use crate::signed::{pallet::Submissions, SubmissionMetadata};
 
 		#[test]
 		fn fails_if_verification_is_ongoing() {
@@ -437,6 +438,104 @@ mod async_verifier {
 		// 		let leader_metadata = Submissions::metadata_for(current_round, leader.unwrap().0);
 		// 	});
 		// }
+		//
+
+		#[test]
+		#[should_panic(expected = "unexpected: selected leader without active submissions.")]
+		fn reports_result_rejection_no_metadata_fails() {
+			ExtBuilder::default()
+				.minimum_score(ElectionScore {
+					minimal_stake: 100,
+					sum_stake: 100,
+					sum_stake_squared: 100,
+				})
+				.solution_improvements_threshold(Perbill::from_percent(10))
+				.build_and_execute(|| {
+					<VerifierPallet as AsyncVerifier>::set_status(Status::Nothing);
+
+					// no score in sorted scores yet.
+					assert!(<SignedPallet as SolutionDataProvider>::get_score().is_none());
+					assert!(Submissions::<T>::scores_for(current_round()).is_empty());
+
+					let low_score =
+						ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 10 };
+
+					// force insert score and `None` metadata.
+					Submissions::<T>::insert_score_and_metadata(
+						current_round(),
+						1,
+						Some(low_score),
+						None,
+					);
+
+					// low_score has been added to the sorted scores.
+					assert_eq!(
+						<SignedPallet as SolutionDataProvider>::get_score(),
+						Some(low_score)
+					);
+					assert!(Submissions::<T>::scores_for(current_round()).len() == 1);
+					// metadata is None.
+					assert_eq!(
+						Submissions::<T>::take_leader_score(current_round()),
+						Some((1, None))
+					);
+					// will defensive panic since submission metadata does not exist.
+					let _ = <VerifierPallet as AsyncVerifier>::start();
+				})
+		}
+
+		#[test]
+		fn reports_result_rejection_works() {
+			ExtBuilder::default()
+				.minimum_score(ElectionScore {
+					minimal_stake: 100,
+					sum_stake: 100,
+					sum_stake_squared: 100,
+				})
+				.solution_improvements_threshold(Perbill::from_percent(10))
+				.build_and_execute(|| {
+					<VerifierPallet as AsyncVerifier>::set_status(Status::Nothing);
+
+					// no score in sorted scores or leader yet.
+					assert!(<SignedPallet as SolutionDataProvider>::get_score().is_none());
+					assert!(Submissions::<T>::scores_for(current_round()).is_empty());
+					assert_eq!(Submissions::<T>::take_leader_score(current_round()), None);
+
+					let low_score =
+						ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 10 };
+
+					let metadata = Submissions::submission_metadata_from(
+						low_score,
+						Default::default(),
+						Default::default(),
+						Default::default(),
+					);
+
+					// force insert score and metadata.
+					Submissions::<T>::insert_score_and_metadata(
+						current_round(),
+						1,
+						Some(low_score),
+						Some(metadata),
+					);
+
+					// low_score has been added to the sorted scores.
+					assert_eq!(
+						<SignedPallet as SolutionDataProvider>::get_score(),
+						Some(low_score)
+					);
+					assert!(Submissions::<T>::scores_for(current_round()).len() == 1);
+
+					// insert a score lower than minimum score.
+					assert_ok!(<VerifierPallet as AsyncVerifier>::start());
+
+					// score too low event submitted.
+					assert_eq!(
+						verifier_events(),
+						vec![Event::<T>::VerificationFailed(2, FeasibilityError::ScoreTooLow,)]
+					);
+				})
+		}
 
 		#[test]
 		fn given_better_score_sets_verification_status_to_ongoing() {

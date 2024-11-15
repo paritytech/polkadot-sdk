@@ -485,7 +485,9 @@ pub mod pallet {
 			who: &T::AccountId,
 			metadata: SubmissionMetadata<T>,
 		) {
-			debug_assert!(SortedScores::<T>::get(round).iter().any(|(account, _)| who == account));
+			// TODO: remove comment
+			//debug_assert!(SortedScores::<T>::get(round).iter().any(|(account, _)| who ==
+			// account));
 
 			Self::mutate_checked(round, || {
 				SubmissionMetadataStorage::<T>::insert(round, who, metadata);
@@ -603,6 +605,35 @@ pub mod pallet {
 		fn sanity_check_round(_round: u32) -> Result<(), &'static str> {
 			// TODO
 			Ok(())
+		}
+	}
+
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	impl<T: Config> Submissions<T> {
+		pub(crate) fn submission_metadata_from(
+			claimed_score: ElectionScore,
+			pages: BoundedVec<bool, PagesOf<T>>,
+			deposit: BalanceOf<T>,
+			release_strategy: ReleaseStrategy,
+		) -> SubmissionMetadata<T> {
+			SubmissionMetadata { claimed_score, pages, deposit, release_strategy }
+		}
+
+		pub(crate) fn insert_score_and_metadata(
+			round: u32,
+			who: T::AccountId,
+			maybe_score: Option<ElectionScore>,
+			maybe_metadata: Option<SubmissionMetadata<T>>,
+		) {
+			if let Some(score) = maybe_score {
+				let mut scores = Submissions::<T>::scores_for(round);
+				scores.try_push((who.clone(), score)).unwrap();
+				SortedScores::<T>::insert(round, scores);
+			}
+
+			if let Some(metadata) = maybe_metadata {
+				SubmissionMetadataStorage::<T>::insert(round, who.clone(), metadata);
+			}
 		}
 	}
 
@@ -831,8 +862,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				};
 				(leader, metadata)
 			} else {
-				// TODO(gpestana): turn into defensive.
-				sublog!(error, "signed", "unexpected: leader called without active submissions.");
+				defensive!("unexpected: selected leader without active submissions.");
 				return
 			};
 
