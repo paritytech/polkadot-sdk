@@ -1,0 +1,14 @@
+title: Make pallet-recovery supports `BlockNumberProvider`
+doc:
+- audience: Runtime Dev
+  description: |-
+    Make pallet-recovery supports `BlockNumberProvider`.
+
+    Part of #6297.
+crates:
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-recovery
+  bump: major
