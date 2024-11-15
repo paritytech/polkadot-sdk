@@ -69,5 +69,8 @@ sp_api::decl_runtime_apis! {
 
 		/// Total balance contributed to the pool.
 		fn pool_balance(pool_id: PoolId) -> Balance;
+
+		/// Returns the bonded account and reward account associated with the pool_id.
+		fn pool_accounts(pool_id: PoolId) -> (AccountId, AccountId);
 	}
 }

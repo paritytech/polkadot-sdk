@@ -1036,7 +1036,7 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 				}
 
 				(
-					VersionedLocation::V4((Parent, Parachain(para_id.into())).into()),
+					VersionedLocation::from(Location::new(1, Parachain(para_id.into()))),
 					decoded_messages,
 				)
 			})

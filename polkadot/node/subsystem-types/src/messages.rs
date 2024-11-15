@@ -24,7 +24,6 @@
 
 use futures::channel::oneshot;
 use sc_network::{Multiaddr, ReputationChange};
-use strum::EnumIter;
 use thiserror::Error;
 
 pub use sc_network::IfDisconnected;
@@ -189,18 +188,16 @@ pub enum CandidateValidationMessage {
 
 /// Extends primitives::PvfExecKind, which is a runtime parameter we don't want to change,
 /// to separate and prioritize execution jobs by request type.
-/// The order is important, because we iterate through the values and assume it is going from higher
-/// to lowest priority.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PvfExecKind {
 	/// For dispute requests
 	Dispute,
 	/// For approval requests
 	Approval,
-	/// For backing requests from system parachains.
-	BackingSystemParas,
-	/// For backing requests.
-	Backing,
+	/// For backing requests from system parachains. With relay parent hash
+	BackingSystemParas(Hash),
+	/// For backing requests. With relay parent hash
+	Backing(Hash),
 }
 
 impl PvfExecKind {
@@ -209,8 +206,8 @@ impl PvfExecKind {
 		match *self {
 			Self::Dispute => "dispute",
 			Self::Approval => "approval",
-			Self::BackingSystemParas => "backing_system_paras",
-			Self::Backing => "backing",
+			Self::BackingSystemParas(_) => "backing_system_paras",
+			Self::Backing(_) => "backing",
 		}
 	}
 }
@@ -220,8 +217,8 @@ impl From<PvfExecKind> for RuntimePvfExecKind {
 		match exec {
 			PvfExecKind::Dispute => RuntimePvfExecKind::Approval,
 			PvfExecKind::Approval => RuntimePvfExecKind::Approval,
-			PvfExecKind::BackingSystemParas => RuntimePvfExecKind::Backing,
-			PvfExecKind::Backing => RuntimePvfExecKind::Backing,
+			PvfExecKind::BackingSystemParas(_) => RuntimePvfExecKind::Backing,
+			PvfExecKind::Backing(_) => RuntimePvfExecKind::Backing,
 		}
 	}
 }

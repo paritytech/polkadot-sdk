@@ -904,8 +904,9 @@ pub mod pallet_prelude {
 			StorageList,
 		},
 		traits::{
-			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
-			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
+			BuildGenesisConfig, ConstU32, ConstUint, EnsureOrigin, Get, GetDefault,
+			GetStorageVersion, Hooks, IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion,
+			Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
