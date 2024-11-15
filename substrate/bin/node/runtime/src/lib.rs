@@ -504,6 +504,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaxScheduledBlocks = ConstU32<512>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MaxScheduledBlocks = ConstU32<50>;
+	type MaxStaleTaskAge = ConstU64<10>;
 }
 
 impl pallet_glutton::Config for Runtime {

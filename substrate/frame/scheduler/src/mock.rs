@@ -22,7 +22,9 @@ use super::*;
 use crate as scheduler;
 use frame_support::{
 	derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize},
+	traits::{
+		ConstU32, ConstU64, Contains, EitherOfDiverse, EqualPrivilegeOnly, OnFinalize, OnInitialize,
+	},
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{BuildStorage, Perbill};
@@ -229,6 +231,7 @@ impl Config for Test {
 	type Preimages = Preimage;
 	type BlockNumberProvider = frame_system::Pallet<Self>;
 	type MaxScheduledBlocks = ConstU32<20>;
+	type MaxStaleTaskAge = ConstU64<10>;
 }
 
 pub type LoggerCall = logger::Call<Test>;

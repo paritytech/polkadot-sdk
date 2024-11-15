@@ -233,6 +233,7 @@ parameter_types! {
 		BlockWeights::get().max_block;
 	pub const MaxScheduledPerBlock: u32 = 50;
 	pub const MaxScheduledBlocks: u32 = 50;
+	pub const MaxStaleTaskAge: u64 = 10;
 	pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
 
@@ -251,6 +252,7 @@ impl pallet_scheduler::Config for Runtime {
 	type Preimages = Preimage;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	type MaxScheduledBlocks = MaxScheduledBlocks;
+	type MaxStaleTaskAge = MaxStaleTaskAge;
 }
 
 parameter_types! {

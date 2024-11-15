@@ -3066,3 +3066,26 @@ fn basic_scheduling_with_skipped_blocks_works() {
 		assert_eq!(logger::log(), vec![(root(), 42u32)]);
 	});
 }
+
+#[test]
+fn stale_task_is_removed() {
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+
+		// Schedule call to be executed at the 4th block
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap()
+		));
+		assert!(Agenda::<Test>::get(4).len() == 1);
+		assert!(Queue::<Test>::get().contains(&4));
+
+		go_to_block(20);
+		assert!(Agenda::<Test>::get(4).is_empty());
+		assert!(!Queue::<Test>::get().contains(&4));
+	})
+}

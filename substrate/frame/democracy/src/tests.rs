@@ -108,6 +108,7 @@ impl pallet_scheduler::Config for Test {
 	type Preimages = ();
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 	type MaxScheduledBlocks = ConstU32<100>;
+	type MaxStaleTaskAge = ConstU64<10>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]

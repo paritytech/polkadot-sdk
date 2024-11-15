@@ -299,6 +299,10 @@ pub mod pallet {
 		/// The maximum number of blocks that can be scheduled.
 		#[pallet::constant]
 		type MaxScheduledBlocks: Get<u32>;
+
+		/// The maximum number of blocks that a task can be stale for.
+		#[pallet::constant]
+		type MaxStaleTaskAge: Get<BlockNumberFor<Self>>;
 	}
 
 	/// Items to be executed, indexed by the block number that they should be executed on.
@@ -1192,9 +1196,13 @@ impl<T: Config> Pallet<T> {
 		let mut index = 0;
 		while index < end_index {
 			let when = queue[index];
-			let mut executed = 0;
-			if !Self::service_agenda(weight, &mut executed, now, when, max) {
-				break;
+			if when < now.saturating_sub(T::MaxStaleTaskAge::get()) {
+				Agenda::<T>::remove(when);
+			} else {
+				let mut executed = 0;
+				if !Self::service_agenda(weight, &mut executed, now, when, max) {
+					break;
+				}
 			}
 			index.saturating_inc();
 		}
