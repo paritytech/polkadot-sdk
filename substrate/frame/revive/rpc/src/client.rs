@@ -324,7 +324,7 @@ impl ClientInner {
 					contract_address,
 					from,
 					logs,
-					to: tx_info.to,
+					tx_info.to,
 					gas_price,
 					gas_used.into(),
 					success,
