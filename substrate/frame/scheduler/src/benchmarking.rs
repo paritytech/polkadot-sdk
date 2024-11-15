@@ -22,11 +22,11 @@ use alloc::vec;
 use frame_benchmarking::v1::{account, benchmarks, BenchmarkError};
 use frame_support::{
 	ensure,
-	testing_prelude::*,
 	traits::{schedule::Priority, BoundedInline},
 	weights::WeightMeter,
 };
 use frame_system::RawOrigin;
+use sp_runtime::bounded_vec;
 
 use crate::Pallet as Scheduler;
 use frame_system::{Call as SystemCall, EventRecord};
