@@ -818,7 +818,9 @@ pub mod pallet {
 
 		/// Mint some money to the origin account.
 		#[pallet::call_index(11)]
-		#[pallet::weight((0, Pays::No))]
+		#[pallet::feeless_if(|_origin: &OriginFor<T>| -> bool {
+			true
+		})]
 		pub fn magic_mint_experimental(
 			origin: OriginFor<T>,
 		) -> DispatchResult {
