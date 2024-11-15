@@ -611,11 +611,10 @@ fn collator_authentication_verification_works() {
 	});
 }
 
-/// Tests that a validator fetches only one collation at any moment of time
-/// per relay parent and ignores other advertisements once a candidate gets
-/// seconded.
+/// Tests that on a V1 Advertisement a validator fetches only one collation at any moment of time
+/// per relay parent and ignores other V1 advertisements once a candidate gets seconded.
 #[test]
-fn fetch_one_collation_at_a_time() {
+fn fetch_one_collation_at_a_time_for_v1_advertisement() {
 	let test_state = TestState::default();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
