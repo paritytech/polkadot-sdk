@@ -21,10 +21,12 @@ use frame_support::{
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
+use sp_core::hex2array;
 use sp_runtime::traits::Convert;
 use CompletionStatus::{Complete, Partial};
 
-impl<T: Config> Pallet<T> {
+impl<T: Config> Pallet<T>
+where T::AccountId: From<[u8; 32]> {
 	pub(crate) fn do_configure(config: ConfigRecordOf<T>) -> DispatchResult {
 		config.validate().map_err(|()| Error::<T>::InvalidConfig)?;
 		Configuration::<T>::put(config);
@@ -74,6 +76,8 @@ impl<T: Config> Pallet<T> {
 		end_price: BalanceOf<T>,
 		extra_cores: CoreIndex,
 	) -> DispatchResult {
+		// Spammening hack - make sure we have the coretime chain running:
+		Self::do_reserve(BoundedVec::truncate_from(vec![ScheduleItem {mask: CoreMask::complete(), assignment: CoreAssignment::Task(1005)} ])).unwrap();
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 
 		// Determine the core count
@@ -105,9 +109,17 @@ impl<T: Config> Pallet<T> {
 			cores_offered: 0,
 			cores_sold: 0,
 		};
+		// Hack for Versi - get initial assignments:
+		let yap_sudo: T::AccountId = hex2array!("6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15").into();
+		for core in core_count..extra_cores {
+			let id = Self::issue(core, old_sale.region_begin, CoreMask::complete(), old_sale.region_end, Some(yap_sudo.clone()), None);
+			log::info!(target: LOG_TARGET, "Issued core with id: {:?}", id);
+		}
+
 		Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count });
 		Self::rotate_sale(old_sale, &config, &status);
 		Status::<T>::put(&status);
+
 		Ok(())
 	}
 

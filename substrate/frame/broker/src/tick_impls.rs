@@ -22,7 +22,8 @@ use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::{ConvertBack, MaybeConvert};
 use CompletionStatus::Complete;
 
-impl<T: Config> Pallet<T> {
+impl<T: Config> Pallet<T>
+where T::AccountId: From<[u8;32]> {
 	/// Attempt to tick things along.
 	///
 	/// This may do several things:
