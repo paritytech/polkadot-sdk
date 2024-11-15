@@ -61,7 +61,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo},
+	dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo, DispatchClass::{Operational, Normal}},
 	traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
 };
 use sp_core::TypeId;
@@ -491,12 +491,12 @@ pub mod pallet {
 		/// - A base weight (`WeightInfo::if_else()`), which accounts for the logic involved in dispatching and handling both calls.
 		#[pallet::call_index(6)]
 		#[pallet::weight({
-			let main_dispatch_info = main.get_dispatch_info();
-			let fallback_dispatch_info = fallback.get_dispatch_info();
+			let main = main.get_dispatch_info();
+			let fallback = fallback.get_dispatch_info();
 			(
 				T::WeightInfo::if_else()
-					.saturating_add(main_dispatch_info.call_weight)
-					.saturating_add(fallback_dispatch_info.call_weight),
+					.saturating_add(main.call_weight)
+					.saturating_add(fallback.call_weight),
 				if main.class == Operational && fallback.class == Operational { Operational } else { Normal },
 			)
 		})]
