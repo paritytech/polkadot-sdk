@@ -24,10 +24,10 @@ use asset_hub_westend_runtime::{
 		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, Assets, Balances, ExistentialDeposit, ForeignAssets,
+	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
 	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	TrustBackedAssetsInstance, XcmpQueue, Block,
+	TrustBackedAssetsInstance, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -1449,5 +1449,6 @@ fn location_conversion_works() {
 
 #[test]
 fn xcm_payment_api_works() {
-	asset_test_utils::test_cases::xcm_payment_api_works::<Runtime, RuntimeCall, RuntimeOrigin, Block>();
+	asset_test_utils::test_cases::xcm_payment_api_works::<Runtime, RuntimeCall, RuntimeOrigin, Block>(
+	);
 }

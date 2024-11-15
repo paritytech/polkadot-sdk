@@ -24,10 +24,10 @@ use asset_hub_rococo_runtime::{
 		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
 		TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection,
-	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
-	MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	SessionKeys, TrustBackedAssetsInstance, XcmpQueue, Block,
+	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
+	CollatorSelection, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
+	MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin, SessionKeys, TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -1474,5 +1474,6 @@ fn location_conversion_works() {
 
 #[test]
 fn xcm_payment_api_works() {
-	asset_test_utils::test_cases::xcm_payment_api_works::<Runtime, RuntimeCall, RuntimeOrigin, Block>();
+	asset_test_utils::test_cases::xcm_payment_api_works::<Runtime, RuntimeCall, RuntimeOrigin, Block>(
+	);
 }

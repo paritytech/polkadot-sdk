@@ -34,12 +34,14 @@ use parachains_runtimes_test_utils::{
 	CollatorSessionKeys, ExtBuilder, SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{
-	traits::{MaybeEquivalence, StaticLookup, Zero, Block as BlockT},
+	traits::{Block as BlockT, MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, Saturating,
 };
 use xcm::{latest::prelude::*, VersionedAssets};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
-use xcm_runtime_apis::fees::{Error as XcmPaymentApiError, runtime_decl_for_xcm_payment_api::XcmPaymentApiV1};
+use xcm_runtime_apis::fees::{
+	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
+};
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -1589,10 +1591,7 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 pub fn xcm_payment_api_works<Runtime, RuntimeCall, RuntimeOrigin, Block>()
 where
 	Runtime: XcmPaymentApiV1<Block>
-		+ frame_system::Config<
-			RuntimeOrigin = RuntimeOrigin,
-			AccountId = AccountId
-		  >
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
 		+ pallet_balances::Config<Balance = u128>
 		+ pallet_session::Config
 		+ pallet_xcm::Config
@@ -1604,11 +1603,10 @@ where
 		+ pallet_assets::Config<
 			pallet_assets::Instance1,
 			AssetId = u32,
-			Balance = <Runtime as pallet_balances::Config>::Balance
-		  >
-		+ pallet_asset_conversion::Config<
+			Balance = <Runtime as pallet_balances::Config>::Balance,
+		> + pallet_asset_conversion::Config<
 			AssetKind = xcm::v5::Location,
-			Balance = <Runtime as pallet_balances::Config>::Balance
+			Balance = <Runtime as pallet_balances::Config>::Balance,
 		>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
@@ -1635,28 +1633,31 @@ where
 		assert!(xcm_weight.is_ok());
 		let native_token: Location = Parent.into();
 		let native_token_versioned = VersionedAssetId::from(AssetId(native_token.clone()));
-		let lower_version_native_token = native_token_versioned.clone().into_version(XCM_VERSION - 1).unwrap();
+		let lower_version_native_token =
+			native_token_versioned.clone().into_version(XCM_VERSION - 1).unwrap();
 		let execution_fees =
 			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), lower_version_native_token);
 		assert!(execution_fees.is_ok());
 
 		// We need some balance to create an asset.
-		assert_ok!(pallet_balances::Pallet::<Runtime>::mint_into(
-			&test_account,
-			3_000_000_000_000,
-		));
+		assert_ok!(
+			pallet_balances::Pallet::<Runtime>::mint_into(&test_account, 3_000_000_000_000,)
+		);
 
 		// Now we try to use an asset that's not in a pool.
 		let asset_id = 1984u32; // USDT.
-		let asset_not_in_pool: Location = (PalletInstance(50), GeneralIndex(asset_id.into())).into();
+		let asset_not_in_pool: Location =
+			(PalletInstance(50), GeneralIndex(asset_id.into())).into();
 		assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::create(
 			RuntimeOrigin::signed(test_account.clone()),
 			asset_id.into(),
 			test_account.clone().into(),
 			1000
 		));
-		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), asset_not_in_pool.clone().into());
+		let execution_fees = Runtime::query_weight_to_asset_fee(
+			xcm_weight.unwrap(),
+			asset_not_in_pool.clone().into(),
+		);
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
 
 		// We add it to a pool with native.
@@ -1665,8 +1666,10 @@ where
 			native_token.clone().try_into().unwrap(),
 			asset_not_in_pool.clone().try_into().unwrap()
 		));
-		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), asset_not_in_pool.clone().into());
+		let execution_fees = Runtime::query_weight_to_asset_fee(
+			xcm_weight.unwrap(),
+			asset_not_in_pool.clone().into(),
+		);
 		// Still not enough because it doesn't have any liquidity.
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
 
