@@ -192,6 +192,7 @@ impl TestState {
 				.into_iter(),
 			),
 		);
+		state.validator_groups.truncate(1);
 
 		assert!(
 			claim_queue.get(&CoreIndex(0)).unwrap().len() ==

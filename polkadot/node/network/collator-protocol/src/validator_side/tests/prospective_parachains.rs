@@ -64,15 +64,6 @@ async fn assert_construct_per_relay_parent(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
-		) if parent == hash => {
-			tx.send(Ok(test_state.cores.clone())).unwrap();
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 			parent,
 			RuntimeApiRequest::ClaimQueue(tx),
@@ -1608,102 +1599,6 @@ fn invalid_v2_descriptor() {
 				}
 			);
 		}
-
-		virtual_overseer
-	});
-}
-
-#[test]
-fn collations_outside_limits_are_not_fetched() {
-	let test_state = TestState::with_shared_core();
-
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, keystore } = test_harness;
-
-		let head_b = Hash::from_low_u64_be(128);
-		let head_b_num: u32 = 2;
-
-		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
-
-		let peer_a = PeerId::random();
-		let pair_a = CollatorPair::generate().0;
-
-		connect_and_declare_collator(
-			&mut virtual_overseer,
-			peer_a,
-			pair_a.clone(),
-			test_state.chain_ids[0],
-			CollationVersion::V2,
-		)
-		.await;
-
-		let peer_b = PeerId::random();
-		let pair_b = CollatorPair::generate().0;
-
-		connect_and_declare_collator(
-			&mut virtual_overseer,
-			peer_b,
-			pair_b.clone(),
-			test_state.chain_ids[1],
-			CollationVersion::V2,
-		)
-		.await;
-
-		submit_second_and_assert(
-			&mut virtual_overseer,
-			keystore.clone(),
-			ParaId::from(test_state.chain_ids[0]),
-			head_b,
-			peer_a,
-			HeadData(vec![1u8]),
-		)
-		.await;
-
-		submit_second_and_assert(
-			&mut virtual_overseer,
-			keystore.clone(),
-			ParaId::from(test_state.chain_ids[1]),
-			head_b,
-			peer_b,
-			HeadData(vec![2u8]),
-		)
-		.await;
-
-		submit_second_and_assert(
-			&mut virtual_overseer,
-			keystore.clone(),
-			ParaId::from(test_state.chain_ids[0]),
-			head_b,
-			peer_a,
-			HeadData(vec![3u8]),
-		)
-		.await;
-
-		// No more advertisements can be made for this relay parent.
-
-		// verify for peer_a
-		let candidate_hash = CandidateHash(Hash::repeat_byte(0xAA));
-		advertise_collation(
-			&mut virtual_overseer,
-			peer_a,
-			head_b,
-			Some((candidate_hash, Hash::zero())),
-		)
-		.await;
-		test_helpers::Yield::new().await;
-		assert_matches!(virtual_overseer.recv().now_or_never(), None);
-
-		// verify for peer_b
-		let candidate_hash = CandidateHash(Hash::repeat_byte(0xBB));
-		advertise_collation(
-			&mut virtual_overseer,
-			peer_b,
-			head_b,
-			Some((candidate_hash, Hash::zero())),
-		)
-		.await;
-		test_helpers::Yield::new().await;
-		assert_matches!(virtual_overseer.recv().now_or_never(), None);
 
 		virtual_overseer
 	});

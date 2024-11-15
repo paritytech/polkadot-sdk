@@ -496,16 +496,11 @@ where
 			.await
 			.map_err(Error::CancelledValidatorGroups)??;
 
-	let cores = polkadot_node_subsystem_util::request_availability_cores(relay_parent, sender)
-		.await
-		.await
-		.map_err(Error::CancelledAvailabilityCores)??;
-
 	let core_now = if let Some(group) =
 		polkadot_node_subsystem_util::signing_key_and_index(&validators, keystore).and_then(
 			|(_, index)| polkadot_node_subsystem_util::find_validator_group(&groups, index),
 		) {
-		rotation_info.core_for_group(group, cores.len())
+		rotation_info.core_for_group(group, groups.len())
 	} else {
 		gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
 		return Ok(None)
