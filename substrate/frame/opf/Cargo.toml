@@ -38,7 +38,7 @@ pallet-scheduler = { workspace = true, default-features = true }
 pallet-sudo = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true  }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
