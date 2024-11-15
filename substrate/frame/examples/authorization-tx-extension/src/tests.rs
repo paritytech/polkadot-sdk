@@ -26,6 +26,7 @@ use frame_support::{
 use pallet_verify_signature::VerifySignature;
 use sp_keyring::AccountKeyring;
 use sp_runtime::{
+	generic::ExtensionVersion,
 	traits::{Applyable, Checkable, IdentityLookup, TransactionExtension},
 	MultiSignature, MultiSigner,
 };
@@ -40,6 +41,7 @@ fn create_asset_works() {
 		// Simple call to create asset with Id `42`.
 		let create_asset_call =
 			RuntimeCall::Assets(pallet_assets::Call::create_asset { asset_id: 42 });
+		let ext_version: ExtensionVersion = 0;
 		// Create extension that will be used for dispatch.
 		let initial_nonce = 23;
 		let tx_ext = (
@@ -52,7 +54,7 @@ fn create_asset_works() {
 		// Create the transaction signature, to be used in the top level `VerifyMultiSignature`
 		// extension.
 		let tx_sign = MultiSignature::Sr25519(
-			(&create_asset_call, &tx_ext, tx_ext.implicit().unwrap())
+			(&(ext_version, &create_asset_call), &tx_ext, tx_ext.implicit().unwrap())
 				.using_encoded(|e| alice_keyring.sign(&sp_io::hashing::blake2_256(e))),
 		);
 		// Add the signature to the extension.
@@ -106,6 +108,7 @@ fn create_coowned_asset_works() {
 		// Simple call to create asset with Id `42`.
 		let create_asset_call =
 			RuntimeCall::Assets(pallet_assets::Call::create_asset { asset_id: 42 });
+		let ext_version: ExtensionVersion = 0;
 		// Create the inner transaction extension, to be signed by our coowners, Alice and Bob.
 		let inner_ext: InnerTxExtension = (
 			frame_system::CheckGenesis::<Runtime>::new(),
@@ -113,7 +116,8 @@ fn create_coowned_asset_works() {
 			frame_system::CheckEra::<Runtime>::from(sp_runtime::generic::Era::immortal()),
 		);
 		// Create the payload Alice and Bob need to sign.
-		let inner_payload = (&create_asset_call, &inner_ext, inner_ext.implicit().unwrap());
+		let inner_payload =
+			(&(ext_version, &create_asset_call), &inner_ext, inner_ext.implicit().unwrap());
 		// Create Alice's signature.
 		let alice_inner_sig = MultiSignature::Sr25519(
 			inner_payload.using_encoded(|e| alice_keyring.sign(&sp_io::hashing::blake2_256(e))),
@@ -138,7 +142,7 @@ fn create_coowned_asset_works() {
 		// Create Charlie's transaction signature, to be used in the top level
 		// `VerifyMultiSignature` extension.
 		let tx_sign = MultiSignature::Sr25519(
-			(&create_asset_call, &tx_ext, tx_ext.implicit().unwrap())
+			(&(ext_version, &create_asset_call), &tx_ext, tx_ext.implicit().unwrap())
 				.using_encoded(|e| charlie_keyring.sign(&sp_io::hashing::blake2_256(e))),
 		);
 		// Add the signature to the extension.
@@ -192,6 +196,7 @@ fn inner_authorization_works() {
 		// Simple call to create asset with Id `42`.
 		let create_asset_call =
 			RuntimeCall::Assets(pallet_assets::Call::create_asset { asset_id: 42 });
+		let ext_version: ExtensionVersion = 0;
 		// Create the inner transaction extension, to be signed by our coowners, Alice and Bob. They
 		// are going to sign this transaction as a mortal one.
 		let inner_ext: InnerTxExtension = (
@@ -227,7 +232,7 @@ fn inner_authorization_works() {
 		// Create Charlie's transaction signature, to be used in the top level
 		// `VerifyMultiSignature` extension.
 		let tx_sign = MultiSignature::Sr25519(
-			(&create_asset_call, &tx_ext, tx_ext.implicit().unwrap())
+			(&(ext_version, &create_asset_call), &tx_ext, tx_ext.implicit().unwrap())
 				.using_encoded(|e| charlie_keyring.sign(&sp_io::hashing::blake2_256(e))),
 		);
 		// Add the signature to the extension that Charlie signed.

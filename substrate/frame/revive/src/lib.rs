@@ -59,6 +59,7 @@ use frame_support::{
 	pallet_prelude::DispatchClass,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
+		tokens::{Fortitude::Polite, Preservation::Preserve},
 		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::{Weight, WeightMeter},
@@ -73,7 +74,7 @@ use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
-	traits::{BadOrigin, Convert, Dispatchable, Saturating},
+	traits::{BadOrigin, Convert, Dispatchable, Saturating, Zero},
 	DispatchError,
 };
 
@@ -379,7 +380,7 @@ pub mod pallet {
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<0>;
-			type NativeToEthRatio = ConstU32<1_000_000>;
+			type NativeToEthRatio = ConstU32<1>;
 		}
 	}
 
@@ -561,6 +562,8 @@ pub mod pallet {
 		ExecutionFailed,
 		/// Failed to convert a U256 to a Balance.
 		BalanceConversionFailed,
+		/// Failed to convert an EVM balance to a native balance.
+		DecimalPrecisionLoss,
 		/// Immutable data can only be set during deploys and only be read during calls.
 		/// Additionally, it is only valid to set the data once and it must not be empty.
 		InvalidImmutableAccess,
@@ -1115,7 +1118,7 @@ where
 				dest,
 				&mut gas_meter,
 				&mut storage_meter,
-				value,
+				Self::convert_native_to_evm(value),
 				data,
 				debug_message.as_mut(),
 			)?;
@@ -1180,7 +1183,7 @@ where
 				executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				value,
+				Self::convert_native_to_evm(value),
 				data,
 				salt.as_ref(),
 				debug_message.as_mut(),
@@ -1214,7 +1217,7 @@ where
 	///
 	/// - `origin`: The origin of the call.
 	/// - `dest`: The destination address of the call.
-	/// - `value`: The value to transfer.
+	/// - `value`: The EVM value to transfer.
 	/// - `input`: The input data.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
 	/// - `storage_deposit_limit`: The maximum balance that can be charged to the caller for storage
@@ -1226,7 +1229,7 @@ where
 	pub fn bare_eth_transact(
 		origin: T::AccountId,
 		dest: Option<H160>,
-		value: BalanceOf<T>,
+		value: U256,
 		input: Vec<u8>,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
@@ -1250,6 +1253,18 @@ where
 		// Get the nonce to encode in the tx.
 		let nonce: T::Nonce = <System<T>>::account_nonce(&origin);
 
+		// Convert the value to the native balance type.
+		let native_value = match Self::convert_evm_to_native(value) {
+			Ok(v) => v,
+			Err(err) =>
+				return EthContractResult {
+					gas_required: Default::default(),
+					storage_deposit: Default::default(),
+					fee: Default::default(),
+					result: Err(err.into()),
+				},
+		};
+
 		// Dry run the call
 		let (mut result, dispatch_info) = match dest {
 			// A contract call.
@@ -1258,13 +1273,14 @@ where
 				let result = crate::Pallet::<T>::bare_call(
 					T::RuntimeOrigin::signed(origin),
 					dest,
-					value,
+					native_value,
 					gas_limit,
 					storage_deposit_limit,
 					input.clone(),
 					debug,
 					collect_events,
 				);
+
 				let result = EthContractResult {
 					gas_required: result.gas_required,
 					storage_deposit: result.storage_deposit.charge_or_zero(),
@@ -1274,7 +1290,7 @@ where
 				// Get the dispatch info of the call.
 				let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
 					dest,
-					value,
+					value: native_value,
 					gas_limit: result.gas_required,
 					storage_deposit_limit: result.storage_deposit,
 					data: input.clone(),
@@ -1300,7 +1316,7 @@ where
 				// Dry run the call.
 				let result = crate::Pallet::<T>::bare_instantiate(
 					T::RuntimeOrigin::signed(origin),
-					value,
+					native_value,
 					gas_limit,
 					storage_deposit_limit,
 					Code::Upload(code.to_vec()),
@@ -1320,7 +1336,7 @@ where
 				// Get the dispatch info of the call.
 				let dispatch_call: <T as Config>::RuntimeCall =
 					crate::Call::<T>::instantiate_with_code {
-						value,
+						value: native_value,
 						gas_limit: result.gas_required,
 						storage_deposit_limit: result.storage_deposit,
 						code: code.to_vec(),
@@ -1333,7 +1349,7 @@ where
 		};
 
 		let mut tx = TransactionLegacyUnsigned {
-			value: value.into().saturating_mul(T::NativeToEthRatio::get().into()),
+			value,
 			input: input.into(),
 			nonce: nonce.into(),
 			chain_id: Some(T::ChainId::get().into()),
@@ -1370,6 +1386,12 @@ where
 		}
 
 		result
+	}
+
+	/// Get the balance with EVM decimals of the given `address`.
+	pub fn evm_balance(address: &H160) -> U256 {
+		let account = T::AddressMapper::to_account_id(&address);
+		Self::convert_native_to_evm(T::Currency::reducible_balance(&account, Preserve, Polite))
 	}
 
 	/// A generalized version of [`Self::upload_code`].
@@ -1424,6 +1446,25 @@ where
 				.and_then(|r| r)
 		})
 	}
+
+	/// Convert a native balance to EVM balance.
+	fn convert_native_to_evm(value: BalanceOf<T>) -> U256 {
+		value.into().saturating_mul(T::NativeToEthRatio::get().into())
+	}
+
+	/// Convert an EVM balance to a native balance.
+	fn convert_evm_to_native(value: U256) -> Result<BalanceOf<T>, Error<T>> {
+		if value.is_zero() {
+			return Ok(Zero::zero())
+		}
+		let ratio = T::NativeToEthRatio::get().into();
+		let res = value.checked_div(ratio).expect("divisor is non-zero; qed");
+		if res.saturating_mul(ratio) == value {
+			res.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)
+		} else {
+			Err(Error::<T>::DecimalPrecisionLoss)
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -1451,8 +1492,8 @@ sp_api::decl_runtime_apis! {
 		BlockNumber: Codec,
 		EventRecord: Codec,
 	{
-		/// Returns the free balance of the given `[H160]` address.
-		fn balance(address: H160) -> Balance;
+		/// Returns the free balance of the given `[H160]` address, using EVM decimals.
+		fn balance(address: H160) -> U256;
 
 		/// Returns the nonce of the given `[H160]` address.
 		fn nonce(address: H160) -> Nonce;
@@ -1489,7 +1530,7 @@ sp_api::decl_runtime_apis! {
 		fn eth_transact(
 			origin: H160,
 			dest: Option<H160>,
-			value: Balance,
+			value: U256,
 			input: Vec<u8>,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
