@@ -14,11 +14,11 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
-	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
-	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee,
-	XcmpQueue,
+	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee, CollatorSelection,
+	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
+	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToWestendOverAssetHubWestendXcmRouter,
+	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
+	XcmOverAssetHubWestend,
 };
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -442,7 +442,10 @@ impl xcm_executor::Config for XcmConfig {
 		WaivedLocations,
 		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
-	type MessageExporter = ();
+	type MessageExporter = (
+		// AH's permissionless lanes support exporting to Westend.
+		XcmOverAssetHubWestend,
+	);
 	type UniversalAliases =
 		(bridging::to_westend::UniversalAliases, bridging::to_ethereum::UniversalAliases);
 	type CallDispatcher = RuntimeCall;
@@ -464,7 +467,7 @@ pub type PriceForParentDelivery =
 	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
 /// For routing XCM messages which do not cross local consensus boundary.
-type LocalXcmRouter = (
+pub(crate) type LocalXcmRouter = (
 	// Two routers - use UMP to communicate with the relay chain:
 	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
 	// ..and XCMP to communicate with the sibling chains.
@@ -475,7 +478,13 @@ type LocalXcmRouter = (
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
 	LocalXcmRouter,
-	// Router which wraps and sends xcm to BridgeHub to be delivered to the Westend
+	// Router that exports messages to be delivered to the Westend GlobalConsensus,
+	// when a permissionless lane is created between the origin and destination.
+	//
+	// Note: `ToWestendOverAssetHubWestendXcmRouter` must come before `ToWestendXcmRouter`
+	// because it checks if the lane is created dynamically, whereas `ToWestendXcmRouter` has a static configuration.
+	ToWestendOverAssetHubWestendXcmRouter,
+	// Router which wraps (`ExportMessage`) and sends xcm to BridgeHub to be delivered to the Westend
 	// GlobalConsensus
 	ToWestendXcmRouter,
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
