@@ -22,6 +22,7 @@ use alloc::vec;
 use frame_benchmarking::v1::{account, benchmarks, BenchmarkError};
 use frame_support::{
 	ensure,
+	storage::bounded_vec::BoundedVec,
 	traits::{schedule::Priority, BoundedInline},
 	weights::WeightMeter,
 };
@@ -147,12 +148,12 @@ benchmarks! {
 	// `service_agendas` when no work is done.
 	service_agendas_base {
 		let now = BlockNumberFor::<T>::from(block_number::<T>());
-		Queue::<T>::put::<BoundedVec<_, _>>(bounded_vec![now + One::one()]);
+		Queue::<T>::put::<BoundedVec<_, _>>(BoundedVec::try_from(vec![now + One::one()]).unwrap());
 	}: {
 		Scheduler::<T>::service_agendas(&mut WeightMeter::new(), now, 0);
 	} verify {
 		let expected: BoundedVec<BlockNumberFor<T>, T::MaxScheduledBlocks> =
-			bounded_vec![now + One::one()];
+			BoundedVec::try_from(vec![now + One::one()]).unwrap();
 		assert_eq!(Queue::<T>::get(), expected);
 	}
 

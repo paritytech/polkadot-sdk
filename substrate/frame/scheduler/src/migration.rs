@@ -615,8 +615,8 @@ pub mod v5 {
 pub mod test {
 	use super::*;
 	use crate::{migration::v5::IncompleteSince, mock::*};
+	use alloc::vec;
 	use frame_support::testing_prelude::*;
-	use scale_info::prelude::vec;
 
 	#[test]
 	fn migration_v4_to_v5_works() {
