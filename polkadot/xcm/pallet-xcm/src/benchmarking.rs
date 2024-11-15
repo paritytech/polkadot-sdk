@@ -164,7 +164,7 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(
-			RuntimeOrigin::<T>::from(send_origin),
+			send_origin,
 			Box::new(versioned_dest),
 			Box::new(versioned_beneficiary),
 			Box::new(versioned_assets),
@@ -234,7 +234,7 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(
-			RuntimeOrigin::<T>::from(send_origin),
+			send_origin,
 			Box::new(versioned_dest),
 			Box::new(versioned_beneficiary),
 			Box::new(versioned_assets),
@@ -275,7 +275,7 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(
-			RuntimeOrigin::<T>::from(send_origin),
+			send_origin,
 			Box::new(versioned_dest),
 			Box::new(versioned_beneficiary),
 			Box::new(versioned_assets),
@@ -558,7 +558,7 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(
-			RuntimeOrigin::<T>::from(claim_origin),
+			claim_origin,
 			Box::new(versioned_assets),
 			Box::new(VersionedLocation::from(claim_location)),
 		);
