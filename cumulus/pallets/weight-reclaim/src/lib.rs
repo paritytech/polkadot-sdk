@@ -33,11 +33,12 @@ use derivative::Derivative;
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::Weight,
+	traits::Defensive,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension},
-	transaction_validity::{TransactionValidityError, ValidTransaction},
+	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 	DispatchResult,
 };
 
@@ -147,11 +148,12 @@ where
 		len: usize,
 		self_implicit: Self::Implicit,
 		inherited_implication: &impl Encode,
+		source: TransactionSource,
 	) -> Result<(ValidTransaction, Self::Val, T::RuntimeOrigin), TransactionValidityError> {
 		let proof_size = get_proof_size();
 
 		self.0
-			.validate(origin, call, info, len, self_implicit, inherited_implication)
+			.validate(origin, call, info, len, self_implicit, inherited_implication, source)
 			.map(|(validity, val, origin)| (validity, (proof_size, val), origin))
 	}
 
@@ -199,7 +201,8 @@ where
 		};
 
 		// The consumed proof size as measured by the host.
-		let measured_proof_size = proof_size_after_dispatch.saturating_sub(proof_size_before_dispatch);
+		let measured_proof_size =
+			proof_size_after_dispatch.saturating_sub(proof_size_before_dispatch);
 
 		// The consumed weight as benchmarked. Calculated from post info and info.
 		// NOTE: `calc_actual_weight` will take the minimum of `post_info` and `info` weights.
