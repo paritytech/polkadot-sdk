@@ -239,7 +239,7 @@ impl PeerData {
 					let candidates = state.advertisements.entry(on_relay_parent).or_default();
 
 					// Current assignments is equal to the length of the claim queue. No honest
-					// collator should send that much advertisements.
+					// collator should send that many advertisements.
 					if candidates.len() > per_relay_parent.assignment.current.len() {
 						return Err(InsertAdvertisementError::PeerLimitReached)
 					}
