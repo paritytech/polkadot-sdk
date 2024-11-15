@@ -1,0 +1,12 @@
+title: '[pallet-revive] add piggy-bank sol example'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR update the pallet to use the EVM 18 decimal balance in contracts call and host functions instead of the native balance.
+
+    It also updates the js example to add the piggy-bank solidity contract that expose the problem
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor
