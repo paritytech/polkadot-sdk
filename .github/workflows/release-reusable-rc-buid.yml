@@ -220,7 +220,7 @@ jobs:
       - name: Sign artifacts
         working-directory: ${{ env.ARTIFACTS_PATH }}
         run: |
-          python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
+          pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
 
       - name: Check sha256 ${{ matrix.binaries }}
         working-directory: ${{ env.ARTIFACTS_PATH }}
