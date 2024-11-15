@@ -304,8 +304,8 @@ impl ClientInner {
 						let event = event_details.as_event::<ContractEmitted>().ok()??;
 
 						Some(Log {
-							address: Some(event.contract),
-							topics: Some(event.topics),
+							address: event.contract,
+							topics: event.topics,
 							data: Some(event.data.into()),
 							block_number: Some(block_number),
 							transaction_hash,
@@ -318,20 +318,20 @@ impl ClientInner {
 
 
 				log::debug!(target: LOG_TARGET, "Adding receipt for tx hash: {transaction_hash:?} - block: {block_number:?}");
-				let receipt = ReceiptInfo {
+				let receipt = ReceiptInfo::new(
 					block_hash,
 					block_number,
 					contract_address,
 					from,
 					logs,
-					to: tx.transaction_legacy_unsigned.to,
-					effective_gas_price: gas_price,
-					gas_used: gas_used.into(),
-					status: Some(if success { U256::one() } else { U256::zero() }),
+					tx.transaction_legacy_unsigned.to,
+					gas_price,
+					gas_used.into(),
+					success,
 					transaction_hash,
-					transaction_index: transaction_index.into(),
-					..Default::default()
-				};
+					transaction_index.into(),
+					tx.transaction_legacy_unsigned.r#type.as_byte()
+				);
 
 				Ok::<_, ClientError>((receipt.transaction_hash, (tx.into(), receipt)))
 			})
