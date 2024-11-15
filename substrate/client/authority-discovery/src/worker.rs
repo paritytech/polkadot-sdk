@@ -34,8 +34,8 @@ use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt}
 use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
-use libp2p::kad::{PeerRecord, Record};
 use linked_hash_set::LinkedHashSet;
+use sc_network_types::kad::{Key, PeerRecord, Record};
 
 use log::{debug, error, trace};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
@@ -682,7 +682,7 @@ where
 
 	async fn handle_put_record_requested(
 		&mut self,
-		record_key: KademliaKey,
+		record_key: Key,
 		record_value: Vec<u8>,
 		publisher: Option<PeerId>,
 		expires: Option<std::time::Instant>,
@@ -943,7 +943,7 @@ where
 				authority_id, new_record.creation_time, current_record_info.creation_time,
 		);
 		self.network.put_record_to(
-			current_record_info.record.clone(),
+			current_record_info.record.clone().into(),
 			new_record.peers_with_record.clone(),
 			// If this is empty it means we received the answer from our node local
 			// storage, so we need to update that as well.

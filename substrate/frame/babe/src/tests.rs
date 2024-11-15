@@ -414,7 +414,7 @@ fn disabled_validators_cannot_author_blocks() {
 		// so we should still be able to author blocks
 		start_era(2);
 
-		assert_eq!(Staking::current_era().unwrap(), 2);
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get().unwrap(), 2);
 
 		// let's disable the validator at index 0
 		Session::disable_index(0);

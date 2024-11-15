@@ -24,7 +24,7 @@ use jsonrpsee::{
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::{evm::*, EthContractResult};
-use sp_core::{H160, H256, U256};
+use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
 
 pub mod cli;
@@ -135,6 +135,8 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
+		let hash = H256(keccak_256(&transaction.0));
+
 		let tx = rlp::decode::<TransactionLegacySigned>(&transaction.0).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
 			EthRpcError::from(err)
@@ -167,7 +169,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			gas_required.into(),
 			storage_deposit,
 		);
-		let hash = self.client.submit(call).await?;
+		self.client.submit(call).await?;
 		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
 		Ok(hash)
 	}
