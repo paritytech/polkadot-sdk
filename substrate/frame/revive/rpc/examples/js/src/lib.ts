@@ -54,7 +54,7 @@ if (geth) {
 	await new Promise((resolve) => setTimeout(resolve, 500))
 }
 
-const provider = new JsonRpcProvider(
+export const provider = new JsonRpcProvider(
 	westend ? 'https://westend-asset-hub-eth-rpc.polkadot.io' : 'http://localhost:8545'
 )
 
