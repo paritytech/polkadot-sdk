@@ -8353,11 +8353,11 @@ mod getters {
 		pallet::pallet::{Invulnerables, MinimumValidatorCount, ValidatorCount},
 		slashing,
 		tests::{Staking, Test},
-		ActiveEra, ActiveEraInfo, BalanceOf, CanceledSlashPayout, ClaimedRewards, CurrentEra,
-		CurrentPlannedSession, EraRewardPoints, ErasRewardPoints, ErasStakersClipped,
-		ErasStartSessionIndex, ErasTotalStake, ErasValidatorPrefs, ErasValidatorReward, ForceEra,
-		Forcing, Nominations, Nominators, Perbill, SlashRewardFraction, SlashingSpans,
-		ValidatorPrefs, Validators,
+		ActiveEra, ActiveEraInfo, BalanceOf, BoundedBTreeMap, BoundedVec, CanceledSlashPayout,
+		ClaimedRewards, CurrentEra, CurrentPlannedSession, EraRewardPoints, ErasRewardPoints,
+		ErasStakersClipped, ErasStartSessionIndex, ErasTotalStake, ErasValidatorPrefs,
+		ErasValidatorReward, ForceEra, Forcing, Nominations, Nominators, Perbill,
+		SlashRewardFraction, SlashingSpans, ValidatorPrefs, Validators,
 	};
 	use sp_staking::{EraIndex, Exposure, IndividualExposure, Page, SessionIndex};
 
@@ -8573,10 +8573,13 @@ mod getters {
 		sp_io::TestExternalities::default().execute_with(|| {
 			// given
 			let era: EraIndex = 12;
-			let reward_points = EraRewardPoints::<mock::AccountId> {
-				total: 1,
-				individual: vec![(11, 1)].into_iter().collect(),
-			};
+			let mut reward_map = BoundedBTreeMap::new();
+			assert_ok!(reward_map.try_insert(11, 1));
+			let reward_points =
+				EraRewardPoints::<mock::AccountId, <Test as crate::Config>::MaxActiveValidators> {
+					total: 1,
+					individual: reward_map,
+				};
 			ErasRewardPoints::<Test>::insert(era, reward_points);
 
 			// when
