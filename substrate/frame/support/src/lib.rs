@@ -1889,9 +1889,9 @@ pub mod pallet_macros {
 	/// still charged.
 	///
 	/// Also this will not allow accountless caller to send a transaction if some transaction
-	/// extension such as [`frame_system::CheckNonce`] is used.
-	/// Extensions such as [`frame_system::CheckNonce`] require a funded account to validate the
-	/// transaction.
+	/// extension such as `frame_system::CheckNonce` is used.
+	/// Extensions such as `frame_system::CheckNonce` require a funded account to validate
+	/// the transaction.
 	///
 	/// ### Macro expansion
 	///
