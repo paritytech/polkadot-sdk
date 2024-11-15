@@ -54,7 +54,7 @@ use frame_support::{
 		},
 		tokens::{
 			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
-			Fortitude::Polite, GetSalary, PayFromAccount, Preservation::Preserve,
+			GetSalary, PayFromAccount,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, Contains,
 		Currency, EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
@@ -83,8 +83,10 @@ use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
+use pallet_nomination_pools::PoolId;
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_session::historical as pallet_session_historical;
+use sp_core::U256;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 use pallet_broker::TaskId;
@@ -3004,15 +3006,15 @@ impl_runtime_apis! {
 			NominationPools::api_pending_rewards(who).unwrap_or_default()
 		}
 
-		fn points_to_balance(pool_id: pallet_nomination_pools::PoolId, points: Balance) -> Balance {
+		fn points_to_balance(pool_id: PoolId, points: Balance) -> Balance {
 			NominationPools::api_points_to_balance(pool_id, points)
 		}
 
-		fn balance_to_points(pool_id: pallet_nomination_pools::PoolId, new_funds: Balance) -> Balance {
+		fn balance_to_points(pool_id: PoolId, new_funds: Balance) -> Balance {
 			NominationPools::api_balance_to_points(pool_id, new_funds)
 		}
 
-		fn pool_pending_slash(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+		fn pool_pending_slash(pool_id: PoolId) -> Balance {
 			NominationPools::api_pool_pending_slash(pool_id)
 		}
 
@@ -3020,7 +3022,7 @@ impl_runtime_apis! {
 			NominationPools::api_member_pending_slash(member)
 		}
 
-		fn pool_needs_delegate_migration(pool_id: pallet_nomination_pools::PoolId) -> bool {
+		fn pool_needs_delegate_migration(pool_id: PoolId) -> bool {
 			NominationPools::api_pool_needs_delegate_migration(pool_id)
 		}
 
@@ -3032,8 +3034,12 @@ impl_runtime_apis! {
 			NominationPools::api_member_total_balance(member)
 		}
 
-		fn pool_balance(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+		fn pool_balance(pool_id: PoolId) -> Balance {
 			NominationPools::api_pool_balance(pool_id)
+		}
+
+		fn pool_accounts(pool_id: PoolId) -> (AccountId, AccountId) {
+			NominationPools::api_pool_accounts(pool_id)
 		}
 	}
 
@@ -3200,10 +3206,8 @@ impl_runtime_apis! {
 
 	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
-		fn balance(address: H160) -> Balance {
-			use frame_support::traits::fungible::Inspect;
-			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
-			Balances::reducible_balance(&account, Preserve, Polite)
+		fn balance(address: H160) -> U256 {
+			Revive::evm_balance(&address)
 		}
 
 		fn nonce(address: H160) -> Nonce {
@@ -3214,7 +3218,7 @@ impl_runtime_apis! {
 		fn eth_transact(
 			from: H160,
 			dest: Option<H160>,
-			value: Balance,
+			value: U256,
 			input: Vec<u8>,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
