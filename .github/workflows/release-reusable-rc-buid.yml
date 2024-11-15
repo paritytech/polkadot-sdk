@@ -194,12 +194,13 @@ jobs:
         run: |
           brew install coreutils
 
-      - name: Install pgpkkms
-        run: |
-          # Install pgpkms that is used to sign built artifacts
-          brew install pipx
-          pipx install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
-          pipx ensurepath
+      # - name: Install pgpkkms
+      #   run: |
+      #     # Install pgpkms that is used to sign built artifacts
+      #     brew install pipx
+      #     pipx ensurepath
+      #     sudo pipx ensurepath --global # optional to allow pipx actions with --global argument
+      #     pipx install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
 
       - name: Import gpg keys
         shell: bash
@@ -208,20 +209,27 @@ jobs:
 
           import_gpg_keys
 
-      - name: Build binary
-        run: |
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
-          ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
+      # - name: Build binary
+      #   run: |
+      #     git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
+      #     ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }}
 
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
-        with:
-          subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
+      # - name: Generate artifact attestation
+      #   uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+      #   with:
+      #     subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
       - name: Sign artifacts
         working-directory: ${{ env.ARTIFACTS_PATH }}
         run: |
-          pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
+          brew install pipx
+          pipx ensurepath
+          sudo pipx ensurepath --global # optional to allow pipx actions with --global argument
+          pipx install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
+          pipx list
+          echo "test" >> ${{matrix.binaries }}.txt
+          pgpkms sign --input ${{matrix.binaries }}.txt -o ${{ matrix.binaries }}.asc
+          # pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
 
       - name: Check sha256 ${{ matrix.binaries }}
         working-directory: ${{ env.ARTIFACTS_PATH }}
