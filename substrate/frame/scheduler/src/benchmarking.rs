@@ -27,7 +27,6 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use frame_system::RawOrigin;
-use sp_runtime::bounded_vec;
 
 use crate::Pallet as Scheduler;
 use frame_system::{Call as SystemCall, EventRecord};
