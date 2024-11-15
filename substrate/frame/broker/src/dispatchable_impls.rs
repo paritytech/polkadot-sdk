@@ -77,7 +77,7 @@ where T::AccountId: From<[u8; 32]> {
 		extra_cores: CoreIndex,
 	) -> DispatchResult {
 		// Spammening hack - make sure we have the coretime chain running:
-		Self::do_reserve(BoundedVec::truncate_from(vec![ScheduleItem {mask: CoreMask::complete(), assignment: CoreAssignment::Task(1005)} ])).unwrap();
+		Self::do_reserve(BoundedVec::truncate_from([ScheduleItem {mask: CoreMask::complete(), assignment: CoreAssignment::Task(1005)} ].into())).unwrap();
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 
 		// Determine the core count
