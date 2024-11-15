@@ -33,7 +33,10 @@ use frame_support::{
 };
 use frame_system::{Call as SystemCall, RawOrigin};
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{AsTransactionAuthorizedOrigin, Dispatchable, TransactionExtension};
+use sp_runtime::{
+	generic::ExtensionVersion,
+	traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable},
+};
 
 pub trait BenchmarkHelper<Signature, Signer> {
 	fn create_signature(entropy: &[u8], msg: &[u8]) -> (Signature, Signer);
@@ -51,22 +54,22 @@ mod benchmarks {
 	fn verify_signature() -> Result<(), BenchmarkError> {
 		let entropy = [42u8; 256];
 		let call: T::RuntimeCall = SystemCall::remark { remark: vec![] }.into();
+		let ext_version: ExtensionVersion = 0;
 		let info = call.get_dispatch_info();
-		let msg = call.using_encoded(blake2_256).to_vec();
+		let msg = (ext_version, &call).using_encoded(blake2_256).to_vec();
 		let (signature, signer) = T::BenchmarkHelper::create_signature(&entropy, &msg[..]);
 		let ext = VerifySignature::<T>::new_with_signature(signature, signer);
 
 		#[block]
 		{
 			assert!(ext
-				.validate(
+				.validate_only(
 					RawOrigin::None.into(),
 					&call,
 					&info,
 					0,
-					(),
-					&call,
-					TransactionSource::External
+					TransactionSource::External,
+					ext_version
 				)
 				.is_ok());
 		}
