@@ -1,0 +1,10 @@
+title: 'slot-based-collator: Implement dedicated block import'
+doc:
+- audience: Node Dev
+  description: |-
+    The `SlotBasedBlockImport` job is to collect the storage proofs of all blocks getting imported. These storage proofs alongside the block are being forwarded to the collation task. Right now they are just being thrown away. More logic will follow later. Basically this will be required to include multiple blocks into one `PoV` which will then be done by the collation task.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
