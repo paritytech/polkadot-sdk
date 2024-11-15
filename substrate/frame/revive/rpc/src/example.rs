@@ -105,6 +105,30 @@ impl TransactionBuilder {
 		self
 	}
 
+	/// Call eth_call to get the result of a view function
+	pub async fn eth_call(
+		self,
+		client: &(impl EthRpcClient + Send + Sync),
+	) -> anyhow::Result<Vec<u8>> {
+		let TransactionBuilder { signer, value, input, to, .. } = self;
+
+		let from = signer.address();
+		let result = client
+			.call(
+				GenericTransaction {
+					from: Some(from),
+					input: Some(input.clone()),
+					value: Some(value),
+					to,
+					..Default::default()
+				},
+				None,
+			)
+			.await
+			.with_context(|| "eth_call failed")?;
+		Ok(result.0)
+	}
+
 	/// Send the transaction.
 	pub async fn send(self, client: &(impl EthRpcClient + Send + Sync)) -> anyhow::Result<H256> {
 		let TransactionBuilder { signer, value, input, to, mutate } = self;
@@ -156,6 +180,7 @@ impl TransactionBuilder {
 		Ok(hash)
 	}
 
+	/// Send the transaction and wait for the receipt.
 	pub async fn send_and_wait_for_receipt(
 		self,
 		client: &(impl EthRpcClient + Send + Sync),
