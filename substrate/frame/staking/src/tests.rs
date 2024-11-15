@@ -8574,7 +8574,7 @@ mod getters {
 			// given
 			let era: EraIndex = 12;
 			let mut reward_map = BoundedBTreeMap::new();
-			assert_ok!(reward_map.try_insert(11, 1));
+			frame_support::assert_ok!(reward_map.try_insert(11, 1));
 			let reward_points =
 				EraRewardPoints::<mock::AccountId, <Test as crate::Config>::MaxActiveValidators> {
 					total: 1,

@@ -867,8 +867,7 @@ impl<T: Config> Pallet<T> {
 							} else {
 								log!(
 									warn,
-									"Could not add reward points to {}: max numbers of rewarded validators reached",
-									validator
+									"Could not add reward points: max numbers of rewarded validators reached"
 								);
 							}
 						},

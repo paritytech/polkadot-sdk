@@ -743,6 +743,8 @@ impl pallet_staking::Config for Runtime {
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type MaxInvulnerables = ConstU32<4>;
+	type MaxActiveValidators = ConstU32<1000>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
