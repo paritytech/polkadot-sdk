@@ -143,7 +143,7 @@ mod benchmarks {
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
-			NonFungible(instance) => {
+			NonFungible(_instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
 					&asset,
 					&origin_location,
@@ -213,7 +213,7 @@ mod benchmarks {
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
-			NonFungible(instance) => {
+			NonFungible(_instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
 					&asset,
 					&origin_location,
@@ -249,7 +249,7 @@ mod benchmarks {
 					None,
 				));
 			},
-			NonFungible(instance) => {
+			NonFungible(_instance) => {
 				assert_ok!(<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::withdraw_asset(
 					&asset,
 					&destination,
@@ -263,7 +263,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn transfer_assets() -> Result<(), BenchmarkError> {
-		let (assets, fee_index, destination, verify_fn) = T::set_up_complex_asset_transfer()
+		let (assets, _fee_index, destination, verify_fn) = T::set_up_complex_asset_transfer()
 			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
