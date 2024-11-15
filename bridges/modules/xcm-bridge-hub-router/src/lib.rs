@@ -551,8 +551,7 @@ mod tests {
 			let mut last_delivery_fee_factor = initial_fee_factor;
 			while let Some(bridge_state) = get_bridge_state_for::<TestRuntime, ()>(&dest) {
 				last_delivery_fee_factor = bridge_state.delivery_fee_factor;
-				remaining_weight =
-					XcmBridgeHubRouter::on_idle(One::one(), remaining_weight);
+				remaining_weight = XcmBridgeHubRouter::on_idle(One::one(), remaining_weight);
 
 				// avoid infinite loops (decreasing is expected)
 				if let Some(bridge_state) = get_bridge_state_for::<TestRuntime, ()>(&dest) {
