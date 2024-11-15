@@ -168,7 +168,7 @@ fn transaction_payment_in_native_possible() {
 			let mut info = info_from_weight(WEIGHT_5);
 			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
 			info.extension_weight = ext.weight(CALL);
-			let (pre, _) = ext.validate_and_prepare(Some(1).into(), CALL, &info, len).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(1).into(), CALL, &info, len, 0).unwrap();
 			let initial_balance = 10 * balance_factor;
 			assert_eq!(Balances::free_balance(1), initial_balance - 5 - 5 - 15 - 10);
 
@@ -185,7 +185,7 @@ fn transaction_payment_in_native_possible() {
 			let ext = ChargeAssetTxPayment::<Runtime>::from(5 /* tipped */, None);
 			let extension_weight = ext.weight(CALL);
 			info.extension_weight = extension_weight;
-			let (pre, _) = ext.validate_and_prepare(Some(2).into(), CALL, &info, len).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(2).into(), CALL, &info, len, 0).unwrap();
 			let initial_balance_for_2 = 20 * balance_factor;
 
 			assert_eq!(Balances::free_balance(2), initial_balance_for_2 - 5 - 10 - 100 - 15 - 5);
@@ -255,7 +255,13 @@ fn transaction_payment_in_asset_possible() {
 			assert_eq!(Assets::balance(asset_id, caller), balance);
 
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_weight(WEIGHT_5), len)
+				.validate_and_prepare(
+					Some(caller).into(),
+					CALL,
+					&info_from_weight(WEIGHT_5),
+					len,
+					0,
+				)
 				.unwrap();
 			// assert that native balance is not used
 			assert_eq!(Balances::free_balance(caller), 10 * balance_factor);
@@ -313,7 +319,13 @@ fn transaction_payment_in_asset_fails_if_no_pool_for_that_asset() {
 
 			let len = 10;
 			let pre = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_weight(WEIGHT_5), len);
+				.validate_and_prepare(
+					Some(caller).into(),
+					CALL,
+					&info_from_weight(WEIGHT_5),
+					len,
+					0,
+				);
 
 			// As there is no pool in the dex set up for this asset, conversion should fail.
 			assert!(pre.is_err());
@@ -364,7 +376,13 @@ fn transaction_payment_without_fee() {
 
 			let fee_in_asset = input_quote.unwrap();
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_weight(WEIGHT_5), len)
+				.validate_and_prepare(
+					Some(caller).into(),
+					CALL,
+					&info_from_weight(WEIGHT_5),
+					len,
+					0,
+				)
 				.unwrap();
 
 			// assert that native balance is not used
@@ -445,7 +463,8 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let mut info = info_from_weight(WEIGHT_100);
 			let ext = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()));
 			info.extension_weight = ext.weight(CALL);
-			let (pre, _) = ext.validate_and_prepare(Some(caller).into(), CALL, &info, len).unwrap();
+			let (pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
 			let final_weight = 50;
@@ -539,7 +558,13 @@ fn payment_from_account_with_only_assets() {
 			assert_eq!(fee_in_asset, 201);
 
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_weight(WEIGHT_5), len)
+				.validate_and_prepare(
+					Some(caller).into(),
+					CALL,
+					&info_from_weight(WEIGHT_5),
+					len,
+					0,
+				)
 				.unwrap();
 			// check that fee was charged in the given asset
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
@@ -595,7 +620,13 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 			// there will be no conversion when the fee is zero
 			{
 				let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-					.validate_and_prepare(Some(caller).into(), CALL, &info_from_pays(Pays::No), len)
+					.validate_and_prepare(
+						Some(caller).into(),
+						CALL,
+						&info_from_pays(Pays::No),
+						len,
+						0,
+					)
 					.unwrap();
 				// `Pays::No` implies there are no fees
 				assert_eq!(Assets::balance(asset_id, caller), balance);
@@ -626,6 +657,7 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 					CALL,
 					&info_from_weight(Weight::from_parts(weight, 0)),
 					len,
+					0,
 				)
 				.unwrap();
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
@@ -676,7 +708,7 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 			assert!(fee > 0);
 
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info_from_pays(Pays::No), len)
+				.validate_and_prepare(Some(caller).into(), CALL, &info_from_pays(Pays::No), len, 0)
 				.unwrap();
 			// `Pays::No` implies no pre-dispatch fees
 
@@ -730,7 +762,8 @@ fn fee_with_native_asset_passed_with_id() {
 
 			let mut info = info_from_weight(WEIGHT_100);
 			info.extension_weight = extension_weight;
-			let (pre, _) = ext.validate_and_prepare(Some(caller).into(), CALL, &info, len).unwrap();
+			let (pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
 			assert_eq!(Balances::free_balance(caller), caller_balance - initial_fee);
 
 			let final_weight = 50;
@@ -809,7 +842,7 @@ fn transfer_add_and_remove_account() {
 			let mut info = info_from_weight(WEIGHT_100);
 			info.extension_weight = extension_weight;
 			let (pre, _) = ChargeAssetTxPayment::<Runtime>::from(tip, Some(asset_id.into()))
-				.validate_and_prepare(Some(caller).into(), CALL, &info, len)
+				.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0)
 				.unwrap();
 
 			assert_eq!(Assets::balance(asset_id, &caller), balance - fee_in_asset);
@@ -869,7 +902,7 @@ fn no_fee_and_no_weight_for_other_origins() {
 		let len = CALL.encoded_size();
 
 		let origin = frame_system::RawOrigin::Root.into();
-		let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len).unwrap();
+		let (pre, origin) = ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
 
 		assert!(origin.as_system_ref().unwrap().is_root());
 

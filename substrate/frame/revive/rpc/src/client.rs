@@ -20,22 +20,22 @@ use crate::{
 	rlp,
 	runtime::GAS_PRICE,
 	subxt_client::{
-		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
+		revive::{calls::types::EthTransact, events::ContractEmitted},
+		runtime_types::pallet_revive::storage::ContractInfo,
 	},
 	TransactionLegacySigned, LOG_TARGET,
 };
-use codec::Encode;
 use futures::{stream, StreamExt};
-use jsonrpsee::types::{ErrorCode, ErrorObjectOwned};
+use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	create1,
 	evm::{
-		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, ReceiptInfo,
-		SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
+		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, Log,
+		ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
 	},
 	EthContractResult,
 };
-use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_core::keccak_256;
 use sp_weights::Weight;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -46,7 +46,7 @@ use subxt::{
 	backend::{
 		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
 		rpc::{
-			reconnecting_rpc_client::{Client as ReconnectingRpcClient, ExponentialBackoff},
+			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 			RpcClient,
 		},
 	},
@@ -99,42 +99,60 @@ struct BlockCache<const N: usize> {
 	tx_hashes_by_block_and_index: HashMap<H256, HashMap<U256, H256>>,
 }
 
-fn unwrap_subxt_err(err: &subxt::Error) -> String {
+/// Unwrap the original `jsonrpsee::core::client::Error::Call` error.
+fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
+	use subxt::backend::rpc::reconnecting_rpc_client;
 	match err {
-		subxt::Error::Rpc(err) => unwrap_rpc_err(err),
-		_ => err.to_string(),
+		subxt::error::RpcError::ClientError(err) => {
+			match err.downcast_ref::<reconnecting_rpc_client::Error>() {
+				Some(reconnecting_rpc_client::Error::RpcError(
+					jsonrpsee::core::client::Error::Call(err),
+				)) => Some(err.clone().into_owned()),
+				_ => None,
+			}
+		},
+		_ => None,
 	}
 }
 
-fn unwrap_rpc_err(err: &subxt::error::RpcError) -> String {
-	match err {
-		subxt::error::RpcError::ClientError(err) => match err
-			// TODO use the re-export from subxt once available
-			.downcast_ref::<jsonrpsee::core::ClientError>()
-		{
-			Some(jsonrpsee::core::ClientError::Call(call_err)) => call_err.message().to_string(),
-			Some(other_err) => other_err.to_string(),
-			None => err.to_string(),
-		},
-		_ => err.to_string(),
+/// Extract the revert message from a revert("msg") solidity statement.
+fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
+	let function_selector = exec_data.get(0..4)?;
+
+	// keccak256("Error(string)")
+	let expected_selector = [0x08, 0xC3, 0x79, 0xA0];
+	if function_selector != expected_selector {
+		return None;
+	}
+
+	let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
+	match decoded.first()? {
+		ethabi::Token::String(msg) => Some(msg.to_string()),
+		_ => None,
 	}
 }
 
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
+	/// A [`jsonrpsee::core::ClientError`] wrapper error.
+	#[error(transparent)]
+	Jsonrpsee(#[from] jsonrpsee::core::ClientError),
 	/// A [`subxt::Error`] wrapper error.
-	#[error("{}",unwrap_subxt_err(.0))]
+	#[error(transparent)]
 	SubxtError(#[from] subxt::Error),
 	/// A [`RpcError`] wrapper error.
-	#[error("{}",unwrap_rpc_err(.0))]
+	#[error(transparent)]
 	RpcError(#[from] RpcError),
 	/// A [`codec::Error`] wrapper error.
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
 	/// The dry run failed.
-	#[error("Dry run failed")]
-	DryRunFailed,
+	#[error("Dry run failed: {0}")]
+	DryRunFailed(String),
+	/// Contract reverted
+	#[error("Execution reverted: {}", extract_revert_message(.0).unwrap_or_default())]
+	Reverted(Vec<u8>),
 	/// A decimal conversion failed.
 	#[error("Conversion failed")]
 	ConversionFailed,
@@ -149,13 +167,23 @@ pub enum ClientError {
 	CacheEmpty,
 }
 
-const GENERIC_ERROR_CODE: ErrorCode = ErrorCode::ServerError(-32000);
-
-// Convert a `ClientError` to an RPC `ErrorObjectOwned`.
+// TODO convert error code to https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<ClientError> for ErrorObjectOwned {
-	fn from(value: ClientError) -> Self {
-		log::debug!(target: LOG_TARGET, "ClientError: {value:?}");
-		ErrorObjectOwned::owned::<()>(GENERIC_ERROR_CODE.code(), value.to_string(), None)
+	fn from(err: ClientError) -> Self {
+		let msg = err.to_string();
+		match err {
+			ClientError::SubxtError(subxt::Error::Rpc(err)) | ClientError::RpcError(err) => {
+				if let Some(err) = unwrap_call_err(&err) {
+					return err;
+				}
+				ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, msg, None)
+			},
+			ClientError::Reverted(data) => {
+				let data = format!("0x{}", hex::encode(data));
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, Some(data))
+			},
+			_ => ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
+		}
 	}
 }
 
@@ -250,9 +278,8 @@ impl ClientInner {
 
 		// Filter extrinsics from pallet_revive
 		let extrinsics = extrinsics.iter().flat_map(|ext| {
-			let ext = ext.ok()?;
-
 			let call = ext.as_extrinsic::<EthTransact>().ok()??;
+			let transaction_hash = H256(keccak_256(&call.payload));
 			let tx = rlp::decode::<TransactionLegacySigned>(&call.payload).ok()?;
 			let from = tx.recover_eth_address().ok()?;
 			let contract_address = if tx.transaction_legacy_unsigned.to.is_none() {
@@ -261,12 +288,12 @@ impl ClientInner {
 				None
 			};
 
-			Some((from, tx, contract_address, ext))
+			Some((from, tx, transaction_hash, contract_address, ext))
 		});
 
 		// Map each extrinsic to a receipt
 		stream::iter(extrinsics)
-			.map(|(from, tx, contract_address, ext)| async move {
+			.map(|(from, tx, transaction_hash, contract_address, ext)| async move {
 				let events = ext.events().await?;
 				let tx_fees =
 					events.find_first::<TransactionFeePaid>()?.ok_or(ClientError::TxFeeNotFound)?;
@@ -278,23 +305,44 @@ impl ClientInner {
 
 				let success = events.has::<ExtrinsicSuccess>()?;
 				let transaction_index = ext.index();
-				let transaction_hash = BlakeTwo256::hash(&Vec::from(ext.bytes()).encode());
 				let block_hash = block.hash();
 				let block_number = block.number().into();
 
-				let receipt = ReceiptInfo {
+				// get logs from ContractEmitted event
+				let logs = events.iter()
+					.filter_map(|event_details| {
+						let event_details = event_details.ok()?;
+						let event = event_details.as_event::<ContractEmitted>().ok()??;
+
+						Some(Log {
+							address: event.contract,
+							topics: event.topics,
+							data: Some(event.data.into()),
+							block_number: Some(block_number),
+							transaction_hash,
+							transaction_index: Some(transaction_index.into()),
+							block_hash: Some(block_hash),
+							log_index: Some(event_details.index().into()),
+							..Default::default()
+						})
+					}).collect();
+
+
+				log::debug!(target: LOG_TARGET, "Adding receipt for tx hash: {transaction_hash:?} - block: {block_number:?}");
+				let receipt = ReceiptInfo::new(
 					block_hash,
 					block_number,
 					contract_address,
 					from,
-					to: tx.transaction_legacy_unsigned.to,
-					effective_gas_price: gas_price,
-					gas_used: gas_used.into(),
-					status: Some(if success { U256::one() } else { U256::zero() }),
+					logs,
+					tx.transaction_legacy_unsigned.to,
+					gas_price,
+					gas_used.into(),
+					success,
 					transaction_hash,
-					transaction_index: transaction_index.into(),
-					..Default::default()
-				};
+					transaction_index.into(),
+					tx.transaction_legacy_unsigned.r#type.as_byte()
+				);
 
 				Ok::<_, ClientError>((receipt.transaction_hash, (tx.into(), receipt)))
 			})
@@ -351,7 +399,6 @@ impl Client {
 		let (tx, mut updates) = tokio::sync::watch::channel(());
 
 		spawn_handle.spawn("subscribe-blocks", None, Self::subscribe_blocks(inner.clone(), tx));
-		spawn_handle.spawn("subscribe-reconnect", None, Self::subscribe_reconnect(inner.clone()));
 
 		updates.changed().await.expect("tx is not dropped");
 		Ok(Self { inner, updates })
@@ -409,18 +456,6 @@ impl Client {
 		}
 	}
 
-	/// Subscribe and log reconnection events.
-	async fn subscribe_reconnect(inner: Arc<ClientInner>) {
-		let rpc = inner.as_ref().rpc_client.clone();
-		loop {
-			let reconnected = rpc.reconnect_initiated().await;
-			log::info!(target: LOG_TARGET, "RPC client connection lost");
-			let now = std::time::Instant::now();
-			reconnected.await;
-			log::info!(target: LOG_TARGET, "RPC client reconnection took `{}s`", now.elapsed().as_secs());
-		}
-	}
-
 	/// Subscribe to new blocks and update the cache.
 	async fn subscribe_blocks(inner: Arc<ClientInner>, tx: Sender<()>) {
 		log::info!(target: LOG_TARGET, "Subscribing to new blocks");
@@ -428,7 +463,7 @@ impl Client {
 			Ok(s) => s,
 			Err(err) => {
 				log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
-				return
+				return;
 			},
 		};
 
@@ -445,7 +480,7 @@ impl Client {
 					}
 
 					log::error!(target: LOG_TARGET, "Failed to fetch block: {err:?}");
-					return
+					return;
 				},
 			};
 
@@ -461,7 +496,6 @@ impl Client {
 				.unwrap_or_default();
 
 			if !receipts.is_empty() {
-				log::debug!(target: LOG_TARGET, "Adding {} receipts", receipts.len());
 				let values = receipts
 					.iter()
 					.map(|(hash, (_, receipt))| (receipt.transaction_index, *hash))
@@ -622,7 +656,7 @@ impl Client {
 		&self,
 		tx: &GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-	) -> Result<EthContractResult<Balance>, ClientError> {
+	) -> Result<EthContractResult<Balance, Vec<u8>>, ClientError> {
 		let runtime_api = self.runtime_api(&block).await?;
 
 		let value = self
@@ -643,8 +677,21 @@ impl Client {
 			None,
 			None,
 		);
-		let res = runtime_api.call(payload).await?.0;
-		Ok(res)
+
+		let EthContractResult { fee, gas_required, storage_deposit, result } =
+			runtime_api.call(payload).await?.0;
+		match result {
+			Err(err) => {
+				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
+				Err(ClientError::DryRunFailed(format!("{err:?}")))
+			},
+			Ok(result) if result.did_revert() => {
+				log::debug!(target: LOG_TARGET, "Dry run reverted");
+				Err(ClientError::Reverted(result.0.data))
+			},
+			Ok(result) =>
+				Ok(EthContractResult { fee, gas_required, storage_deposit, result: result.0.data }),
+		}
 	}
 
 	/// Dry run a transaction and returns the gas estimate for the transaction.
