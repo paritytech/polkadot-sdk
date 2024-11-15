@@ -497,7 +497,7 @@ pub mod pallet {
 				T::WeightInfo::if_else()
 					.saturating_add(main_dispatch_info.call_weight)
 					.saturating_add(fallback_dispatch_info.call_weight),
-				main_dispatch_info.class,
+				if main.class == Operational && fallback.class == Operational { Operational } else { Normal },
 			)
 		})]
 		pub fn if_else(
