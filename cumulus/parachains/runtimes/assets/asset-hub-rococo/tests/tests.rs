@@ -1474,5 +1474,5 @@ fn location_conversion_works() {
 
 #[test]
 fn xcm_payment_api_works() {
-	asset_test_utils::test_cases::xcm_payment_api_works::<Runtime, RuntimeCall, Block>();
+	asset_test_utils::test_cases::xcm_payment_api_works::<Runtime, RuntimeCall, RuntimeOrigin, Block>();
 }

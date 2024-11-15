@@ -39,6 +39,7 @@ use sp_runtime::{
 };
 use xcm::{latest::prelude::*, VersionedAssets};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm_runtime_apis::fees::{Error as XcmPaymentApiError, runtime_decl_for_xcm_payment_api::XcmPaymentApiV1};
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -1585,25 +1586,40 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 		})
 }
 
-use xcm_runtime_apis::fees::runtime_decl_for_xcm_payment_api::XcmPaymentApiV1;
-
-pub fn xcm_payment_api_works<Runtime, RuntimeCall, Block: BlockT>()
+pub fn xcm_payment_api_works<Runtime, RuntimeCall, RuntimeOrigin, Block>()
 where
 	Runtime: XcmPaymentApiV1<Block>
-		+ frame_system::Config
-		+ pallet_balances::Config
+		+ frame_system::Config<
+			RuntimeOrigin = RuntimeOrigin,
+			AccountId = AccountId
+		  >
+		+ pallet_balances::Config<Balance = u128>
 		+ pallet_session::Config
 		+ pallet_xcm::Config
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_timestamp::Config,
+		+ pallet_timestamp::Config
+		+ pallet_assets::Config<
+			pallet_assets::Instance1,
+			AssetId = u32,
+			Balance = <Runtime as pallet_balances::Config>::Balance
+		  >
+		+ pallet_asset_conversion::Config<
+			AssetKind = xcm::v5::Location,
+			Balance = <Runtime as pallet_balances::Config>::Balance
+		>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
+	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
+		From<<Runtime as frame_system::Config>::AccountId>,
+	Block: BlockT,
 {
 	use xcm::prelude::*;
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let test_account = AccountId::from([0u8; 32]);
 		let transfer_amount = 100u128;
 		let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
 			.withdraw_asset((Here, transfer_amount))
@@ -1611,14 +1627,70 @@ where
 			.deposit_asset(AllCounted(1), [1u8; 32])
 			.build();
 		let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.clone().into());
+
+		// We first try calling it with a lower XCM version.
 		let lower_version_xcm_to_weigh =
 			versioned_xcm_to_weigh.into_version(XCM_VERSION - 1).unwrap();
 		let xcm_weight = Runtime::query_xcm_weight(lower_version_xcm_to_weigh);
 		assert!(xcm_weight.is_ok());
-		let native_token = VersionedAssetId::from(AssetId(Parent.into()));
-		let lower_version_native_token = native_token.into_version(XCM_VERSION - 1).unwrap();
+		let native_token: Location = Parent.into();
+		let native_token_versioned = VersionedAssetId::from(AssetId(native_token.clone()));
+		let lower_version_native_token = native_token_versioned.clone().into_version(XCM_VERSION - 1).unwrap();
 		let execution_fees =
 			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), lower_version_native_token);
 		assert!(execution_fees.is_ok());
+
+		// We need some balance to create an asset.
+		assert_ok!(pallet_balances::Pallet::<Runtime>::mint_into(
+			&test_account,
+			3_000_000_000_000,
+		));
+
+		// Now we try to use an asset that's not in a pool.
+		let asset_id = 1984u32; // USDT.
+		let asset_not_in_pool: Location = (PalletInstance(50), GeneralIndex(asset_id.into())).into();
+		assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::create(
+			RuntimeOrigin::signed(test_account.clone()),
+			asset_id.into(),
+			test_account.clone().into(),
+			1000
+		));
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), asset_not_in_pool.clone().into());
+		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
+
+		// We add it to a pool with native.
+		assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
+			RuntimeOrigin::signed(test_account.clone()),
+			native_token.clone().try_into().unwrap(),
+			asset_not_in_pool.clone().try_into().unwrap()
+		));
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), asset_not_in_pool.clone().into());
+		// Still not enough because it doesn't have any liquidity.
+		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
+
+		// We mint some of the asset...
+		assert_ok!(pallet_assets::Pallet::<Runtime, pallet_assets::Instance1>::mint(
+			RuntimeOrigin::signed(test_account.clone()),
+			asset_id.into(),
+			test_account.clone().into(),
+			3_000_000_000_000,
+		));
+		// ...so we can add liquidity to the pool.
+		assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::add_liquidity(
+			RuntimeOrigin::signed(test_account.clone()),
+			native_token.try_into().unwrap(),
+			asset_not_in_pool.clone().try_into().unwrap(),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			0,
+			0,
+			test_account
+		));
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), asset_not_in_pool.into());
+		// Now it works!
+		assert_ok!(execution_fees);
 	});
 }
