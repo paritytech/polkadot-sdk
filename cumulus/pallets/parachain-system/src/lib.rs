@@ -55,7 +55,6 @@ use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
-use sp_core::U256;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
 	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
@@ -204,15 +203,16 @@ pub struct DefaultCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 }
 
@@ -221,15 +221,16 @@ pub struct LookaheadCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
 	}
 }
 
