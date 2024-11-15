@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use snowbridge_core::ChannelId;
-use snowbridge_inbound_queue_primitives::Log;
+use snowbridge_verification_primitives::Log;
 
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::prelude::*;
 
-use alloy_core::{primitives::B256, sol, sol_types::SolEvent};
+use alloy_primitives::B256;
+use alloy_sol_types::{sol, SolEvent};
 
 sol! {
 	event OutboundMessageAccepted(bytes32 indexed channel_id, uint64 nonce, bytes32 indexed message_id, bytes payload);
@@ -44,7 +45,7 @@ impl TryFrom<&Log> for Envelope {
 			channel_id: ChannelId::from(event.channel_id.as_ref()),
 			nonce: event.nonce,
 			message_id: H256::from(event.message_id.as_ref()),
-			payload: event.payload.into(),
+			payload: event.payload,
 		})
 	}
 }

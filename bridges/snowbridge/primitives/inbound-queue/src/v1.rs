@@ -3,13 +3,16 @@
 //! Converts messages from Ethereum to XCM messages
 
 use crate::{CallIndex, EthereumLocationsConverterFor};
+use alloy_primitives::B256;
+use alloy_sol_types::{sol, SolEvent};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::marker::PhantomData;
 use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
 use scale_info::TypeInfo;
-use snowbridge_core::TokenId;
+use snowbridge_core::{Channel, ChannelId, TokenId};
+use snowbridge_verification_primitives::Log;
 use sp_core::{Get, RuntimeDebug, H160, H256};
-use sp_runtime::{traits::MaybeConvert, MultiAddress};
+use sp_runtime::{traits::MaybeConvert, DispatchError, MultiAddress};
 use sp_std::prelude::*;
 use xcm::prelude::{Junction::AccountKey20, *};
 
@@ -19,7 +22,7 @@ const MINIMUM_DEPOSIT: u128 = 1;
 /// we may want to evolve the protocol so that the ethereum side sends XCM messages directly.
 /// Instead having BridgeHub transcode the messages into XCM.
 #[derive(Clone, Encode, Decode, RuntimeDebug)]
-pub enum VersionedMessage {
+pub enum VersionedXcmMessage {
 	V1(MessageV1),
 }
 
@@ -141,7 +144,7 @@ pub trait ConvertMessage {
 	/// Converts a versioned message into an XCM message and an optional topicID
 	fn convert(
 		message_id: H256,
-		message: VersionedMessage,
+		message: VersionedXcmMessage,
 	) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError>;
 }
 
@@ -180,10 +183,10 @@ where
 
 	fn convert(
 		message_id: H256,
-		message: VersionedMessage,
+		message: VersionedXcmMessage,
 	) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError> {
 		use Command::*;
-		use VersionedMessage::*;
+		use VersionedXcmMessage::*;
 		match message {
 			V1(MessageV1 { chain_id, command: RegisterToken { token, fee } }) =>
 				Ok(Self::convert_register_token(message_id, chain_id, token, fee)),
@@ -456,6 +459,47 @@ where
 	}
 }
 
+sol! {
+	event OutboundMessageAccepted(bytes32 indexed channel_id, uint64 nonce, bytes32 indexed message_id, bytes payload);
+}
+
+/// An inbound message that has had its outer envelope decoded.
+#[derive(Clone, RuntimeDebug)]
+pub struct Envelope {
+	/// The address of the outbound queue on Ethereum that emitted this message as an event log
+	pub gateway: H160,
+	/// The message Channel
+	pub channel_id: ChannelId,
+	/// A nonce for enforcing replay protection and ordering.
+	pub nonce: u64,
+	/// An id for tracing the message on its route (has no role in bridge consensus)
+	pub message_id: H256,
+	/// The inner payload generated from the source application.
+	pub payload: Vec<u8>,
+}
+
+#[derive(Copy, Clone, RuntimeDebug)]
+pub struct EnvelopeDecodeError;
+
+impl TryFrom<&Log> for Envelope {
+	type Error = EnvelopeDecodeError;
+
+	fn try_from(log: &Log) -> Result<Self, Self::Error> {
+		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
+
+		let event = OutboundMessageAccepted::decode_log(topics, &log.data, true)
+			.map_err(|_| EnvelopeDecodeError)?;
+
+		Ok(Self {
+			gateway: log.address,
+			channel_id: ChannelId::from(event.channel_id.as_ref()),
+			nonce: event.nonce,
+			message_id: H256::from(event.message_id.as_ref()),
+			payload: event.payload,
+		})
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use crate::{
@@ -669,5 +713,40 @@ mod tests {
 		);
 		let actual_assets = xcm.into_iter().find(|x| matches!(x, WithdrawAsset(..)));
 		assert_eq!(actual_assets, Some(expected_assets))
+	}
+}
+pub trait MessageProcessor {
+	/// Lightweight function to check if this processor can handle the message
+	fn can_process_message(channel: &Channel, envelope: &Envelope) -> bool;
+	/// Process the message
+	fn process_message(channel: Channel, envelope: Envelope) -> Result<(), DispatchError>;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+impl MessageProcessor for Tuple {
+	fn can_process_message(channel: &Channel, envelope: &Envelope) -> bool {
+		for_tuples!( #(
+ 			match Tuple::can_process_message(&channel, &envelope) {
+				true => {
+					return true;
+				},
+				_ => {}
+			}
+		)* );
+
+		false
+	}
+
+	fn process_message(channel: Channel, envelope: Envelope) -> Result<(), DispatchError> {
+		for_tuples!( #(
+ 			match Tuple::can_process_message(&channel, &envelope) {
+				true => {
+					return Tuple::process_message(channel, envelope)
+				},
+				_ => {}
+			}
+		)* );
+
+		Err(DispatchError::Other("No handler for message found"))
 	}
 }
