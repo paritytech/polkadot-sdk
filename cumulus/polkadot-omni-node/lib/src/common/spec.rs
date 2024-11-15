@@ -24,8 +24,12 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	runtime::metadata::pallet_exists,
+	runtime::{
+		metadata::{pallet_exists, runtime_block_number},
+		BlockNumber,
+	},
 };
+use codec::Decode;
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
@@ -33,6 +37,7 @@ use cumulus_client_service::{
 };
 use cumulus_primitives_core::{BlockT, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
+use frame_metadata::RuntimeMetadataPrefixed;
 use parachains_common::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
@@ -214,174 +219,186 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	where
 		Net: NetworkBackend<Self::Block, Hash>,
 	{
-		Box::pin(
-			async move {
-				let parachain_config = prepare_node_config(parachain_config);
+		let fut = async move {
+			let parachain_config = prepare_node_config(parachain_config);
 
-				let params = Self::new_partial(&parachain_config)?;
-				let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
-				let client = params.client.clone();
+			let params = Self::new_partial(&parachain_config)?;
+			let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
+			let client = params.client.clone();
 
-				// Best effort check of parachain-system pallet by pallet name.
-				let best_block = client.chain_info().finalized_hash;
-				// The `Metadata::metadata()` API returns only metadata according
-				// to V14 schema. It would be great to return the latest stable
-				// version in the future. There is an alternative to pick the latest
-				// by going through `metadata_versions` and then pick the maximum
-				// with `metadata_at_version`, but that's more code for no real benefit.
-				// The following code is fine with whichever metadata version
-				// contains pallet information, includding their names.
-				let metadata = client
-					.runtime_api()
-					.metadata(best_block)
-					.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+			// Best effort check of parachain-system pallet by pallet name.
+			let best_block = client.chain_info().finalized_hash;
+			// The `Metadata::metadata()` API returns only metadata according
+			// to V14 schema. It would be great to return the latest stable
+			// version in the future. There is an alternative to pick the latest
+			// by going through `metadata_versions` and then pick the maximum
+			// with `metadata_at_version`, but that's more code for no real benefit.
+			// The following code is fine with whichever metadata version
+			// contains pallet information, includding their names.
+			let metadata = client
+				.runtime_api()
+				.metadata(best_block)
+				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+			let decoded_metadata = RuntimeMetadataPrefixed::decode(&mut metadata.as_slice())
+				.map_err(|e| sc_service::error::Error::Application(Box::new(e) as Box<_>))?;
 
-				if !pallet_exists(metadata.as_slice(), DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME)? {
-					log::warn!(
-						r#"⚠️ The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
+			if !pallet_exists(&decoded_metadata, DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME)? {
+				log::warn!(
+					r#"⚠️  The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
 			missing from the runtime’s metadata. Omni Node requires this pallet to be defined as `ParachainSystem`
 			in your runtime. If your setup uses a different name for the `cumulus_parachain_system_pallet`, Omni Node
 			might still work, but it's recommended to name it `ParachainSystem`. Not following this naming convention
 			could cause issues, as future development expects the type to be named `ParachainSystem`."#,
-					);
-				}
-
-				let backend = params.backend.clone();
-				let mut task_manager = params.task_manager;
-				let (relay_chain_interface, collator_key) = build_relay_chain_interface(
-					polkadot_config,
-					&parachain_config,
-					telemetry_worker_handle,
-					&mut task_manager,
-					collator_options.clone(),
-					hwbench.clone(),
-				)
-				.await
-				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
-
-				let validator = parachain_config.role.is_authority();
-				let prometheus_registry = parachain_config.prometheus_registry().cloned();
-				let transaction_pool = params.transaction_pool.clone();
-				let import_queue_service = params.import_queue.service();
-				let net_config = FullNetworkConfiguration::<_, _, Net>::new(
-					&parachain_config.network,
-					prometheus_registry.clone(),
 				);
+			}
 
-				let (network, system_rpc_tx, tx_handler_controller, sync_service) =
-					build_network(BuildNetworkParams {
-						parachain_config: &parachain_config,
-						net_config,
-						client: client.clone(),
-						transaction_pool: transaction_pool.clone(),
-						para_id,
-						spawn_handle: task_manager.spawn_handle(),
-						relay_chain_interface: relay_chain_interface.clone(),
-						import_queue: params.import_queue,
-						sybil_resistance_level: Self::SYBIL_RESISTANCE,
-					})
-					.await?;
+			let runtime_block_number = runtime_block_number(&decoded_metadata)?;
+			if runtime_block_number != BlockNumber::U32 {
+				log::warn!(
+					r#"⚠️  Node and runtime's block numbers mismatch. Currently node block number is hardcoded to `u32`,
+				and runtime type is `{runtime_block_number}`"#,
+				);
+			}
 
-				let rpc_builder = {
-					let client = client.clone();
-					let transaction_pool = transaction_pool.clone();
-					let backend_for_rpc = backend.clone();
+			let backend = params.backend.clone();
+			let mut task_manager = params.task_manager;
+			let (relay_chain_interface, collator_key) = build_relay_chain_interface(
+				polkadot_config,
+				&parachain_config,
+				telemetry_worker_handle,
+				&mut task_manager,
+				collator_options.clone(),
+				hwbench.clone(),
+			)
+			.await
+			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
-					Box::new(move |_| {
-						Self::BuildRpcExtensions::build_rpc_extensions(
-							client.clone(),
-							backend_for_rpc.clone(),
-							transaction_pool.clone(),
-						)
-					})
-				};
+			let validator = parachain_config.role.is_authority();
+			let prometheus_registry = parachain_config.prometheus_registry().cloned();
+			let transaction_pool = params.transaction_pool.clone();
+			let import_queue_service = params.import_queue.service();
+			let net_config = FullNetworkConfiguration::<_, _, Net>::new(
+				&parachain_config.network,
+				prometheus_registry.clone(),
+			);
 
-				sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-					rpc_builder,
+			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+				build_network(BuildNetworkParams {
+					parachain_config: &parachain_config,
+					net_config,
 					client: client.clone(),
 					transaction_pool: transaction_pool.clone(),
-					task_manager: &mut task_manager,
-					config: parachain_config,
-					keystore: params.keystore_container.keystore(),
-					backend: backend.clone(),
-					network: network.clone(),
-					sync_service: sync_service.clone(),
-					system_rpc_tx,
-					tx_handler_controller,
-					telemetry: telemetry.as_mut(),
-				})?;
-
-				if let Some(hwbench) = hwbench {
-					sc_sysinfo::print_hwbench(&hwbench);
-					if validator {
-						warn_if_slow_hardware(&hwbench);
-					}
-
-					if let Some(ref mut telemetry) = telemetry {
-						let telemetry_handle = telemetry.handle();
-						task_manager.spawn_handle().spawn(
-							"telemetry_hwbench",
-							None,
-							sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
-						);
-					}
-				}
-
-				let announce_block = {
-					let sync_service = sync_service.clone();
-					Arc::new(move |hash, data| sync_service.announce_block(hash, data))
-				};
-
-				let relay_chain_slot_duration = Duration::from_secs(6);
-
-				let overseer_handle = relay_chain_interface
-					.overseer_handle()
-					.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
-
-				start_relay_chain_tasks(StartRelayChainTasksParams {
-					client: client.clone(),
-					announce_block: announce_block.clone(),
 					para_id,
+					spawn_handle: task_manager.spawn_handle(),
 					relay_chain_interface: relay_chain_interface.clone(),
-					task_manager: &mut task_manager,
-					da_recovery_profile: if validator {
-						DARecoveryProfile::Collator
-					} else {
-						DARecoveryProfile::FullNode
-					},
-					import_queue: import_queue_service,
-					relay_chain_slot_duration,
-					recovery_handle: Box::new(overseer_handle.clone()),
-					sync_service,
-				})?;
+					import_queue: params.import_queue,
+					sybil_resistance_level: Self::SYBIL_RESISTANCE,
+				})
+				.await?;
 
-				if validator {
-					Self::StartConsensus::start_consensus(
+			let rpc_builder = {
+				let client = client.clone();
+				let transaction_pool = transaction_pool.clone();
+				let backend_for_rpc = backend.clone();
+
+				Box::new(move |_| {
+					Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
-						block_import,
-						prometheus_registry.as_ref(),
-						telemetry.as_ref().map(|t| t.handle()),
-						&task_manager,
-						relay_chain_interface.clone(),
-						transaction_pool,
-						params.keystore_container.keystore(),
-						relay_chain_slot_duration,
-						para_id,
-						collator_key.expect("Command line arguments do not allow this. qed"),
-						overseer_handle,
-						announce_block,
-						backend.clone(),
-						node_extra_args,
-					)?;
+						backend_for_rpc.clone(),
+						transaction_pool.clone(),
+					)
+				})
+			};
+
+			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+				rpc_builder,
+				client: client.clone(),
+				transaction_pool: transaction_pool.clone(),
+				task_manager: &mut task_manager,
+				config: parachain_config,
+				keystore: params.keystore_container.keystore(),
+				backend: backend.clone(),
+				network: network.clone(),
+				sync_service: sync_service.clone(),
+				system_rpc_tx,
+				tx_handler_controller,
+				telemetry: telemetry.as_mut(),
+			})?;
+
+			if let Some(hwbench) = hwbench {
+				sc_sysinfo::print_hwbench(&hwbench);
+				if validator {
+					warn_if_slow_hardware(&hwbench);
 				}
 
-				Ok(task_manager)
+				if let Some(ref mut telemetry) = telemetry {
+					let telemetry_handle = telemetry.handle();
+					task_manager.spawn_handle().spawn(
+						"telemetry_hwbench",
+						None,
+						sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
+					);
+				}
 			}
-			.instrument(sc_tracing::tracing::info_span!(
+
+			let announce_block = {
+				let sync_service = sync_service.clone();
+				Arc::new(move |hash, data| sync_service.announce_block(hash, data))
+			};
+
+			let relay_chain_slot_duration = Duration::from_secs(6);
+
+			let overseer_handle = relay_chain_interface
+				.overseer_handle()
+				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+
+			start_relay_chain_tasks(StartRelayChainTasksParams {
+				client: client.clone(),
+				announce_block: announce_block.clone(),
+				para_id,
+				relay_chain_interface: relay_chain_interface.clone(),
+				task_manager: &mut task_manager,
+				da_recovery_profile: if validator {
+					DARecoveryProfile::Collator
+				} else {
+					DARecoveryProfile::FullNode
+				},
+				import_queue: import_queue_service,
+				relay_chain_slot_duration,
+				recovery_handle: Box::new(overseer_handle.clone()),
+				sync_service,
+			})?;
+
+			if validator {
+				Self::StartConsensus::start_consensus(
+					client.clone(),
+					block_import,
+					prometheus_registry.as_ref(),
+					telemetry.as_ref().map(|t| t.handle()),
+					&task_manager,
+					relay_chain_interface.clone(),
+					transaction_pool,
+					params.keystore_container.keystore(),
+					relay_chain_slot_duration,
+					para_id,
+					collator_key.expect("Command line arguments do not allow this. qed"),
+					overseer_handle,
+					announce_block,
+					backend.clone(),
+					node_extra_args,
+				)?;
+			}
+
+			Ok(task_manager)
+		};
+
+		Box::pin(Instrument::instrument(
+			fut,
+			sc_tracing::tracing::info_span!(
 				sc_tracing::logging::PREFIX_LOG_SPAN,
-				name = "Parachain",
-			)),
-		)
+				name = "Parachain"
+			),
+		))
 	}
 }
 

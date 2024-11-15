@@ -17916,6 +17916,7 @@ dependencies = [
  "sc-telemetry",
  "sc-tracing",
  "sc-transaction-pool",
+ "scale-info",
  "serde",
  "serde_json",
  "sp-api 26.0.0",

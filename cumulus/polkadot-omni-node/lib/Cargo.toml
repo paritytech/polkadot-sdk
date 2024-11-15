@@ -30,6 +30,7 @@ parachains-common = { workspace = true, default-features = true }
 frame-metadata = { workspace = true, default-features = true, features = [
 	"decode",
 ] }
+scale-info = { workspace = true }
 
 # Substrate
 frame-benchmarking = { optional = true, workspace = true, default-features = true }

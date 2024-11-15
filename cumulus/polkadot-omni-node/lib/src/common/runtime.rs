@@ -16,7 +16,10 @@
 
 //! Runtime parameters.
 
+use std::fmt::Display;
+
 use sc_chain_spec::ChainSpec;
+use scale_info::{form::PortableForm, TypeDef, TypeDefPrimitive};
 
 /// The Aura ID used by the Aura consensus
 #[derive(PartialEq)]
@@ -41,6 +44,34 @@ pub enum BlockNumber {
 	U32,
 	/// u64
 	U64,
+}
+
+impl Display for BlockNumber {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			BlockNumber::U32 => write!(f, "u32"),
+			BlockNumber::U64 => write!(f, "u64"),
+		}
+	}
+}
+
+impl Into<TypeDefPrimitive> for BlockNumber {
+	fn into(self) -> TypeDefPrimitive {
+		match self {
+			BlockNumber::U32 => TypeDefPrimitive::U32,
+			BlockNumber::U64 => TypeDefPrimitive::U64,
+		}
+	}
+}
+
+impl BlockNumber {
+	fn from_type_def(type_def: &TypeDef<PortableForm>) -> Option<BlockNumber> {
+		match type_def {
+			TypeDef::Primitive(TypeDefPrimitive::U32) => Some(BlockNumber::U32),
+			TypeDef::Primitive(TypeDefPrimitive::U64) => Some(BlockNumber::U64),
+			_ => None,
+		}
+	}
 }
 
 /// Helper enum listing the supported Runtime types
@@ -69,25 +100,63 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 
 /// Logic that inspects runtime's metadata for Omni Node compatibility.
 pub mod metadata {
+	use super::BlockNumber;
 	use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed};
-	use sp_core::Decode;
 
-	/// Checks if pallet exists in runtime's metadata.
-	///
-	/// Metadata (as plain byte array) is decoded with `sp_core::Decode` and
-	/// pallets existance is checked by looking for pallets with certain names.
-	pub fn pallet_exists<'a>(
-		mut metadata: &'a [u8],
+	/// Checks if pallet exists in runtime's metadata based on pallet name.
+	pub fn pallet_exists(
+		metadata: &RuntimeMetadataPrefixed,
 		name: &str,
 	) -> Result<bool, sc_service::error::Error> {
-		let decoded_metadata = RuntimeMetadataPrefixed::decode(&mut metadata)
-			.map_err(|e| sc_service::error::Error::Application(Box::new(e) as Box<_>))?;
-		match decoded_metadata.1 {
+		match &metadata.1 {
 			RuntimeMetadata::V14(inner) => Ok(inner.pallets.iter().any(|p| p.name == name)),
 			RuntimeMetadata::V15(inner) => Ok(inner.pallets.iter().any(|p| p.name == name)),
 			_ => Err(sc_service::error::Error::Application(
-				anyhow::anyhow!("Metadata version lower than 14 not supported.").into(),
+				anyhow::anyhow!(format!(
+					"Metadata version {} not supported for checking against pallet existence.",
+					metadata.0
+				))
+				.into(),
 			)),
+		}
+	}
+
+	/// Get the configured runtime's block number type from `frame-system` pallet storage.
+	pub fn runtime_block_number(
+		metadata: &RuntimeMetadataPrefixed,
+	) -> Result<BlockNumber, sc_service::error::Error> {
+		// Macro to define reusable logic for processing metadata.
+		macro_rules! process_metadata {
+			($metadata:expr) => {{
+				$metadata
+					.pallets
+					.iter()
+					.find(|p| p.name == "System")
+					.and_then(|system| system.storage.as_ref())
+					.and_then(|storage| storage.entries.iter().find(|entry| entry.name == "Number"))
+					.and_then(|number_ty| match number_ty.ty {
+						frame_metadata::v14::StorageEntryType::Plain(ty) => Some(ty.id),
+						_ => None,
+					})
+					.and_then(|number_id| $metadata.types.resolve(number_id))
+					.and_then(|portable_type| BlockNumber::from_type_def(&portable_type.type_def))
+			}};
+		}
+
+		let err_msg = "Can not get block number type from `frame-system-pallet` storage.";
+		match &metadata.1 {
+			RuntimeMetadata::V14(meta) => process_metadata!(meta).ok_or(sc_service::error::Error::Application(
+					anyhow::anyhow!(err_msg).into())),
+			RuntimeMetadata::V15(meta) => process_metadata!(meta).ok_or(sc_service::error::Error::Application(
+					anyhow::anyhow!(err_msg).into())),
+			_ =>
+				Err(sc_service::error::Error::Application(
+					anyhow::anyhow!(format!(
+						"Metadata version {} not supported for checking block number type stored in `frame-system-pallet` storage.",
+						metadata.0
+					))
+					.into(),
+				)),
 		}
 	}
 }
