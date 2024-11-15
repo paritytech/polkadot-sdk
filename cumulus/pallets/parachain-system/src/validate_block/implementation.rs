@@ -27,8 +27,9 @@ use polkadot_parachain_primitives::primitives::{
 };
 
 use alloc::vec::Vec;
-use codec::Encode;
+use codec::{Decode, Encode};
 
+use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use frame_support::{
 	traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType},
 	BoundedVec,
@@ -163,6 +164,7 @@ where
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
+	let mut upward_message_signals = Vec::<Vec<_>>::new();
 	let mut horizontal_messages = BoundedVec::default();
 	let mut hrmp_watermark = Default::default();
 	let mut head_data = None;
@@ -228,11 +230,33 @@ where
 
 			new_validation_code =
 				new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
-			upward_messages
-				.try_extend(crate::UpwardMessages::<PSC>::get().into_iter())
-				.expect(
-					"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-				);
+
+			let mut found_separator = false;
+			crate::UpwardMessages::<PSC>::get()
+				.into_iter()
+				.filter_map(|m| {
+					if cfg!(feature = "experimental-ump-signals") {
+						if m == UMP_SEPARATOR {
+							found_separator = true;
+							None
+						} else if found_separator {
+							if upward_message_signals.iter().any(|s| *s != m) {
+								upward_message_signals.push(m);
+							}
+							None
+						} else {
+							Some(m)
+						}
+					} else {
+						Some(m)
+					}
+				})
+				.for_each(|m| {
+					upward_messages.try_push(m)
+					.expect(
+						"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+					)
+				});
 			processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
 			horizontal_messages.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter()).expect(
 				"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
@@ -246,6 +270,31 @@ where
 				);
 			}
 		})
+	}
+
+	if !upward_message_signals.is_empty() {
+		let mut selected_core = None;
+
+		upward_message_signals.iter().for_each(|s| {
+			if let Ok(UMPSignal::SelectCore(selector, offset)) = UMPSignal::decode(&mut &s[..]) {
+				match &selected_core {
+					Some(selected_core) if *selected_core != (selector, offset) => {
+						panic!("All `SelectCore` signals need to select the same core")
+					},
+					Some(_) => {},
+					None => {
+						selected_core = Some((selector, offset));
+					},
+				}
+			}
+		});
+
+		upward_messages
+			.try_push(UMP_SEPARATOR)
+			.expect("UMPSignals does not fit in UMPMessages");
+		upward_messages
+			.try_extend(upward_message_signals.into_iter())
+			.expect("UMPSignals does not fit in UMPMessages");
 	}
 
 	ValidationResult {
