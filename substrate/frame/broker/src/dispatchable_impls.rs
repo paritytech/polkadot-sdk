@@ -111,7 +111,7 @@ where T::AccountId: From<[u8; 32]> {
 		};
 		// Hack for Versi - get initial assignments:
 		let yap_sudo: T::AccountId = hex2array!("6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15").into();
-		for core in core_count..extra_cores {
+		for core in core_count.saturating_sub(extra_cores)..core_count {
 			let id = Self::issue(core, old_sale.region_begin, CoreMask::complete(), old_sale.region_end, Some(yap_sudo.clone()), None);
 			log::info!(target: LOG_TARGET, "Issued core with id: {:?}", id);
 		}
