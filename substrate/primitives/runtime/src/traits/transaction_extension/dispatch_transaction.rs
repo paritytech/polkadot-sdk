@@ -17,7 +17,11 @@
 
 //! The [DispatchTransaction] trait.
 
-use crate::{traits::AsTransactionAuthorizedOrigin, transaction_validity::InvalidTransaction};
+use crate::{
+	generic::ExtensionVersion,
+	traits::AsTransactionAuthorizedOrigin,
+	transaction_validity::{InvalidTransaction, TransactionSource},
+};
 
 use super::*;
 
@@ -45,6 +49,8 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 		call: &Call,
 		info: &Self::Info,
 		len: usize,
+		source: TransactionSource,
+		extension_version: ExtensionVersion,
 	) -> Result<(ValidTransaction, Self::Val, Self::Origin), TransactionValidityError>;
 	/// Validate and prepare a transaction, ready for dispatch.
 	fn validate_and_prepare(
@@ -53,6 +59,7 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 		call: &Call,
 		info: &Self::Info,
 		len: usize,
+		extension_version: ExtensionVersion,
 	) -> Result<(Self::Pre, Self::Origin), TransactionValidityError>;
 	/// Dispatch a transaction with the given base origin and call.
 	fn dispatch_transaction(
@@ -61,6 +68,7 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 		call: Call,
 		info: &Self::Info,
 		len: usize,
+		extension_version: ExtensionVersion,
 	) -> Self::Result;
 	/// Do everything which would be done in a [dispatch_transaction](Self::dispatch_transaction),
 	/// but instead of executing the call, execute `substitute` instead. Since this doesn't actually
@@ -71,6 +79,7 @@ pub trait DispatchTransaction<Call: Dispatchable> {
 		call: &Call,
 		info: &Self::Info,
 		len: usize,
+		extension_version: ExtensionVersion,
 		substitute: impl FnOnce(
 			Self::Origin,
 		) -> crate::DispatchResultWithInfo<<Call as Dispatchable>::PostInfo>,
@@ -93,8 +102,18 @@ where
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
+		source: TransactionSource,
+		extension_version: ExtensionVersion,
 	) -> Result<(ValidTransaction, T::Val, Self::Origin), TransactionValidityError> {
-		match self.validate(origin, call, info, len, self.implicit()?, call) {
+		match self.validate(
+			origin,
+			call,
+			info,
+			len,
+			self.implicit()?,
+			&(extension_version, call),
+			source,
+		) {
 			// After validation, some origin must have been authorized.
 			Ok((_, _, origin)) if !origin.is_transaction_authorized() =>
 				Err(InvalidTransaction::UnknownOrigin.into()),
@@ -107,8 +126,16 @@ where
 		call: &Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
+		extension_version: ExtensionVersion,
 	) -> Result<(T::Pre, Self::Origin), TransactionValidityError> {
-		let (_, val, origin) = self.validate_only(origin, call, info, len)?;
+		let (_, val, origin) = self.validate_only(
+			origin,
+			call,
+			info,
+			len,
+			TransactionSource::InBlock,
+			extension_version,
+		)?;
 		let pre = self.prepare(val, &origin, &call, info, len)?;
 		Ok((pre, origin))
 	}
@@ -118,8 +145,10 @@ where
 		call: Call,
 		info: &DispatchInfoOf<Call>,
 		len: usize,
+		extension_version: ExtensionVersion,
 	) -> Self::Result {
-		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
+		let (pre, origin) =
+			self.validate_and_prepare(origin, &call, info, len, extension_version)?;
 		let mut res = call.dispatch(origin);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
 		let post_info = match &mut res {
@@ -136,11 +165,13 @@ where
 		call: &Call,
 		info: &Self::Info,
 		len: usize,
+		extension_version: ExtensionVersion,
 		substitute: impl FnOnce(
 			Self::Origin,
 		) -> crate::DispatchResultWithInfo<<Call as Dispatchable>::PostInfo>,
 	) -> Self::Result {
-		let (pre, origin) = self.validate_and_prepare(origin, &call, info, len)?;
+		let (pre, origin) =
+			self.validate_and_prepare(origin, &call, info, len, extension_version)?;
 		let mut res = substitute(origin);
 		let pd_res = res.map(|_| ()).map_err(|e| e.error);
 		let post_info = match &mut res {
