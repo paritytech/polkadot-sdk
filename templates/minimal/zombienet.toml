@@ -4,6 +4,7 @@
 [relaychain]
 chain = "dev"
 default_command = "minimal-template-node"
+chain_spec_path = "./dev_chain_spec.json"
 
 [[relaychain.nodes]]
 name = "alice"
