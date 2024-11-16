@@ -22,16 +22,16 @@ use criterion::{
 };
 use sc_network::{
 	config::{
-		FullNetworkConfiguration, IncomingRequest, NetworkConfiguration, NonDefaultSetConfig,
-		NonReservedPeerMode, NotificationHandshake, OutgoingResponse, Params, ProtocolId, Role,
-		SetConfig,
+		FullNetworkConfiguration, IncomingRequest, NetworkConfiguration, NonReservedPeerMode,
+		NotificationHandshake, OutgoingResponse, Params, ProtocolId, Role, SetConfig,
 	},
-	IfDisconnected, NetworkBackend, NetworkRequest, NetworkWorker, NotificationMetrics,
-	NotificationService, Roles,
+	IfDisconnected, Litep2pNetworkBackend, NetworkBackend, NetworkRequest, NetworkWorker,
+	NotificationMetrics, NotificationService, Roles,
 };
-use sc_network_common::sync::message::BlockAnnouncesHandshake;
+use sc_network_common::{sync::message::BlockAnnouncesHandshake, ExHashT};
 use sc_network_types::build_multiaddr;
-use sp_runtime::traits::Zero;
+use sp_core::H256;
+use sp_runtime::traits::{Block as BlockT, Zero};
 use std::{
 	net::{IpAddr, Ipv4Addr, TcpListener},
 	str::FromStr,
@@ -62,36 +62,38 @@ fn get_listen_address() -> sc_network::Multiaddr {
 	build_multiaddr!(Ip4(ip), Tcp(port))
 }
 
-pub fn create_network_worker(
+pub fn create_network_worker<B, H, N>(
 	listen_addr: sc_network::Multiaddr,
-) -> (
-	NetworkWorker<runtime::Block, runtime::Hash>,
-	async_channel::Receiver<IncomingRequest>,
-	Box<dyn NotificationService>,
-) {
+) -> (N, async_channel::Receiver<IncomingRequest>, Box<dyn NotificationService>)
+where
+	B: BlockT<Hash = H256> + 'static,
+	H: ExHashT,
+	N: NetworkBackend<B, H>,
+{
 	let (tx, rx) = async_channel::bounded(10);
-	let request_response_config =
-		NetworkWorker::<runtime::Block, runtime::Hash>::request_response_config(
-			"/request-response/1".into(),
-			vec![],
-			MAX_SIZE,
-			MAX_SIZE,
-			Duration::from_secs(2),
-			Some(tx),
-		);
+	let request_response_config = N::request_response_config(
+		"/request-response/1".into(),
+		vec![],
+		MAX_SIZE,
+		MAX_SIZE,
+		Duration::from_secs(2),
+		Some(tx),
+	);
+	let role = Role::Full;
 	let mut net_conf = NetworkConfiguration::new_local();
 	net_conf.listen_addresses = vec![listen_addr];
 	let mut network_config = FullNetworkConfiguration::new(&net_conf, None);
 	network_config.add_request_response_protocol(request_response_config);
-	let (block_announce_config, notification_service) = NonDefaultSetConfig::new(
+	let genesis_hash = runtime::Hash::zero();
+	let (block_announce_config, notification_service) = N::notification_config(
 		"/block-announces/1".into(),
 		vec![],
 		1024,
 		Some(NotificationHandshake::new(BlockAnnouncesHandshake::<runtime::Block>::build(
 			Roles::from(&Role::Full),
 			Zero::zero(),
-			runtime::Hash::zero(),
-			runtime::Hash::zero(),
+			genesis_hash,
+			genesis_hash,
 		))),
 		SetConfig {
 			in_peers: 1,
@@ -99,14 +101,12 @@ pub fn create_network_worker(
 			reserved_nodes: vec![],
 			non_reserved_mode: NonReservedPeerMode::Accept,
 		},
+		NotificationMetrics::new(None),
+		network_config.peer_store_handle(),
 	);
-	let worker = NetworkWorker::<runtime::Block, runtime::Hash>::new(Params::<
-		runtime::Block,
-		runtime::Hash,
-		NetworkWorker<_, _>,
-	> {
+	let worker = N::new(Params::<B, H, N> {
 		block_announce_config,
-		role: Role::Full,
+		role,
 		executor: Box::new(|f| {
 			tokio::spawn(f);
 		}),
@@ -123,15 +123,21 @@ pub fn create_network_worker(
 	(worker, rx, notification_service)
 }
 
-async fn run_serially(size: usize, limit: usize) {
+async fn run_serially<B, H, N>(size: usize, limit: usize)
+where
+	B: BlockT<Hash = H256> + 'static,
+	H: ExHashT,
+	N: NetworkBackend<B, H>,
+{
 	let listen_address1 = get_listen_address();
 	let listen_address2 = get_listen_address();
-	let (mut worker1, _rx1, _notification_service1) = create_network_worker(listen_address1);
-	let service1 = worker1.service().clone();
-	let (worker2, rx2, _notification_service2) = create_network_worker(listen_address2.clone());
-	let peer_id2 = *worker2.local_peer_id();
+	let (worker1, _rx1, _notification_service1) = create_network_worker::<B, H, N>(listen_address1);
+	let service1 = worker1.network_service().clone();
+	let (worker2, rx2, _notification_service2) =
+		create_network_worker::<B, H, N>(listen_address2.clone());
+	let peer_id2 = worker2.network_service().local_peer_id();
 
-	worker1.add_known_address(peer_id2, listen_address2.into());
+	worker1.network_service().add_known_address(peer_id2, listen_address2.into());
 
 	let network1_run = worker1.run();
 	let network2_run = worker2.run();
@@ -188,15 +194,21 @@ async fn run_serially(size: usize, limit: usize) {
 // The libp2p request-response implementation does not provide any backpressure feedback.
 // So this benchmark is useless until we implement it for litep2p.
 #[allow(dead_code)]
-async fn run_with_backpressure(size: usize, limit: usize) {
+async fn run_with_backpressure<B, H, N>(size: usize, limit: usize)
+where
+	B: BlockT<Hash = H256> + 'static,
+	H: ExHashT,
+	N: NetworkBackend<B, H>,
+{
 	let listen_address1 = get_listen_address();
 	let listen_address2 = get_listen_address();
-	let (mut worker1, _rx1, _notification_service1) = create_network_worker(listen_address1);
-	let service1 = worker1.service().clone();
-	let (worker2, rx2, _notification_service2) = create_network_worker(listen_address2.clone());
-	let peer_id2 = *worker2.local_peer_id();
+	let (worker1, _rx1, _notification_service1) = create_network_worker::<B, H, N>(listen_address1);
+	let service1 = worker1.network_service().clone();
+	let (worker2, rx2, _notification_service2) =
+		create_network_worker::<B, H, N>(listen_address2.clone());
+	let peer_id2 = worker2.network_service().local_peer_id();
 
-	worker1.add_known_address(peer_id2, listen_address2.into());
+	worker1.network_service().add_known_address(peer_id2, listen_address2.into());
 
 	let network1_run = worker1.run();
 	let network2_run = worker2.run();
@@ -261,10 +273,23 @@ fn run_benchmark(c: &mut Criterion) {
 		let size = 2usize.pow(exponent);
 		group.throughput(Throughput::Bytes(REQUESTS as u64 * size as u64));
 		group.bench_with_input(
-			BenchmarkId::new("consistently", label),
+			BenchmarkId::new("libp2p/serially", label),
 			&(size, REQUESTS),
 			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| run_serially(size, limit));
+				b.to_async(&rt).iter(|| {
+					run_serially::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>(size, limit)
+				});
+			},
+		);
+		group.bench_with_input(
+			BenchmarkId::new("litep2p/serially", label),
+			&(size, REQUESTS),
+			|b, &(size, limit)| {
+				b.to_async(&rt).iter(|| {
+					run_serially::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>(
+						size, limit,
+					)
+				});
 			},
 		);
 	}
