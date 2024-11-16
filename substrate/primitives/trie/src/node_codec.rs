@@ -110,6 +110,10 @@ where
 			NodeHeader::Null => Ok(NodePlan::Empty),
 			NodeHeader::HashedValueBranch(nibble_count) | NodeHeader::Branch(_, nibble_count) => {
 				let padding = nibble_count % nibble_ops::NIBBLE_PER_BYTE != 0;
+				// data should be at least the size of the offset
+				if data.len() < input.offset {
+					return Err(Error::BadFormat)
+				}
 				// check that the padding is valid (if any)
 				if padding && nibble_ops::pad_left(data[input.offset]) != 0 {
 					return Err(Error::BadFormat)
@@ -154,6 +158,10 @@ where
 			},
 			NodeHeader::HashedValueLeaf(nibble_count) | NodeHeader::Leaf(nibble_count) => {
 				let padding = nibble_count % nibble_ops::NIBBLE_PER_BYTE != 0;
+				// data should be at least the size of the offset
+				if data.len() < input.offset {
+					return Err(Error::BadFormat)
+				}
 				// check that the padding is valid (if any)
 				if padding && nibble_ops::pad_left(data[input.offset]) != 0 {
 					return Err(Error::BadFormat)

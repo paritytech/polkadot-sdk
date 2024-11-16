@@ -296,5 +296,5 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 }
 
 pub(crate) fn active_era() -> EraIndex {
-	Staking::active_era().unwrap().index
+	pallet_staking::ActiveEra::<Test>::get().unwrap().index
 }
