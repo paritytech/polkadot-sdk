@@ -228,7 +228,7 @@ pub mod prelude {
 		Saturating, StaticLookup, TrailingZeroInput, ValidateUnsigned,
 	};
 
-	/// Other types for runtime.
+	/// Runtime types
 	#[doc(no_inline)]
 	pub use sp_runtime::{
 		BoundToRuntimeAppPublic, ConsensusEngineId, DispatchErrorWithPostInfo,
