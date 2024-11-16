@@ -61,6 +61,12 @@ pub enum ListError {
 	NotInSameBag,
 	/// Given node id was not found.
 	NodeNotFound,
+	/// An action that affects ordering cannot complete since re-ordering is disabled.
+	ReorderingNotAllowed,
+	/// List lock is already set.
+	LockAlreadySet,
+	/// List lock is already released.
+	LockAlreadyUnset,
 }
 
 #[cfg(test)]

@@ -81,6 +81,9 @@
 //! - if an item's score changes to a value no longer within the range of its current bag the item's
 //!   position will need to be updated by an external actor with rebag (update), or removal and
 //!   insertion.
+//! - the bags list supports setting/unsetting a lock on list order changes. If [`LockOrder`] is
+//!   set, all the [`SortedListProvider`] and extrinsic calls that *may* change the ordering of the
+//!   list, will fail with [`ListError::ReorderingNotAllowed`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -263,6 +266,12 @@ pub mod pallet {
 	pub(crate) type ListBags<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::Score, list::Bag<T, I>>;
 
+	/// State of the lock for implicit and explicit ordering of the IDs in the bags list.
+	///
+	/// When the lock is set, no item re-ordering should happen.
+	#[pallet::storage]
+	pub(crate) type LockOrder<T: Config<I>, I: 'static = ()> = StorageValue<_, (), OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
@@ -277,6 +286,8 @@ pub mod pallet {
 	pub enum Error<T, I = ()> {
 		/// A error in the list interface implementation.
 		List(ListError),
+		/// Explicit re-ordering is currently locked.
+		ReorderingLocked,
 	}
 
 	impl<T, I> From<ListError> for Error<T, I> {
@@ -301,6 +312,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::rebag_non_terminal().max(T::WeightInfo::rebag_terminal()))]
 		pub fn rebag(origin: OriginFor<T>, dislocated: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
+
+			ensure!(LockOrder::<T, I>::get().is_none(), Error::<T, I>::ReorderingLocked);
+
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			let current_score = T::ScoreProvider::score(&dislocated);
 			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
@@ -324,6 +338,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
+			ensure!(LockOrder::<T, I>::get().is_none(), Error::<T, I>::ReorderingLocked);
+
 			let heavier = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
@@ -341,6 +357,8 @@ pub mod pallet {
 			heavier: AccountIdLookupOf<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
+			ensure!(LockOrder::<T, I>::get().is_none(), Error::<T, I>::ReorderingLocked);
+
 			let _ = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			let heavier = T::Lookup::lookup(heavier)?;
@@ -422,8 +440,16 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		List::<T, I>::contains(id)
 	}
 
+	// TODO: from another perspective, should we prevent node inserts/removes to happen when the
+	// lock is set? this is the easiest way, but staking needs to either be aware of it and buffer
+	// requests or it is a bad UX for stakers. or the buffer can happen at the bags list level.
+	// another option is to be more fancier way is to  freeze the iterator when the lock is set.
+
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
-		List::<T, I>::insert(id, score)
+		match LockOrder::<T, I>::get() {
+			Some(_) => Err(ListError::ReorderingNotAllowed),
+			None => List::<T, I>::insert(id, score),
+		}
 	}
 
 	fn get_score(id: &T::AccountId) -> Result<T::Score, ListError> {
@@ -431,11 +457,37 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
-		Pallet::<T, I>::do_rebag(id, new_score).map(|_| ())
+		match LockOrder::<T, I>::get() {
+			Some(_) => Err(ListError::ReorderingNotAllowed),
+			None => Pallet::<T, I>::do_rebag(id, new_score).map(|_| ()),
+		}
 	}
 
 	fn on_remove(id: &T::AccountId) -> Result<(), ListError> {
-		List::<T, I>::remove(id)
+		match LockOrder::<T, I>::get() {
+			Some(_) => Err(ListError::ReorderingNotAllowed),
+			None => List::<T, I>::remove(id),
+		}
+	}
+
+	fn lock_ordering() -> Result<(), ListError> {
+		LockOrder::<T, I>::mutate(|current| match current {
+			Some(_) => Err(ListError::LockAlreadySet),
+			None => {
+				*current = Some(());
+				Ok(())
+			},
+		})
+	}
+
+	fn unlock_ordering() -> Result<(), ListError> {
+		LockOrder::<T, I>::mutate(|current| match current {
+			Some(_) => {
+				*current = None;
+				Ok(())
+			},
+			None => Err(ListError::LockAlreadyUnset),
+		})
 	}
 
 	fn unsafe_regenerate(

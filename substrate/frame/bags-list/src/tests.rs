@@ -524,6 +524,119 @@ mod pallet {
 			);
 		});
 	}
+
+	#[test]
+	fn lock_storage_state_and_errors_work() {
+		ExtBuilder::default().build_and_execute(|| {
+			// lock is unset.
+			assert!(LockOrder::<Runtime>::get().is_none());
+
+			assert_ok!(BagsList::lock_ordering());
+			// lock has been set.
+			assert!(LockOrder::<Runtime>::get().is_some());
+			// locking again will result in an error.
+			assert_noop!(BagsList::lock_ordering(), ListError::LockAlreadySet);
+
+			// unset lock
+			assert_ok!(BagsList::unlock_ordering());
+			// lock has been unset.
+			assert!(LockOrder::<Runtime>::get().is_none());
+			// unlocking again will result in an error.
+			assert_noop!(BagsList::unlock_ordering(), ListError::LockAlreadyUnset);
+		})
+	}
+
+	#[test]
+	fn rebag_with_lock_is_noop() {
+		ExtBuilder::default().add_ids(vec![(42, 20)]).build_and_execute(|| {
+			// given
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1]), (20, vec![42]), (1_000, vec![2, 3, 4])]
+			);
+
+			// set lock ordering.
+			assert_ok!(BagsList::lock_ordering());
+
+			// when increasing score to the level of non-existent bag
+			assert_eq!(List::<Runtime>::get_score(&42).unwrap(), 20);
+			StakingMock::set_score_of(&42, 2_000);
+
+			// new bag and rebag won't happen since lock is set.
+			assert_noop!(
+				BagsList::rebag(RuntimeOrigin::signed(0), 42),
+				crate::pallet::Error::<Runtime>::ReorderingLocked
+			);
+
+			// unlock sorting and try again.
+			assert_ok!(BagsList::unlock_ordering());
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 42));
+
+			// new bag is created and the id moves into it
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1]), (1_000, vec![2, 3, 4]), (2_000, vec![42])]
+			);
+		})
+	}
+
+	#[test]
+	fn put_in_front_of_with_lock_is_noop() {
+		ExtBuilder::default()
+			.skip_genesis_ids()
+			.add_ids(vec![(10, 15), (11, 16)])
+			.build_and_execute(|| {
+				// given
+				assert_eq!(List::<Runtime>::get_bags(), vec![(20, vec![10, 11])]);
+
+				// set lock.
+				assert_ok!(BagsList::lock_ordering());
+
+				assert_noop!(
+					BagsList::put_in_front_of(RuntimeOrigin::signed(11), 10),
+					crate::pallet::Error::<Runtime>::ReorderingLocked
+				);
+
+				// unset lock.
+				assert_ok!(BagsList::unlock_ordering());
+
+				assert_ok!(BagsList::put_in_front_of(RuntimeOrigin::signed(11), 10));
+
+				// then
+				assert_eq!(List::<Runtime>::get_bags(), vec![(20, vec![11, 10])]);
+			});
+	}
+
+	#[test]
+	fn put_in_front_of_other_permissionless_with_lock_is_noop() {
+		ExtBuilder::default()
+			.skip_genesis_ids()
+			.add_ids(vec![(10, 15), (11, 16), (12, 19)])
+			.build_and_execute(|| {
+				// given
+				assert_eq!(List::<Runtime>::get_bags(), vec![(20, vec![10, 11, 12])]);
+				// 11 now has more weight than 10 and can be moved before it.
+				StakingMock::set_score_of(&11u64, 17);
+
+				// set lock ordering.
+				assert_ok!(BagsList::lock_ordering());
+
+				// put in front of fails due to reordering lock.
+				assert_noop!(
+					BagsList::put_in_front_of_other(RuntimeOrigin::signed(42), 11u64, 10),
+					crate::pallet::Error::<Runtime>::ReorderingLocked,
+				);
+
+				// unlock ordering.
+				assert_ok!(BagsList::unlock_ordering());
+
+				// now put in front of works as expected.
+				assert_ok!(BagsList::put_in_front_of_other(RuntimeOrigin::signed(42), 11u64, 10));
+
+				// then
+				assert_eq!(List::<Runtime>::get_bags(), vec![(20, vec![11, 10, 12])]);
+			});
+	}
 }
 
 mod sorted_list_provider {
@@ -733,6 +846,31 @@ mod sorted_list_provider {
 
 			let non_existent_ids = vec![&42, &666, &13];
 			assert!(non_existent_ids.iter().all(|id| !BagsList::contains(id)));
+		})
+	}
+
+	#[test]
+	fn lock_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// locks list ordering changes.
+			assert_ok!(BagsList::lock_ordering());
+
+			// on_insert fails because it will change the ordering of the list.
+			assert!(!get_list_as_ids().contains(&10));
+			assert_noop!(BagsList::on_insert(10, 100), ListError::ReorderingNotAllowed);
+
+			// on_update fails because it may change the ordering of the list.
+			assert!(get_list_as_ids().contains(&1));
+			assert_noop!(BagsList::on_update(&1, 100), ListError::ReorderingNotAllowed);
+
+			// on_remove fails because it may change the ordering of the list.
+			assert_noop!(BagsList::on_remove(&1), ListError::ReorderingNotAllowed);
+
+			// unlock ordering and confirm all the above actions work now.
+			assert_ok!(BagsList::unlock_ordering());
+			assert_ok!(BagsList::on_insert(10, 100));
+			assert_ok!(BagsList::on_update(&1, 100));
+			assert_ok!(BagsList::on_remove(&1));
 		})
 	}
 }
