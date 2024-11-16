@@ -169,6 +169,7 @@ pub mod pallet {
 		traits::{tokens::GetSalary, EnsureOrigin},
 	};
 	use frame_system::{ensure_root, pallet_prelude::*};
+	use sp_runtime::traits::BlockNumberProvider;
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -225,8 +226,15 @@ pub mod pallet {
 		/// Increasing this value is supported, but decreasing it may lead to a broken state.
 		#[pallet::constant]
 		type MaxRank: Get<u32>;
+
+		/// Provides the current block number.
+		/// 
+		/// This is usually 'cumulus_pallet_parachain_system' if a parachain, 
+		/// or 'frame_system' if a solo chain.
+		type BlockNumberProvider : BlockNumberProvider;
 	}
 
+	pub type MyBlockNumberFor<T> = <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 	pub type ParamsOf<T, I> =
 		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, <T as Config<I>>::MaxRank>;
 	pub type PartialParamsOf<T, I> = ParamsType<
