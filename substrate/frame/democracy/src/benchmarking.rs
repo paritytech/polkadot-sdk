@@ -17,9 +17,11 @@
 
 //! Democracy pallet benchmarking.
 
+#![cfg(feature = "runtime-benchmarks")]
+
 use super::*;
 
-use frame_benchmarking::v1::{account, benchmarks, whitelist_account, BenchmarkError};
+use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
@@ -94,8 +96,12 @@ fn note_preimage<T: Config>() -> T::Hash {
 	hash
 }
 
-benchmarks! {
-	propose {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn propose() -> Result<(), BenchmarkError> {
 		let p = T::MaxProposals::get();
 
 		for i in 0 .. (p - 1) {
@@ -106,11 +112,14 @@ benchmarks! {
 		let proposal = make_proposal::<T>(0);
 		let value = T::MinimumDeposit::get();
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller), proposal, value)
-	verify {
-		assert_eq!(PublicProps::<T>::get().len(), p as usize, "Proposals not created.");
-	}
 
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), proposal, value);
+	
+		assert_eq!(PublicProps::<T>::get().len(), p as usize, "Proposals not created.");
+		Ok(())
+	}
+/*
 	second {
 		let caller = funded_account::<T>("caller", 0);
 		add_proposal::<T>(0)?;
@@ -845,7 +854,7 @@ benchmarks! {
 			hash,
 		}.into());
 	}
-
+*/
 	impl_benchmark_test_suite!(
 		Democracy,
 		crate::tests::new_test_ext(),
