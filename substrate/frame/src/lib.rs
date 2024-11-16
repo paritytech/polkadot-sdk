@@ -203,7 +203,9 @@ pub mod prelude {
 	/// Dispatch types from `frame-support`, other fundamental traits
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{Contains, IsSubType, OnRuntimeUpgrade};
+	pub use frame_support::traits::{
+		Contains, FindAuthor, IsSubType, OnRuntimeUpgrade, OnTimestampSet,
+	};
 
 	/// Pallet prelude of `frame-system`.
 	#[doc(no_inline)]
@@ -214,7 +216,7 @@ pub mod prelude {
 	pub use super::derive::*;
 
 	/// All hashing related things.
-	pub use super::hashing::*;
+	pub use super::cryptography::*;
 
 	/// All arithmetic types used for safe math.
 	pub use super::arithmetic::*;
@@ -222,11 +224,11 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		Bounded, DispatchInfoOf, Dispatchable, OpaqueKeys, SaturatedConversion, Saturating,
-		StaticLookup, TrailingZeroInput, ValidateUnsigned,
+		Bounded, DispatchInfoOf, Dispatchable, IsMember, OpaqueKeys, SaturatedConversion,
+		Saturating, StaticLookup, TrailingZeroInput, ValidateUnsigned,
 	};
 
-	/// Other error/result types for runtime.
+	/// Other types for runtime.
 	#[doc(no_inline)]
 	pub use sp_runtime::{
 		BoundToRuntimeAppPublic, ConsensusEngineId, DispatchErrorWithPostInfo,
@@ -539,7 +541,7 @@ pub mod derive {
 	pub use sp_runtime::RuntimeDebug;
 }
 
-pub mod hashing {
+pub mod cryptography {
 	pub use sp_core::{
 		crypto::{VrfPublic, VrfSecret, Wraps},
 		hashing::*,

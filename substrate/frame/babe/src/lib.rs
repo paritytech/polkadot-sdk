@@ -29,8 +29,8 @@ use frame::{
 	deps::sp_runtime::generic::DigestItem,
 	prelude::*,
 	traits::{
-		DisabledValidators, EstimateNextSessionRotation, FindAuthor, IsMember,
-		Lateness as LatenessT, OnTimestampSet, OneSessionHandler, StorageInstance,
+		DisabledValidators, EstimateNextSessionRotation, Lateness as LatenessT, OneSessionHandler,
+		StorageInstance,
 	},
 };
 use sp_consensus_babe::{

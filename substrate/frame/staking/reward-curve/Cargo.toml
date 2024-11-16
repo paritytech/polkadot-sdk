@@ -24,4 +24,4 @@ quote = { workspace = true }
 syn = { features = ["full", "visit"], workspace = true }
 
 [dev-dependencies]
-frame = { workspace = true, features = ["experimental", "runtime"] }
+sp-runtime = { workspace = true, default-features = true }

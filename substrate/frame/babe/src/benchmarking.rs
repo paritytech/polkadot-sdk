@@ -22,7 +22,7 @@
 use super::*;
 use frame::benchmarking::prelude::*;
 
-type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
+type Header = frame::deps::sp_runtime::generic::Header<u64, BlakeTwo256>;
 
 #[benchmarks]
 mod benchmarks {
@@ -63,8 +63,10 @@ mod benchmarks {
 
 		let equivocation_proof2 = equivocation_proof1.clone();
 
-		#[extrinsic_call]
-		_(equivocation_proof1);
+		#[block]
+		{
+			sp_consensus_babe::check_equivocation_proof::<Header>(equivocation_proof1);
+		}
 
 		assert!(sp_consensus_babe::check_equivocation_proof::<Header>(equivocation_proof2));
 
