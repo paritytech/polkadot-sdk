@@ -64,7 +64,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, traits::BlockNumberProvider};
 
 use frame_support::{
 	defensive,
@@ -87,6 +87,8 @@ pub mod weights;
 
 pub use pallet::*;
 pub use weights::*;
+
+pub type MyBlockNumberFor<T> = <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The desired outcome for which evidence is presented.
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
@@ -169,7 +171,6 @@ pub mod pallet {
 		traits::{tokens::GetSalary, EnsureOrigin},
 	};
 	use frame_system::{ensure_root, pallet_prelude::*};
-	use sp_runtime::traits::BlockNumberProvider;
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -234,12 +235,11 @@ pub mod pallet {
 		type BlockNumberProvider : BlockNumberProvider;
 	}
 
-	pub type MyBlockNumberFor<T> = <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 	pub type ParamsOf<T, I> =
 		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, <T as Config<I>>::MaxRank>;
 	pub type PartialParamsOf<T, I> = ParamsType<
 		Option<<T as Config<I>>::Balance>,
-		Option<BlockNumberFor<T>>,
+		Option<MyBlockNumberFor<T>>,
 		<T as Config<I>>::MaxRank,
 	>;
 	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
