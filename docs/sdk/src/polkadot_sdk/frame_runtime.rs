@@ -1,41 +1,10 @@
-//! # FRAME
-//!
-//!  \::::_\/_\:::_ \ \ \::: _  \ \\::\| \| \ \\::::_\/_
-//!      \_\/     \_\/ \_\/ \__\/\__\/ \__\/ \__\/ \_____\/
-//!
-//!
-//!
-//!
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_simple.mmd")]
-//!
-//!
-//!
-//!
-//! possible. A pallet is analogous to a _module_ in the runtime.
-//!
-//!
-//! - [`Dispatchable function`], allowing a pallet to define extrinsics
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", runtime)]
-//!
-//!
-//!
-//!
-//! a valid Runtime form the point of view of a Substrate client (see
-//!
 
 /// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
-/// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
+/// experimental feature to break these parts into different `mod`s. See [``] for
 /// more.
 #[docify::export]
 #[frame::pallet(dev_mode)]
@@ -128,43 +97,13 @@ pub mod runtime {
 
 
 
-//!
-//!  \::::_\/_\:::_ \ \ \::: _  \ \\::\| \| \ \\::::_\/_
-//!      \_\/     \_\/ \_\/ \__\/\__\/ \__\/ \__\/ \_____\/
-//!
-//!
-//!
-//!
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_simple.mmd")]
-//!
-//!
-//!
-//!
-//! possible. A pallet is analogous to a _module_ in the runtime.
-//!
-//!
-//! - [`Dispatchable function`], allowing a pallet to define extrinsics
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", runtime)]
-//!
-//!
-//!
-//!
-//! a valid Runtime form the point of view of a Substrate client (see
-//!
 
 /// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
-/// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
+/// experimental feature to break these parts into different `mod`s. See [``] for
 /// more.
 #[docify::export]
 #[frame::pallet(dev_mode)]
@@ -258,43 +197,13 @@ pub mod runtime {
 
 
 
-//!
-//!  \::::_\/_\:::_ \ \ \::: _  \ \\::\| \| \ \\::::_\/_
-//!      \_\/     \_\/ \_\/ \__\/\__\/ \__\/ \__\/ \_____\/
-//!
-//!
-//!
-//!
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_simple.mmd")]
-//!
-//!
-//!
-//!
-//! possible. A pallet is analogous to a _module_ in the runtime.
-//!
-//!
-//! - [`Dispatchable function`], allowing a pallet to define extrinsics
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", runtime)]
-//!
-//!
-//!
-//!
-//! a valid Runtime form the point of view of a Substrate client (see
-//!
 
 /// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
-/// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
+/// experimental feature to break these parts into different `mod`s. See [``] for
 /// more.
 #[docify::export]
 #[frame::pallet(dev_mode)]
@@ -387,43 +296,13 @@ pub mod runtime {
 
 
 
-//!
-//!  \::::_\/_\:::_ \ \ \::: _  \ \\::\| \| \ \\::::_\/_
-//!      \_\/     \_\/ \_\/ \__\/\__\/ \__\/ \__\/ \_____\/
-//!
-//!
-//!
-//!
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_simple.mmd")]
-//!
-//!
-//!
-//!
-//! possible. A pallet is analogous to a _module_ in the runtime.
-//!
-//!
-//! - [`Dispatchable function`], allowing a pallet to define extrinsics
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", runtime)]
-//!
-//!
-//!
-//!
-//! a valid Runtime form the point of view of a Substrate client (see
-//!
 
 /// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
-/// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
+/// experimental feature to break these parts into different `mod`s. See [``] for
 /// more.
 #[docify::export]
 #[frame::pallet(dev_mode)]
@@ -521,11 +400,21 @@ pub mod runtime {
 
 
 
-// [`pallet_examples`]: pallet_examples
 
-// [`Dispatchable function`]: frame::pallet_macros::call
-// [`Events`]: frame::pallet_macros::event
-// [`frame_system`]: frame_system
-// [`pallet_examples`]: pallet_examples
-// [`pallet_macros`]: pallet_macros
-// [`this project`]: https://github.com/LimeChain/subsembly
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// [``]:

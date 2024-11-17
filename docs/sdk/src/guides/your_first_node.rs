@@ -1,60 +1,5 @@
-//! # Your first Node
-//!
-//! [`your_first_runtime`], in a node. Within the context of this guide, we will focus on running
-//! other options when it comes to running a node.
-//!
-//! executed with a node that also expects no consensus ([`sc_consensus_manual_seal`]).
-//!
-//! > page for more information.
-//!
-//!
-//!
-//! or installed using `cargo`:
-//!
-//! cargo install polkadot-omni-node
-//!
-//! chain-specifications, through interacting with the genesis related APIs of the runtime, as
-//!
-//! cargo install staging-chain-spec-builder
-//!
-//! > crates.io is already taken and is not controlled by `polkadot-sdk` developers.
-//!
-//!
-//!
-//! cargo build --release -p path-to-runtime
-//! Equivalent code in tests:
 #![doc = docify::embed!("./src/guides/your_first_node.rs", build_runtime)]
-//!
-//!
-//!
-//! `development` (`sp_genesis_config::DEVELOPMENT`) preset.
-//!
-//! running parachains. This requires the chain-spec to always contain the `para_id` and a
-//!
-//! chain-spec-builder \
-//! 	create \
-//! 	--relay-chain dontcare \
-//! 	named-preset development
-//!
 #![doc = docify::embed!("./src/guides/your_first_node.rs", csb)]
-//!
-//!
-//!
-//! time using the `--dev-block-time` flag.
-//!
-//! polkadot-omni-node \
-//! 	--dev-block-time 1000 \
-//! ```
-//!
-//! > temporary folder, allowing the chain-to be easily restarted without `purge-chain`. See
-//!
-//! will use the testing-specific manual-seal consensus. This is an efficient way to test the
-//! production, relay-chain and so on.
-//!
-//!
-//!
-//! [`node`]: crate::reference_docs::glossary#node
-//! [`omni-node`]: crate::reference_docs::omni_node
 
 #[cfg(test)]
 mod tests {
@@ -270,10 +215,9 @@ mod tests {
 }
 
 // Link References
-// [`your_first_runtime`]: crate::guides::your_first_runtime#genesis-configuration
 
 // Link References
-// [`your_first_runtime`]: crate::guides::your_first_runtime#genesis-configuration
+
 
 // [`Release`]: https://github.com/paritytech/polkadot-sdk/releases/
 // [`omni_node`]: omni_node#user-journey

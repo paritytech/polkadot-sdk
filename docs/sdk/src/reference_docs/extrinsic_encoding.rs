@@ -230,23 +230,4 @@ pub mod encoding_example {
 	}
 }
 
-// [`MultiAddress<AccountId32>`]: sp_runtime::MultiAddress<AccountId32>
-// [`SignedPayload`]: sp_runtime::generic::SignedPayload
-
-// [`MultiAddress<AccountId32>`]: sp_runtime::MultiAddress<AccountId32>
-// [`SignedPayload`]: sp_runtime::generic::SignedPayload
-
-// [`MultiAddress<AccountId32>`]: sp_runtime::MultiAddress<AccountId32>
-// [`SignedPayload`]: sp_runtime::generic::SignedPayload
-
-// [`MultiAddress<AccountId32>`]: sp_runtime::MultiAddress<AccountId32>
-// [`SignedPayload`]: sp_runtime::generic::SignedPayload
-
-// [`MultiAddress<AccountId32>`]: sp_runtime::MultiAddress<AccountId32>
-// [`SignedPayload`]: sp_runtime::generic::SignedPayload
-
-// [`Checkable`]: sp_runtime::traits::Checkable
-// [`UncheckedExtrinsic`]: sp_runtime::generic::UncheckedExtrinsic
-// [`authorization example pallet
-//! extensions`]: pallet_example_authorization_tx_extension::extensions
 // [`here`]: https://github.com/polkadot-fellows/runtimes/blob/1dc04eb954eadf8aadb5d83990b89662dbb5a074/relay/polkadot/src/lib.rs#L1432C25-L1432C25

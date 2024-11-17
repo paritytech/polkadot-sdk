@@ -29,7 +29,7 @@
 //!   `node` feature. For `docs.rs` the manifest contains specific configuration to make it show up
 //!   all re-exports.
 //!
-//! There is a specific [`zepter`](https://github.com/ggwpez/zepter) check in place to ensure that
+//! There is a specific [`zepter`] check in place to ensure that
 //! the features of the umbrella are correctly configured. This check is run in CI and locally when
 //! running `zepter`.
 //!
@@ -78,7 +78,7 @@
 //! ```
 //!
 //! Apart from this, no issues are known. There could be some bugs with how macros locate their own
-//! re-exports. Please [report issues](https://github.com/paritytech/polkadot-sdk/issues) that arise from using this crate.
+//! re-exports. Please [`report issues`] that arise from using this crate.
 //!
 //! ## Dependencies
 //!
@@ -89,3 +89,6 @@
 //!   of the crate for these magic words. In the future, it will utilize custom metadata, as it is
 //!   done in the `rococo-runtime` crate.
 //! - The umbrella crate itself. Should be obvious :)
+
+// [`report issues`]: https://github.com/paritytech/polkadot-sdk/issues
+// [`zepter`]: https://github.com/ggwpez/zepter

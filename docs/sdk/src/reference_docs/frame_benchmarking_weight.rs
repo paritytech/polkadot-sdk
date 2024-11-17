@@ -1,53 +1,7 @@
-//! # FRAME Benchmarking and Weights.
-//!
-//!
-//!
-//! a stack machine with more complex instruction set, and more unpredictable execution times. This
-//!
-//!
-//!
-//! expected.
-//!
-//!
-//!
-//!
-//! operation. This is why FRAME has a toolkit for benchmarking pallets: So that this upper bound
-//!
-//!
-//! the 20ms. In a benchmarked environment, it can examine the transactions for their upper bound,
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_benchmarking_weight.rs", simple_transfer)]
-//!
-//!
-//!
-//! into the pallet via a conventional `trait WeightInfo` on `Config`:
 #![doc = docify::embed!("src/reference_docs/frame_benchmarking_weight.rs", WeightInfo)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_benchmarking_weight.rs", simple_transfer_2)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_benchmarking_weight.rs", simple_transfer_3)]
-//!
-//!
-//!
-//!    be using [`frame-omni-bencher`] CLI, which only relies on a runtime.
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! Polkadot-SDK, rendering them not needed anymore once PolkaVM is fully integrated into
-//!
-//!
-//! [JAM]: https://graypaper.com
 
 #[frame::pallet(dev_mode)]
 #[allow(unused_variables, unreachable_code, unused, clippy::diverging_sub_expression)]
@@ -137,7 +91,20 @@ pub mod pallet {
 
 
 
-// [`frame_benchmarking`]: frame_benchmarking
 
-// [`frame-omni-bencher`]: frame-omni-bencher
-// [`frame_benchmarking`]: frame_benchmarking
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// [``]:

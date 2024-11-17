@@ -82,15 +82,5 @@ pub mod transaction_extensions_example {
 // [`ChargeAssetTxPayment`(using
 //!   conversion)`]: using
 //!   conversion)](pallet_asset_conversion_tx_payment::ChargeAssetTxPayment
-// [`ChargeTransactionPayment`]: pallet_transaction_payment::ChargeTransactionPayment
-// [`CheckGenesis`]: frame_system::CheckGenesis
-// [`CheckMetadataHash`]: frame_metadata_hash_extension::CheckMetadataHash
-// [`CheckMortality`]: frame_system::CheckMortality
-// [`CheckNonZeroSender`]: frame_system::CheckNonZeroSender
-// [`CheckNonce`]: frame_system::CheckNonce
-// [`CheckSpecVersion`]: frame_system::CheckSpecVersion
-// [`CheckTxVersion`]: frame_system::CheckTxVersion
-// [`CheckWeight`]: frame_system::CheckWeight
-// [`SkipCheckIfFeeless`]: pallet_skip_feeless_payment::SkipCheckIfFeeless
-// [`StorageWeightReclaim`]: cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim
+
 // [`feeless_if`]: frame_support::pallet_macros::feeless_if

@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! A minimal runtime that shows runtime genesis state.
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -77,44 +76,4 @@ parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
-/// Implements the types required for the system pallet.
-#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
-impl frame_system::Config for Runtime {
-	type Block = Block;
-	type Version = Version;
-}
 
-impl pallet_bar::Config for Runtime {}
-impl pallet_foo::Config for Runtime {}
-
-type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
-type Header = HeaderFor<Runtime>;
-
-#[docify::export(runtime_impl)]
-impl_runtime_apis! {
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_state::<RuntimeGenesisConfig>(config)
-		}
-
-		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, get_builtin_preset)
-		}
-
-		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![
-				PresetId::from(PRESET_1),
-				PresetId::from(PRESET_2),
-				PresetId::from(PRESET_3),
-				PresetId::from(PRESET_4),
-				PresetId::from(PRESET_INVALID)
-			]
-		}
-	}
-
-	impl apis::Core<Block> for Runtime {
-		fn version() -> RuntimeVersion { VERSION }
-		fn execute_block(_: Block) { }
-		fn initialize_block(_: &Header) -> ExtrinsicInclusionMode { ExtrinsicInclusionMode::default() }
-	}
-}

@@ -98,4 +98,4 @@
 
 // [`**Node**`]: crate::reference_docs::glossary#node
 // [`this
-//! > lecture`]: https://polkadot-blockchain-academy.github.io/pba-book/substrate/wasm/page.html#example-2-block-import-9
+

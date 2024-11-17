@@ -23,7 +23,7 @@
 //! some metadata blob to be correct. To generate a hash for the metadata, the metadata is chunked,
 //! these chunks are put into a merkle tree and then the root of this merkle tree is the "metadata
 //! hash". For a more technical explanation on how it works, see
-//! [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html). At compile
+//! [`RFC78`]. At compile
 //! time the metadata hash is generated and "baked" into the runtime. This makes it extremely cheap
 //! for the runtime to verify on chain that the metadata hash is correct. By having the runtime
 //! verify the hash on chain, the user also doesn't need to trust the offchain metadata. If the
@@ -44,7 +44,7 @@
 //! ### Runtime integration
 //!
 //! From the runtime side only the
-//! [`CheckMetadataHash`](frame_metadata_hash_extension::CheckMetadataHash) needs to be added to the
+//! [`CheckMetadataHash`] needs to be added to the
 //! list of signed extension:
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", template_signed_extra)]
 //!
@@ -86,3 +86,6 @@
 //! The two parameters to `enable_metadata_hash` are the token symbol and the number of decimals of
 //! the primary token of the chain. These information are included for the wallets to show token
 //! related operations in a more user friendly way.
+
+// [`CheckMetadataHash`]: frame_metadata_hash_extension::CheckMetadataHash
+// [`RFC78`]: https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html

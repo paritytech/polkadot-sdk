@@ -1,22 +1,4 @@
-//! # XCM
-//!
-//!
-//!
-//!
-//!
-//! the virtual machine. These instructions aim to encompass all major things users typically do in
-//!
-//!
-//! As long as an implementation of the XCVM is implemented, the same XCM program can be executed in
-//!
-//!
-//!
-//! - [`pallet_xcm`]: A FRAME pallet for interacting with the executor.
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/xcm.rs", example_transfer)]
-//!
-//!
 
 #[cfg(test)]
 mod tests {
@@ -36,24 +18,7 @@ mod tests {
 	}
 }
 
-//!
-//!
-//!
-//!
-//!
-//! the virtual machine. These instructions aim to encompass all major things users typically do in
-//!
-//!
-//! As long as an implementation of the XCVM is implemented, the same XCM program can be executed in
-//!
-//!
-//!
-//! - [`pallet_xcm`]: A FRAME pallet for interacting with the executor.
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/xcm.rs", example_transfer)]
-//!
-//!
 
 #[cfg(test)]
 mod tests {
@@ -74,24 +39,7 @@ mod tests {
 }
 
 
-//!
-//!
-//!
-//!
-//!
-//! the virtual machine. These instructions aim to encompass all major things users typically do in
-//!
-//!
-//! As long as an implementation of the XCVM is implemented, the same XCM program can be executed in
-//!
-//!
-//!
-//! - [`pallet_xcm`]: A FRAME pallet for interacting with the executor.
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/xcm.rs", example_transfer)]
-//!
-//!
 
 #[cfg(test)]
 mod tests {
@@ -111,24 +59,7 @@ mod tests {
 	}
 }
 
-//!
-//!
-//!
-//!
-//!
-//! the virtual machine. These instructions aim to encompass all major things users typically do in
-//!
-//!
-//! As long as an implementation of the XCVM is implemented, the same XCM program can be executed in
-//!
-//!
-//!
-//! - [`pallet_xcm`]: A FRAME pallet for interacting with the executor.
-//!
-//!
 #![doc = docify::embed!("src/polkadot_sdk/xcm.rs", example_transfer)]
-//!
-//!
 
 #[cfg(test)]
 mod tests {
@@ -148,6 +79,6 @@ mod tests {
 	}
 }
 
-// [`RFC process`]: https://github.com/paritytech/xcm-format/blob/master/proposals/0032-process.md
-// [`pallet_xcm`]: pallet_xcm
-// [`xcm`]: ::xcm
+
+
+// [``]: 

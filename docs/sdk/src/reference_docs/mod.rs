@@ -1,15 +1,3 @@
-//! # Polkadot SDK Reference Docs.
-//!
-//! the Polkadot SDK.
-//!
-//!
-//!
-//! documentation [`principles`]. We acknowledge that as much of
-//! scenarios should be covered in [`guides`]. Finally, we acknowledge that there is a
-//!
-//! 2. Is too high level to be in the rust-doc of any one `type`, `trait` or `fn`.
-//!
-//! of "reference" docs, as they incur maintenance burden.
 
 /// Learn how Substrate and FRAME use traits and associated types to make modules generic in a
 /// type-safe manner.
@@ -103,7 +91,4 @@ pub mod custom_runtime_api_rpc;
 /// The [`polkadot-omni-node`] and its related binaries.
 pub mod omni_node;
 
-// [`glossary`]: crate::reference_docs::glossary
-// [`polkadot-omni-node`]: https://crates.io/crates/polkadot-omni-node
-// [`principles`]: crate::meta_contributing#principles
 // [`why we use rust-docs for everything`]: crate::meta_contributing#why-rust-docs

@@ -1,132 +1,28 @@
-//! # Currency Pallet
-//!
-//!
-//! 3. Track the total issuance of all tokens at all times.
-//!
-//! > one. Further advanced FRAME related topics are discussed in [`reference_docs`].
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! - [`error`]
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", shell_pallet)]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Balance)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", TotalIssuance)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Balances)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_pallet)]
-//!
-//!
-//!   is outside the scope of this guide, and you can learn more about it in the origin reference
-//!   was signed by `sender`.
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", ensure_signed)]
-//!
-//!
 #![doc = docify::embed!("../../substrate/frame/support/src/dispatch.rs", DispatchResult)]
-//!
-//! [`here`]). Therefore,
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_better)]
-//!
-//! only take a step in that direction, but also improve the error handing and make it slightly more
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_better_checked)]
-//!
-//!
-//!
-//!
-//! }
-//!
-//! 	use frame::testing_prelude::*;
-//!
-//!
-//! [`frame_system`]. So we expect to see a runtime with two pallet, `frame_system`
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", runtime)]
-//!
-//!
-//! Rust traits and generics work. If unfamiliar with this pattern, read
-//!
-//! it can be replaced with `<Runtime>`, because `Runtime` implements `Config` of all pallets, as we
-//!
-//! you are in fact saying "*Some type `AccountId` that will be known later*". That "later" is in
-//!
-//! being so generic, different types can always be customized to simple things when needed.
-//!
-//!
-//!
-//! to be used in our tests.
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", first_test)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", StateBuilder)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", default_state_builder)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_state_builder_add)]
-//!
-//!
-//! 3. A nifty trick, this allows our test setup to have some code that is executed both before and
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_state_builder_build)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", state_builder_works)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", state_builder_add_balance)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_works)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", mint_works)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_from_non_existent_fails)]
-//!
-//!
-//!
-//!
-//!   and are relatively heavy to transmit and encode/decode. Moreover, it is easy to mistype them
-//!   [`Module`]. Read more about this in [`error`].
-//!
-//!   represent what happened at the end of a dispatch operation. Therefore, the convention is to
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Event)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Error)]
-//!
-//!
-//! Event` of this pallet. This enables the pallet to convert its `Event` into `RuntimeEvent`, and
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", config_v2)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_v2)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", runtime_v2)]
-//!
-//! this type is to see its definition in rust-docs:
-//!
-//!
-//!
-//!
-//! - The pallet we wrote in this guide was using `dev_mode`, learn more in [`config`].
-//!
-//! [`error`]: frame_support::pallet_macros::error
 
 #[docify::export]
 #[frame::pallet(dev_mode)]
@@ -593,136 +489,32 @@ pub mod pallet_v2 {
 
 
 
-// [`frame_origin`]: frame_origin
 
-//!
-//!
-//! 3. Track the total issuance of all tokens at all times.
-//!
-//! > one. Further advanced FRAME related topics are discussed in [`reference_docs`].
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! - [`error`]
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", shell_pallet)]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Balance)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", TotalIssuance)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Balances)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_pallet)]
-//!
-//!
-//!   is outside the scope of this guide, and you can learn more about it in the origin reference
-//!   was signed by `sender`.
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", ensure_signed)]
-//!
-//!
 #![doc = docify::embed!("../../substrate/frame/support/src/dispatch.rs", DispatchResult)]
-//!
-//! [`here`]). Therefore,
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_better)]
-//!
-//! only take a step in that direction, but also improve the error handing and make it slightly more
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_better_checked)]
-//!
-//!
-//!
-//!
-//! }
-//!
-//! 	use frame::testing_prelude::*;
-//!
-//!
-//! [`frame_system`]. So we expect to see a runtime with two pallet, `frame_system`
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", runtime)]
-//!
-//!
-//! Rust traits and generics work. If unfamiliar with this pattern, read
-//!
-//! it can be replaced with `<Runtime>`, because `Runtime` implements `Config` of all pallets, as we
-//!
-//! you are in fact saying "*Some type `AccountId` that will be known later*". That "later" is in
-//!
-//! being so generic, different types can always be customized to simple things when needed.
-//!
-//!
-//!
-//! to be used in our tests.
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", first_test)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", StateBuilder)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", default_state_builder)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_state_builder_add)]
-//!
-//!
-//! 3. A nifty trick, this allows our test setup to have some code that is executed both before and
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_state_builder_build)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", state_builder_works)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", state_builder_add_balance)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_works)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", mint_works)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_from_non_existent_fails)]
-//!
-//!
-//!
-//!
-//!   and are relatively heavy to transmit and encode/decode. Moreover, it is easy to mistype them
-//!   [`Module`]. Read more about this in [`error`].
-//!
-//!   represent what happened at the end of a dispatch operation. Therefore, the convention is to
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Event)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Error)]
-//!
-//!
-//! Event` of this pallet. This enables the pallet to convert its `Event` into `RuntimeEvent`, and
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", config_v2)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_v2)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", runtime_v2)]
-//!
-//! this type is to see its definition in rust-docs:
-//!
-//!
-//!
-//!
-//! - The pallet we wrote in this guide was using `dev_mode`, learn more in [`config`].
-//!
-//! [`error`]: frame_support::pallet_macros::error
 
 #[docify::export]
 #[frame::pallet(dev_mode)]
@@ -1189,137 +981,33 @@ pub mod pallet_v2 {
 
 
 
-// [`frame_origin`]: frame_origin
 
 
-//!
-//!
-//! 3. Track the total issuance of all tokens at all times.
-//!
-//! > one. Further advanced FRAME related topics are discussed in [`reference_docs`].
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! - [`error`]
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", shell_pallet)]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Balance)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", TotalIssuance)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Balances)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_pallet)]
-//!
-//!
-//!   is outside the scope of this guide, and you can learn more about it in the origin reference
-//!   was signed by `sender`.
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", ensure_signed)]
-//!
-//!
 #![doc = docify::embed!("../../substrate/frame/support/src/dispatch.rs", DispatchResult)]
-//!
-//! [`here`]). Therefore,
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_better)]
-//!
-//! only take a step in that direction, but also improve the error handing and make it slightly more
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_better_checked)]
-//!
-//!
-//!
-//!
-//! }
-//!
-//! 	use frame::testing_prelude::*;
-//!
-//!
-//! [`frame_system`]. So we expect to see a runtime with two pallet, `frame_system`
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", runtime)]
-//!
-//!
-//! Rust traits and generics work. If unfamiliar with this pattern, read
-//!
-//! it can be replaced with `<Runtime>`, because `Runtime` implements `Config` of all pallets, as we
-//!
-//! you are in fact saying "*Some type `AccountId` that will be known later*". That "later" is in
-//!
-//! being so generic, different types can always be customized to simple things when needed.
-//!
-//!
-//!
-//! to be used in our tests.
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", first_test)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", StateBuilder)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", default_state_builder)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_state_builder_add)]
-//!
-//!
-//! 3. A nifty trick, this allows our test setup to have some code that is executed both before and
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_state_builder_build)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", state_builder_works)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", state_builder_add_balance)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_works)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", mint_works)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_from_non_existent_fails)]
-//!
-//!
-//!
-//!
-//!   and are relatively heavy to transmit and encode/decode. Moreover, it is easy to mistype them
-//!   [`Module`]. Read more about this in [`error`].
-//!
-//!   represent what happened at the end of a dispatch operation. Therefore, the convention is to
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Event)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Error)]
-//!
-//!
-//! Event` of this pallet. This enables the pallet to convert its `Event` into `RuntimeEvent`, and
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", config_v2)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_v2)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", runtime_v2)]
-//!
-//! this type is to see its definition in rust-docs:
-//!
-//!
-//!
-//!
-//! - The pallet we wrote in this guide was using `dev_mode`, learn more in [`config`].
-//!
-//! [`error`]: frame_support::pallet_macros::error
 
 #[docify::export]
 #[frame::pallet(dev_mode)]
@@ -1786,136 +1474,32 @@ pub mod pallet_v2 {
 
 
 
-// [`frame_origin`]: frame_origin
 
-//!
-//!
-//! 3. Track the total issuance of all tokens at all times.
-//!
-//! > one. Further advanced FRAME related topics are discussed in [`reference_docs`].
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! - [`error`]
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", shell_pallet)]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Balance)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", TotalIssuance)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Balances)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_pallet)]
-//!
-//!
-//!   is outside the scope of this guide, and you can learn more about it in the origin reference
-//!   was signed by `sender`.
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", ensure_signed)]
-//!
-//!
 #![doc = docify::embed!("../../substrate/frame/support/src/dispatch.rs", DispatchResult)]
-//!
-//! [`here`]). Therefore,
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_better)]
-//!
-//! only take a step in that direction, but also improve the error handing and make it slightly more
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_better_checked)]
-//!
-//!
-//!
-//!
-//! }
-//!
-//! 	use frame::testing_prelude::*;
-//!
-//!
-//! [`frame_system`]. So we expect to see a runtime with two pallet, `frame_system`
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", runtime)]
-//!
-//!
-//! Rust traits and generics work. If unfamiliar with this pattern, read
-//!
-//! it can be replaced with `<Runtime>`, because `Runtime` implements `Config` of all pallets, as we
-//!
-//! you are in fact saying "*Some type `AccountId` that will be known later*". That "later" is in
-//!
-//! being so generic, different types can always be customized to simple things when needed.
-//!
-//!
-//!
-//! to be used in our tests.
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", first_test)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", StateBuilder)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", default_state_builder)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_state_builder_add)]
-//!
-//!
-//! 3. A nifty trick, this allows our test setup to have some code that is executed both before and
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", impl_state_builder_build)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", state_builder_works)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", state_builder_add_balance)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_works)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", mint_works)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_from_non_existent_fails)]
-//!
-//!
-//!
-//!
-//!   and are relatively heavy to transmit and encode/decode. Moreover, it is easy to mistype them
-//!   [`Module`]. Read more about this in [`error`].
-//!
-//!   represent what happened at the end of a dispatch operation. Therefore, the convention is to
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Event)]
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", Error)]
-//!
-//!
-//! Event` of this pallet. This enables the pallet to convert its `Event` into `RuntimeEvent`, and
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", config_v2)]
-//!
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", transfer_v2)]
-//!
 #![doc = docify::embed!("./packages/guides/first-pallet/src/lib.rs", runtime_v2)]
-//!
-//! this type is to see its definition in rust-docs:
-//!
-//!
-//!
-//!
-//! - The pallet we wrote in this guide was using `dev_mode`, learn more in [`config`].
-//!
-//! [`error`]: frame_support::pallet_macros::error
 
 #[docify::export]
 #[frame::pallet(dev_mode)]
@@ -2382,19 +1966,24 @@ pub mod pallet_v2 {
 
 
 
-// [`frame_origin`]: frame_origin
 
 
-// [`frame_system`]: frame_system
 
-// [`frame_runtime`]: frame_runtime
-// [`frame_system`]: frame_system
 
-// [`Constructing a runtime`]: frame::runtime::prelude::construct_runtime
-// [`frame_origin`]: frame_origin
-// [`frame_runtime`]: frame_runtime
-// [`frame_runtime_types`]: frame_runtime_types
-// [`frame_system`]: frame_system
-// [`here`]: frame::prelude::DispatchError#impl-From<%26str>-for-DispatchError
-// [`pallet_macros`]: pallet_macros
-// [`section`]: https://github.com/Polkadot-Blockchain-Academy/pba-qualifier-exam/blob/main/src/m_builder.rs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// [``]:

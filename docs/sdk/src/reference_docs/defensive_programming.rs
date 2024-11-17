@@ -13,110 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `panic!`. Defensive practices allow for these circumstances to be accounted for ahead of time
-//!
-//!
-//!
-//!
-//!
-//! > [Substrate's node
-//! > approaches
-//!
-//!
-//!
-//!   recommended to be used.
-//!   panic.  It is important to ensure all possible errors are propagated and handled effectively.
-//! - **Carefully handle mathematical operations.**  Many seemingly, simplistic operations, such as
-//!
-//!
-//!```ignore
-//! fn good_pop<T>(v: Vec<T>) -> Option<T> {}
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! (from the `MAX` back to zero).
-//!
-//!
-//! }
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", checked_add_example)]
-//!
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     checked_add_handle_error_example
 )]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance)]
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_match)]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_result)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", saturated_add_example)]
-//!
-//!
-//! operations:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     saturated_defensive_example
 )]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! this issue.  They simply would've reached the upper, or lower bounds, of the particular type for
-//!
-//!
-//! token balance, destroying the chain's integrity.
-//!
-//! calculation would've simply limited her balance to the lower bound of u32, as having a negative
-//!
-//!
-//!
-//! `proposals_count` to go to 0. Unfortunately, this results in new proposals overwriting old ones,
-//!
-//! Saturating could've been used - but it also would've 'failed' silently. Using `checked_add` to
-//!
-//!
-//!
-//!
-//!
-//! considered safer. Particularly when it comes to mission-critical components, such as block
-//!
-//!
-//!       "Validator with index {:?} is disabled and should not be attempting to author blocks.",
-//! ```
-//!
-//!
-//!
 #![allow(dead_code)]
 #[allow(unused_variables)]
 mod fake_runtime_types {
@@ -237,110 +146,19 @@ mod tests {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `panic!`. Defensive practices allow for these circumstances to be accounted for ahead of time
-//!
-//!
-//!
-//!
-//!
-//! > [Substrate's node
-//! > approaches
-//!
-//!
-//!
-//!   recommended to be used.
-//!   panic.  It is important to ensure all possible errors are propagated and handled effectively.
-//! - **Carefully handle mathematical operations.**  Many seemingly, simplistic operations, such as
-//!
-//!
-//!```ignore
-//! fn good_pop<T>(v: Vec<T>) -> Option<T> {}
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! (from the `MAX` back to zero).
-//!
-//!
-//! }
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", checked_add_example)]
-//!
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     checked_add_handle_error_example
 )]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance)]
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_match)]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_result)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", saturated_add_example)]
-//!
-//!
-//! operations:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     saturated_defensive_example
 )]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! this issue.  They simply would've reached the upper, or lower bounds, of the particular type for
-//!
-//!
-//! token balance, destroying the chain's integrity.
-//!
-//! calculation would've simply limited her balance to the lower bound of u32, as having a negative
-//!
-//!
-//!
-//! `proposals_count` to go to 0. Unfortunately, this results in new proposals overwriting old ones,
-//!
-//! Saturating could've been used - but it also would've 'failed' silently. Using `checked_add` to
-//!
-//!
-//!
-//!
-//!
-//! considered safer. Particularly when it comes to mission-critical components, such as block
-//!
-//!
-//!       "Validator with index {:?} is disabled and should not be attempting to author blocks.",
-//! ```
-//!
-//!
-//!
 #![allow(dead_code)]
 #[allow(unused_variables)]
 mod fake_runtime_types {
@@ -462,110 +280,19 @@ mod tests {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `panic!`. Defensive practices allow for these circumstances to be accounted for ahead of time
-//!
-//!
-//!
-//!
-//!
-//! > [Substrate's node
-//! > approaches
-//!
-//!
-//!
-//!   recommended to be used.
-//!   panic.  It is important to ensure all possible errors are propagated and handled effectively.
-//! - **Carefully handle mathematical operations.**  Many seemingly, simplistic operations, such as
-//!
-//!
-//!```ignore
-//! fn good_pop<T>(v: Vec<T>) -> Option<T> {}
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! (from the `MAX` back to zero).
-//!
-//!
-//! }
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", checked_add_example)]
-//!
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     checked_add_handle_error_example
 )]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance)]
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_match)]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_result)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", saturated_add_example)]
-//!
-//!
-//! operations:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     saturated_defensive_example
 )]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! this issue.  They simply would've reached the upper, or lower bounds, of the particular type for
-//!
-//!
-//! token balance, destroying the chain's integrity.
-//!
-//! calculation would've simply limited her balance to the lower bound of u32, as having a negative
-//!
-//!
-//!
-//! `proposals_count` to go to 0. Unfortunately, this results in new proposals overwriting old ones,
-//!
-//! Saturating could've been used - but it also would've 'failed' silently. Using `checked_add` to
-//!
-//!
-//!
-//!
-//!
-//! considered safer. Particularly when it comes to mission-critical components, such as block
-//!
-//!
-//!       "Validator with index {:?} is disabled and should not be attempting to author blocks.",
-//! ```
-//!
-//!
-//!
 #![allow(dead_code)]
 #[allow(unused_variables)]
 mod fake_runtime_types {
@@ -686,110 +413,19 @@ mod tests {
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `panic!`. Defensive practices allow for these circumstances to be accounted for ahead of time
-//!
-//!
-//!
-//!
-//!
-//! > [Substrate's node
-//! > approaches
-//!
-//!
-//!
-//!   recommended to be used.
-//!   panic.  It is important to ensure all possible errors are propagated and handled effectively.
-//! - **Carefully handle mathematical operations.**  Many seemingly, simplistic operations, such as
-//!
-//!
-//!```ignore
-//! fn good_pop<T>(v: Vec<T>) -> Option<T> {}
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! (from the `MAX` back to zero).
-//!
-//!
-//! }
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", checked_add_example)]
-//!
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     checked_add_handle_error_example
 )]
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance)]
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_match)]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", increase_balance_result)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", saturated_add_example)]
-//!
-//!
-//! operations:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     saturated_defensive_example
 )]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! this issue.  They simply would've reached the upper, or lower bounds, of the particular type for
-//!
-//!
-//! token balance, destroying the chain's integrity.
-//!
-//! calculation would've simply limited her balance to the lower bound of u32, as having a negative
-//!
-//!
-//!
-//! `proposals_count` to go to 0. Unfortunately, this results in new proposals overwriting old ones,
-//!
-//! Saturating could've been used - but it also would've 'failed' silently. Using `checked_add` to
-//!
-//!
-//!
-//!
-//!
-//! considered safer. Particularly when it comes to mission-critical components, such as block
-//!
-//!
-//!       "Validator with index {:?} is disabled and should not be attempting to author blocks.",
-//! ```
-//!
-//!
-//!
 #![allow(dead_code)]
 #[allow(unused_variables)]
 mod fake_runtime_types {
@@ -889,7 +525,6 @@ mod tests {
 	}
 }
 
-// [`DefensiveSaturating`]: frame::traits::DefensiveSaturating
-// [`PerThing`]: sp_arithmetic::per_things
-// [`here`]: frame::traits::Defensive
-// [`pallet_babe`]: pallet_babe
+
+
+// [``]:

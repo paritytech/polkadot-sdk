@@ -3,7 +3,7 @@
 //! The existence of metadata in polkadot-sdk goes back to the (forkless) upgrade-ability of all
 //! Substrate-based blockchains, which is achieved through
 //! [`wasm_meta_protocol`]. You can learn more about the details of how to
-//! deal with these upgrades in [`frame_runtime_upgrades_and_migrations`].
+//! deal with these upgrades in [``].
 //!
 //! Another consequence of upgrade-ability is that as a UI, wallet, or generally an offchain entity,
 //! it is hard to know the types internal to the runtime, specifically in light of the fact that
@@ -13,7 +13,7 @@
 //! the runtime to return a description of itself. The return type of this api is `Vec<u8>`, meaning
 //! that it is up to the runtime developer to decide on the format of this.
 //!
-//! All [`frame_runtime`] based runtimes expose a specific metadata language,
+//! All [``] based runtimes expose a specific metadata language,
 //! maintained in <https://github.com/paritytech/frame-metadata> which is adopted in the Polkadot
 //! ecosystem.
 //!
@@ -29,7 +29,9 @@
 // Link References
 
 
-// [`frame_runtime_upgrades_and_migrations`]: frame_runtime_upgrades_and_migrations
+// [``]: frame_runtime_upgrades_and_migrations
 
-// [`frame_runtime`]: frame_runtime
-// [`frame_runtime_upgrades_and_migrations`]: frame_runtime_upgrades_and_migrations
+// [``]: frame_runtime
+// [``]: frame_runtime_upgrades_and_migrations
+
+// [``]: 

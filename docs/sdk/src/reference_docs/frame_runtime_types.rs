@@ -1,61 +1,11 @@
-//! # FRAME Runtime Types
-//!
-//!
-//! > significantly improve this. Exploring the rust-docs of a runtime, such as [`runtime`] which is
-//!
-//!
-//!
-//!
-//!
 #![doc = simple_mermaid::mermaid!("../../../mermaid/outer_runtime_types.mmd")]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_foo)]
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_bar)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! the entire runtime.
-//!
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", system_runtime_call)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_with_specific_runtime_call_impl)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call_usages)]
-//!
-//!
-//!
-//! be cool if we had a test to make sure they actually resolve to the same concrete type once the
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", assert_equality)]
-//!
-//!
-//!
-//!
-//!   important to FRAME internals such as `executive`, as it implements traits such as
-//!
-//!
-//!   extrinsic. See [`transaction_extensions`] for more information.
-//!
-//!
-//! [`runtime`]: crate::reference_docs::frame_runtime_types::runtime
-//! [`pallet_bar`]: crate::reference_docs::frame_runtime_types::pallet_bar
-//!     crate::reference_docs::frame_runtime_types::runtime::RuntimeGenesisConfig
-//! [`RuntimeCall`]: crate::reference_docs::frame_runtime_types::runtime::RuntimeCall
 
 use frame::prelude::*;
 
@@ -219,63 +169,14 @@ pub mod runtime_with_specific_runtime_call {
 
 
 
-//!
-//!
-//! > significantly improve this. Exploring the rust-docs of a runtime, such as [`runtime`] which is
-//!
-//!
-//!
-//!
-//!
 #![doc = simple_mermaid::mermaid!("../../../mermaid/outer_runtime_types.mmd")]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_foo)]
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_bar)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! the entire runtime.
-//!
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", system_runtime_call)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_with_specific_runtime_call_impl)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call_usages)]
-//!
-//!
-//!
-//! be cool if we had a test to make sure they actually resolve to the same concrete type once the
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", assert_equality)]
-//!
-//!
-//!
-//!
-//!   important to FRAME internals such as `executive`, as it implements traits such as
-//!
-//!
-//!   extrinsic. See [`transaction_extensions`] for more information.
-//!
-//!
-//! [`runtime`]: crate::reference_docs::frame_runtime_types::runtime
-//! [`pallet_bar`]: crate::reference_docs::frame_runtime_types::pallet_bar
-//!     crate::reference_docs::frame_runtime_types::runtime::RuntimeGenesisConfig
-//! [`RuntimeCall`]: crate::reference_docs::frame_runtime_types::runtime::RuntimeCall
 
 use frame::prelude::*;
 
@@ -440,63 +341,14 @@ pub mod runtime_with_specific_runtime_call {
 
 
 
-//!
-//!
-//! > significantly improve this. Exploring the rust-docs of a runtime, such as [`runtime`] which is
-//!
-//!
-//!
-//!
-//!
 #![doc = simple_mermaid::mermaid!("../../../mermaid/outer_runtime_types.mmd")]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_foo)]
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_bar)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! the entire runtime.
-//!
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", system_runtime_call)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_with_specific_runtime_call_impl)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call_usages)]
-//!
-//!
-//!
-//! be cool if we had a test to make sure they actually resolve to the same concrete type once the
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", assert_equality)]
-//!
-//!
-//!
-//!
-//!   important to FRAME internals such as `executive`, as it implements traits such as
-//!
-//!
-//!   extrinsic. See [`transaction_extensions`] for more information.
-//!
-//!
-//! [`runtime`]: crate::reference_docs::frame_runtime_types::runtime
-//! [`pallet_bar`]: crate::reference_docs::frame_runtime_types::pallet_bar
-//!     crate::reference_docs::frame_runtime_types::runtime::RuntimeGenesisConfig
-//! [`RuntimeCall`]: crate::reference_docs::frame_runtime_types::runtime::RuntimeCall
 
 use frame::prelude::*;
 
@@ -660,63 +512,14 @@ pub mod runtime_with_specific_runtime_call {
 
 
 
-//!
-//!
-//! > significantly improve this. Exploring the rust-docs of a runtime, such as [`runtime`] which is
-//!
-//!
-//!
-//!
-//!
 #![doc = simple_mermaid::mermaid!("../../../mermaid/outer_runtime_types.mmd")]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_foo)]
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_bar)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! the entire runtime.
-//!
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", system_runtime_call)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_with_specific_runtime_call_impl)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call_usages)]
-//!
-//!
-//!
-//! be cool if we had a test to make sure they actually resolve to the same concrete type once the
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", assert_equality)]
-//!
-//!
-//!
-//!
-//!   important to FRAME internals such as `executive`, as it implements traits such as
-//!
-//!
-//!   extrinsic. See [`transaction_extensions`] for more information.
-//!
-//!
-//! [`runtime`]: crate::reference_docs::frame_runtime_types::runtime
-//! [`pallet_bar`]: crate::reference_docs::frame_runtime_types::pallet_bar
-//!     crate::reference_docs::frame_runtime_types::runtime::RuntimeGenesisConfig
-//! [`RuntimeCall`]: crate::reference_docs::frame_runtime_types::runtime::RuntimeCall
 
 use frame::prelude::*;
 
@@ -885,10 +688,21 @@ pub mod runtime_with_specific_runtime_call {
 
 
 
-// [`pallet_bar`]: pallet_bar
 
-// [`frame_origin`]: frame_origin
-// [`pallet_bar`]: pallet_bar
-// [`pallet_foo`]: pallet_foo
-// [`pba-book`]: https://polkadot-blockchain-academy.github.io/pba-book/frame/outer-enum/page.html
-// [`this`]: https://github.com/paritytech/polkadot-sdk/issues/3743
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// [``]:

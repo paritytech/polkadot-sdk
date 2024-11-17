@@ -1,68 +1,14 @@
-//! # FRAME Pallet Coupling
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! * *linked to other pallets*: But, adhering extensively to the above also hinders the ability to
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! ```
-//!
-//! of `F`, which may be `B`, or another implementation of `F`.
-//!
-//!
-//!    type F: F;
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_foo)]
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_author)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_config)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_usage)]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", AuthorProvider)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", loose_config)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", loose_usage)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_author_provider)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", runtime_author_provider)]
-//!
-//! module, you can find [`OtherAuthorProvider`], which is an alternative implementation of
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", other_author_provider)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", unit_author_provider)]
-//!
-//!
-//! [`AccountId`],
-//!
-//!
-//!
-//!   dispatchables.
-//!   be foreseen, consider loosely coupling pallets.
-//!
-//! with balances or assets pallet. More on this in [`frame_tokens`].
-//!
-//!
-//!
 
 #![allow(unused)]
 
@@ -216,70 +162,17 @@ pub mod runtime {
 
 
 
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! * *linked to other pallets*: But, adhering extensively to the above also hinders the ability to
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! ```
-//!
-//! of `F`, which may be `B`, or another implementation of `F`.
-//!
-//!
-//!    type F: F;
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_foo)]
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_author)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_config)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_usage)]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", AuthorProvider)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", loose_config)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", loose_usage)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_author_provider)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", runtime_author_provider)]
-//!
-//! module, you can find [`OtherAuthorProvider`], which is an alternative implementation of
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", other_author_provider)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", unit_author_provider)]
-//!
-//!
-//! [`AccountId`],
-//!
-//!
-//!
-//!   dispatchables.
-//!   be foreseen, consider loosely coupling pallets.
-//!
-//! with balances or assets pallet. More on this in [`frame_tokens`].
-//!
-//!
-//!
 
 #![allow(unused)]
 
@@ -434,70 +327,17 @@ pub mod runtime {
 
 
 
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! * *linked to other pallets*: But, adhering extensively to the above also hinders the ability to
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! ```
-//!
-//! of `F`, which may be `B`, or another implementation of `F`.
-//!
-//!
-//!    type F: F;
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_foo)]
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_author)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_config)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_usage)]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", AuthorProvider)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", loose_config)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", loose_usage)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_author_provider)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", runtime_author_provider)]
-//!
-//! module, you can find [`OtherAuthorProvider`], which is an alternative implementation of
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", other_author_provider)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", unit_author_provider)]
-//!
-//!
-//! [`AccountId`],
-//!
-//!
-//!
-//!   dispatchables.
-//!   be foreseen, consider loosely coupling pallets.
-//!
-//! with balances or assets pallet. More on this in [`frame_tokens`].
-//!
-//!
-//!
 
 #![allow(unused)]
 
@@ -651,70 +491,17 @@ pub mod runtime {
 
 
 
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! * *linked to other pallets*: But, adhering extensively to the above also hinders the ability to
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! ```
-//!
-//! of `F`, which may be `B`, or another implementation of `F`.
-//!
-//!
-//!    type F: F;
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_foo)]
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_author)]
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_config)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_usage)]
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", AuthorProvider)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", loose_config)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", loose_usage)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_author_provider)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", runtime_author_provider)]
-//!
-//! module, you can find [`OtherAuthorProvider`], which is an alternative implementation of
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", other_author_provider)]
-//!
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", unit_author_provider)]
-//!
-//!
-//! [`AccountId`],
-//!
-//!
-//!
-//!   dispatchables.
-//!   be foreseen, consider loosely coupling pallets.
-//!
-//! with balances or assets pallet. More on this in [`frame_tokens`].
-//!
-//!
-//!
 
 #![allow(unused)]
 
@@ -872,12 +659,22 @@ pub mod runtime {
 
 
 
-// [`pallet_balances`]: pallet_balances
 
-// [`frame_tokens`]: frame_tokens
-// [`pallet_balances`]: pallet_balances
 
-// [`frame_runtime`]: frame_runtime
-// [`frame_tokens`]: frame_tokens
-// [`pallet_assets`]: pallet_assets
-// [`pallet_balances`]: pallet_balances
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// [``]:

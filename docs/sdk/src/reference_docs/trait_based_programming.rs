@@ -1,45 +1,10 @@
-//! # Trait-based Programming
-//!
-//!
-//! Moreover, we use the [`Get`].
-//!
-//! amount, expressed as a [`Get`], which will dictate what is the minimum amount
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", basic)]
-//!
-//!
-//!
-//!
-//!
-//! }
-//!
-//!
-//!     _marker: std::marker::PhantomData<AccountId>,
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", generic)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", trait_based)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", with_system)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified)]
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified_complicated)]
-//!
-//!
 #![doc = docify::embed!("../../substrate/frame/fast-unstake/src/types.rs", BalanceOf)]
-//!
-//!
 #![allow(unused)]
 
 use frame::traits::Get;
@@ -157,47 +122,13 @@ mod fully_qualified_complicated {
 	type BalanceOf<T> = <<T as Config>::Currency as CurrencyTrait>::Balance;
 }
 
-//!
-//!
-//! Moreover, we use the [`Get`].
-//!
-//! amount, expressed as a [`Get`], which will dictate what is the minimum amount
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", basic)]
-//!
-//!
-//!
-//!
-//!
-//! }
-//!
-//!
-//!     _marker: std::marker::PhantomData<AccountId>,
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", generic)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", trait_based)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", with_system)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified)]
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified_complicated)]
-//!
-//!
 #![doc = docify::embed!("../../substrate/frame/fast-unstake/src/types.rs", BalanceOf)]
-//!
-//!
 #![allow(unused)]
 
 use frame::traits::Get;
@@ -316,47 +247,13 @@ mod fully_qualified_complicated {
 }
 
 
-//!
-//!
-//! Moreover, we use the [`Get`].
-//!
-//! amount, expressed as a [`Get`], which will dictate what is the minimum amount
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", basic)]
-//!
-//!
-//!
-//!
-//!
-//! }
-//!
-//!
-//!     _marker: std::marker::PhantomData<AccountId>,
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", generic)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", trait_based)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", with_system)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified)]
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified_complicated)]
-//!
-//!
 #![doc = docify::embed!("../../substrate/frame/fast-unstake/src/types.rs", BalanceOf)]
-//!
-//!
 #![allow(unused)]
 
 use frame::traits::Get;
@@ -474,47 +371,13 @@ mod fully_qualified_complicated {
 	type BalanceOf<T> = <<T as Config>::Currency as CurrencyTrait>::Balance;
 }
 
-//!
-//!
-//! Moreover, we use the [`Get`].
-//!
-//! amount, expressed as a [`Get`], which will dictate what is the minimum amount
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", basic)]
-//!
-//!
-//!
-//!
-//!
-//! }
-//!
-//!
-//!     _marker: std::marker::PhantomData<AccountId>,
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", generic)]
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", trait_based)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", with_system)]
-//!
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified)]
-//!
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", fully_qualified_complicated)]
-//!
-//!
 #![doc = docify::embed!("../../substrate/frame/fast-unstake/src/types.rs", BalanceOf)]
-//!
-//!
 #![allow(unused)]
 
 use frame::traits::Get;
@@ -635,9 +498,21 @@ mod fully_qualified_complicated {
 
 
 
-// [`pallet_default_config_example`]: pallet_default_config_example
 
-// [`Rust book's Advanced Traits`]: https://doc.rust-lang.org/book/ch19-03-advanced-traits.html
-// [`Substrate Seminar - Traits and Generic Types`]: https://www.youtube.com/watch?v=6cp10jVWNl4
-// [`frame_system`]: frame_system
-// [`pallet_default_config_example`]: pallet_default_config_example
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// [``]:

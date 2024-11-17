@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Polkadot SDK Documentation Link Shortener
+Enhanced Polkadot SDK Documentation Link Shortener
 
 This script processes Rust documentation files and shortens crate reference links
 to improve readability. It should be run from the polkadot-sdk root directory.
@@ -16,7 +16,7 @@ Examples:
     Process specific directory:
     $ python substrate/.maintain/link-shortener.py --path docs/sdk/src/guides
 
-Note: This script defaults to processing the docs/sdk/src directory from the
+Note: The script defaults to processing the docs/sdk/src directory from the
 polkadot-sdk root directory.
 """
 
@@ -25,46 +25,29 @@ import sys
 import os
 import argparse
 from pathlib import Path
-from typing import Set, Tuple, NamedTuple
+from typing import Set, Tuple, Dict
 import logging
-from dataclasses import dataclass
-from collections import defaultdict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
-@dataclass
-class ReferenceEntry:
-    """Represents a single reference entry with all its components."""
-    short_name: str
-    full_path: str
-    anchor: str = ""
-    display_text: str = ""
-
-    def __hash__(self):
-        return hash((self.short_name, self.full_path))
-
 class DocLinkProcessor:
     """Processes documentation links in Rust files."""
     
-    #Patterns for all link types
+    # Patterns to match various documentation link formats
     PATTERNS = [
-        # Basic crate references
         r'\[`crate::[^`]+`\]',
         r'\[`crate::reference_docs::[^`]+`\]',
         r'\[`crate::guides::[^`]+`\]',
-        r'\[`crate::polkadot_sdk::[^`]+`\]',
-        
-        # Anchor links
-        r'\[`[^`]+#[^`]+`\]',
-        
-        # Frame and pallet references
-        r'\[`frame[^`]+`\]',
-        r'\[`pallet[^`]+`\]',
-        r'\[`sp_runtime[^`]+`\]',
-        
-        # Links with custom text
-        r'\[[^\]]+\]\([^)]+\)'
+        r'\[`crate::polkadot_sdk::[^`]+`\]'
+        r'\[`crate::\w+::[^`#]+(?:#[^`]+)?`\]' 
+        r'\[`[^`]+`\]\(`crate::[^`]+`\)',
+        r'\[`[^`]+`\]\(crate::[^)]+\)', # Added to catch links with anchors (#)
+
+        # New frame patterns
+        r'\[`frame[^`]+`\]',  # For frame system links
+        r'\[`pallet[^`]+`\]', # For pallet links
+        r'\[`sp_runtime[^`]+`\]'  
     ]
 
     def __init__(self, dry_run: bool = False):
@@ -74,81 +57,75 @@ class DocLinkProcessor:
             'modified': 0,
             'errors': []
         }
-        self.references = set()
-
-    def parse_link(self, match) -> ReferenceEntry:
-        """Parse a link match into its components."""
-        full_match = match.group(0)
-        
-        # Handle links with custom text: [text](link)
-        if ')' in full_match and '](' in full_match:
-            display_text = full_match[1:full_match.index(']')]
-            path = full_match[full_match.index('(')+1:-1].strip('`')
-            base_path = path.split('#')[0]
-            anchor = path.split('#')[1] if '#' in path else ""
-            short_name = display_text.strip('`').split('::')[-1]
-        else:
-            # Handle direct links: [`path`] or [`path#anchor`]
-            path = full_match[2:-2]  # Remove [` and `]
-            if '#' in path:
-                base_path, anchor = path.split('#', 1)
-            else:
-                base_path, anchor = path, ""
-            
-            short_name = base_path.split('::')[-1]
-
-        return ReferenceEntry(
-            short_name=short_name,
-            full_path=base_path,
-            anchor=anchor,
-            display_text=display_text if ')' in full_match else ""
-        )
-
-    def format_reference(self, entry: ReferenceEntry) -> str:
-        """Format a reference entry as a Rust reference line."""
-        if entry.anchor:
-            return f'// [`{entry.short_name}`]: {entry.full_path}#{entry.anchor}'
-        return f'// [`{entry.short_name}`]: {entry.full_path}'
 
     def process_file(self, file_path: Path) -> None:
         """Process a single file to shorten documentation links."""
         try:
             self.stats['processed'] += 1
-            self.references.clear()
             
+            # Read file content
             content = file_path.read_text()
+            
+            # Skip if no potential links
             if not any(x in content for x in ['crate::', 'frame::', 'pallet_', 'sp_runtime::']):
                 return
 
+            links: Set[Tuple[str, str]] = set()
             modified_content = content
 
-            # First pass: Collect all references
+            # Process each pattern
             for pattern in self.PATTERNS:
-                def collect_references(match):
-                    entry = self.parse_link(match)
-                    self.references.add(entry)
-                    return f'[`{entry.short_name}`]'
+                def replacer(match):
+                    full_path = match.group(0)
+                    
+                    if ')' in full_path and '](' in full_path:
+                        name_part = full_path.split('](')[0][2:-1]  # Extract name between [` and `]
+                        path_part = full_path.split('](')[1][:-1]   # Extract path between ( and )
+                        short_name = name_part
+                        path_without_brackets = path_part
+                    else:
+                        # Handle direct links: [`path`]
+                        path_without_brackets = full_path[2:-2] 
+                        if '#' in path_without_brackets:
+                            # For links with anchors, keep full reference
+                            parts = path_without_brackets.replace('\n//! ', '').split('#', 1)
+                            base_path = parts[0]
+                            anchor = parts[1] if len(parts) > 1 else ''
+                            short_name = base_path.split('::')[-1]
+                            # Keep the full reference including anchor without newlines
+                            path_without_brackets = f"{base_path}#{anchor}"
+                        else:                  
+                            if path_without_brackets.startswith('crate::'):
+                                short_name = path_without_brackets.split('::')[-1]
+                            else:
+                                short_name = path_without_brackets.split('::')[-1] if '::' in path_without_brackets else path_without_brackets
 
-                modified_content = re.sub(pattern, collect_references, modified_content)
+                    # Verify we have both values before proceeding
+                    if short_name is None or path_without_brackets is None:
+                        print(f"Warning: Could not process link {full_path}")
+                        return full_path     
 
-            if not self.references:
+                    # Add to links set for reference section
+                    links.add((short_name, path_without_brackets))
+                    print(f"Found link: {full_path}")
+                    print(f"Converting to: [`{short_name}`]")
+                    
+                    return f'[`{short_name}`]'
+
+                modified_content = re.sub(pattern, replacer, modified_content)
+
+            if not links:
                 return
 
-            # Remove existing reference section
-            modified_content = re.sub(r'\n// \[`[^`]+`\][^\n]*\n?', '\n', modified_content)
-            modified_content = re.sub(r'\n//! [^\n]*\n?', '\n', modified_content)
+            # Add reference section
+            if not modified_content.endswith('\n\n'):
+                modified_content =  modified_content.rstrip('\n') + '\n\n'
 
-            # Add new reference section
-            modified_content = modified_content.rstrip('\n') + '\n\n'
-            
-            # Sort and deduplicate references
-            sorted_refs = sorted(self.references, key=lambda x: (x.short_name, x.full_path))
-            seen = set()
-            for ref in sorted_refs:
-                if ref.short_name not in seen:
-                    modified_content += self.format_reference(ref) + '\n'
-                    seen.add(ref.short_name)
-
+            # modified_content += '\n'
+            for short_name, full_path in sorted(links):
+                    clean_path = full_path.replace('\n//! ', '')
+                    modified_content += f'// [`{short_name}`]: {clean_path}\n'
+                
             if content != modified_content:
                 if not self.dry_run:
                     file_path.write_text(modified_content)
@@ -173,6 +150,7 @@ class DocLinkProcessor:
             for error in self.stats['errors']:
                 print(f"- {error}")
 
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -190,6 +168,7 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
+    # Get target directory
     target_dir = Path(args.path)
     if not target_dir.is_absolute():
         target_dir = Path.cwd() / args.path
@@ -201,6 +180,7 @@ def main():
     if args.dry_run:
         logging.info("Running in dry-run mode - no files will be modified")
 
+    # Process files
     processor = DocLinkProcessor(dry_run=args.dry_run)
     
     try:

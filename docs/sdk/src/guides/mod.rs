@@ -1,15 +1,3 @@
-//! # Polkadot SDK Docs Guides
-//!
-//! Polkadot SDK. They are common user-journeys that are traversed in the Polkadot ecosystem.
-//!
-//!
-//!   application logic.
-//! * [`your_first_node`], where you learn how to run the said runtime in a node.
-//!
-//!
-//!
-//! [`your_first_runtime`]: crate::guides::your_first_runtime
-//!
 
 /// Write your first simple pallet, learning the most most basic features of FRAME along the way.
 pub mod your_first_pallet;
@@ -41,5 +29,4 @@ pub mod enable_elastic_scaling_mvp;
 
 // Link References
 
-// [`WASM`]: crate::polkadot_sdk::substrate#wasm-build
 // [`runtime`]: crate::reference_docs::wasm_meta_protocol
