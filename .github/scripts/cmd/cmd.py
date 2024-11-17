@@ -351,7 +351,7 @@ def main():
                 header_path = os.path.abspath(config['header'])
                 template = None
 
-                chain = runtime['name'] if runtime == 'dev' else f"{config['name']}-dev"
+                chain = config['name'] if runtime == 'dev' else f"{config['name']}-dev"
 
                 print(f'-- config: {config}')
                 if runtime == 'dev':
