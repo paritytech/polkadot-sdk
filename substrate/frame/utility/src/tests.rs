@@ -22,7 +22,7 @@
 use super::*;
 
 use crate as utility;
-use frame::{testing_prelude::*, deps::frame_system, traits::{IsType, EnsureOrigin}, runtime::prelude::{OriginFor, DispatchResult, DispatchClass}, arithmetic::Perbill};
+use frame::{testing_prelude::*, arithmetic::Perbill}; // deps::frame_system, traits::{IsType, EnsureOrigin}, runtime::prelude::{OriginFor, DispatchResult, DispatchClass}, arithmetic::Perbill};
 /*
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
@@ -46,11 +46,12 @@ type BlockNumber = u64;
 // #[frame_support::pallet(dev_mode)]
 #[frame::pallet]
 pub mod example {
-	use super::*;
+	//use super::*;
 	/*
 	use frame_support::{dispatch::WithPostDispatchInfo, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 	*/
+	use frame::prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -98,8 +99,9 @@ pub mod example {
 #[frame::pallet]
 pub mod mock_democracy {
 	//pub use pallet::*;
-	use super::*;
+	//use super::*;
 	// #[frame_support::pallet(dev_mode)]
+	use frame::prelude::*;
 	
 	//pub mod pallet {
 		
@@ -108,32 +110,32 @@ pub mod mock_democracy {
 		use frame_system::pallet_prelude::*;
 		*/
 
-		#[pallet::pallet]
-		pub struct Pallet<T>(_);
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
 
-		#[pallet::config]
-		pub trait Config: frame_system::Config + Sized {
-			type RuntimeEvent: From<Event<Self>>
-				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-			type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-		}
+	#[pallet::config]
+	pub trait Config: frame_system::Config + Sized {
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+	}
 
-		#[pallet::call]
-		impl<T: Config> Pallet<T> {
-			#[pallet::call_index(3)]
-			#[pallet::weight(0)]
-			pub fn external_propose_majority(origin: OriginFor<T>) -> DispatchResult {
-				T::ExternalMajorityOrigin::ensure_origin(origin)?;
-				Self::deposit_event(Event::<T>::ExternalProposed);
-				Ok(())
-			}
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(3)]
+		#[pallet::weight(0)]
+		pub fn external_propose_majority(origin: OriginFor<T>) -> DispatchResult {
+			T::ExternalMajorityOrigin::ensure_origin(origin)?;
+			Self::deposit_event(Event::<T>::ExternalProposed);
+			Ok(())
 		}
+	}
 
-		#[pallet::event]
-		#[pallet::generate_deposit(pub(super) fn deposit_event)]
-		pub enum Event<T: Config> {
-			ExternalProposed,
-		}
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		ExternalProposed,
+	}
 	//}
 }
 
