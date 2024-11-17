@@ -236,7 +236,6 @@ struct ClientInner {
 	cache: Shared<BlockCache<CACHE_SIZE>>,
 	chain_id: u64,
 	max_block_weight: Weight,
-	native_to_evm_ratio: U256,
 }
 
 impl ClientInner {
@@ -252,20 +251,10 @@ impl ClientInner {
 
 		let rpc = LegacyRpcMethods::<SrcChainConfig>::new(RpcClient::new(rpc_client.clone()));
 
-		let (native_to_evm_ratio, chain_id, max_block_weight) =
-			tokio::try_join!(native_to_evm_ratio(&api), chain_id(&api), max_block_weight(&api))?;
+		let (chain_id, max_block_weight) =
+			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
 
-		Ok(Self { api, rpc_client, rpc, cache, chain_id, max_block_weight, native_to_evm_ratio })
-	}
-
-	/// Convert a native balance to an EVM balance.
-	fn native_to_evm_decimals(&self, value: U256) -> U256 {
-		value.saturating_mul(self.native_to_evm_ratio)
-	}
-
-	/// Convert an evm balance to a native balance.
-	fn evm_to_native_decimals(&self, value: U256) -> U256 {
-		value / self.native_to_evm_ratio
+		Ok(Self { api, rpc_client, rpc, cache, chain_id, max_block_weight })
 	}
 
 	/// Get the receipt infos from the extrinsics in a block.
@@ -315,8 +304,8 @@ impl ClientInner {
 						let event = event_details.as_event::<ContractEmitted>().ok()??;
 
 						Some(Log {
-							address: Some(event.contract),
-							topics: Some(event.topics),
+							address: event.contract,
+							topics: event.topics,
 							data: Some(event.data.into()),
 							block_number: Some(block_number),
 							transaction_hash,
@@ -329,20 +318,20 @@ impl ClientInner {
 
 
 				log::debug!(target: LOG_TARGET, "Adding receipt for tx hash: {transaction_hash:?} - block: {block_number:?}");
-				let receipt = ReceiptInfo {
+				let receipt = ReceiptInfo::new(
 					block_hash,
 					block_number,
 					contract_address,
 					from,
 					logs,
-					to: tx.transaction_legacy_unsigned.to,
-					effective_gas_price: gas_price,
-					gas_used: gas_used.into(),
-					status: Some(if success { U256::one() } else { U256::zero() }),
+					tx.transaction_legacy_unsigned.to,
+					gas_price,
+					gas_used.into(),
+					success,
 					transaction_hash,
-					transaction_index: transaction_index.into(),
-					..Default::default()
-				};
+					transaction_index.into(),
+					tx.transaction_legacy_unsigned.r#type.as_byte()
+				);
 
 				Ok::<_, ClientError>((receipt.transaction_hash, (tx.into(), receipt)))
 			})
@@ -366,13 +355,6 @@ async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, 
 	let weights = api.constants().at(&query)?;
 	let max_block = weights.per_class.normal.max_extrinsic.unwrap_or(weights.max_block);
 	Ok(max_block.0)
-}
-
-/// Fetch the native to EVM ratio from the substrate chain.
-async fn native_to_evm_ratio(api: &OnlineClient<SrcChainConfig>) -> Result<U256, ClientError> {
-	let query = subxt_client::constants().revive().native_to_eth_ratio();
-	let ratio = api.constants().at(&query)?;
-	Ok(U256::from(ratio))
 }
 
 /// Extract the block timestamp.
@@ -607,8 +589,9 @@ impl Client {
 
 		let runtime_api = self.runtime_api(at).await?;
 		let payload = subxt_client::apis().revive_api().balance(address);
-		let balance = runtime_api.call(payload).await?.into();
-		Ok(self.inner.native_to_evm_decimals(balance))
+		let balance = runtime_api.call(payload).await?;
+
+		Ok(*balance)
 	}
 
 	/// Get the contract storage for the given contract address and key.
@@ -659,13 +642,8 @@ impl Client {
 	) -> Result<EthContractResult<Balance, Vec<u8>>, ClientError> {
 		let runtime_api = self.runtime_api(&block).await?;
 
-		let value = self
-			.inner
-			.evm_to_native_decimals(tx.value.unwrap_or_default())
-			.try_into()
-			.map_err(|_| ClientError::ConversionFailed)?;
-
 		// TODO: remove once subxt is updated
+		let value = subxt::utils::Static(tx.value.unwrap_or_default());
 		let from = tx.from.map(|v| v.0.into());
 		let to = tx.to.map(|v| v.0.into());
 
