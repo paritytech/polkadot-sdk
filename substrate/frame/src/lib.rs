@@ -392,7 +392,7 @@ pub mod runtime {
 		};
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
 		pub use sp_keyring::AccountKeyring;
-		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode};
+		pub use sp_runtime::{ApplyExtrinsicResult, ExtrinsicInclusionMode, TransactionOutcome};
 	}
 
 	/// Types and traits for runtimes that implement runtime APIs.

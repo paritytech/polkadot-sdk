@@ -18,6 +18,10 @@
 //! Module to enforce private fields on `VestingInfo`.
 
 use super::*;
+use frame::arithmetic::{AtLeast32BitUnsigned, One};
+use frame::traits::Convert;
+
+
 
 /// Struct to encode the vesting schedule of an individual account.
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]

@@ -15,15 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
 use frame_support::{derive_impl, parameter_types, traits::WithdrawReasons};
 use sp_runtime::{traits::Identity, BuildStorage};
-
+*/
+use frame::testing_prelude::*;
 use super::*;
 use crate as pallet_vesting;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
