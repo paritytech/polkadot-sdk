@@ -40,18 +40,18 @@ use sp_runtime::{
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 
-use crate::{
+use super::{
 	error::{self, Error},
-	graph,
 	metrics::{ApiMetrics, ApiMetricsExt},
 };
+use crate::graph;
 
 /// The transaction pool logic for full client.
 pub struct FullChainApi<Client, Block> {
 	client: Arc<Client>,
 	_marker: PhantomData<Block>,
 	metrics: Option<Arc<ApiMetrics>>,
-	validation_pool: Arc<Mutex<mpsc::Sender<Pin<Box<dyn Future<Output = ()> + Send>>>>>,
+	validation_pool: mpsc::Sender<Pin<Box<dyn Future<Output = ()> + Send>>>,
 }
 
 /// Spawn a validation task that will be used by the transaction pool to validate transactions.
@@ -101,12 +101,7 @@ impl<Client, Block> FullChainApi<Client, Block> {
 		spawn_validation_pool_task("transaction-pool-task-0", receiver.clone(), spawner);
 		spawn_validation_pool_task("transaction-pool-task-1", receiver, spawner);
 
-		FullChainApi {
-			client,
-			validation_pool: Arc::new(Mutex::new(sender)),
-			_marker: Default::default(),
-			metrics,
-		}
+		FullChainApi { client, validation_pool: sender, _marker: Default::default(), metrics }
 	}
 }
 
@@ -139,25 +134,25 @@ where
 	) -> Self::ValidationFuture {
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
-		let validation_pool = self.validation_pool.clone();
+		let mut validation_pool = self.validation_pool.clone();
 		let metrics = self.metrics.clone();
 
 		async move {
 			metrics.report(|m| m.validations_scheduled.inc());
 
-			validation_pool
-				.lock()
-				.await
-				.send(
-					async move {
-						let res = validate_transaction_blocking(&*client, at, source, uxt);
-						let _ = tx.send(res);
-						metrics.report(|m| m.validations_finished.inc());
-					}
-					.boxed(),
-				)
-				.await
-				.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
+			{
+				validation_pool
+					.send(
+						async move {
+							let res = validate_transaction_blocking(&*client, at, source, uxt);
+							let _ = tx.send(res);
+							metrics.report(|m| m.validations_finished.inc());
+						}
+						.boxed(),
+					)
+					.await
+					.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
+			}
 
 			match rx.await {
 				Ok(r) => r,
@@ -183,7 +178,7 @@ where
 
 	fn hash_and_length(
 		&self,
-		ex: &graph::ExtrinsicFor<Self>,
+		ex: &graph::RawExtrinsicFor<Self>,
 	) -> (graph::ExtrinsicHash<Self>, usize) {
 		ex.using_encoded(|x| (<traits::HashingFor<Block> as traits::Hash>::hash(x), x.len()))
 	}
@@ -222,7 +217,10 @@ where
 	Client: Send + Sync + 'static,
 	Client::Api: TaggedTransactionQueue<Block>,
 {
-	sp_tracing::within_span!(sp_tracing::Level::TRACE, "validate_transaction";
+	let s = std::time::Instant::now();
+	let h = uxt.using_encoded(|x| <traits::HashingFor<Block> as traits::Hash>::hash(x));
+
+	let result = sp_tracing::within_span!(sp_tracing::Level::TRACE, "validate_transaction";
 	{
 		let runtime_api = client.runtime_api();
 		let api_version = sp_tracing::within_span! { sp_tracing::Level::TRACE, "check_version";
@@ -240,7 +238,7 @@ where
 			sp_tracing::Level::TRACE, "runtime::validate_transaction";
 		{
 			if api_version >= 3 {
-				runtime_api.validate_transaction(at, source, uxt, at)
+				runtime_api.validate_transaction(at, source, (*uxt).clone(), at)
 					.map_err(|e| Error::RuntimeApi(e.to_string()))
 			} else {
 				let block_number = client.to_number(&BlockId::Hash(at))
@@ -260,16 +258,19 @@ where
 
 				if api_version == 2 {
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_3(at, source, uxt)
+					runtime_api.validate_transaction_before_version_3(at, source, (*uxt).clone())
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				} else {
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_2(at, uxt)
+					runtime_api.validate_transaction_before_version_2(at, (*uxt).clone())
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				}
 			}
 		})
-	})
+	});
+	log::trace!(target: LOG_TARGET, "[{h:?}] validate_transaction_blocking: at:{at:?} took:{:?}", s.elapsed());
+
+	result
 }
 
 impl<Client, Block> FullChainApi<Client, Block>
