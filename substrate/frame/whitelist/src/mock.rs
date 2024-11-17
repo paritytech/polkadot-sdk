@@ -21,10 +21,12 @@
 
 use crate as pallet_whitelist;
 
+/*
 use frame_support::{construct_runtime, derive_impl};
 use frame_system::EnsureRoot;
 use sp_runtime::BuildStorage;
-
+*/
+use frame::{testing_prelude::*, pallet_macros::derive_impl};
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
@@ -65,9 +67,9 @@ impl pallet_whitelist::Config for Test {
 	type WeightInfo = ();
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let t = RuntimeGenesisConfig::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }

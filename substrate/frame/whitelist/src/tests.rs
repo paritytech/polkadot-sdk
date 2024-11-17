@@ -19,6 +19,7 @@
 
 use crate::mock::*;
 use codec::Encode;
+/*
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -26,6 +27,8 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_runtime::{traits::Hash, DispatchError};
+*/
+use frame::{testing_prelude::*, traits::{StorePreimage, QueryPreimage}};
 
 #[test]
 fn test_whitelist_call_and_remove() {
