@@ -57,7 +57,9 @@ use syn::parse::{Parse, ParseStream};
 ///
 /// ```
 /// # fn main() {}
-/// use sp_runtime::curve::PiecewiseLinear;
+/// // polkadot-sdk-frame dependency prelude which includes `PiecewiseLinear`
+/// use frame::prelude::*;
+/// // or `use sp_runtime::curve::PiecewiseLinear;` if you are using `sp-runtime` dependency.
 ///
 /// pallet_staking_reward_curve::build! {
 ///     const I_NPOS: PiecewiseLinear<'static> = curve!(

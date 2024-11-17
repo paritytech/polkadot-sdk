@@ -231,8 +231,8 @@ pub mod prelude {
 	/// Runtime types
 	#[doc(no_inline)]
 	pub use sp_runtime::{
-		BoundToRuntimeAppPublic, ConsensusEngineId, DispatchErrorWithPostInfo,
-		DispatchResultWithInfo, TokenError,
+		curve::PiecewiseLinear, BoundToRuntimeAppPublic, ConsensusEngineId,
+		DispatchErrorWithPostInfo, DispatchResultWithInfo, TokenError,
 	};
 }
 

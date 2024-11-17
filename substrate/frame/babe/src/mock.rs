@@ -116,7 +116,7 @@ impl pallet_balances::Config for Test {
 }
 
 pallet_staking_reward_curve::build! {
-	const REWARD_CURVE: frame::deps::sp_runtime::curve::PiecewiseLinear<'static> = curve!(
+	const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
 		min_inflation: 0_025_000u64,
 		max_inflation: 0_100_000,
 		ideal_stake: 0_500_000,

@@ -7,6 +7,7 @@ doc:
   - audience: Runtime Dev
     description: |
       Extends the FRAME umbrella crate and uses it in pallet-babe and pallet-staking-reward-curve.
+      Reverse compatible addition to the pallet-staking-reward-curve proc macro to allow for the use of the FRAME umbrella crate.
       Migrates benchmarking from v1 to v2 for pallet-babe.
 
 crates:
@@ -15,4 +16,4 @@ crates:
   - name: pallet-babe
     bump: patch
   - name: pallet-staking-reward-curve
-    bump: patch
+    bump: minor
