@@ -48,7 +48,7 @@
 //! ```
 //! 
 //! Next, let's look at how this will differ if we are to store a type that is derived from `T` in
-//! storage, such as [`frame::prelude::BlockNumberFor`]:
+//! storage, such as [`BlockNumberFor`]:
 //! ```compile_fail
 //! #[frame::pallet]
 //! pub mod pallet {
@@ -100,7 +100,7 @@
 //! }
 //! ```
 //! 
-//! Next, let's say we wish to store `NewType` as [`frame::prelude::ValueQuery`], which means it
+//! Next, let's say we wish to store `NewType` as [`ValueQuery`], which means it
 //! must also implement `Default`. This should be as simple as adding `derive(Default)` to it,
 //! right?
 //! ```compile_fail
@@ -129,18 +129,18 @@
 //! To fix this, frame provides a set of macros that are analogous to normal rust derive macros, but
 //! work nicely on top of structs that are generic over `T: Config`. These macros are:
 //!
-//! - [`frame::prelude::DefaultNoBound`]
-//! - [`frame::prelude::DebugNoBound`]
-//! - [`frame::prelude::PartialEqNoBound`]
-//! - [`frame::prelude::EqNoBound`]
-//! - [`frame::prelude::CloneNoBound`]
-//! - [`frame::prelude::PartialOrdNoBound`]
-//! - [`frame::prelude::OrdNoBound`]
+//! - [`DefaultNoBound`]
+//! - [`DebugNoBound`]
+//! - [`PartialEqNoBound`]
+//! - [`EqNoBound`]
+//! - [`CloneNoBound`]
+//! - [`PartialOrdNoBound`]
+//! - [`OrdNoBound`]
 //!
 //! The above traits are almost certainly needed for your tests - to print your type, assert equality
 //! or clone it.
 //!
-//! We can fix the following example by using [`frame::prelude::DefaultNoBound`].
+//! We can fix the following example by using [`DefaultNoBound`].
 //! ```rust
 //! #[frame::pallet]
 //! pub mod pallet {
@@ -200,3 +200,13 @@
 //! 	pub type Something<T: Config> = StorageValue<_, T::CustomType>;
 //! }
 //! ```
+
+// [`BlockNumberFor`]: frame::prelude::BlockNumberFor
+// [`CloneNoBound`]: frame::prelude::CloneNoBound
+// [`DebugNoBound`]: frame::prelude::DebugNoBound
+// [`DefaultNoBound`]: frame::prelude::DefaultNoBound
+// [`EqNoBound`]: frame::prelude::EqNoBound
+// [`OrdNoBound`]: frame::prelude::OrdNoBound
+// [`PartialEqNoBound`]: frame::prelude::PartialEqNoBound
+// [`PartialOrdNoBound`]: frame::prelude::PartialOrdNoBound
+// [`ValueQuery`]: frame::prelude::ValueQuery

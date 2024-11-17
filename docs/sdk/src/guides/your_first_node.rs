@@ -1,104 +1,60 @@
 //! # Your first Node
 //!
-//! In this guide, you will learn how to run a runtime, such as the one created in
 //! [`your_first_runtime`], in a node. Within the context of this guide, we will focus on running
-//! the runtime with an [`omni-node`]. Please first read this page to learn about the OmniNode, and
 //! other options when it comes to running a node.
 //!
-//! [`your_first_runtime`] is a runtime with no consensus related code, and therefore can only be
 //! executed with a node that also expects no consensus ([`sc_consensus_manual_seal`]).
-//! `polkadot-omni-node`'s [`--dev-block-time`] precisely does this.
 //!
-//! > All of the following steps are coded as unit tests of this module. Please see `Source` of the
 //! > page for more information.
 //!
-//! ## Running The Omni Node
 //!
-//! ### Installs
 //!
-//! The `polkadot-omni-node` can either be downloaded from the latest [Release](https://github.com/paritytech/polkadot-sdk/releases/) of `polkadot-sdk`,
 //! or installed using `cargo`:
 //!
-//! ```text
 //! cargo install polkadot-omni-node
-//! ```
 //!
-//! Next, we need to install the [`chain-spec-builder`]. This is the tool that allows us to build
 //! chain-specifications, through interacting with the genesis related APIs of the runtime, as
-//! described in [`your_first_runtime#genesis-configuration`].
 //!
-//! ```text
 //! cargo install staging-chain-spec-builder
-//! ```
 //!
-//! > The name of the crate is prefixed with `staging` as the crate name `chain-spec-builder` on
 //! > crates.io is already taken and is not controlled by `polkadot-sdk` developers.
 //!
-//! ### Building Runtime
 //!
-//! Next, we need to build the corresponding runtime that we wish to interact with.
 //!
-//! ```text
 //! cargo build --release -p path-to-runtime
-//! ```
 //! Equivalent code in tests:
 #![doc = docify::embed!("./src/guides/your_first_node.rs", build_runtime)]
 //!
-//! This creates the wasm file under `./target/{release}/wbuild/release` directory.
 //!
-//! ### Building Chain Spec
 //!
-//! Next, we can generate the corresponding chain-spec file. For this example, we will use the
 //! `development` (`sp_genesis_config::DEVELOPMENT`) preset.
 //!
-//! Note that we intend to run this chain-spec with `polkadot-omni-node`, which is tailored for
 //! running parachains. This requires the chain-spec to always contain the `para_id` and a
-//! `relay_chain` fields, which are provided below as CLI arguments.
 //!
-//! ```text
 //! chain-spec-builder \
-//! 	-c <path-to-output> \
 //! 	create \
-//! 	--para-id 42 \
 //! 	--relay-chain dontcare \
-//! 	--runtime polkadot_sdk_docs_first_runtime.wasm \
 //! 	named-preset development
-//! ```
 //!
-//! Equivalent code in tests:
 #![doc = docify::embed!("./src/guides/your_first_node.rs", csb)]
 //!
 //!
-//! ### Running `polkadot-omni-node`
 //!
-//! Finally, we can run the node with the generated chain-spec file. We can also specify the block
 //! time using the `--dev-block-time` flag.
 //!
-//! ```text
 //! polkadot-omni-node \
-//! 	--tmp \
 //! 	--dev-block-time 1000 \
-//! 	--chain <chain_spec_file>.json
 //! ```
 //!
-//! > Note that we always prefer to use `--tmp` for testing, as it will save the chain state to a
 //! > temporary folder, allowing the chain-to be easily restarted without `purge-chain`. See
-//! > [`sc_cli::commands::PurgeChainCmd`] and [`sc_cli::commands::RunCmd::tmp`] for more info.
 //!
-//! This will start the node and import the blocks. Note while using `--dev-block-time`, the node
 //! will use the testing-specific manual-seal consensus. This is an efficient way to test the
-//! application logic of your runtime, without needing to yet care about consensus, block
 //! production, relay-chain and so on.
 //!
-//! ### Next Steps
 //!
-//! * See the rest of the steps in [`omni_node#user-journey`].
 //!
-//! [`runtime`]: crate::reference_docs::glossary#runtime
 //! [`node`]: crate::reference_docs::glossary#node
-//! [`build_config`]: first_runtime::Runtime#method.build_config
 //! [`omni-node`]: crate::reference_docs::omni_node
-//! [`--dev-block-time`]: (polkadot_omni_node_lib::cli::Cli::dev_block_time)
 
 #[cfg(test)]
 mod tests {
@@ -314,9 +270,11 @@ mod tests {
 }
 
 // Link References
-// [`omni_node#user-journey`]: crate::reference_docs::omni_node#user-journey
-// [`your_first_runtime#genesis-configuration`]: crate::guides::your_first_runtime#genesis-configuration
+// [`your_first_runtime`]: crate::guides::your_first_runtime#genesis-configuration
 
 // Link References
-// [`omni_node#user-journey`]: crate::reference_docs::omni_node#user-journey
-// [`your_first_runtime#genesis-configuration`]: crate::guides::your_first_runtime#genesis-configuration
+// [`your_first_runtime`]: crate::guides::your_first_runtime#genesis-configuration
+
+// [`Release`]: https://github.com/paritytech/polkadot-sdk/releases/
+// [`omni_node`]: omni_node#user-journey
+// [`your_first_runtime`]: your_first_runtime#genesis-configuration

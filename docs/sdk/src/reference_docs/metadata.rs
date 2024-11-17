@@ -25,11 +25,11 @@
 //! - <https://paritytech.github.io/subxt-explorer/>
 
 // Link References
-// [`frame_runtime`]: crate::polkadot_sdk::frame_runtime
-// [`frame_runtime_upgrades_and_migrations`]: crate::reference_docs::frame_runtime_upgrades_and_migrations
-// [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
 
 // Link References
-// [`frame_runtime`]: crate::polkadot_sdk::frame_runtime
-// [`frame_runtime_upgrades_and_migrations`]: crate::reference_docs::frame_runtime_upgrades_and_migrations
-// [`wasm_meta_protocol`]: crate::reference_docs::wasm_meta_protocol
+
+
+// [`frame_runtime_upgrades_and_migrations`]: frame_runtime_upgrades_and_migrations
+
+// [`frame_runtime`]: frame_runtime
+// [`frame_runtime_upgrades_and_migrations`]: frame_runtime_upgrades_and_migrations
