@@ -21,15 +21,14 @@ use crate as pallet_distribution;
 pub use frame_support::{
 	derive_impl, parameter_types,
 	traits::{
-		ConstU128, ConstU16, ConstU32, ConstU64, EqualPrivilegeOnly, OnFinalize, OnInitialize,
+		ConstU32, EqualPrivilegeOnly, OnFinalize, OnInitialize,
 	},
 	weights::Weight,
 	PalletId,
 };
 pub use frame_system::EnsureRoot;
-pub use sp_core::H256;
 pub use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
+	traits::{AccountIdConversion, IdentityLookup},
 	BuildStorage,
 };
 pub type Block = frame_system::mocking::MockBlock<Test>;
