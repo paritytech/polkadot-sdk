@@ -551,9 +551,8 @@ mod benchmarks {
 		for i in 0..r {
 			if let Some(value) = ReferendumInfoOf::<T>::get(i) {
 				match value {
-					ReferendumInfo::Finished { .. } => {
-						return Err("Referendum has been finished".into())
-					},
+					ReferendumInfo::Finished { .. } =>
+						return Err("Referendum has been finished".into()),
 					ReferendumInfo::Ongoing(_) => (),
 				}
 			}
@@ -590,9 +589,8 @@ mod benchmarks {
 		for i in 0..r {
 			if let Some(value) = ReferendumInfoOf::<T>::get(i) {
 				match value {
-					ReferendumInfo::Finished { .. } => {
-						return Err("Referendum has been finished".into())
-					},
+					ReferendumInfo::Finished { .. } =>
+						return Err("Referendum has been finished".into()),
 					ReferendumInfo::Ongoing(_) => (),
 				}
 			}
