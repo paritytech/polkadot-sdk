@@ -119,8 +119,9 @@ mod benchmarks {
 		assert_eq!(PublicProps::<T>::get().len(), p as usize, "Proposals not created.");
 		Ok(())
 	}
-/*
-	second {
+
+	#[benchmark]
+	fn second() -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", 0);
 		add_proposal::<T>(0)?;
 
@@ -134,13 +135,18 @@ mod benchmarks {
 		let deposits = DepositOf::<T>::get(0).ok_or("Proposal not created")?;
 		assert_eq!(deposits.0.len(), (T::MaxDeposits::get() - 1) as usize, "Seconds not recorded");
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller), 0)
-	verify {
+	
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), 0);
+	
+	
 		let deposits = DepositOf::<T>::get(0).ok_or("Proposal not created")?;
 		assert_eq!(deposits.0.len(), (T::MaxDeposits::get()) as usize, "`second` benchmark did not work");
+		Ok(())
 	}
 
-	vote_new {
+	#[benchmark]
+	fn vote_new() -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", 0);
 		let account_vote = account_vote::<T>(100u32.into());
 
@@ -157,16 +163,21 @@ mod benchmarks {
 
 		let ref_index = add_referendum::<T>(T::MaxVotes::get() - 1).0;
 		whitelist_account!(caller);
-	}: vote(RawOrigin::Signed(caller.clone()), ref_index, account_vote)
-	verify {
+
+		#[extrinsic_call]
+		vote(RawOrigin::Signed(caller.clone()), ref_index, account_vote);
+
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
 			_ => return Err("Votes are not direct".into()),
 		};
+
 		assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was not recorded.");
+		Ok(())
 	}
 
-	vote_existing {
+	#[benchmark]
+	fn vote_existing() -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", 0);
 		let account_vote = account_vote::<T>(100u32.into());
 
@@ -188,8 +199,10 @@ mod benchmarks {
 
 		// This tests when a user changes a vote
 		whitelist_account!(caller);
-	}: vote(RawOrigin::Signed(caller.clone()), ref_index, new_vote)
-	verify {
+		
+		#[extrinsic_call]
+		vote(RawOrigin::Signed(caller.clone()), ref_index, new_vote);
+
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
 			_ => return Err("Votes are not direct".into()),
@@ -202,8 +215,9 @@ mod benchmarks {
 			_ => return Err("referendum not ongoing".into()),
 		};
 		assert_eq!(tally.nays, 1000u32.into(), "changed vote was not recorded");
+		Ok(())
 	}
-
+/*
 	emergency_cancel {
 		let origin =
 			T::CancellationOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
