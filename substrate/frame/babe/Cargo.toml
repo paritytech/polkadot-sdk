@@ -48,6 +48,7 @@ std = [
 	"sp-application-crypto/std",
 	"sp-consensus-babe/std",
 	"sp-session/std",
+	"sp-staking/std",
 ]
 runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
