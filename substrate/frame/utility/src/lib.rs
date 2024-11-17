@@ -59,23 +59,35 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
+/*
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo},
 	traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
 };
+*/
+use frame::{
+	prelude::*,
+	traits::{UnfilteredDispatchable, BadOrigin, OriginTrait},
+	deps::sp_core::{self, TypeId},
+};
+/*
 use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
+*/
 pub use weights::WeightInfo;
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::{dispatch::DispatchClass, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
+	*/
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -98,7 +110,7 @@ pub mod pallet {
 		/// The caller origin, overarching type of all pallets origins.
 		type PalletsOrigin: Parameter +
 			Into<<Self as frame_system::Config>::RuntimeOrigin> +
-			IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
+			IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame::traits::OriginTrait>::PalletsOrigin>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
