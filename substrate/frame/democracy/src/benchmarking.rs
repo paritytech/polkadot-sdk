@@ -887,7 +887,7 @@ mod benchmarks {
 			.expect("ExternalOrigin has no successful origin required for the benchmark");
 		assert_ok!(Democracy::<T>::external_propose(origin.clone(), make_proposal::<T>(0)));
 		let owner = MetadataOwner::External;
-		let proposer = funded_account::<T>("proposer", 0);
+		let _proposer = funded_account::<T>("proposer", 0);
 		let hash = note_preimage::<T>();
 		assert_ok!(Democracy::<T>::set_metadata(origin.clone(), owner.clone(), Some(hash)));
 
@@ -945,7 +945,7 @@ mod benchmarks {
 			ReferendumInfo::Finished { end: BlockNumberFor::<T>::zero(), approved: true },
 		);
 		let owner = MetadataOwner::Referendum(0);
-		let caller = funded_account::<T>("caller", 0);
+		let _caller = funded_account::<T>("caller", 0);
 		let hash = note_preimage::<T>();
 
 		#[extrinsic_call]
