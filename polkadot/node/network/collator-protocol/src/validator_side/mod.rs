@@ -1054,16 +1054,13 @@ fn ensure_seconding_limit_is_respected(
 	per_relay_parent: &PerRelayParent,
 	assignment: &GroupAssignments,
 ) -> std::result::Result<(), AdvertisementError> {
+	// All claims we can accept for `para_id` at `relay_parent`. Some of this claims might already
+	// be claimed below or above `relay_parent`.
 	let claims_for_para = per_relay_parent.collations.claims_for_para(&para_id);
 
-	// Seconding and pending candidates below the relay parent of the candidate. These are
-	// candidates which might have claimed slots at the current view of the claim queue.
-	let seconded_and_pending_below = seconded_and_pending_for_para_below(
-		&state,
-		&relay_parent,
-		&para_id,
-		assignment.current.len(),
-	);
+	// Claims from our view which are already claimed at previous relay parents.
+	let claimed_from_our_view =
+		claimed_within_view(&state, &relay_parent, &para_id, assignment.current.len());
 
 	// Seconding and pending candidates above the relay parent of the candidate. These are
 	// candidates at a newer relay parent which have already claimed a slot within their view.
@@ -1079,7 +1076,7 @@ fn ensure_seconding_limit_is_respected(
 		?relay_parent,
 		?para_id,
 		claims_for_para,
-		seconded_and_pending_below,
+		claimed_from_our_view,
 		?seconded_and_pending_above,
 		claim_queue = ?assignment.current,
 		"Checking if seconded limit is reached"
@@ -1087,7 +1084,7 @@ fn ensure_seconding_limit_is_respected(
 
 	// Relay parent is a leaf. There are no paths to it.
 	if seconded_and_pending_above.is_empty() {
-		if seconded_and_pending_below >= claims_for_para {
+		if claimed_from_our_view >= claims_for_para {
 			gum::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
@@ -1104,14 +1101,14 @@ fn ensure_seconding_limit_is_respected(
 	// per parachain is limited by the entries in claim queue for the `ParaId` in question.
 	// No op for for leaves
 	for claims_at_path in seconded_and_pending_above {
-		if claims_at_path + seconded_and_pending_below >= claims_for_para {
+		if claims_at_path + claimed_from_our_view >= claims_for_para {
 			gum::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?para_id,
-				claims_for_para,
-				seconded_and_pending_below,
 				claims_at_path,
+				claimed_from_our_view,
+				claims_for_para,
 				"Seconding limit exceeded"
 			);
 			return Err(AdvertisementError::SecondedLimitReached)
@@ -2179,6 +2176,86 @@ fn seconded_and_pending_for_para_below(
 				.sum()
 		})
 		.unwrap_or(0)
+}
+
+// Iterates all relay parents under `relay_parent` within the view up to `claim_queue_len` and
+// returns the number of claims for `para_id` which are affecting `relay_parent`. Affecting in this
+// context means that a relay parent before `relay_parent` have claimed a slot from `relay_parent`'s
+// view.
+fn claimed_within_view(
+	state: &State,
+	relay_parent: &Hash,
+	para_id: &ParaId,
+	claim_queue_len: usize,
+) -> usize {
+	// First we take all the ancestors of `relay_parent`. The order is `relay_parent` -> ancestor...
+	let ancestors = if let Some(anc) = state
+		.implicit_view
+		.known_allowed_relay_parents_under(relay_parent, Some(*para_id))
+	{
+		anc
+	} else {
+		return 0;
+	};
+
+	// We want to take the ancestors which fall in the claim queue view (hence the `take()`) and
+	// start counting claims from the oldest relay parent (hence the `rev()`). We start from oldest
+	// so that we can track claims from the ancestors.
+	// Example:
+	// CQ: [A, B, A]
+	// Relay parents: 1, 2, 3.
+	// We want to second a candidate for para A at relay parent 3.
+	// At relay parent 1 we have got two advertisements for A and one for B.
+	// At relay parent 2 we have got no advertisements.
+	// At relay parent 3 we CHECK if we can accept an advertisement for A.
+	// Visually:
+	//
+	// CQ: [A B A]    CQ: [B A B]    CQ: [A B A]
+	//
+	// ┌───────┐      ┌───────┐      ┌───────┐
+	// │  RP1  ┼──────►  RP2  ┼──────►  RP3  │
+	// └───────┘      └───────┘      └───────┘
+	//   A1
+	//   B1────────────►
+	//   A2───────────────────────────►
+	//
+	// Since we have got three advertisements at RP1, A1 claims the slot at RP1, B1 - at RP2 and A2
+	// - at RP3. This means that at RP2 we still can accept one more advertisement for B and one for
+	// A.
+	// How the counting must work for para id A. ACC here represents the number of claims
+	// transferred to the next relay parent which finally are transferred to the target relay
+	// parent:
+	// - at RP1 we have got two claims and para A is in the first position in the claim queue. ACC =
+	//   2 - 1 = 1.
+	// - at RP2 we have got no claims advertised. Para A is not on the first position of the claim
+	//   queue, so A2 can't be scheduled here. ACC is still 1.
+	// - at RP 3 we reach our target relay parent with ACC = 1. We want to advertise at RP 3 so we
+	//   add 1 to ACC and it becomes 2. IMPORTANT: since RP3 is our target relay parent we DON'T
+	//   subtract 1 since this is the position the new advertisement will occupy.
+	// - ACC = 2 is the final result which represents the number of claims for para A at RP3.
+	//
+	// It's outside the scope of this function but in this case we CAN add an advertisement for para
+	// A at RP3 since the number of claims equals the number of entries for A in the claim queue.
+
+	// We take all ancestors returned from `known_allowed_relay_parents_under` (remember they start
+	// with `relay_parent`), take the number of elements we are interested in (claim_queue_len) and
+	// then reverse them so that we start from the oldest one.
+	// At each ancestor we take the number of seconded and pending candidates at it, add it to the
+	// total number of claims and subtract 1 if `para_id` is at the first position of the claim
+	// queue for that ancestor.
+	ancestors.iter().take(claim_queue_len).rev().fold(0, |acc, ancestors| {
+		let seconded_and_pending = state.seconded_and_pending_for_para(ancestors, para_id);
+		let first_assignment = state
+			.per_relay_parent
+			.get(ancestors)
+			.map(|per_relay_parent| per_relay_parent.assignment.current.first())
+			.flatten();
+		match first_assignment {
+			Some(first) if first == para_id && ancestors != relay_parent =>
+				(acc + seconded_and_pending).saturating_sub(1),
+			_ => acc + seconded_and_pending,
+		}
+	})
 }
 
 fn seconded_and_pending_for_para_above(

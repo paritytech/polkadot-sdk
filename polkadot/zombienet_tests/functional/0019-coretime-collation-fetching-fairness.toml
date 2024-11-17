@@ -8,7 +8,7 @@ timeout = 1000
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
   max_validators_per_core = 4
   num_cores = 1
-  lookahead = 4
+  lookahead = 2
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
   needed_approvals = 3
@@ -38,7 +38,7 @@ chain = "glutton-westend-local-2000"
     name = "collator-2000"
     image = "{{CUMULUS_IMAGE}}"
     command = "polkadot-parachain"
-    args = ["-lparachain=debug", "--experimental-use-slot-based"]
+    args = ["-lparachain=debug,parachain::collator-protocol=trace", "--experimental-use-slot-based"]
 
 [[parachains]]
 id = 2001

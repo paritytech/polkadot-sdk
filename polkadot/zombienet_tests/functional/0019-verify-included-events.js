@@ -40,7 +40,12 @@ async function run(nodeName, networkInfo) {
     console.log(`Result: 2000: ${blocks_per_para[2000]}, 2001: ${blocks_per_para[2001]}`);
     // This check assumes that para 2000 runs slot based collator which respects its claim queue
     // and para 2001 runs lookahead which generates blocks for each relay parent.
-    return (blocks_per_para[2000] >= 7) && (blocks_per_para[2001] <= 4);
+    //
+    // For 12 blocks there will be one session change. One block won't have anything backed/included.
+    // In the next there will be one backed so for 12 blocks we should expect 10 included events - no
+    // more than 4 for para 2001 and at least 6 for para 2000. This should also cover the unlucky
+    // case when we observe two session changes during the 12 block period.
+    return (blocks_per_para[2000] >= 6) && (blocks_per_para[2001] <= 4);
 }
 
 module.exports = { run };
