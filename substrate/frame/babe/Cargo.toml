@@ -42,16 +42,12 @@ std = [
 	"frame/std",
 	"log/std",
 	"pallet-authorship/std",
-	"pallet-balances/std",
-	"pallet-offences/std",
 	"pallet-session/std",
-	"pallet-staking/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-application-crypto/std",
 	"sp-consensus-babe/std",
 	"sp-session/std",
-	"sp-staking/std",
 ]
 runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
