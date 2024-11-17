@@ -18,9 +18,13 @@
 //! Tests for Uniques pallet.
 
 use crate::{mock::*, Event, *};
+/*
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use pallet_balances::Error as BalancesError;
 use sp_runtime::traits::Dispatchable;
+*/
+
+use frame::testing_prelude::*;
 
 fn items() -> Vec<(u64, u32, u32)> {
 	let mut r: Vec<_> = Account::<Test>::iter().map(|x| x.0).collect();
