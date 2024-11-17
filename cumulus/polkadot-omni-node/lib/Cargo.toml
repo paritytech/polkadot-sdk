@@ -96,6 +96,8 @@ assert_cmd = { workspace = true }
 nix = { features = ["signal"], workspace = true }
 tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 wait-timeout = { workspace = true }
+cumulus-test-runtime = { workspace = true }
+sp-io = { workspace = true }
 
 [features]
 default = []

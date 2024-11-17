@@ -38,7 +38,7 @@ pub enum Consensus {
 }
 
 /// The choice of block number for the parachain omni-node.
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum BlockNumber {
 	/// u32
 	U32,
@@ -157,6 +157,75 @@ pub mod metadata {
 					))
 					.into(),
 				)),
+		}
+	}
+
+	#[cfg(test)]
+	mod tests {
+		use crate::runtime::BlockNumber;
+		use codec::{Decode, Encode};
+		use frame_metadata::RuntimeMetadataPrefixed;
+		use sc_executor::WasmExecutor;
+		use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
+
+		fn cumulus_test_runtime_metadata() -> RuntimeMetadataPrefixed {
+			type HostFunctions = (
+				// The allocator functions.
+				sp_io::allocator::HostFunctions,
+				// Logging is good to have for debugging issues.
+				sp_io::logging::HostFunctions,
+				// Give access to the "state", actually the state will be empty, but some chains put
+				// constants into the state and this would panic at metadata generation. Thus, we give
+				// them an empty state to not panic.
+				sp_io::storage::HostFunctions,
+				// The hashing functions.
+				sp_io::hashing::HostFunctions,
+			);
+
+			let executor = WasmExecutor::<HostFunctions>::builder()
+				.with_allow_missing_host_functions(true)
+				.build();
+
+			let wasm = cumulus_test_runtime::WASM_BINARY.expect("to get wasm blob. qed");
+			let runtime_code = RuntimeCode {
+				code_fetcher: &WrappedRuntimeCode(wasm.into()),
+				heap_pages: None,
+				// The hash is only used for caching and thus, not that important for our use case
+				// here.
+				hash: vec![1, 2, 3],
+			};
+
+			let metadata = executor
+				.call(
+					&mut sp_io::TestExternalities::default().ext(),
+					&runtime_code,
+					"Metadata_metadata_at_version",
+					&14u32.encode(),
+					CallContext::Offchain,
+				)
+				.0
+				.expect("`Metadata::metadata_at_version` should exist. qed.");
+
+			let metadata = Option::<Vec<u8>>::decode(&mut &metadata[..])
+				.ok()
+				.flatten()
+				.expect("Metadata stable version support is required. qed.");
+
+			RuntimeMetadataPrefixed::decode(&mut &metadata[..])
+				.expect("Invalid encoded metadata. qed")
+		}
+
+		#[test]
+		fn test_pallet_exist() {
+			let metadata = cumulus_test_runtime_metadata();
+			assert!(super::pallet_exists(&metadata, "ParachainSystem").unwrap());
+			assert!(super::pallet_exists(&metadata, "System").unwrap());
+		}
+
+		#[test]
+		fn test_runtime_block_number() {
+			let metadata = cumulus_test_runtime_metadata();
+			assert_eq!(super::runtime_block_number(&metadata).unwrap(), BlockNumber::U32);
 		}
 	}
 }
