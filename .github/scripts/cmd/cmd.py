@@ -290,7 +290,7 @@ def main():
             print(f'-- building {runtime["name"]} with `{build_command}`')
             os.system(build_command)
             
-            chain = runtime['name'] if runtime == 'dev' else f"{runtime['name']}-dev"
+            chain = runtime['name'] if runtime['name'] == 'dev' else f"{runtime['name']}-dev"
 
             machine_test = f"target/{profile}/{runtime['old_bin']} benchmark machine --chain={chain}"
             print(f"Running machine test for `{machine_test}`")
