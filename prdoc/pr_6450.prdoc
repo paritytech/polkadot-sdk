@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add omni-node checks for runtime parachain compatibility 
+
+doc:
+  - audience: [ Node Dev, Runtime Dev ]
+    description: |
+      OmniNode parses runtime metadata and checks against the existence of `cumulus-pallet-parachain-system`
+      and `frame-system`, by filtering pallets by names: `ParachainSystem` and `System`. It also checks the
+      `frame-system` pallet storage `Number` type, and then compares it to the OmniNode hardcoded block number
+      which is currently `u32`.
+
+crates:
+  - name: polkadot-omni-node-lib
+    bump: minor 
