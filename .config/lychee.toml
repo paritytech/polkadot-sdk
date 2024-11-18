@@ -29,7 +29,7 @@ exclude = [
 	"https://visitme/",
 
 	# TODO 
-	<https://github.com/paritytech/polkadot-sdk/issues/134>
+	<https://github.com/paritytech/polkadot-sdk/issues/134>,
 	"https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs",
 	"https://docs.substrate.io/rustdocs/latest/sp_api/macro.decl_runtime_apis.html",
 	"https://github.com/ipfs/js-ipfs-bitswap/blob/",
