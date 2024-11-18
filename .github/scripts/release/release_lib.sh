@@ -123,7 +123,7 @@ upload_s3_release() {
 
     product=$1
     version=$2
-    platform = $3
+    platform=$3
 
     echo "Working on product:  $product "
     echo "Working on version:  $version "
