@@ -26,9 +26,6 @@ use sp_core::crypto::ProofOfPossessionVerifier;
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::SR25519);
-
-	use sp_core::crypto::SingleScheme;
-	impl SingleScheme for Pair {}
 }
 
 pub use app::{Pair as AppPair, Public as AppPublic, Signature as AppSignature};

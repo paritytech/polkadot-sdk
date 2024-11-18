@@ -21,11 +21,10 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 pub use sp_core::bandersnatch::*;
 
+use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BANDERSNATCH);
-
-	use sp_core::crypto::SingleScheme;
-	impl SingleScheme for Pair {}
 }
 
 #[cfg(feature = "full_crypto")]
@@ -55,10 +54,11 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		let pub_key_as_bytes = self.to_raw_vec();
-		let pop_context_tag: &[u8] = b"POP_";
-		let pop_statement = [pop_context_tag, pub_key_as_bytes.as_slice()].concat();
-		sp_io::crypto::bandersnatch_sign(key_type, self, pop_statement.as_slice())
+		// let pub_key_as_bytes = self.to_raw_vec();
+		// let pop_context_tag: &[u8] = b"POP_";
+		// let pop_statement = [pop_context_tag, pub_key_as_bytes.as_slice()].concat();
+		// sp_io::crypto::bandersnatch_sign(key_type, self, pop_statement.as_slice()) There is no sign for bandersnatch..
+		None
 	}
 
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {

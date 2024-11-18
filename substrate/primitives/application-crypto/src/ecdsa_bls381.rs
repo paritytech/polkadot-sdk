@@ -21,6 +21,7 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 
 pub use sp_core::paired_crypto::ecdsa_bls381::*;
+use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::ECDSA_BLS381);
