@@ -251,26 +251,28 @@ mod calls {
 				Phase::Emergency,
 			];
 
-			set_phase_to(Phase::Off);
+			for phase in phases {
+				set_phase_to(phase);
 
-			assert_err!(
-				SignedPallet::register(RuntimeOrigin::signed(account_id), Default::default()),
-				NotAcceptingSubmissions::<Runtime>,
-			);
+				assert_err!(
+					SignedPallet::register(RuntimeOrigin::signed(account_id), Default::default()),
+					NotAcceptingSubmissions::<Runtime>,
+				);
 
-			assert_err!(
-				SignedPallet::submit_page(
-					RuntimeOrigin::signed(account_id),
-					0,
-					Some(Default::default())
-				),
-				NotAcceptingSubmissions::<Runtime>,
-			);
+				assert_err!(
+					SignedPallet::submit_page(
+						RuntimeOrigin::signed(account_id),
+						0,
+						Some(Default::default())
+					),
+					NotAcceptingSubmissions::<Runtime>,
+				);
 
-			assert_err!(
-				SignedPallet::bail(RuntimeOrigin::signed(account_id)),
-				NotAcceptingSubmissions::<Runtime>,
-			);
+				assert_err!(
+					SignedPallet::bail(RuntimeOrigin::signed(account_id)),
+					NotAcceptingSubmissions::<Runtime>,
+				);
+			}
 		})
 	}
 
