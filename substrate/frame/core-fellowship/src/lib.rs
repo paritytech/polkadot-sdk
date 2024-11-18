@@ -64,7 +64,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::{RuntimeDebug, traits::BlockNumberProvider};
+use sp_runtime::RuntimeDebug;
 
 use frame_support::{
 	defensive,
@@ -87,8 +87,6 @@ pub mod weights;
 
 pub use pallet::*;
 pub use weights::*;
-
-pub type MyBlockNumberFor<T> = <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The desired outcome for which evidence is presented.
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
@@ -171,6 +169,7 @@ pub mod pallet {
 		traits::{tokens::GetSalary, EnsureOrigin},
 	};
 	use frame_system::{ensure_root, pallet_prelude::*};
+	use sp_runtime::traits::BlockNumberProvider;
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -229,20 +228,22 @@ pub mod pallet {
 		type MaxRank: Get<u32>;
 
 		/// Provides the current block number.
-		/// 
-		/// This is usually 'cumulus_pallet_parachain_system' if a parachain, 
+		///
+		/// This is usually 'cumulus_pallet_parachain_system' if a parachain,
 		/// or 'frame_system' if a solo chain.
-		type BlockNumberProvider : BlockNumberProvider;
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
+	pub type BlockNumberFor<T, I = ()> =
+		<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 	pub type ParamsOf<T, I> =
-		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, <T as Config<I>>::MaxRank>;
+		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T, I>, <T as Config<I>>::MaxRank>;
 	pub type PartialParamsOf<T, I> = ParamsType<
 		Option<<T as Config<I>>::Balance>,
-		Option<MyBlockNumberFor<T>>,
+		Option<BlockNumberFor<T, I>>,
 		<T as Config<I>>::MaxRank,
 	>;
-	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
+	pub type MemberStatusOf<T, I> = MemberStatus<BlockNumberFor<T, I>>;
 	pub type RankOf<T, I> = <<T as Config<I>>::Members as RankedMembers>::Rank;
 
 	/// The overall status of the system.
@@ -253,7 +254,7 @@ pub mod pallet {
 	/// The status of a claimant.
 	#[pallet::storage]
 	pub(super) type Member<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Twox64Concat, T::AccountId, MemberStatusOf<T>, OptionQuery>;
+		StorageMap<_, Twox64Concat, T::AccountId, MemberStatusOf<T, I>, OptionQuery>;
 
 	/// Some evidence together with the desired outcome for which it was presented.
 	#[pallet::storage]
@@ -355,7 +356,7 @@ pub mod pallet {
 			let demotion_block = member.last_proof.saturating_add(demotion_period);
 
 			// Ensure enough time has passed.
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			if now >= demotion_block {
 				T::Members::demote(&who)?;
 				let maybe_to_rank = T::Members::rank_of(&who);
@@ -434,7 +435,7 @@ pub mod pallet {
 			ensure!(rank == at_rank, Error::<T, I>::UnexpectedRank);
 			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
 
-			member.last_proof = frame_system::Pallet::<T>::block_number();
+			member.last_proof = T::BlockNumberProvider::current_block_number();
 			Member::<T, I>::insert(&who, &member);
 
 			Self::dispose_evidence(who.clone(), at_rank, Some(at_rank));
@@ -458,7 +459,7 @@ pub mod pallet {
 			ensure!(T::Members::rank_of(&who).is_none(), Error::<T, I>::Ranked);
 
 			T::Members::induct(&who)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			Member::<T, I>::insert(
 				&who,
 				MemberStatus { is_active: true, last_promotion: now, last_proof: now },
@@ -491,7 +492,7 @@ pub mod pallet {
 			);
 
 			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 
 			let params = Params::<T, I>::get();
 			let rank_index = Self::rank_to_index(to_rank).ok_or(Error::<T, I>::InvalidRank)?;
@@ -534,7 +535,7 @@ pub mod pallet {
 			ensure!(to_rank > curr_rank, Error::<T, I>::UnexpectedRank);
 
 			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			member.last_promotion = now;
 			member.last_proof = now;
 
@@ -607,7 +608,7 @@ pub mod pallet {
 			ensure!(!Member::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			Member::<T, I>::insert(
 				&who,
 				MemberStatus { is_active: true, last_promotion: 0u32.into(), last_proof: now },
