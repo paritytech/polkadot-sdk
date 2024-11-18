@@ -934,6 +934,11 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 		&self.id
 	}
 
+	#[cfg(any(feature = "runtime-benchmarks", feature = "fuzz", test))]
+	pub fn set_score(&mut self, s: T::Score) {
+		self.score = s
+	}
+
 	/// The bag this nodes belongs to (public for benchmarks).
 	#[cfg(feature = "runtime-benchmarks")]
 	#[allow(dead_code)]
