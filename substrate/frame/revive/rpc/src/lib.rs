@@ -168,10 +168,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 		let gas = match &transaction.gas {
 			Some(gas) => *gas,
-			None => {
-				log::debug!(target: LOG_TARGET, "No gas limit specified, estimating gas...");
-				self.estimate_gas(transaction.clone(), None).await?
-			},
+			None => self.estimate_gas(transaction.clone(), None).await?,
 		};
 
 		let GenericTransaction { from, gas_price, input, to, value, r#type, .. } = transaction;
