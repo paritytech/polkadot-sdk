@@ -1640,6 +1640,13 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 		// nothing to do upon regenerate.
 		0
 	}
+	fn lock_ordering() -> Result<(), Self::Error> {
+		Err(())
+	}
+	fn unlock_ordering() -> Result<(), Self::Error> {
+		Err(())
+	}
+
 	#[cfg(feature = "try-runtime")]
 	fn try_state() -> Result<(), TryRuntimeError> {
 		Ok(())
@@ -1715,6 +1722,12 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 	) -> u32 {
 		// nothing to do upon regenerate.
 		0
+	}
+	fn lock_ordering() -> Result<(), Self::Error> {
+		Err(())
+	}
+	fn unlock_ordering() -> Result<(), Self::Error> {
+		Err(())
 	}
 
 	#[cfg(feature = "try-runtime")]
