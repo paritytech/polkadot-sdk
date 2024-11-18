@@ -2248,8 +2248,7 @@ fn claimed_within_view(
 		let first_assignment = state
 			.per_relay_parent
 			.get(ancestors)
-			.map(|per_relay_parent| per_relay_parent.assignment.current.first())
-			.flatten();
+			.and_then(|per_relay_parent| per_relay_parent.assignment.current.first());
 		match first_assignment {
 			Some(first) if first == para_id && ancestors != relay_parent =>
 				(acc + seconded_and_pending).saturating_sub(1),
