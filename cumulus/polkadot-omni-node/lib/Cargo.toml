@@ -31,10 +31,10 @@ frame-metadata = { workspace = true, default-features = true }
 scale-info = { workspace = true }
 
 # Substrate
-sp-core = { workspace = true, default-featur minores = true }
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
 frame-benchmarking-cli = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
+sp-core = { workspace = true, default-features = true }
 sp-session = { workspace = true, default-features = true }
 frame-try-runtime = { optional = true, workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
