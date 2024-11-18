@@ -162,15 +162,17 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 			.map(|d| active_set.iter().position(|a| *a == d).unwrap() as u32)
 			.collect::<Vec<_>>();
 
-		// Ensure that every actually disabled validator is also in the potentially disabled set (not 
-		// necessarily the other way around)
+		// Ensure that every actually disabled validator is also in the potentially disabled set
+		// (not necessarily the other way around)
 		let disabled = Session::disabled_validators();
 		for d in disabled.iter() {
 			assert!(potentially_disabled.contains(d));
 		}
 
 		// Ensure no more than disabling limit of validators (default 1/3) is disabled
-		let disabling_limit = pallet_staking::UpToLimitWithReEnablingDisablingStrategy::<SLASHING_DISABLING_FACTOR,>::disable_limit(active_set_size_before_slash);
+		let disabling_limit = pallet_staking::UpToLimitWithReEnablingDisablingStrategy::<
+			SLASHING_DISABLING_FACTOR,
+		>::disable_limit(active_set_size_before_slash);
 		assert!(disabled.len() == disabling_limit);
 
 		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
