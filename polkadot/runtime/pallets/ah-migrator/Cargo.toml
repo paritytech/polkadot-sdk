@@ -12,17 +12,17 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-codec = { workspace = true, features = ["max-encoded-len"] }
-scale-info = { workspace = true, features = ["derive"] }
-serde = { features = ["derive"], optional = true, workspace = true }
+codec = { package = "parity-scale-codec", version = "3.6.9", features = ["max-encoded-len"], default-features = false }
+scale-info = { version = "2.10.0", features = ["derive"], default-features = false }
+serde = { version = "1.0.196", features = ["derive"], optional = true }
 
-frame-benchmarking = { workspace = true, optional = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-core = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-sp-io = { workspace = true }
+frame-benchmarking = { version = "36.0.0", default-features = false, optional = true }
+frame-support = { version = "36.0.0", default-features = false }
+frame-system = { version = "36.0.0", default-features = false }
+sp-core = { version = "34.0.0", default-features = false }
+sp-runtime = { version = "38.0.0", default-features = false }
+sp-std = { version = "14.0.0", default-features = false }
+sp-io = { version = "37.0.0", default-features = false }
 
 [features]
 default = ["std"] 
