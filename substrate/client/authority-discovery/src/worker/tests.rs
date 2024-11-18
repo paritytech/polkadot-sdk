@@ -1027,7 +1027,7 @@ fn addresses_to_publish_adds_p2p() {
 	));
 
 	let (_to_worker, from_service) = mpsc::channel(0);
-	let mut worker = Worker::new(
+	let worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: vec![] }),
 		network.clone(),
@@ -1065,7 +1065,7 @@ fn addresses_to_publish_respects_existing_p2p_protocol() {
 	});
 
 	let (_to_worker, from_service) = mpsc::channel(0);
-	let mut worker = Worker::new(
+	let worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: vec![] }),
 		network.clone(),
