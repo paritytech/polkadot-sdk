@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Bring litep2p fixes and latest version to stable2409
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+      This PR affects only litep2p (experimental) backend and contains critical fixes for connection stability and memory leaks.
+
+crates:
+  - name: sc-network
+    bump: patch
