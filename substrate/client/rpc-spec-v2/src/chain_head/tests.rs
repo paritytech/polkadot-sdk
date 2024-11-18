@@ -2547,13 +2547,13 @@ async fn pin_block_references() {
 	.unwrap();
 
 	let client = Arc::new(
-		new_in_mem::<_, Block, _, RuntimeApi>(
+		new_with_backend::<_, _, Block, _, RuntimeApi>(
 			backend.clone(),
 			executor,
 			genesis_block_builder,
-			None,
-			None,
 			Box::new(TokioTestExecutor::default()),
+			None,
+			None,
 			client_config,
 		)
 		.unwrap(),
