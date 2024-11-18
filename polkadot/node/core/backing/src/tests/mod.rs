@@ -502,16 +502,6 @@ async fn activate_leaf(
 			}
 		);
 
-		// Check that subsystem job issues a request for the availability cores.
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AvailabilityCores(tx))
-			) if parent == hash => {
-				tx.send(Ok(test_state.availability_cores.clone())).unwrap();
-			}
-		);
-
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(

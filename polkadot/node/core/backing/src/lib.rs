@@ -99,9 +99,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::View as ImplicitView,
-	request_claim_queue, request_disabled_validators, request_from_runtime,
-	request_session_executor_params, request_session_index_for_child, request_validator_groups,
-	request_validators,
+	request_claim_queue, request_disabled_validators, request_session_executor_params,
+	request_session_index_for_child, request_validator_groups, request_validators,
 	runtime::{self, request_min_backing_votes, ClaimQueueSnapshot},
 	Validator,
 };
@@ -1142,13 +1141,9 @@ async fn construct_per_relay_parent_state<Context>(
 ) -> Result<Option<PerRelayParentState>, Error> {
 	let parent = relay_parent;
 
-	let (session_index, groups, cores, claim_queue, disabled_validators) = futures::try_join!(
+	let (session_index, groups, claim_queue, disabled_validators) = futures::try_join!(
 		request_session_index_for_child(parent, ctx.sender()).await,
 		request_validator_groups(parent, ctx.sender()).await,
-		request_from_runtime(parent, ctx.sender(), |tx| {
-			RuntimeApiRequest::AvailabilityCores(tx)
-		},)
-		.await,
 		request_claim_queue(parent, ctx.sender()).await,
 		request_disabled_validators(parent, ctx.sender()).await,
 	)
@@ -1176,7 +1171,6 @@ async fn construct_per_relay_parent_state<Context>(
 	gum::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
 
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
-	let cores = try_runtime_api!(cores);
 
 	let minimum_backing_votes = per_session_cache
 		.minimum_backing_votes(session_index, parent, ctx.sender())
@@ -1205,12 +1199,12 @@ async fn construct_per_relay_parent_state<Context>(
 		},
 	};
 
-	let n_cores = cores.len();
+	let n_cores = validator_groups.len();
 
 	let mut groups = HashMap::<CoreIndex, Vec<ValidatorIndex>>::new();
 	let mut assigned_core = None;
 
-	for (idx, _) in cores.iter().enumerate() {
+	for idx in 0..n_cores {
 		let core_index = CoreIndex(idx as _);
 
 		if !claim_queue.contains_key(&core_index) {
@@ -1246,7 +1240,7 @@ async fn construct_per_relay_parent_state<Context>(
 		fallbacks: HashMap::new(),
 		minimum_backing_votes,
 		inject_core_index,
-		n_cores: cores.len() as u32,
+		n_cores: validator_groups.len() as u32,
 		claim_queue: ClaimQueueSnapshot::from(claim_queue),
 		validator_to_group,
 		group_rotation_info,
