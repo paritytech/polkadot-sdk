@@ -555,3 +555,39 @@ mod pallet {
 		}
 	}
 }
+
+mod hooks {
+	use frame_support::traits::Hooks;
+
+	use crate::mock;
+
+	use super::*;
+
+	#[test]
+	fn on_initialize_returns_default_weight_in_non_off_phases() {
+		ExtBuilder::default().build_and_execute(|| {
+			let phases = vec![
+				Phase::Signed,
+				Phase::Snapshot(0),
+				Phase::SignedValidation(0),
+				Phase::Unsigned(0),
+				Phase::Export(0),
+				Phase::Emergency,
+			];
+
+			for phase in phases {
+				set_phase_to(phase);
+				assert_eq!(UnsignedPallet::on_initialize(0), Default::default());
+			}
+		});
+	}
+
+	#[test]
+	fn on_initialize_returns_specific_weight_in_off_phase() {
+		ExtBuilder::default().build_and_execute(|| {
+			set_phase_to(Phase::Off);
+			assert_ne!(UnsignedPallet::on_initialize(0), Default::default());
+			assert_eq!(UnsignedPallet::on_initialize(0), mock::Weighter::get().reads_writes(1, 1));
+		});
+	}
+}

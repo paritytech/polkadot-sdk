@@ -35,6 +35,7 @@ use crate::{
 };
 use frame_support::{
 	derive_impl, pallet_prelude::*, parameter_types, traits::fungible::InspectHold,
+	weights::RuntimeDbWeight,
 };
 use parking_lot::RwLock;
 use sp_runtime::{
@@ -66,6 +67,14 @@ pub type T = Runtime;
 pub type Block = frame_system::mocking::MockBlock<Runtime>;
 pub(crate) type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16, ()>;
 
+pub struct Weighter;
+
+impl Get<RuntimeDbWeight> for Weighter {
+	fn get() -> RuntimeDbWeight {
+		return RuntimeDbWeight { read: 12, write: 12 }
+	}
+}
+
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
 	pub struct TestNposSolution::<
@@ -80,6 +89,7 @@ frame_election_provider_support::generate_solution_type!(
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type DbWeight = Weighter;
 }
 
 parameter_types! {
