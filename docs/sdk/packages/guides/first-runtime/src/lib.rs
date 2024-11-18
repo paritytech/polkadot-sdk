@@ -31,8 +31,8 @@ use pallet_transaction_payment_rpc_runtime_api::{FeeDetails, RuntimeDispatchInfo
 #[docify::export]
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("first-runtime"),
-	impl_name: create_runtime_str!("first-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("first-runtime"),
+	impl_name: alloc::borrow::Cow::Borrowed("first-runtime"),
 	authoring_version: 1,
 	spec_version: 0,
 	impl_version: 1,
@@ -130,30 +130,28 @@ pub mod genesis_config_presets {
 		interface::{Balance, MinimumBalance},
 		BalancesConfig, RuntimeGenesisConfig, SudoConfig,
 	};
+	use frame::deps::frame_support::build_struct_json_patch;
 	use serde_json::Value;
 
 	/// Returns a development genesis config preset.
 	#[docify::export]
 	pub fn development_config_genesis() -> Value {
 		let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
-		let config = RuntimeGenesisConfig {
+		build_struct_json_patch!(RuntimeGenesisConfig {
 			balances: BalancesConfig {
 				balances: AccountKeyring::iter()
 					.map(|a| (a.to_account_id(), endowment))
 					.collect::<Vec<_>>(),
 			},
 			sudo: SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
-			..Default::default()
-		};
-
-		serde_json::to_value(config).expect("Could not build genesis config.")
+		})
 	}
 
 	/// Get the set of the available genesis config presets.
 	#[docify::export]
 	pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-		let patch = match id.try_into() {
-			Ok(DEV_RUNTIME_PRESET) => development_config_genesis(),
+		let patch = match id.as_ref() {
+			DEV_RUNTIME_PRESET => development_config_genesis(),
 			_ => return None,
 		};
 		Some(

@@ -52,7 +52,10 @@ use sp_core::crypto::Ss58Codec;
 use sp_runtime::traits::MaybeEquivalence;
 use std::{convert::Into, ops::Mul};
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
-use xcm::latest::prelude::{Assets as XcmAssets, *};
+use xcm::latest::{
+	prelude::{Assets as XcmAssets, *},
+	ROCOCO_GENESIS_HASH,
+};
 use xcm_builder::WithLatestLocationConverter;
 use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -87,7 +90,7 @@ fn slot_durations() -> SlotDurations {
 fn setup_pool_for_paying_fees_with_foreign_assets(
 	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
 		AccountId,
-		xcm::v4::Location,
+		xcm::v5::Location,
 		Balance,
 	),
 ) {
@@ -95,7 +98,7 @@ fn setup_pool_for_paying_fees_with_foreign_assets(
 
 	// setup a pool to pay fees with `foreign_asset_id_location` tokens
 	let pool_owner: AccountId = [14u8; 32].into();
-	let native_asset = xcm::v4::Location::parent();
+	let native_asset = xcm::v5::Location::parent();
 	let pool_liquidity: Balance =
 		existential_deposit.max(foreign_asset_id_minimum_balance).mul(100_000);
 
@@ -220,10 +223,10 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			assert_ok!(AssetConversion::create_pool(
 				RuntimeHelper::origin_of(bob.clone()),
 				Box::new(
-					xcm::v4::Location::try_from(native_location.clone()).expect("conversion works")
+					xcm::v5::Location::try_from(native_location.clone()).expect("conversion works")
 				),
 				Box::new(
-					xcm::v4::Location::try_from(asset_1_location.clone())
+					xcm::v5::Location::try_from(asset_1_location.clone())
 						.expect("conversion works")
 				)
 			));
@@ -231,10 +234,10 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			assert_ok!(AssetConversion::add_liquidity(
 				RuntimeHelper::origin_of(bob.clone()),
 				Box::new(
-					xcm::v4::Location::try_from(native_location.clone()).expect("conversion works")
+					xcm::v5::Location::try_from(native_location.clone()).expect("conversion works")
 				),
 				Box::new(
-					xcm::v4::Location::try_from(asset_1_location.clone())
+					xcm::v5::Location::try_from(asset_1_location.clone())
 						.expect("conversion works")
 				),
 				pool_liquidity,
@@ -272,8 +275,8 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			let refund_weight = Weight::from_parts(1_000_000_000, 0);
 			let refund = WeightToFee::weight_to_fee(&refund_weight);
 			let (reserve1, reserve2) = AssetConversion::get_reserves(
-				xcm::v4::Location::try_from(native_location).expect("conversion works"),
-				xcm::v4::Location::try_from(asset_1_location.clone()).expect("conversion works"),
+				xcm::v5::Location::try_from(native_location).expect("conversion works"),
+				xcm::v5::Location::try_from(asset_1_location.clone()).expect("conversion works"),
 			)
 			.unwrap();
 			let asset_refund =
@@ -311,12 +314,12 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
 			let staking_pot = CollatorSelection::account_id();
 			let native_location =
-				xcm::v4::Location::try_from(WestendLocation::get()).expect("conversion works");
-			let foreign_location = xcm::v4::Location {
+				xcm::v5::Location::try_from(WestendLocation::get()).expect("conversion works");
+			let foreign_location = xcm::v5::Location {
 				parents: 1,
 				interior: (
-					xcm::v4::Junction::Parachain(1234),
-					xcm::v4::Junction::GeneralIndex(12345),
+					xcm::v5::Junction::Parachain(1234),
+					xcm::v5::Junction::GeneralIndex(12345),
 				)
 					.into(),
 			};
@@ -498,11 +501,11 @@ fn test_foreign_asset_xcm_take_first_trader() {
 		.execute_with(|| {
 			// We need root origin to create a sufficient asset
 			let minimum_asset_balance = 3333333_u128;
-			let foreign_location = xcm::v4::Location {
+			let foreign_location = xcm::v5::Location {
 				parents: 1,
 				interior: (
-					xcm::v4::Junction::Parachain(1234),
-					xcm::v4::Junction::GeneralIndex(12345),
+					xcm::v5::Junction::Parachain(1234),
+					xcm::v5::Junction::GeneralIndex(12345),
 				)
 					.into(),
 			};
@@ -522,7 +525,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 				minimum_asset_balance
 			));
 
-			let asset_location_v4: Location = foreign_location.clone().try_into().unwrap();
+			let asset_location_v5: Location = foreign_location.clone().try_into().unwrap();
 
 			// Set Alice as block author, who will receive fees
 			RuntimeHelper::run_to_block(2, AccountId::from(ALICE));
@@ -537,7 +540,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 			// Lets pay with: asset_amount_needed + asset_amount_extra
 			let asset_amount_extra = 100_u128;
 			let asset: Asset =
-				(asset_location_v4.clone(), asset_amount_needed + asset_amount_extra).into();
+				(asset_location_v5.clone(), asset_amount_needed + asset_amount_extra).into();
 
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
@@ -546,7 +549,7 @@ fn test_foreign_asset_xcm_take_first_trader() {
 			let unused_assets = trader.buy_weight(bought, asset.into(), &ctx).expect("Expected Ok");
 			// Check whether a correct amount of unused assets is returned
 			assert_ok!(
-				unused_assets.ensure_contains(&(asset_location_v4, asset_amount_extra).into())
+				unused_assets.ensure_contains(&(asset_location_v5, asset_amount_extra).into())
 			);
 
 			// Drop trader
@@ -834,11 +837,11 @@ fn test_assets_balances_api_works() {
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
-			let foreign_asset_id_location = xcm::v4::Location {
+			let foreign_asset_id_location = xcm::v5::Location {
 				parents: 1,
 				interior: [
-					xcm::v4::Junction::Parachain(1234),
-					xcm::v4::Junction::GeneralIndex(12345),
+					xcm::v5::Junction::Parachain(1234),
+					xcm::v5::Junction::GeneralIndex(12345),
 				]
 				.into(),
 			};
@@ -929,7 +932,7 @@ fn test_assets_balances_api_works() {
 				.into())));
 			// check foreign asset
 			assert!(result.inner().iter().any(|asset| asset.eq(&(
-				WithLatestLocationConverter::<xcm::v4::Location>::convert_back(
+				WithLatestLocationConverter::<xcm::v5::Location>::convert_back(
 					&foreign_asset_id_location
 				)
 				.unwrap(),
@@ -1022,13 +1025,13 @@ asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_
 	Runtime,
 	XcmConfig,
 	ForeignAssetsInstance,
-	xcm::v4::Location,
+	xcm::v5::Location,
 	JustTry,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
-	xcm::v4::Location {
+	xcm::v5::Location {
 		parents: 1,
-		interior: [xcm::v4::Junction::Parachain(1313), xcm::v4::Junction::GeneralIndex(12345)]
+		interior: [xcm::v5::Junction::Parachain(1313), xcm::v5::Junction::GeneralIndex(12345)]
 			.into()
 	},
 	Box::new(|| {
@@ -1045,8 +1048,8 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 	WeightToFee,
 	LocationToAccountId,
 	ForeignAssetsInstance,
-	xcm::v4::Location,
-	WithLatestLocationConverter<xcm::v4::Location>,
+	xcm::v5::Location,
+	WithLatestLocationConverter<xcm::v5::Location>,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
 	AssetDeposit::get(),
@@ -1123,8 +1126,10 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 	let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location =
-		xcm::v4::Location::new(2, [xcm::v4::Junction::GlobalConsensus(xcm::v4::NetworkId::Rococo)]);
+	let foreign_asset_id_location = xcm::v5::Location::new(
+		2,
+		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
+	);
 	let foreign_asset_id_minimum_balance = 1_000_000_000;
 	// sovereign account as foreign asset owner (can be whoever for this scenario)
 	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
@@ -1154,7 +1159,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 			},
 			(
 				[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
-				GlobalConsensus(Rococo),
+				GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 				[Parachain(1000)].into()
 			),
 			|| {
@@ -1192,8 +1197,10 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 	let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 	let staking_pot = StakingPot::get();
 
-	let foreign_asset_id_location =
-		xcm::v4::Location::new(2, [xcm::v4::Junction::GlobalConsensus(xcm::v4::NetworkId::Rococo)]);
+	let foreign_asset_id_location = xcm::v5::Location::new(
+		2,
+		[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
+	);
 	let foreign_asset_id_minimum_balance = 1_000_000_000;
 	// sovereign account as foreign asset owner (can be whoever for this scenario)
 	let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
@@ -1216,7 +1223,7 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 		bridging_to_asset_hub_rococo,
 		(
 			[PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)].into(),
-			GlobalConsensus(Rococo),
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 			[Parachain(1000)].into()
 		),
 		|| {

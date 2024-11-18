@@ -169,7 +169,7 @@ where
 				};
 
 				if key == &key_new {
-					continue
+					continue;
 				}
 				child::put_raw(&child_trie_info, &key_new, &value);
 			}
@@ -1507,36 +1507,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// We transfer to unique accounts.
-	#[benchmark(pov_mode = Measured)]
-	fn seal_transfer() {
-		let account = account::<T::AccountId>("receiver", 0, 0);
-		let value = Pallet::<T>::min_balance();
-		assert!(value > 0u32.into());
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_balance(value);
-		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-
-		let account_bytes = account.encode();
-		let account_len = account_bytes.len() as u32;
-		let value_bytes = Into::<U256>::into(value).encode();
-		let mut memory = memory!(account_bytes, value_bytes,);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_transfer(
-				memory.as_mut_slice(),
-				0,           // account_ptr
-				account_len, // value_ptr
-			);
-		}
-
-		assert_ok!(result);
-	}
-
 	// t: with or without some value to transfer
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
@@ -1546,7 +1516,7 @@ mod benchmarks {
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
 
-		let value: BalanceOf<T> = t.into();
+		let value: BalanceOf<T> = (1_000_000 * t).into();
 		let value_bytes = Into::<U256>::into(value).encode();
 
 		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
@@ -1632,7 +1602,7 @@ mod benchmarks {
 		let hash_bytes = hash.encode();
 		let hash_len = hash_bytes.len() as u32;
 
-		let value: BalanceOf<T> = 1u32.into();
+		let value: BalanceOf<T> = 1_000_000u32.into();
 		let value_bytes = Into::<U256>::into(value).encode();
 		let value_len = value_bytes.len() as u32;
 
@@ -1686,7 +1656,10 @@ mod benchmarks {
 
 		assert_ok!(result);
 		assert!(ContractInfoOf::<T>::get(&addr).is_some());
-		assert_eq!(T::Currency::balance(&account_id), Pallet::<T>::min_balance() + value);
+		assert_eq!(
+			T::Currency::balance(&account_id),
+			Pallet::<T>::min_balance() + Pallet::<T>::convert_evm_to_native(value.into()).unwrap()
+		);
 		Ok(())
 	}
 
