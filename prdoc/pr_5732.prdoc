@@ -1,29 +1,39 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
-# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
-
-title: Expose the unstable metadata v16
-
+title: 'v16: Expose the unstable metadata v16'
 doc:
-  - audience: 
-      - Runtime Dev
-      - Runtime User
-    description: |
-      This PR exposes the *unstable* metadata V16. The metadata is exposed under the unstable u32::MAX number.
-      Developers can start experimenting with the new features of the metadata v16. Please note that
-      this metadata is under development and expect breaking changes until stabilization.
+- audience: Node Dev
+  description: |-
+    This PR exposes the *unstable* metadata V16. The metadata is exposed under the unstable u32::MAX number.
 
-      The `ExtrinsicMetadata` trait receives a breaking change. Its associated type `VERSION` is rename to `VERSIONS`
-      and now supports a constant static list of metadata versions. The versions implemented for `UncheckedExtrinsic`
-      are v4 (legacy version) and v5 (new version).
+    Developers can start experimenting with the new features of the metadata v16. *Please note that this metadata is under development and expect breaking changes until stabilization.*
 
+    The `ExtrinsicMetadata` trait receives a breaking change. Its associated type `VERSION` is rename to `VERSIONS` and now supports a constant static list of metadata versions.
+    The versions implemented for `UncheckedExtrinsic` are v4 (legacy version) and v5 (new version).
+
+    For metadata collection, it is assumed that all `TransactionExtensions` are under version 0.
+
+    Builds on top of: https://github.com/paritytech/polkadot-sdk/pull/5274
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/5980
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/5347
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/5285
+
+    cc @paritytech/subxt-team
 crates:
-  - name: sp-metadata-ir
-    bump: major
-  - name: sp-runtime
-    bump: major
-  - name: frame-support-procedural
-    bump: patch
-  - name: pallet-revive
-    bump: patch
-  - name: frame-benchmarking-cli
-    bump: patch
+- name: sp-metadata-ir
+  bump: patch
+- name: frame-support-procedural
+  bump: patch
+- name: frame-support-procedural-tools
+  bump: patch
+- name: frame-support
+  bump: patch
+- name: frame-metadata-hash-extension
+  bump: patch
+- name: substrate-wasm-builder
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: sp-runtime
+  bump: patch
+- name: frame-benchmarking-cli
+  bump: patch
