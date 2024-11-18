@@ -176,9 +176,7 @@ fn skip_timeout_period<T: Config<I>, I: 'static>(index: ReferendumIndex) {
 	set_block_number::<T, I>(timeout_period_over);
 }
 
-fn alarm_time<T: Config<I>, I: 'static>(
-	index: ReferendumIndex,
-) -> BlockNumberFor<T, I> {
+fn alarm_time<T: Config<I>, I: 'static>(index: ReferendumIndex) -> BlockNumberFor<T, I> {
 	let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
 	status.alarm.unwrap().0
 }
