@@ -53,6 +53,9 @@ parameter_types! {
 /// Latest stable metadata version used for testing.
 const LATEST_METADATA_VERSION: u32 = 15;
 
+/// Unstable metadata version.
+const UNSTABLE_METADATA_VERSION: u32 = u32::MAX;
+
 pub struct SomeType1;
 impl From<SomeType1> for u64 {
 	fn from(_t: SomeType1) -> Self {
@@ -1944,7 +1947,10 @@ fn metadata_at_version() {
 
 #[test]
 fn metadata_versions() {
-	assert_eq!(vec![14, LATEST_METADATA_VERSION], Runtime::metadata_versions());
+	assert_eq!(
+		vec![14, LATEST_METADATA_VERSION, UNSTABLE_METADATA_VERSION],
+		Runtime::metadata_versions()
+	);
 }
 
 #[test]
