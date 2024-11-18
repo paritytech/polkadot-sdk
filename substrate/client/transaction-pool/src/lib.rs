@@ -30,7 +30,7 @@ mod single_state_txpool;
 mod transaction_pool_wrapper;
 
 use common::{api, enactment_state};
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::sync::Arc;
 
 pub use api::FullChainApi;
 pub use builder::{Builder, TransactionPoolHandle, TransactionPoolOptions, TransactionPoolType};
