@@ -306,10 +306,7 @@ where
 			ImportResult::Import(
 				target_hash,
 				self.metadata.target_header.clone(),
-				ImportedState {
-					block: target_hash,
-					state: std::mem::take(&mut self.state).into(),
-				},
+				ImportedState { block: target_hash, state: std::mem::take(&mut self.state).into() },
 				self.metadata.target_body.clone(),
 				self.metadata.target_justifications.clone(),
 			)
