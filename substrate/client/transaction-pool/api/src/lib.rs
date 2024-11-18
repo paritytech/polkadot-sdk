@@ -279,8 +279,8 @@ pub trait TransactionPool: Send + Sync {
 	// *** Block production / Networking
 	/// Get an iterator for ready transactions ordered by priority.
 	///
-	/// Guarantees to resolve only when transaction pool got updated at `at` block.
-	/// Guarantees to resolve immediately when `None` is passed.
+	/// Guaranteed to resolve only when transaction pool got updated at `at` block.
+	/// Guaranteed to resolve immediately when `None` is passed.
 	async fn ready_at(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
@@ -316,8 +316,8 @@ pub trait TransactionPool: Send + Sync {
 
 	/// Asynchronously returns a set of ready transaction at given block within given timeout.
 	///
-	/// If the timeout is hit during method execution then the best effort (without executing full
-	/// maintain process) set of ready transactions for given block, is returned.
+	/// If the timeout is hit during method execution, then the best effort (without executing full
+	/// maintain process) set of ready transactions for given block is returned.
 	async fn ready_at_with_timeout(
 		&self,
 		at: <Self::Block as BlockT>::Hash,

@@ -264,9 +264,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		&self,
 		_at: Self::Hash,
 	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
-		let iter: Box<dyn ReadyTransactions<Item = Arc<PoolTransaction>> + Send> =
-			Box::new(TransactionsIterator(self.0.clone().into_iter()));
-		iter
+		Box::new(TransactionsIterator(self.0.clone().into_iter()))
 	}
 
 	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {

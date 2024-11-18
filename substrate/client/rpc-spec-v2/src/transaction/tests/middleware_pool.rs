@@ -108,11 +108,10 @@ impl TransactionPool for MiddlewarePool {
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		let pool = self.inner_pool.clone();
-		let sender = self.sender.clone();
 		let transaction = hex_string(&xt.encode());
+		let sender = self.sender.clone();
 
-		let watcher = match pool.submit_and_watch(at, source, xt).await {
+		let watcher = match self.inner_pool.submit_and_watch(at, source, xt).await {
 			Ok(watcher) => watcher,
 			Err(err) => {
 				let _ = sender.send(MiddlewarePoolEvent::PoolError {
