@@ -11,16 +11,9 @@ doc:
 
     For metadata collection, it is assumed that all `TransactionExtensions` are under version 0.
 
-    Builds on top of: https://github.com/paritytech/polkadot-sdk/pull/5274
-
-    Closes: https://github.com/paritytech/polkadot-sdk/issues/5980
-    Closes: https://github.com/paritytech/polkadot-sdk/issues/5347
-    Closes: https://github.com/paritytech/polkadot-sdk/issues/5285
-
-    cc @paritytech/subxt-team
 crates:
 - name: sp-metadata-ir
-  bump: patch
+  bump: major
 - name: frame-support-procedural
   bump: patch
 - name: frame-support-procedural-tools
@@ -34,6 +27,6 @@ crates:
 - name: pallet-revive
   bump: patch
 - name: sp-runtime
-  bump: patch
+  bump: major
 - name: frame-benchmarking-cli
   bump: patch
