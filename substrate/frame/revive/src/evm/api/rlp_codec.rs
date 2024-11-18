@@ -519,7 +519,9 @@ mod test {
 					"type": "0x2",
 					"value": "0x0",
 					"r": "0xfe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0",
-					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8"
+					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+					"yParity": "0x0"
+
 				}
 				"#
 			),
@@ -547,7 +549,8 @@ mod test {
 					"type": "0x3",
 					"value": "0x0",
 					"r": "0xfe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0",
-					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8"
+					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+					"yParity": "0x0"
 				}
 				"#
 			)
@@ -557,7 +560,8 @@ mod test {
 			let raw_tx = hex::decode(tx).unwrap();
 			let tx = TransactionSigned::decode(&raw_tx).unwrap();
 			assert_eq!(tx.signed_payload(), raw_tx);
-			assert_eq!(tx, serde_json::from_str(json).unwrap());
+			let expected_tx = serde_json::from_str(json).unwrap();
+			assert_eq!(tx, expected_tx);
 		}
 	}
 

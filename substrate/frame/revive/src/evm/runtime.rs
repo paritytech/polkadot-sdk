@@ -522,7 +522,7 @@ mod test {
 				100_000_000_000_000,
 			);
 
-			let payload = account.sign_transaction(tx.into()).encode();
+			let payload = account.sign_transaction(tx.into()).signed_payload();
 			let call = RuntimeCall::Contracts(crate::Call::eth_transact {
 				payload,
 				gas_limit,
