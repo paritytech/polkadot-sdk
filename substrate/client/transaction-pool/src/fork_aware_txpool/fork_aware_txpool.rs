@@ -31,12 +31,8 @@ use crate::{
 	api::FullChainApi,
 	common::log_xt::log_xt_trace,
 	enactment_state::{EnactmentAction, EnactmentState},
-	fork_aware_txpool::{revalidation_worker},
-	graph::{
-		self,
-		base_pool::{Transaction},
-		ExtrinsicFor, ExtrinsicHash, IsValidator, Options,
-	},
+	fork_aware_txpool::revalidation_worker,
+	graph::{self, base_pool::Transaction, ExtrinsicFor, ExtrinsicHash, IsValidator, Options},
 	ReadyIteratorFor, LOG_TARGET,
 };
 use async_trait::async_trait;
