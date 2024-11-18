@@ -68,6 +68,28 @@
 //! - iteration over the top* N items by score, where the precise ordering of items doesn't
 //!   particularly matter.
 //!
+//! ### Ordering lock
+//!
+//! The bags-list pallet supports locking and unlocking iterator ordering provided by the sorted
+//! list provider implementation. If [`LockOrder`] is set, the explicit and implicit re-ordering of
+//! the nodes within and across bags is disabled.
+//!
+//! More specifically, if the lock is set:
+//! - [`Call::rebag`] fails with [`ListError::ReorderingNotAllowed`]
+//! - [`Call::put_in_front_of`] fails with [`ListError::ReorderingNotAllowed`]
+//! - [`Call::put_in_front_of_other`] fails with [`ListError::ReorderingNotAllowed`]
+//!
+//! In addition,
+//!
+//! - Calling [`SortedListProvider::on_insert`], inserts the new id at the end of the list (i.e.
+//!	last position in the lowest threshold bag)
+//! - Calling [`SortedListProvider::on_update`] is a noop (there is implicit no rebag even though
+//! the score of the id changed)
+//! - Calling [`SortedListProvider::on_remove`] is a noop.
+//!
+//! Once the lock is released, calling rebag and put_in_front_of will place the ids in the correct
+//! position in the list or remove it.
+//!
 //! ### Further Details
 //!
 //! - items are kept in bags, which are delineated by their range of score (See
@@ -83,7 +105,8 @@
 //!   insertion.
 //! - the bags list supports setting/unsetting a lock on list order changes. If [`LockOrder`] is
 //!   set, all the [`SortedListProvider`] and extrinsic calls that *may* change the ordering of the
-//!   list, will fail with [`ListError::ReorderingNotAllowed`].
+//!   list, will fail with [`ListError::ReorderingNotAllowed`]. In addition, all the implicit id
+//!   reordering whitin and across bags is a noop if the ordering lock is set.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -131,7 +154,10 @@ use alloc::boxed::Box;
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_system::ensure_signed;
-use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, StaticLookup};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, Bounded, StaticLookup, Zero},
+	DispatchError,
+};
 
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 use sp_runtime::TryRuntimeError;
@@ -300,7 +326,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Declare that some `dislocated` account has, through rewards or penalties, sufficiently
 		/// changed its score that it should properly fall into a different bag than its current
-		/// one.
+		/// one or it should be removed if its score is 0.
 		///
 		/// Anyone can call this function about any potentially dislocated account.
 		///
@@ -318,9 +344,14 @@ pub mod pallet {
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			let current_score = T::ScoreProvider::score(&dislocated);
 
-			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
-				.map_err::<Error<T, I>, _>(Into::into)?;
-			Ok(())
+			if Self::remove_if_zero(&dislocated)? {
+				// removed `dislocated.
+				Ok(())
+			} else {
+				Pallet::<T, I>::do_rebag(&dislocated, current_score)
+					.map_err::<Error<T, I>, _>(Into::into)?;
+				Ok(())
+			}
 		}
 
 		/// Move the caller's Id directly in front of `lighter`.
@@ -340,9 +371,15 @@ pub mod pallet {
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			ensure!(LockOrder::<T, I>::get().is_none(), Error::<T, I>::ReorderingLocked);
-
 			let heavier = ensure_signed(origin)?;
+
 			let lighter = T::Lookup::lookup(lighter)?;
+
+			match (Self::remove_if_zero(&heavier), Self::remove_if_zero(&lighter)) {
+				(Ok(true), _) | (_, Ok(true)) => return Ok(()),
+				_ => (),
+			};
+
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
 				.map_err::<DispatchError, _>(Into::into)
@@ -363,6 +400,12 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			let heavier = T::Lookup::lookup(heavier)?;
+
+			match (Self::remove_if_zero(&heavier), Self::remove_if_zero(&lighter)) {
+				(Ok(true), _) | (_, Ok(true)) => return Ok(()),
+				_ => (),
+			};
+
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
 				.map_err::<DispatchError, _>(Into::into)
@@ -409,6 +452,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		};
 		Self::deposit_event(Event::<T, I>::ScoreUpdated { who: account.clone(), new_score });
 		Ok(maybe_movement)
+	}
+
+	/// Removes an account from the list if their score as per the score provider is zero.
+	///
+	/// Returns whether the account was removed.
+	pub fn remove_if_zero(account: &T::AccountId) -> Result<bool, DispatchError> {
+		if T::ScoreProvider::score(&account).is_zero() {
+			Pallet::<T, I>::on_remove(&account).map_err::<Error<T, I>, _>(Into::into)?;
+			return Ok(true)
+		}
+
+		return Ok(false)
 	}
 
 	/// Equivalent to `ListBags::get`, but public. Useful for tests in outside of this crate.

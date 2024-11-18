@@ -637,6 +637,32 @@ mod pallet {
 				assert_eq!(List::<Runtime>::get_bags(), vec![(20, vec![11, 10, 12])]);
 			});
 	}
+
+	#[test]
+	fn extrinsics_remove_id_if_zero_score() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			assert_eq!(BagsList::get_score(&1), Ok(10));
+			StakingMock::set_score_of(&1, 0);
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 1));
+			assert_eq!(BagsList::get_score(&1), Err(ListError::NodeNotFound));
+
+			// put_in_front_of_other with both accounts' score zeroed, both are removed.
+			assert_eq!(BagsList::get_score(&2), Ok(1_000));
+			assert_eq!(BagsList::get_score(&3), Ok(1_000));
+			StakingMock::set_score_of(&2, 0);
+			StakingMock::set_score_of(&3, 0);
+			assert_ok!(BagsList::put_in_front_of(RuntimeOrigin::signed(2), 3));
+			assert_eq!(BagsList::get_score(&2), Err(ListError::NodeNotFound));
+			assert_eq!(BagsList::get_score(&3), Err(ListError::NodeNotFound));
+
+			assert_eq!(BagsList::get_score(&4), Ok(1_000));
+			StakingMock::set_score_of(&4, 0);
+			assert_ok!(BagsList::put_in_front_of_other(RuntimeOrigin::signed(2), 4, 5));
+			assert_eq!(BagsList::get_score(&4), Err(ListError::NodeNotFound));
+		})
+	}
 }
 
 mod sorted_list_provider {
@@ -930,7 +956,55 @@ mod sorted_list_provider {
 
 	#[test]
 	fn on_remove_with_lock_works() {
-		// TODO
-		ExtBuilder::default().build_and_execute(|| {})
+		ExtBuilder::default().build_and_execute(|| {
+			// initial iter state.
+			let initial_iter = ListNodes::<Runtime>::iter().map(|(a, _)| a).collect::<Vec<_>>();
+			assert_eq!(initial_iter, vec![3, 4, 1, 2]);
+
+			assert_eq!(ListBags::<Runtime>::iter().count(), 2);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			assert_eq!(BagsList::get_score(&1), Ok(10));
+
+			// lock bags list re-ordering.
+			assert_ok!(BagsList::lock_ordering());
+
+			StakingMock::set_score_of(&1, 0);
+			assert_ok!(BagsList::on_remove(&1));
+
+			// ordering lock is set, so the node's bag score and iter state remain the same, despite
+			// the updated score in the score provider for 1.
+			assert_eq!(BagsList::get_score(&1), Ok(10));
+			assert_eq!(
+				initial_iter,
+				ListNodes::<Runtime>::iter().map(|(a, _)| a).collect::<Vec<_>>()
+			);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// unlocks the ordering lock and calls rebag on 1 which will be dropped.
+			assert_ok!(BagsList::unlock_ordering());
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 1));
+
+			// now the rebag dropped the id 1, since its score as per the score provider is 0.
+			assert_eq!(BagsList::get_score(&1), Err(ListError::NodeNotFound));
+			assert_eq!(List::<Runtime>::get_bags(), vec![(1_000, vec![2, 3, 4])]);
+		})
+	}
+
+	#[test]
+	fn sorted_list_provider_score_zero_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			assert_eq!(BagsList::get_score(&1), Ok(10));
+			StakingMock::set_score_of(&1, 0);
+			assert_ok!(BagsList::on_remove(&1));
+			assert_eq!(BagsList::get_score(&1), Err(ListError::NodeNotFound));
+
+			assert_eq!(BagsList::get_score(&2), Ok(1_000));
+			StakingMock::set_score_of(&2, 0);
+			assert_ok!(BagsList::on_update(&2, 100));
+			assert_eq!(BagsList::get_score(&2), Ok(100));
+		})
 	}
 }
