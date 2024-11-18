@@ -140,20 +140,6 @@ fn logs_bloom_works() {
 	assert_eq!(receipt.logs_bloom, ReceiptInfo::logs_bloom(&receipt.logs));
 }
 
-macro_rules! impl_from_signed {
-    ($tx: ident, $from: ident, { $($field:ident: $mapping:expr),* }) => {
-			GenericTransaction {
-				from: $from,
-				input: Some($tx.input),
-				nonce: Some($tx.nonce),
-				r#type: Some($tx.r#type.as_byte()),
-				value: Some($tx.value),
-				$($field: $mapping,)*
-				..Default::default()
-			}
-    }
-}
-
 impl GenericTransaction {
 	/// Create a new [`GenericTransaction`] from a signed transaction.
 	pub fn from_signed(tx: TransactionSigned, from: Option<H160>) -> Self {
@@ -161,48 +147,72 @@ impl GenericTransaction {
 		match tx {
 			TransactionLegacySigned(tx) => {
 				let tx = tx.transaction_legacy_unsigned;
-				impl_from_signed!(tx, from, {
+				GenericTransaction {
+					from,
+					input: Some(tx.input),
+					nonce: Some(tx.nonce),
+					r#type: Some(tx.r#type.as_byte()),
+					value: Some(tx.value),
+					to: tx.to,
 					chain_id: tx.chain_id,
 					gas: Some(tx.gas),
 					gas_price: Some(tx.gas_price),
-					to: tx.to
-				})
+					..Default::default()
+				}
 			},
 			Transaction4844Signed(tx) => {
 				let tx = tx.transaction_4844_unsigned;
-				impl_from_signed!(tx, from, {
+				GenericTransaction {
+					from,
+					input: Some(tx.input),
+					nonce: Some(tx.nonce),
+					r#type: Some(tx.r#type.as_byte()),
+					value: Some(tx.value),
+					to: Some(tx.to),
+					chain_id: Some(tx.chain_id),
+					gas: Some(tx.gas),
+					gas_price: Some(tx.max_fee_per_blob_gas),
 					access_list: Some(tx.access_list),
 					blob_versioned_hashes: Some(tx.blob_versioned_hashes),
-					gas_price: Some(tx.max_fee_per_blob_gas),
 					max_fee_per_blob_gas: Some(tx.max_fee_per_blob_gas),
 					max_fee_per_gas: Some(tx.max_fee_per_gas),
 					max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
-					chain_id: Some(tx.chain_id),
-					gas: Some(tx.gas),
-					to: Some(tx.to)
-				})
+					..Default::default()
+				}
 			},
 			Transaction1559Signed(tx) => {
 				let tx = tx.transaction_1559_unsigned;
-				impl_from_signed!(tx, from, {
+				GenericTransaction {
+					from,
+					input: Some(tx.input),
+					nonce: Some(tx.nonce),
+					r#type: Some(tx.r#type.as_byte()),
+					value: Some(tx.value),
+					to: tx.to,
+					chain_id: Some(tx.chain_id),
+					gas: Some(tx.gas),
+					gas_price: Some(tx.gas_price),
 					access_list: Some(tx.access_list),
 					max_fee_per_gas: Some(tx.max_fee_per_gas),
 					max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
-					chain_id: Some(tx.chain_id),
-					gas: Some(tx.gas),
-					gas_price: Some(tx.gas_price),
-					to: tx.to
-				})
+					..Default::default()
+				}
 			},
 			Transaction2930Signed(tx) => {
 				let tx = tx.transaction_2930_unsigned;
-				impl_from_signed!(tx, from, {
-					access_list: Some(tx.access_list),
+				GenericTransaction {
+					from,
+					input: Some(tx.input),
+					nonce: Some(tx.nonce),
+					r#type: Some(tx.r#type.as_byte()),
+					value: Some(tx.value),
+					to: tx.to,
 					chain_id: Some(tx.chain_id),
 					gas: Some(tx.gas),
 					gas_price: Some(tx.gas_price),
-					to: tx.to
-				})
+					access_list: Some(tx.access_list),
+					..Default::default()
+				}
 			},
 		}
 	}
