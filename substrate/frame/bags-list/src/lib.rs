@@ -317,6 +317,7 @@ pub mod pallet {
 
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			let current_score = T::ScoreProvider::score(&dislocated);
+
 			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
 				.map_err::<Error<T, I>, _>(Into::into)?;
 			Ok(())
@@ -440,14 +441,11 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		List::<T, I>::contains(id)
 	}
 
-	// TODO: from another perspective, should we prevent node inserts/removes to happen when the
-	// lock is set? this is the easiest way, but staking needs to either be aware of it and buffer
-	// requests or it is a bad UX for stakers. or the buffer can happen at the bags list level.
-	// another option is to be more fancier way is to  freeze the iterator when the lock is set.
-
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
 		match LockOrder::<T, I>::get() {
-			Some(_) => Err(ListError::ReorderingNotAllowed),
+			// insert node at the tail of the list to not affect the order of the list while
+			// ordering lock is set.
+			Some(_) => List::<T, I>::insert_force_lowest(id, score),
 			None => List::<T, I>::insert(id, score),
 		}
 	}
@@ -458,14 +456,28 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 
 	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
 		match LockOrder::<T, I>::get() {
-			Some(_) => Err(ListError::ReorderingNotAllowed),
+			Some(_) => {
+				// lock is set, on_update is a noop.
+				frame_support::ensure!(
+					list::Node::<T, I>::get(&id).is_some(),
+					ListError::NodeNotFound
+				);
+				Ok(())
+			},
 			None => Pallet::<T, I>::do_rebag(id, new_score).map(|_| ()),
 		}
 	}
 
 	fn on_remove(id: &T::AccountId) -> Result<(), ListError> {
 		match LockOrder::<T, I>::get() {
-			Some(_) => Err(ListError::ReorderingNotAllowed),
+			Some(_) => {
+				// lock is set, on_remove is a noop.
+				frame_support::ensure!(
+					list::Node::<T, I>::get(&id).is_some(),
+					ListError::NodeNotFound
+				);
+				Ok(())
+			},
 			None => List::<T, I>::remove(id),
 		}
 	}

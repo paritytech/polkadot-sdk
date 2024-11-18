@@ -850,27 +850,87 @@ mod sorted_list_provider {
 	}
 
 	#[test]
-	fn lock_works() {
+	fn on_insert_with_lock_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			// locks list ordering changes.
+			// initial iter state.
+			let initial_iter = BagsList::iter().collect::<Vec<_>>();
+			assert_eq!(initial_iter, vec![2, 3, 4, 1]);
+
+			assert_eq!(ListBags::<Runtime>::iter().count(), 2);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// lock bags list re-ordering.
 			assert_ok!(BagsList::lock_ordering());
 
-			// on_insert fails because it will change the ordering of the list.
-			assert!(!get_list_as_ids().contains(&10));
-			assert_noop!(BagsList::on_insert(10, 100), ListError::ReorderingNotAllowed);
+			// ordering lock is set, so the new ids are inserted at the end of the list regardless
+			// of their score in the score provider.
+			let mut expected_iter = initial_iter.clone();
 
-			// on_update fails because it may change the ordering of the list.
-			assert!(get_list_as_ids().contains(&1));
-			assert_noop!(BagsList::on_update(&1, 100), ListError::ReorderingNotAllowed);
+			StakingMock::set_score_of(&5, 1);
+			assert_ok!(BagsList::on_insert(5, 1));
+			expected_iter.push(5);
 
-			// on_remove fails because it may change the ordering of the list.
-			assert_noop!(BagsList::on_remove(&1), ListError::ReorderingNotAllowed);
+			StakingMock::set_score_of(&6, 2_000);
+			assert_ok!(BagsList::on_insert(6, 2_000));
+			expected_iter.push(6);
 
-			// unlock ordering and confirm all the above actions work now.
+			assert_eq!(expected_iter, BagsList::iter().collect::<Vec<_>>(),);
+
+			// unlocks the ordering lock and rebags 5 and 6 to their correct bags.
 			assert_ok!(BagsList::unlock_ordering());
-			assert_ok!(BagsList::on_insert(10, 100));
-			assert_ok!(BagsList::on_update(&1, 100));
-			assert_ok!(BagsList::on_remove(&1));
+
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 5));
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 6));
+
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1, 5]), (1_000, vec![2, 3, 4]), (2_000, vec![6])]
+			);
+			assert_eq!(BagsList::iter().collect::<Vec<_>>(), vec![6, 2, 3, 4, 1, 5]);
 		})
+	}
+
+	#[test]
+	fn on_update_with_lock_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// initial iter state.
+			let initial_iter = ListNodes::<Runtime>::iter().map(|(a, _)| a).collect::<Vec<_>>();
+			assert_eq!(initial_iter, vec![3, 4, 1, 2]);
+
+			assert_eq!(ListBags::<Runtime>::iter().count(), 2);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			assert_eq!(BagsList::get_score(&1), Ok(10));
+
+			// lock bags list re-ordering.
+			assert_ok!(BagsList::lock_ordering());
+
+			// update 1's score in score provider and call on_update.
+			StakingMock::set_score_of(&1, 2_000);
+			assert_ok!(BagsList::on_update(&1, 2_000));
+
+			// ordering lock is set, so the node's bag score and iter state remain the same, despite
+			// the updated score in the score provider for 1.
+			assert_eq!(BagsList::get_score(&1), Ok(10));
+			assert_eq!(
+				initial_iter,
+				ListNodes::<Runtime>::iter().map(|(a, _)| a).collect::<Vec<_>>()
+			);
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
+
+			// unlocks the ordering lock and rebags 1 to its correct bag.
+			assert_ok!(BagsList::unlock_ordering());
+			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 1));
+
+			// now the rebag worked as expected.
+			assert_eq!(BagsList::get_score(&1), Ok(2_000));
+			assert_eq!(List::<Runtime>::get_bags(), vec![(1_000, vec![2, 3, 4]), (2_000, vec![1])]);
+		})
+	}
+
+	#[test]
+	fn on_remove_with_lock_works() {
+		// TODO
+		ExtBuilder::default().build_and_execute(|| {})
 	}
 }

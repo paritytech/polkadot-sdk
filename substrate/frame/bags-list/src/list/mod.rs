@@ -348,6 +348,33 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		Ok(())
 	}
 
+	/// Insert a new id into the lowest threshold possible bag in the list.
+	///
+	/// Returns an error if the list already contains `id`.
+	pub(crate) fn insert_force_lowest(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
+		if Self::contains(&id) {
+			return Err(ListError::Duplicate)
+		}
+
+		// insert at the end of the lowest threshold bag.
+		let bag_score = notional_bag_for::<T, I>(Zero::zero());
+		let mut bag = Bag::<T, I>::get_or_make(bag_score);
+
+		bag.insert_unchecked(id.clone(), Zero::zero());
+		bag.put();
+
+		crate::log!(
+			debug,
+			"inserted {:?} with score {:?} into the lowest score bag {:?} (ordering lock is set), new count is {}.",
+			id,
+			score,
+			bag_score,
+			crate::ListNodes::<T, I>::count(),
+		);
+
+		Ok(())
+	}
+
 	/// Remove an id from the list, returning an error if `id` does not exists.
 	pub(crate) fn remove(id: &T::AccountId) -> Result<(), ListError> {
 		if !Self::contains(id) {
@@ -846,7 +873,7 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 		crate::ListNodes::<T, I>::insert(self.id.clone(), self);
 	}
 
-	/// Update neighboring nodes to point to reach other.
+	/// Update neighboring nodes to point to each other.
 	///
 	/// Only updates storage for adjacent nodes, but not `self`; so the user may need to call
 	/// `self.put`.
@@ -905,11 +932,6 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 	#[allow(dead_code)]
 	pub fn std_id(&self) -> &T::AccountId {
 		&self.id
-	}
-
-	#[cfg(any(feature = "runtime-benchmarks", feature = "fuzz", test))]
-	pub fn set_score(&mut self, s: T::Score) {
-		self.score = s
 	}
 
 	/// The bag this nodes belongs to (public for benchmarks).
