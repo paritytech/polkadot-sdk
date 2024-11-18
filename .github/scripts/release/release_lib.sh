@@ -119,21 +119,23 @@ set_polkadot_parachain_binary_version() {
 
 
 upload_s3_release() {
-  alias aws='podman run --rm -it docker.io/paritytech/awscli -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_BUCKET aws'
+    alias aws='podman run --rm -it docker.io/paritytech/awscli -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_BUCKET aws'
 
-  product=$1
-  version=$2
+    product=$1
+    version=$2
+    platform = $3
 
-  echo "Working on product: $product "
-  echo "Working on version: $version "
+    echo "Working on product:  $product "
+    echo "Working on version:  $version "
+    echo "Working on platform: $platform "
 
-  echo "Current content, should be empty on new uploads:"
-  aws s3 ls "s3://releases.parity.io/polkadot/${version}/" --recursive --human-readable --summarize || true
-  echo "Content to be uploaded:"
-  artifacts="artifacts/$product/"
-  ls "$artifacts"
-  aws s3 sync --acl public-read "$artifacts" "s3://releases.parity.io/polkadot/${version}/"
-  echo "Uploaded files:"
-  aws s3 ls "s3://releases.parity.io/polkadot/${version}/" --recursive --human-readable --summarize
-  echo "✅ The release should be at https://releases.parity.io/polkadot/${version}"
+    echo "Current content, should be empty on new uploads:"
+    aws s3 ls "s3://releases.parity.io/${product}/${version}/{$platform}" --recursive --human-readable --summarize || true
+    echo "Content to be uploaded:"
+    artifacts="artifacts/$product/"
+    ls "$artifacts"
+    aws s3 sync --acl public-read "$artifacts" "s3://releases.parity.io/${product}/${version}/{$platform}"
+    echo "Uploaded files:"
+    aws s3 ls "s3://releases.parity.io/${product}/${version}/{$platform}" --recursive --human-readable --summarize
+    echo "✅ The release should be at https://releases.parity.io/${product}/${version}/{$platform}"
 }

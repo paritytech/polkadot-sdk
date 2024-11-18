@@ -13,6 +13,11 @@ on:
         required: true
         type: string
 
+      platform:
+        description: Platform for which the artifacts are being uploaded (lynux or macos)
+        required: true
+        type: string
+
     secrets:
       AWS_DEFAULT_REGION:
         required: true
@@ -50,4 +55,4 @@ jobs:
         - name: Upload ${{ inputs.package }} artifacts to s3
           run: |
             . ./.github/scripts/release/release_lib.sh
-            upload_s3_release ${{ inputs.package }} ${{ inputs.release_tag }}
+            upload_s3_release ${{ inputs.package }} ${{ inputs.release_tag }} ${{ inputs.platform }}
