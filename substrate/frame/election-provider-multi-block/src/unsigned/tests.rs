@@ -535,23 +535,6 @@ mod pallet {
 			});
 		}
 
-		// todo: check if there's a way to make submission fail e.g. by making transaction submit
-		// fail
-		// #[test]
-		// fn solution_page_submission_fails() {
-		// 	let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
-		// 	ext.extensions
-		// 		.deregister(<sp_runtime::offchain::TransactionPoolExt as Extension>::type_id());
-		// 	ext.execute_with(|| {
-		// 		set_phase_to(Phase::Unsigned(0));
-		// 		assert!(UnsignedPallet::do_sync_offchain_worker(0).is_ok());
-
-		// 		// no transaction was sent
-		// 		assert_eq!(pool.read().transactions.iter().count(), 0);
-		// 	});
-		// }
-
-		// todo: check why fails - should be all good
 		#[test]
 		fn solution_page_submitted() {
 			let (mut ext, pool) = ExtBuilder::default().pages(1).build_offchainify(0);
@@ -566,8 +549,8 @@ mod pallet {
 				assert!(UnsignedPallet::do_sync_offchain_worker(0).is_ok());
 
 				assert_eq!(pool.read().transactions.iter().count(), 1);
-				// TODO - check that the sent transaction is an inherent
-				// TODO - check the inherent content
+				// TODO: zebedeusz - check that the sent transaction is an inherent
+				// TODO: zebedeusz - check the inherent content
 			});
 		}
 	}
