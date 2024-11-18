@@ -663,7 +663,6 @@ where
 		xt: TransactionFor<Self>,
 	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.active_views_count());
-		//todo: clones
 		let xt = Arc::from(xt);
 		let xt_hash = match self.mempool.push_watched(source, xt.clone()) {
 			Ok(xt_hash) => xt_hash,
