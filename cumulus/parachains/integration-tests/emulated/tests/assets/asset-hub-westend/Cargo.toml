@@ -37,6 +37,7 @@ pallet-xcm = { workspace = true }
 xcm-runtime-apis = { workspace = true }
 
 # Cumulus
+assets-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }
 asset-test-utils = { workspace = true, default-features = true }
 cumulus-pallet-xcmp-queue = { workspace = true }

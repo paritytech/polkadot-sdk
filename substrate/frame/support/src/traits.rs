@@ -57,13 +57,13 @@ pub use filter::{ClearFilterGuard, FilterStack, FilterStackGuard, InstanceFilter
 mod misc;
 pub use misc::{
 	defensive_prelude::{self, *},
-	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
-	ConstU16, ConstU32, ConstU64, ConstU8, DefensiveMax, DefensiveMin, DefensiveSaturating,
-	DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly, EstimateCallFee,
-	ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime, InherentBuilder,
-	IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount, OnNewAccount,
-	PrivilegeCmp, SameOrOther, SignedTransactionBuilder, Time, TryCollect, TryDrop, TypedGet,
-	UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
+	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
+	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, DefensiveMax, DefensiveMin,
+	DefensiveSaturating, DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly,
+	EstimateCallFee, ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime,
+	InherentBuilder, IsInherent, IsSubType, IsType, Len, OffchainWorker, OnKilledAccount,
+	OnNewAccount, PrivilegeCmp, SameOrOther, SignedTransactionBuilder, Time, TryCollect, TryDrop,
+	TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque, WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};
