@@ -1,0 +1,15 @@
+title: Implements a mechanism to lock/unlock the `SortedListProvider` and bags-list iter
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Refactors `SortedListProvider` and `pallet-bags-list` so that the list ordering can be locked. If the ordering lock is set, ids won't change position within and across bags
+      upon calling `on_update` and `on_remove`. Calling on_insert inserts the new id at the bottom of the iterator, regardless of the score as per the score provider. In addition,
+      all calls may may explicitly change the position of an ID in the list (i.e. `Call::rebag`, `Call::put_in_front_of*`) will fail if the lock is set.
+
+
+crates:
+ - name: election-provider-support
+   bump: major
+ - name: pallet-bags-list
+   bump: major
