@@ -58,10 +58,10 @@ impl TransactionSigned {
 		let (r, s, v) = match self {
 			TransactionLegacySigned(tx) => (tx.r, tx.s, tx.extract_recovery_id().ok_or(())?),
 			Transaction4844Signed(tx) =>
-				(tx.r, tx.s, tx.y_parity.unwrap_or_default().try_into().map_err(|_| (()))?),
+				(tx.r, tx.s, tx.y_parity.unwrap_or_default().try_into().map_err(|_| ())?),
 			Transaction1559Signed(tx) =>
-				(tx.r, tx.s, tx.y_parity.unwrap_or_default().try_into().map_err(|_| (()))?),
-			Transaction2930Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| (()))?),
+				(tx.r, tx.s, tx.y_parity.unwrap_or_default().try_into().map_err(|_| ())?),
+			Transaction2930Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
 		};
 		let mut sig = [0u8; 65];
 		r.write_as_big_endian(sig[0..32].as_mut());

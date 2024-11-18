@@ -396,7 +396,6 @@ impl Decodable for Transaction4844Signed {
 			},
 			r: rlp.val_at(12)?,
 			s: rlp.val_at(13)?,
-			..Default::default()
 		})
 	}
 }
