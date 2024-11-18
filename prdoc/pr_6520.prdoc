@@ -9,7 +9,7 @@ doc:
 
 
 crates:
- - name: election-provider-support
+ - name: frame-election-provider-support
    bump: major
  - name: pallet-bags-list
    bump: major
