@@ -25,7 +25,7 @@ use crate::{
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 	runtime::{
-		metadata::{pallet_exists, runtime_block_number},
+		metadata::{block_number, pallet_exists, verify_parachain_compatibility},
 		BlockNumber,
 	},
 };
@@ -241,24 +241,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 			let decoded_metadata = RuntimeMetadataPrefixed::decode(&mut metadata.as_slice())
 				.map_err(|e| sc_service::error::Error::Application(Box::new(e) as Box<_>))?;
-
-			if !pallet_exists(&decoded_metadata, DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME)? {
-				log::warn!(
-					r#"⚠️  The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
-			missing from the runtime’s metadata. Omni Node requires this pallet to be defined as `ParachainSystem`
-			in your runtime. If your setup uses a different name for the `cumulus_parachain_system_pallet`, Omni Node
-			might still work, but it's recommended to name it `ParachainSystem`. Not following this naming convention
-			could cause issues, as future development expects the type to be named `ParachainSystem`."#,
-				);
-			}
-
-			let runtime_block_number = runtime_block_number(&decoded_metadata)?;
-			if runtime_block_number != BlockNumber::U32 {
-				log::warn!(
-					r#"⚠️  Node and runtime's block numbers mismatch. Currently node block number is hardcoded to `u32`,
-				and runtime type is `{runtime_block_number}`"#,
-				);
-			}
+			verify_parachain_compatibility(&decoded_metadata)?;
 
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;

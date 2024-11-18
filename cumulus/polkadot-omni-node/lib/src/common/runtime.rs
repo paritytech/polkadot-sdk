@@ -103,8 +103,8 @@ pub mod metadata {
 	use super::BlockNumber;
 	use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed};
 
-	/// Checks if pallet exists in runtime's metadata based on pallet name.
-	pub fn pallet_exists(
+	// Checks if pallet exists in runtime's metadata based on pallet name.
+	fn pallet_exists(
 		metadata: &RuntimeMetadataPrefixed,
 		name: &str,
 	) -> Result<bool, sc_service::error::Error> {
@@ -121,8 +121,8 @@ pub mod metadata {
 		}
 	}
 
-	/// Get the configured runtime's block number type from `frame-system` pallet storage.
-	pub fn runtime_block_number(
+	// Get the configured runtime's block number type from `frame-system` pallet storage.
+	fn block_number(
 		metadata: &RuntimeMetadataPrefixed,
 	) -> Result<BlockNumber, sc_service::error::Error> {
 		// Macro to define reusable logic for processing metadata.
@@ -160,6 +160,34 @@ pub mod metadata {
 		}
 	}
 
+	/// Execute a set of checks to ensure runtime/parachain compatibility.
+	///
+	/// The checks will emit warning level logs in case the runtime doesn't comply with the
+	/// conventions at https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions.
+	pub fn verify_parachain_compatibility(
+		metadata: &RuntimeMetadataPrefixed,
+	) -> Result<(), sc_service::error::Error> {
+		if !pallet_exists(&decoded_metadata, DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME)? {
+			log::warn!(
+				r#"⚠️  The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
+			missing from the runtime’s metadata. Please check Omni Node docs for runtime conventions:
+			https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions."#,
+			);
+		}
+
+		let runtime_block_number = block_number(&decoded_metadata)?;
+		if runtime_block_number != BlockNumber::U32 {
+			log::warn!(
+				r#"⚠️  Configured `frame-system` pallet and Omni Node block numbers mismatch, or there isn't a runtime
+				type named `System`, corresponding to the `frame-system` pallet (https://docs.rs/frame-system/38.0.0/frame_system/).
+				Please check Omni Node docs for runtime conventions:
+				https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions."#,
+			);
+		}
+
+		Ok(())
+	}
+
 	#[cfg(test)]
 	mod tests {
 		use crate::runtime::BlockNumber;
@@ -174,9 +202,9 @@ pub mod metadata {
 				sp_io::allocator::HostFunctions,
 				// Logging is good to have for debugging issues.
 				sp_io::logging::HostFunctions,
-				// Give access to the "state", actually the state will be empty, but some chains put
-				// constants into the state and this would panic at metadata generation. Thus, we give
-				// them an empty state to not panic.
+				// Give access to the "state", actually the state will be empty, but some chains
+				// put constants into the state and this would panic at metadata generation. Thus,
+				// we give them an empty state to not panic.
 				sp_io::storage::HostFunctions,
 				// The hashing functions.
 				sp_io::hashing::HostFunctions,
@@ -225,7 +253,7 @@ pub mod metadata {
 		#[test]
 		fn test_runtime_block_number() {
 			let metadata = cumulus_test_runtime_metadata();
-			assert_eq!(super::runtime_block_number(&metadata).unwrap(), BlockNumber::U32);
+			assert_eq!(super::block_number(&metadata).unwrap(), BlockNumber::U32);
 		}
 	}
 }

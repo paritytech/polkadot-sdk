@@ -177,9 +177,36 @@
 //! [This](https://github.com/paritytech/polkadot-sdk/issues/5565) future improvement to OmniNode
 //! aims to make such checks automatic.
 //!
+//! ### Runtime conventions
+//!
+//! Given OmniNode purpose is to be compatible with most Polkadot parachains, we thought it is
+//! also achievable to guide how the developed parachain's runtimes should be composed. The
+//! runtimes should contain a set the basis for a functional parachain in the context of any
+//! node. We check for these pallets at OmniNode start-up, parsing through the runtime metadata.
+//! The checks are best effort, given the runtime code is custom, and can be considered as lint
+//! rules which will generate warning level logs in the Omni Node log file, when not complied with.
+//!
+//! The checks were introduced mainly to detect incomplete runtime implementations, from a
+//! parachain compatibility standpoint, but they are also useful to ensure deeper compatibility
+//! with Omni Node, which should be compatible with the majority of the parachains in the
+//! ecosystem, and enable/disable certain features given a chain spec, runtime metadata, or a
+//! set of CLI flags. Such built-in checks should improve the developer experience by providing
+//! useful feedback, developers setup their runtime correctly for a parachain use case.
+//!
+//! The list of checks should evolve and possibly be treated in a separate dedicated space in these
+//! docs, but for now they are only based on a few rules:
+//! * runtimes must define a type for [`cumulus-pallet-parachain-system`], which is recommended to
+//!   be
+//! named as `ParachainSystem`.
+//! * runtimes must define a type for [`frame-system`] pallet, which is recommended to be named as
+//!   `System`.
+//! * runtimes must configure the [`frame-system`] pallet's [`block number`] type as `u32`.
 //!
 //! [`templates`]: crate::polkadot_sdk::templates
 //! [`parachain-template`]: https://github.com/paritytech/polkadot-sdk-parachain-template
 //! [`--dev-block-time`]: polkadot_omni_node_lib::cli::Cli::dev_block_time
 //! [`polkadot-omni-node`]: https://crates.io/crates/polkadot-omni-node
 //! [`chain-spec-builder`]: https://crates.io/crates/staging-chain-spec-builder
+//! [`cumulus-pallet-parachain-system`]: https://docs.rs/cumulus-pallet-parachain-system/latest/cumulus_pallet_parachain_system/
+//! [`frame-system`]: https://docs.rs/frame-system/latest/frame_system/
+//! [`block number`]: https://docs.rs/frame-system/latest/frame_system/pallet/storage_types/struct.Number.html
