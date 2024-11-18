@@ -97,15 +97,15 @@ use self::branch::{BeginDecidingBranch, OneFewerDecidingBranch, ServiceBranch};
 pub use self::{
 	pallet::*,
 	types::{
-		BalanceOf, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf, Deposit,
-		InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex, ReferendumInfo,
-		ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf, TallyOf,
-		TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf, BlockNumberFor
+		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, Curve, DecidingStatus, DecidingStatusOf,
+		Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf, ReferendumIndex,
+		ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf, ScheduleAddressOf,
+		TallyOf, TrackIdOf, TrackInfo, TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
-use sp_runtime::traits::BlockNumberProvider;
 pub use alloc::vec::Vec;
+use sp_runtime::traits::BlockNumberProvider;
 
 #[cfg(test)]
 mod mock;
@@ -144,7 +144,10 @@ const ASSEMBLY_ID: LockIdentifier = *b"assembly";
 pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
-	use frame_system::pallet_prelude::{OriginFor, BlockNumberFor as SystemBlockNumberFor, ensure_root, ensure_signed_or_root, ensure_signed};
+	use frame_system::pallet_prelude::{
+		ensure_root, ensure_signed, ensure_signed_or_root, BlockNumberFor as SystemBlockNumberFor,
+		OriginFor,
+	};
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -1380,7 +1383,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					if let Some(deciding) = status.deciding {
 						ensure!(
 							deciding.since <
-								deciding.confirming.unwrap_or(BlockNumberFor::<T, I>::max_value()),
+								deciding
+									.confirming
+									.unwrap_or(BlockNumberFor::<T, I>::max_value()),
 							"Deciding status cannot begin before confirming stage."
 						)
 					}

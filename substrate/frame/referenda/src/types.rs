@@ -31,7 +31,8 @@ use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub type BlockNumberFor<T, I> = <<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+pub type BlockNumberFor<T, I> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 pub type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
