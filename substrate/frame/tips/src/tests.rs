@@ -18,8 +18,9 @@
 //! Treasury pallet tests.
 
 #![cfg(test)]
-
+/*
 use sp_core::H256;
+
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, IdentityLookup},
 	BuildStorage, Perbill, Permill,
@@ -35,13 +36,14 @@ use frame_support::{
 	},
 	PalletId,
 };
-
+*/
+use frame::{testing_prelude::*, runtime::{testing_prelude::DispatchError::Other, prelude::{storage::{migration, StoragePrefixedMap}}}, traits::{PalletInfoAccess, IdentityLookup, NeverEnsureOrigin}, arithmetic::{Perbill, Permill}, deps::frame_support::{PalletId, traits::tokens::{PayFromAccount, UnityAssetBalanceConversion}}};
 use super::*;
 use crate::{self as pallet_tips, Event as TipEvent};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -112,7 +114,7 @@ impl pallet_treasury::Config for Test {
 	type WeightInfo = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
-	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
+	type SpendOrigin = NeverEnsureOrigin<u64>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
@@ -135,7 +137,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type WeightInfo = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
-	type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
+	type SpendOrigin = NeverEnsureOrigin<u64>;
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
@@ -177,8 +179,8 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+pub fn new_test_ext() -> TestExternalities {
+	let mut ext: TestExternalities = RuntimeGenesisConfig {
 		system: frame_system::GenesisConfig::default(),
 		balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)] },
 		treasury: Default::default(),
@@ -485,7 +487,7 @@ fn test_last_reward_migration() {
 
 	s.top = data.into_iter().collect();
 
-	sp_io::TestExternalities::new(s).execute_with(|| {
+	TestExternalities::new(s).execute_with(|| {
 		let module = pallet_tips::Tips::<Test>::pallet_prefix();
 		let item = pallet_tips::Tips::<Test>::storage_prefix();
 		Tips::migrate_retract_tip_for_tip_new(module, item);
@@ -543,12 +545,12 @@ fn test_migration_v4() {
 	let mut s = Storage::default();
 	s.top = data.into_iter().collect();
 
-	sp_io::TestExternalities::new(s).execute_with(|| {
-		use frame_support::traits::PalletInfoAccess;
+	TestExternalities::new(s).execute_with(|| {
+		// use frame_support::traits::PalletInfoAccess;
 
 		let old_pallet = "Treasury";
 		let new_pallet = <Tips as PalletInfoAccess>::name();
-		frame_support::storage::migration::move_pallet(
+		migration::move_pallet(
 			new_pallet.as_bytes(),
 			old_pallet.as_bytes(),
 		);
@@ -559,12 +561,12 @@ fn test_migration_v4() {
 		crate::migrations::v4::post_migrate::<Test, Tips, _>(old_pallet);
 	});
 
-	sp_io::TestExternalities::new(Storage::default()).execute_with(|| {
-		use frame_support::traits::PalletInfoAccess;
+	TestExternalities::new(Storage::default()).execute_with(|| {
+		// use frame_support::traits::PalletInfoAccess;
 
 		let old_pallet = "Treasury";
 		let new_pallet = <Tips as PalletInfoAccess>::name();
-		frame_support::storage::migration::move_pallet(
+		migration::move_pallet(
 			new_pallet.as_bytes(),
 			old_pallet.as_bytes(),
 		);
@@ -589,7 +591,7 @@ fn genesis_funding_works() {
 	pallet_treasury::GenesisConfig::<Test>::default()
 		.assimilate_storage(&mut t)
 		.unwrap();
-	let mut t: sp_io::TestExternalities = t.into();
+	let mut t: TestExternalities = t.into();
 
 	t.execute_with(|| {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), initial_funding);
@@ -633,7 +635,7 @@ fn report_awesome_and_tip_works_second_instance() {
 #[test]
 fn equal_entries_invariant() {
 	new_test_ext().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
+		// use frame_support::pallet_prelude::DispatchError::Other;
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
@@ -666,7 +668,7 @@ fn equal_entries_invariant() {
 #[test]
 fn finders_fee_invariant() {
 	new_test_ext().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
+		// use frame_support::pallet_prelude::DispatchError::Other;
 
 		// Breaks invariant by having a zero deposit.
 		TipReportDepositBase::set(0);
@@ -686,7 +688,7 @@ fn finders_fee_invariant() {
 #[test]
 fn reasons_invariant() {
 	new_test_ext().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
+		// use frame_support::pallet_prelude::DispatchError::Other;
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 

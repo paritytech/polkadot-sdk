@@ -20,6 +20,7 @@
 
 use alloc::collections::btree_map::BTreeMap;
 use core::iter::Sum;
+/*
 use frame_support::{
 	pallet_prelude::OptionQuery,
 	storage_alias,
@@ -28,6 +29,8 @@ use frame_support::{
 	Parameter, Twox64Concat,
 };
 use sp_runtime::{traits::Zero, Saturating};
+*/
+use frame::{prelude::*, storage_alias, traits::{Currency, LockableCurrency, ReservableCurrency}, runtime::prelude::weights::{Weight, RuntimeDbWeight}};
 
 #[cfg(feature = "try-runtime")]
 const LOG_TARGET: &str = "runtime::tips::migrations::unreserve_deposits";
@@ -48,16 +51,16 @@ pub trait UnlockConfig<I>: 'static {
 	/// Base deposit to report a tip.
 	///
 	/// Should match the currency type previously used for the pallet, if applicable.
-	type TipReportDepositBase: sp_core::Get<BalanceOf<Self, I>>;
+	type TipReportDepositBase: Get<BalanceOf<Self, I>>;
 	/// Deposit per byte to report a tip.
 	///
 	/// Should match the currency type previously used for the pallet, if applicable.
-	type DataDepositPerByte: sp_core::Get<BalanceOf<Self, I>>;
+	type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 	/// The name of the pallet as previously configured in
 	/// [`construct_runtime!`](frame_support::construct_runtime).
-	type PalletName: sp_core::Get<&'static str>;
+	type PalletName: Get<&'static str>;
 	/// The DB weight as configured in the runtime to calculate the correct weight.
-	type DbWeight: sp_core::Get<RuntimeDbWeight>;
+	type DbWeight: Get<RuntimeDbWeight>;
 	/// The block number as configured in the runtime.
 	type BlockNumber: Parameter + Zero + Copy + Ord;
 }
@@ -96,8 +99,8 @@ impl<T: UnlockConfig<I>, I: 'static> UnreserveDeposits<T, I> {
 	/// * `BTreeMap<T::AccountId, T::Balance>`: Map of account IDs to their respective total
 	///   reserved balance by this pallet
 	/// * `frame_support::weights::Weight`: The weight of this operation.
-	fn get_deposits() -> (BTreeMap<T::AccountId, BalanceOf<T, I>>, frame_support::weights::Weight) {
-		use sp_core::Get;
+	fn get_deposits() -> (BTreeMap<T::AccountId, BalanceOf<T, I>>, Weight) {
+		// use sp_core::Get;
 
 		let mut tips_len = 0;
 		let account_deposits: BTreeMap<T::AccountId, BalanceOf<T, I>> = Tips::<T, I>::iter()
@@ -167,8 +170,8 @@ where
 	}
 
 	/// Executes the migration, unreserving funds that are locked in Tip deposits.
-	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-		use frame_support::traits::Get;
+	fn on_runtime_upgrade() -> Weight {
+		// use frame_support::traits::Get;
 
 		// Get staked and deposited balances as reported by this pallet.
 		let (account_deposits, initial_reads) = Self::get_deposits();

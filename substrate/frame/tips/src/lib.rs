@@ -61,14 +61,16 @@ pub mod migrations;
 pub mod weights;
 
 extern crate alloc;
-
+use frame::{prelude::*, traits::{SortedMembers, ContainsLengthBound, OnUnbalanced, BadOrigin, ExistenceRequirement::KeepAlive, ReservableCurrency, AccountIdConversion, Currency}, arithmetic::Percent, runtime::prelude::storage::migration::storage_key_iter};
+/*
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
 	Percent, RuntimeDebug,
 };
-
+*/
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+/*
 use frame_support::{
 	ensure,
 	traits::{
@@ -78,9 +80,10 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+*/
 
 #[cfg(any(feature = "try-runtime", test))]
-use sp_runtime::TryRuntimeError;
+use frame::try_runtime::TryRuntimeError;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -118,12 +121,14 @@ pub struct OpenTip<
 	finders_fee: bool,
 }
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-
+	*/
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
@@ -617,7 +622,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			tips: Vec<(AccountId, Balance)>,
 		}
 
-		use frame_support::{migration::storage_key_iter, Twox64Concat};
+		// use frame_support::{migration::storage_key_iter, Twox64Concat};
 
 		let zero_account = T::AccountId::decode(&mut TrailingZeroInput::new(&[][..]))
 			.expect("infinite input; qed");
