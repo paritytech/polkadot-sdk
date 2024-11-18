@@ -114,7 +114,7 @@ impl CoretimeRuntimeType {
 				&include_bytes!("../../chain-specs/coretime-rococo.json")[..],
 			)?)),
 			CoretimeRuntimeType::RococoLocal =>
-				Ok(Box::new(rococo::local_config(*self, "rococo-local"))),
+				Ok(Box::new(rococo::local_config(*self, "versi"))),
 			CoretimeRuntimeType::RococoDevelopment =>
 				Ok(Box::new(rococo::local_config(*self, "rococo-dev"))),
 			CoretimeRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
@@ -155,7 +155,7 @@ pub mod rococo {
 	use sp_core::sr25519;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
-	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
+	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-versi";
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
 	const CORETIME_ROCOCO_ED: Balance = coretime_rococo_runtime::ExistentialDeposit::get();
 
@@ -177,6 +177,8 @@ pub mod rococo {
 			coretime_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!")
 		};
+		let yap_sudo: AccountId =
+		hex2array!("6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15").into();
 
 		GenericChainSpec::builder(
 			wasm_binary,
@@ -185,19 +187,13 @@ pub mod rococo {
 		.with_name(&chain_name)
 		.with_id(runtime_type.into())
 		.with_chain_type(chain_type)
-		.with_genesis_config_patch(genesis(
-			// initial collators.
-			vec![(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed::<AuraId>("Alice"),
-			)],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-			],
-			para_id,
+		.with_genesis_config_patch(serde_json::json!({
+			"sudo": { "key": Some(yap_sudo) },
+			"parachainInfo": {
+				"parachainId": para_id,
+			},
+			"aura": { "authorities": vec![Into::<AuraId>::into(Keyring::Alice.public())] }
+		}
 		))
 		.with_properties(properties)
 		.build()
