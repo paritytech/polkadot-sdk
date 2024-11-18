@@ -22,9 +22,9 @@ mod imports {
 
 	// Polkadot
 	pub use xcm::{
-		latest::ParentThen,
+		latest::{ParentThen, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v4::{self, NetworkId::Rococo as RococoId},
+		v5,
 	};
 	pub use xcm_executor::traits::TransferType;
 
@@ -56,6 +56,7 @@ mod imports {
 		penpal_emulated_chain::{
 			penpal_runtime::xcm_config::{
 				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
 				UniversalLocation as PenpalUniversalLocation,
 			},
 			PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet,
@@ -71,8 +72,9 @@ mod imports {
 		BridgeHubWestendPara as BridgeHubWestend,
 		BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
 		BridgeHubWestendParaSender as BridgeHubWestendSender, PenpalBPara as PenpalB,
-		PenpalBParaSender as PenpalBSender, WestendRelay as Westend,
-		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
+		PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
+		WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
+		WestendRelaySender as WestendSender,
 	};
 
 	pub const ASSET_ID: u32 = 1;

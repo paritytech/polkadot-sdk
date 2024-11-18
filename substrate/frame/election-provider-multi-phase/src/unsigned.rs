@@ -19,14 +19,12 @@
 
 use crate::{
 	helpers, Call, Config, CurrentPhase, DesiredTargets, ElectionCompute, Error, FeasibilityError,
-	Pallet, QueuedSolution, RawSolution, ReadySolution, Round, RoundSnapshot, Snapshot,
-	SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
+	Pallet, QueuedSolution, RawSolution, ReadySolution, ReadySolutionOf, Round, RoundSnapshot,
+	Snapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
-use frame_election_provider_support::{
-	NposSolution, NposSolver, PerThing128, TryIntoBoundedSupports, VoteWeight,
-};
+use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -429,9 +427,10 @@ pub trait MinerConfig {
 	///
 	/// The weight is computed using `solution_weight`.
 	type MaxWeight: Get<Weight>;
-	/// The maximum number of winners that can be elected per page (and  overall).
-	type MaxWinnersPerPage: Get<u32>;
-	/// The maximum number of backers (edges) per winner in the last solution.
+	/// The maximum number of winners that can be elected in the single page supported by this
+	/// pallet.
+	type MaxWinners: Get<u32>;
+	/// The maximum number of backers per winner in a solution.
 	type MaxBackersPerWinner: Get<u32>;
 	/// Something that can compute the weight of a solution.
 	///
@@ -751,10 +750,7 @@ impl<T: MinerConfig> Miner<T> {
 		snapshot: RoundSnapshot<T::AccountId, MinerVoterOf<T>>,
 		current_round: u32,
 		minimum_untrusted_score: Option<ElectionScore>,
-	) -> Result<
-		ReadySolution<T::AccountId, T::MaxWinnersPerPage, T::MaxBackersPerWinner>,
-		FeasibilityError,
-	> {
+	) -> Result<ReadySolutionOf<T>, FeasibilityError> {
 		let RawSolution { solution, score, round } = raw_solution;
 		let RoundSnapshot { voters: snapshot_voters, targets: snapshot_targets } = snapshot;
 
@@ -766,10 +762,7 @@ impl<T: MinerConfig> Miner<T> {
 
 		ensure!(winners.len() as u32 == desired_targets, FeasibilityError::WrongWinnerCount);
 		// Fail early if targets requested by data provider exceed maximum winners supported.
-		ensure!(
-			desired_targets <= T::MaxWinnersPerPage::get(),
-			FeasibilityError::TooManyDesiredTargets
-		);
+		ensure!(desired_targets <= T::MaxWinners::get(), FeasibilityError::TooManyDesiredTargets);
 
 		// Ensure that the solution's score can pass absolute min-score.
 		let submitted_score = raw_solution.score;
@@ -826,9 +819,9 @@ impl<T: MinerConfig> Miner<T> {
 		let known_score = supports.evaluate();
 		ensure!(known_score == score, FeasibilityError::InvalidScore);
 
-		// Size of winners in miner solution is equal to `desired_targets` <= `MaxWinnersPerPage`.
+		// Size of winners in miner solution is equal to `desired_targets` <= `MaxWinners`.
 		let supports = supports
-			.try_into_bounded_supports()
+			.try_into()
 			.defensive_map_err(|_| FeasibilityError::BoundedConversionFailed)?;
 
 		Ok(ReadySolution { supports, compute, score })
@@ -1870,6 +1863,99 @@ mod tests {
 				pre_dispatch_check_error,
 			);
 		})
+	}
+
+	#[test]
+	fn mine_solution_always_respects_max_backers_per_winner() {
+		use crate::mock::MaxBackersPerWinner;
+		use frame_election_provider_support::BoundedSupport;
+
+		let targets = vec![10, 20, 30, 40];
+		let voters = vec![
+			(1, 10, bounded_vec![10, 20, 30]),
+			(2, 10, bounded_vec![10, 20, 30]),
+			(3, 10, bounded_vec![10, 20, 30]),
+			(4, 10, bounded_vec![10, 20, 30]),
+			(5, 10, bounded_vec![10, 20, 40]),
+		];
+		let snapshot = RoundSnapshot { voters: voters.clone(), targets: targets.clone() };
+		let (round, desired_targets) = (1, 3);
+
+		let expected_score_unbounded =
+			ElectionScore { minimal_stake: 12, sum_stake: 50, sum_stake_squared: 874 };
+		let expected_score_bounded =
+			ElectionScore { minimal_stake: 2, sum_stake: 10, sum_stake_squared: 44 };
+
+		// solution without max_backers_per_winner set will be higher than the score when bounds
+		// are set, confirming the trimming when using the same snapshot state.
+		assert!(expected_score_unbounded > expected_score_bounded);
+
+		// election with unbounded max backers per winnner.
+		ExtBuilder::default().max_backers_per_winner(u32::MAX).build_and_execute(|| {
+			assert_eq!(MaxBackersPerWinner::get(), u32::MAX);
+
+			let solution = Miner::<Runtime>::mine_solution_with_snapshot::<
+				<Runtime as Config>::Solver,
+			>(voters.clone(), targets.clone(), desired_targets)
+			.unwrap()
+			.0;
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score: expected_score_unbounded, round },
+				Default::default(),
+				desired_targets,
+				snapshot.clone(),
+				round,
+				Default::default(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				ready_solution.supports.into_iter().collect::<Vec<_>>(),
+				vec![
+					(
+						10,
+						BoundedSupport { total: 21, voters: bounded_vec![(1, 10), (4, 8), (5, 3)] }
+					),
+					(20, BoundedSupport { total: 17, voters: bounded_vec![(2, 10), (5, 7)] }),
+					(30, BoundedSupport { total: 12, voters: bounded_vec![(3, 10), (4, 2)] }),
+				]
+			);
+		});
+
+		// election with max 1 backer per winnner.
+		ExtBuilder::default().max_backers_per_winner(1).build_and_execute(|| {
+			assert_eq!(MaxBackersPerWinner::get(), 1);
+
+			let solution = Miner::<Runtime>::mine_solution_with_snapshot::<
+				<Runtime as Config>::Solver,
+			>(voters, targets, desired_targets)
+			.unwrap()
+			.0;
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score: expected_score_bounded, round },
+				Default::default(),
+				desired_targets,
+				snapshot,
+				round,
+				Default::default(),
+			)
+			.unwrap();
+
+			for (_, supports) in ready_solution.supports.iter() {
+				assert!((supports.voters.len() as u32) <= MaxBackersPerWinner::get());
+			}
+
+			assert_eq!(
+				ready_solution.supports.into_iter().collect::<Vec<_>>(),
+				vec![
+					(10, BoundedSupport { total: 6, voters: bounded_vec![(1, 6)] }),
+					(20, BoundedSupport { total: 2, voters: bounded_vec![(1, 2)] }),
+					(30, BoundedSupport { total: 2, voters: bounded_vec![(1, 2)] }),
+				]
+			);
+		});
 	}
 
 	#[test]

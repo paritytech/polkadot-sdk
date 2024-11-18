@@ -111,7 +111,6 @@ impl pallet_staking::Config for Runtime {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type MaxValidatorSet = ConstU32<100>;
 	type EventListeners = (Pools, DelegatedStaking);
 }
 

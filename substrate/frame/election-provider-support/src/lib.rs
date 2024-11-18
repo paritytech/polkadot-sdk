@@ -58,19 +58,12 @@
 //! does not receive election data as an input. All value and type parameter must be provided by the
 //! [`ElectionDataProvider`] trait, even if the election happens immediately.
 //!
-//! ## Multi-page election
+//! ## Multi-page election support
 //!
 //! Both [`ElectionDataProvider`] and [`ElectionProvider`] traits are parameterized by page,
 //! supporting an election to be performed over multiple pages. This enables the
 //! [`ElectionDataProvider`] implementor to provide all the election data over multiple pages.
 //! Similarly [`ElectionProvider::elect`] is parameterized by page index.
-//!
-//! ## [`LockableElectionDataProvider`] for multi-page election
-//!
-//! The [`LockableElectionDataProvider`] trait exposes a way for election data providers to lock
-//! and unlock election data mutations. This is an useful trait to ensure that the results of
-//! calling [`ElectionDataProvider::electing_voters`] and
-//! [`ElectionDataProvider::electable_targets`] remain consistent over multiple pages.
 //!
 //! ## Election Data
 //!
@@ -327,10 +320,9 @@ pub trait ElectionDataProvider {
 	/// Maximum number of votes per voter that this data provider is providing.
 	type MaxVotesPerVoter: Get<u32>;
 
-	/// Returns the possible targets for the election associated with page `page`, i.e. the targets
-	/// that could become elected, thus "electable".
+	/// Returns the possible targets for the election associated with the provided `page`, i.e. the
+	/// targets that could become elected, thus "electable".
 	///
-	/// TODO(gpestana): remove self-weighing and return the weight.
 	/// This should be implemented as a self-weighing function. The implementor should register its
 	/// appropriate weight at the end of execution with the system pallet directly.
 	fn electable_targets(
@@ -407,19 +399,6 @@ pub trait ElectionDataProvider {
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn set_desired_targets(_count: u32) {}
-}
-
-/// An [`ElectionDataProvider`] that exposes for an external entity to request lock/unlock on
-/// updates in the election data.
-///
-/// This functionality is useful when requesting multi-pages of election data, so that the data
-/// provided across pages (and potentially across blocks) is consistent.
-pub trait LockableElectionDataProvider: ElectionDataProvider {
-	/// Lock mutations in the election data provider.
-	fn set_lock() -> data_provider::Result<()>;
-
-	/// Unlocks mutations in the election data provider.
-	fn unlock();
 }
 
 /// Something that can compute the result of an election and pass it back to the caller in a paged
@@ -691,12 +670,16 @@ pub trait NposSolver {
 
 /// A wrapper for [`sp_npos_elections::seq_phragmen`] that implements [`NposSolver`]. See the
 /// documentation of [`sp_npos_elections::seq_phragmen`] for more info.
-pub struct SequentialPhragmen<AccountId, Accuracy, Balancing = ()>(
-	core::marker::PhantomData<(AccountId, Accuracy, Balancing)>,
+pub struct SequentialPhragmen<AccountId, Accuracy, MaxBackersPerWinner = (), Balancing = ()>(
+	core::marker::PhantomData<(AccountId, Accuracy, MaxBackersPerWinner, Balancing)>,
 );
 
-impl<AccountId: IdentifierT, Accuracy: PerThing128, Balancing: Get<Option<BalancingConfig>>>
-	NposSolver for SequentialPhragmen<AccountId, Accuracy, Balancing>
+impl<
+		AccountId: IdentifierT,
+		Accuracy: PerThing128,
+		MaxBackersPerWinner: Get<Option<u32>>,
+		Balancing: Get<Option<BalancingConfig>>,
+	> NposSolver for SequentialPhragmen<AccountId, Accuracy, MaxBackersPerWinner, Balancing>
 {
 	type AccountId = AccountId;
 	type Accuracy = Accuracy;
@@ -706,7 +689,13 @@ impl<AccountId: IdentifierT, Accuracy: PerThing128, Balancing: Get<Option<Balanc
 		targets: Vec<Self::AccountId>,
 		voters: Vec<(Self::AccountId, VoteWeight, impl IntoIterator<Item = Self::AccountId>)>,
 	) -> Result<ElectionResult<Self::AccountId, Self::Accuracy>, Self::Error> {
-		sp_npos_elections::seq_phragmen(winners, targets, voters, Balancing::get())
+		sp_npos_elections::seq_phragmen(
+			winners,
+			targets,
+			voters,
+			MaxBackersPerWinner::get(),
+			Balancing::get(),
+		)
 	}
 
 	fn weight<T: WeightInfo>(voters: u32, targets: u32, vote_degree: u32) -> Weight {
@@ -805,6 +794,14 @@ pub struct BoundedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>>(
 	pub BoundedVec<(AccountId, BoundedSupport<AccountId, BInner>), BOuter>,
 );
 
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> sp_std::ops::DerefMut
+	for BoundedSupports<AccountId, BOuter, BInner>
+{
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
 impl<AccountId: Debug, BOuter: Get<u32>, BInner: Get<u32>> Debug
 	for BoundedSupports<AccountId, BOuter, BInner>
 {
@@ -862,24 +859,31 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> IntoIterator
 	}
 }
 
-/// An extension trait to convert from [`sp_npos_elections::Supports<AccountId>`] into
-/// [`BoundedSupports`].
-pub trait TryIntoBoundedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>> {
-	/// Perform the conversion.
-	fn try_into_bounded_supports(self) -> Result<BoundedSupports<AccountId, BOuter, BInner>, ()>;
-}
-
-impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>>
-	TryIntoBoundedSupports<AccountId, BOuter, BInner> for sp_npos_elections::Supports<AccountId>
+impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> TryFrom<sp_npos_elections::Supports<AccountId>>
+	for BoundedSupports<AccountId, BOuter, BInner>
 {
-	fn try_into_bounded_supports(self) -> Result<BoundedSupports<AccountId, BOuter, BInner>, ()> {
-		let inner_bounded_supports = self
+	type Error = crate::Error;
+
+	fn try_from(supports: sp_npos_elections::Supports<AccountId>) -> Result<Self, Self::Error> {
+		// optimization note: pre-allocate outer bounded vec.
+		let mut outer_bounded_supports = BoundedVec::<
+			(AccountId, BoundedSupport<AccountId, BInner>),
+			BOuter,
+		>::with_bounded_capacity(
+			supports.len().min(BOuter::get() as usize)
+		);
+
+		// optimization note: avoid intermediate allocations.
+		supports
 			.into_iter()
-			.map(|(a, s)| s.try_into().map(|s| (a, s)))
-			.collect::<Result<Vec<_>, _>>()
-			.map_err(|_| ())?;
-		let outer_bounded_supports: BoundedVec<_, BOuter> =
-			inner_bounded_supports.try_into().map_err(|_| ())?;
+			.map(|(account, support)| (account, support.try_into().map_err(|_| ())))
+			.try_for_each(|(account, maybe_bounded_supports)| {
+				outer_bounded_supports
+					.try_push((account, maybe_bounded_supports?))
+					.map_err(|_| ())
+			})
+			.map_err(|_| crate::Error::BoundsExceeded)?;
+
 		Ok(outer_bounded_supports.into())
 	}
 }

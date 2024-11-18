@@ -153,7 +153,8 @@ pub fn trim_helpers() -> TrimHelpers {
 	let desired_targets = crate::DesiredTargets::<Runtime>::get().unwrap();
 
 	let ElectionResult::<_, SolutionAccuracyOf<Runtime>> { mut assignments, .. } =
-		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None).unwrap();
+		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None, None)
+			.unwrap();
 
 	// sort by decreasing order of stake
 	assignments.sort_by_key(|assignment| {
@@ -180,7 +181,8 @@ pub fn raw_solution() -> RawSolution<SolutionOf<Runtime>> {
 	let desired_targets = crate::DesiredTargets::<Runtime>::get().unwrap();
 
 	let ElectionResult::<_, SolutionAccuracyOf<Runtime>> { winners: _, assignments } =
-		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None).unwrap();
+		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None, None)
+			.unwrap();
 
 	// closures
 	let cache = helpers::generate_voter_cache::<Runtime>(&voters);
@@ -295,10 +297,9 @@ parameter_types! {
 	pub static MaxElectableTargets: TargetIndex = TargetIndex::max_value();
 
 	#[derive(Debug)]
-	pub static MaxWinnersPerPage: u32 = 200;
+	pub static MaxWinners: u32 = 200;
 	#[derive(Debug)]
 	pub static MaxBackersPerWinner: u32 = 200;
-	pub static Pages: u32 = 1;
 	// `ElectionBounds` and `OnChainElectionsBounds` are defined separately to set them independently in the tests.
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static OnChainElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
@@ -309,10 +310,11 @@ parameter_types! {
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, Balancing>;
+	type Solver =
+		SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, MaxBackersPerWinner, Balancing>;
 	type DataProvider = StakingMock;
 	type WeightInfo = ();
-	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxWinnersPerPage = MaxWinners;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type Bounds = OnChainElectionsBounds;
 }
@@ -322,9 +324,9 @@ impl ElectionProvider for MockFallback {
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
 	type Error = &'static str;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxWinnersPerPage = MaxWinners;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type Pages = Pages;
+	type Pages = ConstU32<1>;
 	type DataProvider = StakingMock;
 
 	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
@@ -375,7 +377,7 @@ impl MinerConfig for Runtime {
 	type MaxLength = MinerMaxLength;
 	type MaxWeight = MinerMaxWeight;
 	type MaxVotesPerVoter = <StakingMock as ElectionDataProvider>::MaxVotesPerVoter;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxWinners = MaxWinners;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type Solution = TestNposSolution;
 
@@ -418,11 +420,11 @@ impl crate::Config for Runtime {
 	type GovernanceFallback =
 		frame_election_provider_support::onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	type Pages = Pages;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxWinners = MaxWinners;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MinerConfig = Self;
-	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, Balancing>;
+	type Solver =
+		SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, MaxBackersPerWinner, Balancing>;
 	type ElectionBounds = ElectionsBounds;
 }
 
@@ -607,6 +609,10 @@ impl ExtBuilder {
 	}
 	pub fn signed_weight(self, weight: Weight) -> Self {
 		<SignedMaxWeight>::set(weight);
+		self
+	}
+	pub fn max_backers_per_winner(self, max: u32) -> Self {
+		<MaxBackersPerWinner>::set(max);
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {

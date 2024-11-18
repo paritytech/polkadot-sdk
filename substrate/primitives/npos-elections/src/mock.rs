@@ -311,6 +311,7 @@ pub(crate) fn run_and_compare<Output: PerThing128, FS>(
 	voters: Vec<(AccountId, Vec<AccountId>)>,
 	stake_of: FS,
 	to_elect: usize,
+	max_backers_candidate: Option<u32>,
 ) where
 	Output: PerThing128,
 	FS: Fn(&AccountId) -> VoteWeight,
@@ -323,6 +324,7 @@ pub(crate) fn run_and_compare<Output: PerThing128, FS>(
 			.iter()
 			.map(|(ref v, ref vs)| (*v, stake_of(v), vs.clone()))
 			.collect::<Vec<_>>(),
+		max_backers_candidate,
 		None,
 	)
 	.unwrap();

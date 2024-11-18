@@ -1,0 +1,47 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Added SetAssetClaimer instruction to XCM v5.
+
+doc:
+  - audience: Runtime Dev 
+    description: |
+      Added SetAssetClaimer implementation to XCM v5. With asset_claimer set users can retrieve their trapped assets
+      at any point in time without the need to go through OpenGov reclaim process.
+
+crates:
+- name: bridge-hub-westend-emulated-chain
+  bump: minor
+- name: asset-hub-westend-integration-tests
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: staging-xcm
+  bump: minor
+- name: staging-xcm-executor
+  bump: minor
+- name: pallet-xcm-benchmarks
+  bump: minor
+- name: pallet-multisig
+  bump: minor
+

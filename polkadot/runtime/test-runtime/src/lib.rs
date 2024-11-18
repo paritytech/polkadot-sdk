@@ -80,7 +80,6 @@ use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as Beef
 use sp_core::{ConstU32, OpaqueMetadata};
 use sp_mmr_primitives as mmr;
 use sp_runtime::{
-	create_runtime_str,
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
@@ -94,7 +93,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::v4::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, XcmHash};
+use xcm::latest::{Assets, InteriorLocation, Location, SendError, SendResult, SendXcm, XcmHash};
 
 pub use pallet_balances::Call as BalancesCall;
 #[cfg(feature = "std")]
@@ -119,8 +118,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 /// Runtime version (Test).
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("polkadot-test-runtime"),
-	impl_name: create_runtime_str!("parity-polkadot-test-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("polkadot-test-runtime"),
+	impl_name: alloc::borrow::Cow::Borrowed("parity-polkadot-test-runtime"),
 	authoring_version: 2,
 	spec_version: 1056,
 	impl_version: 0,
@@ -585,7 +584,6 @@ impl parachains_paras::Config for Runtime {
 
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
-	pub MaxXcmTransactWeight: Weight = Weight::from_parts(10_000_000, 10_000);
 }
 
 pub struct BrokerPot;
@@ -641,7 +639,7 @@ impl SendXcm for DummyXcmSender {
 	type Ticket = ();
 	fn validate(
 		_: &mut Option<Location>,
-		_: &mut Option<xcm::v4::Xcm<()>>,
+		_: &mut Option<xcm::latest::Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		Ok(((), Assets::new()))
 	}
@@ -659,7 +657,6 @@ impl coretime::Config for Runtime {
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
 	type SendXcm = DummyXcmSender;
-	type MaxXcmTransactWeight = MaxXcmTransactWeight;
 	type BrokerPotLocation = BrokerPot;
 	type AssetTransactor = ();
 	type AccountToLocation = ();

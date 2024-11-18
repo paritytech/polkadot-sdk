@@ -22,7 +22,7 @@
 use crate::{
 	bounds::{DataProviderBounds, ElectionBounds, ElectionBoundsBuilder},
 	BoundedSupportsOf, Debug, ElectionDataProvider, ElectionProvider, InstantElectionProvider,
-	NposSolver, PageIndex, TryIntoBoundedSupports, WeightInfo, Zero,
+	NposSolver, PageIndex, WeightInfo, Zero,
 };
 use alloc::collections::btree_map::BTreeMap;
 use core::marker::PhantomData;
@@ -42,8 +42,8 @@ pub enum Error {
 	/// Configurational error caused by `desired_targets` requested by data provider exceeding
 	/// `MaxWinners`.
 	TooManyWinners,
-	/// Single page election called with multi-page configs.
-	SinglePageExpected,
+	/// Election page index not supported.
+	UnsupportedPageIndex,
 }
 
 impl From<sp_npos_elections::Error> for Error {
@@ -145,11 +145,11 @@ impl<T: Config> OnChainExecution<T> {
 			DispatchClass::Mandatory,
 		);
 
-		// defensive: Since npos solver returns a result always bounded by `desired_targets`, this
-		// is never expected to happen as long as npos solver does what is expected for it to do.
-		let supports: BoundedSupportsOf<Self> = to_supports(&staked)
-			.try_into_bounded_supports()
-			.map_err(|_| Error::TooManyWinners)?;
+		// defensive: Since npos solver returns a result always bounded by `desired_targets`, and
+		// ensures the maximum backers per winner, this is never expected to happen as long as npos
+		// solver does what is expected for it to do.
+		let supports: BoundedSupportsOf<Self> =
+			to_supports(&staked).try_into().map_err(|_| Error::TooManyWinners)?;
 
 		Ok(supports)
 	}
@@ -181,7 +181,7 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		if page > 0 {
-			return Err(Error::SinglePageExpected)
+			return Err(Error::UnsupportedPageIndex)
 		}
 
 		let election_bounds = ElectionBoundsBuilder::from(T::Bounds::get()).build();
@@ -321,7 +321,7 @@ mod tests {
 				),
 				(30, Support { total: 35, voters: vec![(2, 20), (3, 15)] }),
 			]
-			.try_into_bounded_supports()
+			.try_into()
 			.unwrap();
 
 			assert_eq!(
@@ -357,7 +357,7 @@ mod tests {
 					),
 					(30, Support { total: 35, voters: vec![(2, 20), (3, 15)] })
 				]
-				.try_into_bounded_supports()
+				.try_into()
 				.unwrap()
 			);
 		})
