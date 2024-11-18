@@ -20,22 +20,6 @@ use sp_core::{H160, U256};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 
 impl TransactionLegacySigned {
-	///// Create a signed transaction from an [`TransactionLegacyUnsigned`] and a signature.
-	//pub fn from(
-	//	transaction_legacy_unsigned: TransactionLegacyUnsigned,
-	//	signature: &[u8; 65],
-	//) -> TransactionLegacySigned {
-	//	let r = U256::from_big_endian(&signature[..32]);
-	//	let s = U256::from_big_endian(&signature[32..64]);
-	//	let recovery_id = signature[64] as u32;
-	//	let v = transaction_legacy_unsigned
-	//		.chain_id
-	//		.map(|chain_id| chain_id * 2 + 35 + recovery_id)
-	//		.unwrap_or_else(|| U256::from(27) + recovery_id);
-	//
-	//	TransactionLegacySigned { transaction_legacy_unsigned, r, s, v }
-	//}
-
 	/// Get the recovery ID from the signed transaction.
 	/// See https://eips.ethereum.org/EIPS/eip-155
 	fn extract_recovery_id(&self) -> Option<u8> {
