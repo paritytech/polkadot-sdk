@@ -22,23 +22,26 @@
 use super::*;
 
 use extension::VerifySignature;
+/*
 use frame_support::{
 	derive_impl,
 	dispatch::GetDispatchInfo,
 	pallet_prelude::{InvalidTransaction, TransactionSource, TransactionValidityError},
 	traits::OriginTrait,
 };
-use frame_system::Call as SystemCall;
+;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	generic::ExtensionVersion,
 	testing::{TestSignature, UintAuthorityId},
 	traits::DispatchTransaction,
 };
-
+*/
+use frame_system::Call as SystemCall;
+use frame::{testing_prelude::*, pallet_macros::derive_impl, traits::{DispatchTransaction, OriginTrait}};
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -69,10 +72,10 @@ impl crate::Config for Test {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	use sp_runtime::BuildStorage;
+pub fn new_test_ext() -> TestExternalities {
+	// use sp_runtime::BuildStorage;
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
