@@ -52,12 +52,11 @@
 //!
 //! ```
 //! use pallet_timestamp::{self as timestamp};
+//! use frame::prelude::*;
 //!
-//! #[frame_support::pallet]
+//! #[frame::pallet]
 //! pub mod pallet {
 //! 	use super::*;
-//! 	use frame_support::pallet_prelude::*;
-//! 	use frame_system::pallet_prelude::*;
 //!
 //! 	#[pallet::pallet]
 //! 	pub struct Pallet<T>(_);
@@ -134,18 +133,24 @@ mod tests;
 pub mod weights;
 
 use core::{cmp, result};
+/*
 use frame_support::traits::{OnTimestampSet, Time, UnixTime};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
+*/
+use frame::{prelude::*, runtime::prelude::derive_impl, arithmetic::AtLeast32Bit, traits::{Scale, OnTimestampSet, Time, UnixTime}};
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::{derive_impl, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
+	*/
 
 	/// Default preludes for [`Config`].
 	pub mod config_preludes {
@@ -157,7 +162,8 @@ pub mod pallet {
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
-		#[frame_support::register_default_impl(TestDefaultConfig)]
+		// #[frame_support::register_default_impl(TestDefaultConfig)]
+		#[frame::prelude::register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
 			type Moment = u64;
 			type OnTimestampSet = ();
@@ -354,7 +360,7 @@ impl<T: Config> Time for Pallet<T> {
 	/// A type that represents a unit of time.
 	type Moment = T::Moment;
 
-	fn now() -> Self::Moment {
+	fn now() -> <pallet::Pallet<T> as Time>::Moment {
 		Now::<T>::get()
 	}
 }

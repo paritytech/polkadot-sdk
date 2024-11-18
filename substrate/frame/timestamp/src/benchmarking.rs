@@ -18,12 +18,13 @@
 //! Timestamp pallet benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
-
+/*
 use frame_benchmarking::{benchmarking::add_to_whitelist, v2::*};
 use frame_support::traits::OnFinalize;
 use frame_system::RawOrigin;
 use sp_storage::TrackedStorageKey;
-
+*/
+use frame::{benchmarking::prelude::*, traits::TrackedStorageKey};
 use crate::*;
 
 const MAX_TIME: u32 = 100;

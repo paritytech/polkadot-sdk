@@ -19,15 +19,16 @@
 
 use super::*;
 use crate as pallet_timestamp;
-
+/*
 use frame_support::{derive_impl, parameter_types, traits::ConstU64};
 use sp_io::TestExternalities;
 use sp_runtime::BuildStorage;
-
+*/
+use frame::{prelude::*, runtime::{testing_prelude::BuildStorage, prelude::*}, testing_prelude::TestExternalities};
 type Block = frame_system::mocking::MockBlock<Test>;
 type Moment = u64;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
