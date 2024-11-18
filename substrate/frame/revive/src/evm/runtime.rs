@@ -414,7 +414,6 @@ mod test {
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
-	use rlp::Encodable;
 	use sp_runtime::{
 		traits::{Checkable, DispatchTransaction},
 		MultiAddress, MultiSignature,
@@ -523,7 +522,7 @@ mod test {
 				100_000_000_000_000,
 			);
 
-			let payload = account.sign_transaction(tx).rlp_bytes().to_vec();
+			let payload = account.sign_transaction(tx.into()).encode();
 			let call = RuntimeCall::Contracts(crate::Call::eth_transact {
 				payload,
 				gas_limit,

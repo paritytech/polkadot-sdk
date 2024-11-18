@@ -15,26 +15,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Ethereum signature utilities
-use super::{TransactionLegacySigned, TransactionLegacyUnsigned, TransactionSigned};
+use super::*;
 use sp_core::{H160, U256};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 
 impl TransactionLegacySigned {
-	/// Create a signed transaction from an [`TransactionLegacyUnsigned`] and a signature.
-	pub fn from(
-		transaction_legacy_unsigned: TransactionLegacyUnsigned,
-		signature: &[u8; 65],
-	) -> TransactionLegacySigned {
-		let r = U256::from_big_endian(&signature[..32]);
-		let s = U256::from_big_endian(&signature[32..64]);
-		let recovery_id = signature[64] as u32;
-		let v = transaction_legacy_unsigned
-			.chain_id
-			.map(|chain_id| chain_id * 2 + 35 + recovery_id)
-			.unwrap_or_else(|| U256::from(27) + recovery_id);
-
-		TransactionLegacySigned { transaction_legacy_unsigned, r, s, v }
-	}
+	///// Create a signed transaction from an [`TransactionLegacyUnsigned`] and a signature.
+	//pub fn from(
+	//	transaction_legacy_unsigned: TransactionLegacyUnsigned,
+	//	signature: &[u8; 65],
+	//) -> TransactionLegacySigned {
+	//	let r = U256::from_big_endian(&signature[..32]);
+	//	let s = U256::from_big_endian(&signature[32..64]);
+	//	let recovery_id = signature[64] as u32;
+	//	let v = transaction_legacy_unsigned
+	//		.chain_id
+	//		.map(|chain_id| chain_id * 2 + 35 + recovery_id)
+	//		.unwrap_or_else(|| U256::from(27) + recovery_id);
+	//
+	//	TransactionLegacySigned { transaction_legacy_unsigned, r, s, v }
+	//}
 
 	/// Get the recovery ID from the signed transaction.
 	/// See https://eips.ethereum.org/EIPS/eip-155
@@ -51,16 +51,81 @@ impl TransactionLegacySigned {
 	}
 }
 
+impl TransactionUnsigned {
+	/// Extract the unsigned transaction from a signed transaction.
+	pub fn from_signed(tx: TransactionSigned) -> Self {
+		match tx {
+			TransactionSigned::TransactionLegacySigned(signed) =>
+				Self::TransactionLegacyUnsigned(signed.transaction_legacy_unsigned),
+			TransactionSigned::Transaction4844Signed(signed) =>
+				Self::Transaction4844Unsigned(signed.transaction_4844_unsigned),
+			TransactionSigned::Transaction1559Signed(signed) =>
+				Self::Transaction1559Unsigned(signed.transaction_1559_unsigned),
+			TransactionSigned::Transaction2930Signed(signed) =>
+				Self::Transaction2930Unsigned(signed.transaction_2930_unsigned),
+		}
+	}
+
+	/// Create a signed transaction from an [`TransactionUnsigned`] and a signature.
+	pub fn with_signature(self, signature: [u8; 65]) -> TransactionSigned {
+		let r = U256::from_big_endian(&signature[..32]);
+		let s = U256::from_big_endian(&signature[32..64]);
+		let recovery_id = signature[64];
+
+		match self {
+			TransactionUnsigned::Transaction2930Unsigned(transaction_2930_unsigned) =>
+				Transaction2930Signed {
+					transaction_2930_unsigned,
+					r,
+					s,
+					v: None,
+					y_parity: U256::from(recovery_id),
+				}
+				.into(),
+			TransactionUnsigned::Transaction1559Unsigned(transaction_1559_unsigned) =>
+				Transaction1559Signed {
+					transaction_1559_unsigned,
+					r,
+					s,
+					v: None,
+					y_parity: U256::from(recovery_id),
+				}
+				.into(),
+
+			TransactionUnsigned::Transaction4844Unsigned(transaction_4844_unsigned) =>
+				Transaction4844Signed {
+					transaction_4844_unsigned,
+					r,
+					s,
+					y_parity: U256::from(recovery_id),
+				}
+				.into(),
+
+			TransactionUnsigned::TransactionLegacyUnsigned(transaction_legacy_unsigned) => {
+				let v = transaction_legacy_unsigned
+					.chain_id
+					.map(|chain_id| {
+						chain_id
+							.saturating_mul(U256::from(2))
+							.saturating_add(U256::from(35))
+							.saturating_add(U256::from(recovery_id))
+					})
+					.unwrap_or_else(|| U256::from(27) + recovery_id);
+
+				TransactionLegacySigned { transaction_legacy_unsigned, r, s, v }.into()
+			},
+		}
+	}
+}
+
 impl TransactionSigned {
 	/// Get the raw 65 bytes signature from the signed transaction.
 	pub fn raw_signature(&self) -> Result<[u8; 65], ()> {
 		use TransactionSigned::*;
 		let (r, s, v) = match self {
 			TransactionLegacySigned(tx) => (tx.r, tx.s, tx.extract_recovery_id().ok_or(())?),
-			Transaction4844Signed(tx) =>
-				(tx.r, tx.s, tx.y_parity.unwrap_or_default().try_into().map_err(|_| ())?),
-			Transaction1559Signed(tx) =>
-				(tx.r, tx.s, tx.y_parity.unwrap_or_default().try_into().map_err(|_| ())?),
+			Transaction4844Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
+			Transaction1559Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
 			Transaction2930Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
 		};
 		let mut sig = [0u8; 65];
@@ -108,7 +173,8 @@ impl TransactionSigned {
 }
 
 #[test]
-fn recover_eth_address_work() {
+fn sign_and_recover_work() {
+	use crate::evm::TransactionUnsigned;
 	let txs = [
 		// Legacy
 		"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808026a07b2e762a17a71a46b422e60890a04512cf0d907ccf6b78b5bd6e6977efdc2bf5a01ea673d50bbe7c2236acb498ceb8346a8607c941f0b8cbcde7cf439aa9369f1f",
@@ -119,14 +185,19 @@ fn recover_eth_address_work() {
 		// type 3: EIP4844
 		"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000001a0672b8bac466e2cf1be3148c030988d40d582763ecebbc07700dfc93bb070d8a4a07c635887005b11cb58964c04669ac2857fa633aa66f662685dadfd8bcacb0f21",
 	];
+	let account = Account::from_secret_key(hex_literal::hex!(
+		"a872f6cbd25a0e04a08b1e21098017a9e6194d101d75e13111f71410c59cd57f"
+	));
+
 	for tx in txs {
 		let raw_tx = hex::decode(tx).unwrap();
 		let tx = TransactionSigned::decode(&raw_tx).unwrap();
 
 		let address = tx.recover_eth_address();
-		assert_eq!(
-			address,
-			Ok(hex_literal::hex!("75e480db528101a381ce68544611c169ad7eb342").into())
-		);
+		assert_eq!(address.unwrap(), account.address());
+
+		let unsigned = TransactionUnsigned::from_signed(tx.clone());
+		let signed = account.sign_transaction(unsigned);
+		assert_eq!(tx, signed);
 	}
 }

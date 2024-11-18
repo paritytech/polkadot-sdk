@@ -173,12 +173,12 @@ impl GenericTransaction {
 				impl_from_signed!(tx, from, {
 					access_list: Some(tx.access_list),
 					blob_versioned_hashes: Some(tx.blob_versioned_hashes),
+					gas_price: Some(tx.max_fee_per_blob_gas),
 					max_fee_per_blob_gas: Some(tx.max_fee_per_blob_gas),
 					max_fee_per_gas: Some(tx.max_fee_per_gas),
 					max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
 					chain_id: Some(tx.chain_id),
 					gas: Some(tx.gas),
-					gas_price: Some(tx.max_fee_per_blob_gas),
 					to: Some(tx.to)
 				})
 			},
@@ -204,6 +204,66 @@ impl GenericTransaction {
 					to: tx.to
 				})
 			},
+		}
+	}
+
+	/// Convert to a [`TransactionUnsigned`].
+	pub fn try_into_unsigned(self) -> Result<TransactionUnsigned, ()> {
+		match self.r#type.unwrap_or_default().0 {
+			TYPE_LEGACY => Ok(TransactionLegacyUnsigned {
+				input: self.input.unwrap_or_default(),
+				nonce: self.nonce.unwrap_or_default(),
+				value: self.value.unwrap_or_default(),
+				chain_id: self.chain_id,
+				gas: self.gas.unwrap_or_default(),
+				gas_price: self.gas_price.unwrap_or_default(),
+				to: self.to,
+				r#type: TypeLegacy {},
+			}
+			.into()),
+			TYPE_EIP1559 => Ok(Transaction1559Unsigned {
+				input: self.input.unwrap_or_default(),
+				nonce: self.nonce.unwrap_or_default(),
+				value: self.value.unwrap_or_default(),
+				access_list: self.access_list.unwrap_or_default(),
+				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
+				max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default(),
+				chain_id: self.chain_id.unwrap_or_default(),
+				gas: self.gas.unwrap_or_default(),
+				gas_price: self.gas_price.unwrap_or_default(),
+				to: self.to,
+				r#type: TypeEip1559 {},
+			}
+			.into()),
+			TYPE_EIP2930 => Ok(Transaction2930Unsigned {
+				input: self.input.unwrap_or_default(),
+				nonce: self.nonce.unwrap_or_default(),
+				value: self.value.unwrap_or_default(),
+				access_list: self.access_list.unwrap_or_default(),
+				chain_id: self.chain_id.unwrap_or_default(),
+				gas: self.gas.unwrap_or_default(),
+				gas_price: self.gas_price.unwrap_or_default(),
+				to: self.to,
+				r#type: TypeEip2930 {},
+			}
+			.into()),
+			TYPE_EIP4844 => Ok(Transaction4844Unsigned {
+				input: self.input.unwrap_or_default(),
+				nonce: self.nonce.unwrap_or_default(),
+				value: self.value.unwrap_or_default(),
+
+				access_list: self.access_list.unwrap_or_default(),
+				blob_versioned_hashes: self.blob_versioned_hashes.unwrap_or_default(),
+				max_fee_per_blob_gas: self.max_fee_per_blob_gas.unwrap_or_default(),
+				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
+				max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default(),
+				chain_id: self.chain_id.unwrap_or_default(),
+				gas: self.gas.unwrap_or_default(),
+				to: self.to.unwrap_or_default(),
+				r#type: TypeEip4844 {},
+			}
+			.into()),
+			_ => Err(()),
 		}
 	}
 }

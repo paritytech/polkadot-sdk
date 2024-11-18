@@ -33,7 +33,7 @@ macro_rules! transaction_type {
 		// upper case const name
 		paste! {
 			#[doc = concat!("Transaction value for type identifier: ", $value)]
-			pub const [<TYPE $value>]: u8 = $value;
+			pub const [<$name:snake:upper>]: u8 = $value;
 		}
 
 		impl $name {
@@ -114,7 +114,12 @@ macro_rules! transaction_type {
 	};
 }
 
-transaction_type!(Type0, 0);
-transaction_type!(Type1, 1);
-transaction_type!(Type2, 2);
-transaction_type!(Type3, 3);
+transaction_type!(TypeLegacy, 0);
+transaction_type!(TypeEip2930, 1);
+transaction_type!(TypeEip1559, 2);
+transaction_type!(TypeEip4844, 3);
+
+#[test]
+fn transaction_type() {
+	assert_eq!(TYPE_EIP2930, 1u8);
+}

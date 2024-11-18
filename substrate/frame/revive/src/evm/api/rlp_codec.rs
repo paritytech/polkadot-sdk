@@ -21,9 +21,36 @@ use super::*;
 use alloc::vec::Vec;
 use rlp::{Decodable, Encodable};
 
+impl TransactionUnsigned {
+	/// Return the bytes to be signed by the private key.
+	pub fn unsigned_payload(&self) -> Vec<u8> {
+		use TransactionUnsigned::*;
+		let mut s = rlp::RlpStream::new();
+		match self {
+			Transaction2930Unsigned(ref tx) => {
+				s.append(&tx.r#type.value());
+				s.append(tx);
+			},
+			Transaction1559Unsigned(ref tx) => {
+				s.append(&tx.r#type.value());
+				s.append(tx);
+			},
+			Transaction4844Unsigned(ref tx) => {
+				s.append(&tx.r#type.value());
+				s.append(tx);
+			},
+			TransactionLegacyUnsigned(ref tx) => {
+				s.append(tx);
+			},
+		}
+
+		s.out().to_vec()
+	}
+}
+
 impl TransactionSigned {
 	/// Encode the Ethereum transaction into bytes.
-	pub fn encode(&self) -> Vec<u8> {
+	pub fn signed_payload(&self) -> Vec<u8> {
 		use TransactionSigned::*;
 		let mut s = rlp::RlpStream::new();
 		match self {
@@ -49,14 +76,13 @@ impl TransactionSigned {
 
 	/// Decode the Ethereum transaction from bytes.
 	pub fn decode(data: &[u8]) -> Result<Self, rlp::DecoderError> {
-		use super::type_id::*;
 		if data.len() < 1 {
 			return Err(rlp::DecoderError::RlpIsTooShort);
 		}
 		match data[0] {
-			TYPE1 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
-			TYPE2 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
-			TYPE3 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
+			TYPE_EIP2930 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
+			TYPE_EIP1559 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
+			TYPE_EIP4844 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
 			_ => rlp::decode::<TransactionLegacySigned>(data).map(Into::into),
 		}
 	}
@@ -205,10 +231,7 @@ impl Encodable for Transaction1559Signed {
 		s.append(&tx.input.0);
 		s.append_list(&tx.access_list);
 
-		match self.y_parity {
-			Some(ref y_parity) => s.append(y_parity),
-			None => s.append_empty_data(),
-		};
+		s.append(&self.y_parity);
 		s.append(&self.r);
 		s.append(&self.s);
 	}
@@ -238,14 +261,7 @@ impl Decodable for Transaction1559Signed {
 					..Default::default()
 				}
 			},
-			y_parity: {
-				let y_parity = rlp.at(9)?;
-				if y_parity.is_empty() {
-					None
-				} else {
-					Some(y_parity.as_val()?)
-				}
-			},
+			y_parity: rlp.val_at(9)?,
 			r: rlp.val_at(10)?,
 			s: rlp.val_at(11)?,
 			..Default::default()
@@ -358,10 +374,7 @@ impl Encodable for Transaction4844Signed {
 		s.append_list(&tx.access_list);
 		s.append(&tx.max_fee_per_blob_gas);
 		s.append_list(&tx.blob_versioned_hashes);
-		match self.y_parity {
-			Some(ref y_parity) => s.append(y_parity),
-			None => s.append_empty_data(),
-		};
+		s.append(&self.y_parity);
 		s.append(&self.r);
 		s.append(&self.s);
 	}
@@ -386,14 +399,7 @@ impl Decodable for Transaction4844Signed {
 					..Default::default()
 				}
 			},
-			y_parity: {
-				let y_parity = rlp.at(11)?;
-				if y_parity.is_empty() {
-					None
-				} else {
-					Some(y_parity.as_val()?)
-				}
-			},
+			y_parity: rlp.val_at(11)?,
 			r: rlp.val_at(12)?,
 			s: rlp.val_at(13)?,
 		})
@@ -430,7 +436,7 @@ impl Decodable for TransactionLegacySigned {
 					value: rlp.val_at(4)?,
 					input: Bytes(rlp.val_at(5)?),
 					chain_id: extract_chain_id(v).map(|v| v.into()),
-					r#type: Type0 {},
+					r#type: TypeLegacy {},
 				}
 			},
 			v,
@@ -550,31 +556,9 @@ mod test {
 		for (tx, json) in txs {
 			let raw_tx = hex::decode(tx).unwrap();
 			let tx = TransactionSigned::decode(&raw_tx).unwrap();
-			assert_eq!(tx.encode(), raw_tx);
+			assert_eq!(tx.signed_payload(), raw_tx);
 			assert_eq!(tx, serde_json::from_str(json).unwrap());
 		}
-	}
-	#[test]
-	fn encode_decode_legacy_transaction_works() {
-		let tx = TransactionLegacyUnsigned {
-			chain_id: Some(596.into()),
-			gas: U256::from(21000),
-			nonce: U256::from(1),
-			gas_price: U256::from("0x640000006a"),
-			to: Some(Account::from(subxt_signer::eth::dev::baltathar()).address()),
-			value: U256::from(123123),
-			input: Bytes(vec![]),
-			r#type: Type0,
-		};
-
-		let rlp_bytes = rlp::encode(&tx);
-		let decoded = rlp::decode::<TransactionLegacyUnsigned>(&rlp_bytes).unwrap();
-		assert_eq!(&tx, &decoded);
-
-		let tx = Account::default().sign_transaction(tx);
-		let rlp_bytes = rlp::encode(&tx);
-		let decoded = rlp::decode::<TransactionLegacySigned>(&rlp_bytes).unwrap();
-		assert_eq!(&tx, &decoded);
 	}
 
 	#[test]
@@ -587,11 +571,12 @@ mod test {
 			to: Some(Account::from(subxt_signer::eth::dev::baltathar()).address()),
 			value: U256::from(123123),
 			input: Bytes(vec![]),
-			r#type: Type0,
+			r#type: TypeLegacy,
 		};
 
-		let signed_tx = Account::default().sign_transaction(tx.clone());
-		let rlp_bytes = rlp::encode(&signed_tx);
-		assert_eq!(tx.dummy_signed_payload().len(), rlp_bytes.len());
+		let dummy_signed_payload = tx.dummy_signed_payload();
+		let tx: TransactionUnsigned = tx.into();
+		let payload = Account::default().sign_transaction(tx).signed_payload();
+		assert_eq!(dummy_signed_payload.len(), payload.len());
 	}
 }
