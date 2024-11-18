@@ -33,7 +33,7 @@ use sp_runtime::traits::Bounded as ArithBounded;
 
 const SEED: u32 = 0;
 
-fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T>) {
+fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
 	<T as Config<I>>::BlockNumberProvider::set_block_number(n);
 }
 
@@ -178,7 +178,7 @@ fn skip_timeout_period<T: Config<I>, I: 'static>(index: ReferendumIndex) {
 
 fn alarm_time<T: Config<I>, I: 'static>(
 	index: ReferendumIndex,
-) -> frame_system::pallet_prelude::BlockNumberFor<T> {
+) -> BlockNumberFor<T, I> {
 	let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
 	status.alarm.unwrap().0
 }
