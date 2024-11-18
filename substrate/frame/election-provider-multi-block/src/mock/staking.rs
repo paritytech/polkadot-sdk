@@ -19,7 +19,7 @@ use sp_runtime::bounded_vec;
 
 use frame_election_provider_support::{
 	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider,
-	LockableElectionDataProvider, PageIndex, VoterOf as VoterOfProvider,
+	PageIndex, VoterOf as VoterOfProvider,
 };
 
 use super::{AccountId, BlockNumber, MaxVotesPerVoter, T};
@@ -137,18 +137,6 @@ impl ElectionDataProvider for MockStaking {
 
 	fn next_election_prediction(now: Self::BlockNumber) -> Self::BlockNumber {
 		now + EpochLength::get() - now % EpochLength::get()
-	}
-}
-
-impl LockableElectionDataProvider for MockStaking {
-	fn set_lock() -> data_provider::Result<()> {
-		ElectionDataLock::get()
-			.ok_or("lock is already set")
-			.map(|_| ElectionDataLock::set(Some(())))
-	}
-
-	fn unlock() {
-		ElectionDataLock::set(None);
 	}
 }
 

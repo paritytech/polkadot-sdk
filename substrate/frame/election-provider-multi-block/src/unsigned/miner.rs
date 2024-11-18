@@ -27,7 +27,7 @@ use crate::{
 
 use frame_election_provider_support::{
 	ElectionDataProvider, IndexAssignmentOf, NposSolution, NposSolver, PageIndex,
-	TryIntoBoundedSupports, Weight,
+	Weight,
 };
 use frame_support::{ensure, traits::Get, BoundedVec};
 use scale_info::TypeInfo;
@@ -387,7 +387,7 @@ impl<T: Config> Miner<T> {
 		// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
 		// is ALSO checked, so this conversion can almost never fail.
 		let bounded_supports = supports
-			.try_into_bounded_supports()
+			.try_into()
 			.map_err(|_| FeasibilityError::WrongWinnerCount)?;
 
 		Ok(bounded_supports)

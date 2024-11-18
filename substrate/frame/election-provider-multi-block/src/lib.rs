@@ -94,7 +94,7 @@
 
 use frame_election_provider_support::{
 	bounds::ElectionBoundsBuilder, BoundedSupportsOf, ElectionDataProvider, ElectionProvider,
-	LockableElectionDataProvider, PageIndex, Weight,
+	PageIndex, Weight,
 };
 use frame_support::{
 	defensive, ensure,
@@ -227,7 +227,7 @@ pub mod pallet {
 		type Pages: Get<PageIndex>;
 
 		/// Something that will provide the election data.
-		type DataProvider: LockableElectionDataProvider<
+		type DataProvider: ElectionDataProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 		>;
@@ -642,7 +642,7 @@ impl<T: Config> Pallet<T> {
 	/// The subsequent calls will fetch the voter pages. Thus, the caller must call this method
 	/// `T::Pages`..0 times.
 	fn try_progress_snapshot(remaining_pages: PageIndex) -> Weight {
-		let _ = <T::DataProvider as LockableElectionDataProvider>::set_lock();
+		// TODO: set data provider lock
 
 		debug_assert!(
 			CurrentPhase::<T>::get().is_snapshot() ||
@@ -692,7 +692,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn start_signed_phase() -> Weight {
 		debug_assert!(Snapshot::<T>::ensure().is_ok());
 
-		<T::DataProvider as LockableElectionDataProvider>::unlock();
+		// TODO: unset data provider lock
 		Self::phase_transition(Phase::Signed);
 
 		T::WeightInfo::on_initialize_start_signed()
@@ -1173,18 +1173,18 @@ mod election_provider {
 					PalletVerifier::<T>::feasibility_check(results.solution_pages[1].clone(), 1)
 						.unwrap();
 
-				use frame_election_provider_support::{BoundedSupports, TryIntoBoundedSupports};
+				use frame_election_provider_support::BoundedSupports;
 				use sp_npos_elections::{Support, Supports};
 
 				let s0: Supports<AccountId> = vec![
 					(10, Support { total: 90, voters: vec![(3, 30), (10, 10), (1, 50)] }),
 					(20, Support { total: 50, voters: vec![(1, 50)] }),
 				];
-				let bs0: BoundedSupports<_, _, _> = s0.try_into_bounded_supports().unwrap();
+				let bs0: BoundedSupports<_, _, _> = s0.try_into().unwrap();
 
 				let s1: Supports<AccountId> =
 					vec![(20, Support { total: 20, voters: vec![(20, 20)] })];
-				let bs1: BoundedSupports<_, _, _> = s1.try_into_bounded_supports().unwrap();
+				let bs1: BoundedSupports<_, _, _> = s1.try_into().unwrap();
 
 				assert_eq!(supports_page_zero, bs0);
 				assert_eq!(supports_page_one, bs1);
