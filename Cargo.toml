@@ -804,7 +804,6 @@ governor = { version = "0.6.0" }
 gum = { path = "polkadot/node/gum", default-features = false, package = "tracing-gum" }
 gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = false, package = "tracing-gum-proc-macro" }
 handlebars = { version = "5.1.0" }
-hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 hex = { version = "0.4.3", default-features = false }
 hex-literal = { version = "0.4.1", default-features = false }
@@ -853,7 +852,6 @@ log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
-memory-db = { version = "0.32.0", default-features = false }
 merkleized-metadata = { version = "0.1.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
@@ -1019,7 +1017,7 @@ parachains-common = { path = "cumulus/parachains/common", default-features = fal
 parachains-relay = { path = "bridges/relays/parachains" }
 parachains-runtimes-test-utils = { path = "cumulus/parachains/runtimes/test-utils", default-features = false }
 parity-bytes = { version = "0.1.2", default-features = false }
-parity-db = { version = "0.4.12" }
+parity-db = { version = "0.5.0" }
 parity-wasm = { version = "0.45.0" }
 parking_lot = { version = "0.12.1", default-features = false }
 partial_sort = { version = "0.2.0" }
@@ -1352,10 +1350,7 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.39.0" }
-trie-db = { version = "0.29.1", default-features = false }
-trie-root = { version = "0.18.0", default-features = false }
-trie-standardmap = { version = "0.16.0" }
+trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
 trybuild = { version = "1.0.89" }
 tt-call = { version = "1.0.8" }
 tuplex = { version = "0.1", default-features = false }
@@ -1433,7 +1428,6 @@ curve25519-dalek = { opt-level = 3 }
 ed25519-dalek = { opt-level = 3 }
 flate2 = { opt-level = 3 }
 futures-channel = { opt-level = 3 }
-hash-db = { opt-level = 3 }
 hashbrown = { opt-level = 3 }
 hmac = { opt-level = 3 }
 httparse = { opt-level = 3 }

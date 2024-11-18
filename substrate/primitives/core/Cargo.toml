@@ -23,7 +23,7 @@ serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 bounded-collections = { workspace = true }
 primitive-types = { features = ["codec", "scale-info"], workspace = true }
 impl-serde = { optional = true, workspace = true }
-hash-db = { workspace = true }
+trie-db = { workspace = true }
 hash256-std-hasher = { workspace = true }
 bs58 = { optional = true, workspace = true }
 rand = { features = [
@@ -102,7 +102,6 @@ std = [
 	"full_crypto",
 	"futures",
 	"futures/thread-pool",
-	"hash-db/std",
 	"hash256-std-hasher/std",
 	"impl-serde/std",
 	"itertools",
@@ -131,6 +130,7 @@ std = [
 	"substrate-bip39/std",
 	"thiserror",
 	"tracing",
+	"trie-db/std",
 	"w3f-bls?/std",
 	"zeroize/alloc",
 	"zeroize/std",

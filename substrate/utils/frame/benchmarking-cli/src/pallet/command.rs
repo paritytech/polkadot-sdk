@@ -48,7 +48,7 @@ use sp_core::{
 use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
-use sp_state_machine::StateMachine;
+use sp_state_machine::{DBLocation, StateMachine};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
 use sp_wasm_interface::HostFunctions;
 use std::{
@@ -667,7 +667,7 @@ impl PalletCmd {
 	/// Build the extension that are available for pallet benchmarks.
 	fn build_extensions<E: CodeExecutor, H: Hasher + 'static>(
 		exe: E,
-		maybe_recorder: Option<Recorder<H>>,
+		maybe_recorder: Option<Recorder<H, DBLocation>>,
 	) -> Extensions {
 		let mut extensions = Extensions::default();
 		let (offchain, _) = TestOffchainExt::new();

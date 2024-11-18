@@ -751,6 +751,7 @@ impl TestNodeBuilder {
 			self.key,
 			self.relay_chain_nodes,
 			false,
+			false,
 		);
 
 		let collator_options = CollatorOptions { relay_chain_mode: self.relay_chain_mode };
@@ -1011,6 +1012,7 @@ pub fn run_relay_chain_validator_node(
 		tokio_handle.clone(),
 		key,
 		boot_nodes,
+		true,
 		true,
 	);
 

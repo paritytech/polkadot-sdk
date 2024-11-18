@@ -74,7 +74,7 @@ use libp2p::{
 	PeerId,
 };
 use linked_hash_set::LinkedHashSet;
-use log::{debug, info, trace, warn};
+use log::{debug, trace, warn};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
 	cmp,
@@ -768,7 +768,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 					// NOTE: we might re-discover the same address multiple times
 					// in which case we just want to refrain from logging.
 					if self.known_external_addresses.insert(address.clone()) {
-						info!(
+						debug!(
 						  target: "sub-libp2p",
 						  "🔍 Discovered new external address for our node: {address}",
 						);

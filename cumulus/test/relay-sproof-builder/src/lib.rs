@@ -22,7 +22,7 @@ use cumulus_primitives_core::{
 };
 use polkadot_primitives::UpgradeGoAhead;
 use sp_runtime::traits::HashingFor;
-use sp_trie::PrefixedMemoryDB;
+use sp_trie::MemoryDB;
 
 /// Builds a sproof (portmanteau of 'spoof' and 'proof') of the relay chain state.
 #[derive(Clone)]
@@ -132,10 +132,9 @@ impl RelayStateSproofBuilder {
 	pub fn into_state_root_and_proof(
 		self,
 	) -> (polkadot_primitives::Hash, sp_state_machine::StorageProof) {
-		let (db, root) =
-			PrefixedMemoryDB::<HashingFor<polkadot_primitives::Block>>::default_with_root();
+		let (db, root) = MemoryDB::<HashingFor<polkadot_primitives::Block>>::default_with_root();
 		let state_version = Default::default(); // for test using default.
-		let mut backend = sp_state_machine::TrieBackendBuilder::new(db, root).build();
+		let mut backend = sp_state_machine::TrieBackendBuilder::new(Box::new(db), root).build();
 
 		let mut relevant_keys = Vec::new();
 		{
@@ -208,7 +207,7 @@ impl RelayStateSproofBuilder {
 			}
 		}
 
-		let root = *backend.root();
+		let root = backend.root().0;
 		let proof = sp_state_machine::prove_read(backend, relevant_keys).expect("prove read");
 		(root, proof)
 	}

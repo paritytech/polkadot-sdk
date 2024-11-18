@@ -250,7 +250,10 @@ mod tests {
 				transaction_pool: Default::default(),
 				network: NetworkConfiguration::new_memory(),
 				keystore: sc_service::config::KeystoreConfig::InMemory,
-				database: sc_client_db::DatabaseSource::ParityDb { path: root.clone() },
+				database: sc_client_db::DatabaseSource::ParityDb {
+					path: root.clone(),
+					multi_tree: false,
+				},
 				trie_cache_maximum_size: None,
 				state_pruning: None,
 				blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
@@ -355,6 +358,7 @@ mod tests {
 			let output = std::process::Command::new(std::env::current_exe().unwrap())
 				.arg(test_name)
 				.env("RUN_FORKED_TEST", "1")
+				.env("RUST_LOG", "info")
 				.output()
 				.unwrap();
 

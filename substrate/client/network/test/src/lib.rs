@@ -151,10 +151,6 @@ impl PeersClient {
 		self.backend.clone()
 	}
 
-	pub fn as_block_import(&self) -> BlockImportAdapter<Self> {
-		BlockImportAdapter::new(self.clone())
-	}
-
 	pub fn get_aux(&self, key: &[u8]) -> ClientResult<Option<Vec<u8>>> {
 		self.client.get_aux(key)
 	}
@@ -236,7 +232,7 @@ pub struct Peer<D, BlockImport> {
 	verifier: VerifierAdapter<Block>,
 	/// We keep a copy of the block_import so that we can invoke it for locally-generated blocks,
 	/// instead of going through the import queue.
-	block_import: BlockImportAdapter<BlockImport>,
+	block_import: BlockImport,
 	select_chain: Option<LongestChain<substrate_test_runtime_client::Backend, Block>>,
 	backend: Option<Arc<substrate_test_runtime_client::Backend>>,
 	network: NetworkWorker<Block, <Block as BlockT>::Hash>,
@@ -569,55 +565,6 @@ where
 	}
 }
 
-pub trait BlockImportAdapterFull:
-	BlockImport<Block, Error = ConsensusError> + Send + Sync + Clone
-{
-}
-
-impl<T> BlockImportAdapterFull for T where
-	T: BlockImport<Block, Error = ConsensusError> + Send + Sync + Clone
-{
-}
-
-/// Implements `BlockImport` for any `Transaction`. Internally the transaction is
-/// "converted", aka the field is set to `None`.
-///
-/// This is required as the `TestNetFactory` trait does not distinguish between
-/// full and light nodes.
-#[derive(Clone)]
-pub struct BlockImportAdapter<I> {
-	inner: I,
-}
-
-impl<I> BlockImportAdapter<I> {
-	/// Create a new instance of `Self::Full`.
-	pub fn new(inner: I) -> Self {
-		Self { inner }
-	}
-}
-
-#[async_trait::async_trait]
-impl<I> BlockImport<Block> for BlockImportAdapter<I>
-where
-	I: BlockImport<Block, Error = ConsensusError> + Send + Sync,
-{
-	type Error = ConsensusError;
-
-	async fn check_block(
-		&self,
-		block: BlockCheckParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		self.inner.check_block(block).await
-	}
-
-	async fn import_block(
-		&self,
-		block: BlockImportParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		self.inner.import_block(block).await
-	}
-}
-
 /// Implements `Verifier` and keeps track of failed verifications.
 struct VerifierAdapter<B: BlockT> {
 	verifier: Arc<futures::lock::Mutex<Box<dyn Verifier<B>>>>,
@@ -731,11 +678,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 	fn make_block_import(
 		&self,
 		client: PeersClient,
-	) -> (
-		BlockImportAdapter<Self::BlockImport>,
-		Option<BoxJustificationImport<Block>>,
-		Self::PeerData,
-	);
+	) -> (Self::BlockImport, Option<BoxJustificationImport<Block>>, Self::PeerData);
 
 	/// Create new test network with this many peers.
 	fn new(n: usize) -> Self {
@@ -1184,12 +1127,8 @@ impl TestNetFactory for TestNet {
 	fn make_block_import(
 		&self,
 		client: PeersClient,
-	) -> (
-		BlockImportAdapter<Self::BlockImport>,
-		Option<BoxJustificationImport<Block>>,
-		Self::PeerData,
-	) {
-		(client.as_block_import(), None, ())
+	) -> (Self::BlockImport, Option<BoxJustificationImport<Block>>, Self::PeerData) {
+		(client, None, ())
 	}
 
 	fn peer(&mut self, i: usize) -> &mut Peer<(), Self::BlockImport> {
@@ -1265,11 +1204,7 @@ impl TestNetFactory for JustificationTestNet {
 	fn make_block_import(
 		&self,
 		client: PeersClient,
-	) -> (
-		BlockImportAdapter<Self::BlockImport>,
-		Option<BoxJustificationImport<Block>>,
-		Self::PeerData,
-	) {
-		(client.as_block_import(), Some(Box::new(ForceFinalized(client))), Default::default())
+	) -> (Self::BlockImport, Option<BoxJustificationImport<Block>>, Self::PeerData) {
+		(client.clone(), Some(Box::new(ForceFinalized(client))), Default::default())
 	}
 }

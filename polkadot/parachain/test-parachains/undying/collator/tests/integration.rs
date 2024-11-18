@@ -36,6 +36,7 @@ async fn collating_using_undying_collator() {
 		Alice,
 		Vec::new(),
 		true,
+		false,
 	);
 
 	let mut workers_path = std::env::current_exe().unwrap();
@@ -50,6 +51,7 @@ async fn collating_using_undying_collator() {
 		tokio::runtime::Handle::current(),
 		Bob,
 		vec![alice.addr.clone()],
+		true,
 		true,
 	);
 

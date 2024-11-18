@@ -23,24 +23,32 @@ mod mem;
 
 pub use crate::kvdb::as_database;
 pub use mem::MemDb;
+pub use parity_db::{NewNode, NodeAddress, NodeRef};
 
 /// An identifier for a column.
 pub type ColumnId = u32;
 
+/// Node location hint.
+pub type DBLocation = u64;
+
 /// An alteration to the database.
-#[derive(Clone)]
 pub enum Change<H> {
 	Set(ColumnId, Vec<u8>, Vec<u8>),
 	Remove(ColumnId, Vec<u8>),
 	Store(ColumnId, H, Vec<u8>),
 	Reference(ColumnId, H),
 	Release(ColumnId, H),
+	StoreTree(ColumnId, H, NewTree),
+	ReferenceTree(ColumnId, H),
+	ReleaseTree(ColumnId, H),
 }
 
 /// A series of changes to the database that can be committed atomically. They do not take effect
 /// until passed into `Database::commit`.
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct Transaction<H>(pub Vec<Change<H>>);
+
+pub type NewTree = parity_db::NewNode;
 
 impl<H> Transaction<H> {
 	/// Create a new transaction to be prepared and committed atomically.
@@ -69,11 +77,48 @@ impl<H> Transaction<H> {
 	pub fn reference(&mut self, col: ColumnId, hash: H) {
 		self.0.push(Change::Reference(col, hash))
 	}
+	/// Increase the number of references for `hash` in the database.
+	pub fn reference_tree(&mut self, col: ColumnId, hash: H) {
+		self.0.push(Change::ReferenceTree(col, hash))
+	}
 	/// Release the preimage of `hash` from the database. An equal number of these to the number of
 	/// corresponding `store`s must have been given before it is legal for `Database::get` to
 	/// be unable to provide the preimage.
 	pub fn release(&mut self, col: ColumnId, hash: H) {
 		self.0.push(Change::Release(col, hash))
+	}
+
+	/// Release the preimage of `hash` from the database. An equal number of these to the number of
+	/// corresponding `store`s must have been given before it is legal for `Database::get` to
+	/// be unable to provide the preimage.
+	pub fn release_tree(&mut self, col: ColumnId, hash: H) {
+		self.0.push(Change::ReleaseTree(col, hash))
+	}
+
+	/// Insert a new new tree into the database.
+	pub fn insert_tree(&mut self, col: ColumnId, hash: H, tree: NewTree) {
+		self.0.push(Change::StoreTree(col, hash, tree))
+	}
+}
+
+/// Specific capabilities of databases.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum StateCapabilities {
+	/// Allow direct storage tree nodes.
+	TreeColumn,
+	/// Reference counted storage is supported.
+	RefCounted,
+	/// Nothing specific, will require key prefixing.
+	None,
+}
+
+impl StateCapabilities {
+	/// Whether the database needs key prefixing.
+	pub fn needs_key_prefixing(self) -> bool {
+		match self {
+			StateCapabilities::None => true,
+			_ => false,
+		}
 	}
 }
 
@@ -106,17 +151,21 @@ pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
 		}
 	}
 
-	/// Check if database supports internal ref counting for state data.
+	/// Capabilities for state data.
 	///
-	/// For backwards compatibility returns `false` by default.
-	fn supports_ref_counting(&self) -> bool {
-		false
+	/// For backwards compatibility returns `None` by default.
+	fn state_capabilities(&self) -> StateCapabilities {
+		StateCapabilities::None
 	}
 
-	/// Remove a possible path-prefix from the key.
-	///
-	/// Not all database implementations use a prefix for keys, so this function may be a noop.
-	fn sanitize_key(&self, _key: &mut Vec<u8>) {}
+	/// Retrieve the tree node previously stored against `key` and `location` or `None` if
+	/// if no such node exists.
+	fn get_node(
+		&self,
+		col: ColumnId,
+		key: &[u8],
+		location: DBLocation,
+	) -> Option<(Vec<u8>, Vec<DBLocation>)>;
 }
 
 impl<H> std::fmt::Debug for dyn Database<H> {

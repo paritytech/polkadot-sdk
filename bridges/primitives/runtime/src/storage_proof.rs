@@ -22,9 +22,9 @@ use sp_std::vec::Vec;
 use sp_trie::{
 	accessed_nodes_tracker::AccessedNodesTracker, read_trie_value, LayoutV1, MemoryDB, StorageProof,
 };
+use trie_db::node_db::{Hasher, EMPTY_PREFIX};
 
 use codec::{Decode, Encode};
-use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use scale_info::TypeInfo;
 #[cfg(feature = "test-helpers")]
 use sp_trie::{recorder_ext::RecorderExt, Recorder, TrieDBBuilder, TrieError, TrieHash};
@@ -144,9 +144,9 @@ where
 	/// incomplete or otherwise invalid proof, this function returns an error.
 	pub fn read_value(&mut self, key: &[u8]) -> Result<Option<Vec<u8>>, StorageProofError> {
 		// LayoutV1 or LayoutV0 is identical for proof that only read values.
-		read_trie_value::<LayoutV1<H>, _>(
+		read_trie_value::<LayoutV1<H, ()>, _>(
 			&self.db,
-			&self.root,
+			&(self.root, Default::default()),
 			key,
 			Some(&mut self.accessed_nodes_tracker),
 			None,
@@ -219,8 +219,6 @@ pub fn grow_storage_proof<L: TrieConfiguration>(
 	prefix: Vec<u8>,
 	num_extra_nodes: usize,
 ) {
-	use sp_trie::TrieMut;
-
 	let mut added_nodes = 0;
 	for i in 0..prefix.len() {
 		let mut prefix = prefix[0..=i].to_vec();
@@ -261,13 +259,10 @@ pub fn grow_storage_proof<L: TrieConfiguration>(
 
 /// Record all keys for a given root.
 #[cfg(feature = "test-helpers")]
-pub fn record_all_keys<L: TrieConfiguration, DB>(
-	db: &DB,
+pub fn record_all_keys<L: TrieConfiguration>(
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 	root: &TrieHash<L>,
-) -> Result<RawStorageProof, sp_std::boxed::Box<TrieError<L>>>
-where
-	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
-{
+) -> Result<RawStorageProof, sp_std::boxed::Box<TrieError<L>>> {
 	let mut recorder = Recorder::<L>::new();
 	let trie = TrieDBBuilder::<L>::new(db, root).with_recorder(&mut recorder).build();
 	for x in trie.iter()? {
@@ -299,7 +294,7 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 		],
 		state_version,
 	));
-	let root = backend.storage_root(sp_std::iter::empty(), state_version).0;
+	let root = backend.storage_root(sp_std::iter::empty(), state_version).root_hash();
 	let proof =
 		prove_read(backend, &[&b"key1"[..], &b"key2"[..], &b"key4"[..], &b"key22"[..]]).unwrap();
 

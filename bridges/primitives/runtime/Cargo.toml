@@ -12,12 +12,12 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-hash-db = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 num-traits = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
+trie-db = { workspace = true }
 
 # Substrate Dependencies
 frame-support = { workspace = true }
@@ -28,7 +28,6 @@ sp-runtime = { features = ["serde"], workspace = true }
 sp-state-machine = { workspace = true }
 sp-std = { workspace = true }
 sp-trie = { workspace = true }
-trie-db = { workspace = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
@@ -39,7 +38,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"hash-db/std",
 	"log/std",
 	"num-traits/std",
 	"scale-info/std",

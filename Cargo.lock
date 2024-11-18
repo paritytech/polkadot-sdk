@@ -1629,12 +1629,12 @@ name = "binary-merkle-tree"
 version = "13.0.0"
 dependencies = [
  "array-bytes",
- "hash-db",
  "log",
  "parity-scale-codec",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
+ "subtrie",
 ]
 
 [[package]]
@@ -2285,7 +2285,6 @@ version = "0.7.0"
 dependencies = [
  "frame-support 28.0.0",
  "frame-system 28.0.0",
- "hash-db",
  "hex-literal",
  "impl-trait-for-tuples",
  "log",
@@ -2299,7 +2298,7 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-std 14.0.0",
  "sp-trie 29.0.0",
- "trie-db",
+ "subtrie",
 ]
 
 [[package]]
@@ -2889,6 +2888,7 @@ dependencies = [
  "sp-weights 27.0.0",
  "staging-xcm 7.0.0",
  "static_assertions",
+ "subtrie",
  "tuplex",
 ]
 
@@ -4815,8 +4815,7 @@ dependencies = [
  "sp-version 29.0.0",
  "staging-xcm 7.0.0",
  "staging-xcm-builder 7.0.0",
- "trie-db",
- "trie-standardmap",
+ "subtrie",
 ]
 
 [[package]]
@@ -9332,17 +9331,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "keccak-hasher"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19ea4653859ca2266a86419d3f592d3f22e7a854b482f99180d2498507902048"
-dependencies = [
- "hash-db",
- "hash256-std-hasher",
- "tiny-keccak",
-]
-
-[[package]]
 name = "keystream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11090,7 +11078,6 @@ dependencies = [
  "derive_more 0.99.17",
  "fs_extra",
  "futures",
- "hash-db",
  "kitchensink-runtime",
  "kvdb",
  "kvdb-rocksdb",
@@ -11101,6 +11088,7 @@ dependencies = [
  "rand",
  "sc-basic-authorship",
  "sc-client-api",
+ "sc-client-db",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "serde",
@@ -11113,6 +11101,7 @@ dependencies = [
  "sp-timestamp 26.0.0",
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
+ "subtrie",
  "tempfile",
 ]
 
@@ -16228,9 +16217,9 @@ checksum = "16b56e3a2420138bdb970f84dfb9c774aea80fa0e7371549eedec0d80c209c67"
 
 [[package]]
 name = "parity-db"
-version = "0.4.12"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59e9ab494af9e6e813c72170f0d3c1de1500990d62c97cc05cc7576f91aa402f"
+checksum = "01f25df2bcb0aa931f200c5362b3329f51e6e404046ff9628cf4aa13affb5664"
 dependencies = [
  "blake2 0.10.6",
  "crc32fast",
@@ -16244,6 +16233,7 @@ dependencies = [
  "rand",
  "siphasher 0.3.11",
  "snap",
+ "winapi",
 ]
 
 [[package]]
@@ -22174,7 +22164,7 @@ version = "0.35.0"
 dependencies = [
  "array-bytes",
  "criterion",
- "hash-db",
+ "fs_extra",
  "kitchensink-runtime",
  "kvdb",
  "kvdb-memorydb",
@@ -22198,6 +22188,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
  "substrate-test-runtime-client",
+ "subtrie",
  "tempfile",
 ]
 
@@ -25395,7 +25386,6 @@ name = "sp-api"
 version = "26.0.0"
 dependencies = [
  "docify",
- "hash-db",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -25409,6 +25399,7 @@ dependencies = [
  "sp-test-primitives",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
+ "subtrie",
  "thiserror",
 ]
 
@@ -25944,7 +25935,6 @@ dependencies = [
  "dyn-clonable",
  "ed25519-zebra 4.0.3",
  "futures",
- "hash-db",
  "hash256-std-hasher",
  "impl-serde 0.5.0",
  "itertools 0.11.0",
@@ -25973,6 +25963,7 @@ dependencies = [
  "sp-storage 19.0.0",
  "ss58-registry",
  "substrate-bip39 0.4.7",
+ "subtrie",
  "thiserror",
  "tracing",
  "w3f-bls",
@@ -26313,7 +26304,9 @@ name = "sp-database"
 version = "10.0.0"
 dependencies = [
  "kvdb",
+ "parity-db",
  "parking_lot 0.12.3",
+ "subtrie",
 ]
 
 [[package]]
@@ -27172,7 +27165,6 @@ dependencies = [
  "arbitrary",
  "array-bytes",
  "assert_matches",
- "hash-db",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -27184,9 +27176,9 @@ dependencies = [
  "sp-panic-handler 13.0.0",
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
+ "subtrie",
  "thiserror",
  "tracing",
- "trie-db",
 ]
 
 [[package]]
@@ -27502,8 +27494,6 @@ dependencies = [
  "ahash 0.8.11",
  "array-bytes",
  "criterion",
- "hash-db",
- "memory-db",
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -27513,12 +27503,9 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-runtime 31.0.1",
+ "subtrie",
  "thiserror",
  "tracing",
- "trie-bench",
- "trie-db",
- "trie-root",
- "trie-standardmap",
 ]
 
 [[package]]
@@ -28451,7 +28438,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
- "trie-db",
+ "subtrie",
 ]
 
 [[package]]
@@ -28528,8 +28515,8 @@ dependencies = [
  "sp-version 29.0.0",
  "substrate-test-runtime-client",
  "substrate-wasm-builder 17.0.0",
+ "subtrie",
  "tracing",
- "trie-db",
 ]
 
 [[package]]
@@ -28642,6 +28629,21 @@ name = "subtle-ng"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "734676eb262c623cec13c3155096e08d1f8f29adce39ba17948b18dad1e54142"
+
+[[package]]
+name = "subtrie"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68091eaba2ca1e499f43346c45e8c93f904ad4d69b23a7c93c816e4c91bf0c39"
+dependencies = [
+ "criterion",
+ "hash256-std-hasher",
+ "log",
+ "parity-scale-codec",
+ "rustc-hex",
+ "smallvec",
+ "tiny-keccak",
+]
 
 [[package]]
 name = "subwasmlib"
@@ -29871,22 +29873,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "trie-bench"
-version = "0.39.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3092f400e9f7e3ce8c1756016a8b6287163ab7a11dd47d82169260cb4cc2d680"
-dependencies = [
- "criterion",
- "hash-db",
- "keccak-hasher",
- "memory-db",
- "parity-scale-codec",
- "trie-db",
- "trie-root",
- "trie-standardmap",
-]
-
-[[package]]
 name = "trie-db"
 version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -29905,16 +29891,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4ed310ef5ab98f5fa467900ed906cb9232dd5376597e00fd4cba2a449d06c0b"
 dependencies = [
  "hash-db",
-]
-
-[[package]]
-name = "trie-standardmap"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "684aafb332fae6f83d7fe10b3fbfdbe39a1b3234c4e2a618f030815838519516"
-dependencies = [
- "hash-db",
- "keccak-hasher",
 ]
 
 [[package]]

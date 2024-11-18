@@ -11,6 +11,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
+trie-db = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -82,6 +83,7 @@ std = [
 	"sp-std/std",
 	"sp-trie/std",
 	"sp-weights/std",
+	"trie-db/std",
 	"tuplex/std",
 	"xcm/std",
 ]

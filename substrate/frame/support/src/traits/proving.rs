@@ -98,7 +98,7 @@ impl<H: Hasher> VerifyExistenceProof for SixteenPatriciaMerkleTreeProver<H> {
 	type Hash = H::Out;
 
 	fn verify_proof(proof: Self::Proof, root: &Self::Hash) -> Result<Vec<u8>, DispatchError> {
-		sp_trie::verify_trie_proof::<sp_trie::LayoutV1<H>, _, _, _>(
+		sp_trie::verify_trie_proof::<sp_trie::LayoutV1<H, ()>, _, _, _>(
 			&root,
 			&proof.proof,
 			[&(&proof.key, Some(&proof.value))],
