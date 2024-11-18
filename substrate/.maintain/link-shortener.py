@@ -123,8 +123,7 @@ class DocLinkProcessor:
 
             # modified_content += '\n'
             for short_name, full_path in sorted(links):
-                    clean_path = full_path.replace('\n//! ', '')
-                    modified_content += f'// [`{short_name}`]: {clean_path}\n'
+                modified_content += f'//! [`{short_name}`]: {full_path}\n'
                 
             if content != modified_content:
                 if not self.dry_run:

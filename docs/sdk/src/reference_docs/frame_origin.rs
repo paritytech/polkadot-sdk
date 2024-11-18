@@ -258,22 +258,22 @@ pub mod runtime_for_external_origin {
 	}
 }
 
-// [`Applyable`]: sp_runtime::traits::Applyable
-// [`CheckedExtrinsic`]: sp_runtime::generic::CheckedExtrinsic#trait-implementations
-// [`EnsureMember`]: pallet_collective::EnsureMember
-// [`EnsureNone`]: frame::runtime::prelude::EnsureNone
-// [`EnsureOrigin`]: frame::traits::EnsureOrigin
-// [`EnsureProportionMoreThan`]: pallet_collective::EnsureProportionMoreThan
-// [`EnsureRoot`]: frame::runtime::prelude::EnsureRoot
-// [`EnsureSigned`]: frame::runtime::prelude::EnsureSigned
-// [`EnsureSignedBy`]: frame::runtime::prelude::EnsureSignedBy
-// [`RawOrigin`]: frame_system::RawOrigin
-// [`RuntimeOrigin`]: crate::reference_docs::frame_origin::runtime_for_origin::RuntimeOrigin
-// [`RuntimeOrigin`]: frame_system::Config::RuntimeOrigin
-// [`ensure_none`]: frame_system::ensure_none
-// [`ensure_signed`]: frame_system::ensure_signed
-// [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
-// [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types#adding-further-constraints-to-runtime-composite-enums
-// [`frame_runtime_types`]: frame_runtime_types
-// [`pallet_collective`]: pallet_collective
-// [`pallet_democracy`]: pallet_democracy
+//! [`Applyable`]: sp_runtime::traits::Applyable
+//! [`CheckedExtrinsic`]: sp_runtime::generic::CheckedExtrinsic#trait-implementations
+//! [`EnsureMember`]: pallet_collective::EnsureMember
+//! [`EnsureNone`]: frame::runtime::prelude::EnsureNone
+//! [`EnsureOrigin`]: frame::traits::EnsureOrigin
+//! [`EnsureProportionMoreThan`]: pallet_collective::EnsureProportionMoreThan
+//! [`EnsureRoot`]: frame::runtime::prelude::EnsureRoot
+//! [`EnsureSigned`]: frame::runtime::prelude::EnsureSigned
+//! [`EnsureSignedBy`]: frame::runtime::prelude::EnsureSignedBy
+//! [`RawOrigin`]: frame_system::RawOrigin
+//! [`RuntimeOrigin`]: crate::reference_docs::frame_origin::runtime_for_origin::RuntimeOrigin
+//! [`RuntimeOrigin`]: frame_system::Config::RuntimeOrigin
+//! [`ensure_none`]: frame_system::ensure_none
+//! [`ensure_signed`]: frame_system::ensure_signed
+//! [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
+//! [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types#adding-further-constraints-to-runtime-composite-enums
+//! [`frame_runtime_types`]: frame_runtime_types
+//! [`pallet_collective`]: pallet_collective
+//! [`pallet_democracy`]: pallet_democracy
