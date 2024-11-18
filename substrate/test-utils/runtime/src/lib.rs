@@ -1213,6 +1213,7 @@ mod tests {
 						&info,
 						len,
 						External,
+						0,
 					)
 					.unwrap()
 					.0
@@ -1228,6 +1229,7 @@ mod tests {
 						&info,
 						len,
 						External,
+						0,
 					)
 					.unwrap()
 					.0
