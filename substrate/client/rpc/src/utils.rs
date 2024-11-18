@@ -265,7 +265,7 @@ pub fn spawn_subscription_task(
 	executor: &SubscriptionTaskExecutor,
 	fut: impl Future<Output = ()> + Send + 'static,
 ) {
-	executor.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+	executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 }
 
 #[cfg(test)]
