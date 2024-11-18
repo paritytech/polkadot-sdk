@@ -43,8 +43,8 @@ use polkadot_node_primitives::{PoV, SubmitCollationParams};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	BlockNumber as RBlockNumber, CollatorPair, Hash as RHash, HeadData, Id as ParaId,
-	OccupiedCoreAssumption,
+	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, BlockNumber as RBlockNumber, CollatorPair, Hash as RHash,
+	HeadData, Id as ParaId, OccupiedCoreAssumption,
 };
 
 use futures::prelude::*;
@@ -260,8 +260,7 @@ where
 				relay_parent,
 				params.para_id,
 				&mut params.relay_client,
-				// Use depth 0, to preserve behaviour.
-				ClaimQueueOffset(0),
+				ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
 			)
 			.await
 			.get(0)

@@ -32,9 +32,6 @@ use sp_std::vec::Vec;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "std")]
-use parity_util_mem::MallocSizeOf;
-
 /// Parachain id.
 ///
 /// This is an equivalent of the `polkadot_parachain_primitives::Id`, which is a compact-encoded
@@ -71,7 +68,7 @@ impl From<u32> for ParaId {
 #[derive(
 	PartialEq, Eq, Clone, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo, Default,
 )]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash, MallocSizeOf))]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct ParaHead(pub Vec<u8>);
 
 impl ParaHead {

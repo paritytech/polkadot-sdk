@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-05-26 (Y/M/D)
-//! HOSTNAME: `bm5`, CPU: `Intel(R) Core(TM) i7-7700K CPU @ 4.20GHz`
+//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
+//! DATE: 2024-02-29 (Y/M/D)
+//! HOSTNAME: `runner-bn-ce5rx-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
 //! SHORT-NAME: `extrinsic`, LONG-NAME: `ExtrinsicBase`, RUNTIME: `Development`
 //! WARMUPS: `10`, REPEAT: `100`
-//! WEIGHT-PATH: `runtime/rococo/constants/src/weights/`
+//! WEIGHT-PATH: `./polkadot/runtime/rococo/constants/src/weights/`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
 // Executed Command:
@@ -28,12 +28,11 @@
 //   benchmark
 //   overhead
 //   --chain=rococo-dev
-//   --execution=wasm
 //   --wasm-execution=compiled
-//   --weight-path=runtime/rococo/constants/src/weights/
+//   --weight-path=./polkadot/runtime/rococo/constants/src/weights/
 //   --warmup=10
 //   --repeat=100
-//   --header=./file_header.txt
+//   --header=./polkadot/file_header.txt
 
 use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
@@ -43,17 +42,17 @@ parameter_types! {
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 97_574, 100_119
-	///   Average:  98_236
-	///   Median:   98_179
-	///   Std-Dev:  394.9
+	///   Min, Max: 92_961, 94_143
+	///   Average:  93_369
+	///   Median:   93_331
+	///   Std-Dev:  217.39
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 99_893
-	///   95th: 98_850
-	///   75th: 98_318
+	///   99th: 93_848
+	///   95th: 93_691
+	///   75th: 93_514
 	pub const ExtrinsicBaseWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(98_236), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(93_369), 0);
 }
 
 #[cfg(test)]

@@ -27,7 +27,6 @@ schnellru = { workspace = true }
 polkadot-erasure-coding = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-types = { workspace = true, default-features = true }
-polkadot-node-jaeger = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }

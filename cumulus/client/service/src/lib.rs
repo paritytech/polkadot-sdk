@@ -40,10 +40,7 @@ use sc_consensus::{
 use sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
 use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
-use sc_service::{
-	build_polkadot_syncing_strategy, Configuration, NetworkStarter, SpawnTaskHandle, TaskManager,
-	WarpSyncConfig,
-};
+use sc_service::{Configuration, SpawnTaskHandle, TaskManager, WarpSyncConfig};
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
@@ -417,7 +414,7 @@ pub struct BuildNetworkParams<
 	pub net_config:
 		sc_network::config::FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Network>,
 	pub client: Arc<Client>,
-	pub transaction_pool: Arc<sc_transaction_pool::FullPool<Block, Client>>,
+	pub transaction_pool: Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>,
 	pub para_id: ParaId,
 	pub relay_chain_interface: RCInterface,
 	pub spawn_handle: SpawnTaskHandle,
@@ -429,7 +426,7 @@ pub struct BuildNetworkParams<
 pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 	BuildNetworkParams {
 		parachain_config,
-		mut net_config,
+		net_config,
 		client,
 		transaction_pool,
 		para_id,
@@ -442,7 +439,6 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 	Arc<dyn NetworkService>,
 	TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 	TransactionsHandlerController<Block::Hash>,
-	NetworkStarter,
 	Arc<SyncingService<Block>>,
 )>
 where
@@ -500,16 +496,6 @@ where
 		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 	);
 
-	let syncing_strategy = build_polkadot_syncing_strategy(
-		parachain_config.protocol_id(),
-		parachain_config.chain_spec.fork_id(),
-		&mut net_config,
-		warp_sync_config,
-		client.clone(),
-		&spawn_handle,
-		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
-	)?;
-
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,
 		net_config,
@@ -518,7 +504,7 @@ where
 		spawn_handle,
 		import_queue,
 		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
-		syncing_strategy,
+		warp_sync_config,
 		block_relay: None,
 		metrics,
 	})

@@ -10,9 +10,6 @@ edition.workspace = true
 publish = false
 build = "build.rs"
 
-# [[bin]]
-# name = "parachain-template-node"
-
 [dependencies]
 clap = { features = ["derive"], workspace = true }
 log = { workspace = true, default-features = true }
@@ -22,82 +19,31 @@ jsonrpsee = { features = ["server"], workspace = true }
 futures = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 docify = { workspace = true }
+color-print = { workspace = true }
 
-# Local
+polkadot-sdk = { workspace = true, features = ["node"] }
+
 parachain-template-runtime = { workspace = true }
 
 # Substrate
-frame-benchmarking = { workspace = true, default-features = true }
-frame-benchmarking-cli = { workspace = true, default-features = true }
-pallet-transaction-payment-rpc = { workspace = true, default-features = true }
-sc-basic-authorship = { workspace = true, default-features = true }
-sc-chain-spec = { workspace = true, default-features = true }
-sc-cli = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sc-offchain = { workspace = true, default-features = true }
-sc-consensus = { workspace = true, default-features = true }
-sc-executor = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-network-sync = { workspace = true, default-features = true }
-sc-rpc = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
-sc-sysinfo = { workspace = true, default-features = true }
-sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
-sc-transaction-pool = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-block-builder = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-consensus-aura = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-genesis-builder = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true, default-features = true }
-substrate-frame-rpc-system = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 
-# Polkadot
-polkadot-cli = { features = ["rococo-native"], workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-xcm = { workspace = true }
-
-# Cumulus
-cumulus-client-cli = { workspace = true, default-features = true }
-cumulus-client-collator = { workspace = true, default-features = true }
-cumulus-client-consensus-aura = { workspace = true, default-features = true }
-cumulus-client-consensus-common = { workspace = true, default-features = true }
-cumulus-client-consensus-proposer = { workspace = true, default-features = true }
-cumulus-client-service = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
-cumulus-relay-chain-interface = { workspace = true, default-features = true }
-color-print = { workspace = true }
-
 [build-dependencies]
-substrate-build-script-utils = { workspace = true, default-features = true }
+polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
 
 [features]
 default = ["std"]
 std = [
 	"log/std",
 	"parachain-template-runtime/std",
-	"xcm/std",
+	"polkadot-sdk/std",
 ]
 runtime-benchmarks = [
-	"cumulus-primitives-core/runtime-benchmarks",
-	"frame-benchmarking-cli/runtime-benchmarks",
-	"frame-benchmarking/runtime-benchmarks",
 	"parachain-template-runtime/runtime-benchmarks",
-	"polkadot-cli/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"sc-service/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+	"polkadot-sdk/runtime-benchmarks",
 ]
 try-runtime = [
 	"parachain-template-runtime/try-runtime",
-	"polkadot-cli/try-runtime",
-	"sp-runtime/try-runtime",
+	"polkadot-sdk/try-runtime",
 ]

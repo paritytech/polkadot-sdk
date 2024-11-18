@@ -58,9 +58,9 @@
 //! > that this step in the guide was not
 //! > set up correctly.
 //!
-//! ## 3. Add the SignedExtension to your runtime
+//! ## 3. Add the TransactionExtension to your runtime
 //!
-//! In your runtime, you will find a list of SignedExtensions.
+//! In your runtime, you will find a list of TransactionExtensions.
 //! To enable the reclaiming,
 //! add [`StorageWeightReclaim`](cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim)
 //! to that list. For maximum efficiency, make sure that `StorageWeightReclaim` is last in the list.

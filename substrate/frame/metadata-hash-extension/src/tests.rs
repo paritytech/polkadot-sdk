@@ -25,7 +25,7 @@ use frame_support::{
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 use sp_api::{Metadata, ProvideRuntimeApi};
 use sp_runtime::{
-	traits::{Extrinsic as _, SignedExtension},
+	traits::{ExtrinsicLike, TransactionExtension},
 	transaction_validity::{TransactionSource, UnknownTransaction},
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
@@ -51,7 +51,7 @@ impl frame_system::Config for Test {
 #[test]
 fn rejects_when_no_metadata_hash_was_passed() {
 	let ext = CheckMetadataHash::<Test>::decode(&mut &1u8.encode()[..]).unwrap();
-	assert_eq!(Err(UnknownTransaction::CannotLookup.into()), ext.additional_signed());
+	assert_eq!(Err(UnknownTransaction::CannotLookup.into()), ext.implicit());
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn ensure_check_metadata_works_on_real_extrinsics() {
 		.metadata_hash(generate_metadata_hash(metadata))
 		.build();
 	// Ensure that the transaction is signed.
-	assert!(valid_transaction.is_signed().unwrap());
+	assert!(!valid_transaction.is_bare());
 
 	runtime_api
 		.validate_transaction(best_hash, TransactionSource::External, valid_transaction, best_hash)
@@ -104,7 +104,7 @@ fn ensure_check_metadata_works_on_real_extrinsics() {
 		.metadata_hash([10u8; 32])
 		.build();
 	// Ensure that the transaction is signed.
-	assert!(invalid_transaction.is_signed().unwrap());
+	assert!(!invalid_transaction.is_bare());
 
 	assert_eq!(
 		TransactionValidityError::from(InvalidTransaction::BadProof),
@@ -132,8 +132,8 @@ mod docs {
 			}
 		}
 
-		/// The `SignedExtension` to the basic transaction logic.
-		pub type SignedExtra = (
+		/// The `TransactionExtension` to the basic transaction logic.
+		pub type TxExtension = (
 			frame_system::CheckNonZeroSender<Runtime>,
 			frame_system::CheckSpecVersion<Runtime>,
 			frame_system::CheckTxVersion<Runtime>,
@@ -153,7 +153,7 @@ mod docs {
 
 		/// Unchecked extrinsic type as expected by this runtime.
 		pub type UncheckedExtrinsic =
-			sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+			sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 	}
 
 	// Put here to not have it in the docs as well.

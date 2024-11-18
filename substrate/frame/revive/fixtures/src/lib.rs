@@ -37,16 +37,9 @@ pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H
 pub mod bench {
 	use alloc::vec::Vec;
 
-	#[cfg(feature = "riscv")]
 	macro_rules! fixture {
 		($name: literal) => {
 			include_bytes!(concat!(env!("OUT_DIR"), "/", $name, ".polkavm"))
-		};
-	}
-	#[cfg(not(feature = "riscv"))]
-	macro_rules! fixture {
-		($name: literal) => {
-			&[]
 		};
 	}
 	pub const DUMMY: &[u8] = fixture!("dummy");

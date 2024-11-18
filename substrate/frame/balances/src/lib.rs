@@ -205,7 +205,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, traits::ConstU64};
+		use frame_support::derive_impl;
 
 		pub struct TestDefaultConfig;
 
@@ -222,7 +222,7 @@ pub mod pallet {
 			type RuntimeFreezeReason = ();
 
 			type Balance = u64;
-			type ExistentialDeposit = ConstU64<1>;
+			type ExistentialDeposit = ConstUint<1>;
 
 			type ReserveIdentifier = ();
 			type FreezeIdentifier = Self::RuntimeFreezeReason;
@@ -234,6 +234,7 @@ pub mod pallet {
 			type MaxFreezes = VariantCountOf<Self::RuntimeFreezeReason>;
 
 			type WeightInfo = ();
+			type DoneSlashHandler = ();
 		}
 	}
 
@@ -312,6 +313,14 @@ pub mod pallet {
 		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
+
+		/// Allows callbacks to other pallets so they can update their bookkeeping when a slash
+		/// occurs.
+		type DoneSlashHandler: fungible::hold::DoneSlash<
+			Self::RuntimeHoldReason,
+			Self::AccountId,
+			Self::Balance,
+		>;
 	}
 
 	/// The in-code storage version.

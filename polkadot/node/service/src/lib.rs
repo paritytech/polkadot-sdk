@@ -59,7 +59,6 @@ use {
 	sc_client_api::BlockBackend,
 	sc_consensus_grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider},
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
-	sp_core::traits::SpawnNamed,
 };
 
 use polkadot_node_subsystem_util::database::Database;
@@ -76,15 +75,12 @@ pub use {
 	sp_consensus_babe::BabeApi,
 };
 
-#[cfg(feature = "full-node")]
-use polkadot_node_subsystem::jaeger;
-
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 
 use prometheus_endpoint::Registry;
 #[cfg(feature = "full-node")]
 use sc_service::KeystoreContainer;
-use sc_service::{build_polkadot_syncing_strategy, RpcHandlers, SpawnTaskHandle};
+use sc_service::{RpcHandlers, SpawnTaskHandle};
 use sc_telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
@@ -221,9 +217,6 @@ pub enum Error {
 
 	#[error(transparent)]
 	Telemetry(#[from] sc_telemetry::Error),
-
-	#[error(transparent)]
-	Jaeger(#[from] polkadot_node_subsystem::jaeger::JaegerError),
 
 	#[cfg(feature = "full-node")]
 	#[error(transparent)]
@@ -365,25 +358,6 @@ pub fn open_database(db_source: &DatabaseSource) -> Result<Arc<dyn Database>, Er
 	Ok(parachains_db)
 }
 
-/// Initialize the `Jeager` collector. The destination must listen
-/// on the given address and port for `UDP` packets.
-#[cfg(any(test, feature = "full-node"))]
-fn jaeger_launch_collector_with_agent(
-	spawner: impl SpawnNamed,
-	config: &Configuration,
-	agent: Option<std::net::SocketAddr>,
-) -> Result<(), Error> {
-	if let Some(agent) = agent {
-		let cfg = jaeger::JaegerConfig::builder()
-			.agent(agent)
-			.named(&config.network.node_name)
-			.build();
-
-		jaeger::Jaeger::new(cfg).launch(spawner)?;
-	}
-	Ok(())
-}
-
 #[cfg(feature = "full-node")]
 type FullSelectChain = relay_chain_selection::SelectRelayChain<FullBackend>;
 #[cfg(feature = "full-node")]
@@ -411,7 +385,6 @@ struct Basics {
 #[cfg(feature = "full-node")]
 fn new_partial_basics(
 	config: &mut Configuration,
-	jaeger_agent: Option<std::net::SocketAddr>,
 	telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 ) -> Result<Basics, Error> {
 	let telemetry = config
@@ -463,8 +436,6 @@ fn new_partial_basics(
 		telemetry
 	});
 
-	jaeger_launch_collector_with_agent(task_manager.spawn_handle(), &*config, jaeger_agent)?;
-
 	Ok(Basics { task_manager, client, backend, keystore_container, telemetry })
 }
 
@@ -479,7 +450,7 @@ fn new_partial<ChainSelection>(
 		FullBackend,
 		ChainSelection,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::FullPool<Block, FullClient>,
+		sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
 		(
 			impl Fn(
 				polkadot_rpc::SubscriptionTaskExecutor,
@@ -507,12 +478,15 @@ fn new_partial<ChainSelection>(
 where
 	ChainSelection: 'static + SelectChain<Block>,
 {
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
 	);
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
@@ -637,7 +611,6 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	/// Whether to enable the block authoring backoff on production networks
 	/// where it isn't enabled by default.
 	pub force_authoring_backoff: bool,
-	pub jaeger_agent: Option<std::net::SocketAddr>,
 	pub telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	/// The version of the node. TESTING ONLY: `None` can be passed to skip the node/worker version
 	/// check, both on startup and in the workers.
@@ -742,7 +715,6 @@ pub fn new_full<
 		is_parachain_node,
 		enable_beefy,
 		force_authoring_backoff,
-		jaeger_agent,
 		telemetry_worker_handle,
 		node_version,
 		secure_validator_mode,
@@ -787,18 +759,17 @@ pub fn new_full<
 		Some(backoff)
 	};
 
-	// Running approval voting in parallel is enabled by default on all networks except Polkadot and
-	// Kusama, unless explicitly enabled by the commandline option.
+	// Running approval voting in parallel is enabled by default on all networks except Polkadot
+	// unless explicitly enabled by the commandline option.
 	// This is meant to be temporary until we have enough confidence in the new system to enable it
 	// by default on all networks.
-	let enable_approval_voting_parallel = (!config.chain_spec.is_kusama() &&
-		!config.chain_spec.is_polkadot()) ||
-		enable_approval_voting_parallel;
+	let enable_approval_voting_parallel =
+		!config.chain_spec.is_polkadot() || enable_approval_voting_parallel;
 
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
 
-	let basics = new_partial_basics(&mut config, jaeger_agent, telemetry_worker_handle)?;
+	let basics = new_partial_basics(&mut config, telemetry_worker_handle)?;
 
 	let prometheus_registry = config.prometheus_registry().cloned();
 
@@ -1032,17 +1003,7 @@ pub fn new_full<
 		})
 	};
 
-	let syncing_strategy = build_polkadot_syncing_strategy(
-		config.protocol_id(),
-		config.chain_spec.fork_id(),
-		&mut net_config,
-		Some(WarpSyncConfig::WithProvider(warp_sync)),
-		client.clone(),
-		&task_manager.spawn_handle(),
-		config.prometheus_config.as_ref().map(|config| &config.registry),
-	)?;
-
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
@@ -1051,7 +1012,7 @@ pub fn new_full<
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			syncing_strategy,
+			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
 		})?;
@@ -1073,7 +1034,7 @@ pub fn new_full<
 				is_validator: role.is_authority(),
 				enable_http_requests: false,
 				custom_extensions: move |_| vec![],
-			})
+			})?
 			.run(client.clone(), task_manager.spawn_handle())
 			.boxed(),
 		);
@@ -1422,8 +1383,6 @@ pub fn new_full<
 		);
 	}
 
-	network_starter.start_network();
-
 	Ok(NewFull {
 		task_manager,
 		client,
@@ -1437,11 +1396,10 @@ pub fn new_full<
 
 #[cfg(feature = "full-node")]
 macro_rules! chain_ops {
-	($config:expr, $jaeger_agent:expr, $telemetry_worker_handle:expr) => {{
+	($config:expr, $telemetry_worker_handle:expr) => {{
 		let telemetry_worker_handle = $telemetry_worker_handle;
-		let jaeger_agent = $jaeger_agent;
 		let mut config = $config;
-		let basics = new_partial_basics(config, jaeger_agent, telemetry_worker_handle)?;
+		let basics = new_partial_basics(config, telemetry_worker_handle)?;
 
 		use ::sc_consensus::LongestChain;
 		// use the longest chain selection, since there is no overseer available
@@ -1457,19 +1415,18 @@ macro_rules! chain_ops {
 #[cfg(feature = "full-node")]
 pub fn new_chain_ops(
 	config: &mut Configuration,
-	jaeger_agent: Option<std::net::SocketAddr>,
 ) -> Result<(Arc<FullClient>, Arc<FullBackend>, sc_consensus::BasicQueue<Block>, TaskManager), Error>
 {
 	config.keystore = sc_service::config::KeystoreConfig::InMemory;
 
 	if config.chain_spec.is_rococo() || config.chain_spec.is_versi() {
-		chain_ops!(config, jaeger_agent, None)
+		chain_ops!(config, None)
 	} else if config.chain_spec.is_kusama() {
-		chain_ops!(config, jaeger_agent, None)
+		chain_ops!(config, None)
 	} else if config.chain_spec.is_westend() {
-		return chain_ops!(config, jaeger_agent, None)
+		return chain_ops!(config, None);
 	} else {
-		chain_ops!(config, jaeger_agent, None)
+		chain_ops!(config, None)
 	}
 }
 
@@ -1519,7 +1476,7 @@ pub fn revert_backend(
 	let revertible = blocks.min(best_number - finalized);
 
 	if revertible == 0 {
-		return Ok(())
+		return Ok(());
 	}
 
 	let number = best_number - revertible;
