@@ -429,8 +429,6 @@ impl PerSessionCache {
 /// The state of the subsystem.
 struct State {
 	/// The utility for managing the implicit and explicit views in a consistent way.
-	///
-	/// We only feed leaves which have prospective parachains enabled to this view.
 	implicit_view: ImplicitView,
 	/// State tracked for all relay-parents backing work is ongoing for. This includes
 	/// all active leaves.
