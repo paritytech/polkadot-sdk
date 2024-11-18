@@ -2341,15 +2341,7 @@ pub trait BlockIdTo<Block: self::Block> {
 /// Get current block number
 pub trait BlockNumberProvider {
 	/// Type of `BlockNumber` to provide.
-	type BlockNumber: Codec
-		+ Clone
-		+ Ord
-		+ Eq
-		+ AtLeast32BitUnsigned
-		+ TypeInfo
-		+ Debug
-		+ MaxEncodedLen
-		+ Copy;
+	type BlockNumber: BlockNumber;
 
 	/// Returns the current block number.
 	///
