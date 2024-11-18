@@ -25,3 +25,5 @@ crates:
     bump: patch
   - name: pallet-revive
     bump: patch
+  - name: frame-benchmarking-cli
+    bump: patch
