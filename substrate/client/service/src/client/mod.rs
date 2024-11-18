@@ -54,6 +54,7 @@ mod wasm_substitutes;
 
 pub use call_executor::LocalCallExecutor;
 pub use client::{Client, ClientConfig};
+pub(crate) use code_provider::CodeProvider;
 
 #[cfg(feature = "test-helpers")]
 pub use self::client::{new_in_mem, new_with_backend};
