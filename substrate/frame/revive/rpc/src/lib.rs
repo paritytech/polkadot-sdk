@@ -165,7 +165,16 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn send_transaction(&self, transaction: GenericTransaction) -> RpcResult<H256> {
 		log::debug!(target: LOG_TARGET, "{transaction:#?}");
-		let GenericTransaction { from, gas, gas_price, input, to, value, r#type, .. } = transaction;
+
+		let gas = match &transaction.gas {
+			Some(gas) => gas.clone(),
+			None => {
+				log::debug!(target: LOG_TARGET, "No gas limit specified, estimating gas...");
+				self.estimate_gas(transaction.clone(), None).await?
+			},
+		};
+
+		let GenericTransaction { from, gas_price, input, to, value, r#type, .. } = transaction;
 
 		let Some(from) = from else {
 			log::debug!(target: LOG_TARGET, "Transaction must have a sender");
@@ -183,11 +192,6 @@ impl EthRpcServer for EthRpcServerImpl {
 		let input = input.unwrap_or_default();
 		let value = value.unwrap_or_default();
 		let r#type = r#type.unwrap_or_default();
-
-		let Some(gas) = gas else {
-			log::debug!(target: LOG_TARGET, "Transaction must have a gas limit");
-			return Err(EthRpcError::InvalidTransaction.into());
-		};
 
 		let r#type = Type0::try_from_byte(r#type.clone())
 			.map_err(|_| EthRpcError::TransactionTypeNotSupported(r#type))?;
