@@ -400,18 +400,19 @@ impl CallDef {
 					}
 
 					for (feeless_arg, arg) in feeless_check.inputs.iter().skip(1).zip(args.iter()) {
-						let feeless_arg_type =
-							if let syn::Pat::Type(syn::PatType { ty, .. }) = feeless_arg.clone() {
-								if let syn::Type::Reference(pat) = *ty {
-									pat.elem.clone()
-								} else {
-									let msg = "Invalid pallet::call, feeless_if closure argument must be a reference";
-									return Err(syn::Error::new(ty.span(), msg));
-								}
+						let feeless_arg_type = if let syn::Pat::Type(syn::PatType { ty, .. }) =
+							feeless_arg.clone()
+						{
+							if let syn::Type::Reference(pat) = *ty {
+								pat.elem.clone()
 							} else {
-								let msg = "Invalid pallet::call, feeless_if closure argument must be a type ascription pattern";
-								return Err(syn::Error::new(feeless_arg.span(), msg));
-							};
+								let msg = "Invalid pallet::call, feeless_if closure argument must be a reference";
+								return Err(syn::Error::new(ty.span(), msg));
+							}
+						} else {
+							let msg = "Invalid pallet::call, feeless_if closure argument must be a type ascription pattern";
+							return Err(syn::Error::new(feeless_arg.span(), msg));
+						};
 
 						if feeless_arg_type != arg.2 {
 							let msg =

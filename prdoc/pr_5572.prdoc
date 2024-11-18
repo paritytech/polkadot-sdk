@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: added RPC metrics for the collator
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+      The metric is named `relay_chain_rpc_interface` and can be scraped by prometheus agents from the parachain prometheus exporter. The metric provide information about `count`, `sum` and `duration` in seconds (with exponential buckets with parameters as start = 0.001, factor = 4, count = 9) for all RPC requests made with the `relay-chain-rpc-interface`.
+crates: 
+  - name: cumulus-relay-chain-rpc-interface
+    bump: major
+  - name: cumulus-relay-chain-minimal-node
+    bump: major
+  - name: cumulus-test-service
+    bump: patch
+  - name: substrate-prometheus-endpoint
+    bump: patch
+  - name: cumulus-client-service
+    bump: patch
+

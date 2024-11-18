@@ -38,7 +38,7 @@ pub enum Error {
 	/// The transaction validity returned no "provides" tag.
 	///
 	/// Such transactions are not accepted to the pool, since we use those tags
-	/// to define identity of transactions (occupance of the same "slot").
+	/// to define identity of transactions (occupancy of the same "slot").
 	#[error("Transaction does not provide any tags, so the pool can't identify it")]
 	NoTagsProvided,
 
