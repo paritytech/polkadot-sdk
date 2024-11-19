@@ -103,7 +103,7 @@ pub mod metadata {
 	use super::BlockNumber;
 	use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed};
 
-  const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
+	const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
 
 	// Checks if pallet exists in runtime's metadata based on pallet name.
 	fn pallet_exists(
