@@ -223,6 +223,7 @@ impl pallet_core_fellowship::Config<AmbassadorCoreInstance> for Runtime {
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
 	type MaxRank = ConstU32<9>;
+	type BlockNumberProvider = ParachainSystem;
 }
 
 pub type AmbassadorSalaryInstance = pallet_salary::Instance2;
