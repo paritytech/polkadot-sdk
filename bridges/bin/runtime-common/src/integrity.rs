@@ -192,14 +192,15 @@ struct AssertBridgeGrandpaPalletNames<'a> {
 	pub with_bridged_chain_grandpa_pallet_name: &'a str,
 }
 
-	/// Tests that bridge pallet names used in `construct_runtime!()` macro call are matching constants
-	/// from chain primitives crates.
-	fn assert_bridge_grandpa_pallet_names<R, GI>(params: AssertBridgeGrandpaPalletNames) where
-		R: pallet_bridge_grandpa::Config<GI>,
-		GI: 'static,
-	{
-		// check that the bridge GRANDPA pallet has required name
-		assert_eq!(
+/// Tests that bridge pallet names used in `construct_runtime!()` macro call are matching constants
+/// from chain primitives crates.
+fn assert_bridge_grandpa_pallet_names<R, GI>(params: AssertBridgeGrandpaPalletNames)
+where
+	R: pallet_bridge_grandpa::Config<GI>,
+	GI: 'static,
+{
+	// check that the bridge GRANDPA pallet has required name
+	assert_eq!(
 			pallet_bridge_grandpa::PalletOwner::<R, GI>::storage_value_final_key().to_vec(),
 			bp_runtime::storage_value_key(
 				params.with_bridged_chain_grandpa_pallet_name,
@@ -207,15 +208,15 @@ struct AssertBridgeGrandpaPalletNames<'a> {
 			)
 			.0,
 		);
-		assert_eq!(
-			pallet_bridge_grandpa::PalletOperatingMode::<R, GI>::storage_value_final_key().to_vec(),
-			bp_runtime::storage_value_key(
-				params.with_bridged_chain_grandpa_pallet_name,
-				"PalletOperatingMode",
-			)
-			.0,
-		);
-	}
+	assert_eq!(
+		pallet_bridge_grandpa::PalletOperatingMode::<R, GI>::storage_value_final_key().to_vec(),
+		bp_runtime::storage_value_key(
+			params.with_bridged_chain_grandpa_pallet_name,
+			"PalletOperatingMode",
+		)
+		.0,
+	);
+}
 
 /// Parameters for asserting bridge messages pallet names.
 #[derive(Debug)]
@@ -225,30 +226,31 @@ struct AssertBridgeMessagesPalletNames<'a> {
 	pub with_bridged_chain_messages_pallet_name: &'a str,
 }
 
-	/// Tests that bridge pallet names used in `construct_runtime!()` macro call are matching constants
-	/// from chain primitives crates.
-	fn assert_bridge_messages_pallet_names<R, MI>(params: AssertBridgeMessagesPalletNames) where
-		R: pallet_bridge_messages::Config<MI>,
-		MI: 'static, {
-		// check that the bridge messages pallet has required name
-		assert_eq!(
-			pallet_bridge_messages::PalletOwner::<R, MI>::storage_value_final_key().to_vec(),
-			bp_runtime::storage_value_key(
-				params.with_bridged_chain_messages_pallet_name,
-				"PalletOwner",
-			)
-			.0,
-		);
-		assert_eq!(
-			pallet_bridge_messages::PalletOperatingMode::<R, MI>::storage_value_final_key()
-				.to_vec(),
-			bp_runtime::storage_value_key(
-				params.with_bridged_chain_messages_pallet_name,
-				"PalletOperatingMode",
-			)
-			.0,
-		);
-	}
+/// Tests that bridge pallet names used in `construct_runtime!()` macro call are matching constants
+/// from chain primitives crates.
+fn assert_bridge_messages_pallet_names<R, MI>(params: AssertBridgeMessagesPalletNames)
+where
+	R: pallet_bridge_messages::Config<MI>,
+	MI: 'static,
+{
+	// check that the bridge messages pallet has required name
+	assert_eq!(
+		pallet_bridge_messages::PalletOwner::<R, MI>::storage_value_final_key().to_vec(),
+		bp_runtime::storage_value_key(
+			params.with_bridged_chain_messages_pallet_name,
+			"PalletOwner",
+		)
+		.0,
+	);
+	assert_eq!(
+		pallet_bridge_messages::PalletOperatingMode::<R, MI>::storage_value_final_key().to_vec(),
+		bp_runtime::storage_value_key(
+			params.with_bridged_chain_messages_pallet_name,
+			"PalletOperatingMode",
+		)
+		.0,
+	);
+}
 
 /// Parameters for asserting complete standard messages bridge.
 #[derive(Debug)]
@@ -273,11 +275,11 @@ pub fn assert_complete_with_relay_chain_bridge_constants<R, GI, MI>(
 	assert_bridge_messages_pallet_constants::<R, MI>();
 	assert_bridge_grandpa_pallet_names::<R, GI>(AssertBridgeGrandpaPalletNames {
 		with_bridged_chain_grandpa_pallet_name:
-		<R as pallet_bridge_grandpa::Config<GI>>::BridgedChain::WITH_CHAIN_GRANDPA_PALLET_NAME,
+			<R as pallet_bridge_grandpa::Config<GI>>::BridgedChain::WITH_CHAIN_GRANDPA_PALLET_NAME,
 	});
 	assert_bridge_messages_pallet_names::<R, MI>(AssertBridgeMessagesPalletNames {
 		with_bridged_chain_messages_pallet_name:
-		<R as pallet_bridge_messages::Config<MI>>::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+			<R as pallet_bridge_messages::Config<MI>>::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 	});
 }
 
@@ -296,21 +298,24 @@ pub fn assert_complete_with_parachain_bridge_constants<R, PI, MI>(
 	assert_chain_constants::<R>(params.this_chain_constants);
 	assert_bridge_grandpa_pallet_constants::<R, R::BridgesGrandpaPalletInstance>();
 	assert_bridge_messages_pallet_constants::<R, MI>();
-	assert_bridge_grandpa_pallet_names::<R, R::BridgesGrandpaPalletInstance>(AssertBridgeGrandpaPalletNames {
-		with_bridged_chain_grandpa_pallet_name:
-		<<R as pallet_bridge_parachains::BoundedBridgeGrandpaConfig<R::BridgesGrandpaPalletInstance>>::BridgedRelayChain>::WITH_CHAIN_GRANDPA_PALLET_NAME,
-	});
+	assert_bridge_grandpa_pallet_names::<R, R::BridgesGrandpaPalletInstance>(
+		AssertBridgeGrandpaPalletNames {
+			with_bridged_chain_grandpa_pallet_name:
+				<<R as pallet_bridge_parachains::BoundedBridgeGrandpaConfig<
+					R::BridgesGrandpaPalletInstance,
+				>>::BridgedRelayChain>::WITH_CHAIN_GRANDPA_PALLET_NAME,
+		},
+	);
 	assert_bridge_messages_pallet_names::<R, MI>(AssertBridgeMessagesPalletNames {
 		with_bridged_chain_messages_pallet_name:
-		<R as pallet_bridge_messages::Config<MI>>::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
-	}
-	);
+			<R as pallet_bridge_messages::Config<MI>>::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+	});
 }
 
-/// All bridge-related constants tests for the standalone messages bridge deployment (only with messages pallets deployed).
-pub fn assert_standalone_messages_bridge_constants<R, MI>(
-	params: AssertCompleteBridgeConstants,
-) where
+/// All bridge-related constants tests for the standalone messages bridge deployment (only with
+/// messages pallets deployed).
+pub fn assert_standalone_messages_bridge_constants<R, MI>(params: AssertCompleteBridgeConstants)
+where
 	R: frame_system::Config + pallet_bridge_messages::Config<MI>,
 	MI: 'static,
 {
@@ -318,7 +323,7 @@ pub fn assert_standalone_messages_bridge_constants<R, MI>(
 	assert_bridge_messages_pallet_constants::<R, MI>();
 	assert_bridge_messages_pallet_names::<R, MI>(AssertBridgeMessagesPalletNames {
 		with_bridged_chain_messages_pallet_name:
-		<R as pallet_bridge_messages::Config<MI>>::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+			<R as pallet_bridge_messages::Config<MI>>::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 	});
 }
 

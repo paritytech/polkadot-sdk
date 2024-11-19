@@ -468,15 +468,15 @@ impl<
 		let mut instructions = if let Some(buy_execution_fee) = maybe_buy_execution_fee {
 			vec![
 				WithdrawAsset(buy_execution_fee.clone().into()),
-				BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited }
+				BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
 			]
 		} else {
-			vec![UnpaidExecution {check_origin: None, weight_limit: Unlimited }]
+			vec![UnpaidExecution { check_origin: None, weight_limit: Unlimited }]
 		};
 
 		// prepare `Transact` xcm
 		instructions.extend(vec![
-			Transact { origin_kind: origin_kind, call: call.encode().into() },
+			Transact { origin_kind, call: call.encode().into() },
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 		let xcm = Xcm(instructions);

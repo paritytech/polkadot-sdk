@@ -434,8 +434,10 @@ TokenLocation: Get<Location>{
 		let buy_execution_fee_amount = 5_000_000_000_000_u128;
 		let buy_execution_fee = (TokenLocation::get(), buy_execution_fee_amount).into();
 
-		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() + buy_execution_fee_amount.into();
-		let source_account_id = LocationToAccountId::convert_location(&source).expect("valid location");
+		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() +
+			buy_execution_fee_amount.into();
+		let source_account_id =
+			LocationToAccountId::convert_location(&source).expect("valid location");
 		let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
 			.expect("mint_into passes");
 		Some(buy_execution_fee)
@@ -545,8 +547,10 @@ TokenLocation: Get<Location>{
 		let buy_execution_fee_amount = 2_500_000_000_000_u128;
 		let buy_execution_fee = (TokenLocation::get(), buy_execution_fee_amount).into();
 
-		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() + buy_execution_fee_amount.into();
-		let source_account_id = LocationToAccountId::convert_location(&expected_source).expect("valid location");
+		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() +
+			buy_execution_fee_amount.into();
+		let source_account_id =
+			LocationToAccountId::convert_location(&expected_source).expect("valid location");
 		let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
 			.expect("mint_into passes");
 		Some(buy_execution_fee)
@@ -559,7 +563,9 @@ TokenLocation: Get<Location>{
 		Runtime,
 		XcmOverBridgePalletInstance,
 	>::close_bridge {
-		bridge_destination_universal_location: Box::new(bridge_destination_universal_location.into()),
+		bridge_destination_universal_location: Box::new(
+			bridge_destination_universal_location.into(),
+		),
 		may_prune_messages: 16,
 	});
 

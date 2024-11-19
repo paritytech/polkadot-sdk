@@ -717,7 +717,10 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 				expected_source.clone(),
 				destination.clone(),
 				is_paid_xcm_execution,
-				|locations, maybe_paid_execution | open_bridge_with_extrinsic::<Runtime, XcmOverBridgePalletInstance>(
+				|locations, maybe_paid_execution| open_bridge_with_extrinsic::<
+					Runtime,
+					XcmOverBridgePalletInstance,
+				>(
 					origin_with_origin_kind.clone(),
 					locations.bridge_destination_universal_location().clone(),
 					maybe_paid_execution

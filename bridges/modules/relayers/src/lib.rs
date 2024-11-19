@@ -24,7 +24,7 @@ use bp_relayers::{
 	ExplicitOrAccountParams, PaymentProcedure, Registration, RelayerRewardsKeyProvider,
 	StakeAndSlash,
 };
-pub use bp_relayers::{RewardsAccountParams, RewardsAccountOwner};
+pub use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::fail;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
