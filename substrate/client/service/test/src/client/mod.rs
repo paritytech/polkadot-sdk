@@ -2091,9 +2091,9 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 		backend,
 		executor,
 		genesis_block_builder,
-		None,
-		None,
 		Box::new(TaskExecutor::new()),
+		None,
+		None,
 		client_config,
 	)
 	.unwrap();
