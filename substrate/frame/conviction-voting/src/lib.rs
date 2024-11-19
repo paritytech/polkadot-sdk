@@ -176,7 +176,7 @@ pub mod pallet {
 		/// A vote has been removed
 		VoteRemoved { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
 		/// The lockup period of a conviction vote expired, and the funds have been unlocked.
-		VoteUnlocked { who: T::AccountId, class: ClassOf<T, I> }
+		VoteUnlocked { who: T::AccountId, class: ClassOf<T, I> },
 	}
 
 	#[pallet::error]

@@ -119,12 +119,7 @@ impl<
 		nays_with_conviction: Votes,
 		support: Votes,
 	) -> Self {
-		Self {
-			ayes: ayes_with_conviction,
-			nays: nays_with_conviction,
-			support,
-			dummy: PhantomData,
-		}
+		Self { ayes: ayes_with_conviction, nays: nays_with_conviction, support, dummy: PhantomData }
 	}
 
 	/// Add an account's vote into the tally.
