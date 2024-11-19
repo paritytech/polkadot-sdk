@@ -24,10 +24,7 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	runtime::{
-		metadata::{block_number, pallet_exists, verify_parachain_compatibility},
-		BlockNumber,
-	},
+	runtime::metadata::verify_parachain_compatibility,
 };
 use codec::Decode;
 use cumulus_client_cli::CollatorOptions;
@@ -52,8 +49,6 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sp_api::{Metadata, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
-
-const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
 
 pub(crate) trait BuildImportQueue<Block: BlockT, RuntimeApi> {
 	fn build_import_queue(
