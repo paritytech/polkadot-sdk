@@ -184,7 +184,7 @@ mod benchmarks {
 			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, true, task);
 		}
 
-		// assert!(result.is_ok());
+		// assert!(_result.is_ok());
 	}
 
 	// `service_task` when the task is a non-periodic, non-named, fetched call (with a known
