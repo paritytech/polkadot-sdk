@@ -48,7 +48,6 @@ macro_rules! match_expression {
 
 pub struct XcmConverter<'a, ConvertAssetId, Call> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
-	message: Vec<Instruction<Call>>,
 	ethereum_network: NetworkId,
 	agent_id: AgentId,
 	_marker: PhantomData<ConvertAssetId>,
@@ -59,7 +58,6 @@ where
 {
 	pub fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId, agent_id: AgentId) -> Self {
 		Self {
-			message: message.clone().inner().into(),
 			iter: message.inner().iter().peekable(),
 			ethereum_network,
 			agent_id,
@@ -68,113 +66,16 @@ where
 	}
 
 	pub fn convert(&mut self) -> Result<Message, XcmConverterError> {
-		let result = match self.jump_to() {
-			// PNA
-			Ok(ReserveAssetDeposited { .. }) => self.send_native_tokens_message(),
-			// ENA
-			Ok(WithdrawAsset { .. }) => self.send_tokens_message(),
-			Err(e) => Err(e),
-			_ => return Err(XcmConverterError::UnexpectedInstruction),
-		}?;
-
-		// All xcm instructions must be consumed before exit.
-		if self.next().is_ok() {
-			return Err(XcmConverterError::EndOfXcmMessageExpected)
-		}
-
+		let result = self.to_ethereum_message()?;
 		Ok(result)
-	}
-
-	/// Convert the xcm for Ethereum-native token from AH into the Message which will be executed
-	/// on Ethereum Gateway contract, we expect an input of the form:
-	/// # WithdrawAsset(WETH_FEE)
-	/// # PayFees(WETH_FEE)
-	/// # WithdrawAsset(ENA)
-	/// # AliasOrigin(Origin)
-	/// # DepositAsset(ENA)
-	/// # SetTopic
-	fn send_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
-		use XcmConverterError::*;
-
-		// Get fee amount
-		let fee_amount = self.extract_remote_fee()?;
-
-		// Get the reserve assets from WithdrawAsset.
-		let reserve_assets =
-			match_expression!(self.next()?, WithdrawAsset(reserve_assets), reserve_assets)
-				.ok_or(WithdrawAssetExpected)?;
-
-		// Check AliasOrigin.
-		let origin_loc = match_expression!(self.next()?, AliasOrigin(origin), origin)
-			.ok_or(AliasOriginExpected)?;
-		let origin = LocationIdOf::convert_location(&origin_loc).ok_or(InvalidOrigin)?;
-
-		let (deposit_assets, beneficiary) = match_expression!(
-			self.next()?,
-			DepositAsset { assets, beneficiary },
-			(assets, beneficiary)
-		)
-		.ok_or(DepositAssetExpected)?;
-
-		// assert that the beneficiary is AccountKey20.
-		let recipient = match_expression!(
-			beneficiary.unpack(),
-			(0, [AccountKey20 { network, key }])
-				if self.network_matches(network),
-			H160(*key)
-		)
-		.ok_or(BeneficiaryResolutionFailed)?;
-
-		// Make sure there are reserved assets.
-		if reserve_assets.len() == 0 {
-			return Err(NoReserveAssets)
-		}
-
-		// Check the the deposit asset filter matches what was reserved.
-		if reserve_assets.inner().iter().any(|asset| !deposit_assets.matches(asset)) {
-			return Err(FilterDoesNotConsumeAllAssets)
-		}
-
-		// We only support a single asset at a time.
-		ensure!(reserve_assets.len() == 1, TooManyAssets);
-		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
-
-		// only fungible asset is allowed
-		let (token, amount) = match reserve_asset {
-			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
-				match inner_location.unpack() {
-					(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
-						Some((H160(*key), *amount)),
-					_ => None,
-				},
-			_ => None,
-		}
-		.ok_or(AssetResolutionFailed)?;
-
-		// transfer amount must be greater than 0.
-		ensure!(amount > 0, ZeroAssetTransfer);
-
-		// ensure SetTopic exists
-		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
-
-		let message = Message {
-			id: (*topic_id).into(),
-			origin,
-			fee: fee_amount,
-			commands: BoundedVec::try_from(vec![Command::UnlockNativeToken {
-				agent_id: self.agent_id,
-				token,
-				recipient,
-				amount,
-			}])
-			.map_err(|_| TooManyCommands)?,
-		};
-
-		Ok(message)
 	}
 
 	fn next(&mut self) -> Result<&'a Instruction<Call>, XcmConverterError> {
 		self.iter.next().ok_or(XcmConverterError::UnexpectedEndOfXcm)
+	}
+
+	fn peek(&mut self) -> Result<&&'a Instruction<Call>, XcmConverterError> {
+		self.iter.peek().ok_or(XcmConverterError::UnexpectedEndOfXcm)
 	}
 
 	fn network_matches(&self, network: &Option<NetworkId>) -> bool {
@@ -183,100 +84,6 @@ where
 		} else {
 			true
 		}
-	}
-
-	/// Convert the xcm for Polkadot-native token from AH into the Message which will be executed
-	/// on Ethereum Gateway contract, we expect an input of the form:
-	/// # WithdrawAsset(WETH)
-	/// # PayFees(WETH)
-	/// # ReserveAssetDeposited(PNA)
-	/// # AliasOrigin(Origin)
-	/// # DepositAsset(PNA)
-	/// # SetTopic
-	fn send_native_tokens_message(&mut self) -> Result<Message, XcmConverterError> {
-		use XcmConverterError::*;
-
-		// Get fee amount
-		let fee_amount = self.extract_remote_fee()?;
-
-		// Get the reserve assets.
-		let reserve_assets =
-			match_expression!(self.next()?, ReserveAssetDeposited(reserve_assets), reserve_assets)
-				.ok_or(ReserveAssetDepositedExpected)?;
-
-		// Check AliasOrigin.
-		let origin_loc = match_expression!(self.next()?, AliasOrigin(origin), origin)
-			.ok_or(AliasOriginExpected)?;
-		let origin = LocationIdOf::convert_location(&origin_loc).ok_or(InvalidOrigin)?;
-
-		let (deposit_assets, beneficiary) = match_expression!(
-			self.next()?,
-			DepositAsset { assets, beneficiary },
-			(assets, beneficiary)
-		)
-		.ok_or(DepositAssetExpected)?;
-
-		// assert that the beneficiary is AccountKey20.
-		let recipient = match_expression!(
-			beneficiary.unpack(),
-			(0, [AccountKey20 { network, key }])
-				if self.network_matches(network),
-			H160(*key)
-		)
-		.ok_or(BeneficiaryResolutionFailed)?;
-
-		// Make sure there are reserved assets.
-		if reserve_assets.len() == 0 {
-			return Err(NoReserveAssets)
-		}
-
-		// Check the the deposit asset filter matches what was reserved.
-		if reserve_assets.inner().iter().any(|asset| !deposit_assets.matches(asset)) {
-			return Err(FilterDoesNotConsumeAllAssets)
-		}
-
-		// We only support a single asset at a time.
-		ensure!(reserve_assets.len() == 1, TooManyAssets);
-		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
-
-		// only fungible asset is allowed
-		let (asset_id, amount) = match reserve_asset {
-			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
-				Some((inner_location.clone(), *amount)),
-			_ => None,
-		}
-		.ok_or(AssetResolutionFailed)?;
-
-		// transfer amount must be greater than 0.
-		ensure!(amount > 0, ZeroAssetTransfer);
-
-		// Ensure PNA already registered
-		let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
-		let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
-		ensure!(asset_id == expected_asset_id, InvalidAsset);
-
-		// ensure SetTopic exists
-		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
-
-		let message = Message {
-			origin,
-			fee: fee_amount,
-			id: (*topic_id).into(),
-			commands: BoundedVec::try_from(vec![Command::MintForeignToken {
-				token_id,
-				recipient,
-				amount,
-			}])
-			.map_err(|_| TooManyCommands)?,
-		};
-
-		Ok(message)
-	}
-
-	/// Skip fee instructions and jump to the primary asset instruction
-	fn jump_to(&mut self) -> Result<&Instruction<Call>, XcmConverterError> {
-		ensure!(self.message.len() > 3, XcmConverterError::UnexpectedEndOfXcm);
-		self.message.get(2).ok_or(XcmConverterError::UnexpectedEndOfXcm)
 	}
 
 	/// Extract the fee asset item from PayFees(V5)
@@ -293,6 +100,130 @@ where
 		}
 		.ok_or(AssetResolutionFailed)?;
 		Ok(fee_amount)
+	}
+
+	/// Convert the xcm for into the Message which will be executed
+	/// on Ethereum Gateway contract, we expect an input of the form:
+	/// # WithdrawAsset(WETH)
+	/// # PayFees(WETH)
+	/// # ReserveAssetDeposited(PNA) | WithdrawAsset(ENA)
+	/// # AliasOrigin(Origin)
+	/// # DepositAsset(PNA|ENA)
+	/// # SetTopic
+	fn to_ethereum_message(&mut self) -> Result<Message, XcmConverterError> {
+		use XcmConverterError::*;
+
+		// Get fee amount
+		let fee_amount = self.extract_remote_fee()?;
+
+		// Get ENA reserve asset from WithdrawAsset.
+		let enas =
+			match_expression!(self.peek(), Ok(WithdrawAsset(reserve_assets)), reserve_assets);
+		if enas.is_some() {
+			let _ = self.next();
+		}
+
+		// Get PNA reserve asset from ReserveAssetDeposited
+		let pnas = match_expression!(
+			self.peek(),
+			Ok(ReserveAssetDeposited(reserve_assets)),
+			reserve_assets
+		);
+		if pnas.is_some() {
+			let _ = self.next();
+		}
+		// Check AliasOrigin.
+		let origin_loc = match_expression!(self.next()?, AliasOrigin(origin), origin)
+			.ok_or(AliasOriginExpected)?;
+		let origin = LocationIdOf::convert_location(&origin_loc).ok_or(InvalidOrigin)?;
+
+		let (_, beneficiary) = match_expression!(
+			self.next()?,
+			DepositAsset { assets, beneficiary },
+			(assets, beneficiary)
+		)
+		.ok_or(DepositAssetExpected)?;
+
+		// assert that the beneficiary is AccountKey20.
+		let recipient = match_expression!(
+			beneficiary.unpack(),
+			(0, [AccountKey20 { network, key }])
+				if self.network_matches(network),
+			H160(*key)
+		)
+		.ok_or(BeneficiaryResolutionFailed)?;
+
+		// Make sure there are reserved assets.
+		if enas.is_none() && pnas.is_none() {
+			return Err(NoReserveAssets)
+		}
+
+		let mut commands: Vec<Command> = Vec::new();
+
+		if let Some(enas) = enas {
+			for ena in enas.clone().inner().iter() {
+				// only fungible asset is allowed
+				let (token, amount) = match ena {
+					Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+						match inner_location.unpack() {
+							(0, [AccountKey20 { network, key }])
+								if self.network_matches(network) =>
+								Some((H160(*key), *amount)),
+							_ => None,
+						},
+					_ => None,
+				}
+				.ok_or(AssetResolutionFailed)?;
+
+				// transfer amount must be greater than 0.
+				ensure!(amount > 0, ZeroAssetTransfer);
+
+				commands.push(Command::UnlockNativeToken {
+					agent_id: self.agent_id,
+					token,
+					recipient,
+					amount,
+				});
+			}
+		}
+
+		if let Some(pnas) = pnas {
+			for pna in pnas.clone().inner().iter() {
+				let (asset_id, amount) = match pna {
+					Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+						Some((inner_location.clone(), *amount)),
+					_ => None,
+				}
+				.ok_or(AssetResolutionFailed)?;
+
+				// transfer amount must be greater than 0.
+				ensure!(amount > 0, ZeroAssetTransfer);
+
+				// Ensure PNA already registered
+				let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
+				let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
+				ensure!(asset_id == expected_asset_id, InvalidAsset);
+
+				commands.push(Command::MintForeignToken { token_id, recipient, amount });
+			}
+		}
+
+		// ensure SetTopic exists
+		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
+
+		let message = Message {
+			id: (*topic_id).into(),
+			origin,
+			fee: fee_amount,
+			commands: BoundedVec::try_from(commands).map_err(|_| TooManyCommands)?,
+		};
+
+		// All xcm instructions must be consumed before exit.
+		if self.next().is_ok() {
+			return Err(EndOfXcmMessageExpected)
+		}
+
+		Ok(message)
 	}
 }
 

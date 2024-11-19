@@ -18,7 +18,7 @@ use xcm::prelude::*;
 use xcm_builder::{CreateMatcher, ExporterFor, MatchXcm};
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
-const TARGET: &'static str = "xcm::ethereum_blob_exporter::v2";
+pub const TARGET: &'static str = "xcm::ethereum_blob_exporter::v2";
 
 pub struct EthereumBlobExporter<
 	UniversalLocation,
@@ -61,6 +61,8 @@ where
 		destination: &mut Option<InteriorLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
+		log::debug!(target: TARGET, "message route through bridge {message:?}.");
+
 		let expected_network = EthereumNetwork::get();
 		let universal_location = UniversalLocation::get();
 
