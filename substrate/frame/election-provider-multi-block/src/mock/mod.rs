@@ -44,7 +44,7 @@ use sp_runtime::{
 	},
 	BuildStorage, Perbill,
 };
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 frame_support::construct_runtime!(
 	pub struct Runtime {
@@ -314,6 +314,11 @@ impl ExtBuilder {
 		self
 	}
 
+	pub(crate) fn export_limit(self, blocks: BlockNumber) -> Self {
+		ExportPhaseLimit::set(blocks);
+		self
+	}
+
 	pub(crate) fn max_winners_per_page(self, max: u32) -> Self {
 		MaxWinnersPerPage::set(max);
 		self
@@ -543,6 +548,26 @@ pub fn election_prediction() -> BlockNumber {
 	<<Runtime as Config>::DataProvider as ElectionDataProvider>::next_election_prediction(
 		System::block_number(),
 	)
+}
+
+pub fn calculate_phases() -> HashMap<&'static str, BlockNumber> {
+	let mut map = HashMap::new();
+
+	let next_election = election_prediction();
+
+	let export_deadline = next_election - (ExportPhaseLimit::get() + Lookhaead::get());
+	let expected_unsigned = export_deadline - UnsignedPhase::get();
+	let expected_validate = expected_unsigned - SignedValidationPhase::get();
+	let expected_signed = expected_validate - SignedPhase::get();
+	let expected_snapshot = expected_signed - Pages::get() as u64;
+
+	map.insert("export", export_deadline);
+	map.insert("unsigned", expected_unsigned);
+	map.insert("validate", expected_validate);
+	map.insert("signed", expected_signed);
+	map.insert("snapshot", expected_snapshot);
+
+	map
 }
 
 pub fn current_phase() -> Phase<BlockNumber> {

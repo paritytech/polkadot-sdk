@@ -16,12 +16,12 @@
 // limitations under the License.
 
 use super::*;
+use crate::mock::*;
+
+use frame_support::testing_prelude::*;
 
 mod phase_transition {
 	use super::*;
-	use crate::mock::*;
-
-	use frame_support::assert_ok;
 
 	#[test]
 	fn single_page() {
@@ -43,25 +43,20 @@ mod phase_transition {
             );
             assert_eq!(next_election, 30);
 
-            // representing the blocknumber when the phase transition happens.
-			let export_deadline = next_election - (ExportPhaseLimit::get() + Lookhaead::get());
-			let expected_unsigned = export_deadline - UnsignedPhase::get();
-			let expected_validate = expected_unsigned - SignedValidationPhase::get();
-			let expected_signed = expected_validate - SignedPhase::get();
-			let expected_snapshot = expected_signed - Pages::get() as u64;
+            let phase_transitions = calculate_phases();
 
 			// tests transition phase boundaries.
-            roll_to(expected_snapshot);
+            roll_to(*phase_transitions.get("snapshot").unwrap());
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Snapshot(Pages::get() - 1));
 
-            roll_to(expected_signed);
+            roll_to(*phase_transitions.get("signed").unwrap());
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Signed);
 
-            roll_to(expected_validate);
+            roll_to(*phase_transitions.get("validate").unwrap());
             let start_validate = System::block_number();
             assert_eq!(<CurrentPhase<T>>::get(), Phase::SignedValidation(start_validate));
 
-            roll_to(expected_unsigned);
+            roll_to(*phase_transitions.get("unsigned").unwrap());
             let start_unsigned = System::block_number();
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned));
 
@@ -96,39 +91,34 @@ mod phase_transition {
             );
             assert_eq!(next_election, 30);
 
-            // representing the blocknumber when the phase transition happens.
-			let export_deadline = next_election - (ExportPhaseLimit::get() + Lookhaead::get());
-			let expected_unsigned = export_deadline - UnsignedPhase::get();
-			let expected_validate = expected_unsigned - SignedValidationPhase::get();
-			let expected_signed = expected_validate - SignedPhase::get();
-			let expected_snapshot = expected_signed - Pages::get() as u64;
+            let phase_transitions = calculate_phases();
 
             // two blocks for snapshot.
-            roll_to(expected_snapshot);
+            roll_to(*phase_transitions.get("snapshot").unwrap());
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Snapshot(Pages::get() - 1));
 
-            roll_to(expected_snapshot + 1);
+            roll_one();
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Snapshot(0));
 
             // ensure snapshot is sound by end of snapshot phase.
             assert_ok!(Snapshot::<T>::ensure());
 
-            roll_to(expected_signed);
+            roll_to(*phase_transitions.get("signed").unwrap());
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Signed);
 
-            roll_to(expected_signed + 1);
+            roll_one();
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Signed);
 
             // two blocks for validate signed.
-            roll_to(expected_validate);
+            roll_to(*phase_transitions.get("validate").unwrap());
             let start_validate = System::block_number();
             assert_eq!(<CurrentPhase<T>>::get(), Phase::SignedValidation(start_validate));
 
             // now in unsigned until elect() is called.
-            roll_to(expected_validate + 2);
+            roll_one();
+            roll_one();
             let start_unsigned = System::block_number();
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned - 1));
-
 		})
 	}
 
@@ -175,9 +165,67 @@ mod phase_transition {
 	}
 }
 
+mod phase_transition_errors {
+	use super::*;
+
+	#[test]
+	fn snapshot_fails() {
+		ExtBuilder::default().build_and_execute(|| {
+			let phase_transitions = calculate_phases();
+
+			// if election fails, enters in emergency phase.
+			ElectionFailure::<T>::set(ElectionFailureStrategy::Emergency);
+
+			// force error from data provider when fetching the electable targets.
+			data_provider_errors(true);
+			// roll to target snapshot block.
+			roll_to(phase_transitions.get("snapshot").unwrap() - 1);
+			// data provider errors when fetching target snapshot, enters in emergency phase.
+			assert_eq!(<CurrentPhase<T>>::get(), Phase::Emergency);
+
+			Pallet::<T>::reset_round_restart();
+			assert_eq!(current_phase(), Phase::Off);
+
+			data_provider_errors(false);
+			// target snapshot works.
+			roll_to(*phase_transitions.get("snapshot").unwrap());
+			assert!(<CurrentPhase<T>>::get() != Phase::Emergency);
+
+			// target snapshot and page msp of voters has been successfully prepared.
+			assert!(Snapshot::<T>::targets().is_some());
+			roll_one();
+			assert!(Snapshot::<T>::voters(MultiPhase::msp()).is_some());
+
+			// fail the next voter page, enter in emergency phase.
+			data_provider_errors(true);
+			roll_one();
+			assert_eq!(<CurrentPhase<T>>::get(), Phase::Emergency);
+		})
+	}
+
+	#[test]
+	fn export_fails() {
+		let (mut ext, _) = ExtBuilder::default().export_limit(10).build_offchainify(1);
+
+		ext.execute_with(|| {
+			// if election fails, enters in emergency phase.
+			ElectionFailure::<T>::set(ElectionFailureStrategy::Emergency);
+
+			assert_eq!(ExportPhaseLimit::get(), 10);
+
+			roll_to_export();
+			assert!(current_phase().is_export());
+
+			// exceed the export phase block limit without calling elect, thus failing the
+			// election.
+			roll_to(System::block_number() + ExportPhaseLimit::get() + 1);
+			assert_eq!(current_phase(), Phase::Emergency);
+		})
+	}
+}
+
 mod snapshot {
 	use super::*;
-	use crate::mock::*;
 
 	use frame_support::{assert_noop, assert_ok};
 
@@ -201,11 +249,11 @@ mod snapshot {
 			assert!(Snapshot::<T>::voters(1).is_some());
 
 			// ensure snapshot is sound.
-            force_phase(Phase::Signed);
+			force_phase(Phase::Signed);
 			assert_ok!(Snapshot::<T>::ensure());
 
-            // force Off and clear up snapshot.
-            force_phase(Phase::Off);
+			// force Off and clear up snapshot.
+			force_phase(Phase::Off);
 			Snapshot::<T>::kill();
 			assert!(Snapshot::<T>::targets().is_none());
 			assert!(Snapshot::<T>::voters(0).is_none());
@@ -314,7 +362,7 @@ mod snapshot {
 
 			assert_ok!(MultiPhase::create_targets_snapshot());
 
-            force_phase(Phase::Signed);
+			force_phase(Phase::Signed);
 			assert_ok!(Snapshot::<T>::ensure());
 		})
 	}
@@ -362,8 +410,7 @@ mod snapshot {
 
 mod election_provider {
 	use super::*;
-	use crate::{mock::*, unsigned::miner::Miner};
-	use frame_support::testing_prelude::*;
+	use crate::unsigned::miner::Miner;
 
 	#[test]
 	fn snapshot_to_supports_conversions_work() {

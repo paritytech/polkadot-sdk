@@ -383,7 +383,7 @@ pub mod pallet {
 				Phase::Off
 					if remaining_blocks <= snapshot_deadline &&
 						remaining_blocks > signed_deadline =>
-				    // allocate one extra block for the (single-page) target snapshot.
+				// allocate one extra block for the (single-page) target snapshot.
 					Self::try_progress_snapshot(T::Pages::get() + 1),
 
 				// continue snapshot.
@@ -425,7 +425,7 @@ pub mod pallet {
 				},
 
 				// election solution **MAY** be ready, start export phase to allow external pallets
-                // to request paged election solutions.
+				// to request paged election solutions.
 				Phase::Export(started_at) => Self::do_export_phase(now, started_at),
 
 				_ => T::WeightInfo::on_initialize_do_nothing(),
@@ -675,6 +675,9 @@ impl<T: Config> Pallet<T> {
 				},
 				Err(err) => {
 					log!(error, "error preparing targets snapshot: {:?}", err);
+					// target snapshot cannot fail, handle election failure.
+					Self::handle_election_failure();
+
 					// TODO: T::WeightInfo::snapshot_error();
 					Weight::default()
 				},
@@ -694,6 +697,8 @@ impl<T: Config> Pallet<T> {
 				},
 				Err(err) => {
 					log!(error, "error preparing voter snapshot: {:?}", err);
+					Self::handle_election_failure();
+
 					// TODO: T::WeightInfo::snapshot_error();
 					Weight::default()
 				},
@@ -729,11 +734,7 @@ impl<T: Config> Pallet<T> {
 				"phase `Export` has been open for too long ({:?} blocks). election round failed.",
 				T::ExportPhaseLimit::get(),
 			);
-
-			match ElectionFailure::<T>::get() {
-				ElectionFailureStrategy::Restart => Self::reset_round_restart(),
-				ElectionFailureStrategy::Emergency => Self::phase_transition(Phase::Emergency),
-			}
+			Self::handle_election_failure();
 		}
 
 		T::WeightInfo::on_initialize_start_export()
@@ -766,6 +767,14 @@ impl<T: Config> Pallet<T> {
 
 		Snapshot::<T>::kill();
 		<T::Verifier as Verifier>::kill();
+	}
+
+	/// Handles an election failure.
+	fn handle_election_failure() {
+		match ElectionFailure::<T>::get() {
+			ElectionFailureStrategy::Restart => Self::reset_round_restart(),
+			ElectionFailureStrategy::Emergency => Self::phase_transition(Phase::Emergency),
+		}
 	}
 }
 
@@ -810,12 +819,8 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			})
 			.map_err(|err| {
 				log!(error, "elect(): fetching election page {} and fallback failed.", remaining);
+				Self::handle_election_failure();
 
-				match ElectionFailure::<T>::get() {
-					// force emergency phase for testing.
-					ElectionFailureStrategy::Restart => Self::reset_round_restart(),
-					ElectionFailureStrategy::Emergency => Self::phase_transition(Phase::Emergency),
-				}
 				err
 			})
 	}
