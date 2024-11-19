@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::{input, u256_bytes};
 use uapi::{HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
@@ -30,24 +30,17 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		address: &[u8; 20],
-		ref_time: u64,
-		proof_size: u64,
+		deposit_limit: u64,
 	);
+
+	let input = [0u8; 0];
+	api::delegate_call(uapi::CallFlags::empty(), address, 0, 0, Some(&u256_bytes(deposit_limit)), &input, None).unwrap();
 
 	let mut key = [0u8; 32];
 	key[0] = 1u8;
 
 	let mut value = [0u8; 32];
-	let value = &mut &mut value[..];
-	value[0] = 2u8;
 
-	api::set_storage(StorageFlags::empty(), &key, value);
-	api::get_storage(StorageFlags::empty(), &key, value).unwrap();
-	assert!(value[0] == 2u8);
-
-	let input = [0u8; 0];
-	api::delegate_call(uapi::CallFlags::empty(), address, ref_time, proof_size, None, &input, None).unwrap();
-
-	api::get_storage(StorageFlags::empty(), &key, value).unwrap();
+	api::get_storage(StorageFlags::empty(), &key,  &mut &mut value[..]).unwrap();
 	assert!(value[0] == 1u8);
 }
