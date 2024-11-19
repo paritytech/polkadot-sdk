@@ -17,9 +17,11 @@
 
 //! Offences pallet benchmarking.
 
+#![cfg(feature = "runtime-benchmarks")]
+
 use alloc::{vec, vec::Vec};
 
-use frame_benchmarking::v1::{account, benchmarks};
+use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::{Config as SystemConfig, Pallet as System, RawOrigin};
 
@@ -170,18 +172,20 @@ fn make_offenders<T: Config>(
 	Ok((id_tuples, offenders))
 }
 
-benchmarks! {
-	where_clause {
+#[benchmarks(
 		where
 		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_staking::Event<T>>,
 		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_balances::Event<T>>,
 		<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_offences::Event>,
 		<T as frame_system::Config>::RuntimeEvent: TryInto<frame_system::Event<T>>,
-	}
+	)]
+mod benchmarks {
+	use super::*;
 
-	report_offence_grandpa {
-		let n in 0 .. MAX_NOMINATORS.min(MaxNominationsOf::<T>::get());
-
+	#[benchmark]
+	fn report_offence_grandpa(
+		n: Linear<0, { MAX_NOMINATORS.min(MaxNominationsOf::<T>::get()) }>,
+	) -> Result<(), BenchmarkError> {
 		// for grandpa equivocation reports the number of reporters
 		// and offenders is always 1
 		let reporters = vec![account("reporter", 1, SEED)];
@@ -199,28 +203,36 @@ benchmarks! {
 			offender: T::convert(offenders.pop().unwrap()),
 		};
 		assert_eq!(System::<T>::event_count(), 0);
-	}: {
-		let _ = Offences::<T>::report_offence(reporters, offence);
-	}
-	verify {
+
+		#[extrinsic_call]
+		Offences::<T>::report_offence(reporters, offence);
+
 		#[cfg(test)]
 		{
 			// make sure that all slashes have been applied
 			// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
 			// account endowed + some funds rescinded from issuance.
-			assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
+			assert_eq!(
+				System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(),
+				2 * (n + 1) as usize + 3
+			);
 			// (n nominators + one validator) * slashed + Slash Reported
-			assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
+			assert_eq!(
+				System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
+				1 * (n + 1) as usize + 1
+			);
 			// offence
 			assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
 			// reporter new account
 			assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
 		}
+		Ok(())
 	}
 
-	report_offence_babe {
-		let n in 0 .. MAX_NOMINATORS.min(MaxNominationsOf::<T>::get());
-
+	#[benchmark]
+	fn report_offence_babe(
+		n: Linear<0, { MAX_NOMINATORS.min(MaxNominationsOf::<T>::get()) }>,
+	) -> Result<(), BenchmarkError> {
 		// for babe equivocation reports the number of reporters
 		// and offenders is always 1
 		let reporters = vec![account("reporter", 1, SEED)];
@@ -238,23 +250,31 @@ benchmarks! {
 			offender: T::convert(offenders.pop().unwrap()),
 		};
 		assert_eq!(System::<T>::event_count(), 0);
-	}: {
-		let _ = Offences::<T>::report_offence(reporters, offence);
-	}
-	verify {
+
+		#[extrinsic_call]
+		Offences::<T>::report_offence(reporters, offence);
+
 		#[cfg(test)]
 		{
 			// make sure that all slashes have been applied
 			// (n nominators + one validator) * (slashed + unlocked) + deposit to reporter + reporter
 			// account endowed + some funds rescinded from issuance.
-			assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2 * (n + 1) as usize + 3);
+			assert_eq!(
+				System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(),
+				2 * (n + 1) as usize + 3
+			);
 			// (n nominators + one validator) * slashed + Slash Reported
-			assert_eq!(System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(), 1 * (n + 1) as usize + 1);
+			assert_eq!(
+				System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
+				1 * (n + 1) as usize + 1
+			);
 			// offence
 			assert_eq!(System::<T>::read_events_for_pallet::<pallet_offences::Event>().len(), 1);
 			// reporter new account
 			assert_eq!(System::<T>::read_events_for_pallet::<frame_system::Event<T>>().len(), 1);
 		}
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
