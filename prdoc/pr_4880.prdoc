@@ -24,6 +24,6 @@ doc:
 
 crates:
   - name: "polkadot-collator-protocol"
-    bump: "minor"
+    bump: "patch"
   - name: "polkadot"
-    bump: "minor"
+    bump: "patch"
