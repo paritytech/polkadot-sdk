@@ -317,7 +317,7 @@ jobs:
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
 
   upload-artifacts-to-s3:
-    if: ${{ inputs.package != 'polkadot' || inputs.package != 'polkadot-parachain-bin' && inputs.platform == 'amd64' }}
+    if: ${{ inputs.package != 'polkadot' && inputs.package != 'polkadot-parachain-bin' && inputs.platform == 'amd64' }}
     needs: [build-rc]
     uses: ./.github/workflows/release-reusable-s3-upload.yml
     with:
