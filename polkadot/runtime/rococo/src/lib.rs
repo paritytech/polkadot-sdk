@@ -82,9 +82,9 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, Contains, EitherOf,
-		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EverythingBut, InstanceFilter,
+		EitherOfDiverse, EnsureOriginWithArg, EverythingBut, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError,
-		StorageMapShim, WithdrawReasons,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -281,7 +281,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 		origin: RuntimeOrigin,
 		key: &RuntimeParametersKey,
 	) -> Result<Self::Success, RuntimeOrigin> {
-		use crate::{dynamic_params::*, governance::*, RuntimeParametersKey::*};
+		use crate::RuntimeParametersKey::*;
 
 		match key {
 			Preimage(_) => frame_system::ensure_root(origin.clone()),
