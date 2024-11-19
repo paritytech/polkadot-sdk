@@ -673,7 +673,7 @@ fn pool_slash_proportional() {
 		// and therefore applying slash fails
 		assert_noop!(
 			Pools::apply_slash(RuntimeOrigin::signed(10), 21),
-			PoolsError::<Runtime>::SlashTooLow
+			PoolsError::<Runtime>::NothingToSlash
 		);
 
 		hypothetically!({

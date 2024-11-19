@@ -3585,13 +3585,13 @@ impl<T: Config> Pallet<T> {
 		let pending_slash =
 			Self::member_pending_slash(Member::from(member_account.clone()), member.clone())?;
 
+		// ensure there is something to slash.
+		ensure!(!pending_slash.is_zero(), Error::<T>::NothingToSlash);
+
 		if enforce_min_slash {
 			// ensure slashed amount is at least the minimum balance.
 			ensure!(pending_slash >= T::Currency::minimum_balance(), Error::<T>::SlashTooLow);
-		} else {
-			// in any case ensure there is something to slash.
-			ensure!(!pending_slash.is_zero(), Error::<T>::NothingToSlash);
-		};
+		}
 
 		T::StakeAdapter::member_slash(
 			Member::from(member_account.clone()),
