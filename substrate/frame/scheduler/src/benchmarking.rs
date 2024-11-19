@@ -18,7 +18,7 @@
 //! Pallet pallet benchmarking.
 
 use alloc::vec;
-use frame_benchmarking::{v2::*, BenchmarkError};
+use frame_benchmarking::v2::*;
 use frame_support::{
 	ensure,
 	traits::{schedule::Priority, BoundedInline},
