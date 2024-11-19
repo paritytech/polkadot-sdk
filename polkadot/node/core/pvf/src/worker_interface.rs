@@ -237,10 +237,8 @@ impl WorkerHandle {
 		// Clear all env vars from the spawned process.
 		let mut command = process::Command::new(program.as_ref());
 		command.env_clear();
-		// Add back any env vars we want to keep.
-		if let Ok(value) = std::env::var("RUST_LOG") {
-			command.env("RUST_LOG", value);
-		}
+
+		command.env("RUST_LOG", sc_tracing::logging::get_directives().join(","));
 
 		let mut child = command
 			.args(extra_args)
