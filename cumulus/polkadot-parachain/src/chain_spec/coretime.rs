@@ -155,7 +155,6 @@ pub mod rococo {
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
 	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-versi";
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
-	const CORETIME_ROCOCO_ED: Balance = coretime_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// Rococo defaults
@@ -195,43 +194,6 @@ pub mod rococo {
 		))
 		.with_properties(properties)
 		.build()
-	}
-
-	fn genesis(
-		invulnerables: Vec<(AccountId, AuraId)>,
-		endowed_accounts: Vec<AccountId>,
-		id: ParaId,
-	) -> serde_json::Value {
-		serde_json::json!({
-			"balances": {
-				"balances": endowed_accounts.iter().cloned().map(|k| (k, CORETIME_ROCOCO_ED * 4096)).collect::<Vec<_>>(),
-			},
-			"parachainInfo": {
-				"parachainId": id,
-			},
-			"collatorSelection": {
-				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacyBond": CORETIME_ROCOCO_ED * 16,
-			},
-			"session": {
-				"keys": invulnerables
-					.into_iter()
-					.map(|(acc, aura)| {
-						(
-							acc.clone(),                                   // account id
-							acc,                                           // validator id
-							coretime_rococo_runtime::SessionKeys { aura }, // session keys
-						)
-					})
-					.collect::<Vec<_>>(),
-			},
-			"polkadotXcm": {
-				"safeXcmVersion": Some(SAFE_XCM_VERSION),
-			},
-			"sudo": {
-				"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
-			},
-		})
 	}
 }
 
