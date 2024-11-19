@@ -144,7 +144,10 @@ impl ElectionDataProvider for MockStaking {
 	}
 
 	fn desired_targets() -> data_provider::Result<u32> {
-		Ok(DesiredTargets::get())
+		match DataProviderErrors::get() {
+			true => Err("MockDataProviderError"),
+			false => Ok(DesiredTargets::get()),
+		}
 	}
 
 	fn next_election_prediction(now: Self::BlockNumber) -> Self::BlockNumber {

@@ -124,7 +124,7 @@ mod sync_verifier {
 
 	#[test]
 	fn next_missing_solution_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().core_try_state(false).build_and_execute(|| {
 			let supports: SupportsOf<Pallet<T>> = Default::default();
 			let msp = crate::Pallet::<T>::msp();
 			assert!(msp == <T as crate::Config>::Pages::get() - 1 && msp == 2);

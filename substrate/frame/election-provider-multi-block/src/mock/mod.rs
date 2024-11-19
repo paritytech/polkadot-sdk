@@ -272,9 +272,15 @@ impl ElectionProvider for MockFallback {
 	}
 }
 
-#[derive(Default)]
+#[derive(Copy, Clone)]
 pub struct ExtBuilder {
-	with_verifier: bool,
+	core_try_state: bool,
+}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self { core_try_state: true }
+	}
 }
 
 // TODO(gpestana): separate ext builder into separate builders for each pallet.
@@ -344,8 +350,9 @@ impl ExtBuilder {
 		self
 	}
 
-	pub(crate) fn verifier() -> Self {
-		ExtBuilder { with_verifier: true }
+	pub(crate) fn core_try_state(mut self, enable: bool) -> Self {
+		self.core_try_state = enable;
+		self
 	}
 
 	pub(crate) fn build(self) -> sp_io::TestExternalities {
@@ -377,10 +384,6 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
-		if self.with_verifier {
-			// nothing special for now
-		}
-
 		sp_io::TestExternalities::from(storage)
 	}
 
@@ -407,13 +410,18 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 
-		#[cfg(feature = "try-runtime")]
 		ext.execute_with(|| {
-			//MultiPhase::do_try_state().unwrap();
-			// etc..
+			if self.core_try_state {
+				MultiPhase::do_try_state(System::block_number())
+					.map_err(|err| println!(" 🕵️‍♂️  Core pallet `try_state` failure: {:?}", err))
+					.unwrap();
+			}
 
+			/*
+			TODO: add all pallets' try_state.
 			let _ = VerifierPallet::do_try_state()
-				.map_err(|err| println!(" 🕵️‍♂️  Verifier `try_state` failure: {:?}", err));
+				.map_err(|err| println!(" 🕵️‍♂️  Verifier `try_state` failure: {:?}", err)).unwrap();
+			*/
 		});
 	}
 }
@@ -425,16 +433,19 @@ pub(crate) fn force_phase(phase: Phase<BlockNumber>) {
 pub(crate) fn compute_snapshot_checked() {
 	let msp = crate::Pallet::<T>::msp();
 
-	for page in (0..=Pages::get()).rev() {
-		force_phase(Phase::Snapshot(page));
-		crate::Pallet::<T>::try_progress_snapshot(page);
+	crate::Pallet::<T>::try_start_snapshot();
+	assert!(Snapshot::<T>::targets().is_some());
 
-		assert!(Snapshot::<T>::targets_snapshot_exists());
+	for page in (1..=Pages::get()).rev() {
+		force_phase(Phase::Snapshot(page - 1));
+		crate::Pallet::<T>::try_progress_snapshot();
 
 		if page <= msp {
 			assert!(Snapshot::<T>::voters(page).is_some());
 		}
 	}
+
+	Snapshot::<T>::ensure().unwrap();
 }
 
 pub(crate) fn mine_and_verify_all() -> Result<
@@ -558,8 +569,8 @@ pub fn calculate_phases() -> HashMap<&'static str, BlockNumber> {
 	let export_deadline = next_election - (ExportPhaseLimit::get() + Lookhaead::get());
 	let expected_unsigned = export_deadline - UnsignedPhase::get();
 	let expected_validate = expected_unsigned - SignedValidationPhase::get();
-	let expected_signed = expected_validate - SignedPhase::get();
-	let expected_snapshot = expected_signed - Pages::get() as u64;
+	let expected_signed = expected_validate - SignedPhase::get() + 1;
+	let expected_snapshot = expected_signed - Pages::get() as u64 - 1;
 
 	map.insert("export", export_deadline);
 	map.insert("unsigned", expected_unsigned);

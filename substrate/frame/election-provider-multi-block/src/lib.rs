@@ -101,7 +101,7 @@ use frame_support::{
 	traits::{Defensive, DefensiveSaturating, Get},
 	BoundedVec,
 };
-use sp_runtime::traits::{One, Zero};
+use sp_runtime::traits::Zero;
 
 use frame_system::pallet_prelude::BlockNumberFor;
 
@@ -345,9 +345,7 @@ pub mod pallet {
 			let signed_validation_deadline =
 				unsigned_deadline.saturating_add(T::SignedValidationPhase::get());
 			let signed_deadline = signed_validation_deadline.saturating_add(T::SignedPhase::get());
-			let snapshot_deadline = signed_deadline
-				.saturating_add(T::Pages::get().into())
-				.saturating_add(One::one());
+			let snapshot_deadline = signed_deadline.saturating_add(T::Pages::get().into());
 
 			let next_election = T::DataProvider::next_election_prediction(now)
 				.saturating_sub(T::Lookhaead::get())
@@ -383,23 +381,35 @@ pub mod pallet {
 				Phase::Off
 					if remaining_blocks <= snapshot_deadline &&
 						remaining_blocks > signed_deadline =>
-				// allocate one extra block for the (single-page) target snapshot.
-					Self::try_progress_snapshot(T::Pages::get() + 1),
+					match Self::try_start_snapshot() {
+						Ok(weight) => weight,
+						Err(weight) => {
+							Self::handle_election_failure();
+							weight
+						},
+					},
 
 				// continue snapshot.
-				Phase::Snapshot(x) if x > 0 => Self::try_progress_snapshot(x.saturating_sub(1)),
+				Phase::Snapshot(page) => {
+					let weight = match Self::try_progress_snapshot() {
+						Ok(weight) => weight,
+						Err(weight) => {
+							Self::handle_election_failure();
+							return weight
+						},
+					};
 
-				// start unsigned phase if snapshot is ready and signed phase is disabled.
-				Phase::Snapshot(0) if T::SignedPhase::get().is_zero() => {
-					Self::phase_transition(Phase::Unsigned(now));
-					T::WeightInfo::on_phase_transition()
+					match page.is_zero() {
+						true if !T::SignedPhase::get().is_zero() =>
+							Self::phase_transition(Phase::Signed),
+						// start unsigned phase if snapshot is ready and signed phase is disabled.
+						true if T::SignedPhase::get().is_zero() =>
+							Self::phase_transition(Phase::Unsigned(now)),
+						_ => Self::phase_transition(Phase::Snapshot(page.saturating_sub(1))),
+					}
+
+					weight.saturating_add(T::WeightInfo::on_phase_transition())
 				},
-
-				// start signed phase. The `signed` sub-pallet will take further actions now.
-				Phase::Snapshot(0)
-					if remaining_blocks <= signed_deadline &&
-						remaining_blocks > signed_validation_deadline =>
-					Self::start_signed_phase(),
 
 				// start signed validation. The `signed` sub-pallet will take further actions now.
 				Phase::Signed
@@ -411,7 +421,7 @@ pub mod pallet {
 				},
 
 				// start unsigned phase. The `unsigned` sub-pallet will take further actions now.
-				Phase::Signed | Phase::SignedValidation(_) | Phase::Snapshot(0)
+				Phase::Signed | Phase::SignedValidation(_)
 					if remaining_blocks <= unsigned_deadline && remaining_blocks > Zero::zero() =>
 				{
 					Self::phase_transition(Phase::Unsigned(now));
@@ -442,10 +452,51 @@ pub mod pallet {
 				T::Pages::get(),
 			);
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state(n)
+		}
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
+}
+
+#[cfg(any(test, feature = "try-runtime"))]
+impl<T: Config> Pallet<T> {
+	pub(crate) fn do_try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::check_snapshot()?;
+		Self::check_election_provider_ongoing()
+	}
+
+	/// Invariants:
+	/// * If Phase::Off, no snapshot should exist.
+	/// * If Phase::Snapshot phase is on, we expect the target snapshot to exist and `N` pages of
+	/// voter snapshot should exist, where `N` is the number of blocks that the snapshot phase has
+	/// been open for.
+	fn check_snapshot() -> Result<(), sp_runtime::TryRuntimeError> {
+		Snapshot::<T>::ensure()?;
+		Ok(())
+	}
+
+	/// Invariants:
+	/// * If Phase::Off or Phase::Emergency is on, election should not be ongoing.
+	/// * Otherwhise, election is ongoing.
+	fn check_election_provider_ongoing() -> Result<(), sp_runtime::TryRuntimeError> {
+		match Self::current_phase() {
+			Phase::Off | Phase::Emergency =>
+				if <Pallet<T> as ElectionProvider>::ongoing() == true {
+					return Err("election ongoing in wrong phase.".into());
+				},
+			_ =>
+				if <Pallet<T> as ElectionProvider>::ongoing() != true {
+					return Err("election should be ongoing.".into());
+				},
+		}
+
+		Ok(())
+	}
 }
 
 /// Wrapper struct for working with snapshots.
@@ -472,11 +523,6 @@ impl<T: Config> Snapshot<T> {
 	/// The target snapshot is single paged.
 	fn set_targets(targets: TargetPageOf<T>) {
 		TargetSnapshot::<T>::set(Some(targets));
-	}
-
-	/// Returns whether the target snapshot exists in storage.
-	fn targets_snapshot_exists() -> bool {
-		TargetSnapshot::<T>::get().is_some()
 	}
 
 	/// Returns the number of desired targets, as defined by [`T::DataProvider`].
@@ -508,42 +554,48 @@ impl<T: Config> Snapshot<T> {
 	/// At the end of a round, all the snapshot related data must be cleared. Clearing the
 	/// snapshot data **MUST* only be performed only during `Phase::Off`.
 	fn kill() {
+		debug_assert_eq!(<CurrentPhase<T>>::get(), Phase::Off);
+
 		let _ = PagedVoterSnapshot::<T>::clear(u32::MAX, None);
 		let _ = TargetSnapshot::<T>::kill();
-
-		debug_assert_eq!(<CurrentPhase<T>>::get(), Phase::Off);
 	}
+}
 
-	#[cfg(any(test, debug_assertions))]
-	#[allow(dead_code)]
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+impl<T: Config> Snapshot<T> {
 	pub(crate) fn ensure() -> Result<(), &'static str> {
-		// if phase off, snapshot should be empty.
-		if Pallet::<T>::current_phase().is_off() {
-			ensure!(Self::targets().is_none(), "phase off, no target snapshot expected.");
-			for page in (crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp()).rev() {
+		let check_voter_snapshots = |upto: u32| {
+			for page in (upto..=crate::Pallet::<T>::msp()).rev() {
 				ensure!(
-					Self::voters(page).is_none(),
-					"phase off, no voter snapshot page expected."
+					Self::voters(page).is_some(),
+					"at least one page of the snapshot does not exist"
 				);
 			}
-			return Ok(());
+			Ok(())
+		};
+
+		// if phase off, snapshot should be empty.
+		match Pallet::<T>::current_phase() {
+			Phase::Off => {
+				ensure!(Self::targets().is_none(), "phase off, no target snapshot expected.");
+				for page in (crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp()).rev() {
+					ensure!(
+						Self::voters(page).is_none(),
+						"phase off, no voter snapshot page expected."
+					);
+				}
+				Ok(())
+			},
+			Phase::Snapshot(idx) => {
+				ensure!(Self::targets().is_some(), "target snapshot does not exist.");
+				if idx < T::Pages::get() {
+					check_voter_snapshots(idx)
+				} else {
+					Ok(())
+				}
+			},
+			_ => Ok(()),
 		}
-
-		let pages = T::Pages::get();
-		ensure!(pages > 0, "number pages must be higer than 0.");
-
-		// target snapshot exists (one page only);
-		ensure!(Self::targets().is_some(), "target snapshot does not exist.");
-
-		// ensure that snapshot pages exist as expected.
-		for page in (crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp()).rev() {
-			ensure!(
-				Self::voters(page).is_some(),
-				"at least one page of the snapshot does not exist"
-			);
-		}
-
-		Ok(())
 	}
 }
 
@@ -651,71 +703,62 @@ impl<T: Config> Pallet<T> {
 		Ok(count)
 	}
 
+	/// Tries to start the snapshot.
+	///
+	/// if successful, this will fetch and store the single page target snapshot.
+	fn try_start_snapshot() -> Result<Weight, Weight> {
+		match Self::create_targets_snapshot() {
+			Ok(_) => {
+				Self::phase_transition(Phase::Snapshot(T::Pages::get().saturating_sub(1)));
+
+				Ok(T::WeightInfo::create_targets_snapshot_paged(T::TargetSnapshotPerBlock::get()))
+			},
+			Err(err) => {
+				log!(error, "error preparing targets snapshot: {:?}", err);
+				Err(Weight::default())
+			},
+		}
+	}
+
 	/// Tries to progress the snapshot.
 	///
-	/// The first call to this method will calculate and store the (single-paged) target snapshot.
-	/// The subsequent calls will fetch the voter pages. Thus, the caller must call this method
-	/// `T::Pages`..0 times.
-	fn try_progress_snapshot(remaining_pages: PageIndex) -> Weight {
+	/// If successful, this will fetch and store a voter snapshot page per call.
+	fn try_progress_snapshot() -> Result<Weight, Weight> {
 		// TODO: set data provider lock
 
-		debug_assert!(
-			CurrentPhase::<T>::get().is_snapshot() ||
-				!Snapshot::<T>::targets_snapshot_exists() &&
-					remaining_pages == T::Pages::get() + 1,
-		);
+		let remaining_pages = match Self::current_phase() {
+			Phase::Snapshot(page) => page,
+			_ => {
+				defensive!("not in snapshot phase");
+				return Err(Zero::zero()) // TODO
+			},
+		};
+		debug_assert!(remaining_pages < T::Pages::get());
 
-		if !Snapshot::<T>::targets_snapshot_exists() {
-			// first block for single target snapshot.
-			match Self::create_targets_snapshot() {
-				Ok(target_count) => {
-					log!(trace, "target snapshot created with {} targets", target_count);
-					Self::phase_transition(Phase::Snapshot(remaining_pages.saturating_sub(1)));
-					T::WeightInfo::create_targets_snapshot_paged(T::TargetSnapshotPerBlock::get())
-				},
-				Err(err) => {
-					log!(error, "error preparing targets snapshot: {:?}", err);
-					// target snapshot cannot fail, handle election failure.
-					Self::handle_election_failure();
-
-					// TODO: T::WeightInfo::snapshot_error();
-					Weight::default()
-				},
-			}
-		} else {
+		if remaining_pages < T::Pages::get() {
 			// try progress voter snapshot.
 			match Self::create_voters_snapshot(remaining_pages) {
-				Ok(voter_count) => {
-					log!(
-						trace,
-						"voter snapshot progressed: page {} with {} voters",
-						remaining_pages,
-						voter_count,
-					);
+				Ok(_) => {
 					Self::phase_transition(Phase::Snapshot(remaining_pages));
-					T::WeightInfo::create_voters_snapshot_paged(T::VoterSnapshotPerBlock::get())
+					Ok(T::WeightInfo::create_voters_snapshot_paged(T::VoterSnapshotPerBlock::get()))
 				},
 				Err(err) => {
 					log!(error, "error preparing voter snapshot: {:?}", err);
 					Self::handle_election_failure();
 
 					// TODO: T::WeightInfo::snapshot_error();
-					Weight::default()
+					Err(Weight::default())
 				},
 			}
+
+			// defensive, should never happen.
+		} else {
+			defensive!("unexpected page idx snapshot requested");
+			Self::handle_election_failure();
+
+			// TODO
+			Err(Weight::default())
 		}
-	}
-
-	/// Start the signed phase.
-	/// We expect the snapshot to be ready by now. Thus the the data provider lock should be
-	/// released and transition to the signed phase.
-	pub(crate) fn start_signed_phase() -> Weight {
-		debug_assert!(Snapshot::<T>::ensure().is_ok());
-
-		// TODO: unset data provider lock
-		Self::phase_transition(Phase::Signed);
-
-		T::WeightInfo::on_initialize_start_signed()
 	}
 
 	/// Export phase.
@@ -827,7 +870,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 
 	fn ongoing() -> bool {
 		match CurrentPhase::<T>::get() {
-			Phase::Off => false,
+			Phase::Off | Phase::Emergency => false,
 			_ => true,
 		}
 	}

@@ -100,11 +100,11 @@ mod phase_transition {
             roll_one();
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Snapshot(0));
 
-            // ensure snapshot is sound by end of snapshot phase.
-            assert_ok!(Snapshot::<T>::ensure());
-
             roll_to(*phase_transitions.get("signed").unwrap());
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Signed);
+
+             // ensure snapshot is sound by the beginning of the signed phase.
+            assert_ok!(Snapshot::<T>::ensure());
 
             roll_one();
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Signed);
@@ -179,7 +179,7 @@ mod phase_transition_errors {
 			// force error from data provider when fetching the electable targets.
 			data_provider_errors(true);
 			// roll to target snapshot block.
-			roll_to(phase_transitions.get("snapshot").unwrap() - 1);
+			roll_to(*phase_transitions.get("snapshot").unwrap());
 			// data provider errors when fetching target snapshot, enters in emergency phase.
 			assert_eq!(<CurrentPhase<T>>::get(), Phase::Emergency);
 
@@ -187,19 +187,15 @@ mod phase_transition_errors {
 			assert_eq!(current_phase(), Phase::Off);
 
 			data_provider_errors(false);
-			// target snapshot works.
-			roll_to(*phase_transitions.get("snapshot").unwrap());
-			assert!(<CurrentPhase<T>>::get() != Phase::Emergency);
-
+			roll_to(*phase_transitions.get("snapshot").unwrap() + 2);
 			// target snapshot and page msp of voters has been successfully prepared.
 			assert!(Snapshot::<T>::targets().is_some());
-			roll_one();
 			assert!(Snapshot::<T>::voters(MultiPhase::msp()).is_some());
 
 			// fail the next voter page, enter in emergency phase.
 			data_provider_errors(true);
 			roll_one();
-			assert_eq!(<CurrentPhase<T>>::get(), Phase::Emergency);
+			assert_eq!(current_phase(), Phase::Emergency);
 		})
 	}
 
@@ -265,7 +261,7 @@ mod snapshot {
 
 	#[test]
 	fn targets_voters_snapshot_boundary_checks_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().core_try_state(false).build_and_execute(|| {
 			assert_eq!(Pages::get(), 3);
 			assert_eq!(MultiPhase::msp(), 2);
 			assert_eq!(MultiPhase::lsp(), 0);
@@ -370,30 +366,36 @@ mod snapshot {
 	#[test]
 	fn try_progress_snapshot_works() {
 		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(Pages::get(), 3);
 			assert_ok!(Snapshot::<T>::ensure());
 
-			roll_to_snapshot();
-			assert_eq!(current_phase(), Phase::Snapshot(MultiPhase::msp() + 1));
-
-			// first snapshot to be generated is the (single-page) target snapshot.
-			assert!(Snapshot::<T>::targets().is_some());
-			// no paged voter snapshot yet.
+			// no snapshot yet.
+			assert!(Snapshot::<T>::targets().is_none());
 			let _ = (crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp())
 				.rev()
 				.map(|p| assert!(Snapshot::<T>::voters(p).is_none()))
 				.collect::<Vec<_>>();
 
-			roll_one();
+			roll_to_snapshot();
 			assert_eq!(current_phase(), Phase::Snapshot(MultiPhase::msp()));
-			assert!(Snapshot::<T>::voters(MultiPhase::msp()).is_some());
 
-			roll_one();
-			assert_eq!(current_phase(), Phase::Snapshot(MultiPhase::msp() - 1));
-			assert!(Snapshot::<T>::voters(MultiPhase::msp() - 1).is_some());
+			// first snapshot to be generated is the (single-page) target snapshot at idx = msp.
+			assert!(Snapshot::<T>::targets().is_some());
+			assert!(Snapshot::<T>::voters(MultiPhase::msp()).is_none());
 
-			roll_one();
-			assert_eq!(current_phase(), Phase::Snapshot(MultiPhase::lsp()));
-			// all paged snapshot is in storage.
+			let _ = (crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp())
+				.rev()
+				.map(|p| {
+					assert!(Snapshot::<T>::voters(p).is_none());
+
+					roll_one();
+					assert!(Snapshot::<T>::voters(p).is_some());
+				})
+				.collect::<Vec<_>>();
+
+			assert!(current_phase().is_signed());
+
+			// all snapshot pages are in storage.
 			let _ = (crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp())
 				.rev()
 				.map(|p| assert!(Snapshot::<T>::voters(p).is_some()))
@@ -442,6 +444,7 @@ mod election_provider {
 			.snapshot_voters_page(4)
 			.snapshot_targets_page(4)
 			.desired_targets(2)
+			.core_try_state(false)
 			.build_and_execute(|| {
 				assert_eq!(MultiPhase::msp(), 1);
 
@@ -497,6 +500,7 @@ mod election_provider {
 			.snapshot_targets_page(4)
 			.desired_targets(2)
 			.max_backers_per_winner(1)
+			.core_try_state(false)
 			.build_and_execute(|| {
 				Snapshot::<T>::set_targets(all_targets.clone());
 				Snapshot::<T>::set_voters(0, all_voter_pages[0].clone());
