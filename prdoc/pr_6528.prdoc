@@ -1,4 +1,4 @@
-title: 'transaction pool api: is now async'
+title: 'TransactionPool API uses async_trait'
 doc:
 - audience: Node Dev
   description: |-
@@ -7,12 +7,12 @@ doc:
     The change is not altering any functionality.
 crates:
 - name: sc-rpc-spec-v2
-  bump: major
+  bump: minor
 - name: sc-service
-  bump: major
+  bump: minor
 - name: sc-transaction-pool-api
   bump: major
 - name: sc-transaction-pool
   bump: major
 - name: sc-rpc
-  bump: major
+  bump: minor
