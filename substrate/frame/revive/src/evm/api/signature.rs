@@ -91,10 +91,9 @@ impl TransactionUnsigned {
 					.map(|chain_id| {
 						chain_id
 							.saturating_mul(U256::from(2))
-							.saturating_add(U256::from(35))
-							.saturating_add(U256::from(recovery_id))
+							.saturating_add(U256::from(35u32 + recovery_id as u32))
 					})
-					.unwrap_or_else(|| U256::from(27) + recovery_id);
+					.unwrap_or_else(|| U256::from(27u32 + recovery_id as u32));
 
 				TransactionLegacySigned { transaction_legacy_unsigned, r, s, v }.into()
 			},
