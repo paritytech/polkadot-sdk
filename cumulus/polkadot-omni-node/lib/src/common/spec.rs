@@ -229,7 +229,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			// by going through `metadata_versions` and then pick the maximum
 			// with `metadata_at_version`, but that's more code for no real benefit.
 			// The following code is fine with whichever metadata version
-			// contains pallet information, includding their names.
+			// contains pallet information, including their names.
 			let metadata = client
 				.runtime_api()
 				.metadata(best_block)
