@@ -19,9 +19,7 @@
 use crate as pallet_opf;
 pub use frame_support::{
 	derive_impl, parameter_types,
-	traits::{
-		ConstU32, EqualPrivilegeOnly, OnFinalize, OnInitialize,
-	},
+	traits::{ConstU32, EqualPrivilegeOnly, OnFinalize, OnInitialize},
 	weights::Weight,
 	PalletId,
 };
