@@ -488,6 +488,59 @@ impl Discovery {
 
 		(false, None)
 	}
+
+	/// Verify the external address discovered by the identify protocol.
+	///
+	/// This ensures that:
+	/// - the address is not empty
+	/// - the address contains a valid IP address
+	/// - the address is for the local peer ID
+	/// - the address always contains `/p2p/<local_peer_id>` protocol.
+	///
+	/// The provided peer ID is only used for logging purposes.
+	fn verify_external_address(&mut self, address: Multiaddr, peer: PeerId) -> Option<Multiaddr> {
+		if address.is_empty() {
+			log::warn!(
+				target: LOG_TARGET,
+				"🔍 Discovered empty address from {peer:?}",
+			);
+			return None;
+		};
+
+		// Expect the address to contain a valid IP address.
+		if std::matches!(
+			address.iter().next(),
+			Some(
+				Protocol::Dns(_) |
+					Protocol::Dns4(_) |
+					Protocol::Dns6(_) |
+					Protocol::Ip6(_) |
+					Protocol::Ip4(_),
+			)
+		) {
+			log::warn!(
+				target: LOG_TARGET,
+				"🔍 Discovered external address from {peer:?} does not contain a valid IP address: {address}",
+			);
+			return None;
+		};
+
+		if let Some(Protocol::P2p(peer_id)) = address.iter().last() {
+			// Invalid address if the reported peer ID is not the local peer ID.
+			if peer_id != *self.local_peer_id.as_ref() {
+				log::warn!(
+					target: LOG_TARGET,
+					"🔍 Discovered external address from {peer:?} that is not us: {address}",
+				);
+				return None
+			}
+
+			return Some(address)
+		}
+
+		// Ensure the address contains the local peer ID.
+		Some(address.with(Protocol::P2p(self.local_peer_id.into())))
+	}
 }
 
 impl Stream for Discovery {
@@ -596,20 +649,7 @@ impl Stream for Discovery {
 				observed_address,
 				..
 			})) => {
-				let observed_address =
-					if let Some(Protocol::P2p(peer_id)) = observed_address.iter().last() {
-						if peer_id != *this.local_peer_id.as_ref() {
-							log::warn!(
-								target: LOG_TARGET,
-								"Discovered external address for a peer that is not us: {observed_address}",
-							);
-							None
-						} else {
-							Some(observed_address)
-						}
-					} else {
-						Some(observed_address.with(Protocol::P2p(this.local_peer_id.into())))
-					};
+				let observed_address = this.verify_external_address(observed_address, peer);
 
 				// Ensure that an external address with a different peer ID does not have
 				// side effects of evicting other external addresses via `ExternalAddressExpired`.
