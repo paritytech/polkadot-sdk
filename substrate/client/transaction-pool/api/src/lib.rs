@@ -23,7 +23,7 @@ pub mod error;
 
 use async_trait::async_trait;
 use codec::Codec;
-use futures::{Future, Stream};
+use futures::Stream;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::offchain::TransactionPoolExt;
 use sp_runtime::traits::{Block as BlockT, Member};
@@ -208,9 +208,6 @@ pub type LocalTransactionFor<P> = <<P as LocalTransactionPool>::Block as BlockT>
 /// Transaction's index within the block in which it was included.
 pub type TxIndex = usize;
 
-/// Typical future type used in transaction pool api.
-pub type PoolFuture<T, E> = std::pin::Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
-
 /// In-pool transaction interface.
 ///
 /// The pool is container of transactions that are implementing this trait.
@@ -238,6 +235,7 @@ pub trait InPoolTransaction {
 }
 
 /// Transaction pool interface.
+#[async_trait]
 pub trait TransactionPool: Send + Sync {
 	/// Block type.
 	type Block: BlockT;
@@ -253,46 +251,40 @@ pub trait TransactionPool: Send + Sync {
 
 	// *** RPC
 
-	/// Returns a future that imports a bunch of unverified transactions to the pool.
-	fn submit_at(
+	/// Asynchronously imports a bunch of unverified transactions to the pool.
+	async fn submit_at(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
-	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error>;
+	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error>;
 
-	/// Returns a future that imports one unverified transaction to the pool.
-	fn submit_one(
+	/// Asynchronously imports one unverified transaction to the pool.
+	async fn submit_one(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<TxHash<Self>, Self::Error>;
+	) -> Result<TxHash<Self>, Self::Error>;
 
-	/// Returns a future that imports a single transaction and starts to watch their progress in the
+	/// Asynchronously imports a single transaction and starts to watch their progress in the
 	/// pool.
-	fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error>;
+	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error>;
 
 	// *** Block production / Networking
 	/// Get an iterator for ready transactions ordered by priority.
 	///
-	/// Guarantees to return only when transaction pool got updated at `at` block.
-	/// Guarantees to return immediately when `None` is passed.
-	fn ready_at(
+	/// Guaranteed to resolve only when transaction pool got updated at `at` block.
+	/// Guaranteed to resolve immediately when `None` is passed.
+	async fn ready_at(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-				> + Send,
-		>,
-	>;
+	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
 
 	/// Get an iterator for ready transactions ordered by priority.
 	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
@@ -322,22 +314,15 @@ pub trait TransactionPool: Send + Sync {
 	/// Return specific ready transaction by hash, if there is one.
 	fn ready_transaction(&self, hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>>;
 
-	/// Returns set of ready transaction at given block within given timeout.
+	/// Asynchronously returns a set of ready transaction at given block within given timeout.
 	///
-	/// If the timeout is hit during method execution then the best effort set of ready transactions
-	/// for given block, without executing full maintain process is returned.
-	fn ready_at_with_timeout(
+	/// If the timeout is hit during method execution, then the best effort (without executing full
+	/// maintain process) set of ready transactions for given block is returned.
+	async fn ready_at_with_timeout(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		timeout: std::time::Duration,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-				> + Send
-				+ '_,
-		>,
-	>;
+	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
 }
 
 /// An iterator of ready transactions.
