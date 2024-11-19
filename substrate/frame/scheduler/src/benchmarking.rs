@@ -28,6 +28,7 @@ use frame_system::{EventRecord, RawOrigin};
 
 use crate::*;
 
+type SystemCall<T> = frame_system::Call<T>;
 type SystemOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
 const SEED: u32 = 0;
@@ -89,9 +90,8 @@ fn make_task<T: Config>(
 }
 
 fn bounded<T: Config>(len: u32) -> Option<BoundedCallOf<T>> {
-	let call = <<T as Config>::RuntimeCall>::from(frame_system::Call::remark {
-		remark: vec![0; len as usize],
-	});
+	let call =
+		<<T as Config>::RuntimeCall>::from(SystemCall::remark { remark: vec![0; len as usize] });
 	T::Preimages::bound(call).ok()
 }
 
@@ -290,14 +290,14 @@ mod benchmarks {
 		let periodic = Some((BlockNumberFor::<T>::one(), 100));
 		let priority = 0;
 		// Essentially a no-op call.
-		let call = Box::new(frame_system::Call::set_storage { items: vec![] }.into());
+		let call = Box::new(SystemCall::set_storage { items: vec![] }.into());
 
 		fill_schedule::<T>(when, s)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, when, periodic, priority, call);
 
-		assert_eq!(Agenda::<T>::get(when).len(), s as usize + 1, "didn't add to schedule");
+		ensure!(Agenda::<T>::get(when).len() == s as usize + 1, "didn't add to schedule");
 
 		Ok(())
 	}
@@ -314,16 +314,16 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(schedule_origin as SystemOrigin<T>, when, 0);
 
-		assert!(
+		ensure!(
 			s == 1 || Lookup::<T>::get(u32_to_name(0)).is_none(),
 			"didn't remove from lookup if more than 1 task scheduled for `when`"
 		);
 		// Removed schedule is NONE
-		assert!(
+		ensure!(
 			s == 1 || Agenda::<T>::get(when)[0].is_none(),
 			"didn't remove from schedule if more than 1 task scheduled for `when`"
 		);
-		assert!(
+		ensure!(
 			s > 1 || Agenda::<T>::get(when).len() == 0,
 			"remove from schedule if only 1 task scheduled for `when`"
 		);
@@ -340,14 +340,14 @@ mod benchmarks {
 		let periodic = Some((BlockNumberFor::<T>::one(), 100));
 		let priority = 0;
 		// Essentially a no-op call.
-		let call = Box::new(frame_system::Call::set_storage { items: vec![] }.into());
+		let call = Box::new(SystemCall::set_storage { items: vec![] }.into());
 
 		fill_schedule::<T>(when, s)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, id, when, periodic, priority, call);
 
-		assert_eq!(Agenda::<T>::get(when).len(), s as usize + 1, "didn't add to schedule");
+		ensure!(Agenda::<T>::get(when).len() == s as usize + 1, "didn't add to schedule");
 
 		Ok(())
 	}
@@ -358,21 +358,21 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let when = BLOCK_NUMBER.into();
 
-		fill_schedule::<T>(when, s).unwrap();
+		fill_schedule::<T>(when, s)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, u32_to_name(0));
 
-		assert!(
+		ensure!(
 			s == 1 || Lookup::<T>::get(u32_to_name(0)).is_none(),
 			"didn't remove from lookup if more than 1 task scheduled for `when`"
 		);
 		// Removed schedule is NONE
-		assert!(
+		ensure!(
 			s == 1 || Agenda::<T>::get(when)[0].is_none(),
 			"didn't remove from schedule if more than 1 task scheduled for `when`"
 		);
-		assert!(
+		ensure!(
 			s > 1 || Agenda::<T>::get(when).len() == 0,
 			"remove from schedule if only 1 task scheduled for `when`"
 		);
