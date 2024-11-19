@@ -282,7 +282,8 @@ where
 
 		let number = self.api.resolve_block_number(at);
 		let at = HashAndNumber { hash: at, number: number? };
-		pool.submit_one(&at, TimedTransactionSource::from_transaction_source(source, false), xt).await
+		pool.submit_one(&at, TimedTransactionSource::from_transaction_source(source, false), xt)
+			.await
 	}
 
 	async fn submit_and_watch(

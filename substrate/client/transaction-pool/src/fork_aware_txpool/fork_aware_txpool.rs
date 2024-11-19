@@ -114,8 +114,6 @@ where
 	}
 }
 
-type PolledIterator<PoolApi> = Pin<Box<dyn Future<Output = ReadyIteratorFor<PoolApi>> + Send>>;
-
 /// The fork-aware transaction pool.
 ///
 /// It keeps track of every fork and provides the set of transactions that is valid for every fork.
@@ -652,10 +650,7 @@ where
 		let mempool_results = self.mempool.extend_unwatched(source, &xts);
 
 		if view_store.is_empty() {
-			return Ok(mempool_results
-				.into_iter()
-				.map(|r| r.map(|r| r.hash))
-				.collect::<Vec<_>>())
+			return Ok(mempool_results.into_iter().map(|r| r.map(|r| r.hash)).collect::<Vec<_>>())
 		}
 
 		let to_be_submitted = mempool_results
@@ -725,10 +720,10 @@ where
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
-		view_store
+		self.view_store
 			.submit_and_watch(at, timed_source, xt)
 			.await
-			.inspect_err(|_| mempool.remove(xt_hash))
+			.inspect_err(|_| self.mempool.remove(xt_hash))
 	}
 
 	/// Intended to remove transactions identified by the given hashes, and any dependent
