@@ -10601,14 +10601,12 @@ name = "pallet-alliance"
 version = "27.0.0"
 dependencies = [
  "array-bytes",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
  "log",
  "pallet-balances",
  "pallet-collective",
  "pallet-identity",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",

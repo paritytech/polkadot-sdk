@@ -98,6 +98,8 @@ extern crate alloc;
 
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame::{prelude::*, traits::{Dispatchable, Saturating, StaticLookup, Zero}, deps::sp_runtime::DispatchError, derive::DefaultNoBound};
+/*
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
@@ -114,6 +116,7 @@ use frame_support::{
 	},
 	weights::Weight,
 };
+*/
 use scale_info::TypeInfo;
 
 pub use pallet::*;
@@ -215,7 +218,8 @@ type UnscrupulousItemOf<T, I> =
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -399,7 +403,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(frame::derive::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub fellows: Vec<T::AccountId>,
 		pub allies: Vec<T::AccountId>,

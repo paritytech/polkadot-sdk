@@ -27,9 +27,7 @@ sp-crypto-hashing = { optional = true, workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
-frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame = { workspace = true, features = ["experimental", "runtime"] }
 
 pallet-identity = { workspace = true }
 pallet-collective = { optional = true, workspace = true }
@@ -44,35 +42,25 @@ pallet-collective = { workspace = true, default-features = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-support/std",
-	"frame-system/std",
+	"frame/std",
 	"log/std",
 	"pallet-balances/std",
 	"pallet-collective?/std",
 	"pallet-identity/std",
 	"scale-info/std",
-	"sp-core/std",
 	"sp-crypto-hashing?/std",
-	"sp-io/std",
-	"sp-runtime/std",
 ]
 runtime-benchmarks = [
 	"array-bytes",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"sp-crypto-hashing",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
+	"frame/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collective?/try-runtime",
 	"pallet-identity/try-runtime",
-	"sp-runtime/try-runtime",
 ]
