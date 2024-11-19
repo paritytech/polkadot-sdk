@@ -24,7 +24,7 @@
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
 	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, ProofOfPossessionGenerator,
-	ProofOfPossessionVerifier, SecretStringError,
+	ProofOfPossessionVerifier, SecretStringError, NonAggregatable
 };
 use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
@@ -299,6 +299,10 @@ impl CryptoType for Signature {
 
 impl CryptoType for Pair {
 	type Pair = Pair;
+}
+
+impl NonAggregatable for Pair {
+
 }
 
 /// Schnorrkel VRF related types and operations.

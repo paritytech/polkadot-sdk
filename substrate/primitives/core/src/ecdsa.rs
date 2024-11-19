@@ -20,7 +20,7 @@
 use crate::crypto::{
 	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
 	ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError,
-	SignatureBytes,
+	SignatureBytes, NonAggregatable
 };
 
 use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
@@ -327,6 +327,10 @@ impl CryptoType for Signature {
 
 impl CryptoType for Pair {
 	type Pair = Pair;
+}
+
+impl NonAggregatable for Pair {
+
 }
 
 #[cfg(test)]

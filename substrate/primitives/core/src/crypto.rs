@@ -1008,11 +1008,19 @@ where
 	}
 }
 
-pub trait SingleScheme {}
+pub trait NonAggregatable {}
 
 impl<T> ProofOfPossessionVerifier for T
 where
-	T: Pair + SingleScheme,
+	T: Pair + NonAggregatable,
+	T::Public: CryptoType,
+{
+
+}
+
+impl<T> ProofOfPossessionGenerator for T
+where
+	T: Pair + NonAggregatable,
 	T::Public: CryptoType,
 {
 
