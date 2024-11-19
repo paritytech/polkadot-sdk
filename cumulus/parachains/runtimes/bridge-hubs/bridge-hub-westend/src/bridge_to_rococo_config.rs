@@ -285,7 +285,6 @@ mod tests {
 	fn ensure_bridge_integrity() {
 		assert_complete_bridge_types!(
 			runtime: Runtime,
-			with_bridged_chain_grandpa_instance: BridgeGrandpaRococoInstance,
 			with_bridged_chain_messages_instance: WithBridgeHubRococoMessagesInstance,
 			this_chain: bp_bridge_hub_westend::BridgeHubWestend,
 			bridged_chain: bp_bridge_hub_rococo::BridgeHubRococo,
@@ -295,7 +294,6 @@ mod tests {
 			Runtime,
 			BridgeGrandpaRococoInstance,
 			WithBridgeHubRococoMessagesInstance,
-			bp_rococo::Rococo,
 		>(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
 				block_length: bp_bridge_hub_westend::BlockLength::get(),
