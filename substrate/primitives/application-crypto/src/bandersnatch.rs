@@ -21,7 +21,7 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 pub use sp_core::bandersnatch::*;
 
-use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+use sp_core::crypto::ProofOfPossessionVerifier;
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BANDERSNATCH);

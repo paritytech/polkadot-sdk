@@ -86,7 +86,7 @@ use tracing;
 
 #[cfg(feature = "std")]
 use sp_core::{
-	crypto::Pair,
+	crypto::{Pair, ProofOfPossessionGenerator},
 	hexdisplay::HexDisplay,
 	offchain::{OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
 	storage::ChildInfo,
@@ -1217,6 +1217,15 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.bls381_generate_new(id, seed)
 			.expect("`bls381_generate` failed")
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_pop(&mut self, id: KeyTypeId, pub_key: &bls381::Public) -> Option<bls381::Signature> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bls381_generate_pop(id, pub_key)
+			.ok()
+			.flatten()
 	}
 
 	/// Generate an `(ecdsa,bls12-381)` key for the given key type using an optional `seed` and

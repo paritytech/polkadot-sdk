@@ -140,9 +140,9 @@ pub mod ecdsa_bls381 {
 	/// An identifier used to match public keys against BLS12-381 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecb8");
 
-	const PUBLIC_KEY_LEN: usize =
+	pub const PUBLIC_KEY_LEN: usize =
 		ecdsa::PUBLIC_KEY_SERIALIZED_SIZE + bls381::PUBLIC_KEY_SERIALIZED_SIZE;
-	const SIGNATURE_LEN: usize =
+	pub const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
 
 	#[doc(hidden)]

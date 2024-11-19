@@ -322,6 +322,13 @@ pub trait Keystore: Send + Sync {
 		msg: &[u8],
 	) -> Result<Option<bls381::Signature>, Error>;
 
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_pop(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public
+	) -> Result<Option<bls381::Signature>, Error>;
+
 	/// Generate a (ecdsa,bls381) signature pair for a given message.
 	///
 	/// Receives [`KeyTypeId`] and a [`ecdsa_bls381::Public`] key to be able to map
@@ -618,6 +625,15 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		msg: &[u8],
 	) -> Result<Option<bls381::Signature>, Error> {
 		(**self).bls381_sign(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_pop(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public
+	) -> Result<Option<bls381::Signature>, Error> {
+		(**self).bls381_generate_pop(key_type, public)
 	}
 
 	#[cfg(feature = "bls-experimental")]

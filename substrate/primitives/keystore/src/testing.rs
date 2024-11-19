@@ -24,7 +24,7 @@ use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
 use sp_core::{bls381, ecdsa_bls381, KeccakHasher};
 use sp_core::{
-	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
+	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret, ProofOfPossessionGenerator},
 	ecdsa, ed25519, sr25519,
 };
 
@@ -121,6 +121,15 @@ impl MemoryKeystore {
 	) -> Result<Option<T::VrfPreOutput>, Error> {
 		let pre_output = self.pair::<T>(key_type, public).map(|pair| pair.vrf_pre_output(input));
 		Ok(pre_output)
+	}
+
+	fn generate_pop<T: Pair + ProofOfPossessionGenerator>(
+		&self,
+		key_type: KeyTypeId,
+		public: &T::Public
+	) -> Result<Option<T::Signature>, Error> {
+		let pop = self.pair::<T>(key_type, public).map(|mut pair| pair.generate_proof_of_possession());
+		Ok(pop)
 	}
 }
 
@@ -296,6 +305,15 @@ impl Keystore for MemoryKeystore {
 		msg: &[u8],
 	) -> Result<Option<bls381::Signature>, Error> {
 		self.sign::<bls381::Pair>(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_pop(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public
+	) -> Result<Option<bls381::Signature>, Error> {
+		self.generate_pop::<bls381::Pair>(key_type, public)
 	}
 
 	#[cfg(feature = "bls-experimental")]

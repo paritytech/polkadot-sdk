@@ -21,7 +21,7 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 
 pub use sp_core::bls::bls381::*;
-use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+use sp_core::crypto::ProofOfPossessionVerifier;
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BLS381);
@@ -54,9 +54,7 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		// TODO: Add host function
-		// sp_io::crypto::generate_pop()
-		None
+		sp_io::crypto::bls381_generate_pop(key_type, self)
 	}
 
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {

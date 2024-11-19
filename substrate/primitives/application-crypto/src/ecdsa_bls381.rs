@@ -20,8 +20,9 @@
 use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 
+use sp_core::{bls381, ecdsa, ecdsa_bls381};
 pub use sp_core::paired_crypto::ecdsa_bls381::*;
-use sp_core::crypto::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+use sp_core::crypto::ProofOfPossessionVerifier;
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::ECDSA_BLS381);
@@ -54,8 +55,25 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		// TODO: Implement Special Case by calling both pop generations
-		None
+		if key_type != sp_core::testing::ECDSA_BLS381 {
+			return None
+		}
+
+		let pub_key_as_bytes = self.to_raw_vec();
+
+		// Split public key bytes into ECDSA and BLS381 parts
+		let (ecdsa_pub_as_bytes, bls381_pub_as_bytes) = split_pub_key_bytes(&pub_key_as_bytes)?;
+
+		// Generate ECDSA proof of possession
+		let ecdsa_pop = generate_ecdsa_pop(ecdsa_pub_as_bytes)?;
+
+		// Generate BLS381 proof of possession
+		let bls381_pop = generate_bls381_pop(bls381_pub_as_bytes)?;
+
+		// Combine the two pops into a single pop
+		let combined_pop_raw = combine_pop(&ecdsa_pop, &bls381_pop)?;
+
+		Some(Self::Signature::from_raw(combined_pop_raw))
 	}
 
 	fn verify_pop(&self, pop: &Self::Signature) -> bool {
@@ -68,3 +86,41 @@ impl RuntimePublic for Public {
 		sp_core::crypto::ByteArray::to_raw_vec(self)
 	}
 }
+
+/// Helper: Split public key bytes into ECDSA and BLS381 parts
+fn split_pub_key_bytes(pub_key_as_bytes: &[u8])
+	-> Option<([u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE], [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE])> {
+    let ecdsa_pub_as_bytes = pub_key_as_bytes[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE]
+        .try_into()
+        .ok()?;
+    let bls381_pub_as_bytes = pub_key_as_bytes[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..]
+        .try_into()
+        .ok()?;
+    Some((ecdsa_pub_as_bytes, bls381_pub_as_bytes))
+}
+
+/// Helper: Generate ECDSA proof of possession
+fn generate_ecdsa_pop(ecdsa_pub_as_bytes: [u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE]) -> Option<ecdsa::Signature> {
+    let pop_context_tag: &[u8] = b"POP_";
+    let ecdsa_statement = [pop_context_tag, ecdsa_pub_as_bytes.as_slice()].concat();
+    let ecdsa_pub = ecdsa::Public::from_raw(ecdsa_pub_as_bytes);
+    sp_io::crypto::ecdsa_sign(sp_core::testing::ECDSA, &ecdsa_pub, ecdsa_statement.as_slice())
+}
+
+/// Helper: Generate BLS381 proof of possession
+fn generate_bls381_pop(bls381_pub_as_bytes: [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE]) -> Option<bls381::Signature> {
+    let bls381_pub = bls381::Public::from_raw(bls381_pub_as_bytes);
+    sp_io::crypto::bls381_generate_pop(sp_core::testing::BLS381, &bls381_pub)
+}
+
+/// Helper: Combine ECDSA and BLS381 pops into a single raw pop
+fn combine_pop(
+    ecdsa_pop: &ecdsa::Signature,
+    bls381_pop: &bls381::Signature,
+) -> Option<[u8; ecdsa_bls381::SIGNATURE_LEN]> {
+    let mut combined_pop_raw = [0u8; ecdsa_bls381::SIGNATURE_LEN];
+    combined_pop_raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE].copy_from_slice(ecdsa_pop.as_ref());
+    combined_pop_raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..].copy_from_slice(bls381_pop.as_ref());
+    Some(combined_pop_raw)
+}
+
