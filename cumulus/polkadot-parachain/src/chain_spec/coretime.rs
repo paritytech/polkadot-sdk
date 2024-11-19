@@ -144,12 +144,11 @@ pub fn chain_type_name(chain_type: &ChainType) -> Cow<str> {
 
 /// Sub-module for Rococo setup.
 pub mod rococo {
-	use super::{chain_type_name, CoretimeRuntimeType, ParaId};
-	use crate::chain_spec::{get_account_id_from_seed, SAFE_XCM_VERSION};
-	use parachains_common::{AccountId, AuraId, Balance};
+	use super::{chain_type_name, CoretimeRuntimeType};
+	use parachains_common::{AccountId, AuraId};
 	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-	use sp_core::{hex2array, sr25519};
+	use sp_core::hex2array;
 	use sp_keyring::sr25519::Keyring;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
