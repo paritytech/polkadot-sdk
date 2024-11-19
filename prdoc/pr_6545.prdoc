@@ -1,0 +1,12 @@
+title: Ignore multi-addresses without IP from DHT records
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+      This PR ensures that multiaddresses without an IP protocol are not published or utilized from DHT records.
+
+crates: 
+  - name: sc-network
+    bump: patch
+  - name: sc-authority-discovery
+    bump: patch
