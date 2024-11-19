@@ -167,7 +167,7 @@ pub mod metadata {
 	pub fn verify_parachain_compatibility(
 		metadata: &RuntimeMetadataPrefixed,
 	) -> Result<(), sc_service::error::Error> {
-		if !pallet_exists(&decoded_metadata, DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME)? {
+		if !pallet_exists(&metadata, DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME)? {
 			log::warn!(
 				r#"⚠️  The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
 			missing from the runtime’s metadata. Please check Omni Node docs for runtime conventions:
@@ -175,7 +175,7 @@ pub mod metadata {
 			);
 		}
 
-		let runtime_block_number = block_number(&decoded_metadata)?;
+		let runtime_block_number = block_number(&metadata)?;
 		if runtime_block_number != BlockNumber::U32 {
 			log::warn!(
 				r#"⚠️  Configured `frame-system` pallet and Omni Node block numbers mismatch, or there isn't a runtime
