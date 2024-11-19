@@ -20,6 +20,7 @@
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::format;
 use alloc::vec::Vec;
+use codec::DecodeAll;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -256,8 +257,7 @@ impl DigestItem {
 		self.dref().try_as_raw(id)
 	}
 
-	/// Returns the data contained in the item if `Some` if this entry has the id given, decoded
-	/// to the type provided `T`.
+	/// Returns the data decoded as `T`, if the `id` is matching.
 	pub fn try_to<T: Decode>(&self, id: OpaqueDigestItemId) -> Option<T> {
 		self.dref().try_to::<T>(id)
 	}
@@ -367,17 +367,16 @@ impl<'a> DigestItemRef<'a> {
 	/// Try to match this digest item to the given opaque item identifier; if it matches, then
 	/// try to cast to the given data type; if that works, return it.
 	pub fn try_to<T: Decode>(&self, id: OpaqueDigestItemId) -> Option<T> {
-		self.try_as_raw(id).and_then(|mut x| Decode::decode(&mut x).ok())
+		self.try_as_raw(id).and_then(|mut x| DecodeAll::decode_all(&mut x).ok())
 	}
 
 	/// Try to match this to a `Self::Seal`, check `id` matches and decode it.
 	///
 	/// Returns `None` if this isn't a seal item, the `id` doesn't match or when the decoding fails.
 	pub fn seal_try_to<T: Decode>(&self, id: &ConsensusEngineId) -> Option<T> {
-		match self {
-			Self::Seal(v, s) if *v == id => Decode::decode(&mut &s[..]).ok(),
-			_ => None,
-		}
+		self.as_seal()
+			.filter(|s| s.0 == *id)
+			.and_then(|mut d| DecodeAll::decode_all(&mut d.1).ok())
 	}
 
 	/// Try to match this to a `Self::Consensus`, check `id` matches and decode it.
@@ -385,10 +384,9 @@ impl<'a> DigestItemRef<'a> {
 	/// Returns `None` if this isn't a consensus item, the `id` doesn't match or
 	/// when the decoding fails.
 	pub fn consensus_try_to<T: Decode>(&self, id: &ConsensusEngineId) -> Option<T> {
-		match self {
-			Self::Consensus(v, s) if *v == id => Decode::decode(&mut &s[..]).ok(),
-			_ => None,
-		}
+		self.as_consensus()
+			.filter(|s| s.0 == *id)
+			.and_then(|mut d| DecodeAll::decode_all(&mut d.1).ok())
 	}
 
 	/// Try to match this to a `Self::PreRuntime`, check `id` matches and decode it.
@@ -396,40 +394,21 @@ impl<'a> DigestItemRef<'a> {
 	/// Returns `None` if this isn't a pre-runtime item, the `id` doesn't match or
 	/// when the decoding fails.
 	pub fn pre_runtime_try_to<T: Decode>(&self, id: &ConsensusEngineId) -> Option<T> {
-		match self {
-			Self::PreRuntime(v, s) if *v == id => Decode::decode(&mut &s[..]).ok(),
-			_ => None,
-		}
+		self.as_pre_runtime()
+			.filter(|s| s.0 == *id)
+			.and_then(|mut d| DecodeAll::decode_all(&mut d.1).ok())
 	}
 }
 
 impl<'a> Encode for DigestItemRef<'a> {
 	fn encode(&self) -> Vec<u8> {
-		let mut v = Vec::new();
-
 		match *self {
-			Self::Consensus(val, data) => {
-				DigestItemType::Consensus.encode_to(&mut v);
-				(val, data).encode_to(&mut v);
-			},
-			Self::Seal(val, sig) => {
-				DigestItemType::Seal.encode_to(&mut v);
-				(val, sig).encode_to(&mut v);
-			},
-			Self::PreRuntime(val, data) => {
-				DigestItemType::PreRuntime.encode_to(&mut v);
-				(val, data).encode_to(&mut v);
-			},
-			Self::Other(val) => {
-				DigestItemType::Other.encode_to(&mut v);
-				val.encode_to(&mut v);
-			},
-			Self::RuntimeEnvironmentUpdated => {
-				DigestItemType::RuntimeEnvironmentUpdated.encode_to(&mut v);
-			},
+			Self::Consensus(val, data) => (DigestItemType::Consensus, val, data).encode(),
+			Self::Seal(val, sig) => (DigestItemType::Seal, val, sig).encode(),
+			Self::PreRuntime(val, data) => (DigestItemType::PreRuntime, val, data).encode(),
+			Self::Other(val) => (DigestItemType::Other, val).encode(),
+			Self::RuntimeEnvironmentUpdated => DigestItemType::RuntimeEnvironmentUpdated.encode(),
 		}
-
-		v
 	}
 }
 
