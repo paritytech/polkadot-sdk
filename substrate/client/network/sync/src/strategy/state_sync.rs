@@ -136,8 +136,9 @@ impl<B: BlockT> StateSyncMetadata<B> {
 	}
 }
 
-/// State sync state machine. Accumulates partial state data until it
-/// is ready to be imported.
+/// State sync state machine. 
+///
+//// Accumulates partial state data until it is ready to be imported.
 pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
