@@ -37,7 +37,7 @@ use crate::{
 		base_pool::{TimedTransactionSource, Transaction},
 		ExtrinsicFor, ExtrinsicHash, IsValidator, Options,
 	},
-	PolledIterator, ReadyIteratorFor, LOG_TARGET,
+	ReadyIteratorFor, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{
@@ -49,8 +49,8 @@ use futures::{
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolFuture, PoolStatus,
-	TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
+	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolStatus, TransactionFor,
+	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -113,6 +113,8 @@ where
 		self.pollers.retain(|_, v| v.iter().any(|sender| !sender.is_canceled()));
 	}
 }
+
+type PolledIterator<PoolApi> = Pin<Box<dyn Future<Output = ReadyIteratorFor<PoolApi>> + Send>>;
 
 /// The fork-aware transaction pool.
 ///
@@ -425,14 +427,13 @@ where
 	///
 	/// Pruning is just rebuilding the underlying transactions graph, no validations are executed,
 	/// so this process shall be fast.
-	pub fn ready_at_light(&self, at: Block::Hash) -> PolledIterator<ChainApi> {
+	pub async fn ready_at_light(&self, at: Block::Hash) -> ReadyIteratorFor<ChainApi> {
 		let start = Instant::now();
 		let api = self.api.clone();
 		log::trace!(target: LOG_TARGET, "fatp::ready_at_light {:?}", at);
 
 		let Ok(block_number) = self.api.resolve_block_number(at) else {
-			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
-			return Box::pin(async { empty })
+			return Box::new(std::iter::empty())
 		};
 
 		let best_result = {
@@ -451,57 +452,53 @@ where
 			)
 		};
 
-		Box::pin(async move {
-			if let Ok((Some(best_tree_route), Some(best_view))) = best_result {
-				let tmp_view: View<ChainApi> = View::new_from_other(
-					&best_view,
-					&HashAndNumber { hash: at, number: block_number },
-				);
+		if let Ok((Some(best_tree_route), Some(best_view))) = best_result {
+			let tmp_view: View<ChainApi> =
+				View::new_from_other(&best_view, &HashAndNumber { hash: at, number: block_number });
 
-				let mut all_extrinsics = vec![];
+			let mut all_extrinsics = vec![];
 
-				for h in best_tree_route.enacted() {
-					let extrinsics = api
-						.block_body(h.hash)
-						.await
-						.unwrap_or_else(|e| {
-							log::warn!(target: LOG_TARGET, "Compute ready light transactions: error request: {}", e);
-							None
-						})
-						.unwrap_or_default()
-						.into_iter()
-						.map(|t| api.hash_and_length(&t).0);
-					all_extrinsics.extend(extrinsics);
-				}
-
-				let before_count = tmp_view.pool.validated_pool().status().ready;
-				let tags = tmp_view
-					.pool
-					.validated_pool()
-					.extrinsics_tags(&all_extrinsics)
+			for h in best_tree_route.enacted() {
+				let extrinsics = api
+					.block_body(h.hash)
+					.await
+					.unwrap_or_else(|e| {
+						log::warn!(target: LOG_TARGET, "Compute ready light transactions: error request: {}", e);
+						None
+					})
+					.unwrap_or_default()
 					.into_iter()
-					.flatten()
-					.flatten()
-					.collect::<Vec<_>>();
-				let _ = tmp_view.pool.validated_pool().prune_tags(tags);
-
-				let after_count = tmp_view.pool.validated_pool().status().ready;
-				log::debug!(target: LOG_TARGET,
-					"fatp::ready_at_light {} from {} before: {} to be removed: {} after: {} took:{:?}",
-					at,
-					best_view.at.hash,
-					before_count,
-					all_extrinsics.len(),
-					after_count,
-					start.elapsed()
-				);
-				Box::new(tmp_view.pool.validated_pool().ready())
-			} else {
-				let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
-				log::debug!(target: LOG_TARGET, "fatp::ready_at_light {} -> empty, took:{:?}", at, start.elapsed());
-				empty
+					.map(|t| api.hash_and_length(&t).0);
+				all_extrinsics.extend(extrinsics);
 			}
-		})
+
+			let before_count = tmp_view.pool.validated_pool().status().ready;
+			let tags = tmp_view
+				.pool
+				.validated_pool()
+				.extrinsics_tags(&all_extrinsics)
+				.into_iter()
+				.flatten()
+				.flatten()
+				.collect::<Vec<_>>();
+			let _ = tmp_view.pool.validated_pool().prune_tags(tags);
+
+			let after_count = tmp_view.pool.validated_pool().status().ready;
+			log::debug!(target: LOG_TARGET,
+				"fatp::ready_at_light {} from {} before: {} to be removed: {} after: {} took:{:?}",
+				at,
+				best_view.at.hash,
+				before_count,
+				all_extrinsics.len(),
+				after_count,
+				start.elapsed()
+			);
+			Box::new(tmp_view.pool.validated_pool().ready())
+		} else {
+			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
+			log::debug!(target: LOG_TARGET, "fatp::ready_at_light {} -> empty, took:{:?}", at, start.elapsed());
+			empty
+		}
 	}
 
 	/// Waits for the set of ready transactions for a given block up to a specified timeout.
@@ -514,18 +511,18 @@ where
 	/// maintain.
 	///
 	/// Returns a future resolving to a ready iterator of transactions.
-	fn ready_at_with_timeout_internal(
+	async fn ready_at_with_timeout_internal(
 		&self,
 		at: Block::Hash,
 		timeout: std::time::Duration,
-	) -> PolledIterator<ChainApi> {
+	) -> ReadyIteratorFor<ChainApi> {
 		log::debug!(target: LOG_TARGET, "fatp::ready_at_with_timeout at {:?} allowed delay: {:?}", at, timeout);
 
 		let timeout = futures_timer::Delay::new(timeout);
 		let (view_already_exists, ready_at) = self.ready_at_internal(at);
 
 		if view_already_exists {
-			return ready_at;
+			return ready_at.await;
 		}
 
 		let maybe_ready = async move {
@@ -543,18 +540,19 @@ where
 		};
 
 		let fall_back_ready = self.ready_at_light(at);
-		Box::pin(async {
-			let (maybe_ready, fall_back_ready) =
-				futures::future::join(maybe_ready.boxed(), fall_back_ready.boxed()).await;
-			maybe_ready.unwrap_or(fall_back_ready)
-		})
+		let (maybe_ready, fall_back_ready) =
+			futures::future::join(maybe_ready, fall_back_ready).await;
+		maybe_ready.unwrap_or(fall_back_ready)
 	}
 
-	fn ready_at_internal(&self, at: Block::Hash) -> (bool, PolledIterator<ChainApi>) {
+	fn ready_at_internal(
+		&self,
+		at: Block::Hash,
+	) -> (bool, Pin<Box<dyn Future<Output = ReadyIteratorFor<ChainApi>> + Send>>) {
 		let mut ready_poll = self.ready_poll.lock();
 
 		if let Some((view, inactive)) = self.view_store.get_view_at(at, true) {
-			log::debug!(target: LOG_TARGET, "fatp::ready_at {at:?} (inactive:{inactive:?})");
+			log::debug!(target: LOG_TARGET, "fatp::ready_at_internal {at:?} (inactive:{inactive:?})");
 			let iterator: ReadyIteratorFor<ChainApi> = Box::new(view.pool.validated_pool().ready());
 			return (true, async move { iterator }.boxed());
 		}
@@ -569,7 +567,7 @@ where
 			})
 			.boxed();
 		log::debug!(target: LOG_TARGET,
-			"fatp::ready_at {at:?} pending keys: {:?}",
+			"fatp::ready_at_internal {at:?} pending keys: {:?}",
 			ready_poll.pollers.keys()
 		);
 		(false, pending)
@@ -623,6 +621,7 @@ fn reduce_multiview_result<H, E>(input: HashMap<H, Vec<Result<H, E>>>) -> Vec<Re
 		.unwrap_or_default()
 }
 
+#[async_trait]
 impl<ChainApi, Block> TransactionPool for ForkAwareTxPool<ChainApi, Block>
 where
 	Block: BlockT,
@@ -640,12 +639,12 @@ where
 	///
 	/// The internal limits of the pool are checked. The results of submissions to individual views
 	/// are reduced to single result. Refer to `reduce_multiview_result` for more details.
-	fn submit_at(
+	async fn submit_at(
 		&self,
 		_: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
-	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
+	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let view_store = self.view_store.clone();
 		log::debug!(target: LOG_TARGET, "fatp::submit_at count:{} views:{}", xts.len(), self.active_views_count());
 		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "[{:?}] fatp::submit_at");
@@ -653,11 +652,10 @@ where
 		let mempool_results = self.mempool.extend_unwatched(source, &xts);
 
 		if view_store.is_empty() {
-			return future::ready(Ok(mempool_results
+			return Ok(mempool_results
 				.into_iter()
 				.map(|r| r.map(|r| r.hash))
-				.collect::<Vec<_>>()))
-			.boxed()
+				.collect::<Vec<_>>())
 		}
 
 		let to_be_submitted = mempool_results
@@ -672,11 +670,10 @@ where
 			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
 
 		let mempool = self.mempool.clone();
-		async move {
-			let results_map = view_store.submit(to_be_submitted.into_iter()).await;
-			let mut submission_results = reduce_multiview_result(results_map).into_iter();
+		let results_map = view_store.submit(to_be_submitted.into_iter()).await;
+		let mut submission_results = reduce_multiview_result(results_map).into_iter();
 
-			Ok(mempool_results
+		Ok(mempool_results
 				.into_iter()
 				.map(|result| {
 					result.and_then(|insertion| {
@@ -689,61 +686,49 @@ where
 					})
 				})
 				.collect::<Vec<_>>())
-		}
-		.boxed()
 	}
 
 	/// Submits a single transaction and returns a future resolving to the submission results.
 	///
 	/// Actual transaction submission process is delegated to the `submit_at` function.
-	fn submit_one(
+	async fn submit_one(
 		&self,
 		_at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<TxHash<Self>, Self::Error> {
+	) -> Result<TxHash<Self>, Self::Error> {
 		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.active_views_count());
-		let result_future = self.submit_at(_at, source, vec![xt]);
-		async move {
-			let result = result_future.await;
-			match result {
-				Ok(mut v) =>
-					v.pop().expect("There is exactly one element in result of submit_at. qed."),
-				Err(e) => Err(e),
-			}
+		match self.submit_at(_at, source, vec![xt]).await {
+			Ok(mut v) =>
+				v.pop().expect("There is exactly one element in result of submit_at. qed."),
+			Err(e) => Err(e),
 		}
-		.boxed()
 	}
 
 	/// Submits a transaction and starts to watch its progress in the pool, returning a stream of
 	/// status updates.
 	///
 	/// Actual transaction submission process is delegated to the `ViewStore` internal instance.
-	fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
+	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.active_views_count());
 		let xt = Arc::from(xt);
 		let InsertionInfo { hash: xt_hash, source: timed_source } =
 			match self.mempool.push_watched(source, xt.clone()) {
 				Ok(result) => result,
-				Err(e) => return future::ready(Err(e)).boxed(),
+				Err(e) => return Err(e),
 			};
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
-		let view_store = self.view_store.clone();
-		let mempool = self.mempool.clone();
-		async move {
-			view_store
-				.submit_and_watch(at, timed_source, xt)
-				.await
-				.inspect_err(|_| mempool.remove(xt_hash))
-		}
-		.boxed()
+		view_store
+			.submit_and_watch(at, timed_source, xt)
+			.await
+			.inspect_err(|_| mempool.remove(xt_hash))
 	}
 
 	/// Intended to remove transactions identified by the given hashes, and any dependent
@@ -814,9 +799,9 @@ where
 	}
 
 	/// Returns an iterator for ready transactions at a specific block, ordered by priority.
-	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<ChainApi> {
+	async fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> ReadyIteratorFor<ChainApi> {
 		let (_, result) = self.ready_at_internal(at);
-		result
+		result.await
 	}
 
 	/// Returns an iterator for ready transactions, ordered by priority.
@@ -839,12 +824,12 @@ where
 	///
 	/// If the timeout expires before the maintain process is accomplished, a best-effort
 	/// set of transactions is returned (refer to `ready_at_light`).
-	fn ready_at_with_timeout(
+	async fn ready_at_with_timeout(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		timeout: std::time::Duration,
-	) -> PolledIterator<ChainApi> {
-		self.ready_at_with_timeout_internal(at, timeout)
+	) -> ReadyIteratorFor<ChainApi> {
+		self.ready_at_with_timeout_internal(at, timeout).await
 	}
 }
 
