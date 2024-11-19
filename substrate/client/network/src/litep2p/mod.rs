@@ -748,6 +748,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						NetworkServiceCommand::AddKnownAddress { peer, address } => {
 							let mut address: Multiaddr = address.into();
 
+							if address.is_empty() {
+								log::debug!(
+									target: LOG_TARGET,
+									"Ignoring empty address for {peer:?}",
+								);
+								continue
+							}
+
 							if !address.iter().any(|protocol| std::matches!(protocol, Protocol::P2p(_))) {
 								address.push(Protocol::P2p(litep2p::PeerId::from(peer).into()));
 							}
