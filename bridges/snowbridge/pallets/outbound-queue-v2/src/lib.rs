@@ -185,7 +185,7 @@ pub mod pallet {
 		/// Invalid Gateway
 		InvalidGateway,
 		/// No pending nonce
-		PendingNonceNotExist,
+		InvalidPendingNonce,
 	}
 
 	/// Messages to be committed in the current block. This storage value is killed in
@@ -274,9 +274,8 @@ pub mod pallet {
 			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
 
 			let nonce = envelope.nonce;
-			ensure!(<PendingOrders<T>>::contains_key(nonce), Error::<T>::PendingNonceNotExist);
 
-			let order = <PendingOrders<T>>::get(nonce).ok_or(Error::<T>::PendingNonceNotExist)?;
+			let order = <PendingOrders<T>>::get(nonce).ok_or(Error::<T>::InvalidPendingNonce)?;
 
 			// No fee for governance order
 			if !order.fee.is_zero() {
