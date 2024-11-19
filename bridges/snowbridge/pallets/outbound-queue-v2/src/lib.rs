@@ -184,7 +184,7 @@ pub mod pallet {
 		Verification(VerificationError),
 		/// Invalid Gateway
 		InvalidGateway,
-		/// No pending nonce
+		/// Pending nonce does not exist
 		InvalidPendingNonce,
 	}
 
