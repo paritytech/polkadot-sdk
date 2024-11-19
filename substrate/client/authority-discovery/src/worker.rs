@@ -280,7 +280,9 @@ where
 			config
 				.public_addresses
 				.into_iter()
-				.map(|address| AddressType::PublicAddress(address).without_p2p(local_peer_id))
+				.filter_map(|address| {
+					AddressType::PublicAddress(address).without_p2p(local_peer_id)
+				})
 				.collect()
 		};
 
@@ -399,6 +401,7 @@ where
 			.filter_map(|address| {
 				address_is_global(&address)
 					.then(|| AddressType::GlobalListenAddress(address).without_p2p(local_peer_id))
+					.flatten()
 			})
 			.take(MAX_GLOBAL_LISTEN_ADDRESSES)
 			.peekable();
@@ -411,6 +414,7 @@ where
 			.filter_map(|address| {
 				(publish_non_global_ips || address_is_global(&address))
 					.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
+					.flatten()
 			})
 			.peekable();
 
@@ -998,7 +1002,9 @@ impl AddressType {
 	///
 	/// In case the peer id in the address does not match the local peer id, an error is logged for
 	/// `ExternalAddress` and `GlobalListenAddress`.
-	fn without_p2p(self, local_peer_id: PeerId) -> Multiaddr {
+	///
+	/// Returns `None` if the address is empty after removing the `/p2p/..` part.
+	fn without_p2p(self, local_peer_id: PeerId) -> Option<Multiaddr> {
 		// Get the address and the source str for logging.
 		let (mut address, source) = match self {
 			AddressType::PublicAddress(address) => (address, "public address"),
@@ -1016,7 +1022,13 @@ impl AddressType {
 			}
 			address.pop();
 		}
-		address
+
+		// Empty addresses cannot be published.
+		if address.is_empty() {
+			None
+		} else {
+			Some(address)
+		}
 	}
 }
 

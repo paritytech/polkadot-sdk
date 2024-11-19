@@ -42,6 +42,11 @@ pub struct Multiaddr {
 }
 
 impl Multiaddr {
+	/// Returns `true` if this multiaddress is empty.
+	pub fn is_empty(&self) -> bool {
+		self.multiaddr.is_empty()
+	}
+
 	/// Create a new, empty multiaddress.
 	pub fn empty() -> Self {
 		Self { multiaddr: LiteP2pMultiaddr::empty() }
