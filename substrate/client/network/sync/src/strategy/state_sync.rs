@@ -136,7 +136,7 @@ impl<B: BlockT> StateSyncMetadata<B> {
 	}
 }
 
-/// State sync state machine. 
+/// State sync state machine.
 ///
 /// Accumulates partial state data until it is ready to be imported.
 pub struct StateSync<B: BlockT, Client> {
