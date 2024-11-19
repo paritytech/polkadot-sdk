@@ -20,7 +20,7 @@
 mod mock;
 
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_noop, assert_ok, hypothetically,
 	traits::{fungible::InspectHold, Currency},
 };
 use mock::*;
@@ -537,10 +537,10 @@ fn pool_slash_proportional() {
 	// a typical example where 3 pool members unbond in era 99, 100, and 101, and a slash that
 	// happened in era 100 should only affect the latter two.
 	new_test_ext().execute_with(|| {
-		ExistentialDeposit::set(1);
+		ExistentialDeposit::set(2);
 		BondingDuration::set(28);
-		assert_eq!(Balances::minimum_balance(), 1);
-		assert_eq!(CurrentEra::<T>::get(), None);
+		assert_eq!(Balances::minimum_balance(), 2);
+		assert_eq!(Staking::current_era(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -670,6 +670,34 @@ fn pool_slash_proportional() {
 
 		// no pending slash yet.
 		assert_eq!(Pools::api_pool_pending_slash(1), 0);
+		// and therefore applying slash fails
+		assert_noop!(
+			Pools::apply_slash(RuntimeOrigin::signed(10), 21),
+			PoolsError::<Runtime>::MinSlashNotMet
+		);
+
+		hypothetically!({
+			// a very small amount is slashed
+			pallet_staking::slashing::do_slash::<Runtime>(
+				&POOL1_BONDED,
+				3,
+				&mut Default::default(),
+				&mut Default::default(),
+				100,
+			);
+
+			// ensure correct amount is pending to be slashed
+			assert_eq!(Pools::api_pool_pending_slash(1), 3);
+
+			// 21 has pending slash lower than ED (2)
+			assert_eq!(Pools::api_member_pending_slash(21), 1);
+
+			// slash fails as minimum pending slash amount not met.
+			assert_noop!(
+				Pools::apply_slash(RuntimeOrigin::signed(10), 21),
+				PoolsError::<Runtime>::MinSlashNotMet
+			);
+		});
 
 		pallet_staking::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
@@ -909,6 +937,221 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 		);
 	});
 }
+
+#[test]
+fn pool_slash_fail() {
+	// cannot apply slash if slash amount is too small
+	new_test_ext().execute_with(|| {
+		ExistentialDeposit::set(1);
+		BondingDuration::set(28);
+		assert_eq!(Balances::minimum_balance(), 1);
+		assert_eq!(Staking::current_era(), None);
+
+		// create the pool, we know this has id 1.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
+		assert_eq!(LastPoolId::<T>::get(), 1);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 40 }]
+		);
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![DelegatedStakingEvent::Delegated {
+				agent: POOL1_BONDED,
+				delegator: 10,
+				amount: 40
+			}]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Created { depositor: 10, pool_id: 1 },
+				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 40, joined: true },
+			]
+		);
+
+		// have two members join
+		let bond = 20;
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), bond, 1));
+		assert_ok!(Pools::join(RuntimeOrigin::signed(21), bond, 1));
+		assert_ok!(Pools::join(RuntimeOrigin::signed(22), bond, 1));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: bond },
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: bond },
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: bond },
+			]
+		);
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::Delegated {
+					agent: POOL1_BONDED,
+					delegator: 20,
+					amount: bond
+				},
+				DelegatedStakingEvent::Delegated {
+					agent: POOL1_BONDED,
+					delegator: 21,
+					amount: bond
+				},
+				DelegatedStakingEvent::Delegated {
+					agent: POOL1_BONDED,
+					delegator: 22,
+					amount: bond
+				}
+			]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: bond, joined: true },
+				PoolsEvent::Bonded { member: 21, pool_id: 1, bonded: bond, joined: true },
+				PoolsEvent::Bonded { member: 22, pool_id: 1, bonded: bond, joined: true },
+			]
+		);
+
+		// now let's progress a lot.
+		CurrentEra::<T>::set(Some(99));
+
+		// and unbond
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, bond));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond },]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![PoolsEvent::Unbonded {
+				member: 20,
+				pool_id: 1,
+				balance: bond,
+				points: bond,
+				era: 127
+			}]
+		);
+
+		CurrentEra::<T>::set(Some(100));
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(21), 21, bond));
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond },]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![PoolsEvent::Unbonded {
+				member: 21,
+				pool_id: 1,
+				balance: bond,
+				points: bond,
+				era: 128
+			}]
+		);
+
+		CurrentEra::<T>::set(Some(101));
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(22), 22, bond));
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond },]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![PoolsEvent::Unbonded {
+				member: 22,
+				pool_id: 1,
+				balance: bond,
+				points: bond,
+				era: 129
+			}]
+		);
+
+		// Apply a slash that happened in era 100. This is typically applied with a delay.
+		// Of the total 100, 50 is slashed.
+		assert_eq!(BondedPools::<T>::get(1).unwrap().points, 40);
+
+		// no pending slash yet.
+		assert_eq!(Pools::api_pool_pending_slash(1), 0);
+
+		pallet_staking::slashing::do_slash::<Runtime>(
+			&POOL1_BONDED,
+			50,
+			&mut Default::default(),
+			&mut Default::default(),
+			100,
+		);
+
+		// Pools api returns correct slash amount.
+		assert_eq!(Pools::api_pool_pending_slash(1), 50);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Slashed { staker: POOL1_BONDED, amount: 50 }]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				// This era got slashed 12.5, which rounded up to 13.
+				PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 128, balance: 7 },
+				// This era got slashed 12 instead of 12.5 because an earlier chunk got 0.5 more
+				// slashed, and 12 is all the remaining slash
+				PoolsEvent::UnbondingPoolSlashed { pool_id: 1, era: 129, balance: 8 },
+				// Bonded pool got slashed for 25, remaining 15 in it.
+				PoolsEvent::PoolSlashed { pool_id: 1, balance: 15 }
+			]
+		);
+
+		// 21's balance in the pool is slashed.
+		assert_eq!(PoolMembers::<Runtime>::get(21).unwrap().total_balance(), 7);
+		// But their actual balance is still unslashed.
+		assert_eq!(Balances::total_balance_on_hold(&21), bond);
+		// 21 has pending slash
+		assert_eq!(Pools::api_member_pending_slash(21), bond - 7);
+		// apply slash permissionlessly.
+		assert_ok!(Pools::apply_slash(RuntimeOrigin::signed(10), 21));
+		// member balance is slashed.
+		assert_eq!(Balances::total_balance_on_hold(&21), 7);
+		// 21 has no pending slash anymore
+		assert_eq!(Pools::api_member_pending_slash(21), 0);
+
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![DelegatedStakingEvent::Slashed {
+				agent: POOL1_BONDED,
+				delegator: 21,
+				amount: bond - 7
+			}]
+		);
+
+		// 22 balance isn't slashed yet as well.
+		assert_eq!(PoolMembers::<Runtime>::get(22).unwrap().total_balance(), 8);
+		assert_eq!(Balances::total_balance_on_hold(&22), bond);
+
+		// they try to withdraw. This should slash them.
+		CurrentEra::<T>::set(Some(129));
+		let pre_balance = Balances::free_balance(&22);
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(22), 22, 0));
+		// all balance should be released.
+		assert_eq!(Balances::total_balance_on_hold(&22), 0);
+		assert_eq!(Balances::free_balance(&22), pre_balance + 8);
+
+		assert_eq!(
+			delegated_staking_events_since_last_call(),
+			vec![
+				DelegatedStakingEvent::Slashed {
+					agent: POOL1_BONDED,
+					delegator: 22,
+					amount: bond - 8
+				},
+				DelegatedStakingEvent::Released { agent: POOL1_BONDED, delegator: 22, amount: 8 },
+			]
+		);
+	});
+}
+
 #[test]
 fn pool_migration_e2e() {
 	new_test_ext().execute_with(|| {
