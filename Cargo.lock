@@ -1282,7 +1282,7 @@ dependencies = [
  "futures-lite 2.5.0",
  "parking",
  "polling 3.7.4",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "slab",
  "tracing",
  "windows-sys 0.59.0",
@@ -1343,7 +1343,7 @@ dependencies = [
  "cfg-if",
  "event-listener 3.1.0",
  "futures-lite 1.13.0",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "windows-sys 0.48.0",
 ]
 
@@ -1362,7 +1362,7 @@ dependencies = [
  "cfg-if",
  "event-listener 5.3.1",
  "futures-lite 2.5.0",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "tracing",
 ]
 
@@ -1378,7 +1378,7 @@ dependencies = [
  "cfg-if",
  "futures-core",
  "futures-io",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "signal-hook-registry",
  "slab",
  "windows-sys 0.59.0",
@@ -7669,7 +7669,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29f9df8a11882c4e3335eb2d18a0137c505d9ca927470b0cac9c6f0ae07d28f7"
 dependencies = [
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "windows-sys 0.48.0",
 ]
 
@@ -10633,7 +10633,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2cffa4ad52c6f791f4f8b15f0c05f9824b2ced1160e88cc393d64fff9a8ac64"
 dependencies = [
- "rustix 0.38.40",
+ "rustix 0.38.41",
 ]
 
 [[package]]
@@ -11244,6 +11244,7 @@ name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
  "array-bytes",
+ "async-trait",
  "clap 4.5.21",
  "derive_more 0.99.18",
  "fs_extra",
@@ -16453,9 +16454,9 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.6.12"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "306800abfa29c7f16596b5970a588435e3d5b3149683d00c12b699cc19f895ee"
+checksum = "8be4817d39f3272f69c59fe05d0535ae6456c2dc2fa1ba02910296c7e0a5c590"
 dependencies = [
  "arrayvec 0.7.6",
  "bitvec",
@@ -16463,19 +16464,20 @@ dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec-derive",
+ "rustversion",
  "serde",
 ]
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "3.6.12"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d830939c76d294956402033aee57a6da7b438f2294eb94864c37b0569053a42c"
+checksum = "8781a75c6205af67215f382092b6e0a4ff3734798523e69073d4bcd294ec767b"
 dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2 1.0.89",
  "quote 1.0.37",
- "syn 1.0.109",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -20180,7 +20182,7 @@ dependencies = [
  "concurrent-queue",
  "hermit-abi 0.4.0",
  "pin-project-lite",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "tracing",
  "windows-sys 0.59.0",
 ]
@@ -20495,7 +20497,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "procfs-core",
- "rustix 0.38.40",
+ "rustix 0.38.41",
 ]
 
 [[package]]
@@ -21889,9 +21891,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.40"
+version = "0.38.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99e4ea3e1cdc4b559b8e5650f9c8e5998e3e5c1343b4eaf034565f32318d63c0"
+checksum = "d7f649912bc1495e167a6edee79151c84b1bad49748cb4f1f1167f459f6224f6"
 dependencies = [
  "bitflags 2.6.0",
  "errno",
@@ -23455,6 +23457,7 @@ version = "0.34.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
+ "async-trait",
  "futures",
  "futures-util",
  "hex",
@@ -23962,9 +23965,9 @@ dependencies = [
 
 [[package]]
 name = "schannel"
-version = "0.1.26"
+version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01227be5826fa0690321a2ba6c5cd57a19cf3f6a09e76973b58e61de6ab9d1c1"
+checksum = "1f29ebaa345f945cec9fbbc532eb307f0fdad8161f281b6369539c8d84876b3d"
 dependencies = [
  "windows-sys 0.59.0",
 ]
@@ -24208,7 +24211,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
 dependencies = [
- "semver-parser 0.10.2",
+ "semver-parser 0.10.3",
 ]
 
 [[package]]
@@ -24228,9 +24231,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "semver-parser"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00b0bef5b7f9e0df16536d3961cfb6e84331c065b4066afb39768d0e319411f7"
+checksum = "9900206b54a3527fdc7b8a938bffd94a568bac4f4aa8113b209df75a09c0dec2"
 dependencies = [
  "pest",
 ]
@@ -26412,7 +26415,7 @@ dependencies = [
 [[package]]
 name = "sp-crypto-ec-utils"
 version = "0.10.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e98c1ac6994766411f96bd7c14e8049cc5284396"
+source = "git+https://github.com/paritytech/polkadot-sdk#5e8348f03f49cc32ad48912e186c04b0f1212b16"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-377-ext",
@@ -26529,7 +26532,7 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e98c1ac6994766411f96bd7c14e8049cc5284396"
+source = "git+https://github.com/paritytech/polkadot-sdk#5e8348f03f49cc32ad48912e186c04b0f1212b16"
 dependencies = [
  "proc-macro2 1.0.89",
  "quote 1.0.37",
@@ -26548,7 +26551,7 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.25.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e98c1ac6994766411f96bd7c14e8049cc5284396"
+source = "git+https://github.com/paritytech/polkadot-sdk#5e8348f03f49cc32ad48912e186c04b0f1212b16"
 dependencies = [
  "environmental",
  "parity-scale-codec",
@@ -27136,7 +27139,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "24.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e98c1ac6994766411f96bd7c14e8049cc5284396"
+source = "git+https://github.com/paritytech/polkadot-sdk#5e8348f03f49cc32ad48912e186c04b0f1212b16"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -27227,7 +27230,7 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "17.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e98c1ac6994766411f96bd7c14e8049cc5284396"
+source = "git+https://github.com/paritytech/polkadot-sdk#5e8348f03f49cc32ad48912e186c04b0f1212b16"
 dependencies = [
  "Inflector",
  "expander",
@@ -27504,7 +27507,7 @@ checksum = "12f8ee986414b0a9ad741776762f4083cd3a5128449b982a3919c4df36874834"
 [[package]]
 name = "sp-std"
 version = "14.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e98c1ac6994766411f96bd7c14e8049cc5284396"
+source = "git+https://github.com/paritytech/polkadot-sdk#5e8348f03f49cc32ad48912e186c04b0f1212b16"
 
 [[package]]
 name = "sp-storage"
@@ -27520,7 +27523,7 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "19.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e98c1ac6994766411f96bd7c14e8049cc5284396"
+source = "git+https://github.com/paritytech/polkadot-sdk#5e8348f03f49cc32ad48912e186c04b0f1212b16"
 dependencies = [
  "impl-serde 0.5.0",
  "parity-scale-codec",
@@ -27618,7 +27621,7 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "16.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e98c1ac6994766411f96bd7c14e8049cc5284396"
+source = "git+https://github.com/paritytech/polkadot-sdk#5e8348f03f49cc32ad48912e186c04b0f1212b16"
 dependencies = [
  "parity-scale-codec",
  "tracing",
@@ -27886,7 +27889,7 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "20.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk#e98c1ac6994766411f96bd7c14e8049cc5284396"
+source = "git+https://github.com/paritytech/polkadot-sdk#5e8348f03f49cc32ad48912e186c04b0f1212b16"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
@@ -29296,7 +29299,7 @@ dependencies = [
  "cfg-if",
  "fastrand 2.2.0",
  "once_cell",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "windows-sys 0.59.0",
 ]
 
@@ -29326,7 +29329,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f599bd7ca042cfdf8f4512b277c02ba102247820f9d9d4a9f521f496751a6ef"
 dependencies = [
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "windows-sys 0.59.0",
 ]
 
@@ -31877,7 +31880,7 @@ checksum = "8da84f1a25939b27f6820d92aed108f83ff920fdf11a7b19366c27c4cda81d4f"
 dependencies = [
  "libc",
  "linux-raw-sys 0.4.14",
- "rustix 0.38.40",
+ "rustix 0.38.41",
 ]
 
 [[package]]
