@@ -121,6 +121,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Ru
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubWestendMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 		DeliveryRewardInBalance,
 	>;
 

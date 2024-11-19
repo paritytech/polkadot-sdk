@@ -152,6 +152,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubRococoMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 		DeliveryRewardInBalance,
 	>;
 
