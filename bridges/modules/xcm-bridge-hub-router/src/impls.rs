@@ -154,7 +154,7 @@ where
 			) if payment_asset_id.eq(&message_size_fees_asset_id) => {
 				// we can subsume two assets with the same asset_id and fungibility.
 				Some(
-					(payment_asset_id, (payment_amount.saturating_add(message_size_fees_amount)))
+					(payment_asset_id, payment_amount.saturating_add(message_size_fees_amount))
 						.into(),
 				)
 			},
