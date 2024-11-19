@@ -136,6 +136,6 @@ upload_s3_release() {
     ls "$artifacts"
     aws s3 sync --acl public-read "$artifacts" "s3://releases.parity.io/${product}/${version}/${platform}"
     echo "Uploaded files:"
-    aws s3 ls "s3://releases.parity.io/${product}/${version}/{$platform}" --recursive --human-readable --summarize
+    aws s3 ls "s3://releases.parity.io/${product}/${version}/${platform}" --recursive --human-readable --summarize
     echo "✅ The release should be at https://releases.parity.io/${product}/${version}/${platform}"
 }
