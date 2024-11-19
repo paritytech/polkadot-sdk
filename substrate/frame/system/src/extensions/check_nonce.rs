@@ -80,6 +80,10 @@ where
 		_len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let mut account = crate::Account::<T>::get(who);
+		if account.providers.is_zero() && account.sufficients.is_zero() {
+			// Nonce storage not paid for
+			return Err(InvalidTransaction::Payment.into())
+		}
 		if self.0 != account.nonce {
 			return Err(if self.0 < account.nonce {
 				InvalidTransaction::Stale
@@ -101,6 +105,10 @@ where
 		_len: usize,
 	) -> TransactionValidity {
 		let account = crate::Account::<T>::get(who);
+		if account.providers.is_zero() && account.sufficients.is_zero() {
+			// Nonce storage not paid for
+			return InvalidTransaction::Payment.into()
+		}
 		if self.0 < account.nonce {
 			return InvalidTransaction::Stale.into()
 		}
