@@ -98,7 +98,14 @@ extern crate alloc;
 
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame::{prelude::*, traits::{Dispatchable, Saturating, StaticLookup, Zero}, deps::sp_runtime::DispatchError, derive::DefaultNoBound};
+use frame::{
+	deps::sp_runtime::DispatchError,
+	prelude::*,
+	traits::{
+		ChangeMembers, Currency, Dispatchable, InitializeMembers, OnUnbalanced, ReservableCurrency,
+		Saturating, StaticLookup, Zero,
+	},
+};
 /*
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;

@@ -20,13 +20,15 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use core::{cmp, mem::size_of};
+/*
 use sp_runtime::traits::{Bounded, Hash, StaticLookup};
 
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin as SystemOrigin};
-
+*/
 use super::{Call as AllianceCall, Pallet as Alliance, *};
+use frame::{benchmarking::prelude::*, deps::{frame_system::{Pallet as System, RawOrigin as SystemOrigin}, frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable}}};
 
 const SEED: u32 = 0;
 
@@ -193,7 +195,7 @@ mod benchmarks {
 
 		// Whitelist voter account from further DB operations.
 		let voter_key = frame_system::Account::<T>::hashed_key_for(&voter);
-		frame_benchmarking::benchmarking::add_to_whitelist(voter_key.into());
+		add_to_whitelist(voter_key.into());
 
 		#[extrinsic_call]
 		_(SystemOrigin::Signed(voter), last_hash, index, approve);
@@ -264,7 +266,7 @@ mod benchmarks {
 
 		// Whitelist voter account from further DB operations.
 		let voter_key = frame_system::Account::<T>::hashed_key_for(&voter);
-		frame_benchmarking::benchmarking::add_to_whitelist(voter_key.into());
+		add_to_whitelist(voter_key.into());
 
 		#[extrinsic_call]
 		close(SystemOrigin::Signed(voter), last_hash, index, Weight::MAX, bytes_in_storage);

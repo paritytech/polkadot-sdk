@@ -17,7 +17,7 @@
 
 use crate::{Config, Pallet, Weight, LOG_TARGET};
 //use frame_support::{pallet_prelude::*, storage::migration, traits::OnRuntimeUpgrade};
-use frame::{prelude::*, traits::OnRuntimeUpgrade, deps::frame_support::storage::migration}; 
+use frame::{deps::frame_support::storage::migration, prelude::*, traits::OnRuntimeUpgrade};
 use log;
 
 /// The in-code storage version.
@@ -163,6 +163,8 @@ pub(crate) mod v1_to_v2 {
 #[cfg(test)]
 mod test {
 	use super::*;
+	use frame::testing_prelude::assert_ok;
+	use pretty_assertions::assert_eq;
 	use crate::{mock::*, MemberRole, Members};
 
 	#[test]

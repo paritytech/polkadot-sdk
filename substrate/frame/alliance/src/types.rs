@@ -20,7 +20,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 // use frame_support::{traits::ConstU32, BoundedVec};
 use scale_info::TypeInfo;
 // use sp_runtime::RuntimeDebug;
-use frame::{runtime::prelude::ConstU32, derive::RuntimeDebug, deps::frame_support::BoundedVec};
+use frame::{deps::frame_support::BoundedVec, derive::RuntimeDebug, runtime::prelude::ConstU32};
 
 /// A Multihash instance that only supports the basic functionality and no hashing.
 #[derive(

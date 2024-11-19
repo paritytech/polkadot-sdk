@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! Test utilities
-
+/*
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
@@ -29,6 +29,21 @@ pub use frame_support::{
 	traits::EitherOfDiverse, BoundedVec,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
+*/
+use frame::{
+	deps::{
+		frame_support::{traits::EitherOfDiverse, BoundedVec},
+		sp_runtime::traits::{IdentifyAccount, Lazy, Verify},
+	},
+	runtime::{
+		prelude::{
+			construct_runtime, derive_impl, ord_parameter_types, parameter_types, EnsureRoot,
+			EnsureSignedBy,
+		},
+		testing_prelude::BuildStorage,
+	},
+	testing_prelude::{assert_noop, assert_ok},
+};
 use pallet_identity::{
 	legacy::{IdentityField, IdentityInfo},
 	Data, IdentityOf, Judgement, SuperOf,
@@ -237,7 +252,7 @@ impl Config for Test {
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,

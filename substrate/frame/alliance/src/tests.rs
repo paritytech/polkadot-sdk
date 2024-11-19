@@ -17,12 +17,14 @@
 
 //! Tests for the alliance pallet.
 
+/*
 use frame_support::{assert_noop, assert_ok};
 use frame_system::{EventRecord, Phase};
 use sp_runtime::traits::BadOrigin;
-
+*/
 use super::*;
 use crate::{self as alliance, mock::*};
+use frame::{testing_prelude::{assert_noop, assert_ok}, deps::{sp_runtime::DispatchError::BadOrigin, frame_system::{EventRecord, Phase}}};
 
 type AllianceMotionEvent = pallet_collective::Event<Test, pallet_collective::Instance1>;
 
