@@ -29,9 +29,8 @@ use crate::{
 		error,
 		log_xt::log_xt_trace,
 	},
-	graph,
-	graph::{ExtrinsicHash, IsValidator},
-	PolledIterator, ReadyIteratorFor, LOG_TARGET,
+	graph::{self, ExtrinsicHash, IsValidator},
+	ReadyIteratorFor, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{channel::oneshot, future, prelude::*, Future, FutureExt};
@@ -39,8 +38,8 @@ use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
-	PoolFuture, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
-	TransactionStatusStreamFor, TxHash,
+	PoolStatus, TransactionFor, TransactionPool, TransactionSource, TransactionStatusStreamFor,
+	TxHash,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -224,26 +223,19 @@ where
 		&self.api
 	}
 
-	fn ready_at_with_timeout_internal(
+	async fn ready_at_with_timeout_internal(
 		&self,
 		at: Block::Hash,
 		timeout: std::time::Duration,
-	) -> PolledIterator<PoolApi> {
-		let timeout = futures_timer::Delay::new(timeout);
-		let ready_maintained = self.ready_at(at);
-		let ready_current = self.ready();
-
-		let ready = async {
-			select! {
-				ready = ready_maintained => ready,
-				_ = timeout => ready_current
-			}
-		};
-
-		Box::pin(ready)
+	) -> ReadyIteratorFor<PoolApi> {
+		select! {
+			ready = self.ready_at(at)=> ready,
+			_ = futures_timer::Delay::new(timeout)=> self.ready()
+		}
 	}
 }
 
+#[async_trait]
 impl<PoolApi, Block> TransactionPool for BasicPool<PoolApi, Block>
 where
 	Block: BlockT,
@@ -255,12 +247,12 @@ where
 		graph::base_pool::Transaction<graph::ExtrinsicHash<PoolApi>, graph::ExtrinsicFor<PoolApi>>;
 	type Error = PoolApi::Error;
 
-	fn submit_at(
+	async fn submit_at(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
-	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
+	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let pool = self.pool.clone();
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
 
@@ -268,38 +260,32 @@ where
 			.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
 
 		let number = self.api.resolve_block_number(at);
-		async move {
-			let at = HashAndNumber { hash: at, number: number? };
-			Ok(pool.submit_at(&at, source, xts).await)
-		}
-		.boxed()
+		let at = HashAndNumber { hash: at, number: number? };
+		Ok(pool.submit_at(&at, source, xts).await)
 	}
 
-	fn submit_one(
+	async fn submit_one(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<TxHash<Self>, Self::Error> {
+	) -> Result<TxHash<Self>, Self::Error> {
 		let pool = self.pool.clone();
 		let xt = Arc::from(xt);
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		let number = self.api.resolve_block_number(at);
-		async move {
-			let at = HashAndNumber { hash: at, number: number? };
-			pool.submit_one(&at, source, xt).await
-		}
-		.boxed()
+		let at = HashAndNumber { hash: at, number: number? };
+		pool.submit_one(&at, source, xt).await
 	}
 
-	fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
+	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		let pool = self.pool.clone();
 		let xt = Arc::from(xt);
 
@@ -307,13 +293,10 @@ where
 
 		let number = self.api.resolve_block_number(at);
 
-		async move {
-			let at = HashAndNumber { hash: at, number: number? };
-			let watcher = pool.submit_and_watch(&at, source, xt).await?;
+		let at = HashAndNumber { hash: at, number: number? };
+		let watcher = pool.submit_and_watch(&at, source, xt).await?;
 
-			Ok(watcher.into_stream().boxed())
-		}
-		.boxed()
+		Ok(watcher.into_stream().boxed())
 	}
 
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
@@ -343,9 +326,9 @@ where
 		self.pool.validated_pool().ready_by_hash(hash)
 	}
 
-	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<PoolApi> {
+	async fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> ReadyIteratorFor<PoolApi> {
 		let Ok(at) = self.api.resolve_block_number(at) else {
-			return async { Box::new(std::iter::empty()) as Box<_> }.boxed()
+			return Box::new(std::iter::empty()) as Box<_>
 		};
 
 		let status = self.status();
@@ -354,25 +337,23 @@ where
 		// There could be transaction being added because of some re-org happening at the relevant
 		// block, but this is relative unlikely.
 		if status.ready == 0 && status.future == 0 {
-			return async { Box::new(std::iter::empty()) as Box<_> }.boxed()
+			return Box::new(std::iter::empty()) as Box<_>
 		}
 
 		if self.ready_poll.lock().updated_at() >= at {
 			log::trace!(target: LOG_TARGET, "Transaction pool already processed block  #{}", at);
 			let iterator: ReadyIteratorFor<PoolApi> = Box::new(self.pool.validated_pool().ready());
-			return async move { iterator }.boxed()
+			return iterator
 		}
 
-		self.ready_poll
-			.lock()
-			.add(at)
-			.map(|received| {
-				received.unwrap_or_else(|e| {
-					log::warn!(target: LOG_TARGET, "Error receiving pending set: {:?}", e);
-					Box::new(std::iter::empty())
-				})
+		let result = self.ready_poll.lock().add(at).map(|received| {
+			received.unwrap_or_else(|e| {
+				log::warn!(target: LOG_TARGET, "Error receiving pending set: {:?}", e);
+				Box::new(std::iter::empty())
 			})
-			.boxed()
+		});
+
+		result.await
 	}
 
 	fn ready(&self) -> ReadyIteratorFor<PoolApi> {
@@ -384,12 +365,12 @@ where
 		pool.futures().cloned().collect::<Vec<_>>()
 	}
 
-	fn ready_at_with_timeout(
+	async fn ready_at_with_timeout(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		timeout: std::time::Duration,
-	) -> PolledIterator<PoolApi> {
-		self.ready_at_with_timeout_internal(at, timeout)
+	) -> ReadyIteratorFor<PoolApi> {
+		self.ready_at_with_timeout_internal(at, timeout).await
 	}
 }
 
