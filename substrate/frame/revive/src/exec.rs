@@ -2267,7 +2267,7 @@ mod tests {
 					BOB_ADDR,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					0,
+					U256::zero(),
 					vec![],
 					None,
 				),
@@ -2284,7 +2284,7 @@ mod tests {
 				BOB_ADDR,
 				&mut GasMeter::<Test>::new(GAS_LIMIT),
 				&mut storage_meter,
-				0,
+				U256::zero(),
 				vec![],
 				None,
 			));
