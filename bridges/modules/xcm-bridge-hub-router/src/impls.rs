@@ -141,7 +141,7 @@ where
 			Pallet::<T, I>::calculate_message_size_fee(|| message.encoded_size() as _);
 
 		// compute actual fees - sum(actual payment, message size fees) if possible
-		let fees = match (maybe_payment, maybe_message_size_fees) {
+		let mut fees = match (maybe_payment, maybe_message_size_fees) {
 			(Some(payment), None) => Some(payment),
 			(None, Some(message_size_fees)) => Some(message_size_fees),
 			(None, None) => None,
@@ -176,17 +176,11 @@ where
 
 		// Here, we have the actual result fees covering bridge fees, so now we need to check/apply
 		// the congestion and dynamic_fees features (if possible).
-		let fees = fees.map(|fees| {
-			if let Some(bridge_id) = T::BridgeIdResolver::resolve_for(network, remote_location) {
-				if let Some(bridge_state) = Bridges::<T, I>::get(bridge_id) {
-					Pallet::<T, I>::calculate_dynamic_fee(&bridge_state, fees)
-				} else {
-					fees
-				}
-			} else {
-				fees
+		if let Some(bridge_id) = T::BridgeIdResolver::resolve_for(network, remote_location) {
+			if let Some(bridge_state) = Bridges::<T, I>::get(bridge_id) {
+				fees = fees.map(|f| Pallet::<T, I>::calculate_dynamic_fee(&bridge_state, f));
 			}
-		});
+		}
 
 		Some((bridge_hub_location, fees))
 	}
