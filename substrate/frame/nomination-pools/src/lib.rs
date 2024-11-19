@@ -3957,7 +3957,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Pending slash is only applicable with [`adapter::DelegateStake`] strategy.
 	///
-	/// If pending slash of the member exceeds ExistentialDeposit, it can be reported on
+	/// If pending slash of the member exceeds `ExistentialDeposit`, it can be reported on
 	/// chain via [`Call::apply_slash`].
 	pub fn api_member_pending_slash(who: T::AccountId) -> BalanceOf<T> {
 		PoolMembers::<T>::get(who.clone())
