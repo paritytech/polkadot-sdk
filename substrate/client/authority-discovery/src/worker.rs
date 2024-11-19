@@ -850,7 +850,9 @@ where
 		// Ignore [`Multiaddr`]s without [`PeerId`] or with own addresses.
 		let addresses: Vec<Multiaddr> = addresses
 			.into_iter()
-			.filter(|a| get_peer_id(&a).filter(|p| *p != local_peer_id).is_some())
+			.filter(|a| {
+				!address_is_empty(a) && get_peer_id(&a).filter(|p| *p != local_peer_id).is_some()
+			})
 			.collect();
 
 		let remote_peer_id = single(addresses.iter().map(|a| get_peer_id(&a)))
@@ -1030,6 +1032,15 @@ impl AddressType {
 			Some(address)
 		}
 	}
+}
+
+/// Checks if an authority-discovery address is empty.
+///
+/// An empty address is an address without protocols, or an address with only the `/p2p/..`
+/// protocol.
+fn address_is_empty(address: &Multiaddr) -> bool {
+	address.is_empty() ||
+		address.iter().all(|protocol| matches!(protocol, multiaddr::Protocol::P2p(_)))
 }
 
 /// NetworkProvider provides [`Worker`] with all necessary hooks into the
