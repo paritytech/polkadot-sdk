@@ -48,7 +48,7 @@ pub extern "C" fn call() {
 		input,
 		Some(&mut address),
 		None,
-		&salt,
+		Some(&salt),
 	)
 	.unwrap();
 

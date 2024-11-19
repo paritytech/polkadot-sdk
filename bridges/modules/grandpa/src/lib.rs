@@ -728,15 +728,13 @@ pub mod pallet {
 			init_params;
 		let authority_set_length = authority_list.len();
 		let authority_set = StoredAuthoritySet::<T, I>::try_new(authority_list, set_id)
-			.map_err(|e| {
+			.inspect_err(|_| {
 				log::error!(
 					target: LOG_TARGET,
 					"Failed to initialize bridge. Number of authorities in the set {} is larger than the configured value {}",
 					authority_set_length,
 					T::BridgedChain::MAX_AUTHORITIES_COUNT,
 				);
-
-				e
 			})?;
 		let initial_hash = header.hash();
 

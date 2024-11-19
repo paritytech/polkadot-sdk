@@ -36,13 +36,12 @@ use polkadot_node_network_protocol::{
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::jaeger;
 use polkadot_node_subsystem_util::{
 	metrics::prometheus::prometheus::HistogramTimer, runtime::ProspectiveParachainsMode,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CollatorId, Hash, HeadData, Id as ParaId,
-	PersistedValidationData,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CollatorId, Hash, HeadData,
+	Id as ParaId, PersistedValidationData,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -72,18 +71,15 @@ pub struct FetchedCollation {
 	pub para_id: ParaId,
 	/// Candidate hash.
 	pub candidate_hash: CandidateHash,
-	/// Id of the collator the collation was fetched from.
-	pub collator_id: CollatorId,
 }
 
 impl From<&CandidateReceipt<Hash>> for FetchedCollation {
 	fn from(receipt: &CandidateReceipt<Hash>) -> Self {
 		let descriptor = receipt.descriptor();
 		Self {
-			relay_parent: descriptor.relay_parent,
-			para_id: descriptor.para_id,
+			relay_parent: descriptor.relay_parent(),
+			para_id: descriptor.para_id(),
 			candidate_hash: receipt.hash(),
-			collator_id: descriptor.collator.clone(),
 		}
 	}
 }
@@ -133,27 +129,32 @@ pub struct BlockedCollationId {
 }
 
 /// Performs a sanity check between advertised and fetched collations.
-///
-/// Since the persisted validation data is constructed using the advertised
-/// parent head data hash, the latter doesn't require an additional check.
 pub fn fetched_collation_sanity_check(
 	advertised: &PendingCollation,
 	fetched: &CandidateReceipt,
 	persisted_validation_data: &PersistedValidationData,
 	maybe_parent_head_and_hash: Option<(HeadData, Hash)>,
 ) -> Result<(), SecondingError> {
-	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash {
-		Err(SecondingError::PersistedValidationDataMismatch)
-	} else if advertised
+	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash() {
+		return Err(SecondingError::PersistedValidationDataMismatch)
+	}
+
+	if advertised
 		.prospective_candidate
 		.map_or(false, |pc| pc.candidate_hash() != fetched.hash())
 	{
-		Err(SecondingError::CandidateHashMismatch)
-	} else if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != hash) {
-		Err(SecondingError::ParentHeadDataMismatch)
-	} else {
-		Ok(())
+		return Err(SecondingError::CandidateHashMismatch)
 	}
+
+	if advertised.relay_parent != fetched.descriptor.relay_parent() {
+		return Err(SecondingError::RelayParentMismatch)
+	}
+
+	if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != hash) {
+		return Err(SecondingError::ParentHeadDataMismatch)
+	}
+
+	Ok(())
 }
 
 /// Identifier for a requested collation and the respective collator that advertised it.
@@ -319,8 +320,6 @@ pub(super) struct CollationFetchRequest {
 	pub from_collator: BoxFuture<'static, OutgoingResult<request_v1::CollationFetchingResponse>>,
 	/// Handle used for checking if this request was cancelled.
 	pub cancellation_token: CancellationToken,
-	/// A jaeger span corresponding to the lifetime of the request.
-	pub span: Option<jaeger::Span>,
 	/// A metric histogram for the lifetime of the request
 	pub _lifetime_timer: Option<HistogramTimer>,
 }
@@ -339,7 +338,6 @@ impl Future for CollationFetchRequest {
 		};
 
 		if cancelled {
-			self.span.as_mut().map(|s| s.add_string_tag("success", "false"));
 			return Poll::Ready((
 				CollationEvent {
 					collator_protocol_version: self.collator_protocol_version,
@@ -360,16 +358,6 @@ impl Future for CollationFetchRequest {
 				res.map_err(CollationFetchError::Request),
 			)
 		});
-
-		match &res {
-			Poll::Ready((_, Ok(_))) => {
-				self.span.as_mut().map(|s| s.add_string_tag("success", "true"));
-			},
-			Poll::Ready((_, Err(_))) => {
-				self.span.as_mut().map(|s| s.add_string_tag("success", "false"));
-			},
-			_ => {},
-		};
 
 		res
 	}

@@ -6,7 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -45,6 +45,7 @@ pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 /// in addition to the messages themselves, you must provide some information about
 /// your parachain's configuration in order to mock the MQC heads properly.
 /// See [`MockXcmConfig`] for more information
+#[derive(Default)]
 pub struct MockValidationDataInherentDataProvider<R = ()> {
 	/// The current block number of the local block chain (the parachain).
 	pub current_para_block: u32,

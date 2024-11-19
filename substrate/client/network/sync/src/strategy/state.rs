@@ -19,17 +19,22 @@
 //! State sync strategy.
 
 use crate::{
-	schema::v1::StateResponse,
+	schema::v1::{StateRequest, StateResponse},
+	service::network::NetworkServiceHandle,
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
+		StrategyKey, SyncingAction,
 	},
-	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
+	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };
+use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, trace};
+use prost::Message;
 use sc_client_api::ProofProvider;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
+use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::BlockAnnounce;
 use sc_network_types::PeerId;
 use sp_consensus::BlockOrigin;
@@ -37,7 +42,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	Justifications, SaturatedConversion,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{any::Any, collections::HashMap, sync::Arc};
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -47,18 +52,6 @@ mod rep {
 
 	/// Reputation change for peers which send us a known bad state.
 	pub const BAD_STATE: Rep = Rep::new(-(1 << 29), "Bad state");
-}
-
-/// Action that should be performed on [`StateStrategy`]'s behalf.
-pub enum StateStrategyAction<B: BlockT> {
-	/// Send state request to peer.
-	SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
-	/// Disconnect and report peer.
-	DropPeer(BadPeer),
-	/// Import blocks.
-	ImportBlocks { origin: BlockOrigin, blocks: Vec<IncomingBlock<B>> },
-	/// State sync has finished.
-	Finished,
 }
 
 enum PeerState {
@@ -82,11 +75,15 @@ pub struct StateStrategy<B: BlockT> {
 	state_sync: Box<dyn StateSyncProvider<B>>,
 	peers: HashMap<PeerId, Peer<B>>,
 	disconnected_peers: DisconnectedPeers,
-	actions: Vec<StateStrategyAction<B>>,
+	actions: Vec<SyncingAction<B>>,
+	protocol_name: ProtocolName,
 	succeeded: bool,
 }
 
 impl<B: BlockT> StateStrategy<B> {
+	/// Strategy key used by state sync.
+	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("State");
+
 	/// Create a new instance.
 	pub fn new<Client>(
 		client: Arc<Client>,
@@ -95,6 +92,7 @@ impl<B: BlockT> StateStrategy<B> {
 		target_justifications: Option<Justifications>,
 		skip_proof: bool,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
+		protocol_name: ProtocolName,
 	) -> Self
 	where
 		Client: ProofProvider<B> + Send + Sync + 'static,
@@ -115,16 +113,19 @@ impl<B: BlockT> StateStrategy<B> {
 			peers,
 			disconnected_peers: DisconnectedPeers::new(),
 			actions: Vec::new(),
+			protocol_name,
 			succeeded: false,
 		}
 	}
 
-	// Create a new instance with a custom state sync provider.
-	// Used in tests.
-	#[cfg(test)]
-	fn new_with_provider(
+	/// Create a new instance with a custom state sync provider.
+	///
+	/// Note: In most cases, users should use [`StateStrategy::new`].
+	/// This method is intended for custom sync strategies and advanced use cases.
+	pub fn new_with_provider(
 		state_sync_provider: Box<dyn StateSyncProvider<B>>,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
+		protocol_name: ProtocolName,
 	) -> Self {
 		Self {
 			state_sync: state_sync_provider,
@@ -135,6 +136,7 @@ impl<B: BlockT> StateStrategy<B> {
 				.collect(),
 			disconnected_peers: DisconnectedPeers::new(),
 			actions: Vec::new(),
+			protocol_name,
 			succeeded: false,
 		}
 	}
@@ -151,7 +153,7 @@ impl<B: BlockT> StateStrategy<B> {
 				if let Some(bad_peer) =
 					self.disconnected_peers.on_disconnect_during_request(*peer_id)
 				{
-					self.actions.push(StateStrategyAction::DropPeer(bad_peer));
+					self.actions.push(SyncingAction::DropPeer(bad_peer));
 				}
 			}
 		}
@@ -167,7 +169,7 @@ impl<B: BlockT> StateStrategy<B> {
 		peer_id: PeerId,
 		announce: &BlockAnnounce<B::Header>,
 	) -> Option<(B::Hash, NumberFor<B>)> {
-		is_best.then_some({
+		is_best.then(|| {
 			let best_number = *announce.header.number();
 			let best_hash = announce.header.hash();
 			if let Some(ref mut peer) = self.peers.get_mut(&peer_id) {
@@ -179,30 +181,32 @@ impl<B: BlockT> StateStrategy<B> {
 	}
 
 	/// Process state response.
-	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
-		if let Err(bad_peer) = self.on_state_response_inner(peer_id, response) {
-			self.actions.push(StateStrategyAction::DropPeer(bad_peer));
+	pub fn on_state_response(&mut self, peer_id: &PeerId, response: Vec<u8>) {
+		if let Err(bad_peer) = self.on_state_response_inner(peer_id, &response) {
+			self.actions.push(SyncingAction::DropPeer(bad_peer));
 		}
 	}
 
 	fn on_state_response_inner(
 		&mut self,
-		peer_id: PeerId,
-		response: OpaqueStateResponse,
+		peer_id: &PeerId,
+		response: &[u8],
 	) -> Result<(), BadPeer> {
 		if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer.state = PeerState::Available;
 		}
 
-		let response: Box<StateResponse> = response.0.downcast().map_err(|_error| {
-			error!(
-				target: LOG_TARGET,
-				"Failed to downcast opaque state response, this is an implementation bug."
-			);
-			debug_assert!(false);
+		let response = match StateResponse::decode(response) {
+			Ok(response) => response,
+			Err(error) => {
+				debug!(
+					target: LOG_TARGET,
+					"Failed to decode state response from peer {peer_id:?}: {error:?}.",
+				);
 
-			BadPeer(peer_id, rep::BAD_RESPONSE)
-		})?;
+				return Err(BadPeer(*peer_id, rep::BAD_RESPONSE));
+			},
+		};
 
 		debug!(
 			target: LOG_TARGET,
@@ -212,7 +216,7 @@ impl<B: BlockT> StateStrategy<B> {
 			response.proof.len(),
 		);
 
-		match self.state_sync.import(*response) {
+		match self.state_sync.import(response) {
 			ImportResult::Import(hash, header, state, body, justifications) => {
 				let origin = BlockOrigin::NetworkInitialSync;
 				let block = IncomingBlock {
@@ -228,14 +232,13 @@ impl<B: BlockT> StateStrategy<B> {
 					state: Some(state),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
-				self.actions
-					.push(StateStrategyAction::ImportBlocks { origin, blocks: vec![block] });
+				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
 				Ok(())
 			},
 			ImportResult::Continue => Ok(()),
 			ImportResult::BadResponse => {
 				debug!(target: LOG_TARGET, "Bad state data received from {peer_id}");
-				Err(BadPeer(peer_id, rep::BAD_STATE))
+				Err(BadPeer(*peer_id, rep::BAD_STATE))
 			},
 		}
 	}
@@ -275,12 +278,12 @@ impl<B: BlockT> StateStrategy<B> {
 				);
 			});
 			self.succeeded |= results.into_iter().any(|result| result.is_ok());
-			self.actions.push(StateStrategyAction::Finished);
+			self.actions.push(SyncingAction::Finished);
 		}
 	}
 
 	/// Produce state request.
-	fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
+	fn state_request(&mut self) -> Option<(PeerId, StateRequest)> {
 		if self.state_sync.is_complete() {
 			return None
 		}
@@ -301,7 +304,7 @@ impl<B: BlockT> StateStrategy<B> {
 			target: LOG_TARGET,
 			"New state request to {peer_id}: {request:?}.",
 		);
-		Some((peer_id, OpaqueStateRequest(Box::new(request))))
+		Some((peer_id, request))
 	}
 
 	fn schedule_next_peer(
@@ -346,13 +349,35 @@ impl<B: BlockT> StateStrategy<B> {
 		}
 	}
 
-	/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
+	/// Get actions that should be performed.
 	#[must_use]
-	pub fn actions(&mut self) -> impl Iterator<Item = StateStrategyAction<B>> {
-		let state_request = self
-			.state_request()
-			.into_iter()
-			.map(|(peer_id, request)| StateStrategyAction::SendStateRequest { peer_id, request });
+	pub fn actions(
+		&mut self,
+		network_service: &NetworkServiceHandle,
+	) -> impl Iterator<Item = SyncingAction<B>> {
+		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
+			let (tx, rx) = oneshot::channel();
+
+			network_service.start_request(
+				peer_id,
+				self.protocol_name.clone(),
+				request.encode_to_vec(),
+				tx,
+				IfDisconnected::ImmediateError,
+			);
+
+			SyncingAction::StartRequest {
+				peer_id,
+				key: Self::STRATEGY_KEY,
+				request: async move {
+					Ok(rx.await?.and_then(|(response, protocol_name)| {
+						Ok((Box::new(response) as Box<dyn Any + Send>, protocol_name))
+					}))
+				}
+				.boxed(),
+				remove_obsolete: false,
+			}
+		});
 		self.actions.extend(state_request);
 
 		std::mem::take(&mut self.actions).into_iter()
@@ -370,6 +395,7 @@ mod test {
 	use super::*;
 	use crate::{
 		schema::v1::{StateRequest, StateResponse},
+		service::network::NetworkServiceProvider,
 		strategy::state_sync::{ImportResult, StateSyncProgress, StateSyncProvider},
 	};
 	use codec::Decode;
@@ -409,8 +435,15 @@ mod test {
 			.block;
 		let target_header = target_block.header().clone();
 
-		let mut state_strategy =
-			StateStrategy::new(client, target_header, None, None, false, std::iter::empty());
+		let mut state_strategy = StateStrategy::new(
+			client,
+			target_header,
+			None,
+			None,
+			false,
+			std::iter::empty(),
+			ProtocolName::Static(""),
+		);
 
 		assert!(state_strategy
 			.schedule_next_peer(PeerState::DownloadingState, Zero::zero())
@@ -442,6 +475,7 @@ mod test {
 				None,
 				false,
 				initial_peers,
+				ProtocolName::Static(""),
 			);
 
 			let peer_id =
@@ -475,6 +509,7 @@ mod test {
 				None,
 				false,
 				initial_peers,
+				ProtocolName::Static(""),
 			);
 
 			let peer_id = state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
@@ -508,6 +543,7 @@ mod test {
 			None,
 			false,
 			initial_peers,
+			ProtocolName::Static(""),
 		);
 
 		// Disconnecting a peer without an inflight request has no effect on persistent states.
@@ -557,10 +593,10 @@ mod test {
 			None,
 			false,
 			initial_peers,
+			ProtocolName::Static(""),
 		);
 
-		let (_peer_id, mut opaque_request) = state_strategy.state_request().unwrap();
-		let request: &mut StateRequest = opaque_request.0.downcast_mut().unwrap();
+		let (_peer_id, request) = state_strategy.state_request().unwrap();
 		let hash = Hash::decode(&mut &*request.block).unwrap();
 
 		assert_eq!(hash, target_block.header().hash());
@@ -587,6 +623,7 @@ mod test {
 			None,
 			false,
 			initial_peers,
+			ProtocolName::Static(""),
 		);
 
 		// First request is sent.
@@ -602,13 +639,16 @@ mod test {
 		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
 		// Manually set the peer's state.
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
-		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
-		state_strategy.on_state_response(peer_id, dummy_response);
+		let dummy_response = StateResponse::default().encode_to_vec();
+		state_strategy.on_state_response(&peer_id, dummy_response);
 
 		assert!(state_strategy.peers.get(&peer_id).unwrap().state.is_available());
 	}
@@ -620,14 +660,17 @@ mod test {
 		state_sync_provider.expect_import().return_once(|_| ImportResult::BadResponse);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
 		// Manually set the peer's state.
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
-		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
+		let dummy_response = StateResponse::default().encode_to_vec();
 		// Receiving response drops the peer.
 		assert!(matches!(
-			state_strategy.on_state_response_inner(peer_id, dummy_response),
+			state_strategy.on_state_response_inner(&peer_id, &dummy_response),
 			Err(BadPeer(id, _rep)) if id == peer_id,
 		));
 	}
@@ -639,13 +682,16 @@ mod test {
 		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
 		// Manually set the peer's state .
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
-		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
-		state_strategy.on_state_response(peer_id, dummy_response);
+		let dummy_response = StateResponse::default().encode_to_vec();
+		state_strategy.on_state_response(&peer_id, dummy_response);
 
 		// No actions generated.
 		assert_eq!(state_strategy.actions.len(), 0)
@@ -698,19 +744,22 @@ mod test {
 		// Prepare `StateStrategy`.
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
 		// Manually set the peer's state .
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
 		// Receive response.
-		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
-		state_strategy.on_state_response(peer_id, dummy_response);
+		let dummy_response = StateResponse::default().encode_to_vec();
+		state_strategy.on_state_response(&peer_id, dummy_response);
 
 		assert_eq!(state_strategy.actions.len(), 1);
 		assert!(matches!(
 			&state_strategy.actions[0],
-			StateStrategyAction::ImportBlocks { origin, blocks }
+			SyncingAction::ImportBlocks { origin, blocks }
 				if *origin == expected_origin && *blocks == expected_blocks,
 		));
 	}
@@ -722,8 +771,11 @@ mod test {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);
 
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			std::iter::empty(),
+			ProtocolName::Static(""),
+		);
 
 		// Unknown block imported.
 		state_strategy.on_blocks_processed(
@@ -745,8 +797,11 @@ mod test {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);
 
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			std::iter::empty(),
+			ProtocolName::Static(""),
+		);
 
 		// Target block imported.
 		state_strategy.on_blocks_processed(
@@ -760,7 +815,7 @@ mod test {
 
 		// Strategy finishes.
 		assert_eq!(state_strategy.actions.len(), 1);
-		assert!(matches!(&state_strategy.actions[0], StateStrategyAction::Finished));
+		assert!(matches!(&state_strategy.actions[0], SyncingAction::Finished));
 	}
 
 	#[test]
@@ -769,8 +824,11 @@ mod test {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);
 
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			std::iter::empty(),
+			ProtocolName::Static(""),
+		);
 
 		// Target block import failed.
 		state_strategy.on_blocks_processed(
@@ -784,7 +842,7 @@ mod test {
 
 		// Strategy finishes.
 		assert_eq!(state_strategy.actions.len(), 1);
-		assert!(matches!(&state_strategy.actions[0], StateStrategyAction::Finished));
+		assert!(matches!(&state_strategy.actions[0], SyncingAction::Finished));
 	}
 
 	#[test]
@@ -797,8 +855,11 @@ mod test {
 		// Get enough peers for possible spurious requests.
 		let initial_peers = (1..=10).map(|best_number| (PeerId::random(), best_number));
 
-		let mut state_strategy =
-			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		let mut state_strategy = StateStrategy::new_with_provider(
+			Box::new(state_sync_provider),
+			initial_peers,
+			ProtocolName::Static(""),
+		);
 
 		state_strategy.on_blocks_processed(
 			1,
@@ -809,12 +870,15 @@ mod test {
 			)],
 		);
 
+		let network_provider = NetworkServiceProvider::new();
+		let network_handle = network_provider.handle();
+
 		// Strategy finishes.
-		let actions = state_strategy.actions().collect::<Vec<_>>();
+		let actions = state_strategy.actions(&network_handle).collect::<Vec<_>>();
 		assert_eq!(actions.len(), 1);
-		assert!(matches!(&actions[0], StateStrategyAction::Finished));
+		assert!(matches!(&actions[0], SyncingAction::Finished));
 
 		// No more actions generated.
-		assert_eq!(state_strategy.actions().count(), 0);
+		assert_eq!(state_strategy.actions(&network_handle).count(), 0);
 	}
 }

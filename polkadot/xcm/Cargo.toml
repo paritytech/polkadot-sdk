@@ -23,11 +23,12 @@ serde = { features = ["alloc", "derive", "rc"], workspace = true }
 schemars = { default-features = true, optional = true, workspace = true }
 xcm-procedural = { workspace = true, default-features = true }
 environmental = { workspace = true }
+hex-literal = { workspace = true, default-features = true }
+frame-support = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
-hex-literal = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -36,6 +37,7 @@ std = [
 	"bounded-collections/std",
 	"codec/std",
 	"environmental/std",
+	"frame-support/std",
 	"log/std",
 	"scale-info/std",
 	"serde/std",

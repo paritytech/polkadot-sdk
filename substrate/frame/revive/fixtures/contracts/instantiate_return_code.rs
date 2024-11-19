@@ -41,7 +41,7 @@ pub extern "C" fn call() {
 		input,
 		None,
 		None,
-		&[0u8; 32], // Salt.
+		Some(&[0u8; 32]), // Salt.
 	) {
 		Ok(_) => 0u32,
 		Err(code) => code as u32,
