@@ -229,8 +229,8 @@ pub mod pallet {
 
 		/// Provides the current block number.
 		///
-		/// This is usually `cumulus_pallet_parachain_system::RelayChainDataProvider` if a parachain,
-		/// or `frame_system::Pallet` if a solo chain.
+		/// This is usually `cumulus_pallet_parachain_system::RelayChainDataProvider` if a
+		/// parachain, or `frame_system::Pallet` if a solo chain.
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
