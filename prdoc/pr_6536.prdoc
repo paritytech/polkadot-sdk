@@ -19,6 +19,6 @@ crates:
 - name: bridge-hub-westend-runtime
   bump: patch
 - name: bridge-hub-test-utils
-  bump: patch
+  bump: major
 - name: parachains-runtimes-test-utils
-  bump: patch
+  bump: major
