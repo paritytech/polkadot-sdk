@@ -117,7 +117,7 @@ mod tests {
 	#[test]
 	fn confirmation_relayer_is_rewarded_if_it_has_also_delivered_messages() {
 		run_test(|| {
-			register_relayers_rewards::<TestRuntime>(
+			register_relayers_rewards::<TestRuntime, ()>(
 				&RELAYER_2,
 				relayers_rewards(),
 				test_reward_account_param(),
@@ -138,7 +138,7 @@ mod tests {
 	#[test]
 	fn confirmation_relayer_is_not_rewarded_if_it_has_not_delivered_any_messages() {
 		run_test(|| {
-			register_relayers_rewards::<TestRuntime>(
+			register_relayers_rewards::<TestRuntime, ()>(
 				&RELAYER_3,
 				relayers_rewards(),
 				test_reward_account_param(),
