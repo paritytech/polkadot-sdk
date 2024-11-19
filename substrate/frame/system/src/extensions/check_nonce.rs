@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchInfo;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension},
+	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, Zero},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidity, TransactionValidityError,
 		ValidTransaction,
