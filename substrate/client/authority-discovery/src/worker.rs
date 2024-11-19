@@ -1036,8 +1036,9 @@ impl AddressType {
 
 /// Checks if an authority-discovery address is empty.
 ///
-/// An empty address is an address without protocols, or an address with only the `/p2p/..`
-/// protocol.
+/// An address is considered empty if:
+///  - The multiaddr is empty.
+///  - The multiaddr contains only the `/p2p/..` protocol.
 fn address_is_empty(address: &Multiaddr) -> bool {
 	address.is_empty() ||
 		address.iter().all(|protocol| matches!(protocol, multiaddr::Protocol::P2p(_)))
@@ -1220,5 +1221,25 @@ impl Metrics {
 impl<Block: BlockT, Client, DhtEventStream> Worker<Client, Block, DhtEventStream> {
 	pub(crate) fn inject_addresses(&mut self, authority: AuthorityId, addresses: Vec<Multiaddr>) {
 		self.addr_cache.insert(authority, addresses);
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn check_empty_address() {
+		// Plain empty address.
+		let empty_address = Multiaddr::empty();
+		assert!(address_is_empty(&empty_address));
+
+		// Address is still unusable.
+		let address_with_p2p = Multiaddr::from(multiaddr::Protocol::P2p(PeerId::random().into()));
+		assert!(address_is_empty(&address_with_p2p));
+
+		// Address is not empty.
+		let valid_address: Multiaddr = "/dns/domain1.com/tcp/30333".parse().unwrap();
+		assert!(!address_is_empty(&valid_address));
 	}
 }
