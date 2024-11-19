@@ -329,7 +329,7 @@ fn apply_pending_slash() {
 				1,
 				None
 			),
-			Error::<T>::MinSlashNotMet
+			Error::<T>::NothingToSlash
 		);
 	});
 }

@@ -240,7 +240,7 @@ pub mod pallet {
 		/// Unapplied pending slash restricts operation on `Agent`.
 		UnappliedSlash,
 		/// `Agent` has no pending slash to be applied.
-		MinSlashNotMet,
+		NothingToSlash,
 		/// Failed to withdraw amount from Core Staking.
 		WithdrawFailed,
 		/// Operation not supported by this pallet.
@@ -723,7 +723,7 @@ impl<T: Config> Pallet<T> {
 
 		let agent_ledger = AgentLedgerOuter::<T>::get(&agent)?;
 		// ensure there is something to slash
-		ensure!(agent_ledger.ledger.pending_slash > Zero::zero(), Error::<T>::MinSlashNotMet);
+		ensure!(agent_ledger.ledger.pending_slash > Zero::zero(), Error::<T>::NothingToSlash);
 
 		let mut delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 		ensure!(delegation.agent == agent.clone(), Error::<T>::NotAgent);
