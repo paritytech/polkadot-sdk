@@ -117,13 +117,16 @@ pub fn run_to_block(n: u32) {
 	while System::block_number() < n as u64 {
 		log::debug!("Block {}", System::block_number());
 		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Migrations::on_initialize(System::block_number());
-		// Executive calls this:
-		<Migrations as MultiStepMigrator>::step();
+		AllPalletsWithSystem::on_initialize(System::block_number());
+		System::note_finished_extrinsics();
 
-		Migrations::on_finalize(System::block_number());
-		System::on_finalize(System::block_number());
+		// Executive calls this: `on_idle`.
+		if <Migrations as MultiStepMigrator>::ongoing() {
+			<Migrations as MultiStepMigrator>::step();
+		}
+
+		AllPalletsWithSystem::on_finalize(System::block_number());
+		System::finalize();
 	}
 }
 
@@ -136,13 +139,29 @@ pub fn historic() -> Vec<MockedIdentifier> {
 
 // Traits to make using events less insufferable:
 pub trait IntoRecord {
-	fn into_record(self) -> EventRecord<<Test as frame_system::Config>::RuntimeEvent, H256>;
+	fn into_record(
+		self,
+		index: usize,
+	) -> EventRecord<<Test as frame_system::Config>::RuntimeEvent, H256>;
 }
 
 impl IntoRecord for Event<Test> {
-	fn into_record(self) -> EventRecord<<Test as frame_system::Config>::RuntimeEvent, H256> {
+	fn into_record(
+		self,
+		index: usize,
+	) -> EventRecord<<Test as frame_system::Config>::RuntimeEvent, H256> {
+		let phase = if index == 0 {
+			// only the first event is emitted during initialization
+			match self {
+				Self::UpgradeStarted { .. } | Self::UpgradeFailed => {},
+				_ => panic!("first event emitted should be UpgradeStarted or UpgradeFailed."),
+			}
+			frame_system::Phase::Initialization
+		} else {
+			frame_system::Phase::Finalization
+		};
 		let re: <Test as frame_system::Config>::RuntimeEvent = self.into();
-		EventRecord { phase: frame_system::Phase::Initialization, event: re, topics: vec![] }
+		EventRecord { phase, event: re, topics: vec![] }
 	}
 }
 
@@ -152,11 +171,10 @@ pub trait IntoRecords {
 
 impl<E: IntoRecord> IntoRecords for Vec<E> {
 	fn into_records(self) -> Vec<EventRecord<<Test as frame_system::Config>::RuntimeEvent, H256>> {
-		self.into_iter().map(|e| e.into_record()).collect()
+		self.into_iter().enumerate().map(|(idx, e)| e.into_record(idx)).collect()
 	}
 }
 
 pub fn assert_events<E: IntoRecord>(events: Vec<E>) {
 	pretty_assertions::assert_eq!(events.into_records(), System::events());
-	System::reset_events();
 }
