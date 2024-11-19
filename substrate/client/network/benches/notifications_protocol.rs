@@ -114,14 +114,16 @@ where
 	(worker, notification_service)
 }
 
-async fn run_serially<B, H, N>(size: usize, limit: usize)
-where
+async fn run_serially<B, H, N>(
+	listen_address1: sc_network::Multiaddr,
+	listen_address2: sc_network::Multiaddr,
+	size: usize,
+	limit: usize,
+) where
 	B: BlockT<Hash = H256> + 'static,
 	H: ExHashT,
 	N: NetworkBackend<B, H>,
 {
-	let listen_address1 = get_listen_address();
-	let listen_address2 = get_listen_address();
 	let (worker1, mut notification_service1) = create_network_worker::<B, H, N>(listen_address1);
 	let (worker2, mut notification_service2) =
 		create_network_worker::<B, H, N>(listen_address2.clone());
@@ -299,44 +301,57 @@ fn run_benchmark(c: &mut Criterion) {
 			BenchmarkId::new("libp2p/serially", label),
 			&(size, NOTIFICATIONS),
 			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| {
-					run_serially::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>(size, limit)
-				});
+				b.to_async(&rt).iter_batched(
+					|| {
+						let listen_address1 = get_listen_address();
+						let listen_address2 = get_listen_address();
+						(listen_address1, listen_address2)
+					},
+					|(listen_address1, listen_address2)| {
+						run_serially::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>(
+							listen_address1,
+							listen_address2,
+							size,
+							limit,
+						)
+					},
+					criterion::BatchSize::SmallInput,
+				);
 			},
 		);
-		group.bench_with_input(
-			BenchmarkId::new("litep2p/serially", label),
-			&(size, NOTIFICATIONS),
-			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| {
-					run_serially::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>(
-						size, limit,
-					)
-				});
-			},
-		);
-		group.bench_with_input(
-			BenchmarkId::new("libp2p/with_backpressure", label),
-			&(size, NOTIFICATIONS),
-			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| {
-					run_with_backpressure::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>(
-						size, limit,
-					)
-				});
-			},
-		);
-		group.bench_with_input(
-			BenchmarkId::new("litep2p/with_backpressure", label),
-			&(size, NOTIFICATIONS),
-			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| {
-					run_with_backpressure::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>(
-						size, limit,
-					)
-				});
-			},
-		);
+		// group.bench_with_input(
+		// 	BenchmarkId::new("litep2p/serially", label),
+		// 	&(size, NOTIFICATIONS),
+		// 	|b, &(size, limit)| {
+		// 		b.to_async(&rt).iter(|| {
+		// 			run_serially::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>(
+		// 				size, limit,
+		// 			)
+		// 		});
+		// 	},
+		// );
+		// group.bench_with_input(
+		// 	BenchmarkId::new("libp2p/with_backpressure", label),
+		// 	&(size, NOTIFICATIONS),
+		// 	|b, &(size, limit)| {
+		// 		b.to_async(&rt).iter(|| {
+		// 			run_with_backpressure::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>(
+		// 				size, limit,
+		// 			)
+		// 		});
+		// 	},
+		// );
+		// group.bench_with_input(
+		// 	BenchmarkId::new("litep2p/with_backpressure", label),
+		// 	&(size, NOTIFICATIONS),
+		// 	|b, &(size, limit)| {
+		// 		b.to_async(&rt).iter(|| {
+		// 			run_with_backpressure::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>(
+		// 				size, limit,
+		// 			)
+		// 		});
+		// 	},
+		// );
 	}
 }
 
