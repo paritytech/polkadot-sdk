@@ -18,8 +18,8 @@
 use sp_runtime::bounded_vec;
 
 use frame_election_provider_support::{
-	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider,
-	PageIndex, VoterOf as VoterOfProvider,
+	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider, PageIndex,
+	VoterOf as VoterOfProvider,
 };
 
 use super::{AccountId, BlockNumber, MaxVotesPerVoter, T};

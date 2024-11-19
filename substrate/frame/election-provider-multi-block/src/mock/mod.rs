@@ -64,7 +64,7 @@ pub type VoterIndex = u32;
 pub type TargetIndex = u16;
 pub type T = Runtime;
 pub type Block = frame_system::mocking::MockBlock<Runtime>;
-pub(crate) type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16, ()>;
+pub(crate) type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16, MaxBackersPerWinner, ()>;
 
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
@@ -284,12 +284,12 @@ impl ExtBuilder {
 		self
 	}
 
-	pub(crate) fn snasphot_voters_page(self, voters: VoterIndex) -> Self {
+	pub(crate) fn snapshot_voters_page(self, voters: VoterIndex) -> Self {
 		VoterSnapshotPerBlock::set(voters);
 		self
 	}
 
-	pub(crate) fn snasphot_targets_page(self, targets: TargetIndex) -> Self {
+	pub(crate) fn snapshot_targets_page(self, targets: TargetIndex) -> Self {
 		TargetSnapshotPerBlock::set(targets);
 		self
 	}
@@ -413,11 +413,15 @@ impl ExtBuilder {
 	}
 }
 
+pub(crate) fn force_phase(phase: Phase<BlockNumber>) {
+	CurrentPhase::<T>::set(phase);
+}
+
 pub(crate) fn compute_snapshot_checked() {
 	let msp = crate::Pallet::<T>::msp();
 
 	for page in (0..=Pages::get()).rev() {
-		CurrentPhase::<T>::set(Phase::Snapshot(page));
+		force_phase(Phase::Snapshot(page));
 		crate::Pallet::<T>::try_progress_snapshot(page);
 
 		assert!(Snapshot::<T>::targets_snapshot_exists());
@@ -477,6 +481,10 @@ pub(crate) fn roll_to(n: BlockNumber) {
 	}
 }
 
+pub(crate) fn roll_one() {
+	roll_to(System::block_number() + 1);
+}
+
 // Fast forward until a given election phase.
 pub fn roll_to_phase(phase: Phase<BlockNumber>) {
 	while MultiPhase::current_phase() != phase {
@@ -486,6 +494,12 @@ pub fn roll_to_phase(phase: Phase<BlockNumber>) {
 
 pub fn roll_to_export() {
 	while !MultiPhase::current_phase().is_export() {
+		roll_to(System::block_number() + 1);
+	}
+}
+
+pub(crate) fn roll_to_snapshot() {
+	while !MultiPhase::current_phase().is_snapshot() {
 		roll_to(System::block_number() + 1);
 	}
 }
