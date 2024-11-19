@@ -838,7 +838,7 @@ pub mod pallet {
 
 			let dest = match call {
 				// Forgive me Father for I have sinned
-				Call::magic_mint_experimental { dest } if Self::free_balance(dest).is_zero() => {
+				Call::magic_mint_experimental { dest } => {
 					dest
 				},
 				_ => return Err(InvalidTransaction::Call.into()),
@@ -848,7 +848,7 @@ pub mod pallet {
 				priority: PRIORITY,
 				requires: vec![],
 				provides: vec![dest.encode()],
-				longevity: TransactionLongevity::from(20u64),
+				longevity: TransactionLongevity::from(10u64),
 				propagate: true,
 			})
 		}
