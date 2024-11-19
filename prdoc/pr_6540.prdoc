@@ -14,4 +14,3 @@ crates:
   bump: patch
 - name: pallet-nomination-pools
   bump: minor
-

@@ -673,7 +673,7 @@ fn pool_slash_proportional() {
 		// and therefore applying slash fails
 		assert_noop!(
 			Pools::apply_slash(RuntimeOrigin::signed(10), 21),
-			PoolsError::<Runtime>::MinSlashNotMet
+			PoolsError::<Runtime>::SlashTooLow
 		);
 
 		hypothetically!({
@@ -695,7 +695,7 @@ fn pool_slash_proportional() {
 			// slash fails as minimum pending slash amount not met.
 			assert_noop!(
 				Pools::apply_slash(RuntimeOrigin::signed(10), 21),
-				PoolsError::<Runtime>::MinSlashNotMet
+				PoolsError::<Runtime>::SlashTooLow
 			);
 		});
 

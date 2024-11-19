@@ -1942,8 +1942,10 @@ pub mod pallet {
 		BondExtraRestricted,
 		/// No imbalance in the ED deposit for the pool.
 		NothingToAdjust,
-		/// The slash amount is zero or too low to be applied.
-		MinSlashNotMet,
+		/// No slash pending that can be applied to the member.
+		NothingToSlash,
+		/// The slash amount is too low to be applied.
+		SlashTooLow,
 		/// The pool or member delegation has already migrated to delegate stake.
 		AlreadyMigrated,
 		/// The pool or member delegation has not migrated yet to delegate stake.
@@ -2303,7 +2305,7 @@ pub mod pallet {
 				match Self::do_apply_slash(&member_account, None, false) {
 					Ok(_) => T::WeightInfo::apply_slash(),
 					Err(e) => {
-						let no_pending_slash: DispatchResult = Err(Error::<T>::MinSlashNotMet.into());
+						let no_pending_slash: DispatchResult = Err(Error::<T>::NothingToSlash.into());
 						// This is an expected error. We add appropriate fees and continue withdrawal.
 						if Err(e) == no_pending_slash {
 							T::WeightInfo::apply_slash_fail()
@@ -3585,10 +3587,10 @@ impl<T: Config> Pallet<T> {
 
 		if enforce_min_slash {
 			// ensure slashed amount is at least the minimum balance.
-			ensure!(pending_slash >= T::Currency::minimum_balance(), Error::<T>::MinSlashNotMet);
+			ensure!(pending_slash >= T::Currency::minimum_balance(), Error::<T>::SlashTooLow);
 		} else {
 			// in any case ensure there is something to slash.
-			ensure!(!pending_slash.is_zero(), Error::<T>::MinSlashNotMet);
+			ensure!(!pending_slash.is_zero(), Error::<T>::NothingToSlash);
 		};
 
 		T::StakeAdapter::member_slash(
