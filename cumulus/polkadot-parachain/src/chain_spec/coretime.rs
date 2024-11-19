@@ -113,8 +113,7 @@ impl CoretimeRuntimeType {
 			CoretimeRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/coretime-rococo.json")[..],
 			)?)),
-			CoretimeRuntimeType::RococoLocal =>
-				Ok(Box::new(rococo::local_config(*self, "versi"))),
+			CoretimeRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(*self, "versi"))),
 			CoretimeRuntimeType::RococoDevelopment =>
 				Ok(Box::new(rococo::local_config(*self, "rococo-dev"))),
 			CoretimeRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
@@ -146,13 +145,12 @@ pub fn chain_type_name(chain_type: &ChainType) -> Cow<str> {
 /// Sub-module for Rococo setup.
 pub mod rococo {
 	use super::{chain_type_name, CoretimeRuntimeType, ParaId};
-	use crate::chain_spec::{
-		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
-	};
+	use crate::chain_spec::{get_account_id_from_seed, SAFE_XCM_VERSION};
 	use parachains_common::{AccountId, AuraId, Balance};
 	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
-	use sp_core::sr25519;
+	use sp_core::{hex2array, sr25519};
+	use sp_keyring::sr25519::Keyring;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
 	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-versi";
@@ -178,7 +176,7 @@ pub mod rococo {
 				.expect("WASM binary was not built, please build it!")
 		};
 		let yap_sudo: AccountId =
-		hex2array!("6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15").into();
+			hex2array!("6205a2a2aecb71c13d8ad3197e12c10bcdcaa0c9f176997bc236c6b39143aa15").into();
 
 		GenericChainSpec::builder(
 			wasm_binary,
