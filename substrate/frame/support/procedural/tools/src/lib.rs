@@ -181,3 +181,17 @@ pub fn get_doc_literals(attrs: &[syn::Attribute]) -> Vec<syn::Expr> {
 		})
 		.collect()
 }
+
+/// Return all cfg attributes literals found.
+pub fn get_cfg_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
+	attrs
+		.iter()
+		.filter_map(|attr| {
+			if let syn::Meta::List(meta) = &attr.meta {
+				meta.path.get_ident().filter(|ident| *ident == "cfg").map(|_| attr.clone())
+			} else {
+				None
+			}
+		})
+		.collect()
+}
