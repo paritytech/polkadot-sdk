@@ -288,43 +288,38 @@ pub mod pallet {
 			};
 
 			// handle congestion and fee factor (if detected)
-			let increased =
-				Bridges::<T, I>::mutate_exists(&bridge_id, |bridge_state| match bridge_state {
-					Some(ref mut bridge_state) if bridge_state.is_congested => {
-						// found congested bridge
-						// ok - we need to increase the fee factor, let's do that
-						let message_size_factor =
-							FixedU128::from_u32(message_size.saturating_div(1024))
-								.saturating_mul(MESSAGE_SIZE_FEE_BASE);
-						let total_factor = EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor);
+			Bridges::<T, I>::mutate_exists(&bridge_id, |bridge_state| match bridge_state {
+				Some(ref mut bridge_state) if bridge_state.is_congested => {
+					// found congested bridge
+					// ok - we need to increase the fee factor, let's do that
+					let message_size_factor =
+						FixedU128::from_u32(message_size.saturating_div(1024))
+							.saturating_mul(MESSAGE_SIZE_FEE_BASE);
+					let total_factor = EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor);
 
-						let previous_factor = bridge_state.delivery_fee_factor;
-						bridge_state.delivery_fee_factor =
-							bridge_state.delivery_fee_factor.saturating_mul(total_factor);
+					let previous_factor = bridge_state.delivery_fee_factor;
+					bridge_state.delivery_fee_factor =
+						bridge_state.delivery_fee_factor.saturating_mul(total_factor);
 
-						Some((previous_factor, bridge_state.delivery_fee_factor))
-					},
-					_ => {
-						// not congested, do nothing
-						None
-					},
-				});
-			if let Some((previous_factor, new_factor)) = increased {
-				log::info!(
+					log::info!(
 						target: LOG_TARGET,
 						"Bridge channel with id {:?} is congested. Increased fee factor from {} to {} for {:?}",
 						bridge_id,
 						previous_factor,
-						new_factor,
+						bridge_state.delivery_fee_factor,
 						dest
-				);
-				Self::deposit_event(Event::DeliveryFeeFactorIncreased {
-					previous_value: previous_factor,
-					new_value: new_factor,
-					bridge_id,
-					dest,
-				});
-			}
+					);
+					Self::deposit_event(Event::DeliveryFeeFactorIncreased {
+						previous_value: previous_factor,
+						new_value: bridge_state.delivery_fee_factor,
+						bridge_id: bridge_id.clone(),
+						dest,
+					});
+				},
+				_ => {
+					// not congested, do nothing
+				},
+			});
 		}
 
 		/// Returns the recalculated dynamic fee for a given asset based on the bridge state.
