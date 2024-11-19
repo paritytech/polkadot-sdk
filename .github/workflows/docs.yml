@@ -44,7 +44,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
       - uses: actions/checkout@v4
-      - run: forklift cargo doc --all-features --workspace --no-deps
+      - run: exit 1 && forklift cargo doc --all-features --workspace --no-deps
         id: required
         env:
           SKIP_WASM_BUILD: 1
