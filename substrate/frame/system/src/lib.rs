@@ -110,9 +110,9 @@ use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::{
 	generic,
 	traits::{
-		self, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded, CheckEqual, Dispatchable,
-		Hash, Header, Lookup, LookupError, MaybeDisplay, MaybeSerializeDeserialize, Member, One,
-		Saturating, SimpleBitOps, StaticLookup, Zero,
+		self, AsTransactionAuthorizedOrigin, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded,
+		CheckEqual, Dispatchable, Hash, Header, Lookup, LookupError, MaybeDisplay,
+		MaybeSerializeDeserialize, Member, One, Saturating, SimpleBitOps, StaticLookup, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
@@ -500,7 +500,8 @@ pub mod pallet {
 		type RuntimeOrigin: Into<Result<RawOrigin<Self::AccountId>, Self::RuntimeOrigin>>
 			+ From<RawOrigin<Self::AccountId>>
 			+ Clone
-			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>;
+			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>
+			+ AsTransactionAuthorizedOrigin;
 
 		#[docify::export(system_runtime_call)]
 		/// The aggregated `RuntimeCall` type.

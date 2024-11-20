@@ -19,11 +19,14 @@ use crate::Config;
 use frame_support::{
 	dispatch::DispatchInfo,
 	pallet_prelude::{Decode, DispatchResult, Encode, TransactionSource, TypeInfo, Weight},
-	traits::{Authorize, OriginTrait},
+	traits::Authorize,
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use sp_runtime::{
-	traits::{Dispatchable, PostDispatchInfoOf, TransactionExtension, ValidateResult},
+	traits::{
+		AsTransactionAuthorizedOrigin, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+		ValidateResult,
+	},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -58,7 +61,7 @@ where
 		_inherited_implication: &impl Encode,
 		source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		if let Some(crate::RawOrigin::None) = origin.as_system_ref() {
+		if !origin.is_transaction_authorized() {
 			if let Some(authorize) = call.authorize(source) {
 				return authorize.map(|(validity, unspent)| {
 					(validity, unspent, crate::Origin::<T>::Authorized.into())
