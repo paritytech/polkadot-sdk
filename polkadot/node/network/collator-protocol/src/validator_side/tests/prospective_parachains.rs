@@ -2292,8 +2292,6 @@ fn claims_above_are_counted_correctly() {
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
-		// let second = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
-
 		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
 		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1);
 		let hash_c = Hash::from_low_u64_be(hash_b.to_low_u64_be() - 1);
@@ -2369,6 +2367,117 @@ fn claims_above_are_counted_correctly() {
 		// Same for hash_b
 		let (ignored_candidate, _) =
 			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![3u8]), hash_b);
+
+		advertise_collation(
+			&mut virtual_overseer,
+			collator_a,
+			hash_b,
+			Some((ignored_candidate.hash(), Hash::random())),
+		)
+		.await;
+
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		virtual_overseer
+	});
+}
+
+#[test]
+fn claim_fills_last_free_slot() {
+	let mut test_state = TestState::with_one_scheduled_para();
+
+	// Shorten the claim queue to make the test smaller
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[ParaId::from(test_state.chain_ids[0]), ParaId::from(test_state.chain_ids[0])]
+				.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+	test_state.async_backing_params.max_candidate_depth = 3;
+	test_state.async_backing_params.allowed_ancestry_len = 2;
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
+		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1);
+		let hash_c = Hash::from_low_u64_be(hash_b.to_low_u64_be() - 1);
+
+		let pair_a = CollatorPair::generate().0;
+		let collator_a = PeerId::random();
+		let para_id_a = test_state.chain_ids[0];
+
+		update_view(
+			&mut virtual_overseer,
+			&mut test_state,
+			vec![(hash_a, 0), (hash_b, 1), (hash_c, 2)],
+		)
+		.await;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			collator_a,
+			pair_a.clone(),
+			para_id_a,
+			CollationVersion::V2,
+		)
+		.await;
+
+		// A collation at hash_a claims its spot
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(test_state.chain_ids[0]),
+			hash_a,
+			collator_a,
+			HeadData(vec![0u8]),
+		)
+		.await;
+
+		// Collation at hash_c claims its own spot
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(test_state.chain_ids[0]),
+			hash_c,
+			collator_a,
+			HeadData(vec![2u8]),
+		)
+		.await;
+
+		// Collation at hash_b claims its own spot
+		submit_second_and_assert(
+			&mut virtual_overseer,
+			keystore.clone(),
+			ParaId::from(test_state.chain_ids[0]),
+			hash_b,
+			collator_a,
+			HeadData(vec![3u8]),
+		)
+		.await;
+
+		// Another Collation at hash_a should be ignored because the claim queue is satisfied
+		let (ignored_candidate, _) =
+			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![3u8]), hash_a);
+
+		advertise_collation(
+			&mut virtual_overseer,
+			collator_a,
+			hash_a,
+			Some((ignored_candidate.hash(), Hash::random())),
+		)
+		.await;
+
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		// Same for hash_b
+		let (ignored_candidate, _) =
+			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![4u8]), hash_b);
 
 		advertise_collation(
 			&mut virtual_overseer,
