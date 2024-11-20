@@ -150,8 +150,8 @@ pub enum WasmError {
 	Other(String),
 }
 
-impl From<polkavm::ProgramParseError> for WasmError {
-	fn from(error: polkavm::ProgramParseError) -> Self {
+impl From<polkavm_common::program::ProgramParseError> for WasmError {
+	fn from(error: polkavm_common::program::ProgramParseError) -> Self {
 		WasmError::Other(error.to_string())
 	}
 }

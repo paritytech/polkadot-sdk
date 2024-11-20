@@ -19683,6 +19683,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkavm"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b11f81f7f5be4f8cf825faefb11f79d044dda9e883284e748ac7863cdc046676"
+dependencies = [
+ "libc",
+ "log",
+ "polkavm-assembler 0.16.0",
+ "polkavm-common 0.16.0",
+ "polkavm-linux-raw 0.16.0",
+]
+
+[[package]]
 name = "polkavm-assembler"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19705,6 +19718,15 @@ name = "polkavm-assembler"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e8da55465000feb0a61bbf556ed03024db58f3420eca37721fc726b3b2136bf"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "polkavm-assembler"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcb3a1a254a6e11603bd5b71ec8774eed598ea9e39118aa711c7d25046646f22"
 dependencies = [
  "log",
 ]
@@ -19749,6 +19771,16 @@ name = "polkavm-common"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711952a783e9c5ad407cdacb1ed147f36d37c5d43417c1091d86456d2999417b"
+
+[[package]]
+name = "polkavm-common"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2104e200abfdc462e60c9e4899244ed44ef49ad645e4ecd4a1fe9b8ff775aac"
+dependencies = [
+ "log",
+ "polkavm-assembler 0.16.0",
+]
 
 [[package]]
 name = "polkavm-derive"
@@ -19936,6 +19968,12 @@ name = "polkavm-linux-raw"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "686c4dd9c9c16cc22565b51bdbb269792318d0fd2e6b966b5f6c788534cad0e9"
+
+[[package]]
+name = "polkavm-linux-raw"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a4b12223c692829b17cf3f498e4eefa36a8dccba090a0a9571ad63bf6955cf2"
 
 [[package]]
 name = "polling"
@@ -22661,7 +22699,8 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
- "polkavm 0.9.3",
+ "polkavm 0.16.0",
+ "polkavm-common 0.16.0",
  "sc-allocator 23.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-wasm-interface 20.0.0",
@@ -22702,7 +22741,7 @@ name = "sc-executor-polkavm"
 version = "0.29.0"
 dependencies = [
  "log",
- "polkavm 0.9.3",
+ "polkavm 0.16.0",
  "sc-executor-common 0.29.0",
  "sp-wasm-interface 20.0.0",
 ]

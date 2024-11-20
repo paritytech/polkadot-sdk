@@ -2134,7 +2134,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 #[cfg(test)]
 pub mod tests {
 	use super::*;
-	use bitvec::bitvec;
+	use bitvec::{bits, bitvec, order::Lsb0};
 	use sp_core::sr25519;
 
 	pub fn dummy_committed_candidate_receipt() -> CommittedCandidateReceipt {
@@ -2239,7 +2239,7 @@ pub mod tests {
 
 	#[test]
 	fn test_backed_candidate_injected_core_index() {
-		let initial_validator_indices = bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1];
+		let initial_validator_indices = bits![u8, Lsb0; 0, 1, 0, 1].to_bitvec();
 		let mut candidate = BackedCandidate::new(
 			dummy_committed_candidate_receipt(),
 			vec![],
@@ -2268,11 +2268,11 @@ pub mod tests {
 		let candidate = BackedCandidate::new(
 			dummy_committed_candidate_receipt(),
 			vec![],
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0],
+			bits![u8, Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0].to_bitvec(),
 			None,
 		);
 		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
-		assert_eq!(validator_indices, bitvec![u8, bitvec::order::Lsb0; 0].as_bitslice());
+		assert_eq!(validator_indices, bits![u8, Lsb0; 0]);
 		assert!(core_index.is_some());
 
 		// Core index supplied, ElasticScalingMVP is off. Core index will be treated as normal
@@ -2280,25 +2280,22 @@ pub mod tests {
 		let candidate = BackedCandidate::new(
 			dummy_committed_candidate_receipt(),
 			vec![],
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
+			bits![u8, Lsb0; 0, 1, 0, 1].to_bitvec(),
 			Some(CoreIndex(10)),
 		);
 		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(false);
-		assert_eq!(
-			validator_indices,
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0]
-		);
+		assert_eq!(validator_indices, bits![u8, Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0]);
 		assert!(core_index.is_none());
 
 		// Core index supplied, ElasticScalingMVP is on.
 		let mut candidate = BackedCandidate::new(
 			dummy_committed_candidate_receipt(),
 			vec![],
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
+			bits![u8, Lsb0; 0, 1, 0, 1].to_bitvec(),
 			Some(CoreIndex(10)),
 		);
 		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
-		assert_eq!(validator_indices, bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1]);
+		assert_eq!(validator_indices, bits![u8, Lsb0; 0, 1, 0, 1]);
 		assert_eq!(core_index, Some(CoreIndex(10)));
 
 		let encoded_validator_indices = candidate.validator_indices.clone();

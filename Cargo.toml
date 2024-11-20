@@ -1089,7 +1089,8 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.9.3", default-features = false }
+polkavm = { version = "0.16.0", default-features = false }
+polkavm-common = "0.16.0"
 polkavm-derive = "0.9.1"
 polkavm-linker = "0.9.2"
 portpicker = { version = "0.1.1" }
