@@ -162,7 +162,7 @@ where
 	<<C as graph::ChainApi>::Block as BlockT>::Hash: Unpin,
 {
 	/// Provides the ready or future `HashSet` containing views referencing given transaction.
-	fn transaction_views_with_tx(
+	fn transaction_views(
 		&mut self,
 		tx_hash: ExtrinsicHash<C>,
 	) -> Option<OccupiedEntry<ExtrinsicHash<C>, HashSet<BlockHash<C>>>> {
@@ -209,7 +209,7 @@ where
 				}
 			},
 			TransactionStatus::Dropped => {
-				if let Some(mut views_keeping_tx_valid) = self.transaction_views_with_tx(tx_hash) {
+				if let Some(mut views_keeping_tx_valid) = self.transaction_views(tx_hash) {
 					views_keeping_tx_valid.get_mut().remove(&block_hash);
 					if views_keeping_tx_valid.get().is_empty() {
 						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
