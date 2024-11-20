@@ -123,19 +123,19 @@ upload_s3_release() {
 
     product=$1
     version=$2
-    platform=$3
+    target=$3
 
     echo "Working on product:  $product "
     echo "Working on version:  $version "
-    echo "Working on platform: $platform "
+    echo "Working on platform: $target "
 
     echo "Current content, should be empty on new uploads:"
-    aws s3 ls "s3://releases.parity.io/${product}/${version}/${platform}" --recursive --human-readable --summarize || true
+    aws s3 ls "s3://releases.parity.io/${product}/${version}/${target}" --recursive --human-readable --summarize || true
     echo "Content to be uploaded:"
     artifacts="artifacts/$product/"
     ls "$artifacts"
-    aws s3 sync --acl public-read "$artifacts" "s3://releases.parity.io/${product}/${version}/${platform}"
+    aws s3 sync --acl public-read "$artifacts" "s3://releases.parity.io/${product}/${version}/${target}"
     echo "Uploaded files:"
-    aws s3 ls "s3://releases.parity.io/${product}/${version}/${platform}" --recursive --human-readable --summarize
+    aws s3 ls "s3://releases.parity.io/${product}/${version}/${target}" --recursive --human-readable --summarize
     echo "✅ The release should be at https://releases.parity.io/${product}/${version}/${platform}"
 }
