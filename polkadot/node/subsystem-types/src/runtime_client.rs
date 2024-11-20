@@ -16,12 +16,18 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing, runtime_api::ParachainHost, slashing, ApprovalVotingParams, Block, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id,
-	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing,
+	runtime_api::ParachainHost,
+	slashing, vstaging,
+	vstaging::{
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
+	},
+	ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
+	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 use sc_client_api::{AuxStore, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -311,7 +317,7 @@ pub trait RuntimeApiSubsystemClient {
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<async_backing::BackingState>, ApiError>;
+	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError>;
 
 	// === v8 ===
 
@@ -380,10 +386,7 @@ where
 		&self,
 		at: Hash,
 	) -> Result<Vec<CoreState<Hash, BlockNumber>>, ApiError> {
-		self.client
-			.runtime_api()
-			.availability_cores(at)
-			.map(|cores| cores.into_iter().map(|core| core.into()).collect::<Vec<_>>())
+		self.client.runtime_api().availability_cores(at)
 	}
 
 	async fn persisted_validation_data(
@@ -436,10 +439,7 @@ where
 		at: Hash,
 		para_id: Id,
 	) -> Result<Option<CommittedCandidateReceipt<Hash>>, ApiError> {
-		self.client
-			.runtime_api()
-			.candidate_pending_availability(at, para_id)
-			.map(|maybe_candidate| maybe_candidate.map(|candidate| candidate.into()))
+		self.client.runtime_api().candidate_pending_availability(at, para_id)
 	}
 
 	async fn candidates_pending_availability(
@@ -447,19 +447,11 @@ where
 		at: Hash,
 		para_id: Id,
 	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
-		self.client
-			.runtime_api()
-			.candidates_pending_availability(at, para_id)
-			.map(|candidates| {
-				candidates.into_iter().map(|candidate| candidate.into()).collect::<Vec<_>>()
-			})
+		self.client.runtime_api().candidates_pending_availability(at, para_id)
 	}
 
 	async fn candidate_events(&self, at: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {
-		self.client
-			.runtime_api()
-			.candidate_events(at)
-			.map(|events| events.into_iter().map(|event| event.into()).collect::<Vec<_>>())
+		self.client.runtime_api().candidate_events(at)
 	}
 
 	async fn dmq_contents(
@@ -490,10 +482,7 @@ where
 		&self,
 		at: Hash,
 	) -> Result<Option<ScrapedOnChainVotes<Hash>>, ApiError> {
-		self.client
-			.runtime_api()
-			.on_chain_votes(at)
-			.map(|maybe_votes| maybe_votes.map(|votes| votes.into()))
+		self.client.runtime_api().on_chain_votes(at)
 	}
 
 	async fn session_executor_params(
@@ -604,13 +593,8 @@ where
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<async_backing::BackingState>, ApiError> {
-		self.client
-			.runtime_api()
-			.para_backing_state(at, para_id)
-			.map(|maybe_backing_state| {
-				maybe_backing_state.map(|backing_state| backing_state.into())
-			})
+	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError> {
+		self.client.runtime_api().para_backing_state(at, para_id)
 	}
 
 	async fn async_backing_params(
