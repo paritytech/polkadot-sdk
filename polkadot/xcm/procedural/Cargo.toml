@@ -24,3 +24,5 @@ trybuild = { features = ["diff"], workspace = true }
 # NOTE: we have to explicitly specify `std` because of trybuild
 # https://github.com/paritytech/polkadot-sdk/pull/5167
 xcm = { workspace = true, default-features = true, features = ["std"] }
+# For testing macros.
+frame-support = { workspace = true }

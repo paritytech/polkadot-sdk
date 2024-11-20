@@ -334,6 +334,26 @@ fn allow_paid_should_deprivilege_origin() {
 }
 
 #[test]
+fn allow_paid_should_allow_hints() {
+	AllowPaidFrom::set(vec![Parent.into()]);
+	let fees = (Parent, 1).into();
+
+	let mut paying_message_with_hints = Xcm::<()>(vec![
+		ReserveAssetDeposited((Parent, 100).into()),
+		SetHints { hints: vec![AssetClaimer { location: Location::here() }].try_into().unwrap() },
+		BuyExecution { fees, weight_limit: Limited(Weight::from_parts(30, 30)) },
+		DepositAsset { assets: AllCounted(1).into(), beneficiary: Here.into() },
+	]);
+	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
+		&Parent.into(),
+		paying_message_with_hints.inner_mut(),
+		Weight::from_parts(30, 30),
+		&mut props(Weight::zero()),
+	);
+	assert_eq!(r, Ok(()));
+}
+
+#[test]
 fn suspension_should_work() {
 	TestSuspender::set_suspended(true);
 	AllowUnpaidFrom::set(vec![Parent.into()]);
