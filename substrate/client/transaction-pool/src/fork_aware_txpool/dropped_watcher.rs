@@ -132,7 +132,6 @@ where
 	/// A map that associates the views identified by corresponding block hashes with their streams
 	/// of dropped-related events. This map is used to keep track of active views and their event
 	/// streams.
-	/// todo: rename: view_stream map
 	stream_map: StreamMap<BlockHash<ChainApi>, ViewStream<ChainApi>>,
 	/// A receiver for commands to control the state of the stream, allowing the addition and
 	/// removal of views. This is used to dynamically update which views are being tracked.
@@ -163,7 +162,7 @@ where
 	<<C as graph::ChainApi>::Block as BlockT>::Hash: Unpin,
 {
 	/// Provides the ready or future `HashSet` containing views referencing given transaction.
-	fn get_transaction_views(
+	fn transaction_views(
 		&mut self,
 		tx_hash: ExtrinsicHash<C>,
 	) -> Option<OccupiedEntry<ExtrinsicHash<C>, HashSet<BlockHash<C>>>> {
@@ -230,7 +229,7 @@ where
 	/// Gets pending dropped transactions if any.
 	fn get_pending_dropped_transaction(&mut self) -> Option<DroppedTransaction<ExtrinsicHash<C>>> {
 		while let Some(tx_hash) = self.pending_dropped_transactions.pop() {
-			// never drop transaction that was seens as ready. It may not have a referencing
+			// never drop transaction that was seen as ready. It may not have a referencing
 			// view now, but such fork can appear.
 			if let Some(_) = self.ready_transaction_views.get(&tx_hash) {
 				continue
@@ -243,7 +242,7 @@ where
 				}
 			}
 		}
-		return None
+		None
 	}
 
 	/// Creates a new `StreamOfDropped` and its associated event stream controller.

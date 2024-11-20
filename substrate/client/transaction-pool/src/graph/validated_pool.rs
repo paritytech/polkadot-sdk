@@ -666,8 +666,6 @@ impl<B: ChainApi> ValidatedPool<B> {
 		self.listener.write().retracted(block_hash)
 	}
 
-	//todo: doc + rename!
-	//MultiTransactionStatusStream
 	pub fn create_dropped_by_limits_stream(
 		&self,
 	) -> super::listener::DroppedByLimitsStream<ExtrinsicHash<B>, BlockHash<B>> {
