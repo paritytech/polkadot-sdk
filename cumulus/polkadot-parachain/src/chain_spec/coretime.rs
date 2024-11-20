@@ -184,9 +184,12 @@ pub mod rococo {
 		.with_id(runtime_type.into())
 		.with_chain_type(chain_type)
 		.with_genesis_config_patch(serde_json::json!({
-			"sudo": { "key": Some(yap_sudo) },
+			"sudo": { "key": Some(yap_sudo.clone()) },
 			"parachainInfo": {
 				"parachainId": para_id,
+			},
+			"balances": {
+				"balances" : vec![yap_sudo].into_iter().map(|k| (k, 1u64<<60)).collect::<Vec<_>>(),
 			},
 			"aura": { "authorities": vec![Into::<AuraId>::into(Keyring::Alice.public())] }
 		}
