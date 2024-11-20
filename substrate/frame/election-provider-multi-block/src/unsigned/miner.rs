@@ -26,8 +26,7 @@ use crate::{
 };
 
 use frame_election_provider_support::{
-	ElectionDataProvider, IndexAssignmentOf, NposSolution, NposSolver, PageIndex,
-	TryIntoBoundedSupports, Weight,
+	ElectionDataProvider, IndexAssignmentOf, NposSolution, NposSolver, PageIndex, Weight,
 };
 use frame_support::{ensure, traits::Get, BoundedVec};
 use scale_info::TypeInfo;
@@ -386,9 +385,8 @@ impl<T: Config> Miner<T> {
 		// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
 		// `MaxWinnersPerPage` should be more than any possible value of `desired_targets()`, which
 		// is ALSO checked, so this conversion can almost never fail.
-		let bounded_supports = supports
-			.try_into_bounded_supports()
-			.map_err(|_| FeasibilityError::WrongWinnerCount)?;
+		let bounded_supports =
+			supports.try_into().map_err(|_| FeasibilityError::WrongWinnerCount)?;
 
 		Ok(bounded_supports)
 	}

@@ -427,7 +427,7 @@ fn props() -> Properties {
 fn eth_account(from: subxt_signer::eth::Keypair) -> AccountId32 {
 	let mut account_id = AccountId32::new([0xEE; 32]);
 	<AccountId32 as AsMut<[u8; 32]>>::as_mut(&mut account_id)[..20]
-		.copy_from_slice(&from.account_id().0);
+		.copy_from_slice(&from.public_key().to_account_id().as_ref());
 	account_id
 }
 
@@ -437,10 +437,6 @@ fn default_endowed_accounts() -> Vec<AccountId> {
 		.chain([
 			eth_account(subxt_signer::eth::dev::alith()),
 			eth_account(subxt_signer::eth::dev::baltathar()),
-			eth_account(subxt_signer::eth::dev::charleth()),
-			eth_account(subxt_signer::eth::dev::dorothy()),
-			eth_account(subxt_signer::eth::dev::ethan()),
-			eth_account(subxt_signer::eth::dev::faith()),
 		])
 		.collect()
 }

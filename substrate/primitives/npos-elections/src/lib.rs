@@ -127,6 +127,8 @@ pub enum Error {
 	InvalidSupportEdge,
 	/// The number of voters is bigger than the `MaxVoters` bound.
 	TooManyVoters,
+	/// Some bounds were exceeded when converting election types.
+	BoundsExceeded,
 }
 
 /// A type which is used in the API of this crate as a numeric weight of a vote, most often the
@@ -245,6 +247,9 @@ pub struct Candidate<AccountId> {
 	elected: bool,
 	/// The round index at which this candidate was elected.
 	round: usize,
+	/// A list of included backers for this candidate. This can be used to control the bounds of
+	/// maximum backers per candidate.
+	bounded_backers: Vec<AccountId>,
 }
 
 impl<AccountId> Candidate<AccountId> {
@@ -267,6 +272,8 @@ pub struct Edge<AccountId> {
 	candidate: CandidatePtr<AccountId>,
 	/// The weight (i.e. stake given to `who`) of this edge.
 	weight: ExtendedBalance,
+	/// Skips this edge.
+	skip: bool,
 }
 
 #[cfg(test)]
@@ -274,14 +281,14 @@ impl<AccountId: Clone> Edge<AccountId> {
 	fn new(candidate: Candidate<AccountId>, weight: ExtendedBalance) -> Self {
 		let who = candidate.who.clone();
 		let candidate = Rc::new(RefCell::new(candidate));
-		Self { weight, who, candidate, load: Default::default() }
+		Self { weight, who, candidate, load: Default::default(), skip: false }
 	}
 }
 
 #[cfg(feature = "std")]
 impl<A: IdentifierT> core::fmt::Debug for Edge<A> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		write!(f, "Edge({:?}, weight = {:?})", self.who, self.weight)
+		write!(f, "Edge({:?}, weight = {:?}, skip = {})", self.who, self.weight, self.skip)
 	}
 }
 
@@ -554,6 +561,7 @@ pub fn setup_inputs<AccountId: IdentifierT>(
 				backed_stake: Default::default(),
 				elected: Default::default(),
 				round: Default::default(),
+				bounded_backers: Default::default(),
 			}
 			.to_ptr()
 		})
@@ -578,6 +586,7 @@ pub fn setup_inputs<AccountId: IdentifierT>(
 						candidate: Rc::clone(&candidates[*idx]),
 						load: Default::default(),
 						weight: Default::default(),
+						skip: false,
 					});
 				} // else {} would be wrong votes. We don't really care about it.
 			}

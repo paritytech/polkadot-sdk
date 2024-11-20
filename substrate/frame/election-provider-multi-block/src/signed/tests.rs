@@ -33,7 +33,6 @@ fn clear_submission_of_works() {
 
 mod calls {
 	use super::*;
-	use frame_support::traits::OriginTrait;
 	use sp_core::bounded_vec;
 	use sp_runtime::traits::BadOrigin;
 
@@ -589,9 +588,7 @@ mod solution_data_provider {
 		#[test]
 		fn returns_none_if_there_are_no_submissions() {
 			ExtBuilder::default().build_and_execute(|| {
-				let origin = RuntimeOrigin::signed(99);
 				roll_to_phase(Phase::Signed);
-
 				assert_eq!(<SignedPallet as SolutionDataProvider>::get_paged_solution(12345), None)
 			})
 		}

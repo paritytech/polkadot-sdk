@@ -139,11 +139,9 @@ mod calls {
 mod miner {
 	use crate::{
 		miner::{Miner, MinerError, SnapshotType},
-		mock, unsigned, MinerVoterOf,
+		mock, MinerVoterOf,
 	};
-	use frame_election_provider_support::Voter;
 	use frame_support::BoundedVec;
-	use sp_runtime::traits::Bounded;
 
 	use super::*;
 
@@ -325,8 +323,8 @@ mod miner {
 		ExtBuilder::default()
 			.pages(1)
 			.desired_targets(1)
-			.snasphot_targets_page(1)
-			.snasphot_voters_page(1)
+			.snapshot_targets_page(1)
+			.snapshot_voters_page(1)
 			.build_and_execute(|| {
 				let round = Default::default();
 				let pages = Pages::get();

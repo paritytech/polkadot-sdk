@@ -17,7 +17,6 @@
 
 use crate::{
 	mock::*,
-	signed,
 	verifier::{impls::pallet::*, SolutionDataProvider, *},
 	Phase,
 };
@@ -162,8 +161,6 @@ mod sync_verifier {
 	use super::*;
 
 	mod verify_synchronous {
-		use sp_runtime::traits::Bounded;
-
 		use super::*;
 
 		#[test]
@@ -257,7 +254,7 @@ mod sync_verifier {
 
 	#[test]
 	fn next_missing_solution_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().core_try_state(false).build_and_execute(|| {
 			let supports: SupportsOf<Pallet<T>> = Default::default();
 			let msp = crate::Pallet::<T>::msp();
 			assert!(msp == <T as crate::Config>::Pages::get() - 1 && msp == 2);
@@ -408,7 +405,7 @@ mod async_verifier {
 
 	mod verification_start {
 		use super::*;
-		use crate::signed::{pallet::Submissions, SubmissionMetadata};
+		use crate::signed::pallet::Submissions;
 
 		#[test]
 		fn fails_if_verification_is_ongoing() {

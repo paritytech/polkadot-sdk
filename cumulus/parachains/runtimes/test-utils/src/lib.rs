@@ -441,15 +441,11 @@ impl<
 		AllPalletsWithoutSystem,
 	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 {
-	pub fn execute_as_governance(call: Vec<u8>, require_weight_at_most: Weight) -> Outcome {
+	pub fn execute_as_governance(call: Vec<u8>) -> Outcome {
 		// prepare xcm as governance will do
 		let xcm = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			Transact {
-				origin_kind: OriginKind::Superuser,
-				require_weight_at_most,
-				call: call.into(),
-			},
+			Transact { origin_kind: OriginKind::Superuser, call: call.into() },
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 
@@ -473,11 +469,7 @@ impl<
 		let xcm = Xcm(vec![
 			WithdrawAsset(buy_execution_fee.clone().into()),
 			BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
-			Transact {
-				origin_kind: OriginKind::Xcm,
-				require_weight_at_most: call.get_dispatch_info().call_weight,
-				call: call.encode().into(),
-			},
+			Transact { origin_kind: OriginKind::Xcm, call: call.encode().into() },
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 

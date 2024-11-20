@@ -21,7 +21,7 @@ use core::marker::PhantomData;
 
 use crate::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
-	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
+	ReadySolutionOf, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
 	SnapshotMetadata, SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
 use alloc::{
@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Infallible
 	pub fn finalize_signed_phase_accept_solution(
-		ready_solution: ReadySolution<T::AccountId, T::MaxWinnersPerPage, T::MaxBackersPerWinner>,
+		ready_solution: ReadySolutionOf<T::MinerConfig>,
 		who: &T::AccountId,
 		deposit: BalanceOf<T>,
 		call_fee: BalanceOf<T>,
@@ -665,7 +665,7 @@ mod tests {
 		ExtBuilder::default().build_and_execute(|| {
 			// given desired_targets bigger than MaxWinners
 			DesiredTargets::set(4);
-			MaxWinnersPerPage::set(3);
+			MaxWinners::set(3);
 
 			// snapshot not created because data provider returned an unexpected number of
 			// desired_targets

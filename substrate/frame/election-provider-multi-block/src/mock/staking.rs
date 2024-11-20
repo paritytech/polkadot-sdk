@@ -14,12 +14,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+use frame_support::testing_prelude::*;
 use sp_runtime::bounded_vec;
 
 use frame_election_provider_support::{
-	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider,
-	LockableElectionDataProvider, PageIndex, VoterOf as VoterOfProvider,
+	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider, PageIndex,
+	VoterOf as VoterOfProvider,
 };
 
 use super::{AccountId, BlockNumber, MaxVotesPerVoter, T};
@@ -27,7 +27,7 @@ use super::{AccountId, BlockNumber, MaxVotesPerVoter, T};
 // alias for a voter of EPM-MB.
 type VoterOf<T> = frame_election_provider_support::VoterOf<<T as crate::Config>::DataProvider>;
 
-frame_support::parameter_types! {
+parameter_types! {
 	pub static Targets: Vec<AccountId> = vec![10, 20, 30, 40, 50, 60, 70, 80];
 	pub static Voters: Vec<VoterOf<T>> = vec![
 		(1, 10, bounded_vec![10, 20]),
@@ -54,6 +54,8 @@ frame_support::parameter_types! {
 	pub static LastIteratedVoterIndex: Option<usize> = None;
 
 	pub static ElectionDataLock: Option<()> = None; // not locker.
+
+	pub static DataProviderErrors: bool = false;
 }
 
 pub struct MockStaking;
@@ -66,6 +68,11 @@ impl ElectionDataProvider for MockStaking {
 		bounds: DataProviderBounds,
 		remaining: PageIndex,
 	) -> data_provider::Result<Vec<Self::AccountId>> {
+		// forces return an error if set.
+		if DataProviderErrors::get() {
+			return Err("MockDataProviderError")
+		}
+
 		let mut targets = Targets::get();
 
 		// drop previously processed targets.
@@ -101,6 +108,11 @@ impl ElectionDataProvider for MockStaking {
 		bounds: DataProviderBounds,
 		remaining: PageIndex,
 	) -> data_provider::Result<Vec<VoterOfProvider<Self>>> {
+		// forces return an error if set.
+		if DataProviderErrors::get() {
+			return Err("MockDataProviderError")
+		}
+
 		let mut voters = Voters::get();
 
 		// skip the already iterated voters in previous pages.
@@ -132,7 +144,10 @@ impl ElectionDataProvider for MockStaking {
 	}
 
 	fn desired_targets() -> data_provider::Result<u32> {
-		DesiredTargets::get()
+		match DataProviderErrors::get() {
+			true => Err("MockDataProviderError"),
+			false => Ok(DesiredTargets::get()?),
+		}
 	}
 
 	fn next_election_prediction(now: Self::BlockNumber) -> Self::BlockNumber {
@@ -140,22 +155,39 @@ impl ElectionDataProvider for MockStaking {
 	}
 }
 
-impl LockableElectionDataProvider for MockStaking {
-	fn set_lock() -> data_provider::Result<()> {
-		ElectionDataLock::get()
-			.ok_or("lock is already set")
-			.map(|_| ElectionDataLock::set(Some(())))
-	}
-
-	fn unlock() {
-		ElectionDataLock::set(None);
-	}
+pub(crate) fn data_provider_errors(err: bool) {
+	DataProviderErrors::set(err);
 }
 
 #[cfg(test)]
 mod test {
 	use super::*;
 	use crate::mock::{ExtBuilder, Pages};
+
+	#[test]
+	fn data_provider_error_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			data_provider_errors(true);
+			assert_noop!(
+				<MockStaking as ElectionDataProvider>::electable_targets(Default::default(), 0),
+				"MockDataProviderError"
+			);
+			assert_noop!(
+				<MockStaking as ElectionDataProvider>::electing_voters(Default::default(), 0),
+				"MockDataProviderError"
+			);
+
+			data_provider_errors(false);
+			assert_ok!(<MockStaking as ElectionDataProvider>::electable_targets(
+				Default::default(),
+				0
+			));
+			assert_ok!(<MockStaking as ElectionDataProvider>::electing_voters(
+				Default::default(),
+				0
+			));
+		})
+	}
 
 	#[test]
 	fn multi_page_targets() {
