@@ -16,8 +16,6 @@ crates:
   bump: major
 - name: frame-support-procedural
   bump: patch
-- name: frame-support-test
-  bump: patch
 - name: frame-support
   bump: minor
 - name: frame-metadata-hash-extension
