@@ -30,6 +30,7 @@ use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 pub type TxExtension = (
+	frame_system::AuthorizeCall<Test>,
 	frame_system::CheckNonZeroSender<Test>,
 	frame_system::CheckSpecVersion<Test>,
 	frame_system::CheckTxVersion<Test>,

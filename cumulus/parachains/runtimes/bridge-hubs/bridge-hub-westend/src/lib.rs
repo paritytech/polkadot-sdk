@@ -121,7 +121,11 @@ pub type BlockId = generic::BlockId<Block>;
 
 /// The TransactionExtension to the basic transaction logic.
 pub type TxExtension = (
-	frame_system::CheckNonZeroSender<Runtime>,
+	// `Debug` is implemented for tuple of at most 12 elements, so we group extensions.
+	(
+		frame_system::AuthorizeCall<Runtime>,
+		frame_system::CheckNonZeroSender<Runtime>,
+	),
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
@@ -1379,7 +1383,10 @@ mod tests {
 		sp_io::TestExternalities::default().execute_with(|| {
             frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
             let payload: TxExtension = (
-                frame_system::CheckNonZeroSender::new(),
+				(
+					frame_system::AuthorizeCall::new(),
+					frame_system::CheckNonZeroSender::new(),
+				),
                 frame_system::CheckSpecVersion::new(),
                 frame_system::CheckTxVersion::new(),
                 frame_system::CheckGenesis::new(),
