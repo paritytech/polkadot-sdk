@@ -114,7 +114,6 @@ snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-outbound-queue-runtime-api = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
 snowbridge-runtime-common = { workspace = true }
-snowbridge-pallet-inbound-queue-v2 = { workspace = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-outbound-queue-runtime-api-v2 = { workspace = true }
 snowbridge-merkle-tree = { workspace = true }
@@ -193,7 +192,6 @@ std = [
 	"snowbridge-outbound-queue-runtime-api-v2/std",
 	"snowbridge-outbound-queue-runtime-api/std",
 	"snowbridge-pallet-ethereum-client/std",
-	"snowbridge-pallet-inbound-queue-v2/std",
 	"snowbridge-pallet-inbound-queue/std",
 	"snowbridge-pallet-outbound-queue-v2/std",
 	"snowbridge-pallet-outbound-queue/std",
@@ -256,7 +254,6 @@ runtime-benchmarks = [
 	"polkadot-runtime-common/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
-	"snowbridge-pallet-inbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
@@ -298,7 +295,6 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"snowbridge-pallet-ethereum-client/try-runtime",
-	"snowbridge-pallet-inbound-queue-v2/try-runtime",
 	"snowbridge-pallet-inbound-queue/try-runtime",
 	"snowbridge-pallet-outbound-queue-v2/try-runtime",
 	"snowbridge-pallet-outbound-queue/try-runtime",
