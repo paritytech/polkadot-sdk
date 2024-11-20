@@ -45,20 +45,26 @@ pub use weights::WeightInfo;
 extern crate alloc;
 
 use alloc::boxed::Box;
+/*
 use frame_support::traits::{
 	fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate},
 	fungibles::{roles::ResetTeam, Inspect, Mutate, Refund},
 	tokens::{Fortitude, Precision, Preservation},
 	AccountTouch,
 };
+*/
+use frame::{prelude::*, traits::{fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate}, fungibles::{roles::ResetTeam, Inspect, Mutate, Refund}, tokens::{Fortitude, Precision, Preservation}, AccountTouch, TryConvert, Zero}};
 use pallet_asset_conversion::{PoolLocator, Pools};
-use sp_runtime::traits::{TryConvert, Zero};
+// use sp_runtime::traits::{TryConvert, Zero};
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	*/
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
