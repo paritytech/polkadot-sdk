@@ -81,12 +81,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			if genesis.para_kind == ParaKind::Parachain {
-				T::AssignCoretime::assign_coretime(id)?;
-			}
+			let assign_coretime = genesis.para_kind == ParaKind::Parachain;
 
 			polkadot_runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
+
+			if assign_coretime {
+				T::AssignCoretime::assign_coretime(id)?;
+			}
 
 			Ok(())
 		}
