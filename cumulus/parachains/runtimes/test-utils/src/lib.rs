@@ -464,12 +464,22 @@ impl<
 		)
 	}
 
-	pub fn execute_as_origin_xcm<Call: GetDispatchInfo + Encode>(
-		origin: Location,
+	pub fn execute_as_origin<Call: GetDispatchInfo + Encode>(
+		(origin, origin_kind): (Location, OriginKind),
 		call: Call,
-		buy_execution_fee: Asset,
+		maybe_buy_execution_fee: Option<Asset>,
 	) -> Outcome {
+		let mut instructions = if let Some(buy_execution_fee) = maybe_buy_execution_fee {
+			vec![
+				WithdrawAsset(buy_execution_fee.clone().into()),
+				BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
+			]
+		} else {
+			vec![UnpaidExecution { check_origin: None, weight_limit: Unlimited }]
+		};
+
 		// prepare `Transact` xcm
+<<<<<<< HEAD
 		let xcm = Xcm(vec![
 			WithdrawAsset(buy_execution_fee.clone().into()),
 			BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
@@ -478,8 +488,13 @@ impl<
 				require_weight_at_most: call.get_dispatch_info().weight,
 				call: call.encode().into(),
 			},
+=======
+		instructions.extend(vec![
+			Transact { origin_kind, call: call.encode().into() },
+>>>>>>> bd0d0cde (Bridges testing improvements (#6536))
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
+		let xcm = Xcm(instructions);
 
 		// execute xcm as parent origin
 		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
