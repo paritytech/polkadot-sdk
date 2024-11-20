@@ -24,7 +24,7 @@ pub use pallet::*;
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
 	configuration, dmp, hrmp,
-	paras::{self, AssignCoretime, ParaGenesisArgs},
+	paras::{self, AssignCoretime, ParaGenesisArgs, ParaKind},
 	ParaLifecycle,
 };
 
@@ -83,7 +83,9 @@ pub mod pallet {
 			polkadot_runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
 
-			T::AssignCoretime::assign_coretime(id)?;
+			if genesis.para_kind == ParaKind::Parachain  {
+				T::AssignCoretime::assign_coretime(id)?;
+			}
 
 			Ok(())
 		}
