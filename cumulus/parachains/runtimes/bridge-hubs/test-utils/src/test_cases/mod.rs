@@ -654,8 +654,10 @@ where
 pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
-	source: Location,
+	expected_source: Location,
 	destination: InteriorLocation,
+	origin_with_origin_kind: (Location, OriginKind),
+	is_paid_xcm_execution: bool,
 ) where
 	Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
 	XcmOverBridgePalletInstance: 'static,
@@ -669,7 +671,7 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
 		// construct expected bridge configuration
 		let locations = pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
-			source.clone().into(),
+			expected_source.clone().into(),
 			destination.clone().into(),
 		).expect("valid bridge locations");
 		let expected_lane_id =
@@ -684,7 +686,7 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 			None
 		} else {
 			let bridge_owner_account =
-				LocationToAccountId::convert_location(&source).expect("valid location").into();
+				LocationToAccountId::convert_location(&expected_source).expect("valid location").into();
 			let deposit = <Runtime as pallet_xcm_bridge_hub::Config<
 				XcmOverBridgePalletInstance,
 			>>::BridgeDeposit::get();
@@ -708,7 +710,7 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 			Err(LanesManagerError::UnknownOutboundLane)
 		);
 
-		// open bridge with Transact call from sibling
+		// open bridge with Transact call
 		assert_eq!(
 			helpers::ensure_opened_bridge::<
 				Runtime,
@@ -716,9 +718,17 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 				LocationToAccountId,
 				TokenLocation,
 			>(
-				source.clone(),
+				expected_source.clone(),
 				destination.clone(),
-				open_bridge_with_extrinsic::<Runtime, XcmOverBridgePalletInstance>
+				is_paid_xcm_execution,
+				|locations, maybe_paid_execution| open_bridge_with_extrinsic::<
+					Runtime,
+					XcmOverBridgePalletInstance,
+				>(
+					origin_with_origin_kind.clone(),
+					locations.bridge_destination_universal_location().clone(),
+					maybe_paid_execution
+				)
 			)
 			.0
 			.bridge_id(),
@@ -731,7 +741,7 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 				locations.bridge_id()
 			),
 			Some(Bridge {
-				bridge_origin_relative_location: Box::new(source.clone().into()),
+				bridge_origin_relative_location: Box::new(expected_source.clone().into()),
 				bridge_origin_universal_location: Box::new(
 					locations.bridge_origin_universal_location().clone().into()
 				),
@@ -753,13 +763,13 @@ pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, Locatio
 			Ok(LaneState::Opened)
 		);
 
-		// close bridge with Transact call from sibling
+		// close bridge with Transact call
 		helpers::close_bridge::<
 			Runtime,
 			XcmOverBridgePalletInstance,
 			LocationToAccountId,
 			TokenLocation,
-		>(source.clone(), destination);
+		>(expected_source, destination, origin_with_origin_kind, is_paid_xcm_execution);
 
 		// check bridge/lane DOES not exist
 		assert_eq!(

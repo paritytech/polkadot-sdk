@@ -122,6 +122,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Ru
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubWestendMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 		DeliveryRewardInBalance,
 	>;
 
@@ -241,7 +242,6 @@ mod tests {
 	fn ensure_bridge_integrity() {
 		assert_complete_bridge_types!(
 			runtime: Runtime,
-			with_bridged_chain_grandpa_instance: BridgeGrandpaWestendInstance,
 			with_bridged_chain_messages_instance: WithBridgeHubWestendMessagesInstance,
 			this_chain: bp_bridge_hub_rococo::BridgeHubRococo,
 			bridged_chain: bp_bridge_hub_westend::BridgeHubWestend,
@@ -251,7 +251,6 @@ mod tests {
 			Runtime,
 			BridgeGrandpaWestendInstance,
 			WithBridgeHubWestendMessagesInstance,
-			bp_westend::Westend,
 		>(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
 				block_length: bp_bridge_hub_rococo::BlockLength::get(),
