@@ -449,6 +449,9 @@ pub trait AncestryHelper<Header: HeaderT> {
 		best_known_block_number: Option<Header::Number>,
 	) -> Option<Self::Proof>;
 
+	/// Check if the proof is optimal.
+	fn is_proof_optimal(proof: &Self::Proof) -> bool;
+
 	/// Extract the validation context from the provided header.
 	fn extract_validation_context(header: Header) -> Option<Self::ValidationContext>;
 
