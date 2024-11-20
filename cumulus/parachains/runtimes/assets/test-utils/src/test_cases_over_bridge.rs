@@ -489,7 +489,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		})
 }
 
-pub fn report_bridge_status_from_xcm_bridge_router_works<
+pub fn update_bridge_status_from_xcm_bridge_router_works<
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
@@ -534,7 +534,7 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 		.with_tracing()
 		.build()
 		.execute_with(|| {
-			let report_bridge_status = |is_congested: bool| {
+			let update_bridge_status = |is_congested: bool| {
 				// prepare bridge config
 				let TestBridgingConfig {
 					local_bridge_hub_location, bridged_target_location, ..
@@ -581,7 +581,7 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 				assert_ne!(is_congested_after, is_congested_before,);
 			};
 
-			report_bridge_status(true);
-			report_bridge_status(false);
+			update_bridge_status(true);
+			update_bridge_status(false);
 		})
 }

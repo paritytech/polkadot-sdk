@@ -42,7 +42,7 @@ use pallet_bridge_relayers::extension::{
 	BridgeRelayersTransactionExtension, WithMessagesExtensionConfig,
 };
 use pallet_xcm_bridge_hub::congestion::{
-	BlobDispatcherWithChannelStatus, ReportBridgeStatusXcmChannelManager,
+	BlobDispatcherWithChannelStatus, UpdateBridgeStatusXcmChannelManager,
 };
 use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSystemParachains};
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -161,8 +161,8 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 }
 
 /// Converts encoded call to the unpaid XCM `Transact`.
-pub struct ReportBridgeStatusXcmProvider;
-impl Convert<Vec<u8>, Xcm<()>> for ReportBridgeStatusXcmProvider {
+pub struct UpdateBridgeStatusXcmProvider;
+impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 	fn convert(encoded_call: Vec<u8>) -> Xcm<()> {
 		Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
@@ -200,12 +200,12 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
 
 	// This pallet is deployed on BH, so we expect a remote router with `ExportMessage`. We handle
-	// congestion with XCM using `report_bridge_status` sent to the sending chain. (congestion with
+	// congestion with XCM using `update_bridge_status` sent to the sending chain. (congestion with
 	// local sending chain)
-	type LocalXcmChannelManager = ReportBridgeStatusXcmChannelManager<
+	type LocalXcmChannelManager = UpdateBridgeStatusXcmChannelManager<
 		Runtime,
 		XcmOverBridgeHubRococoInstance,
-		ReportBridgeStatusXcmProvider,
+		UpdateBridgeStatusXcmProvider,
 		XcmRouter,
 	>;
 	// Dispatching inbound messages from the bridge and managing congestion with the local

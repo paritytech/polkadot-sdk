@@ -32,7 +32,7 @@ use frame_support::{
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess};
 use pallet_xcm_bridge_hub::congestion::{
 	BlobDispatcherWithChannelStatus, CongestionLimits, HereOrLocalConsensusXcmChannelManager,
-	ReportBridgeStatusXcmChannelManager,
+	UpdateBridgeStatusXcmChannelManager,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_core::H256;
@@ -200,10 +200,10 @@ pub(crate) type TestLocalXcmChannelManager = TestingLocalXcmChannelManager<
 		// handles congestion for `XcmOverBridgeByExportXcmRouter`
 		XcmOverBridgeByExportXcmRouter,
 		// handles congestion for `XcmOverBridgeWrappedWithExportMessageRouter`
-		ReportBridgeStatusXcmChannelManager<
+		UpdateBridgeStatusXcmChannelManager<
 			TestRuntime,
 			(),
-			ReportBridgeStatusXcmProvider,
+			UpdateBridgeStatusXcmProvider,
 			FromBridgeHubLocationXcmSender<ExecuteXcmOverSendXcm>,
 		>,
 	>,
@@ -291,7 +291,7 @@ impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeByExportXcmRouterInstance
 
 	type BridgeIdResolver =
 		pallet_xcm_bridge_hub_router::impls::EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
-	// We don't need to support here `report_bridge_status`.
+	// We don't need to support here `update_bridge_status`.
 	type BridgeHubOrigin = EnsureNever<()>;
 }
 
@@ -554,8 +554,8 @@ impl<Bridge: Encode + sp_std::fmt::Debug + Copy, Tested: LocalXcmChannelManager<
 }
 
 /// Converts encoded call to the unpaid XCM `Transact`.
-pub struct ReportBridgeStatusXcmProvider;
-impl Convert<Vec<u8>, Xcm<()>> for ReportBridgeStatusXcmProvider {
+pub struct UpdateBridgeStatusXcmProvider;
+impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 	fn convert(encoded_call: Vec<u8>) -> Xcm<()> {
 		Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },

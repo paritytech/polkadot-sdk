@@ -131,18 +131,18 @@ impl<
 	}
 }
 
-/// Manages the local XCM channels by sending XCM messages with the `report_bridge_status` extrinsic
+/// Manages the local XCM channels by sending XCM messages with the `update_bridge_status` extrinsic
 /// to the `local_origin`. The `XcmProvider` type converts the encoded call to `XCM`, which is then
 /// sent by `XcmSender` to the `local_origin`. This is useful, for example, when a router with
 /// [`xcm::prelude::ExportMessage`] is deployed on a different chain, and we want to control
 /// congestion by sending XCMs.
-pub struct ReportBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>(
+pub struct UpdateBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>(
 	PhantomData<(T, I, XcmProvider, XcmSender)>,
 );
 impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender: SendXcm>
-	ReportBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>
+    UpdateBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>
 {
-	fn report_bridge_status(
+	fn update_bridge_status(
 		local_origin: &Location,
 		bridge_id: BridgeId,
 		is_congested: bool,
@@ -160,7 +160,7 @@ impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender
 		let xcm = XcmProvider::convert(remote_runtime_call.encode());
 		log::trace!(
 			target: LOG_TARGET,
-			"ReportBridgeStatusXcmChannelManager is going to send status with is_congested: {:?} to the local_origin: {:?} and bridge: {:?} as xcm: {:?}",
+			"UpdateBridgeStatusXcmChannelManager is going to send status with is_congested: {:?} to the local_origin: {:?} and bridge: {:?} as xcm: {:?}",
 			is_congested,
 			local_origin,
 			bridge,
@@ -172,7 +172,7 @@ impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender
             .map(|result| {
                 log::warn!(
                     target: LOG_TARGET,
-					"ReportBridgeStatusXcmChannelManager successfully sent status with is_congested: {:?} to the local_origin: {:?} and bridge: {:?} with result: {:?}",
+					"UpdateBridgeStatusXcmChannelManager successfully sent status with is_congested: {:?} to the local_origin: {:?} and bridge: {:?} with result: {:?}",
                     is_congested,
 					local_origin,
 					bridge,
@@ -183,7 +183,7 @@ impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender
             .map_err(|e| {
                 log::error!(
                     target: LOG_TARGET,
-					"ReportBridgeStatusXcmChannelManager failed to send status with is_congested: {:?} to the local_origin: {:?} and bridge: {:?} with error: {:?}",
+					"UpdateBridgeStatusXcmChannelManager failed to send status with is_congested: {:?} to the local_origin: {:?} and bridge: {:?} with error: {:?}",
                     is_congested,
 					local_origin,
 					bridge,
@@ -195,16 +195,16 @@ impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender
 }
 impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender: SendXcm>
 	LocalXcmChannelManager<BridgeId>
-	for ReportBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>
+	for UpdateBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>
 {
 	type Error = ();
 
 	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
-		Self::report_bridge_status(local_origin, bridge, true)
+		Self::update_bridge_status(local_origin, bridge, true)
 	}
 
 	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
-		Self::report_bridge_status(local_origin, bridge, false)
+		Self::update_bridge_status(local_origin, bridge, false)
 	}
 }
 

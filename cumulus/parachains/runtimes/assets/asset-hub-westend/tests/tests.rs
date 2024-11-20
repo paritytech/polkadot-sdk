@@ -1251,8 +1251,8 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_suffic
 }
 
 #[test]
-fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
-	asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
+fn update_bridge_status_from_xcm_bridge_router_for_rococo_works() {
+	asset_test_utils::test_cases_over_bridge::update_bridge_status_from_xcm_bridge_router_works::<
 		Runtime,
 		AllPalletsWithoutSystem,
 		XcmConfig,
@@ -1264,7 +1264,7 @@ fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				call: RuntimeCall::ToRococoXcmRouter(
-					pallet_xcm_bridge_hub_router::Call::report_bridge_status {
+					pallet_xcm_bridge_hub_router::Call::update_bridge_status {
 						bridge_id,
 						is_congested,
 					},

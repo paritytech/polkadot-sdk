@@ -46,7 +46,7 @@ impl<T: Config<I>, I: 'static> bp_xcm_bridge_hub::LocalXcmChannelManager<BridgeI
 		ensure!(local_origin.eq(&Location::here()), ());
 
 		// update status
-		Self::update_bridge_status(bridge, true);
+		Self::do_update_bridge_status(bridge, true);
 
 		Ok(())
 	}
@@ -63,7 +63,7 @@ impl<T: Config<I>, I: 'static> bp_xcm_bridge_hub::LocalXcmChannelManager<BridgeI
 		ensure!(local_origin.eq(&Location::here()), ());
 
 		// update status
-		Self::update_bridge_status(bridge, false);
+		Self::do_update_bridge_status(bridge, false);
 
 		Ok(())
 	}

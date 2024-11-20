@@ -52,7 +52,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn on_idle_when_bridge_state_removed() -> Weight;
 	fn on_idle_when_bridge_state_updated() -> Weight;
-	fn report_bridge_status() -> Weight;
+	fn update_bridge_status() -> Weight;
 }
 
 // For backwards compatibility and tests
@@ -86,7 +86,7 @@ impl WeightInfo for () {
 	/// Storage: `ToUnknownXcmRouter::Bridges` (r:1 w:1)
 	/// Proof: `ToUnknownXcmRouter::Bridges` (`max_values`: None, `max_size`: Some(65), added: 2540,
 	/// mode: `MaxEncodedLen`)
-	fn report_bridge_status() -> Weight {
+	fn update_bridge_status() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `109`
 		//  Estimated: `3530`

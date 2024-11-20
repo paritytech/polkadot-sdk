@@ -33,7 +33,7 @@
 //! queues are congested, it will eventually lead to increased queuing on this chain.
 //!
 //! There are two methods for storing congestion status:
-//! 1. A dedicated extrinsic `report_bridge_status`, which relies on `T::BridgeHubOrigin`. This
+//! 1. A dedicated extrinsic `update_bridge_status`, which relies on `T::BridgeHubOrigin`. This
 //!    allows the message exporter to send, for example, an XCM `Transact`.
 //! 2. An implementation of `bp_xcm_bridge_hub::LocalXcmChannelManager`.
 //!
@@ -156,7 +156,7 @@ pub mod pallet {
 		#[pallet::no_default]
 		type BridgeIdResolver: ResolveBridgeId;
 
-		/// Origin of the sibling bridge hub that is allowed to report bridge status.
+		/// Origin of the sibling bridge hub that is allowed to update bridge status.
 		#[pallet::no_default]
 		type BridgeHubOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, BridgeIdOf<Self, I>>;
 
@@ -251,8 +251,8 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Notification about congested bridge queue.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::report_bridge_status())]
-		pub fn report_bridge_status(
+		#[pallet::weight(T::WeightInfo::update_bridge_status())]
+		pub fn update_bridge_status(
 			origin: OriginFor<T>,
 			bridge_id: BridgeIdOf<T, I>,
 			is_congested: bool,
@@ -267,7 +267,7 @@ pub mod pallet {
 			);
 
 			// update status
-			Self::update_bridge_status(bridge_id, is_congested);
+			Self::do_update_bridge_status(bridge_id, is_congested);
 
 			Ok(())
 		}
@@ -355,7 +355,7 @@ pub mod pallet {
 		/// - `is_congested` is true, a new `BridgeState` is created with a default
 		///   `delivery_fee_factor`.
 		/// - `is_congested` is false, does nothing and no `BridgeState` is created.
-		pub(crate) fn update_bridge_status(bridge_id: BridgeIdOf<T, I>, is_congested: bool) {
+		pub(crate) fn do_update_bridge_status(bridge_id: BridgeIdOf<T, I>, is_congested: bool) {
 			Bridges::<T, I>::mutate(bridge_id, |bridge| match bridge {
 				Some(bridge) => bridge.is_congested = is_congested,
 				None =>
@@ -794,14 +794,14 @@ mod tests {
 	}
 
 	#[test]
-	fn report_bridge_status_works() {
+	fn update_bridge_status_works() {
 		run_test(|| {
 			let dest =
 				Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(1000)]);
 			let bridge_id =
 				bp_xcm_bridge_hub::BridgeId::new(&UniversalLocation::get(), dest.interior());
-			let report_bridge_status = |bridge_id, is_congested| {
-				let call = RuntimeCall::XcmBridgeHubRouter(Call::report_bridge_status {
+			let update_bridge_status = |bridge_id, is_congested| {
+				let call = RuntimeCall::XcmBridgeHubRouter(Call::update_bridge_status {
 					bridge_id,
 					is_congested,
 				});
@@ -809,11 +809,11 @@ mod tests {
 			};
 
 			assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
-			report_bridge_status(bridge_id, false);
+			update_bridge_status(bridge_id, false);
 			assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
 
 			// make congested
-			report_bridge_status(bridge_id, true);
+			update_bridge_status(bridge_id, true);
 			assert_eq!(
 				get_bridge_state_for::<TestRuntime, ()>(&dest),
 				Some(BridgeState {
@@ -823,7 +823,7 @@ mod tests {
 			);
 
 			// make uncongested
-			report_bridge_status(bridge_id, false);
+			update_bridge_status(bridge_id, false);
 			assert_eq!(
 				get_bridge_state_for::<TestRuntime, ()>(&dest),
 				Some(BridgeState {
@@ -835,7 +835,7 @@ mod tests {
 	}
 
 	#[test]
-	fn update_bridge_status_works() {
+	fn do_update_bridge_status_works() {
 		run_test(|| {
 			let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]);
 			let bridge_id =
@@ -843,11 +843,11 @@ mod tests {
 			assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
 
 			// update as is_congested=false when `None`
-			Pallet::<TestRuntime, ()>::update_bridge_status(bridge_id, false);
+			Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, false);
 			assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
 
 			// update as is_congested=true
-			Pallet::<TestRuntime, ()>::update_bridge_status(bridge_id, true);
+			Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, true);
 			assert_eq!(
 				get_bridge_state_for::<TestRuntime, ()>(&dest),
 				Some(BridgeState {
@@ -857,7 +857,7 @@ mod tests {
 			);
 
 			// update as is_congested=false when `Some(..)`
-			Pallet::<TestRuntime, ()>::update_bridge_status(bridge_id, false);
+			Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, false);
 			assert_eq!(
 				get_bridge_state_for::<TestRuntime, ()>(&dest),
 				Some(BridgeState {

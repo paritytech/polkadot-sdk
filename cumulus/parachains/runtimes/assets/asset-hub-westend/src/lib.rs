@@ -1891,7 +1891,7 @@ impl_runtime_apis! {
 				fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
 					Ok(xcm_config::bridging::to_rococo::AssetHubRococo::get())
 				}
-				fn report_bridge_status_origin() -> Option<RuntimeOrigin> {
+				fn update_bridge_status_origin() -> Option<RuntimeOrigin> {
 					Some(pallet_xcm::Origin::Xcm(xcm_config::bridging::SiblingBridgeHub::get()).into())
 				}
 			}
