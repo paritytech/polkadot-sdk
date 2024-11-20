@@ -519,11 +519,7 @@ where
 						.collect::<Vec<_>>(),
 				);
 				config.discovery_limit(u64::from(network_config.default_peers_set.out_peers) + 15);
-				config.with_kademlia(
-					params.genesis_hash,
-					params.fork_id.as_deref(),
-					&params.protocol_id,
-				);
+				config.with_kademlia(params.genesis_hash, params.fork_id.as_deref());
 				config.with_dht_random_walk(network_config.enable_dht_random_walk);
 				config.allow_non_globals_in_dht(network_config.allow_non_globals_in_dht);
 				config.use_kademlia_disjoint_query_paths(
