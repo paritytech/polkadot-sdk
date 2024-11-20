@@ -118,9 +118,10 @@ fn create_bounty<T: Config<I>, I: 'static>(
 }
 
 fn setup_pot_account<T: Config<I>, I: 'static>() {
-	let pot_account = Bounties::<T, I>::account_id();
-	let value = T::Currency::minimum_balance().saturating_mul(1_000_000_000u32.into());
-	let _ = T::Currency::make_free_balance_be(&pot_account, value);
+	// TODO: setup asset account
+	let _pot_account = Bounties::<T, I>::account_id();
+	// let value = T::Currency::minimum_balance().saturating_mul(1_000_000_000u32.into());
+	// let _ = T::Currency::make_free_balance_be(&pot_account, value);
 }
 
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {

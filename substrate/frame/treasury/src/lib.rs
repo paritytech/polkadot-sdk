@@ -735,8 +735,14 @@ pub mod pallet {
 				Error::<T, I>::AlreadyAttempted
 			);
 
-			let id = T::Paymaster::pay(&spend.beneficiary, spend.asset_kind.clone(), spend.amount)
-				.map_err(|_| Error::<T, I>::PayoutError)?;
+			let treasury_account = Self::treasury_account_id();
+			let id = T::Paymaster::pay(
+				&treasury_account,
+				&spend.beneficiary,
+				spend.asset_kind.clone(),
+				spend.amount,
+			)
+			.map_err(|_| Error::<T, I>::PayoutError)?;
 
 			spend.status = PaymentState::Attempted { id };
 			Spends::<T, I>::insert(index, spend);
@@ -844,6 +850,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
 	/// value and only call this once.
 	pub fn account_id() -> T::AccountId {
+		T::PalletId::get().into_account_truncating()
+	}
+
+	pub fn treasury_account_id() -> T::Beneficiary {
 		T::PalletId::get().into_account_truncating()
 	}
 

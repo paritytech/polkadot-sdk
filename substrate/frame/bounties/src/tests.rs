@@ -25,7 +25,7 @@ use crate as pallet_bounties;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{
-		tokens::{PayFromAccount, UnityAssetBalanceConversion},
+		tokens::{pay::PayWithBalance, UnityAssetBalanceConversion},
 		ConstU32, ConstU64, Currency, Imbalance, OnInitialize,
 	},
 	PalletId,
@@ -101,7 +101,7 @@ impl pallet_treasury::Config for Test {
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
+	type Paymaster = PayWithBalance<Balances, Self::Beneficiary>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
@@ -124,7 +124,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type AssetKind = ();
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = PayFromAccount<Balances, TreasuryInstance1Account>;
+	type Paymaster = PayWithBalance<Balances, Self::Beneficiary>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
