@@ -102,7 +102,8 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>:
-		CreateInherent<frame_system::Call<Self>> + frame_system::Config<RuntimeTask: From<Task<Self, I>>>
+		CreateInherent<frame_system::Call<Self>>
+		+ frame_system::Config<RuntimeTask: From<Task<Self, I>>>
 	{
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -393,7 +394,7 @@ pub mod pallet {
 	#[pallet::tasks_experimental]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		#[pallet::task_list({
-			let now = frame_system::Pallet::<T>::block_number(); 
+			let now = frame_system::Pallet::<T>::block_number();
 			let status = Status::<T, I>::get().expect("Task require active status");
 			let cycle_period = Pallet::<T, I>::cycle_period();
 			let result = if now >= status.cycle_start + cycle_period {

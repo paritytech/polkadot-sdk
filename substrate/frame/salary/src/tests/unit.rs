@@ -662,10 +662,7 @@ fn runtime_task_enumerate_works() {
 		set_rank(1, 1);
 		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
 		run_to(7);
-		assert_eq!(
-			RuntimeTask::iter().collect::<Vec<_>>().len(),
-			1
-		);
+		assert_eq!(RuntimeTask::iter().collect::<Vec<_>>().len(), 1);
 	});
 }
 
