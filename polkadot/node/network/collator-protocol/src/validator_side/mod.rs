@@ -2155,29 +2155,6 @@ async fn handle_collation_fetch_response(
 	result
 }
 
-// Returns how many seconded candidates and pending fetches are there within the view at a specific
-// relay parent
-fn seconded_and_pending_for_para_below(
-	state: &State,
-	relay_parent: &Hash,
-	para_id: &ParaId,
-	claim_queue_len: usize,
-) -> usize {
-	// `known_allowed_relay_parents_under` returns all leaves within the view for the specified
-	// block hash including the block hash itself.
-	state
-		.implicit_view
-		.known_allowed_relay_parents_under(relay_parent, Some(*para_id))
-		.map(|ancestors| {
-			ancestors
-				.iter()
-				.take(claim_queue_len)
-				.map(|anc| state.seconded_and_pending_for_para(anc, para_id))
-				.sum()
-		})
-		.unwrap_or(0)
-}
-
 // Iterates all relay parents under `relay_parent` within the view up to `claim_queue_len` and
 // returns the number of claims for `para_id` which are affecting `relay_parent`. Affecting in this
 // context means that a relay parent before `relay_parent` have claimed a slot from `relay_parent`'s
@@ -2243,14 +2220,14 @@ fn claimed_within_view(
 	// At each ancestor we take the number of seconded and pending candidates at it, add it to the
 	// total number of claims and subtract 1 if `para_id` is at the first position of the claim
 	// queue for that ancestor.
-	ancestors.iter().take(claim_queue_len).rev().fold(0, |acc, ancestors| {
-		let seconded_and_pending = state.seconded_and_pending_for_para(ancestors, para_id);
+	ancestors.iter().take(claim_queue_len).rev().fold(0, |acc, anc| {
+		let seconded_and_pending = state.seconded_and_pending_for_para(anc, para_id);
 		let first_assignment = state
 			.per_relay_parent
-			.get(ancestors)
+			.get(anc)
 			.and_then(|per_relay_parent| per_relay_parent.assignment.current.first());
 		match first_assignment {
-			Some(first) if first == para_id && ancestors != relay_parent =>
+			Some(first) if first == para_id && anc != relay_parent =>
 				(acc + seconded_and_pending).saturating_sub(1),
 			_ => acc + seconded_and_pending,
 		}
@@ -2266,12 +2243,35 @@ fn seconded_and_pending_for_para_above(
 	let leaf_paths = state.implicit_view.paths_to_relay_parent(relay_parent);
 	let mut result = vec![];
 	for path in leaf_paths {
-		let r = path
-			.iter()
-			.take(claim_queue_len)
-			.map(|anc| state.seconded_and_pending_for_para(anc, para_id))
-			.sum();
-		result.push(r);
+		// Here we track how many first slots from the claim queue at the ancestors are actually
+		// claimed. This is the end result we care about.
+		let mut claimed_slots = 0;
+		// Here we track how many claims are transferred to the next ancestors in the path. We need
+		// this to decide if a next first slot is claimed or not.
+		// For example we have got a path rp1->rp2. Claim queue is [A,A] at each ancestor.At rp1 we
+		// have got 2 claims, at rp2  = 0. In this case we have got both first slots claimed (at rp1
+		// and rp2) since the 2nd claim from rp1 is transferred to rp2.
+		let mut unfulfilled_claims = 0;
+
+		for anc in path.iter().take(claim_queue_len).rev() {
+			// Anything seconded for `para_id` at the ancestor is added up to the claims.
+			unfulfilled_claims += state.seconded_and_pending_for_para(anc, para_id);
+
+			let first_assignment_in_cq = state
+				.per_relay_parent
+				.get(anc)
+				.and_then(|per_relay_parent| per_relay_parent.assignment.current.first());
+
+			// If we have got unfulfilled claims and the first assignment in the claim queue is for
+			// `para_id` then we can assign a claim to the current ancestor. Mark the slot as
+			// claimed and decrease the number of unfulfilled claims.
+			if unfulfilled_claims > 0 && first_assignment_in_cq == Some(para_id) {
+				claimed_slots += 1;
+				unfulfilled_claims -= 1;
+			}
+		}
+
+		result.push(claimed_slots);
 	}
 
 	result
@@ -2287,7 +2287,7 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 	let scheduled_paras = relay_parent_state.assignment.current.iter().collect::<HashSet<_>>();
 	let mut claims_per_para = HashMap::new();
 	for para_id in scheduled_paras {
-		let below = seconded_and_pending_for_para_below(
+		let below = claimed_within_view(
 			state,
 			relay_parent,
 			para_id,
