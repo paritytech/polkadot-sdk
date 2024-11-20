@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Westend's People parachain runtime"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

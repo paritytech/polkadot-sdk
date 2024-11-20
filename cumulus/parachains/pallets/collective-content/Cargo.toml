@@ -5,6 +5,8 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition.workspace = true
 description = "Managed content"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true

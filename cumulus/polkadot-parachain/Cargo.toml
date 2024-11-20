@@ -6,6 +6,8 @@ edition.workspace = true
 build = "build.rs"
 description = "Runs a polkadot parachain node"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true

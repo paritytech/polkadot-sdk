@@ -5,6 +5,8 @@ name = "cumulus-pallet-xcm"
 version = "0.7.0"
 license = "Apache-2.0"
 description = "Pallet for stuff specific to parachains' usage of XCM"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true

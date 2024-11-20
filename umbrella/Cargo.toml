@@ -3,6 +3,8 @@ name = "polkadot-sdk"
 version = "0.1.0"
 description = "Polkadot SDK umbrella crate."
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [features]
 default = ["std"]

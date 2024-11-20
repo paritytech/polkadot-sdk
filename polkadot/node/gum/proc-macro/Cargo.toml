@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Generate an overseer including builder pattern and message wrapper from a single annotated struct definition."
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
