@@ -1837,3 +1837,11 @@ fn start_sales_sets_correct_core_count() {
 		System::assert_has_event(Event::<Test>::CoreCountRequested { core_count: 9 }.into());
 	})
 }
+
+#[test]
+fn inject_into_workplan() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		let workplan = Workplan::<Test>::iter().next();
+		dbg!(workplan);
+	})
+}
