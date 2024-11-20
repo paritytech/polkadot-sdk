@@ -83,9 +83,9 @@ where
 	);
 
 	let raw_ancestry_proof = mmr_lib::AncestryProof::<Node<H, L>, Hasher<H, L>> {
+		prev_mmr_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - 1),
 		prev_peaks: ancestry_proof.prev_peaks.into_iter().map(|hash| Node::Hash(hash)).collect(),
-		prev_size: mmr_lib::helper::leaf_index_to_mmr_size(ancestry_proof.prev_leaf_count - 1),
-		proof: prev_peaks_proof,
+		prev_peaks_proof,
 	};
 
 	let prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<Node<H, L>, Hasher<H, L>>(
@@ -248,7 +248,7 @@ where
 			prev_leaf_count,
 			leaf_count: self.leaves,
 			items: raw_ancestry_proof
-				.proof
+				.prev_peaks_proof
 				.proof_items()
 				.iter()
 				.map(|(index, item)| (*index, item.hash()))
