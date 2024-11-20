@@ -32,7 +32,7 @@ use static_init::dynamic;
 use std::thread;
 use substrate_cli_test_utils::*;
 
-/// Create a websocket client with a 30s timeout.
+/// Create a websocket client with a 120s timeout.
 async fn ws_client_with_retry(url: &str) -> WsClient {
 	let timeout = tokio::time::Duration::from_secs(120);
 	tokio::time::timeout(timeout, async {
