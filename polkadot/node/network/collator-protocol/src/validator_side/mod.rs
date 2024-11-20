@@ -2197,22 +2197,24 @@ fn claimed_within_view(
 	//   A2───────────────────────────►
 	//
 	// Since we have got three advertisements at RP1, A1 claims the slot at RP1, B1 - at RP2 and A2
-	// - at RP3. This means that at RP2 we still can accept one more advertisement for B and one for
-	// A.
-	// How the counting must work for para id A. ACC here represents the number of claims
-	// transferred to the next relay parent which finally are transferred to the target relay
-	// parent:
+	// - at RP3. This means that at RP2 we still can accept one more advertisement for B and one
+	//   more for A.
+	//
+	// How the counting must work for para id A. Let's say we want to second something for A at RP3
+	// and we want to know how many slots are claimed by older relay parents. ACC represents the
+	// number of claims transferred to the next relay parent which finally are transferred to
+	// the target relay parent. We start from the oldest relay parent and go to the newest one:
 	// - at RP1 we have got two claims and para A is in the first position in the claim queue. ACC =
 	//   2 - 1 = 1.
 	// - at RP2 we have got no claims advertised. Para A is not on the first position of the claim
 	//   queue, so A2 can't be scheduled here. ACC is still 1.
 	// - at RP 3 we reach our target relay parent with ACC = 1. We want to advertise at RP 3 so we
-	//   add 1 to ACC and it becomes 2. IMPORTANT: since RP3 is our target relay parent we DON'T
-	//   subtract 1 since this is the position the new advertisement will occupy.
-	// - ACC = 2 is the final result which represents the number of claims for para A at RP3.
-	//
-	// It's outside the scope of this function but in this case we CAN add an advertisement for para
-	// A at RP3 since the number of claims equals the number of entries for A in the claim queue.
+	//   add 1 to ACC and it remains 1. IMPORTANT: since RP3 is our target relay parent we DON'T
+	//   subtract 1 because this is the position the new advertisement will occupy.
+	// - ACC = 1 is the final result which represents the number of claims for para A at RP3. This
+	//   means that at RP3 the first slot of the claim queue (which is for A) is claimed by an older
+	//   relay parent (RP1). We still can accept one advertisement for A at RP3 since we have got
+	//   one more claim for A (the 3rd one) in th claim queue,
 
 	// We take all ancestors returned from `known_allowed_relay_parents_under` (remember they start
 	// with `relay_parent`), take the number of elements we are interested in (claim_queue_len) and
