@@ -63,6 +63,18 @@ where
 		.map_err(|e| Error::Verify.log_debug(e))
 }
 
+pub fn is_ancestry_proof_optimal<H>(ancestry_proof: &AncestryProof<H::Output>) -> bool
+where
+	H: frame::traits::Hash,
+{
+	let prev_mmr_size = NodesUtils::new(ancestry_proof.prev_leaf_count).size();
+	let mmr_size = NodesUtils::new(ancestry_proof.leaf_count).size();
+
+	let expected_proof_size =
+		mmr_lib::ancestry_proof::expected_ancestry_proof_size(prev_mmr_size, mmr_size);
+	ancestry_proof.items.len() == expected_proof_size
+}
+
 pub fn verify_ancestry_proof<H, L>(
 	root: H::Output,
 	ancestry_proof: AncestryProof<H::Output>,
