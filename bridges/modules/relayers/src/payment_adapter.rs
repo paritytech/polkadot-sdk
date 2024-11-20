@@ -22,6 +22,7 @@ use bp_messages::{
 	source_chain::{DeliveryConfirmationPayments, RelayersRewards},
 	LaneId, MessageNonce,
 };
+pub use bp_relayers::PayRewardFromAccount;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::Chain;
 use frame_support::{sp_runtime::SaturatedConversion, traits::Get};
@@ -30,15 +31,23 @@ use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeIn
 
 /// Adapter that allows relayers pallet to be used as a delivery+dispatch payment mechanism
 /// for the messages pallet.
-pub struct DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward>(
-	PhantomData<(T, MI, DeliveryReward)>,
+pub struct DeliveryConfirmationPaymentsAdapter<T, MI, RI, DeliveryReward>(
+	PhantomData<(T, MI, RI, DeliveryReward)>,
 );
 
+<<<<<<< HEAD
 impl<T, MI, DeliveryReward> DeliveryConfirmationPayments<T::AccountId>
 	for DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward>
 where
 	T: Config + pallet_bridge_messages::Config<MI>,
+=======
+impl<T, MI, RI, DeliveryReward> DeliveryConfirmationPayments<T::AccountId, LaneIdOf<T, MI>>
+	for DeliveryConfirmationPaymentsAdapter<T, MI, RI, DeliveryReward>
+where
+	T: Config<RI> + pallet_bridge_messages::Config<MI, LaneId = <T as Config<RI>>::LaneId>,
+>>>>>>> bd0d0cd (Bridges testing improvements (#6536))
 	MI: 'static,
+	RI: 'static,
 	DeliveryReward: Get<T::Reward>,
 {
 	type Error = &'static str;
@@ -53,7 +62,7 @@ where
 			bp_messages::calc_relayers_rewards::<T::AccountId>(messages_relayers, received_range);
 		let rewarded_relayers = relayers_rewards.len();
 
-		register_relayers_rewards::<T>(
+		register_relayers_rewards::<T, RI>(
 			confirmation_relayer,
 			relayers_rewards,
 			RewardsAccountParams::new(
@@ -69,7 +78,7 @@ where
 }
 
 // Update rewards to given relayers, optionally rewarding confirmation relayer.
-fn register_relayers_rewards<T: Config>(
+fn register_relayers_rewards<T: Config<I>, I: 'static>(
 	confirmation_relayer: &T::AccountId,
 	relayers_rewards: RelayersRewards<T::AccountId>,
 	lane_id: RewardsAccountParams,
@@ -83,7 +92,7 @@ fn register_relayers_rewards<T: Config>(
 		let relayer_reward = T::Reward::saturated_from(messages).saturating_mul(delivery_fee);
 
 		if relayer != *confirmation_relayer {
-			Pallet::<T>::register_relayer_reward(lane_id, &relayer, relayer_reward);
+			Pallet::<T, I>::register_relayer_reward(lane_id, &relayer, relayer_reward);
 		} else {
 			confirmation_relayer_reward =
 				confirmation_relayer_reward.saturating_add(relayer_reward);
@@ -91,7 +100,7 @@ fn register_relayers_rewards<T: Config>(
 	}
 
 	// finally - pay reward to confirmation relayer
-	Pallet::<T>::register_relayer_reward(
+	Pallet::<T, I>::register_relayer_reward(
 		lane_id,
 		confirmation_relayer,
 		confirmation_relayer_reward,
@@ -114,7 +123,7 @@ mod tests {
 	#[test]
 	fn confirmation_relayer_is_rewarded_if_it_has_also_delivered_messages() {
 		run_test(|| {
-			register_relayers_rewards::<TestRuntime>(
+			register_relayers_rewards::<TestRuntime, ()>(
 				&RELAYER_2,
 				relayers_rewards(),
 				TEST_REWARDS_ACCOUNT_PARAMS,
@@ -135,7 +144,7 @@ mod tests {
 	#[test]
 	fn confirmation_relayer_is_not_rewarded_if_it_has_not_delivered_any_messages() {
 		run_test(|| {
-			register_relayers_rewards::<TestRuntime>(
+			register_relayers_rewards::<TestRuntime, ()>(
 				&RELAYER_3,
 				relayers_rewards(),
 				TEST_REWARDS_ACCOUNT_PARAMS,

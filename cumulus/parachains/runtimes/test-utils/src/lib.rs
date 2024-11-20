@@ -462,6 +462,45 @@ impl<
 			Weight::zero(),
 		)
 	}
+<<<<<<< HEAD
+=======
+
+	pub fn execute_as_origin<Call: GetDispatchInfo + Encode>(
+		(origin, origin_kind): (Location, OriginKind),
+		call: Call,
+		maybe_buy_execution_fee: Option<Asset>,
+	) -> Outcome {
+		let mut instructions = if let Some(buy_execution_fee) = maybe_buy_execution_fee {
+			vec![
+				WithdrawAsset(buy_execution_fee.clone().into()),
+				BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
+			]
+		} else {
+			vec![UnpaidExecution { check_origin: None, weight_limit: Unlimited }]
+		};
+
+		// prepare `Transact` xcm
+		instructions.extend(vec![
+			Transact { origin_kind, call: call.encode().into() },
+			ExpectTransactStatus(MaybeErrorCode::Success),
+		]);
+		let xcm = Xcm(instructions);
+
+		// execute xcm as parent origin
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
+			origin.clone(),
+			xcm,
+			&mut hash,
+			Self::xcm_max_weight(if origin == Location::parent() {
+				XcmReceivedFrom::Parent
+			} else {
+				XcmReceivedFrom::Sibling
+			}),
+			Weight::zero(),
+		)
+	}
+>>>>>>> bd0d0cd (Bridges testing improvements (#6536))
 }
 
 pub enum XcmReceivedFrom {

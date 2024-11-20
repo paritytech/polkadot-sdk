@@ -45,9 +45,20 @@ type Block = frame_system::mocking::MockBlock<TestRuntime>;
 frame_support::construct_runtime! {
 	pub enum TestRuntime
 	{
+<<<<<<< HEAD
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Event<T>},
 		Relayers: pallet_bridge_relayers::{Pallet, Call, Event<T>},
+=======
+		System: frame_system,
+		Utility: pallet_utility,
+		Balances: pallet_balances,
+		TransactionPayment: pallet_transaction_payment,
+		BridgeRelayers: pallet_bridge_relayers,
+		BridgeGrandpa: pallet_bridge_grandpa,
+		BridgeParachains: pallet_bridge_parachains,
+		BridgeMessages: pallet_bridge_messages,
+>>>>>>> bd0d0cd (Bridges testing improvements (#6536))
 	}
 }
 
@@ -72,6 +83,75 @@ impl pallet_balances::Config for TestRuntime {
 	type AccountStore = System;
 }
 
+<<<<<<< HEAD
+=======
+impl pallet_utility::Config for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
+impl pallet_transaction_payment::Config for TestRuntime {
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
+	type OperationalFeeMultiplier = ConstU8<5>;
+	type WeightToFee = IdentityFee<ThisChainBalance>;
+	type LengthToFee = ConstantMultiplier<ThisChainBalance, TransactionByteFee>;
+	type FeeMultiplierUpdate = pallet_transaction_payment::TargetedFeeAdjustment<
+		TestRuntime,
+		TargetBlockFullness,
+		AdjustmentVariable,
+		MinimumMultiplier,
+		MaximumMultiplier,
+	>;
+	type RuntimeEvent = RuntimeEvent;
+}
+
+impl pallet_bridge_grandpa::Config for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
+	type BridgedChain = BridgedUnderlyingParachain;
+	type MaxFreeHeadersPerBlock = ConstU32<4>;
+	type FreeHeadersInterval = ConstU32<1_024>;
+	type HeadersToKeep = ConstU32<8>;
+	type WeightInfo = pallet_bridge_grandpa::weights::BridgeWeight<TestRuntime>;
+}
+
+impl pallet_bridge_parachains::Config for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
+	type BridgesGrandpaPalletInstance = ();
+	type ParasPalletName = BridgedParasPalletName;
+	type ParaStoredHeaderDataBuilder =
+		SingleParaStoredHeaderDataBuilder<BridgedUnderlyingParachain>;
+	type HeadsToKeep = ConstU32<8>;
+	type MaxParaHeadDataSize = ConstU32<1024>;
+	type WeightInfo = pallet_bridge_parachains::weights::BridgeWeight<TestRuntime>;
+}
+
+impl pallet_bridge_messages::Config for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_bridge_messages::weights::BridgeWeight<TestRuntime>;
+
+	type OutboundPayload = Vec<u8>;
+	type InboundPayload = Vec<u8>;
+	type LaneId = TestLaneIdType;
+
+	type DeliveryPayments = ();
+	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
+		TestRuntime,
+		(),
+		(),
+		ConstU64<100_000>,
+	>;
+	type OnMessagesDelivered = ();
+
+	type MessageDispatch = DummyMessageDispatch;
+	type ThisChain = ThisUnderlyingChain;
+	type BridgedChain = BridgedUnderlyingParachain;
+	type BridgedHeaderChain = BridgeGrandpa;
+}
+
+>>>>>>> bd0d0cd (Bridges testing improvements (#6536))
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = Balance;
