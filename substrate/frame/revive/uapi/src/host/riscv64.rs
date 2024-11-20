@@ -233,7 +233,7 @@ impl HostFn for HostFnImpl {
 			address: address as _,
 			output: output_ptr as _,
 			output_len: &mut output_len as *mut _ as _,
-			salt: salt_ptr  as _,
+			salt: salt_ptr as _,
 		};
 
 		let ret_code = { unsafe { sys::instantiate(&args as *const Args as *const _) } };
