@@ -294,7 +294,7 @@ mod tests {
 	}
 
 	#[test]
-	fn call_filter_not_messed_up() {
+	fn call_filter_preserved() {
 		new_test_ext().execute_with(|| {
 			let ext = frame_system::AuthorizeCall::<Runtime>::new();
 			let filtered_call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });

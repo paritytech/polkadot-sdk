@@ -409,7 +409,7 @@ fn valid_call_weight_test() {
 }
 
 #[test]
-fn valid_invalid_call() {
+fn call_validity() {
 	struct Test {
 		call: RuntimeCall,
 		validate_res: TransactionValidity,
