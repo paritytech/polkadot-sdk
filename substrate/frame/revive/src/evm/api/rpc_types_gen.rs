@@ -17,7 +17,7 @@
 //! Generated JSON-RPC types.
 #![allow(missing_docs)]
 
-use super::{byte::*, Type0, Type1, Type2};
+use super::{byte::*, Type0, Type1, Type2, Type3};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
@@ -375,8 +375,7 @@ impl Default for H256OrTransactionInfo {
 )]
 pub struct Log {
 	/// address
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub address: Option<Address>,
+	pub address: Address,
 	/// block hash
 	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
 	pub block_hash: Option<H256>,
@@ -393,8 +392,8 @@ pub struct Log {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub removed: Option<bool>,
 	/// topics
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub topics: Option<Vec<H256>>,
+	#[serde(skip_serializing_if = "Vec::is_empty")]
+	pub topics: Vec<H256>,
 	/// transaction hash
 	#[serde(rename = "transactionHash")]
 	pub transaction_hash: H256,
@@ -531,7 +530,7 @@ pub struct Transaction4844Unsigned {
 	/// to address
 	pub to: Address,
 	/// type
-	pub r#type: Byte,
+	pub r#type: Type3,
 	/// value
 	pub value: U256,
 }

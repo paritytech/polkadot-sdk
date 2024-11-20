@@ -17,7 +17,7 @@
 use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	environment::GENESIS_HASH,
-	mock::runtime_api::node_features_with_chunk_mapping_enabled,
+	mock::runtime_api::default_node_features,
 };
 use bitvec::bitvec;
 use codec::Encode;
@@ -34,8 +34,9 @@ use polkadot_node_subsystem_test_helpers::{
 use polkadot_node_subsystem_util::availability_chunks::availability_chunk_indices;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex,
-	Hash, HeadData, Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
+	vstaging::{CandidateReceiptV2 as CandidateReceipt, MutateDescriptorV2},
+	AvailabilityBitfield, BlockNumber, CandidateHash, ChunkIndex, CoreIndex, Hash, HeadData,
+	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sp_core::H256;
@@ -117,7 +118,7 @@ impl TestState {
 		test_state.chunk_indices = (0..config.n_cores)
 			.map(|core_index| {
 				availability_chunk_indices(
-					Some(&node_features_with_chunk_mapping_enabled()),
+					Some(&default_node_features()),
 					config.n_validators,
 					CoreIndex(core_index as u32),
 				)
@@ -148,7 +149,10 @@ impl TestState {
 			test_state.chunks.push(new_chunks);
 			test_state.available_data.push(new_available_data);
 			test_state.pov_size_to_candidate.insert(pov_size, index);
-			test_state.candidate_receipt_templates.push(candidate_receipt);
+			test_state.candidate_receipt_templates.push(CandidateReceipt {
+				descriptor: candidate_receipt.descriptor.into(),
+				commitments_hash: candidate_receipt.commitments_hash,
+			});
 		}
 
 		test_state.block_infos = (1..=config.num_blocks)
@@ -189,7 +193,9 @@ impl TestState {
 					test_state.candidate_receipt_templates[candidate_index].clone();
 
 				// Make it unique.
-				candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
+				candidate_receipt
+					.descriptor
+					.set_relay_parent(Hash::from_low_u64_be(index as u64));
 				// Store the new candidate in the state
 				test_state.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
 

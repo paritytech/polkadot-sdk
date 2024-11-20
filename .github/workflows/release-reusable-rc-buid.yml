@@ -58,7 +58,7 @@ jobs:
 
   build-rc:
     needs: [set-image]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-m
     environment: release
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -151,7 +151,9 @@ jobs:
     - name: Build polkadot deb package
       shell: bash
       run: |
-        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${{ inputs.release_tag }}
+        . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+        VERSION=$(get_polkadot_node_version_from_code)
+        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
 
     - name: Generate artifact attestation
       uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
