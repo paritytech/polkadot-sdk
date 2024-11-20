@@ -293,6 +293,7 @@ impl<T: Config> WasmBlob<T> {
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
 		config.set_backend(Some(polkavm::BackendKind::Interpreter));
+		config.set_cache_enabled(false);
 		let engine =
 			polkavm::Engine::new(&config).expect("interpreter is available on all plattforms; qed");
 
