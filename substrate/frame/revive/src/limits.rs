@@ -129,6 +129,11 @@ pub mod code {
 			Error::<T>::CodeRejected
 		})?;
 
+		if !program.is_64_bit() {
+			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
+			Err(Error::<T>::CodeRejected)?;
+		}
+
 		// This scans the whole program but we only do it once on code deployment.
 		// It is safe to do unchecked math in u32 because the size of the program
 		// was already checked above.
