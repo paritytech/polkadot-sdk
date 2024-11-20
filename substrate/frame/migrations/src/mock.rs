@@ -156,9 +156,8 @@ impl IntoRecord for Event<Test> {
 	) -> EventRecord<<Test as frame_system::Config>::RuntimeEvent, H256> {
 		let phase = if index == 0 {
 			// only the first event is emitted during initialization
-			match self {
-				Self::UpgradeStarted { .. } | Self::UpgradeFailed => {},
-				_ => panic!("first event emitted should be UpgradeStarted or UpgradeFailed."),
+			if !matches!(self, Self::UpgradeStarted { .. } | Self::UpgradeFailed) {
+				panic!("first event emitted should be UpgradeStarted or UpgradeFailed.");
 			}
 			frame_system::Phase::Initialization
 		} else {
