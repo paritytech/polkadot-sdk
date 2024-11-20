@@ -193,7 +193,7 @@ impl PeerInfoBehaviour {
 	/// - the address is for the local peer ID
 	fn verify_external_address(&mut self, address: &Multiaddr) -> bool {
 		if address.is_empty() {
-			log::warn!(
+			log::debug!(
 				target: "sub-libp2p",
 				"🔍 Discovered empty address",
 			);
@@ -211,7 +211,7 @@ impl PeerInfoBehaviour {
 					Protocol::Ip4(_),
 			)
 		) {
-			log::warn!(
+			log::debug!(
 				target: "sub-libp2p",
 				"🔍 Discovered external address does not contain a valid IP address: {address}",
 			);
@@ -221,7 +221,7 @@ impl PeerInfoBehaviour {
 		if let Some(Protocol::P2p(peer_id)) = address.iter().last() {
 			// Invalid address if the reported peer ID is not the local peer ID.
 			if peer_id != self.local_peer_id {
-				log::warn!(
+				log::debug!(
 					target: "sub-libp2p",
 					"🔍 Discovered external address that is not us: {address}",
 				);
