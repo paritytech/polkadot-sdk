@@ -51,7 +51,7 @@ pub struct FullChainApi<Client, Block> {
 	client: Arc<Client>,
 	_marker: PhantomData<Block>,
 	metrics: Option<Arc<ApiMetrics>>,
-	validation_pool: Arc<Mutex<mpsc::Sender<Pin<Box<dyn Future<Output = ()> + Send>>>>>,
+	validation_pool: mpsc::Sender<Pin<Box<dyn Future<Output = ()> + Send>>>,
 }
 
 /// Spawn a validation task that will be used by the transaction pool to validate transactions.
@@ -104,7 +104,7 @@ impl<Client, Block> FullChainApi<Client, Block> {
 
 		FullChainApi {
 			client,
-			validation_pool: Arc::new(Mutex::new(sender)),
+			validation_pool: sender,
 			_marker: Default::default(),
 			metrics,
 		}
@@ -140,15 +140,13 @@ where
 	) -> Self::ValidationFuture {
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
-		let validation_pool = self.validation_pool.clone();
+		let mut validation_pool = self.validation_pool.clone();
 		let metrics = self.metrics.clone();
 
 		async move {
 			metrics.report(|m| m.validations_scheduled.inc());
 
 			validation_pool
-				.lock()
-				.await
 				.send(
 					async move {
 						let res = validate_transaction_blocking(&*client, at, source, uxt);
