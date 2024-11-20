@@ -127,9 +127,6 @@ pub mod system_parachain {
 		/// Coretime timeslice period in blocks
 		/// WARNING: This constant is used accross chains, so additional care should be taken
 		/// when changing it.
-		#[cfg(feature = "fast-runtime")]
-		pub const TIMESLICE_PERIOD: u32 = 20;
-		#[cfg(not(feature = "fast-runtime"))]
 		pub const TIMESLICE_PERIOD: u32 = 80;
 	}
 }
