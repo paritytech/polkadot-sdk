@@ -16,16 +16,14 @@ crates:
   bump: major
 - name: frame-support-procedural
   bump: patch
-- name: frame-support-procedural-tools
-  bump: patch
 - name: frame-support
-  bump: patch
+  bump: minor
 - name: frame-metadata-hash-extension
   bump: patch
 - name: substrate-wasm-builder
-  bump: patch
+  bump: minor
 - name: pallet-revive
-  bump: patch
+  bump: minor
 - name: sp-runtime
   bump: major
 - name: frame-benchmarking-cli
