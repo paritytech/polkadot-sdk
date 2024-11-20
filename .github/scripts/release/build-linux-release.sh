@@ -3,10 +3,7 @@
 # This is used to build our binaries:
 # - polkadot
 # - polkadot-parachain
-# - polkadot-omni-node is not built by this script, but it is built as part of
-#  `release-30_publish_release_draft.yml`, along other binaries like `frame-omni-bencher`,
-#  or `staging-chain-spec-builder`. The plan is to unify the building of all binaries within
-#  a single workflow. Currently this script is used in `release-reusable-rc-build.yml`.
+# - polkadot-omni-node 
 #
 # set -e
 
