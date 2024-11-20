@@ -105,7 +105,6 @@ impl GetSalary<Rank, AccountId, Balance> for FixedSalary {
 }
 
 impl pallet_salary::Config for Test {
-	type RuntimeTask = <Test as frame_system::Config>::RuntimeTask;
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Paymaster = SalaryPayOverXcm;

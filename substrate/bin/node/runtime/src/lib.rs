@@ -1965,7 +1965,6 @@ impl GetSalary<u16, AccountId, Balance> for SalaryForRank {
 }
 
 impl pallet_salary::Config for Runtime {
-	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;

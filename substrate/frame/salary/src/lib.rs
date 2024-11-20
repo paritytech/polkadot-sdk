@@ -102,12 +102,8 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>:
-		CreateInherent<frame_system::Call<Self>> + frame_system::Config
+		CreateInherent<frame_system::Call<Self>> + frame_system::Config<RuntimeTask: From<Task<Self, I>>>
 	{
-		type RuntimeTask: frame_support::traits::Task
-			+ IsType<<Self as frame_system::Config>::RuntimeTask>
-			+ From<Task<Self, I>>;
-
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
@@ -396,15 +392,25 @@ pub mod pallet {
 
 	#[pallet::tasks_experimental]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		#[pallet::task_list(vec![].into_iter())]
+		#[pallet::task_list({
+			let now = frame_system::Pallet::<T>::block_number(); 
+			let status = Status::<T, I>::get().expect("Task require active status");
+			let cycle_period = Pallet::<T, I>::cycle_period();
+			let result = if now >= status.cycle_start + cycle_period {
+				vec![()] // Success one task available: `()`.
+			} else {
+				vec![] // Failure no task available.
+			};
+			result.into_iter()
+		})]
 		#[pallet::task_condition(|| {
 			let now = frame_system::Pallet::<T>::block_number();
 			let cycle_period = Pallet::<T, I>::cycle_period();
-			let mut status = Status::<T, I>::get().unwrap();
+			let Some(mut status) = Status::<T, I>::get() else { return false };
 			status.cycle_start.saturating_accrue(cycle_period);
 			now >= status.cycle_start
 		})]
-		#[pallet::task_weight(T::DbWeight::get().reads(1))]
+		#[pallet::task_weight(T::WeightInfo::bump_offchain())]
 		#[pallet::task_index(0)]
 		pub fn bump_offchain() -> DispatchResult {
 			let mut status = Status::<T, I>::get().ok_or(Error::<T, I>::NotStarted)?;
@@ -426,8 +432,7 @@ pub mod pallet {
 		fn offchain_worker(_block_number: BlockNumberFor<T>) {
 			// Create a valid task
 			let task = Task::<T, I>::BumpOffchain {};
-			let runtime_task = <T as Config<I>>::RuntimeTask::from(task);
-			let call = frame_system::Call::<T>::do_task { task: runtime_task.into() };
+			let call = frame_system::Call::<T>::do_task { task: task.into() };
 
 			// Submit the task as an unsigned transaction
 			let xt = <T as CreateInherent<frame_system::Call<T>>>::create_inherent(call.into());

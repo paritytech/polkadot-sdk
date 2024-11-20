@@ -112,7 +112,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Paymaster = TestPay;

@@ -12,6 +12,6 @@ crates:
     - name: staging-xcm-builder
       bump: patch
     - name: pallet-salary
-      bump: patch
+      bump: major
     - name: polkadot-sdk
       bump: patch

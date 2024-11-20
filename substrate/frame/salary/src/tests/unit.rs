@@ -163,7 +163,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Paymaster = TestPay;
@@ -637,26 +636,35 @@ fn other_mixed_bankruptcy_fails_gracefully() {
 #[test]
 fn task_enumerate_works() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(crate::pallet::Task::<Test>::iter().collect::<Vec<_>>().len(), 0);
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		run_to(7);
+		assert_eq!(crate::pallet::Task::<Test>::iter().collect::<Vec<_>>().len(), 1);
 	});
 }
 
 #[test]
 fn runtime_task_enumerate_works_via_frame_system_config() {
 	new_test_ext().execute_with(|| {
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		run_to(7);
 		assert_eq!(
 			<Test as frame_system::Config>::RuntimeTask::iter().collect::<Vec<_>>().len(),
-			0
+			1
 		);
 	});
 }
 
 #[test]
-fn runtime_task_enumerate_works_via_pallet_config() {
+fn runtime_task_enumerate_works() {
 	new_test_ext().execute_with(|| {
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		run_to(7);
 		assert_eq!(
-			<Test as crate::pallet::Config>::RuntimeTask::iter().collect::<Vec<_>>().len(),
-			0
+			RuntimeTask::iter().collect::<Vec<_>>().len(),
+			1
 		);
 	});
 }

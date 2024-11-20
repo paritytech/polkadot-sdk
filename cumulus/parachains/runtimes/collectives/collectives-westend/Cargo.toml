@@ -45,7 +45,7 @@ pallet-utility = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-ranked-collective = { workspace = true }
 pallet-core-fellowship = { workspace = true }
-pallet-salary = { workspace = true }
+pallet-salary = { workspace = true, features = ["experimental"] }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-block-builder = { workspace = true }
@@ -247,10 +247,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-]
-
-experimental = [
-	"pallet-salary/experimental",
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
