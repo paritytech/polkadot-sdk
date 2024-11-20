@@ -973,7 +973,7 @@ mod benchmarking {
 	use polkadot_runtime_parachains::paras;
 	use sp_runtime::traits::{Bounded, One};
 
-	use frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};
+	use frame_benchmarking::v2::*;
 
 	use crate::slots::Pallet as Slots;
 
@@ -1009,10 +1009,15 @@ mod benchmarking {
 		(para, leaser)
 	}
 
-	benchmarks! {
+	#[benchmarks(
 		where_clause { where T: paras::Config }
+	)]
 
-		force_lease {
+	mod benchmarks {
+		use super::*;
+
+		#[benchmark]
+		fn force_lease() -> Result<(), BenchmarkError> {
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + One::one());
 			let para = ParaId::from(1337);
@@ -1023,8 +1028,10 @@ mod benchmarking {
 			let period_count = 3u32.into();
 			let origin =
 				T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		}: _<T::RuntimeOrigin>(origin, para, leaser.clone(), amount, period_begin, period_count)
-		verify {
+		
+		#[extrinsic_call]
+		_<T::RuntimeOrigin>(origin, para, leaser.clone(), amount, period_begin, period_count);
+
 			assert_last_event::<T>(Event::<T>::Leased {
 				para_id: para,
 				leaser, period_begin,
@@ -1032,14 +1039,14 @@ mod benchmarking {
 				extra_reserved: amount,
 				total_amount: amount,
 			}.into());
+
+			Ok(())
 		}
 
 		// Worst case scenario, T on-demand parachains onboard, and C lease holding parachains offboard.
-		manage_lease_period_start {
-			// Assume reasonable maximum of 100 paras at any time
-			let c in 0 .. 100;
-			let t in 0 .. 100;
-
+		// Assume reasonable maximum of 100 paras at any time
+		#[benchmark]
+		fn manage_lease_period_start(c: Linear<0,100>, n : Linear<0,100>) -> Result<(), BenchmarkError> {
 			let period_begin = 1u32.into();
 			let period_count = 4u32.into();
 
@@ -1078,9 +1085,9 @@ mod benchmarking {
 			for i in 200 .. 200 + c {
 				assert!(T::Registrar::is_parachain(ParaId::from(i)));
 			}
-		}: {
-				Slots::<T>::manage_lease_period_start(period_begin);
-		} verify {
+			#[extrinsic_call]
+			Slots::<T>::manage_lease_period_start(period_begin);
+
 			// All paras should have switched.
 			T::Registrar::execute_pending_transitions();
 			for i in 0 .. t {
@@ -1089,11 +1096,14 @@ mod benchmarking {
 			for i in 200 .. 200 + c {
 				assert!(T::Registrar::is_parathread(ParaId::from(i)));
 			}
+
+			Ok(())
 		}
 
 		// Assume that at most 8 people have deposits for leases on a parachain.
 		// This would cover at least 4 years of leases in the worst case scenario.
-		clear_all_leases {
+		#[benchmark]
+		fn clear_all_leases() -> Result<(), BenchmarkError> {
 			let max_people = 8;
 			let (para, _) = register_a_parathread::<T>(1);
 
@@ -1120,24 +1130,32 @@ mod benchmarking {
 
 			let origin =
 				T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		}: _<T::RuntimeOrigin>(origin, para)
-		verify {
+		
+				#[extrinsic_call]
+				_<T::RuntimeOrigin>(origin, para);
+
 			for i in 0 .. max_people {
 				let leaser = account("lease_deposit", i, 0);
 				assert_eq!(T::Currency::reserved_balance(&leaser), 0u32.into());
 			}
+
+			Ok(())
 		}
 
-		trigger_onboard {
+		#[benchmark]
+		fn trigger_onboard() -> Result<(), BenchmarkError> {
 			// get a parachain into a bad state where they did not onboard
 			let (para, _) = register_a_parathread::<T>(1);
 			Leases::<T>::insert(para, vec![Some((account::<T::AccountId>("lease_insert", 0, 0), BalanceOf::<T>::default()))]);
 			assert!(T::Registrar::is_parathread(para));
 			let caller = whitelisted_caller();
-		}: _(RawOrigin::Signed(caller), para)
-		verify {
+		
+			#[extrinsic_call]
+			_(RawOrigin::Signed(caller), para);
+
 			T::Registrar::execute_pending_transitions();
 			assert!(T::Registrar::is_parachain(para));
+			Ok(())
 		}
 
 		impl_benchmark_test_suite!(
