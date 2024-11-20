@@ -137,7 +137,7 @@ where
 			.ok_or(AliasOriginExpected)?;
 		let origin = LocationIdOf::convert_location(&origin_loc).ok_or(InvalidOrigin)?;
 
-		let (_, beneficiary) = match_expression!(
+		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
 			DepositAsset { assets, beneficiary },
 			(assets, beneficiary)
@@ -161,7 +161,13 @@ where
 		let mut commands: Vec<Command> = Vec::new();
 
 		if let Some(enas) = enas {
+			ensure!(enas.len() > 0, NoReserveAssets);
 			for ena in enas.clone().inner().iter() {
+				// Check the the deposit asset filter matches what was reserved.
+				if !deposit_assets.matches(ena) {
+					return Err(FilterDoesNotConsumeAllAssets)
+				}
+
 				// only fungible asset is allowed
 				let (token, amount) = match ena {
 					Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
@@ -188,7 +194,14 @@ where
 		}
 
 		if let Some(pnas) = pnas {
+			ensure!(pnas.len() > 0, NoReserveAssets);
 			for pna in pnas.clone().inner().iter() {
+				// Check the the deposit asset filter matches what was reserved.
+				if !deposit_assets.matches(pna) {
+					return Err(FilterDoesNotConsumeAllAssets)
+				}
+
+				// Only fungible is allowed
 				let (asset_id, amount) = match pna {
 					Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
 						Some((inner_location.clone(), *amount)),
@@ -231,7 +244,6 @@ where
 mod tests {
 	use super::*;
 	use crate::outbound::v2::tests::{BridgedNetwork, MockTokenIdConvert, NonBridgedNetwork};
-	use frame_support::parameter_types;
 	use hex_literal::hex;
 	use snowbridge_core::AgentIdOf;
 	use sp_std::default::Default;
@@ -493,7 +505,7 @@ mod tests {
 			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 		let result = converter.convert();
-		assert_eq!(result.err(), Some(XcmConverterError::UnexpectedInstruction));
+		assert_eq!(result.err(), Some(XcmConverterError::WithdrawAssetExpected));
 	}
 
 	#[test]
@@ -559,7 +571,7 @@ mod tests {
 	}
 
 	#[test]
-	fn xcm_converter_convert_with_two_assets_yields_too_many_assets() {
+	fn xcm_converter_convert_with_two_assets_yields() {
 		let network = BridgedNetwork::get();
 
 		let token_address_1: [u8; 20] = hex!("1000000000000000000000000000000000000000");
@@ -595,7 +607,7 @@ mod tests {
 			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
 
 		let result = converter.convert();
-		assert_eq!(result.err(), Some(XcmConverterError::TooManyAssets));
+		assert_eq!(result.is_ok(), true);
 	}
 
 	#[test]
