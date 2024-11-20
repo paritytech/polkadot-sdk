@@ -158,7 +158,7 @@ jobs:
       binary: '["polkadot-omni-node"]'
       package: "polkadot-omni-node"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
-      platform: arm
+      target: aarch64-apple-darwin
     secrets:
       PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}

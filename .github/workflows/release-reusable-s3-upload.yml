@@ -13,8 +13,8 @@ on:
         required: true
         type: string
 
-      platform:
-        description: Platform for which the artifacts are being uploaded (lynux or macos)
+      target:
+        description: Target triple for which the artifacts are being uploaded (e.g aarch64-apple-darwin)
         required: true
         type: string
 
@@ -50,7 +50,7 @@ jobs:
           if: ${{ inputs.target == 'aarch64-apple-darwin' }}
           uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
           with:
-            name: ${{ inputs.package }}_arm
+            name: ${{ inputs.package }}_aarch64-apple-darwin
             path: artifacts/${{ inputs.package }}
 
         - name: Configure AWS Credentials

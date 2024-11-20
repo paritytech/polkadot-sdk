@@ -3,10 +3,7 @@
 # This is used to build our binaries:
 # - polkadot
 # - polkadot-parachain
-# - polkadot-omni-node (the x86_64 linux version is built as part of 
-# `release-30_publish_release_draft.yml`). This script is used in
-# `release_reusable-rc-build.yml`, but the plan is to build all the
-# macOS ARM64/x86_64 Linux binaries in a single workflow.
+# - polkadot-omni-node
 # set -e
 
 BIN=$1
