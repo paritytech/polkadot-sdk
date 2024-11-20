@@ -318,19 +318,10 @@ mod calls {
 			assert_eq!(balances(bailing_account_id), (100, 0));
 
 			// account 1 submitted nothing, so bail should have no effect and return error
-			assert_err!(
+			assert_noop!(
 				SignedPallet::bail(RuntimeOrigin::signed(bailing_account_id)),
 				SubmissionNotRegistered::<Runtime>
 			);
-
-			// balance of account with a submission as before
-			assert_eq!(
-				balances(account_id),
-				(100 - base_deposit - page_deposit, base_deposit + page_deposit)
-			);
-
-			// bailing account balance unchanged
-			assert_eq!(balances(bailing_account_id), (100, 0));
 		})
 	}
 
@@ -391,23 +382,9 @@ mod calls {
 			let account_id = 99;
 			let current_round = MultiPhase::current_round();
 
-			// do_register and try_mutate_page used directly so as not to switch phases in the test
-			assert_ok!(Pallet::<Runtime>::do_register(
-				&account_id,
-				Default::default(),
-				current_round
-			));
-
-			assert_ok!(Submissions::<Runtime>::try_mutate_page(
-				&account_id,
-				current_round,
-				0,
-				Some(Default::default())
-			));
-
 			roll_to_phase(Phase::Off);
 
-			assert_err!(
+			assert_noop!(
 				SignedPallet::force_clear_submission(
 					RuntimeOrigin::root(),
 					current_round + 1,

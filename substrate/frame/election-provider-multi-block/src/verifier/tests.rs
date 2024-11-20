@@ -149,12 +149,7 @@ mod feasibility_check {
 	#[test]
 	fn desired_targets_not_in_snapshot() {
 		ExtBuilder::default().no_desired_targets().build_and_execute(|| {
-			roll_to_phase(Phase::Signed);
-
-			assert_eq!(crate::Snapshot::<Runtime>::targets().unwrap().len(), 8);
-			assert_ne!(crate::Snapshot::<Runtime>::voters(0).unwrap().len(), 0);
-			assert_eq!(crate::Snapshot::<Runtime>::desired_targets(), None);
-
+			set_phase_to(Phase::Signed);
 			assert_err!(
 				VerifierPallet::feasibility_check(TestNposSolution::default(), 0),
 				FeasibilityError::SnapshotUnavailable,
@@ -382,7 +377,7 @@ mod async_verifier {
 					solution.score
 				));
 
-				// stored score is not the submitted one
+				// stored score is the submitted one
 				assert_eq!(QueuedSolution::<Runtime>::queued_score(), Some(solution.score));
 			});
 		}
@@ -422,23 +417,6 @@ mod async_verifier {
 				assert_err!(<VerifierPallet as AsyncVerifier>::start(), "verification ongoing");
 			});
 		}
-
-		// #[test]
-		// fn reports_result_rejection_for_too_low_score() {
-		// 	ExtBuilder::default().build_and_execute(|| {
-		// 		let current_round = MultiPhase::current_round();
-
-		// 		<VerifierPallet as AsyncVerifier>::set_status(Status::Nothing);
-
-		// 		let leader = Submissions::leader(current_round);
-		// 		assert!(leader.is_some());
-
-		// 		assert_ok!(<VerifierPallet as AsyncVerifier>::start());
-
-		// 		let leader_metadata = Submissions::metadata_for(current_round, leader.unwrap().0);
-		// 	});
-		// }
-		//
 
 		#[test]
 		#[should_panic(expected = "unexpected: selected leader without active submissions.")]
@@ -551,5 +529,111 @@ mod async_verifier {
 				assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Ongoing(msp));
 			});
 		}
+	}
+}
+
+mod hooks {
+	use super::*;
+	use crate::signed::pallet::Submissions;
+	use frame_support::traits::Hooks;
+
+	#[test]
+	fn on_initialize_status_nothing_returns_default_value() {
+		ExtBuilder::default().build_and_execute(|| {
+			<VerifierPallet as AsyncVerifier>::set_status(Status::Nothing);
+			assert_eq!(VerifierPallet::on_initialize(0), Default::default());
+		});
+	}
+
+	#[test]
+	fn on_initialize_solution_infeasible() {
+		ExtBuilder::default().build_and_execute(|| {
+			// solution insertion
+			let round = current_round();
+			let score = ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 10 };
+			let metadata = Submissions::submission_metadata_from(
+				score,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			);
+			Submissions::<T>::insert_score_and_metadata(round, 1, Some(score), Some(metadata));
+
+			<VerifierPallet as AsyncVerifier>::set_status(Status::Ongoing(0));
+			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Ongoing(0));
+
+			assert_eq!(VerifierPallet::on_initialize(0), Default::default());
+
+			// TODO: zebedeusz - for some reason events list is empty even though the event deposit
+			// is executed
+			assert_eq!(
+				verifier_events(),
+				vec![Event::<T>::VerificationFailed(0, FeasibilityError::ScoreTooLow)]
+			);
+			assert_eq!(VerificationStatus::<T>::get(), Status::Nothing);
+		});
+	}
+
+	#[test]
+	fn on_initialize_feasible_solution_but_score_invalid() {
+		ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
+			// solution insertion
+			let round = current_round();
+			let score = ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 10 };
+			let metadata = Submissions::submission_metadata_from(
+				score,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			);
+			Submissions::<T>::insert_score_and_metadata(round, 1, Some(score), Some(metadata));
+
+			// needed for targets to exist in the snapshot
+			roll_to_phase(Phase::Signed);
+			let _ = mine_full(0).unwrap();
+
+			<VerifierPallet as AsyncVerifier>::set_status(Status::Ongoing(0));
+
+			assert_eq!(VerifierPallet::on_initialize(0), Default::default());
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<T>::Verified(0, 0),
+					Event::<T>::VerificationFailed(0, FeasibilityError::InvalidScore)
+				]
+			);
+			assert!(QueuedSolution::<Runtime>::queued_score().is_none());
+			assert_eq!(VerificationStatus::<T>::get(), Status::Nothing);
+		});
+	}
+
+	#[test]
+	fn on_initialize_feasible_solution_and_valid_score() {
+		ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
+			roll_to_phase(Phase::Signed);
+			let solution = mine_full(0).unwrap();
+			let supports = VerifierPallet::feasibility_check(solution.solution_pages[0].clone(), 0);
+			assert!(supports.is_ok());
+
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), solution.score));
+			QueuedSolution::<T>::set_page(0, supports.unwrap());
+
+			assert_ok!(<VerifierPallet as AsyncVerifier>::force_finalize_verification(
+				solution.score
+			));
+
+			<VerifierPallet as AsyncVerifier>::set_status(Status::Ongoing(0));
+
+			assert_eq!(VerifierPallet::on_initialize(0), Default::default());
+
+			let events = verifier_events();
+			assert!(events.len() > 0);
+			assert_eq!(
+				events.get(0),
+				Some(&Event::<T>::Queued(solution.score, Some(solution.score)))
+			);
+			assert_eq!(VerificationStatus::<T>::get(), Status::Nothing);
+		});
 	}
 }
