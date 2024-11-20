@@ -116,7 +116,11 @@ pub fn test_closure<R>(f: impl FnOnce() -> R) -> R {
 pub fn run_to_block(n: u32) {
 	while System::block_number() < n as u64 {
 		log::debug!("Block {}", System::block_number());
-		System::set_block_number(System::block_number() + 1);
+		System::initialize(
+			&(System::block_number() + 1),
+			&frame_system::BlockHash::<Test>::get(&System::block_number()),
+			&sp_runtime::generic::Digest::default(),
+		);
 		AllPalletsWithSystem::on_initialize(System::block_number());
 		System::note_finished_extrinsics();
 
