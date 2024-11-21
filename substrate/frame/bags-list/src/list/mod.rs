@@ -61,12 +61,6 @@ pub enum ListError {
 	NotInSameBag,
 	/// Given node id was not found.
 	NodeNotFound,
-	/// An action that affects ordering cannot complete since re-ordering is disabled.
-	ReorderingNotAllowed,
-	/// List lock is already set.
-	LockAlreadySet,
-	/// List lock is already released.
-	LockAlreadyUnset,
 }
 
 #[cfg(test)]
@@ -339,33 +333,6 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		crate::log!(
 			debug,
 			"inserted {:?} with score {:?} into bag {:?}, new count is {}",
-			id,
-			score,
-			bag_score,
-			crate::ListNodes::<T, I>::count(),
-		);
-
-		Ok(())
-	}
-
-	/// Insert a new id into the lowest threshold possible bag in the list.
-	///
-	/// Returns an error if the list already contains `id`.
-	pub(crate) fn insert_force_lowest(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
-		if Self::contains(&id) {
-			return Err(ListError::Duplicate)
-		}
-
-		// insert at the end of the lowest threshold bag.
-		let bag_score = notional_bag_for::<T, I>(Zero::zero());
-		let mut bag = Bag::<T, I>::get_or_make(bag_score);
-
-		bag.insert_unchecked(id.clone(), Zero::zero());
-		bag.put();
-
-		crate::log!(
-			debug,
-			"inserted {:?} with score {:?} into the lowest score bag {:?} (ordering lock is set), new count is {}.",
 			id,
 			score,
 			bag_score,

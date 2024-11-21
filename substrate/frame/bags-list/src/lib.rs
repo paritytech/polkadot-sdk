@@ -68,27 +68,14 @@
 //! - iteration over the top* N items by score, where the precise ordering of items doesn't
 //!   particularly matter.
 //!
-//! ### Ordering lock
+//! ### Perserve order mode
 //!
-//! The bags-list pallet supports locking and unlocking iterator ordering provided by the sorted
-//! list provider implementation. If [`LockOrder`] is set, the explicit and implicit re-ordering of
-//! the nodes within and across bags is disabled.
-//!
-//! More specifically, if the lock is set:
-//! - [`Call::rebag`] fails with [`ListError::ReorderingNotAllowed`]
-//! - [`Call::put_in_front_of`] fails with [`ListError::ReorderingNotAllowed`]
-//! - [`Call::put_in_front_of_other`] fails with [`ListError::ReorderingNotAllowed`]
-//!
-//! In addition,
-//!
-//! - Calling [`SortedListProvider::on_insert`], inserts the new id at the end of the list (i.e.
-//!	last position in the lowest threshold bag)
-//! - Calling [`SortedListProvider::on_update`] is a noop (there is implicit no rebag even though
-//! the score of the id changed)
-//! - Calling [`SortedListProvider::on_remove`] is a noop.
-//!
-//! Once the lock is released, calling rebag and put_in_front_of will place the ids in the correct
-//! position in the list or remove it.
+//! The bags list pallet supports a mode which perserves the order of the elements in the list.
+//! While the implementor of [`Config::PerserveOrder`] returns `true`, no rebags or moves within a
+//! bag are allowed. Which in practice means that:
+//! - calling [`Pallet::rebag`], [`Pallet::put_in_front_of`] and [`Pallet::put_in_front_of_other`]
+//!   will return a [`Error::MustPreserveOrder`];
+//! - calling [`SortedListProvider::on_update`] is a noop.
 //!
 //! ### Further Details
 //!
@@ -103,10 +90,6 @@
 //! - if an item's score changes to a value no longer within the range of its current bag the item's
 //!   position will need to be updated by an external actor with rebag (update), or removal and
 //!   insertion.
-//! - the bags list supports setting/unsetting a lock on list order changes. If [`LockOrder`] is
-//!   set, all the [`SortedListProvider`] and extrinsic calls that *may* change the ordering of the
-//!   list, will fail with [`ListError::ReorderingNotAllowed`]. In addition, all the implicit id
-//!   reordering whitin and across bags is a noop if the ordering lock is set.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -153,6 +136,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
+use frame_support::{ensure, traits::Get};
 use frame_system::ensure_signed;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Bounded, StaticLookup, Zero},
@@ -276,6 +260,9 @@ pub mod pallet {
 			+ TypeInfo
 			+ FullCodec
 			+ MaxEncodedLen;
+
+		/// Something that signals whether the order of the element in the bags list may change.
+		type PerserveOrder: Get<bool>;
 	}
 
 	/// A single node, within some bag.
@@ -292,12 +279,6 @@ pub mod pallet {
 	pub(crate) type ListBags<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::Score, list::Bag<T, I>>;
 
-	/// State of the lock for implicit and explicit ordering of the IDs in the bags list.
-	///
-	/// When the lock is set, no item re-ordering should happen.
-	#[pallet::storage]
-	pub(crate) type LockOrder<T: Config<I>, I: 'static = ()> = StorageValue<_, (), OptionQuery>;
-
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
@@ -312,8 +293,8 @@ pub mod pallet {
 	pub enum Error<T, I = ()> {
 		/// A error in the list interface implementation.
 		List(ListError),
-		/// Explicit re-ordering is currently locked.
-		ReorderingLocked,
+		/// A request that does not preserve the list's order was requested out of time.
+		MustPreserveOrder,
 	}
 
 	impl<T, I> From<ListError> for Error<T, I> {
@@ -339,7 +320,7 @@ pub mod pallet {
 		pub fn rebag(origin: OriginFor<T>, dislocated: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
 
-			ensure!(LockOrder::<T, I>::get().is_none(), Error::<T, I>::ReorderingLocked);
+			ensure!(!T::PerserveOrder::get(), Error::<T, I>::MustPreserveOrder);
 
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			let current_score = T::ScoreProvider::score(&dislocated);
@@ -370,9 +351,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
-			ensure!(LockOrder::<T, I>::get().is_none(), Error::<T, I>::ReorderingLocked);
-			let heavier = ensure_signed(origin)?;
+			ensure!(!T::PerserveOrder::get(), Error::<T, I>::MustPreserveOrder);
 
+			let heavier = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 
 			match (Self::remove_if_zero(&heavier), Self::remove_if_zero(&lighter)) {
@@ -395,7 +376,7 @@ pub mod pallet {
 			heavier: AccountIdLookupOf<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
-			ensure!(LockOrder::<T, I>::get().is_none(), Error::<T, I>::ReorderingLocked);
+			ensure!(!T::PerserveOrder::get(), Error::<T, I>::MustPreserveOrder);
 
 			let _ = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
@@ -497,12 +478,7 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
-		match LockOrder::<T, I>::get() {
-			// insert node at the tail of the list to not affect the order of the list while
-			// ordering lock is set.
-			Some(_) => List::<T, I>::insert_force_lowest(id, score),
-			None => List::<T, I>::insert(id, score),
-		}
+		List::<T, I>::insert(id, score)
 	}
 
 	fn get_score(id: &T::AccountId) -> Result<T::Score, ListError> {
@@ -510,51 +486,17 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
-		match LockOrder::<T, I>::get() {
-			Some(_) => {
-				// lock is set, on_update is a noop.
-				frame_support::ensure!(
-					list::Node::<T, I>::get(&id).is_some(),
-					ListError::NodeNotFound
-				);
-				Ok(())
-			},
-			None => Pallet::<T, I>::do_rebag(id, new_score).map(|_| ()),
+		if T::PerserveOrder::get() {
+			// lock is set, on_update is a noop.
+			ensure!(list::Node::<T, I>::get(&id).is_some(), ListError::NodeNotFound);
+			Ok(())
+		} else {
+			Pallet::<T, I>::do_rebag(id, new_score).map(|_| ())
 		}
 	}
 
 	fn on_remove(id: &T::AccountId) -> Result<(), ListError> {
-		match LockOrder::<T, I>::get() {
-			Some(_) => {
-				// lock is set, on_remove is a noop.
-				frame_support::ensure!(
-					list::Node::<T, I>::get(&id).is_some(),
-					ListError::NodeNotFound
-				);
-				Ok(())
-			},
-			None => List::<T, I>::remove(id),
-		}
-	}
-
-	fn lock_ordering() -> Result<(), ListError> {
-		LockOrder::<T, I>::mutate(|current| match current {
-			Some(_) => Err(ListError::LockAlreadySet),
-			None => {
-				*current = Some(());
-				Ok(())
-			},
-		})
-	}
-
-	fn unlock_ordering() -> Result<(), ListError> {
-		LockOrder::<T, I>::mutate(|current| match current {
-			Some(_) => {
-				*current = None;
-				Ok(())
-			},
-			None => Err(ListError::LockAlreadyUnset),
-		})
+		List::<T, I>::remove(id)
 	}
 
 	fn unsafe_regenerate(

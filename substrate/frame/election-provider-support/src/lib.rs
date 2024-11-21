@@ -548,14 +548,6 @@ pub trait SortedListProvider<AccountId> {
 	/// Returns `Ok(())` iff it successfully removes an item, an `Err(_)` otherwise.
 	fn on_remove(id: &AccountId) -> Result<(), Self::Error>;
 
-	/// Locks the explicit re-ordering of the provider list.
-	///
-	/// When locked, the list item's should not be re-ordered.
-	fn lock_ordering() -> Result<(), Self::Error>;
-
-	/// Unlocks the re-ordering of the provider list.
-	fn unlock_ordering() -> Result<(), Self::Error>;
-
 	/// Regenerate this list from scratch. Returns the count of items inserted.
 	///
 	/// This should typically only be used at a runtime upgrade.

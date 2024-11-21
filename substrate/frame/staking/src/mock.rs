@@ -217,6 +217,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
 	type Score = VoteWeight;
+	type PerserveOrder = Staking;
 }
 
 pub struct OnChainSeqPhragmen;
