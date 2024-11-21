@@ -6923,15 +6923,18 @@ dependencies = [
  "parity-scale-codec",
  "paste",
  "rusty-fork",
+ "sc-client-db",
  "scale-info",
  "serde",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
  "sp-io 30.0.0",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
+ "sp-state-machine 0.35.0",
  "sp-storage 19.0.0",
  "static_assertions",
 ]
@@ -10191,9 +10194,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7286b1971f85d1d60be40ef49e81c1f3b5a0d8b83cfa02ab53591cdacae22901"
+checksum = "5b67484b8ac41e1cfdf012f65fa81e88c2ef5f8a7d6dec0e2678c2d06dc04530"
 dependencies = [
  "async-trait",
  "bs58",
@@ -11083,6 +11086,7 @@ name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
  "array-bytes",
+ "async-trait",
  "clap 4.5.13",
  "derive_more 0.99.17",
  "fs_extra",
@@ -17549,6 +17553,7 @@ dependencies = [
  "rococo-runtime",
  "rusty-fork",
  "sc-sysinfo",
+ "sc-tracing",
  "slotmap",
  "sp-core 28.0.0",
  "sp-maybe-compressed-blob 11.0.0",
@@ -20399,7 +20404,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "multimap",
  "once_cell",
@@ -20445,7 +20450,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acf0c195eebb4af52c752bec4f52f645da98b6e92077a04110c7f349477ae5ac"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
@@ -21986,7 +21991,6 @@ dependencies = [
  "futures",
  "futures-timer",
  "ip_network",
- "libp2p",
  "linked_hash_set",
  "log",
  "multihash 0.19.1",
@@ -23089,8 +23093,10 @@ name = "sc-network-types"
 version = "0.10.0"
 dependencies = [
  "bs58",
+ "bytes",
  "ed25519-dalek",
  "libp2p-identity",
+ "libp2p-kad",
  "litep2p",
  "log",
  "multiaddr 0.18.1",
@@ -23241,6 +23247,7 @@ version = "0.34.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
+ "async-trait",
  "futures",
  "futures-util",
  "hex",

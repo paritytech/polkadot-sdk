@@ -83,7 +83,7 @@ pub enum Preamble<Address, Signature, Extension> {
 	Bare(ExtrinsicVersion),
 	/// An old-school transaction extrinsic which includes a signature of some hard-coded crypto.
 	/// Available only on extrinsic version 4.
-	Signed(Address, Signature, ExtensionVersion, Extension),
+	Signed(Address, Signature, Extension),
 	/// A new-school transaction extrinsic which does not include a signature by default. The
 	/// origin authorization, through signatures or other means, is performed by the transaction
 	/// extension in this extrinsic. Available starting with extrinsic version 5.
@@ -117,7 +117,7 @@ where
 				let address = Address::decode(input)?;
 				let signature = Signature::decode(input)?;
 				let ext = Extension::decode(input)?;
-				Self::Signed(address, signature, 0, ext)
+				Self::Signed(address, signature, ext)
 			},
 			(EXTRINSIC_FORMAT_VERSION, GENERAL_EXTRINSIC) => {
 				let ext_version = ExtensionVersion::decode(input)?;
@@ -140,7 +140,7 @@ where
 	fn size_hint(&self) -> usize {
 		match &self {
 			Preamble::Bare(_) => EXTRINSIC_FORMAT_VERSION.size_hint(),
-			Preamble::Signed(address, signature, _, ext) => LEGACY_EXTRINSIC_FORMAT_VERSION
+			Preamble::Signed(address, signature, ext) => LEGACY_EXTRINSIC_FORMAT_VERSION
 				.size_hint()
 				.saturating_add(address.size_hint())
 				.saturating_add(signature.size_hint())
@@ -157,7 +157,7 @@ where
 			Preamble::Bare(extrinsic_version) => {
 				(extrinsic_version | BARE_EXTRINSIC).encode_to(dest);
 			},
-			Preamble::Signed(address, signature, _, ext) => {
+			Preamble::Signed(address, signature, ext) => {
 				(LEGACY_EXTRINSIC_FORMAT_VERSION | SIGNED_EXTRINSIC).encode_to(dest);
 				address.encode_to(dest);
 				signature.encode_to(dest);
@@ -176,7 +176,7 @@ impl<Address, Signature, Extension> Preamble<Address, Signature, Extension> {
 	/// Returns `Some` if this is a signed extrinsic, together with the relevant inner fields.
 	pub fn to_signed(self) -> Option<(Address, Signature, Extension)> {
 		match self {
-			Self::Signed(a, s, _, e) => Some((a, s, e)),
+			Self::Signed(a, s, e) => Some((a, s, e)),
 			_ => None,
 		}
 	}
@@ -190,8 +190,7 @@ where
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Bare(_) => write!(f, "Bare"),
-			Self::Signed(address, _, ext_version, tx_ext) =>
-				write!(f, "Signed({:?}, {:?}, {:?})", address, ext_version, tx_ext),
+			Self::Signed(address, _, tx_ext) => write!(f, "Signed({:?}, {:?})", address, tx_ext),
 			Self::General(ext_version, tx_ext) =>
 				write!(f, "General({:?}, {:?})", ext_version, tx_ext),
 		}
@@ -305,7 +304,7 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 		signature: Signature,
 		tx_ext: Extension,
 	) -> Self {
-		Self { preamble: Preamble::Signed(signed, signature, 0, tx_ext), function }
+		Self { preamble: Preamble::Signed(signed, signature, tx_ext), function }
 	}
 
 	/// New instance of an new-school unsigned transaction.
@@ -345,7 +344,7 @@ where
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		Ok(match self.preamble {
-			Preamble::Signed(signed, signature, _, tx_ext) => {
+			Preamble::Signed(signed, signature, tx_ext) => {
 				let signed = lookup.lookup(signed)?;
 				// The `Implicit` is "implicitly" included in the payload.
 				let raw_payload = SignedPayload::new(self.function, tx_ext)?;
@@ -355,8 +354,8 @@ where
 				let (function, tx_ext, _) = raw_payload.deconstruct();
 				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, tx_ext), function }
 			},
-			Preamble::General(_, tx_ext) => CheckedExtrinsic {
-				format: ExtrinsicFormat::General(tx_ext),
+			Preamble::General(extension_version, tx_ext) => CheckedExtrinsic {
+				format: ExtrinsicFormat::General(extension_version, tx_ext),
 				function: self.function,
 			},
 			Preamble::Bare(_) =>
@@ -370,15 +369,15 @@ where
 		lookup: &Lookup,
 	) -> Result<Self::Checked, TransactionValidityError> {
 		Ok(match self.preamble {
-			Preamble::Signed(signed, _, _, extra) => {
+			Preamble::Signed(signed, _, tx_ext) => {
 				let signed = lookup.lookup(signed)?;
 				CheckedExtrinsic {
-					format: ExtrinsicFormat::Signed(signed, extra),
+					format: ExtrinsicFormat::Signed(signed, tx_ext),
 					function: self.function,
 				}
 			},
-			Preamble::General(_, extra) => CheckedExtrinsic {
-				format: ExtrinsicFormat::General(extra),
+			Preamble::General(extension_version, tx_ext) => CheckedExtrinsic {
+				format: ExtrinsicFormat::General(extension_version, tx_ext),
 				function: self.function,
 			},
 			Preamble::Bare(_) =>
@@ -403,8 +402,7 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	pub fn extension_weight(&self) -> Weight {
 		match &self.preamble {
 			Preamble::Bare(_) => Weight::zero(),
-			Preamble::Signed(_, _, _, ext) | Preamble::General(_, ext) =>
-				ext.weight(&self.function),
+			Preamble::Signed(_, _, ext) | Preamble::General(_, ext) => ext.weight(&self.function),
 		}
 	}
 }
@@ -839,7 +837,7 @@ mod tests {
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
 			Ok(CEx {
-				format: ExtrinsicFormat::General(DummyExtension),
+				format: ExtrinsicFormat::General(0, DummyExtension),
 				function: vec![0u8; 0].into()
 			}),
 		);
@@ -915,7 +913,7 @@ mod tests {
 		assert_eq!(decoded_old_ux.function, call);
 		assert_eq!(
 			decoded_old_ux.preamble,
-			Preamble::Signed(signed, legacy_signature.clone(), 0, extension.clone())
+			Preamble::Signed(signed, legacy_signature.clone(), extension.clone())
 		);
 
 		let new_ux =
@@ -952,7 +950,7 @@ mod tests {
 		assert_eq!(decoded_old_ux.function, call);
 		assert_eq!(
 			decoded_old_ux.preamble,
-			Preamble::Signed(signed, signature.clone(), 0, extension.clone())
+			Preamble::Signed(signed, signature.clone(), extension.clone())
 		);
 
 		let new_ux = Ex::new_signed(call.clone(), signed, signature.clone(), extension.clone());
