@@ -14,6 +14,7 @@ workspace = true
 name = "polkadot-parachain"
 path = "src/main.rs"
 
+# SKIP_WASM_BUILD=1 cargo build --release -p polkadot-parachain-bin --bin doppelganger-parachain
 [[bin]]
 name = "doppelganger-parachain"
 path = "src/doppelganger.rs"

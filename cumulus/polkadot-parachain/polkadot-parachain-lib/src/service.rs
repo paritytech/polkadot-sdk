@@ -64,7 +64,7 @@ use sp_runtime::{
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 #[cfg(feature = "doppelganger")]
-use polkadot_doppelganger_consensus::DoppelGangerBlockImport;
+use polkadot_doppelganger_consensus::{DoppelGangerBlockImport, DoppelGangerContext};
 
 
 /// Build the import queue for the shell runtime.
@@ -192,7 +192,7 @@ where
 
 		// [JAVIER]
 		#[cfg(feature = "doppelganger")]
-		let boxed_block_import = Box::new(DoppelGangerBlockImport::new(block_import.clone()));
+		let boxed_block_import = Box::new(DoppelGangerBlockImport::new(block_import.clone(), DoppelGangerContext::Parachain));
 		#[cfg(not(feature = "doppelganger"))]
 		let boxed_block_import = Box::new(block_import);
 

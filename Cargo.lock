@@ -13230,12 +13230,24 @@ name = "polkadot-doppelganger-consensus"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bincode",
+ "hex",
  "hex-literal",
  "log",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "sc-chain-spec",
+ "sc-client-api",
  "sc-consensus",
+ "sc-executor",
+ "serde_json",
+ "sp-authority-discovery",
  "sp-core",
  "sp-runtime",
+ "sp-storage 19.0.0",
  "sp-trie",
+ "tokio",
 ]
 
 [[package]]
@@ -14073,6 +14085,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-cli",
+ "polkadot-doppelganger-consensus",
  "polkadot-primitives",
  "sc-basic-authorship",
  "sc-chain-spec",

@@ -1,3 +1,4 @@
+# SKIP_WASM_BUILD=1 cargo build --release -p polkadot-doppelganger-node --bin doppelganger
 [package]
 name = "polkadot-doppelganger-node"
 description = "Doppelganger node for local testnets."

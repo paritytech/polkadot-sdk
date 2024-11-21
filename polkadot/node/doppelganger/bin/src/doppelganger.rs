@@ -9,7 +9,8 @@ struct DoppelgangerCli {
 	#[clap(flatten)]
 	pub inner_cli: polkadot_cli::Cli,
 
-	/// json
+	/// Path to json overrides
+	#[arg(long, value_name = "PATH")]
 	pub json_overrides: Option<PathBuf>,
 }
 
