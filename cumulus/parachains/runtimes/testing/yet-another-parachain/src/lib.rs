@@ -102,6 +102,7 @@ pub const DAYS: BlockNumber = HOURS * 24;
 pub const YAP: Balance = 1_000_000_000_000;
 pub const MILLIYAP: Balance = 1_000_000_000;
 pub const MICROYAP: Balance = 1_000_000;
+pub const NANOYAP: Balance = 1_000;
 
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
@@ -207,9 +208,9 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u128 = MILLIYAP;
-	pub const TransferFee: u128 = MILLIYAP;
-	pub const CreationFee: u128 = MILLIYAP;
+	pub const ExistentialDeposit: u128 = NANOYAP;
+	pub const TransferFee: u128 = NANOYAP;
+	pub const CreationFee: u128 = NANOYAP;
 	pub const TransactionByteFee: u128 = MICROYAP;
 }
 
