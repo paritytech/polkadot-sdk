@@ -113,7 +113,7 @@ use crate::{
 	signed::pallet::Submissions,
 	types::AccountIdOf,
 	verifier::{AsyncVerifier, SolutionDataProvider, VerificationResult},
-	PageIndex, PagesOf, SolutionOf,
+	PageIndex, PagesOf, Pallet as CorePallet, SolutionOf,
 };
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -297,6 +297,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Requested submission does not exist.
+		NoSubmission,
 		/// The election system is not expecting signed submissions.
 		NotAcceptingSubmissions,
 		/// Duplicate registering for a given round,
@@ -309,6 +311,8 @@ pub mod pallet {
 		SubmissionNotRegistered,
 		/// A submission score is not high enough.
 		SubmissionScoreTooLow,
+		/// Bail request failed.
+		CannotBail,
 		/// Bad timing for force clearing a stored submission.
 		CannotClear,
 		/// Error releasing held funds.
@@ -328,7 +332,8 @@ pub mod pallet {
 	///
 	/// Invariants:
 	/// - [`SortedScores`] must be strictly sorted or empty.
-	/// - All registered scores in [`SortedScores`] must be higher than the minimum score.
+	/// - All registered scores in [`SortedScores`] must be higher than the minimum score when
+	/// inserted.
 	/// - An entry in [`SortedScores`] for a given round must have an associated entry in
 	/// [`SubmissionMetadataStorage`].
 	/// - For all registered submissions, there is a held deposit that matches that of the
@@ -338,11 +343,16 @@ pub mod pallet {
 		/// Generic mutation helper with checks.
 		///
 		/// All the mutation functions must be done through this function.
-		fn mutate_checked<R, F: FnOnce() -> R>(_round: u32, mutate: F) -> R {
+		fn mutate_checked<R, F: FnOnce() -> R>(round: u32, mutate: F) -> R {
 			let result = mutate();
 
 			#[cfg(debug_assertions)]
-			assert!(Self::sanity_check_round(crate::Pallet::<T>::current_round()).is_ok());
+			Self::sanity_check_round(round)
+				.map_err(|err| {
+					sublog!(debug, "signed", "Submissions sanity check failure: {:?}", err);
+					err
+				})
+				.unwrap();
 
 			result
 		}
@@ -527,21 +537,27 @@ pub mod pallet {
 		) -> DispatchResult {
 			let reason = HoldReason::ElectionSolutionSubmission;
 
-			// calculates current base held deposit for this round, if any.
 			let base_deposit = if let Some(metadata) = Self::metadata_for(round, &who) {
 				metadata.deposit
 			} else {
 				return Err(Error::<T>::SubmissionNotRegistered.into());
 			};
 
+			let page_submissions_count = Submissions::<T>::page_count_submission_for(round, who);
+
 			// calculates current held page deposit for this round.
-			let page_deposit = T::DepositPerPage::get().defensive_saturating_mul(
-				Submissions::<T>::page_count_submission_for(round, who).into(),
-			);
+			let page_deposit =
+				T::DepositPerPage::get().defensive_saturating_mul(page_submissions_count.into());
 
 			Self::mutate_checked(round, || {
-				SubmissionMetadataStorage::<T>::remove(round, who);
-				SortedScores::<T>::get(round).retain(|(submitter, _)| submitter != who);
+				if page_submissions_count.is_zero() {
+					// no page submissions, can also clear metadata.
+					SubmissionMetadataStorage::<T>::remove(round, who);
+				}
+
+				SortedScores::<T>::mutate(round, |scores| {
+					scores.retain(|(submitter, _)| submitter != who);
+				});
 			});
 
 			let (burn, release) = match release_strategy {
@@ -554,14 +570,7 @@ pub mod pallet {
 			};
 
 			T::Currency::burn_held(&reason.into(), who, burn, Precision::Exact, Fortitude::Force)?;
-
 			T::Currency::release(&reason.into(), who, release, Precision::Exact)?;
-
-			// clear the submission metadata for `who` in `round`. May be a noop.
-			Self::mutate_checked(round, || {
-				let _ = SubmissionMetadataStorage::<T>::remove(round, who);
-				SortedScores::<T>::get(round).retain(|(submitter, _)| submitter != who);
-			});
 
 			Ok(())
 		}
@@ -586,6 +595,16 @@ pub mod pallet {
 			SortedScores::<T>::get(round)
 		}
 
+		/// Returns the score of a (round, submitter) tuple.
+		pub(crate) fn score_of_submitter(round: u32, who: &T::AccountId) -> Option<ElectionScore> {
+			SortedScores::<T>::get(round)
+				.iter()
+				.filter(|(submitter, _)| submitter == who)
+				.map(|(_, score)| score)
+				.cloned()
+				.reduce(|s, _| s)
+		}
+
 		/// Returns the submission of a submitter for a given round and page.
 		pub(crate) fn page_submission_for(
 			round: u32,
@@ -598,10 +617,108 @@ pub mod pallet {
 		pub(crate) fn page_count_submission_for(round: u32, who: &T::AccountId) -> u32 {
 			SubmissionStorage::<T>::iter_key_prefix((round, who)).count() as u32
 		}
+	}
 
-		#[cfg(debug_assertions)]
-		fn sanity_check_round(_round: u32) -> Result<(), &'static str> {
-			// TODO
+	#[cfg(any(test, debug_assertions, feature = "runtime-benchmarks"))]
+	impl<T: Config> Submissions<T> {
+		/// Fetches all rounds stored in the metadata storage and runs the round sanity checks.
+		pub(crate) fn ensure_all() -> Result<(), &'static str> {
+			for stored_round in SubmissionMetadataStorage::<T>::iter_keys().map(|(round, _)| round)
+			{
+				Self::sanity_check_round(stored_round)?;
+			}
+			Ok(())
+		}
+
+		/// Performs a sanity check on `round`'s data and metadata.
+		fn sanity_check_round(round: u32) -> Result<(), &'static str> {
+			Submissions::<T>::check_scores(round)?;
+			Submissions::<T>::check_submission_storage(round)?;
+			Submissions::<T>::check_phase(round)
+		}
+
+		/// Invariants:
+		/// * Scores in the [`SortedScores`] storage are sorted for all round, where the score at
+		///   the tail is the highest score.
+		/// * If `round` matches the current round, all scores must be higher than the minimum score
+		///   set by the verifier.
+		/// * An entry in sorted scores storage must have a corresponding submission metadata
+		/// entry.
+		fn check_scores(round: u32) -> Result<(), &'static str> {
+			// scores are expected to be sorted from tail to head of the SortedScores vec.
+			let mut entries = SortedScores::<T>::get(round).into_iter().rev();
+			let mut expected_highest_score = ElectionScore::max();
+
+			while let Some((account, score)) = entries.next() {
+				ensure!(expected_highest_score >= score, "scores in storage not sorted");
+				ensure!(
+					SubmissionMetadataStorage::<T>::get(round, account).is_some(),
+					"stored score does not have an associated metadata entry"
+				);
+
+				if round == CorePallet::<T>::current_round() {
+					let minimum_score =
+						<T::Verifier as Verifier>::minimum_score().unwrap_or_default();
+					ensure!(
+						score >= minimum_score,
+						"stored score for current round is lower than minimum score"
+					);
+				}
+				expected_highest_score = score;
+			}
+
+			Ok(())
+		}
+
+		/// Invariants:
+		/// * A paged submission should always have a corresponding metadata in storage.
+		fn check_submission_storage(round: u32) -> Result<(), &'static str> {
+			for submission in
+				SubmissionStorage::<T>::iter_keys().filter(|(r, _, _)| r.clone() == round)
+			{
+				ensure!(
+					Submissions::<T>::metadata_for(round, &submission.1).is_some(),
+					"paged submission should always have metadata"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// Invariants:
+		/// * Data and metadata for the current round should only exist if the current phase is
+		/// SIgned of any of the subsequent phases.
+		fn check_phase(round: u32) -> Result<(), &'static str> {
+			if round != CorePallet::<T>::current_round() {
+				return Ok(())
+			}
+
+			match CorePallet::<T>::current_phase() {
+				crate::Phase::Off | crate::Phase::Snapshot(_) => {
+					ensure!(
+						SubmissionMetadataStorage::iter()
+							.filter(|s: &(u32, _, SubmissionMetadata<T>)| s.0.clone() != round)
+							.count()
+							.is_zero(),
+						"submission metadata for round exists out of phase."
+					);
+
+					ensure!(
+						SubmissionStorage::<T>::iter_keys()
+							.filter(|(r, _, _)| r.clone() != round)
+							.count()
+							.is_zero(),
+						"submission data for round exists out of phase."
+					);
+
+					ensure!(
+						SortedScores::<T>::get(round).is_empty(),
+						"score for round exists out of phase."
+					);
+				},
+				_ => (),
+			};
+
 			Ok(())
 		}
 	}
@@ -636,6 +753,15 @@ pub mod pallet {
 		}
 	}
 
+	#[cfg(any(test, feature = "try-runtime"))]
+	impl<T: Config + crate::verifier::Config> Pallet<T> {
+		pub(crate) fn do_try_state(
+			_now: BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			Submissions::<T>::ensure_all().map_err(|e| e.into())
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit a score commitment for a solution in the current round.
@@ -647,11 +773,11 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
-				crate::Pallet::<T>::current_phase().is_signed(),
+				CorePallet::<T>::current_phase().is_signed(),
 				Error::<T>::NotAcceptingSubmissions
 			);
 
-			let round = crate::Pallet::<T>::current_round();
+			let round = CorePallet::<T>::current_round();
 			ensure!(
 				Submissions::<T>::metadata_for(round, &who).is_none(),
 				Error::<T>::DuplicateRegister
@@ -677,18 +803,14 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
-				crate::Pallet::<T>::current_phase().is_signed(),
+				CorePallet::<T>::current_phase().is_signed(),
 				Error::<T>::NotAcceptingSubmissions
 			);
 
-			let round = crate::Pallet::<T>::current_round();
+			let round = CorePallet::<T>::current_round();
 			Submissions::<T>::try_mutate_page(&who, round, page, maybe_solution)?;
 
-			Self::deposit_event(Event::<T>::PageStored {
-				round: crate::Pallet::<T>::current_round(),
-				who,
-				page,
-			});
+			Self::deposit_event(Event::<T>::PageStored { round, who, page });
 
 			Ok(())
 		}
@@ -705,12 +827,11 @@ pub mod pallet {
 		pub fn bail(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(
-				crate::Pallet::<T>::current_phase().is_signed(),
-				Error::<T>::NotAcceptingSubmissions
-			);
+			// only allow bailing submissions for the current round and in the signed phase, to
+			// ensure the submission has not been verified yy.
+			ensure!(CorePallet::<T>::current_phase().is_signed(), Error::<T>::CannotBail,);
 
-			let round = crate::Pallet::<T>::current_round();
+			let round = CorePallet::<T>::current_round();
 			Submissions::<T>::clear_submission_of(&who, round, ReleaseStrategy::PageDeposit)?;
 
 			Self::deposit_event(Event::<T>::Bailed { round, who });
@@ -732,34 +853,39 @@ pub mod pallet {
 			let _who = ensure_signed(origin);
 
 			// force clearing submissions may happen only during phase off.
-			ensure!(crate::Pallet::<T>::current_phase().is_off(), Error::<T>::CannotClear);
+			ensure!(CorePallet::<T>::current_phase().is_off(), Error::<T>::CannotClear);
 
 			if let Some(metadata) = Submissions::<T>::metadata_for(round, &submitter) {
-				Submissions::<T>::mutate_checked(round, || {
-					// clear submission metadata from submitter for `round`.
-					let _ = Submissions::<T>::clear_submission_of(
-						&submitter,
-						round,
-						metadata.release_strategy,
-					);
-
-					// clear all pages from submitter in `round`.
-					let _ = SubmissionStorage::<T>::clear_prefix(
-						(round, &submitter),
-						u32::max_value(),
-						None,
-					);
-				});
-			} else {
-				debug_assert!(
-					Submissions::<T>::page_count_submission_for(round, &submitter).is_zero()
+				// clear submission metadata from submitter for `round`.
+				let _ = Submissions::<T>::clear_submission_of(
+					&submitter,
+					round,
+					metadata.release_strategy,
 				);
 
-				return Err(Error::<T>::CannotClear.into())
+				// clear all pages from submitter in `round`.
+				let _ = SubmissionStorage::<T>::clear_prefix(
+					(round, &submitter),
+					u32::max_value(),
+					None,
+				);
+
+				// clear sorted score, if it still exists in storage.
+				SortedScores::<T>::mutate(round, |scores| {
+					scores.retain(|(who, _)| submitter != *who);
+				});
+			} else {
+				// if metadata does not exist, paged submission and score should not exist either.
+				debug_assert!(
+					Submissions::<T>::page_count_submission_for(round, &submitter).is_zero() &&
+						Submissions::<T>::score_of_submitter(round, &submitter).is_none()
+				);
+
+				return Err(Error::<T>::NoSubmission.into())
 			}
 
 			Self::deposit_event(Event::<T>::SubmissionCleared {
-				round: crate::Pallet::<T>::current_round(),
+				round: CorePallet::<T>::current_round(),
 				submitter,
 				reward: None,
 			});
@@ -776,17 +902,24 @@ pub mod pallet {
 		/// - Start async verification at the beginning of the [`crate::Phase::SignedValidation`].
 		/// - Stops async verification at the beginning of the [`crate::Phase::Unsigned`].
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(Some(now)) {
+			if CorePallet::<T>::current_phase().is_signed_validation_open_at(Some(now)) {
 				sublog!(debug, "signed", "signed validation phase started, signaling the verifier to start async verifiacton.");
 				let _ = <T::Verifier as AsyncVerifier>::start().defensive();
 			};
 
-			if crate::Pallet::<T>::current_phase().is_unsigned_open_at(now) {
+			if CorePallet::<T>::current_phase().is_unsigned_open_at(now) {
 				sublog!(debug, "signed", "signed validation phase ended, signaling the verifier to stop async verifiacton.");
 				<T::Verifier as AsyncVerifier>::stop();
 			}
 
 			Weight::default()
+		}
+
+		fn integrity_test() {}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state(n)
 		}
 	}
 }
@@ -796,7 +929,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 
 	/// Returns a paged solution of the *best* solution in the queue.
 	fn get_paged_solution(page: PageIndex) -> Option<Self::Solution> {
-		let round = crate::Pallet::<T>::current_round();
+		let round = CorePallet::<T>::current_round();
 
 		Submissions::<T>::leader(round).map(|(who, _score)| {
 			sublog!(info, "signed", "returning page {} of leader's {:?} solution", page, who);
@@ -806,7 +939,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 
 	/// Returns the score of the *best* solution in the queueu.
 	fn get_score() -> Option<ElectionScore> {
-		let round = crate::Pallet::<T>::current_round();
+		let round = CorePallet::<T>::current_round();
 		Submissions::<T>::leader(round).map(|(_who, score)| score)
 	}
 
@@ -818,7 +951,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 	/// (represented by the variant [``VerificationResult::Queued]), reward the submitter and
 	/// signal the verifier to stop the async election verification.
 	fn report_result(result: VerificationResult) {
-		let round = crate::Pallet::<T>::current_round();
+		let round = CorePallet::<T>::current_round();
 
 		let (leader, mut metadata) =
 			if let Some((leader, maybe_metadata)) = Submissions::<T>::take_leader_score(round) {
@@ -831,7 +964,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				};
 				(leader, metadata)
 			} else {
-				// TODO(gpestana): turn into defensive.
 				sublog!(error, "signed", "unexpected: leader called without active submissions.");
 				return
 			};
@@ -840,8 +972,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			VerificationResult::Queued => {
 				// solution was accepted by the verifier, reward leader and stop async
 				// verification.
-				// TODO(gpestana): think better about the reward minting process -- should we keep
-				// a pot for rewards instead of minting it in staking?
 				let _ = T::Currency::mint_into(&leader, T::Reward::get()).defensive();
 				let _ = <T::Verifier as AsyncVerifier>::stop();
 			},

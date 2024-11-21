@@ -565,7 +565,7 @@ impl<T: Config> Snapshot<T> {
 impl<T: Config> Snapshot<T> {
 	pub(crate) fn ensure() -> Result<(), &'static str> {
 		let check_voter_snapshots = |upto: u32| {
-			for page in (upto..=crate::Pallet::<T>::msp()).rev() {
+			for page in (upto..=Pallet::<T>::msp()).rev() {
 				ensure!(
 					Self::voters(page).is_some(),
 					"at least one page of the snapshot does not exist"
@@ -578,7 +578,7 @@ impl<T: Config> Snapshot<T> {
 		match Pallet::<T>::current_phase() {
 			Phase::Off => {
 				ensure!(Self::targets().is_none(), "phase off, no target snapshot expected.");
-				for page in (crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp()).rev() {
+				for page in (Pallet::<T>::lsp()..=Pallet::<T>::msp()).rev() {
 					ensure!(
 						Self::voters(page).is_none(),
 						"phase off, no voter snapshot page expected."

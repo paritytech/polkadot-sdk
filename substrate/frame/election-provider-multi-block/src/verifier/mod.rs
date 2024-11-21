@@ -231,6 +231,9 @@ pub trait Verifier {
 		partial_solution: Self::Solution,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError>;
+
+	#[cfg(any(test, debug_assertions, feature = "runtime-benchmarks"))]
+	fn minimum_score() -> Option<ElectionScore>;
 }
 
 /// Something that can verify a solution asynchronously.

@@ -181,7 +181,7 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 		matches!(self, Phase::Export(_))
 	}
 
-	#[cfg(any(test, debug_assertions, feature = "runtime-benchmarks"))]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub(crate) fn is_snapshot(&self) -> bool {
 		matches!(self, Phase::Snapshot(_))
 	}
