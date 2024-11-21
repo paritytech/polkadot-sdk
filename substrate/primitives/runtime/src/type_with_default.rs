@@ -50,7 +50,9 @@ impl<T, D: Get<T>> TypeWithDefault<T, D> {
 	}
 }
 
-// Hide implementation details from the outside (for metadata type information).
+/// Hides implementation details from the outside (for metadata type information).
+///
+/// The type info showed in metadata is the one of the inner value's type.
 impl<T: StaticTypeInfo, D: Get<T> + 'static> TypeInfo for TypeWithDefault<T, D> {
 	type Identity = Self;
 
@@ -520,6 +522,7 @@ impl<T: HasCompact, D: Get<T>> CompactAs for TypeWithDefault<T, D> {
 #[cfg(test)]
 mod tests {
 	use super::TypeWithDefault;
+	use scale_info::TypeInfo;
 	use sp_arithmetic::traits::{AtLeast16Bit, AtLeast32Bit, AtLeast8Bit};
 	use sp_core::Get;
 
