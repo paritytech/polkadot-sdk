@@ -96,6 +96,9 @@ pub trait NotificationConfig: Debug {
 pub trait RequestResponseConfig: Debug {
 	/// Get protocol name.
 	fn protocol_name(&self) -> &ProtocolName;
+
+	/// Get fallback protocol names.
+	fn fallback_protocol_names(&self) -> Vec<ProtocolName>;
 }
 
 /// Trait defining required functionality from `PeerStore`.

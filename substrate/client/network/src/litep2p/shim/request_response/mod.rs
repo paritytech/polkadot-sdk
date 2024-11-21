@@ -153,6 +153,10 @@ impl RequestResponseConfigT for RequestResponseConfig {
 	fn protocol_name(&self) -> &ProtocolName {
 		&self.protocol_name
 	}
+
+	fn fallback_protocol_names(&self) -> Vec<ProtocolName> {
+		self.fallback_names.clone()
+	}
 }
 
 /// Request-response protocol.

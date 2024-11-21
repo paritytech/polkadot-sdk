@@ -197,6 +197,10 @@ impl RequestResponseConfigT for ProtocolConfig {
 	fn protocol_name(&self) -> &ProtocolName {
 		&self.name
 	}
+
+	fn fallback_protocol_names(&self) -> Vec<ProtocolName> {
+		self.fallback_names.clone()
+	}
 }
 
 /// A single request received by a peer on a request-response protocol.
