@@ -197,7 +197,7 @@ fn fee_estimation_for_teleport() {
 fn dry_run_reserve_asset_transfer() {
 	let _ = env_logger::builder().is_test(true).try_init();
 	let who = 1; // AccountId = u64.
-			 // Native token used for fees.
+			  // Native token used for fees.
 	let balances = vec![(who, DeliveryFees::get() + ExistentialDeposit::get())];
 	// Relay token is the one we want to transfer.
 	let assets = vec![(1, who, 100)]; // id, account_id, balance.
