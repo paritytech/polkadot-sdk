@@ -44,7 +44,7 @@ impl WasmInstance for Instance {
 		name: &str,
 		raw_data: &[u8],
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>) {
-		let Some(method_index) = self.0.module().exports().find(|e| e.symbol() == name) else {
+		let Some(_) = self.0.module().exports().find(|e| e.symbol() == name) else {
 			return (
 				Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
 				None,
