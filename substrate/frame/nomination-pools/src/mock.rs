@@ -24,7 +24,9 @@ use frame_support::{
 };
 use frame_system::{EnsureSignedBy, RawOrigin};
 use sp_runtime::{BuildStorage, DispatchResult, FixedU128};
-use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate, Stake};
+use sp_staking::{
+	Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate, Stake,
+};
 
 pub type BlockNumber = u64;
 pub type AccountId = u128;
@@ -112,8 +114,8 @@ impl sp_staking::StakingInterface for StakingMock {
 			.ok_or(DispatchError::Other("NotStash"))
 	}
 
-	fn is_virtual_staker(_who: &Self::AccountId) -> bool {
-		false
+	fn is_virtual_staker(who: &Self::AccountId) -> bool {
+		BondedBalanceMap::get().contains_key(who)
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
@@ -239,55 +241,124 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 }
 
+parameter_types! {
+	// Map of agent to their (delegated balance, unclaimed withdrawal, pending slash).
+	pub storage AgentBalanceMap: BTreeMap<AccountId, (Balance, Balance, Balance)> = Default::default();
+	pub storage DelegatorBalanceMap: BTreeMap<AccountId, Balance> = Default::default();
+}
 pub struct DelegateMock;
 impl DelegationInterface for DelegateMock {
 	type Balance = Balance;
 	type AccountId = AccountId;
 	fn agent_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
-		todo!()
+		AgentBalanceMap::get()
+			.get(&agent.get())
+			.copied()
+			.map(|(delegated, _, pending)| delegated - pending)
 	}
 
 	fn agent_transferable_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
-		todo!()
+		AgentBalanceMap::get()
+			.get(&agent.get())
+			.copied()
+			.map(|(_, unclaimed_withdrawals, _)| unclaimed_withdrawals)
 	}
 
 	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance> {
-		todo!()
+		DelegatorBalanceMap::get().get(&delegator.get()).copied()
 	}
 
-	fn register_agent(agent: Agent<Self::AccountId>, reward_account: &Self::AccountId) -> DispatchResult {
-		todo!()
+	fn register_agent(
+		agent: Agent<Self::AccountId>,
+		reward_account: &Self::AccountId,
+	) -> DispatchResult {
+		AgentBalanceMap::get().insert(agent.get(), (0, 0, 0));
+		Ok(())
 	}
 
 	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult {
-		todo!()
+		AgentBalanceMap::get().remove(&agent.get());
+		Ok(())
 	}
 
-	fn delegate(delegator: Delegator<Self::AccountId>, agent: Agent<Self::AccountId>, amount: Self::Balance) -> DispatchResult {
-		todo!()
+	fn delegate(
+		delegator: Delegator<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		let mut delegators = DelegatorBalanceMap::get();
+		delegators.get_mut(&delegator.get()).map(|b| *b += amount);
+		DelegatorBalanceMap::set(&delegators);
+
+		let mut agents = AgentBalanceMap::get();
+		agents.get_mut(&agent.get()).map(|(d, _, _)| *d += amount);
+		AgentBalanceMap::set(&agents);
+
+		Ok(())
 	}
 
-	fn withdraw_delegation(delegator: Delegator<Self::AccountId>, agent: Agent<Self::AccountId>, amount: Self::Balance, num_slashing_spans: u32) -> DispatchResult {
-		todo!()
+	fn withdraw_delegation(
+		delegator: Delegator<Self::AccountId>,
+		agent: Agent<Self::AccountId>,
+		amount: Self::Balance,
+		num_slashing_spans: u32,
+	) -> DispatchResult {
+		let mut delegators = DelegatorBalanceMap::get();
+		delegators.get_mut(&delegator.get()).map(|b| *b -= amount);
+		DelegatorBalanceMap::set(&delegators);
+
+		let mut agents = AgentBalanceMap::get();
+		agents.get_mut(&agent.get()).map(|(d, u, _)| {
+			*d -= amount;
+			*u -= amount;
+		});
+		AgentBalanceMap::set(&agents);
+
+		Ok(())
 	}
 
 	fn pending_slash(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
-		todo!()
+		AgentBalanceMap::get()
+			.get(&agent.get())
+			.copied()
+			.map(|(_, _, pending_slash)| pending_slash)
 	}
 
-	fn delegator_slash(agent: Agent<Self::AccountId>, delegator: Delegator<Self::AccountId>, value: Self::Balance, maybe_reporter: Option<Self::AccountId>) -> DispatchResult {
-		todo!()
+	fn delegator_slash(
+		agent: Agent<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
+		value: Self::Balance,
+		_maybe_reporter: Option<Self::AccountId>,
+	) -> DispatchResult {
+		let mut delegators = DelegatorBalanceMap::get();
+		delegators.get_mut(&delegator.get()).map(|b| *b -= value);
+		DelegatorBalanceMap::set(&delegators);
+
+		let mut agents = AgentBalanceMap::get();
+		agents.get_mut(&agent.get()).map(|(_, _, p)| {
+			*p -= value;
+		});
+		AgentBalanceMap::set(&agents);
+
+		Ok(())
 	}
 }
 
 impl DelegationMigrator for DelegateMock {
 	type Balance = Balance;
 	type AccountId = AccountId;
-	fn migrate_nominator_to_agent(agent: Agent<Self::AccountId>, reward_account: &Self::AccountId) -> DispatchResult {
+	fn migrate_nominator_to_agent(
+		agent: Agent<Self::AccountId>,
+		reward_account: &Self::AccountId,
+	) -> DispatchResult {
 		todo!()
 	}
 
-	fn migrate_delegation(agent: Agent<Self::AccountId>, delegator: Delegator<Self::AccountId>, value: Self::Balance) -> DispatchResult {
+	fn migrate_delegation(
+		agent: Agent<Self::AccountId>,
+		delegator: Delegator<Self::AccountId>,
+		value: Self::Balance,
+	) -> DispatchResult {
 		todo!()
 	}
 }
