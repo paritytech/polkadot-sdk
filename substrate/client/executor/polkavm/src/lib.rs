@@ -169,25 +169,31 @@ fn call_host_function(
 				args[nth_arg] = Value::F32(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as u32);
 				nth_reg += 1;
 			},
-			ValueType::I64 => {
-				let value_lo = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
-				nth_reg += 1;
+			ValueType::I64 =>
+				if caller.instance.is_64_bit() {
+					args[nth_arg] = Value::I64(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as i64);
+				} else {
+					let value_lo = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
+					nth_reg += 1;
 
-				let value_hi = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
-				nth_reg += 1;
+					let value_hi = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
+					nth_reg += 1;
 
-				args[nth_arg] =
-					Value::I64((u64::from(value_lo) | (u64::from(value_hi) << 32)) as i64);
-			},
-			ValueType::F64 => {
-				let value_lo = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
-				nth_reg += 1;
+					args[nth_arg] =
+						Value::I64((u64::from(value_lo) | (u64::from(value_hi) << 32)) as i64);
+				},
+			ValueType::F64 =>
+				if caller.instance.is_64_bit() {
+					args[nth_arg] = Value::F64(caller.instance.reg(Reg::ARG_REGS[nth_reg]));
+				} else {
+					let value_lo = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
+					nth_reg += 1;
 
-				let value_hi = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
-				nth_reg += 1;
+					let value_hi = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
+					nth_reg += 1;
 
-				args[nth_arg] = Value::F64(u64::from(value_lo) | (u64::from(value_hi) << 32));
-			},
+					args[nth_arg] = Value::F64(u64::from(value_lo) | (u64::from(value_hi) << 32));
+				},
 		}
 	}
 
