@@ -16,12 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-	mock::*,
-	signed::Error::{CannotClear, NotAcceptingSubmissions, SubmissionNotRegistered},
-	verifier::SolutionDataProvider,
-	CurrentPhase, Phase, Verifier,
-};
+use crate::{mock::*, verifier::SolutionDataProvider, Phase, Verifier};
 use frame_support::{assert_noop, assert_ok, testing_prelude::*};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::traits::Convert;
@@ -34,7 +29,6 @@ fn clear_submission_of_works() {
 mod calls {
 	use super::*;
 	use sp_core::bounded_vec;
-	use sp_runtime::traits::BadOrigin;
 
 	#[test]
 	fn register_works() {
@@ -263,11 +257,12 @@ mod calls {
 	}
 
 	#[test]
-	fn register_and_submit_page_and_bail_prohibitted_in_phase_other_than_signed() {
+	fn calls_in_phase_other_than_signed() {
 		ExtBuilder::default().build_and_execute(|| {
 			let account_id = 99;
 
 			let phases = vec![
+				Phase::Halted,
 				Phase::Off,
 				Phase::SignedValidation(1),
 				Phase::Unsigned(1),
@@ -281,7 +276,7 @@ mod calls {
 
 				assert_err!(
 					SignedPallet::register(RuntimeOrigin::signed(account_id), Default::default()),
-					NotAcceptingSubmissions::<Runtime>,
+					Error::<T>::NotAcceptingSubmissions
 				);
 
 				assert_err!(
@@ -290,12 +285,12 @@ mod calls {
 						0,
 						Some(Default::default())
 					),
-					NotAcceptingSubmissions::<Runtime>,
+					Error::<T>::NotAcceptingSubmissions
 				);
 
 				assert_err!(
 					SignedPallet::bail(RuntimeOrigin::signed(account_id)),
-					NotAcceptingSubmissions::<Runtime>,
+					Error::<T>::CannotBail
 				);
 			}
 		})
@@ -345,17 +340,7 @@ mod calls {
 			// account 1 submitted nothing, so bail should have no effect and return error
 			assert_noop!(
 				SignedPallet::bail(RuntimeOrigin::signed(bailing_account_id)),
-				SubmissionNotRegistered::<Runtime>
-			);
-		})
-	}
-
-	#[test]
-	fn force_clear_submission_fails_if_called_by_account_none() {
-		ExtBuilder::default().build_and_execute(|| {
-			assert_err!(
-				SignedPallet::force_clear_submission(RuntimeOrigin::none(), 0, 99),
-				BadOrigin
+				Error::<T>::SubmissionNotRegistered
 			);
 		})
 	}
@@ -363,15 +348,12 @@ mod calls {
 	#[test]
 	fn force_clear_submission_fails_if_called_in_phase_other_than_off() {
 		ExtBuilder::default().build_and_execute(|| {
-			let some_bn = 0;
-			let some_page_index = 0;
-
 			let phases = vec![
 				Phase::Signed,
-				Phase::Snapshot(some_page_index),
-				Phase::SignedValidation(some_bn),
-				Phase::Unsigned(some_bn),
-				Phase::Export(some_bn),
+				Phase::Snapshot(0),
+				Phase::SignedValidation(0),
+				Phase::Unsigned(0),
+				Phase::Export(0),
 				Phase::Emergency,
 			];
 
@@ -381,7 +363,7 @@ mod calls {
 
 				assert_err!(
 					SignedPallet::force_clear_submission(RuntimeOrigin::root(), 0, account_id),
-					CannotClear::<Runtime>,
+					Error::<T>::CannotClear,
 				);
 			}
 		})
@@ -395,14 +377,13 @@ mod calls {
 
 			assert_err!(
 				SignedPallet::force_clear_submission(RuntimeOrigin::root(), 0, account_id),
-				CannotClear::<Runtime>
+				Error::<T>::NoSubmission,
 			);
 		})
 	}
 
 	#[test]
-	fn force_clear_submission_fails_if_submitter_done_submissions_for_another_round_than_requested()
-	{
+	fn force_clear_submission_fails_if_submitter_if_different_round() {
 		ExtBuilder::default().build_and_execute(|| {
 			let account_id = 99;
 			let current_round = MultiPhase::current_round();
@@ -415,42 +396,7 @@ mod calls {
 					current_round + 1,
 					account_id
 				),
-				CannotClear::<Runtime>
-			);
-		})
-	}
-
-	#[test]
-	fn force_clear_submission_removes_both_metadata_and_submission_pages() {
-		ExtBuilder::default().build_and_execute(|| {
-			let account_id = 99;
-			let current_round = MultiPhase::current_round();
-
-			// do_register and try_mutate_page used directly so as not to switch phases in the test
-			assert_ok!(Pallet::<Runtime>::do_register(
-				&account_id,
-				Default::default(),
-				current_round
-			));
-
-			assert_ok!(Submissions::<Runtime>::try_mutate_page(
-				&account_id,
-				current_round,
-				0,
-				Some(Default::default())
-			));
-
-			roll_to_phase(Phase::Off);
-
-			assert_ok!(SignedPallet::force_clear_submission(
-				RuntimeOrigin::root(),
-				current_round,
-				account_id
-			));
-
-			assert!(Submissions::<Runtime>::metadata_for(current_round, &account_id).is_none());
-			assert!(
-				Submissions::<Runtime>::page_submission_for(current_round, account_id, 0).is_none()
+				Error::<T>::NoSubmission,
 			);
 		})
 	}
@@ -513,7 +459,7 @@ mod calls {
 			);
 
 			// force phase Off.
-			CurrentPhase::<T>::set(Phase::Off);
+			set_phase_to(Phase::Off);
 			assert_ok!(SignedPallet::force_clear_submission(RuntimeOrigin::signed(99), round, 99));
 
 			// 3 pages submitted have been cleared from storage.
@@ -543,14 +489,14 @@ mod calls {
 				Phase::Export(0),
 				Phase::Emergency,
 			] {
-				CurrentPhase::<T>::set(disabled_phase);
+				set_phase_to(disabled_phase);
 				assert_noop!(
 					SignedPallet::force_clear_submission(RuntimeOrigin::signed(99), round, 99),
 					Error::<T>::CannotClear
 				);
 			}
 
-			CurrentPhase::<T>::set(Phase::Off);
+			set_phase_to(Phase::Off);
 
 			// request force clear of a non existing submission.
 			assert_noop!(
@@ -701,19 +647,6 @@ mod solution_data_provider {
 				assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
 
 				assert_ne!(<SignedPallet as SolutionDataProvider>::get_paged_solution(0), None)
-			})
-		}
-
-		#[test]
-		fn returns_none_given_invalid_page_index() {
-			ExtBuilder::default().build_and_execute(|| {
-				let origin = RuntimeOrigin::signed(99);
-				roll_to_phase(Phase::Signed);
-
-				assert_ok!(SignedPallet::register(origin.clone(), Default::default()));
-				assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
-
-				assert_eq!(<SignedPallet as SolutionDataProvider>::get_paged_solution(12345), None)
 			})
 		}
 

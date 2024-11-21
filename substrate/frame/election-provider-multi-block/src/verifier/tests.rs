@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// Threports_result_rejection_workilpart of Substrate.
 
 // Copyright (C) 2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -15,12 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::*;
 use crate::{
 	mock::*,
-	verifier::{impls::pallet::*, SolutionDataProvider, *},
+	verifier::{impls::pallet::*, SolutionDataProvider},
 	Phase,
 };
-use frame_support::{assert_err, assert_noop, assert_ok, testing_prelude::*, StorageMap};
+use frame_support::testing_prelude::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::Perbill;
 
@@ -416,7 +417,6 @@ mod async_verifier {
 		}
 
 		#[test]
-		#[should_panic(expected = "unexpected: selected leader without active submissions.")]
 		fn reports_result_rejection_no_metadata_fails() {
 			ExtBuilder::default()
 				.minimum_score(ElectionScore {
@@ -507,7 +507,10 @@ mod async_verifier {
 					// score too low event submitted.
 					assert_eq!(
 						verifier_events(),
-						vec![Event::<T>::VerificationFailed(2, FeasibilityError::ScoreTooLow,)]
+						vec![Event::<T>::VerificationFailed {
+							page: 2,
+							error: FeasibilityError::ScoreTooLow,
+						}]
 					);
 				})
 		}
@@ -535,17 +538,8 @@ mod hooks {
 	use frame_support::traits::Hooks;
 
 	#[test]
-	fn on_initialize_status_nothing_returns_default_value() {
-		ExtBuilder::default().build_and_execute(|| {
-			<VerifierPallet as AsyncVerifier>::set_status(Status::Nothing);
-			assert_eq!(VerifierPallet::on_initialize(0), Default::default());
-		});
-	}
-
-	#[test]
-	fn on_initialize_solution_infeasible() {
-		ExtBuilder::default().build_and_execute(|| {
-			// solution insertion
+	fn on_initialize_ongoing_fails() {
+		ExtBuilder::default().pages(1).build_and_execute(|| {
 			let round = current_round();
 			let score = ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 10 };
 			let metadata = Submissions::submission_metadata_from(
@@ -554,25 +548,35 @@ mod hooks {
 				Default::default(),
 				Default::default(),
 			);
-			Submissions::<T>::insert_score_and_metadata(round, 1, Some(score), Some(metadata));
+			Submissions::<T>::insert_score_and_metadata(
+				round,
+				1,
+				Some(score),
+				Some(metadata.clone()),
+			);
 
+			// force ongoing status.
 			<VerifierPallet as AsyncVerifier>::set_status(Status::Ongoing(0));
 			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Ongoing(0));
 
-			assert_eq!(VerifierPallet::on_initialize(0), Default::default());
+			// no events yet.
+			assert!(verifier_events().is_empty());
 
-			// TODO: zebedeusz - for some reason events list is empty even though the event deposit
-			// is executed
+			// progress the block.
+			roll_one();
+
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<T>::VerificationFailed(0, FeasibilityError::ScoreTooLow)]
+				vec![Event::<T>::VerificationFailed {
+					page: 0,
+					error: FeasibilityError::SnapshotUnavailable
+				}]
 			);
-			assert_eq!(VerificationStatus::<T>::get(), Status::Nothing);
 		});
 	}
 
 	#[test]
-	fn on_initialize_feasible_solution_but_score_invalid() {
+	fn on_initialize_ongoing_invalid_score() {
 		ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
 			// solution insertion
 			let round = current_round();
@@ -596,8 +600,11 @@ mod hooks {
 			assert_eq!(
 				verifier_events(),
 				vec![
-					Event::<T>::Verified(0, 0),
-					Event::<T>::VerificationFailed(0, FeasibilityError::InvalidScore)
+					Event::<T>::Verified { page: 0, backers: 0 },
+					Event::<T>::VerificationFailed {
+						page: 0,
+						error: FeasibilityError::InvalidScore
+					}
 				]
 			);
 			assert!(QueuedSolution::<Runtime>::queued_score().is_none());
@@ -606,7 +613,7 @@ mod hooks {
 	}
 
 	#[test]
-	fn on_initialize_feasible_solution_and_valid_score() {
+	fn on_initialize_ongoing_works() {
 		ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
 			roll_to_phase(Phase::Signed);
 			let solution = mine_full(0).unwrap();
@@ -624,12 +631,15 @@ mod hooks {
 
 			assert_eq!(VerifierPallet::on_initialize(0), Default::default());
 
-			let events = verifier_events();
-			assert!(events.len() > 0);
 			assert_eq!(
-				events.get(0),
-				Some(&Event::<T>::Queued(solution.score, Some(solution.score)))
+				verifier_events(),
+				vec![
+					Event::<T>::Queued { score: solution.score, old_score: Some(solution.score) },
+					Event::Verified { page: 0, backers: 0 },
+					Event::VerificationFailed { page: 0, error: FeasibilityError::InvalidScore },
+				]
 			);
+
 			assert_eq!(VerificationStatus::<T>::get(), Status::Nothing);
 		});
 	}

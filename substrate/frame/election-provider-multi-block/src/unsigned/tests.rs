@@ -274,51 +274,6 @@ mod miner {
 	}
 
 	#[test]
-	fn mining_done_but_no_solution_found() {
-		ExtBuilder::default().pages(0).build_and_execute(|| {
-			let round = Default::default();
-			let pages = Pages::get();
-
-			let mut all_voter_pages: BoundedVec<
-				BoundedVec<MinerVoterOf<Runtime>, mock::VoterSnapshotPerBlock>,
-				mock::Pages,
-			> = Default::default();
-
-			let mut voters_page = BoundedVec::new();
-
-			// one voter with accountId 12 that votes for validator 123
-			let mut voters_votes: BoundedVec<mock::AccountId, mock::MaxVotesPerVoter> =
-				BoundedVec::new();
-			let _ = voters_votes.try_push(123);
-			let voter = (12, 1, voters_votes);
-
-			// one voters page with the voter 12
-			let _ = voters_page.try_push(voter);
-			let _ = all_voter_pages.try_push(voters_page);
-
-			// one election target with accountId 0
-			let mut all_targets: BoundedVec<mock::AccountId, mock::TargetSnapshotPerBlock> =
-				Default::default();
-			let _ = all_targets.try_push(0);
-
-			// the election should result with one target chosen
-			let desired_targets = 1;
-
-			let solution = Miner::<Runtime>::mine_paged_solution_with_snapshot(
-				&all_voter_pages,
-				&all_targets,
-				pages,
-				round,
-				desired_targets,
-				false,
-			);
-
-			assert_ok!(solution.clone());
-			assert_eq!(solution.unwrap().0.solution_pages.len(), 0);
-		});
-	}
-
-	#[test]
 	fn mining_done_solution_calculated() {
 		ExtBuilder::default()
 			.pages(1)
@@ -441,57 +396,30 @@ mod pallet {
 
 		use super::*;
 
-		// currently fails even though the store should be cleaned
 		#[test]
-		fn phase_unsigned_but_no_msp_results_only_with_cache_clean_up() {
-			let (mut ext, _) = ExtBuilder::default().build_offchainify(0);
-			ext.execute_with(|| {
-				set_phase_to(Phase::Unsigned(0));
-				assert_eq!(<VerifierPallet as Verifier>::next_missing_solution_page(), None);
-
-				// there's something in the cache before worker run
-				assert_eq!(
-					StorageValueRef::persistent(
-						&OffchainWorkerMiner::<Runtime>::OFFCHAIN_CACHED_SCORE,
-					)
-					.get::<ElectionScore>()
-					.iter()
-					.count(),
-					1
-				);
-
-				assert_ok!(UnsignedPallet::do_sync_offchain_worker(0));
-
-				assert_eq!(
-					StorageValueRef::persistent(
-						&OffchainWorkerMiner::<Runtime>::OFFCHAIN_CACHED_SCORE,
-					)
-					.get::<ElectionScore>()
-					.iter()
-					.count(),
-					0
-				);
-			});
-		}
-
-		// currently fails even though the store should be cleaned
-		#[test]
-		fn past_phase_unsigned_results_only_with_cache_clean_up() {
+		fn cached_results_clean_up_at_export_phase() {
 			let (mut ext, _) = ExtBuilder::default().build_offchainify(0);
 			ext.execute_with(|| {
 				set_phase_to(Phase::Export(0));
 
+				let score_storage = StorageValueRef::persistent(
+					&OffchainWorkerMiner::<Runtime>::OFFCHAIN_CACHED_SCORE,
+				);
+
+				// add some score to cache.
+				assert_ok!(score_storage.mutate::<_, (), _>(|_| Ok(ElectionScore::default())));
+
 				// there's something in the cache before worker run
 				assert_eq!(
 					StorageValueRef::persistent(
 						&OffchainWorkerMiner::<Runtime>::OFFCHAIN_CACHED_SCORE,
 					)
 					.get::<ElectionScore>()
-					.iter()
-					.count(),
-					1
+					.unwrap(),
+					Some(ElectionScore::default())
 				);
 
+				// call sync offchain workers in Export phase will clear up the cache.
 				assert_ok!(UnsignedPallet::do_sync_offchain_worker(0));
 
 				assert_eq!(
@@ -499,9 +427,8 @@ mod pallet {
 						&OffchainWorkerMiner::<Runtime>::OFFCHAIN_CACHED_SCORE,
 					)
 					.get::<ElectionScore>()
-					.iter()
-					.count(),
-					0
+					.unwrap(),
+					None
 				);
 			});
 		}

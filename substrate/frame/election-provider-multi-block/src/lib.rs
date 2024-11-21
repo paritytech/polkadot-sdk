@@ -128,10 +128,6 @@ pub use types::*;
 
 pub use crate::{unsigned::miner, verifier::Verifier, weights::WeightInfo};
 
-/// Internal crate re-exports to use across benchmarking and tests.
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-use crate::verifier::Pallet as PalletVerifier;
-
 /// Log target for this the core EPM-MB pallet.
 const LOG_TARGET: &'static str = "runtime::multiblock-election";
 

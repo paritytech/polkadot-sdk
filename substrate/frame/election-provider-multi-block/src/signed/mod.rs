@@ -146,7 +146,7 @@ type BalanceOf<T> = <<T as Config>::Currency as FnInspect<AccountIdOf<T>>>::Bala
 pub type CreditOf<T> = Credit<AccountIdOf<T>, <T as Config>::Currency>;
 
 /// Release strategy for currency held by this pallet.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq, Clone)]
 pub(crate) enum ReleaseStrategy {
 	/// Releases all held deposit.
 	All,
@@ -165,7 +165,7 @@ impl Default for ReleaseStrategy {
 }
 
 /// Metadata of a registered submission.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Default, RuntimeDebugNoBound)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Default, RuntimeDebugNoBound, Clone)]
 #[cfg_attr(test, derive(frame_support::PartialEqNoBound, frame_support::EqNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]

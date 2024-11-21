@@ -291,7 +291,7 @@ pub struct ExtBuilder {
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self { core_try_state: true, signed_try_state: true, minimum_score: Some(Default::default()) }
+		Self { core_try_state: true, signed_try_state: true, minimum_score: None }
 	}
 }
 
@@ -438,6 +438,7 @@ impl ExtBuilder {
 
 	pub(crate) fn build_and_execute(self, test: impl FnOnce() -> ()) {
 		let mut ext = self.build();
+		ext.execute_with(|| roll_one());
 		ext.execute_with(test);
 
 		ext.execute_with(|| {
