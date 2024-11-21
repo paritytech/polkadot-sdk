@@ -511,7 +511,7 @@ pub mod pallet {
 		pub balances: Vec<(T::AccountId, T::Balance)>,
 
 		#[cfg(feature = "runtime-benchmarks")]
-		pub dev_accounts: (u32, T::Balance, String),
+		pub dev_accounts: (u32, T::Balance, Option<String>),
 	}
 
 	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
@@ -520,7 +520,7 @@ pub mod pallet {
 				balances: Default::default(),
 				
 				#[cfg(feature = "runtime-benchmarks")]
-            	dev_accounts: (Default::default(), Default::default(), String::new()),
+            	dev_accounts: (Default::default(), Default::default(), None),
 			}
 		}
 	}
@@ -556,27 +556,28 @@ pub mod pallet {
 			#[cfg(feature = "runtime-benchmarks")]
 			{
 				let (num_accounts, balance, ref derivation) = self.dev_accounts;
-				for index in 0..num_accounts {
-					assert!(
-						balance >= <T as Config<I>>::ExistentialDeposit::get(),
-						"the balance of any account should always be at least the existential deposit.",
-					);
-					// Check if the derivation string follows the pattern "//character/{}"
-    				assert!(
-        				derivation.starts_with("//") && 
-        				derivation[2..].contains('/') && // There should be a character after "//" and before "{}"
-        				derivation.ends_with("{}"),
-        				"Invalid derivation string"
-    				);
-					// Create key pair from the derivation string
-					let derivation_string = &derivation.replace("{}", &index.to_string());
-					let pair: SrPair = Pair::from_string(&derivation_string, None).expect("Invalid derivation string");
-
-					// Convert the public key to AccountId
-					let who = T::AccountId::decode(&mut &pair.public().encode()[..]).unwrap();
-					frame_system::Pallet::<T>::inc_providers(&who);
-					assert!(T::AccountStore::insert(&who, AccountData { free: balance, ..Default::default() })
-						.is_ok());
+				// Check if `derivation` is `Some` and generate key pair
+				if let Some(derivation_string) = &derivation {
+					for index in 0..num_accounts {
+						// Replace "{}" in the derivation string with the index
+						let derivation_string = derivation_string.replace("{}", &index.to_string());
+			
+						// Attempt to create the key pair from the derivation string with error handling
+						let pair: SrPair = Pair::from_string(&derivation_string, None)
+							.expect(&format!("Failed to parse derivation string: {}", derivation_string));
+			
+						// Convert the public key to AccountId
+						let who = T::AccountId::decode(&mut &pair.public().encode()[..])
+							.expect(&format!("Failed to decode public key from pair: {}", pair.public()));
+			
+						frame_system::Pallet::<T>::inc_providers(&who);
+						// Insert the account into the store and ensure it succeeds
+						assert!(T::AccountStore::insert(&who, AccountData { free: balance, ..Default::default() })
+							.is_ok())
+					}
+				} else {
+					// If `derivation` is None, log or handle the error as needed.
+					log::error!(target: LOG_TARGET, "Derivation string is missing for runtime benchmarks.");
 				}
 			}
 

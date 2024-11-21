@@ -173,7 +173,7 @@ impl ExtBuilder {
 				vec![]
 			},
 			#[cfg(feature = "runtime-benchmarks")]
-			dev_accounts: (10, self.existential_deposit, "//Sender/{}".to_string())
+			dev_accounts: (1000, self.existential_deposit, Some("//Sender/{}".to_string()))
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -286,9 +286,9 @@ pub fn info_from_weight(w: Weight) -> DispatchInfo {
 pub fn ensure_ti_valid() {
     let mut sum = 0;
 
-    // Fetch the dev accounts from the GenesisConfig.
+    // Fetch the dev accounts from Account Storage.
     #[cfg(feature = "runtime-benchmarks")]
-    let dev_accounts = (10, 100, "//Sender/{}".to_string()); // You can customize this as needed
+    let dev_accounts = (1000, EXISTENTIAL_DEPOSIT, "//Sender/{}".to_string()); // You can customize this as needed
     #[cfg(feature = "runtime-benchmarks")]
     let (num_accounts, _balance, ref derivation) = dev_accounts;
 
