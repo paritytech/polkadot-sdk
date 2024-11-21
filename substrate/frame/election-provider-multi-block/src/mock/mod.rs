@@ -35,6 +35,7 @@ use crate::{
 };
 use frame_support::{
 	derive_impl, pallet_prelude::*, parameter_types, traits::fungible::InspectHold,
+	weights::RuntimeDbWeight,
 };
 use parking_lot::RwLock;
 use sp_runtime::{
@@ -66,6 +67,14 @@ pub type T = Runtime;
 pub type Block = frame_system::mocking::MockBlock<Runtime>;
 pub(crate) type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16, MaxBackersPerWinner, ()>;
 
+pub struct Weighter;
+
+impl Get<RuntimeDbWeight> for Weighter {
+	fn get() -> RuntimeDbWeight {
+		return RuntimeDbWeight { read: 12, write: 12 }
+	}
+}
+
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
 	pub struct TestNposSolution::<
@@ -80,6 +89,7 @@ frame_election_provider_support::generate_solution_type!(
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type DbWeight = Weighter;
 }
 
 parameter_types! {
@@ -274,13 +284,14 @@ impl ElectionProvider for MockFallback {
 
 #[derive(Copy, Clone)]
 pub struct ExtBuilder {
+	minimum_score: Option<ElectionScore>,
 	core_try_state: bool,
 	signed_try_state: bool,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self { core_try_state: true, signed_try_state: true }
+		Self { core_try_state: true, signed_try_state: true, minimum_score: None }
 	}
 }
 
@@ -337,7 +348,12 @@ impl ExtBuilder {
 	}
 
 	pub(crate) fn desired_targets(self, desired: u32) -> Self {
-		DesiredTargets::set(desired);
+		DesiredTargets::set(Ok(desired));
+		self
+	}
+
+	pub(crate) fn no_desired_targets(self) -> Self {
+		DesiredTargets::set(Err("none"));
 		self
 	}
 
@@ -348,6 +364,11 @@ impl ExtBuilder {
 
 	pub(crate) fn solution_improvements_threshold(self, threshold: Perbill) -> Self {
 		SolutionImprovementThreshold::set(threshold);
+		self
+	}
+
+	pub(crate) fn minimum_score(mut self, score: ElectionScore) -> Self {
+		self.minimum_score = Some(score);
 		self
 	}
 
@@ -362,8 +383,6 @@ impl ExtBuilder {
 	}
 
 	pub(crate) fn build(self) -> sp_io::TestExternalities {
-		sp_tracing::try_init_simple();
-
 		let mut storage = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
 		let _ = pallet_balances::GenesisConfig::<T> {
 			balances: vec![
@@ -390,6 +409,11 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
+		let _ = verifier_pallet::GenesisConfig::<T> {
+			minimum_score: self.minimum_score,
+			..Default::default()
+		}
+		.assimilate_storage(&mut storage);
 		sp_io::TestExternalities::from(storage)
 	}
 
@@ -414,6 +438,7 @@ impl ExtBuilder {
 
 	pub(crate) fn build_and_execute(self, test: impl FnOnce() -> ()) {
 		let mut ext = self.build();
+		ext.execute_with(|| roll_one());
 		ext.execute_with(test);
 
 		ext.execute_with(|| {
@@ -518,6 +543,10 @@ pub fn roll_to_phase(phase: Phase<BlockNumber>) {
 	while MultiPhase::current_phase() != phase {
 		roll_to(System::block_number() + 1);
 	}
+}
+
+pub fn set_phase_to(phase: Phase<BlockNumber>) {
+	CurrentPhase::<Runtime>::set(phase);
 }
 
 pub fn roll_to_export() {
@@ -671,6 +700,16 @@ pub(crate) fn signed_events() -> Vec<crate::signed::Event<T>> {
 		.into_iter()
 		.map(|r| r.event)
 		.filter_map(|e| if let RuntimeEvent::SignedPallet(inner) = e { Some(inner) } else { None })
+		.collect()
+}
+
+pub(crate) fn verifier_events() -> Vec<crate::verifier::Event<T>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(
+			|e| if let RuntimeEvent::VerifierPallet(inner) = e { Some(inner) } else { None },
+		)
 		.collect()
 }
 

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{mock::*, verifier::SolutionDataProvider, CurrentPhase, Phase, Verifier};
+use crate::{mock::*, verifier::SolutionDataProvider, Phase, Verifier};
 use frame_support::{assert_noop, assert_ok, testing_prelude::*};
 use sp_npos_elections::ElectionScore;
 use sp_runtime::traits::Convert;
@@ -257,6 +257,151 @@ mod calls {
 	}
 
 	#[test]
+	fn calls_in_phase_other_than_signed() {
+		ExtBuilder::default().build_and_execute(|| {
+			let account_id = 99;
+
+			let phases = vec![
+				Phase::Halted,
+				Phase::Off,
+				Phase::SignedValidation(1),
+				Phase::Unsigned(1),
+				Phase::Snapshot(0),
+				Phase::Export(1),
+				Phase::Emergency,
+			];
+
+			for phase in phases {
+				set_phase_to(phase);
+
+				assert_err!(
+					SignedPallet::register(RuntimeOrigin::signed(account_id), Default::default()),
+					Error::<T>::NotAcceptingSubmissions
+				);
+
+				assert_err!(
+					SignedPallet::submit_page(
+						RuntimeOrigin::signed(account_id),
+						0,
+						Some(Default::default())
+					),
+					Error::<T>::NotAcceptingSubmissions
+				);
+
+				assert_err!(
+					SignedPallet::bail(RuntimeOrigin::signed(account_id)),
+					Error::<T>::CannotBail
+				);
+			}
+		})
+	}
+
+	#[test]
+	fn bail_while_having_no_submissions_does_not_modify_balances() {
+		ExtBuilder::default().build_and_execute(|| {
+			roll_to_phase(Phase::Signed);
+
+			// expected base deposit with 0 submissions in the queue.
+			let base_deposit = <Runtime as Config>::DepositBase::convert(0);
+			let page_deposit = <Runtime as Config>::DepositPerPage::get();
+			assert!(base_deposit != 0 && page_deposit != 0 && base_deposit != page_deposit);
+
+			let account_id = 99;
+
+			// account_id has 100 free balance and 0 held balance for elections.
+			assert_eq!(balances(account_id), (100, 0));
+
+			assert_ok!(SignedPallet::register(
+				RuntimeOrigin::signed(account_id),
+				Default::default()
+			));
+
+			// free balance and held deposit updated as expected.
+			assert_eq!(balances(account_id), (100 - base_deposit, base_deposit));
+
+			// submit page
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(account_id),
+				0,
+				Some(Default::default())
+			));
+
+			// free balance and held deposit updated as expected
+			assert_eq!(
+				balances(account_id),
+				(100 - base_deposit - page_deposit, base_deposit + page_deposit)
+			);
+
+			let bailing_account_id = 91;
+
+			// bailing_account_id has 100 free balance and 0 held balance for elections.
+			assert_eq!(balances(bailing_account_id), (100, 0));
+
+			// account 1 submitted nothing, so bail should have no effect and return error
+			assert_noop!(
+				SignedPallet::bail(RuntimeOrigin::signed(bailing_account_id)),
+				Error::<T>::SubmissionNotRegistered
+			);
+		})
+	}
+
+	#[test]
+	fn force_clear_submission_fails_if_called_in_phase_other_than_off() {
+		ExtBuilder::default().build_and_execute(|| {
+			let phases = vec![
+				Phase::Signed,
+				Phase::Snapshot(0),
+				Phase::SignedValidation(0),
+				Phase::Unsigned(0),
+				Phase::Export(0),
+				Phase::Emergency,
+			];
+
+			let account_id = 99;
+			for phase in phases {
+				set_phase_to(phase);
+
+				assert_err!(
+					SignedPallet::force_clear_submission(RuntimeOrigin::root(), 0, account_id),
+					Error::<T>::CannotClear,
+				);
+			}
+		})
+	}
+
+	#[test]
+	fn force_clear_submission_fails_if_submitter_done_no_submissions_at_all() {
+		ExtBuilder::default().build_and_execute(|| {
+			roll_to_phase(Phase::Off);
+			let account_id = 99;
+
+			assert_err!(
+				SignedPallet::force_clear_submission(RuntimeOrigin::root(), 0, account_id),
+				Error::<T>::NoSubmission,
+			);
+		})
+	}
+
+	#[test]
+	fn force_clear_submission_fails_if_submitter_if_different_round() {
+		ExtBuilder::default().build_and_execute(|| {
+			let account_id = 99;
+			let current_round = MultiPhase::current_round();
+
+			roll_to_phase(Phase::Off);
+
+			assert_noop!(
+				SignedPallet::force_clear_submission(
+					RuntimeOrigin::root(),
+					current_round + 1,
+					account_id
+				),
+				Error::<T>::NoSubmission,
+			);
+		})
+	}
+
+	#[test]
 	fn bail_after_submission_works() {
 		ExtBuilder::default().core_try_state(false).build_and_execute(|| {
 			let round = current_round();
@@ -314,7 +459,7 @@ mod calls {
 			);
 
 			// force phase Off.
-			CurrentPhase::<T>::set(Phase::Off);
+			set_phase_to(Phase::Off);
 			assert_ok!(SignedPallet::force_clear_submission(RuntimeOrigin::signed(99), round, 99));
 
 			// 3 pages submitted have been cleared from storage.
@@ -344,14 +489,14 @@ mod calls {
 				Phase::Export(0),
 				Phase::Emergency,
 			] {
-				CurrentPhase::<T>::set(disabled_phase);
+				set_phase_to(disabled_phase);
 				assert_noop!(
 					SignedPallet::force_clear_submission(RuntimeOrigin::signed(99), round, 99),
 					Error::<T>::CannotClear
 				);
 			}
 
-			CurrentPhase::<T>::set(Phase::Off);
+			set_phase_to(Phase::Off);
 
 			// request force clear of a non existing submission.
 			assert_noop!(
@@ -431,29 +576,206 @@ mod deposit {
 mod solution_data_provider {
 	use super::*;
 
-	#[test]
-	fn higher_score_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			roll_to_phase(Phase::Signed);
+	mod get_score {
+		use super::*;
 
-			assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), None);
+		#[test]
+		fn returns_entry_with_highest_minimal_stake() {
+			ExtBuilder::default().build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
 
-			let higher_score = ElectionScore { minimal_stake: 40, ..Default::default() };
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(40), higher_score));
+				assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), None);
 
-			let score = ElectionScore { minimal_stake: 30, ..Default::default() };
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(30), score));
+				let higher_score = ElectionScore { minimal_stake: 40, ..Default::default() };
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(40), higher_score));
 
-			assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), Some(higher_score));
-		})
+				let score = ElectionScore { minimal_stake: 30, ..Default::default() };
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(30), score));
+
+				assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), Some(higher_score));
+			})
+		}
+
+		#[test]
+		fn returns_entry_with_highest_sum_stake() {
+			ExtBuilder::default().build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+
+				assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), None);
+
+				let higher_score =
+					ElectionScore { minimal_stake: 40, sum_stake: 10, sum_stake_squared: 0 };
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(40), higher_score));
+
+				let score = ElectionScore { minimal_stake: 40, sum_stake: 5, sum_stake_squared: 0 };
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(30), score));
+
+				assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), Some(higher_score));
+			})
+		}
+
+		#[test]
+		fn returns_entry_with_lowest_sum_stake_squared() {
+			ExtBuilder::default().build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+
+				assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), None);
+
+				let higher_score =
+					ElectionScore { minimal_stake: 40, sum_stake: 10, sum_stake_squared: 2 };
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(40), higher_score));
+
+				let score =
+					ElectionScore { minimal_stake: 40, sum_stake: 10, sum_stake_squared: 5 };
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(30), score));
+
+				assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), Some(higher_score));
+			})
+		}
 	}
 
-	#[test]
-	fn get_page_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			roll_to_phase(Phase::Signed);
-			assert_eq!(<SignedPallet as SolutionDataProvider>::get_score(), None);
-		})
+	mod get_paged_solution {
+		use super::*;
+
+		#[test]
+		fn returns_previously_submitted_page() {
+			ExtBuilder::default().build_and_execute(|| {
+				let origin = RuntimeOrigin::signed(99);
+				roll_to_phase(Phase::Signed);
+
+				assert_ok!(SignedPallet::register(origin.clone(), Default::default()));
+				assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
+
+				assert_ne!(<SignedPallet as SolutionDataProvider>::get_paged_solution(0), None)
+			})
+		}
+
+		#[test]
+		fn returns_none_if_there_are_no_submissions() {
+			ExtBuilder::default().build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+				assert_eq!(<SignedPallet as SolutionDataProvider>::get_paged_solution(12345), None)
+			})
+		}
+	}
+
+	mod report_result {
+		use super::*;
+
+		#[test]
+		fn rewards_submitter_of_the_best_solution_given_queued_result() {
+			ExtBuilder::default().build_and_execute(|| {
+				let account_id = 99;
+				let origin = RuntimeOrigin::signed(account_id);
+				roll_to_phase(Phase::Signed);
+
+				let base_deposit = <Runtime as Config>::DepositBase::convert(0);
+				let page_deposit = <Runtime as Config>::DepositPerPage::get();
+				assert!(base_deposit != 0 && page_deposit != 0 && base_deposit != page_deposit);
+
+				// account_id has 100 free balance and 0 held balance for elections.
+				assert_eq!(balances(account_id), (100, 0));
+
+				assert_ok!(SignedPallet::register(origin.clone(), Default::default()));
+				assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
+
+				assert_eq!(
+					balances(account_id),
+					(100 - base_deposit - page_deposit, base_deposit + page_deposit)
+				);
+
+				SignedPallet::report_result(VerificationResult::Queued);
+
+				// the submitter should receive a reward but his funds are still blocked
+				assert_eq!(
+					balances(account_id),
+					(
+						100 - base_deposit - page_deposit + Reward::get(),
+						base_deposit + page_deposit
+					)
+				);
+			})
+		}
+
+		#[test]
+		fn burns_the_stake_of_the_best_submitter_given_rejected_result() {
+			ExtBuilder::default().build_and_execute(|| {
+				let account_id = 99;
+				let origin = RuntimeOrigin::signed(account_id);
+				roll_to_phase(Phase::Signed);
+
+				let current_round = MultiPhase::current_round();
+
+				assert_ok!(SignedPallet::register(origin.clone(), Default::default()));
+				assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
+
+				assert_eq!(
+					Submissions::<T>::metadata_for(current_round, &account_id).unwrap(),
+					SubmissionMetadata {
+						claimed_score: Default::default(),
+						deposit: 10,
+						pages: bounded_vec![false, false, false],
+						release_strategy: Default::default(),
+					}
+				);
+
+				SignedPallet::report_result(VerificationResult::Rejected);
+
+				assert_eq!(
+					Submissions::<T>::metadata_for(current_round, &account_id).unwrap(),
+					SubmissionMetadata {
+						claimed_score: Default::default(),
+						deposit: 10,
+						pages: bounded_vec![false, false, false],
+						release_strategy: ReleaseStrategy::BurnAll,
+					}
+				);
+			})
+		}
+
+		#[test]
+		fn burns_the_stake_of_the_best_submitter_given_data_unavailable_result() {
+			ExtBuilder::default().build_and_execute(|| {
+				let account_id = 99;
+				let origin = RuntimeOrigin::signed(account_id);
+				roll_to_phase(Phase::Signed);
+
+				let current_round = MultiPhase::current_round();
+
+				assert_ok!(SignedPallet::register(origin.clone(), Default::default()));
+				assert_ok!(SignedPallet::submit_page(origin, 0, Some(Default::default())));
+
+				assert_eq!(
+					Submissions::<T>::metadata_for(current_round, &account_id).unwrap(),
+					SubmissionMetadata {
+						claimed_score: Default::default(),
+						deposit: 10,
+						pages: bounded_vec![false, false, false],
+						release_strategy: Default::default(),
+					}
+				);
+
+				SignedPallet::report_result(VerificationResult::DataUnavailable);
+
+				assert_eq!(
+					Submissions::<T>::metadata_for(current_round, &account_id).unwrap(),
+					SubmissionMetadata {
+						claimed_score: Default::default(),
+						deposit: 10,
+						pages: bounded_vec![false, false, false],
+						release_strategy: ReleaseStrategy::BurnAll,
+					}
+				);
+			})
+		}
+
+		#[test]
+		fn does_nothing_if_no_submissions_where_sent() {
+			ExtBuilder::default().build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+				SignedPallet::report_result(VerificationResult::Queued);
+			})
+		}
 	}
 }
 
@@ -476,7 +798,7 @@ mod e2e {
 				let claimed_score = ElectionScore { minimal_stake: 100, ..Default::default() };
 
 				// register submission
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(10), claimed_score,));
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(10), claimed_score));
 
 				// metadata and claimed scores have been stored as expected.
 				assert_eq!(

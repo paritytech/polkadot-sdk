@@ -79,8 +79,9 @@ use sp_runtime::RuntimeDebug;
 
 // public re-exports.
 pub use impls::pallet::{
-	Call, Config, Event, Pallet, __substrate_call_check, __substrate_event_check, tt_default_parts,
-	tt_default_parts_v2, tt_error_token,
+	Call, Config, Event, Pallet, QueuedSolution, __substrate_call_check, __substrate_event_check,
+	__substrate_genesis_config_check, tt_default_parts, tt_default_parts_v2, tt_error_token,
+	GenesisConfig,
 };
 
 /// Errors related to the solution feasibility checks.
@@ -117,7 +118,9 @@ impl From<sp_npos_elections::Error> for FeasibilityError {
 ///
 /// This pallet is either processing an async verification or doing nothing. A single page
 /// verification can only be done while the pallet has status [`Status::Nothing`].
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+	Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, RuntimeDebug, PartialEq,
+)]
 pub enum Status {
 	/// A paged solution is ongoing and the next page to be verified is indicated in the inner
 	/// value.

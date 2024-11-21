@@ -159,7 +159,7 @@ impl<T: Config> Miner<T> {
 		let all_voters: Vec<MinerVoterOf<T>> =
 			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
-		// these closures generate an efficient index mapping of each tvoter -> the snaphot
+		// these closures generate an efficient index mapping of each voter -> the snaphot
 		// that they are part of. this needs to be the same indexing fn in the verifier side to
 		// sync when reconstructing the assingments page from a solution.
 		//let binding_targets = all_targets.clone();

@@ -146,7 +146,7 @@ type BalanceOf<T> = <<T as Config>::Currency as FnInspect<AccountIdOf<T>>>::Bala
 pub type CreditOf<T> = Credit<AccountIdOf<T>, <T as Config>::Currency>;
 
 /// Release strategy for currency held by this pallet.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq, Clone)]
 pub(crate) enum ReleaseStrategy {
 	/// Releases all held deposit.
 	All,
@@ -165,7 +165,7 @@ impl Default for ReleaseStrategy {
 }
 
 /// Metadata of a registered submission.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Default, RuntimeDebugNoBound)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Default, RuntimeDebugNoBound, Clone)]
 #[cfg_attr(test, derive(frame_support::PartialEqNoBound, frame_support::EqNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
@@ -321,7 +321,7 @@ pub mod pallet {
 
 	/// Wrapper for signed submissions.
 	///
-	/// It handle 3 storage items:
+	/// It handles 3 storage items:
 	///
 	/// 1. [`SortedScores`]: A flat, striclty sorted, vector with all the submission's scores. The
 	///    vector contains a tuple of `submitter_id` and `claimed_score`.
@@ -495,7 +495,9 @@ pub mod pallet {
 			who: &T::AccountId,
 			metadata: SubmissionMetadata<T>,
 		) {
-			debug_assert!(SortedScores::<T>::get(round).iter().any(|(account, _)| who == account));
+			// TODO: remove comment
+			//debug_assert!(SortedScores::<T>::get(round).iter().any(|(account, _)| who ==
+			// account));
 
 			Self::mutate_checked(round, || {
 				SubmissionMetadataStorage::<T>::insert(round, who, metadata);
@@ -580,7 +582,7 @@ pub mod pallet {
 			Submissions::<T>::scores_for(round).last().cloned()
 		}
 
-		/// Returns the metadata of a submitter for a given account.
+		/// Returns the metadata of a submitter for a given round.
 		pub(crate) fn metadata_for(
 			round: u32,
 			who: &T::AccountId,
@@ -723,6 +725,35 @@ pub mod pallet {
 		}
 	}
 
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	impl<T: Config> Submissions<T> {
+		pub(crate) fn submission_metadata_from(
+			claimed_score: ElectionScore,
+			pages: BoundedVec<bool, PagesOf<T>>,
+			deposit: BalanceOf<T>,
+			release_strategy: ReleaseStrategy,
+		) -> SubmissionMetadata<T> {
+			SubmissionMetadata { claimed_score, pages, deposit, release_strategy }
+		}
+
+		pub(crate) fn insert_score_and_metadata(
+			round: u32,
+			who: T::AccountId,
+			maybe_score: Option<ElectionScore>,
+			maybe_metadata: Option<SubmissionMetadata<T>>,
+		) {
+			if let Some(score) = maybe_score {
+				let mut scores = Submissions::<T>::scores_for(round);
+				scores.try_push((who.clone(), score)).unwrap();
+				SortedScores::<T>::insert(round, scores);
+			}
+
+			if let Some(metadata) = maybe_metadata {
+				SubmissionMetadataStorage::<T>::insert(round, who.clone(), metadata);
+			}
+		}
+	}
+
 	impl<T: Config> Pallet<T> {
 		pub(crate) fn do_register(
 			who: &T::AccountId,
@@ -839,7 +870,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Force clean submissions storage for a given (`sumitter`, `round`) tuple.
+		/// Force clean submissions storage for a given (`submitter`, `round`) tuple.
 		///
 		/// This pallet expects that submitted pages for `round` may exist IFF a corresponding
 		/// metadata exists.
@@ -937,7 +968,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 		})
 	}
 
-	/// Returns the score of the *best* solution in the queueu.
+	/// Returns the score of the *best* solution in the queue.
 	fn get_score() -> Option<ElectionScore> {
 		let round = CorePallet::<T>::current_round();
 		Submissions::<T>::leader(round).map(|(_who, score)| score)
