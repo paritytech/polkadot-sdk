@@ -54,7 +54,10 @@ pub trait ViewFunction: DecodeAll {
 
 	fn query(self) -> Self::ReturnType;
 
-	fn execute<O: Output>(input: &mut &[u8], output: &mut O) -> Result<(), ViewFunctionDispatchError> {
+	fn execute<O: Output>(
+		input: &mut &[u8],
+		output: &mut O,
+	) -> Result<(), ViewFunctionDispatchError> {
 		let query = Self::decode_all(input)?;
 		let result = query.query();
 		Encode::encode_to(&result, output);

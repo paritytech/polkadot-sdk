@@ -35,7 +35,8 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 	let view_fn_impls = view_fns
 		.iter()
 		.map(|view_fn| expand_view_function(def, span, where_clause.as_ref(), view_fn));
-	let impl_dispatch_view_function = impl_dispatch_view_function(def, span, where_clause.as_ref(), &view_fns);
+	let impl_dispatch_view_function =
+		impl_dispatch_view_function(def, span, where_clause.as_ref(), &view_fns);
 	let impl_query_metadata =
 		impl_query_metadata(def, span, where_clause.as_ref(), &view_fns, &docs);
 

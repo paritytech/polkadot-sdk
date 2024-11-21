@@ -789,7 +789,9 @@ impl syn::parse::Parse for PalletAttr {
 		} else if lookahead.peek(keyword::composite_enum) {
 			Ok(PalletAttr::Composite(content.parse::<keyword::composite_enum>()?.span()))
 		} else if lookahead.peek(keyword::view_functions_experimental) {
-			Ok(PalletAttr::ViewFunctions(content.parse::<keyword::view_functions_experimental>()?.span()))
+			Ok(PalletAttr::ViewFunctions(
+				content.parse::<keyword::view_functions_experimental>()?.span(),
+			))
 		} else {
 			Err(lookahead.error())
 		}
