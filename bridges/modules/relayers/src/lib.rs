@@ -22,8 +22,9 @@
 
 use bp_relayers::{
 	ExplicitOrAccountParams, PaymentProcedure, Registration, RelayerRewardsKeyProvider,
-	RewardsAccountParams, StakeAndSlash,
+	StakeAndSlash,
 };
+pub use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::fail;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
@@ -39,7 +40,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-pub use payment_adapter::DeliveryConfirmationPaymentsAdapter;
+pub use payment_adapter::{DeliveryConfirmationPaymentsAdapter, PayRewardFromAccount};
 use snowbridge_core::rewards::RewardLedger;
 use sp_core::H160;
 pub use stake_adapter::StakeAndSlashNamed;
