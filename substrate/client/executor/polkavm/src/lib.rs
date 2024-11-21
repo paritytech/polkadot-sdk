@@ -132,12 +132,15 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	}
 
 	fn allocate_memory(&mut self, size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
-		let pointer = self.0.sbrk(0).expect("fetching the current heap pointer never fails");
+		let pointer =
+			self.0.instance.sbrk(0).expect("fetching the current heap pointer never fails");
 
 		// TODO: This will leak guest memory; find a better solution.
-		self.0.sbrk(size).ok_or_else(|| String::from("allocation failed"))?;
+		if let Err(_) = self.0.instance.sbrk(size) {
+			return Err(String::from("allocation failed"));
+		}
 
-		Ok(Pointer::new(pointer))
+		Ok(Pointer::new(pointer.unwrap()))
 	}
 
 	fn deallocate_memory(&mut self, _ptr: Pointer<u8>) -> sp_wasm_interface::Result<()> {
