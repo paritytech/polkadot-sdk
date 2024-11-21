@@ -112,6 +112,23 @@ impl Multiaddr {
 
 		Ok(())
 	}
+
+	/// Ensure the peer ID is present in the multiaddress.
+	///
+	/// Returns None when the peer ID of the address is different from the local peer ID.
+	pub fn ensure_peer_id(self, local_peer_id: PeerId) -> Option<Multiaddr> {
+		if let Some(Protocol::P2p(peer_id)) = self.iter().last() {
+			// Invalid address if the reported peer ID is not the local peer ID.
+			if peer_id != *local_peer_id.as_ref() {
+				return None
+			}
+
+			return Some(self)
+		}
+
+		// Ensure the address contains the local peer ID.
+		Some(self.with(Protocol::P2p(local_peer_id.into())))
+	}
 }
 
 impl Display for Multiaddr {
