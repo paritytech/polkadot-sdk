@@ -64,16 +64,12 @@ impl RuntimePublic for Public {
 
 		let pub_key_as_bytes = self.to_raw_vec();
 
-		// Split public key bytes into ECDSA and BLS381 parts
 		let (ecdsa_pub_as_bytes, bls381_pub_as_bytes) = split_pub_key_bytes(&pub_key_as_bytes)?;
 
-		// Generate ECDSA proof of possession
 		let ecdsa_pop = generate_ecdsa_pop(ecdsa_pub_as_bytes)?;
 
-		// Generate BLS381 proof of possession
 		let bls381_pop = generate_bls381_pop(bls381_pub_as_bytes)?;
 
-		// Combine the two pops into a single pop
 		let combined_pop_raw = combine_pop(&ecdsa_pop, &bls381_pop)?;
 
 		Some(Self::Signature::from_raw(combined_pop_raw))
