@@ -78,6 +78,7 @@ impl StakingMock {
 		let bonded = BondedBalanceMap::get();
 		let pre_total = bonded.get(&acc).unwrap();
 		Self::set_bonded_balance(acc, pre_total - amount);
+		DelegateMock::on_slash(acc, amount);
 		Pools::on_slash(&acc, pre_total - amount, &Default::default(), amount);
 	}
 }
@@ -115,7 +116,7 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 
 	fn is_virtual_staker(who: &Self::AccountId) -> bool {
-		BondedBalanceMap::get().contains_key(who)
+		true
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
@@ -286,15 +287,22 @@ impl DelegationInterface for DelegateMock {
 		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
 	) -> DispatchResult {
+		let delegator = delegator.get();
 		let mut delegators = DelegatorBalanceMap::get();
-		delegators.get_mut(&delegator.get()).map(|b| *b += amount);
+		delegators.entry(delegator).and_modify(|b| *b += amount).or_insert(amount);
 		DelegatorBalanceMap::set(&delegators);
 
+		let agent = agent.get();
 		let mut agents = AgentBalanceMap::get();
-		agents.get_mut(&agent.get()).map(|(d, _, _)| *d += amount);
+		agents.get_mut(&agent).map(|(d, _, _)| *d += amount);
 		AgentBalanceMap::set(&agents);
 
-		Ok(())
+		if BondedBalanceMap::get().contains_key(&agent) {
+			StakingMock::bond_extra(&agent, amount)
+		} else {
+			// reward account does not matter in this context.
+			StakingMock::bond(&agent, amount, &999)
+		}
 	}
 
 	fn withdraw_delegation(
@@ -341,6 +349,14 @@ impl DelegationInterface for DelegateMock {
 		AgentBalanceMap::set(&agents);
 
 		Ok(())
+	}
+}
+
+impl DelegateMock {
+	fn on_slash(agent: AccountId, amount: Balance) {
+		let mut agents = AgentBalanceMap::get();
+		agents.get_mut(&agent).map(|(_, _, p)| *p += amount);
+		AgentBalanceMap::set(&agents);
 	}
 }
 
