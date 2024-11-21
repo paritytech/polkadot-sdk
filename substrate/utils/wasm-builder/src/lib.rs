@@ -408,11 +408,10 @@ impl RuntimeTarget {
 	fn rustc_target(self) -> String {
 		match self {
 			RuntimeTarget::Wasm => "wasm32-unknown-unknown".to_string(),
-			RuntimeTarget::Riscv => Path::new(env!("CARGO_MANIFEST_DIR"))
-				.join("riscv32emac-unknown-none-polkavm.json")
-				.into_os_string()
-				.into_string()
-				.unwrap(),
+			RuntimeTarget::Riscv => {
+				let path = polkavm_linker::target_json_32_path().expect("riscv not found");
+				path.into_os_string().into_string().unwrap()
+			},
 		}
 	}
 

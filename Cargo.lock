@@ -19763,9 +19763,9 @@ checksum = "711952a783e9c5ad407cdacb1ed147f36d37c5d43417c1091d86456d2999417b"
 
 [[package]]
 name = "polkavm-common"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2104e200abfdc462e60c9e4899244ed44ef49ad645e4ecd4a1fe9b8ff775aac"
+checksum = "8f0dbafef4ab6ceecb4982ac3b550df430ef4f9fdbf07c108b7d4f91a0682fce"
 
 [[package]]
 name = "polkavm-derive"
@@ -19805,11 +19805,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive"
-version = "0.16.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "158bb3dc27e29b8c067274957ad5995968a50df38cf0a9d4bf3c028474288541"
+checksum = "206caf322dfc02144510ad8360ff2051e5072f0874dcab3b410f78cdd52d0ebb"
 dependencies = [
- "polkavm-derive-impl-macro 0.16.0",
+ "polkavm-derive-impl-macro 0.17.0",
 ]
 
 [[package]]
@@ -19862,11 +19862,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d669d3f76ab213b35ef63625075e69fd9b00e8f1e3eb902c703dac634a335112"
+checksum = "42565aed4adbc4034612d0b17dea8db3681fb1bd1aed040d6edc5455a9f478a1"
 dependencies = [
- "polkavm-common 0.16.0",
+ "polkavm-common 0.17.0",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
@@ -19914,11 +19914,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl-macro"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5aa3364108859cae654f063375c4dd930a645a3cb67f2770003459d27628026a"
+checksum = "86d9838e95241b0bce4fe269cdd4af96464160505840ed5a8ac8536119ba19e2"
 dependencies = [
- "polkavm-derive-impl 0.16.0",
+ "polkavm-derive-impl 0.17.0",
  "syn 2.0.87",
 ]
 
@@ -19969,16 +19969,16 @@ dependencies = [
 
 [[package]]
 name = "polkavm-linker"
-version = "0.16.1"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ffc591c89e5820e9ddbd23a9c0cd728d4198fd586cbcb760728d172bc429b68"
+checksum = "0422ead3030d5cde69e2206dbc7d65da872b121876507cd5363f6c6e6aa45157"
 dependencies = [
  "dirs",
  "gimli 0.31.1",
  "hashbrown 0.14.5",
  "log",
  "object 0.36.1",
- "polkavm-common 0.16.0",
+ "polkavm-common 0.17.0",
  "regalloc2 0.9.3",
  "rustc-demangle",
 ]
@@ -26526,7 +26526,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "parity-scale-codec",
- "polkavm-derive 0.16.0",
+ "polkavm-derive 0.17.1",
  "rustversion",
  "secp256k1 0.28.2",
  "sp-core 28.0.0",
@@ -27010,7 +27010,7 @@ dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "polkavm-derive 0.16.0",
+ "polkavm-derive 0.17.1",
  "primitive-types 0.13.1",
  "rustversion",
  "sp-core 28.0.0",
@@ -28654,7 +28654,7 @@ dependencies = [
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
- "polkavm-linker 0.16.1",
+ "polkavm-linker 0.17.1",
  "sc-executor 0.32.0",
  "shlex",
  "sp-core 28.0.0",
