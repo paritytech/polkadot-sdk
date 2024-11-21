@@ -85,7 +85,10 @@ impl<H: Hasher> CacheProvider<H> {
 }
 
 impl<H: Hasher> TrieCacheProvider<H> for CacheProvider<H> {
-	type Cache<'a> = TrieCache<'a, H> where H: 'a;
+	type Cache<'a>
+		= TrieCache<'a, H>
+	where
+		H: 'a;
 
 	fn as_trie_db_cache(&self, storage_root: <H as Hasher>::Out) -> Self::Cache<'_> {
 		TrieCache {
