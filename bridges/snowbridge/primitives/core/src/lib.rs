@@ -14,6 +14,7 @@ pub mod operating_mode;
 pub mod outbound;
 pub mod pricing;
 pub mod ringbuffer;
+pub mod sparse_bitmap;
 
 pub use location::{AgentId, AgentIdOf, TokenId, TokenIdOf};
 pub use polkadot_parachain_primitives::primitives::{
