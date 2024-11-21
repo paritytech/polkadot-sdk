@@ -35,14 +35,14 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 	let view_fn_impls = view_fns
 		.iter()
 		.map(|view_fn| expand_view_function(def, span, where_clause.as_ref(), view_fn));
-	let impl_dispatch_query = impl_dispatch_query(def, span, where_clause.as_ref(), &view_fns);
+	let impl_dispatch_view_function = impl_dispatch_view_function(def, span, where_clause.as_ref(), &view_fns);
 	let impl_query_metadata =
 		impl_query_metadata(def, span, where_clause.as_ref(), &view_fns, &docs);
 
 	quote::quote! {
 		#query_prefix_impl
 		#( #view_fn_impls )*
-		#impl_dispatch_query
+		#impl_dispatch_view_function
 		#impl_query_metadata
 	}
 }
@@ -59,7 +59,7 @@ fn expand_query_prefix_impl(
 	let type_use_gen = &def.type_use_generics(span);
 
 	quote::quote! {
-		impl<#type_impl_gen> #frame_support::traits::QueryIdPrefix for #pallet_ident<#type_use_gen> #where_clause {
+		impl<#type_impl_gen> #frame_support::traits::ViewFunctionIdPrefix for #pallet_ident<#type_use_gen> #where_clause {
 			fn prefix() -> [::core::primitive::u8; 16usize] {
 				<
 					<T as #frame_system::Config>::PalletInfo
@@ -126,15 +126,15 @@ fn expand_view_function(
 			}
 		}
 
-		impl<#type_impl_gen> #frame_support::traits::QueryIdSuffix for #query_struct_ident<#type_use_gen> #where_clause {
+		impl<#type_impl_gen> #frame_support::traits::ViewFunctionIdSuffix for #query_struct_ident<#type_use_gen> #where_clause {
 			const SUFFIX: [::core::primitive::u8; 16usize] = [ #( #query_id_suffix_bytes ),* ];
 		}
 
-		impl<#type_impl_gen> #frame_support::traits::Query for #query_struct_ident<#type_use_gen> #where_clause {
-			fn id() -> #frame_support::__private::QueryId {
-				#frame_support::__private::QueryId {
-					prefix: <#pallet_ident<#type_use_gen> as #frame_support::traits::QueryIdPrefix>::prefix(),
-					suffix: <Self as #frame_support::traits::QueryIdSuffix>::SUFFIX,
+		impl<#type_impl_gen> #frame_support::traits::ViewFunction for #query_struct_ident<#type_use_gen> #where_clause {
+			fn id() -> #frame_support::__private::ViewFunctionId {
+				#frame_support::__private::ViewFunctionId {
+					prefix: <#pallet_ident<#type_use_gen> as #frame_support::traits::ViewFunctionIdPrefix>::prefix(),
+					suffix: <Self as #frame_support::traits::ViewFunctionIdSuffix>::SUFFIX,
 				}
 			}
 
@@ -148,7 +148,7 @@ fn expand_view_function(
 	}
 }
 
-fn impl_dispatch_query(
+fn impl_dispatch_view_function(
 	def: &Def,
 	span: Span,
 	where_clause: Option<&syn::WhereClause>,
@@ -162,21 +162,21 @@ fn impl_dispatch_query(
 	let query_match_arms = view_fns.iter().map(|view_fn| {
 		let query_struct_ident = view_fn.query_struct_ident();
 		quote::quote! {
-			<#query_struct_ident<#type_use_gen> as #frame_support::traits::QueryIdSuffix>::SUFFIX => {
-				<#query_struct_ident<#type_use_gen> as #frame_support::traits::Query>::execute(input, output)
+			<#query_struct_ident<#type_use_gen> as #frame_support::traits::ViewFunctionIdSuffix>::SUFFIX => {
+				<#query_struct_ident<#type_use_gen> as #frame_support::traits::ViewFunction>::execute(input, output)
 			}
 		}
 	});
 
 	quote::quote! {
-		impl<#type_impl_gen> #frame_support::traits::DispatchQuery
+		impl<#type_impl_gen> #frame_support::traits::DispatchViewFunction
 			for #pallet_ident<#type_use_gen> #where_clause
 		{
 			#[deny(unreachable_patterns)]
-			fn dispatch_query<
+			fn dispatch_view_function<
 				O: #frame_support::__private::codec::Output,
 			>
-				(id: & #frame_support::__private::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::__private::ViewFunctionDispatchError>
+				(id: & #frame_support::__private::ViewFunctionId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::__private::ViewFunctionDispatchError>
 			{
 				match id.suffix {
 					#( #query_match_arms )*
@@ -208,12 +208,12 @@ fn impl_query_metadata(
 		let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &view_fn.docs };
 
 		quote::quote! {
-			#frame_support::__private::metadata_ir::QueryMetadataIR {
+			#frame_support::__private::metadata_ir::ViewFunctionMetadataIR {
 				name: ::core::stringify!(#name),
-				id: <#query_struct_ident<#type_use_gen> as #frame_support::traits::Query>::id().into(),
+				id: <#query_struct_ident<#type_use_gen> as #frame_support::traits::ViewFunction>::id().into(),
 				args: #frame_support::__private::sp_std::vec![ #( #args ),* ],
 				output: #frame_support::__private::scale_info::meta_type::<
-					<#query_struct_ident<#type_use_gen> as #frame_support::traits::Query>::ReturnType
+					<#query_struct_ident<#type_use_gen> as #frame_support::traits::ViewFunction>::ReturnType
 				>(),
 				docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
 			}
@@ -227,9 +227,9 @@ fn impl_query_metadata(
 		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #where_clause {
 			#[doc(hidden)]
 			pub fn pallet_queries_metadata(name: &'static ::core::primitive::str)
-				-> #frame_support::__private::metadata_ir::QueryInterfaceIR
+				-> #frame_support::__private::metadata_ir::ViewFunctionInterfaceIR
 			{
-				#frame_support::__private::metadata_ir::QueryInterfaceIR {
+				#frame_support::__private::metadata_ir::ViewFunctionInterfaceIR {
 					name,
 					queries: #frame_support::__private::sp_std::vec![ #( #queries ),* ],
 					docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],

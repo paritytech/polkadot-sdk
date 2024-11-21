@@ -332,7 +332,7 @@ pub enum Void {}
 
 pub enum ViewFunctionDispatchError {
 	NotImplemented,
-	NotFound(QueryId),
+	NotFound(ViewFunctionId),
 	Codec,
 }
 
@@ -344,13 +344,13 @@ impl From<codec::Error> for ViewFunctionDispatchError {
 
 /// todo: [AJ] docs
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct QueryId {
+pub struct ViewFunctionId {
 	pub prefix: [u8; 16],
 	pub suffix: [u8; 16],
 }
 
-impl From<QueryId> for [u8; 32] {
-	fn from(value: QueryId) -> Self {
+impl From<ViewFunctionId> for [u8; 32] {
+	fn from(value: ViewFunctionId) -> Self {
 		let mut output = [0u8; 32];
 		output[..16].copy_from_slice(&value.prefix);
 		output[16..].copy_from_slice(&value.suffix);

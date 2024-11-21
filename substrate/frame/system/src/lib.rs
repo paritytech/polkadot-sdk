@@ -523,7 +523,7 @@ pub mod pallet {
 
 		/// Type for dispatching queries.
 		#[pallet::no_default_bounds]
-		type RuntimeQuery: frame_support::traits::DispatchQuery;
+		type RuntimeQuery: frame_support::traits::DispatchViewFunction;
 
 		/// This stores the number of previous transactions associated with a sender account.
 		type Nonce: Parameter

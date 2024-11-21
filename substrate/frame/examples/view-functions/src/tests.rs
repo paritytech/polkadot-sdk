@@ -24,7 +24,7 @@ use crate::{
 	pallet2,
 };
 use codec::{Decode, Encode};
-use frame_support::traits::{DispatchQuery, Query};
+use frame_support::traits::{DispatchViewFunction, Query};
 
 #[test]
 fn pallet_get_value_query() {
@@ -34,7 +34,7 @@ fn pallet_get_value_query() {
 		assert_eq!(some_value, Pallet::<Runtime>::get_value());
 
 		let query = pallet::GetValueQuery::<Runtime>::new();
-		test_dispatch_query(&query, some_value);
+		test_dispatch_view_function(&query, some_value);
 	});
 }
 
@@ -47,7 +47,7 @@ fn pallet_get_value_with_arg_query() {
 		assert_eq!(some_value, Pallet::<Runtime>::get_value_with_arg(some_key));
 
 		let query = pallet::GetValueWithArgQuery::<Runtime>::new(some_key);
-		test_dispatch_query(&query, some_value);
+		test_dispatch_view_function(&query, some_value);
 	});
 }
 
@@ -63,14 +63,14 @@ fn pallet_multiple_instances() {
 		pallet2::SomeValue::<Runtime, Instance1>::set(instance1_value);
 
 		let query = pallet2::GetValueQuery::<Runtime>::new();
-		test_dispatch_query(&query, instance_value);
+		test_dispatch_view_function(&query, instance_value);
 
 		let query_instance1 = pallet2::GetValueQuery::<Runtime, Instance1>::new();
-		test_dispatch_query(&query_instance1, instance1_value);
+		test_dispatch_view_function(&query_instance1, instance1_value);
 	});
 }
 
-fn test_dispatch_query<Q, V>(query: &Q, expected: V)
+fn test_dispatch_view_function<Q, V>(query: &Q, expected: V)
 where
 	Q: Query + Encode,
 	V: Decode + Eq + PartialEq + std::fmt::Debug,

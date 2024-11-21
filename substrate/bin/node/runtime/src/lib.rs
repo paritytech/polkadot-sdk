@@ -101,7 +101,7 @@ use sp_consensus_beefy::{
 	mmr::MmrLeafVersion,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, ViewFunctionDispatchError, QueryId, H160};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, ViewFunctionDispatchError, ViewFunctionId, H160};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	curve::PiecewiseLinear,

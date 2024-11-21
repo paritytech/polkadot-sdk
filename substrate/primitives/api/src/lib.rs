@@ -115,7 +115,7 @@ pub mod __private {
 
 #[cfg(feature = "std")]
 pub use sp_core::traits::CallContext;
-use sp_core::{OpaqueMetadata, ViewFunctionDispatchError, QueryId};
+use sp_core::{OpaqueMetadata, ViewFunctionDispatchError, ViewFunctionId};
 #[cfg(feature = "std")]
 use sp_externalities::{Extension, Extensions};
 #[cfg(feature = "std")]

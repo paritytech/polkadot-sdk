@@ -139,8 +139,8 @@ pub use proving::*;
 #[cfg(feature = "try-runtime")]
 mod try_runtime;
 
-mod query;
-pub use query::{DispatchQuery, Query, QueryIdPrefix, QueryIdSuffix};
+mod view_function;
+pub use view_function::{DispatchViewFunction, Query, QueryIdPrefix, QueryIdSuffix};
 
 #[cfg(feature = "try-runtime")]
 pub use try_runtime::{

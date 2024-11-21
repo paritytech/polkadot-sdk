@@ -18,19 +18,19 @@
 use crate::construct_runtime::Pallet;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 
-/// Expands implementation of runtime level `DispatchQuery`.
+/// Expands implementation of runtime level `DispatchViewFunction`.
 pub fn expand_outer_query(
 	runtime_name: &Ident,
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream2,
 ) -> TokenStream2 {
-	let runtime_query = syn::Ident::new("RuntimeQuery", Span::call_site());
+	let runtime_query = syn::Ident::new("RuntimeViewFunction", Span::call_site());
 
 	let prefix_conditionals = pallet_decls.iter().map(|pallet| {
 		let pallet_name = &pallet.name;
 		quote::quote! {
-			if id.prefix == <#pallet_name as #scrate::traits::QueryIdPrefix>::prefix() {
-				return <#pallet_name as #scrate::traits::DispatchQuery>::dispatch_query(id, input, output)
+			if id.prefix == <#pallet_name as #scrate::traits::ViewFunctionIdPrefix>::prefix() {
+				return <#pallet_name as #scrate::traits::DispatchViewFunction>::dispatch_view_function(id, input, output)
 			}
 		}
 	});
@@ -47,9 +47,9 @@ pub fn expand_outer_query(
 		pub enum #runtime_query {}
 
 		const _: () = {
-			impl #scrate::traits::DispatchQuery for #runtime_query {
-				fn dispatch_query<O: #scrate::__private::codec::Output>(
-					id: & #scrate::__private::QueryId,
+			impl #scrate::traits::DispatchViewFunction for #runtime_query {
+				fn dispatch_view_function<O: #scrate::__private::codec::Output>(
+					id: & #scrate::__private::ViewFunctionId,
 					input: &mut &[u8],
 					output: &mut O
 				) -> Result<(), #scrate::__private::ViewFunctionDispatchError>
@@ -62,12 +62,12 @@ pub fn expand_outer_query(
 			impl #runtime_name {
 				/// Convenience function for query execution from the runtime API.
 				pub fn execute_query(
-					id: #scrate::__private::QueryId,
+					id: #scrate::__private::ViewFunctionId,
 					input: #scrate::__private::sp_std::vec::Vec<::core::primitive::u8>,
 				) -> Result<#scrate::__private::sp_std::vec::Vec<::core::primitive::u8>, #scrate::__private::ViewFunctionDispatchError>
 				{
 					let mut output = #scrate::__private::sp_std::vec![];
-					<#runtime_query as #scrate::traits::DispatchQuery>::dispatch_query(&id, &mut &input[..], &mut output)?;
+					<#runtime_query as #scrate::traits::DispatchViewFunction>::dispatch_view_function(&id, &mut &input[..], &mut output)?;
 					Ok(output)
 				}
 			}

@@ -18,20 +18,20 @@
 //! Traits for querying pallet view functions.
 
 use codec::{DecodeAll, Encode, Output};
-use sp_core::{ViewFunctionDispatchError, QueryId};
+use sp_core::{ViewFunctionDispatchError, ViewFunctionId};
 
 /// implemented by the runtime dispatching by prefix and then the pallet dispatching by suffix
-pub trait DispatchQuery {
-	fn dispatch_query<O: Output>(
-		id: &QueryId,
+pub trait DispatchViewFunction {
+	fn dispatch_view_function<O: Output>(
+		id: &ViewFunctionId,
 		input: &mut &[u8],
 		output: &mut O,
 	) -> Result<(), ViewFunctionDispatchError>;
 }
 
-impl DispatchQuery for () {
-	fn dispatch_query<O: Output>(
-		_id: &QueryId,
+impl DispatchViewFunction for () {
+	fn dispatch_view_function<O: Output>(
+		_id: &ViewFunctionId,
 		_input: &mut &[u8],
 		_output: &mut O,
 	) -> Result<(), ViewFunctionDispatchError> {
@@ -49,7 +49,7 @@ pub trait QueryIdSuffix {
 
 /// implemented for each pallet view function method
 pub trait Query: DecodeAll {
-	fn id() -> QueryId;
+	fn id() -> ViewFunctionId;
 	type ReturnType: Encode;
 
 	fn query(self) -> Self::ReturnType;
