@@ -1,6 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use frame_support::storage::StorageMap;
 use sp_std::marker::PhantomData;
 
+/// Sparse bitmap implementation.
 pub trait SparseBitmap<BitMap>
 where
 	BitMap: StorageMap<u128, u128, Query = u128>,

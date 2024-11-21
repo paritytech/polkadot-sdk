@@ -8,9 +8,9 @@ use snowbridge_router_primitives::inbound::v2::{ConvertMessage, Message};
 use xcm::latest::Xcm;
 
 pub fn dry_run<T>(message: Message, _proof: Proof) -> Result<Xcm<()>, Error<T>>
-    where
-        T: Config,
+where
+	T: Config,
 {
-    let xcm = T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?;
-    Ok(xcm)
+	let xcm = T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?;
+	Ok(xcm)
 }

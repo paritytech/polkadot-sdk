@@ -13,146 +13,146 @@ use codec::DecodeLimit;
 use snowbridge_router_primitives::inbound::v2::InboundAsset;
 use sp_core::H256;
 use xcm::{
-    opaque::latest::{
-        prelude::{ClearOrigin, ReceiveTeleportedAsset},
-        Asset,
-    },
-    prelude::*,
-    VersionedXcm, MAX_XCM_DECODE_DEPTH,
+	opaque::latest::{
+		prelude::{ClearOrigin, ReceiveTeleportedAsset},
+		Asset,
+	},
+	prelude::*,
+	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
 
 #[test]
 fn test_submit_happy_path() {
-    new_tester().execute_with(|| {
-        let relayer: AccountId = Keyring::Bob.into();
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
 
-        let origin = RuntimeOrigin::signed(relayer.clone());
+		let origin = RuntimeOrigin::signed(relayer.clone());
 
-        // Submit message
-        let message = Message {
-            event_log: mock_event_log(),
-            proof: Proof {
-                receipt_proof: Default::default(),
-                execution_proof: mock_execution_proof(),
-            },
-        };
+		// Submit message
+		let message = Message {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
 
-        assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
-        expect_events(vec![InboundQueueEvent::MessageReceived {
-            nonce: 1,
-            message_id: [
-                183, 243, 1, 130, 170, 254, 104, 45, 116, 181, 146, 237, 14, 139, 138, 89, 43, 166,
-                182, 24, 163, 222, 112, 238, 215, 83, 21, 160, 24, 88, 112, 9,
-            ],
-        }
-            .into()]);
-    });
+		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
+		expect_events(vec![InboundQueueEvent::MessageReceived {
+			nonce: 1,
+			message_id: [
+				183, 243, 1, 130, 170, 254, 104, 45, 116, 181, 146, 237, 14, 139, 138, 89, 43, 166,
+				182, 24, 163, 222, 112, 238, 215, 83, 21, 160, 24, 88, 112, 9,
+			],
+		}
+		.into()]);
+	});
 }
 
 #[test]
 fn test_submit_xcm_invalid_channel() {
-    new_tester().execute_with(|| {
-        let relayer: AccountId = Keyring::Bob.into();
-        let origin = RuntimeOrigin::signed(relayer);
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+		let origin = RuntimeOrigin::signed(relayer);
 
-        // Submit message
-        let message = Message {
-            event_log: mock_event_log_invalid_channel(),
-            proof: Proof {
-                receipt_proof: Default::default(),
-                execution_proof: mock_execution_proof(),
-            },
-        };
-        assert_noop!(
+		// Submit message
+		let message = Message {
+			event_log: mock_event_log_invalid_channel(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+		assert_noop!(
 			InboundQueue::submit(origin.clone(), message.clone()),
 			Error::<Test>::InvalidChannel,
 		);
-    });
+	});
 }
 
 #[test]
 fn test_submit_with_invalid_gateway() {
-    new_tester().execute_with(|| {
-        let relayer: AccountId = Keyring::Bob.into();
-        let origin = RuntimeOrigin::signed(relayer);
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+		let origin = RuntimeOrigin::signed(relayer);
 
-        // Submit message
-        let message = Message {
-            event_log: mock_event_log_invalid_gateway(),
-            proof: Proof {
-                receipt_proof: Default::default(),
-                execution_proof: mock_execution_proof(),
-            },
-        };
-        assert_noop!(
+		// Submit message
+		let message = Message {
+			event_log: mock_event_log_invalid_gateway(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+		assert_noop!(
 			InboundQueue::submit(origin.clone(), message.clone()),
 			Error::<Test>::InvalidGateway
 		);
-    });
+	});
 }
 
 #[test]
 fn test_submit_with_invalid_nonce() {
-    new_tester().execute_with(|| {
-        let relayer: AccountId = Keyring::Bob.into();
-        let origin = RuntimeOrigin::signed(relayer);
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+		let origin = RuntimeOrigin::signed(relayer);
 
-        // Submit message
-        let message = Message {
-            event_log: mock_event_log(),
-            proof: Proof {
-                receipt_proof: Default::default(),
-                execution_proof: mock_execution_proof(),
-            },
-        };
-        assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
+		// Submit message
+		let message = Message {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
+		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
 
-        // Submit the same again
-        assert_noop!(
+		// Submit the same again
+		assert_noop!(
 			InboundQueue::submit(origin.clone(), message.clone()),
 			Error::<Test>::InvalidNonce
 		);
-    });
+	});
 }
 
 #[test]
 fn test_set_operating_mode() {
-    new_tester().execute_with(|| {
-        let relayer: AccountId = Keyring::Bob.into();
-        let origin = RuntimeOrigin::signed(relayer);
-        let message = Message {
-            event_log: mock_event_log(),
-            proof: Proof {
-                receipt_proof: Default::default(),
-                execution_proof: mock_execution_proof(),
-            },
-        };
+	new_tester().execute_with(|| {
+		let relayer: AccountId = Keyring::Bob.into();
+		let origin = RuntimeOrigin::signed(relayer);
+		let message = Message {
+			event_log: mock_event_log(),
+			proof: Proof {
+				receipt_proof: Default::default(),
+				execution_proof: mock_execution_proof(),
+			},
+		};
 
-        assert_ok!(InboundQueue::set_operating_mode(
+		assert_ok!(InboundQueue::set_operating_mode(
 			RuntimeOrigin::root(),
 			snowbridge_core::BasicOperatingMode::Halted
 		));
 
-        assert_noop!(InboundQueue::submit(origin, message), Error::<Test>::Halted);
-    });
+		assert_noop!(InboundQueue::submit(origin, message), Error::<Test>::Halted);
+	});
 }
 
 #[test]
 fn test_set_operating_mode_root_only() {
-    new_tester().execute_with(|| {
-        assert_noop!(
+	new_tester().execute_with(|| {
+		assert_noop!(
 			InboundQueue::set_operating_mode(
 				RuntimeOrigin::signed(Keyring::Bob.into()),
 				snowbridge_core::BasicOperatingMode::Halted
 			),
 			DispatchError::BadOrigin
 		);
-    });
+	});
 }
 
 #[test]
 fn test_send_native_erc20_token_payload() {
-    new_tester().execute_with(|| {
+	new_tester().execute_with(|| {
         // To generate test data: forge test --match-test testSendEther  -vvvv
         let payload = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf04005615deb798bb3e4dfa0139dfa1b3d433cc23b72f0000b2d3595bf00600000000000000000000").to_vec();
         let message = MessageV2::decode(&mut payload.as_ref());
@@ -181,7 +181,7 @@ fn test_send_native_erc20_token_payload() {
 
 #[test]
 fn test_send_foreign_erc20_token_payload() {
-    new_tester().execute_with(|| {
+	new_tester().execute_with(|| {
         let payload = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf040197874824853fb4ad04794ccfd1cc8d2a7463839cfcbc6a315a1045c60ab85f400000b2d3595bf00600000000000000000000").to_vec();
         let message = MessageV2::decode(&mut payload.as_ref());
         assert_ok!(message.clone());
@@ -209,7 +209,7 @@ fn test_send_foreign_erc20_token_payload() {
 
 #[test]
 fn test_register_token_inbound_message_with_xcm_and_claimer() {
-    new_tester().execute_with(|| {
+	new_tester().execute_with(|| {
         let payload = hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a904005615deb798bb3e4dfa0139dfa1b3d433cc23b72f00000000000000000000000000000000300508020401000002286bee0a015029e3b139f4393adda86303fcdaa35f60bb7092bf").to_vec();
         let message = MessageV2::decode(&mut payload.as_ref());
         assert_ok!(message.clone());
@@ -260,49 +260,49 @@ fn test_register_token_inbound_message_with_xcm_and_claimer() {
 
 #[test]
 fn encode_xcm() {
-    new_tester().execute_with(|| {
-        let total_fee_asset: Asset = (Location::parent(), 1_000_000_000).into();
+	new_tester().execute_with(|| {
+		let total_fee_asset: Asset = (Location::parent(), 1_000_000_000).into();
 
-        let instructions: Xcm<()> =
-            vec![ReceiveTeleportedAsset(total_fee_asset.into()), ClearOrigin].into();
+		let instructions: Xcm<()> =
+			vec![ReceiveTeleportedAsset(total_fee_asset.into()), ClearOrigin].into();
 
-        let versioned_xcm_message = VersionedXcm::V5(instructions.clone());
+		let versioned_xcm_message = VersionedXcm::V5(instructions.clone());
 
-        let xcm_bytes = VersionedXcm::encode(&versioned_xcm_message);
-        let hex_string = hex::encode(xcm_bytes.clone());
+		let xcm_bytes = VersionedXcm::encode(&versioned_xcm_message);
+		let hex_string = hex::encode(xcm_bytes.clone());
 
-        println!("xcm hex: {}", hex_string);
+		println!("xcm hex: {}", hex_string);
 
-        let versioned_xcm = VersionedXcm::<()>::decode_with_depth_limit(
-            MAX_XCM_DECODE_DEPTH,
-            &mut xcm_bytes.as_ref(),
-        );
+		let versioned_xcm = VersionedXcm::<()>::decode_with_depth_limit(
+			MAX_XCM_DECODE_DEPTH,
+			&mut xcm_bytes.as_ref(),
+		);
 
-        assert_ok!(versioned_xcm.clone());
+		assert_ok!(versioned_xcm.clone());
 
-        // Check if decoding was successful
-        let decoded_instructions = match versioned_xcm.unwrap() {
-            VersionedXcm::V5(decoded) => decoded,
-            _ => {
-                panic!("unexpected xcm version found")
-            },
-        };
+		// Check if decoding was successful
+		let decoded_instructions = match versioned_xcm.unwrap() {
+			VersionedXcm::V5(decoded) => decoded,
+			_ => {
+				panic!("unexpected xcm version found")
+			},
+		};
 
-        let mut original_instructions = instructions.into_iter();
-        let mut decoded_instructions = decoded_instructions.into_iter();
+		let mut original_instructions = instructions.into_iter();
+		let mut decoded_instructions = decoded_instructions.into_iter();
 
-        let original_first = original_instructions.next().take();
-        let decoded_first = decoded_instructions.next().take();
-        assert_eq!(
-            original_first, decoded_first,
-            "First instruction (ReceiveTeleportedAsset) does not match."
-        );
+		let original_first = original_instructions.next().take();
+		let decoded_first = decoded_instructions.next().take();
+		assert_eq!(
+			original_first, decoded_first,
+			"First instruction (ReceiveTeleportedAsset) does not match."
+		);
 
-        let original_second = original_instructions.next().take();
-        let decoded_second = decoded_instructions.next().take();
-        assert_eq!(
-            original_second, decoded_second,
-            "Second instruction (ClearOrigin) does not match."
-        );
-    });
+		let original_second = original_instructions.next().take();
+		let decoded_second = decoded_instructions.next().take();
+		assert_eq!(
+			original_second, decoded_second,
+			"Second instruction (ClearOrigin) does not match."
+		);
+	});
 }

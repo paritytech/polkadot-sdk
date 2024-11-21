@@ -27,6 +27,7 @@ mod envelope;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+mod types;
 
 pub mod weights;
 
@@ -43,11 +44,12 @@ use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_std::vec;
+use types::Nonce;
 use xcm::prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm};
 
 use snowbridge_core::{
-    inbound::{Message, VerificationError, Verifier},
-    BasicOperatingMode,
+	inbound::{Message, VerificationError, Verifier},
+	BasicOperatingMode,
 };
 use snowbridge_router_primitives::inbound::v2::{ConvertMessage, Message as MessageV2};
 pub use weights::WeightInfo;
@@ -55,6 +57,7 @@ pub use weights::WeightInfo;
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_beacon_primitives::BeaconHeader;
 
+use snowbridge_core::sparse_bitmap::SparseBitmap;
 use snowbridge_router_primitives::inbound::v2::ConvertMessageError;
 
 pub use pallet::*;
@@ -63,178 +66,178 @@ pub const LOG_TARGET: &str = "snowbridge-inbound-queue:v2";
 
 #[frame_support::pallet]
 pub mod pallet {
-    use super::*;
+	use super::*;
 
-    use frame_support::pallet_prelude::*;
-    use frame_system::pallet_prelude::*;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 
-    #[pallet::pallet]
-    pub struct Pallet<T>(_);
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
 
-    #[cfg(feature = "runtime-benchmarks")]
-    pub trait BenchmarkHelper<T> {
-        fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
-    }
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelper<T> {
+		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
+	}
 
-    #[pallet::config]
-    pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        /// The verifier for inbound messages from Ethereum
-        type Verifier: Verifier;
+		/// The verifier for inbound messages from Ethereum
+		type Verifier: Verifier;
 
-        /// XCM message sender
-        type XcmSender: SendXcm;
-        /// Address of the Gateway contract
-        #[pallet::constant]
-        type GatewayAddress: Get<H160>;
-        type WeightInfo: WeightInfo;
-        /// AssetHub parachain ID
-        type AssetHubParaId: Get<u32>;
-        type MessageConverter: ConvertMessage;
-        #[cfg(feature = "runtime-benchmarks")]
-        type Helper: BenchmarkHelper<Self>;
-    }
+		/// XCM message sender
+		type XcmSender: SendXcm;
+		/// Address of the Gateway contract
+		#[pallet::constant]
+		type GatewayAddress: Get<H160>;
+		type WeightInfo: WeightInfo;
+		/// AssetHub parachain ID
+		type AssetHubParaId: Get<u32>;
+		type MessageConverter: ConvertMessage;
+		#[cfg(feature = "runtime-benchmarks")]
+		type Helper: BenchmarkHelper<Self>;
+	}
 
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
-    #[pallet::event]
-    #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event<T: Config> {
-        /// A message was received from Ethereum
-        MessageReceived {
-            /// The message nonce
-            nonce: u64,
-            /// ID of the XCM message which was forwarded to the final destination parachain
-            message_id: [u8; 32],
-        },
-        /// Set OperatingMode
-        OperatingModeChanged { mode: BasicOperatingMode },
-    }
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// A message was received from Ethereum
+		MessageReceived {
+			/// The message nonce
+			nonce: u64,
+			/// ID of the XCM message which was forwarded to the final destination parachain
+			message_id: [u8; 32],
+		},
+		/// Set OperatingMode
+		OperatingModeChanged { mode: BasicOperatingMode },
+	}
 
-    #[pallet::error]
-    pub enum Error<T> {
-        /// Message came from an invalid outbound channel on the Ethereum side.
-        InvalidGateway,
-        /// Message has an invalid envelope.
-        InvalidEnvelope,
-        /// Message has an unexpected nonce.
-        InvalidNonce,
-        /// Message has an invalid payload.
-        InvalidPayload,
-        /// Message channel is invalid
-        InvalidChannel,
-        /// The max nonce for the type has been reached
-        MaxNonceReached,
-        /// Cannot convert location
-        InvalidAccountConversion,
-        /// Pallet is halted
-        Halted,
-        /// Message verification error,
-        Verification(VerificationError),
-        /// XCMP send failure
-        Send(SendError),
-        /// Message conversion error
-        ConvertMessage(ConvertMessageError),
-    }
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Message came from an invalid outbound channel on the Ethereum side.
+		InvalidGateway,
+		/// Message has an invalid envelope.
+		InvalidEnvelope,
+		/// Message has an unexpected nonce.
+		InvalidNonce,
+		/// Message has an invalid payload.
+		InvalidPayload,
+		/// Message channel is invalid
+		InvalidChannel,
+		/// The max nonce for the type has been reached
+		MaxNonceReached,
+		/// Cannot convert location
+		InvalidAccountConversion,
+		/// Pallet is halted
+		Halted,
+		/// Message verification error,
+		Verification(VerificationError),
+		/// XCMP send failure
+		Send(SendError),
+		/// Message conversion error
+		ConvertMessage(ConvertMessageError),
+	}
 
-    #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, PalletError)]
-    pub enum SendError {
-        NotApplicable,
-        NotRoutable,
-        Transport,
-        DestinationUnsupported,
-        ExceedsMaxMessageSize,
-        MissingArgument,
-        Fees,
-    }
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo, PalletError)]
+	pub enum SendError {
+		NotApplicable,
+		NotRoutable,
+		Transport,
+		DestinationUnsupported,
+		ExceedsMaxMessageSize,
+		MissingArgument,
+		Fees,
+	}
 
-    impl<T: Config> From<XcmpSendError> for Error<T> {
-        fn from(e: XcmpSendError) -> Self {
-            match e {
-                XcmpSendError::NotApplicable => Error::<T>::Send(SendError::NotApplicable),
-                XcmpSendError::Unroutable => Error::<T>::Send(SendError::NotRoutable),
-                XcmpSendError::Transport(_) => Error::<T>::Send(SendError::Transport),
-                XcmpSendError::DestinationUnsupported =>
-                    Error::<T>::Send(SendError::DestinationUnsupported),
-                XcmpSendError::ExceedsMaxMessageSize =>
-                    Error::<T>::Send(SendError::ExceedsMaxMessageSize),
-                XcmpSendError::MissingArgument => Error::<T>::Send(SendError::MissingArgument),
-                XcmpSendError::Fees => Error::<T>::Send(SendError::Fees),
-            }
-        }
-    }
+	impl<T: Config> From<XcmpSendError> for Error<T> {
+		fn from(e: XcmpSendError) -> Self {
+			match e {
+				XcmpSendError::NotApplicable => Error::<T>::Send(SendError::NotApplicable),
+				XcmpSendError::Unroutable => Error::<T>::Send(SendError::NotRoutable),
+				XcmpSendError::Transport(_) => Error::<T>::Send(SendError::Transport),
+				XcmpSendError::DestinationUnsupported =>
+					Error::<T>::Send(SendError::DestinationUnsupported),
+				XcmpSendError::ExceedsMaxMessageSize =>
+					Error::<T>::Send(SendError::ExceedsMaxMessageSize),
+				XcmpSendError::MissingArgument => Error::<T>::Send(SendError::MissingArgument),
+				XcmpSendError::Fees => Error::<T>::Send(SendError::Fees),
+			}
+		}
+	}
 
-    /// The nonce of the message been processed or not
-    #[pallet::storage]
-    pub type Nonce<T: Config> = StorageMap<_, Twox64Concat, u128, u128, ValueQuery>;
+	/// The nonce of the message been processed or not
+	#[pallet::storage]
+	pub type NoncesBitmap<T: Config> = StorageMap<_, Twox64Concat, u128, u128, ValueQuery>;
 
-    /// The current operating mode of the pallet.
-    #[pallet::storage]
-    #[pallet::getter(fn operating_mode)]
-    pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
+	/// The current operating mode of the pallet.
+	#[pallet::storage]
+	#[pallet::getter(fn operating_mode)]
+	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
-    #[pallet::call]
-    impl<T: Config> Pallet<T> {
-        /// Submit an inbound message originating from the Gateway contract on Ethereum
-        #[pallet::call_index(0)]
-        #[pallet::weight(T::WeightInfo::submit())]
-        pub fn submit(origin: OriginFor<T>, message: Message) -> DispatchResult {
-            let _who = ensure_signed(origin)?;
-            ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Submit an inbound message originating from the Gateway contract on Ethereum
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::submit())]
+		pub fn submit(origin: OriginFor<T>, message: Message) -> DispatchResult {
+			let _who = ensure_signed(origin)?;
+			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
 
-            // submit message to verifier for verification
-            T::Verifier::verify(&message.event_log, &message.proof)
-                .map_err(|e| Error::<T>::Verification(e))?;
+			// submit message to verifier for verification
+			T::Verifier::verify(&message.event_log, &message.proof)
+				.map_err(|e| Error::<T>::Verification(e))?;
 
-            // Decode event log into an Envelope
-            let envelope =
-                Envelope::try_from(&message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+			// Decode event log into an Envelope
+			let envelope =
+				Envelope::try_from(&message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
 
-            // Verify that the message was submitted from the known Gateway contract
-            ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
+			// Verify that the message was submitted from the known Gateway contract
+			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
 
-            // Verify the message has not been processed
-            ensure!(!Nonce::<T>::contains_key(envelope.nonce), Error::<T>::InvalidNonce);
+			// Verify the message has not been processed
+			ensure!(!<Nonce<T>>::get(envelope.nonce.into()), Error::<T>::InvalidNonce);
 
-            // Decode payload into `MessageV2`
-            let message = MessageV2::decode_all(&mut envelope.payload.as_ref())
-                .map_err(|_| Error::<T>::InvalidPayload)?;
+			// Decode payload into `MessageV2`
+			let message = MessageV2::decode_all(&mut envelope.payload.as_ref())
+				.map_err(|_| Error::<T>::InvalidPayload)?;
 
-            let xcm =
-                T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?;
+			let xcm =
+				T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?;
 
-            // Todo: Deposit fee(in Ether) to RewardLeger which should cover all of:
-            // T::RewardLeger::deposit(who, envelope.fee.into())?;
-            // a. The submit extrinsic cost on BH
-            // b. The delivery cost to AH
-            // c. The execution cost on AH
-            // d. The execution cost on destination chain(if any)
-            // e. The reward
+			// Todo: Deposit fee(in Ether) to RewardLeger which should cover all of:
+			// T::RewardLeger::deposit(who, envelope.fee.into())?;
+			// a. The submit extrinsic cost on BH
+			// b. The delivery cost to AH
+			// c. The execution cost on AH
+			// d. The execution cost on destination chain(if any)
+			// e. The reward
 
-            // Attempt to forward XCM to AH
-            let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
-            let (message_id, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
-            Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
+			// Attempt to forward XCM to AH
+			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
+			let (message_id, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
+			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
 
-            // Set nonce flag to true
-            Nonce::<T>::insert(envelope.nonce, ());
+			// Set nonce flag to true
+			<Nonce<T>>::set(envelope.nonce.into());
 
-            Ok(())
-        }
+			Ok(())
+		}
 
-        /// Halt or resume all pallet operations. May only be called by root.
-        #[pallet::call_index(1)]
-        #[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
-        pub fn set_operating_mode(
-            origin: OriginFor<T>,
-            mode: BasicOperatingMode,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            OperatingMode::<T>::set(mode);
-            Self::deposit_event(Event::OperatingModeChanged { mode });
-            Ok(())
-        }
-    }
+		/// Halt or resume all pallet operations. May only be called by root.
+		#[pallet::call_index(1)]
+		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
+		pub fn set_operating_mode(
+			origin: OriginFor<T>,
+			mode: BasicOperatingMode,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			OperatingMode::<T>::set(mode);
+			Self::deposit_event(Event::OperatingModeChanged { mode });
+			Ok(())
+		}
+	}
 }

@@ -10,29 +10,29 @@ use snowbridge_pallet_inbound_queue_fixtures_v2::register_token::make_register_t
 
 #[benchmarks]
 mod benchmarks {
-    use super::*;
+	use super::*;
 
-    #[benchmark]
-    fn submit() -> Result<(), BenchmarkError> {
-        let caller: T::AccountId = whitelisted_caller();
+	#[benchmark]
+	fn submit() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
 
-        let create_message = make_register_token_message();
+		let create_message = make_register_token_message();
 
-        T::Helper::initialize_storage(
-            create_message.finalized_header,
-            create_message.block_roots_root,
-        );
+		T::Helper::initialize_storage(
+			create_message.finalized_header,
+			create_message.block_roots_root,
+		);
 
-        #[block]
-        {
-            assert_ok!(InboundQueue::<T>::submit(
+		#[block]
+		{
+			assert_ok!(InboundQueue::<T>::submit(
 				RawOrigin::Signed(caller.clone()).into(),
 				create_message.message,
 			));
-        }
+		}
 
-        Ok(())
-    }
+		Ok(())
+	}
 
-    impl_benchmark_test_suite!(InboundQueue, crate::mock::new_tester(), crate::mock::Test);
+	impl_benchmark_test_suite!(InboundQueue, crate::mock::new_tester(), crate::mock::Test);
 }

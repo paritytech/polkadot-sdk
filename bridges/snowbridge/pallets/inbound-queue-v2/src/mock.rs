@@ -6,17 +6,17 @@ use crate::{self as inbound_queue};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
-    types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
+	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{
-    inbound::{Log, Proof, VerificationError},
-    TokenId,
+	inbound::{Log, Proof, VerificationError},
+	TokenId,
 };
 use snowbridge_router_primitives::inbound::v2::MessageToXcm;
 use sp_core::H160;
 use sp_runtime::{
-    traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
-    BuildStorage, MultiSignature,
+	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
+	BuildStorage, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, prelude::*};
@@ -40,10 +40,10 @@ type Balance = u128;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-    type AccountId = AccountId;
-    type Lookup = IdentityLookup<Self::AccountId>;
-    type AccountData = pallet_balances::AccountData<u128>;
-    type Block = Block;
+	type AccountId = AccountId;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type AccountData = pallet_balances::AccountData<u128>;
+	type Block = Block;
 }
 
 parameter_types! {
@@ -52,9 +52,9 @@ parameter_types! {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-    type Balance = Balance;
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
+	type Balance = Balance;
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = System;
 }
 
 parameter_types! {
@@ -83,63 +83,63 @@ parameter_types! {
 }
 
 impl snowbridge_pallet_ethereum_client::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type ForkVersions = ChainForkVersions;
-    type FreeHeadersInterval = ConstU32<32>;
-    type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type ForkVersions = ChainForkVersions;
+	type FreeHeadersInterval = ConstU32<32>;
+	type WeightInfo = ();
 }
 
 // Mock verifier
 pub struct MockVerifier;
 
 impl Verifier for MockVerifier {
-    fn verify(_: &Log, _: &Proof) -> Result<(), VerificationError> {
-        Ok(())
-    }
+	fn verify(_: &Log, _: &Proof) -> Result<(), VerificationError> {
+		Ok(())
+	}
 }
 
 const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
-    // not implemented since the MockVerifier is used for tests
-    fn initialize_storage(_: BeaconHeader, _: H256) {}
+	// not implemented since the MockVerifier is used for tests
+	fn initialize_storage(_: BeaconHeader, _: H256) {}
 }
 
 // Mock XCM sender that always succeeds
 pub struct MockXcmSender;
 
 impl SendXcm for MockXcmSender {
-    type Ticket = Xcm<()>;
+	type Ticket = Xcm<()>;
 
-    fn validate(
-        dest: &mut Option<Location>,
-        xcm: &mut Option<Xcm<()>>,
-    ) -> SendResult<Self::Ticket> {
-        if let Some(location) = dest {
-            match location.unpack() {
-                (_, [Parachain(1001)]) => return Err(XcmpSendError::NotApplicable),
-                _ => Ok((xcm.clone().unwrap(), Assets::default())),
-            }
-        } else {
-            Ok((xcm.clone().unwrap(), Assets::default()))
-        }
-    }
+	fn validate(
+		dest: &mut Option<Location>,
+		xcm: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		if let Some(location) = dest {
+			match location.unpack() {
+				(_, [Parachain(1001)]) => return Err(XcmpSendError::NotApplicable),
+				_ => Ok((xcm.clone().unwrap(), Assets::default())),
+			}
+		} else {
+			Ok((xcm.clone().unwrap(), Assets::default()))
+		}
+	}
 
-    fn deliver(xcm: Self::Ticket) -> core::result::Result<XcmHash, XcmpSendError> {
-        let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-        Ok(hash)
-    }
+	fn deliver(xcm: Self::Ticket) -> core::result::Result<XcmHash, XcmpSendError> {
+		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		Ok(hash)
+	}
 }
 
 pub struct MockTokenIdConvert;
 impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
-    fn convert(_id: &TokenId) -> Option<Location> {
-        Some(Location::parent())
-    }
-    fn convert_back(_loc: &Location) -> Option<TokenId> {
-        None
-    }
+	fn convert(_id: &TokenId) -> Option<Location> {
+		Some(Location::parent())
+	}
+	fn convert_back(_loc: &Location) -> Option<TokenId> {
+		None
+	}
 }
 
 parameter_types! {
@@ -150,41 +150,41 @@ parameter_types! {
 }
 
 impl inbound_queue::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type Verifier = MockVerifier;
-    type XcmSender = MockXcmSender;
-    type WeightInfo = ();
-    type GatewayAddress = GatewayAddress;
-    type AssetHubParaId = ConstU32<1000>;
-    type MessageConverter =
-    MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, MockTokenIdConvert>;
-    #[cfg(feature = "runtime-benchmarks")]
-    type Helper = Test;
+	type RuntimeEvent = RuntimeEvent;
+	type Verifier = MockVerifier;
+	type XcmSender = MockXcmSender;
+	type WeightInfo = ();
+	type GatewayAddress = GatewayAddress;
+	type AssetHubParaId = ConstU32<1000>;
+	type MessageConverter =
+		MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, MockTokenIdConvert>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = Test;
 }
 
 pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
-    frame_system::Pallet::<Test>::events()
-        .into_iter()
-        .rev()
-        .take(n)
-        .rev()
-        .map(|e| e.event)
-        .collect()
+	frame_system::Pallet::<Test>::events()
+		.into_iter()
+		.rev()
+		.take(n)
+		.rev()
+		.map(|e| e.event)
+		.collect()
 }
 
 pub fn expect_events(e: Vec<RuntimeEvent>) {
-    assert_eq!(last_events(e.len()), e);
+	assert_eq!(last_events(e.len()), e);
 }
 
 pub fn setup() {
-    System::set_block_number(1);
+	System::set_block_number(1);
 }
 
 pub fn new_tester() -> sp_io::TestExternalities {
-    let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-    let mut ext: sp_io::TestExternalities = storage.into();
-    ext.execute_with(setup);
-    ext
+	let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	let mut ext: sp_io::TestExternalities = storage.into();
+	ext.execute_with(setup);
+	ext
 }
 
 // Generated from smoketests:
@@ -192,7 +192,7 @@ pub fn new_tester() -> sp_io::TestExternalities {
 //   ./make-bindings
 //   cargo test --test register_token -- --nocapture
 pub fn mock_event_log() -> Log {
-    Log {
+	Log {
         // gateway address
         address: hex!("eda338e4dc46038493b885327842fd3e301cab39").into(),
         topics: vec![
@@ -208,7 +208,7 @@ pub fn mock_event_log() -> Log {
 }
 
 pub fn mock_event_log_invalid_channel() -> Log {
-    Log {
+	Log {
         address: hex!("eda338e4dc46038493b885327842fd3e301cab39").into(),
         topics: vec![
             hex!("7153f9357c8ea496bba60bf82e67143e27b64462b49041f8e689e1b05728f84f").into(),
@@ -221,7 +221,7 @@ pub fn mock_event_log_invalid_channel() -> Log {
 }
 
 pub fn mock_event_log_invalid_gateway() -> Log {
-    Log {
+	Log {
         // gateway address
         address: H160::zero(),
         topics: vec![
@@ -237,28 +237,28 @@ pub fn mock_event_log_invalid_gateway() -> Log {
 }
 
 pub fn mock_execution_proof() -> ExecutionProof {
-    ExecutionProof {
-        header: BeaconHeader::default(),
-        ancestry_proof: None,
-        execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
-            parent_hash: Default::default(),
-            fee_recipient: Default::default(),
-            state_root: Default::default(),
-            receipts_root: Default::default(),
-            logs_bloom: vec![],
-            prev_randao: Default::default(),
-            block_number: 0,
-            gas_limit: 0,
-            gas_used: 0,
-            timestamp: 0,
-            extra_data: vec![],
-            base_fee_per_gas: Default::default(),
-            block_hash: Default::default(),
-            transactions_root: Default::default(),
-            withdrawals_root: Default::default(),
-            blob_gas_used: 0,
-            excess_blob_gas: 0,
-        }),
-        execution_branch: vec![],
-    }
+	ExecutionProof {
+		header: BeaconHeader::default(),
+		ancestry_proof: None,
+		execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
+			parent_hash: Default::default(),
+			fee_recipient: Default::default(),
+			state_root: Default::default(),
+			receipts_root: Default::default(),
+			logs_bloom: vec![],
+			prev_randao: Default::default(),
+			block_number: 0,
+			gas_limit: 0,
+			gas_used: 0,
+			timestamp: 0,
+			extra_data: vec![],
+			base_fee_per_gas: Default::default(),
+			block_hash: Default::default(),
+			transactions_root: Default::default(),
+			withdrawals_root: Default::default(),
+			blob_gas_used: 0,
+			excess_blob_gas: 0,
+		}),
+		execution_branch: vec![],
+	}
 }
