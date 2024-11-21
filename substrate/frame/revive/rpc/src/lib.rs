@@ -137,7 +137,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
 		let hash = H256(keccak_256(&transaction.0));
 
-		let tx = rlp::decode::<TransactionLegacySigned>(&transaction.0).map_err(|err| {
+		let tx = TransactionSigned::decode(&transaction.0).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
 			EthRpcError::from(err)
 		})?;
@@ -147,21 +147,10 @@ impl EthRpcServer for EthRpcServerImpl {
 			EthRpcError::InvalidSignature
 		})?;
 
+		let tx = GenericTransaction::from_signed(tx, Some(eth_addr));
+
 		// Dry run the transaction to get the weight limit and storage deposit limit
-		let TransactionLegacyUnsigned { to, input, value, .. } = tx.transaction_legacy_unsigned;
-		let dry_run = self
-			.client
-			.dry_run(
-				&GenericTransaction {
-					from: Some(eth_addr),
-					input: Some(input.clone()),
-					to,
-					value: Some(value),
-					..Default::default()
-				},
-				BlockTag::Latest.into(),
-			)
-			.await?;
+		let dry_run = self.client.dry_run(&tx, BlockTag::Latest.into()).await?;
 
 		let EthContractResult { gas_required, storage_deposit, .. } = dry_run;
 		let call = subxt_client::tx().revive().eth_transact(
@@ -174,11 +163,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(hash)
 	}
 
-	async fn send_transaction(&self, transaction: GenericTransaction) -> RpcResult<H256> {
+	async fn send_transaction(&self, mut transaction: GenericTransaction) -> RpcResult<H256> {
 		log::debug!(target: LOG_TARGET, "{transaction:#?}");
-		let GenericTransaction { from, gas, gas_price, input, to, value, r#type, .. } = transaction;
 
-		let Some(from) = from else {
+		let Some(from) = transaction.from else {
 			log::debug!(target: LOG_TARGET, "Transaction must have a sender");
 			return Err(EthRpcError::InvalidTransaction.into());
 		};
@@ -189,27 +177,26 @@ impl EthRpcServer for EthRpcServerImpl {
 			.find(|account| account.address() == from)
 			.ok_or(EthRpcError::AccountNotFound(from))?;
 
-		let gas_price = gas_price.unwrap_or_else(|| U256::from(GAS_PRICE));
-		let chain_id = Some(self.client.chain_id().into());
-		let input = input.unwrap_or_default();
-		let value = value.unwrap_or_default();
-		let r#type = r#type.unwrap_or_default();
+		if transaction.gas.is_none() {
+			transaction.gas = Some(self.estimate_gas(transaction.clone(), None).await?);
+		}
 
-		let Some(gas) = gas else {
-			log::debug!(target: LOG_TARGET, "Transaction must have a gas limit");
-			return Err(EthRpcError::InvalidTransaction.into());
-		};
+		if transaction.gas_price.is_none() {
+			transaction.gas_price = Some(self.gas_price().await?);
+		}
 
-		let r#type = Type0::try_from_byte(r#type.clone())
-			.map_err(|_| EthRpcError::TransactionTypeNotSupported(r#type))?;
+		if transaction.nonce.is_none() {
+			transaction.nonce =
+				Some(self.get_transaction_count(from, BlockTag::Latest.into()).await?);
+		}
 
-		let nonce = self.get_transaction_count(from, BlockTag::Latest.into()).await?;
+		if transaction.chain_id.is_none() {
+			transaction.chain_id = Some(self.chain_id().await?);
+		}
 
-		let tx =
-			TransactionLegacyUnsigned { chain_id, gas, gas_price, input, nonce, to, value, r#type };
-		let tx = account.sign_transaction(tx);
-		let rlp_bytes = rlp::encode(&tx).to_vec();
-		self.send_raw_transaction(Bytes(rlp_bytes)).await
+		let tx = transaction.try_into_unsigned().map_err(|_| EthRpcError::InvalidTransaction)?;
+		let payload = account.sign_transaction(tx).signed_payload();
+		self.send_raw_transaction(Bytes(payload)).await
 	}
 
 	async fn get_block_by_hash(
