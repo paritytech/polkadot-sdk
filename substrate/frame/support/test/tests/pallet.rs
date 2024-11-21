@@ -816,8 +816,7 @@ mod runtime {
 	pub struct Runtime;
 
 	#[runtime::pallet_index(0)]
-	#[runtime::disable_metadata]
-	pub type System = frame_system;
+	pub type System = frame_system + Call + Event<T>;
 
 	#[runtime::pallet_index(1)]
 	pub type Example = pallet;

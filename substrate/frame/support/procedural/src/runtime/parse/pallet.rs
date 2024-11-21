@@ -30,7 +30,6 @@ impl Pallet {
 		pallet_index: u8,
 		disable_call: bool,
 		disable_unsigned: bool,
-		disable_metadata: bool,
 		bounds: &Punctuated<syn::TypeParamBound, token::Plus>,
 	) -> syn::Result<Self> {
 		let name = item.ident.clone();
@@ -71,10 +70,6 @@ impl Pallet {
 					false
 				} else if let (true, &PalletPartKeyword::ValidateUnsigned(_)) =
 					(disable_unsigned, &part.keyword)
-				{
-					false
-				} else if let (true, &PalletPartKeyword::Pallet(_)) =
-					(disable_metadata, &part.keyword)
 				{
 					false
 				} else {

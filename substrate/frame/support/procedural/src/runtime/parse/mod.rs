@@ -39,7 +39,6 @@ mod keyword {
 	custom_keyword!(pallet_index);
 	custom_keyword!(disable_call);
 	custom_keyword!(disable_unsigned);
-	custom_keyword!(disable_metadata);
 }
 
 enum RuntimeAttr {
@@ -48,7 +47,6 @@ enum RuntimeAttr {
 	PalletIndex(proc_macro2::Span, u8),
 	DisableCall(proc_macro2::Span),
 	DisableUnsigned(proc_macro2::Span),
-	DisableMetadata(proc_macro2::Span),
 }
 
 impl RuntimeAttr {
@@ -59,7 +57,6 @@ impl RuntimeAttr {
 			Self::PalletIndex(span, _) => *span,
 			Self::DisableCall(span) => *span,
 			Self::DisableUnsigned(span) => *span,
-			Self::DisableMetadata(span) => *span,
 		}
 	}
 }
@@ -97,8 +94,6 @@ impl syn::parse::Parse for RuntimeAttr {
 			Ok(RuntimeAttr::DisableCall(content.parse::<keyword::disable_call>()?.span()))
 		} else if lookahead.peek(keyword::disable_unsigned) {
 			Ok(RuntimeAttr::DisableUnsigned(content.parse::<keyword::disable_unsigned>()?.span()))
-		} else if lookahead.peek(keyword::disable_metadata) {
-			Ok(RuntimeAttr::DisableMetadata(content.parse::<keyword::disable_metadata>()?.span()))
 		} else {
 			Err(lookahead.error())
 		}
@@ -159,7 +154,6 @@ impl Def {
 
 			let mut disable_call = false;
 			let mut disable_unsigned = false;
-			let mut disable_metadata = false;
 
 			while let Some(runtime_attr) =
 				helper::take_first_item_runtime_attr::<RuntimeAttr>(item)?
@@ -182,7 +176,6 @@ impl Def {
 					},
 					RuntimeAttr::DisableCall(_) => disable_call = true,
 					RuntimeAttr::DisableUnsigned(_) => disable_unsigned = true,
-					RuntimeAttr::DisableMetadata(_) => disable_metadata = true,
 					attr => {
 						let msg = "Invalid duplicated attribute";
 						return Err(syn::Error::new(attr.span(), msg));
@@ -215,7 +208,6 @@ impl Def {
 							pallet_index,
 							disable_call,
 							disable_unsigned,
-							disable_metadata,
 							&bounds,
 						)?;
 
