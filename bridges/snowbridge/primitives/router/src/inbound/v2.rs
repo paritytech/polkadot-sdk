@@ -115,7 +115,7 @@ for MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId>
         let fee: xcm::prelude::Asset = (fee_asset, fee_value).into();
         let mut instructions = vec![
             ReceiveTeleportedAsset(fee.clone().into()),
-            BuyExecution { fees: fee, weight_limit: Unlimited },
+            PayFees { asset: fee },
             DescendOrigin(PalletInstance(InboundQueuePalletInstance::get()).into()),
             UniversalOrigin(GlobalConsensus(network)),
         ];
