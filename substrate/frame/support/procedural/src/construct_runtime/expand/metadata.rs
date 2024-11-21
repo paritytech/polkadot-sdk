@@ -160,9 +160,9 @@ pub fn expand_runtime_metadata(
 						event_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeEvent>(),
 						error_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeError>(),
 					},
-					query: #scrate::__private::metadata_ir::RuntimeQueryIR {
+					query: #scrate::__private::metadata_ir::RuntimeViewFunctionIR {
 						ty: #scrate::__private::scale_info::meta_type::<
-							<#runtime as #system_path::Config>::RuntimeQuery
+							<#runtime as #system_path::Config>::RuntimeViewFunction
 						>(),
 						interfaces: #scrate::__private::sp_std::vec![ #(#queries),* ],
 					}

@@ -196,7 +196,7 @@ mod runtime {
 		RuntimeSlashReason,
 		RuntimeLockId,
 		RuntimeTask,
-		RuntimeQuery
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 

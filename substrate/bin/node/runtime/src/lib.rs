@@ -2381,7 +2381,7 @@ mod runtime {
 		RuntimeSlashReason,
 		RuntimeLockId,
 		RuntimeTask,
-		RuntimeQuery
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 
@@ -2923,7 +2923,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_api::RuntimeQuery<Block> for Runtime {
+	impl sp_api::RuntimeViewFunction<Block> for Runtime {
 		fn execute_view_function(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError> {
 			Runtime::execute_query(query_id, query)
 		}

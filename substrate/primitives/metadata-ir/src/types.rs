@@ -42,7 +42,7 @@ pub struct MetadataIR<T: Form = MetaForm> {
 	/// The outer enums types as found in the runtime.
 	pub outer_enums: OuterEnumsIR<T>,
 	/// Metadata of view function queries
-	pub query: RuntimeQueryIR<T>,
+	pub query: RuntimeViewFunctionIR<T>,
 }
 
 /// Metadata of a runtime trait.
@@ -122,7 +122,7 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 
 /// Metadata of the the runtime query dispatch.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
-pub struct RuntimeQueryIR<T: Form = MetaForm> {
+pub struct RuntimeViewFunctionIR<T: Form = MetaForm> {
 	/// The type implementing the runtime query dispatch.
 	pub ty: T::Type,
 	/// The query interfaces metadata.

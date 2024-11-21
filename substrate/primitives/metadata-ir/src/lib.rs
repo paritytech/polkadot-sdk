@@ -95,7 +95,7 @@ mod test {
 				event_enum_ty: meta_type::<()>(),
 				error_enum_ty: meta_type::<()>(),
 			},
-			query: RuntimeQueryIR { ty: meta_type::<()>(), interfaces: vec![] },
+			query: RuntimeViewFunctionIR { ty: meta_type::<()>(), interfaces: vec![] },
 		}
 	}
 
