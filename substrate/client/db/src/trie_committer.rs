@@ -53,11 +53,7 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> hash_db::HashDB<H, DBValue>
 
 	fn insert(&mut self, prefix: Prefix, value: &[u8]) -> H::Out {
 		let key = H::hash(value);
-
-		let db_key = sp_trie::prefixed_key::<H>(&key, prefix);
-		let tx = Transaction(vec![Change::Set(columns::STATE, db_key, value.to_vec())]);
-		self.trie_database.commit(tx).expect("TODO: handle unwrap properly");
-
+		self.emplace(key, prefix, value.to_vec());
 		key
 	}
 
