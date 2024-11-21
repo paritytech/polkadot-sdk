@@ -403,6 +403,10 @@ pub mod pallet {
 		PayoutError,
 		/// No progress in payouts was made
 		PayoutInconclusive,
+		/// There was issue with refunding the bounty
+		RefundError,
+		/// No progress was made processing a refund
+		RefundInconclusive,
 	}
 
 	// TODO: add new parameters for events
@@ -445,12 +449,8 @@ pub mod pallet {
 
 	/// Bounties that have been made.
 	#[pallet::storage]
-	pub type Bounties<T: Config<I>, I: 'static = ()> = StorageMap<
-		_,
-		Twox64Concat,
-		BountyIndex,
-		BountyOf<T, I>,
-	>;
+	pub type Bounties<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Twox64Concat, BountyIndex, BountyOf<T, I>>;
 
 	/// The description of each bounty.
 	#[pallet::storage]
@@ -890,7 +890,7 @@ pub mod pallet {
 			Bounties::<T, I>::try_mutate_exists(
 				bounty_id,
 				|maybe_bounty| -> DispatchResultWithPostInfo {
-					let bounty = maybe_bounty.as_ref().ok_or(Error::<T, I>::InvalidIndex)?;
+					let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
 					// Ensure no active child bounties before processing the call.
 					ensure!(
@@ -933,19 +933,39 @@ pub mod pallet {
 							// Then execute removal of the bounty below.
 						},
 						BountyStatus::PendingPayout { .. } |
-						BountyStatus::PayoutAttempted { .. } |
-						BountyStatus::RefundAttempted { .. } => {
+						BountyStatus::PayoutAttempted { .. } => {
 							// Bounty is already pending payout. If council wants to cancel
 							// this bounty, it should mean the curator was acting maliciously.
 							// So the council should first unassign the curator, slashing their
 							// deposit.
 							return Err(Error::<T, I>::PendingPayout.into())
 						},
+						BountyStatus::RefundAttempted { .. } => {
+							// Bounty refund is already attempted. Flow should be
+							// finished with calling `check_payment_status`
+							// or retrying payment with `process_payment`
+							// if it failed
+							return Err(Error::<T, I>::PendingPayout.into())
+						},
 					}
 
-					// let bounty_account = Self::bounty_account_id(bounty_id);
+					let treasury_account = Self::account_id();
+					let bounty_account = Self::bounty_account_id(bounty_id);
+					let payment_id = T::Paymaster::pay(
+						&bounty_account,
+						&treasury_account,
+						bounty.asset_kind.clone(),
+						bounty.value,
+					)
+					.map_err(|_| Error::<T, I>::RefundError)?;
+					bounty.status = BountyStatus::RefundAttempted {
+						payment_status: PaymentState::Attempted { id: payment_id },
+					};
 
-					BountyDescriptions::<T, I>::remove(bounty_id);
+					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into())
+
+					// TODO: move to check payment
+					// BountyDescriptions::<T, I>::remove(bounty_id);
 
 					// TODO: convert to beneficiary and asset transfer
 					// let balance = T::Currency::free_balance(&bounty_account);
@@ -957,11 +977,11 @@ pub mod pallet {
 					// ); // should not fail
 					// debug_assert!(res.is_ok());
 
-					*maybe_bounty = None;
-					T::ChildBountyManager::bounty_removed(bounty_id);
+					// *maybe_bounty = None;
+					// T::ChildBountyManager::bounty_removed(bounty_id);
 
-					Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
-					Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
+					// Self::deposit_event(Event::<T, I>::BountyCanceled { index: bounty_id });
+					// Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_active()).into())
 				},
 			)
 		}
@@ -1145,6 +1165,17 @@ pub mod pallet {
 								Err(Error::<T, I>::PayoutError.into())
 							}
 						},
+						BountyStatus::RefundAttempted { ref mut payment_status } => {
+							let treasury_account = Self::account_id();
+							let bounty_account = Self::bounty_account_id(bounty_id);
+							Self::process_payment_status(
+								&bounty_account,
+								&treasury_account,
+								&bounty.asset_kind,
+								bounty.value,
+								payment_status,
+							)
+						},
 						_ => Err(Error::<T, I>::UnexpectedStatus.into()),
 					}
 				},
@@ -1200,22 +1231,28 @@ pub mod pallet {
 									beneficiary,
 								),
 							];
+
 							// best scenario, both payments have succeeded,
 							// emit events and advance state machine to the end
 							if payments_succeeded >= results.len() as i32 {
-								// all payments succeeded, move to the next state machine state
-								// *maybe_bounty = None;
-								// BountyDescriptions::<T, I>::remove(bounty_id);
-								// T::ChildBountyManager::bounty_removed(bounty_id);
+								// all payments succeeded, cleanup the bounty
+								let (_final_fee, payout) = Self::calculate_curator_fee_and_payout(
+									bounty_id,
+									bounty.fee,
+									bounty.value,
+								);
 
-								// Self::deposit_event(Event::<T, I>::BountyClaimed {
-								// 	index: bounty_id,
-								// 	asset_kind: bounty.asset_kind,
-								// 	asset_payout: payout,
-								// 	beneficiary,
-								// });
+								*maybe_bounty = None;
+								BountyDescriptions::<T, I>::remove(bounty_id);
+								T::ChildBountyManager::bounty_removed(bounty_id);
+								Self::deposit_event(Event::<T, I>::BountyClaimed {
+									index: bounty_id,
+									asset_kind: bounty.asset_kind.clone(),
+									asset_payout: payout,
+									beneficiary: beneficiary.0.clone(),
+								});
 
-								Ok(Pays::No.into())
+								return Ok(Pays::No.into());
 							} else if payments_progressed > 0 {
 								// some payments have progressed in the state machine
 								// return ok so these changes are saved to the state
@@ -1228,6 +1265,44 @@ pub mod pallet {
 
 								// no progress was made in the state machine if we're here,
 								return Err(Error::<T, I>::PayoutInconclusive.into())
+							}
+						},
+						BountyStatus::RefundAttempted { ref mut payment_status } => {
+							match payment_status {
+								PaymentState::Attempted { id } => {
+									match T::Paymaster::check_payment(*id) {
+										PaymentStatus::Success => {
+											// refund succeeded, cleanup the bounty
+											BountyDescriptions::<T, I>::remove(bounty_id);
+											T::ChildBountyManager::bounty_removed(bounty_id);
+											*maybe_bounty = None;
+											Self::deposit_event(Event::<T, I>::BountyCanceled {
+												index: bounty_id,
+											});
+											return Ok(Pays::No.into());
+										},
+										PaymentStatus::InProgress => {
+											// nothing new to report
+											return Err(Error::<T, I>::RefundInconclusive.into())
+										},
+										PaymentStatus::Unknown | PaymentStatus::Failure => {
+											// assume payment has failed, allow user to retry
+											*payment_status = PaymentState::Failed;
+											return Ok(Pays::Yes.into());
+										},
+									}
+								},
+								PaymentState::Pending | PaymentState::Failed => {
+									// nothing to do here, user should try calling
+									// `process_payment` again to try payment again
+									Err(Error::<T, I>::UnexpectedStatus.into())
+								},
+								PaymentState::Succeeded => {
+									// should never be reached, if refund succeeded
+									// it should have been removed from the bounties
+									// already
+									Err(Error::<T, I>::UnexpectedStatus.into())
+								},
 							}
 						},
 						_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
