@@ -18,12 +18,15 @@
 //! The crate's mock.
 
 use crate as pallet_asset_rate;
+/*
 use frame_support::derive_impl;
 use sp_runtime::BuildStorage;
+*/
+use frame::{runtime::prelude::{derive_impl, construct_runtime}, testing_prelude::BuildStorage, deps::frame_system, testing_prelude::TestExternalities};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -56,6 +59,6 @@ impl pallet_asset_rate::Config for Test {
 }
 
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
