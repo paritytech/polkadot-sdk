@@ -576,7 +576,7 @@ pub mod pallet {
 							.is_ok())
 					}
 				} else {
-					// If `derivation` is None, log or handle the error as needed.
+					// `derivation` is None, handle as needed.
 					log::error!(target: LOG_TARGET, "Derivation string is missing for runtime benchmarks.");
 				}
 			}
