@@ -34,7 +34,7 @@ pub struct Instance(polkavm::Instance<(), polkavm::CallError>);
 impl WasmModule for InstancePre {
 	fn new_instance(&self) -> Result<Box<dyn WasmInstance>, Error> {
 		// FIXME: Does not return `sc_executor_common::error::Error`.
-		Ok(Box::new(Instance(self.0.instantiate().unwrap())))
+		Ok(Box::new(Instance(self.0.instantiate()?)))
 	}
 }
 
