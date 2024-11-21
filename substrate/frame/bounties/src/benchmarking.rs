@@ -28,7 +28,7 @@ use frame_benchmarking::v1::{
 use frame_support::traits::Currency;
 use frame_system::{pallet_prelude::BlockNumberFor as SystemBlockNumberFor, RawOrigin};
 use sp_core::crypto::FromEntropy;
-use sp_runtime::traits::{BlockNumberProvider, Bounded};
+use sp_runtime::traits::BlockNumberProvider;
 
 use crate::Pallet as Bounties;
 use pallet_treasury::Pallet as Treasury;

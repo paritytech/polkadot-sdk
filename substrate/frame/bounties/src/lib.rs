@@ -128,14 +128,14 @@ type BountyOf<T, I> = Bounty<
 	<T as frame_system::Config>::AccountId,
 	DepositBalanceOf<T, I>,
 	BountyBalanceOf<T, I>,
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	<T as pallet_treasury::Config<I>>::AssetKind,
 	PaymentIdOf<T, I>,
 	<T as pallet_treasury::Config<I>>::Beneficiary,
 >;
 type BountyStatusOf<T, I> = BountyStatus<
 	<T as frame_system::Config>::AccountId,
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	PaymentIdOf<T, I>,
 	<T as pallet_treasury::Config<I>>::Beneficiary,
 >;
@@ -449,7 +449,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		BountyIndex,
-		BountyOf<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T, I>>,
+		BountyOf<T, I>,
 	>;
 
 	/// The description of each bounty.
