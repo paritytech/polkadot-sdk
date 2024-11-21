@@ -10203,9 +10203,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7286b1971f85d1d60be40ef49e81c1f3b5a0d8b83cfa02ab53591cdacae22901"
+checksum = "5b67484b8ac41e1cfdf012f65fa81e88c2ef5f8a7d6dec0e2678c2d06dc04530"
 dependencies = [
  "async-trait",
  "bs58",
@@ -11095,6 +11095,7 @@ name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
  "array-bytes",
+ "async-trait",
  "clap 4.5.13",
  "derive_more 0.99.17",
  "fs_extra",
@@ -17561,6 +17562,7 @@ dependencies = [
  "rococo-runtime",
  "rusty-fork",
  "sc-sysinfo",
+ "sc-tracing",
  "slotmap",
  "sp-core 28.0.0",
  "sp-maybe-compressed-blob 11.0.0",
@@ -23307,6 +23309,7 @@ version = "0.34.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
+ "async-trait",
  "futures",
  "futures-util",
  "hex",

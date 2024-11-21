@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs'
 import type { compile } from '@parity/revive'
 import { spawn } from 'node:child_process'
 import { parseArgs } from 'node:util'
+import { BaseContract } from 'ethers'
 
 type CompileOutput = Awaited<ReturnType<typeof compile>>
 type Abi = CompileOutput['contracts'][string][string]['abi']
@@ -41,7 +42,7 @@ if (geth) {
 			'--http.api',
 			'web3,eth,debug,personal,net',
 			'--http.port',
-			'8545',
+			'8546',
 			'--dev',
 			'--verbosity',
 			'0',
@@ -55,10 +56,14 @@ if (geth) {
 }
 
 export const provider = new JsonRpcProvider(
-	westend ? 'https://westend-asset-hub-eth-rpc.polkadot.io' : 'http://localhost:8545'
+	westend
+		? 'https://westend-asset-hub-eth-rpc.polkadot.io'
+		: geth
+			? 'http://localhost:8546'
+			: 'http://localhost:8545'
 )
 
-const signer = privateKey ? new Wallet(privateKey, provider) : await provider.getSigner()
+export const signer = privateKey ? new Wallet(privateKey, provider) : await provider.getSigner()
 console.log(`Signer address: ${await signer.getAddress()}, Nonce: ${await signer.getNonce()}`)
 
 /**
@@ -66,18 +71,16 @@ console.log(`Signer address: ${await signer.getAddress()}, Nonce: ${await signer
  * @param name - the contract name
  */
 export function getContract(name: string): { abi: Abi; bytecode: string } {
-	const file = geth
-		? readFileSync('evm-contracts.json', 'utf8')
-		: readFileSync('pvm-contracts.json', 'utf8')
-	const contracts = JSON.parse(file) as Record<string, { abi: Abi; bytecode: string }>
-	return contracts[name]
+	const bytecode = geth ? readFileSync(`evm/${name}.bin`) : readFileSync(`pvm/${name}.polkavm`)
+	const abi = JSON.parse(readFileSync(`abi/${name}.json`, 'utf8')) as Abi
+	return { abi, bytecode: Buffer.from(bytecode).toString('hex') }
 }
 
 /**
  * Deploy a contract
  * @returns the contract address
  **/
-export async function deploy(bytecode: string, abi: Abi, args: any[] = []): Promise<string> {
+export async function deploy(bytecode: string, abi: Abi, args: any[] = []): Promise<BaseContract> {
 	console.log('Deploying contract with', args)
 	const contractFactory = new ContractFactory(abi, bytecode, signer)
 
@@ -85,7 +88,8 @@ export async function deploy(bytecode: string, abi: Abi, args: any[] = []): Prom
 	await contract.waitForDeployment()
 	const address = await contract.getAddress()
 	console.log(`Contract deployed: ${address}`)
-	return address
+
+	return contract
 }
 
 /**
