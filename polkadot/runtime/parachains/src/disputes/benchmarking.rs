@@ -16,15 +16,21 @@
 
 use super::*;
 
-use frame_benchmarking::benchmarks;
+use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use sp_runtime::traits::One;
 
-benchmarks! {
-	force_unfreeze {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn force_unfreeze() {
 		Frozen::<T>::set(Some(One::one()));
-	}: _(RawOrigin::Root)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root);
+
 		assert!(Frozen::<T>::get().is_none())
 	}
 
