@@ -93,6 +93,12 @@ pub struct TimedTransactionSource {
 	pub timestamp: Option<Instant>,
 }
 
+impl From<TimedTransactionSource> for TransactionSource {
+	fn from(value: TimedTransactionSource) -> Self {
+		value.source
+	}
+}
+
 impl TimedTransactionSource {
 	/// Creates a new instance with an internal `TransactionSource::InBlock` source and an optional
 	/// timestamp.

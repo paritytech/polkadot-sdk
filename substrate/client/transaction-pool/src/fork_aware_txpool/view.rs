@@ -284,7 +284,7 @@ where
 				}
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
-						let validation_result = (api.validate_transaction(self.at.hash, tx.source.source, tx.data.clone()).await, tx.hash, tx);
+						let validation_result = (api.validate_transaction(self.at.hash, tx.source.clone().into(), tx.data.clone()).await, tx.hash, tx);
 						validation_results.push(validation_result);
 					} else {
 						self.revalidation_worker_channels.lock().as_mut().map(|ch| ch.remove_sender());

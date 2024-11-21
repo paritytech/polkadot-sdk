@@ -394,7 +394,7 @@ where
 
 		let validations_futures = input.into_iter().map(|(xt_hash, xt)| {
 			self.api
-				.validate_transaction(finalized_block.hash, xt.source.source, xt.tx())
+				.validate_transaction(finalized_block.hash, xt.source.clone().into(), xt.tx())
 				.map(move |validation_result| {
 					xt.validated_at
 						.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);

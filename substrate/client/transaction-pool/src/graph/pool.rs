@@ -427,7 +427,7 @@ impl<B: ChainApi> Pool<B> {
 		let validation_result = self
 			.validated_pool
 			.api()
-			.validate_transaction(block_hash, source.source, xt.clone())
+			.validate_transaction(block_hash, source.clone().into(), xt.clone())
 			.await;
 
 		let status = match validation_result {
