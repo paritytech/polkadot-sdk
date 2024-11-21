@@ -2244,6 +2244,84 @@ fn seconded_and_pending_for_para_above(
 ) -> Vec<usize> {
 	let leaf_paths = state.implicit_view.paths_to_relay_parent(relay_parent);
 	let mut result = vec![];
+
+	// When counting the number of seconded and pending candidates above the target relay parent we
+	// have to consider all forks. So first we take all paths from leaves to the target relay parent
+	// with `paths_to_relay_parent()`. Then for each path we calculate the number of secondend and
+	// pending candidates and return it as a result. All paths are returned and it's up to the
+	// caller to decide how to interpret them.
+	//
+	// For each path we keep track of two important values:
+	// - `claimed_slots` - this is the number of the slots in the path which are claimed by a relay
+	//   parent in the path. For simplicity we don't care what's claimed by the target relay parent.
+	//   It's up to the caller to handle this. This value is the end result we save for each path at
+	//   the end of the path iteration.
+	// - `unfulfilled_claims` - this is the number of advertisements for relay parents in the path
+	//   which we haven't mapped to actual claim queue slots (or relay parents) so far. This value
+	//   is used as an intermediate running sum of the claims and we don't return it as a result.
+	//
+	// How these two values work together to count the number of pending and seconded candidates
+	// above the target relay parent? Let's see an example. Let's say that:
+	// - our target relay parent is RP0 (to avoid confusion it is not shown in the diagram below).
+	// - the length of the claim queue (and lookahead) is 3
+	// - there are two parachains (A and B) sharing a core. So at each relay parent the claim queue
+	//   is either [ABA] or [BAB].
+	// - there are two advertisements for parachain A one for parachain B at RP1. They are A1, A2
+	//   and B2.
+
+	// We start iterating each path from the oldest relay parent to the leaf. At each ancestor we:
+	// 1. Get the number of pending and seconded candidates with `seconded_and_pending_for_para()`
+	//    and add it to `unfulfilled_claims`. These are the claims we have to map to the claim queue
+	//    and which we have to transfer to the next ancestor from the path.
+	// 2. Get the first assignment in the claim queue. If it is for the target `para_id` - we
+	//    subtract one from `unfulfilled_claims` because we have just mapped a claim to the current
+	//    spot. At the same time we add 1 to the `claimed_slots` because the slot at the current
+	//    ancestor is now claimed.
+	// 3. We repeat these steps until we reach the end leaf and return `claimed_slots`.
+
+	// Now back to our example. We have got this path. At each relay parent we have the state of the
+	// claim queue and the advertisements:
+	//
+	// CQ: [A B A]    CQ: [B A B]    CQ: [A B A]
+	//
+	// ┌───────┐      ┌───────┐      ┌───────┐
+	// │  RP1  ┼──────►  RP2  ┼──────►  RP3  │
+	// └───────┘      └───────┘      └───────┘
+	//   A1
+	//   B1────────────►
+	//   A2───────────────────────────►
+	//
+	// We start with `claimed_slots` and `unfulfilled_claims` both equal to 0. We will look at para
+	// A and B in parallel but in reality the coed is interested only in one of the paras.At RP1 we
+	// have got 2 claims for para A and 1 for para B. So `unfulfilled_claims` for para A will be 2
+	// and for para B - 1. The first element in the claim queue is for para A so we subtract 1 from
+	// `unfulfilled_claims` for para A and add 1 to claimed_slots for para A. Bottom line at the end
+	// of RP1 processing we have got:
+	// - claimed_slots for para A = 1
+	// - claimed_slots for para B = 0
+	// - unfulfilled_claims for para A = 1
+	// - unfulfilled_claims for para B = 1
+	//
+	// We move on to RP2. Nothing is scheduled here so we don't add anything to `unfulfilled_claims`
+	// for either A or B. The first element for CQ is B so we subtract 1 from `unfulfilled_claims`
+	// for B and add 1 to claimed_slots for B. At the end of RP2 processing we have got:
+	// - claimed_slots for para A = 1
+	// - claimed_slots for para B = 1
+	// - unfulfilled_claims for para A = 1
+	// - unfulfilled_claims for para B = 0
+	//
+	// Now we are at RP3. Again nothing is scheduled here so `unfulfilled_claims` for both A and B
+	// is unchanged. The first element in the claim queue is A so we subtract 1 from
+	// `unfulfilled_claims` for A and add 1 to claimed_slots for A. No changes for B. At the end of
+	// RP3 we have got:
+	// - claimed_slots for para A = 2
+	// - claimed_slots for para B = 1
+	// - unfulfilled_claims for para A = 0
+	// - unfulfilled_claims for para B = 0
+	// Which is our end result too. Note that in this example `unfulfilled_claims` reached 0 for
+	// both paras but this is not necessary always the case. They might be bigger than zero if there
+	// are claims which will be fulfilled at future relay parents. But we don't care for this.
+
 	for path in leaf_paths {
 		// Here we track how many first slots from the claim queue at the ancestors are actually
 		// claimed. This is the end result we care about.
