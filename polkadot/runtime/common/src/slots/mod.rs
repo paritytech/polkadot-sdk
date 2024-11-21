@@ -1010,7 +1010,8 @@ mod benchmarking {
 	}
 
 	#[benchmarks(
-		where_clause { where T: paras::Config }
+		where 
+			T: paras::Config,
 	)]
 
 	mod benchmarks {
@@ -1030,7 +1031,7 @@ mod benchmarking {
 				T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		
 		#[extrinsic_call]
-		_<T::RuntimeOrigin>(origin, para, leaser.clone(), amount, period_begin, period_count);
+		_(origin as T::RuntimeOrigin, para, leaser.clone(), amount, period_begin, period_count);
 
 			assert_last_event::<T>(Event::<T>::Leased {
 				para_id: para,
@@ -1046,7 +1047,7 @@ mod benchmarking {
 		// Worst case scenario, T on-demand parachains onboard, and C lease holding parachains offboard.
 		// Assume reasonable maximum of 100 paras at any time
 		#[benchmark]
-		fn manage_lease_period_start(c: Linear<0,100>, n : Linear<0,100>) -> Result<(), BenchmarkError> {
+		fn manage_lease_period_start(c: Linear<0,100>, t : Linear<0,100>) -> Result<(), BenchmarkError> {
 			let period_begin = 1u32.into();
 			let period_count = 4u32.into();
 
@@ -1132,7 +1133,7 @@ mod benchmarking {
 				T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		
 				#[extrinsic_call]
-				_<T::RuntimeOrigin>(origin, para);
+				_(origin as T::RuntimeOrigin, para);
 
 			for i in 0 .. max_people {
 				let leaser = account("lease_deposit", i, 0);
