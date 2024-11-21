@@ -199,6 +199,15 @@ impl ElectionScore {
 			_ => false,
 		}
 	}
+
+	/// Returns the max election score possible.
+	pub fn max() -> Self {
+		Self {
+			minimal_stake: ExtendedBalance::MAX,
+			sum_stake: ExtendedBalance::MAX,
+			sum_stake_squared: ExtendedBalance::MAX,
+		}
+	}
 }
 
 impl core::cmp::Ord for ElectionScore {

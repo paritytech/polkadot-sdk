@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use super::*;
-use crate::{unsigned::miner, verifier::weights::WeightInfo, MinerSupportsOf, SolutionOf};
+use crate::{
+	unsigned::miner, verifier::weights::WeightInfo, MinerSupportsOf, Pallet as CorePallet,
+	SolutionOf,
+};
 use pallet::*;
 
 use frame_election_provider_support::PageIndex;
@@ -400,7 +403,7 @@ impl<T: Config + impls::pallet::Config> Verifier for Pallet<T> {
 			crate::Snapshot::<T>::targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
 
 		// prepare range to fetch all pages of the target and voter snapshot.
-		let paged_range = 0..crate::Pallet::<T>::msp() + 1;
+		let paged_range = 0..CorePallet::<T>::msp() + 1;
 
 		// fetch all pages of the voter snapshot and collect them in a bounded vec.
 		let all_voter_pages: BoundedVec<_, T::Pages> = paged_range
@@ -422,6 +425,11 @@ impl<T: Config + impls::pallet::Config> Verifier for Pallet<T> {
 			page,
 		)
 	}
+
+	#[cfg(any(test, debug_assertions, feature = "runtime-benchmarks"))]
+	fn minimum_score() -> Option<ElectionScore> {
+		MinimumScore::<T>::get()
+	}
 }
 
 impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
@@ -441,7 +449,7 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 
 			if Self::ensure_score_quality(claimed_score).is_err() {
 				Self::deposit_event(Event::<T>::VerificationFailed(
-					crate::Pallet::<T>::msp(),
+					CorePallet::<T>::msp(),
 					FeasibilityError::ScoreTooLow,
 				));
 				// report to the solution data provider that the page verification failed.
@@ -449,7 +457,7 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 				// despite the verification failed, this was a successful `start` operation.
 				Ok(())
 			} else {
-				VerificationStatus::<T>::put(Status::Ongoing(crate::Pallet::<T>::msp()));
+				VerificationStatus::<T>::put(Status::Ongoing(CorePallet::<T>::msp()));
 				Ok(())
 			}
 		} else {
@@ -484,13 +492,12 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		let max_backers_winner = T::MaxBackersPerWinner::get();
 		let max_winners_page = T::MaxWinnersPerPage::get();
 
-		match crate::Pallet::<T>::current_phase() {
+		match CorePallet::<T>::current_phase() {
 			// reset remaining unsigned pages after snapshot is created.
-			crate::Phase::Snapshot(page) if page == crate::Pallet::<T>::lsp() => {
+			crate::Phase::Snapshot(page) if page == CorePallet::<T>::lsp() => {
 				RemainingUnsignedPages::<T>::mutate(|remaining| {
 					*remaining = BoundedVec::truncate_from(
-						(crate::Pallet::<T>::lsp()..crate::Pallet::<T>::msp() + 1)
-							.collect::<Vec<_>>(),
+						(CorePallet::<T>::lsp()..CorePallet::<T>::msp() + 1).collect::<Vec<_>>(),
 					);
 				});
 
@@ -514,7 +521,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 					"verifier",
 					"T::SolutionDataProvider failed to deliver page {} at {:?}.",
 					current_page,
-					crate::Pallet::<T>::current_phase(),
+					CorePallet::<T>::current_phase(),
 				);
 				// reset election data and notify the `T::SolutionDataProvider`.
 				QueuedSolution::<T>::clear_invalid_and_backings();
@@ -538,7 +545,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 					Self::deposit_event(Event::<T>::Verified(current_page, supports.len() as u32));
 					QueuedSolution::<T>::set_page(current_page, supports);
 
-					if current_page > crate::Pallet::<T>::lsp() {
+					if current_page > CorePallet::<T>::lsp() {
 						// election didn't finish, tick forward.
 						VerificationStatus::<T>::put(Status::Ongoing(
 							current_page.saturating_sub(1),
@@ -668,6 +675,12 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		ensure!(is_greater_than_min_trusted, FeasibilityError::ScoreTooLow);
 
 		Ok(())
+	}
+
+	/// Returns the current minimum score.
+	#[cfg(any(test, feature = "try-runtime"))]
+	pub(crate) fn minimum_score() -> Option<ElectionScore> {
+		MinimumScore::<T>::get()
 	}
 
 	/// Returns the number backings/pages verified and stored.

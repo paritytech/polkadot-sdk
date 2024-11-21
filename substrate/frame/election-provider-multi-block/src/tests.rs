@@ -48,9 +48,12 @@ mod phase_transition {
 			// tests transition phase boundaries.
             roll_to(*phase_transitions.get("snapshot").unwrap());
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Snapshot(Pages::get() - 1));
+            assert!(Snapshot::<T>::targets().is_some());
+            assert!(Snapshot::<T>::voters(0).is_none());
 
             roll_to(*phase_transitions.get("signed").unwrap());
             assert_eq!(<CurrentPhase<T>>::get(), Phase::Signed);
+            assert!(Snapshot::<T>::voters(0).is_some());
 
             roll_to(*phase_transitions.get("validate").unwrap());
             let start_validate = System::block_number();

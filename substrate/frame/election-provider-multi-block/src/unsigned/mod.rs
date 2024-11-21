@@ -70,7 +70,7 @@ use crate::{
 		miner::{OffchainMinerError, OffchainWorkerMiner},
 		weights::WeightInfo,
 	},
-	verifier, Phase, SolutionOf, Verifier,
+	verifier, Pallet as CorePallet, Phase, SolutionOf, Verifier,
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
@@ -235,7 +235,7 @@ pub(crate) mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			if crate::Pallet::<T>::current_phase() == Phase::Off {
+			if CorePallet::<T>::current_phase() == Phase::Off {
 				T::DbWeight::get().reads_writes(1, 1)
 			} else {
 				Default::default()
@@ -257,7 +257,7 @@ pub(crate) mod pallet {
 					T::UnsignedPhase::get().saturated_into(),
 				);
 
-			if crate::Pallet::<T>::current_phase().is_unsigned() {
+			if CorePallet::<T>::current_phase().is_unsigned() {
 				match lock.try_lock() {
 					Ok(_guard) => {
 						sublog!(info, "unsigned", "obtained offchain lock at {:?}", now);
@@ -304,7 +304,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_sync_offchain_worker(_now: BlockNumberFor<T>) -> Result<(), OffchainMinerError> {
 		let missing_solution_page = <T::Verifier as Verifier>::next_missing_solution_page();
 
-		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
+		match (CorePallet::<T>::current_phase(), missing_solution_page) {
 			(Phase::Unsigned(_), Some(page)) => {
 				let (full_score, partial_score, partial_solution) =
 					OffchainWorkerMiner::<T>::fetch_or_mine(page).map_err(|err| {
@@ -346,8 +346,8 @@ impl<T: Config> Pallet<T> {
 		claimed_full_score: &ElectionScore,
 	) -> Result<(), ()> {
 		// timing and metadata checks.
-		ensure!(crate::Pallet::<T>::current_phase().is_unsigned(), ());
-		ensure!(page <= crate::Pallet::<T>::msp(), ());
+		ensure!(CorePallet::<T>::current_phase().is_unsigned(), ());
+		ensure!(page <= CorePallet::<T>::msp(), ());
 
 		// full solution score check.
 		ensure!(<T::Verifier as Verifier>::ensure_score_quality(*claimed_full_score), ());

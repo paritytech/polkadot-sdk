@@ -20,7 +20,7 @@ use crate::{
 	mock::*,
 	signed::Error::{CannotClear, NotAcceptingSubmissions, SubmissionNotRegistered},
 	verifier::SolutionDataProvider,
-	Phase, Verifier,
+	CurrentPhase, Phase, Verifier,
 };
 use frame_support::{assert_noop, assert_ok, testing_prelude::*};
 use sp_npos_elections::ElectionScore;
@@ -230,9 +230,35 @@ mod calls {
 	}
 
 	#[test]
-	fn bail_fails_if_called_for_account_none() {
+	fn bail_before_page_submission_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			assert_err!(SignedPallet::bail(RuntimeOrigin::none()), BadOrigin);
+			let round = current_round();
+
+			roll_to_phase(Phase::Signed);
+			assert_ok!(assert_snapshots());
+
+			assert!(Submissions::<T>::scores_for(round).is_empty());
+			assert!(Submissions::<T>::metadata_for(round, &99).is_none());
+			assert!(Submissions::<T>::page_submission_for(round, 99, 0).is_none());
+
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+			// score and metadata for round and 99 exists.
+			assert!(
+				Submissions::<T>::scores_for(round).into_iter().filter(|s| s.0 == 99).count() == 1
+			);
+			assert!(Submissions::<T>::metadata_for(round, &99).is_some());
+			// no page submission though.
+			assert!(Submissions::<T>::page_submission_for(round, 99, 0).is_none());
+
+			assert_ok!(SignedPallet::bail(RuntimeOrigin::signed(99)));
+
+			// score and metadata for round and 99 was cleared successfully after bail.
+			assert!(
+				Submissions::<T>::scores_for(round).into_iter().filter(|s| s.0 == 99).count() == 0
+			);
+			assert!(Submissions::<T>::metadata_for(round, &99).is_none());
+			// still no page submission.
+			assert!(Submissions::<T>::page_submission_for(round, 99, 0).is_none());
 		})
 	}
 
@@ -428,6 +454,111 @@ mod calls {
 			);
 		})
 	}
+
+	#[test]
+	fn bail_after_submission_works() {
+		ExtBuilder::default().core_try_state(false).build_and_execute(|| {
+			let round = current_round();
+
+			roll_to_phase(Phase::Signed);
+			assert_ok!(assert_snapshots());
+
+			assert!(Submissions::<T>::scores_for(round).is_empty());
+			assert!(Submissions::<T>::metadata_for(round, &99).is_none());
+			assert!(Submissions::<T>::page_submission_for(round, 99, 0).is_none());
+
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+			// score and metadata for round and 99 exists.
+			assert!(
+				Submissions::<T>::scores_for(round).into_iter().filter(|s| s.0 == 99).count() == 1
+			);
+			assert!(Submissions::<T>::metadata_for(round, &99).is_some());
+			// no page submission though.
+			assert!(Submissions::<T>::page_submission_for(round, 99, 0).is_none());
+
+			// submit all pages.
+			for page in CorePallet::<T>::lsp()..=CorePallet::<T>::msp() {
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					page,
+					Some(Default::default())
+				));
+			}
+
+			// 3 pages submitted.
+			assert!(Submissions::<T>::page_submission_for(round, 99, 0).is_some());
+			assert!(Submissions::<T>::page_submission_for(round, 99, 1).is_some());
+			assert!(Submissions::<T>::page_submission_for(round, 99, 2).is_some());
+
+			assert_ok!(SignedPallet::bail(RuntimeOrigin::signed(99)));
+
+			// score for round and 99 was cleared successfully after bail.
+			assert!(
+				Submissions::<T>::scores_for(round).into_iter().filter(|s| s.0 == 99).count() == 0
+			);
+			// however, the metadata is kept in storage since there are paged submissions in
+			// storage.
+			assert!(Submissions::<T>::metadata_for(round, &99).is_some());
+
+			// 3 pages submitted remain in storage.
+			assert!(Submissions::<T>::page_submission_for(round, 99, 0).is_some());
+			assert!(Submissions::<T>::page_submission_for(round, 99, 1).is_some());
+			assert!(Submissions::<T>::page_submission_for(round, 99, 2).is_some());
+
+			// clearing the paged submissions can only be done during Phase::Off.
+			assert_eq!(current_phase(), Phase::Signed);
+			assert_noop!(
+				SignedPallet::force_clear_submission(RuntimeOrigin::signed(99), round, 99),
+				Error::<T>::CannotClear
+			);
+
+			// force phase Off.
+			CurrentPhase::<T>::set(Phase::Off);
+			assert_ok!(SignedPallet::force_clear_submission(RuntimeOrigin::signed(99), round, 99));
+
+			// 3 pages submitted have been cleared from storage.
+			assert!(Submissions::<T>::page_submission_for(round, 99, 0).is_none());
+			assert!(Submissions::<T>::page_submission_for(round, 99, 1).is_none());
+			assert!(Submissions::<T>::page_submission_for(round, 99, 2).is_none());
+
+			assert_eq!(
+				signed_events().pop(),
+				Some(Event::<T>::SubmissionCleared { round: 0, submitter: 99, reward: None })
+			);
+		})
+	}
+
+	#[test]
+	fn force_clear_submission_errors_work() {
+		ExtBuilder::default().build_and_execute(|| {
+			let round = current_round();
+
+			// clearing the paged submissions can only be called during Phase::Off.
+			for disabled_phase in vec![
+				Phase::Halted,
+				Phase::Signed,
+				Phase::SignedValidation(0),
+				Phase::Unsigned(0),
+				Phase::Snapshot(0),
+				Phase::Export(0),
+				Phase::Emergency,
+			] {
+				CurrentPhase::<T>::set(disabled_phase);
+				assert_noop!(
+					SignedPallet::force_clear_submission(RuntimeOrigin::signed(99), round, 99),
+					Error::<T>::CannotClear
+				);
+			}
+
+			CurrentPhase::<T>::set(Phase::Off);
+
+			// request force clear of a non existing submission.
+			assert_noop!(
+				SignedPallet::force_clear_submission(RuntimeOrigin::signed(99), round, 99),
+				Error::<T>::NoSubmission
+			);
+		})
+	}
 }
 
 mod deposit {
@@ -473,6 +604,7 @@ mod deposit {
 				1,
 				Some(Default::default())
 			));
+
 			assert_ok!(SignedPallet::submit_page(
 				RuntimeOrigin::signed(99),
 				0,
@@ -751,7 +883,7 @@ mod e2e {
 
 				// submit all pages of a noop solution;
 				let solution = TestNposSolution::default();
-				for page in (0..=MultiPhase::msp()).into_iter().rev() {
+				for page in (MultiPhase::lsp()..=MultiPhase::msp()).into_iter().rev() {
 					assert_ok!(SignedPallet::submit_page(
 						RuntimeOrigin::signed(10),
 						page,
@@ -763,6 +895,9 @@ mod e2e {
 						Some(solution.clone())
 					);
 				}
+
+				// finally, bailing a submission works as expected.
+				assert_ok!(SignedPallet::bail(RuntimeOrigin::signed(10)));
 
 				assert_eq!(
 					signed_events(),
@@ -779,6 +914,7 @@ mod e2e {
 						Event::PageStored { round: 0, who: 10, page: 2 },
 						Event::PageStored { round: 0, who: 10, page: 1 },
 						Event::PageStored { round: 0, who: 10, page: 0 },
+						Event::Bailed { round: 0, who: 10 },
 					]
 				);
 			})

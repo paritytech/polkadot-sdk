@@ -286,11 +286,12 @@ impl ElectionProvider for MockFallback {
 pub struct ExtBuilder {
 	minimum_score: Option<ElectionScore>,
 	core_try_state: bool,
+	signed_try_state: bool,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self { core_try_state: true, minimum_score: Some(Default::default()) }
+		Self { core_try_state: true, signed_try_state: true, minimum_score: Some(Default::default()) }
 	}
 }
 
@@ -376,6 +377,11 @@ impl ExtBuilder {
 		self
 	}
 
+	pub(crate) fn signed_try_state(mut self, enable: bool) -> Self {
+		self.signed_try_state = enable;
+		self
+	}
+
 	pub(crate) fn build(self) -> sp_io::TestExternalities {
 		let mut storage = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
 		let _ = pallet_balances::GenesisConfig::<T> {
@@ -438,6 +444,12 @@ impl ExtBuilder {
 			if self.core_try_state {
 				MultiPhase::do_try_state(System::block_number())
 					.map_err(|err| println!(" 🕵️‍♂️  Core pallet `try_state` failure: {:?}", err))
+					.unwrap();
+			}
+
+			if self.signed_try_state {
+				SignedPallet::do_try_state(System::block_number())
+					.map_err(|err| println!(" 🕵️‍♂️  Signed pallet `try_state` failure: {:?}", err))
 					.unwrap();
 			}
 

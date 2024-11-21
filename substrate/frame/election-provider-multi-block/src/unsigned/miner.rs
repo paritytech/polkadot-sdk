@@ -22,7 +22,7 @@ use crate::{
 	types::{PageSize, Pagify},
 	unsigned::{pallet::Config as UnsignedConfig, Call},
 	verifier::FeasibilityError,
-	AssignmentOf, MinerSupportsOf, MinerVoterOf, Pallet as EPM, Snapshot,
+	AssignmentOf, MinerSupportsOf, MinerVoterOf, Pallet as EPM, Pallet as CorePallet, Snapshot,
 };
 
 use frame_election_provider_support::{
@@ -602,7 +602,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 
 	/// Mine a solution.
 	///
-	/// Mines a new solution with [`crate::Pallet::Pages`] pages and computes the partial score
+	/// Mines a new solution with [`CorePallet::Pages`] pages and computes the partial score
 	/// of the page with `page` index.
 	#[allow(dead_code)]
 	pub fn mine(
@@ -614,7 +614,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		let reduce = true;
 
 		let (all_voter_pages, all_targets) = Self::fetch_snapshots()?;
-		let round = crate::Pallet::<T>::current_round();
+		let round = CorePallet::<T>::current_round();
 		let desired_targets =
 			<<T as crate::Config>::DataProvider as ElectionDataProvider>::desired_targets()
 				.map_err(|_| MinerError::DataProvider)?;
@@ -700,7 +700,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 
 				// fetch snapshots.
 				let (all_voter_pages, all_targets) = Self::fetch_snapshots()?;
-				let round = crate::Pallet::<T>::current_round();
+				let round = CorePallet::<T>::current_round();
 				let desired_targets =
 					<<T as crate::Config>::DataProvider as ElectionDataProvider>::desired_targets()
 						.map_err(|_| MinerError::DataProvider)?;
