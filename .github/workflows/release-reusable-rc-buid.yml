@@ -349,7 +349,7 @@ jobs:
     needs: [build-macos-rc]
     uses: ./.github/workflows/release-reusable-s3-upload.yml
     with:
-      package: polkadot-perpare-worker
+      package: polkadot-prepare-worker
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
     secrets:
