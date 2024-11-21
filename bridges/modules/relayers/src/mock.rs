@@ -18,6 +18,7 @@
 
 use crate as pallet_bridge_relayers;
 
+use crate::XcmpSendError;
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{
 	target_chain::{DispatchMessage, MessageDispatch},
@@ -34,12 +35,15 @@ use frame_support::{
 	traits::fungible::Mutate,
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight},
 };
+use hex_literal::hex;
 use pallet_transaction_payment::Multiplier;
-use sp_core::{ConstU64, ConstU8, H256};
+use sp_core::{ConstU64, ConstU8, H160, H256};
 use sp_runtime::{
-	traits::{BlakeTwo256, ConstU32},
+	traits::{BlakeTwo256, ConstU128, ConstU32},
 	BuildStorage, FixedPointNumber, Perquintill, StateVersion,
 };
+use xcm::{latest::SendXcm, prelude::*};
+use xcm_executor::{traits::TransactAsset, AssetsInHolding};
 
 /// Account identifier at `ThisChain`.
 pub type ThisChainAccountId = u64;
@@ -277,6 +281,11 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type BridgedHeaderChain = BridgeGrandpa;
 }
 
+parameter_types! {
+	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
+	pub WethAddress: H160 = hex!("774667629726ec1FaBEbCEc0D9139bD1C8f72a23").into();
+}
+
 impl pallet_bridge_relayers::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type Reward = ThisChainBalance;
@@ -284,6 +293,16 @@ impl pallet_bridge_relayers::Config for TestRuntime {
 	type StakeAndSlash = TestStakeAndSlash;
 	type WeightInfo = ();
 	type LaneId = TestLaneIdType;
+
+	type Token = Balances;
+	type AssetHubParaId = ConstU32<1000>;
+	type EthereumNetwork = EthereumNetwork;
+	type WethAddress = WethAddress;
+	type XcmSender = MockXcmSender;
+
+	type AssetTransactor = SuccessfulTransactor;
+	type AssetHubXCMFee = ConstU128<1_000_000_000_000u128>;
+	type InboundQueuePalletInstance = ConstU8<80>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -368,6 +387,64 @@ impl MessageDispatch for DummyMessageDispatch {
 		_: DispatchMessage<Self::DispatchPayload, Self::LaneId>,
 	) -> MessageDispatchResult<Self::DispatchLevelResult> {
 		MessageDispatchResult { unspent_weight: Weight::zero(), dispatch_level_result: () }
+	}
+}
+
+// Mock XCM sender that always succeeds
+pub struct MockXcmSender;
+
+impl SendXcm for MockXcmSender {
+	type Ticket = Xcm<()>;
+
+	fn validate(
+		dest: &mut Option<Location>,
+		xcm: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		if let Some(location) = dest {
+			match location.unpack() {
+				(_, [Parachain(1001)]) => return Err(XcmpSendError::NotApplicable),
+				_ => Ok((xcm.clone().unwrap(), Assets::default())),
+			}
+		} else {
+			Ok((xcm.clone().unwrap(), Assets::default()))
+		}
+	}
+
+	fn deliver(xcm: Self::Ticket) -> core::result::Result<XcmHash, XcmpSendError> {
+		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		Ok(hash)
+	}
+}
+
+pub struct SuccessfulTransactor;
+impl TransactAsset for SuccessfulTransactor {
+	fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
+		Ok(())
+	}
+
+	fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
+		Ok(())
+	}
+
+	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
+		Ok(())
+	}
+
+	fn withdraw_asset(
+		_what: &Asset,
+		_who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<AssetsInHolding, XcmError> {
+		Ok(AssetsInHolding::default())
+	}
+
+	fn internal_transfer_asset(
+		_what: &Asset,
+		_from: &Location,
+		_to: &Location,
+		_context: &XcmContext,
+	) -> Result<AssetsInHolding, XcmError> {
+		Ok(AssetsInHolding::default())
 	}
 }
 

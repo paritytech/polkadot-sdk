@@ -55,6 +55,7 @@ pub trait WeightInfo {
 	fn deregister() -> Weight;
 	fn slash_and_deregister() -> Weight;
 	fn register_relayer_reward() -> Weight;
+	fn claim() -> Weight;
 }
 
 /// Weights for `pallet_bridge_relayers` that are generated using one of the Bridge testnets.
@@ -157,6 +158,16 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+	fn claim() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `80`
+		//  Estimated: `3517`
+		// Minimum execution time: 44_000_000 picoseconds.
+		Weight::from_parts(44_000_000, 3517)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -255,5 +266,15 @@ impl WeightInfo for () {
 		Weight::from_parts(6_526_000, 3530)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	fn claim() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `80`
+		//  Estimated: `3517`
+		// Minimum execution time: 44_000_000 picoseconds.
+		Weight::from_parts(44_000_000, 3517)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }

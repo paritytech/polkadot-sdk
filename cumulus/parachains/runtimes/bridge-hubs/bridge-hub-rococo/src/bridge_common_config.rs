@@ -22,8 +22,16 @@
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
+use crate::{xcm_config, TreasuryAccount, XcmRouter};
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use frame_support::{parameter_types, traits::ConstU32};
+use sp_core::H160;
+use sp_runtime::traits::{ConstU128, ConstU8};
+use testnet_parachains_constants::rococo::snowbridge::{
+	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+};
+
+pub const ASSET_HUB_ID: u32 = rococo_runtime_constants::system_parachain::ASSET_HUB_ID;
 
 parameter_types! {
 	pub const RelayChainHeadersToKeep: u32 = 1024;
@@ -37,6 +45,8 @@ parameter_types! {
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
 
 	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
+
+	pub WethAddress: H160 = H160(hex_literal::hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14"));
 }
 
 /// Add GRANDPA bridge pallet to track Westend relay chain.
@@ -83,6 +93,18 @@ impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> fo
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
 	type LaneId = bp_messages::LegacyLaneId;
+	type AssetHubParaId = ConstU32<ASSET_HUB_ID>;
+	type EthereumNetwork = EthereumNetwork;
+	type WethAddress = WethAddress;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type XcmSender = XcmRouter;
+	#[cfg(feature = "runtime-benchmarks")]
+	type XcmSender = DoNothingRouter;
+	type Token = Balances;
+	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
+	type InboundQueuePalletInstance = ConstU8<INBOUND_QUEUE_PALLET_INDEX>;
+	type AssetHubXCMFee = ConstU128<15>;
+	type TreasuryAccount = TreasuryAccount;
 }
 
 /// Allows collect and claim rewards for relayers
@@ -105,6 +127,18 @@ impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for 
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
 	type LaneId = bp_messages::HashedLaneId;
+	type AssetHubParaId = ConstU32<ASSET_HUB_ID>;
+	type EthereumNetwork = EthereumNetwork;
+	type WethAddress = WethAddress;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type XcmSender = XcmRouter;
+	#[cfg(feature = "runtime-benchmarks")]
+	type XcmSender = DoNothingRouter;
+	type Token = Balances;
+	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
+	type InboundQueuePalletInstance = ConstU8<INBOUND_QUEUE_PALLET_INDEX>;
+	type AssetHubXCMFee = ConstU128<15>;
+	type TreasuryAccount = TreasuryAccount;
 }
 
 /// Add GRANDPA bridge pallet to track Rococo Bulletin chain.

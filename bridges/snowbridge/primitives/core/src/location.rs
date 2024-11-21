@@ -7,7 +7,9 @@
 pub use polkadot_parachain_primitives::primitives::{
 	Id as ParaId, IsSystem, Sibling as SiblingParaId,
 };
+use sp_core::H160;
 pub use sp_core::U256;
+use xcm::opaque::lts::NetworkId;
 
 use codec::Encode;
 use sp_core::H256;
