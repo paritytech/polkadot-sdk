@@ -977,14 +977,13 @@ where
 	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer.
 	fn generate_proof_of_possession(&mut self) -> Self::Signature {
 		let pub_key_as_bytes = self.public().to_raw_vec();
-		let pop_context_tag: &[u8] = b"POP_";
-		let pop_statement = [pop_context_tag, pub_key_as_bytes.as_slice()].concat();
+		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
 		self.sign(pop_statement.as_slice())
 	}
 }
 
 ///The context which attached to pop message to attest its purpose
-const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
+pub const POP_CONTEXT_TAG: &[u8; 4] = b"POP_";
 
 /// Pair which is able to generate proof of possession. While you don't need a keypair
 /// to verify a proof of possession (you only need a public key) we constrain on Pair
@@ -1008,6 +1007,8 @@ where
 	}
 }
 
+/// Marker trait to identify whether the scheme is aggregatable thus changing
+/// the implementation of the scheme parts such as Proof Of Possession or other specifics.
 pub trait NonAggregatable {}
 
 impl<T> ProofOfPossessionVerifier for T

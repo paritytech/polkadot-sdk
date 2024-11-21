@@ -18,11 +18,10 @@
 //! Simple Ed25519 API.
 
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable, Pair as TraitPair, ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError, SignatureBytes
+	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable, Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes
 };
 
 use ed25519_zebra::{SigningKey, VerificationKey};
-use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 use alloc::vec::Vec;
 

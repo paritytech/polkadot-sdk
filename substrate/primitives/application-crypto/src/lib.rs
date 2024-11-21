@@ -24,7 +24,9 @@ extern crate alloc;
 
 pub use sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 #[doc(hidden)]
-pub use sp_core::crypto::{DeriveError, Pair, SecretStringError, ProofOfPossessionGenerator, ProofOfPossessionVerifier};
+pub use sp_core::crypto::{
+	DeriveError, Pair, ProofOfPossessionGenerator, ProofOfPossessionVerifier, SecretStringError,
+};
 #[doc(hidden)]
 pub use sp_core::{
 	self,
@@ -182,7 +184,10 @@ macro_rules! app_crypto_pair_common {
 				proof_of_possession: &Self::Signature,
 				allegedly_possessed_pubkey: &Self::Public,
 			) -> bool {
-				<$pair>::verify_proof_of_possession(&proof_of_possession.0, allegedly_possessed_pubkey.as_ref())
+				<$pair>::verify_proof_of_possession(
+					&proof_of_possession.0,
+					allegedly_possessed_pubkey.as_ref(),
+				)
 			}
 		}
 

@@ -100,8 +100,14 @@ pub trait RuntimePublic: Sized {
 	/// Verify that the given signature matches the given message using this public key.
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool;
 
+	/// Generate proof of possession of the corresponding public key
+	///
+	/// The private key will be requested from the keystore using the given key type.
+	///
+	/// Returns the proof of possession as a signature type or `None` if there is an error.
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature>;
 
+	/// Verify that the given pop is valid for the corresponding public key.
 	fn verify_pop(&self, pop: &Self::Signature) -> bool;
 
 	/// Returns `Self` as raw vec.
@@ -137,8 +143,14 @@ pub trait RuntimeAppPublic: Sized {
 	/// Verify that the given signature matches the given message using this public key.
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool;
 
+	/// Generate proof of possession of the corresponding public key
+	///
+	/// The private key will be requested from the keystore using the given key type.
+	///
+	/// Returns the proof of possession as a signature type or `None` if there is an error.
 	fn generate_pop(&mut self) -> Option<Self::Signature>;
 
+	/// Verify that the given pop is valid for the corresponding public key.
 	fn verify_pop(&self, pop: &Self::Signature) -> bool;
 
 	/// Returns `Self` as raw vec.

@@ -23,10 +23,8 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, ProofOfPossessionGenerator,
-	ProofOfPossessionVerifier, SecretStringError, NonAggregatable
+	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError, NonAggregatable
 };
-use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 use alloc::vec::Vec;
 #[cfg(feature = "full_crypto")]

@@ -86,7 +86,7 @@ use tracing;
 
 #[cfg(feature = "std")]
 use sp_core::{
-	crypto::{Pair, ProofOfPossessionGenerator},
+	crypto::Pair,
 	hexdisplay::HexDisplay,
 	offchain::{OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
 	storage::ChildInfo,
@@ -1219,6 +1219,10 @@ pub trait Crypto {
 			.expect("`bls381_generate` failed")
 	}
 
+	/// Generate a 'bls12-381' Proof Of Possession for the corresponding public key.
+	///
+	/// Returns the Proof Of Possession as an option of the ['bls381::Signature'] type
+	/// or 'None' if an error occurs.
 	#[cfg(feature = "bls-experimental")]
 	fn bls381_generate_pop(&mut self, id: KeyTypeId, pub_key: &bls381::Public) -> Option<bls381::Signature> {
 		self.extension::<KeystoreExt>()

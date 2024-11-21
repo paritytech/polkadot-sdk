@@ -19,11 +19,9 @@
 
 use crate::crypto::{
 	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError,
+	PublicBytes, SecretStringError,
 	SignatureBytes, NonAggregatable
 };
-
-use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
