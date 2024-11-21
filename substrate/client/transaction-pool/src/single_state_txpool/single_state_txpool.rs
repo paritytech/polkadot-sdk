@@ -674,34 +674,30 @@ where
 
 				resubmit_transactions.extend(
 					//todo: arctx - we need to get ref from somewhere
-					block_transactions
-						.into_iter()
-						.map(Arc::from)
-						.filter(|tx| {
-							let tx_hash = pool.hash_of(tx);
-							let contains = pruned_log.contains(&tx_hash);
+					block_transactions.into_iter().map(Arc::from).filter_map(|tx| {
+						let tx_hash = pool.hash_of(&tx);
+						let contains = pruned_log.contains(&tx_hash);
 
-							// need to count all transactions, not just filtered, here
-							resubmitted_to_report += 1;
+						// need to count all transactions, not just filtered, here
+						resubmitted_to_report += 1;
 
-							if !contains {
-								log::trace!(
-									target: LOG_TARGET,
-									"[{:?}]: Resubmitting from retracted block {:?}",
-									tx_hash,
-									hash,
-								);
-							}
-							!contains
-						})
-						.map(|tx| {
-							(
+						if !contains {
+							log::trace!(
+								target: LOG_TARGET,
+								"[{:?}]: Resubmitting from retracted block {:?}",
+								tx_hash,
+								hash,
+							);
+							Some((
 								// These transactions are coming from retracted blocks, we should
 								// simply consider them external.
 								TimedTransactionSource::new_external(false),
 								tx,
-							)
-						}),
+							))
+						} else {
+							None
+						}
+					}),
 				);
 
 				self.metrics.report(|metrics| {

@@ -178,6 +178,61 @@ where
 		None
 	}
 
+	/// Processes the command and updates internal state accordingly.
+	fn handle_command(&mut self, cmd: Command<C>) {
+		match cmd {
+			Command::AddView(key, stream) => {
+				trace!(
+					target: LOG_TARGET,
+					"dropped_watcher: Command::AddView {key:?} views:{:?}",
+					self.stream_map.keys().collect::<Vec<_>>()
+				);
+				self.stream_map.insert(key, stream);
+			},
+			Command::RemoveView(key) => {
+				trace!(
+					target: LOG_TARGET,
+					"dropped_watcher: Command::RemoveView {key:?} views:{:?}",
+					self.stream_map.keys().collect::<Vec<_>>()
+				);
+				self.stream_map.remove(&key);
+				self.ready_transaction_views.iter_mut().for_each(|(tx_hash, views)| {
+					trace!(
+						target: LOG_TARGET,
+						"[{:?}] dropped_watcher: Command::RemoveView ready views: {:?}",
+						tx_hash,
+						views
+					);
+					views.remove(&key);
+				});
+
+				self.future_transaction_views.iter_mut().for_each(|(tx_hash, views)| {
+					trace!(
+						target: LOG_TARGET,
+						"[{:?}] dropped_watcher: Command::RemoveView future views: {:?}",
+						tx_hash,
+						views
+					);
+					views.remove(&key);
+					if views.is_empty() {
+						self.pending_dropped_transactions.push(*tx_hash);
+					}
+				});
+			},
+			Command::RemoveFinalizedTxs(xts) => {
+				log_xt_trace!(
+					target: LOG_TARGET,
+					xts.clone(),
+					"[{:?}] dropped_watcher: finalized xt removed"
+				);
+				xts.iter().for_each(|xt| {
+					self.ready_transaction_views.remove(xt);
+					self.future_transaction_views.remove(xt);
+				});
+			},
+		}
+	}
+
 	/// Processes a `ViewStreamEvent` from a specific view and updates the internal state
 	/// accordingly.
 	///
@@ -231,7 +286,7 @@ where
 		while let Some(tx_hash) = self.pending_dropped_transactions.pop() {
 			// never drop transaction that was seen as ready. It may not have a referencing
 			// view now, but such fork can appear.
-			if let Some(_) = self.ready_transaction_views.get(&tx_hash) {
+			if self.ready_transaction_views.get(&tx_hash).is_some() {
 				continue
 			}
 
@@ -281,36 +336,7 @@ where
 						}
 					},
 					cmd = ctx.command_receiver.next() => {
-						match cmd? {
-							Command::AddView(key,stream) => {
-								trace!(target: LOG_TARGET,"dropped_watcher: Command::AddView {key:?} views:{:?}",ctx.stream_map.keys().collect::<Vec<_>>());
-								ctx.stream_map.insert(key,stream);
-							},
-							Command::RemoveView(key) => {
-								trace!(target: LOG_TARGET,"dropped_watcher: Command::RemoveView {key:?} views:{:?}",ctx.stream_map.keys().collect::<Vec<_>>());
-								ctx.stream_map.remove(&key);
-								ctx.ready_transaction_views.iter_mut().for_each(|(tx_hash,views)| {
-									trace!(target: LOG_TARGET,"[{:?}] dropped_watcher: Command::RemoveView ready views: {:?}",tx_hash, views);
-									views.remove(&key);
-								});
-
-								ctx.future_transaction_views.iter_mut().for_each(|(tx_hash,views)| {
-									trace!(target: LOG_TARGET,"[{:?}] dropped_watcher: Command::RemoveView future views: {:?}",tx_hash, views);
-									views.remove(&key);
-									if views.is_empty() {
-										ctx.pending_dropped_transactions.push(*tx_hash);
-									}
-								});
-							},
-							Command::RemoveFinalizedTxs(xts) => {
-								log_xt_trace!(target: LOG_TARGET, xts.clone(), "[{:?}] dropped_watcher: finalized xt removed");
-								xts.iter().for_each(|xt| {
-									ctx.ready_transaction_views.remove(xt);
-									ctx.future_transaction_views.remove(xt);
-								});
-
-							},
-						}
+						ctx.handle_command(cmd?);
 					}
 
 				}
