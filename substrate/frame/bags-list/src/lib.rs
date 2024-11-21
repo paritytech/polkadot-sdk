@@ -319,12 +319,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::rebag_non_terminal().max(T::WeightInfo::rebag_terminal()))]
 		pub fn rebag(origin: OriginFor<T>, dislocated: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
-
 			ensure!(!T::PreserveOrder::get(), Error::<T, I>::MustPreserveOrder);
 
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			let current_score = T::ScoreProvider::score(&dislocated);
-			Pallet::<T, I>::do_rebag(&dislocated, current_score)
+			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
 				.map_err::<Error<T, I>, _>(Into::into)?;
 			Ok(())
 		}
@@ -349,7 +348,6 @@ pub mod pallet {
 
 			let heavier = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
-
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
 				.map_err::<DispatchError, _>(Into::into)
@@ -370,7 +368,6 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			let heavier = T::Lookup::lookup(heavier)?;
-
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
 				.map_err::<DispatchError, _>(Into::into)
