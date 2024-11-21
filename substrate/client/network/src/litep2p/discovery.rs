@@ -489,57 +489,46 @@ impl Discovery {
 		(false, None)
 	}
 
-	/// Verify the external address discovered by the identify protocol.
-	///
-	/// This ensures that:
-	/// - the address is not empty
-	/// - the address contains a valid IP address
-	/// - the address is for the local peer ID
-	/// - the address always contains `/p2p/<local_peer_id>` protocol.
-	///
-	/// The provided peer ID is only used for logging purposes.
-	fn verify_external_address(&mut self, address: Multiaddr, peer: PeerId) -> Option<Multiaddr> {
-		if address.is_empty() {
-			log::warn!(
+	/// Handle the observed address from the network.
+	fn handle_observed_addresses(&mut self, observed_address: Multiaddr, peer: PeerId) {
+		// Converting to and from `sc_network_types::multiaddr::Multiaddr` is cheap considering
+		// it is a small wrapper over litep2p `Multiaddr`.
+		let observed_address: sc_network_types::multiaddr::Multiaddr = observed_address.into();
+		if !observed_address.is_valid_external_address(self.local_peer_id.into()) {
+			log::debug!(
 				target: LOG_TARGET,
-				"🔍 Discovered empty address from {peer:?}",
+				"Ignoring invalid external address {observed_address} from {peer:?}",
 			);
-			return None;
-		};
-
-		// Expect the address to contain a valid IP address.
-		if std::matches!(
-			address.iter().next(),
-			Some(
-				Protocol::Dns(_) |
-					Protocol::Dns4(_) |
-					Protocol::Dns6(_) |
-					Protocol::Ip6(_) |
-					Protocol::Ip4(_),
-			)
-		) {
-			log::warn!(
-				target: LOG_TARGET,
-				"🔍 Discovered external address from {peer:?} does not contain a valid IP address: {address}",
-			);
-			return None;
-		};
-
-		if let Some(Protocol::P2p(peer_id)) = address.iter().last() {
-			// Invalid address if the reported peer ID is not the local peer ID.
-			if peer_id != *self.local_peer_id.as_ref() {
-				log::warn!(
-					target: LOG_TARGET,
-					"🔍 Discovered external address from {peer:?} that is not us: {address}",
-				);
-				return None
-			}
-
-			return Some(address)
+			return;
 		}
 
-		// Ensure the address contains the local peer ID.
-		Some(address.with(Protocol::P2p(self.local_peer_id.into())))
+		let Some(observed_address) = observed_address.ensure_peer_id(self.local_peer_id.into())
+		else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Ignoring external address with different peer ID from {peer:?}",
+			);
+			return
+		};
+		let observed_address = observed_address.into();
+
+		let (is_new, expired_address) = self.is_new_external_address(&observed_address, peer);
+
+		if let Some(expired_address) = expired_address {
+			log::trace!(
+				target: LOG_TARGET,
+				"Removing expired external address expired={expired_address} is_new={is_new} observed={observed_address}",
+			);
+
+			self.pending_events
+				.push_back(DiscoveryEvent::ExternalAddressExpired { address: expired_address });
+		}
+
+		if is_new {
+			self.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
+				address: observed_address.clone(),
+			});
+		}
 	}
 }
 
@@ -649,31 +638,7 @@ impl Stream for Discovery {
 				observed_address,
 				..
 			})) => {
-				let observed_address = this.verify_external_address(observed_address, peer);
-
-				// Ensure that an external address with a different peer ID does not have
-				// side effects of evicting other external addresses via `ExternalAddressExpired`.
-				if let Some(observed_address) = observed_address {
-					let (is_new, expired_address) =
-						this.is_new_external_address(&observed_address, peer);
-
-					if let Some(expired_address) = expired_address {
-						log::trace!(
-							target: LOG_TARGET,
-							"Removing expired external address expired={expired_address} is_new={is_new} observed={observed_address}",
-						);
-
-						this.pending_events.push_back(DiscoveryEvent::ExternalAddressExpired {
-							address: expired_address,
-						});
-					}
-
-					if is_new {
-						this.pending_events.push_back(DiscoveryEvent::ExternalAddressDiscovered {
-							address: observed_address.clone(),
-						});
-					}
-				}
+				this.handle_observed_addresses(observed_address, peer);
 
 				return Poll::Ready(Some(DiscoveryEvent::Identified {
 					peer,

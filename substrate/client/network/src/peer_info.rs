@@ -31,7 +31,6 @@ use libp2p::{
 		Info as IdentifyInfo,
 	},
 	identity::PublicKey,
-	multiaddr::Protocol,
 	ping::{Behaviour as Ping, Config as PingConfig, Event as PingEvent},
 	swarm::{
 		behaviour::{
@@ -183,53 +182,6 @@ impl PeerInfoBehaviour {
 			error!(target: "sub-libp2p",
 				"Received pong from node we're not connected to {:?}", peer_id);
 		}
-	}
-
-	/// Verify the external address discovered by the identify protocol.
-	///
-	/// This ensures that:
-	/// - the address is not empty
-	/// - the address contains a valid IP address
-	/// - the address is for the local peer ID
-	fn verify_external_address(&mut self, address: &Multiaddr) -> bool {
-		if address.is_empty() {
-			log::debug!(
-				target: "sub-libp2p",
-				"🔍 Discovered empty address",
-			);
-			return false;
-		};
-
-		// Expect the address to contain a valid IP address.
-		if std::matches!(
-			address.iter().next(),
-			Some(
-				Protocol::Dns(_) |
-					Protocol::Dns4(_) |
-					Protocol::Dns6(_) |
-					Protocol::Ip6(_) |
-					Protocol::Ip4(_),
-			)
-		) {
-			log::debug!(
-				target: "sub-libp2p",
-				"🔍 Discovered external address does not contain a valid IP address: {address}",
-			);
-			return false;
-		};
-
-		if let Some(Protocol::P2p(peer_id)) = address.iter().last() {
-			// Invalid address if the reported peer ID is not the local peer ID.
-			if peer_id != self.local_peer_id {
-				log::debug!(
-					target: "sub-libp2p",
-					"🔍 Discovered external address that is not us: {address}",
-				);
-				return false
-			}
-		}
-
-		true
 	}
 }
 
@@ -455,7 +407,8 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 			},
 			FromSwarm::NewExternalAddrCandidate(e @ NewExternalAddrCandidate { addr }) => {
 				// Verify the external address is valid.
-				if self.verify_external_address(addr) {
+				let multiaddr: sc_network_types::multiaddr::Multiaddr = addr.clone().into();
+				if multiaddr.is_valid_external_address(self.local_peer_id.into()) {
 					self.ping.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
 					self.identify.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
 

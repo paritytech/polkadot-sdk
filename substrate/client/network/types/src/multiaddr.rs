@@ -84,9 +84,9 @@ impl Multiaddr {
 	/// - the address is not empty
 	/// - the address contains a valid IP address
 	/// - the address is for the local peer ID
-	pub fn verify_external_address(&self, local_peer_id: PeerId) -> Result<(), ParseError> {
+	pub fn is_valid_external_address(&self, local_peer_id: PeerId) -> bool {
 		if self.is_empty() {
-			return Err(ParseError::InvalidMultiaddr);
+			return false;
 		}
 
 		// Expect the address to contain a valid IP address.
@@ -100,17 +100,17 @@ impl Multiaddr {
 					Protocol::Ip4(_),
 			)
 		) {
-			return Err(ParseError::InvalidMultiaddr);
+			return false;
 		}
 
 		if let Some(Protocol::P2p(peer_id)) = self.iter().last() {
 			// Invalid address if the reported peer ID is not the local peer ID.
 			if peer_id != *local_peer_id.as_ref() {
-				return Err(ParseError::InvalidMultiaddr);
+				return false;
 			}
 		}
 
-		Ok(())
+		true
 	}
 
 	/// Ensure the peer ID is present in the multiaddress.
