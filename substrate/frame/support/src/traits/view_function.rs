@@ -48,7 +48,7 @@ pub trait QueryIdSuffix {
 }
 
 /// implemented for each pallet view function method
-pub trait Query: DecodeAll {
+pub trait ViewFunction: DecodeAll {
 	fn id() -> ViewFunctionId;
 	type ReturnType: Encode;
 

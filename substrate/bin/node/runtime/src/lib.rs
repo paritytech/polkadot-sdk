@@ -2924,7 +2924,7 @@ impl_runtime_apis! {
 	}
 
 	impl sp_api::RuntimeQuery<Block> for Runtime {
-		fn execute_query(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError> {
+		fn execute_view_function(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError> {
 			Runtime::execute_query(query_id, query)
 		}
 	}

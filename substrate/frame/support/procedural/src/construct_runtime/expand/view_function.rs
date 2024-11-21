@@ -24,7 +24,7 @@ pub fn expand_outer_query(
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream2,
 ) -> TokenStream2 {
-	let runtime_query = syn::Ident::new("RuntimeViewFunction", Span::call_site());
+	let runtime_view_function = syn::Ident::new("RuntimeViewFunction", Span::call_site());
 
 	let prefix_conditionals = pallet_decls.iter().map(|pallet| {
 		let pallet_name = &pallet.name;
@@ -44,10 +44,10 @@ pub fn expand_outer_query(
 			#scrate::__private::scale_info::TypeInfo,
 			#scrate::__private::RuntimeDebug,
 		)]
-		pub enum #runtime_query {}
+		pub enum #runtime_view_function {}
 
 		const _: () = {
-			impl #scrate::traits::DispatchViewFunction for #runtime_query {
+			impl #scrate::traits::DispatchViewFunction for #runtime_view_function {
 				fn dispatch_view_function<O: #scrate::__private::codec::Output>(
 					id: & #scrate::__private::ViewFunctionId,
 					input: &mut &[u8],
@@ -61,13 +61,13 @@ pub fn expand_outer_query(
 
 			impl #runtime_name {
 				/// Convenience function for query execution from the runtime API.
-				pub fn execute_query(
+				pub fn execute_view_function(
 					id: #scrate::__private::ViewFunctionId,
 					input: #scrate::__private::sp_std::vec::Vec<::core::primitive::u8>,
 				) -> Result<#scrate::__private::sp_std::vec::Vec<::core::primitive::u8>, #scrate::__private::ViewFunctionDispatchError>
 				{
 					let mut output = #scrate::__private::sp_std::vec![];
-					<#runtime_query as #scrate::traits::DispatchViewFunction>::dispatch_view_function(&id, &mut &input[..], &mut output)?;
+					<#runtime_view_function as #scrate::traits::DispatchViewFunction>::dispatch_view_function(&id, &mut &input[..], &mut output)?;
 					Ok(output)
 				}
 			}

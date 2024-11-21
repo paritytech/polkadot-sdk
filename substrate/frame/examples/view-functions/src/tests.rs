@@ -24,7 +24,7 @@ use crate::{
 	pallet2,
 };
 use codec::{Decode, Encode};
-use frame_support::traits::{DispatchViewFunction, Query};
+use frame_support::traits::{DispatchViewFunction, ViewFunction};
 
 #[test]
 fn pallet_get_value_query() {
@@ -72,7 +72,7 @@ fn pallet_multiple_instances() {
 
 fn test_dispatch_view_function<Q, V>(query: &Q, expected: V)
 where
-	Q: Query + Encode,
+	Q: ViewFunction + Encode,
 	V: Decode + Eq + PartialEq + std::fmt::Debug,
 {
 	let input = query.encode();

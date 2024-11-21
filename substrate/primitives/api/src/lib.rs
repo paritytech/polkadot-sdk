@@ -848,7 +848,7 @@ decl_runtime_apis! {
 	/// API for executing view function queriess
 	pub trait RuntimeQuery where {
 		/// Execute a view function query.
-		fn execute_query(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError>;
+		fn execute_view_function(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError>;
 	}
 }
 

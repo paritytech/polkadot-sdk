@@ -140,7 +140,7 @@ pub use proving::*;
 mod try_runtime;
 
 mod view_function;
-pub use view_function::{DispatchViewFunction, Query, QueryIdPrefix, QueryIdSuffix};
+pub use view_function::{DispatchViewFunction, ViewFunction, QueryIdPrefix, QueryIdSuffix};
 
 #[cfg(feature = "try-runtime")]
 pub use try_runtime::{
