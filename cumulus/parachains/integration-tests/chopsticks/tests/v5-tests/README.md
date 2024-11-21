@@ -13,6 +13,7 @@ To run the test:
 
 ```bash
 bun test ./index.ts
+# note: the test may time out during the first run. Single retry usually helps.
 ```
 
 This project was created using `bun init` in bun v1.1.34. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
