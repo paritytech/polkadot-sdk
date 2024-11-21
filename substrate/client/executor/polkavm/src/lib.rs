@@ -132,17 +132,12 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	}
 
 	fn allocate_memory(&mut self, size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
-		// Fetching the current heap pointer is always safe to unwrap.
-		let start = self.0.instance.sbrk(0).unwrap().unwrap();
-		let end = match self.0.instance.sbrk(size) {
-			Ok(Some(end)) => end,
-			Ok(None) => Err(String::from("#OOM (Out Of Memory)"))?,
-			Err(_) => Err(String::from("#GPE (General Purpose Error)"))?,
-		};
+		let pointer = self.0.sbrk(0).expect("fetching the current heap pointer never fails");
 
-		// Do a sanity check.
-		assert!(end - start == size);
-		Ok(Pointer::new(start))
+		// TODO: This will leak guest memory; find a better solution.
+		self.0.sbrk(size).ok_or_else(|| String::from("allocation failed"))?;
+
+		Ok(Pointer::new(pointer))
 	}
 
 	fn deallocate_memory(&mut self, _ptr: Pointer<u8>) -> sp_wasm_interface::Result<()> {
