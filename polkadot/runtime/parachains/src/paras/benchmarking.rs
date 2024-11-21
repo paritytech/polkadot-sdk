@@ -217,6 +217,7 @@ mod benchmarks {
 	fn include_pvf_check_statement_finalize_upgrade_reject() {
 		let (stmt, signature) =
 			pvf_check::prepare_finalization_bench::<T>(VoteCause::Upgrade, VoteOutcome::Reject);
+
 		#[block]
 		{
 			let _ =
@@ -228,6 +229,7 @@ mod benchmarks {
 	fn include_pvf_check_statement_finalize_onboarding_accept() {
 		let (stmt, signature) =
 			pvf_check::prepare_finalization_bench::<T>(VoteCause::Onboarding, VoteOutcome::Accept);
+
 		#[block]
 		{
 			let _ =
@@ -239,6 +241,7 @@ mod benchmarks {
 	fn include_pvf_check_statement_finalize_onboarding_reject() {
 		let (stmt, signature) =
 			pvf_check::prepare_finalization_bench::<T>(VoteCause::Onboarding, VoteOutcome::Reject);
+
 		#[block]
 		{
 			let _ =
