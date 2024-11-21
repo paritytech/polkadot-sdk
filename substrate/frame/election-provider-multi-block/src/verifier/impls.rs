@@ -62,19 +62,19 @@ pub(crate) mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T> {
+	pub enum Event<T: Config> {
 		/// A verificaction failed at the given page.
-		VerificationFailed(PageIndex, FeasibilityError),
+		VerificationFailed { page: PageIndex, error: FeasibilityError },
 		/// The final verifications of the `finalize_verification` failed. If this error happened,
 		/// all the single pages passed the feasibility checks.
-		FinalVerificationFailed(FeasibilityError),
+		FinalVerificationFailed { error: FeasibilityError },
 		/// The given page has been correctly verified, with the number of backers that are part of
 		/// the page.
-		Verified(PageIndex, u32),
+		Verified { page: PageIndex, backers: u32 },
 		/// A new solution with the given score has replaced the previous best solution, if any.
-		Queued(ElectionScore, Option<ElectionScore>),
+		Queued { score: ElectionScore, old_score: Option<ElectionScore> },
 		/// The solution data was not available for a specific page.
-		SolutionDataUnavailable(PageIndex),
+		SolutionDataUnavailable { page: PageIndex },
 	}
 
 	/// A wrapper type of the storage items related to the queued solution.
@@ -377,8 +377,11 @@ impl<T: Config + impls::pallet::Config> Verifier for Pallet<T> {
 					partial_score,
 					page
 				);
-				Self::deposit_event(Event::<T>::Verified(page, supports.len() as u32));
-				Self::deposit_event(Event::<T>::Queued(partial_score, maybe_current_score));
+				Self::deposit_event(Event::<T>::Verified { page, backers: supports.len() as u32 });
+				Self::deposit_event(Event::<T>::Queued {
+					score: partial_score,
+					old_score: maybe_current_score,
+				});
 				Ok(supports)
 			},
 			Err(err) => {
@@ -389,7 +392,7 @@ impl<T: Config + impls::pallet::Config> Verifier for Pallet<T> {
 					err,
 					page
 				);
-				Self::deposit_event(Event::<T>::VerificationFailed(page, err.clone()));
+				Self::deposit_event(Event::<T>::VerificationFailed { page, error: err.clone() });
 				Err(err)
 			},
 		}
@@ -448,10 +451,10 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 			let claimed_score = Self::SolutionDataProvider::get_score().unwrap_or_default();
 
 			if Self::ensure_score_quality(claimed_score).is_err() {
-				Self::deposit_event(Event::<T>::VerificationFailed(
-					CorePallet::<T>::msp(),
-					FeasibilityError::ScoreTooLow,
-				));
+				Self::deposit_event(Event::<T>::VerificationFailed {
+					page: CorePallet::<T>::msp(),
+					error: FeasibilityError::ScoreTooLow,
+				});
 				// report to the solution data provider that the page verification failed.
 				Self::SolutionDataProvider::report_result(VerificationResult::Rejected);
 				// despite the verification failed, this was a successful `start` operation.
@@ -528,7 +531,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 				VerificationStatus::<T>::put(Status::Nothing);
 				T::SolutionDataProvider::report_result(VerificationResult::DataUnavailable);
 
-				Self::deposit_event(Event::<T>::SolutionDataUnavailable(current_page));
+				Self::deposit_event(Event::<T>::SolutionDataUnavailable { page: current_page });
 
 				return <T as Config>::WeightInfo::on_initialize_ongoing_failed(
 					max_backers_winner,
@@ -542,7 +545,10 @@ impl<T: impls::pallet::Config> Pallet<T> {
 			// TODO: can refator out some of these code blocks to clean up the code.
 			let weight_consumed = match maybe_supports {
 				Ok(supports) => {
-					Self::deposit_event(Event::<T>::Verified(current_page, supports.len() as u32));
+					Self::deposit_event(Event::<T>::Verified {
+						page: current_page,
+						backers: supports.len() as u32,
+					});
 					QueuedSolution::<T>::set_page(current_page, supports);
 
 					if current_page > CorePallet::<T>::lsp() {
@@ -586,9 +592,12 @@ impl<T: impls::pallet::Config> Pallet<T> {
 						}
 					}
 				},
-				Err(err) => {
+				Err(error) => {
 					// the paged solution is invalid.
-					Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
+					Self::deposit_event(Event::<T>::VerificationFailed {
+						page: current_page,
+						error,
+					});
 					VerificationStatus::<T>::put(Status::Nothing);
 					QueuedSolution::<T>::clear_invalid_and_backings();
 					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
@@ -639,10 +648,10 @@ impl<T: impls::pallet::Config> Pallet<T> {
 				match (final_score == claimed_score, winner_count <= desired_targets) {
 					(true, true) => {
 						QueuedSolution::<T>::finalize_solution(final_score);
-						Self::deposit_event(Event::<T>::Queued(
-							final_score,
-							QueuedSolution::<T>::queued_score(),
-						));
+						Self::deposit_event(Event::<T>::Queued {
+							score: final_score,
+							old_score: QueuedSolution::<T>::queued_score(),
+						});
 
 						Ok(())
 					},
@@ -653,7 +662,10 @@ impl<T: impls::pallet::Config> Pallet<T> {
 			})
 			.map_err(|err| {
 				sublog!(warn, "verifier", "finalizing the solution was invalid due to {:?}", err);
-				Self::deposit_event(Event::<T>::VerificationFailed(Zero::zero(), err.clone()));
+				Self::deposit_event(Event::<T>::VerificationFailed {
+					page: Zero::zero(),
+					error: err.clone(),
+				});
 				err
 			});
 

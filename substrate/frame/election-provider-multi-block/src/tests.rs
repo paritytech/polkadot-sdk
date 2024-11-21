@@ -466,10 +466,10 @@ mod election_provider {
 				.unwrap();
 
 				let supports_page_zero =
-					PalletVerifier::<T>::feasibility_check(results.solution_pages[0].clone(), 0)
+					VerifierPallet::feasibility_check(results.solution_pages[0].clone(), 0)
 						.unwrap();
 				let supports_page_one =
-					PalletVerifier::<T>::feasibility_check(results.solution_pages[1].clone(), 1)
+					VerifierPallet::feasibility_check(results.solution_pages[1].clone(), 1)
 						.unwrap();
 
 				let s0: Supports<AccountId> = vec![
@@ -520,10 +520,10 @@ mod election_provider {
 				.unwrap();
 
 				let supports_page_zero =
-					PalletVerifier::<T>::feasibility_check(results.solution_pages[0].clone(), 0)
+					VerifierPallet::feasibility_check(results.solution_pages[0].clone(), 0)
 						.unwrap();
 				let supports_page_one =
-					PalletVerifier::<T>::feasibility_check(results.solution_pages[1].clone(), 1)
+					VerifierPallet::feasibility_check(results.solution_pages[1].clone(), 1)
 						.unwrap();
 
 				// consume supports and checks they fit within the max backers per winner bounds.
