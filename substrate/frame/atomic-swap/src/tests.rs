@@ -20,12 +20,15 @@
 use super::*;
 use crate as pallet_atomic_swap;
 
+/*
 use frame_support::{derive_impl, traits::ConstU32};
 use sp_runtime::BuildStorage;
+*/
+use frame::{runtime::{prelude::{derive_impl, ConstU32, construct_runtime}, testing_prelude::BuildStorage}, testing_prelude::TestExternalities};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -54,7 +57,7 @@ impl Config for Test {
 const A: u64 = 1;
 const B: u64 = 2;
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let genesis = pallet_balances::GenesisConfig::<Test> { balances: vec![(A, 100), (B, 200)] };
 	genesis.assimilate_storage(&mut t).unwrap();
