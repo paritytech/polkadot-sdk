@@ -79,18 +79,22 @@ impl WasmInstance for Instance {
 		}
 
 		match self.0.call_typed(&mut (), name, (data_pointer, raw_data_length)) {
-			Ok(()) => (),
-			Err(polkavm::CallError::Trap) => (),
+			Ok(()) => {},
+			Err(polkavm::CallError::Trap) => {
+				return (
+					Err(format!("call into the runtime method '{name}' failed: trap").into()),
+					None,
+				);
+			},
 			Err(polkavm::CallError::Error(error)) => {
 				return (
 					Err(format!("call into the runtime method '{name}' failed: {error}").into()),
 					None,
 				);
 			},
-			Err(polkavm::CallError::NotEnoughGas) =>
-				unreachable!("NotEnoughGas error has not been implemented"),
-			Err(polkavm::CallError::User(_)) => unreachable!("User error has not been implemented"),
-		}
+			Err(polkavm::CallError::NotEnoughGas) => unreachable!("gas metering is never enabled"),
+			Err(polkavm::CallError::User(_)) => unreachable!(),
+		};
 
 		let result_pointer = self.0.reg(Reg::A0);
 		let result_length = self.0.reg(Reg::A1);
