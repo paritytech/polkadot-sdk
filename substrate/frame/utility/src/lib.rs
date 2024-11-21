@@ -61,7 +61,11 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{extract_actual_weight, GetDispatchInfo, PostDispatchInfo, DispatchClass::{Operational, Normal}},
+	dispatch::{
+		extract_actual_weight,
+		DispatchClass::{Normal, Operational},
+		GetDispatchInfo, PostDispatchInfo,
+	},
 	traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
 };
 use sp_core::TypeId;
@@ -123,9 +127,7 @@ pub mod pallet {
 		/// Main call was dispatched.
 		IfElseMainSuccess,
 		/// The fallback call was dispatched.
-		IfElseFallbackSuccess { main_error: DispatchError }, 
-		/// Both calls failed.
-		IfElseBothFailure { main_error: DispatchError, fallback_error: DispatchError },
+		IfElseFallbackCalled { main_error: DispatchError },
 	}
 
 	// Align the call size to 1KB. As we are currently compiling the runtime for native/wasm
@@ -165,8 +167,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Too many calls batched.
 		TooManyCalls,
-		/// Multiple call failure.
-		InvalidCalls,
+		/// Main and fallback call failure.
+		IfElseBothFailure,
 	}
 
 	#[pallet::call]
@@ -464,31 +466,33 @@ pub mod pallet {
 		}
 
 		/// Dispatch a fallback call in the event the main call fails to execute.
-		///
-		/// This function first attempts to dispatch the `main` call. If the `main` call fails, the `fallback` call
-		/// is dispatched instead. Both calls are executed with the same origin, and the weight of both calls
-		/// is accumulated and returned. The success or failure of the main and fallback calls is tracked and
-		/// appropriate events are deposited.
-		///
 		/// May be called from any origin except `None`.
+		///
+		/// This function first attempts to dispatch the `main` call.
+		/// If the `main` call fails, the `fallback` is attemted.
+		/// if the fallback is successfully dispatched, the weights of both calls
+		/// are accumulated and an event containing the main call error is deposited.
+		///
+		/// In the event of a fallback failure the whole call fails
+		/// with the weights returned.
 		///
 		/// - `main`: The main call to be dispatched. This is the primary action to execute.
 		/// - `fallback`: The fallback call to be dispatched in case the `main` call fails.
 		///
 		/// ## Dispatch Logic
-		/// - If the origin is `root`, both the main and fallback calls are executed without applying any origin filters.
-		/// - If the origin is not `root`, the origin filter is applied to both the `main` and `fallback` calls.
+		/// - If the origin is `root`, both the main and fallback calls are executed without
+		///   applying any origin filters.
+		/// - If the origin is not `root`, the origin filter is applied to both the `main` and
+		///   `fallback` calls.
 		///
-		/// ## Complexity
-		/// - O(1) for the origin check and dispatching the main call.
-		/// - O(1) for the origin check and dispatching the fallback call (if needed).
-		/// - Overall complexity is O(1) since we only dispatch at most two calls.
+		/// ## Use Case
+		/// - Some use cases might involve submitting a `batch` type call in either main, fallback
+		///   or both.
 		///
 		/// ## Weight
 		/// The weight of this call is calculated as the sum of:
-		/// - The weight of the `main` call (if it is executed),
-		/// - The weight of the `fallback` call (if the `main` call fails and the `fallback` is executed),
-		/// - A base weight (`WeightInfo::if_else()`), which accounts for the logic involved in dispatching and handling both calls.
+		/// `WeightInfo::if_else()` + `main` |
+		/// `WeightInfo::if_else()` + `main` + `fallback`.
 		#[pallet::call_index(6)]
 		#[pallet::weight({
 			let main = main.get_dispatch_info();
@@ -541,13 +545,15 @@ pub mod pallet {
 				weight =
 					weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
 
-				if let Err(fallback_error) = fallback_result {
+				if let Err(_fallback_error) = fallback_result {
 					// Both calls have faild.
-					Self::deposit_event(Event::IfElseBothFailure { main_error: main_error.error, fallback_error: fallback_error.error });
-					return Err(sp_runtime::DispatchErrorWithPostInfo { error: Error::<T>::InvalidCalls.into(), post_info: Some(weight).into() })
+					return Err(sp_runtime::DispatchErrorWithPostInfo {
+						error: Error::<T>::IfElseBothFailure.into(),
+						post_info: Some(weight).into(),
+					})
 				}
 				// Fallback succeeded.
-				Self::deposit_event(Event::IfElseFallbackSuccess { main_error: main_error.error });
+				Self::deposit_event(Event::IfElseFallbackCalled { main_error: main_error.error });
 				return Ok(Some(weight).into());
 			}
 			// Main call succeeded.

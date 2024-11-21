@@ -1,4 +1,4 @@
-title: pallet-utility: if_else
+title: Utility call fallback
 
 doc:
   - audience: Runtime Dev
