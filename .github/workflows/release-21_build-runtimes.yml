@@ -39,6 +39,7 @@ jobs:
        profile: production
 
   upload-to-s3:
+    needs: [build-runtimes]
     runs-on: ubuntu-latest
     environment: release
     env:
