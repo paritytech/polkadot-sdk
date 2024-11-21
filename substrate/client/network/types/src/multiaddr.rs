@@ -32,6 +32,7 @@ pub use protocol::Protocol;
 
 // Re-export the macro under shorter name under `multiaddr`.
 pub use crate::build_multiaddr as multiaddr;
+use crate::PeerId;
 
 /// [`Multiaddr`] type used in Substrate. Converted to libp2p's `Multiaddr`
 /// or litep2p's `Multiaddr` when passed to the corresponding network backend.
@@ -75,6 +76,41 @@ impl Multiaddr {
 	/// Return a copy of this [`Multiaddr`]'s byte representation.
 	pub fn to_vec(&self) -> Vec<u8> {
 		self.multiaddr.to_vec()
+	}
+
+	/// Verify the external address is valid.
+	///
+	/// An external address address discovered by the network is valid when:
+	/// - the address is not empty
+	/// - the address contains a valid IP address
+	/// - the address is for the local peer ID
+	pub fn verify_external_address(&self, local_peer_id: PeerId) -> Result<(), ParseError> {
+		if self.is_empty() {
+			return Err(ParseError::InvalidMultiaddr);
+		}
+
+		// Expect the address to contain a valid IP address.
+		if !std::matches!(
+			self.iter().next(),
+			Some(
+				Protocol::Dns(_) |
+					Protocol::Dns4(_) |
+					Protocol::Dns6(_) |
+					Protocol::Ip6(_) |
+					Protocol::Ip4(_),
+			)
+		) {
+			return Err(ParseError::InvalidMultiaddr);
+		}
+
+		if let Some(Protocol::P2p(peer_id)) = self.iter().last() {
+			// Invalid address if the reported peer ID is not the local peer ID.
+			if peer_id != *local_peer_id.as_ref() {
+				return Err(ParseError::InvalidMultiaddr);
+			}
+		}
+
+		Ok(())
 	}
 }
 
