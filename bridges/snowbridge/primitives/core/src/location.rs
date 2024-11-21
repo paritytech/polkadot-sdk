@@ -9,8 +9,7 @@ pub use polkadot_parachain_primitives::primitives::{
 };
 use sp_core::H160;
 pub use sp_core::U256;
-use xcm::opaque::lts::NetworkId;
-
+use xcm::opaque::latest::NetworkId;
 use codec::Encode;
 use sp_core::H256;
 use sp_std::prelude::*;
@@ -94,6 +93,12 @@ impl DescribeLocation for DescribeTokenTerminal {
 			_ => None,
 		}
 	}
+}
+
+
+// Convert ERC20 token address to a location that can be understood by Assets Hub.
+pub fn convert_token_address(network: NetworkId, token: H160) -> Location {
+	Location::new(2, [GlobalConsensus(network), AccountKey20 { network: None, key: token.into() }])
 }
 
 #[cfg(test)]

@@ -13,11 +13,12 @@
 // limitations under the License.
 
 use crate::imports::*;
+use hex_literal::hex;
 use snowbridge_core::rewards::RewardLedger;
-use snowbridge_router_primitives::inbound::v1::{
-	Command, Destination, MessageV1, VersionedMessage
-};
+use snowbridge_router_primitives::inbound::{Command, Destination, MessageV1, VersionedMessage};
+use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 
+const INITIAL_FUND: u128 = 5_000_000_000_000;
 pub const ETH: u128 = 1_000_000_000_000_000_000;
 
 #[test]
