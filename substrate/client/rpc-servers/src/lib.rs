@@ -200,7 +200,7 @@ where
 					.custom_tokio_runtime(cfg.tokio_handle.clone())
 					.set_id_provider(RandomStringIdProvider::new(16));
 
-				if let Some(provider) = id_provider2.take() {
+				if let Some(provider) = id_provider2.clone() {
 					builder = builder.set_id_provider(provider);
 				} else {
 					builder = builder.set_id_provider(RandomStringIdProvider::new(16));
