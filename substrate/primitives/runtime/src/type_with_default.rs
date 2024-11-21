@@ -579,7 +579,9 @@ mod tests {
 		impl WrapAtLeast32Bit for U128WithDefault {}
 
 		assert_eq!(U8WithDefault::type_info(), <u8 as TypeInfo>::type_info());
-
+		assert_eq!(U16WithDefault::type_info(), <u16 as TypeInfo>::type_info());
+		assert_eq!(U32WithDefault::type_info(), <u32 as TypeInfo>::type_info());
 		assert_eq!(U64WithDefault::type_info(), <u64 as TypeInfo>::type_info());
+		assert_eq!(U128WithDefault::type_info(), <u128 as TypeInfo>::type_info());
 	}
 }
