@@ -101,7 +101,7 @@ use sp_consensus_beefy::{
 	mmr::MmrLeafVersion,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, QueryDispatchError, QueryId, H160};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, ViewFunctionDispatchError, QueryId, H160};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -2924,7 +2924,7 @@ impl_runtime_apis! {
 	}
 
 	impl sp_api::RuntimeQuery<Block> for Runtime {
-		fn execute_query(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, QueryDispatchError> {
+		fn execute_query(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError> {
 			Runtime::execute_query(query_id, query)
 		}
 	}

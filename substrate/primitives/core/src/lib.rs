@@ -330,15 +330,15 @@ pub enum Void {}
 /// todo: [AJ] docs
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 
-pub enum QueryDispatchError {
+pub enum ViewFunctionDispatchError {
 	NotImplemented,
 	NotFound(QueryId),
 	Codec,
 }
 
-impl From<codec::Error> for QueryDispatchError {
+impl From<codec::Error> for ViewFunctionDispatchError {
 	fn from(_: codec::Error) -> Self {
-		QueryDispatchError::Codec
+		ViewFunctionDispatchError::Codec
 	}
 }
 

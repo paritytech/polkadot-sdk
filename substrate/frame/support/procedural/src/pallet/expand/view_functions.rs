@@ -176,11 +176,11 @@ fn impl_dispatch_query(
 			fn dispatch_query<
 				O: #frame_support::__private::codec::Output,
 			>
-				(id: & #frame_support::__private::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::__private::QueryDispatchError>
+				(id: & #frame_support::__private::QueryId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::__private::ViewFunctionDispatchError>
 			{
 				match id.suffix {
 					#( #query_match_arms )*
-					_ => Err(#frame_support::__private::QueryDispatchError::NotFound(id.clone())),
+					_ => Err(#frame_support::__private::ViewFunctionDispatchError::NotFound(id.clone())),
 				}
 			}
 		}

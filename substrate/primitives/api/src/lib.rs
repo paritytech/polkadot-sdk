@@ -115,7 +115,7 @@ pub mod __private {
 
 #[cfg(feature = "std")]
 pub use sp_core::traits::CallContext;
-use sp_core::{OpaqueMetadata, QueryDispatchError, QueryId};
+use sp_core::{OpaqueMetadata, ViewFunctionDispatchError, QueryId};
 #[cfg(feature = "std")]
 use sp_externalities::{Extension, Extensions};
 #[cfg(feature = "std")]
@@ -848,7 +848,7 @@ decl_runtime_apis! {
 	/// API for executing view function queriess
 	pub trait RuntimeQuery where {
 		/// Execute a view function query.
-		fn execute_query(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, QueryDispatchError>;
+		fn execute_query(query_id: QueryId, query: Vec<u8>) -> Result<Vec<u8>, ViewFunctionDispatchError>;
 	}
 }
 

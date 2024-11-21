@@ -52,10 +52,10 @@ pub fn expand_outer_query(
 					id: & #scrate::__private::QueryId,
 					input: &mut &[u8],
 					output: &mut O
-				) -> Result<(), #scrate::__private::QueryDispatchError>
+				) -> Result<(), #scrate::__private::ViewFunctionDispatchError>
 				{
 					#( #prefix_conditionals )*
-					Err(#scrate::__private::QueryDispatchError::NotFound(id.clone()))
+					Err(#scrate::__private::ViewFunctionDispatchError::NotFound(id.clone()))
 				}
 			}
 
@@ -64,7 +64,7 @@ pub fn expand_outer_query(
 				pub fn execute_query(
 					id: #scrate::__private::QueryId,
 					input: #scrate::__private::sp_std::vec::Vec<::core::primitive::u8>,
-				) -> Result<#scrate::__private::sp_std::vec::Vec<::core::primitive::u8>, #scrate::__private::QueryDispatchError>
+				) -> Result<#scrate::__private::sp_std::vec::Vec<::core::primitive::u8>, #scrate::__private::ViewFunctionDispatchError>
 				{
 					let mut output = #scrate::__private::sp_std::vec![];
 					<#runtime_query as #scrate::traits::DispatchQuery>::dispatch_query(&id, &mut &input[..], &mut output)?;
