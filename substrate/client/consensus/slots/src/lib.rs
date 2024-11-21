@@ -332,7 +332,6 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		self.notify_slot(&slot_info.chain_head, slot, &aux_data);
 
 		let authorities_len = self.authorities_len(&aux_data);
-		println!("[doppelganger-debug]: authorities_len: {:?}", authorities_len);
 
 		if !self.force_authoring() &&
 			self.sync_oracle().is_offline() &&

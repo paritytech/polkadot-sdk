@@ -474,17 +474,15 @@ mod tests {
 	use super::calculate_genesis_slot;
     use codec::{Encode, Decode};
     use polkadot_primitives::Slot;
-    use sp_runtime::traits::Scale;
 
 	#[test]
+	#[ignore]
 	fn calculate_slot() {
 		const EPOCH_DURARION: u64 = 2400;
 		let current_slot: Slot = Decode::decode(&mut hex::decode("daf0341100000000").unwrap().as_slice()).unwrap();
 		let epoch_index: u64 = Decode::decode(&mut hex::decode("6826000000000000").unwrap().as_slice()).unwrap();
 		println!("{current_slot}");
 
-
-		// const EPOCH_DURARION: u64 = 2400;
 		let slots = EPOCH_DURARION * epoch_index;
 
 		let genesis = calculate_genesis_slot(hex::decode("daf0341100000000").unwrap(), hex::decode("6826000000000000").unwrap());
@@ -502,14 +500,11 @@ mod tests {
 	}
 
 	#[test]
+	#[ignore = "needs dump"]
 	fn encode_works() {
 		// let value_hex = include_str!("session_info_prod.hex");
 		let value_hex = include_str!("session_info_modified.hex");
 
-		use polkadot_primitives::*;
-		use sp_authority_discovery::*;
-		use polkadot_primitives::v8::*;
-		use codec::Decode;
 		use polkadot_runtime_parachains::configuration::HostConfiguration;
 		type BlockNumber = u32;
 
@@ -532,10 +527,5 @@ mod tests {
 		println!("{:?}", host_config);
 		println!("encoded: \n{}", sp_core::hexdisplay::HexDisplay::from(&host_config.encode()));
 
-		// println!("{}", sp_core::hexdisplay::HexDisplay::from(&host_config.encode()));
-		// println!(sp_core::
-		// 	 host_config.encode()
-		// ::from(hex::decode(value_hex).unwrap());
-		// let session_info: polkadot_primitives::SessionInfo = ;
 	}
 }

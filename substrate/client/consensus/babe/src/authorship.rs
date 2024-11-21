@@ -142,7 +142,6 @@ fn claim_secondary_slot(
 	}
 
 	let expected_author = secondary_slot_author(slot, &epoch.authorities, epoch.randomness)?;
-	println!("[doppelganger-debug]: expected author: {:?}", &expected_author);
 
 	for (authority_id, authority_index) in keys {
 		if authority_id == expected_author {
@@ -192,7 +191,6 @@ pub fn claim_slot(
 		.enumerate()
 		.map(|(index, a)| (a.0.clone(), index))
 		.collect::<Vec<_>>();
-	println!("[doppelganger-debug]: authorities: {:?}", &authorities);
 	claim_slot_using_keys(slot, epoch, keystore, &authorities)
 }
 
@@ -208,7 +206,6 @@ pub fn claim_slot_using_keys(
 		if epoch.config.allowed_slots.is_secondary_plain_slots_allowed() ||
 			epoch.config.allowed_slots.is_secondary_vrf_slots_allowed()
 		{
-			println!("[doppelganger-debug]: claim_secondary_slot");
 			claim_secondary_slot(
 				slot,
 				epoch,
