@@ -68,10 +68,10 @@
 //! - iteration over the top* N items by score, where the precise ordering of items doesn't
 //!   particularly matter.
 //!
-//! ### Perserve order mode
+//! ### Preserve order mode
 //!
-//! The bags list pallet supports a mode which perserves the order of the elements in the list.
-//! While the implementor of [`Config::PerserveOrder`] returns `true`, no rebags or moves within a
+//! The bags list pallet supports a mode which preserves the order of the elements in the list.
+//! While the implementor of [`Config::PreserveOrder`] returns `true`, no rebags or moves within a
 //! bag are allowed. Which in practice means that:
 //! - calling [`Pallet::rebag`], [`Pallet::put_in_front_of`] and [`Pallet::put_in_front_of_other`]
 //!   will return a [`Error::MustPreserveOrder`];
@@ -139,7 +139,7 @@ use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_support::{ensure, traits::Get};
 use frame_system::ensure_signed;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Bounded, StaticLookup, Zero},
+	traits::{AtLeast32BitUnsigned, Bounded, StaticLookup},
 	DispatchError,
 };
 
@@ -262,7 +262,7 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		/// Something that signals whether the order of the element in the bags list may change.
-		type PerserveOrder: Get<bool>;
+		type PreserveOrder: Get<bool>;
 	}
 
 	/// A single node, within some bag.
@@ -307,7 +307,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Declare that some `dislocated` account has, through rewards or penalties, sufficiently
 		/// changed its score that it should properly fall into a different bag than its current
-		/// one or it should be removed if its score is 0.
+		/// one.
 		///
 		/// Anyone can call this function about any potentially dislocated account.
 		///
@@ -320,19 +320,13 @@ pub mod pallet {
 		pub fn rebag(origin: OriginFor<T>, dislocated: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
 
-			ensure!(!T::PerserveOrder::get(), Error::<T, I>::MustPreserveOrder);
+			ensure!(!T::PreserveOrder::get(), Error::<T, I>::MustPreserveOrder);
 
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			let current_score = T::ScoreProvider::score(&dislocated);
-
-			if Self::remove_if_zero(&dislocated)? {
-				// removed `dislocated.
-				Ok(())
-			} else {
-				Pallet::<T, I>::do_rebag(&dislocated, current_score)
-					.map_err::<Error<T, I>, _>(Into::into)?;
-				Ok(())
-			}
+			Pallet::<T, I>::do_rebag(&dislocated, current_score)
+				.map_err::<Error<T, I>, _>(Into::into)?;
+			Ok(())
 		}
 
 		/// Move the caller's Id directly in front of `lighter`.
@@ -351,15 +345,10 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
-			ensure!(!T::PerserveOrder::get(), Error::<T, I>::MustPreserveOrder);
+			ensure!(!T::PreserveOrder::get(), Error::<T, I>::MustPreserveOrder);
 
 			let heavier = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
-
-			match (Self::remove_if_zero(&heavier), Self::remove_if_zero(&lighter)) {
-				(Ok(true), _) | (_, Ok(true)) => return Ok(()),
-				_ => (),
-			};
 
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
@@ -376,16 +365,11 @@ pub mod pallet {
 			heavier: AccountIdLookupOf<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
-			ensure!(!T::PerserveOrder::get(), Error::<T, I>::MustPreserveOrder);
+			ensure!(!T::PreserveOrder::get(), Error::<T, I>::MustPreserveOrder);
 
 			let _ = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			let heavier = T::Lookup::lookup(heavier)?;
-
-			match (Self::remove_if_zero(&heavier), Self::remove_if_zero(&lighter)) {
-				(Ok(true), _) | (_, Ok(true)) => return Ok(()),
-				_ => (),
-			};
 
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
@@ -435,18 +419,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(maybe_movement)
 	}
 
-	/// Removes an account from the list if their score as per the score provider is zero.
-	///
-	/// Returns whether the account was removed.
-	pub fn remove_if_zero(account: &T::AccountId) -> Result<bool, DispatchError> {
-		if T::ScoreProvider::score(&account).is_zero() {
-			Pallet::<T, I>::on_remove(&account).map_err::<Error<T, I>, _>(Into::into)?;
-			return Ok(true)
-		}
-
-		return Ok(false)
-	}
-
 	/// Equivalent to `ListBags::get`, but public. Useful for tests in outside of this crate.
 	#[cfg(feature = "std")]
 	pub fn list_bags_get(score: T::Score) -> Option<list::Bag<T, I>> {
@@ -486,7 +458,7 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
-		if T::PerserveOrder::get() {
+		if T::PreserveOrder::get() {
 			// lock is set, on_update is a noop.
 			ensure!(list::Node::<T, I>::get(&id).is_some(), ListError::NodeNotFound);
 			Ok(())

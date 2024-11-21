@@ -109,7 +109,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type BagThresholds = BagThresholds;
 	type ScoreProvider = Staking;
 	type Score = VoteWeight;
-	type PerserveOrder = Staking;
+	type PreserveOrder = Staking;
 }
 
 pub struct BalanceToU256;

@@ -524,32 +524,6 @@ mod pallet {
 			);
 		});
 	}
-
-	#[test]
-	fn extrinsics_remove_id_if_zero_score() {
-		ExtBuilder::default().build_and_execute(|| {
-			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
-
-			assert_eq!(BagsList::get_score(&1), Ok(10));
-			StakingMock::set_score_of(&1, 0);
-			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 1));
-			assert_eq!(BagsList::get_score(&1), Err(ListError::NodeNotFound));
-
-			// put_in_front_of_other with both accounts' score zeroed, both are removed.
-			assert_eq!(BagsList::get_score(&2), Ok(1_000));
-			assert_eq!(BagsList::get_score(&3), Ok(1_000));
-			StakingMock::set_score_of(&2, 0);
-			StakingMock::set_score_of(&3, 0);
-			assert_ok!(BagsList::put_in_front_of(RuntimeOrigin::signed(2), 3));
-			assert_eq!(BagsList::get_score(&2), Err(ListError::NodeNotFound));
-			assert_eq!(BagsList::get_score(&3), Err(ListError::NodeNotFound));
-
-			assert_eq!(BagsList::get_score(&4), Ok(1_000));
-			StakingMock::set_score_of(&4, 0);
-			assert_ok!(BagsList::put_in_front_of_other(RuntimeOrigin::signed(2), 4, 5));
-			assert_eq!(BagsList::get_score(&4), Err(ListError::NodeNotFound));
-		})
-	}
 }
 
 mod sorted_list_provider {
@@ -763,7 +737,7 @@ mod sorted_list_provider {
 	}
 
 	#[test]
-	fn on_update_with_perserve_order_works() {
+	fn on_update_with_preserve_order_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			// initial iter state.
 			let initial_iter = ListNodes::<Runtime>::iter().map(|(a, _)| a).collect::<Vec<_>>();
@@ -774,14 +748,14 @@ mod sorted_list_provider {
 
 			assert_eq!(BagsList::get_score(&1), Ok(10));
 
-			// sets perserve order.
-			PerserveOrder::set(true);
+			// sets preserve order.
+			PreserveOrder::set(true);
 
 			// update 1's score in score provider and call on_update.
 			StakingMock::set_score_of(&1, 2_000);
 			assert_ok!(BagsList::on_update(&1, 2_000));
 
-			// perserve order is set, so the node's bag score and iter state remain the same,
+			// preserve order is set, so the node's bag score and iter state remain the same,
 			// despite the updated score in the score provider for 1.
 			assert_eq!(BagsList::get_score(&1), Ok(10));
 			assert_eq!(
@@ -790,8 +764,8 @@ mod sorted_list_provider {
 			);
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
 
-			// unsets perserve order.
-			PerserveOrder::set(false);
+			// unsets preserve order.
+			PreserveOrder::set(false);
 			assert_ok!(BagsList::rebag(RuntimeOrigin::signed(0), 1));
 
 			// now the rebag worked as expected.
@@ -801,12 +775,12 @@ mod sorted_list_provider {
 	}
 
 	#[test]
-	fn calls_with_perserve_order_fails() {
+	fn calls_with_preserve_order_fails() {
 		use crate::pallet::Error;
 
 		ExtBuilder::default().build_and_execute(|| {
-			// sets perserve order.
-			PerserveOrder::set(true);
+			// sets preserve order.
+			PreserveOrder::set(true);
 
 			assert_noop!(
 				BagsList::rebag(RuntimeOrigin::signed(0), 1),
