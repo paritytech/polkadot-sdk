@@ -39,9 +39,13 @@ use super::{
 
 mod as_transaction_extension;
 mod dispatch_transaction;
+mod transaction_extension_pipeline;
 #[allow(deprecated)]
 pub use as_transaction_extension::AsTransactionExtension;
 pub use dispatch_transaction::DispatchTransaction;
+pub use transaction_extension_pipeline::{
+	TransactionExtensionPipeline, TransactionExtensionPipelineImplicit,
+};
 
 /// Shortcut for the result value of the `validate` function.
 pub type ValidateResult<Val, Call> =
@@ -610,9 +614,11 @@ impl<Call: Dispatchable> TransactionExtension<Call> for () {
 	}
 	type Val = ();
 	type Pre = ();
+	#[inline]
 	fn weight(&self, _call: &Call) -> Weight {
 		Weight::zero()
 	}
+	#[inline]
 	fn validate(
 		&self,
 		origin: <Call as Dispatchable>::RuntimeOrigin,
@@ -628,6 +634,7 @@ impl<Call: Dispatchable> TransactionExtension<Call> for () {
 	> {
 		Ok((ValidTransaction::default(), (), origin))
 	}
+	#[inline]
 	fn prepare(
 		self,
 		_val: (),
