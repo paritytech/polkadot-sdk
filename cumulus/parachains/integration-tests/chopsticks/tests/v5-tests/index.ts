@@ -6,7 +6,8 @@ import {
 	XcmV3MultiassetFungibility,
 	XcmV4Instruction,
 	XcmV3WeightLimit,
-	XcmV3MultiassetMultiAssetFilter
+	XcmV3MultiassetMultiAssetFilter,
+	XcmV4AssetAssetFilter
 } from "@polkadot-api/descriptors";
 import { Binary, Enum, createClient } from "polkadot-api";
 import { getWsProvider } from "polkadot-api/ws-provider/web";
@@ -122,3 +123,38 @@ test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 	const bobBalanceAfter = await getFreeBalance(AHApi, BOB_KEY);
 	expect(bobBalanceAfter > bobBalanceBefore).toBeTruthy();
 });
+
+test("Initiate Teleport XCM v4", async () => {
+	const WndToAH = AHApi.tx.PolkadotXcm.execute({
+			message: Enum("V4", [
+				XcmV4Instruction.WithdrawAsset([{
+					id: { parents: 1, interior: XcmV3Junctions.Here() },
+					fun: XcmV3MultiassetFungibility.Fungible(7e12),
+				}]),
+				XcmV4Instruction.SetFeesMode({
+					jit_withdraw: true,
+				}),
+				XcmV4Instruction.InitiateTeleport({
+					assets: XcmV4AssetAssetFilter.Wild({type: "All", value: undefined}),
+					dest: {
+						parents: 1,
+						interior: XcmV3Junctions.Here(),
+					},
+					xcm: [
+						XcmV4Instruction.BuyExecution({
+							fees: {
+								id: { parents: 0, interior: XcmV3Junctions.Here() },
+								fun: XcmV3MultiassetFungibility.Fungible(500_000_000_000n),
+							},
+							weight_limit: XcmV3WeightLimit.Unlimited(),
+						}),
+					],
+				}),
+			]),
+			max_weight: { ref_time: 55791635000n, proof_size: 364593n },
+		},
+	);
+
+	const r = await WndToAH.signAndSubmit(aliceSigner);
+	expect(r).toBeTruthy();
+})
