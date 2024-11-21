@@ -44,6 +44,13 @@ impl WasmInstance for Instance {
 		name: &str,
 		raw_data: &[u8],
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>) {
+		let Some(method_index) = self.0.module().exports().find(|e| e.symbol() == name) else {
+			return (
+				Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
+				None,
+			);
+		};
+
 		let Ok(raw_data_length) = u32::try_from(raw_data.len()) else {
 			return (
 				Err(format!("cannot call runtime method '{name}': input payload is too big").into()),
@@ -51,11 +58,17 @@ impl WasmInstance for Instance {
 			);
 		};
 
+		// TODO: This will leak guest memory; find a better solution.
+
 		// Make sure the memory is cleared...
-		self.0.reset_memory().unwrap();
+		if let Err(e) = self.0.reset_memory() {
+			return (Err(e.into()), None);
+		}
 
 		// ...and allocate space for the input payload.
-		self.0.sbrk(raw_data_length).unwrap();
+		if let Err(e) = self.0.sbrk(raw_data_length) {
+			return (Err(e.into()), None);
+		}
 
 		// Grab the address of where the guest's heap starts; that's where we've just allocated
 		// the memory for the input payload.
