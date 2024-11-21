@@ -107,7 +107,9 @@ use sp_runtime::{
 use frame_support::{dispatch::DispatchResultWithPostInfo, traits::EnsureOrigin};
 
 use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::*;
+use frame_system::pallet_prelude::{
+	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
+};
 use scale_info::TypeInfo;
 pub use weights::WeightInfo;
 
@@ -122,7 +124,6 @@ type PaymentIdOf<T, I = ()> = <<T as pallet_treasury::Config<I>>::Paymaster as P
 pub type BountyIndex = u32;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-
 type BountyOf<T, I> = Bounty<
 	<T as frame_system::Config>::AccountId,
 	DepositBalanceOf<T, I>,
@@ -132,13 +133,14 @@ type BountyOf<T, I> = Bounty<
 	PaymentIdOf<T, I>,
 	<T as pallet_treasury::Config<I>>::Beneficiary,
 >;
-
 type BountyStatusOf<T, I> = BountyStatus<
 	<T as frame_system::Config>::AccountId,
 	BlockNumberFor<T>,
 	PaymentIdOf<T, I>,
 	<T as pallet_treasury::Config<I>>::Beneficiary,
 >;
+type BlockNumberFor<T, I = ()> =
+	<<T as pallet_treasury::Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -316,11 +318,11 @@ pub mod pallet {
 
 		/// The delay period for which a bounty beneficiary need to wait before claim the payout.
 		#[pallet::constant]
-		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self>>;
+		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self, I>>;
 
 		/// Bounty duration in blocks.
 		#[pallet::constant]
-		type BountyUpdatePeriod: Get<BlockNumberFor<Self>>;
+		type BountyUpdatePeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The curator deposit is calculated as a percentage of the curator fee.
 		///
@@ -443,8 +445,12 @@ pub mod pallet {
 
 	/// Bounties that have been made.
 	#[pallet::storage]
-	pub type Bounties<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Twox64Concat, BountyIndex, BountyOf<T, I>>;
+	pub type Bounties<T: Config<I>, I: 'static = ()> = StorageMap<
+		_,
+		Twox64Concat,
+		BountyIndex,
+		BountyOf<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T, I>>,
+	>;
 
 	/// The description of each bounty.
 	#[pallet::storage]
@@ -1239,9 +1245,9 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+	impl<T: Config<I>, I: 'static> Hooks<SystemBlockNumberFor<T>> for Pallet<T, I> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -1291,7 +1297,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Get the block number used in the treasury pallet.
 	///
 	/// It may be configured to use the relay chain block number on a parachain.
-	pub fn treasury_block_number() -> BlockNumberFor<T> {
+	pub fn treasury_block_number() -> BlockNumberFor<T, I> {
 		<T as pallet_treasury::Config<I>>::BlockNumberProvider::current_block_number()
 	}
 
