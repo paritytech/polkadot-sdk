@@ -364,7 +364,7 @@ pub mod pallet {
 
 			let message_id = Self::send_xcm(interior, dest.clone(), message.clone())
 				.map_err(|error| {
-					tracing::error!(target: "xcm::pallet_xcm::send", ?error, ?dest, ?dest, "XCM send failed with error");
+					tracing::error!(target: "xcm::pallet_xcm::send", ?error, ?dest, ?message, "XCM send failed with error");
 					Error::<T>::from(error)
 				})?;
 			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
