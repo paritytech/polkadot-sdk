@@ -17,12 +17,16 @@
 
 use super::*;
 
+/*
 use frame_support::traits::{
 	fungibles::{Inspect, InspectFreeze, MutateFreeze},
 	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
 };
+*/
 use pallet_assets::FrozenBalance;
-use sp_runtime::traits::Zero;
+// use sp_runtime::traits::Zero;
+
+use frame::{deps::sp_runtime, traits::{fungibles::{Inspect, InspectFreeze, MutateFreeze}, tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence}, Zero}};
 
 // Implements [`FrozenBalance`] from [`pallet-assets`], so it can understand how much of an
 // account balance is frozen, and is able to signal to this pallet when to clear the state of an

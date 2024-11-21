@@ -20,6 +20,7 @@
 use crate::mock::*;
 
 use codec::Compact;
+/*
 use frame_support::{
 	assert_ok, assert_storage_noop,
 	traits::{
@@ -27,6 +28,8 @@ use frame_support::{
 		tokens::{Fortitude, Preservation},
 	},
 };
+*/
+use frame::{testing_prelude::*, traits::{fungibles::{Inspect, InspectFreeze, MutateFreeze}, tokens::{Fortitude, Preservation}}};
 use pallet_assets::FrozenBalance;
 
 const WHO: AccountId = 1;
@@ -281,7 +284,7 @@ mod impl_mutate_freeze {
 }
 
 mod with_pallet_assets {
-	use frame_support::assert_noop;
+	// use frame_support::assert_noop;
 
 	use super::*;
 

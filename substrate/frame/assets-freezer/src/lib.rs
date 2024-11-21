@@ -42,6 +42,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+/*
 use frame_support::{
 	pallet_prelude::*,
 	traits::{tokens::IdAmount, VariantCount, VariantCountOf},
@@ -52,7 +53,8 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	BoundedSlice,
 };
-
+*/
+use frame::{prelude::*, traits::{tokens::IdAmount, VariantCount, VariantCountOf, Saturating, Zero}};
 pub use pallet::*;
 
 #[cfg(test)]
@@ -62,7 +64,8 @@ mod tests;
 
 mod impls;
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -125,7 +128,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -160,12 +163,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	#[cfg(any(test, feature = "try-runtime"))]
-	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+	fn do_try_state() -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
 		for (asset, who, _) in FrozenBalances::<T, I>::iter() {
 			let max_frozen_amount =
 				Freezes::<T, I>::get(asset.clone(), who.clone()).iter().map(|l| l.amount).max();
 
-			frame_support::ensure!(
+			ensure!(
 				FrozenBalances::<T, I>::get(asset, who) == max_frozen_amount,
 				"The `FrozenAmount` is not equal to the maximum amount in `Freezes` for (`asset`, `who`)"
 			);

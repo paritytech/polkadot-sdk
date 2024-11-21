@@ -218,10 +218,10 @@ pub mod prelude {
 
 	/// Runtime traits
 	#[doc(no_inline)]
-	pub use sp_runtime::traits::{
+	pub use sp_runtime::{traits::{
 		Bounded, DispatchInfoOf, Dispatchable, SaturatedConversion, Saturating, StaticLookup,
 		TrailingZeroInput,
-	};
+	}, BoundedSlice};
 
 	/// Other error/result types for runtime
 	#[doc(no_inline)]
@@ -307,7 +307,7 @@ pub mod testing_prelude {
 
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
-		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
+		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok, ensure,
 		assert_storage_noop, storage_alias,
 	};
 
