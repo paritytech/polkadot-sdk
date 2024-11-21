@@ -17,7 +17,9 @@
 //! Block relay protocol related definitions.
 
 use futures::channel::oneshot;
-use sc_network::{request_responses::RequestFailure, NetworkBackend, ProtocolName};
+use sc_network::{
+	request_responses::RequestFailure, types::ProtocolSupportedNames, NetworkBackend, ProtocolName,
+};
 use sc_network_common::sync::message::{BlockData, BlockRequest};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
@@ -35,8 +37,8 @@ pub trait BlockServer<Block: BlockT>: Send {
 /// that can be used to initiate concurrent downloads.
 #[async_trait::async_trait]
 pub trait BlockDownloader<Block: BlockT>: fmt::Debug + Send + Sync {
-	/// Protocol name used by block downloader.
-	fn protocol_name(&self) -> &ProtocolName;
+	/// Protocol names used by block downloader.
+	fn protocol_names(&self) -> ProtocolSupportedNames;
 
 	/// Performs the protocol specific sequence to fetch the blocks from the peer.
 	/// Output: if the download succeeds, the response is a `Vec<u8>` which is

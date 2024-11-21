@@ -50,7 +50,7 @@ use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
 use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
-use sc_network::{IfDisconnected, ProtocolName};
+use sc_network::{types::ProtocolSupportedNames, IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
@@ -326,8 +326,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	max_parallel_downloads: u32,
 	/// Maximum blocks per request.
 	max_blocks_per_request: u32,
-	/// Protocol name used to send out state requests
-	state_request_protocol_name: ProtocolName,
+	/// Protocol names used to send out state requests
+	state_request_protocol_names: ProtocolSupportedNames,
 	/// Total number of downloaded blocks.
 	downloaded_blocks: usize,
 	/// State sync in progress, if any.
@@ -589,7 +589,7 @@ where
 			return;
 		}
 
-		if protocol_name == self.state_request_protocol_name {
+		if self.state_request_protocol_names.is_supported(&protocol_name) {
 			let Ok(response) = response.downcast::<Vec<u8>>() else {
 				warn!(target: LOG_TARGET, "Failed to downcast state response");
 				debug_assert!(false);
@@ -599,7 +599,11 @@ where
 			if let Err(bad_peer) = self.on_state_data(&peer_id, &response) {
 				self.actions.push(SyncingAction::DropPeer(bad_peer));
 			}
-		} else if &protocol_name == self.block_downloader.protocol_name() {
+
+			return;
+		}
+
+		if self.block_downloader.protocol_names().is_supported(&protocol_name) {
 			let Ok(response) = response
 				.downcast::<(BlockRequest<B>, Result<Vec<BlockData<B>>, BlockResponseError>)>()
 			else {
@@ -636,14 +640,16 @@ where
 			if let Err(bad_peer) = self.on_block_response(peer_id, key, request, blocks) {
 				self.actions.push(SyncingAction::DropPeer(bad_peer));
 			}
-		} else {
-			warn!(
-				target: LOG_TARGET,
-				"Unexpected generic response protocol {protocol_name}, strategy key \
-				{key:?}",
-			);
-			debug_assert!(false);
+
+			return;
 		}
+
+		warn!(
+			target: LOG_TARGET,
+			"Unexpected generic response protocol {protocol_name}, strategy key \
+			{key:?}",
+		);
+		debug_assert!(false);
 	}
 
 	fn on_blocks_processed(
@@ -901,7 +907,7 @@ where
 
 			network_service.start_request(
 				peer_id,
-				self.state_request_protocol_name.clone(),
+				self.state_request_protocol_names.protocol_name().clone(),
 				request.encode_to_vec(),
 				tx,
 				IfDisconnected::ImmediateError,
@@ -945,7 +951,7 @@ where
 		client: Arc<Client>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
-		state_request_protocol_name: ProtocolName,
+		state_request_protocol_names: ProtocolSupportedNames,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
@@ -965,7 +971,7 @@ where
 			allowed_requests: Default::default(),
 			max_parallel_downloads,
 			max_blocks_per_request,
-			state_request_protocol_name,
+			state_request_protocol_names,
 			downloaded_blocks: 0,
 			state_sync: None,
 			import_existing: false,

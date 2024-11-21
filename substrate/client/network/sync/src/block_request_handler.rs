@@ -38,7 +38,7 @@ use sc_network::{
 	config::ProtocolId,
 	request_responses::{IfDisconnected, IncomingRequest, OutgoingResponse, RequestFailure},
 	service::traits::RequestResponseConfig,
-	types::ProtocolName,
+	types::{ProtocolName, ProtocolSupportedNames},
 	NetworkBackend, MAX_RESPONSE_SIZE,
 };
 use sc_network_common::sync::message::{BlockAttributes, BlockData, BlockRequest, FromBlock};
@@ -190,7 +190,7 @@ where
 		BlockRelayParams {
 			server: Box::new(Self { client, request_receiver, seen_requests }),
 			downloader: Arc::new(FullBlockDownloader::new(
-				protocol_config.protocol_name().clone(),
+				protocol_config.protocol_names(),
 				network,
 			)),
 			request_response_config: protocol_config,
@@ -504,13 +504,13 @@ enum HandleRequestError {
 /// The full block downloader implementation of [`BlockDownloader].
 #[derive(Debug)]
 pub struct FullBlockDownloader {
-	protocol_name: ProtocolName,
+	protocol_names: ProtocolSupportedNames,
 	network: NetworkServiceHandle,
 }
 
 impl FullBlockDownloader {
-	fn new(protocol_name: ProtocolName, network: NetworkServiceHandle) -> Self {
-		Self { protocol_name, network }
+	fn new(protocol_names: ProtocolSupportedNames, network: NetworkServiceHandle) -> Self {
+		Self { protocol_names, network }
 	}
 
 	/// Extracts the blocks from the response schema.
@@ -577,8 +577,8 @@ impl FullBlockDownloader {
 
 #[async_trait::async_trait]
 impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
-	fn protocol_name(&self) -> &ProtocolName {
-		&self.protocol_name
+	fn protocol_names(&self) -> ProtocolSupportedNames {
+		self.protocol_names.clone()
 	}
 
 	async fn download_blocks(
@@ -602,7 +602,7 @@ impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
 		let (tx, rx) = oneshot::channel();
 		self.network.start_request(
 			who,
-			self.protocol_name.clone(),
+			self.protocol_names.protocol_name().clone(),
 			bytes,
 			tx,
 			IfDisconnected::ImmediateError,

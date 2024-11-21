@@ -33,7 +33,7 @@ use crate::{
 use codec::{Decode, Encode};
 use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, trace, warn};
-use sc_network::{IfDisconnected, ProtocolName};
+use sc_network::{types::ProtocolSupportedNames, IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
@@ -43,6 +43,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor, Zero},
 	Justifications, SaturatedConversion,
 };
+
 use std::{any::Any, collections::HashMap, fmt, sync::Arc};
 
 /// Number of peers that need to be connected before warp sync is started.
@@ -209,7 +210,7 @@ pub struct WarpSync<B: BlockT, Client> {
 	total_state_bytes: u64,
 	peers: HashMap<PeerId, Peer<B>>,
 	disconnected_peers: DisconnectedPeers,
-	protocol_name: Option<ProtocolName>,
+	protocol_names: Option<ProtocolSupportedNames>,
 	block_downloader: Arc<dyn BlockDownloader<B>>,
 	actions: Vec<SyncingAction<B>>,
 	result: Option<WarpSyncResult<B>>,
@@ -229,7 +230,7 @@ where
 	pub fn new(
 		client: Arc<Client>,
 		warp_sync_config: WarpSyncConfig<B>,
-		protocol_name: Option<ProtocolName>,
+		protocol_names: Option<ProtocolSupportedNames>,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 	) -> Self {
 		if client.info().finalized_state.is_some() {
@@ -244,7 +245,7 @@ where
 				total_state_bytes: 0,
 				peers: HashMap::new(),
 				disconnected_peers: DisconnectedPeers::new(),
-				protocol_name,
+				protocol_names,
 				block_downloader,
 				actions: vec![SyncingAction::Finished],
 				result: None,
@@ -264,7 +265,7 @@ where
 			total_state_bytes: 0,
 			peers: HashMap::new(),
 			disconnected_peers: DisconnectedPeers::new(),
-			protocol_name,
+			protocol_names,
 			block_downloader,
 			actions: Vec::new(),
 			result: None,
@@ -335,7 +336,7 @@ where
 		protocol_name: ProtocolName,
 		response: Box<dyn Any + Send>,
 	) {
-		if &protocol_name == self.block_downloader.protocol_name() {
+		if self.block_downloader.protocol_names().is_supported(&protocol_name) {
 			let Ok(response) = response
 				.downcast::<(BlockRequest<B>, Result<Vec<BlockData<B>>, BlockResponseError>)>()
 			else {
@@ -553,7 +554,9 @@ where
 
 		let request = WarpProofRequest { begin };
 
-		let Some(protocol_name) = self.protocol_name.clone() else {
+		let Some(protocol_name) =
+			self.protocol_names.as_ref().map(|names| names.protocol_name()).cloned()
+		else {
 			warn!(
 				target: LOG_TARGET,
 				"Trying to send warp sync request when no protocol is configured {request:?}",

@@ -1313,20 +1313,20 @@ where
 
 	let genesis_hash = client.info().genesis_hash;
 
-	let (state_request_protocol_config, state_request_protocol_name) = {
+	let (state_request_protocol_config, state_request_protocol_names) = {
 		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
 			net_config.network_config.default_peers_set.reserved_nodes.len();
 		// Allow both outgoing and incoming requests.
 		let (handler, protocol_config) =
 			StateRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone(), num_peer_hint);
-		let config_name = protocol_config.protocol_name().clone();
+		let protocol_names = protocol_config.protocol_names();
 
 		spawn_handle.spawn("state-request-handler", Some("networking"), handler.run());
-		(protocol_config, config_name)
+		(protocol_config, protocol_names)
 	};
 	net_config.add_request_response_protocol(state_request_protocol_config);
 
-	let (warp_sync_protocol_config, warp_sync_protocol_name) = match warp_sync_config.as_ref() {
+	let (warp_sync_protocol_config, warp_sync_protocol_names) = match warp_sync_config.as_ref() {
 		Some(WarpSyncConfig::WithProvider(warp_with_provider)) => {
 			// Allow both outgoing and incoming requests.
 			let (handler, protocol_config) = WarpSyncRequestHandler::new::<_, Net>(
@@ -1335,10 +1335,10 @@ where
 				fork_id,
 				warp_with_provider.clone(),
 			);
-			let config_name = protocol_config.protocol_name().clone();
+			let protocol_names = protocol_config.protocol_names();
 
 			spawn_handle.spawn("warp-sync-request-handler", Some("networking"), handler.run());
-			(Some(protocol_config), Some(config_name))
+			(Some(protocol_config), Some(protocol_names))
 		},
 		_ => (None, None),
 	};
@@ -1351,13 +1351,13 @@ where
 		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
 		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
 		metrics_registry: metrics_registry.cloned(),
-		state_request_protocol_name,
+		state_request_protocol_names,
 		block_downloader,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,
 		client,
 		warp_sync_config,
-		warp_sync_protocol_name,
+		warp_sync_protocol_names,
 	)?))
 }
