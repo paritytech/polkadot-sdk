@@ -140,7 +140,7 @@ pub struct UpdateBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>(
 	PhantomData<(T, I, XcmProvider, XcmSender)>,
 );
 impl<T: Config<I>, I: 'static, XcmProvider: Convert<Vec<u8>, Xcm<()>>, XcmSender: SendXcm>
-    UpdateBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>
+	UpdateBridgeStatusXcmChannelManager<T, I, XcmProvider, XcmSender>
 {
 	fn update_bridge_status(
 		local_origin: &Location,
