@@ -505,20 +505,10 @@ where
 					reinitialize: false,
 					slot_drift: Duration::from_secs(1),
 					block_import_handle: slot_based_handle,
+					spawner: task_manager.spawn_handle(),
 				};
 
-				let (collation_future, block_builder_future) =
-					slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
-				task_manager.spawn_essential_handle().spawn(
-					"collation-task",
-					None,
-					collation_future,
-				);
-				task_manager.spawn_essential_handle().spawn(
-					"block-builder-task",
-					None,
-					block_builder_future,
-				);
+				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
 				let params = AuraParams {
