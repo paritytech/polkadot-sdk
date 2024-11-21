@@ -24,6 +24,7 @@ use crate::{
 	peer_store::PeerStoreProvider,
 	request_responses::{IncomingRequest, OutgoingResponse},
 	service::{metrics::Metrics, traits::RequestResponseConfig as RequestResponseConfigT},
+	types::ProtocolSupportedNames,
 	IfDisconnected, OutboundFailure, ProtocolName, RequestFailure,
 };
 
@@ -150,12 +151,8 @@ impl RequestResponseConfig {
 }
 
 impl RequestResponseConfigT for RequestResponseConfig {
-	fn protocol_name(&self) -> &ProtocolName {
-		&self.protocol_name
-	}
-
-	fn fallback_protocol_names(&self) -> Vec<ProtocolName> {
-		self.fallback_names.clone()
+	fn protocol_names(&self) -> ProtocolSupportedNames {
+		ProtocolSupportedNames::new(self.protocol_name.clone(), self.fallback_names.clone())
 	}
 }
 

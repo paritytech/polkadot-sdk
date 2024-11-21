@@ -37,7 +37,7 @@
 use crate::{
 	peer_store::{PeerStoreProvider, BANNED_THRESHOLD},
 	service::traits::RequestResponseConfig as RequestResponseConfigT,
-	types::ProtocolName,
+	types::{ProtocolName, ProtocolSupportedNames},
 	ReputationChange,
 };
 
@@ -194,12 +194,8 @@ pub struct ProtocolConfig {
 }
 
 impl RequestResponseConfigT for ProtocolConfig {
-	fn protocol_name(&self) -> &ProtocolName {
-		&self.name
-	}
-
-	fn fallback_protocol_names(&self) -> Vec<ProtocolName> {
-		self.fallback_names.clone()
+	fn protocol_names(&self) -> ProtocolSupportedNames {
+		ProtocolSupportedNames::new(self.name.clone(), self.fallback_names.clone())
 	}
 }
 

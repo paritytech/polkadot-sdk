@@ -26,6 +26,39 @@ use std::{
 	sync::Arc,
 };
 
+/// The supported names for a request response protocol.
+///
+/// A protocol may support a main protocol name and a list of fallback protocol names.
+#[derive(Debug, Clone)]
+pub struct ProtocolSupportedNames {
+	/// The main protocol name.
+	protocol_name: ProtocolName,
+	/// The fallback protocol names.
+	fallback_protocol_names: Vec<ProtocolName>,
+}
+
+impl ProtocolSupportedNames {
+	/// Create a new instance of [`ProtocolSupportedNames`].
+	pub fn new(protocol_name: ProtocolName, fallback_protocol_names: Vec<ProtocolName>) -> Self {
+		Self { protocol_name, fallback_protocol_names }
+	}
+
+	/// Get the protocol name.
+	pub fn protocol_name(&self) -> &ProtocolName {
+		&self.protocol_name
+	}
+
+	/// Get the fallback protocol names.
+	pub fn fallback_protocol_names(&self) -> &Vec<ProtocolName> {
+		&self.fallback_protocol_names
+	}
+
+	/// Check if the protocol name is supported.
+	pub fn is_supported(&self, protocol_name: &ProtocolName) -> bool {
+		&self.protocol_name == protocol_name || self.fallback_protocol_names.contains(protocol_name)
+	}
+}
+
 /// The protocol name transmitted on the wire.
 #[derive(Debug, Clone)]
 pub enum ProtocolName {

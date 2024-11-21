@@ -27,7 +27,7 @@ use crate::{
 	network_state::NetworkState,
 	request_responses::{IfDisconnected, RequestFailure},
 	service::{metrics::NotificationMetrics, signature::Signature, PeerStoreProvider},
-	types::ProtocolName,
+	types::{ProtocolName, ProtocolSupportedNames},
 	ReputationChange,
 };
 
@@ -94,11 +94,8 @@ pub trait NotificationConfig: Debug {
 
 /// Trait defining the required functionality from a request-response protocol configuration.
 pub trait RequestResponseConfig: Debug {
-	/// Get protocol name.
-	fn protocol_name(&self) -> &ProtocolName;
-
-	/// Get fallback protocol names.
-	fn fallback_protocol_names(&self) -> Vec<ProtocolName>;
+	/// Get protocol supported names.
+	fn protocol_names(&self) -> ProtocolSupportedNames;
 }
 
 /// Trait defining required functionality from `PeerStore`.
