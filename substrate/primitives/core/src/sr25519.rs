@@ -23,7 +23,7 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoBytes, DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError, NonAggregatable
+	CryptoBytes, DeriveError, DeriveJunction, NonAggregatable, Pair as TraitPair, SecretStringError,
 };
 
 use alloc::vec::Vec;
@@ -299,9 +299,7 @@ impl CryptoType for Pair {
 	type Pair = Pair;
 }
 
-impl NonAggregatable for Pair {
-
-}
+impl NonAggregatable for Pair {}
 
 /// Schnorrkel VRF related types and operations.
 pub mod vrf {

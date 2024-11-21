@@ -334,7 +334,7 @@ pub trait Keystore: Send + Sync {
 	fn bls381_generate_pop(
 		&self,
 		key_type: KeyTypeId,
-		public: &bls381::Public
+		public: &bls381::Public,
 	) -> Result<Option<bls381::Signature>, Error>;
 
 	/// Generate a (ecdsa,bls381) signature pair for a given message.
@@ -639,7 +639,7 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	fn bls381_generate_pop(
 		&self,
 		key_type: KeyTypeId,
-		public: &bls381::Public
+		public: &bls381::Public,
 	) -> Result<Option<bls381::Signature>, Error> {
 		(**self).bls381_generate_pop(key_type, public)
 	}

@@ -18,9 +18,8 @@
 //! Simple ECDSA secp256k1 API.
 
 use crate::crypto::{
-	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	PublicBytes, SecretStringError,
-	SignatureBytes, NonAggregatable
+	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable, Pair as TraitPair,
+	PublicBytes, SecretStringError, SignatureBytes,
 };
 
 #[cfg(not(feature = "std"))]
@@ -327,9 +326,7 @@ impl CryptoType for Pair {
 	type Pair = Pair;
 }
 
-impl NonAggregatable for Pair {
-
-}
+impl NonAggregatable for Pair {}
 
 #[cfg(test)]
 mod test {

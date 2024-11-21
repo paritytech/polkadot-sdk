@@ -18,7 +18,8 @@
 //! Simple Ed25519 API.
 
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable, Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes
+	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, NonAggregatable,
+	Pair as TraitPair, PublicBytes, SecretStringError, SignatureBytes,
 };
 
 use ed25519_zebra::{SigningKey, VerificationKey};
@@ -152,9 +153,7 @@ impl CryptoType for Pair {
 	type Pair = Pair;
 }
 
-impl NonAggregatable for Pair {
-
-}
+impl NonAggregatable for Pair {}
 
 #[cfg(test)]
 mod tests {

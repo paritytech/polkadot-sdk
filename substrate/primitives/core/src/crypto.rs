@@ -1016,7 +1016,6 @@ where
 	T: Pair + NonAggregatable,
 	T::Public: CryptoType,
 {
-
 }
 
 impl<T> ProofOfPossessionGenerator for T
@@ -1024,7 +1023,6 @@ where
 	T: Pair + NonAggregatable,
 	T::Public: CryptoType,
 {
-
 }
 
 /// One type is wrapped by another.
