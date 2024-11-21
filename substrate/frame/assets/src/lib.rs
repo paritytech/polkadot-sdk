@@ -170,13 +170,16 @@ pub use types::*;
 extern crate alloc;
 
 use scale_info::TypeInfo;
+/*
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, TokenError,
 };
+*/
 
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+/*
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -193,7 +196,8 @@ use frame_support::{
 	},
 };
 use frame_system::Config as SystemConfig;
-
+*/
+use frame::{arithmetic::{AtLeast32BitUnsigned, ArithmeticError}, deps::frame_system::Config as SystemConfig, derive::DefaultNoBound, prelude::*, pallet_macros::derive_impl, traits::{tokens::{fungibles, DepositConsequence, Fortitude, Preservation::{Expendable, Preserve}, WithdrawConsequence}, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, Incrementable, ReservableCurrency, StoredMap, AccountTouch, ContainsPair}};
 pub use pallet::*;
 pub use weights::WeightInfo;
 
@@ -245,14 +249,17 @@ where
 	}
 }
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{AccountTouch, ContainsPair},
 	};
 	use frame_system::pallet_prelude::*;
+	*/
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -275,13 +282,13 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::derive_impl;
+		// use frame_support::derive_impl;
 		pub struct TestDefaultConfig;
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
-		#[frame_support::register_default_impl(TestDefaultConfig)]
+		#[frame::deps::frame_support::register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
@@ -469,7 +476,7 @@ pub mod pallet {
 	pub type NextAssetId<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AssetId, OptionQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		/// Genesis assets: id, owner, is_sufficient, min_balance
 		pub assets: Vec<(T::AssetId, T::AccountId, bool, T::Balance)>,
@@ -1838,4 +1845,4 @@ pub mod pallet {
 	}
 }
 
-sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
+frame::deps::sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
