@@ -30,8 +30,9 @@ use alloc::vec::Vec;
 use sp_runtime::TryRuntimeError;
 
 mod v0 {
+	use frame_system::pallet_prelude::BlockNumberFor;
+
 	use super::*;
-	use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 
 	#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 	pub struct ParamsType<Balance, BlockNumber, const RANKS: usize> {
@@ -59,77 +60,9 @@ mod v0 {
 	/// Number of available ranks from old version.
 	pub(crate) const RANK_COUNT: usize = 9;
 
-	pub type ParamsOf<T, I> =
-		ParamsType<<T as Config<I>>::Balance, SystemBlockNumberFor<T>, RANK_COUNT>;
+	pub type ParamsOf<T, I> = ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, RANK_COUNT>;
 
 	/// V0 type for [`crate::Params`].
-	#[storage_alias]
-	pub type Params<T: Config<I>, I: 'static> =
-		StorageValue<Pallet<T, I>, ParamsOf<T, I>, ValueQuery>;
-}
-
-mod v1 {
-	use super::*;
-	use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
-
-	#[derive(
-		Encode,
-		Decode,
-		CloneNoBound,
-		EqNoBound,
-		PartialEqNoBound,
-		RuntimeDebugNoBound,
-		TypeInfo,
-		MaxEncodedLen,
-	)]
-	#[scale_info(skip_type_params(Ranks))]
-	pub struct ParamsType<
-		Balance: Clone + Eq + PartialEq + Debug,
-		BlockNumber: Clone + Eq + PartialEq + Debug,
-		Ranks: Get<u32>,
-	> {
-		pub active_salary: BoundedVec<Balance, Ranks>,
-		pub passive_salary: BoundedVec<Balance, Ranks>,
-		pub demotion_period: BoundedVec<BlockNumber, Ranks>,
-		pub min_promotion_period: BoundedVec<BlockNumber, Ranks>,
-		pub offboard_timeout: BlockNumber,
-	}
-
-	impl<Balance, BlockNumber, Ranks: Get<u32>> Default for ParamsType<Balance, BlockNumber, Ranks>
-	where
-		Balance: Default + Copy + Clone + Eq + PartialEq + Debug,
-		BlockNumber: Default + Copy + Clone + Eq + PartialEq + Debug,
-		Ranks: Get<u32>,
-	{
-		fn default() -> Self {
-			let rank_count = Ranks::get() as usize;
-			Self {
-				active_salary: BoundedVec::defensive_truncate_from(vec![
-					Balance::default();
-					rank_count
-				]),
-				passive_salary: BoundedVec::defensive_truncate_from(vec![
-					Balance::default();
-					rank_count
-				]),
-				demotion_period: BoundedVec::defensive_truncate_from(vec![
-					BlockNumber::default();
-					rank_count
-				]),
-				min_promotion_period: BoundedVec::defensive_truncate_from(vec![
-					BlockNumber::default(
-					);
-					rank_count
-				]),
-				offboard_timeout: BlockNumber::default(),
-			}
-		}
-	}
-
-	pub type ParamsOf<T, I> =
-		ParamsType<<T as Config<I>>::Balance, SystemBlockNumberFor<T>, <T as Config<I>>::MaxRank>;
-
-	/// V1 type for [`crate::Params`].
 	#[storage_alias]
 	pub type Params<T: Config<I>, I: 'static> =
 		StorageValue<Pallet<T, I>, ParamsOf<T, I>, ValueQuery>;
@@ -150,7 +83,7 @@ impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for MigrateToV1<T, I> {
 		// Read the old value from storage
 		let old_value = v0::Params::<T, I>::take();
 		// Write the new value to storage
-		let new = v1::ParamsType {
+		let new = crate::ParamsType {
 			active_salary: BoundedVec::defensive_truncate_from(old_value.active_salary.to_vec()),
 			passive_salary: BoundedVec::defensive_truncate_from(old_value.passive_salary.to_vec()),
 			demotion_period: BoundedVec::defensive_truncate_from(
@@ -161,7 +94,7 @@ impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for MigrateToV1<T, I> {
 			),
 			offboard_timeout: old_value.offboard_timeout,
 		};
-		v1::Params::<T, I>::put(new);
+		crate::Params::<T, I>::put(new);
 		T::DbWeight::get().reads_writes(1, 1)
 	}
 }
