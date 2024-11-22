@@ -1315,7 +1315,8 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
 			Transact { origin_kind, mut call } => {
-				let require_weight_at_most = call.take_decoded()
+				let require_weight_at_most = call
+					.take_decoded()
 					.map(|c| c.get_dispatch_info().call_weight)
 					.unwrap_or(Weight::MAX);
 				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
