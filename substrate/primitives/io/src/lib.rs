@@ -1273,6 +1273,24 @@ pub trait Crypto {
 			.bandersnatch_generate_new(id, seed)
 			.expect("`bandernatch_generate` failed")
 	}
+
+	/// Sign the given `msg` with the `bandersnatch` key that corresponds to the given public key
+	/// and key type in the keystore.
+	///
+	/// Returns the signature.
+	#[cfg(feature = "bandersnatch-experimental")]
+	fn bandersnatch_sign(
+		&mut self,
+		id: KeyTypeId,
+		pub_key: &bandersnatch::Public,
+		msg: &[u8],
+	) -> Option<bandersnatch::Signature> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bandersnatch_sign(id, pub_key, msg)
+			.ok()
+			.flatten()
+	}
 }
 
 /// Interface that provides functions for hashing with different algorithms.
