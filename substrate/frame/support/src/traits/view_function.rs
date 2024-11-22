@@ -39,11 +39,11 @@ impl DispatchViewFunction for () {
 	}
 }
 
-pub trait QueryIdPrefix {
+pub trait ViewFunctionIdPrefix {
 	fn prefix() -> [u8; 16];
 }
 
-pub trait QueryIdSuffix {
+pub trait ViewFunctionIdSuffix {
 	const SUFFIX: [u8; 16];
 }
 
