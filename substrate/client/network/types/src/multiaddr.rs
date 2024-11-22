@@ -350,3 +350,23 @@ macro_rules! build_multiaddr {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn check_external_empty_addr() {
+		// Plain empty address.
+		let empty_address = Multiaddr::empty();
+		assert!(!empty_address.is_external_address_valid(PeerId::random()));
+
+		// Address is still unusable.
+		let address_with_p2p = Multiaddr::from(Protocol::P2p(PeerId::random().into()));
+		assert!(!address_with_p2p.is_external_address_valid(PeerId::random()));
+
+		// Address is not empty.
+		let valid_address: Multiaddr = "/dns/domain1.com/tcp/30333".parse().unwrap();
+		assert!(valid_address.is_external_address_valid(PeerId::random()));
+	}
+}
