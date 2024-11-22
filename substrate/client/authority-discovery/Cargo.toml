@@ -23,7 +23,6 @@ prost-build = { workspace = true }
 codec = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-ip_network = { workspace = true }
 multihash = { workspace = true }
 linked_hash_set = { workspace = true }
 log = { workspace = true, default-features = true }

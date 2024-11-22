@@ -78,12 +78,23 @@ impl Multiaddr {
 		self.multiaddr.to_vec()
 	}
 
+	// Checks that the address is global.
+	pub fn is_global(&self) -> bool {
+		self.iter().all(|protocol| match protocol {
+			// The `ip_network` library is used because its `is_global()` method is stable,
+			// while `is_global()` in the standard library currently isn't.
+			Protocol::Ip4(ip) => ip_network::IpNetwork::from(ip).is_global(),
+			Protocol::Ip6(ip) => ip_network::IpNetwork::from(ip).is_global(),
+			_ => true,
+		})
+	}
+
 	/// Verify the external address is valid.
 	///
 	/// An external address address discovered by the network is valid when:
 	/// - the address is not empty
 	/// - the address contains a valid IP address
-	/// - the address is for the local peer ID
+	/// - the address /p2p/peer corresponds to the local peer ID
 	pub fn is_external_address_valid(&self, local_peer_id: PeerId) -> bool {
 		// Empty addresses are not reachable.
 		if self.is_empty() {

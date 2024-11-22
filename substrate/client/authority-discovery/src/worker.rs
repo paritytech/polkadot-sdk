@@ -33,7 +33,6 @@ use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt}
 
 use addr_cache::AddrCache;
 use codec::{Decode, Encode};
-use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
 use sc_network_types::kad::{Key, PeerRecord, Record};
 
@@ -376,17 +375,6 @@ where
 		let local_peer_id = self.network.local_peer_id();
 		let publish_non_global_ips = self.publish_non_global_ips;
 
-		// Checks that the address is global.
-		let address_is_global = |address: &Multiaddr| {
-			address.iter().all(|protocol| match protocol {
-				// The `ip_network` library is used because its `is_global()` method is stable,
-				// while `is_global()` in the standard library currently isn't.
-				multiaddr::Protocol::Ip4(ip) => IpNetwork::from(ip).is_global(),
-				multiaddr::Protocol::Ip6(ip) => IpNetwork::from(ip).is_global(),
-				_ => true,
-			})
-		};
-
 		// These are the addresses the node is listening for incoming connections,
 		// as reported by installed protocols (tcp / websocket etc).
 		//
@@ -399,7 +387,7 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				(address.is_external_address_valid(local_peer_id) && address_is_global(&address))
+				(address.is_external_address_valid(local_peer_id) && address.is_global())
 					.then(|| AddressType::GlobalListenAddress(address).without_p2p(local_peer_id))
 					.flatten()
 			})
@@ -413,8 +401,7 @@ where
 			.into_iter()
 			.filter_map(|address| {
 				(publish_non_global_ips ||
-					(address_is_global(&address)) &&
-						address.is_external_address_valid(local_peer_id))
+					(address.is_external_address_valid(local_peer_id) && address.is_global()))
 				.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
 				.flatten()
 			})
