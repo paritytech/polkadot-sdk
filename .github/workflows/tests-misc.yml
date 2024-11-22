@@ -162,7 +162,7 @@ jobs:
 
   node-bench-regression-guard:
     timeout-minutes: 20
-    if: always() && !cancelled() && ${{ github.event_name == 'pull_request' }} && !${{github.event_name == 'merge_group' }}
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     needs: [preflight, cargo-check-benches]
     steps:
@@ -183,6 +183,7 @@ jobs:
 
       - name: script
         id: compare
+        if: always()
         run: |
           if [ "${{ github.ref_name }}" = "master" ]; then
             echo -e "Exiting on master branch"
