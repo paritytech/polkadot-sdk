@@ -380,6 +380,9 @@ fn get_bool_environment_variable(name: &str) -> Option<bool> {
 
 /// Returns whether we need to also compile the standard library when compiling the runtime.
 fn build_std_required() -> bool {
+    // We always rebuild std except if specifically disabled. For Wasm this is necessary because
+    // the prebuilt std is compiled with unsupported features. For RISC-V there is no prebuilt binaries
+    // available in rustup.
 	crate::get_bool_environment_variable(crate::WASM_BUILD_STD).unwrap_or(true)
 }
 
