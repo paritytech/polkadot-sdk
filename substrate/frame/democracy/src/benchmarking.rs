@@ -451,7 +451,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(extra)]
 	fn on_initialize_external(r: Linear<0, REFERENDUM_COUNT_HINT>) -> Result<(), BenchmarkError> {
 		for i in 0..r {
 			add_referendum::<T>(i);
@@ -493,7 +493,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(extra)]
 	fn on_initialize_public(
 		r: Linear<0, { T::MaxVotes::get() - 1 }>,
 	) -> Result<(), BenchmarkError> {
@@ -985,9 +985,10 @@ mod benchmarks {
 		let hash = note_preimage::<T>();
 		MetadataOf::<T>::insert(owner.clone(), hash);
 
+		let caller = funded_account::<T>("caller", 0);
+
 		#[block]
 		{
-			let caller = funded_account::<T>("caller", 0);
 			Pallet::<T>::set_metadata(RawOrigin::Signed(caller).into(), owner.clone(), None)?;
 		}
 
