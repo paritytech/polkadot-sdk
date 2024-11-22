@@ -223,14 +223,20 @@ fn call_host_function(
 			Value::F32(value) => {
 				caller.instance.set_reg(Reg::A0, value as u64);
 			},
-			Value::I64(value) => {
-				caller.instance.set_reg(Reg::A0, value as u64);
-				caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
-			},
-			Value::F64(value) => {
-				caller.instance.set_reg(Reg::A0, value as u64);
-				caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
-			},
+			Value::I64(value) =>
+				if caller.instance.is_64_bit() {
+					caller.instance.set_reg(Reg::A0, value as u64);
+				} else {
+					caller.instance.set_reg(Reg::A0, value as u64);
+					caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
+				},
+			Value::F64(value) =>
+				if caller.instance.is_64_bit() {
+					caller.instance.set_reg(Reg::A0, value as u64);
+				} else {
+					caller.instance.set_reg(Reg::A0, value as u64);
+					caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
+				},
 		}
 	}
 
