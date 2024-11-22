@@ -2335,7 +2335,7 @@ fn seconded_and_pending_for_para_above(
 
 		// `claim_queue_len - 1` because the first element of the claim queue is the 'current' slot.
 		// Here we are interested only in the 'future' ones
-		for anc in path.iter().take(claim_queue_len - 1).rev() {
+		for anc in path.iter().rev().take(claim_queue_len - 1) {
 			// Anything seconded for `para_id` at the ancestor is added up to the claims.
 			unfulfilled_claims += state.seconded_and_pending_for_para(anc, para_id);
 
