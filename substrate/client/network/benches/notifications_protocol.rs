@@ -37,8 +37,10 @@ use sp_runtime::traits::{Block as BlockT, Zero};
 use std::{
 	net::{IpAddr, Ipv4Addr, TcpListener},
 	str::FromStr,
+	sync::Arc,
 };
 use substrate_test_runtime_client::runtime;
+use tokio::sync::Mutex;
 
 const MAX_SIZE: u64 = 2u64.pow(30);
 const SAMPLE_SIZE: usize = 50;
@@ -115,7 +117,13 @@ where
 	(worker, notification_service)
 }
 
-fn setup_workers<B, H, N>() -> (Box<dyn NotificationService>, Box<dyn NotificationService>, PeerId)
+struct BenchSetup {
+	notification_service1: Arc<Mutex<Box<dyn NotificationService>>>,
+	notification_service2: Arc<Mutex<Box<dyn NotificationService>>>,
+	peer_id2: PeerId,
+}
+
+fn setup_workers<B, H, N>() -> Arc<BenchSetup>
 where
 	B: BlockT<Hash = H256> + 'static,
 	H: ExHashT,
@@ -123,8 +131,8 @@ where
 {
 	let listen_address1 = get_listen_address();
 	let listen_address2 = get_listen_address();
-	let (worker1, mut notification_service1) = create_network_worker::<B, H, N>(listen_address1);
-	let (worker2, mut notification_service2) =
+	let (worker1, notification_service1) = create_network_worker::<B, H, N>(listen_address1);
+	let (worker2, notification_service2) =
 		create_network_worker::<B, H, N>(listen_address2.clone());
 	let peer_id2: sc_network::PeerId = worker2.network_service().local_peer_id().into();
 
@@ -133,19 +141,32 @@ where
 		.add_reserved_peer(MultiaddrWithPeerId { multiaddr: listen_address2, peer_id: peer_id2 })
 		.unwrap();
 
-	let mut notification_service_cloned1 = notification_service1.clone().unwrap();
-	let mut notification_service_cloned2 = notification_service2.clone().unwrap();
+	let notification_service1 = Arc::new(Mutex::new(notification_service1));
+	let notification_service2 = Arc::new(Mutex::new(notification_service2));
+
 	tokio::spawn(worker1.run());
 	tokio::spawn(worker2.run());
-	let ready = tokio::spawn(async move {
-		loop {
-			tokio::select! {
-				Some(event) = notification_service_cloned1.next_event() => {
-					if let NotificationEvent::NotificationStreamOpened { .. } = event {
-						break;
-					}
-				},
-				Some(_event) = notification_service_cloned2.next_event() => {},
+
+	let ready = tokio::spawn({
+		let notification_service1 = Arc::clone(&notification_service1);
+		let notification_service2 = Arc::clone(&notification_service2);
+
+		async move {
+			let mut notification_service1 = notification_service1.lock().await;
+			let mut notification_service2 = notification_service2.lock().await;
+			loop {
+				tokio::select! {
+					Some(event) = notification_service1.next_event() => {
+						if let NotificationEvent::NotificationStreamOpened { .. } = event {
+							break;
+						}
+					},
+					Some(event) = notification_service2.next_event() => {
+						if let NotificationEvent::ValidateInboundSubstream { result_tx, .. } = event {
+							result_tx.send(sc_network::service::traits::ValidationResult::Accept).unwrap();
+						}
+					},
+				}
 			}
 		}
 	});
@@ -154,51 +175,40 @@ where
 		let _ = tokio::runtime::Handle::current().block_on(ready);
 	});
 
-	(notification_service1, notification_service2, peer_id2)
+	Arc::new(BenchSetup { notification_service1, notification_service2, peer_id2 })
 }
 
-async fn run_serially(
-	(mut notification_service1, mut notification_service2, peer_id2): (
-		Box<dyn NotificationService>,
-		Box<dyn NotificationService>,
-		PeerId,
-	),
-	size: usize,
-	limit: usize,
-) {
+async fn run_serially(setup: Arc<BenchSetup>, size: usize, limit: usize) {
 	let (tx, rx) = async_channel::bounded(1);
-	let ready_tx = tx.clone();
-	let network1 = tokio::spawn(async move {
-		while let Some(event) = notification_service1.next_event().await {
-			if let NotificationEvent::NotificationStreamOpened { .. } = event {
-				let _ = ready_tx.send(Some(())).await;
-				break;
-			};
-		}
-		while let Ok(message) = rx.recv().await {
-			let Some(_) = message else { break };
-			notification_service1
-				.send_async_notification(&peer_id2, vec![0; size])
-				.await
-				.unwrap();
+	let _ = tx.send(Some(())).await;
+	let network1 = tokio::spawn({
+		let notification_service1 = Arc::clone(&setup.notification_service1);
+		let peer_id2 = setup.peer_id2;
+		async move {
+			let mut notification_service1 = notification_service1.lock().await;
+			while let Ok(message) = rx.recv().await {
+				let Some(_) = message else { break };
+				notification_service1
+					.send_async_notification(&peer_id2, vec![0; size])
+					.await
+					.unwrap();
+			}
 		}
 	});
-	let network2 = tokio::spawn(async move {
-		let mut received_counter = 0;
-		while let Some(event) = notification_service2.next_event().await {
-			assert_matches!(
-				event,
-				NotificationEvent::ValidateInboundSubstream { .. } |
-					NotificationEvent::NotificationStreamOpened { .. } |
-					NotificationEvent::NotificationReceived { .. }
-			);
-			if let NotificationEvent::NotificationReceived { .. } = event {
-				received_counter += 1;
-				if received_counter >= limit {
-					let _ = tx.send(None).await;
-					break;
+	let network2 = tokio::spawn({
+		let notification_service2 = Arc::clone(&setup.notification_service2);
+		async move {
+			let mut notification_service2 = notification_service2.lock().await;
+			let mut received_counter = 0;
+			while let Some(event) = notification_service2.next_event().await {
+				if let NotificationEvent::NotificationReceived { .. } = event {
+					received_counter += 1;
+					if received_counter >= limit {
+						let _ = tx.send(None).await;
+						break;
+					}
+					let _ = tx.send(Some(())).await;
 				}
-				let _ = tx.send(Some(())).await;
 			}
 		}
 	});
@@ -206,41 +216,33 @@ async fn run_serially(
 	let _ = tokio::join!(network1, network2);
 }
 
-async fn run_with_backpressure(
-	(mut notification_service1, mut notification_service2, peer_id2): (
-		Box<dyn NotificationService>,
-		Box<dyn NotificationService>,
-		PeerId,
-	),
-	size: usize,
-	limit: usize,
-) {
-	let network1 = tokio::spawn(async move {
-		while let Some(event) = notification_service1.next_event().await {
-			if let NotificationEvent::NotificationStreamOpened { .. } = event {
-				for _ in 0..limit {
-					notification_service1
-						.send_async_notification(&peer_id2, vec![0; size])
-						.await
-						.unwrap();
-				}
-				break;
+async fn run_with_backpressure(setup: Arc<BenchSetup>, size: usize, limit: usize) {
+	let (tx, rx) = async_channel::bounded(1);
+	let network1 = tokio::spawn({
+		let setup = Arc::clone(&setup);
+		async move {
+			let mut notification_service1 = setup.notification_service1.lock().await;
+			for _ in 0..limit {
+				notification_service1
+					.send_async_notification(&setup.peer_id2, vec![0; size])
+					.await
+					.unwrap();
 			}
+			let _ = rx.recv().await;
 		}
 	});
-	let network2 = tokio::spawn(async move {
-		let mut received_counter = 0;
-		while let Some(event) = notification_service2.next_event().await {
-			assert_matches!(
-				event,
-				NotificationEvent::ValidateInboundSubstream { .. } |
-					NotificationEvent::NotificationStreamOpened { .. } |
-					NotificationEvent::NotificationReceived { .. }
-			);
-			if let NotificationEvent::NotificationReceived { .. } = event {
-				received_counter += 1;
-				if received_counter >= limit {
-					break
+	let network2 = tokio::spawn({
+		let setup = Arc::clone(&setup);
+		async move {
+			let mut notification_service2 = setup.notification_service2.lock().await;
+			let mut received_counter = 0;
+			while let Some(event) = notification_service2.next_event().await {
+				if let NotificationEvent::NotificationReceived { .. } = event {
+					received_counter += 1;
+					if received_counter >= limit {
+						let _ = tx.send(()).await;
+						break;
+					}
 				}
 			}
 		}
@@ -263,9 +265,9 @@ fn run_benchmark(c: &mut Criterion) {
 			BenchmarkId::new("libp2p/serially", label),
 			&(size, NOTIFICATIONS),
 			|b, &(size, limit)| {
-				b.to_async(&rt).iter_batched(
+				b.to_async(&rt).iter_batched_ref(
 					setup_workers::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>,
-					|setup| run_serially(setup, size, limit),
+					|setup| run_serially(Arc::clone(setup), size, limit),
 					criterion::BatchSize::SmallInput,
 				);
 			},
@@ -274,9 +276,9 @@ fn run_benchmark(c: &mut Criterion) {
 			BenchmarkId::new("litep2p/serially", label),
 			&(size, NOTIFICATIONS),
 			|b, &(size, limit)| {
-				b.to_async(&rt).iter_batched(
+				b.to_async(&rt).iter_batched_ref(
 					setup_workers::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>,
-					|setup| run_serially(setup, size, limit),
+					|setup| run_serially(Arc::clone(setup), size, limit),
 					criterion::BatchSize::SmallInput,
 				);
 			},
@@ -285,9 +287,9 @@ fn run_benchmark(c: &mut Criterion) {
 			BenchmarkId::new("libp2p/with_backpressure", label),
 			&(size, NOTIFICATIONS),
 			|b, &(size, limit)| {
-				b.to_async(&rt).iter_batched(
+				b.to_async(&rt).iter_batched_ref(
 					setup_workers::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>,
-					|setup| run_with_backpressure(setup, size, limit),
+					|setup| run_with_backpressure(Arc::clone(setup), size, limit),
 					criterion::BatchSize::SmallInput,
 				);
 			},
@@ -296,9 +298,9 @@ fn run_benchmark(c: &mut Criterion) {
 			BenchmarkId::new("litep2p/with_backpressure", label),
 			&(size, NOTIFICATIONS),
 			|b, &(size, limit)| {
-				b.to_async(&rt).iter_batched(
+				b.to_async(&rt).iter_batched_ref(
 					setup_workers::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>,
-					|setup| run_with_backpressure(setup, size, limit),
+					|setup| run_with_backpressure(Arc::clone(setup), size, limit),
 					criterion::BatchSize::SmallInput,
 				);
 			},
