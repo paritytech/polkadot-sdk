@@ -990,7 +990,7 @@ fn if_else_failing_else_call() {
 				Box::new(call_transfer(2, 11)),
 				Box::new(call_transfer(2, 11))
 			),
-			utility::Error::<Test>::IfElseBothFailure
+			TokenError::FundsUnavailable
 		);
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);

@@ -167,8 +167,6 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Too many calls batched.
 		TooManyCalls,
-		/// Main and fallback call failure.
-		IfElseBothFailure,
 	}
 
 	#[pallet::call]
@@ -545,10 +543,10 @@ pub mod pallet {
 				weight =
 					weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
 
-				if let Err(_fallback_error) = fallback_result {
-					// Both calls have faild.
+				if let Err(fallback_error) = fallback_result {
+					// Both calls have failed, return fallback error
 					return Err(sp_runtime::DispatchErrorWithPostInfo {
-						error: Error::<T>::IfElseBothFailure.into(),
+						error: fallback_error.error,
 						post_info: Some(weight).into(),
 					})
 				}
