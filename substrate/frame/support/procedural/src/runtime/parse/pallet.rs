@@ -84,6 +84,7 @@ impl Pallet {
 			.filter(|attr| attr.path().segments.first().map_or(false, |s| s.ident == "cfg"))
 			.map(|attr| {
 				attr.parse_args_with(|input: syn::parse::ParseStream| {
+					let input = input.parse::<proc_macro2::TokenStream>()?;
 					cfg_expr::Expression::parse(&input.to_string())
 						.map_err(|e| syn::Error::new(attr.span(), e.to_string()))
 				})
