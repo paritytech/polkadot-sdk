@@ -160,7 +160,7 @@ pub struct Bounty<
 	proposer: AccountId,
 	// TODO: new filed, migration required.
 	/// The kind of asset this bounty is rewarded in.
-	asset_kind: AssetKind,
+	pub asset_kind: AssetKind,
 	/// The (total) amount of the `asset_kind` that should be paid if the bounty is rewarded.
 	value: BountyBalance,
 	/// The curator fee in the `asset_kind`. Included in value.
