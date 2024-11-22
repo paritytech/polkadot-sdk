@@ -128,10 +128,24 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn estimate_gas(
 		&self,
 		transaction: GenericTransaction,
-		_block: Option<BlockNumberOrTag>,
+		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
-		let result = self.client.estimate_gas(&transaction, BlockTag::Latest.into()).await?;
-		Ok(result)
+		// estimate_gas only fails returns even if the contract traps
+		let dry_run = self.client.dry_run(&transaction, block.unwrap_or_default().into()).await?;
+
+		Ok(U256::from(dry_run.fee / GAS_PRICE as u128) + GAS_PRICE)
+	}
+
+	async fn call(
+		&self,
+		transaction: GenericTransaction,
+		block: Option<BlockNumberOrTagOrHash>,
+	) -> RpcResult<Bytes> {
+		let dry_run = self
+			.client
+			.dry_run(&transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
+			.await?;
+		Ok(dry_run.result.into())
 	}
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
@@ -158,7 +172,10 @@ impl EthRpcServer for EthRpcServerImpl {
 			gas_required.into(),
 			storage_deposit,
 		);
-		self.client.submit(call).await?;
+		self.client.submit(call).await.map_err(|err| {
+			log::debug!(target: LOG_TARGET, "submit call failed: {err:?}");
+			err
+		})?;
 		log::debug!(target: LOG_TARGET, "send_raw_transaction hash: {hash:?}");
 		Ok(hash)
 	}
@@ -232,18 +249,6 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn accounts(&self) -> RpcResult<Vec<H160>> {
 		Ok(self.accounts.iter().map(|account| account.address()).collect())
-	}
-
-	async fn call(
-		&self,
-		transaction: GenericTransaction,
-		block: Option<BlockNumberOrTagOrHash>,
-	) -> RpcResult<Bytes> {
-		let dry_run = self
-			.client
-			.dry_run(&transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
-			.await?;
-		Ok(dry_run.result.into())
 	}
 
 	async fn get_block_by_number(

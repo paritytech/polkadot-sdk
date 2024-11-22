@@ -118,16 +118,40 @@ fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
 fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
 	let function_selector = exec_data.get(0..4)?;
 
-	// keccak256("Error(string)")
-	let expected_selector = [0x08, 0xC3, 0x79, 0xA0];
-	if function_selector != expected_selector {
-		return None;
-	}
+	match function_selector {
+		// assert(false)
+		[0x4E, 0x48, 0x7B, 0x71] => {
+			let panic_code: u32 = U256::from_big_endian(&exec_data.get(4..36)?).try_into().ok()?;
 
-	let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
-	match decoded.first()? {
-		ethabi::Token::String(msg) => Some(msg.to_string()),
-		_ => None,
+			// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
+			let msg = match panic_code {
+				0x00 => "generic panic",
+				0x01 => "assert(false)",
+				0x11 => "arithmetic underflow or overflow",
+				0x12 => "division or modulo by zero",
+				0x21 => "enum overflow",
+				0x22 => "invalid encoded storage byte array accessed",
+				0x31 => "out-of-bounds array access; popping on an empty array",
+				0x32 => "out-of-bounds access of an array or bytesN",
+				0x41 => "out of memory",
+				0x51 => "uninitialized function",
+				code => return Some(format!("execution reverted: unknown panic code: {code:#x}")),
+			};
+
+			Some(format!("execution reverted: {msg}"))
+		},
+		// revert(string)
+		[0x08, 0xC3, 0x79, 0xA0] => {
+			let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
+			if let Some(ethabi::Token::String(msg)) = decoded.first() {
+				return Some(format!("execution reverted: {msg}"))
+			}
+			Some("execution reverted".to_string())
+		},
+		_ => {
+			log::debug!(target: LOG_TARGET, "Unknown revert function selector: {function_selector:?}");
+			Some("execution reverted".to_string())
+		},
 	}
 }
 
@@ -147,25 +171,26 @@ pub enum ClientError {
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
 	/// The dry run failed.
-	#[error("Dry run failed: {0}")]
+	#[error("dry run failed: {0}")]
 	DryRunFailed(String),
 	/// Contract reverted
-	#[error("Execution reverted: {}", extract_revert_message(.0).unwrap_or_default())]
+	#[error("{}", extract_revert_message(.0).unwrap_or_default())]
 	Reverted(Vec<u8>),
 	/// A decimal conversion failed.
-	#[error("Conversion failed")]
+	#[error("conversion failed")]
 	ConversionFailed,
 	/// The block hash was not found.
-	#[error("Hash not found")]
+	#[error("hash not found")]
 	BlockNotFound,
 	/// The transaction fee could not be found
-	#[error("TransactionFeePaid event not found")]
+	#[error("transactionFeePaid event not found")]
 	TxFeeNotFound,
 	/// The cache is empty.
-	#[error("Cache is empty")]
+	#[error("cache is empty")]
 	CacheEmpty,
 }
 
+const REVERT_CODE: i32 = 3;
 // TODO convert error code to https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
@@ -179,7 +204,7 @@ impl From<ClientError> for ErrorObjectOwned {
 			},
 			ClientError::Reverted(data) => {
 				let data = format!("0x{}", hex::encode(data));
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, Some(data))
+				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
 			_ => ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
 		}
@@ -670,16 +695,6 @@ impl Client {
 			Ok(result) =>
 				Ok(EthContractResult { fee, gas_required, storage_deposit, result: result.0.data }),
 		}
-	}
-
-	/// Dry run a transaction and returns the gas estimate for the transaction.
-	pub async fn estimate_gas(
-		&self,
-		tx: &GenericTransaction,
-		block: BlockNumberOrTagOrHash,
-	) -> Result<U256, ClientError> {
-		let dry_run = self.dry_run(tx, block).await?;
-		Ok(U256::from(dry_run.fee / GAS_PRICE as u128) + GAS_PRICE)
 	}
 
 	/// Get the nonce of the given address.

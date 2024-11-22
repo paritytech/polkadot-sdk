@@ -114,7 +114,7 @@ pub enum BlockNumberOrTag {
 }
 impl Default for BlockNumberOrTag {
 	fn default() -> Self {
-		BlockNumberOrTag::U256(Default::default())
+		BlockTag::Latest.into()
 	}
 }
 
@@ -133,7 +133,16 @@ pub enum BlockNumberOrTagOrHash {
 }
 impl Default for BlockNumberOrTagOrHash {
 	fn default() -> Self {
-		BlockNumberOrTagOrHash::U256(Default::default())
+		BlockTag::Latest.into()
+	}
+}
+
+impl From<BlockNumberOrTag> for BlockNumberOrTagOrHash {
+	fn from(b: BlockNumberOrTag) -> Self {
+		match b {
+			BlockNumberOrTag::U256(n) => BlockNumberOrTagOrHash::U256(n),
+			BlockNumberOrTag::BlockTag(t) => BlockNumberOrTagOrHash::BlockTag(t),
+		}
 	}
 }
 
@@ -281,7 +290,7 @@ pub enum SyncingStatus {
 }
 impl Default for SyncingStatus {
 	fn default() -> Self {
-		SyncingStatus::SyncingProgress(Default::default())
+		SyncingStatus::Bool(false)
 	}
 }
 
@@ -319,7 +328,7 @@ pub enum TransactionUnsigned {
 }
 impl Default for TransactionUnsigned {
 	fn default() -> Self {
-		TransactionUnsigned::Transaction4844Unsigned(Default::default())
+		TransactionUnsigned::TransactionLegacyUnsigned(Default::default())
 	}
 }
 
@@ -341,13 +350,13 @@ pub type AccessList = Vec<AccessListEntry>;
 )]
 pub enum BlockTag {
 	#[serde(rename = "earliest")]
-	#[default]
 	Earliest,
 	#[serde(rename = "finalized")]
 	Finalized,
 	#[serde(rename = "safe")]
 	Safe,
 	#[serde(rename = "latest")]
+	#[default]
 	Latest,
 	#[serde(rename = "pending")]
 	Pending,
@@ -574,7 +583,7 @@ pub enum TransactionSigned {
 }
 impl Default for TransactionSigned {
 	fn default() -> Self {
-		TransactionSigned::Transaction4844Signed(Default::default())
+		TransactionSigned::TransactionLegacySigned(Default::default())
 	}
 }
 

@@ -237,6 +237,7 @@ async fn revert_call() -> anyhow::Result<()> {
 
 	let call_err = unwrap_call_err!(err.source().unwrap());
 	assert_eq!(call_err.message(), "Execution reverted: revert message");
+	assert_eq!(call_err.code(), 3);
 	Ok(())
 }
 
