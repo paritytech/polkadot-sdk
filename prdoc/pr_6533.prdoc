@@ -1,12 +1,10 @@
-title: "Bump to polkavm 0.16.0"
+title: "Bump to polkavm 0.17.0"
 doc:
   - audience: Runtime Dev
     description: |
-      Bumped to polkvm 0.16.0. In addition, fixed the compilation errors from
-      the tests of polkadot-primitives because Zed was complaining about them.
+      Bumped to polkvm 0.17.0.
+
 crates:
-  - name: polkadot-primitives
-    bump: none
   - name: sc-executor-common
     bump: major
   - name: sc-executor-polkavm
