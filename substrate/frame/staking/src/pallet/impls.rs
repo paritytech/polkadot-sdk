@@ -510,7 +510,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// disable all offending validators that have been disabled for the whole era
-		for index in <DisabledValidators<T>>::get() {
+		for (index, _) in <DisabledValidators<T>>::get() {
 			T::SessionInterface::disable_validator(index);
 		}
 	}
@@ -1510,6 +1510,12 @@ where
 				continue
 			}
 
+			Self::deposit_event(Event::<T>::SlashReported {
+				validator: stash.clone(),
+				fraction: *slash_fraction,
+				slash_era,
+			});
+
 			let unapplied = slashing::compute_slash::<T>(slashing::SlashParams {
 				stash,
 				slash: *slash_fraction,
@@ -1518,12 +1524,6 @@ where
 				window_start,
 				now: active_era,
 				reward_proportion,
-			});
-
-			Self::deposit_event(Event::<T>::SlashReported {
-				validator: stash.clone(),
-				fraction: *slash_fraction,
-				slash_era,
 			});
 
 			if let Some(mut unapplied) = unapplied {
@@ -2316,9 +2316,10 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	// Sorted by index
 	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
 		ensure!(
-			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] <= pair[1]),
+			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0].0 <= pair[1].0),
 			"DisabledValidators is not sorted"
 		);
 		Ok(())

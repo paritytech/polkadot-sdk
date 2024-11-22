@@ -60,52 +60,66 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
-/// Migrating all unbounded storage items to bounded
+/// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
+/// severity for re-enabling purposes.
 pub mod v16 {
 	use super::*;
+	use sp_staking::offence::OffenceSeverity;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let old_disabled_validators = v15::DisabledValidators::<T>::get();
+			Ok(old_disabled_validators.encode())
+		}
+
 		fn on_runtime_upgrade() -> Weight {
-			// BoundedVec with MaxActiveValidators limit, this should always work
-			let disabled_validators_maybe =
-				BoundedVec::try_from(v15::DisabledValidators::<T>::get());
-			match disabled_validators_maybe {
-				Ok(disabled_validators) => DisabledValidators::<T>::set(disabled_validators),
-				Err(_) => log!(warn, "Migration failed for DisabledValidators from v15 to v16."),
-			}
+			// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>`.
+			// Using max severity (PerBill 100%) for the migration which effectively makes it so
+			// offenders before the migration will not be re-enabled this era unless there are
+			// other 100% offenders.
+			let max_offence = OffenceSeverity(Perbill::from_percent(100));
+			// Inject severity
+			let migrated = v15::DisabledValidators::<T>::take()
+				.into_iter()
+				.map(|v| (v, max_offence))
+				.collect::<Vec<_>>();
 
-			// BoundedVec with MaxActiveValidators limit, this should always work
-			let invulnerables_maybe = BoundedVec::try_from(v15::Invulnerables::<T>::get());
-			match invulnerables_maybe {
-				Ok(invulnerables) => Invulnerables::<T>::set(invulnerables),
-				Err(_) => log!(warn, "Migration failed for Invulnerables from v15 to v16."),
-			}
-
-			for (era_index, era_rewards) in v15::ErasRewardPoints::<T>::iter() {
-				let individual_rewards_maybe = BoundedBTreeMap::try_from(era_rewards.individual);
-				match individual_rewards_maybe {
-					Ok(individual_rewards) => {
-						let bounded_era_rewards = EraRewardPoints::<
-							<T as frame_system::Config>::AccountId,
-							<T as Config>::MaxActiveValidators,
-						> {
-							individual: individual_rewards,
-							total: era_rewards.total,
-						};
-						ErasRewardPoints::<T>::insert(era_index, bounded_era_rewards);
-					},
-					Err(_) => log!(warn, "Migration failed for ErasRewardPoints from v15 to v16."),
-				}
-			}
+			DisabledValidators::<T>::set(migrated);
 
 			log!(info, "v16 applied successfully.");
 			T::DbWeight::get().reads_writes(1, 1)
 		}
 
-		// TODO
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// Decode state to get old_disabled_validators in a format of Vec<u32>
+			let old_disabled_validators =
+				Vec::<u32>::decode(&mut state.as_slice()).expect("Failed to decode state");
+			let new_disabled_validators = DisabledValidators::<T>::get();
+
+			// Compare lengths
+			frame_support::ensure!(
+				old_disabled_validators.len() == new_disabled_validators.len(),
+				"DisabledValidators length mismatch"
+			);
+
+			// Compare contents
+			let new_disabled_validators =
+				new_disabled_validators.into_iter().map(|(v, _)| v).collect::<Vec<_>>();
+			frame_support::ensure!(
+				old_disabled_validators == new_disabled_validators,
+				"DisabledValidator ids mismatch"
+			);
+
+			// Verify severity
+			let max_severity = OffenceSeverity(Perbill::from_percent(100));
+			let new_disabled_validators = DisabledValidators::<T>::get();
+			for (_, severity) in new_disabled_validators {
+				frame_support::ensure!(severity == max_severity, "Severity mismatch");
+			}
+
 			Ok(())
 		}
 	}
@@ -154,6 +168,9 @@ pub mod v15 {
 
 	// The disabling strategy used by staking pallet
 	type DefaultDisablingStrategy = UpToLimitDisablingStrategy;
+
+	#[storage_alias]
+	pub(crate) type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
 
 	pub struct VersionUncheckedMigrateV14ToV15<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
