@@ -13,11 +13,14 @@ use alloc::vec::Vec;
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	type_with_default::TypeWithDefault,
 	MultiAddress, MultiSignature,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+
+use scale_info::TypeInfo;
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -122,14 +125,22 @@ pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::Account
 /// Balance of an account.
 pub type Balance = u128;
 
+#[derive(Debug, TypeInfo)]
+pub struct DefaultNonceProvider;
+impl sp_core::Get<u64> for DefaultNonceProvider {
+	fn get() -> u64 {
+		System::block_number()
+	}
+}
+
 /// Index of a transaction in the chain.
-pub type Nonce = u32;
+pub type Nonce = TypeWithDefault<u64, DefaultNonceProvider>;
 
 /// A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
 
 /// An index to a block.
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;

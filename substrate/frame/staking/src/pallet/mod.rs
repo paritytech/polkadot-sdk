@@ -70,7 +70,7 @@ pub mod pallet {
 	use super::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -718,7 +718,6 @@ pub mod pallet {
 	/// whole era. For this reason they are kept here - only staking pallet knows about eras. The
 	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
 	/// implicitly means that the implementor also controls the max number of disabled validators.
-	///
 
 	/// The vec is always kept sorted based on the u32 index so that we can find whether a given
 	/// validator has previously offended using binary search.
@@ -726,9 +725,8 @@ pub mod pallet {
 	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which
 	/// represents how severe is the offence that got the validator disabled.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type DisabledValidators<T: Config> =
-		StorageValue<_, Vec<(u32, OffenceSeverity)>, ValueQuery>;
+		StorageValue<_, BoundedVec<(u32, OffenceSeverity), T::MaxActiveValidators>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
