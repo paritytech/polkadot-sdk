@@ -1190,7 +1190,7 @@ impl<Block: BlockT> Backend<Block> {
 	/// Expose the Database that is used by this backend.
 	/// The second argument is the Column that stores the State.
 	///
-	/// Should only be needed for benchmarking.
+	/// Should only be needed for benchmarking and testing.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn expose_db(&self) -> (Arc<dyn sp_database::Database<DbHash>>, sp_database::ColumnId) {
 		(self.storage.db.clone(), columns::STATE)
@@ -1198,7 +1198,7 @@ impl<Block: BlockT> Backend<Block> {
 
 	/// Expose the Storage that is used by this backend.
 	///
-	/// Should only be needed for benchmarking.
+	/// Should only be needed for benchmarking and testing.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	pub fn expose_storage(&self) -> Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> {
 		self.storage.clone()
@@ -2637,13 +2637,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 
 			let is_default = new_child_root == default_root;
 
-			let prefixed_storage_key = child_info.prefixed_storage_key();
+			let prefixed_storage_key = child_info.prefixed_storage_key().into_inner();
 
 			if is_default {
-				child_roots.push((prefixed_storage_key.into_inner(), None));
+				child_roots.push((prefixed_storage_key, None));
 			} else {
-				child_roots
-					.push((prefixed_storage_key.into_inner(), Some(new_child_root.encode())));
+				child_roots.push((prefixed_storage_key, Some(new_child_root.encode())));
 			}
 		}
 
