@@ -394,15 +394,18 @@ pub mod pallet {
 	#[pallet::tasks_experimental]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		#[pallet::task_list({
-			let now = frame_system::Pallet::<T>::block_number();
-			let status = Status::<T, I>::get().expect("Task require active status");
-			let cycle_period = Pallet::<T, I>::cycle_period();
-			let result = if now >= status.cycle_start + cycle_period {
-				vec![()] // Success one task available: `()`.
+			if let Some(status) = Status::<T, I>::get() {
+				let now = frame_system::Pallet::<T>::block_number();
+				let cycle_period = Pallet::<T, I>::cycle_period();
+				let result = if now >= status.cycle_start + cycle_period {
+					vec![()] // Success one task available: `()`.
+				} else {
+					vec![] // Failure no task available.
+				};
+				result.into_iter()
 			} else {
-				vec![] // Failure no task available.
-			};
-			result.into_iter()
+				vec![].into_iter() // No task available.
+			}
 		})]
 		#[pallet::task_condition(|| {
 			let now = frame_system::Pallet::<T>::block_number();
