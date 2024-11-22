@@ -182,7 +182,7 @@ impl GenericTransaction {
 					gas: Some(tx.gas),
 					gas_price: Some(tx.max_fee_per_blob_gas),
 					access_list: Some(tx.access_list),
-					blob_versioned_hashes: Some(tx.blob_versioned_hashes),
+					blob_versioned_hashes: tx.blob_versioned_hashes,
 					max_fee_per_blob_gas: Some(tx.max_fee_per_blob_gas),
 					max_fee_per_gas: Some(tx.max_fee_per_gas),
 					max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
@@ -278,7 +278,7 @@ impl GenericTransaction {
 				max_fee_per_blob_gas: self.max_fee_per_blob_gas.unwrap_or_default(),
 				max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default(),
 				access_list: self.access_list.unwrap_or_default(),
-				blob_versioned_hashes: self.blob_versioned_hashes.unwrap_or_default(),
+				blob_versioned_hashes: self.blob_versioned_hashes,
 			}
 			.into()),
 			_ => Err(()),
