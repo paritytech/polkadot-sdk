@@ -2134,7 +2134,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 #[cfg(test)]
 pub mod tests {
 	use super::*;
--	use bitvec::{bits, bitvec, order::Lsb0};
+	use bitvec::bitvec;
 	use sp_core::sr25519;
 
 	pub fn dummy_committed_candidate_receipt() -> CommittedCandidateReceipt {
