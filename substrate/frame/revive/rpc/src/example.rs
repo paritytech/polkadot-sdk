@@ -20,8 +20,7 @@
 use crate::{EthRpcClient, ReceiptInfo};
 use anyhow::Context;
 use pallet_revive::evm::{
-	rlp::*, Account, BlockTag, Bytes, GenericTransaction, TransactionLegacyUnsigned, H160, H256,
-	U256,
+	Account, BlockTag, Bytes, GenericTransaction, TransactionLegacyUnsigned, H160, H256, U256,
 };
 
 /// Wait for a transaction receipt.
@@ -105,6 +104,30 @@ impl TransactionBuilder {
 		self
 	}
 
+	/// Call eth_call to get the result of a view function
+	pub async fn eth_call(
+		self,
+		client: &(impl EthRpcClient + Send + Sync),
+	) -> anyhow::Result<Vec<u8>> {
+		let TransactionBuilder { signer, value, input, to, .. } = self;
+
+		let from = signer.address();
+		let result = client
+			.call(
+				GenericTransaction {
+					from: Some(from),
+					input: Some(input.clone()),
+					value: Some(value),
+					to,
+					..Default::default()
+				},
+				None,
+			)
+			.await
+			.with_context(|| "eth_call failed")?;
+		Ok(result.0)
+	}
+
 	/// Send the transaction.
 	pub async fn send(self, client: &(impl EthRpcClient + Send + Sync)) -> anyhow::Result<H256> {
 		let TransactionBuilder { signer, value, input, to, mutate } = self;
@@ -145,17 +168,18 @@ impl TransactionBuilder {
 
 		mutate(&mut unsigned_tx);
 
-		let tx = signer.sign_transaction(unsigned_tx.clone());
-		let bytes = tx.rlp_bytes().to_vec();
+		let tx = signer.sign_transaction(unsigned_tx.into());
+		let bytes = tx.signed_payload();
 
 		let hash = client
-			.send_raw_transaction(bytes.clone().into())
+			.send_raw_transaction(bytes.into())
 			.await
 			.with_context(|| "transaction failed")?;
 
 		Ok(hash)
 	}
 
+	/// Send the transaction and wait for the receipt.
 	pub async fn send_and_wait_for_receipt(
 		self,
 		client: &(impl EthRpcClient + Send + Sync),
