@@ -200,7 +200,16 @@ fn check_wasm_toolchain_installed(
 	}
 
 	let version = dummy_crate.get_rustc_version();
-	if crate::build_std_required() {
+
+	// Validate (as a sanity-check) that the target is in-fact `RuntimeTarget::Wasm`.
+	let Some(target) = RuntimeTarget::new() else {
+		return Err(colorize_error_message("Cannot compile the WASM runtime: invalid target"));
+	};
+	if target != RuntimeTarget::Wasm {
+		return Err(colorize_error_message("Cannot compile the WASM runtime: wrong target"));
+	}
+
+	if target.rustc_target_build_std() != None {
 		if let Some(sysroot) = dummy_crate.get_sysroot() {
 			let src_path =
 				Path::new(sysroot.trim()).join("lib").join("rustlib").join("src").join("rust");

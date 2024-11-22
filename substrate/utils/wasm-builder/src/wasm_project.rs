@@ -914,13 +914,9 @@ fn build_bloaty_blob(
 	//
 	// So here we force the compiler to also compile the standard library crates for us
 	// to make sure that they also only use the MVP features.
-	if crate::build_std_required() {
-		// Unfortunately this is still a nightly-only flag, but FWIW it is pretty widely used
-		// so it's unlikely to break without a replacement.
-		match target {
-			RuntimeTarget::Wasm => build_cmd.arg("-Z").arg("build-std"),
-			RuntimeTarget::Riscv => build_cmd.arg("-Z").arg("build-std=core,alloc"),
-		};
+	if let Some(arg) = target.rustc_target_build_std() {
+		build_cmd.arg(arg);
+
 		if !cargo_cmd.supports_nightly_features() {
 			build_cmd.env("RUSTC_BOOTSTRAP", "1");
 		}

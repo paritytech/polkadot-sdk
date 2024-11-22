@@ -378,14 +378,6 @@ fn get_bool_environment_variable(name: &str) -> Option<bool> {
 	}
 }
 
-/// Returns whether we need to also compile the standard library when compiling the runtime.
-fn build_std_required() -> bool {
-    // We always rebuild std except if specifically disabled. For Wasm this is necessary because
-    // the prebuilt std is compiled with unsupported features. For RISC-V there is no prebuilt binaries
-    // available in rustup.
-	crate::get_bool_environment_variable(crate::WASM_BUILD_STD).unwrap_or(true)
-}
-
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum RuntimeTarget {
 	Wasm,
@@ -424,5 +416,20 @@ impl RuntimeTarget {
 			RuntimeTarget::Wasm => "wasm32-unknown-unknown",
 			RuntimeTarget::Riscv => "riscv32emac-unknown-none-polkavm",
 		}
+	}
+
+	/// Figures out the build-std argument.
+	fn rustc_target_build_std(self) -> Option<&'static str> {
+		if !crate::get_bool_environment_variable(crate::WASM_BUILD_STD).unwrap_or(true) {
+			return None;
+		}
+
+		// This is a nightly-only flag.
+		let arg = match self {
+			RuntimeTarget::Wasm => "-Z build-std",
+			RuntimeTarget::Riscv => "-Z build-std=core,alloc",
+		};
+
+		Some(arg)
 	}
 }
