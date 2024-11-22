@@ -85,24 +85,32 @@ impl Multiaddr {
 	/// - the address contains a valid IP address
 	/// - the address is for the local peer ID
 	pub fn is_valid_external_address(&self, local_peer_id: PeerId) -> bool {
+		// Empty addresses are not reachable.
 		if self.is_empty() {
 			return false;
 		}
 
-		// Expect the address to contain a valid IP address.
-		if !std::matches!(
-			self.iter().next(),
-			Some(
-				Protocol::Dns(_) |
-					Protocol::Dns4(_) |
-					Protocol::Dns6(_) |
-					Protocol::Ip6(_) |
-					Protocol::Ip4(_),
-			)
-		) {
-			return false;
+		// For the address to be reachable we need an IP address with a protocol.
+		let mut iter = self.iter();
+		match iter.next() {
+			Some(Protocol::Ip4(address)) =>
+				if address.is_unspecified() {
+					return false;
+				},
+			Some(Protocol::Ip6(address)) =>
+				if address.is_unspecified() {
+					return false;
+				},
+			Some(Protocol::Dns(_)) | Some(Protocol::Dns4(_)) | Some(Protocol::Dns6(_)) => {},
+			_ => return false,
+		}
+		// Ensure TCP or UDP (future compatibility with QUIC) is present.
+		match iter.next() {
+			Some(Protocol::Tcp(_)) | Some(Protocol::Udp(_)) => {},
+			_ => return false,
 		}
 
+		// The last entry must be the local peer ID if present.
 		if let Some(Protocol::P2p(peer_id)) = self.iter().last() {
 			// Invalid address if the reported peer ID is not the local peer ID.
 			if peer_id != *local_peer_id.as_ref() {
