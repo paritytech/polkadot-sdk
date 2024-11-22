@@ -1242,7 +1242,6 @@ pub mod pallet {
 									bounty.value,
 								);
 
-								*maybe_bounty = None;
 								BountyDescriptions::<T, I>::remove(bounty_id);
 								T::ChildBountyManager::bounty_removed(bounty_id);
 								Self::deposit_event(Event::<T, I>::BountyClaimed {
@@ -1251,6 +1250,7 @@ pub mod pallet {
 									asset_payout: payout,
 									beneficiary: beneficiary.0.clone(),
 								});
+								*maybe_bounty = None;
 
 								return Ok(Pays::No.into());
 							} else if payments_progressed > 0 {
