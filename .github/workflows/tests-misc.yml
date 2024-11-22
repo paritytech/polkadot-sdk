@@ -144,7 +144,7 @@ jobs:
           mkdir -p $ARTIFACTS_DIR
 
           # test fail on master
-          if [ "${{ matrix.branch }}" = "master" ]; then
+          if [ "${{ matrix.branch }}" = "current" ]; then
             echo "Exiting on master branch"
             exit 1
           fi
