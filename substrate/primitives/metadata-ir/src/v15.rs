@@ -41,7 +41,8 @@ impl From<MetadataIR> for RuntimeMetadataV15 {
 		let outer_enums = Into::<OuterEnums>::into(ir.outer_enums).into_portable(&mut registry);
 
 		// todo: add tests.
-		let view_function_interfaces = registry.map_into_portable(ir.view_functions.interfaces.into_iter());
+		let view_function_interfaces =
+			registry.map_into_portable(ir.view_functions.interfaces.into_iter());
 		let view_functions_custom_metadata = CustomValueMetadata {
 			ty: ir.view_functions.ty,
 			value: codec::Encode::encode(&view_function_interfaces),

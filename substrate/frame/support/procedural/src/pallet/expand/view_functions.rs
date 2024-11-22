@@ -30,7 +30,8 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 		None => (def.item.span(), def.config.where_clause.clone(), Vec::new(), Vec::new()),
 	};
 
-	let view_function_prefix_impl = expand_view_function_prefix_impl(def, span, where_clause.as_ref());
+	let view_function_prefix_impl =
+		expand_view_function_prefix_impl(def, span, where_clause.as_ref());
 
 	let view_fn_impls = view_fns
 		.iter()
