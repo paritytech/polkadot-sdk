@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Get rid of libp2p dependency in sc-authority-discovery
+
+doc:
+  - audience: Node Dev
+    description: |
+      Removes `libp2p` types in authority-discovery, and replace them with network backend agnostic types from `sc-network-types`.
+      The `sc-network` interface is therefore updated accordingly.
+
+crates:
+  - name: sc-network
+    bump: patch
+  - name: sc-network-types
+    bump: patch
+  - name: sc-authority-discovery
+    bump: patch

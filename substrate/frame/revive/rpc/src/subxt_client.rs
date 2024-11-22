@@ -21,9 +21,18 @@ use subxt::config::{signed_extensions, Config, PolkadotConfig};
 
 #[subxt::subxt(
 	runtime_metadata_path = "revive_chain.metadata",
+	// TODO remove once subxt use the same U256 type
 	substitute_type(
-		path = "pallet_revive::primitives::EthContractResult<A>",
-		with = "::subxt::utils::Static<::pallet_revive::EthContractResult<A>>"
+		path = "primitive_types::U256",
+		with = "::subxt::utils::Static<::sp_core::U256>"
+	),
+	substitute_type(
+		path = "pallet_revive::primitives::EthContractResult<A, B>",
+		with = "::subxt::utils::Static<::pallet_revive::EthContractResult<A, B>>"
+	),
+	substitute_type(
+		path = "pallet_revive::primitives::ExecReturnValue",
+		with = "::subxt::utils::Static<::pallet_revive::ExecReturnValue>"
 	),
 	substitute_type(
 		path = "sp_weights::weight_v2::Weight",

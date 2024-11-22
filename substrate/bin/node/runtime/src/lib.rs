@@ -54,7 +54,7 @@ use frame_support::{
 		},
 		tokens::{
 			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
-			Fortitude::Polite, GetSalary, PayFromAccount, Preservation::Preserve,
+			GetSalary, PayFromAccount,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, Contains,
 		Currency, EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
@@ -86,6 +86,7 @@ use pallet_nis::WithMaximumOf;
 use pallet_nomination_pools::PoolId;
 use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
 use pallet_session::historical as pallet_session_historical;
+use sp_core::U256;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 use pallet_broker::TaskId;
@@ -391,6 +392,7 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -478,6 +480,7 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -741,7 +744,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = NominationPools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
-	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
+	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -2047,6 +2050,7 @@ impl pallet_nfts::Config for Runtime {
 	type Helper = ();
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type Locker = ();
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl pallet_transaction_storage::Config for Runtime {
@@ -3205,10 +3209,8 @@ impl_runtime_apis! {
 
 	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
-		fn balance(address: H160) -> Balance {
-			use frame_support::traits::fungible::Inspect;
-			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
-			Balances::reducible_balance(&account, Preserve, Polite)
+		fn balance(address: H160) -> U256 {
+			Revive::evm_balance(&address)
 		}
 
 		fn nonce(address: H160) -> Nonce {
@@ -3219,7 +3221,7 @@ impl_runtime_apis! {
 		fn eth_transact(
 			from: H160,
 			dest: Option<H160>,
-			value: Balance,
+			value: U256,
 			input: Vec<u8>,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,

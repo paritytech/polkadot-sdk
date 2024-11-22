@@ -84,7 +84,7 @@ pub struct ContractResult<R, Balance, EventRecord> {
 
 /// The result of the execution of a `eth_transact` call.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct EthContractResult<Balance> {
+pub struct EthContractResult<Balance, R = Result<ExecReturnValue, DispatchError>> {
 	/// The fee charged for the execution.
 	pub fee: Balance,
 	/// The amount of gas that was necessary to execute the transaction.
@@ -92,7 +92,7 @@ pub struct EthContractResult<Balance> {
 	/// Storage deposit charged.
 	pub storage_deposit: Balance,
 	/// The execution result.
-	pub result: Result<Vec<u8>, DispatchError>,
+	pub result: R,
 }
 
 /// Result type of a `bare_code_upload` call.

@@ -45,10 +45,7 @@ use frame_support::{
 	ord_parameter_types, parameter_types,
 	traits::{
 		fungible, fungibles,
-		tokens::{
-			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, Fortitude::Polite,
-			Preservation::Expendable,
-		},
+		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, InstanceFilter,
 		Nothing, TransformOrigin,
 	},
@@ -68,7 +65,7 @@ use parachains_common::{
 	NORMAL_DISPATCH_RATIO,
 };
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, U256};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Saturating, Verify},
@@ -127,7 +124,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_016_004,
+	spec_version: 1_016_006,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -469,6 +466,7 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -654,6 +652,7 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -915,6 +914,7 @@ impl pallet_nfts::Config for Runtime {
 	type WeightInfo = weights::pallet_nfts::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
@@ -2080,10 +2080,8 @@ impl_runtime_apis! {
 
 	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, EventRecord> for Runtime
 	{
-		fn balance(address: H160) -> Balance {
-			use frame_support::traits::fungible::Inspect;
-			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
-			Balances::reducible_balance(&account, Expendable, Polite)
+		fn balance(address: H160) -> U256 {
+			Revive::evm_balance(&address)
 		}
 
 		fn nonce(address: H160) -> Nonce {
@@ -2093,7 +2091,7 @@ impl_runtime_apis! {
 		fn eth_transact(
 			from: H160,
 			dest: Option<H160>,
-			value: Balance,
+			value: U256,
 			input: Vec<u8>,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,

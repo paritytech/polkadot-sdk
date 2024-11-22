@@ -1,0 +1,10 @@
+title: Pure state sync refactoring (part-1)
+
+doc:
+- audience: Node Dev
+  description: |
+    The pure refactoring of state sync is preparing for https://github.com/paritytech/polkadot-sdk/issues/4. This is the first part, focusing on isolating the function `process_state_key_values()` as the central point for storing received state data in memory. This function will later be adapted to forward the state data directly to the DB layer to resolve the OOM issue and support persistent state sync.
+
+crates:
+- name: sc-network-sync
+  bump: none
