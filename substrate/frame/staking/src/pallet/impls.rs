@@ -1033,9 +1033,15 @@ impl<T: Config> Pallet<T> {
 		let mut sorted_voters = match VoterSnapshotStatus::<T>::get() {
 			// start the snapshot procssing from the beginning.
 			SnapshotStatus::Waiting => T::VoterList::iter(),
-			// snapshot continues, start from the last iterated voter in the list.
-			SnapshotStatus::Ongoing(account_id) => T::VoterList::iter_from(&account_id)
-				.defensive_unwrap_or(Box::new(vec![].into_iter())),
+			// snapshot continues.
+			SnapshotStatus::Ongoing(account_id) => {
+				let iter = T::VoterList::iter_from(&account_id)
+					.defensive_unwrap_or(Box::new(vec![].into_iter()));
+
+				// add cursor account to the beginning of the iter, as it hasn't been processed
+				// yet.
+				Box::new(vec![account_id].into_iter().chain(iter))
+			},
 			// all voters have been consumed already, return an empty iterator.
 			SnapshotStatus::Consumed => Box::new(vec![].into_iter()),
 		};
@@ -1112,24 +1118,21 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// update the voter snapshot status.
+		// update cursor if there are remaining accounts in the voter list. The cursor must be the
+		// next *non-processed* voter if it exists.
 		VoterSnapshotStatus::<T>::mutate(|status| {
 			match (page, status.clone()) {
 				// last page, reset status for next round.
 				(0, _) => *status = SnapshotStatus::Waiting,
 
+				// progress, update cursor.
 				(_, SnapshotStatus::Waiting) | (_, SnapshotStatus::Ongoing(_)) => {
-					let maybe_last = all_voters.last().map(|(x, _, _)| x).cloned();
-
-					if let Some(ref last) = maybe_last {
-						if maybe_last == T::VoterList::iter().last() {
-							// all voters in the voter list have been consumed.
-							*status = SnapshotStatus::Consumed;
-						} else {
-							*status = SnapshotStatus::Ongoing(last.clone());
-						}
+					if let Some(cursor) = sorted_voters.next() {
+						// cursor is the next non-processed element in the iter.
+						*status = SnapshotStatus::Ongoing(cursor);
 					} else {
-						debug_assert!(*status == SnapshotStatus::Consumed);
+						// all voters in the list consumed.
+						*status = SnapshotStatus::Consumed;
 					}
 				},
 				// do nothing.
@@ -1236,6 +1239,8 @@ impl<T: Config> Pallet<T> {
 	/// `Nominators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
+		Self::ensure_voter_cursor(who);
+
 		let outcome = if Nominators::<T>::contains_key(who) {
 			Nominators::<T>::remove(who);
 			let _ = T::VoterList::on_remove(who).defensive();
@@ -1248,6 +1253,7 @@ impl<T: Config> Pallet<T> {
 			Nominators::<T>::count() + Validators::<T>::count(),
 			T::VoterList::count()
 		);
+		debug_assert!(VoterSnapshotStatus::<T>::get() != SnapshotStatus::Ongoing(who.clone()));
 
 		outcome
 	}
@@ -1281,8 +1287,11 @@ impl<T: Config> Pallet<T> {
 	/// `Validators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
 	pub fn do_remove_validator(who: &T::AccountId) -> bool {
+		Self::ensure_voter_cursor(who);
+
 		let outcome = if Validators::<T>::contains_key(who) {
 			Validators::<T>::remove(who);
+
 			let _ = T::VoterList::on_remove(who).defensive();
 			true
 		} else {
@@ -1293,6 +1302,7 @@ impl<T: Config> Pallet<T> {
 			Nominators::<T>::count() + Validators::<T>::count(),
 			T::VoterList::count()
 		);
+		debug_assert!(VoterSnapshotStatus::<T>::get() != SnapshotStatus::Ongoing(who.clone()));
 
 		outcome
 	}
@@ -1730,12 +1740,14 @@ where
 /// Implements the lock to be used by the the sorted list providers implemented by the bags list
 /// pallet.
 ///
-/// When it returns `true`, the bags list ID ordering should be disabled.
+/// If the voter snapshot creation is in progress return `true`, in which case the bags list ID
+/// re-ordering should be disabled.
 impl<T: Config> Get<bool> for Pallet<T> {
 	fn get() -> bool {
-		// sorted list provider order perservation not enabled yet, see
-		// <https://github.com/paritytech/polkadot-sdk/pull/6034>.
-		false
+		match VoterSnapshotStatus::<T>::get() {
+			SnapshotStatus::Ongoing(_) => true,
+			_ => false,
+		}
 	}
 }
 

@@ -917,11 +917,17 @@ pub mod pallet {
 			mode: Forcing,
 		},
 		/// Report of a controller batch deprecation.
-		ControllerBatchDeprecated { failures: u32 },
+		ControllerBatchDeprecated {
+			failures: u32,
+		},
 		/// Validator has been disabled.
-		ValidatorDisabled { stash: T::AccountId },
+		ValidatorDisabled {
+			stash: T::AccountId,
+		},
 		/// Validator has been re-enabled.
-		ValidatorReenabled { stash: T::AccountId },
+		ValidatorReenabled {
+			stash: T::AccountId,
+		},
 	}
 
 	#[pallet::error]
@@ -1232,6 +1238,21 @@ pub mod pallet {
 		/// Get the last planned session scheduled by the session pallet.
 		pub fn current_planned_session() -> SessionIndex {
 			CurrentPlannedSession::<T>::get()
+		}
+
+		/// Ensures the snapshot voter cursor is *not* the same as `who`. Updates to next in the
+		/// voter list interator if required.
+		pub(crate) fn ensure_voter_cursor(who: &T::AccountId) {
+			if VoterSnapshotStatus::<T>::get() == SnapshotStatus::Ongoing(who.clone()) {
+				let next =
+					T::VoterList::iter_from(who).unwrap_or(Box::new(vec![].into_iter())).next();
+
+				match next {
+					Some(new_cursor) =>
+						VoterSnapshotStatus::<T>::set(SnapshotStatus::Ongoing(new_cursor)),
+					None => VoterSnapshotStatus::<T>::set(SnapshotStatus::Consumed),
+				}
+			}
 		}
 	}
 

@@ -673,6 +673,176 @@ mod paged_snapshot {
 				assert_eq!(all_voters, single_page_voters);
 			})
 	}
+
+	#[test]
+	fn voter_snapshot_updates_validator_cursor_works() {
+		ExtBuilder::default()
+			.nominate(true)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(41, StakerStatus::Nominator(vec![51]))
+			.set_status(101, StakerStatus::Validator)
+			.multi_page_election_provider(3)
+			.build_and_execute(|| {
+				assert_eq!(Pages::get(), 3);
+				// voter snapshot status is waiting.
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+				// and voter list is not "locked".
+				assert!(!<Staking as Get<bool>>::get());
+
+				assert_eq!(
+					<Test as Config>::VoterList::iter().collect::<Vec<_>>(),
+					vec![11, 21, 31, 41, 51, 101]
+				);
+
+				// 2 voters per snapshot page.
+				let bounds = ElectionBoundsBuilder::default().voters_count(2.into()).build().voters;
+
+				let page_2 = Staking::get_npos_voters(bounds, 2);
+				assert_eq!(page_2.len(), 2);
+				let last_in_page =
+					page_2.iter().map(|(a, _, _)| a).cloned().collect::<Vec<_>>().pop().unwrap();
+
+				// cursor was updated as expected (i.e. next in the iter that was not processed)
+				let expected_cursor =
+					<Test as Config>::VoterList::iter_from(&last_in_page).unwrap().next().unwrap();
+				assert_eq!(
+					VoterSnapshotStatus::<Test>::get(),
+					SnapshotStatus::Ongoing(expected_cursor)
+				);
+				// and now the sorted list provider is "locked".
+				assert!(<Staking as Get<bool>>::get());
+
+				// cursor is validator.
+				assert_eq!(Staking::status(&expected_cursor), Ok(StakerStatus::Validator));
+
+				// after chilling/removing the cursor from the voter list, the cursor will be
+				// update with the next non-processed voter in the list.
+				let expected_cursor_after_chill =
+					<Test as Config>::VoterList::iter_from(&expected_cursor)
+						.unwrap()
+						.next()
+						.unwrap();
+
+				let chilled = expected_cursor;
+
+				// now we chill the voter that is currently the cursor.
+				assert_ok!(Staking::chill(RuntimeOrigin::signed(chilled)));
+				// cursor was updated as expected.
+				assert_eq!(
+					VoterSnapshotStatus::<Test>::get(),
+					SnapshotStatus::Ongoing(expected_cursor_after_chill)
+				);
+
+				// fetch and check all remaining pages.
+				let page_2 = page_2.into_iter().map(|(a, _, _)| a).collect::<Vec<_>>();
+				assert_eq!(page_2, vec![11, 21]);
+				let page_1 = Staking::get_npos_voters(bounds, 1)
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+				assert_eq!(page_1, vec![41, 51]);
+				// page 0.
+				// sorted list provider remains "locked" until fetching page 0.
+				assert!(<Staking as Get<bool>>::get());
+				let page_0 = Staking::get_npos_voters(bounds, 0)
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+				assert_eq!(page_0, vec![101]);
+				// unlocked now.
+				assert!(!<Staking as Get<bool>>::get());
+
+				// cursor was reset for next round after fetching page 0.
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+
+				// note that the chilled account was not included in any of the pages.
+				assert!(!page_2.contains(&chilled));
+				assert!(!page_1.contains(&chilled));
+				assert!(!page_0.contains(&chilled));
+			})
+	}
+
+	#[test]
+	fn voter_snapshot_updates_nominator_cursor_works() {
+		ExtBuilder::default()
+			.nominate(true)
+			.set_status(51, StakerStatus::Validator)
+			.set_status(41, StakerStatus::Nominator(vec![51]))
+			.set_status(101, StakerStatus::Validator)
+			.multi_page_election_provider(3)
+			.build_and_execute(|| {
+				// voter snapshot status is waiting.
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+				assert_eq!(Pages::get(), 3);
+
+				assert_eq!(
+					<Test as Config>::VoterList::iter().collect::<Vec<_>>(),
+					vec![11, 21, 31, 41, 51, 101]
+				);
+
+				// 3 voters per snapshot page.
+				let bounds = ElectionBoundsBuilder::default().voters_count(3.into()).build().voters;
+
+				let page_2 = Staking::get_npos_voters(bounds, 2);
+				assert_eq!(page_2.len(), 3);
+				let last_in_page =
+					page_2.iter().map(|(a, _, _)| a).cloned().collect::<Vec<_>>().pop().unwrap();
+
+				// cursor was updated as expected (i.e. next in the iter that was not processed)
+				let expected_cursor =
+					<Test as Config>::VoterList::iter_from(&last_in_page).unwrap().next().unwrap();
+				assert_eq!(
+					VoterSnapshotStatus::<Test>::get(),
+					SnapshotStatus::Ongoing(expected_cursor)
+				);
+				// cursor is a nominator.
+				assert_eq!(
+					Staking::status(&expected_cursor),
+					Ok(StakerStatus::Nominator(vec![51]))
+				);
+
+				// after chilling/removing the cursor from the voter list, the cursor will be
+				// update with the next non-processed voter in the list.
+				let expected_cursor_after_chill =
+					<Test as Config>::VoterList::iter_from(&expected_cursor)
+						.unwrap()
+						.next()
+						.unwrap();
+
+				let chilled = expected_cursor;
+
+				// now we chill the voter that is currently the cursor.
+				assert_ok!(Staking::chill(RuntimeOrigin::signed(chilled)));
+				// cursor was updated as expected.
+				assert_eq!(
+					VoterSnapshotStatus::<Test>::get(),
+					SnapshotStatus::Ongoing(expected_cursor_after_chill)
+				);
+
+				// fetch and check all remaining pages.
+				let page_2 = page_2.into_iter().map(|(a, _, _)| a).collect::<Vec<_>>();
+				assert_eq!(page_2, vec![11, 21, 31]);
+				let page_1 = Staking::get_npos_voters(bounds, 1)
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+				assert_eq!(page_1, vec![51, 101]);
+				// page 0.
+				let page_0 = Staking::get_npos_voters(bounds, 0)
+					.into_iter()
+					.map(|(a, _, _)| a)
+					.collect::<Vec<_>>();
+				assert!(page_0.is_empty());
+
+				// cursor was reset for next round after fetching page 0.
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+
+				// note that the chilled account was not included in any of the pages.
+				assert!(!page_2.contains(&chilled));
+				assert!(!page_1.contains(&chilled));
+				assert!(!page_0.contains(&chilled));
+			})
+	}
 }
 
 mod paged_exposures {
