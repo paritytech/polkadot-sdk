@@ -27,7 +27,7 @@ pub struct ViewFunctionsImplDef {
 	pub attr_span: proc_macro2::Span,
 	/// Docs, specified on the impl Block.
 	pub docs: Vec<syn::Expr>,
-	/// The view function query definitions.
+	/// The view function definitions.
 	pub view_functions: Vec<ViewFunctionDef>,
 }
 
@@ -97,14 +97,14 @@ impl TryFrom<syn::ImplItemFn> for ViewFunctionDef {
 }
 
 impl ViewFunctionDef {
-	pub fn query_struct_ident(&self) -> syn::Ident {
+	pub fn view_function_struct_ident(&self) -> syn::Ident {
 		syn::Ident::new(
-			&format!("{}Query", self.name.to_string().to_pascal_case()),
+			&format!("{}ViewFunction", self.name.to_string().to_pascal_case()),
 			self.name.span(),
 		)
 	}
 
-	pub fn query_id_suffix_bytes(&self) -> [u8; 16] {
+	pub fn view_function_id_suffix_bytes(&self) -> [u8; 16] {
 		let mut output = [0u8; 16];
 
 		// concatenate the signature string
@@ -117,8 +117,8 @@ impl ViewFunctionDef {
 			.join(",");
 		let return_type = &self.return_type;
 		let view_fn_signature = format!(
-			"{query_name}({arg_types}) -> {return_type}",
-			query_name = &self.name,
+			"{view_function_name}({arg_types}) -> {return_type}",
+			view_function_name = &self.name,
 			return_type = quote::quote!(#return_type),
 		);
 
