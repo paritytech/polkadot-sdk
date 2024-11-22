@@ -516,11 +516,11 @@ pub mod pallet {
 
 	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
 		fn default() -> Self {
-			Self { 
+			Self {
 				balances: Default::default(),
-				
+
 				#[cfg(feature = "runtime-benchmarks")]
-            	dev_accounts: (Default::default(), Default::default(), None),
+				dev_accounts: (One::one(), <T as Config<I>>::ExistentialDeposit::get(), None),
 			}
 		}
 	}
@@ -556,28 +556,15 @@ pub mod pallet {
 			#[cfg(feature = "runtime-benchmarks")]
 			{
 				let (num_accounts, balance, ref derivation) = self.dev_accounts;
+
 				// Check if `derivation` is `Some` and generate key pair
 				if let Some(derivation_string) = &derivation {
-					for index in 0..num_accounts {
-						// Replace "{}" in the derivation string with the index
-						let derivation_string = derivation_string.replace("{}", &index.to_string());
-			
-						// Attempt to create the key pair from the derivation string with error handling
-						let pair: SrPair = Pair::from_string(&derivation_string, None)
-							.expect(&format!("Failed to parse derivation string: {}", derivation_string));
-			
-						// Convert the public key to AccountId
-						let who = T::AccountId::decode(&mut &pair.public().encode()[..])
-							.expect(&format!("Failed to decode public key from pair: {}", pair.public()));
-			
-						frame_system::Pallet::<T>::inc_providers(&who);
-						// Insert the account into the store and ensure it succeeds
-						assert!(T::AccountStore::insert(&who, AccountData { free: balance, ..Default::default() })
-							.is_ok())
-					}
+					Pallet::<T, I>::derive_dev_account(num_accounts, balance, derivation_string);
 				} else {
-					// `derivation` is None, handle as needed.
-					log::error!(target: LOG_TARGET, "Derivation string is missing for runtime benchmarks.");
+					// Derivation string is missing, using default..
+					let default_derivation = "//Sender/{}".to_string();
+
+					Pallet::<T, I>::derive_dev_account(num_accounts, balance, &default_derivation);
 				}
 			}
 
@@ -1288,6 +1275,39 @@ pub mod pallet {
 				destination_status: status,
 			});
 			Ok(actual)
+		}
+
+		/// Generate dev account from derivation string.
+		#[cfg(feature = "runtime-benchmarks")]
+		pub fn derive_dev_account(num_accounts: u32, balance: T::Balance, derivation: &String) {
+			// Ensure that the number of accounts is not zero
+			assert!(num_accounts > 0, "num_accounts must be greater than zero");
+
+			assert!(
+				balance >= <T as Config<I>>::ExistentialDeposit::get(),
+				"the balance of any account should always be at least the existential deposit.",
+			);
+
+			for index in 0..num_accounts {
+				// Replace "{}" in the derivation string with the index.
+				let derivation_string = derivation.replace("{}", &index.to_string());
+
+				// Attempt to create the key pair from the derivation string with error handling.
+				let pair: SrPair = Pair::from_string(&derivation_string, None)
+					.expect(&format!("Failed to parse derivation string: {}", derivation_string));
+
+				// Convert the public key to AccountId.
+				let who = T::AccountId::decode(&mut &pair.public().encode()[..])
+					.expect(&format!("Failed to decode public key from pair: {}", pair.public()));
+
+				frame_system::Pallet::<T>::inc_providers(&who);
+				// Insert the account into the store and ensure it succeeds.
+				assert!(T::AccountStore::insert(
+					&who,
+					AccountData { free: balance, ..Default::default() }
+				)
+				.is_ok());
+			}
 		}
 	}
 }
