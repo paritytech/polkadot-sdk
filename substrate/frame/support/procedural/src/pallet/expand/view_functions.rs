@@ -142,7 +142,7 @@ fn expand_view_function(
 
 			type ReturnType = #return_type;
 
-			fn view_function(self) -> Self::ReturnType {
+			fn invoke(self) -> Self::ReturnType {
 				let Self { #( #arg_names, )* _marker } = self;
 				#pallet_ident::<#type_use_gen> :: #view_fn_name( #( #arg_names, )* )
 			}

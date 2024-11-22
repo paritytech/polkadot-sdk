@@ -52,14 +52,14 @@ pub trait ViewFunction: DecodeAll {
 	fn id() -> ViewFunctionId;
 	type ReturnType: Encode;
 
-	fn view_function(self) -> Self::ReturnType;
+	fn invoke(self) -> Self::ReturnType;
 
 	fn execute<O: Output>(
 		input: &mut &[u8],
 		output: &mut O,
 	) -> Result<(), ViewFunctionDispatchError> {
-		let query = Self::decode_all(input)?;
-		let result = query.query();
+		let view_function = Self::decode_all(input)?;
+		let result = view_function.invoke();
 		Encode::encode_to(&result, output);
 		Ok(())
 	}
