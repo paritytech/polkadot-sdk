@@ -426,8 +426,8 @@ impl RuntimeTarget {
 
 		// This is a nightly-only flag.
 		let arg = match self {
-			RuntimeTarget::Wasm => "-Z build-std",
-			RuntimeTarget::Riscv => "-Z build-std=core,alloc",
+			RuntimeTarget::Wasm => "build-std",
+			RuntimeTarget::Riscv => "build-std=core,alloc",
 		};
 
 		Some(arg)

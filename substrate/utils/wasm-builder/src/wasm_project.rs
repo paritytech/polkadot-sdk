@@ -915,7 +915,7 @@ fn build_bloaty_blob(
 	// So here we force the compiler to also compile the standard library crates for us
 	// to make sure that they also only use the MVP features.
 	if let Some(arg) = target.rustc_target_build_std() {
-		build_cmd.arg(arg);
+		build_cmd.arg("-Z").arg(arg);
 
 		if !cargo_cmd.supports_nightly_features() {
 			build_cmd.env("RUSTC_BOOTSTRAP", "1");
