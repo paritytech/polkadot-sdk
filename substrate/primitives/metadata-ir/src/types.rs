@@ -135,7 +135,7 @@ pub struct ViewFunctionsInterfaceIR<T: Form = MetaForm> {
 	/// Name of the query interface.
 	pub name: T::String,
 	/// Queries belonging to the query interface.
-	pub queries: Vec<QueryMetadataIR<T>>,
+	pub queries: Vec<ViewFunctionMetadataIR<T>>,
 	/// Query interface documentation.
 	pub docs: Vec<T::String>,
 }
@@ -152,9 +152,9 @@ impl IntoPortable for ViewFunctionsInterfaceIR {
 	}
 }
 
-/// Metadata of a runtime method.
+/// Metadata of a runtime view function.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
-pub struct QueryMetadataIR<T: Form = MetaForm> {
+pub struct ViewFunctionMetadataIR<T: Form = MetaForm> {
 	/// Query name.
 	pub name: T::String,
 	/// Query id.
@@ -167,11 +167,11 @@ pub struct QueryMetadataIR<T: Form = MetaForm> {
 	pub docs: Vec<T::String>,
 }
 
-impl IntoPortable for QueryMetadataIR {
-	type Output = QueryMetadataIR<PortableForm>;
+impl IntoPortable for ViewFunctionMetadataIR {
+	type Output = ViewFunctionMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		QueryMetadataIR {
+		ViewFunctionMetadataIR {
 			name: self.name.into_portable(registry),
 			id: self.id,
 			args: registry.map_into_portable(self.args),
