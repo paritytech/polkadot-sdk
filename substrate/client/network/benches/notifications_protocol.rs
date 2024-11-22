@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use assert_matches::assert_matches;
 use criterion::{
 	criterion_group, criterion_main, AxisScale, BenchmarkId, Criterion, PlotConfiguration,
 	Throughput,
@@ -26,57 +25,42 @@ use sc_network::{
 		FullNetworkConfiguration, MultiaddrWithPeerId, NetworkConfiguration, NonReservedPeerMode,
 		NotificationHandshake, Params, ProtocolId, Role, SetConfig,
 	},
-	service::traits::NotificationEvent,
+	service::traits::{NetworkService, NotificationEvent},
 	Litep2pNetworkBackend, NetworkBackend, NetworkWorker, NotificationMetrics, NotificationService,
 	PeerId, Roles,
 };
 use sc_network_common::{sync::message::BlockAnnouncesHandshake, ExHashT};
-use sc_network_types::build_multiaddr;
 use sp_core::H256;
 use sp_runtime::traits::{Block as BlockT, Zero};
-use std::{
-	net::{IpAddr, Ipv4Addr, TcpListener},
-	str::FromStr,
-	sync::Arc,
-};
+use std::{sync::Arc, time::Duration};
 use substrate_test_runtime_client::runtime;
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, task::JoinHandle};
 
-const MAX_SIZE: u64 = 2u64.pow(30);
-const SAMPLE_SIZE: usize = 50;
-const NOTIFICATIONS: usize = 50;
-const EXPONENTS: &[(u32, &'static str)] = &[
-	(6, "64B"),
-	(9, "512B"),
-	(12, "4KB"),
-	(15, "64KB"),
-	(18, "256KB"),
-	(21, "2MB"),
-	(24, "16MB"),
-	(27, "128MB"),
+const SMALL_PAYLOAD: &[(u32, usize, &'static str)] = &[
+	// (Exponent of size, number of notifications, label)
+	(6, 100, "64B"),
+	(9, 100, "512B"),
+	(12, 100, "4KB"),
+	(15, 100, "64KB"),
 ];
-
-// TODO: It's be better to bind system-provided port when initializing the worker
-fn get_listen_address() -> sc_network::Multiaddr {
-	let ip = Ipv4Addr::from_str("127.0.0.1").unwrap();
-	let listener = TcpListener::bind((IpAddr::V4(ip), 0)).unwrap(); // Bind to a random port
-	let local_addr = listener.local_addr().unwrap();
-	let port = local_addr.port();
-
-	build_multiaddr!(Ip4(ip), Tcp(port))
-}
+// const LARGE_PAYLOAD: &[(u32, usize, &'static str)] = &[
+// 	// (Exponent of size, number of notifications, label)
+// 	(18, 1, "256KB"),
+// 	(21, 1, "2MB"),
+// 	(24, 1, "16MB"),
+// 	(27, 1, "128MB"),
+// ];
+const MAX_SIZE: u64 = 2u64.pow(30);
 
 fn create_network_worker<B, H, N>(
-	listen_addr: sc_network::Multiaddr,
-) -> (N, Box<dyn NotificationService>)
+) -> (N, Arc<dyn NetworkService>, Arc<Mutex<Box<dyn NotificationService>>>)
 where
 	B: BlockT<Hash = H256> + 'static,
 	H: ExHashT,
 	N: NetworkBackend<B, H>,
 {
 	let role = Role::Full;
-	let mut net_conf = NetworkConfiguration::new_local();
-	net_conf.listen_addresses = vec![listen_addr];
+	let net_conf = NetworkConfiguration::new_local();
 	let network_config = FullNetworkConfiguration::<B, H, N>::new(&net_conf, None);
 	let genesis_hash = runtime::Hash::zero();
 	let (block_announce_config, notification_service) = N::notification_config(
@@ -113,45 +97,59 @@ where
 		notification_metrics: NotificationMetrics::new(None),
 	})
 	.unwrap();
+	let network_service = worker.network_service();
+	let notification_service = Arc::new(Mutex::new(notification_service));
 
-	(worker, notification_service)
+	(worker, network_service, notification_service)
 }
 
 struct BenchSetup {
 	notification_service1: Arc<Mutex<Box<dyn NotificationService>>>,
 	notification_service2: Arc<Mutex<Box<dyn NotificationService>>>,
 	peer_id2: PeerId,
+	handle1: JoinHandle<()>,
+	handle2: JoinHandle<()>,
 }
 
-fn setup_workers<B, H, N>() -> Arc<BenchSetup>
+impl Drop for BenchSetup {
+	fn drop(&mut self) {
+		self.handle1.abort();
+		self.handle2.abort();
+	}
+}
+
+fn setup_workers<B, H, N>(rt: &tokio::runtime::Runtime) -> Arc<BenchSetup>
 where
 	B: BlockT<Hash = H256> + 'static,
 	H: ExHashT,
 	N: NetworkBackend<B, H>,
 {
-	let listen_address1 = get_listen_address();
-	let listen_address2 = get_listen_address();
-	let (worker1, notification_service1) = create_network_worker::<B, H, N>(listen_address1);
-	let (worker2, notification_service2) =
-		create_network_worker::<B, H, N>(listen_address2.clone());
-	let peer_id2: sc_network::PeerId = worker2.network_service().local_peer_id().into();
+	let _guard = rt.enter();
 
-	worker1
-		.network_service()
-		.add_reserved_peer(MultiaddrWithPeerId { multiaddr: listen_address2, peer_id: peer_id2 })
-		.unwrap();
-
-	let notification_service1 = Arc::new(Mutex::new(notification_service1));
-	let notification_service2 = Arc::new(Mutex::new(notification_service2));
-
-	tokio::spawn(worker1.run());
-	tokio::spawn(worker2.run());
+	let (worker1, network_service1, notification_service1) = create_network_worker::<B, H, N>();
+	let (worker2, network_service2, notification_service2) = create_network_worker::<B, H, N>();
+	let peer_id2: sc_network::PeerId = network_service2.local_peer_id().into();
+	let handle1 = tokio::spawn(worker1.run());
+	let handle2 = tokio::spawn(worker2.run());
 
 	let ready = tokio::spawn({
 		let notification_service1 = Arc::clone(&notification_service1);
 		let notification_service2 = Arc::clone(&notification_service2);
 
 		async move {
+			let listen_address2 = {
+				while network_service2.listen_addresses().is_empty() {
+					tokio::time::sleep(Duration::from_millis(10)).await;
+				}
+				network_service2.listen_addresses()[0].clone()
+			};
+			network_service1
+				.add_reserved_peer(MultiaddrWithPeerId {
+					multiaddr: listen_address2,
+					peer_id: peer_id2,
+				})
+				.unwrap();
+
 			let mut notification_service1 = notification_service1.lock().await;
 			let mut notification_service2 = notification_service2.lock().await;
 			loop {
@@ -175,7 +173,13 @@ where
 		let _ = tokio::runtime::Handle::current().block_on(ready);
 	});
 
-	Arc::new(BenchSetup { notification_service1, notification_service2, peer_id2 })
+	Arc::new(BenchSetup {
+		notification_service1,
+		notification_service2,
+		peer_id2,
+		handle1,
+		handle2,
+	})
 }
 
 async fn run_serially(setup: Arc<BenchSetup>, size: usize, limit: usize) {
@@ -254,63 +258,53 @@ async fn run_with_backpressure(setup: Arc<BenchSetup>, size: usize, limit: usize
 fn run_benchmark(c: &mut Criterion) {
 	let rt = tokio::runtime::Runtime::new().unwrap();
 	let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
-	let mut group = c.benchmark_group("notifications_benchmark");
+	let mut group = c.benchmark_group("libp2p");
 	group.plot_config(plot_config);
 
-	for &(exponent, label) in EXPONENTS.iter() {
+	let libp2p_setup = setup_workers::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>(&rt);
+	for &(exponent, limit, label) in SMALL_PAYLOAD.iter() {
 		let size = 2usize.pow(exponent);
-		group.throughput(Throughput::Bytes(NOTIFICATIONS as u64 * size as u64));
-
+		group.throughput(Throughput::Bytes(limit as u64 * size as u64));
 		group.bench_with_input(
 			BenchmarkId::new("libp2p/serially", label),
-			&(size, NOTIFICATIONS),
+			&(size, limit),
 			|b, &(size, limit)| {
-				b.to_async(&rt).iter_batched_ref(
-					setup_workers::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>,
-					|setup| run_serially(Arc::clone(setup), size, limit),
-					criterion::BatchSize::SmallInput,
-				);
-			},
-		);
-		group.bench_with_input(
-			BenchmarkId::new("litep2p/serially", label),
-			&(size, NOTIFICATIONS),
-			|b, &(size, limit)| {
-				b.to_async(&rt).iter_batched_ref(
-					setup_workers::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>,
-					|setup| run_serially(Arc::clone(setup), size, limit),
-					criterion::BatchSize::SmallInput,
-				);
+				b.to_async(&rt).iter(|| run_serially(Arc::clone(&libp2p_setup), size, limit));
 			},
 		);
 		group.bench_with_input(
 			BenchmarkId::new("libp2p/with_backpressure", label),
-			&(size, NOTIFICATIONS),
+			&(size, limit),
 			|b, &(size, limit)| {
-				b.to_async(&rt).iter_batched_ref(
-					setup_workers::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>,
-					|setup| run_with_backpressure(Arc::clone(setup), size, limit),
-					criterion::BatchSize::SmallInput,
-				);
+				b.to_async(&rt)
+					.iter(|| run_with_backpressure(Arc::clone(&libp2p_setup), size, limit));
+			},
+		);
+	}
+	drop(libp2p_setup);
+
+	let litep2p_setup = setup_workers::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>(&rt);
+	for &(exponent, limit, label) in SMALL_PAYLOAD.iter() {
+		let size = 2usize.pow(exponent);
+		group.throughput(Throughput::Bytes(limit as u64 * size as u64));
+		group.bench_with_input(
+			BenchmarkId::new("litep2p/serially", label),
+			&(size, limit),
+			|b, &(size, limit)| {
+				b.to_async(&rt).iter(|| run_serially(Arc::clone(&litep2p_setup), size, limit));
 			},
 		);
 		group.bench_with_input(
 			BenchmarkId::new("litep2p/with_backpressure", label),
-			&(size, NOTIFICATIONS),
+			&(size, limit),
 			|b, &(size, limit)| {
-				b.to_async(&rt).iter_batched_ref(
-					setup_workers::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>,
-					|setup| run_with_backpressure(Arc::clone(setup), size, limit),
-					criterion::BatchSize::SmallInput,
-				);
+				b.to_async(&rt)
+					.iter(|| run_with_backpressure(Arc::clone(&litep2p_setup), size, limit));
 			},
 		);
 	}
+	drop(litep2p_setup);
 }
 
-criterion_group! {
-	name = benches;
-	config = Criterion::default().sample_size(SAMPLE_SIZE);
-	targets = run_benchmark
-}
+criterion_group!(benches, run_benchmark);
 criterion_main!(benches);
