@@ -1395,7 +1395,8 @@
 				"title": "log",
 				"type": "object",
 				"required": [
-					"transactionHash"
+					"transactionHash",
+					"address"
 				],
 				"additionalProperties": false,
 				"properties": {

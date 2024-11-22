@@ -19,6 +19,15 @@ use super::*;
 use alloc::vec::Vec;
 use sp_core::{H160, U256};
 
+impl From<BlockNumberOrTag> for BlockNumberOrTagOrHash {
+	fn from(b: BlockNumberOrTag) -> Self {
+		match b {
+			BlockNumberOrTag::U256(n) => BlockNumberOrTagOrHash::U256(n),
+			BlockNumberOrTag::BlockTag(t) => BlockNumberOrTagOrHash::BlockTag(t),
+		}
+	}
+}
+
 impl TransactionInfo {
 	/// Create a new [`TransactionInfo`] from a receipt and a signed transaction.
 	pub fn new(receipt: ReceiptInfo, transaction_signed: TransactionSigned) -> Self {

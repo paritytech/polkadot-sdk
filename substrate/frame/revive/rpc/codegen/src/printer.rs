@@ -69,8 +69,7 @@ impl TypeInfo {
 		let mut type_name = self.name.clone();
 		if self.array {
 			type_name = format!("Vec<{}>", type_name)
-		}
-		if self.is_optional() {
+		} else if self.is_optional() {
 			type_name = format!("Option<{}>", type_name)
 		}
 		type_name
@@ -262,6 +261,7 @@ pub struct TypePrinter {
 	pub doc: Option<String>,
 	pub name: String,
 	pub content: TypeContent,
+	custom_default_variant: Option<String>,
 }
 
 /// A macro to write a formatted line to a buffer.
@@ -287,6 +287,15 @@ macro_rules! writeln {
 }
 
 impl TypePrinter {
+	pub fn new(
+		doc: Option<String>,
+		name: String,
+		content: TypeContent,
+		custom_default_variant: Option<String>,
+	) -> Self {
+		Self { doc, name, content, custom_default_variant }
+	}
+
 	/// Prints the type to a buffer.
 	pub fn print(self, buffer: &mut String) {
 		let Self { doc, name, content, .. } = self;
@@ -315,10 +324,14 @@ impl TypePrinter {
 				writeln!(buffer, "}}");
 
 				// Implement Default trait
-				let variant = variants.0[0].name();
+				let default_variant = self
+					.custom_default_variant
+					.map(|s| s.to_string())
+					.unwrap_or_else(|| variants.0[0].name());
+
 				writeln!(buffer, "impl Default for {name} {{");
 				writeln!(buffer, "  fn default() -> Self {{");
-				writeln!(buffer, "    {name}::{variant}(Default::default())");
+				writeln!(buffer, "    {name}::{default_variant}(Default::default())");
 				writeln!(buffer, "  }}");
 				writeln!(buffer, "}}");
 			},
@@ -328,9 +341,17 @@ impl TypePrinter {
                     "#[derive(Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq)]"
                 );
 				writeln!(buffer, "pub enum {name} {{");
+
+				let default_variant_index = self.custom_default_variant.map_or(0, |v| {
+					variants
+						.iter()
+						.position(|x| x.eq_ignore_ascii_case(&v))
+						.expect("Default variant not found")
+				});
+
 				for (i, name) in variants.iter().enumerate() {
 					writeln!(buffer, "  #[serde(rename = \"{name}\")]");
-					if i == 0 {
+					if i == default_variant_index {
 						writeln!(buffer, "  #[default]");
 					}
 					let pascal_name = name.to_pascal_case();
@@ -361,7 +382,13 @@ impl TypePrinter {
 					}
 
 					if matches!(type_info.required, Required::No { skip_if_null: true }) {
-						serde_params.push("skip_serializing_if = \"Option::is_none\"".to_string());
+						if type_info.array {
+							serde_params
+								.push("skip_serializing_if = \"Vec::is_empty\"".to_string());
+						} else {
+							serde_params
+								.push("skip_serializing_if = \"Option::is_none\"".to_string());
+						}
 					}
 
 					if !serde_params.is_empty() {
@@ -414,6 +441,7 @@ mod test {
 				]
 				.into(),
 			),
+			custom_default_variant: None,
 		};
 		let mut buffer = String::new();
 		gen.print(&mut buffer);
@@ -439,6 +467,7 @@ mod test {
 			doc: Some("A simple untagged enum".to_string()),
 			name: "SimpleUntaggedEnum".to_string(),
 			content: TypeContent::UntaggedEnum(vec!["first".to_string(), "second".to_string()]),
+			custom_default_variant: None,
 		};
 		let mut buffer = String::new();
 		gen.print(&mut buffer);
@@ -470,6 +499,7 @@ mod test {
 				]
 				.into(),
 			),
+			custom_default_variant: None,
 		};
 		let mut buffer = String::new();
 		gen.print(&mut buffer);

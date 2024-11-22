@@ -87,6 +87,18 @@ pub static LEGACY_ALIASES: LazyLock<HashMap<&'static str, HashMap<&'static str, 
 		])
 	});
 
+/// Custom Default impl
+pub static CUSTOM_DEFAULT_VARIANTS: LazyLock<HashMap<&'static str, &'static str>> =
+	LazyLock::new(|| {
+		HashMap::from([
+			("TransactionUnsigned", "TransactionLegacyUnsigned"),
+			("TransactionSigned", "TransactionLegacySigned"),
+			("BlockNumberOrTagOrHash", "BlockTag"),
+			("BlockNumberOrTag", "BlockTag"),
+			("BlockTag", "Latest"),
+		])
+	});
+
 /// Read the OpenRPC specs, and inject extra methods and legacy aliases.
 pub fn read_specs() -> anyhow::Result<OpenRpc> {
 	let content = include_str!("../openrpc.json");
@@ -309,7 +321,8 @@ impl TypeGenerator {
 			},
 		};
 
-		TypePrinter { name, doc, content }
+		let default_variant = CUSTOM_DEFAULT_VARIANTS.get(&name.as_str()).map(|v| v.to_string());
+		TypePrinter::new(doc, name, content, default_variant)
 	}
 
 	fn generate_rpc_method(&mut self, buffer: &mut String, method: &Method) {
@@ -445,7 +458,10 @@ impl TypeNameProvider for TypeGenerator {
 
 #[cfg(test)]
 pub fn assert_code_match(expected: &str, actual: &str) {
-	assert_eq!(format_code(expected).unwrap().trim(), format_code(actual).unwrap().trim());
+	pretty_assertions::assert_eq!(
+		format_code(expected).unwrap().trim(),
+		format_code(actual).unwrap().trim()
+	);
 }
 
 #[cfg(test)]
@@ -558,8 +574,8 @@ mod test {
               pub s: U256,
               /// yParity
               /// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
-              #[serde(rename = "yParity", skip_serializing_if = "Option::is_none")]
-              pub y_parity: Option<U256>,
+              #[serde(rename = "yParity")]
+              pub y_parity: U256,
             }
             "#,
 		);
@@ -588,7 +604,7 @@ mod test {
               }
               impl Default for TransactionUnsigned {
                 fn default() -> Self {
-                  TransactionUnsigned::Transaction4844Unsigned(Default::default())
+                  TransactionUnsigned::TransactionLegacyUnsigned(Default::default())
                 }
               }
             "#,
@@ -689,12 +705,12 @@ mod test {
               pub access_list: Option<AccessList>,
               /// blobVersionedHashes
               /// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
-              #[serde(rename = "blobVersionedHashes", skip_serializing_if = "Option::is_none")]
-              pub blob_versioned_hashes: Option<Vec<H256>>,
+              #[serde(rename = "blobVersionedHashes", skip_serializing_if = "Vec::is_empty")]
+              pub blob_versioned_hashes: Vec<H256>,
               /// blobs
               /// Raw blob data.
-              #[serde(skip_serializing_if = "Option::is_none")]
-              pub blobs: Option<Vec<Bytes>>,
+              #[serde(skip_serializing_if = "Vec::is_empty")]
+              pub blobs: Vec<Bytes>,
               /// chainId
               /// Chain ID that this transaction is valid on.
               #[serde(rename = "chainId", skip_serializing_if = "Option::is_none")]
