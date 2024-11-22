@@ -953,6 +953,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "asset-test-utils",
+ "assets-common",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
@@ -9401,9 +9402,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7286b1971f85d1d60be40ef49e81c1f3b5a0d8b83cfa02ab53591cdacae22901"
+checksum = "5b67484b8ac41e1cfdf012f65fa81e88c2ef5f8a7d6dec0e2678c2d06dc04530"
 dependencies = [
  "async-trait",
  "bs58",
@@ -15117,7 +15118,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "4.0.0"
+version = "1.17.0"
 dependencies = [
  "asset-hub-rococo-runtime",
  "asset-hub-westend-runtime",
@@ -17022,7 +17023,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -17068,7 +17069,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acf0c195eebb4af52c752bec4f52f645da98b6e92077a04110c7f349477ae5ac"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
