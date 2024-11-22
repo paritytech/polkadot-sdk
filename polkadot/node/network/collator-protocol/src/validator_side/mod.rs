@@ -63,8 +63,11 @@ use crate::error::{Error, FetchError, Result, SecondingError};
 
 use self::collation::BlockedCollationId;
 
+use self::claim_queue_state::ClaimQueueState;
+
 use super::{modify_reputation, tick_stream, LOG_TARGET};
 
+mod claim_queue_state;
 mod collation;
 mod metrics;
 
@@ -1051,66 +1054,33 @@ fn ensure_seconding_limit_is_respected(
 	relay_parent: &Hash,
 	para_id: ParaId,
 	state: &State,
-	per_relay_parent: &PerRelayParent,
-	assignment: &GroupAssignments,
 ) -> std::result::Result<(), AdvertisementError> {
-	// All claims we can accept for `para_id` at `relay_parent`. Some of this claims might already
-	// be claimed below or above `relay_parent`.
-	let claims_for_para = per_relay_parent.collations.claims_for_para(&para_id);
+	let target_anc = state
+		.implicit_view
+		.known_allowed_relay_parents_under(relay_parent, Some(para_id))
+		.and_then(|res| res.first())
+		.ok_or(AdvertisementError::RelayParentUnknown)?;
+	let paths = state.implicit_view.paths_to_relay_parent(target_anc);
 
-	// Claims from our view which are already claimed at previous relay parents.
-	let claimed_from_our_view =
-		claimed_within_view(&state, &relay_parent, &para_id, assignment.current.len());
-
-	// Seconding and pending candidates above the relay parent of the candidate. These are
-	// candidates at a newer relay parent which have already claimed a slot within their view.
-	let seconded_and_pending_above = seconded_and_pending_for_para_above(
-		&state,
-		&relay_parent,
-		&para_id,
-		assignment.current.len(),
-	);
-
-	gum::trace!(
-		target: LOG_TARGET,
-		?relay_parent,
-		?para_id,
-		claims_for_para,
-		claimed_from_our_view,
-		?seconded_and_pending_above,
-		claim_queue = ?assignment.current,
-		"Checking if seconded limit is reached"
-	);
-
-	// Relay parent is a leaf. There are no paths to it.
-	if seconded_and_pending_above.is_empty() {
-		if claimed_from_our_view >= claims_for_para {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?para_id,
-				claims_for_para,
-				?seconded_and_pending_above,
-				"Seconding limit exceeded for a leaf"
+	for path in paths {
+		let mut cq_state = ClaimQueueState::new();
+		for ancestor in path {
+			let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
+			cq_state.add_leaf(
+				&ancestor,
+				&state
+					.per_relay_parent
+					.get(&ancestor)
+					.ok_or(AdvertisementError::RelayParentUnknown)?
+					.assignment
+					.current,
 			);
-			return Err(AdvertisementError::SecondedLimitReached)
+			for _ in 0..seconded_and_pending {
+				cq_state.claim_at(&ancestor, &para_id);
+			}
 		}
-	}
 
-	// Checks if another collation can be accepted. The number of collations that can be seconded
-	// per parachain is limited by the entries in claim queue for the `ParaId` in question.
-	// No op for for leaves
-	for claims_at_path in seconded_and_pending_above {
-		if claims_at_path + claimed_from_our_view >= claims_for_para {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?para_id,
-				claims_at_path,
-				claimed_from_our_view,
-				claims_for_para,
-				"Seconding limit exceeded"
-			);
+		if !cq_state.can_claim_at(relay_parent, &para_id) {
 			return Err(AdvertisementError::SecondedLimitReached)
 		}
 	}
@@ -1162,13 +1132,7 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
-	ensure_seconding_limit_is_respected(
-		&relay_parent,
-		para_id,
-		state,
-		per_relay_parent,
-		assignment,
-	)?;
+	ensure_seconding_limit_is_respected(&relay_parent, para_id, state)?;
 
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
 		// Check if backing subsystem allows to second this candidate.
