@@ -10,7 +10,7 @@ on:
         type: string
 
       package:
-        description: Package to be built, for now can be polkadot, polkadot-parachain-bin, or polkadot-omni-node
+        description: Package to be built, for now can be polkadot or polkadot-parachain-bin
         required: true
         type: string
 
@@ -316,19 +316,6 @@ jobs:
       AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
 
-  upload-polkadot-omni-node-artifacts-to-s3:
-    if: ${{ inputs.package == 'polkadot-omni-node' && inputs.target == 'x86_64-unknown-linux-gnu' }}
-    needs: [build-rc]
-    uses: ./.github/workflows/release-reusable-s3-upload.yml
-    with:
-      package: ${{ inputs.package }}
-      release_tag: ${{ inputs.release_tag }}
-      target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-
   upload-polkadot-macos-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot' && inputs.target == 'aarch64-apple-darwin' }}
     # TODO: add and use a `build-polkadot-homebrew-package` which packs all `polkadot` binaries:
@@ -363,19 +350,6 @@ jobs:
     uses: ./.github/workflows/release-reusable-s3-upload.yml
     with:
       package: polkadot-execute-worker
-      release_tag: ${{ inputs.release_tag }}
-      target: ${{ inputs.target }}
-    secrets:
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
-
-  upload-polkadot-omni-node-macos-artifacts-to-s3:
-    if: ${{ inputs.package == 'polkadot-omni-node' && inputs.target == 'aarch64-apple-darwin' }}
-    needs: [build-macos-rc]
-    uses: ./.github/workflows/release-reusable-s3-upload.yml
-    with:
-      package: ${{ inputs.package }}
       release_tag: ${{ inputs.release_tag }}
       target: ${{ inputs.target }}
     secrets:
