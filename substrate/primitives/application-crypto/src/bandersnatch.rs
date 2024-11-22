@@ -50,14 +50,12 @@ impl RuntimePublic for Public {
 		sp_io::crypto::bandersnatch_sign(key_type, self, msg.as_ref())
 	}
 
-	/// Dummy implementation. Returns `false`.
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
 		let sig = AppSignature::from(signature.clone());
 		let pub_key = AppPublic::from(self.clone());
 		AppPair::verify(&sig, msg.as_ref(), &pub_key)
 	}
 
-	/// Dummy implementation. Returns 'None'.
 	fn generate_pop(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
 		let pub_key_as_bytes = self.to_raw_vec();
 		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
