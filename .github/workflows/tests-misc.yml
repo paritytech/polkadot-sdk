@@ -191,6 +191,12 @@ jobs:
             exit 0
           fi
 
+          # fail if no artifacts
+          if [ ! -d ./artifacts/master ] || [ ! -d ./artifacts/current ]; then
+            echo "No artifacts found"
+            exit 1
+          fi
+
           docker run --rm \
           -v $PWD/artifacts/master:/artifacts/master \
           -v $PWD/artifacts/current:/artifacts/current \
