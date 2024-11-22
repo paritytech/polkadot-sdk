@@ -53,8 +53,8 @@ impl RuntimeBlob {
 	pub fn new(raw_blob: &[u8]) -> Result<Self, WasmError> {
 		if raw_blob.starts_with(b"PVM\0") {
 			if crate::is_polkavm_enabled() {
-				let blob = polkavm::ProgramBlob::parse(raw_blob.into())?;
-				let raw = ArcBytes::from(raw_blob);
+                let raw = ArcBytes::from(raw_blob);
+				let blob = polkavm::ProgramBlob::parse(raw.clone())?;
 				return Ok(Self(BlobKind::PolkaVM((blob, raw))));
 			} else {
 				return Err(WasmError::Other("expected a WASM runtime blob, found a PolkaVM runtime blob; set the 'SUBSTRATE_ENABLE_POLKAVM' environment variable to enable the experimental PolkaVM-based executor".to_string()));
