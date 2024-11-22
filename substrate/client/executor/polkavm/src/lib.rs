@@ -172,6 +172,7 @@ fn call_host_function(
 			ValueType::I64 =>
 				if caller.instance.is_64_bit() {
 					args[nth_arg] = Value::I64(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as i64);
+					nth_reg += 1;
 				} else {
 					let value_lo = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
 					nth_reg += 1;
@@ -185,6 +186,7 @@ fn call_host_function(
 			ValueType::F64 =>
 				if caller.instance.is_64_bit() {
 					args[nth_arg] = Value::F64(caller.instance.reg(Reg::ARG_REGS[nth_reg]));
+					nth_reg += 1;
 				} else {
 					let value_lo = caller.instance.reg(Reg::ARG_REGS[nth_reg]);
 					nth_reg += 1;
