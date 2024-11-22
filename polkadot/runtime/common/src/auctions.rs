@@ -1718,7 +1718,7 @@ mod benchmarking {
 	use polkadot_runtime_parachains::paras;
 	use sp_runtime::{traits::Bounded, SaturatedConversion};
 
-	use frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};
+	use frame_benchmarking::v2::*;
 
 	fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 		let events = frame_system::Pallet::<T>::events();
@@ -1772,25 +1772,34 @@ mod benchmarking {
 		}
 	}
 
-	benchmarks! {
-		where_clause { where T: pallet_babe::Config + paras::Config }
+	#[benchmarks(
+		where T: pallet_babe::Config + paras::Config,
+	)]
+	mod benchmarks {
+		use super::*;
 
-		new_auction {
+		#[benchmark]
+		fn new_auction() -> Result<(), BenchmarkError> {
 			let duration = BlockNumberFor::<T>::max_value();
 			let lease_period_index = LeasePeriodOf::<T>::max_value();
 			let origin =
 				T::InitiateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		}: _<T::RuntimeOrigin>(origin, duration, lease_period_index)
-		verify {
+
+				#[extrinsic_call]
+			_(origin as T::RuntimeOrigin, duration, lease_period_index);
+
 			assert_last_event::<T>(Event::<T>::AuctionStarted {
 				auction_index: AuctionCounter::<T>::get(),
 				lease_period: LeasePeriodOf::<T>::max_value(),
 				ending: BlockNumberFor::<T>::max_value(),
 			}.into());
+
+			Ok(())
 		}
 
 		// Worst case scenario a new bid comes in which kicks out an existing bid for the same slot.
-		bid {
+		#[benchmark]
+		fn bid() -> Result<(), BenchmarkError> {
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			let (_, offset) = T::Leaser::lease_period_length();
 			frame_system::Pallet::<T>::set_block_number(offset + One::one());
@@ -1839,15 +1848,20 @@ mod benchmarking {
 			CurrencyOf::<T>::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 			let bigger_amount = CurrencyOf::<T>::minimum_balance().saturating_mul(10u32.into());
 			assert_eq!(CurrencyOf::<T>::reserved_balance(&first_bidder), first_amount);
-		}: _(RawOrigin::Signed(caller.clone()), new_para, auction_index, first_slot, last_slot, bigger_amount)
-		verify {
+
+			#[extrinsic_call]
+			_(RawOrigin::Signed(caller.clone()), new_para, auction_index, first_slot, last_slot, bigger_amount);
+
 			// Confirms that we unreserved funds from a previous bidder, which is worst case scenario.
 			assert_eq!(CurrencyOf::<T>::reserved_balance(&caller), bigger_amount);
+
+			Ok(())
 		}
 
 		// Worst case: 10 bidders taking all wining spots, and we need to calculate the winner for auction end.
 		// Entire winner map should be full and removed at the end of the benchmark.
-		on_initialize {
+		#[benchmark]
+		fn on_initialize() -> Result<(), BenchmarkError> {
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			let (lease_length, offset) = T::Leaser::lease_period_length();
 			frame_system::Pallet::<T>::set_block_number(offset + One::one());
@@ -1886,16 +1900,19 @@ mod benchmarking {
 				}
 			}
 
-		}: {
+			#[extrinsic_call]
 			Auctions::<T>::on_initialize(duration + now + T::EndingPeriod::get());
-		} verify {
+
 			let auction_index = AuctionCounter::<T>::get();
 			assert_last_event::<T>(Event::<T>::AuctionClosed { auction_index }.into());
 			assert!(Winning::<T>::iter().count().is_zero());
+
+			Ok(())
 		}
 
 		// Worst case: 10 bidders taking all wining spots, and winning data is full.
-		cancel_auction {
+		#[benchmark]
+		fn cancel_auction() -> Result<(), BenchmarkError> {
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			let (lease_length, offset) = T::Leaser::lease_period_length();
 			frame_system::Pallet::<T>::set_block_number(offset + One::one());
@@ -1903,7 +1920,6 @@ mod benchmarking {
 			// Create a new auction
 			let duration: BlockNumberFor<T> = lease_length / 2u32.into();
 			let lease_period_index = LeasePeriodOf::<T>::zero();
-			let now = frame_system::Pallet::<T>::block_number();
 			let origin = T::InitiateOrigin::try_successful_origin()
 				.expect("InitiateOrigin has no successful origin required for the benchmark");
 			Auctions::<T>::new_auction(origin, duration, lease_period_index)?;
@@ -1920,9 +1936,12 @@ mod benchmarking {
 				Winning::<T>::insert(BlockNumberFor::<T>::from(i), winning_data.clone());
 			}
 			assert!(AuctionInfo::<T>::get().is_some());
-		}: _(RawOrigin::Root)
-		verify {
+
+			#[extrinsic_call]
+			_(RawOrigin::Root);
+
 			assert!(AuctionInfo::<T>::get().is_none());
+			Ok(())
 		}
 
 		impl_benchmark_test_suite!(
