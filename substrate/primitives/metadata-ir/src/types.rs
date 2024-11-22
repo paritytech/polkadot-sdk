@@ -42,7 +42,7 @@ pub struct MetadataIR<T: Form = MetaForm> {
 	/// The outer enums types as found in the runtime.
 	pub outer_enums: OuterEnumsIR<T>,
 	/// Metadata of view function queries
-	pub query: RuntimeViewFunctionIR<T>,
+	pub view_functions: RuntimeViewFunctionsIR<T>,
 }
 
 /// Metadata of a runtime trait.
@@ -122,16 +122,16 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 
 /// Metadata of the the runtime query dispatch.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
-pub struct RuntimeViewFunctionIR<T: Form = MetaForm> {
+pub struct RuntimeViewFunctionsIR<T: Form = MetaForm> {
 	/// The type implementing the runtime query dispatch.
 	pub ty: T::Type,
 	/// The query interfaces metadata.
-	pub interfaces: Vec<QueryInterfaceIR<T>>,
+	pub interfaces: Vec<ViewFunctionsInterfaceIR<T>>,
 }
 
 /// Metadata of a runtime query interface.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
-pub struct QueryInterfaceIR<T: Form = MetaForm> {
+pub struct ViewFunctionsInterfaceIR<T: Form = MetaForm> {
 	/// Name of the query interface.
 	pub name: T::String,
 	/// Queries belonging to the query interface.
@@ -140,11 +140,11 @@ pub struct QueryInterfaceIR<T: Form = MetaForm> {
 	pub docs: Vec<T::String>,
 }
 
-impl IntoPortable for QueryInterfaceIR {
-	type Output = QueryInterfaceIR<PortableForm>;
+impl IntoPortable for ViewFunctionsInterfaceIR {
+	type Output = ViewFunctionsInterfaceIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		QueryInterfaceIR {
+		ViewFunctionsInterfaceIR {
 			name: self.name.into_portable(registry),
 			queries: registry.map_into_portable(self.queries),
 			docs: registry.map_into_portable(self.docs),

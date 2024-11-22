@@ -30,25 +30,25 @@ pub fn expand_view_functions(def: &Def) -> TokenStream {
 		None => (def.item.span(), def.config.where_clause.clone(), Vec::new(), Vec::new()),
 	};
 
-	let query_prefix_impl = expand_query_prefix_impl(def, span, where_clause.as_ref());
+	let view_function_prefix_impl = expand_view_function_prefix_impl(def, span, where_clause.as_ref());
 
 	let view_fn_impls = view_fns
 		.iter()
 		.map(|view_fn| expand_view_function(def, span, where_clause.as_ref(), view_fn));
 	let impl_dispatch_view_function =
 		impl_dispatch_view_function(def, span, where_clause.as_ref(), &view_fns);
-	let impl_query_metadata =
-		impl_query_metadata(def, span, where_clause.as_ref(), &view_fns, &docs);
+	let impl_view_function_metadata =
+		impl_view_function_metadata(def, span, where_clause.as_ref(), &view_fns, &docs);
 
 	quote::quote! {
-		#query_prefix_impl
+		#view_function_prefix_impl
 		#( #view_fn_impls )*
 		#impl_dispatch_view_function
-		#impl_query_metadata
+		#impl_view_function_metadata
 	}
 }
 
-fn expand_query_prefix_impl(
+fn expand_view_function_prefix_impl(
 	def: &Def,
 	span: Span,
 	where_clause: Option<&syn::WhereClause>,
@@ -141,7 +141,7 @@ fn expand_view_function(
 
 			type ReturnType = #return_type;
 
-			fn query(self) -> Self::ReturnType {
+			fn view_function(self) -> Self::ReturnType {
 				let Self { #( #arg_names, )* _marker } = self;
 				#pallet_ident::<#type_use_gen> :: #view_fn_name( #( #arg_names, )* )
 			}
@@ -188,7 +188,7 @@ fn impl_dispatch_view_function(
 	}
 }
 
-fn impl_query_metadata(
+fn impl_view_function_metadata(
 	def: &Def,
 	span: Span,
 	where_clause: Option<&syn::WhereClause>,

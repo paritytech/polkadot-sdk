@@ -41,9 +41,9 @@ impl From<MetadataIR> for RuntimeMetadataV15 {
 		let outer_enums = Into::<OuterEnums>::into(ir.outer_enums).into_portable(&mut registry);
 
 		// todo: add tests.
-		let query_interfaces = registry.map_into_portable(ir.query.interfaces.into_iter());
+		let query_interfaces = registry.map_into_portable(ir.view_functions.interfaces.into_iter());
 		let queries_custom_metadata = CustomValueMetadata {
-			ty: ir.query.ty,
+			ty: ir.view_functions.ty,
 			value: codec::Encode::encode(&query_interfaces),
 		};
 		let mut custom_map = scale_info::prelude::collections::BTreeMap::new();
