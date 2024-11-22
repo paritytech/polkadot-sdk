@@ -143,12 +143,6 @@ jobs:
           BENCH_NODE_IMPORT=::node::import::sr25519::transfer_keep_alive::paritydb::small
           mkdir -p $ARTIFACTS_DIR
 
-          # test fail on master
-          if [ "${{ matrix.branch }}" = "current" ]; then
-            echo "Exiting on master branch"
-            exit 1
-          fi
-
           SKIP_WASM_BUILD=1 forklift cargo check --locked --benches --all;
           forklift cargo run --locked --release -p node-bench -- $BENCH_TRIE_READ --json | tee $ARTIFACTS_DIR/bench_trie_read_small.json;
           forklift cargo run --locked --release -p node-bench -- $BENCH_NODE_IMPORT --json | tee $ARTIFACTS_DIR/bench_transfer_keep_alive.json
