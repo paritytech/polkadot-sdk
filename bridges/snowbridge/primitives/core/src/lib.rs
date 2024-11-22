@@ -13,8 +13,10 @@ pub mod location;
 pub mod operating_mode;
 pub mod outbound;
 pub mod pricing;
+pub mod registry;
 pub mod reward;
 pub mod ringbuffer;
+pub mod transact;
 
 pub use location::{AgentId, AgentIdOf, TokenId, TokenIdOf};
 pub use polkadot_parachain_primitives::primitives::{
@@ -51,6 +53,16 @@ pub struct AllowSiblingsOnly;
 impl Contains<Location> for AllowSiblingsOnly {
 	fn contains(location: &Location) -> bool {
 		matches!(location.unpack(), (1, [Parachain(_)]))
+	}
+}
+
+pub struct AllowAnySovereignFromSiblings;
+impl Contains<Location> for AllowAnySovereignFromSiblings {
+	fn contains(location: &Location) -> bool {
+		match (location.parent_count(), location.first_interior()) {
+			(1, Some(Parachain(..))) => true,
+			_ => false,
+		}
 	}
 }
 

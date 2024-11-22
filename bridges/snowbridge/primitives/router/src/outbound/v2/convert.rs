@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Converts XCM messages into InboundMessage that can be processed by the Gateway contract
 
+use codec::DecodeAll;
 use core::slice::Iter;
 use frame_support::{ensure, BoundedVec};
 use snowbridge_core::{
 	outbound::v2::{Command, Message},
+	transact::{CallContractParams, RegisterTokenParams, TransactInfo, TransactKind::*},
 	AgentId, TokenId, TokenIdOf, TokenIdOf as LocationIdOf,
 };
 use sp_core::H160;
@@ -35,6 +37,7 @@ pub enum XcmConverterError {
 	TooManyCommands,
 	AliasOriginExpected,
 	InvalidOrigin,
+	TransactDecodeFailed,
 }
 
 macro_rules! match_expression {
@@ -160,6 +163,7 @@ where
 
 		let mut commands: Vec<Command> = Vec::new();
 
+		// ENA transfer commands
 		if let Some(enas) = enas {
 			ensure!(enas.len() > 0, NoReserveAssets);
 			for ena in enas.clone().inner().iter() {
@@ -193,6 +197,7 @@ where
 			}
 		}
 
+		// PNA transfer commands
 		if let Some(pnas) = pnas {
 			ensure!(pnas.len() > 0, NoReserveAssets);
 			for pna in pnas.clone().inner().iter() {
@@ -218,6 +223,35 @@ where
 				ensure!(asset_id == expected_asset_id, InvalidAsset);
 
 				commands.push(Command::MintForeignToken { token_id, recipient, amount });
+			}
+		}
+
+		// Transact commands
+		let transact_call = match_expression!(self.peek(), Ok(Transact { call, .. }), call);
+		if let Some(transact_call) = transact_call {
+			let _ = self.next();
+			let message =
+				TransactInfo::decode_all(&mut transact_call.clone().into_encoded().as_slice())
+					.map_err(|_| TransactDecodeFailed)?;
+			match message.kind {
+				RegisterAgent => commands.push(Command::CreateAgent { agent_id: origin }),
+				RegisterToken => {
+					let params = RegisterTokenParams::decode_all(&mut message.params.as_slice())
+						.map_err(|_| TransactDecodeFailed)?;
+					let token_id =
+						TokenIdOf::convert_location(&params.location).ok_or(InvalidAsset)?;
+					commands.push(Command::RegisterForeignToken {
+						token_id,
+						name: params.metadata.name.into_inner(),
+						symbol: params.metadata.symbol.into_inner(),
+						decimals: params.metadata.decimals,
+					});
+				},
+				// Todo: For Transact
+				CallContract => {
+					let _ = CallContractParams::decode_all(&mut message.params.as_slice())
+						.map_err(|_| TransactDecodeFailed)?;
+				},
 			}
 		}
 

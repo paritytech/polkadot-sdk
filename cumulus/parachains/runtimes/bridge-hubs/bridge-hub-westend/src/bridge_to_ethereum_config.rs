@@ -24,7 +24,7 @@ use crate::{
 };
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
+use snowbridge_core::{gwei, meth, AllowAnySovereignFromSiblings, PricingParameters, Rewards};
 use snowbridge_router_primitives::{
 	inbound::v1::MessageToXcm,
 	outbound::{v1::EthereumBlobExporter, v2::EthereumBlobExporter as EthereumBlobExporterV2},
@@ -207,7 +207,7 @@ impl snowbridge_pallet_ethereum_client::Config for Runtime {
 impl snowbridge_pallet_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = EthereumOutboundQueue;
-	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
+	type SiblingOrigin = EnsureXcm<AllowAnySovereignFromSiblings>;
 	type AgentIdOf = snowbridge_core::AgentIdOf;
 	type TreasuryAccount = TreasuryAccount;
 	type Token = Balances;

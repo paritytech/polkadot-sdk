@@ -14,8 +14,12 @@
 // limitations under the License.
 use crate::imports::*;
 use bridge_hub_westend_runtime::EthereumInboundQueue;
+use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
-use snowbridge_core::AssetMetadata;
+use snowbridge_core::{
+	transact::{TransactInfo, TransactKind},
+	AssetMetadata,
+};
 use snowbridge_router_primitives::inbound::{
 	v1::{Command, Destination, MessageV1, VersionedMessage},
 	EthereumLocationsConverterFor,
@@ -31,6 +35,40 @@ pub const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
 const XCM_FEE: u128 = 100_000_000_000;
 const TOKEN_AMOUNT: u128 = 100_000_000_000;
+
+pub fn fund_sovereign() {
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+	BridgeHubWestend::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
+}
+
+pub fn register_weth() {
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+	let weth_asset_location: Location =
+		(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH }).into();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
+			RuntimeOrigin::root(),
+			weth_asset_location.clone().try_into().unwrap(),
+			assethub_sovereign.clone().into(),
+			false,
+			1,
+		));
+
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
+			weth_asset_location.clone().try_into().unwrap(),
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
+			weth_asset_location.clone().try_into().unwrap(),
+			&AssetHubWestendReceiver::get(),
+			TOKEN_AMOUNT,
+		));
+	});
+}
 
 #[test]
 fn send_weth_from_asset_hub_to_ethereum() {
@@ -468,3 +506,88 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 		);
 	});
 }
+
+#[test]
+fn create_agent() {
+	let weth_asset_location: Location =
+		(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH }).into();
+
+	fund_sovereign();
+
+	register_weth();
+
+	BridgeHubWestend::execute_with(|| {});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		let local_fee_amount = 200_000_000_000;
+
+		let remote_fee_amount = 4_000_000_000;
+
+		let local_fee_asset =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(local_fee_amount) };
+		let remote_fee_asset =
+			Asset { id: AssetId(weth_asset_location.clone()), fun: Fungible(remote_fee_amount) };
+		let reserve_asset = Asset {
+			id: AssetId(weth_asset_location.clone()),
+			fun: Fungible(TOKEN_AMOUNT - remote_fee_amount),
+		};
+		let assets = vec![
+			Asset { id: weth_asset_location.clone().into(), fun: Fungible(TOKEN_AMOUNT) },
+			local_fee_asset.clone(),
+		];
+		let destination = Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]);
+
+		let beneficiary = Location::new(
+			0,
+			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+		);
+
+		let transact_info = TransactInfo { kind: TransactKind::RegisterAgent, params: vec![] };
+
+		let xcms = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: local_fee_asset.clone() },
+			InitiateTransfer {
+				destination,
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.clone().into(),
+				))),
+				preserve_origin: true,
+				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
+					reserve_asset.clone().into(),
+				))],
+				remote_xcm: Xcm(vec![
+					DepositAsset { assets: Wild(AllCounted(2)), beneficiary },
+					Transact {
+						origin_kind: OriginKind::SovereignAccount,
+						call: transact_info.encode().into(),
+					},
+				]),
+			},
+		]));
+
+		// Send the Weth back to Ethereum
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			bx!(xcms),
+			Weight::from(8_000_000_000),
+		)
+		.unwrap();
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		// Check that the transfer token back to Ethereum message was queue in the Ethereum
+		// Outbound Queue
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+fn transact_with_agent() {}
