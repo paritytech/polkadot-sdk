@@ -26,6 +26,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use frame_support::weights::FixedFee;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -100,8 +101,8 @@ pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
 pub const YAP: Balance = 1_000_000_000_000;
-pub const MILLIYAP: Balance = 1_000_000_000;
-pub const MICROYAP: Balance = 1_000_000;
+// pub const MILLIYAP: Balance = 1_000_000_000;
+// pub const MICROYAP: Balance = 1_000_000;
 pub const NANOYAP: Balance = 1_000;
 
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
@@ -209,9 +210,7 @@ impl pallet_timestamp::Config for Runtime {
 
 parameter_types! {
 	pub const ExistentialDeposit: u128 = NANOYAP;
-	pub const TransferFee: u128 = NANOYAP;
-	pub const CreationFee: u128 = NANOYAP;
-	pub const TransactionByteFee: u128 = MICROYAP;
+	pub const TransactionByteFee: u128 = NANOYAP;
 }
 
 impl pallet_balances::Config for Runtime {
@@ -235,7 +234,7 @@ impl pallet_balances::Config for Runtime {
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = ConstU8<5>;
