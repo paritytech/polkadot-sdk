@@ -27,8 +27,10 @@ use frame_support::{
 	traits::Get,
 	BoundedBTreeMap, BoundedBTreeSet,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
+
+pub type BlockNumberFor<T, I = ()> =
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A type alias for handling balance deposits.
 pub type DepositBalanceOf<T, I = ()> =
@@ -39,7 +41,7 @@ pub type CollectionDetailsFor<T, I> =
 /// A type alias for keeping track of approvals used by a single item.
 pub type ApprovalsOf<T, I = ()> = BoundedBTreeMap<
 	<T as SystemConfig>::AccountId,
-	Option<BlockNumberFor<T>>,
+	Option<BlockNumberFor<T, I>>,
 	<T as Config<I>>::ApprovalsLimit,
 >;
 /// A type alias for keeping track of approvals for an item's attributes.
@@ -70,13 +72,13 @@ pub type ItemTipOf<T, I = ()> = ItemTip<
 >;
 /// A type alias for the settings configuration of a collection.
 pub type CollectionConfigFor<T, I = ()> =
-	CollectionConfig<BalanceOf<T, I>, BlockNumberFor<T>, <T as Config<I>>::CollectionId>;
+	CollectionConfig<BalanceOf<T, I>, BlockNumberFor<T, I>, <T as Config<I>>::CollectionId>;
 /// A type alias for the pre-signed minting configuration for a specified collection.
 pub type PreSignedMintOf<T, I = ()> = PreSignedMint<
 	<T as Config<I>>::CollectionId,
 	<T as Config<I>>::ItemId,
 	<T as SystemConfig>::AccountId,
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 	BalanceOf<T, I>,
 >;
 /// A type alias for the pre-signed minting configuration on the attribute level of an item.
@@ -84,7 +86,7 @@ pub type PreSignedAttributesOf<T, I = ()> = PreSignedAttributes<
 	<T as Config<I>>::CollectionId,
 	<T as Config<I>>::ItemId,
 	<T as SystemConfig>::AccountId,
-	BlockNumberFor<T>,
+	BlockNumberFor<T, I>,
 >;
 
 /// Information about a collection.
