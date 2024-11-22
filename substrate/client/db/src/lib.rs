@@ -2557,16 +2557,101 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		storage: sp_runtime::Storage,
 		state_version: sp_runtime::StateVersion,
 	) -> sp_blockchain::Result<Block::Hash> {
-		assert!(storage.children_default.is_empty(), "TODO: handle child storage properly");
-
 		let root = self.blockchain.header_metadata(at).map(|header| header.state_root)?;
-		let delta = storage.top.into_iter().map(|(k, v)| (k, Some(v)));
 
-		let storage: Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> = self.storage.clone();
-		let mut trie_committer = TrieCommitter::new(&storage, self.storage.db.clone());
+		let storage_db: Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> =
+			self.storage.clone();
+		let mut trie_committer = TrieCommitter::new(&storage_db, self.storage.db.clone());
 
 		let trie_err =
 			|err: Box<TrieError<LayoutV0<Block>>>| sp_blockchain::Error::Application(err);
+
+		let child_deltas = storage.children_default.values().map(|child_content| {
+			(
+				&child_content.child_info,
+				child_content.data.iter().map(|(k, v)| (&k[..], Some(&v[..]))),
+			)
+		});
+
+		let mut child_roots = Vec::new();
+
+		// child first
+		for (child_info, child_delta) in child_deltas {
+			let default_root = match child_info.child_type() {
+				sp_storage::ChildType::ParentKeyId =>
+					sp_trie::empty_child_trie_root::<LayoutV1<Block>>(),
+			};
+
+			let new_child_root = match state_version {
+				StateVersion::V0 => {
+					let child_root = match crate::trie_committer::read_child_root::<
+						_,
+						_,
+						LayoutV0<Block>,
+					>(&trie_committer, &root, &child_info)
+					{
+						Ok(Some(hash)) => hash,
+						Ok(None) => default_root,
+						Err(e) => {
+							warn!(target: "trie", "Failed to read child storage root: {}", e);
+							default_root
+						},
+					};
+
+					sp_trie::child_delta_trie_root::<LayoutV0<Block>, _, _, _, _, _, _>(
+						child_info.keyspace(),
+						&mut trie_committer,
+						child_root,
+						child_delta,
+						None,
+						None,
+					)
+					.map_err(trie_err)?
+				},
+				StateVersion::V1 => {
+					let child_root = match crate::trie_committer::read_child_root::<
+						_,
+						_,
+						LayoutV1<Block>,
+					>(&trie_committer, &root, &child_info)
+					{
+						Ok(Some(hash)) => hash,
+						Ok(None) => default_root,
+						Err(e) => {
+							warn!(target: "trie", "Failed to read child storage root: {}", e);
+							default_root
+						},
+					};
+
+					sp_trie::child_delta_trie_root::<LayoutV1<Block>, _, _, _, _, _, _>(
+						child_info.keyspace(),
+						&mut trie_committer,
+						child_root,
+						child_delta,
+						None,
+						None,
+					)
+					.map_err(trie_err)?
+				},
+			};
+
+			let is_default = new_child_root == default_root;
+
+			let prefixed_storage_key = child_info.prefixed_storage_key();
+
+			if is_default {
+				child_roots.push((prefixed_storage_key.into_inner(), None));
+			} else {
+				child_roots
+					.push((prefixed_storage_key.into_inner(), Some(new_child_root.encode())));
+			}
+		}
+
+		let delta = storage
+			.top
+			.into_iter()
+			.map(|(k, v)| (k, Some(v)))
+			.chain(child_roots.into_iter());
 
 		let state_root = match state_version {
 			StateVersion::V0 => sp_trie::delta_trie_root::<LayoutV0<Block>, _, _, _, _, _>(
