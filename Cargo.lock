@@ -17771,6 +17771,7 @@ dependencies = [
  "rococo-runtime",
  "rusty-fork",
  "sc-sysinfo",
+ "sc-tracing",
  "slotmap",
  "sp-core 28.0.0",
  "sp-maybe-compressed-blob 11.0.0",
