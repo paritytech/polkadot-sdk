@@ -851,7 +851,7 @@ where
 		let addresses: Vec<Multiaddr> = addresses
 			.into_iter()
 			.filter(|addr| {
-				addr.is_valid_external_address(local_peer_id) &&
+				addr.is_external_address_valid(local_peer_id) &&
 					get_peer_id(&addr).filter(|p| *p != local_peer_id).is_some()
 			})
 			.collect();

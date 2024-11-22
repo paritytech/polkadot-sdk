@@ -84,7 +84,7 @@ impl Multiaddr {
 	/// - the address is not empty
 	/// - the address contains a valid IP address
 	/// - the address is for the local peer ID
-	pub fn is_valid_external_address(&self, local_peer_id: PeerId) -> bool {
+	pub fn is_external_address_valid(&self, local_peer_id: PeerId) -> bool {
 		// Empty addresses are not reachable.
 		if self.is_empty() {
 			return false;
