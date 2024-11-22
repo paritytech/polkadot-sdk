@@ -171,19 +171,20 @@ jobs:
 
       - name: Download artifact (master run)
         uses: actions/download-artifact@v4.1.8
+        continue-on-error: true
         with:
           name: cargo-check-benches-master-${{ github.sha }}
           path: ./artifacts/master
 
       - name: Download artifact (current run)
         uses: actions/download-artifact@v4.1.8
+        continue-on-error: true
         with:
           name: cargo-check-benches-current-${{ github.sha }}
           path: ./artifacts/current
 
       - name: script
         id: compare
-        if: always()
         run: |
           if [ "${{ github.ref_name }}" = "master" ]; then
             echo -e "Exiting on master branch"
