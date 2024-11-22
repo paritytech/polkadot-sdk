@@ -21,7 +21,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::FindAuthor;
+// use frame_support::traits::FindAuthor;
+use frame::{prelude::*, traits::FindAuthor};
 
 pub use pallet::*;
 
@@ -33,11 +34,13 @@ pub trait EventHandler<Author, BlockNumber> {
 	fn note_author(author: Author);
 }
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	
+	// use frame_support::pallet_prelude::*;
+	// use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -96,15 +99,16 @@ mod tests {
 	use super::*;
 	use crate as pallet_authorship;
 	use codec::{Decode, Encode};
-	use frame_support::{derive_impl, ConsensusEngineId};
-	use sp_core::H256;
-	use sp_runtime::{
+
+	//use frame_support::{derive_impl, ConsensusEngineId};
+	//use sp_core::H256;
+	use frame::{deps::{sp_runtime::{
 		generic::DigestItem, testing::Header, traits::Header as HeaderT, BuildStorage,
-	};
+	}, frame_support::{derive_impl, ConsensusEngineId, construct_runtime}}, hashing::H256 };
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 
-	frame_support::construct_runtime!(
+	construct_runtime!(
 		pub enum Test
 		{
 			System: frame_system,
@@ -155,7 +159,7 @@ mod tests {
 		Header::new(number, Default::default(), state_root, parent_hash, Default::default())
 	}
 
-	fn new_test_ext() -> sp_io::TestExternalities {
+	fn new_test_ext() -> frame::deps::sp_io::TestExternalities {
 		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		t.into()
 	}
