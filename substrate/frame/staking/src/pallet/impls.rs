@@ -1727,6 +1727,18 @@ where
 	}
 }
 
+/// Implements the lock to be used by the the sorted list providers implemented by the bags list
+/// pallet.
+///
+/// When it returns `true`, the bags list ID ordering should be disabled.
+impl<T: Config> Get<bool> for Pallet<T> {
+	fn get() -> bool {
+		// sorted list provider order perservation not enabled yet, see
+		// <https://github.com/paritytech/polkadot-sdk/pull/6034>.
+		false
+	}
+}
+
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
 	type Score = VoteWeight;
 
@@ -1808,6 +1820,7 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 		// nothing to do upon regenerate.
 		0
 	}
+
 	#[cfg(feature = "try-runtime")]
 	fn try_state() -> Result<(), TryRuntimeError> {
 		Ok(())
