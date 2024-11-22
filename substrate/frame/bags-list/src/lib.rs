@@ -68,6 +68,15 @@
 //! - iteration over the top* N items by score, where the precise ordering of items doesn't
 //!   particularly matter.
 //!
+//! ### Preserve order mode
+//!
+//! The bags list pallet supports a mode which preserves the order of the elements in the list.
+//! While the implementor of [`Config::PreserveOrder`] returns `true`, no rebags or moves within a
+//! bag are allowed. Which in practice means that:
+//! - calling [`Pallet::rebag`], [`Pallet::put_in_front_of`] and [`Pallet::put_in_front_of_other`]
+//!   will return a [`Error::MustPreserveOrder`];
+//! - calling [`SortedListProvider::on_update`] is a noop.
+//!
 //! ### Further Details
 //!
 //! - items are kept in bags, which are delineated by their range of score (See
@@ -127,8 +136,12 @@ extern crate alloc;
 use alloc::boxed::Box;
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
+use frame_support::{ensure, traits::Get};
 use frame_system::ensure_signed;
-use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, StaticLookup};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, Bounded, StaticLookup},
+	DispatchError,
+};
 
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 use sp_runtime::TryRuntimeError;
@@ -247,6 +260,9 @@ pub mod pallet {
 			+ TypeInfo
 			+ FullCodec
 			+ MaxEncodedLen;
+
+		/// Something that signals whether the order of the element in the bags list may change.
+		type PreserveOrder: Get<bool>;
 	}
 
 	/// A single node, within some bag.
@@ -277,6 +293,8 @@ pub mod pallet {
 	pub enum Error<T, I = ()> {
 		/// A error in the list interface implementation.
 		List(ListError),
+		/// A request that does not preserve the list's order was requested out of time.
+		MustPreserveOrder,
 	}
 
 	impl<T, I> From<ListError> for Error<T, I> {
@@ -301,6 +319,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::rebag_non_terminal().max(T::WeightInfo::rebag_terminal()))]
 		pub fn rebag(origin: OriginFor<T>, dislocated: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
+			ensure!(!T::PreserveOrder::get(), Error::<T, I>::MustPreserveOrder);
+
 			let dislocated = T::Lookup::lookup(dislocated)?;
 			let current_score = T::ScoreProvider::score(&dislocated);
 			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
@@ -324,6 +344,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
+			ensure!(!T::PreserveOrder::get(), Error::<T, I>::MustPreserveOrder);
+
 			let heavier = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
@@ -341,6 +363,8 @@ pub mod pallet {
 			heavier: AccountIdLookupOf<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
+			ensure!(!T::PreserveOrder::get(), Error::<T, I>::MustPreserveOrder);
+
 			let _ = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			let heavier = T::Lookup::lookup(heavier)?;
@@ -431,7 +455,13 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
-		Pallet::<T, I>::do_rebag(id, new_score).map(|_| ())
+		if T::PreserveOrder::get() {
+			// lock is set, on_update is a noop.
+			ensure!(list::Node::<T, I>::get(&id).is_some(), ListError::NodeNotFound);
+			Ok(())
+		} else {
+			Pallet::<T, I>::do_rebag(id, new_score).map(|_| ())
+		}
 	}
 
 	fn on_remove(id: &T::AccountId) -> Result<(), ListError> {
