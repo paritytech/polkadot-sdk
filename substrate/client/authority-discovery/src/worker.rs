@@ -399,7 +399,7 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				address_is_global(&address)
+				(address.is_external_address_valid(local_peer_id) && address_is_global(&address))
 					.then(|| AddressType::GlobalListenAddress(address).without_p2p(local_peer_id))
 					.flatten()
 			})
@@ -412,9 +412,11 @@ where
 			.external_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				(publish_non_global_ips || address_is_global(&address))
-					.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
-					.flatten()
+				(publish_non_global_ips ||
+					(address_is_global(&address)) &&
+						address.is_external_address_valid(local_peer_id))
+				.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
+				.flatten()
 			})
 			.peekable();
 
