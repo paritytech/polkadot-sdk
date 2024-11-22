@@ -247,11 +247,10 @@ impl TypeGenerator {
 	pub fn generate_types(&mut self, specs: &OpenRpc) -> String {
 		let mut code = LICENSE.to_string();
 		code.push_str(
-			r#"
-            //! Generated JSON-RPC types.
+			r#"//! Generated JSON-RPC types.
             #![allow(missing_docs)]
 
-			use super::{byte::*, Type0, Type1, Type2, Type3};
+			use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeLegacy};
 			use alloc::vec::Vec;
 			use codec::{Decode, Encode};
 			use derive_more::{From, TryInto};
@@ -425,11 +424,14 @@ impl TypeNameProvider for TypeGenerator {
 				pattern: Some(ref pattern),
 				format: None,
 				enumeration: None,
-			})) if ["^0x0$", "^0x1$", "^0x2$", "^0x3$"].contains(&pattern.as_str()) => {
-				let type_id = format!("Type{}", &pattern[3..4]);
-
-				Some(type_id.into())
-			},
+			})) if ["^0x0$", "^0x1$", "^0x2$", "^0x3$"].contains(&pattern.as_str()) =>
+				match pattern.as_str() {
+					"^0x0$" => Some("TypeLegacy".into()),
+					"^0x1$" => Some("TypeEip2930".into()),
+					"^0x2$" => Some("TypeEip1559".into()),
+					"^0x3$" => Some("TypeEip4844".into()),
+					_ => unreachable!(),
+				},
 
 			SchemaContents::Literal(Literal::Boolean) => Some("bool".into()),
 			SchemaContents::Object(_) => None,

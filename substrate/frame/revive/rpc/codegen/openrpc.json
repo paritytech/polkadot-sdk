@@ -1962,7 +1962,8 @@
 						"title": "EIP-4844 transaction signature properties.",
 						"required": [
 							"r",
-							"s"
+							"s",
+							"yParity"
 						],
 						"properties": {
 							"yParity": {
@@ -1993,7 +1994,8 @@
 						"title": "EIP-1559 transaction signature properties.",
 						"required": [
 							"r",
-							"s"
+							"s",
+							"yParity"
 						],
 						"properties": {
 							"yParity": {
