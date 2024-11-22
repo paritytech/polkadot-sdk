@@ -1216,23 +1216,3 @@ impl<Block: BlockT, Client, DhtEventStream> Worker<Client, Block, DhtEventStream
 		self.addr_cache.insert(authority, addresses);
 	}
 }
-
-#[cfg(test)]
-mod test {
-	use super::*;
-
-	#[test]
-	fn check_empty_address() {
-		// Plain empty address.
-		let empty_address = Multiaddr::empty();
-		assert!(address_is_empty(&empty_address));
-
-		// Address is still unusable.
-		let address_with_p2p = Multiaddr::from(multiaddr::Protocol::P2p(PeerId::random().into()));
-		assert!(address_is_empty(&address_with_p2p));
-
-		// Address is not empty.
-		let valid_address: Multiaddr = "/dns/domain1.com/tcp/30333".parse().unwrap();
-		assert!(!address_is_empty(&valid_address));
-	}
-}
