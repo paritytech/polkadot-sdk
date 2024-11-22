@@ -1,0 +1,18 @@
+[package]
+name = "pallet-revive-rpc-codegen"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[dependencies]
+Inflector = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+
+[features]
+default = ["std"]
+std = ["anyhow/std", "serde/std", "serde_json/std"]
