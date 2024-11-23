@@ -9,6 +9,10 @@ repository.workspace = true
 edition.workspace = true
 publish = false
 
+[dependencies.command-macros]
+version = "0.2.9"
+features = ["nightly"]
+
 [dependencies]
 docify = { workspace = true }
 codec = { workspace = true }

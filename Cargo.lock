@@ -3159,6 +3159,7 @@ dependencies = [
 name = "chain-spec-guide-runtime"
 version = "0.0.0"
 dependencies = [
+ "command-macros",
  "docify",
  "frame-support 28.0.0",
  "pallet-balances 28.0.0",
@@ -3651,6 +3652,24 @@ dependencies = [
  "strum 0.25.0",
  "strum_macros 0.25.3",
  "unicode-width",
+]
+
+[[package]]
+name = "command-macros"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "246a765b3097ef3ace86928361a05c5b6a18147b0fb4031ccbcd46ffbacacc47"
+dependencies = [
+ "command-macros-plugin",
+]
+
+[[package]]
+name = "command-macros-plugin"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf17b2dfdf3def935c1dae8f627d1c734661d95b32e98ec8bd0920accde9d117"
+dependencies = [
+ "itertools 0.7.11",
 ]
 
 [[package]]
@@ -8973,6 +8992,15 @@ dependencies = [
  "tracing-futures",
  "url",
  "waker-fn",
+]
+
+[[package]]
+name = "itertools"
+version = "0.7.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d47946d458e94a1b7bcabbf6521ea7c037062c81f534615abcad76e84d4970d"
+dependencies = [
+ "either",
 ]
 
 [[package]]
