@@ -42,19 +42,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/*
-use frame_support::{
-	pallet_prelude::*,
-	traits::{tokens::IdAmount, VariantCount, VariantCountOf},
-	BoundedVec,
+use frame::{
+	prelude::*,
+	traits::{tokens::IdAmount, Saturating, VariantCount, VariantCountOf, Zero},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	BoundedSlice,
-};
-*/
-use frame::{prelude::*, traits::{tokens::IdAmount, VariantCount, VariantCountOf, Saturating, Zero}};
 pub use pallet::*;
 
 #[cfg(test)]
@@ -64,7 +55,6 @@ mod tests;
 
 mod impls;
 
-// #[frame_support::pallet]
 #[frame::pallet]
 pub mod pallet {
 	use super::*;

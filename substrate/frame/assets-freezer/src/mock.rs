@@ -20,21 +20,17 @@
 use crate as pallet_assets_freezer;
 pub use crate::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
-use frame::{pallet_macros::derive_impl, runtime::testing_prelude::BuildStorage, testing_prelude::{TestExternalities, assert_ok}, traits::{AsEnsureOriginWithArg, BlakeTwo256, IdentityLookup, Everything}, hashing::H256, runtime::prelude::{ConstU32, ConstU64, construct_runtime}};
-/*
-use frame_support::{
-	derive_impl,
-	traits::{AsEnsureOriginWithArg, ConstU64},
+use frame::{
+	hashing::H256,
+	pallet_macros::derive_impl,
+	runtime::{
+		prelude::{construct_runtime, ConstU32, ConstU64},
+		testing_prelude::BuildStorage,
+	},
+	testing_prelude::{assert_ok, TestExternalities},
+	traits::{AsEnsureOriginWithArg, BlakeTwo256, Everything, IdentityLookup},
 };
-*/
 use scale_info::TypeInfo;
-/*
-use sp_core::{ConstU32, H256};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
-*/
 
 pub type AccountId = u64;
 pub type Balance = u64;
