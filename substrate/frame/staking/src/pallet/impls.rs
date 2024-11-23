@@ -1170,8 +1170,7 @@ impl<T: Config> Pallet<T> {
 		controller: T::AccountId,
 		value: BalanceOf<T>,
 	) -> Result<Option<Weight>, DispatchError> {
-		let unlocking =
-			Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
+		let unlocking = Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
 
 		// if there are no unlocking chunks available, try to withdraw chunks older than
 		// `BondingDuration` to proceed with the unbonding.
@@ -1192,9 +1191,9 @@ impl<T: Config> Pallet<T> {
 		let stash = ledger.stash.clone();
 
 		ensure!(
-				ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
-				Error::<T>::NoMoreChunks,
-			);
+			ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
+			Error::<T>::NoMoreChunks,
+		);
 
 		if !value.is_zero() {
 			ledger.active -= value;
