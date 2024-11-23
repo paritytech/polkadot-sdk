@@ -30,7 +30,7 @@ pub struct RegisterTokenParams {
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct CallContractParams {
 	pub target: H160,
-	pub call: Vec<u8>,
+	pub data: Vec<u8>,
 	pub gas_limit: u64,
 	pub value: u128,
 }

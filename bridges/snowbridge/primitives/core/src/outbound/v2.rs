@@ -12,10 +12,10 @@ use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::{vec, vec::Vec};
 
 use crate::outbound::v2::abi::{
-	CreateAgentParams, MintForeignTokenParams, RegisterForeignTokenParams, SetOperatingModeParams,
+	CallContractParams, MintForeignTokenParams, RegisterForeignTokenParams, SetOperatingModeParams,
 	UnlockNativeTokenParams, UpgradeParams,
 };
-use alloy_primitives::{Address, FixedBytes};
+use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_sol_types::SolValue;
 
 pub mod abi {
@@ -54,12 +54,6 @@ pub mod abi {
 			bytes initParams;
 		}
 
-		// Payload for CreateAgent
-		struct CreateAgentParams {
-			/// @dev The agent ID of the consensus system
-			bytes32 agentID;
-		}
-
 		// Payload for SetOperatingMode instruction
 		struct SetOperatingModeParams {
 			/// The new operating mode
@@ -96,6 +90,16 @@ pub mod abi {
 			address recipient;
 			// Amount to mint
 			uint128 amount;
+		}
+
+		// Payload for CallContract
+		struct CallContractParams {
+			// target contract
+			address target;
+			// Call data
+			bytes data;
+			// Ether value
+			uint256 value;
 		}
 	}
 
@@ -138,11 +142,7 @@ pub enum Command {
 		initializer: Option<Initializer>,
 	},
 	/// Create an agent representing a consensus system on Polkadot
-	CreateAgent {
-		/// The ID of the agent, derived from the `MultiLocation` of the consensus system on
-		/// Polkadot
-		agent_id: H256,
-	},
+	CreateAgent {},
 	/// Set the global operating mode of the Gateway contract
 	SetOperatingMode {
 		/// The new operating mode
@@ -179,6 +179,17 @@ pub enum Command {
 		/// The amount of tokens to mint
 		amount: u128,
 	},
+	/// Call Contract on Ethereum
+	CallContract {
+		/// Target contract address
+		target: H160,
+		/// The call data to the contract
+		data: Vec<u8>,
+		/// The dynamic gas component that needs to be specified when executing the contract
+		gas_limit: u64,
+		/// Ether Value(require to prefund the agent first)
+		value: u128,
+	},
 }
 
 impl Command {
@@ -191,6 +202,7 @@ impl Command {
 			Command::RegisterForeignToken { .. } => 3,
 			Command::MintForeignToken { .. } => 4,
 			Command::CreateAgent { .. } => 5,
+			Command::CallContract { .. } => 6,
 		}
 	}
 
@@ -203,9 +215,7 @@ impl Command {
 				initParams: initializer.clone().map_or(vec![], |i| i.params),
 			}
 			.abi_encode(),
-			Command::CreateAgent { agent_id } =>
-				CreateAgentParams { agentID: FixedBytes::from(agent_id.as_fixed_bytes()) }
-					.abi_encode(),
+			Command::CreateAgent {} => vec![],
 			Command::SetOperatingMode { mode } =>
 				SetOperatingModeParams { mode: (*mode) as u8 }.abi_encode(),
 			Command::UnlockNativeToken { token, recipient, amount, .. } =>
@@ -227,6 +237,12 @@ impl Command {
 				foreignTokenID: FixedBytes::from(token_id.as_fixed_bytes()),
 				recipient: Address::from(recipient.as_fixed_bytes()),
 				amount: *amount,
+			}
+			.abi_encode(),
+			Command::CallContract { target, data, value, .. } => CallContractParams {
+				target: Address::from(target.as_fixed_bytes()),
+				data: data.to_vec(),
+				value: U256::try_from(*value).unwrap(),
 			}
 			.abi_encode(),
 		}
@@ -290,6 +306,7 @@ impl GasMeter for ConstantGasMeter {
 			Command::UnlockNativeToken { .. } => 100_000,
 			Command::RegisterForeignToken { .. } => 1_200_000,
 			Command::MintForeignToken { .. } => 100_000,
+			Command::CallContract { gas_limit, .. } => *gas_limit,
 		}
 	}
 }

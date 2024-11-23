@@ -165,7 +165,6 @@ where
 
 		// ENA transfer commands
 		if let Some(enas) = enas {
-			ensure!(enas.len() > 0, NoReserveAssets);
 			for ena in enas.clone().inner().iter() {
 				// Check the the deposit asset filter matches what was reserved.
 				if !deposit_assets.matches(ena) {
@@ -234,7 +233,7 @@ where
 				TransactInfo::decode_all(&mut transact_call.clone().into_encoded().as_slice())
 					.map_err(|_| TransactDecodeFailed)?;
 			match message.kind {
-				RegisterAgent => commands.push(Command::CreateAgent { agent_id: origin }),
+				RegisterAgent => commands.push(Command::CreateAgent {}),
 				RegisterToken => {
 					let params = RegisterTokenParams::decode_all(&mut message.params.as_slice())
 						.map_err(|_| TransactDecodeFailed)?;
@@ -247,10 +246,19 @@ where
 						decimals: params.metadata.decimals,
 					});
 				},
-				// Todo: For Transact
 				CallContract => {
-					let _ = CallContractParams::decode_all(&mut message.params.as_slice())
+					let params = CallContractParams::decode_all(&mut message.params.as_slice())
 						.map_err(|_| TransactDecodeFailed)?;
+					if params.value > 0 {
+						//Todo: Ensure amount of WETH deposit to the agent in same message can
+						// cover the value here
+					}
+					commands.push(Command::CallContract {
+						target: params.target,
+						data: params.data,
+						gas_limit: params.gas_limit,
+						value: params.value,
+					});
 				},
 			}
 		}
