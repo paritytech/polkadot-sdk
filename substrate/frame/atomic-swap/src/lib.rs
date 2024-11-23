@@ -50,22 +50,20 @@ use core::{
 	marker::PhantomData,
 	ops::{Deref, DerefMut},
 };
-/*
-use frame_support::{
-	dispatch::DispatchResult,
-	pallet_prelude::MaxEncodedLen,
-	traits::{BalanceStatus, Currency, Get, ReservableCurrency},
-	weights::Weight,
-	RuntimeDebugNoBound,
+use frame::{
+	deps::{
+		frame_support::{
+			dispatch::DispatchResult,
+			pallet_prelude::MaxEncodedLen,
+			traits::{BalanceStatus, Currency, Get, ReservableCurrency},
+			weights::Weight,
+		},
+		sp_io::hashing::blake2_256,
+	},
+	derive::{RuntimeDebug, RuntimeDebugNoBound},
+	prelude::*,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
-*/
 use scale_info::TypeInfo;
-use frame::{prelude::*, deps::{frame_support::{dispatch::DispatchResult, pallet_prelude::MaxEncodedLen, traits::{BalanceStatus, Currency, Get, ReservableCurrency}, weights::Weight}, sp_io::hashing::blake2_256}, derive::{RuntimeDebug, RuntimeDebugNoBound}};
-/*
-use sp_io::hashing::blake2_256;
-use sp_runtime::RuntimeDebug;
-*/
 
 /// Pending atomic swap operation.
 #[derive(Clone, Eq, PartialEq, RuntimeDebugNoBound, Encode, Decode, TypeInfo, MaxEncodedLen)]
@@ -168,10 +166,6 @@ pub use pallet::*;
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	/*
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	*/
 
 	/// Atomic swap's pallet configuration trait.
 	#[pallet::config]
