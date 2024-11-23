@@ -42,17 +42,33 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame::{
+	deps::{
+		frame_support::{BoundedSlice, BoundedVec, ConsensusEngineId, Parameter},
+		sp_runtime::{generic::DigestItem, RuntimeAppPublic, BoundToRuntimeAppPublic},
+	},
+	prelude::*,
+	traits::{
+		DisabledValidators, FindAuthor, Get, IsMember, OnTimestampSet, OneSessionHandler,
+		SaturatedConversion, Saturating, Zero,
+	},
+	derive::DefaultNoBound
+};
+/*
 use frame_support::{
 	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
 	BoundedSlice, BoundedVec, ConsensusEngineId, Parameter,
 };
+*/
 use log;
 use sp_consensus_aura::{AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID};
+/*
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{IsMember, Member, SaturatedConversion, Saturating, Zero},
 	RuntimeAppPublic,
 };
+*/
 
 pub mod migrations;
 mod mock;
@@ -76,11 +92,14 @@ impl<T: pallet_timestamp::Config> Get<T::Moment> for MinimumPeriodTimesTwo<T> {
 	}
 }
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	*/
 
 	#[pallet::config]
 	pub trait Config: pallet_timestamp::Config + frame_system::Config {
@@ -157,7 +176,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -174,7 +193,7 @@ pub mod pallet {
 	pub type CurrentSlot<T: Config> = StorageValue<_, Slot, ValueQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: Vec<T::AuthorityId>,
 	}
@@ -265,7 +284,7 @@ impl<T: Config> Pallet<T> {
 	/// * The number of authorities must be less than or equal to `T::MaxAuthorities`. This however,
 	///   is guarded by the type system.
 	#[cfg(any(test, feature = "try-runtime"))]
-	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+	pub fn do_try_state() -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
 		// We don't have any guarantee that we are already after `on_initialize` and thus we have to
 		// check the current slot from the digest or take the last known slot.
 		let current_slot =
@@ -274,7 +293,7 @@ impl<T: Config> Pallet<T> {
 		// Check that the current slot is less than the maximal slot number, unless we allow for
 		// multiple blocks per slot.
 		if !T::AllowMultipleBlocksPerSlot::get() {
-			frame_support::ensure!(
+			frame::deps::frame_support::ensure!(
 				current_slot < u64::MAX,
 				"Current slot has reached maximum value and cannot be incremented further.",
 			);
@@ -284,11 +303,11 @@ impl<T: Config> Pallet<T> {
 			<Authorities<T>>::decode_len().ok_or("Failed to decode authorities length")?;
 
 		// Check that the authorities are non-empty.
-		frame_support::ensure!(!authorities_len.is_zero(), "Authorities must be non-empty.");
+		frame::deps::frame_support::ensure!(!authorities_len.is_zero(), "Authorities must be non-empty.");
 
 		// Check that the current authority is not disabled.
 		let authority_index = *current_slot % authorities_len as u64;
-		frame_support::ensure!(
+		frame::deps::frame_support::ensure!(
 			!T::DisabledValidators::is_disabled(authority_index as u32),
 			"Current validator is disabled and should not be attempting to author blocks.",
 		);
@@ -297,7 +316,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
+impl<T: Config> BoundToRuntimeAppPublic for Pallet<T> {
 	type Public = T::AuthorityId;
 }
 
