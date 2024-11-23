@@ -17,9 +17,9 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
 
   check-publish:
-    runs-on: ubuntu-latest
     timeout-minutes: 90
     needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
