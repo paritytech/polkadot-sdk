@@ -45,30 +45,17 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame::{
 	deps::{
 		frame_support::{BoundedSlice, BoundedVec, ConsensusEngineId, Parameter},
-		sp_runtime::{generic::DigestItem, RuntimeAppPublic, BoundToRuntimeAppPublic},
+		sp_runtime::{generic::DigestItem, BoundToRuntimeAppPublic, RuntimeAppPublic},
 	},
+	derive::DefaultNoBound,
 	prelude::*,
 	traits::{
 		DisabledValidators, FindAuthor, Get, IsMember, OnTimestampSet, OneSessionHandler,
 		SaturatedConversion, Saturating, Zero,
 	},
-	derive::DefaultNoBound
 };
-/*
-use frame_support::{
-	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
-	BoundedSlice, BoundedVec, ConsensusEngineId, Parameter,
-};
-*/
 use log;
 use sp_consensus_aura::{AuthorityIndex, ConsensusLog, Slot, AURA_ENGINE_ID};
-/*
-use sp_runtime::{
-	generic::DigestItem,
-	traits::{IsMember, Member, SaturatedConversion, Saturating, Zero},
-	RuntimeAppPublic,
-};
-*/
 
 pub mod migrations;
 mod mock;
@@ -92,14 +79,9 @@ impl<T: pallet_timestamp::Config> Get<T::Moment> for MinimumPeriodTimesTwo<T> {
 	}
 }
 
-// #[frame_support::pallet]
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	/*
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	*/
 
 	#[pallet::config]
 	pub trait Config: pallet_timestamp::Config + frame_system::Config {
@@ -303,7 +285,10 @@ impl<T: Config> Pallet<T> {
 			<Authorities<T>>::decode_len().ok_or("Failed to decode authorities length")?;
 
 		// Check that the authorities are non-empty.
-		frame::deps::frame_support::ensure!(!authorities_len.is_zero(), "Authorities must be non-empty.");
+		frame::deps::frame_support::ensure!(
+			!authorities_len.is_zero(),
+			"Authorities must be non-empty."
+		);
 
 		// Check that the current authority is not disabled.
 		let authority_index = *current_slot % authorities_len as u64;

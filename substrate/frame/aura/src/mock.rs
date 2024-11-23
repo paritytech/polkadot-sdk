@@ -20,15 +20,13 @@
 #![cfg(test)]
 
 use crate as pallet_aura;
-use frame::{prelude::*, deps::{sp_runtime::{testing::UintAuthorityId, BuildStorage}}, runtime::prelude::{derive_impl, parameter_types,construct_runtime}, traits::{ConstU32, ConstU64, DisabledValidators}};
-/*
-use frame_support::{
-	derive_impl, parameter_types,
+use frame::{
+	deps::sp_runtime::{testing::UintAuthorityId, BuildStorage},
+	prelude::*,
+	runtime::prelude::{construct_runtime, derive_impl, parameter_types},
 	traits::{ConstU32, ConstU64, DisabledValidators},
 };
-*/
 use sp_consensus_aura::{ed25519::AuthorityId, AuthorityIndex};
-// use sp_runtime::{testing::UintAuthorityId, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
