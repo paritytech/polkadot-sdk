@@ -26,13 +26,12 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame::{prelude::*, traits::{Get, OneSessionHandler}, deps::frame_support::WeakBoundedVec, derive::DefaultNoBound};
-/*
-use frame_support::{
+use frame::{
+	deps::frame_support::WeakBoundedVec,
+	derive::DefaultNoBound,
+	prelude::*,
 	traits::{Get, OneSessionHandler},
-	WeakBoundedVec,
 };
-*/
 use sp_authority_discovery::AuthorityId;
 
 pub use pallet::*;
@@ -41,8 +40,6 @@ pub use pallet::*;
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	// use frame_support::pallet_prelude::*;
-	// use frame::deps::frame_support::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -176,20 +173,18 @@ mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
 	use alloc::vec;
-	
-	//use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+	use frame::{
+		arithmetic::Perbill,
+		deps::sp_runtime::KeyTypeId,
+		runtime::{
+			prelude::{construct_runtime, derive_impl, parameter_types},
+			testing_prelude::BuildStorage,
+		},
+		testing_prelude::TestExternalities,
+		traits::{ConstU32, ConvertInto, IdentityLookup, OpaqueKeys},
+	};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
-	use frame::{testing_prelude::TestExternalities, traits::{ConvertInto, IdentityLookup, OpaqueKeys, ConstU32}, runtime::{prelude::{construct_runtime, parameter_types, derive_impl}, testing_prelude::BuildStorage}, deps::sp_runtime::KeyTypeId, arithmetic::Perbill}; 
-	/*
-	use sp_core::crypto::key_types;
-	use sp_io::TestExternalities;
-	use sp_runtime::{
-		testing::UintAuthorityId,
-		traits::{ConvertInto, IdentityLookup, OpaqueKeys},
-		BuildStorage, KeyTypeId, Perbill,
-	};
-	*/
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -243,7 +238,8 @@ mod tests {
 
 	pub struct TestSessionHandler;
 	impl pallet_session::SessionHandler<AuthorityId> for TestSessionHandler {
-		const KEY_TYPE_IDS: &'static [KeyTypeId] = &[frame::deps::sp_core::crypto::key_types::DUMMY];
+		const KEY_TYPE_IDS: &'static [KeyTypeId] =
+			&[frame::deps::sp_core::crypto::key_types::DUMMY];
 
 		fn on_new_session<Ks: OpaqueKeys>(
 			_changed: bool,
