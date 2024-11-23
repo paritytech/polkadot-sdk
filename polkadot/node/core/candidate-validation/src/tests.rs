@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+	collections::BTreeMap,
+	sync::atomic::{AtomicUsize, Ordering},
+};
 
 use super::*;
 use crate::PvfExecKind;
@@ -26,12 +29,18 @@ use polkadot_node_subsystem::messages::AllMessages;
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
-	vstaging::CandidateDescriptorV2, CandidateDescriptor, CoreIndex, GroupIndex, HeadData,
-	Id as ParaId, OccupiedCoreAssumption, SessionInfo, UpwardMessage, ValidatorId,
+	vstaging::{
+		CandidateDescriptorV2, ClaimQueueOffset, CoreSelector, MutateDescriptorV2, UMPSignal,
+		UMP_SEPARATOR,
+	},
+	CandidateDescriptor, CoreIndex, GroupIndex, HeadData, Id as ParaId, OccupiedCoreAssumption,
+	SessionInfo, UpwardMessage, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
+	make_valid_candidate_descriptor_v2,
 };
+use rstest::rstest;
 use sp_core::{sr25519::Public, testing::TaskExecutor};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
@@ -464,28 +473,35 @@ impl ValidationBackend for MockValidateCandidateBackend {
 	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		unreachable!()
 	}
+
+	async fn update_active_leaves(
+		&mut self,
+		_update: ActiveLeavesUpdate,
+		_ancestors: Vec<Hash>,
+	) -> Result<(), String> {
+		unreachable!()
+	}
 }
 
 #[test]
-fn candidate_validation_ok_is_ok() {
+fn session_index_checked_only_in_backing() {
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };
 	let head_data = HeadData(vec![1, 1, 1]);
 	let validation_code = ValidationCode(vec![2; 16]);
 
-	let descriptor = make_valid_candidate_descriptor(
+	let descriptor = make_valid_candidate_descriptor_v2(
 		ParaId::from(1_u32),
 		dummy_hash(),
-		validation_data.hash(),
+		CoreIndex(0),
+		100,
+		dummy_hash(),
 		pov.hash(),
 		validation_code.hash(),
 		head_data.hash(),
 		dummy_hash(),
-		Sr25519Keyring::Alice,
-	)
-	.into();
-
+	);
 	let check = perform_basic_checks(
 		&descriptor,
 		validation_data.max_pov_size,
@@ -514,21 +530,382 @@ fn candidate_validation_ok_is_ok() {
 
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
+	// The session index is invalid
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
 		validation_data.clone(),
-		validation_code,
-		candidate_receipt,
-		Arc::new(pov),
+		validation_code.clone(),
+		candidate_receipt.clone(),
+		Arc::new(pov.clone()),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
+		Default::default(),
+	))
+	.unwrap();
+
+	assert_matches!(v, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
+
+	// Approval doesn't fail since the check is ommited.
+	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+		validation_data.clone(),
+		validation_code.clone(),
+		candidate_receipt.clone(),
+		Arc::new(pov.clone()),
+		ExecutorParams::default(),
+		PvfExecKind::Approval,
+		&Default::default(),
+		Default::default(),
 	))
 	.unwrap();
 
 	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
 		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
 		assert_eq!(outputs.upward_messages, Vec::<UpwardMessage>::new());
+		assert_eq!(outputs.horizontal_messages, Vec::new());
+		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+		assert_eq!(outputs.hrmp_watermark, 0);
+		assert_eq!(used_validation_data, validation_data);
+	});
+
+	// Approval doesn't fail since the check is ommited.
+	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
+		validation_data.clone(),
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Dispute,
+		&Default::default(),
+		Default::default(),
+	))
+	.unwrap();
+
+	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+		assert_eq!(outputs.upward_messages, Vec::<UpwardMessage>::new());
+		assert_eq!(outputs.horizontal_messages, Vec::new());
+		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+		assert_eq!(outputs.hrmp_watermark, 0);
+		assert_eq!(used_validation_data, validation_data);
+	});
+}
+
+#[rstest]
+#[case(true)]
+#[case(false)]
+fn candidate_validation_ok_is_ok(#[case] v2_descriptor: bool) {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
+	let validation_code = ValidationCode(vec![2; 16]);
+
+	let descriptor = if v2_descriptor {
+		make_valid_candidate_descriptor_v2(
+			ParaId::from(1_u32),
+			dummy_hash(),
+			CoreIndex(1),
+			1,
+			dummy_hash(),
+			pov.hash(),
+			validation_code.hash(),
+			head_data.hash(),
+			dummy_hash(),
+		)
+	} else {
+		make_valid_candidate_descriptor(
+			ParaId::from(1_u32),
+			dummy_hash(),
+			validation_data.hash(),
+			pov.hash(),
+			validation_code.hash(),
+			head_data.hash(),
+			dummy_hash(),
+			Sr25519Keyring::Alice,
+		)
+		.into()
+	};
+
+	let check = perform_basic_checks(
+		&descriptor,
+		validation_data.max_pov_size,
+		&pov,
+		&validation_code.hash(),
+	);
+	assert!(check.is_ok());
+
+	let mut validation_result = WasmValidationResult {
+		head_data,
+		new_validation_code: Some(vec![2, 2, 2].into()),
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+
+	if v2_descriptor {
+		validation_result.upward_messages.force_push(UMP_SEPARATOR);
+		validation_result
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+	}
+
+	let commitments = CandidateCommitments {
+		head_data: validation_result.head_data.clone(),
+		upward_messages: validation_result.upward_messages.clone(),
+		horizontal_messages: validation_result.horizontal_messages.clone(),
+		new_validation_code: validation_result.new_validation_code.clone(),
+		processed_downward_messages: validation_result.processed_downward_messages,
+		hrmp_watermark: validation_result.hrmp_watermark,
+	};
+
+	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+	let mut cq = BTreeMap::new();
+	let _ = cq.insert(CoreIndex(0), vec![1.into(), 2.into()].into());
+	let _ = cq.insert(CoreIndex(1), vec![1.into(), 1.into()].into());
+
+	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
+		validation_data.clone(),
+		validation_code,
+		candidate_receipt,
+		Arc::new(pov),
+		ExecutorParams::default(),
+		PvfExecKind::Backing(dummy_hash()),
+		&Default::default(),
+		Some(ClaimQueueSnapshot(cq)),
+	))
+	.unwrap();
+
+	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+		assert_eq!(outputs.upward_messages, commitments.upward_messages);
+		assert_eq!(outputs.horizontal_messages, Vec::new());
+		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+		assert_eq!(outputs.hrmp_watermark, 0);
+		assert_eq!(used_validation_data, validation_data);
+	});
+}
+
+#[test]
+fn invalid_session_or_core_index() {
+	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
+
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
+	let validation_code = ValidationCode(vec![2; 16]);
+
+	let descriptor = make_valid_candidate_descriptor_v2(
+		ParaId::from(1_u32),
+		dummy_hash(),
+		CoreIndex(1),
+		100,
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		head_data.hash(),
+		dummy_hash(),
+	);
+
+	let check = perform_basic_checks(
+		&descriptor,
+		validation_data.max_pov_size,
+		&pov,
+		&validation_code.hash(),
+	);
+	assert!(check.is_ok());
+
+	let mut validation_result = WasmValidationResult {
+		head_data,
+		new_validation_code: Some(vec![2, 2, 2].into()),
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+
+	validation_result.upward_messages.force_push(UMP_SEPARATOR);
+	validation_result
+		.upward_messages
+		.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode());
+
+	let commitments = CandidateCommitments {
+		head_data: validation_result.head_data.clone(),
+		upward_messages: validation_result.upward_messages.clone(),
+		horizontal_messages: validation_result.horizontal_messages.clone(),
+		new_validation_code: validation_result.new_validation_code.clone(),
+		processed_downward_messages: validation_result.processed_downward_messages,
+		hrmp_watermark: validation_result.hrmp_watermark,
+	};
+
+	let mut candidate_receipt =
+		CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+
+	let err = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+		validation_data.clone(),
+		validation_code.clone(),
+		candidate_receipt.clone(),
+		Arc::new(pov.clone()),
+		ExecutorParams::default(),
+		PvfExecKind::Backing(dummy_hash()),
+		&Default::default(),
+		Default::default(),
+	))
+	.unwrap();
+
+	assert_matches!(err, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
+
+	let err = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+		validation_data.clone(),
+		validation_code.clone(),
+		candidate_receipt.clone(),
+		Arc::new(pov.clone()),
+		ExecutorParams::default(),
+		PvfExecKind::BackingSystemParas(dummy_hash()),
+		&Default::default(),
+		Default::default(),
+	))
+	.unwrap();
+
+	assert_matches!(err, ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
+
+	candidate_receipt.descriptor.set_session_index(1);
+
+	let result = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+		validation_data.clone(),
+		validation_code.clone(),
+		candidate_receipt.clone(),
+		Arc::new(pov.clone()),
+		ExecutorParams::default(),
+		PvfExecKind::Backing(dummy_hash()),
+		&Default::default(),
+		Some(Default::default()),
+	))
+	.unwrap();
+	assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidCoreIndex));
+
+	let result = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+		validation_data.clone(),
+		validation_code.clone(),
+		candidate_receipt.clone(),
+		Arc::new(pov.clone()),
+		ExecutorParams::default(),
+		PvfExecKind::BackingSystemParas(dummy_hash()),
+		&Default::default(),
+		Some(Default::default()),
+	))
+	.unwrap();
+	assert_matches!(result, ValidationResult::Invalid(InvalidCandidate::InvalidCoreIndex));
+
+	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+		validation_data.clone(),
+		validation_code.clone(),
+		candidate_receipt.clone(),
+		Arc::new(pov.clone()),
+		ExecutorParams::default(),
+		PvfExecKind::Approval,
+		&Default::default(),
+		Default::default(),
+	))
+	.unwrap();
+
+	// Validation doesn't fail for approvals, core/session index is not checked.
+	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+		assert_eq!(outputs.upward_messages, commitments.upward_messages);
+		assert_eq!(outputs.horizontal_messages, Vec::new());
+		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+		assert_eq!(outputs.hrmp_watermark, 0);
+		assert_eq!(used_validation_data, validation_data);
+	});
+
+	// Dispute check passes because we don't check core or session index
+	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+		validation_data.clone(),
+		validation_code.clone(),
+		candidate_receipt.clone(),
+		Arc::new(pov.clone()),
+		ExecutorParams::default(),
+		PvfExecKind::Dispute,
+		&Default::default(),
+		Default::default(),
+	))
+	.unwrap();
+
+	// Validation doesn't fail for approvals, core/session index is not checked.
+	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+		assert_eq!(outputs.upward_messages, commitments.upward_messages);
+		assert_eq!(outputs.horizontal_messages, Vec::new());
+		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+		assert_eq!(outputs.hrmp_watermark, 0);
+		assert_eq!(used_validation_data, validation_data);
+	});
+
+	// Populate claim queue.
+	let mut cq = BTreeMap::new();
+	let _ = cq.insert(CoreIndex(0), vec![1.into(), 2.into()].into());
+	let _ = cq.insert(CoreIndex(1), vec![1.into(), 2.into()].into());
+
+	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+		validation_data.clone(),
+		validation_code.clone(),
+		candidate_receipt.clone(),
+		Arc::new(pov.clone()),
+		ExecutorParams::default(),
+		PvfExecKind::Backing(dummy_hash()),
+		&Default::default(),
+		Some(ClaimQueueSnapshot(cq.clone())),
+	))
+	.unwrap();
+
+	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+		assert_eq!(outputs.upward_messages, commitments.upward_messages);
+		assert_eq!(outputs.horizontal_messages, Vec::new());
+		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
+		assert_eq!(outputs.hrmp_watermark, 0);
+		assert_eq!(used_validation_data, validation_data);
+	});
+
+	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
+		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+		validation_data.clone(),
+		validation_code.clone(),
+		candidate_receipt.clone(),
+		Arc::new(pov.clone()),
+		ExecutorParams::default(),
+		PvfExecKind::BackingSystemParas(dummy_hash()),
+		&Default::default(),
+		Some(ClaimQueueSnapshot(cq)),
+	))
+	.unwrap();
+
+	assert_matches!(v, ValidationResult::Valid(outputs, used_validation_data) => {
+		assert_eq!(outputs.head_data, HeadData(vec![1, 1, 1]));
+		assert_eq!(outputs.upward_messages, commitments.upward_messages);
 		assert_eq!(outputs.horizontal_messages, Vec::new());
 		assert_eq!(outputs.new_validation_code, Some(vec![2, 2, 2].into()));
 		assert_eq!(outputs.hrmp_watermark, 0);
@@ -566,6 +943,7 @@ fn candidate_validation_bad_return_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
 		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
 			WasmInvalidCandidate::HardTimeout,
 		))),
@@ -574,8 +952,9 @@ fn candidate_validation_bad_return_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
+		Default::default(),
 	))
 	.unwrap();
 
@@ -647,6 +1026,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			Ok(validation_result),
@@ -658,6 +1038,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 		ExecutorParams::default(),
 		PvfExecKind::Approval,
 		&Default::default(),
+		Default::default(),
 	))
 	.unwrap();
 
@@ -688,6 +1069,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
@@ -699,6 +1081,7 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 		ExecutorParams::default(),
 		PvfExecKind::Approval,
 		&Default::default(),
+		Default::default(),
 	))
 	.unwrap();
 
@@ -727,7 +1110,7 @@ fn candidate_validation_retry_internal_errors() {
 #[test]
 fn candidate_validation_dont_retry_internal_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Backing,
+		PvfExecKind::Backing(dummy_hash()),
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
@@ -761,7 +1144,7 @@ fn candidate_validation_retry_panic_errors() {
 #[test]
 fn candidate_validation_dont_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
-		PvfExecKind::Backing,
+		PvfExecKind::Backing(dummy_hash()),
 		vec![
 			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
@@ -806,6 +1189,7 @@ fn candidate_validation_retry_on_error_helper(
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	return executor::block_on(validate_candidate_exhaustive(
+		Some(1),
 		MockValidateCandidateBackend::with_hardcoded_result_list(mock_errors),
 		validation_data,
 		validation_code,
@@ -814,6 +1198,7 @@ fn candidate_validation_retry_on_error_helper(
 		ExecutorParams::default(),
 		exec_kind,
 		&Default::default(),
+		Default::default(),
 	))
 }
 
@@ -847,6 +1232,7 @@ fn candidate_validation_timeout_is_internal_error() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
 		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
 			WasmInvalidCandidate::HardTimeout,
 		))),
@@ -855,8 +1241,9 @@ fn candidate_validation_timeout_is_internal_error() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
+		Default::default(),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)));
@@ -896,14 +1283,16 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 	};
 
 	let result = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data,
 		validation_code,
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
+		Default::default(),
 	))
 	.unwrap();
 
@@ -947,6 +1336,7 @@ fn candidate_validation_code_mismatch_is_invalid() {
 	>(pool.clone());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
 		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
 			WasmInvalidCandidate::HardTimeout,
 		))),
@@ -955,8 +1345,9 @@ fn candidate_validation_code_mismatch_is_invalid() {
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
+		Default::default(),
 	))
 	.unwrap();
 
@@ -1007,14 +1398,16 @@ fn compressed_code_works() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
+		Some(1),
 		MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result)),
 		validation_data,
 		validation_code,
 		candidate_receipt,
 		Arc::new(pov),
 		ExecutorParams::default(),
-		PvfExecKind::Backing,
+		PvfExecKind::Backing(dummy_hash()),
 		&Default::default(),
+		Default::default(),
 	));
 
 	assert_matches!(v, Ok(ValidationResult::Valid(_, _)));
@@ -1049,6 +1442,14 @@ impl ValidationBackend for MockPreCheckBackend {
 	}
 
 	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+		unreachable!()
+	}
+
+	async fn update_active_leaves(
+		&mut self,
+		_update: ActiveLeavesUpdate,
+		_ancestors: Vec<Hash>,
+	) -> Result<(), String> {
 		unreachable!()
 	}
 }
@@ -1206,6 +1607,14 @@ impl ValidationBackend for MockHeadsUp {
 	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		let _ = self.heads_up_call_count.fetch_add(1, Ordering::SeqCst);
 		Ok(())
+	}
+
+	async fn update_active_leaves(
+		&mut self,
+		_update: ActiveLeavesUpdate,
+		_ancestors: Vec<Hash>,
+	) -> Result<(), String> {
+		unreachable!()
 	}
 }
 

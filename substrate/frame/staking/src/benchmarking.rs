@@ -708,7 +708,7 @@ mod benchmarks {
 		<ErasValidatorPrefs<T>>::insert(
 			current_era,
 			validator.clone(),
-			<Staking<T>>::validators(&validator),
+			Validators::<T>::get(&validator),
 		);
 
 		let caller = whitelisted_caller();
@@ -975,20 +975,22 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		// number of nominator intention.
 		let n = MaxNominators::<T>::get();
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			MaxNominationsOf::<T>::get() as usize,
+			false,
+			None,
+		)?;
+
+		let targets;
 
 		#[block]
 		{
-			create_validators_with_nominators_for_era::<T>(
-				v,
-				n,
-				MaxNominationsOf::<T>::get() as usize,
-				false,
-				None,
-			)?;
+			// default bounds are unbounded.
+			targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
 		}
 
-		// default bounds are unbounded.
-		let targets = <Staking<T>>::get_npos_targets(DataProviderBounds::default());
 		assert_eq!(targets.len() as u32, v);
 
 		Ok(())
