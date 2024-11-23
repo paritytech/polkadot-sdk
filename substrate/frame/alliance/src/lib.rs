@@ -106,24 +106,6 @@ use frame::{
 		Saturating, StaticLookup, Zero,
 	},
 };
-/*
-use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::*;
-use sp_runtime::{
-	traits::{Dispatchable, Saturating, StaticLookup, Zero},
-	DispatchError, RuntimeDebug,
-};
-
-use frame_support::{
-	dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
-	ensure,
-	traits::{
-		ChangeMembers, Currency, Get, InitializeMembers, IsSubType, OnUnbalanced,
-		ReservableCurrency,
-	},
-	weights::Weight,
-};
-*/
 use scale_info::TypeInfo;
 
 pub use pallet::*;

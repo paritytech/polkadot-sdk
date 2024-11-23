@@ -16,20 +16,6 @@
 // limitations under the License.
 
 //! Test utilities
-/*
-pub use sp_core::H256;
-use sp_runtime::traits::Hash;
-pub use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, Lazy, Verify},
-	BuildStorage,
-};
-
-pub use frame_support::{
-	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::EitherOfDiverse, BoundedVec,
-};
-use frame_system::{EnsureRoot, EnsureSignedBy};
-*/
 use frame::{
 	deps::{
 		frame_support::{traits::EitherOfDiverse, BoundedVec},

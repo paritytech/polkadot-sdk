@@ -19,16 +19,15 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use core::{cmp, mem::size_of};
-/*
-use sp_runtime::traits::{Bounded, Hash, StaticLookup};
-
-use frame_benchmarking::{account, v2::*, BenchmarkError};
-use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
-use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin as SystemOrigin};
-*/
 use super::{Call as AllianceCall, Pallet as Alliance, *};
-use frame::{benchmarking::prelude::*, deps::{frame_system::{Pallet as System, RawOrigin as SystemOrigin}, frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable}}};
+use core::{cmp, mem::size_of};
+use frame::{
+	benchmarking::prelude::*,
+	deps::{
+		frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable},
+		frame_system::{Pallet as System, RawOrigin as SystemOrigin},
+	},
+};
 
 const SEED: u32 = 0;
 
