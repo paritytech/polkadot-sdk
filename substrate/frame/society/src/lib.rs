@@ -272,8 +272,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::{
-	ensure_signed, BlockNumberFor as SystemBlockNumberFor,
-	OriginFor,
+	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
 };
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
@@ -295,7 +294,7 @@ pub use pallet::*;
 use sp_runtime::traits::BlockNumberProvider;
 
 pub type BlockNumberFor<T, I> =
-<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
