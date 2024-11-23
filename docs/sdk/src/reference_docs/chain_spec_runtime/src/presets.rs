@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Presets for the chain-spec demo runtime.
 
 use crate::{
 	pallets::{FooEnum, SomeFooData1, SomeFooData2},
@@ -117,4 +118,47 @@ fn preset_invalid() -> Value {
 
 /// Provides a JSON representation of preset identified by given `id`.
 ///
+/// If no preset with given `id` exits `None` is returned.
+#[docify::export]
+pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>> {
+	let preset = match id.as_ref() {
+		PRESET_1 => preset_1(),
+		PRESET_2 => preset_2(),
+		PRESET_3 => preset_3(),
+		PRESET_4 => preset_4(),
+		PRESET_INVALID => preset_invalid(),
+		_ => return None,
+	};
 
+	Some(
+		to_string(&preset)
+			.expect("serialization to json is expected to work. qed.")
+			.into_bytes(),
+	)
+}
+
+#[test]
+#[docify::export]
+fn check_presets() {
+	let builder = sc_chain_spec::GenesisConfigBuilderRuntimeCaller::<()>::new(
+		crate::WASM_BINARY.expect("wasm binary shall exists"),
+	);
+	assert!(builder.get_storage_for_named_preset(Some(&PRESET_1.to_string())).is_ok());
+	assert!(builder.get_storage_for_named_preset(Some(&PRESET_2.to_string())).is_ok());
+	assert!(builder.get_storage_for_named_preset(Some(&PRESET_3.to_string())).is_ok());
+	assert!(builder.get_storage_for_named_preset(Some(&PRESET_4.to_string())).is_ok());
+}
+
+#[test]
+#[docify::export]
+fn invalid_preset_works() {
+	let builder = sc_chain_spec::GenesisConfigBuilderRuntimeCaller::<()>::new(
+		crate::WASM_BINARY.expect("wasm binary shall exists"),
+	);
+	// Even though a preset contains invalid_key, conversion to raw storage does not fail. This is
+	// because the [`FooStruct`] structure is not annotated with `deny_unknown_fields` [`serde`]
+	// attribute.
+	// This may lead to hard to debug problems, that's why using ['deny_unknown_fields'] is
+	// recommended.
+	assert!(builder.get_storage_for_named_preset(Some(&PRESET_INVALID.to_string())).is_ok());
+}
