@@ -44,5 +44,5 @@ jobs:
           packages="$(parity-publish apply --print)"
 
           if [ -n "$packages" ]; then
-            forklift cargo --color always check $(printf -- '-p %s ' $packages)
+            cargo --color always check $(printf -- '-p %s ' $packages)
           fi
