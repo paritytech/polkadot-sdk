@@ -84,7 +84,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Measured:  `0`
 		//  Estimated: `3593`
 		// Minimum execution time: 37_565_000 picoseconds.
-		Weight::from_parts(38_159_000, 3593)
+		Weight::from_parts(58_159_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
