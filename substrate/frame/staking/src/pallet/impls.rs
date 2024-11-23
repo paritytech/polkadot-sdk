@@ -1170,14 +1170,15 @@ impl<T: Config> Pallet<T> {
 		controller: T::AccountId,
 		value: BalanceOf<T>,
 	) -> Result<Option<Weight>, DispatchError> {
-		let unlocking = Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
+		let unlocking =
+			Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
 
 		// if there are no unlocking chunks available, try to withdraw chunks older than
 		// `BondingDuration` to proceed with the unbonding.
 		let maybe_withdraw_weight = {
 			if unlocking == T::MaxUnlockingChunks::get() as usize {
 				let real_num_slashing_spans =
-					Self::slashing_spans(&controller).map_or(0, |s| s.iter().count());
+					SlashingSpans::<T>::get(&controller).map_or(0, |s| s.iter().count());
 				Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
 			} else {
 				None
@@ -1186,14 +1187,14 @@ impl<T: Config> Pallet<T> {
 
 		// we need to fetch the ledger again because it may have been mutated in the call
 		// to `Self::do_withdraw_unbonded` above.
-		let mut ledger = Self::ledger(Controller(controller.clone()))?;
+		let mut ledger = Self::ledger(Controller(controller))?;
 		let mut value = value.min(ledger.active);
 		let stash = ledger.stash.clone();
 
 		ensure!(
-			ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
-			Error::<T>::NoMoreChunks,
-		);
+				ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
+				Error::<T>::NoMoreChunks,
+			);
 
 		if !value.is_zero() {
 			ledger.active -= value;
@@ -1217,7 +1218,7 @@ impl<T: Config> Pallet<T> {
 			ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
 			// Note: in case there is no current era it is fine to bond one era more.
-			let era = Self::current_era()
+			let era = CurrentEra::<T>::get()
 				.unwrap_or(0)
 				.defensive_saturating_add(T::BondingDuration::get());
 			if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
@@ -1242,7 +1243,13 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
 		}
 
-		Ok(maybe_withdraw_weight)
+		let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
+			Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
+		} else {
+			Some(T::WeightInfo::unbond())
+		};
+
+		Ok(actual_weight)
 	}
 }
 
