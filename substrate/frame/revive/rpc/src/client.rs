@@ -17,13 +17,12 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 use crate::{
-	rlp,
 	runtime::GAS_PRICE,
 	subxt_client::{
 		revive::{calls::types::EthTransact, events::ContractEmitted},
 		runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	TransactionLegacySigned, LOG_TARGET,
+	LOG_TARGET,
 };
 use futures::{stream, StreamExt};
 use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
@@ -269,25 +268,26 @@ impl ClientInner {
 		let extrinsics = extrinsics.iter().flat_map(|ext| {
 			let call = ext.as_extrinsic::<EthTransact>().ok()??;
 			let transaction_hash = H256(keccak_256(&call.payload));
-			let tx = rlp::decode::<TransactionLegacySigned>(&call.payload).ok()?;
-			let from = tx.recover_eth_address().ok()?;
-			let contract_address = if tx.transaction_legacy_unsigned.to.is_none() {
-				Some(create1(&from, tx.transaction_legacy_unsigned.nonce.try_into().ok()?))
+			let signed_tx = TransactionSigned::decode(&call.payload).ok()?;
+			let from = signed_tx.recover_eth_address().ok()?;
+			let tx_info = GenericTransaction::from_signed(signed_tx.clone(), Some(from));
+			let contract_address = if tx_info.to.is_none() {
+				Some(create1(&from, tx_info.nonce.unwrap_or_default().try_into().ok()?))
 			} else {
 				None
 			};
 
-			Some((from, tx, transaction_hash, contract_address, ext))
+			Some((from, signed_tx, tx_info, transaction_hash, contract_address, ext))
 		});
 
 		// Map each extrinsic to a receipt
 		stream::iter(extrinsics)
-			.map(|(from, tx, transaction_hash, contract_address, ext)| async move {
+			.map(|(from, signed_tx, tx_info, transaction_hash, contract_address, ext)| async move {
 				let events = ext.events().await?;
 				let tx_fees =
 					events.find_first::<TransactionFeePaid>()?.ok_or(ClientError::TxFeeNotFound)?;
 
-				let gas_price = tx.transaction_legacy_unsigned.gas_price;
+				let gas_price = tx_info.gas_price.unwrap_or_default();
 				let gas_used = (tx_fees.tip.saturating_add(tx_fees.actual_fee))
 					.checked_div(gas_price.as_u128())
 					.unwrap_or_default();
@@ -324,16 +324,16 @@ impl ClientInner {
 					contract_address,
 					from,
 					logs,
-					tx.transaction_legacy_unsigned.to,
+					tx_info.to,
 					gas_price,
 					gas_used.into(),
 					success,
 					transaction_hash,
 					transaction_index.into(),
-					tx.transaction_legacy_unsigned.r#type.as_byte()
+					tx_info.r#type.unwrap_or_default()
 				);
 
-				Ok::<_, ClientError>((receipt.transaction_hash, (tx.into(), receipt)))
+				Ok::<_, ClientError>((receipt.transaction_hash, (signed_tx, receipt)))
 			})
 			.buffer_unordered(10)
 			.collect::<Vec<Result<_, _>>>()
