@@ -79,7 +79,9 @@ use sp_runtime::{
 };
 
 use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::*;
+use frame_system::pallet_prelude::{
+	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
+};
 use pallet_bounties::BountyStatus;
 use scale_info::TypeInfo;
 pub use weights::WeightInfo;
@@ -90,6 +92,8 @@ type BalanceOf<T> = pallet_treasury::BalanceOf<T>;
 type BountiesError<T> = pallet_bounties::Error<T>;
 type BountyIndex = pallet_bounties::BountyIndex;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+type BlockNumberFor<T> =
+	<<T as pallet_treasury::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A child bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -810,7 +814,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
 			let parent_bounty_id: BountyIndex = 1;
 			let child_bounty_id: BountyIndex = 2;

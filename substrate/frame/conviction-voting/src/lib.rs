@@ -171,10 +171,12 @@ pub mod pallet {
 		Delegated(T::AccountId, T::AccountId),
 		/// An \[account\] has cancelled a previous delegation operation.
 		Undelegated(T::AccountId),
-		/// An account that has voted
+		/// An account has voted
 		Voted { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
-		/// A vote that been removed
+		/// A vote has been removed
 		VoteRemoved { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> },
+		/// The lockup period of a conviction vote expired, and the funds have been unlocked.
+		VoteUnlocked { who: T::AccountId, class: ClassOf<T, I> },
 	}
 
 	#[pallet::error]
@@ -315,6 +317,7 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
 			Self::update_lock(&class, &target);
+			Self::deposit_event(Event::VoteUnlocked { who: target, class });
 			Ok(())
 		}
 
