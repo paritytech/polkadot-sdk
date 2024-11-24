@@ -88,6 +88,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use alloc::{boxed::Box, collections::btree_map::BTreeMap};
+/*
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, BlockNumberProvider, CheckedAdd, One, Saturating, StaticLookup,
@@ -107,6 +108,8 @@ use frame_support::{
 	BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+*/
+use frame::{prelude::*, traits::{Currency, ReservableCurrency, OnUnbalanced, WithdrawReasons, ExistenceRequirement::KeepAlive, Imbalance, AccountIdConversion, BlockNumberProvider, CheckedAdd, One, Saturating, StaticLookup, UniqueSaturatedInto, Zero, tokens::{Pay, ConversionFromAssetBalance, PaymentStatus}}, deps::{sp_runtime::{PerThing, Permill, RuntimeDebug}, frame_support::{self, dispatch_context::with_context, dispatch::DispatchResult, ensure, print, weights::Weight, BoundedVec, PalletId}}};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -194,16 +197,18 @@ pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, Paymen
 /// Index of an approved treasury spend.
 pub type SpendIndex = u32;
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
+	/*
 	use frame_support::{
 		dispatch_context::with_context,
 		pallet_prelude::*,
 		traits::tokens::{ConversionFromAssetBalance, PaymentStatus},
 	};
 	use frame_system::pallet_prelude::*;
-
+	*/
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
@@ -346,7 +351,7 @@ pub mod pallet {
 	pub(crate) type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		#[serde(skip)]
 		_config: core::marker::PhantomData<(T, I)>,
@@ -988,7 +993,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Ensure the correctness of the state of this pallet.
 	#[cfg(any(feature = "try-runtime", test))]
-	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+	fn do_try_state() -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
 		Self::try_state_proposals()?;
 		Self::try_state_spends()?;
 
@@ -1003,7 +1008,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// 3. Each [`ProposalIndex`] contained in [`Approvals`] should exist in [`Proposals`].
 	/// Note, that this automatically implies [`Approvals`].count() <= [`Proposals`].count().
 	#[cfg(any(feature = "try-runtime", test))]
-	fn try_state_proposals() -> Result<(), sp_runtime::TryRuntimeError> {
+	fn try_state_proposals() -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
 		let current_proposal_count = ProposalCount::<T, I>::get();
 		ensure!(
 			current_proposal_count as usize >= Proposals::<T, I>::iter().count(),
@@ -1039,7 +1044,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// 3. For each spend entry contained in [`Spends`] we should have spend.expire_at
 	/// > spend.valid_from.
 	#[cfg(any(feature = "try-runtime", test))]
-	fn try_state_spends() -> Result<(), sp_runtime::TryRuntimeError> {
+	fn try_state_spends() -> Result<(), frame::deps::sp_runtime::TryRuntimeError> {
 		let current_spend_count = SpendCount::<T, I>::get();
 		ensure!(
 			current_spend_count as usize >= Spends::<T, I>::iter().count(),
@@ -1079,7 +1084,7 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 
 /// TypedGet implementation to get the AccountId of the Treasury.
 pub struct TreasuryAccountId<R>(PhantomData<R>);
-impl<R> sp_runtime::traits::TypedGet for TreasuryAccountId<R>
+impl<R> TypedGet for TreasuryAccountId<R>
 where
 	R: crate::Config,
 {

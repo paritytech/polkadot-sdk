@@ -20,6 +20,7 @@
 #![cfg(test)]
 
 use core::{cell::RefCell, marker::PhantomData};
+/*
 use sp_runtime::{
 	traits::{BadOrigin, Dispatchable, IdentityLookup},
 	BuildStorage,
@@ -35,6 +36,8 @@ use frame_support::{
 	},
 	PalletId,
 };
+*/
+use frame::{testing_prelude::*, traits::{IdentityLookup, OnInitialize, BadOrigin}};
 
 use super::*;
 use crate as treasury;
@@ -43,7 +46,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 type UtilityCall = pallet_utility::Call<Test>;
 type TreasuryCall = crate::Call<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -216,7 +219,7 @@ impl ExtBuilder {
 		self
 	}
 
-	pub fn build(self) -> sp_io::TestExternalities {
+	pub fn build(self) -> TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Test> {
 			// Total issuance will be 200 with treasury account initialized at ED.
@@ -225,7 +228,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 		crate::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
-		let mut ext = sp_io::TestExternalities::new(t);
+		let mut ext = TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
 		ext
 	}
@@ -410,7 +413,7 @@ fn inexistent_account_works() {
 		.assimilate_storage(&mut t)
 		.unwrap();
 	// Treasury genesis config is not build thus treasury account does not exist
-	let mut t: sp_io::TestExternalities = t.into();
+	let mut t: TestExternalities = t.into();
 
 	t.execute_with(|| {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 0); // Account does not exist
@@ -449,7 +452,7 @@ fn genesis_funding_works() {
 	.assimilate_storage(&mut t)
 	.unwrap();
 	crate::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
-	let mut t: sp_io::TestExternalities = t.into();
+	let mut t: TestExternalities = t.into();
 
 	t.execute_with(|| {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), initial_funding);
@@ -816,7 +819,7 @@ fn check_status_works() {
 #[test]
 fn try_state_proposals_invariant_1_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
+		// use frame_support::pallet_prelude::DispatchError::Other;
 		// Add a proposal and approve using `spend_local`
 		#[allow(deprecated)]
 		{
@@ -840,7 +843,7 @@ fn try_state_proposals_invariant_1_works() {
 #[test]
 fn try_state_proposals_invariant_2_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
+		// use frame_support::pallet_prelude::DispatchError::Other;
 		#[allow(deprecated)]
 		{
 			// Add a proposal and approve using `spend_local`
@@ -872,7 +875,7 @@ fn try_state_proposals_invariant_2_works() {
 #[test]
 fn try_state_proposals_invariant_3_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
+		// use frame_support::pallet_prelude::DispatchError::Other;
 		// Add a proposal and approve using `spend_local`
 		#[allow(deprecated)]
 		{
@@ -900,7 +903,7 @@ fn try_state_proposals_invariant_3_works() {
 #[test]
 fn try_state_spends_invariant_1_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
+		// use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
 		assert_ok!({
 			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None)
@@ -922,7 +925,7 @@ fn try_state_spends_invariant_1_works() {
 #[test]
 fn try_state_spends_invariant_2_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
+		// use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
 		assert_ok!({
 			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None)
@@ -951,7 +954,7 @@ fn try_state_spends_invariant_2_works() {
 #[test]
 fn try_state_spends_invariant_3_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		use frame_support::pallet_prelude::DispatchError::Other;
+		// use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
 		assert_ok!({
 			Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None)

@@ -22,8 +22,8 @@ use alloc::collections::BTreeSet;
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use frame_support::{defensive, traits::OnRuntimeUpgrade};
-
+// use frame_support::{defensive, traits::OnRuntimeUpgrade};
+use frame::{deps::frame_support::{defensive, traits::OnRuntimeUpgrade, weights::Weight}};
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::treasury";
 
@@ -41,7 +41,7 @@ pub mod cleanup_proposals {
 	impl<T: Config<I>, I: 'static, UnreserveWeight: Get<Weight>> OnRuntimeUpgrade
 		for Migration<T, I, UnreserveWeight>
 	{
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_runtime_upgrade() -> Weight {
 			let mut approval_index = BTreeSet::new();
 			#[allow(deprecated)]
 			for approval in Approvals::<T, I>::get().iter() {

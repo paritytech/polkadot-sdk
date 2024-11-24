@@ -23,49 +23,32 @@ codec = { features = [
 docify = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+frame = { workspace = true, features = ["experimental", "runtime"] }
 serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
-frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
 pallet-balances = { workspace = true }
-sp-runtime = { workspace = true }
-sp-core = { optional = true, workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
-sp-core = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-support/std",
-	"frame-system/std",
+	"frame/std",
 	"log/std",
 	"pallet-balances/std",
 	"pallet-utility/std",
 	"scale-info/std",
 	"serde",
-	"sp-core?/std",
-	"sp-io/std",
-	"sp-runtime/std",
 ]
 runtime-benchmarks = [
-	"dep:sp-core",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
+	"frame/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-utility/try-runtime",
-	"sp-runtime/try-runtime",
 ]

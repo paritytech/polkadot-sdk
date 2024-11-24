@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet as Treasury, *};
-
+/*
 use frame_benchmarking::{
 	v1::{account, BenchmarkError},
 	v2::*,
@@ -34,6 +34,8 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_core::crypto::FromEntropy;
+*/
+use frame::{benchmarking::prelude::*, deps::{sp_core::crypto::FromEntropy, frame_support::{assert_err, assert_ok, ensure}}, traits::{tokens::{ConversionFromAssetBalance, PaymentStatus}, EnsureOrigin}};
 
 /// Trait describing factory functions for dispatchables' parameters.
 pub trait ArgumentsFactory<AssetKind, Beneficiary> {
