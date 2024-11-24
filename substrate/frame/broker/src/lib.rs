@@ -345,6 +345,8 @@ pub mod pallet {
 			price: BalanceOf<T>,
 			/// The maximum number of cores which this pallet will attempt to assign.
 			core_count: CoreIndex,
+			/// 
+			sale_id: u32,
 		},
 		/// The act of claiming revenue has begun.
 		RevenueClaimBegun {
