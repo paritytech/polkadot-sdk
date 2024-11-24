@@ -61,11 +61,73 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn create_agent() -> Result<(), BenchmarkError> {
+		let origin_para_id = 2000;
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
+		let origin = T::Helper::make_xcm_origin(origin_location);
+		fund_sovereign_account::<T>(origin_para_id.into())?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn create_channel() -> Result<(), BenchmarkError> {
+		let origin_para_id = 2000;
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
+		let origin = T::Helper::make_xcm_origin(origin_location);
+		fund_sovereign_account::<T>(origin_para_id.into())?;
+
+		SnowbridgeControl::<T>::create_agent(origin.clone())?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, OperatingMode::Normal);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn update_channel() -> Result<(), BenchmarkError> {
+		let origin_para_id = 2000;
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
+		let origin = T::Helper::make_xcm_origin(origin_location);
+		fund_sovereign_account::<T>(origin_para_id.into())?;
+		SnowbridgeControl::<T>::create_agent(origin.clone())?;
+		SnowbridgeControl::<T>::create_channel(origin.clone(), OperatingMode::Normal)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, OperatingMode::RejectingOutboundMessages);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn force_update_channel() -> Result<(), BenchmarkError> {
+		let origin_para_id = 2000;
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
+		let origin = T::Helper::make_xcm_origin(origin_location);
+		let channel_id: ChannelId = ParaId::from(origin_para_id).into();
+
+		fund_sovereign_account::<T>(origin_para_id.into())?;
+		SnowbridgeControl::<T>::create_agent(origin.clone())?;
+		SnowbridgeControl::<T>::create_channel(origin.clone(), OperatingMode::Normal)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, channel_id, OperatingMode::RejectingOutboundMessages);
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn transfer_native_from_agent() -> Result<(), BenchmarkError> {
 		let origin_para_id = 2000;
 		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
 		let origin = T::Helper::make_xcm_origin(origin_location);
 		fund_sovereign_account::<T>(origin_para_id.into())?;
+		SnowbridgeControl::<T>::create_agent(origin.clone())?;
+		SnowbridgeControl::<T>::create_channel(origin.clone(), OperatingMode::Normal)?;
 
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, H160::default(), 1);
@@ -77,8 +139,9 @@ mod benchmarks {
 	fn force_transfer_native_from_agent() -> Result<(), BenchmarkError> {
 		let origin_para_id = 2000;
 		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
-		let _origin = T::Helper::make_xcm_origin(origin_location.clone());
+		let origin = T::Helper::make_xcm_origin(origin_location.clone());
 		fund_sovereign_account::<T>(origin_para_id.into())?;
+		SnowbridgeControl::<T>::create_agent(origin.clone())?;
 
 		let versioned_location: VersionedLocation = origin_location.into();
 

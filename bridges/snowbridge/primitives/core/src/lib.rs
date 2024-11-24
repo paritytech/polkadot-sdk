@@ -56,16 +56,6 @@ impl Contains<Location> for AllowSiblingsOnly {
 	}
 }
 
-pub struct AllowAnySovereignFromSiblings;
-impl Contains<Location> for AllowAnySovereignFromSiblings {
-	fn contains(location: &Location) -> bool {
-		match (location.parent_count(), location.first_interior()) {
-			(1, Some(Parachain(..))) => true,
-			_ => false,
-		}
-	}
-}
-
 pub fn gwei(x: u128) -> U256 {
 	U256::from(1_000_000_000u128).saturating_mul(x.into())
 }
