@@ -127,41 +127,41 @@ mod bonded_pool {
 			};
 
 			// 1 points : 1 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			assert_eq!(bonded_pool.balance_to_point(10), 10);
 			assert_eq!(bonded_pool.balance_to_point(0), 0);
 
 			// 2 points : 1 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 50);
+			set_pool_balance(bonded_pool.bonded_account(), 50);
 			assert_eq!(bonded_pool.balance_to_point(10), 20);
 
 			// 1 points : 2 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			bonded_pool.points = 50;
 			assert_eq!(bonded_pool.balance_to_point(10), 5);
 
 			// 100 points : 0 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 0);
+			set_pool_balance(bonded_pool.bonded_account(), 0);
 			bonded_pool.points = 100;
 			assert_eq!(bonded_pool.balance_to_point(10), 100 * 10);
 
 			// 0 points : 100 balance
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			bonded_pool.points = 0;
 			assert_eq!(bonded_pool.balance_to_point(10), 10);
 
 			// 10 points : 3 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 30);
+			set_pool_balance(bonded_pool.bonded_account(), 30);
 			bonded_pool.points = 100;
 			assert_eq!(bonded_pool.balance_to_point(10), 33);
 
 			// 2 points : 3 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 300);
+			set_pool_balance(bonded_pool.bonded_account(), 300);
 			bonded_pool.points = 200;
 			assert_eq!(bonded_pool.balance_to_point(10), 6);
 
 			// 4 points : 9 balance ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 900);
+			set_pool_balance(bonded_pool.bonded_account(), 900);
 			bonded_pool.points = 400;
 			assert_eq!(bonded_pool.balance_to_point(90), 40);
 		})
@@ -182,7 +182,7 @@ mod bonded_pool {
 				},
 			};
 
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			assert_eq!(bonded_pool.points_to_balance(10), 10);
 			assert_eq!(bonded_pool.points_to_balance(0), 0);
 
@@ -191,27 +191,27 @@ mod bonded_pool {
 			assert_eq!(bonded_pool.points_to_balance(10), 20);
 
 			// 100 balance : 0 points ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			bonded_pool.points = 0;
 			assert_eq!(bonded_pool.points_to_balance(10), 0);
 
 			// 0 balance : 100 points ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 0);
+			set_pool_balance(bonded_pool.bonded_account(), 0);
 			bonded_pool.points = 100;
 			assert_eq!(bonded_pool.points_to_balance(10), 0);
 
 			// 10 balance : 3 points ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 100);
+			set_pool_balance(bonded_pool.bonded_account(), 100);
 			bonded_pool.points = 30;
 			assert_eq!(bonded_pool.points_to_balance(10), 33);
 
 			// 2 balance : 3 points ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 200);
+			set_pool_balance(bonded_pool.bonded_account(), 200);
 			bonded_pool.points = 300;
 			assert_eq!(bonded_pool.points_to_balance(10), 6);
 
 			// 4 balance : 9 points ratio
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), 400);
+			set_pool_balance(bonded_pool.bonded_account(), 400);
 			bonded_pool.points = 900;
 			assert_eq!(bonded_pool.points_to_balance(90), 40);
 		})
@@ -269,27 +269,27 @@ mod bonded_pool {
 				<<Runtime as Config>::MaxPointsToBalance as Get<u8>>::get().into();
 
 			// Simulate a 100% slashed pool
-			StakingMock::set_bonded_balance(pool.bonded_account(), 0);
+			set_pool_balance(pool.bonded_account(), 0);
 			assert_noop!(pool.ok_to_join(), Error::<Runtime>::OverflowRisk);
 
 			// Simulate a slashed pool at `MaxPointsToBalance` + 1 slashed pool
-			StakingMock::set_bonded_balance(
+			set_pool_balance(
 				pool.bonded_account(),
 				max_points_to_balance.saturating_add(1),
 			);
 			assert_ok!(pool.ok_to_join());
 
 			// Simulate a slashed pool at `MaxPointsToBalance`
-			StakingMock::set_bonded_balance(pool.bonded_account(), max_points_to_balance);
+			set_pool_balance(pool.bonded_account(), max_points_to_balance);
 			assert_noop!(pool.ok_to_join(), Error::<Runtime>::OverflowRisk);
 
-			StakingMock::set_bonded_balance(
+			set_pool_balance(
 				pool.bonded_account(),
 				Balance::MAX / max_points_to_balance,
 			);
 
 			// and a sanity check
-			StakingMock::set_bonded_balance(
+			set_pool_balance(
 				pool.bonded_account(),
 				Balance::MAX / max_points_to_balance - 1,
 			);
@@ -310,7 +310,7 @@ mod bonded_pool {
 					state: PoolState::Open,
 				},
 			};
-			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), u128::MAX);
+			set_pool_balance(bonded_pool.bonded_account(), u128::MAX);
 
 			// Max out the points and balance of the pool and make sure the conversion works as
 			// expected and does not overflow.
@@ -728,7 +728,7 @@ mod join {
 			);
 
 			// Force the pools bonded balance to 0, simulating a 100% slash
-			StakingMock::set_bonded_balance(Pools::generate_bonded_account(1), 0);
+			set_pool_balance(Pools::generate_bonded_account(1), 0);
 			assert_noop!(
 				Pools::join(RuntimeOrigin::signed(11), 420, 1),
 				Error::<Runtime>::OverflowRisk
@@ -754,7 +754,7 @@ mod join {
 			let max_points_to_balance: u128 =
 				<<Runtime as Config>::MaxPointsToBalance as Get<u8>>::get().into();
 
-			StakingMock::set_bonded_balance(
+			set_pool_balance(
 				Pools::generate_bonded_account(123),
 				max_points_to_balance,
 			);
@@ -763,7 +763,7 @@ mod join {
 				Error::<Runtime>::OverflowRisk
 			);
 
-			StakingMock::set_bonded_balance(
+			set_pool_balance(
 				Pools::generate_bonded_account(123),
 				Balance::MAX / max_points_to_balance,
 			);
@@ -773,7 +773,7 @@ mod join {
 				TokenError::FundsUnavailable,
 			);
 
-			StakingMock::set_bonded_balance(
+			set_pool_balance(
 				Pools::generate_bonded_account(1),
 				max_points_to_balance,
 			);
@@ -807,7 +807,7 @@ mod join {
 	#[cfg_attr(not(debug_assertions), should_panic)]
 	fn join_panics_when_reward_pool_not_found() {
 		ExtBuilder::default().build_and_execute(|| {
-			StakingMock::set_bonded_balance(Pools::generate_bonded_account(123), 100);
+			set_pool_balance(Pools::generate_bonded_account(123), 100);
 			BondedPool::<Runtime> {
 				id: 123,
 				inner: BondedPoolInner {

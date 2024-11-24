@@ -165,7 +165,9 @@ impl sp_staking::StakingInterface for StakingMock {
 		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
 
 		// if there was a withdrawal, notify the pallet.
-		Pools::on_withdraw(&who, unlocking_before.saturating_sub(unlocking(&staker_map)));
+		let withdraw_amount = unlocking_before.saturating_sub(unlocking(&staker_map));
+		Pools::on_withdraw(&who, withdraw_amount);
+		DelegateMock::on_withdraw(who, withdraw_amount);
 
 		UnbondingBalanceMap::set(&unbonding_map);
 		Ok(UnbondingBalanceMap::get().get(&who).unwrap().is_empty() &&
@@ -273,12 +275,16 @@ impl DelegationInterface for DelegateMock {
 		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
-		AgentBalanceMap::get().insert(agent.get(), (0, 0, 0));
+		let mut agents = AgentBalanceMap::get();
+		agents.insert(agent.get(), (0, 0, 0));
+		AgentBalanceMap::set(&agents);
 		Ok(())
 	}
 
 	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult {
-		AgentBalanceMap::get().remove(&agent.get());
+		let mut agents = AgentBalanceMap::get();
+		agents.remove(&agent.get());
+		AgentBalanceMap::set(&agents);
 		Ok(())
 	}
 
@@ -353,9 +359,22 @@ impl DelegationInterface for DelegateMock {
 }
 
 impl DelegateMock {
+	pub(crate) fn set_agent_balance(who: AccountId, delegated: Balance) {
+		let mut agents = AgentBalanceMap::get();
+		agents.insert(who, (delegated, 0, 0));
+		AgentBalanceMap::set(&agents);
+	}
+
 	fn on_slash(agent: AccountId, amount: Balance) {
 		let mut agents = AgentBalanceMap::get();
 		agents.get_mut(&agent).map(|(_, _, p)| *p += amount);
+		AgentBalanceMap::set(&agents);
+	}
+
+	fn on_withdraw(agent: AccountId, amount: Balance) {
+		let mut agents = AgentBalanceMap::get();
+		// if agent exists, add the amount to unclaimed withdrawals.
+		agents.get_mut(&agent).map(|(_, u, _)| *u += amount);
 		AgentBalanceMap::set(&agents);
 	}
 }
@@ -671,6 +690,11 @@ pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
 	} else {
 		RewardImbalance::Surplus(current_balance - pending_rewards)
 	}
+}
+
+pub(crate) fn set_pool_balance(who: AccountId, amount: Balance) {
+	StakingMock::set_bonded_balance(who, amount);
+	DelegateMock::set_agent_balance(who, amount);
 }
 
 #[cfg(test)]
