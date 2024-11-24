@@ -78,6 +78,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::vec::Vec;
+/*
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	pallet_prelude::*,
@@ -86,7 +87,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use sp_runtime::{traits::Dispatchable, DispatchResult};
-
+*/
+use frame::{prelude::*, traits::{CallMetadata, Contains, Dispatchable, GetCallMetadata, IsSubType, IsType, TransactionPause,TransactionPauseError}, deps::{frame_support::{dispatch::GetDispatchInfo, DefaultNoBound}}};
 pub use pallet::*;
 pub use weights::*;
 
@@ -101,7 +103,8 @@ pub type PalletCallNameOf<T> = BoundedVec<u8, <T as Config>::MaxNameLen>;
 /// to partially or fully specify an item a variant of a  [`Config::RuntimeCall`].
 pub type RuntimeCallNameOf<T> = (PalletNameOf<T>, PalletCallNameOf<T>);
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -294,7 +297,7 @@ where
 	}
 }
 
-impl<T: Config> frame_support::traits::TransactionPause for Pallet<T> {
+impl<T: Config> TransactionPause for Pallet<T> {
 	type CallIdentifier = RuntimeCallNameOf<T>;
 
 	fn is_paused(full_name: Self::CallIdentifier) -> bool {
@@ -307,18 +310,18 @@ impl<T: Config> frame_support::traits::TransactionPause for Pallet<T> {
 
 	fn pause(
 		full_name: Self::CallIdentifier,
-	) -> Result<(), frame_support::traits::TransactionPauseError> {
+	) -> Result<(), TransactionPauseError> {
 		Self::do_pause(full_name).map_err(Into::into)
 	}
 
 	fn unpause(
 		full_name: Self::CallIdentifier,
-	) -> Result<(), frame_support::traits::TransactionPauseError> {
+	) -> Result<(), TransactionPauseError> {
 		Self::do_unpause(full_name).map_err(Into::into)
 	}
 }
 
-impl<T: Config> From<Error<T>> for frame_support::traits::TransactionPauseError {
+impl<T: Config> From<Error<T>> for TransactionPauseError {
 	fn from(err: Error<T>) -> Self {
 		match err {
 			Error::<T>::NotFound => Self::NotFound,
