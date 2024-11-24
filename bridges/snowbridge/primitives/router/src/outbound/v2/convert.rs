@@ -40,6 +40,7 @@ pub enum XcmConverterError {
 	TransactDecodeFailed,
 	TransactParamsDecodeFailed,
 	FeeAssetResolutionFailed,
+	CallContractValueInsufficient,
 }
 
 macro_rules! match_expression {
@@ -173,6 +174,7 @@ where
 		}
 
 		let mut commands: Vec<Command> = Vec::new();
+		let mut weth_amount = 0;
 
 		// ENA transfer commands
 		if let Some(enas) = enas {
@@ -197,6 +199,10 @@ where
 
 				// transfer amount must be greater than 0.
 				ensure!(amount > 0, ZeroAssetTransfer);
+
+				if token == WETHAddress::get() {
+					weth_amount = amount;
+				}
 
 				commands.push(Command::UnlockNativeToken {
 					agent_id: self.agent_id,
@@ -261,8 +267,7 @@ where
 					let params = CallContractParams::decode_all(&mut message.params.as_slice())
 						.map_err(|_| TransactParamsDecodeFailed)?;
 					if params.value > 0 {
-						//Todo: Ensure amount of WETH deposit to the agent in same message can
-						// cover the value here
+						ensure!(weth_amount > params.value, CallContractValueInsufficient);
 					}
 					commands.push(Command::CallContract {
 						target: params.target,
