@@ -1,0 +1,13 @@
+title: Increase default trie cache size to 1GiB
+doc:
+- audience: Node Operator
+  description: "The default trie cache size before was set to `64MiB`, which is quite\
+    \ low to achieve real speed ups. `1GiB` should be a reasonable number as the requirements\
+    \ for validators/collators/full nodes are much higher when it comes to minimum\
+    \ memory requirements. Also the cache will not use `1GiB` from the start and fills\
+    \ over time. The setting can be changed by setting `--trie-cache-size BYTE_SIZE`.\
+    The CLI option `--state-cache-size` is also removed, which was not having any effect anymore.\r\
+    \n"
+crates:
+- name: sc-cli
+  bump: patch
