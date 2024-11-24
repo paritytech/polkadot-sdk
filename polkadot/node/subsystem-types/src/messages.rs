@@ -250,9 +250,6 @@ pub enum CollatorProtocolMessage {
 		/// The core index where the candidate should be backed.
 		core_index: CoreIndex,
 	},
-	/// Report a collator as having provided an invalid collation. This should lead to disconnect
-	/// and blacklist of the collator.
-	ReportCollator(CollatorId),
 	/// Get a network bridge update.
 	#[from]
 	NetworkBridgeUpdate(NetworkBridgeEvent<net_protocol::CollatorProtocolMessage>),
