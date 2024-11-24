@@ -697,6 +697,11 @@ pub(crate) fn set_pool_balance(who: AccountId, amount: Balance) {
 	DelegateMock::set_agent_balance(who, amount);
 }
 
+pub fn member_balance(who: AccountId) -> Balance {
+	<T as Config>::StakeAdapter::member_delegation_balance(Member::from(who))
+		.expect("who must be a pool member")
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;

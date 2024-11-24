@@ -24,6 +24,7 @@ use sp_runtime::{
 	traits::{BadOrigin, Dispatchable},
 	FixedU128,
 };
+use sp_staking::{DelegationInterface, Delegator};
 
 macro_rules! unbonding_pools_with_era {
 	($($k:expr => $v:expr),* $(,)?) => {{
@@ -273,26 +274,17 @@ mod bonded_pool {
 			assert_noop!(pool.ok_to_join(), Error::<Runtime>::OverflowRisk);
 
 			// Simulate a slashed pool at `MaxPointsToBalance` + 1 slashed pool
-			set_pool_balance(
-				pool.bonded_account(),
-				max_points_to_balance.saturating_add(1),
-			);
+			set_pool_balance(pool.bonded_account(), max_points_to_balance.saturating_add(1));
 			assert_ok!(pool.ok_to_join());
 
 			// Simulate a slashed pool at `MaxPointsToBalance`
 			set_pool_balance(pool.bonded_account(), max_points_to_balance);
 			assert_noop!(pool.ok_to_join(), Error::<Runtime>::OverflowRisk);
 
-			set_pool_balance(
-				pool.bonded_account(),
-				Balance::MAX / max_points_to_balance,
-			);
+			set_pool_balance(pool.bonded_account(), Balance::MAX / max_points_to_balance);
 
 			// and a sanity check
-			set_pool_balance(
-				pool.bonded_account(),
-				Balance::MAX / max_points_to_balance - 1,
-			);
+			set_pool_balance(pool.bonded_account(), Balance::MAX / max_points_to_balance - 1);
 			assert_ok!(pool.ok_to_join());
 		});
 	}
@@ -754,10 +746,7 @@ mod join {
 			let max_points_to_balance: u128 =
 				<<Runtime as Config>::MaxPointsToBalance as Get<u8>>::get().into();
 
-			set_pool_balance(
-				Pools::generate_bonded_account(123),
-				max_points_to_balance,
-			);
+			set_pool_balance(Pools::generate_bonded_account(123), max_points_to_balance);
 			assert_noop!(
 				Pools::join(RuntimeOrigin::signed(11), 420, 123),
 				Error::<Runtime>::OverflowRisk
@@ -773,10 +762,7 @@ mod join {
 				TokenError::FundsUnavailable,
 			);
 
-			set_pool_balance(
-				Pools::generate_bonded_account(1),
-				max_points_to_balance,
-			);
+			set_pool_balance(Pools::generate_bonded_account(1), max_points_to_balance);
 
 			// Cannot join a pool that isn't open
 			unsafe_set_state(123, PoolState::Blocked);
@@ -5221,13 +5207,15 @@ mod bond_extra {
 			// given
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 10);
-			assert_eq!(Currency::free_balance(&10), 35);
+			// 10 has delegated 10 tokens to the pool.
+			assert_eq!(member_balance(10), 10);
 
 			// when
 			assert_ok!(Pools::bond_extra(RuntimeOrigin::signed(10), BondExtra::Rewards));
 
 			// then
-			assert_eq!(Currency::free_balance(&10), 35);
+			// delegator balance is increased by the claimable reward.
+			assert_eq!(member_balance(10), 10 + claimable_reward);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10 + claimable_reward);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 10 + claimable_reward);
 
@@ -5320,8 +5308,8 @@ mod bond_extra {
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30);
-			assert_eq!(Currency::free_balance(&10), 35);
-			assert_eq!(Currency::free_balance(&20), 20);
+			assert_eq!(member_balance(10), 10);
+			assert_eq!(member_balance(20), 20);
 
 			// Permissioned by default
 			assert_noop!(
@@ -5337,7 +5325,7 @@ mod bond_extra {
 			assert_eq!(Currency::free_balance(&default_reward_account()), 7);
 
 			// then
-			assert_eq!(Currency::free_balance(&10), 35);
+			assert_eq!(member_balance(10), 10 + 1);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().points, 10 + 1);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 30 + 1);
 
@@ -5355,7 +5343,7 @@ mod bond_extra {
 			));
 
 			// then
-			assert_eq!(Currency::free_balance(&20), 12);
+			assert_eq!(member_balance(20), 20 + 10);
 			assert_eq!(Currency::free_balance(&default_reward_account()), 5);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 30);
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 41);
