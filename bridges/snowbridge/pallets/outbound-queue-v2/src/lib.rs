@@ -139,6 +139,8 @@ pub mod pallet {
 		type ConvertAssetId: MaybeEquivalence<TokenId, Location>;
 
 		type EthereumNetwork: Get<NetworkId>;
+
+		type WETHAddress: Get<H160>;
 	}
 
 	#[pallet::event]

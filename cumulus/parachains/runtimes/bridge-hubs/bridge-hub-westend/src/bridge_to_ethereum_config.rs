@@ -58,12 +58,17 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	EthereumSystem,
 >;
 
+parameter_types! {
+	pub storage WETHAddress: H160 = H160(hex_literal::hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"));
+}
+
 pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	UniversalLocation,
 	EthereumNetwork,
 	snowbridge_pallet_outbound_queue_v2::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
 	EthereumSystem,
+	WETHAddress,
 >;
 
 // Ethereum Bridge
@@ -143,6 +148,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type RewardLedger = ();
 	type ConvertAssetId = EthereumSystem;
 	type EthereumNetwork = EthereumNetwork;
+	type WETHAddress = WETHAddress;
 }
 
 #[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]

@@ -11,7 +11,7 @@ use frame_support::{
 	traits::{Contains, Get, ProcessMessageError},
 };
 use snowbridge_core::{outbound::v2::SendMessage, TokenId};
-use sp_core::H256;
+use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{marker::PhantomData, ops::ControlFlow, prelude::*};
 use xcm::prelude::*;
@@ -26,6 +26,7 @@ pub struct EthereumBlobExporter<
 	OutboundQueue,
 	AgentHashedDescription,
 	ConvertAssetId,
+	WETHAddress,
 >(
 	PhantomData<(
 		UniversalLocation,
@@ -33,17 +34,25 @@ pub struct EthereumBlobExporter<
 		OutboundQueue,
 		AgentHashedDescription,
 		ConvertAssetId,
+		WETHAddress,
 	)>,
 );
 
-impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, ConvertAssetId>
-	ExportXcm
+impl<
+		UniversalLocation,
+		EthereumNetwork,
+		OutboundQueue,
+		AgentHashedDescription,
+		ConvertAssetId,
+		WETHAddress,
+	> ExportXcm
 	for EthereumBlobExporter<
 		UniversalLocation,
 		EthereumNetwork,
 		OutboundQueue,
 		AgentHashedDescription,
 		ConvertAssetId,
+		WETHAddress,
 	>
 where
 	UniversalLocation: Get<InteriorLocation>,
@@ -51,6 +60,7 @@ where
 	OutboundQueue: SendMessage<Balance = u128>,
 	AgentHashedDescription: ConvertLocation<H256>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	WETHAddress: Get<H160>,
 {
 	type Ticket = (Vec<u8>, XcmHash);
 
@@ -123,8 +133,11 @@ where
 		);
 		ensure!(result.is_err(), SendError::NotApplicable);
 
-		let mut converter =
-			XcmConverter::<ConvertAssetId, ()>::new(&message, expected_network, agent_id);
+		let mut converter = XcmConverter::<ConvertAssetId, WETHAddress, ()>::new(
+			&message,
+			expected_network,
+			agent_id,
+		);
 		let message = converter.convert().map_err(|err| {
 			log::error!(target: TARGET, "unroutable due to pattern matching error '{err:?}'.");
 			SendError::Unroutable

@@ -40,7 +40,7 @@ pub fn dry_run<T>(xcm: Xcm<()>) -> Result<(InboundMessage, T::Balance), DryRunEr
 where
 	T: Config,
 {
-	let mut converter = XcmConverter::<T::ConvertAssetId, ()>::new(
+	let mut converter = XcmConverter::<T::ConvertAssetId, T::WETHAddress, ()>::new(
 		&xcm,
 		T::EthereumNetwork::get(),
 		AgentIdOf::convert_location(&Location::new(1, Parachain(1000)))

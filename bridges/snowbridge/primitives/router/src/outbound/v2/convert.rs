@@ -4,7 +4,7 @@
 
 use codec::DecodeAll;
 use core::slice::Iter;
-use frame_support::{ensure, BoundedVec};
+use frame_support::{ensure, traits::Get, BoundedVec};
 use snowbridge_core::{
 	outbound::v2::{Command, Message},
 	transact::{CallContractParams, RegisterTokenParams, TransactInfo, TransactKind::*},
@@ -38,6 +38,8 @@ pub enum XcmConverterError {
 	AliasOriginExpected,
 	InvalidOrigin,
 	TransactDecodeFailed,
+	TransactParamsDecodeFailed,
+	FeeAssetResolutionFailed,
 }
 
 macro_rules! match_expression {
@@ -49,15 +51,16 @@ macro_rules! match_expression {
 	};
 }
 
-pub struct XcmConverter<'a, ConvertAssetId, Call> {
+pub struct XcmConverter<'a, ConvertAssetId, WETHAddress, Call> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
 	ethereum_network: NetworkId,
 	agent_id: AgentId,
-	_marker: PhantomData<ConvertAssetId>,
+	_marker: PhantomData<(ConvertAssetId, WETHAddress)>,
 }
-impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
+impl<'a, ConvertAssetId, WETHAddress, Call> XcmConverter<'a, ConvertAssetId, WETHAddress, Call>
 where
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	WETHAddress: Get<H160>,
 {
 	pub fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId, agent_id: AgentId) -> Self {
 		Self {
@@ -96,12 +99,19 @@ where
 			.ok_or(WithdrawAssetExpected)?;
 		let fee_asset =
 			match_expression!(self.next()?, PayFees { asset: fee }, fee).ok_or(InvalidFeeAsset)?;
-		// Todo: Validate fee asset is WETH
-		let fee_amount = match fee_asset {
-			Asset { id: _, fun: Fungible(amount) } => Some(*amount),
+		let (fee_asset_id, fee_amount) = match fee_asset {
+			Asset { id: asset_id, fun: Fungible(amount) } => Some((asset_id, *amount)),
 			_ => None,
 		}
 		.ok_or(AssetResolutionFailed)?;
+		let weth_address = match_expression!(
+			fee_asset_id.0.unpack(),
+			(0, [AccountKey20 { network, key }])
+				if self.network_matches(network),
+			H160(*key)
+		)
+		.ok_or(FeeAssetResolutionFailed)?;
+		ensure!(weth_address == WETHAddress::get(), InvalidFeeAsset);
 		Ok(fee_amount)
 	}
 
@@ -112,6 +122,7 @@ where
 	/// # ReserveAssetDeposited(PNA) | WithdrawAsset(ENA)
 	/// # AliasOrigin(Origin)
 	/// # DepositAsset(PNA|ENA)
+	/// # Transact() ---Optional
 	/// # SetTopic
 	fn to_ethereum_message(&mut self) -> Result<Message, XcmConverterError> {
 		use XcmConverterError::*;
@@ -236,7 +247,7 @@ where
 				RegisterAgent => commands.push(Command::CreateAgent {}),
 				RegisterToken => {
 					let params = RegisterTokenParams::decode_all(&mut message.params.as_slice())
-						.map_err(|_| TransactDecodeFailed)?;
+						.map_err(|_| TransactParamsDecodeFailed)?;
 					let token_id =
 						TokenIdOf::convert_location(&params.location).ok_or(InvalidAsset)?;
 					commands.push(Command::RegisterForeignToken {
@@ -248,7 +259,7 @@ where
 				},
 				CallContract => {
 					let params = CallContractParams::decode_all(&mut message.params.as_slice())
-						.map_err(|_| TransactDecodeFailed)?;
+						.map_err(|_| TransactParamsDecodeFailed)?;
 					if params.value > 0 {
 						//Todo: Ensure amount of WETH deposit to the agent in same message can
 						// cover the value here
