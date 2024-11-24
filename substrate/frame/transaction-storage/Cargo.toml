@@ -20,48 +20,31 @@ array-bytes = { optional = true, workspace = true, default-features = true }
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
-frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame = { workspace = true, features = ["experimental", "runtime"] }
 pallet-balances = { workspace = true }
-sp-inherents = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
 sp-transaction-storage-proof = { workspace = true }
 log = { workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true }
 sp-transaction-storage-proof = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
 runtime-benchmarks = [
 	"array-bytes",
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 std = [
 	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-support/std",
-	"frame-system/std",
+	"frame/std",
 	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
-	"sp-core/std",
-	"sp-inherents/std",
-	"sp-io/std",
-	"sp-runtime/std",
 	"sp-transaction-storage-proof/std",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
+	"frame/try-runtime",
 	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime",
 ]
