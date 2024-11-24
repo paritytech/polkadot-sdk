@@ -45,21 +45,9 @@
 extern crate alloc;
 
 use codec::{Decode, Encode};
-use frame_support::{
-	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
-	pallet_prelude::TransactionSource,
-	traits::IsType,
-	DefaultNoBound,
-};
+use frame::{prelude::*, deps::{frame_support::{dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo}, traits::{IsType, tokens::AssetId}}, sp_runtime::{traits::{AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, RefundWeight, TransactionExtension, ValidateResult, Zero}, transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction}}}};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{
-		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, RefundWeight,
-		TransactionExtension, ValidateResult, Zero,
-	},
-	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
-};
 
 #[cfg(test)]
 mod mock;
@@ -71,7 +59,6 @@ pub mod weights;
 mod benchmarking;
 
 mod payment;
-use frame_support::{pallet_prelude::Weight, traits::tokens::AssetId};
 pub use payment::*;
 pub use weights::WeightInfo;
 
@@ -104,7 +91,8 @@ pub enum InitialPayment<T: Config> {
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+// #[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 

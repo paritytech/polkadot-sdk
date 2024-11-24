@@ -14,7 +14,9 @@
 // limitations under the License.
 
 use super::*;
-
+use frame::{prelude::*, deps::{frame_support::{assert_ok, dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo}, traits::{fungible::{Inspect, NativeOrWithId}, fungibles::{Inspect as FungiblesInspect, Mutate}, tokens::{Fortitude, Precision, Preservation}, OriginTrait}, weights::Weight}, frame_system::{self as system}, sp_runtime::{traits::{DispatchTransaction, StaticLookup}, BuildStorage}}};
+// use frame::testing_prelude::*;
+/*
 use frame_support::{
 	assert_ok,
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
@@ -28,13 +30,15 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system as system;
+*/
 use mock::{ExtrinsicBaseWeight, *};
 use pallet_balances::Call as BalancesCall;
+/*
 use sp_runtime::{
 	traits::{DispatchTransaction, StaticLookup},
 	BuildStorage,
 };
-
+*/
 const CALL: &<Runtime as frame_system::Config>::RuntimeCall =
 	&RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 2, value: 69 });
 
@@ -70,7 +74,7 @@ impl ExtBuilder {
 		TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.byte_fee);
 		WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
 	}
-	pub fn build(self) -> sp_io::TestExternalities {
+	pub fn build(self) -> frame::deps::sp_io::TestExternalities {
 		self.set_constants();
 		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Runtime> {
@@ -907,7 +911,7 @@ fn no_fee_and_no_weight_for_other_origins() {
 		assert!(origin.as_system_ref().unwrap().is_root());
 
 		let pd_res = Ok(());
-		let mut post_info = frame_support::dispatch::PostDispatchInfo {
+		let mut post_info = PostDispatchInfo {
 			actual_weight: Some(info.total_weight()),
 			pays_fee: Default::default(),
 		};
