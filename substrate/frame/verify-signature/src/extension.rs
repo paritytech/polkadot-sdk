@@ -20,20 +20,18 @@
 
 use crate::{Config, WeightInfo};
 use codec::{Decode, Encode};
-use scale_info::TypeInfo;
-/*
-use frame_support::{pallet_prelude::TransactionSource, traits::OriginTrait};
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{
-		transaction_extension::TransactionExtension, AsTransactionAuthorizedOrigin, DispatchInfoOf,
-		Dispatchable, Verify,
+use frame::{
+	hashing::blake2_256,
+	runtime::prelude::{
+		impl_tx_ext_default, InvalidTransaction, TransactionSource, TransactionValidityError,
+		ValidTransaction,
 	},
-	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
+	traits::{
+		AsTransactionAuthorizedOrigin, DispatchInfoOf, Dispatchable, OriginTrait,
+		TransactionExtension, Verify,
+	},
 };
-*/
-use frame::{traits::{TransactionExtension, Dispatchable, AsTransactionAuthorizedOrigin, DispatchInfoOf, Verify, OriginTrait}, runtime::prelude::{TransactionSource, ValidTransaction, InvalidTransaction, TransactionValidityError, impl_tx_ext_default}, hashing::blake2_256};
+use scale_info::TypeInfo;
 use sp_weights::Weight;
 
 /// Extension that, if enabled, validates a signature type against the payload constructed from the

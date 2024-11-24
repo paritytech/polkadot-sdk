@@ -22,23 +22,12 @@
 use super::*;
 
 use extension::VerifySignature;
-/*
-use frame_support::{
-	derive_impl,
-	dispatch::GetDispatchInfo,
-	pallet_prelude::{InvalidTransaction, TransactionSource, TransactionValidityError},
-	traits::OriginTrait,
+use frame::{
+	pallet_macros::derive_impl,
+	testing_prelude::*,
+	traits::{DispatchTransaction, OriginTrait},
 };
-;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	generic::ExtensionVersion,
-	testing::{TestSignature, UintAuthorityId},
-	traits::DispatchTransaction,
-};
-*/
 use frame_system::Call as SystemCall;
-use frame::{testing_prelude::*, pallet_macros::derive_impl, traits::{DispatchTransaction, OriginTrait}};
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(

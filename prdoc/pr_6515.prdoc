@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: migrate pallet-verify-signature to umbrella crate
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This pull request adapts the frame umbrella crate into pallet-verify-signature
+      by importing existing systems into the pallet.
+      
+
+crates:
+  - name: polkadot-sdk-frame
+    bump: minor
+  - name: pallet-verify-signature
+    bump: minor 
