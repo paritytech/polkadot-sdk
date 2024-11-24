@@ -44,28 +44,18 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use codec::{DecodeLimit, Encode, FullCodec};
-/*
-use frame_support::{
-	dispatch::{GetDispatchInfo, PostDispatchInfo},
-	ensure,
+use frame::{
+	deps::sp_api,
+	prelude::*,
 	traits::{QueryPreimage, StorePreimage},
-	weights::Weight,
 };
-*/
 use scale_info::TypeInfo;
-// use sp_runtime::traits::{Dispatchable, Hash};
-use frame::{prelude::*, traits::{QueryPreimage, StorePreimage}, deps::sp_api};
 
 pub use pallet::*;
 
-// #[frame_support::pallet]
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	/*
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	*/
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
