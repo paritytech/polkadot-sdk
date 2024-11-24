@@ -21,16 +21,17 @@
 
 use super::*;
 use crate as pallet_tx_pause;
-
-/*
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU64, Everything, InsideBoth, InstanceFilter},
+use frame::{
+	prelude::frame_system,
+	runtime::{
+		prelude::{
+			construct_runtime, derive_impl, ord_parameter_types, parameter_types, EnsureSignedBy,
+		},
+		testing_prelude::BuildStorage,
+	},
+	testing_prelude::TestExternalities,
+	traits::{BlakeTwo256, ConstU64, Everything, InsideBoth, InstanceFilter},
 };
-use frame_system::EnsureSignedBy;
-use sp_runtime::{traits::BlakeTwo256, BuildStorage};
-*/
-use frame::{prelude::frame_system, testing_prelude::TestExternalities, traits::{BlakeTwo256, ConstU64, Everything, InsideBoth, InstanceFilter}, runtime::{prelude::{derive_impl, parameter_types, EnsureSignedBy, construct_runtime, ord_parameter_types}, testing_prelude::BuildStorage}};
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {

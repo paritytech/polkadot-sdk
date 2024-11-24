@@ -78,17 +78,14 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::vec::Vec;
-/*
-use frame_support::{
-	dispatch::GetDispatchInfo,
-	pallet_prelude::*,
-	traits::{CallMetadata, Contains, GetCallMetadata, IsSubType, IsType},
-	DefaultNoBound,
+use frame::{
+	deps::frame_support::{dispatch::GetDispatchInfo, DefaultNoBound},
+	prelude::*,
+	traits::{
+		CallMetadata, Contains, Dispatchable, GetCallMetadata, IsSubType, IsType, TransactionPause,
+		TransactionPauseError,
+	},
 };
-use frame_system::pallet_prelude::*;
-use sp_runtime::{traits::Dispatchable, DispatchResult};
-*/
-use frame::{prelude::*, traits::{CallMetadata, Contains, Dispatchable, GetCallMetadata, IsSubType, IsType, TransactionPause,TransactionPauseError}, deps::{frame_support::{dispatch::GetDispatchInfo, DefaultNoBound}}};
 pub use pallet::*;
 pub use weights::*;
 
@@ -308,15 +305,11 @@ impl<T: Config> TransactionPause for Pallet<T> {
 		Self::ensure_can_pause(&full_name).is_ok()
 	}
 
-	fn pause(
-		full_name: Self::CallIdentifier,
-	) -> Result<(), TransactionPauseError> {
+	fn pause(full_name: Self::CallIdentifier) -> Result<(), TransactionPauseError> {
 		Self::do_pause(full_name).map_err(Into::into)
 	}
 
-	fn unpause(
-		full_name: Self::CallIdentifier,
-	) -> Result<(), TransactionPauseError> {
+	fn unpause(full_name: Self::CallIdentifier) -> Result<(), TransactionPauseError> {
 		Self::do_unpause(full_name).map_err(Into::into)
 	}
 }
