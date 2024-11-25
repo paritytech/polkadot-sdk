@@ -2066,28 +2066,12 @@ impl pallet_transaction_storage::Config for Runtime {
 		ConstU32<{ pallet_transaction_storage::DEFAULT_MAX_TRANSACTION_SIZE }>;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-pub struct VerifySignatureBenchmarkHelper;
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_verify_signature::BenchmarkHelper<MultiSignature, AccountId>
-	for VerifySignatureBenchmarkHelper
-{
-	fn create_signature(_entropy: &[u8], msg: &[u8]) -> (MultiSignature, AccountId) {
-		use sp_io::crypto::{sr25519_generate, sr25519_sign};
-		use sp_runtime::traits::IdentifyAccount;
-		let public = sr25519_generate(0.into(), None);
-		let who_account: AccountId = MultiSigner::Sr25519(public).into_account().into();
-		let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &public, msg).unwrap());
-		(signature, who_account)
-	}
-}
-
 impl pallet_verify_signature::Config for Runtime {
 	type Signature = MultiSignature;
 	type AccountIdentifier = MultiSigner;
 	type WeightInfo = pallet_verify_signature::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = VerifySignatureBenchmarkHelper;
+	type BenchmarkHelper = ();
 }
 
 impl pallet_whitelist::Config for Runtime {
@@ -2381,17 +2365,11 @@ pub type MetaTxExtension = (
 
 impl pallet_meta_tx::Config for Runtime {
 	type WeightInfo = ();
-	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type Signature = Signature;
-	type PublicKey = <Signature as sp_runtime::traits::Verify>::Signer;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Extension = MetaTxExtension;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = pallet_meta_tx::BenchmarkHelperFor<Runtime>;
 }
 
 #[frame_support::runtime]

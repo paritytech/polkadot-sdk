@@ -26,49 +26,77 @@ use frame_support::{
 };
 use sp_core::ConstU8;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-use sp_runtime::{traits::IdentityLookup, MultiSignature};
+use sp_runtime::{
+	traits::{IdentifyAccount, IdentityLookup, Verify},
+	MultiSignature,
+};
 
 pub type Balance = u64;
 
 pub type Signature = MultiSignature;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-pub type TxExtension = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckMortality<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-);
-
-pub type UncheckedExtrinsic =
-	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, Signature, TxExtension>;
-
-#[cfg(not(feature = "runtime-benchmarks"))]
-pub type MetaTxExtension = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckMortality<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-);
 #[cfg(feature = "runtime-benchmarks")]
 pub type MetaTxExtension = crate::benchmarking::types::WeightlessExtension<Runtime>;
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+pub use tx_ext::*;
+
+#[cfg(not(feature = "runtime-benchmarks"))]
+mod tx_ext {
+	use super::*;
+
+	pub type UncheckedExtrinsic =
+		sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, Signature, TxExtension>;
+
+	/// Transaction extension.
+	pub type TxExtension = (pallet_verify_signature::VerifySignature<Runtime>, TxBareExtension);
+
+	/// Transaction extension without signature information.
+	///
+	/// Helper type used to decode the part of the extension which should be signed.
+	pub type TxBareExtension = (
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckTxVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckMortality<Runtime>,
+		frame_system::CheckNonce<Runtime>,
+		frame_system::CheckWeight<Runtime>,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	);
+
+	pub const META_EXTENSION_VERSION: ExtensionVersion = 0;
+
+	/// Meta transaction extension.
+	pub type MetaTxExtension =
+		(pallet_verify_signature::VerifySignature<Runtime>, MetaTxBareExtension);
+
+	/// Meta transaction extension without signature information.
+	///
+	/// Helper type used to decode the part of the extension which should be signed.
+	pub type MetaTxBareExtension = (
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckTxVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckMortality<Runtime>,
+		frame_system::CheckNonce<Runtime>,
+	);
+}
+
 impl Config for Runtime {
 	type WeightInfo = ();
-	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type Signature = Signature;
-	type PublicKey = <Signature as Verify>::Signer;
 	type Extension = MetaTxExtension;
+}
+
+impl pallet_verify_signature::Config for Runtime {
+	type Signature = MultiSignature;
+	type AccountIdentifier = <Signature as Verify>::Signer;
+	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = crate::benchmarking::types::BenchmarkHelperFor<Self>;
+	type BenchmarkHelper = ();
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -103,6 +131,7 @@ construct_runtime!(
 		Balances: pallet_balances,
 		MetaTx: pallet_meta_tx,
 		TxPayment: pallet_transaction_payment,
+		VerifySignature: pallet_verify_signature,
 	}
 );
 

@@ -21,53 +21,13 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::traits::UnfilteredDispatchable;
 use sp_runtime::impl_tx_ext_default;
-use types::BenchmarkHelper;
 
 pub mod types {
 	use super::*;
-	use sp_io::crypto::{sr25519_generate, sr25519_sign};
-	use sp_runtime::{AccountId32, MultiSignature, MultiSigner};
+	use frame_support::traits::OriginTrait;
+	use sp_runtime::traits::DispatchInfoOf;
 
-	/// Trait for the config type that facilitates the benchmarking of the pallet.
-	pub trait BenchmarkHelper<AccountId, Signature, Call, Extension> {
-		/// Create a weightless call for the benchmark.
-		///
-		/// This is used to obtain the weight for the `dispatch` call excluding the weight of the
-		/// meta transaction's call.
-		///
-		/// E.g.: `frame_system::Call::remark` call with empty `remark`.
-		fn create_weightless_call() -> Call;
-		/// Create a signature for a meta transaction.
-		fn create_signature(call: Call, ext: Extension) -> (AccountId, Signature);
-	}
-
-	type CallOf<T> = <T as Config>::RuntimeCall;
-	type ExtensionOf<T> = <T as Config>::Extension;
-
-	pub struct BenchmarkHelperFor<T>(core::marker::PhantomData<T>);
-	impl<T: Config> BenchmarkHelper<AccountId32, MultiSignature, CallOf<T>, ExtensionOf<T>>
-		for BenchmarkHelperFor<T>
-	where
-		CallOf<T>: From<frame_system::Call<T>>,
-	{
-		fn create_weightless_call() -> CallOf<T> {
-			frame_system::Call::<T>::remark { remark: vec![] }.into()
-		}
-		fn create_signature(call: CallOf<T>, ext: ExtensionOf<T>) -> (AccountId32, MultiSignature) {
-			let public = sr25519_generate(0.into(), None);
-			(
-				MultiSigner::Sr25519(public).into_account().into(),
-				MultiSignature::Sr25519(
-					sr25519_sign(
-						0.into(),
-						&public,
-						&(call, ext.clone(), ext.implicit().unwrap()).encode(),
-					)
-					.unwrap(),
-				),
-			)
-		}
-	}
+	type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 	/// A weightless extension to facilitate the bare dispatch benchmark.
 	#[derive(TypeInfo, Eq, PartialEq, Clone, Encode, Decode)]
@@ -83,17 +43,32 @@ pub mod types {
 			WeightlessExtension(Default::default())
 		}
 	}
-	impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
-		for WeightlessExtension<T>
-	{
+	impl<T: Config + Send + Sync> TransactionExtension<CallOf<T>> for WeightlessExtension<T> {
 		const IDENTIFIER: &'static str = "WeightlessExtension";
 		type Implicit = ();
 		type Pre = ();
 		type Val = ();
-		fn weight(&self, _call: &<T as Config>::RuntimeCall) -> Weight {
+		fn weight(&self, _call: &CallOf<T>) -> Weight {
 			Weight::from_all(0)
 		}
-		impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
+		fn validate(
+			&self,
+			mut origin: <CallOf<T> as Dispatchable>::RuntimeOrigin,
+			_: &CallOf<T>,
+			_: &DispatchInfoOf<CallOf<T>>,
+			_: usize,
+			_: (),
+			_: &impl Encode,
+			_: TransactionSource,
+		) -> Result<
+			(ValidTransaction, Self::Val, <CallOf<T> as Dispatchable>::RuntimeOrigin),
+			TransactionValidityError,
+		> {
+			origin.set_caller_from_signed(whitelisted_caller());
+			Ok((ValidTransaction::default(), (), origin))
+		}
+
+		impl_tx_ext_default!(CallOf<T>; prepare);
 	}
 }
 
@@ -105,14 +80,13 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     where
         T: Config,
         <T as Config>::Extension: Default,
-        <T as Config>::RuntimeCall: From<frame_system::Call<T>>,
     )]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
 	fn bare_dispatch() {
-		let meta_call = T::BenchmarkHelper::create_weightless_call();
+		let meta_call = frame_system::Call::<T>::remark { remark: vec![] }.into();
 		let meta_ext = T::Extension::default();
 		let meta_ext_weight = meta_ext.weight(&meta_call);
 
@@ -124,11 +98,7 @@ mod benchmarks {
 			with the `runtime-benchmarks` feature enabled.",
 		);
 
-		let (signer, meta_sig) =
-			T::BenchmarkHelper::create_signature(meta_call.clone(), meta_ext.clone());
-
-		let meta_tx =
-			MetaTxFor::<T>::new(signer.clone(), meta_sig, meta_call.clone(), meta_ext.clone());
+		let meta_tx = MetaTxFor::<T>::new(meta_call.clone(), 0u8, meta_ext.clone());
 
 		let caller = whitelisted_caller();
 		let origin: <T as frame_system::Config>::RuntimeOrigin =

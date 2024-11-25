@@ -18,6 +18,7 @@
 use crate::*;
 use frame_support::traits::tokens::fungible::Inspect;
 use mock::*;
+use sp_io::hashing::blake2_256;
 use sp_keyring::AccountKeyring;
 use sp_runtime::{
 	generic::Era,
@@ -25,7 +26,9 @@ use sp_runtime::{
 	DispatchErrorWithPostInfo, MultiSignature,
 };
 
-fn create_tx_extension(account: AccountId) -> TxExtension {
+type VerifySignatureExt = pallet_verify_signature::VerifySignature<Runtime>;
+
+fn create_tx_bare_ext(account: AccountId) -> TxBareExtension {
 	(
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -40,8 +43,7 @@ fn create_tx_extension(account: AccountId) -> TxExtension {
 	)
 }
 
-#[cfg(not(feature = "runtime-benchmarks"))]
-fn create_meta_tx_extension(account: AccountId) -> MetaTxExtension {
+pub fn create_meta_tx_bare_ext(account: AccountId) -> MetaTxBareExtension {
 	(
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -54,18 +56,14 @@ fn create_meta_tx_extension(account: AccountId) -> MetaTxExtension {
 	)
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-fn create_meta_tx_extension(_account: AccountId) -> MetaTxExtension {
-	crate::benchmarking::types::WeightlessExtension::<Runtime>::default()
-}
-
 fn create_signature<Call: Encode, Ext: Encode + TransactionExtension<RuntimeCall>>(
 	call: Call,
 	ext: Ext,
 	signer: AccountKeyring,
 ) -> MultiSignature {
 	MultiSignature::Sr25519(
-		(call, ext.clone(), ext.implicit().unwrap()).using_encoded(|e| signer.sign(&e)),
+		(META_EXTENSION_VERSION, call, ext.clone(), ext.implicit().unwrap())
+			.using_encoded(|e| signer.sign(&blake2_256(e))),
 	)
 }
 
@@ -106,13 +104,18 @@ fn sign_and_execute_meta_tx() {
 
 		let remark_call =
 			RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
-		let meta_tx_ext = create_meta_tx_extension(alice_account.clone());
-		let meta_tx_sig = create_signature(remark_call.clone(), meta_tx_ext.clone(), alice_keyring);
+		let meta_tx_bare_ext = create_meta_tx_bare_ext(alice_account.clone());
+		let meta_tx_sig =
+			create_signature(remark_call.clone(), meta_tx_bare_ext.clone(), alice_keyring);
+		let meta_tx_ext = (
+			VerifySignatureExt::new_with_signature(meta_tx_sig, alice_account.clone()),
+			// append signed part.
+			meta_tx_bare_ext,
+		);
 
 		let meta_tx = MetaTxFor::<Runtime>::new(
-			alice_account.clone(),
-			meta_tx_sig,
 			remark_call.clone(),
+			META_EXTENSION_VERSION,
 			meta_tx_ext.clone(),
 		);
 
@@ -123,15 +126,15 @@ fn sign_and_execute_meta_tx() {
 
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
 		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: Box::new(meta_tx.clone()) });
-		let tx_ext = create_tx_extension(bob_account.clone());
-		let tx_sig = create_signature(call.clone(), tx_ext.clone(), bob_keyring);
-
-		let uxt = UncheckedExtrinsic::new_signed(
-			call.clone(),
-			bob_account.clone(),
-			tx_sig,
-			tx_ext.clone(),
+		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
+		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
+		let tx_ext = (
+			VerifySignatureExt::new_with_signature(tx_sig, bob_account.clone()),
+			// append signed part
+			tx_bare_ext,
 		);
+
+		let uxt = UncheckedExtrinsic::new_transaction(call.clone(), tx_ext.clone());
 
 		// Check Extrinsic validity and apply it.
 		let result = apply_extrinsic(uxt);
@@ -189,15 +192,22 @@ fn invalid_signature() {
 
 		let remark_call =
 			RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
-		let meta_tx_ext = create_meta_tx_extension(alice_account.clone());
+		let meta_tx_bare_ext = create_meta_tx_bare_ext(alice_account.clone());
 		// signature is invalid since it's signed by charlie instead of alice.
-		let invalid_meta_tx_sig =
-			create_signature(remark_call.clone(), meta_tx_ext.clone(), AccountKeyring::Charlie);
+		let invalid_meta_tx_sig = create_signature(
+			remark_call.clone(),
+			meta_tx_bare_ext.clone(),
+			AccountKeyring::Charlie,
+		);
+		let meta_tx_ext = (
+			VerifySignatureExt::new_with_signature(invalid_meta_tx_sig, alice_account.clone()),
+			// append signed part.
+			meta_tx_bare_ext,
+		);
 
 		let meta_tx = MetaTxFor::<Runtime>::new(
-			alice_account.clone(),
-			invalid_meta_tx_sig,
 			remark_call.clone(),
+			META_EXTENSION_VERSION,
 			meta_tx_ext.clone(),
 		);
 
@@ -208,10 +218,15 @@ fn invalid_signature() {
 
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
 		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: Box::new(meta_tx.clone()) });
-		let tx_ext = create_tx_extension(bob_account.clone());
-		let tx_sig = create_signature(call.clone(), tx_ext.clone(), bob_keyring);
+		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
+		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
+		let tx_ext = (
+			VerifySignatureExt::new_with_signature(tx_sig, bob_account.clone()),
+			// append signed part
+			tx_bare_ext,
+		);
 
-		let uxt = UncheckedExtrinsic::new_signed(call, bob_account.clone(), tx_sig, tx_ext);
+		let uxt = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
 		// Check Extrinsic validity and apply it.
 		let result = apply_extrinsic(uxt);
@@ -247,15 +262,16 @@ fn meta_tx_extension_work() {
 		let remark_call =
 			RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
 
-		let meta_tx_ext = create_meta_tx_extension(alice_account.clone());
-		let meta_tx_sig = create_signature(remark_call.clone(), meta_tx_ext.clone(), alice_keyring);
-
-		let meta_tx = MetaTxFor::<Runtime>::new(
-			alice_account.clone(),
-			meta_tx_sig,
-			remark_call.clone(),
-			meta_tx_ext.clone(),
+		let meta_tx_bare_ext = create_meta_tx_bare_ext(alice_account.clone());
+		let meta_tx_sig =
+			create_signature(remark_call.clone(), meta_tx_bare_ext.clone(), alice_keyring);
+		let meta_tx_ext = (
+			VerifySignatureExt::new_with_signature(meta_tx_sig, alice_account.clone()),
+			// append signed part.
+			meta_tx_bare_ext,
 		);
+
+		let meta_tx = MetaTxFor::<Runtime>::new(remark_call, META_EXTENSION_VERSION, meta_tx_ext);
 
 		// Encode and share with the world.
 		let meta_tx_encoded = meta_tx.encode();
@@ -264,10 +280,15 @@ fn meta_tx_extension_work() {
 
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
 		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: Box::new(meta_tx.clone()) });
-		let tx_ext = create_tx_extension(bob_account.clone());
-		let tx_sig = create_signature(call.clone(), tx_ext.clone(), bob_keyring);
+		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
+		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
+		let tx_ext = (
+			VerifySignatureExt::new_with_signature(tx_sig, bob_account.clone()),
+			// append signed part
+			tx_bare_ext,
+		);
 
-		let uxt = UncheckedExtrinsic::new_signed(call.clone(), bob_account.clone(), tx_sig, tx_ext);
+		let uxt = UncheckedExtrinsic::new_transaction(call, tx_ext);
 
 		// increment alice's nonce to invalidate the meta tx and verify that the
 		// meta tx extension works.
@@ -308,14 +329,18 @@ fn meta_tx_call_fails() {
 			value: alice_balance * 2,
 		});
 
-		let meta_tx_ext = create_meta_tx_extension(alice_account.clone());
+		let meta_tx_bare_ext = create_meta_tx_bare_ext(alice_account.clone());
 		let meta_tx_sig =
-			create_signature(transfer_call.clone(), meta_tx_ext.clone(), alice_keyring);
+			create_signature(transfer_call.clone(), meta_tx_bare_ext.clone(), alice_keyring);
+		let meta_tx_ext = (
+			VerifySignatureExt::new_with_signature(meta_tx_sig, alice_account.clone()),
+			// append signed part.
+			meta_tx_bare_ext,
+		);
 
 		let meta_tx = MetaTxFor::<Runtime>::new(
-			alice_account.clone(),
-			meta_tx_sig,
 			transfer_call.clone(),
+			META_EXTENSION_VERSION,
 			meta_tx_ext.clone(),
 		);
 
@@ -326,15 +351,15 @@ fn meta_tx_call_fails() {
 
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
 		let call = RuntimeCall::MetaTx(Call::dispatch { meta_tx: Box::new(meta_tx.clone()) });
-		let tx_ext = create_tx_extension(bob_account.clone());
-		let tx_sig = create_signature(call.clone(), tx_ext.clone(), bob_keyring);
-
-		let uxt = UncheckedExtrinsic::new_signed(
-			call.clone(),
-			bob_account.clone(),
-			tx_sig,
-			tx_ext.clone(),
+		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
+		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
+		let tx_ext = (
+			VerifySignatureExt::new_with_signature(tx_sig, bob_account.clone()),
+			// append signed part
+			tx_bare_ext,
 		);
+
+		let uxt = UncheckedExtrinsic::new_transaction(call.clone(), tx_ext.clone());
 
 		// Check Extrinsic validity and apply it.
 		let result = apply_extrinsic(uxt);

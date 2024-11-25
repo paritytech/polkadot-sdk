@@ -28,8 +28,9 @@ sp-io = { workspace = true}
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
+pallet-verify-signature = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
-sp-keystore ={ workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
 
 [features]
 default = ["std"] 
@@ -50,6 +51,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-verify-signature/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

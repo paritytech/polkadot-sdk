@@ -39,24 +39,27 @@
 //!
 //! ## Low-Level / Implementation Details
 //!
-//! The structure of a meta transaction is identical to a regular transaction. It includes the
-//! signer's address, signature, target call, and a configurable set of extensions. The signed
-//! payload consists of the call, extensions, and any implicit data required by the extensions.
-//! This payload can be represented using the [`sp_runtime::generic::SignedPayload`] type. The
-//! extensions follow the same [`TransactionExtension`] contract, and common types such as
-//! [`frame_system::CheckGenesis`], [`frame_system::CheckMortality`], [`frame_system::CheckNonce`],
-//! etc., are applicable in the context of meta transactions.
+//! The structure of a meta transaction is identical to the
+//! [`General`](sp_runtime::generic::Preamble::General) transaction.
+//! It contains the target call along with a configurable set of extensions and its associated
+//! version. Typically, these extensions include type like
+//! [pallet_verify_signature::VerifySignature], which provides the signer address
+//! and the signature of the payload, encompassing the call and the meta-transaction’s
+//! configurations, such as its mortality.  The extensions follow the same [`TransactionExtension`]
+//! contract, and common types such as [`frame_system::CheckGenesis`],
+//! [`frame_system::CheckMortality`], [`frame_system::CheckNonce`], etc., are applicable in the
+//! context of meta transactions. Check the [mock] setup for the example.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
 #[cfg(test)]
 mod mock;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "runtime-benchmarks")))]
 mod tests;
 pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
-pub use benchmarking::types::{BenchmarkHelper, BenchmarkHelperFor, WeightlessExtension};
+pub use benchmarking::types::WeightlessExtension;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
@@ -66,9 +69,11 @@ use frame_support::{
 	pallet_prelude::*,
 };
 use frame_system::{pallet_prelude::*, RawOrigin as SystemOrigin};
-use sp_runtime::traits::{
-	AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable, IdentifyAccount,
-	TransactionExtension, Verify,
+use sp_runtime::{
+	generic::ExtensionVersion,
+	traits::{
+		AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable, TransactionExtension,
+	},
 };
 use sp_std::prelude::*;
 
@@ -76,92 +81,60 @@ use sp_std::prelude::*;
 ///
 /// The data that is provided and signed by the signer and shared with the relayer.
 #[derive(Encode, Decode, PartialEq, Eq, TypeInfo, Clone, RuntimeDebug)]
-pub struct MetaTx<Address, Signature, Call, Extension> {
-	/// The signer's address.
-	address: Address,
-	/// The signature of the meta transaction.
-	signature: Signature,
+pub struct MetaTx<Call, Extension> {
 	/// The target call to be executed on behalf of the signer.
 	call: Call,
+	/// The extension version.
+	extension_version: ExtensionVersion,
 	/// The extension/s for the meta transaction.
 	extension: Extension,
 }
 
-impl<Address, Signature, Call, Extension> MetaTx<Address, Signature, Call, Extension> {
+impl<Call, Extension> MetaTx<Call, Extension> {
 	/// Create a new meta transaction.
-	pub fn new(address: Address, signature: Signature, call: Call, extension: Extension) -> Self {
-		Self { address, signature, call, extension }
+	pub fn new(call: Call, extension_version: ExtensionVersion, extension: Extension) -> Self {
+		Self { call, extension_version, extension }
 	}
 }
 
 /// The [`MetaTx`] for the given config.
-pub type MetaTxFor<T> = MetaTx<
-	<<T as Config>::PublicKey as IdentifyAccount>::AccountId,
-	<T as Config>::Signature,
-	<T as Config>::RuntimeCall,
-	<T as Config>::Extension,
->;
-
-/// The payload that has been signed for the [`MetaTx`].
-pub type SignedPayloadFor<T> =
-	sp_runtime::generic::SignedPayload<<T as Config>::RuntimeCall, <T as Config>::Extension>;
+pub type MetaTxFor<T> = MetaTx<<T as frame_system::Config>::RuntimeCall, <T as Config>::Extension>;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config:
+		frame_system::Config<
+		RuntimeCall: Dispatchable<
+			Info = DispatchInfo,
+			PostInfo = PostDispatchInfo,
+			RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin,
+		>,
+		RuntimeOrigin: AsTransactionAuthorizedOrigin + From<SystemOrigin<Self::AccountId>>,
+	>
+	{
 		/// Weight information for calls in this pallet.
 		type WeightInfo: WeightInfo;
-		/// The overarching origin type.
-		// We need extra `AsTransactionAuthorizedOrigin` bound to use `DispatchTransaction` impl.
-		type RuntimeOrigin: AsTransactionAuthorizedOrigin
-			+ From<SystemOrigin<Self::AccountId>>
-			+ IsType<<Self as frame_system::Config>::RuntimeOrigin>;
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// The overarching call type.
-		type RuntimeCall: Parameter
-			+ GetDispatchInfo
-			+ Dispatchable<
-				Info = DispatchInfo,
-				PostInfo = PostDispatchInfo,
-				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
-			> + IsType<<Self as frame_system::Config>::RuntimeCall>;
-		/// Signature type for meta transactions.
-		///
-		/// e.g., [`sp_runtime::MultiSignature`]
-		type Signature: Parameter + Verify<Signer = Self::PublicKey>;
-		/// Public key type used for signature verification.
-		///
-		/// The `Signer` of the [`Config::Signature`].
-		type PublicKey: IdentifyAccount<AccountId = Self::AccountId>;
 		/// Transaction extension/s for meta transactions.
 		///
 		/// The extensions that must be present in every meta transaction. This generally includes
-		/// extensions like [frame_system::CheckSpecVersion], [frame_system::CheckTxVersion],
+		/// extensions like [pallet_verify_signature::VerifySignature],
+		/// [frame_system::CheckSpecVersion], [frame_system::CheckTxVersion],
 		/// [frame_system::CheckGenesis], [frame_system::CheckMortality],
-		/// [frame_system::CheckNonce], etc.
+		/// [frame_system::CheckNonce], etc. Check the [mock] setup for the example.
 		///
 		/// The types implementing the [`TransactionExtension`] trait can be composed into a tuple
 		/// type that will implement the same trait by piping invocations through each type.
 		///
-		/// In the `runtime-benchmarks` environment the type must implement `Default` trait and the
-		/// extension weight must be zero. Use `pallet_meta_tx::WeightlessExtension` type when the
-		/// `runtime-benchmarks` feature enabled.
-		type Extension: TransactionExtension<<Self as Config>::RuntimeCall>;
-		/// The benchmark helper provides the necessary functions to create a call and a signature.
-		///
-		/// For runtime using [`sp_runtime::MultiSignature`] cryptography use
-		/// [`benchmarking::types::BenchmarkHelperFor`] implementation.
-		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: benchmarking::types::BenchmarkHelper<
-			Self::AccountId,
-			Self::Signature,
-			<Self as Config>::RuntimeCall,
-			Self::Extension,
-		>;
+		/// In the `runtime-benchmarks` environment the type must implement [`Default`] trait.
+		/// The extension must provide an origin and the extension's weight must be zero. Use
+		/// `pallet_meta_tx::WeightlessExtension` type when the `runtime-benchmarks` feature
+		/// enabled.
+		type Extension: TransactionExtension<<Self as frame_system::Config>::RuntimeCall>;
 	}
 
 	#[pallet::error]
@@ -174,6 +147,8 @@ pub mod pallet {
 		Stale,
 		/// The meta transactions's birth block is ancient.
 		AncientBirthBlock,
+		/// The transaction extension did not authorize any origin.
+		UnknownOrigin,
 		/// The meta transaction is invalid.
 		Invalid,
 	}
@@ -211,29 +186,25 @@ pub mod pallet {
 			_origin: OriginFor<T>,
 			meta_tx: Box<MetaTxFor<T>>,
 		) -> DispatchResultWithPostInfo {
+			let origin = SystemOrigin::None;
 			let meta_tx_size = meta_tx.encoded_size();
-
-			let signed_payload = SignedPayloadFor::<T>::new(meta_tx.call, meta_tx.extension)
-				.map_err(|_| Error::<T>::Invalid)?;
-
-			if !signed_payload
-				.using_encoded(|payload| meta_tx.signature.verify(payload, &meta_tx.address))
-			{
-				return Err(Error::<T>::BadProof.into());
-			}
-
-			let origin = SystemOrigin::Signed(meta_tx.address);
-			let (call, extension, _) = signed_payload.deconstruct();
 			// `info` with worst-case call weight and extension weight.
 			let info = {
-				let mut info = call.get_dispatch_info();
-				info.extension_weight = extension.weight(&call);
+				let mut info = meta_tx.call.get_dispatch_info();
+				info.extension_weight = meta_tx.extension.weight(&meta_tx.call);
 				info
 			};
 
 			// dispatch the meta transaction.
-			let meta_dispatch_res = extension
-				.dispatch_transaction(origin.into(), call, &info, meta_tx_size)
+			let meta_dispatch_res = meta_tx
+				.extension
+				.dispatch_transaction(
+					origin.into(),
+					meta_tx.call,
+					&info,
+					meta_tx_size,
+					meta_tx.extension_version,
+				)
 				.map_err(Error::<T>::from)?;
 
 			Self::deposit_event(Event::Dispatched { result: meta_dispatch_res });
@@ -259,6 +230,7 @@ pub mod pallet {
 					InvalidTransaction::Future => Error::<T>::Future,
 					InvalidTransaction::Stale => Error::<T>::Stale,
 					InvalidTransaction::AncientBirthBlock => Error::<T>::AncientBirthBlock,
+					InvalidTransaction::UnknownOrigin => Error::<T>::UnknownOrigin,
 					_ => Error::<T>::Invalid,
 				},
 			}
