@@ -4258,10 +4258,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 		// verify rewards are tracked to prevent double claims
 		for page in 0..EraInfo::<Test>::get_page_count(1, &11) {
-			assert_eq!(
-				EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(1, &11, page),
-				true
-			);
+			assert_eq!(EraInfo::<Test>::is_rewards_claimed(1, &11, page), true);
 		}
 
 		for i in 3..16 {
@@ -4283,10 +4280,7 @@ fn test_multi_page_payout_stakers_backward_compatible() {
 
 			// verify we track rewards for each era and page
 			for page in 0..EraInfo::<Test>::get_page_count(i - 1, &11) {
-				assert_eq!(
-					EraInfo::<Test>::is_rewards_claimed_with_legacy_fallback(i - 1, &11, page),
-					true
-				);
+				assert_eq!(EraInfo::<Test>::is_rewards_claimed(i - 1, &11, page), true);
 			}
 		}
 
