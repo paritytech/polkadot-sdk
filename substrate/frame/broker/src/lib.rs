@@ -349,7 +349,7 @@ pub mod pallet {
 			price: BalanceOf<T>,
 			/// The maximum number of cores which this pallet will attempt to assign.
 			core_count: CoreIndex,
-			/// 
+			/// Identifier for the current sale.
 			sale_id: u32,
 		},
 		/// The act of claiming revenue has begun.
