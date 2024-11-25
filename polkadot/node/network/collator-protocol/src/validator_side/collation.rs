@@ -315,14 +315,6 @@ impl Collations {
 			.map(|state| state.seconded_per_para)
 			.unwrap_or_default()
 	}
-
-	// Returns the number of claims in the claim queue for the specified `ParaId`.
-	pub(super) fn claims_for_para(&self, para_id: &ParaId) -> usize {
-		self.candidates_state
-			.get(para_id)
-			.map(|state| state.claims_per_para)
-			.unwrap_or_default()
-	}
 }
 
 // Any error that can occur when awaiting a collation fetch response.

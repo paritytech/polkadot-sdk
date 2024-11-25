@@ -345,7 +345,6 @@ impl View {
 			return vec![]
 		}
 
-		println!("DEBUG: leaves: {:?}", self.leaves);
 		// Find all paths from each outer leaf to `relay_parent`.
 		let mut paths = Vec::new();
 		for (leaf, _) in &self.leaves {
@@ -354,15 +353,15 @@ impl View {
 			let mut visited = HashSet::new();
 
 			loop {
-				path.push(current_leaf);
-
 				// If `relay_parent` is an outer leaf we'll immediately return an empty path (which
 				// is the desired behaviour).
-				if current_leaf == *relay_parent && !path.is_empty() {
+				if current_leaf == *relay_parent {
 					// path is complete
 					paths.push(path);
 					break
 				}
+
+				path.push(current_leaf);
 
 				current_leaf = match self.block_info_storage.get(&current_leaf) {
 					Some(info) => {
