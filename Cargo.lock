@@ -4680,6 +4680,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
  "futures",
+ "futures-timer",
  "polkadot-primitives 7.0.0",
  "sc-client-api",
  "sc-consensus",
