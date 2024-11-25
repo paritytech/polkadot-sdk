@@ -45,9 +45,7 @@ jsonrpsee = { workspace = true, features = ["full"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 sp-crypto-hashing = { workspace = true }
-subxt = { workspace = true, default-features = true, features = [
-	"unstable-reconnecting-rpc-client",
-] }
+subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
 tokio = { workspace = true, features = ["full"] }
 codec = { workspace = true, features = ["derive"] }
 log.workspace = true
@@ -65,16 +63,18 @@ rlp = { workspace = true, optional = true }
 subxt-signer = { workspace = true, optional = true, features = [
 	"unstable-eth",
 ] }
-hex = { workspace = true, optional = true }
+hex = { workspace = true }
 hex-literal = { workspace = true, optional = true }
 scale-info = { workspace = true }
 secp256k1 = { workspace = true, optional = true, features = ["recovery"] }
 env_logger = { workspace = true }
+ethabi = { version = "18.0.0" }
 
 [features]
-example = ["hex", "hex-literal", "rlp", "secp256k1", "subxt-signer"]
+example = ["hex-literal", "rlp", "secp256k1", "subxt-signer"]
 
 [dev-dependencies]
+static_init = { workspace = true }
 hex-literal = { workspace = true }
 pallet-revive-fixtures = { workspace = true }
 substrate-cli-test-utils = { workspace = true }

@@ -16,7 +16,7 @@
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
-	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned},
+	evm::api::{GenericTransaction, TransactionSigned},
 	AccountIdOf, AddressMapper, BalanceOf, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
@@ -293,7 +293,7 @@ pub trait EthExtra {
 		CallOf<Self::Config>: From<crate::Call<Self::Config>>,
 		<Self::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
-		let tx = rlp::decode::<TransactionLegacySigned>(&payload).map_err(|err| {
+		let tx = TransactionSigned::decode(&payload).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
 			InvalidTransaction::Call
 		})?;
@@ -305,32 +305,33 @@ pub trait EthExtra {
 
 		let signer =
 			<Self::Config as crate::Config>::AddressMapper::to_fallback_account_id(&signer);
-		let TransactionLegacyUnsigned { nonce, chain_id, to, value, input, gas, gas_price, .. } =
-			tx.transaction_legacy_unsigned;
+		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
+			GenericTransaction::from_signed(tx, None);
 
 		if chain_id.unwrap_or_default() != <Self::Config as crate::Config>::ChainId::get().into() {
 			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 			return Err(InvalidTransaction::Call);
 		}
 
-		let value = (value / U256::from(<Self::Config as crate::Config>::NativeToEthRatio::get()))
-			.try_into()
-			.map_err(|_| InvalidTransaction::Call)?;
+		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(value.unwrap_or_default())
+			.map_err(|err| {
+				log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
+				InvalidTransaction::Call
+			})?;
 
+		let data = input.unwrap_or_default().0;
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
 				dest,
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				data: input.0,
+				data,
 			}
 		} else {
-			let blob = match polkavm::ProgramBlob::blob_length(&input.0) {
-				Some(blob_len) => blob_len
-					.try_into()
-					.ok()
-					.and_then(|blob_len| (input.0.split_at_checked(blob_len))),
+			let blob = match polkavm::ProgramBlob::blob_length(&data) {
+				Some(blob_len) =>
+					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len))),
 				_ => None,
 			};
 
@@ -349,17 +350,18 @@ pub trait EthExtra {
 			}
 		};
 
-		let nonce = nonce.try_into().map_err(|_| InvalidTransaction::Call)?;
+		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
 
-		// Fees calculated with the fixed `GAS_PRICE` that should be used to estimate the gas.
+		// Fees calculated with the fixed `GAS_PRICE`
+		// When we dry-run the transaction, we set the gas to `Fee / GAS_PRICE`
 		let eth_fee_no_tip = U256::from(GAS_PRICE)
-			.saturating_mul(gas)
+			.saturating_mul(gas.unwrap_or_default())
 			.try_into()
 			.map_err(|_| InvalidTransaction::Call)?;
 
 		// Fees with the actual gas_price from the transaction.
-		let eth_fee: BalanceOf<Self::Config> = U256::from(gas_price)
-			.saturating_mul(gas)
+		let eth_fee: BalanceOf<Self::Config> = U256::from(gas_price.unwrap_or_default())
+			.saturating_mul(gas.unwrap_or_default())
 			.try_into()
 			.map_err(|_| InvalidTransaction::Call)?;
 
@@ -376,6 +378,8 @@ pub trait EthExtra {
 			.into();
 		log::trace!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
 
+		// The fees from the Ethereum transaction should be greater or equal to the actual fees paid
+		// by the account.
 		if eth_fee < actual_fee {
 			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee:?}");
 			return Err(InvalidTransaction::Payment.into())
@@ -410,47 +414,11 @@ mod test {
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
-	use rlp::Encodable;
 	use sp_runtime::{
 		traits::{Checkable, DispatchTransaction},
 		MultiAddress, MultiSignature,
 	};
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-
-	/// A simple account that can sign transactions
-	pub struct Account(subxt_signer::eth::Keypair);
-
-	impl Default for Account {
-		fn default() -> Self {
-			Self(subxt_signer::eth::dev::alith())
-		}
-	}
-
-	impl From<subxt_signer::eth::Keypair> for Account {
-		fn from(kp: subxt_signer::eth::Keypair) -> Self {
-			Self(kp)
-		}
-	}
-
-	impl Account {
-		/// Get the [`AccountId`] of the account.
-		pub fn account_id(&self) -> AccountIdOf<Test> {
-			let address = self.address();
-			<Test as crate::Config>::AddressMapper::to_fallback_account_id(&address)
-		}
-
-		/// Get the [`H160`] address of the account.
-		pub fn address(&self) -> H160 {
-			H160::from_slice(&self.0.account_id().as_ref())
-		}
-
-		/// Sign a transaction.
-		pub fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
-			let rlp_encoded = tx.rlp_bytes();
-			let signature = self.0.sign(&rlp_encoded);
-			TransactionLegacySigned::from(tx, signature.as_ref())
-		}
-	}
 
 	#[derive(Clone, PartialEq, Eq, Debug)]
 	pub struct Extra;
@@ -504,7 +472,7 @@ mod test {
 
 		fn estimate_gas(&mut self) {
 			let dry_run = crate::Pallet::<Test>::bare_eth_transact(
-				Account::default().account_id(),
+				Account::default().substrate_account(),
 				self.tx.to,
 				self.tx.value.try_into().unwrap(),
 				self.tx.input.clone().0,
@@ -550,11 +518,11 @@ mod test {
 			// Fund the account.
 			let account = Account::default();
 			let _ = <Test as crate::Config>::Currency::set_balance(
-				&account.account_id(),
+				&account.substrate_account(),
 				100_000_000_000_000,
 			);
 
-			let payload = account.sign_transaction(tx).rlp_bytes().to_vec();
+			let payload = account.sign_transaction(tx.into()).signed_payload();
 			let call = RuntimeCall::Contracts(crate::Call::eth_transact {
 				payload,
 				gas_limit,
@@ -574,6 +542,7 @@ mod test {
 				&result.function,
 				&result.function.get_dispatch_info(),
 				encoded_len,
+				0,
 			)?;
 
 			Ok((result.function, extra))
@@ -631,7 +600,7 @@ mod test {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Future))
 			);
 
-			<crate::System<Test>>::inc_account_nonce(Account::default().account_id());
+			<crate::System<Test>>::inc_account_nonce(Account::default().substrate_account());
 
 			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
 			assert_eq!(

@@ -75,6 +75,7 @@ use xcm_runtime_apis::{
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
+use xcm_executor::traits::{FeeManager, FeeReason};
 
 pub trait WeightInfo {
 	fn send() -> Weight;
@@ -240,7 +241,7 @@ pub mod pallet {
 		type XcmExecuteFilter: Contains<(Location, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers + FeeManager;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(Location, Vec<Asset>)>;
@@ -362,7 +363,10 @@ pub mod pallet {
 			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
 
 			let message_id = Self::send_xcm(interior, dest.clone(), message.clone())
-				.map_err(Error::<T>::from)?;
+				.map_err(|error| {
+					tracing::error!(target: "xcm::pallet_xcm::send", ?error, ?dest, ?message, "XCM send failed with error");
+					Error::<T>::from(error)
+				})?;
 			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
 			Self::deposit_event(e);
 			Ok(message_id)
@@ -1799,7 +1803,10 @@ impl<T: Config> Pallet<T> {
 
 		if let Some(remote_xcm) = remote_xcm {
 			let (ticket, price) = validate_send::<T::XcmRouter>(dest.clone(), remote_xcm.clone())
-				.map_err(Error::<T>::from)?;
+				.map_err(|error| {
+					tracing::error!(target: "xcm::pallet_xcm::execute_xcm_transfer", ?error, ?dest, ?remote_xcm, "XCM validate_send failed with error");
+					Error::<T>::from(error)
+				})?;
 			if origin != Here.into_location() {
 				Self::charge_fees(origin.clone(), price.clone()).map_err(|error| {
 					tracing::error!(
@@ -1809,7 +1816,11 @@ impl<T: Config> Pallet<T> {
 					Error::<T>::FeesNotMet
 				})?;
 			}
-			let message_id = T::XcmRouter::deliver(ticket).map_err(Error::<T>::from)?;
+			let message_id = T::XcmRouter::deliver(ticket)
+				.map_err(|error| {
+					tracing::error!(target: "xcm::pallet_xcm::execute_xcm_transfer", ?error, ?dest, ?remote_xcm, "XCM deliver failed with error");
+					Error::<T>::from(error)
+				})?;
 
 			let e = Event::Sent { origin, destination: dest, message: remote_xcm, message_id };
 			Self::deposit_event(e);
@@ -2468,17 +2479,17 @@ impl<T: Config> Pallet<T> {
 		mut message: Xcm<()>,
 	) -> Result<XcmHash, SendError> {
 		let interior = interior.into();
+		let local_origin = interior.clone().into();
 		let dest = dest.into();
-		let maybe_fee_payer = if interior != Junctions::Here {
+		let is_waived =
+			<T::XcmExecutor as FeeManager>::is_waived(Some(&local_origin), FeeReason::ChargeFees);
+		if interior != Junctions::Here {
 			message.0.insert(0, DescendOrigin(interior.clone()));
-			Some(interior.into())
-		} else {
-			None
-		};
+		}
 		tracing::debug!(target: "xcm::send_xcm", "{:?}, {:?}", dest.clone(), message.clone());
 		let (ticket, price) = validate_send::<T::XcmRouter>(dest, message)?;
-		if let Some(fee_payer) = maybe_fee_payer {
-			Self::charge_fees(fee_payer, price).map_err(|e| {
+		if !is_waived {
+			Self::charge_fees(local_origin, price).map_err(|e| {
 				tracing::error!(
 					target: "xcm::pallet_xcm::send_xcm",
 					?e,

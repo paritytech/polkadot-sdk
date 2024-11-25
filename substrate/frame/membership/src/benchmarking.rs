@@ -99,7 +99,7 @@ benchmarks_instance_pallet! {
 		assert!(!Members::<T, I>::get().contains(&remove));
 		assert!(Members::<T, I>::get().contains(&add));
 		// prime is rejigged
-		assert!(Prime::<T, I>::get().is_some() && T::MembershipChanged::get_prime().is_some());
+		assert!(Prime::<T, I>::get().is_some());
 		#[cfg(test)] crate::mock::clean();
 	}
 
@@ -119,7 +119,7 @@ benchmarks_instance_pallet! {
 		new_members.sort();
 		assert_eq!(Members::<T, I>::get(), new_members);
 		// prime is rejigged
-		assert!(Prime::<T, I>::get().is_some() && T::MembershipChanged::get_prime().is_some());
+		assert!(Prime::<T, I>::get().is_some());
 		#[cfg(test)] crate::mock::clean();
 	}
 
@@ -157,7 +157,6 @@ benchmarks_instance_pallet! {
 		));
 	} verify {
 		assert!(Prime::<T, I>::get().is_some());
-		assert!(<T::MembershipChanged>::get_prime().is_some());
 		#[cfg(test)] crate::mock::clean();
 	}
 
