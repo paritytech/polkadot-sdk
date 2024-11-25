@@ -22,7 +22,9 @@ use crate::{asset, ConfigOp, Pallet as Staking};
 use testing_utils::*;
 
 use codec::Decode;
-use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
+use frame_election_provider_support::{
+	bounds::DataProviderBounds, ElectionProviderBase, SortedListProvider,
+};
 use frame_support::{
 	assert_ok,
 	pallet_prelude::*,
@@ -128,7 +130,10 @@ pub fn create_validator_with_nominators<T: Config>(
 		assert_ok!(reward_map.try_insert(validator, reward));
 	}
 	// Give Era Points
-	let reward = EraRewardPoints::<T::AccountId, T::MaxActiveValidators> {
+	let reward = EraRewardPoints::<
+		T::AccountId,
+		<T::ElectionProvider as ElectionProviderBase>::MaxWinners,
+	> {
 		total: points_total,
 		individual: reward_map,
 	};
@@ -875,7 +880,10 @@ mod benchmarks {
 			assert_ok!(reward_map.try_insert(validator, reward));
 		}
 		// Give Era Points
-		let reward = EraRewardPoints::<T::AccountId, T::MaxActiveValidators> {
+		let reward = EraRewardPoints::<
+			T::AccountId,
+			<T::ElectionProvider as ElectionProviderBase>::MaxWinners,
+		> {
 			total: points_total,
 			individual: reward_map,
 		};

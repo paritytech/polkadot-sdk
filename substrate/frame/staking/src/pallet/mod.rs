@@ -301,10 +301,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
 
-		/// Maximum number of active validators in an era.
-		#[pallet::constant]
-		type MaxActiveValidators: Get<u32>;
-
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -353,7 +349,6 @@ pub mod pallet {
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
 			type MaxInvulnerables = ConstU32<4>;
-			type MaxActiveValidators = ConstU32<100>;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -623,7 +618,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		EraIndex,
-		EraRewardPoints<T::AccountId, T::MaxActiveValidators>,
+		EraRewardPoints<T::AccountId, <T::ElectionProvider as ElectionProviderBase>::MaxWinners>,
 		ValueQuery,
 	>;
 
@@ -725,8 +720,14 @@ pub mod pallet {
 	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which
 	/// represents how severe is the offence that got the validator disabled.
 	#[pallet::storage]
-	pub type DisabledValidators<T: Config> =
-		StorageValue<_, BoundedVec<(u32, OffenceSeverity), T::MaxActiveValidators>, ValueQuery>;
+	pub type DisabledValidators<T: Config> = StorageValue<
+		_,
+		BoundedVec<
+			(u32, OffenceSeverity),
+			<T::ElectionProvider as ElectionProviderBase>::MaxWinners,
+		>,
+		ValueQuery,
+	>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -1102,7 +1103,7 @@ pub mod pallet {
 		/// Get the rewards for the last [`Config::HistoryDepth`] eras.
 		pub fn eras_reward_points<EncodeLikeEraIndex>(
 			era_index: EncodeLikeEraIndex,
-		) -> EraRewardPoints<T::AccountId, T::MaxActiveValidators>
+		) -> EraRewardPoints<T::AccountId, <T::ElectionProvider as ElectionProviderBase>::MaxWinners>
 		where
 			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 		{

@@ -18,7 +18,7 @@
 //! [CHANGELOG.md](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/staking/CHANGELOG.md).
 
 use super::*;
-use frame_election_provider_support::SortedListProvider;
+use frame_election_provider_support::{ElectionProviderBase, SortedListProvider};
 use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::ValueQuery,
@@ -68,7 +68,7 @@ pub mod v17 {
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let old_disabled_validators = v16::DisabledValidators::<T>::get();
-			// BoundedVec with MaxActiveValidators limit, this should always work
+			// BoundedVec with MaxWinners limit, this should always work
 			let disabled_validators_maybe = BoundedVec::try_from(old_disabled_validators);
 			match disabled_validators_maybe {
 				Ok(disabled_validators) => DisabledValidators::<T>::set(disabled_validators),
@@ -76,7 +76,7 @@ pub mod v17 {
 			}
 
 			let old_invulnerables = v16::Invulnerables::<T>::get();
-			// BoundedVec with MaxActiveValidators limit, this should always work
+			// BoundedVec with MaxWinners limit, this should always work
 			let invulnerables_maybe = BoundedVec::try_from(old_invulnerables);
 			match invulnerables_maybe {
 				Ok(invulnerables) => Invulnerables::<T>::set(invulnerables),
@@ -89,7 +89,7 @@ pub mod v17 {
 					Ok(individual_rewards) => {
 						let bounded_era_rewards = EraRewardPoints::<
 							<T as frame_system::Config>::AccountId,
-							<T as Config>::MaxActiveValidators,
+							<<T as Config>::ElectionProvider as ElectionProviderBase>::MaxWinners,
 						> {
 							individual: individual_rewards,
 							total: era_rewards.total,
