@@ -5,7 +5,7 @@ on:
     inputs:
       tag:
         description: Current final release tag in the format polakdot-stableYYMM or polkadot-stable-YYMM-X
-        default: polakdot-stable2412
+        default: polkadot-stable2412
         required: true
         type: string
 
@@ -45,17 +45,21 @@ jobs:
     env:
       REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ needs.validate-inputs.outputs.release_tag }}
+    outputs:
+      VERSION: ${{ steps.fetch_artifacts_from_s3.outputs.VERSION }}
 
     steps:
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
 
       - name: Fetch rc artifacts or release artifacts from s3 based on version
+        id: fetch_artifacts_from_s3
         run: |
           . ./.github/scripts/common/lib.sh
 
           #VERSION="$(get_polkadot_node_version_from_code)"
           VERSION="1.17.0"
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
           fetch_debian_package_from_s3 polkadot
 
@@ -77,6 +81,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
       AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+      VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.VERSION }}
 
     steps:
       - name: Install pgpkkms
@@ -120,4 +125,4 @@ jobs:
       - name: Publish deb package
         run: |
 
-          . ${{ github.workspace }}/.github/scripts/release/publish-deb-package.sh ${{ inputs.distribution }} polkadot 1.16.1 ${{ github.workspace }}/deb
+          . ${{ github.workspace }}/.github/scripts/release/publish-deb-package.sh ${{ inputs.distribution }} polkadot ${VERSION} ${{ github.workspace }}/deb
