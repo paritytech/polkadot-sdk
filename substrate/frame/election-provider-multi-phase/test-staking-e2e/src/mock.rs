@@ -20,7 +20,7 @@
 use frame_support::{
 	assert_ok, parameter_types, traits,
 	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
-	weights::constants,
+	weights::constants, PalletId
 };
 use frame_system::EnsureRoot;
 use sp_core::{ConstU32, Get};
@@ -68,6 +68,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
+		DelegatedStaking: pallet_delegated_staking,
 		Pools: pallet_nomination_pools,
 		Balances: pallet_balances,
 		BagsList: pallet_bags_list,
@@ -77,7 +78,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub(crate) type AccountId = u64;
+pub(crate) type AccountId = u128;
 pub(crate) type AccountIndex = u32;
 pub(crate) type BlockNumber = u32;
 pub(crate) type Balance = u64;
@@ -265,13 +266,28 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = sp_runtime::FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type StakeAdapter = pallet_nomination_pools::adapter::TransferStake<Self, Staking>;
+	type StakeAdapter = pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type PostUnbondingPoolsWindow = ConstU32<2>;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+}
+
+parameter_types! {
+	pub const DelegatedStakingPalletId: PalletId = PalletId(*b"py/dlstk");
+	pub const SlashRewardFraction: Perbill = Perbill::from_percent(1);
+}
+
+impl pallet_delegated_staking::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = DelegatedStakingPalletId;
+	type Currency = Balances;
+	type OnSlash = ();
+	type SlashRewardFraction = SlashRewardFraction;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CoreStaking = Staking;
 }
 
 parameter_types! {
@@ -302,7 +318,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
-	type EventListeners = Pools;
+	type EventListeners = (Pools, DelegatedStaking);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type DisablingStrategy =
 		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<SLASHING_DISABLING_FACTOR>;
@@ -581,7 +597,7 @@ impl ExtBuilder {
 			// set the keys for the first session.
 			keys: stakers
 				.into_iter()
-				.map(|(id, ..)| (id, id, SessionKeys { other: (id as u64).into() }))
+				.map(|(id, ..)| (id, id, SessionKeys { other: (id as AccountId).into() }))
 				.collect(),
 			..Default::default()
 		}

@@ -79,8 +79,7 @@ impl<T> Member<T> {
 /// An adapter trait that can support multiple staking strategies.
 ///
 /// Depending on which staking strategy we want to use, the staking logic can be slightly
-/// different. Refer the two possible strategies currently: [`TransferStake`] and
-/// [`DelegateStake`] for more detail.
+/// different. See [`DelegateStake`] for more detail.
 pub trait StakeStrategy {
 	type Balance: frame_support::traits::tokens::Balance;
 	type AccountId: Clone + core::fmt::Debug;

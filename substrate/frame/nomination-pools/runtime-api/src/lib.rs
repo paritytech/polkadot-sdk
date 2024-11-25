@@ -52,8 +52,7 @@ sp_api::decl_runtime_apis! {
 		///
 		/// This can happen when the `pallet-nomination-pools` has switched to using strategy
 		/// [`DelegateStake`](pallet_nomination_pools::adapter::DelegateStake) but the pool
-		/// still has funds that were staked using the older strategy
-		/// [TransferStake](pallet_nomination_pools::adapter::TransferStake). Use
+		/// still has funds that were staked using the older `TransferStake` strategy. Use
 		/// [`migrate_pool_to_delegate_stake`](pallet_nomination_pools::Call::migrate_pool_to_delegate_stake)
 		/// to migrate the pool.
 		fn pool_needs_delegate_migration(pool_id: PoolId) -> bool;
