@@ -48,22 +48,24 @@ use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_std::vec;
 use types::Nonce;
-use xcm::prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm};
+use xcm::prelude::{Junction::*, Location, SendError as XcmpSendError};
 
 use snowbridge_core::{
 	fees::burn_fees,
 	inbound::{Message, VerificationError, Verifier},
+	sparse_bitmap::SparseBitmap,
 	BasicOperatingMode,
 };
-use snowbridge_router_primitives::inbound::v2::{ConvertMessage, Message as MessageV2};
+use snowbridge_router_primitives::inbound::v2::{
+	ConvertMessage, ConvertMessageError, Message as MessageV2,
+};
 pub use weights::WeightInfo;
+use xcm::{VersionedLocation, VersionedXcm};
+use xcm_builder::SendController;
 use xcm_executor::traits::TransactAsset;
 
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_beacon_primitives::BeaconHeader;
-
-use snowbridge_core::sparse_bitmap::SparseBitmap;
-use snowbridge_router_primitives::inbound::v2::ConvertMessageError;
 
 pub use pallet::*;
 
@@ -94,7 +96,7 @@ pub mod pallet {
 		type Verifier: Verifier;
 
 		/// XCM message sender
-		type XcmSender: SendXcm;
+		type XcmSender: SendController<<Self as frame_system::Config>::RuntimeOrigin>;
 		/// Address of the Gateway contract
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
@@ -196,7 +198,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
 		pub fn submit(origin: OriginFor<T>, message: Message) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let who = ensure_signed(origin.clone())?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
 
 			// submit message to verifier for verification
@@ -235,8 +237,12 @@ pub mod pallet {
 			// e. The reward
 
 			// Attempt to forward XCM to AH
-			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
-			let (message_id, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
+			let versioned_dest = Box::new(VersionedLocation::V5(Location::new(
+				1,
+				[Parachain(T::AssetHubParaId::get())],
+			)));
+			let versioned_xcm = Box::new(VersionedXcm::V5(xcm));
+			let message_id = T::XcmSender::send(origin, versioned_dest, versioned_xcm)?; // TODO origin should be this parachain, maybe
 			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
 
 			// Set nonce flag to true

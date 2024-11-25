@@ -34,6 +34,7 @@ sp-runtime = { workspace = true }
 
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
+xcm-builder = { workspace = true }
 
 snowbridge-core = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
@@ -69,6 +70,7 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "xcm-executor/std",
+    "xcm-builder/std",
     "xcm/std",
 ]
 runtime-benchmarks = [
