@@ -31,9 +31,17 @@ jobs:
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
+        id: required
         run: |
           cargo clippy --all-targets --locked --workspace --quiet
           cargo clippy --all-targets --all-features --locked --workspace --quiet
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
   check-try-runtime:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     needs: [preflight]
@@ -44,6 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
+        id: required
         run: |
           forklift cargo check --locked --all --features try-runtime --quiet
           # this is taken from cumulus
@@ -52,6 +61,13 @@ jobs:
           # add after https://github.com/paritytech/substrate/pull/14502 is merged
           # experimental code may rely on try-runtime and vice-versa
           forklift cargo check --locked --all --features try-runtime,experimental --quiet
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
   # check-core-crypto-features works fast without forklift
   check-core-crypto-features:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
@@ -63,6 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: script
+        id: required
         run: |
           cd substrate/primitives/core
           ./check-features-variants.sh
@@ -73,6 +90,12 @@ jobs:
           cd substrate/primitives/keyring
           ./check-features-variants.sh
           cd -
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
   # name of this job must be unique across all workflows
   # otherwise GitHub will mark all these jobs as required
   confirm-required-checks-passed:
