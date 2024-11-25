@@ -386,16 +386,20 @@ enum RuntimeTarget {
 
 impl RuntimeTarget {
 	/// Creates a new instance.
-	fn new() -> Option<Self> {
+	fn new() -> Self {
 		let Some(value) = env::var_os(RUNTIME_TARGET) else {
-			return Some(Self::Wasm);
+			return Self::Wasm;
 		};
+
 		if value == "wasm" {
-			Some(Self::Wasm)
+			Self::Wasm
 		} else if value == "riscv" {
-			Some(Self::Riscv)
+			Self::Riscv
 		} else {
-			None
+			build_helper::warning!(
+				"RUNTIME_TARGET environment variable must be set to either \"wasm\" or \"riscv\""
+			);
+			std::process::exit(1);
 		}
 	}
 
