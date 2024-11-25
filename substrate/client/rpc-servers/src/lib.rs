@@ -144,7 +144,7 @@ where
 		local_addrs.push(local_addr);
 		let cfg = cfg.clone();
 
-		let mut id_provider2 = id_provider.clone();
+		let id_provider2 = id_provider.clone();
 
 		tokio_handle.spawn(async move {
 			loop {
