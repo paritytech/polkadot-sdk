@@ -16,12 +16,12 @@ on:
         type: string
 
 jobs:
-  # check-synchronization:
-  #   uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+  check-synchronization:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
 
   validate-inputs:
-    # needs: [check-synchronization]
-    # if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    needs: [check-synchronization]
+    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
@@ -57,8 +57,7 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          #VERSION="$(get_polkadot_node_version_from_code)"
-          VERSION="1.17.0"
+          VERSION="$(get_polkadot_node_version_from_code)"
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
           fetch_debian_package_from_s3 polkadot
@@ -74,13 +73,7 @@ jobs:
     needs: [fetch-artifacts-from-s3]
     environment: release
     env:
-      # PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      # PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      # AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      # AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      # AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
       AWS_DEB_PATH: "s3://releases-package-repos/deb"
       LOCAL_DEB_REPO_PATH: ${{ github.workspace }}/deb
       VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.VERSION }}
@@ -157,8 +150,3 @@ jobs:
 
           # Invalidate caches to make sure latest files are served
           aws cloudfront create-invalidation --distribution-id E36FKEYWDXAZYJ --paths '/deb/*'
-
-      # - name: Publish deb package
-      #   run: |
-
-      #     . ${{ github.workspace }}/.github/scripts/release/publish-deb-package.sh ${{ inputs.distribution }} polkadot ${VERSION} ${{ github.workspace }}/deb
