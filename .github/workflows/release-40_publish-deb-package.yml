@@ -55,7 +55,7 @@ jobs:
           . ./.github/scripts/common/lib.sh
 
           #VERSION="$(get_polkadot_node_version_from_code)"
-          VERSION="1.16.1"
+          VERSION="1.17.0"
 
           fetch_debian_package_from_s3 polkadot
 
