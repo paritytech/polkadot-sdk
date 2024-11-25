@@ -98,7 +98,7 @@ impl<Call, Extension> MetaTx<Call, Extension> {
 }
 
 /// The [`MetaTx`] for the given config.
-pub type MetaTxFor<T> = MetaTx<<T as frame_system::Config>::RuntimeCall, <T as Config>::Extension>;
+pub type MetaTxFor<T> = MetaTx<<T as Config>::RuntimeCall, <T as Config>::Extension>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -138,7 +138,7 @@ pub mod pallet {
 		/// The extension must provide an origin and the extension's weight must be zero. Use
 		/// `pallet_meta_tx::WeightlessExtension` type when the `runtime-benchmarks` feature
 		/// enabled.
-		type Extension: TransactionExtension<<Self as frame_system::Config>::RuntimeCall>;
+		type Extension: TransactionExtension<<Self as Config>::RuntimeCall>;
 	}
 
 	#[pallet::error]
