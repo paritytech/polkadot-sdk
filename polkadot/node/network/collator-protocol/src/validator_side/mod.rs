@@ -1055,14 +1055,32 @@ fn ensure_seconding_limit_is_respected(
 	para_id: ParaId,
 	state: &State,
 ) -> std::result::Result<(), AdvertisementError> {
-	let target_anc = state
+	let ancestors = state
 		.implicit_view
 		.known_allowed_relay_parents_under(relay_parent, Some(para_id))
-		.and_then(|res| res.first())
 		.ok_or(AdvertisementError::RelayParentUnknown)?;
-	let paths = state.implicit_view.paths_to_relay_parent(target_anc);
+	let paths_from_leaves_to_target = state.implicit_view.paths_to_relay_parent(relay_parent);
 
-	for path in paths {
+	gum::trace!(
+		target: LOG_TARGET,
+		?relay_parent,
+		?para_id,
+		?ancestors,
+		?paths_from_leaves_to_target,
+		"Checking seconding limit",
+	);
+
+	for mut p in paths_from_leaves_to_target {
+		let mut path = ancestors.to_vec();
+		path.append(&mut p);
+
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?para_id,
+			?path,
+			"Checking seconding limit for path",
+		);
 		let mut cq_state = ClaimQueueState::new();
 		for ancestor in path {
 			let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
