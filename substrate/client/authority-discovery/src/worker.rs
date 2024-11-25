@@ -836,6 +836,13 @@ where
 			_ => None,
 		};
 
+		log::debug!(
+			target: LOG_TARGET,
+			"Received DHT record for authority {:?} with addresses {:?}",
+			authority_id,
+			addresses
+		);
+
 		// Ignore [`Multiaddr`]s without [`PeerId`] or with own addresses.
 		let addresses: Vec<Multiaddr> = addresses
 			.into_iter()
