@@ -13,9 +13,7 @@ use codec::DecodeLimit;
 use snowbridge_router_primitives::inbound::v2::Asset;
 use sp_core::H256;
 use xcm::{
-	opaque::latest::{
-		prelude::{ClearOrigin, ReceiveTeleportedAsset},
-	},
+	opaque::latest::prelude::{ClearOrigin, ReceiveTeleportedAsset},
 	prelude::*,
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
@@ -260,7 +258,8 @@ fn test_register_token_inbound_message_with_xcm_and_claimer() {
 #[test]
 fn encode_xcm() {
 	new_tester().execute_with(|| {
-		let total_fee_asset: xcm::opaque::latest::Asset = (Location::parent(), 1_000_000_000).into();
+		let total_fee_asset: xcm::opaque::latest::Asset =
+			(Location::parent(), 1_000_000_000).into();
 
 		let instructions: Xcm<()> =
 			vec![ReceiveTeleportedAsset(total_fee_asset.into()), ClearOrigin].into();

@@ -24703,6 +24703,7 @@ dependencies = [
  "frame-system 28.0.0",
  "hex",
  "hex-literal",
+ "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives 6.0.0",
  "scale-info",

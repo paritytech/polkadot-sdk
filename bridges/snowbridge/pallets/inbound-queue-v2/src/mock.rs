@@ -3,7 +3,10 @@
 use super::*;
 
 use crate::{self as inbound_queue_v2};
-use frame_support::{derive_impl, parameter_types, traits::{ConstU32, ConstU128}};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{ConstU128, ConstU32},
+};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
@@ -20,6 +23,7 @@ use sp_runtime::{
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, prelude::*};
+use xcm_executor::{traits::TransactAsset, AssetsInHolding};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -160,8 +164,41 @@ impl inbound_queue_v2::Config for Test {
 		MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, MockTokenIdConvert>;
 	type Token = Balances;
 	type XcmPrologueFee = ConstU128<1_000_000_000>;
+	type AssetTransactor = SuccessfulTransactor;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
+}
+
+pub struct SuccessfulTransactor;
+impl TransactAsset for SuccessfulTransactor {
+	fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
+		Ok(())
+	}
+
+	fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
+		Ok(())
+	}
+
+	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
+		Ok(())
+	}
+
+	fn withdraw_asset(
+		_what: &Asset,
+		_who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<AssetsInHolding, XcmError> {
+		Ok(AssetsInHolding::default())
+	}
+
+	fn internal_transfer_asset(
+		_what: &Asset,
+		_from: &Location,
+		_to: &Location,
+		_context: &XcmContext,
+	) -> Result<AssetsInHolding, XcmError> {
+		Ok(AssetsInHolding::default())
+	}
 }
 
 pub fn last_events(n: usize) -> Vec<RuntimeEvent> {

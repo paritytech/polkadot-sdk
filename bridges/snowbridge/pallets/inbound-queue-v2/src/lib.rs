@@ -39,26 +39,25 @@ mod test;
 
 use codec::{Decode, DecodeAll, Encode};
 use envelope::Envelope;
-use frame_system::ensure_signed;
+use frame_support::{
+	traits::fungible::{Inspect, Mutate},
+	PalletError,
+};
+use frame_system::{ensure_signed, pallet_prelude::*};
 use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_std::vec;
 use types::Nonce;
 use xcm::prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm};
-use frame_support::{
-	traits::{
-		fungible::{Inspect, Mutate},
-	},
-	PalletError,
-};
-use frame_system::pallet_prelude::*;
 
 use snowbridge_core::{
+	fees::burn_fees,
 	inbound::{Message, VerificationError, Verifier},
 	BasicOperatingMode,
 };
 use snowbridge_router_primitives::inbound::v2::{ConvertMessage, Message as MessageV2};
 pub use weights::WeightInfo;
+use xcm_executor::traits::TransactAsset;
 
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_beacon_primitives::BeaconHeader;
@@ -70,8 +69,9 @@ pub use pallet::*;
 
 pub const LOG_TARGET: &str = "snowbridge-inbound-queue:v2";
 
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type BalanceOf<T> =
-<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -104,6 +104,7 @@ pub mod pallet {
 		type MessageConverter: ConvertMessage;
 		type XcmPrologueFee: Get<BalanceOf<Self>>;
 		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
+		type AssetTransactor: TransactAsset;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
 	}
@@ -129,6 +130,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Message came from an invalid outbound channel on the Ethereum side.
 		InvalidGateway,
+		/// Account could not be converted to bytes
+		InvalidAccount,
 		/// Message has an invalid envelope.
 		InvalidEnvelope,
 		/// Message has an unexpected nonce.
@@ -193,7 +196,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit())]
 		pub fn submit(origin: OriginFor<T>, message: Message) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			ensure!(!Self::operating_mode().is_halted(), Error::<T>::Halted);
 
 			// submit message to verifier for verification
@@ -216,6 +219,12 @@ pub mod pallet {
 
 			let xcm =
 				T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?;
+
+			// Burn the required fees for the static XCM message part
+			burn_fees::<T::AssetTransactor, BalanceOf<T>>(
+				Self::account_to_location(who)?,
+				T::XcmPrologueFee::get(),
+			)?;
 
 			// Todo: Deposit fee(in Ether) to RewardLeger which should cover all of:
 			// T::RewardLeger::deposit(who, envelope.fee.into())?;
@@ -247,6 +256,14 @@ pub mod pallet {
 			OperatingMode::<T>::set(mode);
 			Self::deposit_event(Event::OperatingModeChanged { mode });
 			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub fn account_to_location(account: AccountIdOf<T>) -> Result<Location, Error<T>> {
+			let account_bytes: [u8; 32] =
+				account.encode().try_into().map_err(|_| Error::<T>::InvalidAccount)?;
+			Ok(Location::new(0, [AccountId32 { network: None, id: account_bytes }]))
 		}
 	}
 }
