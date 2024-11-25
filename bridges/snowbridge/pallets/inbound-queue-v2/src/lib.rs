@@ -222,7 +222,7 @@ pub mod pallet {
 			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
 
 			// Set nonce flag to true
-			<Nonce<T>>::set(envelope.nonce.into());
+			Nonce::<T>::set(envelope.nonce.into());
 
 			Ok(())
 		}
