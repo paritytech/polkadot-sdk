@@ -39,13 +39,19 @@ mod test;
 
 use codec::{Decode, DecodeAll, Encode};
 use envelope::Envelope;
-use frame_support::PalletError;
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_std::vec;
 use types::Nonce;
 use xcm::prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm};
+use frame_support::{
+	traits::{
+		fungible::{Inspect, Mutate},
+	},
+	PalletError,
+};
+use frame_system::pallet_prelude::*;
 
 use snowbridge_core::{
 	inbound::{Message, VerificationError, Verifier},
@@ -64,12 +70,13 @@ pub use pallet::*;
 
 pub const LOG_TARGET: &str = "snowbridge-inbound-queue:v2";
 
+type BalanceOf<T> =
+<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -95,6 +102,8 @@ pub mod pallet {
 		/// AssetHub parachain ID
 		type AssetHubParaId: Get<u32>;
 		type MessageConverter: ConvertMessage;
+		type XcmPrologueFee: Get<BalanceOf<Self>>;
+		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
 	}

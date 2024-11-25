@@ -10,12 +10,11 @@ use sp_runtime::DispatchError;
 
 use crate::{mock::*, Error, Event as InboundQueueEvent};
 use codec::DecodeLimit;
-use snowbridge_router_primitives::inbound::v2::InboundAsset;
+use snowbridge_router_primitives::inbound::v2::Asset;
 use sp_core::H256;
 use xcm::{
 	opaque::latest::{
 		prelude::{ClearOrigin, ReceiveTeleportedAsset},
-		Asset,
 	},
 	prelude::*,
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
@@ -168,7 +167,7 @@ fn test_send_native_erc20_token_payload() {
 
         assert_eq!(expected_origin, inbound_message.origin);
         assert_eq!(1, inbound_message.assets.len());
-        if let InboundAsset::NativeTokenERC20 { token_id, value } = &inbound_message.assets[0] {
+        if let Asset::NativeTokenERC20 { token_id, value } = &inbound_message.assets[0] {
             assert_eq!(expected_token_id, *token_id);
             assert_eq!(expected_value, *value);
         } else {
@@ -196,7 +195,7 @@ fn test_send_foreign_erc20_token_payload() {
 
         assert_eq!(expected_origin, inbound_message.origin);
         assert_eq!(1, inbound_message.assets.len());
-        if let InboundAsset::ForeignTokenERC20 { token_id, value } = &inbound_message.assets[0] {
+        if let Asset::ForeignTokenERC20 { token_id, value } = &inbound_message.assets[0] {
             assert_eq!(expected_token_id, *token_id);
             assert_eq!(expected_value, *value);
         } else {
@@ -224,7 +223,7 @@ fn test_register_token_inbound_message_with_xcm_and_claimer() {
 
         assert_eq!(expected_origin, inbound_message.origin);
         assert_eq!(1, inbound_message.assets.len());
-        if let InboundAsset::NativeTokenERC20 { token_id, value } = &inbound_message.assets[0] {
+        if let Asset::NativeTokenERC20 { token_id, value } = &inbound_message.assets[0] {
             assert_eq!(expected_token_id, *token_id);
             assert_eq!(expected_value, *value);
         } else {
@@ -261,7 +260,7 @@ fn test_register_token_inbound_message_with_xcm_and_claimer() {
 #[test]
 fn encode_xcm() {
 	new_tester().execute_with(|| {
-		let total_fee_asset: Asset = (Location::parent(), 1_000_000_000).into();
+		let total_fee_asset: xcm::opaque::latest::Asset = (Location::parent(), 1_000_000_000).into();
 
 		let instructions: Xcm<()> =
 			vec![ReceiveTeleportedAsset(total_fee_asset.into()), ClearOrigin].into();

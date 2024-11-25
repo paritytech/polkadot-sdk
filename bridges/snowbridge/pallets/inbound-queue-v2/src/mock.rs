@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use crate::{self as inbound_queue};
-use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+use crate::{self as inbound_queue_v2};
+use frame_support::{derive_impl, parameter_types, traits::{ConstU32, ConstU128}};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
@@ -29,7 +29,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>},
-		InboundQueue: inbound_queue::{Pallet, Call, Storage, Event<T>},
+		InboundQueue: inbound_queue_v2::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -149,7 +149,7 @@ parameter_types! {
 	pub AssetHubLocation: InteriorLocation = Parachain(1000).into();
 }
 
-impl inbound_queue::Config for Test {
+impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
 	type XcmSender = MockXcmSender;
@@ -158,6 +158,8 @@ impl inbound_queue::Config for Test {
 	type AssetHubParaId = ConstU32<1000>;
 	type MessageConverter =
 		MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, MockTokenIdConvert>;
+	type Token = Balances;
+	type XcmPrologueFee = ConstU128<1_000_000_000>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 }
