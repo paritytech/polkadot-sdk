@@ -171,7 +171,7 @@ pub mod pallet {
 
 	/// The nonce of the message been processed or not
 	#[pallet::storage]
-	pub type NoncesBitmap<T: Config> = StorageMap<_, Twox64Concat, u128, u128, ValueQuery>;
+	pub type NonceBitmap<T: Config> = StorageMap<_, Twox64Concat, u128, u128, ValueQuery>;
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
