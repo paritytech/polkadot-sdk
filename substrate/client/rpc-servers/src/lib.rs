@@ -198,7 +198,6 @@ where
 					.set_message_buffer_capacity(max_buffer_capacity_per_connection)
 					.set_batch_request_config(batch_config)
 					.custom_tokio_runtime(cfg.tokio_handle.clone())
-					.set_id_provider(RandomStringIdProvider::new(16));
 
 				if let Some(provider) = id_provider2.clone() {
 					builder = builder.set_id_provider(provider);
