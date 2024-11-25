@@ -272,10 +272,11 @@ pub mod pallet {
 	///
 	/// Assignments as of the given block number. They will go into state once the block number is
 	/// reached (and replace whatever was in there before).
+	/// TODO: Write migration (Twox256 -> Twox256Concat)
 	#[pallet::storage]
 	pub(super) type CoreSchedules<T: Config> = StorageMap<
 		_,
-		Twox256,
+		Twox256Concat,
 		(BlockNumberFor<T>, CoreIndex),
 		Schedule<BlockNumberFor<T>>,
 		OptionQuery,
