@@ -58,62 +58,68 @@ async function getFreeBalance(api, accountKey) {
 test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 	const bobBalanceBefore = await getFreeBalance(AHApi, BOB_KEY);
 
+	const alice_msg = Enum("V5", [
+		Enum("SetAssetClaimer", {
+			location: {
+				parents: 0,
+				interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+					network: Enum("ByGenesis", Binary.fromBytes(WESTEND_NETWORK)),
+					id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+				}))
+			},
+		}),
+		XcmV4Instruction.WithdrawAsset([{
+			id: { parents: 1, interior: XcmV3Junctions.Here() },
+			fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+		}]),
+		XcmV4Instruction.ClearOrigin(),
+	]);
+	const alice_weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(alice_msg);
+
 	// Transaction 1: Alice sets asset claimer to Bob and sends a trap transaction
 	const trapTx = AHApi.tx.PolkadotXcm.execute({
-		message: Enum("V5", [
-			Enum("SetAssetClaimer", {
-				location: {
-					parents: 0,
-					interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-						network: Enum("ByGenesis", Binary.fromBytes(WESTEND_NETWORK)),
-						id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
-					}))
-				},
-			}),
-			XcmV4Instruction.WithdrawAsset([{
-				id: { parents: 1, interior: XcmV3Junctions.Here() },
-				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-			}]),
-			XcmV4Instruction.ClearOrigin(),
-		]),
-		max_weight: { ref_time: 100_000_000_000n, proof_size: 300_000n },
+		message: alice_msg,
+		max_weight: { ref_time: alice_weight.value.ref_time, proof_size: alice_weight.value.proof_size },
 	});
 
 	const trapResult = await trapTx.signAndSubmit(aliceSigner);
 	expect(trapResult.ok).toBeTruthy();
 
+	const bob_msg = Enum("V4", [
+		XcmV4Instruction.ClaimAsset({
+			assets: [{
+				id: { parents: 1, interior: XcmV3Junctions.Here() },
+				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+			}],
+			ticket: { parents: 0, interior: XcmV3Junctions.Here() },
+		}),
+		XcmV4Instruction.BuyExecution({
+			fees: {
+				id: { parents: 1, interior: XcmV3Junctions.Here() },
+				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000n),
+			},
+			weight_limit: XcmV3WeightLimit.Unlimited(),
+		}),
+		XcmV4Instruction.DepositAsset({
+			assets: XcmV3MultiassetMultiAssetFilter.Definite([{
+				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+				id: { parents: 1, interior: XcmV3Junctions.Here() },
+			}]),
+			beneficiary: {
+				parents: 0,
+				interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+					network: undefined,
+					id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+				}))
+			}
+		}),
+	]);
+	const bob_weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(bob_msg);
+
 	// Transaction 2: Bob claims trapped assets.
 	const bobClaimTx = AHApi.tx.PolkadotXcm.execute({
-		message: Enum("V4", [
-			XcmV4Instruction.ClaimAsset({
-				assets: [{
-					id: { parents: 1, interior: XcmV3Junctions.Here() },
-					fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-				}],
-				ticket: { parents: 0, interior: XcmV3Junctions.Here() },
-			}),
-			XcmV4Instruction.BuyExecution({
-				fees: {
-					id: { parents: 1, interior: XcmV3Junctions.Here() },
-					fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000n),
-				},
-				weight_limit: XcmV3WeightLimit.Unlimited(),
-			}),
-			XcmV4Instruction.DepositAsset({
-				assets: XcmV3MultiassetMultiAssetFilter.Definite([{
-					fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-					id: { parents: 1, interior: XcmV3Junctions.Here() },
-				}]),
-				beneficiary: {
-					parents: 0,
-					interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
-						network: undefined,
-						id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
-					}))
-				}
-			}),
-		]),
-		max_weight: { ref_time: 100_000_000_000n, proof_size: 300_000n },
+		message: bob_msg,
+		max_weight: { ref_time: bob_weight.value.ref_time, proof_size: bob_weight.value.proof_size },
 	});
 
 	const claimResult = await bobClaimTx.signAndSubmit(bobSigner);
@@ -125,33 +131,36 @@ test("Set Asset Claimer, Trap Assets, Claim Trapped Assets", async () => {
 });
 
 test("Initiate Teleport XCM v4", async () => {
-	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
-			message: Enum("V4", [
-				XcmV4Instruction.WithdrawAsset([{
-					id: { parents: 1, interior: XcmV3Junctions.Here() },
-					fun: XcmV3MultiassetFungibility.Fungible(7e12),
-				}]),
-				XcmV4Instruction.SetFeesMode({
-					jit_withdraw: true,
-				}),
-				XcmV4Instruction.InitiateTeleport({
-					assets: XcmV4AssetAssetFilter.Wild({type: "All", value: undefined}),
-					dest: {
-						parents: 1,
-						interior: XcmV3Junctions.Here(),
+	const msg = Enum("V4", [
+		XcmV4Instruction.WithdrawAsset([{
+			id: { parents: 1, interior: XcmV3Junctions.Here() },
+			fun: XcmV3MultiassetFungibility.Fungible(7e12),
+		}]),
+		XcmV4Instruction.SetFeesMode({
+			jit_withdraw: true,
+		}),
+		XcmV4Instruction.InitiateTeleport({
+			assets: XcmV4AssetAssetFilter.Wild({type: "All", value: undefined}),
+			dest: {
+				parents: 1,
+				interior: XcmV3Junctions.Here(),
+			},
+			xcm: [
+				XcmV4Instruction.BuyExecution({
+					fees: {
+						id: { parents: 0, interior: XcmV3Junctions.Here() },
+						fun: XcmV3MultiassetFungibility.Fungible(500_000_000_000n),
 					},
-					xcm: [
-						XcmV4Instruction.BuyExecution({
-							fees: {
-								id: { parents: 0, interior: XcmV3Junctions.Here() },
-								fun: XcmV3MultiassetFungibility.Fungible(500_000_000_000n),
-							},
-							weight_limit: XcmV3WeightLimit.Unlimited(),
-						}),
-					],
+					weight_limit: XcmV3WeightLimit.Unlimited(),
 				}),
-			]),
-			max_weight: { ref_time: 55791635000n, proof_size: 364593n },
+			],
+		}),
+	]);
+	const weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(msg);
+
+	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
+			message: msg,
+			max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
 		},
 	);
 
@@ -224,7 +233,6 @@ test("Initiate Teleport XCM v5", async () => {
 			],
 		}),
 	]);
-
 	const weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(msg);
 
 	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
