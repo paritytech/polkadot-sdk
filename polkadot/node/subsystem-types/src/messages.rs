@@ -48,7 +48,7 @@ use polkadot_primitives::{
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 	},
 	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
-	CandidateIndex, CollatorId, CoreIndex, DisputeState, ExecutorParams, GroupIndex,
+	CandidateIndex, CoreIndex, DisputeState, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, HeadData, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption,
 	PersistedValidationData, PvfCheckStatement, PvfExecKind as RuntimePvfExecKind, SessionIndex,
