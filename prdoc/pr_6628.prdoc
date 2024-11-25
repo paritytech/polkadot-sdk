@@ -7,6 +7,6 @@ doc:
 
 crates:
   - name: polkadot-node-subsystem-types
-    bump: minor
+    bump: patch
   - name: polkadot-collator-protocol
-    bump: minor
+    bump: major
