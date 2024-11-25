@@ -79,7 +79,7 @@ pub mod v17 {
 			// BoundedVec with MaxWinners limit, this should always work
 			let invulnerables_maybe = BoundedVec::try_from(old_invulnerables);
 			match invulnerables_maybe {
-				Ok(invulnerables) => Invulnerables::<T>::set(invulnerables),
+				Ok(invulnerables) => Invulnerables::<T>::set(invulnerables.into()),
 				Err(_) => log!(warn, "Migration failed for Invulnerables from v15 to v16."),
 			}
 
@@ -122,8 +122,7 @@ pub mod v16 {
 	use sp_staking::offence::OffenceSeverity;
 
 	#[frame_support::storage_alias]
-	pub(crate) type Invulnerables<T: Config> =
-		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
+	pub(crate) type Invulnerables<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
 
 	#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 	pub struct EraRewardPoints<AccountId: Ord> {
