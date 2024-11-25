@@ -8754,7 +8754,7 @@ mod getters {
 		mock::{self},
 		pallet::pallet::{Invulnerables, MinimumValidatorCount, ValidatorCount},
 		slashing,
-		tests::{Staking, Test},
+		tests::{MaxWinners, Staking, Test},
 		ActiveEra, ActiveEraInfo, BalanceOf, BoundedBTreeMap, BoundedVec, CanceledSlashPayout,
 		ClaimedRewards, CurrentEra, CurrentPlannedSession, EraRewardPoints, ErasRewardPoints,
 		ErasStakersClipped, ErasStartSessionIndex, ErasTotalStake, ErasValidatorPrefs,
