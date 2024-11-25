@@ -1054,37 +1054,11 @@ impl<T: Config> EraInfo<T> {
 	/// Returns true if validator has one or more page of era rewards not claimed yet.
 	// Also looks at legacy storage that can be cleaned up after #433.
 	pub fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
-		let page_count = if let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) {
-			overview.page_count
-		} else {
-			// if no exposure, then no rewards to claim.
-			return false
-		};
-
-		// check if era is marked claimed in legacy storage.
-		if <Ledger<T>>::get(validator)
-			.map(|l| l.legacy_claimed_rewards.contains(&era))
-			.unwrap_or_default()
-		{
-			return false
-		}
-
-		ClaimedRewards::<T>::get(era, validator).len() < page_count as usize
-	}
-
-	/// Temporary function which looks at both (1) passed param `T::StakingLedger` for legacy
-	/// non-paged rewards, and (2) `T::ClaimedRewards` for paged rewards. This function can be
-	/// removed once `T::HistoryDepth` eras have passed and none of the older non-paged rewards
-	/// are relevant/claimable.
-	// Refer tracker issue for cleanup: https://github.com/paritytech/polkadot-sdk/issues/433
-	pub(crate) fn is_rewards_claimed_with_legacy_fallback(
-		era: EraIndex,
-		ledger: &StakingLedger<T>,
-		validator: &T::AccountId,
-		page: Page,
-	) -> bool {
-		ledger.legacy_claimed_rewards.binary_search(&era).is_ok() ||
-			Self::is_rewards_claimed(era, validator, page)
+		<ErasStakersOverview<T>>::get(&era, validator)
+			.map(|overview| {
+				ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
+			})
+			.unwrap_or(false)
 	}
 
 	/// Check if the rewards for the given era and page index have been claimed.
@@ -1092,7 +1066,7 @@ impl<T: Config> EraInfo<T> {
 	/// This is only used for paged rewards. Once older non-paged rewards are no longer
 	/// relevant, `is_rewards_claimed_with_legacy_fallback` can be removed and this function can
 	/// be made public.
-	fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
+	pub(crate) fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
 		ClaimedRewards::<T>::get(era, validator).contains(&page)
 	}
 
@@ -1105,14 +1079,7 @@ impl<T: Config> EraInfo<T> {
 		validator: &T::AccountId,
 		page: Page,
 	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
-		let overview = <ErasStakersOverview<T>>::get(&era, validator);
-
-		// no exposure for this validator
-		if overview.is_none() {
-			return None
-		}
-
-		let overview = overview.expect("checked above; qed");
+		let overview = <ErasStakersOverview<T>>::get(&era, validator)?;
 
 		// validator stake is added only in page zero
 		let validator_stake = if page == 0 { overview.own } else { Zero::zero() };
@@ -1134,6 +1101,10 @@ impl<T: Config> EraInfo<T> {
 		validator: &T::AccountId,
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator);
+
+		if overview.is_none() {
+			return Exposure::default()
+		}
 
 		let overview = overview.expect("checked above; qed");
 
@@ -1166,11 +1137,7 @@ impl<T: Config> EraInfo<T> {
 	}
 
 	/// Returns the next page that can be claimed or `None` if nothing to claim.
-	pub(crate) fn get_next_claimable_page(
-		era: EraIndex,
-		validator: &T::AccountId,
-		ledger: &StakingLedger<T>,
-	) -> Option<Page> {
+	pub(crate) fn get_next_claimable_page(era: EraIndex, validator: &T::AccountId) -> Option<Page> {
 		// Find next claimable page of paged exposure.
 		let page_count = Self::get_page_count(era, validator);
 		let all_claimable_pages: Vec<Page> = (0..page_count).collect();

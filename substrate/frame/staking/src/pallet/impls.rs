@@ -233,13 +233,8 @@ impl<T: Config> Pallet<T> {
 		validator_stash: T::AccountId,
 		era: EraIndex,
 	) -> DispatchResultWithPostInfo {
-		let controller = Self::bonded(&validator_stash).ok_or_else(|| {
-			Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-		})?;
-
-		let ledger = Self::ledger(StakingAccount::Controller(controller))?;
-		let page = EraInfo::<T>::get_next_claimable_page(era, &validator_stash, &ledger)
-			.ok_or_else(|| {
+		let page =
+			EraInfo::<T>::get_next_claimable_page(era, &validator_stash).ok_or_else(|| {
 				Error::<T>::AlreadyClaimed
 					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 			})?;
@@ -294,12 +289,12 @@ impl<T: Config> Pallet<T> {
 
 		let stash = ledger.stash.clone();
 
-		if EraInfo::<T>::is_rewards_claimed_with_legacy_fallback(era, &ledger, &stash, page) {
+		if EraInfo::<T>::is_rewards_claimed(era, &stash, page) {
 			return Err(Error::<T>::AlreadyClaimed
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
-		} else {
-			EraInfo::<T>::set_rewards_as_claimed(era, &stash, page);
 		}
+
+		EraInfo::<T>::set_rewards_as_claimed(era, &stash, page);
 
 		let exposure = EraInfo::<T>::get_paged_exposure(era, &stash, page).ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
@@ -350,7 +345,7 @@ impl<T: Config> Pallet<T> {
 			era_index: era,
 			validator_stash: stash.clone(),
 			page,
-			next: EraInfo::<T>::get_next_claimable_page(era, &stash, &ledger),
+			next: EraInfo::<T>::get_next_claimable_page(era, &stash),
 		});
 
 		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
@@ -1163,7 +1158,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns full exposure of a validator for a given era.
 	///
-	/// History note: This used to be a getter for old storage item `ErasStakers` deprecated in v14
+	/// History note: This used to be a getter for the storage item `ErasStakers` deprecated in v14
 	/// and deleted in v17. Since this function is used in the codebase at various places, we kept
 	/// it as a custom getter that takes care of getting the full exposure of the validator in a
 	/// backward compatible way.

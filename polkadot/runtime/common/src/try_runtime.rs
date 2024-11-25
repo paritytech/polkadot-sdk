@@ -16,10 +16,16 @@
 
 //! Common try-runtime only tests for runtimes.
 
-use frame_support::traits::{Get, Hooks};
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+use frame_support::{
+	dispatch::RawOrigin,
+	traits::{Get, Hooks},
+};
 use pallet_fast_unstake::{Pallet as FastUnstake, *};
+use pallet_staking::*;
 
-/// progress until the inactive nominators have all beenprocessed.
+/// register all inactive nominators for fast-unstake, and progress until they have all been
+/// processed.
 pub fn migrate_all_inactive_nominators<T: pallet_fast_unstake::Config + pallet_staking::Config>()
 where
 	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_fast_unstake::Event<T>>,
@@ -27,6 +33,32 @@ where
 	let mut unstaked_ok = 0;
 	let mut unstaked_err = 0;
 	let mut unstaked_slashed = 0;
+
+	let all_stakers = Ledger::<T>::iter().map(|(ctrl, l)| (ctrl, l.stash)).collect::<BTreeSet<_>>();
+	let mut all_exposed = BTreeSet::new();
+	ErasStakersPaged::<T>::iter().for_each(|((_era, val, _page), expo)| {
+		all_exposed.insert(val);
+		all_exposed.extend(expo.others.iter().map(|ie| ie.who.clone()))
+	});
+
+	let eligible = all_stakers
+		.iter()
+		.filter_map(|(ctrl, stash)| all_exposed.contains(stash).then_some(ctrl))
+		.collect::<Vec<_>>();
+
+	log::info!(
+		target: "runtime::test",
+		"registering {} out of {} stakers for fast-unstake",
+		eligible.len(),
+		all_stakers.len()
+	);
+	for ctrl in eligible {
+		if let Err(why) =
+			FastUnstake::<T>::register_fast_unstake(RawOrigin::Signed(ctrl.clone()).into())
+		{
+			log::warn!(target: "runtime::test", "failed to register {:?} due to {:?}", ctrl, why);
+		}
+	}
 
 	log::info!(
 		target: "runtime::test",
