@@ -11,4 +11,4 @@ doc:
 
 crates:
   - name: sc-rpc-server
-    bump: minor
+    bump: patch
