@@ -194,6 +194,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
 
+	/// Id of the current sale.
+	#[pallet::storage]
+	pub type SaleId<T> = StorageValue<_, u32, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
