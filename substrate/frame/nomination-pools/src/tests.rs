@@ -3816,7 +3816,10 @@ mod withdraw_unbonded {
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 				// then
-				assert_eq!(DelegateMock::agent_balance(Agent::from(default_bonded_account())), None);
+				assert_eq!(
+					DelegateMock::agent_balance(Agent::from(default_bonded_account())),
+					None
+				);
 				assert_eq!(StakingMock::stake(&default_bonded_account()).unwrap().total, 0);
 				// in this test 10 also gets a fair share of the slash, because the slash was
 				// applied to the bonded account.
