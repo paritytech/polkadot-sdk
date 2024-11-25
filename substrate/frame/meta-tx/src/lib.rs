@@ -43,12 +43,12 @@
 //! [`General`](sp_runtime::generic::Preamble::General) transaction.
 //! It contains the target call along with a configurable set of extensions and its associated
 //! version. Typically, these extensions include type like
-//! [pallet_verify_signature::VerifySignature], which provides the signer address
+//! `pallet_verify_signature::VerifySignature`, which provides the signer address
 //! and the signature of the payload, encompassing the call and the meta-transaction’s
 //! configurations, such as its mortality.  The extensions follow the same [`TransactionExtension`]
 //! contract, and common types such as [`frame_system::CheckGenesis`],
 //! [`frame_system::CheckMortality`], [`frame_system::CheckNonce`], etc., are applicable in the
-//! context of meta transactions. Check the [mock] setup for the example.
+//! context of meta transactions. Check the `mock` setup for the example.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -126,10 +126,10 @@ pub mod pallet {
 		/// Transaction extension/s for meta transactions.
 		///
 		/// The extensions that must be present in every meta transaction. This generally includes
-		/// extensions like [pallet_verify_signature::VerifySignature],
+		/// extensions like `pallet_verify_signature::VerifySignature`,
 		/// [frame_system::CheckSpecVersion], [frame_system::CheckTxVersion],
 		/// [frame_system::CheckGenesis], [frame_system::CheckMortality],
-		/// [frame_system::CheckNonce], etc. Check the [mock] setup for the example.
+		/// [frame_system::CheckNonce], etc. Check the `mock` setup for the example.
 		///
 		/// The types implementing the [`TransactionExtension`] trait can be composed into a tuple
 		/// type that will implement the same trait by piping invocations through each type.
