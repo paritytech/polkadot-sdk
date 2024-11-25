@@ -82,8 +82,8 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign built artifacts
-          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69"
-          which pgpkms
+          python3 -m pip install "pgpkms-reprepro @ git+https://github.com/paritytech-release/pgpkms.git@1f8555426662ac93a3849480a35449f683b1c89f"
+          echo "PGPKMS-REPREPRO_PATH=$(which pgpkms-reprepro)" >> $GITHUB_ENV
 
       - name: Install awscli
         run: |
@@ -110,6 +110,8 @@ jobs:
         run: |
           sudo apt-get install -y reprepro
           which reprepro
+
+          sed -i "s/^SignWith:.*/"SignWith: ! $PGPKMS_REPREPRO_PATH"/"  ${{ github.workspace }}/.github/scripts/release/distributions
 
           mkdir -p ${{ github.workspace }}/deb/conf
           cp ${{ github.workspace }}/.github/scripts/release/distributions ${{ github.workspace }}/deb/conf/distributions
