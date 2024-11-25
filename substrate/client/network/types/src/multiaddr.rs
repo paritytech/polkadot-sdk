@@ -94,8 +94,7 @@ impl Multiaddr {
 	/// An external address address discovered by the network is valid when:
 	/// - the address is not empty
 	/// - the address contains a valid IP address
-	/// - the address /p2p/peer corresponds to the local peer ID
-	pub fn is_external_address_valid(&self, local_peer_id: PeerId) -> bool {
+	pub fn is_external_address_valid(&self) -> bool {
 		// Empty addresses are not reachable.
 		if self.is_empty() {
 			return false;
@@ -119,14 +118,6 @@ impl Multiaddr {
 		match iter.next() {
 			Some(Protocol::Tcp(_)) | Some(Protocol::Udp(_)) => {},
 			_ => return false,
-		}
-
-		// The last entry must be the local peer ID if present.
-		if let Some(Protocol::P2p(peer_id)) = self.iter().last() {
-			// Invalid address if the reported peer ID is not the local peer ID.
-			if peer_id != *local_peer_id.as_ref() {
-				return false;
-			}
 		}
 
 		true

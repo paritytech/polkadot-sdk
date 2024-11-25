@@ -387,7 +387,7 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				(address.is_external_address_valid(local_peer_id) && address.is_global())
+				(address.is_external_address_valid() && address.is_global())
 					.then(|| AddressType::GlobalListenAddress(address).without_p2p(local_peer_id))
 					.flatten()
 			})
@@ -401,7 +401,7 @@ where
 			.into_iter()
 			.filter_map(|address| {
 				(publish_non_global_ips ||
-					(address.is_external_address_valid(local_peer_id) && address.is_global()))
+					(address.is_external_address_valid() && address.is_global()))
 				.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
 				.flatten()
 			})
@@ -847,7 +847,7 @@ where
 		let addresses: Vec<Multiaddr> = addresses
 			.into_iter()
 			.filter(|addr| {
-				addr.is_external_address_valid(local_peer_id) &&
+				addr.is_external_address_valid() &&
 					get_peer_id(&addr).filter(|p| *p != local_peer_id).is_some()
 			})
 			.collect();

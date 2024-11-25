@@ -746,7 +746,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							};
 						}
 						NetworkServiceCommand::AddKnownAddress { peer, address } => {
-							if !address.is_external_address_valid(peer) {
+							if !address.is_external_address_valid() {
 								log::warn!(
 									target: LOG_TARGET,
 									"ignoring invalid external address {address} for {peer:?}",

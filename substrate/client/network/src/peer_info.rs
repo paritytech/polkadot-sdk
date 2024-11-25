@@ -408,7 +408,9 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 			FromSwarm::NewExternalAddrCandidate(e @ NewExternalAddrCandidate { addr }) => {
 				// Verify the external address is valid.
 				let multiaddr: sc_network_types::multiaddr::Multiaddr = addr.clone().into();
-				if multiaddr.is_external_address_valid(self.local_peer_id.into()) {
+				if multiaddr.is_external_address_valid() &&
+					multiaddr.ensure_peer_id(self.local_peer_id.into()).is_some()
+				{
 					self.ping.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
 					self.identify.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
 

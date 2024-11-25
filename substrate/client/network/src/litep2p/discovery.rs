@@ -494,7 +494,7 @@ impl Discovery {
 		// Converting to and from `sc_network_types::multiaddr::Multiaddr` is cheap considering
 		// it is a small wrapper over litep2p `Multiaddr`.
 		let observed_address: sc_network_types::multiaddr::Multiaddr = observed_address.into();
-		if !observed_address.is_external_address_valid(self.local_peer_id.into()) {
+		if !observed_address.is_external_address_valid() {
 			log::debug!(
 				target: LOG_TARGET,
 				"Ignoring invalid external address {observed_address} from {peer:?}",
