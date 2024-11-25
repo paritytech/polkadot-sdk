@@ -104,6 +104,14 @@ pub mod v17 {
 			T::DbWeight::get().reads_writes(1, 1)
 		}
 	}
+
+	pub type MigrateV16ToV17<T> = VersionedMigration<
+		16,
+		17,
+		VersionUncheckedMigrateV16ToV17<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 }
 
 /// Migrating `DisabledValidators` from `Vec<u32>` to `Vec<(u32, OffenceSeverity)>` to track offense
