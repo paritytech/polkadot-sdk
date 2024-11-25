@@ -164,7 +164,7 @@ pub fn expand_runtime_metadata(
 						ty: #scrate::__private::scale_info::meta_type::<
 							<#runtime as #system_path::Config>::RuntimeViewFunction
 						>(),
-						interfaces: #scrate::__private::sp_std::vec![ #(#view_functions),* ],
+						groups: #scrate::__private::sp_std::vec![ #(#view_functions),* ],
 					}
 				}
 			}

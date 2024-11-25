@@ -120,33 +120,35 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 	}
 }
 
-/// Metadata of the the runtime query dispatch.
+/// Metadata of the top level runtime view function dispatch.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
 pub struct RuntimeViewFunctionsIR<T: Form = MetaForm> {
 	/// The type implementing the runtime query dispatch.
 	pub ty: T::Type,
-	/// The query interfaces metadata.
-	pub interfaces: Vec<ViewFunctionsInterfaceIR<T>>,
+	/// The view function groupings metadata.
+	pub groups: Vec<ViewFunctionGroupIR<T>>,
 }
 
-/// Metadata of a runtime query interface.
+/// Metadata of a runtime view function group.
+///
+/// For example, view functions associated with a pallet would form a view function group.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
-pub struct ViewFunctionsInterfaceIR<T: Form = MetaForm> {
-	/// Name of the query interface.
+pub struct ViewFunctionGroupIR<T: Form = MetaForm> {
+	/// Name of the view function group.
 	pub name: T::String,
-	/// Queries belonging to the query interface.
-	pub queries: Vec<ViewFunctionMetadataIR<T>>,
-	/// Query interface documentation.
+	/// View functions belonging to the group.
+	pub view_functions: Vec<ViewFunctionMetadataIR<T>>,
+	/// View function group documentation.
 	pub docs: Vec<T::String>,
 }
 
-impl IntoPortable for ViewFunctionsInterfaceIR {
-	type Output = ViewFunctionsInterfaceIR<PortableForm>;
+impl IntoPortable for ViewFunctionGroupIR {
+	type Output = ViewFunctionGroupIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		ViewFunctionsInterfaceIR {
+		ViewFunctionGroupIR {
 			name: self.name.into_portable(registry),
-			queries: registry.map_into_portable(self.queries),
+			view_functions: registry.map_into_portable(self.view_functions),
 			docs: registry.map_into_portable(self.docs),
 		}
 	}

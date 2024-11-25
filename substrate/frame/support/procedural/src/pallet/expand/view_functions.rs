@@ -230,11 +230,11 @@ fn impl_view_function_metadata(
 		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #where_clause {
 			#[doc(hidden)]
 			pub fn pallet_view_functions_metadata(name: &'static ::core::primitive::str)
-				-> #frame_support::__private::metadata_ir::ViewFunctionsInterfaceIR
+				-> #frame_support::__private::metadata_ir::ViewFunctionGroupIR
 			{
-				#frame_support::__private::metadata_ir::ViewFunctionsInterfaceIR {
+				#frame_support::__private::metadata_ir::ViewFunctionGroupIR {
 					name,
-					queries: #frame_support::__private::sp_std::vec![ #( #view_functions ),* ],
+					view_functions: #frame_support::__private::sp_std::vec![ #( #view_functions ),* ],
 					docs: #frame_support::__private::sp_std::vec![ #( #doc ),* ],
 				}
 			}
