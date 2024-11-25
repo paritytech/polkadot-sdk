@@ -18,7 +18,7 @@
 use core::{fmt, marker::PhantomData};
 
 use codec::{Decode, Encode};
-use frame_support::{traits::OriginTrait, Parameter};
+use frame_support::{pallet_prelude::TransactionSource, traits::OriginTrait, Parameter};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	impl_tx_ext_default,
@@ -94,6 +94,7 @@ where
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		inherited_implication: &impl codec::Encode,
+		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		// If the extension is inactive, just move on in the pipeline.
 		let Some(auth) = &self.inner else {

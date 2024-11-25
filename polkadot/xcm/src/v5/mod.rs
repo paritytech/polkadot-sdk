@@ -1109,6 +1109,25 @@ pub enum Instruction<Call> {
 		assets: Vec<AssetTransferFilter>,
 		remote_xcm: Xcm<()>,
 	},
+
+	/// Executes inner `xcm` with origin set to the provided `descendant_origin`. Once the inner
+	/// `xcm` is executed, the original origin (the one active for this instruction) is restored.
+	///
+	/// Parameters:
+	/// - `descendant_origin`: The origin that will be used during the execution of the inner
+	///   `xcm`. If set to `None`, the inner `xcm` is executed with no origin. If set to `Some(o)`,
+	///   the inner `xcm` is executed as if there was a `DescendOrigin(o)` executed before it, and
+	///   runs the inner xcm with origin: `original_origin.append_with(o)`.
+	/// - `xcm`: Inner instructions that will be executed with the origin modified according to
+	///   `descendant_origin`.
+	///
+	/// Safety: No concerns.
+	///
+	/// Kind: *Command*
+	///
+	/// Errors:
+	/// - `BadOrigin`
+	ExecuteWithOrigin { descendant_origin: Option<InteriorLocation>, xcm: Xcm<Call> },
 }
 
 impl<Call> Xcm<Call> {
@@ -1189,6 +1208,8 @@ impl<Call> Instruction<Call> {
 			PayFees { asset } => PayFees { asset },
 			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
 				InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm },
+			ExecuteWithOrigin { descendant_origin, xcm } =>
+				ExecuteWithOrigin { descendant_origin, xcm: xcm.into() },
 		}
 	}
 }
@@ -1261,6 +1282,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			PayFees { asset } => W::pay_fees(asset),
 			InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm } =>
 				W::initiate_transfer(destination, remote_fees, preserve_origin, assets, remote_xcm),
+			ExecuteWithOrigin { descendant_origin, xcm } =>
+				W::execute_with_origin(descendant_origin, xcm),
 		}
 	}
 }

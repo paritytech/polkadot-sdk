@@ -528,13 +528,17 @@ where
 		};
 
 		let start = std::time::Instant::now();
-		let import_future = self.pool.submit_one(
-			self.client.info().best_hash,
-			sc_transaction_pool_api::TransactionSource::External,
-			uxt,
-		);
+		let pool = self.pool.clone();
+		let client = self.client.clone();
 		Box::pin(async move {
-			match import_future.await {
+			match pool
+				.submit_one(
+					client.info().best_hash,
+					sc_transaction_pool_api::TransactionSource::External,
+					uxt,
+				)
+				.await
+			{
 				Ok(_) => {
 					let elapsed = start.elapsed();
 					debug!(target: sc_transaction_pool::LOG_TARGET, "import transaction: {elapsed:?}");
