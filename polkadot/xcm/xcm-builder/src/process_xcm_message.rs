@@ -58,7 +58,7 @@ impl<
 		let message = Xcm::<Call>::try_from(versioned_message).map_err(|_| {
 			log::trace!(
 				target: LOG_TARGET,
-				"Failed to convert `VersionedXcm` into `XcmV3`.",
+				"Failed to convert `VersionedXcm` into `xcm::prelude::Xcm`!",
 			);
 
 			ProcessMessageError::Unsupported
