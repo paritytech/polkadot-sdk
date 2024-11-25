@@ -186,12 +186,11 @@ where
 
 async fn run_serially(setup: Arc<BenchSetup>, size: usize, limit: usize) {
 	let (break_tx, break_rx) = async_channel::bounded(1);
-	let requests = {
+	let network1 = tokio::spawn({
 		let network_service1 = Arc::clone(&setup.network_service1);
 		let peer_id2 = setup.peer_id2;
 		async move {
-			let mut sent_counter = 0;
-			while sent_counter < limit {
+			for _ in 0..limit {
 				let _ = network_service1
 					.request(
 						peer_id2.into(),
@@ -202,18 +201,8 @@ async fn run_serially(setup: Arc<BenchSetup>, size: usize, limit: usize) {
 					)
 					.await
 					.unwrap();
-				sent_counter += 1;
 			}
 			let _ = break_tx.send(()).await;
-		}
-	};
-
-	let network1 = tokio::spawn(async move {
-		tokio::pin!(requests);
-		loop {
-			tokio::select! {
-				_ = &mut requests => break,
-			}
 		}
 	});
 	let network2 = tokio::spawn({
