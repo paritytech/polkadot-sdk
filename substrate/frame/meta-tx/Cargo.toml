@@ -1,6 +1,6 @@
 [package]
 name = "pallet-meta-tx"
-description = "Dispatch Meta Transaction"
+description = "FRAME pallet enabling meta transactions."
 license = "Apache-2.0"
 version = "0.1.0"
 edition.workspace = true
@@ -40,7 +40,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
-	"serde",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -50,6 +49,8 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-verify-signature/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -58,5 +59,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"pallet-verify-signature/try-runtime",
 	"sp-runtime/try-runtime",
 ]

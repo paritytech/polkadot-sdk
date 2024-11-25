@@ -487,7 +487,7 @@ pub use pallet_membership;
 #[cfg(feature = "pallet-message-queue")]
 pub use pallet_message_queue;
 
-/// FRAME pallet for meta transactions.
+/// FRAME pallet enabling meta transactions.
 #[cfg(feature = "pallet-meta-tx")]
 pub use pallet_meta_tx;
 
