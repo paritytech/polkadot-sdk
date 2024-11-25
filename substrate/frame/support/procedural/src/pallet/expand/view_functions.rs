@@ -175,10 +175,11 @@ fn impl_dispatch_view_function(
 			for #pallet_ident<#type_use_gen> #where_clause
 		{
 			#[deny(unreachable_patterns)]
-			fn dispatch_view_function<
-				O: #frame_support::__private::codec::Output,
-			>
-				(id: & #frame_support::__private::ViewFunctionId, input: &mut &[u8], output: &mut O) -> Result<(), #frame_support::__private::ViewFunctionDispatchError>
+			fn dispatch_view_function<O: #frame_support::__private::codec::Output>(
+				id: & #frame_support::__private::ViewFunctionId, 
+				input: &mut &[u8], 
+				output: &mut O
+			) -> Result<(), #frame_support::__private::ViewFunctionDispatchError>
 			{
 				match id.suffix {
 					#( #query_match_arms )*
