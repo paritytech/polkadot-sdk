@@ -111,7 +111,7 @@ jobs:
           sudo apt-get install -y reprepro
           which reprepro
 
-          sed -i "s/^SignWith:.*/"SignWith: ! $PGPKMS_REPREPRO_PATH"/"  ${{ github.workspace }}/.github/scripts/release/distributions
+          sed -i "s|^SignWith:.*|SignWith: ! $PGPKMS_REPREPRO_PATH|" ${{ github.workspace }}/.github/scripts/release/distributions
 
           mkdir -p ${{ github.workspace }}/deb/conf
           cp ${{ github.workspace }}/.github/scripts/release/distributions ${{ github.workspace }}/deb/conf/distributions
