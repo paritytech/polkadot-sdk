@@ -14,7 +14,8 @@ doc:
       transaction with the `meta-tx::dispatch` call, passing the signed meta transaction as an
       argument.
 
-      To see an example, refer to the `sign_and_execute_meta_tx` test case within the pallet.
+      To see an example, refer to the mock setup and the `sign_and_execute_meta_tx` test case within
+      the pallet.
 
 crates:
 - name: pallet-meta-tx
@@ -24,4 +25,8 @@ crates:
 - name: kitchensink-runtime
   bump: major
 - name: polkadot-sdk
+  bump: major
+- name: pallet-verify-signature
+  bump: patch
+- name: pallet-example-authorization-tx-extension
   bump: major
