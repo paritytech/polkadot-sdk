@@ -39,6 +39,7 @@ jobs:
           SUBSTRATE_RUNTIME_TARGET: riscv
         id: required
         run: |
+          exit 1
           forklift cargo check -p minimal-template-runtime
           forklift cargo check -p westend-runtime
           forklift cargo check -p rococo-runtime
