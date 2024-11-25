@@ -344,10 +344,15 @@ impl From<codec::Error> for ViewFunctionDispatchError {
 	}
 }
 
-/// todo: [AJ] docs
+/// The unique identifier for a view function.
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct ViewFunctionId {
+	/// The part of the id for dispatching view functions from the top level of the runtime.
+	///
+	/// Specifies which view function grouping this view function belongs to. This could be a group
+	/// of view functions associated with a pallet, or a pallet agnostic group of view functions.
 	pub prefix: [u8; 16],
+	/// The part of the id for dispatching to a view function within a group.
 	pub suffix: [u8; 16],
 }
 

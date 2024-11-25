@@ -176,8 +176,8 @@ fn impl_dispatch_view_function(
 		{
 			#[deny(unreachable_patterns)]
 			fn dispatch_view_function<O: #frame_support::__private::codec::Output>(
-				id: & #frame_support::__private::ViewFunctionId, 
-				input: &mut &[u8], 
+				id: & #frame_support::__private::ViewFunctionId,
+				input: &mut &[u8],
 				output: &mut O
 			) -> Result<(), #frame_support::__private::ViewFunctionDispatchError>
 			{
