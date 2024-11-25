@@ -50,9 +50,9 @@ impl<T, D: Get<T>> TypeWithDefault<T, D> {
 	}
 }
 
-/// Hides implementation details from the outside (for metadata type information).
-///
-/// The type info showed in metadata is the one of the inner value's type.
+// Hides implementation details from the outside (for metadata type information).
+//
+// The type info showed in metadata is the one of the inner value's type.
 impl<T: StaticTypeInfo, D: Get<T> + 'static> TypeInfo for TypeWithDefault<T, D> {
 	type Identity = Self;
 
