@@ -69,7 +69,6 @@ async fn assert_construct_per_relay_parent(
 			parent,
 			RuntimeApiRequest::ClaimQueue(tx),
 		)) if parent == hash => {
-			// println!("CECO: Claim queue requested for block hash: {:?}", hash);
 			let _ = tx.send(Ok(test_state.claim_queue.clone()));
 		}
 	);
