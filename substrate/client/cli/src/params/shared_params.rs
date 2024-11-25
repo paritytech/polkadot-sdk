@@ -33,10 +33,10 @@ pub struct SharedParams {
 
 	/// Specify the development chain.
 	///
-	/// This flag sets `--chain=dev`, `--force-authoring`, `--rpc-cors=all`,
-	/// `--alice`, and `--tmp` flags, unless explicitly overridden.
-	/// It also disables local peer discovery (see --no-mdns and --discover-local)
-	#[arg(long, conflicts_with_all = &["chain"])]
+	/// This flag sets `--chain=dev` if `--chain`, `--force-authoring`, `--rpc-cors=all`,
+	/// `--alice`, and `--tmp` flags, unless explicitly overridden. It also disables
+	/// local peer discovery (see `--no-mdns` and `--discover-local)`.
+	#[arg(long)]
 	pub dev: bool,
 
 	/// Specify custom base path.
@@ -109,12 +109,8 @@ impl SharedParams {
 	pub fn chain_id(&self, is_dev: bool) -> String {
 		match self.chain {
 			Some(ref chain) => chain.clone(),
-			None =>
-				if is_dev {
-					"dev".into()
-				} else {
-					"".into()
-				},
+			None if is_dev => "dev".into(),
+			_ => "".into(),
 		}
 	}
 
