@@ -327,12 +327,14 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 #[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum Void {}
 
-/// todo: [AJ] docs
+/// Error type for view function dispatching.
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-
 pub enum ViewFunctionDispatchError {
+	/// View functions are not implemented for this runtime.
 	NotImplemented,
+	/// A view function with the given `ViewFunctionId` was not found
 	NotFound(ViewFunctionId),
+	/// Failed to decode the view function input.
 	Codec,
 }
 

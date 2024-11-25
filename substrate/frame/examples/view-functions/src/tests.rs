@@ -24,7 +24,7 @@ use crate::{
 	pallet2,
 };
 use codec::{Decode, Encode};
-use frame_support::traits::{DispatchViewFunction, ViewFunction};
+use frame_support::traits::ViewFunction;
 
 #[test]
 fn pallet_get_value_query() {
