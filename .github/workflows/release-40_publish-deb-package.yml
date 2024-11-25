@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Current final release tag in the format stableYYMM
-        default: stable2412
+        description: Current final release tag in the format polakdot-stableYYMM or polkadot-stable-YYMM-X
+        default: polakdot-stable2412
         required: true
         type: string
 
       distribution:
         description: Distribution where to publish deb package (release, staging, stable2407, etc)
-        default: release
+        default: staging
         required: true
         type: string
 
