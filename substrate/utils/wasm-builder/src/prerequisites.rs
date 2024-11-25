@@ -202,7 +202,7 @@ fn check_wasm_toolchain_installed(
 	let version = dummy_crate.get_rustc_version();
 
 	let target = RuntimeTarget::new();
-	assert!(target != RuntimeTarget::Wasm);
+	assert!(target == RuntimeTarget::Wasm);
 	if target.rustc_target_build_std() != None {
 		if let Some(sysroot) = dummy_crate.get_sysroot() {
 			let src_path =
