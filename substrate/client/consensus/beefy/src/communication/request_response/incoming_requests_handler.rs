@@ -148,7 +148,7 @@ where
 	) -> (Self, Network::RequestResponseProtocolConfig) {
 		let (request_receiver, config): (_, Network::RequestResponseProtocolConfig) =
 			on_demand_justifications_protocol_config::<_, _, Network>(genesis_hash, fork_id);
-		let justif_protocol_name = config.protocol_name().clone();
+		let justif_protocol_name = config.protocol_names().protocol_name().clone();
 		let metrics = register_metrics(prometheus_registry);
 		(
 			Self { request_receiver, justif_protocol_name, client, metrics, _block: PhantomData },
