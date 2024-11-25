@@ -229,6 +229,23 @@ benchmarks! {
 		);
 	}
 
+	execute_with_origin {
+		let mut executor = new_executor::<T>(Default::default());
+		let who: Junctions = Junctions::from([AccountId32 { id: [0u8; 32], network: None }]);
+		let instruction = Instruction::ExecuteWithOrigin { descendant_origin: Some(who.clone()), xcm: Xcm(vec![]) };
+		let xcm = Xcm(vec![instruction]);
+	}: {
+		executor.bench_process(xcm)?;
+	} verify {
+		assert_eq!(
+			executor.origin(),
+			&Some(Location {
+				parents: 0,
+				interior: Here,
+			}),
+		);
+	}
+
 	clear_origin {
 		let mut executor = new_executor::<T>(Default::default());
 		let instruction = Instruction::ClearOrigin;

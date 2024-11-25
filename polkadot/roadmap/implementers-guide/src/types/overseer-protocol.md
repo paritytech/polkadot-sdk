@@ -697,14 +697,6 @@ mod generic {
         Invalidity(Digest, Signature, Signature),
     }
 
-    /// Misbehavior: declaring multiple candidates.
-    pub struct MultipleCandidates<Candidate, Signature> {
-        /// The first candidate seen.
-        pub first: (Candidate, Signature),
-        /// The second candidate seen.
-        pub second: (Candidate, Signature),
-    }
-
     /// Misbehavior: submitted statement for wrong group.
     pub struct UnauthorizedStatement<Candidate, Digest, AuthorityId, Signature> {
         /// A signed statement which was submitted without proper authority.
@@ -714,8 +706,6 @@ mod generic {
     pub enum Misbehavior<Candidate, Digest, AuthorityId, Signature> {
         /// Voted invalid and valid on validity.
         ValidityDoubleVote(ValidityDoubleVote<Candidate, Digest, Signature>),
-        /// Submitted multiple candidates.
-        MultipleCandidates(MultipleCandidates<Candidate, Signature>),
         /// Submitted a message that was unauthorized.
         UnauthorizedStatement(UnauthorizedStatement<Candidate, Digest, AuthorityId, Signature>),
         /// Submitted two valid signatures for the same message.

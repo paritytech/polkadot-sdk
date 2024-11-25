@@ -25,7 +25,7 @@
 pub mod chain_sync;
 mod disconnected_peers;
 pub mod polkadot;
-mod state;
+pub mod state;
 pub mod state_sync;
 pub mod warp;
 
@@ -177,7 +177,8 @@ pub enum SyncingAction<B: BlockT> {
 }
 
 impl<B: BlockT> SyncingAction<B> {
-	fn is_finished(&self) -> bool {
+	/// Returns `true` if the syncing action has completed.
+	pub fn is_finished(&self) -> bool {
 		matches!(self, SyncingAction::Finished)
 	}
 
