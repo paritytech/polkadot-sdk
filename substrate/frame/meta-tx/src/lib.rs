@@ -105,16 +105,7 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config<
-		RuntimeCall: Dispatchable<
-			Info = DispatchInfo,
-			PostInfo = PostDispatchInfo,
-			RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin,
-		>,
-		RuntimeOrigin: AsTransactionAuthorizedOrigin + From<SystemOrigin<Self::AccountId>>,
-	>
-	{
+	pub trait Config: frame_system::Config {
 		/// Weight information for calls in this pallet.
 		type WeightInfo: WeightInfo;
 		/// The overarching origin type.
