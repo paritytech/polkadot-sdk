@@ -747,21 +747,21 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 						NetworkServiceCommand::AddKnownAddress { peer, address } => {
 							if !address.is_external_address_valid() {
-								log::warn!(
+								log::debug!(
 									target: LOG_TARGET,
 									"ignoring invalid external address {address} for {peer:?}",
 								);
 								continue
 							}
 							let Some(address) = address.clone().ensure_peer_id(peer) else {
-								log::warn!(
+								log::debug!(
 									target: LOG_TARGET,
 									"ignoring address ({address}) with different peer ID {peer:?}",
 								);
 								continue
 							};
 							if self.litep2p.add_known_address(peer.into(), iter::once(address.clone().into())) == 0usize {
-								log::warn!(
+								log::debug!(
 									target: LOG_TARGET,
 									"couldn't add known address ({address}) for {peer:?}, unsupported transport"
 								);
