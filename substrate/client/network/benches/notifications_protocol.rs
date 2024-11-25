@@ -255,14 +255,14 @@ async fn run_with_backpressure(setup: Arc<BenchSetup>, size: usize, limit: usize
 	let _ = tokio::join!(network1, network2);
 }
 
-fn run_benchmark_with_small_payload(c: &mut Criterion) {
+fn run_benchmark(c: &mut Criterion, payload: &[(u32, usize, &'static str)], group: &str) {
 	let rt = tokio::runtime::Runtime::new().unwrap();
 	let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
-	let mut group = c.benchmark_group("notifications_protocol/small_payload");
+	let mut group = c.benchmark_group(group);
 	group.plot_config(plot_config);
 
 	let libp2p_setup = setup_workers::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>(&rt);
-	for &(exponent, limit, label) in SMALL_PAYLOAD.iter() {
+	for &(exponent, limit, label) in payload.iter() {
 		let size = 2usize.pow(exponent);
 		group.throughput(Throughput::Bytes(limit as u64 * size as u64));
 		group.bench_with_input(
@@ -284,7 +284,7 @@ fn run_benchmark_with_small_payload(c: &mut Criterion) {
 	drop(libp2p_setup);
 
 	let litep2p_setup = setup_workers::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>(&rt);
-	for &(exponent, limit, label) in SMALL_PAYLOAD.iter() {
+	for &(exponent, limit, label) in payload.iter() {
 		let size = 2usize.pow(exponent);
 		group.throughput(Throughput::Bytes(limit as u64 * size as u64));
 		group.bench_with_input(
@@ -306,55 +306,12 @@ fn run_benchmark_with_small_payload(c: &mut Criterion) {
 	drop(litep2p_setup);
 }
 
+fn run_benchmark_with_small_payload(c: &mut Criterion) {
+	run_benchmark(c, SMALL_PAYLOAD, "notifications_protocol/small_payload");
+}
+
 fn run_benchmark_with_large_payload(c: &mut Criterion) {
-	let rt = tokio::runtime::Runtime::new().unwrap();
-	let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
-	let mut group = c.benchmark_group("notifications_protocol/large_payload");
-	group.plot_config(plot_config);
-
-	let libp2p_setup = setup_workers::<runtime::Block, runtime::Hash, NetworkWorker<_, _>>(&rt);
-	for &(exponent, limit, label) in LARGE_PAYLOAD.iter() {
-		let size = 2usize.pow(exponent);
-		group.throughput(Throughput::Bytes(limit as u64 * size as u64));
-		group.bench_with_input(
-			BenchmarkId::new("libp2p/serially", label),
-			&(size, limit),
-			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| run_serially(Arc::clone(&libp2p_setup), size, limit));
-			},
-		);
-		group.bench_with_input(
-			BenchmarkId::new("libp2p/with_backpressure", label),
-			&(size, limit),
-			|b, &(size, limit)| {
-				b.to_async(&rt)
-					.iter(|| run_with_backpressure(Arc::clone(&libp2p_setup), size, limit));
-			},
-		);
-	}
-	drop(libp2p_setup);
-
-	let litep2p_setup = setup_workers::<runtime::Block, runtime::Hash, Litep2pNetworkBackend>(&rt);
-	for &(exponent, limit, label) in LARGE_PAYLOAD.iter() {
-		let size = 2usize.pow(exponent);
-		group.throughput(Throughput::Bytes(limit as u64 * size as u64));
-		group.bench_with_input(
-			BenchmarkId::new("litep2p/serially", label),
-			&(size, limit),
-			|b, &(size, limit)| {
-				b.to_async(&rt).iter(|| run_serially(Arc::clone(&litep2p_setup), size, limit));
-			},
-		);
-		group.bench_with_input(
-			BenchmarkId::new("litep2p/with_backpressure", label),
-			&(size, limit),
-			|b, &(size, limit)| {
-				b.to_async(&rt)
-					.iter(|| run_with_backpressure(Arc::clone(&litep2p_setup), size, limit));
-			},
-		);
-	}
-	drop(litep2p_setup);
+	run_benchmark(c, LARGE_PAYLOAD, "notifications_protocol/large_payload");
 }
 
 criterion_group!(benches, run_benchmark_with_small_payload, run_benchmark_with_large_payload);
