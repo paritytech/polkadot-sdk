@@ -140,12 +140,16 @@ for MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId>
             }
         }
 
+        log::debug!(target: LOG_TARGET,"extracted assets");
+
         if let Some(claimer) = message.claimer {
             let claimer = Junction::decode(&mut claimer.as_ref())
                 .map_err(|_| ConvertMessageError::InvalidClaimer)?;
             let claimer_location: Location = Location::new(0, [claimer.into()]);
             instructions.push(SetAssetClaimer { location: claimer_location });
         }
+
+        log::debug!(target: LOG_TARGET,"extracted claimer");
 
         // Set the alias origin to the original sender on Ethereum. Important to be before the
         // arbitrary XCM that is appended to the message on the next line.

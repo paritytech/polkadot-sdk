@@ -51,7 +51,7 @@ use sp_core::H160;
 use sp_std::vec;
 use types::Nonce;
 use alloc::boxed::Box;
-use xcm::prelude::{Junction::*, Location, SendError as XcmpSendError};
+use xcm::prelude::{Junction::*, Location, *};
 
 use snowbridge_core::{
 	fees::burn_fees,
@@ -170,22 +170,6 @@ pub mod pallet {
 		Fees,
 	}
 
-	impl<T: Config> From<XcmpSendError> for Error<T> {
-		fn from(e: XcmpSendError) -> Self {
-			match e {
-				XcmpSendError::NotApplicable => Error::<T>::Send(SendError::NotApplicable),
-				XcmpSendError::Unroutable => Error::<T>::Send(SendError::NotRoutable),
-				XcmpSendError::Transport(_) => Error::<T>::Send(SendError::Transport),
-				XcmpSendError::DestinationUnsupported =>
-					Error::<T>::Send(SendError::DestinationUnsupported),
-				XcmpSendError::ExceedsMaxMessageSize =>
-					Error::<T>::Send(SendError::ExceedsMaxMessageSize),
-				XcmpSendError::MissingArgument => Error::<T>::Send(SendError::MissingArgument),
-				XcmpSendError::Fees => Error::<T>::Send(SendError::Fees),
-			}
-		}
-	}
-
 	/// The nonce of the message been processed or not
 	#[pallet::storage]
 	pub type NonceBitmap<T: Config> = StorageMap<_, Twox64Concat, u128, u128, ValueQuery>;
@@ -240,12 +224,8 @@ pub mod pallet {
 			// e. The reward
 
 			// Attempt to forward XCM to AH
-			let versioned_dest = Box::new(VersionedLocation::V5(Location::new(
-				1,
-				[Parachain(T::AssetHubParaId::get())],
-			)));
-			let versioned_xcm = Box::new(VersionedXcm::V5(xcm));
-			let message_id = T::XcmSender::send(origin, versioned_dest, versioned_xcm)?;
+
+			let message_id = Self::send_xcm(origin, xcm, T::AssetHubParaId::get())?;
 			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
 
 			// Set nonce flag to true
@@ -273,6 +253,19 @@ pub mod pallet {
 			let account_bytes: [u8; 32] =
 				account.encode().try_into().map_err(|_| Error::<T>::InvalidAccount)?;
 			Ok(Location::new(0, [AccountId32 { network: None, id: account_bytes }]))
+		}
+
+		pub fn send_xcm(origin: OriginFor<T>, xcm: Xcm<()>, dest_para_id: u32) -> Result<XcmHash, DispatchError> {
+			let versioned_dest = Box::new(VersionedLocation::V5(Location::new(
+				1,
+				[Parachain(dest_para_id)],
+			)));
+			let versioned_xcm = Box::new(VersionedXcm::V5(xcm));
+			Ok(T::XcmSender::send(origin, versioned_dest, versioned_xcm)?)
+		}
+
+		pub fn do_convert(message: MessageV2) -> Result<Xcm<()>, Error<T>> {
+			Ok(T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?)
 		}
 	}
 }
