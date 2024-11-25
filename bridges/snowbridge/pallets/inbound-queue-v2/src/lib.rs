@@ -22,6 +22,8 @@
 //! * [`Call::submit`]: Submit a message for verification and dispatch the final destination
 //!   parachain.
 #![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
 pub mod api;
 mod envelope;
 
@@ -48,6 +50,7 @@ use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_std::vec;
 use types::Nonce;
+use alloc::boxed::Box;
 use xcm::prelude::{Junction::*, Location, SendError as XcmpSendError};
 
 use snowbridge_core::{
@@ -242,7 +245,7 @@ pub mod pallet {
 				[Parachain(T::AssetHubParaId::get())],
 			)));
 			let versioned_xcm = Box::new(VersionedXcm::V5(xcm));
-			let message_id = T::XcmSender::send(origin, versioned_dest, versioned_xcm)?; // TODO origin should be this parachain, maybe
+			let message_id = T::XcmSender::send(origin, versioned_dest, versioned_xcm)?;
 			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
 
 			// Set nonce flag to true

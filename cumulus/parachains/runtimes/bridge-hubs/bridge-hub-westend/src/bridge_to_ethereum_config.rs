@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-#[cfg(not(feature = "runtime-benchmarks"))]
-use crate::XcmRouter;
 use crate::{
 	xcm_config,
 	xcm_config::{TreasuryAccount, UniversalLocation},
 	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime,
 	RuntimeEvent, TransactionByteFee,
 };
+#[cfg(not(feature = "runtime-benchmarks"))]
+use crate::{PolkadotXcm, XcmRouter};
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
@@ -39,7 +39,7 @@ use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
 use pallet_xcm::EnsureXcm;
 use sp_runtime::{
-	traits::{ConstU32, ConstU8, ConstU128, Keccak256},
+	traits::{ConstU128, ConstU32, ConstU8, Keccak256},
 	FixedU128,
 };
 use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain};
@@ -106,7 +106,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type XcmSender = XcmRouter;
+	type XcmSender = PolkadotXcm;
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
 	type GatewayAddress = EthereumGatewayAddress;
@@ -117,7 +117,11 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type Token = Balances;
 	type XcmPrologueFee = ConstU128<1_000_000_000>;
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
-	type MessageConverter = snowbridge_router_primitives::inbound::v2::MessageToXcm<EthereumNetwork, ConstU8<INBOUND_QUEUE_PALLET_INDEX>, EthereumSystem>;
+	type MessageConverter = snowbridge_router_primitives::inbound::v2::MessageToXcm<
+		EthereumNetwork,
+		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
+		EthereumSystem,
+	>;
 }
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {

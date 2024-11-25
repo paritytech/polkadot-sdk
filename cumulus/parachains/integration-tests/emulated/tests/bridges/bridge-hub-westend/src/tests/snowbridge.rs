@@ -21,9 +21,9 @@ use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use rococo_westend_system_emulated_network::asset_hub_westend_emulated_chain::genesis::AssetHubWestendAssetOwner;
 use snowbridge_core::{outbound::OperatingMode, AssetMetadata, TokenIdOf};
-use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
-use snowbridge_router_primitives::inbound::v1::{
-	Command, Destination, MessageV1, VersionedMessage,
+use snowbridge_router_primitives::inbound::{
+	v1::{Command, Destination, MessageV1, VersionedMessage},
+	EthereumLocationsConverterFor,
 };
 use sp_core::H256;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
