@@ -10,3 +10,5 @@ crates:
     bump: patch
   - name: sc-authority-discovery
     bump: patch
+  - name: sc-network-types
+    bump: patch
