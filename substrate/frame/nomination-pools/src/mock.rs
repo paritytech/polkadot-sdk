@@ -116,7 +116,7 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 
 	fn is_virtual_staker(who: &Self::AccountId) -> bool {
-		true
+		AgentBalanceMap::get().contains_key(who)
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
@@ -273,7 +273,7 @@ impl DelegationInterface for DelegateMock {
 
 	fn register_agent(
 		agent: Agent<Self::AccountId>,
-		reward_account: &Self::AccountId,
+		_reward_account: &Self::AccountId,
 	) -> DispatchResult {
 		let mut agents = AgentBalanceMap::get();
 		agents.insert(agent.get(), (0, 0, 0));
@@ -315,7 +315,7 @@ impl DelegationInterface for DelegateMock {
 		delegator: Delegator<Self::AccountId>,
 		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
-		num_slashing_spans: u32,
+		_num_slashing_spans: u32,
 	) -> DispatchResult {
 		let mut delegators = DelegatorBalanceMap::get();
 		delegators.get_mut(&delegator.get()).map(|b| *b -= amount);
@@ -350,7 +350,7 @@ impl DelegationInterface for DelegateMock {
 
 		let mut agents = AgentBalanceMap::get();
 		agents.get_mut(&agent.get()).map(|(_, _, p)| {
-			*p -= value;
+			p.saturating_reduce(value);
 		});
 		AgentBalanceMap::set(&agents);
 
@@ -359,13 +359,19 @@ impl DelegationInterface for DelegateMock {
 }
 
 impl DelegateMock {
-	pub(crate) fn set_agent_balance(who: AccountId, delegated: Balance) {
+	pub fn set_agent_balance(who: AccountId, delegated: Balance) {
 		let mut agents = AgentBalanceMap::get();
 		agents.insert(who, (delegated, 0, 0));
 		AgentBalanceMap::set(&agents);
 	}
 
-	fn on_slash(agent: AccountId, amount: Balance) {
+	pub fn set_delegator_balance(who: AccountId, amount: Balance) {
+		let mut delegators = DelegatorBalanceMap::get();
+		delegators.insert(who, amount);
+		DelegatorBalanceMap::set(&delegators);
+	}
+
+	pub fn on_slash(agent: AccountId, amount: Balance) {
 		let mut agents = AgentBalanceMap::get();
 		agents.get_mut(&agent).map(|(_, _, p)| *p += amount);
 		AgentBalanceMap::set(&agents);
@@ -383,18 +389,18 @@ impl DelegationMigrator for DelegateMock {
 	type Balance = Balance;
 	type AccountId = AccountId;
 	fn migrate_nominator_to_agent(
-		agent: Agent<Self::AccountId>,
-		reward_account: &Self::AccountId,
+		_agent: Agent<Self::AccountId>,
+		_reward_account: &Self::AccountId,
 	) -> DispatchResult {
-		todo!()
+		unimplemented!("not used in current unit tests")
 	}
 
 	fn migrate_delegation(
-		agent: Agent<Self::AccountId>,
-		delegator: Delegator<Self::AccountId>,
-		value: Self::Balance,
+		_agent: Agent<Self::AccountId>,
+		_delegator: Delegator<Self::AccountId>,
+		_value: Self::Balance,
 	) -> DispatchResult {
-		todo!()
+		unimplemented!("not used in current unit tests")
 	}
 }
 
@@ -697,9 +703,14 @@ pub(crate) fn set_pool_balance(who: AccountId, amount: Balance) {
 	DelegateMock::set_agent_balance(who, amount);
 }
 
-pub fn member_balance(who: AccountId) -> Balance {
+pub fn member_delegation(who: AccountId) -> Balance {
 	<T as Config>::StakeAdapter::member_delegation_balance(Member::from(who))
 		.expect("who must be a pool member")
+}
+
+pub fn pool_balance(id: PoolId) -> Balance {
+	<T as Config>::StakeAdapter::total_balance(Pool::from(Pools::generate_bonded_account(id)))
+		.expect("who must be a bonded pool account")
 }
 
 #[cfg(test)]
