@@ -698,7 +698,7 @@ pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
 	}
 }
 
-pub(crate) fn set_pool_balance(who: AccountId, amount: Balance) {
+pub fn set_pool_balance(who: AccountId, amount: Balance) {
 	StakingMock::set_bonded_balance(who, amount);
 	DelegateMock::set_agent_balance(who, amount);
 }
