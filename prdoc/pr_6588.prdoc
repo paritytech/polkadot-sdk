@@ -10,5 +10,5 @@ doc:
 
 
 crates:
-    - name: sc-rpc-server
-    bump: minor
+  - name: sc-rpc-server
+  bump: minor
