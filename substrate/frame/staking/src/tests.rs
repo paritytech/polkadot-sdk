@@ -6826,62 +6826,10 @@ fn test_validator_exposure_is_backward_compatible_with_non_paged_rewards_payout(
 			assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&who, &1));
 		}
 
-		// case 2: exposure exist in ErasStakers and ErasStakersClipped (legacy).
-		// delete paged storage and add exposure to clipped storage
-		<ErasStakersPaged<Test>>::remove((1, 11, 0));
-		<ErasStakersPaged<Test>>::remove((1, 11, 1));
-		<ErasStakersOverview<Test>>::remove(1, 11);
-
-		<ErasStakers<Test>>::insert(
-			1,
-			11,
-			Exposure {
-				total: total_exposure,
-				own: 1000,
-				others: expected_individual_exposures.clone(),
-			},
-		);
-		let mut clipped_exposure = expected_individual_exposures.clone();
-		clipped_exposure.sort_by(|a, b| b.who.cmp(&a.who));
-		clipped_exposure.truncate(10);
-		<ErasStakersClipped<Test>>::insert(
-			1,
-			11,
-			Exposure { total: total_exposure, own: 1000, others: clipped_exposure.clone() },
-		);
-
-		// verify `EraInfo` returns exposure from clipped storage
-		let actual_exposure_paged = EraInfo::<Test>::get_paged_exposure(1, &11, 0).unwrap();
-		assert_eq!(actual_exposure_paged.others(), &clipped_exposure);
-		assert_eq!(actual_exposure_paged.own(), 1000);
-		assert_eq!(actual_exposure_paged.exposure_metadata.page_count, 1);
-
 		let actual_exposure_full = EraInfo::<Test>::get_full_exposure(1, &11);
 		assert_eq!(actual_exposure_full.others, expected_individual_exposures);
 		assert_eq!(actual_exposure_full.own, 1000);
 		assert_eq!(actual_exposure_full.total, total_exposure);
-
-		// validator is exposed
-		assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&11, &1));
-		// nominators are exposed
-		for i in 10..15 {
-			let who: AccountId = 1000 + i;
-			assert!(<Staking as sp_staking::StakingInterface>::is_exposed_in_era(&who, &1));
-		}
-
-		// for pages other than 0, clipped storage returns empty exposure
-		assert_eq!(EraInfo::<Test>::get_paged_exposure(1, &11, 1), None);
-		// page size is 1 for clipped storage
-		assert_eq!(EraInfo::<Test>::get_page_count(1, &11), 1);
-
-		// payout for page 0 works
-		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 0));
-		// payout for page 1 fails
-		assert_noop!(
-			Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 0, 1),
-			Error::<Test>::InvalidPage
-				.with_weight(<Test as Config>::WeightInfo::payout_stakers_alive_staked(0))
-		);
 	});
 }
 
@@ -6924,11 +6872,10 @@ fn test_runtime_api_pending_rewards() {
 			others: individual_exposures,
 		};
 
-		// add non-paged exposure for one and two.
-		<ErasStakers<Test>>::insert(0, validator_one, exposure.clone());
-		<ErasStakers<Test>>::insert(0, validator_two, exposure.clone());
-		// add paged exposure for third validator
-		EraInfo::<Test>::set_exposure(0, &validator_three, exposure);
+		// add exposure for validators
+		EraInfo::<Test>::set_exposure(0, &validator_one, exposure.clone());
+		EraInfo::<Test>::set_exposure(0, &validator_two, exposure.clone());
+		EraInfo::<Test>::set_exposure(0, &validator_three, exposure.clone());
 
 		// add some reward to be distributed
 		ErasValidatorReward::<Test>::insert(0, 1000);
@@ -8757,11 +8704,11 @@ mod getters {
 		tests::{MaxWinners, Staking, Test},
 		ActiveEra, ActiveEraInfo, BalanceOf, BoundedBTreeMap, BoundedVec, CanceledSlashPayout,
 		ClaimedRewards, CurrentEra, CurrentPlannedSession, EraRewardPoints, ErasRewardPoints,
-		ErasStakersClipped, ErasStartSessionIndex, ErasTotalStake, ErasValidatorPrefs,
-		ErasValidatorReward, ForceEra, Forcing, Nominations, Nominators, Perbill,
-		SlashRewardFraction, SlashingSpans, ValidatorPrefs, Validators,
+		ErasStartSessionIndex, ErasTotalStake, ErasValidatorPrefs, ErasValidatorReward, ForceEra,
+		Forcing, Nominations, Nominators, Perbill, SlashRewardFraction, SlashingSpans,
+		ValidatorPrefs, Validators,
 	};
-	use sp_staking::{EraIndex, Exposure, IndividualExposure, Page, SessionIndex};
+	use sp_staking::{EraIndex, Page, SessionIndex};
 
 	#[test]
 	fn get_validator_count_returns_value_from_storage() {
@@ -8894,27 +8841,6 @@ mod getters {
 
 			// then
 			assert_eq!(result, Some(session_index));
-		});
-	}
-
-	#[test]
-	fn get_eras_stakers_clipped_returns_value_from_storage() {
-		sp_io::TestExternalities::default().execute_with(|| {
-			// given
-			let era: EraIndex = 12;
-			let account_id: mock::AccountId = 1;
-			let exposure: Exposure<mock::AccountId, BalanceOf<Test>> = Exposure {
-				total: 1125,
-				own: 1000,
-				others: vec![IndividualExposure { who: 101, value: 125 }],
-			};
-			ErasStakersClipped::<Test>::insert(era, account_id, exposure.clone());
-
-			// when
-			let result = Staking::eras_stakers_clipped(era, &account_id);
-
-			// then
-			assert_eq!(result, exposure);
 		});
 	}
 

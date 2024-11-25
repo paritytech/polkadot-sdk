@@ -1057,13 +1057,8 @@ impl<T: Config> EraInfo<T> {
 		let page_count = if let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) {
 			overview.page_count
 		} else {
-			if <ErasStakers<T>>::contains_key(era, validator) {
-				// this means non paged exposure, and we treat them as single paged.
-				1
-			} else {
-				// if no exposure, then no rewards to claim.
-				return false
-			}
+			// if no exposure, then no rewards to claim.
+			return false
 		};
 
 		// check if era is marked claimed in legacy storage.
@@ -1112,12 +1107,6 @@ impl<T: Config> EraInfo<T> {
 	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator);
 
-		// return clipped exposure if page zero and paged exposure does not exist
-		// exists for backward compatibility and can be removed as part of #13034
-		if overview.is_none() && page == 0 {
-			return Some(PagedExposure::from_clipped(<ErasStakersClipped<T>>::get(era, validator)))
-		}
-
 		// no exposure for this validator
 		if overview.is_none() {
 			return None
@@ -1145,10 +1134,6 @@ impl<T: Config> EraInfo<T> {
 		validator: &T::AccountId,
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator);
-
-		if overview.is_none() {
-			return ErasStakers::<T>::get(era, validator)
-		}
 
 		let overview = overview.expect("checked above; qed");
 
@@ -1186,26 +1171,12 @@ impl<T: Config> EraInfo<T> {
 		validator: &T::AccountId,
 		ledger: &StakingLedger<T>,
 	) -> Option<Page> {
-		if Self::is_non_paged_exposure(era, validator) {
-			return match ledger.legacy_claimed_rewards.binary_search(&era) {
-				// already claimed
-				Ok(_) => None,
-				// Non-paged exposure is considered as a single page
-				Err(_) => Some(0),
-			}
-		}
-
 		// Find next claimable page of paged exposure.
 		let page_count = Self::get_page_count(era, validator);
 		let all_claimable_pages: Vec<Page> = (0..page_count).collect();
 		let claimed_pages = ClaimedRewards::<T>::get(era, validator);
 
 		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
-	}
-
-	/// Checks if exposure is paged or not.
-	fn is_non_paged_exposure(era: EraIndex, validator: &T::AccountId) -> bool {
-		<ErasStakersClipped<T>>::contains_key(&era, validator)
 	}
 
 	/// Returns validator commission for this era and page.
