@@ -294,8 +294,14 @@ impl<T: Config> WasmBlob<T> {
 		let mut config = polkavm::Config::default();
 		config.set_backend(Some(polkavm::BackendKind::Interpreter));
 		config.set_cache_enabled(false);
-		let engine =
-			polkavm::Engine::new(&config).expect("interpreter is available on all plattforms; qed");
+		#[cfg(feature = "std")]
+		if std::env::var_os("REVIVE_USE_COMPILER").is_some() {
+			config.set_backend(Some(polkavm::BackendKind::Compiler));
+		}
+		let engine = polkavm::Engine::new(&config).expect(
+			"on-chain (no_std) use of interpreter is hard coded.
+				interpreter is available on all plattforms; qed",
+		);
 
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
