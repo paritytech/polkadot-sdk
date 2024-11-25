@@ -199,7 +199,7 @@ pub mod pallet {
 			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
 
 			// Verify the message has not been processed
-			ensure!(!<Nonce<T>>::get(envelope.nonce.into()), Error::<T>::InvalidNonce);
+			ensure!(!Nonce::<T>::get(envelope.nonce.into()), Error::<T>::InvalidNonce);
 
 			// Decode payload into `MessageV2`
 			let message = MessageV2::decode_all(&mut envelope.payload.as_ref())
