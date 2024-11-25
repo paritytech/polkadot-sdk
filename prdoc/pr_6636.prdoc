@@ -2,16 +2,8 @@ title: Optimize initialization of networking protocol benchmarks
 doc:
 - audience: Node Dev
   description: |-
-    # Description
     These changes should enhance the quality of benchmark results by excluding worker initialization time from the measurements and reducing the overall duration of the benchmarks.
 
-    ### Integration
-    It should not affect any downstream projects.
-
-    ### Review Notes
-    - Workers initialize once per benchmark to avoid side effects.
-    - The listen address is assigned when a worker starts.
-    - Benchmarks are divided into two groups by size to create better charts for comparison.
 crates:
 - name: sc-network
-  bump: major
+  validate: false
