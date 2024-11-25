@@ -363,115 +363,99 @@ mod tests {
 
 		// Plain empty address.
 		let empty_address = Multiaddr::empty();
-		assert!(!empty_address.is_external_address_valid(peer_id));
+		assert!(!empty_address.is_external_address_valid());
 
 		// Address is still unusable.
 		// `/p2p/[random]`
 		let address_with_p2p = Multiaddr::from(Protocol::P2p(peer_id.into()));
-		assert!(!address_with_p2p.is_external_address_valid(peer_id));
+		assert!(!address_with_p2p.is_external_address_valid());
 
 		// Address is not empty.
 		let valid_address: Multiaddr = "/dns/domain1.com/tcp/30333".parse().unwrap();
-		assert!(valid_address.is_external_address_valid(peer_id));
+		assert!(valid_address.is_external_address_valid());
 	}
 
 	#[test]
 	fn check_is_external_address_valid_ip() {
 		let peer_id = PeerId::random();
-		let other_peer_id = PeerId::random();
 
 		// Check ip4/tcp.
 		let address_with_ip4_tcp = Multiaddr::from(Protocol::Ip4(Ipv4Addr::new(127, 0, 0, 1)))
 			.with(Protocol::Tcp(30333))
 			.with(Protocol::P2p(peer_id.into()));
-		assert!(address_with_ip4_tcp.is_external_address_valid(peer_id));
-		assert!(!address_with_ip4_tcp.is_external_address_valid(other_peer_id));
+		assert!(address_with_ip4_tcp.is_external_address_valid());
 
 		let address_with_ip4_tcp =
 			Multiaddr::from(Protocol::Ip4(Ipv4Addr::new(127, 0, 0, 1))).with(Protocol::Tcp(30333));
-		assert!(address_with_ip4_tcp.is_external_address_valid(peer_id));
-		assert!(address_with_ip4_tcp.is_external_address_valid(other_peer_id));
+		assert!(address_with_ip4_tcp.is_external_address_valid());
 
 		// Check ip4/udp.
 		let address_with_ip4_udp = Multiaddr::from(Protocol::Ip4(Ipv4Addr::new(127, 0, 0, 1)))
 			.with(Protocol::Udp(30333))
 			.with(Protocol::P2p(peer_id.into()));
-		assert!(address_with_ip4_udp.is_external_address_valid(peer_id));
-		assert!(!address_with_ip4_udp.is_external_address_valid(other_peer_id));
+		assert!(address_with_ip4_udp.is_external_address_valid());
 
 		let address_with_ip4_udp =
 			Multiaddr::from(Protocol::Ip4(Ipv4Addr::new(127, 0, 0, 1))).with(Protocol::Udp(30333));
-		assert!(address_with_ip4_udp.is_external_address_valid(peer_id));
-		assert!(address_with_ip4_udp.is_external_address_valid(other_peer_id));
+		assert!(address_with_ip4_udp.is_external_address_valid());
 
 		// Check ip6/tcp.
 		let address_with_ip6_tcp =
 			Multiaddr::from(Protocol::Ip6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 				.with(Protocol::Tcp(30333))
 				.with(Protocol::P2p(peer_id.into()));
-		assert!(address_with_ip6_tcp.is_external_address_valid(peer_id));
-		assert!(!address_with_ip6_tcp.is_external_address_valid(other_peer_id));
+		assert!(address_with_ip6_tcp.is_external_address_valid());
 
 		let address_with_ip6_tcp =
 			Multiaddr::from(Protocol::Ip6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 				.with(Protocol::Tcp(30333));
-		assert!(address_with_ip6_tcp.is_external_address_valid(peer_id));
-		assert!(address_with_ip6_tcp.is_external_address_valid(other_peer_id));
+		assert!(address_with_ip6_tcp.is_external_address_valid());
 
 		// Check ip6/udp.
 		let address_with_ip6_udp =
 			Multiaddr::from(Protocol::Ip6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 				.with(Protocol::Udp(30333))
 				.with(Protocol::P2p(peer_id.into()));
-		assert!(address_with_ip6_udp.is_external_address_valid(peer_id));
-		assert!(!address_with_ip6_udp.is_external_address_valid(other_peer_id));
+		assert!(address_with_ip6_udp.is_external_address_valid());
 
 		let address_with_ip6_udp =
 			Multiaddr::from(Protocol::Ip6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 				.with(Protocol::Udp(30333));
-		assert!(address_with_ip6_udp.is_external_address_valid(peer_id));
-		assert!(address_with_ip6_udp.is_external_address_valid(other_peer_id));
+		assert!(address_with_ip6_udp.is_external_address_valid());
 	}
 
 	#[test]
 	fn check_is_external_address_valid_dns() {
 		let peer_id = PeerId::random();
-		let other_peer_id = PeerId::random();
 
 		// Check dns/tcp.
 		let address_with_dns = Multiaddr::from(Protocol::Dns("domain1.com".into()))
 			.with(Protocol::Tcp(30333))
 			.with(Protocol::P2p(peer_id.into()));
-		assert!(address_with_dns.is_external_address_valid(peer_id));
-		assert!(!address_with_dns.is_external_address_valid(other_peer_id));
+		assert!(address_with_dns.is_external_address_valid());
 
 		let address_with_dns =
 			Multiaddr::from(Protocol::Dns("domain1.com".into())).with(Protocol::Tcp(30333));
-		assert!(address_with_dns.is_external_address_valid(peer_id));
-		assert!(address_with_dns.is_external_address_valid(other_peer_id));
+		assert!(address_with_dns.is_external_address_valid());
 
 		// Check dns4/tcp.
 		let address_with_dns4 = Multiaddr::from(Protocol::Dns4("domain1.com".into()))
 			.with(Protocol::Tcp(30333))
 			.with(Protocol::P2p(peer_id.into()));
-		assert!(address_with_dns4.is_external_address_valid(peer_id));
-		assert!(!address_with_dns4.is_external_address_valid(other_peer_id));
+		assert!(address_with_dns4.is_external_address_valid());
 
 		let address_with_dns4 =
 			Multiaddr::from(Protocol::Dns4("domain1.com".into())).with(Protocol::Tcp(30333));
-		assert!(address_with_dns4.is_external_address_valid(peer_id));
-		assert!(address_with_dns4.is_external_address_valid(other_peer_id));
+		assert!(address_with_dns4.is_external_address_valid());
 
 		// Check dns6/tcp.
 		let address_with_dns6 = Multiaddr::from(Protocol::Dns6("domain1.com".into()))
 			.with(Protocol::Tcp(30333))
 			.with(Protocol::P2p(peer_id.into()));
-		assert!(address_with_dns6.is_external_address_valid(peer_id));
-		assert!(!address_with_dns6.is_external_address_valid(other_peer_id));
+		assert!(address_with_dns6.is_external_address_valid());
 
 		let address_with_dns6 =
 			Multiaddr::from(Protocol::Dns6("domain1.com".into())).with(Protocol::Tcp(30333));
-		assert!(address_with_dns6.is_external_address_valid(peer_id));
-		assert!(address_with_dns6.is_external_address_valid(other_peer_id));
+		assert!(address_with_dns6.is_external_address_valid());
 	}
 }
