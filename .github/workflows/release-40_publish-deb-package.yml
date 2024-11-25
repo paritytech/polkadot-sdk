@@ -74,13 +74,15 @@ jobs:
     needs: [fetch-artifacts-from-s3]
     environment: release
     env:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
+      # PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
+      # AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+      # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+      # AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      # AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+      AWS_DEB_PATH: "s3://releases-package-repos/deb"
+      LOCAL_DEB_REPO_PATH: ${{ github.workspace }}/deb
       VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.VERSION }}
 
     steps:
@@ -122,7 +124,41 @@ jobs:
           cp ${{ github.workspace }}/.github/scripts/release/distributions ${{ github.workspace }}/deb/conf/distributions
           cat ${{ github.workspace }}/deb/conf/distributions
 
-      - name: Publish deb package
+      - name: Sync local deb repo
+        env:
+          AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
         run: |
+          # Download the current state of the deb repo
+          aws s3 sync "$AWS_DEB_PATH/db" "$LOCAL_DEB_REPO_PATH/db"
+          aws s3 sync "$AWS_DEB_PATH/pool" "$LOCAL_DEB_REPO_PATH/pool"
+          aws s3 sync "$AWS_DEB_PATH/dists" "$LOCAL_DEB_REPO_PATH/dists"
 
-          . ${{ github.workspace }}/.github/scripts/release/publish-deb-package.sh ${{ inputs.distribution }} polkadot ${VERSION} ${{ github.workspace }}/deb
+      - name: Add deb package to local repo
+        env:
+          PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
+          PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
+          AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          # Add the new deb to the repo
+          reprepro -b "$LOCAL_DEB_REPO_PATH" includedeb "${{ inputs.distribution }}" "release-artifacts/polkadot_${VERSION}_amd64.deb"
+
+      - name: Upload updated deb repo
+        env:
+          AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+        run: |
+          # Upload the updated repo - dists and pool should be publicly readable
+          aws s3 sync "$LOCAL_DEB_REPO_PATH/pool" "$AWS_DEB_PATH/pool" --acl public-read
+          aws s3 sync "$LOCAL_DEB_REPO_PATH/dists" "$AWS_DEB_PATH/dists" --acl public-read
+          aws s3 sync "$LOCAL_DEB_REPO_PATH/db" "$AWS_DEB_PATH/db"
+          aws s3 sync "$LOCAL_DEB_REPO_PATH/conf" "$AWS_DEB_PATH/conf"
+
+          # Invalidate caches to make sure latest files are served
+          aws cloudfront create-invalidation --distribution-id E36FKEYWDXAZYJ --paths '/deb/*'
+
+      # - name: Publish deb package
+      #   run: |
+
+      #     . ${{ github.workspace }}/.github/scripts/release/publish-deb-package.sh ${{ inputs.distribution }} polkadot ${VERSION} ${{ github.workspace }}/deb
