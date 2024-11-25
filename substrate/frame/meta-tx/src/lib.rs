@@ -117,8 +117,21 @@ pub mod pallet {
 	{
 		/// Weight information for calls in this pallet.
 		type WeightInfo: WeightInfo;
+		/// The overarching origin type.
+		// We need extra `AsTransactionAuthorizedOrigin` bound to use `DispatchTransaction` impl.
+		type RuntimeOrigin: AsTransactionAuthorizedOrigin
+			+ From<SystemOrigin<Self::AccountId>>
+			+ IsType<<Self as frame_system::Config>::RuntimeOrigin>;
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// The overarching call type.
+		type RuntimeCall: Parameter
+			+ GetDispatchInfo
+			+ Dispatchable<
+				Info = DispatchInfo,
+				PostInfo = PostDispatchInfo,
+				RuntimeOrigin = <Self as Config>::RuntimeOrigin,
+			> + IsType<<Self as frame_system::Config>::RuntimeCall>;
 		/// Transaction extension/s for meta transactions.
 		///
 		/// The extensions that must be present in every meta transaction. This generally includes

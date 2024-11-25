@@ -87,7 +87,9 @@ mod tx_ext {
 
 impl Config for Runtime {
 	type WeightInfo = ();
+	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type Extension = MetaTxExtension;
 }
 
