@@ -2826,6 +2826,7 @@ dependencies = [
  "snowbridge-outbound-queue-runtime-api 0.2.0",
  "snowbridge-pallet-ethereum-client 0.2.0",
  "snowbridge-pallet-inbound-queue 0.2.0",
+ "snowbridge-pallet-inbound-queue-v2",
  "snowbridge-pallet-outbound-queue 0.2.0",
  "snowbridge-pallet-system 0.2.0",
  "snowbridge-router-primitives 0.9.0",

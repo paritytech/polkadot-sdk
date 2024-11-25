@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Converts messages from Ethereum to XCM messages
 
-use crate::inbound::{CallIndex, GlobalConsensusEthereumConvertsFor};
+use crate::inbound::{CallIndex, EthereumLocationsConverterFor};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
@@ -247,7 +247,7 @@ MessageToXcm<
 
         let bridge_location = Location::new(2, GlobalConsensus(network));
 
-        let owner = GlobalConsensusEthereumConvertsFor::<[u8; 32]>::from_chain_id(&chain_id);
+        let owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
         let asset_id = Self::convert_token_address(network, token);
         let create_call_index: [u8; 2] = CreateAssetCall::get();
         let inbound_queue_pallet_index = InboundQueuePalletInstance::get();
@@ -409,6 +409,8 @@ MessageToXcm<
             // Final destination is a 32-byte account on AssetHub
             Destination::AccountId32 { id } =>
                 Ok(Location::new(0, [AccountId32 { network: None, id }])),
+            // Forwarding to a destination parachain is not allowed for PNA and is validated on the
+            // Ethereum side. https://github.com/Snowfork/snowbridge/blob/e87ddb2215b513455c844463a25323bb9c01ff36/contracts/src/Assets.sol#L216-L224
             _ => Err(ConvertMessageError::InvalidDestination),
         }?;
 
@@ -471,7 +473,7 @@ mod tests {
         let contract_location = Location::new(2, [GlobalConsensus(NETWORK)]);
 
         let account =
-            GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location)
+            EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&contract_location)
                 .unwrap();
 
         assert_eq!(account, expected_account);
@@ -482,7 +484,7 @@ mod tests {
         let contract_location = Location::new(2, [GlobalConsensus(Polkadot), Parachain(1000)]);
 
         assert_eq!(
-			GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location),
+			EthereumLocationsConverterFor::<[u8; 32]>::convert_location(&contract_location),
 			None,
 		);
     }
