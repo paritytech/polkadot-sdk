@@ -105,21 +105,29 @@ pub(crate) mod pallet {
 
 	impl<T: Config> QueuedSolution<T> {
 		fn mutate_checked<R>(mutate: impl FnOnce() -> R) -> R {
-			let r = mutate();
+			let result = mutate();
+
 			#[cfg(debug_assertions)]
-			assert!(Self::sanity_check().is_ok());
-			r
+			Self::sanity_check()
+				.map_err(|err| {
+					sublog!(debug, "verifier", "Queued solution sanity check failure {:?}", err);
+				})
+				.unwrap();
+
+			result
 		}
 
 		/// Clear all relevant data of an invalid solution.
 		///
 		/// This should be called when a solution being verified is deemed infeasible.
 		pub(crate) fn clear_invalid_and_backings() {
-			let _ = match Self::invalid() {
-				SolutionPointer::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
-				SolutionPointer::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
-			};
-			let _ = QueuedSolutionBackings::<T>::clear(u32::MAX, None);
+			Self::mutate_checked(|| {
+				let _ = match Self::invalid() {
+					SolutionPointer::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
+					SolutionPointer::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
+				};
+				let _ = QueuedSolutionBackings::<T>::clear(u32::MAX, None);
+			});
 		}
 
 		/// Clear all relevant storage items.
@@ -231,10 +239,22 @@ pub(crate) mod pallet {
 		pub(crate) fn invalid() -> SolutionPointer {
 			Self::valid().other()
 		}
+	}
 
-		#[allow(dead_code)]
+	#[cfg(any(test, debug_assertions, feature = "runtime-benchmarks"))]
+	impl<T: Config> QueuedSolution<T> {
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
-			// TODO(gpestana)
+			Self::check_variants()
+		}
+
+		/// Invariants:
+		///
+		/// 1. The valid and invalid solution pointers are always different.
+		fn check_variants() -> Result<(), &'static str> {
+			ensure!(
+				QueuedSolution::<T>::valid() != QueuedSolution::<T>::invalid(),
+				"valid and invalid solution pointers are the same"
+			);
 			Ok(())
 		}
 	}
@@ -313,7 +333,6 @@ pub(crate) mod pallet {
 		}
 
 		fn integrity_test() {
-			// TODO(gpestana): add more integrity tests related to queued solution et al.
 			assert_eq!(T::MaxWinnersPerPage::get(), <Self as Verifier>::MaxWinnersPerPage::get());
 			assert_eq!(
 				T::MaxBackersPerWinner::get(),
@@ -703,20 +722,11 @@ impl<T: impls::pallet::Config> Pallet<T> {
 	}
 }
 
-#[cfg(feature = "try-runtime")]
+#[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
-	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		Self::check_variants()
-	}
-
-	/// Invariants:
-	///
-	/// 1. The valid and invalid solution pointers are always different.
-	fn check_variants() -> Result<(), sp_runtime::TryRuntimeError> {
-		ensure!(
-			QueuedSolution::<T>::valid() != QueuedSolution::<T>::invalid(),
-			"valid and invalid solution pointers are the same"
-		);
-		Ok(())
+	pub(crate) fn do_try_state(
+		_bn: crate::BlockNumberFor<T>,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		QueuedSolution::<T>::sanity_check().map_err(|e| e.into())
 	}
 }

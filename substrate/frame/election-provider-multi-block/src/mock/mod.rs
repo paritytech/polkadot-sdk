@@ -287,11 +287,17 @@ pub struct ExtBuilder {
 	minimum_score: Option<ElectionScore>,
 	core_try_state: bool,
 	signed_try_state: bool,
+	verifier_try_state: bool,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self { core_try_state: true, signed_try_state: true, minimum_score: None }
+		Self {
+			core_try_state: true,
+			signed_try_state: true,
+			verifier_try_state: true,
+			minimum_score: None,
+		}
 	}
 }
 
@@ -382,6 +388,11 @@ impl ExtBuilder {
 		self
 	}
 
+	pub(crate) fn verifier_try_state(mut self, enable: bool) -> Self {
+		self.verifier_try_state = enable;
+		self
+	}
+
 	pub(crate) fn build(self) -> sp_io::TestExternalities {
 		let mut storage = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
 		let _ = pallet_balances::GenesisConfig::<T> {
@@ -454,11 +465,11 @@ impl ExtBuilder {
 					.unwrap();
 			}
 
-			/*
-			TODO: add all pallets' try_state.
-			let _ = VerifierPallet::do_try_state()
-				.map_err(|err| println!(" 🕵️‍♂️  Verifier `try_state` failure: {:?}", err)).unwrap();
-			*/
+			if self.verifier_try_state {
+				VerifierPallet::do_try_state(System::block_number())
+					.map_err(|err| println!(" 🕵️‍♂️  Verifier pallet `try_state` failure: {:?}", err))
+					.unwrap();
+			}
 		});
 	}
 }
