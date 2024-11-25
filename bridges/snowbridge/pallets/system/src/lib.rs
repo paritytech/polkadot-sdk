@@ -662,7 +662,7 @@ pub mod pallet {
 			let location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 
-			Self::do_register_token_v2(&location, metadata, PaysFee::<T>::No)?;
+			Self::do_register_token_v2(&location, metadata)?;
 
 			Ok(PostDispatchInfo {
 				actual_weight: Some(T::WeightInfo::register_token()),
@@ -798,7 +798,6 @@ pub mod pallet {
 		pub(crate) fn do_register_token_v2(
 			location: &Location,
 			metadata: AssetMetadata,
-			pays_fee: PaysFee<T>,
 		) -> Result<(), DispatchError> {
 			let ethereum_location = T::EthereumLocation::get();
 			// reanchor to Ethereum context
@@ -821,7 +820,7 @@ pub mod pallet {
 				symbol: metadata.symbol.into_inner(),
 				decimals: metadata.decimals,
 			};
-			Self::send_v2(second_governance_origin(), command, pays_fee)?;
+			Self::send_governance_call(second_governance_origin(), command)?;
 
 			Self::deposit_event(Event::<T>::RegisterToken {
 				location: location.clone().into(),
@@ -831,8 +830,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Send `command` to the Gateway on the Channel identified by `channel_id`
-		fn send_v2(origin: H256, command: CommandV2, pays_fee: PaysFee<T>) -> DispatchResult {
+		fn send_governance_call(origin: H256, command: CommandV2) -> DispatchResult {
 			let message = MessageV2 {
 				origin,
 				id: Default::default(),
@@ -840,22 +838,8 @@ pub mod pallet {
 				commands: BoundedVec::try_from(vec![command]).unwrap(),
 			};
 
-			let (ticket, fee) =
+			let (ticket, _) =
 				T::OutboundQueueV2::validate(&message).map_err(|err| Error::<T>::Send(err))?;
-
-			let payment = match pays_fee {
-				PaysFee::Yes(account) | PaysFee::Partial(account) => Some((account, fee)),
-				PaysFee::No => None,
-			};
-
-			if let Some((payer, fee)) = payment {
-				T::Token::transfer(
-					&payer,
-					&T::TreasuryAccount::get(),
-					fee,
-					Preservation::Preserve,
-				)?;
-			}
 
 			T::OutboundQueueV2::deliver(ticket).map_err(|err| Error::<T>::Send(err))?;
 			Ok(())
