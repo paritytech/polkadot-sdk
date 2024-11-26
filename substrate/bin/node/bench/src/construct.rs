@@ -271,7 +271,11 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 		unimplemented!()
 	}
 
-	fn remove_invalid(&self, _hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
+	fn report_invalid(
+		&self,
+		_at: Option<Self::Hash>,
+		_invalid_tx_errors: &[(TxHash<Self>, Option<sp_blockchain::Error>)],
+	) -> Vec<Arc<Self::InPoolTransaction>> {
 		Default::default()
 	}
 

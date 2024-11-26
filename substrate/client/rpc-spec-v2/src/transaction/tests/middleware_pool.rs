@@ -137,8 +137,12 @@ impl TransactionPool for MiddlewarePool {
 		Ok(watcher.boxed())
 	}
 
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		self.inner_pool.remove_invalid(hashes)
+	fn report_invalid(
+		&self,
+		at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: &[(TxHash<Self>, Option<sp_blockchain::Error>)],
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		self.inner_pool.report_invalid(at, invalid_tx_errors)
 	}
 
 	fn status(&self) -> PoolStatus {
