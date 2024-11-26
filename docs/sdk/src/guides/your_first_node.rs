@@ -246,7 +246,7 @@ mod tests {
 		let output = Command::new(omni_node)
 			.arg("--tmp")
 			.args(["--chain", chain_spec_file.to_str().unwrap()])
-			.args(["--dev-block-time", block_time.to_string().as_str()])
+			.args(["--dev", "--dev-block-time", block_time.to_string().as_str()])
 			.timeout(std::time::Duration::from_secs(10))
 			.output()
 			.unwrap();
