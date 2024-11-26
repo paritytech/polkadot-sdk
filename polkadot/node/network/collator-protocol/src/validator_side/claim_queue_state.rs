@@ -1,3 +1,22 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
+//! `ClaimQueueState` tracks the state of the claim queue over a set of relay blocks. Refer to
+//! [`ClaimQueueState`] for more details.
+
 use std::collections::VecDeque;
 
 use crate::LOG_TARGET;
@@ -606,6 +625,157 @@ mod test {
 			VecDeque::from(vec![
 				ClaimInfo { hash: None, claim: Some(para_id_b), claim_queue_len: 1, claimed: true },
 				ClaimInfo { hash: None, claim: Some(para_id_a), claim_queue_len: 1, claimed: true }
+			])
+		);
+	}
+
+	#[test]
+	fn claim_queue_changes_unexpectedly() {
+		let mut state = ClaimQueueState::new();
+		let relay_parent_a = Hash::from_low_u64_be(1);
+		let para_id_a = ParaId::new(1);
+		let para_id_b = ParaId::new(2);
+		let claim_queue_a = vec![para_id_a, para_id_b, para_id_a];
+
+		state.add_leaf(&relay_parent_a, &claim_queue_a);
+		assert!(state.can_claim_at(&relay_parent_a, &para_id_a));
+		assert!(state.can_claim_at(&relay_parent_a, &para_id_b));
+		assert!(state.claim_at(&relay_parent_a, &para_id_a));
+		assert!(state.claim_at(&relay_parent_a, &para_id_a));
+		assert!(state.claim_at(&relay_parent_a, &para_id_b));
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![]);
+
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![ClaimInfo {
+				hash: Some(relay_parent_a),
+				claim: Some(para_id_a),
+				claim_queue_len: 3,
+				claimed: true,
+			},])
+		);
+		assert_eq!(
+			state.future_blocks,
+			VecDeque::from(vec![
+				ClaimInfo { hash: None, claim: Some(para_id_b), claim_queue_len: 1, claimed: true },
+				ClaimInfo { hash: None, claim: Some(para_id_a), claim_queue_len: 1, claimed: true }
+			])
+		);
+
+		let relay_parent_b = Hash::from_low_u64_be(2);
+		let claim_queue_b = vec![para_id_a, para_id_a, para_id_a]; // should be [b, a, ...]
+		state.add_leaf(&relay_parent_b, &claim_queue_b);
+
+		// because of the unexpected change in claim queue we lost the claim for paraB and have one
+		// unclaimed for paraA
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![para_id_a]);
+
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![
+				ClaimInfo {
+					hash: Some(relay_parent_a),
+					claim: Some(para_id_a),
+					claim_queue_len: 3,
+					claimed: true,
+				},
+				ClaimInfo {
+					hash: Some(relay_parent_b),
+					claim: Some(para_id_a),
+					claim_queue_len: 3,
+					claimed: false,
+				}
+			])
+		);
+		assert_eq!(
+			state.future_blocks,
+			// since the 3rd slot of the claim queue at rp1 is equal to the second one in rp2, this
+			// claim still exists
+			VecDeque::from(vec![
+				ClaimInfo { hash: None, claim: Some(para_id_a), claim_queue_len: 1, claimed: true },
+				ClaimInfo {
+					hash: None,
+					claim: Some(para_id_a),
+					claim_queue_len: 1,
+					claimed: false
+				}
+			])
+		);
+	}
+
+	#[test]
+	fn claim_queue_changes_unexpectedly_with_two_blocks() {
+		let mut state = ClaimQueueState::new();
+		let relay_parent_a = Hash::from_low_u64_be(1);
+		let para_id_a = ParaId::new(1);
+		let para_id_b = ParaId::new(2);
+		let claim_queue_a = vec![para_id_a, para_id_b, para_id_b];
+
+		state.add_leaf(&relay_parent_a, &claim_queue_a);
+		assert!(state.can_claim_at(&relay_parent_a, &para_id_a));
+		assert!(state.can_claim_at(&relay_parent_a, &para_id_b));
+		assert!(state.claim_at(&relay_parent_a, &para_id_a));
+		assert!(state.claim_at(&relay_parent_a, &para_id_b));
+		assert!(state.claim_at(&relay_parent_a, &para_id_b));
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![]);
+
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![ClaimInfo {
+				hash: Some(relay_parent_a),
+				claim: Some(para_id_a),
+				claim_queue_len: 3,
+				claimed: true,
+			},])
+		);
+		assert_eq!(
+			state.future_blocks,
+			VecDeque::from(vec![
+				ClaimInfo { hash: None, claim: Some(para_id_b), claim_queue_len: 1, claimed: true },
+				ClaimInfo { hash: None, claim: Some(para_id_b), claim_queue_len: 1, claimed: true }
+			])
+		);
+
+		let relay_parent_b = Hash::from_low_u64_be(2);
+		let claim_queue_b = vec![para_id_a, para_id_a, para_id_a]; // should be [b, b, ...]
+		state.add_leaf(&relay_parent_b, &claim_queue_b);
+
+		// because of the unexpected change in claim queue we lost both claims for paraB and have
+		// two unclaimed for paraA
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![para_id_a, para_id_a]);
+
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![
+				ClaimInfo {
+					hash: Some(relay_parent_a),
+					claim: Some(para_id_a),
+					claim_queue_len: 3,
+					claimed: true,
+				},
+				ClaimInfo {
+					hash: Some(relay_parent_b),
+					claim: Some(para_id_a),
+					claim_queue_len: 3,
+					claimed: false,
+				}
+			])
+		);
+		assert_eq!(
+			state.future_blocks,
+			VecDeque::from(vec![
+				ClaimInfo {
+					hash: None,
+					claim: Some(para_id_a),
+					claim_queue_len: 1,
+					claimed: false
+				},
+				ClaimInfo {
+					hash: None,
+					claim: Some(para_id_a),
+					claim_queue_len: 1,
+					claimed: false
+				}
 			])
 		);
 	}
