@@ -131,7 +131,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
 		let dry_run = self.client.dry_run(transaction, block.unwrap_or_default().into()).await?;
-		Ok(U256::from(dry_run.eth_gas))
+		Ok(dry_run.eth_gas)
 	}
 
 	async fn call(

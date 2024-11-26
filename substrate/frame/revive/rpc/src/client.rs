@@ -121,7 +121,7 @@ fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
 	match function_selector {
 		// assert(false)
 		[0x4E, 0x48, 0x7B, 0x71] => {
-			let panic_code: u32 = U256::from_big_endian(&exec_data.get(4..36)?).try_into().ok()?;
+			let panic_code: u32 = U256::from_big_endian(exec_data.get(4..36)?).try_into().ok()?;
 
 			// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
 			let msg = match panic_code {
