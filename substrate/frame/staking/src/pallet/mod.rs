@@ -347,7 +347,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
-			type MaxInvulnerables = ConstU32<4>;
+			type MaxInvulnerables = ConstU32<20>;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();

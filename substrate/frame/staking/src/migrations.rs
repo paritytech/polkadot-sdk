@@ -67,25 +67,28 @@ pub mod v17 {
 	pub struct VersionUncheckedMigrateV16ToV17<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV16ToV17<T> {
 		fn on_runtime_upgrade() -> Weight {
+			let mut migration_errors = false;
+
 			let old_disabled_validators = v16::DisabledValidators::<T>::get();
 			// BoundedVec with MaxWinners limit, this should always work
 			let disabled_validators_maybe = BoundedVec::try_from(old_disabled_validators);
 			match disabled_validators_maybe {
 				Ok(disabled_validators) => DisabledValidators::<T>::set(disabled_validators),
-				Err(_) => log!(warn, "Migration failed for DisabledValidators from v16 to v17."),
+				Err(_) => {
+					log!(warn, "Migration failed for DisabledValidators from v16 to v17.");
+					migration_errors = true;
+				},
 			}
 
 			let old_invulnerables = v16::Invulnerables::<T>::get();
-			let old_invulnerables_len = old_invulnerables.len();
 			// BoundedVec with MaxWinners limit, this should always work
 			let invulnerables_maybe = BoundedVec::try_from(old_invulnerables);
 			match invulnerables_maybe {
 				Ok(invulnerables) => Invulnerables::<T>::set(invulnerables),
-				Err(_) => log!(
-					warn,
-					"Migration failed for Invulnerables from v16 to v17: {} old invulnerables may get lost.",
-					old_invulnerables_len,
-				),
+				Err(_) => {
+					log!(warn, "Migration failed for Invulnerables from v16 to v17.");
+					migration_errors = true;
+				},
 			}
 
 			for (era_index, era_rewards) in v16::ErasRewardPoints::<T>::iter() {
@@ -101,11 +104,18 @@ pub mod v17 {
 						};
 						ErasRewardPoints::<T>::insert(era_index, bounded_era_rewards);
 					},
-					Err(_) => log!(warn, "Migration failed for ErasRewardPoints from v16 to v17."),
+					Err(_) => {
+						log!(warn, "Migration failed for ErasRewardPoints from v16 to v17.");
+						migration_errors = true;
+					},
 				}
 			}
 
-			log!(info, "v17 applied successfully.");
+			if migration_errors {
+				log!(warn, "v17 applied with some errors.");
+			} else {
+				log!(info, "v17 applied successfully.");
+			}
 			T::DbWeight::get().reads_writes(1, 1)
 		}
 	}
