@@ -21,8 +21,7 @@ macro_rules! bash(
 
 fn get_chain_spec_builder_path() -> &'static str {
 	run_cmd!(
-		cargo build --release -p staging-chain-spec-builder --bin chain-spec-builder;
-		export WASM_FILE_PATH=$WASM_FILE_PATH
+		cargo build --release -p staging-chain-spec-builder --bin chain-spec-builder
 	).expect("Failed to execute command");
 	CHAIN_SPEC_BUILDER_PATH
 }
