@@ -37,7 +37,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	EraIndex, SessionIndex, StakingInterface, DelegationInterface, Agent,
+	Agent, DelegationInterface, EraIndex, SessionIndex, StakingInterface,
 };
 use std::collections::BTreeMap;
 

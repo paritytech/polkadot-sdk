@@ -430,14 +430,8 @@ fn automatic_unbonding_pools() {
 
 		// final conditions are the expected.
 		assert_eq!(delegated_balance_for(pool_bonded_account), 5); // 5 init bonded
-		assert_eq!(
-			stakeable_balance_for(2),
-			init_stakeable_balance_2
-		);
-		assert_eq!(
-			stakeable_balance_for(3),
-			init_stakeable_balance_3
-		);
+		assert_eq!(stakeable_balance_for(2), init_stakeable_balance_2);
+		assert_eq!(stakeable_balance_for(3), init_stakeable_balance_3);
 
 		assert_eq!(TotalValueLocked::<Runtime>::get(), init_tvl);
 	});
