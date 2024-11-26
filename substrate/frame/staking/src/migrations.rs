@@ -76,11 +76,16 @@ pub mod v17 {
 			}
 
 			let old_invulnerables = v16::Invulnerables::<T>::get();
+			let old_invulnerables_len = old_invulnerables.len();
 			// BoundedVec with MaxWinners limit, this should always work
 			let invulnerables_maybe = BoundedVec::try_from(old_invulnerables);
 			match invulnerables_maybe {
 				Ok(invulnerables) => Invulnerables::<T>::set(invulnerables),
-				Err(_) => log!(warn, "Migration failed for Invulnerables from v16 to v17."),
+				Err(_) => log!(
+					warn,
+					"Migration failed for Invulnerables from v16 to v17: {} old invulnerables may get lost.",
+					old_invulnerables_len,
+				),
 			}
 
 			for (era_index, era_rewards) in v16::ErasRewardPoints::<T>::iter() {
