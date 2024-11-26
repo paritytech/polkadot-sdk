@@ -849,7 +849,10 @@ impl<T: Config> Pallet<T> {
 			<ErasRewardPoints<T>>::mutate(active_era.index, |era_rewards| {
 				for (validator, points) in validators_points.into_iter() {
 					match era_rewards.individual.get_mut(&validator) {
-						Some(value) => *value += points,
+						Some(value) => {
+							*value += points;
+							era_rewards.total += points;
+						},
 						None => {
 							if let Ok(_) =
 								era_rewards.individual.try_insert(validator.clone(), points)
