@@ -608,8 +608,8 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	// Worst case scenario, the list of invulnerables is very long.
-	fn set_invulnerables(v: Linear<0, { MaxValidators::<T>::get() }>) {
+	// Worst case scenario according to the invulnerables limit.
+	fn set_invulnerables(v: Linear<0, { T::MaxExposurePageSize::get() }>) {
 		let mut invulnerables = Vec::new();
 		for i in 0..v {
 			invulnerables.push(account("invulnerable", i, SEED));
