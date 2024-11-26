@@ -6579,8 +6579,8 @@ fn can_page_exposure() {
 	// when
 	let (exposure_metadata, exposure_page): (
 		PagedExposureMetadata<Balance>,
-		Vec<ExposurePage<AccountId, Balance>>,
-	) = exposure.clone().into_pages(3);
+		Vec<ExposurePage<AccountId, Balance, MaxExposurePageSize>>,
+	) = exposure.clone().into_pages::<MaxExposurePageSize>(3);
 
 	// then
 	// 7 pages of nominators.
@@ -6616,7 +6616,7 @@ fn should_retain_era_info_only_upto_history_depth() {
 			for page in 0..3 {
 				ErasStakersPaged::<Test>::insert(
 					(era, &validator_stash, page),
-					ExposurePage { page_total: 100, others: vec![] },
+					ExposurePage { page_total: 100, others: BoundedVec::new() },
 				);
 			}
 		}

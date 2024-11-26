@@ -21,7 +21,7 @@ use super::*;
 use frame_election_provider_support::{ElectionProviderBase, SortedListProvider};
 use frame_support::{
 	migrations::VersionedMigration,
-	pallet_prelude::ValueQuery,
+	pallet_prelude::{NMapKey, OptionQuery, ValueQuery},
 	storage_alias,
 	traits::{GetStorageVersion, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
 };
@@ -111,8 +111,29 @@ pub mod v17 {
 				}
 			}
 
+			for ((era, validator, page), old_exposure_page) in v16::ErasStakersPaged::<T>::iter() {
+				let individual_exposures_maybe = BoundedVec::try_from(old_exposure_page.others);
+				match individual_exposures_maybe {
+					Ok(individual_exposures) => {
+						let exposure_page = ExposurePage::<
+							<T as frame_system::Config>::AccountId,
+							BalanceOf<T>,
+							<T as Config>::MaxExposurePageSize,
+						> {
+							page_total: old_exposure_page.page_total,
+							others: individual_exposures,
+						};
+						ErasStakersPaged::<T>::insert((era, validator, page), exposure_page);
+					},
+					Err(_) => {
+						log!(warn, "Migration failed for ErasStakersPaged from v16 to v17.");
+						migration_errors = true;
+					},
+				}
+			}
+
 			if migration_errors {
-				log!(warn, "v17 applied with some errors.");
+				log!(warn, "v17 applied with some errors: state may be not coherent.");
 			} else {
 				log!(info, "v17 applied successfully.");
 			}
@@ -164,6 +185,29 @@ pub mod v16 {
 	#[frame_support::storage_alias]
 	pub(crate) type DisabledValidators<T: Config> =
 		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
+
+	#[derive(
+		PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	)]
+	pub struct ExposurePage<AccountId, Balance: HasCompact + MaxEncodedLen> {
+		/// The total balance of this chunk/page.
+		#[codec(compact)]
+		pub page_total: Balance,
+		/// The portions of nominators stashes that are exposed.
+		pub others: Vec<IndividualExposure<AccountId, Balance>>,
+	}
+
+	#[frame_support::storage_alias]
+	pub(crate) type ErasStakersPaged<T: Config> = StorageNMap<
+		Pallet<T>,
+		(
+			NMapKey<Twox64Concat, EraIndex>,
+			NMapKey<Twox64Concat, <T as frame_system::Config>::AccountId>,
+			NMapKey<Twox64Concat, Page>,
+		),
+		ExposurePage<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+		OptionQuery,
+	>;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {

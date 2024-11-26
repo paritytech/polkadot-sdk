@@ -223,10 +223,6 @@ pub mod pallet {
 		/// An `ExposurePage` is weakly bounded to a maximum of `MaxExposurePageSize`
 		/// nominators.
 		///
-		/// For older non-paged exposure, a reward payout was restricted to the top
-		/// `MaxExposurePageSize` nominators. This is to limit the i/o cost for the
-		/// nominator payout.
-		///
 		/// Note: `MaxExposurePageSize` is used to bound `ClaimedRewards` and is unsafe to reduce
 		/// without handling it in a migration.
 		#[pallet::constant]
@@ -509,7 +505,6 @@ pub mod pallet {
 	///
 	/// This is cleared after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub type ErasStakersPaged<T: Config> = StorageNMap<
 		_,
 		(
@@ -517,7 +512,7 @@ pub mod pallet {
 			NMapKey<Twox64Concat, T::AccountId>,
 			NMapKey<Twox64Concat, Page>,
 		),
-		ExposurePage<T::AccountId, BalanceOf<T>>,
+		ExposurePage<T::AccountId, BalanceOf<T>, T::MaxExposurePageSize>,
 		OptionQuery,
 	>;
 

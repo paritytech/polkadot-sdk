@@ -743,25 +743,35 @@ pub struct Nominations<T: Config> {
 ///
 /// This is useful where we need to take into account the validator's own stake and total exposure
 /// in consideration, in addition to the individual nominators backing them.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
-pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq, MaxEncodedLen)]
+pub struct PagedExposure<
+	AccountId,
+	Balance: HasCompact + MaxEncodedLen,
+	MaxExposurePageSize: Get<u32>,
+> {
 	exposure_metadata: PagedExposureMetadata<Balance>,
-	exposure_page: ExposurePage<AccountId, Balance>,
+	exposure_page: ExposurePage<AccountId, Balance, MaxExposurePageSize>,
 }
 
-impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEncodedLen>
-	PagedExposure<AccountId, Balance>
+impl<
+		AccountId,
+		Balance: HasCompact + Copy + AtLeast32BitUnsigned + MaxEncodedLen,
+		MaxExposurePageSize: Get<u32>,
+	> PagedExposure<AccountId, Balance, MaxExposurePageSize>
 {
 	/// Create a new instance of `PagedExposure` from legacy clipped exposures.
 	pub fn from_clipped(exposure: Exposure<AccountId, Balance>) -> Self {
+		let old_exposures = exposure.others.len();
+		let others = BoundedVec::try_from(exposure.others).unwrap_or_default();
+		defensive_assert!(old_exposures == others.len(), "Too many exposures for a page");
 		Self {
 			exposure_metadata: PagedExposureMetadata {
 				total: exposure.total,
 				own: exposure.own,
-				nominator_count: exposure.others.len() as u32,
+				nominator_count: others.len() as u32,
 				page_count: 1,
 			},
-			exposure_page: ExposurePage { page_total: exposure.total, others: exposure.others },
+			exposure_page: ExposurePage { page_total: exposure.total, others },
 		}
 	}
 
@@ -1078,7 +1088,7 @@ impl<T: Config> EraInfo<T> {
 		era: EraIndex,
 		validator: &T::AccountId,
 		page: Page,
-	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
+	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>, T::MaxExposurePageSize>> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator)?;
 
 		// validator stake is added only in page zero
@@ -1110,8 +1120,11 @@ impl<T: Config> EraInfo<T> {
 
 		let mut others = Vec::with_capacity(overview.nominator_count as usize);
 		for page in 0..overview.page_count {
-			let nominators = <ErasStakersPaged<T>>::get((era, validator, page));
-			others.append(&mut nominators.map(|n| n.others).defensive_unwrap_or_default());
+			let nominators =
+				<ErasStakersPaged<T>>::get((era, validator, page)).defensive_unwrap_or_default();
+			for nominator_exposure in nominators.others {
+				others.push(nominator_exposure);
+			}
 		}
 
 		Exposure { total: overview.total, own: overview.own, others }
@@ -1185,7 +1198,8 @@ impl<T: Config> EraInfo<T> {
 			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
 			.saturating_div(page_size as usize);
 
-		let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
+		let (exposure_metadata, exposure_pages) =
+			exposure.into_pages::<T::MaxExposurePageSize>(page_size);
 		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
 
 		<ErasStakersOverview<T>>::insert(era, &validator, &exposure_metadata);
