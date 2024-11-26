@@ -1,14 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { parseArgs } from 'node:util'
-import {
-	createWalletClient,
-	defineChain,
-	Hex,
-	http,
-	parseEther,
-	publicActions,
-} from 'viem'
+import { createWalletClient, defineChain, Hex, http, parseEther, publicActions } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
 const {
