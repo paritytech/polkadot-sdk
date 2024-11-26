@@ -94,7 +94,7 @@ pub struct Block {
 	/// Uncles
 	pub uncles: Vec<H256>,
 	/// Withdrawals
-	#[serde(skip_serializing_if = "Vec::is_empty")]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub withdrawals: Vec<Withdrawal>,
 	/// Withdrawals root
 	#[serde(rename = "withdrawalsRoot", skip_serializing_if = "Option::is_none")]
@@ -148,11 +148,11 @@ pub struct GenericTransaction {
 	pub access_list: Option<AccessList>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
-	#[serde(rename = "blobVersionedHashes", skip_serializing_if = "Vec::is_empty")]
+	#[serde(rename = "blobVersionedHashes", default, skip_serializing_if = "Vec::is_empty")]
 	pub blob_versioned_hashes: Vec<H256>,
 	/// blobs
 	/// Raw blob data.
-	#[serde(skip_serializing_if = "Vec::is_empty")]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub blobs: Vec<Bytes>,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
@@ -392,7 +392,7 @@ pub struct Log {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub removed: Option<bool>,
 	/// topics
-	#[serde(skip_serializing_if = "Vec::is_empty")]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub topics: Vec<H256>,
 	/// transaction hash
 	#[serde(rename = "transactionHash")]

@@ -32,7 +32,7 @@ use pallet_revive::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, Log,
 		ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
 	},
-	EthContractResult,
+	EthTransactError, EthTransactInfo,
 };
 use sp_core::keccak_256;
 use sp_weights::Weight;
@@ -170,12 +170,9 @@ pub enum ClientError {
 	/// A [`codec::Error`] wrapper error.
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
-	/// The dry run failed.
-	#[error("dry run failed: {0}")]
-	DryRunFailed(String),
 	/// Contract reverted
-	#[error("{}", extract_revert_message(.0).unwrap_or_default())]
-	Reverted(Vec<u8>),
+	#[error("Contract reverted")]
+	Reverted(EthTransactError),
 	/// A decimal conversion failed.
 	#[error("conversion failed")]
 	ConversionFailed,
@@ -194,19 +191,26 @@ const REVERT_CODE: i32 = 3;
 // TODO convert error code to https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
-		let msg = err.to_string();
 		match err {
 			ClientError::SubxtError(subxt::Error::Rpc(err)) | ClientError::RpcError(err) => {
 				if let Some(err) = unwrap_call_err(&err) {
 					return err;
 				}
-				ErrorObjectOwned::owned::<Vec<u8>>(CALL_EXECUTION_FAILED_CODE, msg, None)
+				ErrorObjectOwned::owned::<Vec<u8>>(
+					CALL_EXECUTION_FAILED_CODE,
+					err.to_string(),
+					None,
+				)
 			},
-			ClientError::Reverted(data) => {
+			ClientError::Reverted(EthTransactError::Data(data)) => {
+				let msg = extract_revert_message(&data).unwrap_or_default();
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			_ => ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
+			ClientError::Reverted(EthTransactError::Message(msg)) =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
+			_ =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
 		}
 	}
 }
@@ -659,41 +663,22 @@ impl Client {
 		Ok(result)
 	}
 
-	/// Dry run a transaction and returns the [`EthContractResult`] for the transaction.
+	/// Dry run a transaction and returns the [`EthTransactInfo`] for the transaction.
 	pub async fn dry_run(
 		&self,
-		tx: &GenericTransaction,
+		tx: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-	) -> Result<EthContractResult<Balance, Vec<u8>>, ClientError> {
+	) -> Result<EthTransactInfo<Balance>, ClientError> {
 		let runtime_api = self.runtime_api(&block).await?;
+		let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
 
-		// TODO: remove once subxt is updated
-		let value = subxt::utils::Static(tx.value.unwrap_or_default());
-		let from = tx.from.map(|v| v.0.into());
-		let to = tx.to.map(|v| v.0.into());
-
-		let payload = subxt_client::apis().revive_api().eth_transact(
-			from.unwrap_or_default(),
-			to,
-			value,
-			tx.input.clone().unwrap_or_default().0,
-			None,
-			None,
-		);
-
-		let EthContractResult { fee, gas_required, storage_deposit, result } =
-			runtime_api.call(payload).await?.0;
+		let result = runtime_api.call(payload).await?;
 		match result {
 			Err(err) => {
 				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
-				Err(ClientError::DryRunFailed(format!("{err:?}")))
+				Err(ClientError::Reverted(err.0))
 			},
-			Ok(result) if result.did_revert() => {
-				log::debug!(target: LOG_TARGET, "Dry run reverted");
-				Err(ClientError::Reverted(result.0.data))
-			},
-			Ok(result) =>
-				Ok(EthContractResult { fee, gas_required, storage_deposit, result: result.0.data }),
+			Ok(result) => Ok(result.0),
 		}
 	}
 

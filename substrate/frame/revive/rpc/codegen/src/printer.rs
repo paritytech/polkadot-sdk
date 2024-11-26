@@ -383,8 +383,9 @@ impl TypePrinter {
 
 					if matches!(type_info.required, Required::No { skip_if_null: true }) {
 						if type_info.array {
-							serde_params
-								.push("skip_serializing_if = \"Vec::is_empty\"".to_string());
+							serde_params.push(
+								"default, skip_serializing_if = \"Vec::is_empty\"".to_string(),
+							);
 						} else {
 							serde_params
 								.push("skip_serializing_if = \"Option::is_none\"".to_string());

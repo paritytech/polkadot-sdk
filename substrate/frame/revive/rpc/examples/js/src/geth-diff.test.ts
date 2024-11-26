@@ -134,21 +134,20 @@ if (!process.env.USE_LIVE_SERVERS) {
 		})(),
 		//Run the substate node
 		(() => {
-		killProcessOnPort(9944)
-		return spawn(
-			[
-				'./target/debug/substrate-node',
-				'--dev',
-				'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
-			],
-			{
-				stdout: Bun.file('/tmp/kitchensink.out.log'),
-				stderr: Bun.file('/tmp/kitchensink.err.log'),
-				cwd: join(process.env.HOME!, 'polkadot-sdk'),
-			}
-		)
-		})()
-		,
+			killProcessOnPort(9944)
+			return spawn(
+				[
+					'./target/debug/substrate-node',
+					'--dev',
+					'-l=error,evm=debug,sc_rpc_server=info,runtime::revive=debug',
+				],
+				{
+					stdout: Bun.file('/tmp/kitchensink.out.log'),
+					stderr: Bun.file('/tmp/kitchensink.err.log'),
+					cwd: join(process.env.HOME!, 'polkadot-sdk'),
+				}
+			)
+		})(),
 		// Run eth-rpc on 8545
 		await (async () => {
 			killProcessOnPort(8545)
@@ -301,6 +300,7 @@ for (const env of envs) {
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(-32000)
+				console.log(lastJsonRpcError?.message)
 				expect(lastJsonRpcError?.message).toInclude('insufficient funds')
 				expect(lastJsonRpcError?.data).toBeUndefined()
 			}
