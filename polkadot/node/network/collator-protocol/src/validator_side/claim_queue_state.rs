@@ -3,6 +3,13 @@ use std::collections::VecDeque;
 use crate::LOG_TARGET;
 use polkadot_primitives::{Hash, Id as ParaId};
 
+/// Represents a single claim from the claim queue, mapped to a relay block.
+/// - `hash` is `Option` since the claim might be for a future block.
+/// - `claim` represents the `ParaId` scheduled for the block. Can be `None` if nothing is scheduled
+///   at this block.
+/// - `claim_queue_len` is the length of the claim queue at the block. It is used to determine the
+///  'block window' where a claim can be made.
+/// - `claimed` is a flag that indicates if the slot is claimed or not.
 #[derive(Debug, PartialEq)]
 struct ClaimInfo {
 	hash: Option<Hash>,
@@ -11,6 +18,50 @@ struct ClaimInfo {
 	claimed: bool,
 }
 
+/// Tracks the state of the claim queue over a set of relay blocks.
+///
+/// Generally the claim queue represents the `ParaId` that should be scheduled at the current block
+/// (the first element of the claim queue) and N other `ParaId`s which are supposed to be scheduled
+/// on the next relay blocks. In other words the claim queue is a rolling window giving a hint what
+/// should be built/fetched/accepted (depending on the context) at each block.
+///
+/// Since the claim queue peeks into the future blocks there is a relation between the claim queue
+/// state between the current block and the future blocks. Let's see an example:
+/// - relay parent 1; Claim queue: [A, B, A]
+/// - relay parent 2; Claim queue: [B, A, B]
+/// - relay parent 3; Claim queue: [A, B, A]
+/// - and so on
+///
+/// Note that at rp1 the second element in the claim queue is equal to the first one in rp2. Also
+/// the third element of the claim queue at rp1 is equal to the second one in rp2 and the first one
+/// in rp3.
+///
+/// So if we want to claim the third slot at rp 1 we are also claiming the second at rp2 and first
+/// at rp3. To track this in a simple way we can project the claim queue onto the relay blocks like
+/// this:
+///               [A]   [B]   [A] -> this is the claim queue at rp3
+///         [B]   [A]   [B]       -> this is the claim queue at rp2
+///   [A]   [B]   [A]	          -> this is the claim queue at rp1
+/// [RP 1][RP 2][RP 3][RP X][RP Y] -> relay blocks, RP x and RP Y are future blocks
+///
+/// Note that the claims at each column are the same so we can simplify this by just projecting a
+/// single claim over a block:
+///   [A]   [B]   [A]   [B]   [A]  -> claims effectively are the same
+/// [RP 1][RP 2][RP 3][RP X][RP Y] -> relay blocks, RP x and RP Y are future blocks
+///
+/// Basically this is how `ClaimQueueState` works. It keeps track of claims at each block by mapping
+/// claims to relay blocks.
+///
+/// How making a claim works?
+/// At each relay block we keep track how long is the claim queue. This is a 'window' where we can
+/// make a claim. So adding a claim just looks for a free spot at this window and claims it.
+///
+/// Note on adding a new leaf.
+/// When a new leaf is added we check if the first element in its claim queue matches with the
+/// projection on the first element in 'future blocks'. If yes - the new relay block inherits this
+/// claim. If not - this means that the claim queue changed for some reason so the claim can't be
+/// inherited. This should not happen under normal circumstances. But if it happens it means that we
+/// have got one claim which won't be satisfied in the worst case scenario.
 pub(crate) struct ClaimQueueState {
 	block_state: VecDeque<ClaimInfo>,
 	future_blocks: VecDeque<ClaimInfo>,
