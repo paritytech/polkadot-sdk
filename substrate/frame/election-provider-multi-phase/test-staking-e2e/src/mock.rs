@@ -20,7 +20,8 @@
 use frame_support::{
 	assert_ok, parameter_types, traits,
 	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
-	weights::constants, PalletId
+	weights::constants,
+	PalletId,
 };
 use frame_system::EnsureRoot;
 use sp_core::{ConstU32, Get};
@@ -266,7 +267,8 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = sp_runtime::FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type StakeAdapter = pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
+	type StakeAdapter =
+		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type PostUnbondingPoolsWindow = ConstU32<2>;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = ConstU32<256>;
