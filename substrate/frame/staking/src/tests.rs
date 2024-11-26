@@ -2406,7 +2406,7 @@ fn add_reward_points_fns_works() {
 		Pallet::<Test>::reward_by_ids(vec![(21, 1), (11, 1), (11, 1)]);
 
 		let eras_reward_points = ErasRewardPoints::<Test>::get(active_era());
-		assert_eq!(eras_reward_points.total, 40);
+		assert_eq!(eras_reward_points.total, 6);
 		assert_eq!(eras_reward_points.individual.get(&11), Some(&4));
 		assert_eq!(eras_reward_points.individual.get(&21), Some(&2));
 		assert_eq!(eras_reward_points.individual.keys().cloned().collect::<Vec<_>>(), [11, 21]);
