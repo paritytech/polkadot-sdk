@@ -483,10 +483,12 @@ fn compute_artifact_version(
 	code_hash: &[u8],
 	semantics: &sc_executor_wasmtime::Semantics,
 ) -> String {
-	log::trace!(
+	tracing::trace!(
 		target: "wasmtime-runtime",
-		"Computing wasm runtime hash [allow_missing_func_imports: {}, code_hash: {}, semantics: {:?}]",
-		allow_missing_func_imports, sp_core::bytes::to_hex(&code_hash, false), semantics
+		allow_missing_func_imports,
+		code_hash = sp_core::bytes::to_hex(&code_hash, false),
+		?semantics, 
+		"Computing wasm runtime hash",
 	);
 	let mut buffer = Vec::new();
 	buffer.extend_from_slice(code_hash);
