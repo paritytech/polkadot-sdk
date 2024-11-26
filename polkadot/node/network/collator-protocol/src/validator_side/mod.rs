@@ -2137,209 +2137,6 @@ async fn handle_collation_fetch_response(
 	result
 }
 
-// Iterates all relay parents under `relay_parent` within the view up to `claim_queue_len` and
-// returns the number of claims for `para_id` which are affecting `relay_parent`. Affecting in this
-// context means that a relay parent before `relay_parent` have claimed a slot from `relay_parent`'s
-// view.
-fn claimed_within_view(
-	state: &State,
-	relay_parent: &Hash,
-	para_id: &ParaId,
-	claim_queue_len: usize,
-) -> usize {
-	// First we take all the ancestors of `relay_parent`. The order is `relay_parent` -> ancestor...
-	let ancestors = if let Some(anc) = state
-		.implicit_view
-		.known_allowed_relay_parents_under(relay_parent, Some(*para_id))
-	{
-		anc
-	} else {
-		return 0;
-	};
-
-	// We want to take the ancestors which fall in the claim queue view (hence the `take()`) and
-	// start counting claims from the oldest relay parent (hence the `rev()`). We start from oldest
-	// so that we can track claims from the ancestors.
-	// Example:
-	// CQ: [A, B, A]
-	// Relay parents: 1, 2, 3.
-	// We want to second a candidate for para A at relay parent 3.
-	// At relay parent 1 we have got two advertisements for A and one for B.
-	// At relay parent 2 we have got no advertisements.
-	// At relay parent 3 we CHECK if we can accept an advertisement for A.
-	// Visually:
-	//
-	// CQ: [A B A]    CQ: [B A B]    CQ: [A B A]
-	//
-	// ┌───────┐      ┌───────┐      ┌───────┐
-	// │  RP1  ┼──────►  RP2  ┼──────►  RP3  │
-	// └───────┘      └───────┘      └───────┘
-	//   A1
-	//   B1────────────►
-	//   A2───────────────────────────►
-	//
-	// Since we have got three advertisements at RP1, A1 claims the slot at RP1, B1 - at RP2 and A2
-	// - at RP3. This means that at RP2 we still can accept one more advertisement for B and one
-	//   more for A.
-	//
-	// How the counting must work for para id A. Let's say we want to second something for A at RP3
-	// and we want to know how many slots are claimed by older relay parents. ACC represents the
-	// number of claims transferred to the next relay parent which finally are transferred to
-	// the target relay parent. We start from the oldest relay parent and go to the newest one:
-	// - at RP1 we have got two claims and para A is in the first position in the claim queue. ACC =
-	//   2 - 1 = 1.
-	// - at RP2 we have got no claims advertised. Para A is not on the first position of the claim
-	//   queue, so A2 can't be scheduled here. ACC is still 1.
-	// - at RP 3 we reach our target relay parent with ACC = 1. We want to advertise at RP 3 so we
-	//   add 1 to ACC and it remains 1. IMPORTANT: since RP3 is our target relay parent we DON'T
-	//   subtract 1 because this is the position the new advertisement will occupy.
-	// - ACC = 1 is the final result which represents the number of claims for para A at RP3. This
-	//   means that at RP3 the first slot of the claim queue (which is for A) is claimed by an older
-	//   relay parent (RP1). We still can accept one advertisement for A at RP3 since we have got
-	//   one more claim for A (the 3rd one) in th claim queue,
-
-	// We take all ancestors returned from `known_allowed_relay_parents_under` (remember they start
-	// with `relay_parent`), take the number of elements we are interested in (claim_queue_len) and
-	// then reverse them so that we start from the oldest one.
-	// At each ancestor we take the number of seconded and pending candidates at it, add it to the
-	// total number of claims and subtract 1 if `para_id` is at the first position of the claim
-	// queue for that ancestor.
-	ancestors.iter().take(claim_queue_len).rev().fold(0, |acc, anc| {
-		let seconded_and_pending = state.seconded_and_pending_for_para(anc, para_id);
-		let first_assignment = state
-			.per_relay_parent
-			.get(anc)
-			.and_then(|per_relay_parent| per_relay_parent.assignment.current.first());
-		match first_assignment {
-			Some(first) if first == para_id && anc != relay_parent =>
-				(acc + seconded_and_pending).saturating_sub(1),
-			_ => acc + seconded_and_pending,
-		}
-	})
-}
-
-fn seconded_and_pending_for_para_above(
-	state: &State,
-	relay_parent: &Hash,
-	para_id: &ParaId,
-	claim_queue_len: usize,
-) -> Vec<usize> {
-	let leaf_paths = state.implicit_view.paths_to_relay_parent(relay_parent);
-	let mut result = vec![];
-
-	// When counting the number of seconded and pending candidates above the target relay parent we
-	// have to consider all forks. So first we take all paths from leaves to the target relay parent
-	// with `paths_to_relay_parent()`. Then for each path we calculate the number of secondend and
-	// pending candidates and return it as a result. All paths are returned and it's up to the
-	// caller to decide how to interpret them.
-	//
-	// For each path we keep track of two important values:
-	// - `claimed_slots` - this is the number of the slots in the path which are claimed by a relay
-	//   parent in the path. For simplicity we don't care what's claimed by the target relay parent.
-	//   It's up to the caller to handle this. This value is the end result we save for each path at
-	//   the end of the path iteration.
-	// - `unfulfilled_claims` - this is the number of advertisements for relay parents in the path
-	//   which we haven't mapped to actual claim queue slots (or relay parents) so far. This value
-	//   is used as an intermediate running sum of the claims and we don't return it as a result.
-	//
-	// How these two values work together to count the number of pending and seconded candidates
-	// above the target relay parent? Let's see an example. Let's say that:
-	// - our target relay parent is RP0 (to avoid confusion it is not shown in the diagram below).
-	// - the length of the claim queue (and lookahead) is 3
-	// - there are two parachains (A and B) sharing a core. So at each relay parent the claim queue
-	//   is either [ABA] or [BAB].
-	// - there are two advertisements for parachain A one for parachain B at RP1. They are A1, A2
-	//   and B2.
-
-	// We start iterating each path from the oldest relay parent to the leaf. At each ancestor we:
-	// 1. Get the number of pending and seconded candidates with `seconded_and_pending_for_para()`
-	//    and add it to `unfulfilled_claims`. These are the claims we have to map to the claim queue
-	//    and which we have to transfer to the next ancestor from the path.
-	// 2. Get the first assignment in the claim queue. If it is for the target `para_id` - we
-	//    subtract one from `unfulfilled_claims` because we have just mapped a claim to the current
-	//    spot. At the same time we add 1 to the `claimed_slots` because the slot at the current
-	//    ancestor is now claimed.
-	// 3. We repeat these steps until we reach the end leaf and return `claimed_slots`.
-
-	// Now back to our example. We have got this path. At each relay parent we have the state of the
-	// claim queue and the advertisements:
-	//
-	// CQ: [A B A]    CQ: [B A B]    CQ: [A B A]
-	//
-	// ┌───────┐      ┌───────┐      ┌───────┐
-	// │  RP1  ┼──────►  RP2  ┼──────►  RP3  │
-	// └───────┘      └───────┘      └───────┘
-	//   A1
-	//   B1────────────►
-	//   A2───────────────────────────►
-	//
-	// We start with `claimed_slots` and `unfulfilled_claims` both equal to 0. We will look at para
-	// A and B in parallel but in reality the coed is interested only in one of the paras.At RP1 we
-	// have got 2 claims for para A and 1 for para B. So `unfulfilled_claims` for para A will be 2
-	// and for para B - 1. The first element in the claim queue is for para A so we subtract 1 from
-	// `unfulfilled_claims` for para A and add 1 to claimed_slots for para A. Bottom line at the end
-	// of RP1 processing we have got:
-	// - claimed_slots for para A = 1
-	// - claimed_slots for para B = 0
-	// - unfulfilled_claims for para A = 1
-	// - unfulfilled_claims for para B = 1
-	//
-	// We move on to RP2. Nothing is scheduled here so we don't add anything to `unfulfilled_claims`
-	// for either A or B. The first element for CQ is B so we subtract 1 from `unfulfilled_claims`
-	// for B and add 1 to claimed_slots for B. At the end of RP2 processing we have got:
-	// - claimed_slots for para A = 1
-	// - claimed_slots for para B = 1
-	// - unfulfilled_claims for para A = 1
-	// - unfulfilled_claims for para B = 0
-	//
-	// Now we are at RP3. Again nothing is scheduled here so `unfulfilled_claims` for both A and B
-	// is unchanged. The first element in the claim queue is A so we subtract 1 from
-	// `unfulfilled_claims` for A and add 1 to claimed_slots for A. No changes for B. At the end of
-	// RP3 we have got:
-	// - claimed_slots for para A = 2
-	// - claimed_slots for para B = 1
-	// - unfulfilled_claims for para A = 0
-	// - unfulfilled_claims for para B = 0
-	// Which is our end result too. Note that in this example `unfulfilled_claims` reached 0 for
-	// both paras but this is not necessary always the case. They might be bigger than zero if there
-	// are claims which will be fulfilled at future relay parents. But we don't care for this.
-
-	for path in leaf_paths {
-		// Here we track how many first slots from the claim queue at the ancestors are actually
-		// claimed. This is the end result we care about.
-		let mut claimed_slots = 0;
-		// Here we track how many claims are transferred to the next ancestors in the path. We need
-		// this to decide if a next first slot is claimed or not.
-		// For example we have got a path rp1->rp2. Claim queue is [A,A] at each ancestor.At rp1 we
-		// have got 2 claims, at rp2  = 0. In this case we have got both first slots claimed (at rp1
-		// and rp2) since the 2nd claim from rp1 is transferred to rp2.
-		let mut unfulfilled_claims = 0;
-
-		// `claim_queue_len - 1` because the first element of the claim queue is the 'current' slot.
-		// Here we are interested only in the 'future' ones
-		for anc in path.iter().rev().take(claim_queue_len - 1) {
-			// Anything seconded for `para_id` at the ancestor is added up to the claims.
-			unfulfilled_claims += state.seconded_and_pending_for_para(anc, para_id);
-
-			let first_assignment_in_cq = state
-				.per_relay_parent
-				.get(anc)
-				.and_then(|per_relay_parent| per_relay_parent.assignment.current.first());
-
-			// If we have got unfulfilled claims and the first assignment in the claim queue is for
-			// `para_id` then we can assign a claim to the current ancestor. Mark the slot as
-			// claimed and decrease the number of unfulfilled claims.
-			if unfulfilled_claims > 0 && first_assignment_in_cq == Some(para_id) {
-				claimed_slots += 1;
-				unfulfilled_claims -= 1;
-			}
-		}
-
-		result.push(claimed_slots);
-	}
-
-	result
-}
 // Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
 // order in the claim queue so the earlier an element is located in the `Vec` the higher its
 // priority is.
@@ -2349,40 +2146,44 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 		.get(relay_parent)
 		.ok_or(Error::RelayParentStateNotFound)?;
 	let scheduled_paras = relay_parent_state.assignment.current.iter().collect::<HashSet<_>>();
-	let mut claims_per_para = HashMap::new();
-	for para_id in scheduled_paras {
-		let below = claimed_within_view(
-			state,
-			relay_parent,
-			para_id,
-			relay_parent_state.assignment.current.len(),
-		);
-		let above = seconded_and_pending_for_para_above(
-			state,
-			relay_parent,
-			para_id,
-			relay_parent_state.assignment.current.len(),
-		)
-		.into_iter()
-		.max()
-		.unwrap_or(0);
+	let ancestors = state
+		.implicit_view
+		.known_allowed_relay_parents_under(relay_parent, None)
+		.ok_or(Error::RelayParentStateNotFound)?;
+	let paths_from_leaves_to_target = state.implicit_view.paths_to_relay_parent(relay_parent);
 
-		claims_per_para.insert(*para_id, below + above);
+	let mut cq_states = Vec::new();
+	for mut p in paths_from_leaves_to_target {
+		let mut path = ancestors.to_vec();
+		path.append(&mut p);
+		let mut cq_state = ClaimQueueState::new();
+		for para_id in &scheduled_paras {
+			for ancestor in &path {
+				let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
+				cq_state.add_leaf(
+					&ancestor,
+					&state
+						.per_relay_parent
+						.get(&ancestor)
+						.ok_or(Error::RelayParentStateNotFound)?
+						.assignment
+						.current,
+				);
+				for _ in 0..seconded_and_pending {
+					cq_state.claim_at(&ancestor, &para_id);
+				}
+			}
+		}
+		cq_states.push(cq_state);
 	}
 
-	let claim_queue_state = relay_parent_state
-		.assignment
-		.current
-		.iter()
-		.filter_map(|para_id| match claims_per_para.entry(*para_id) {
-			Entry::Occupied(mut entry) if *entry.get() > 0 => {
-				*entry.get_mut() -= 1;
-				None
-			},
-			_ => Some(*para_id),
-		})
-		.collect::<Vec<_>>();
-	Ok(claim_queue_state)
+	let res = cq_states
+		.iter_mut()
+		.map(|cq| cq.unclaimed_at(relay_parent))
+		.max_by(|a, b| a.len().cmp(&b.len()))
+		.unwrap_or_default();
+
+	Ok(res)
 }
 
 /// Returns the next collation to fetch from the `waiting_queue` and reset the status back to
