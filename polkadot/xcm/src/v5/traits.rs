@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -16,19 +16,14 @@
 
 //! Cross-Consensus Message format data structures.
 
-use crate::v2::Error as OldError;
-use codec::{Decode, Encode, MaxEncodedLen};
+pub use crate::v3::{Error as OldError, SendError, XcmHash};
+use codec::{Decode, Encode};
 use core::result;
 use scale_info::TypeInfo;
 
 pub use sp_weights::Weight;
 
 use super::*;
-
-// A simple trait to get the weight of some object.
-pub trait GetWeight<W> {
-	fn weight(&self) -> sp_weights::Weight;
-}
 
 /// Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
 /// format. Those trailing are merely part of the XCM implementation; there is no expectation that
@@ -145,6 +140,9 @@ pub enum Error {
 	/// An asset cannot be deposited, probably because (too much of) it already exists.
 	#[codec(index = 34)]
 	NotDepositable,
+	/// Too many assets matched the given asset filter.
+	#[codec(index = 35)]
+	TooManyAssets,
 
 	// Errors that happen prior to instructions being executed. These fall outside of the XCM
 	// spec.
@@ -163,15 +161,10 @@ pub enum Error {
 	/// The weight of an XCM message is not computable ahead of execution.
 	WeightNotComputable,
 	/// Recursion stack limit reached
+	// TODO(https://github.com/paritytech/polkadot-sdk/issues/6199): This should have a fixed index since
+	// we use it in `FrameTransactionalProcessor` // which is used in instructions.
+	// Or we should create a different error for that.
 	ExceedsStackLimit,
-}
-
-impl MaxEncodedLen for Error {
-	fn max_encoded_len() -> usize {
-		// TODO: max_encoded_len doesn't quite work here as it tries to take notice of the fields
-		// marked `codec(skip)`. We can hard-code it with the right answer for now.
-		1
-	}
 }
 
 impl TryFrom<OldError> for Error {
@@ -183,8 +176,8 @@ impl TryFrom<OldError> for Error {
 			Unimplemented => Self::Unimplemented,
 			UntrustedReserveLocation => Self::UntrustedReserveLocation,
 			UntrustedTeleportLocation => Self::UntrustedTeleportLocation,
-			MultiLocationFull => Self::LocationFull,
-			MultiLocationNotInvertible => Self::LocationNotInvertible,
+			LocationFull => Self::LocationFull,
+			LocationNotInvertible => Self::LocationNotInvertible,
 			BadOrigin => Self::BadOrigin,
 			InvalidLocation => Self::InvalidLocation,
 			AssetNotFound => Self::AssetNotFound,
@@ -201,8 +194,33 @@ impl TryFrom<OldError> for Error {
 			NotHoldingFees => Self::NotHoldingFees,
 			TooExpensive => Self::TooExpensive,
 			Trap(i) => Self::Trap(i),
-			_ => return Err(()),
+			ExpectationFalse => Self::ExpectationFalse,
+			PalletNotFound => Self::PalletNotFound,
+			NameMismatch => Self::NameMismatch,
+			VersionIncompatible => Self::VersionIncompatible,
+			HoldingWouldOverflow => Self::HoldingWouldOverflow,
+			ExportError => Self::ExportError,
+			ReanchorFailed => Self::ReanchorFailed,
+			NoDeal => Self::NoDeal,
+			FeesNotMet => Self::FeesNotMet,
+			LockError => Self::LockError,
+			NoPermission => Self::NoPermission,
+			Unanchored => Self::Unanchored,
+			NotDepositable => Self::NotDepositable,
+			UnhandledXcmVersion => Self::UnhandledXcmVersion,
+			WeightLimitReached(weight) => Self::WeightLimitReached(weight),
+			Barrier => Self::Barrier,
+			WeightNotComputable => Self::WeightNotComputable,
+			ExceedsStackLimit => Self::ExceedsStackLimit,
 		})
+	}
+}
+
+impl MaxEncodedLen for Error {
+	fn max_encoded_len() -> usize {
+		// TODO: max_encoded_len doesn't quite work here as it tries to take notice of the fields
+		// marked `codec(skip)`. We can hard-code it with the right answer for now.
+		1
 	}
 }
 
@@ -223,39 +241,44 @@ pub type Result = result::Result<(), Error>;
 
 /// Outcome of an XCM execution.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Outcome {
 	/// Execution completed successfully; given weight was used.
-	Complete(Weight),
+	Complete { used: Weight },
 	/// Execution started, but did not complete successfully due to the given error; given weight
 	/// was used.
-	Incomplete(Weight, Error),
+	Incomplete { used: Weight, error: Error },
 	/// Execution did not start due to the given error.
-	Error(Error),
+	Error { error: Error },
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> result::Result<Weight, Error> {
+	pub fn ensure_complete(self) -> Result {
 		match self {
-			Outcome::Complete(weight) => Ok(weight),
-			Outcome::Incomplete(_, e) => Err(e),
-			Outcome::Error(e) => Err(e),
+			Outcome::Complete { .. } => Ok(()),
+			Outcome::Incomplete { error, .. } => Err(error),
+			Outcome::Error { error, .. } => Err(error),
 		}
 	}
 	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
 		match self {
-			Outcome::Complete(w) => Ok(w),
-			Outcome::Incomplete(w, _) => Ok(w),
-			Outcome::Error(e) => Err(e),
+			Outcome::Complete { used, .. } => Ok(used),
+			Outcome::Incomplete { used, .. } => Ok(used),
+			Outcome::Error { error, .. } => Err(error),
 		}
 	}
 	/// How much weight was used by the XCM execution attempt.
 	pub fn weight_used(&self) -> Weight {
 		match self {
-			Outcome::Complete(w) => *w,
-			Outcome::Incomplete(w, _) => *w,
-			Outcome::Error(_) => Weight::zero(),
+			Outcome::Complete { used, .. } => *used,
+			Outcome::Incomplete { used, .. } => *used,
+			Outcome::Error { .. } => Weight::zero(),
 		}
+	}
+}
+
+impl From<Error> for Outcome {
+	fn from(error: Error) -> Self {
+		Self::Error { error }
 	}
 }
 
@@ -268,13 +291,13 @@ pub trait ExecuteXcm<Call> {
 	type Prepared: PreparedMessage;
 	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, Xcm<Call>>;
 	fn execute(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		pre: Self::Prepared,
 		id: &mut XcmHash,
 		weight_credit: Weight,
 	) -> Outcome;
 	fn prepare_and_execute(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		message: Xcm<Call>,
 		id: &mut XcmHash,
 		weight_limit: Weight,
@@ -282,63 +305,18 @@ pub trait ExecuteXcm<Call> {
 	) -> Outcome {
 		let pre = match Self::prepare(message) {
 			Ok(x) => x,
-			Err(_) => return Outcome::Error(Error::WeightNotComputable),
+			Err(_) => return Outcome::Error { error: Error::WeightNotComputable },
 		};
 		let xcm_weight = pre.weight_of();
 		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error(Error::WeightLimitReached(xcm_weight))
+			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
 		}
 		Self::execute(origin, pre, id, weight_credit)
 	}
 
-	/// Execute some XCM `message` with the message `hash` from `origin` using no more than
-	/// `weight_limit` weight.
-	///
-	/// The weight limit is a basic hard-limit and the implementation may place further
-	/// restrictions or requirements on weight and other aspects.
-	fn execute_xcm(
-		origin: impl Into<MultiLocation>,
-		message: Xcm<Call>,
-		hash: XcmHash,
-		weight_limit: Weight,
-	) -> Outcome {
-		let origin = origin.into();
-		log::debug!(
-			target: "xcm::execute_xcm",
-			"origin: {:?}, message: {:?}, weight_limit: {:?}",
-			origin,
-			message,
-			weight_limit,
-		);
-		Self::execute_xcm_in_credit(origin, message, hash, weight_limit, Weight::zero())
-	}
-
-	/// Execute some XCM `message` with the message `hash` from `origin` using no more than
-	/// `weight_limit` weight.
-	///
-	/// Some amount of `weight_credit` may be provided which, depending on the implementation, may
-	/// allow execution without associated payment.
-	fn execute_xcm_in_credit(
-		origin: impl Into<MultiLocation>,
-		message: Xcm<Call>,
-		mut hash: XcmHash,
-		weight_limit: Weight,
-		weight_credit: Weight,
-	) -> Outcome {
-		let pre = match Self::prepare(message) {
-			Ok(x) => x,
-			Err(_) => return Outcome::Error(Error::WeightNotComputable),
-		};
-		let xcm_weight = pre.weight_of();
-		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error(Error::WeightLimitReached(xcm_weight))
-		}
-		Self::execute(origin, pre, &mut hash, weight_credit)
-	}
-
 	/// Deduct some `fees` to the sovereign account of the given `location` and place them as per
 	/// the convention for fees.
-	fn charge_fees(location: impl Into<MultiLocation>, fees: MultiAssets) -> Result;
+	fn charge_fees(location: impl Into<Location>, fees: Assets) -> Result;
 }
 
 pub enum Weightless {}
@@ -353,51 +331,41 @@ impl<C> ExecuteXcm<C> for () {
 	fn prepare(message: Xcm<C>) -> result::Result<Self::Prepared, Xcm<C>> {
 		Err(message)
 	}
-	fn execute(
-		_: impl Into<MultiLocation>,
-		_: Self::Prepared,
-		_: &mut XcmHash,
-		_: Weight,
-	) -> Outcome {
+	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
 		unreachable!()
 	}
-	fn charge_fees(_location: impl Into<MultiLocation>, _fees: MultiAssets) -> Result {
+	fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> Result {
 		Err(Error::Unimplemented)
 	}
 }
 
-/// Error result value when attempting to send an XCM message.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, scale_info::TypeInfo)]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-pub enum SendError {
-	/// The message and destination combination was not recognized as being reachable.
+pub trait Reanchorable: Sized {
+	/// Type to return in case of an error.
+	type Error: Debug;
+
+	/// Mutate `self` so that it represents the same location from the point of view of `target`.
+	/// The context of `self` is provided as `context`.
 	///
-	/// This is not considered fatal: if there are alternative transport routes available, then
-	/// they may be attempted.
-	NotApplicable,
-	/// Destination is routable, but there is some issue with the transport mechanism. This is
-	/// considered fatal.
-	/// A human-readable explanation of the specific issue is provided.
-	Transport(#[codec(skip)] &'static str),
-	/// Destination is known to be unroutable. This is considered fatal.
-	Unroutable,
-	/// The given message cannot be translated into a format that the destination can be expected
-	/// to interpret.
-	DestinationUnsupported,
-	/// Message could not be sent due to its size exceeding the maximum allowed by the transport
-	/// layer.
-	ExceedsMaxMessageSize,
-	/// A needed argument is `None` when it should be `Some`.
-	MissingArgument,
-	/// Fees needed to be paid in order to send the message and they were unavailable.
-	Fees,
+	/// Does not modify `self` in case of overflow.
+	fn reanchor(
+		&mut self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> core::result::Result<(), ()>;
+
+	/// Consume `self` and return a new value representing the same location from the point of view
+	/// of `target`. The context of `self` is provided as `context`.
+	///
+	/// Returns the original `self` in case of overflow.
+	fn reanchored(
+		self,
+		target: &Location,
+		context: &InteriorLocation,
+	) -> core::result::Result<Self, Self::Error>;
 }
 
-/// A hash type for identifying messages.
-pub type XcmHash = [u8; 32];
-
 /// Result value when attempting to send an XCM message.
-pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
+pub type SendResult<T> = result::Result<(T, Assets), SendError>;
 
 /// Utility for sending an XCM message to a given location.
 ///
@@ -408,7 +376,7 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 /// # Example
 /// ```rust
 /// # use codec::Encode;
-/// # use staging_xcm::v3::{prelude::*, Weight};
+/// # use staging_xcm::v5::{prelude::*, Weight};
 /// # use staging_xcm::VersionedXcm;
 /// # use std::convert::Infallible;
 ///
@@ -416,7 +384,7 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 /// struct Sender1;
 /// impl SendXcm for Sender1 {
 ///     type Ticket = Infallible;
-///     fn validate(_: &mut Option<MultiLocation>, _: &mut Option<Xcm<()>>) -> SendResult<Infallible> {
+///     fn validate(_: &mut Option<Location>, _: &mut Option<Xcm<()>>) -> SendResult<Infallible> {
 ///         Err(SendError::NotApplicable)
 ///     }
 ///     fn deliver(_: Infallible) -> Result<XcmHash, SendError> {
@@ -424,13 +392,13 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 ///     }
 /// }
 ///
-/// /// A sender that accepts a message that has an X2 junction, otherwise stops the routing.
+/// /// A sender that accepts a message that has two junctions, otherwise stops the routing.
 /// struct Sender2;
 /// impl SendXcm for Sender2 {
 ///     type Ticket = ();
-///     fn validate(destination: &mut Option<MultiLocation>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
-///         match destination.as_ref().ok_or(SendError::MissingArgument)? {
-///             MultiLocation { parents: 0, interior: X2(j1, j2) } => Ok(((), MultiAssets::new())),
+///     fn validate(destination: &mut Option<Location>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
+///         match destination.as_ref().ok_or(SendError::MissingArgument)?.unpack() {
+///             (0, [j1, j2]) => Ok(((), Assets::new())),
 ///             _ => Err(SendError::Unroutable),
 ///         }
 ///     }
@@ -443,9 +411,9 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 /// struct Sender3;
 /// impl SendXcm for Sender3 {
 ///     type Ticket = ();
-///     fn validate(destination: &mut Option<MultiLocation>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
-///         match destination.as_ref().ok_or(SendError::MissingArgument)? {
-///             MultiLocation { parents: 1, interior: Here } => Ok(((), MultiAssets::new())),
+///     fn validate(destination: &mut Option<Location>, message: &mut Option<Xcm<()>>) -> SendResult<()> {
+///         match destination.as_ref().ok_or(SendError::MissingArgument)?.unpack() {
+///             (1, []) => Ok(((), Assets::new())),
 ///             _ => Err(SendError::NotApplicable),
 ///         }
 ///     }
@@ -459,7 +427,6 @@ pub type SendResult<T> = result::Result<(T, MultiAssets), SendError>;
 /// let call: Vec<u8> = ().encode();
 /// let message = Xcm(vec![Instruction::Transact {
 ///     origin_kind: OriginKind::Superuser,
-///     require_weight_at_most: Weight::zero(),
 ///     call: call.into(),
 /// }]);
 /// let message_hash = message.using_encoded(sp_io::hashing::blake2_256);
@@ -475,7 +442,7 @@ pub trait SendXcm {
 	/// Intermediate value which connects the two phases of the send operation.
 	type Ticket;
 
-	/// Check whether the given `message` is deliverable to the given `destination` and if so
+	/// Check whether the given `_message` is deliverable to the given `_destination` and if so
 	/// determine the cost which will be paid by this chain to do so, returning a `Validated` token
 	/// which can be used to enact delivery.
 	///
@@ -486,7 +453,7 @@ pub trait SendXcm {
 	/// then this *MUST* return `NotApplicable`. Any other error will cause the tuple
 	/// implementation to exit early without trying other type fields.
 	fn validate(
-		destination: &mut Option<MultiLocation>,
+		destination: &mut Option<Location>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket>;
 
@@ -499,10 +466,10 @@ impl SendXcm for Tuple {
 	for_tuples! { type Ticket = (#( Option<Tuple::Ticket> ),* ); }
 
 	fn validate(
-		destination: &mut Option<MultiLocation>,
+		destination: &mut Option<Location>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		let mut maybe_cost: Option<MultiAssets> = None;
+		let mut maybe_cost: Option<Assets> = None;
 		let one_ticket: Self::Ticket = (for_tuples! { #(
 			if maybe_cost.is_some() {
 				None
@@ -536,7 +503,7 @@ impl SendXcm for Tuple {
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
 /// both in `Some` before passing them as mutable references into `T::send_xcm`.
-pub fn validate_send<T: SendXcm>(dest: MultiLocation, msg: Xcm<()>) -> SendResult<T::Ticket> {
+pub fn validate_send<T: SendXcm>(dest: Location, msg: Xcm<()>) -> SendResult<T::Ticket> {
 	T::validate(&mut Some(dest), &mut Some(msg))
 }
 
@@ -549,9 +516,9 @@ pub fn validate_send<T: SendXcm>(dest: MultiLocation, msg: Xcm<()>) -> SendResul
 /// Generally you'll want to validate and get the price first to ensure that the sender can pay it
 /// before actually doing the delivery.
 pub fn send_xcm<T: SendXcm>(
-	dest: MultiLocation,
+	dest: Location,
 	msg: Xcm<()>,
-) -> result::Result<(XcmHash, MultiAssets), SendError> {
+) -> result::Result<(XcmHash, Assets), SendError> {
 	let (ticket, price) = T::validate(&mut Some(dest), &mut Some(msg))?;
 	let hash = T::deliver(ticket)?;
 	Ok((hash, price))
