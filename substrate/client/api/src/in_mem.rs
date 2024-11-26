@@ -748,7 +748,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))
 	}
 
-	fn commit_trie_changes(
+	fn import_state(
 		&self,
 		_at: Block::Hash,
 		_storage: sp_runtime::Storage,

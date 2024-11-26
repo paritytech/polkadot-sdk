@@ -593,7 +593,7 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Returns state backend with post-state of given block.
 	fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Self::State>;
 
-	/// Import the state changes directly to the trie database.
+	/// Import the state changes directly to the database.
 	///
 	/// # Arguments
 	///
@@ -601,12 +601,13 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	///   database.
 	/// - `storage`: The storage changes reflecting the transition from the last local state to the
 	///   target block's state being imported.
-	/// - `state_version`: The state version of the block identified by `at`.
+	/// - `state_version`: The state version of the target block, which is resolved from the
+	///   provided `storage` data.
 	///
 	/// # Returns
 	///
 	/// Returns the state root after importing the state.
-	fn commit_trie_changes(
+	fn import_state(
 		&self,
 		at: Block::Hash,
 		storage: sp_runtime::Storage,

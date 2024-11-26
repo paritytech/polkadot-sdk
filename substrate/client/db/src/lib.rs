@@ -36,8 +36,8 @@ mod children;
 mod parity_db;
 mod pinned_blocks_cache;
 mod record_stats_state;
+mod state_importer;
 mod stats;
-mod trie_committer;
 #[cfg(any(feature = "rocksdb", test))]
 mod upgrade;
 mod utils;
@@ -55,8 +55,8 @@ use std::{
 use crate::{
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
+	state_importer::StateImporter,
 	stats::StateUsageStats,
-	trie_committer::TrieCommitter,
 	utils::{meta_keys, read_db, read_meta, DatabaseType, Meta},
 };
 use codec::{Decode, Encode};
@@ -2551,7 +2551,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		}
 	}
 
-	fn commit_trie_changes(
+	fn import_state(
 		&self,
 		at: Block::Hash,
 		storage: sp_runtime::Storage,
@@ -2561,7 +2561,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 
 		let storage_db: Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> =
 			self.storage.clone();
-		let mut trie_committer = TrieCommitter::new(&storage_db, self.storage.db.clone());
+		let mut state_importer = StateImporter::new(&storage_db, self.storage.db.clone());
 
 		let trie_err =
 			|err: Box<TrieError<LayoutV0<Block>>>| sp_blockchain::Error::Application(err);
@@ -2584,11 +2584,11 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 
 			let new_child_root = match state_version {
 				StateVersion::V0 => {
-					let child_root = match crate::trie_committer::read_child_root::<
+					let child_root = match crate::state_importer::read_child_root::<
 						_,
 						_,
 						LayoutV0<Block>,
-					>(&trie_committer, &root, &child_info)
+					>(&state_importer, &root, &child_info)
 					{
 						Ok(Some(hash)) => hash,
 						Ok(None) => default_root,
@@ -2600,7 +2600,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 
 					sp_trie::child_delta_trie_root::<LayoutV0<Block>, _, _, _, _, _, _>(
 						child_info.keyspace(),
-						&mut trie_committer,
+						&mut state_importer,
 						child_root,
 						child_delta,
 						None,
@@ -2609,11 +2609,11 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					.map_err(trie_err)?
 				},
 				StateVersion::V1 => {
-					let child_root = match crate::trie_committer::read_child_root::<
+					let child_root = match crate::state_importer::read_child_root::<
 						_,
 						_,
 						LayoutV1<Block>,
-					>(&trie_committer, &root, &child_info)
+					>(&state_importer, &root, &child_info)
 					{
 						Ok(Some(hash)) => hash,
 						Ok(None) => default_root,
@@ -2625,7 +2625,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 
 					sp_trie::child_delta_trie_root::<LayoutV1<Block>, _, _, _, _, _, _>(
 						child_info.keyspace(),
-						&mut trie_committer,
+						&mut state_importer,
 						child_root,
 						child_delta,
 						None,
@@ -2654,7 +2654,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 
 		let state_root = match state_version {
 			StateVersion::V0 => sp_trie::delta_trie_root::<LayoutV0<Block>, _, _, _, _, _>(
-				&mut trie_committer,
+				&mut state_importer,
 				root,
 				delta,
 				None,
@@ -2662,7 +2662,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			)
 			.map_err(trie_err)?,
 			StateVersion::V1 => sp_trie::delta_trie_root::<LayoutV1<Block>, _, _, _, _, _>(
-				&mut trie_committer,
+				&mut state_importer,
 				root,
 				delta,
 				None,
@@ -5019,7 +5019,7 @@ pub(crate) mod tests {
 	}
 
 	#[test]
-	fn test_commit_trie_changes() {
+	fn test_state_importer() {
 		use sp_runtime::traits::BlakeTwo256;
 
 		let state_version = StateVersion::default();
@@ -5087,7 +5087,7 @@ pub(crate) mod tests {
 					.map(|(k, v)| (k, Some(v)))
 					.collect::<Vec<_>>();
 
-				let mut trie_committer = TrieCommitter::new(&backend_storage, db);
+				let mut state_importer = StateImporter::new(&backend_storage, db);
 				let mut prev_root = initial_root;
 
 				// The order of delta does not matter.
@@ -5102,7 +5102,7 @@ pub(crate) mod tests {
 									_,
 									_,
 									_,
-								>(&mut trie_committer, prev_root, vec![item], None, None)
+								>(&mut state_importer, prev_root, vec![item], None, None)
 								.unwrap(),
 							StateVersion::V1 =>
 								sp_trie::delta_trie_root::<
@@ -5112,7 +5112,7 @@ pub(crate) mod tests {
 									_,
 									_,
 									_,
-								>(&mut trie_committer, prev_root, vec![item], None, None)
+								>(&mut state_importer, prev_root, vec![item], None, None)
 								.unwrap(),
 						};
 
@@ -5131,10 +5131,10 @@ pub(crate) mod tests {
 			let (hash1, state_root1) =
 				build_block(&backend, 1, hash0, storage_changes_block_1.clone());
 
-			// Revert block #1 and rebuild it using `TrieCommitter`.
+			// Revert block #1 and rebuild it using `StateImporter`.
 			backend.revert(1, true).unwrap();
 
-			println!("\nStart building block#1 using `TrieCommitter`");
+			println!("\nStart building block#1 using `StateImporter`");
 			let parent_hash = hash0;
 
 			let mut op = backend.begin_operation().unwrap();
@@ -5150,7 +5150,7 @@ pub(crate) mod tests {
 
 			let update_trie_with_full_delta = || {
 				backend
-					.commit_trie_changes(
+					.import_state(
 						parent_hash,
 						sp_runtime::Storage {
 							top: storage_changes_block_1.clone().into_iter().collect(),

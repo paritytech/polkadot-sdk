@@ -6,14 +6,14 @@ use sp_storage::ChildInfo;
 use sp_trie::{DBValue, TrieError, TrieHash, TrieLayout};
 use std::{marker::PhantomData, sync::Arc};
 
-/// [`TrieCommitter`] is responsible for committing trie state changes
+/// [`StateImporter`] is responsible for importing the state changes
 /// directly into the database, bypassing the in-memory intermediate storage
 /// (`PrefixedMemoryDB`).
 ///
 /// This approach avoids potential OOM issues that can arise when dealing with
 /// large state imports, especially when importing the state downloaded from
 /// fast sync or warp sync.
-pub(crate) struct TrieCommitter<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> {
+pub(crate) struct StateImporter<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> {
 	/// Old state storage backend.
 	storage: &'a S,
 	/// Handle to the trie database where changes will be committed.
@@ -23,7 +23,7 @@ pub(crate) struct TrieCommitter<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hashe
 	_phantom: PhantomData<H>,
 }
 
-impl<'a, S: TrieBackendStorage<H>, H: Hasher> TrieCommitter<'a, S, H> {
+impl<'a, S: TrieBackendStorage<H>, H: Hasher> StateImporter<'a, S, H> {
 	pub fn new(storage: &'a S, trie_database: Arc<dyn Database<DbHash>>) -> Self {
 		let default_child_root = sp_trie::empty_child_trie_root::<sp_trie::LayoutV1<H>>();
 		Self { storage, trie_database, default_child_root, _phantom: Default::default() }
@@ -31,7 +31,7 @@ impl<'a, S: TrieBackendStorage<H>, H: Hasher> TrieCommitter<'a, S, H> {
 }
 
 pub(crate) fn read_child_root<'a, S, H, L>(
-	trie_committer: &TrieCommitter<'a, S, H>,
+	state_importer: &StateImporter<'a, S, H>,
 	root: &TrieHash<L>,
 	child_info: &ChildInfo,
 ) -> Result<Option<H::Out>, Box<TrieError<L>>>
@@ -39,10 +39,10 @@ where
 	S: 'a + TrieBackendStorage<H>,
 	H: Hasher,
 	L: TrieLayout,
-	TrieCommitter<'a, S, H>: HashDBRef<<L as TrieLayout>::Hash, Vec<u8>>,
+	StateImporter<'a, S, H>: HashDBRef<<L as TrieLayout>::Hash, Vec<u8>>,
 {
 	let key = child_info.prefixed_storage_key();
-	Ok(sp_trie::read_trie_value::<L, _>(trie_committer, root, key.as_slice(), None, None)?.map(
+	Ok(sp_trie::read_trie_value::<L, _>(state_importer, root, key.as_slice(), None, None)?.map(
 		|r| {
 			let mut hash = H::Out::default();
 
@@ -55,7 +55,7 @@ where
 }
 
 impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> hash_db::HashDB<H, DBValue>
-	for TrieCommitter<'a, S, H>
+	for StateImporter<'a, S, H>
 {
 	fn get(&self, key: &H::Out, prefix: Prefix) -> Option<DBValue> {
 		// TODO: we'll run into IncompleteDatabase error without this special handling.
@@ -112,7 +112,7 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> hash_db::HashDB<H, DBValue>
 }
 
 impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> HashDBRef<H, DBValue>
-	for TrieCommitter<'a, S, H>
+	for StateImporter<'a, S, H>
 {
 	fn get(&self, key: &H::Out, prefix: Prefix) -> Option<DBValue> {
 		HashDB::get(self, key, prefix)
@@ -124,7 +124,7 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> HashDBRef<H, DBValue>
 }
 
 impl<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> AsHashDB<H, DBValue>
-	for TrieCommitter<'a, S, H>
+	for StateImporter<'a, S, H>
 {
 	fn as_hash_db<'b>(&'b self) -> &'b (dyn HashDB<H, DBValue> + 'b) {
 		self
