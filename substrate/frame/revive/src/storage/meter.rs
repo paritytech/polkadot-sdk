@@ -387,9 +387,9 @@ where
 	pub fn try_into_deposit(
 		self,
 		origin: &Origin<T>,
-		unchecked: bool,
+		skip_transfer: bool,
 	) -> Result<DepositOf<T>, DispatchError> {
-		if !unchecked {
+		if !skip_transfer {
 			// Only refund or charge deposit if the origin is not root.
 			let origin = match origin {
 				Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
@@ -437,14 +437,14 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 		contract: &T::AccountId,
 		contract_info: &mut ContractInfo<T>,
 		code_info: &CodeInfo<T>,
-		unchecked: bool,
+		skip_transfer: bool,
 	) -> Result<(), DispatchError> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
 
 		// We need to make sure that the contract's account exists.
 		let ed = Pallet::<T>::min_balance();
 		self.total_deposit = Deposit::Charge(ed);
-		if unchecked {
+		if skip_transfer {
 			T::Currency::set_balance(contract, ed);
 		} else {
 			T::Currency::transfer(origin, contract, ed, Preservation::Preserve)?;

@@ -1241,17 +1241,10 @@ where
 	///
 	/// # Parameters
 	///
-	/// - `origin`: The origin of the call.
-	/// - `dest`: The destination address of the call.
-	/// - `value`: The EVM value to transfer.
-	/// - `input`: The input data.
+	/// - `tx`: The Ethereum transaction to simulate.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
-	/// - `storage_deposit_limit`: The maximum balance that can be charged to the caller for storage
-	///   usage.
 	/// - `utx_encoded_size`: A function that takes a call and returns the encoded size of the
 	///   unchecked extrinsic.
-	/// - `debug`: Debugging configuration.
-	/// - `collect_events`: Event collection configuration.
 	pub fn bare_eth_transact(
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
@@ -1498,10 +1491,10 @@ where
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
-		unchecked: bool,
+		skip_transfer: bool,
 	) -> Result<(WasmBlob<T>, BalanceOf<T>), DispatchError> {
 		let mut module = WasmBlob::from_code(code, origin)?;
-		let deposit = module.store_code(unchecked)?;
+		let deposit = module.store_code(skip_transfer)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
 	}

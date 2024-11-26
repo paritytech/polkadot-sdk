@@ -563,7 +563,7 @@ pub struct Stack<'a, T: Config, E> {
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
 	/// Whether or not actual transfer of funds should be performed.
-	unchecked: bool,
+	skip_transfer: bool,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -779,7 +779,7 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
-		unchecked: bool,
+		skip_transfer: bool,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
@@ -789,7 +789,7 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			unchecked,
+			skip_transfer,
 			debug_message,
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
@@ -816,7 +816,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		unchecked: bool,
+		skip_transfer: bool,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
@@ -830,7 +830,7 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			unchecked,
+			skip_transfer,
 			debug_message,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
@@ -876,7 +876,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
-		unchecked: bool,
+		skip_transfer: bool,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<Option<(Self, E)>, ExecError> {
 		origin.ensure_mapped()?;
@@ -904,7 +904,7 @@ where
 			frames: Default::default(),
 			debug_message,
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
-			unchecked,
+			skip_transfer,
 			_phantom: Default::default(),
 		};
 
@@ -1082,7 +1082,7 @@ where
 					&frame.account_id,
 					frame.contract_info.get(&frame.account_id),
 					executable.code_info(),
-					self.unchecked,
+					self.skip_transfer,
 				)?;
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.

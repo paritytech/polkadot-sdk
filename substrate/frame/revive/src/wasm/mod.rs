@@ -183,7 +183,7 @@ where
 	}
 
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
-	pub fn store_code(&mut self, unchecked: bool) -> Result<BalanceOf<T>, Error<T>> {
+	pub fn store_code(&mut self, skip_transfer: bool) -> Result<BalanceOf<T>, Error<T>> {
 		let code_hash = *self.code_hash();
 		<CodeInfoOf<T>>::mutate(code_hash, |stored_code_info| {
 			match stored_code_info {
@@ -196,7 +196,7 @@ where
 				None => {
 					let deposit = self.code_info.deposit;
 
-					if !unchecked {
+					if !skip_transfer {
 						T::Currency::hold(
 						&HoldReason::CodeUploadDepositReserve.into(),
 						&self.code_info.owner,
