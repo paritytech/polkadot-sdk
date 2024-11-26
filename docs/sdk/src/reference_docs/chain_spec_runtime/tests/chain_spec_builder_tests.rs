@@ -10,7 +10,6 @@ const CHAIN_SPEC_BUILDER_PATH: &str = "../../../../../target/release/chain-spec-
 macro_rules! bash(
 	( chain-spec-builder $($a:tt)* ) => {{
 		let path = get_chain_spec_builder_path();
-		println!("the path is :{:?}",path);
 		spawn_with_output!(
 			$path $($a)*
 		)
@@ -85,7 +84,7 @@ fn generate_chain_spec() {
 		.arg("preset_2")
 		.output()
 		.expect("Failed to execute command");
-
+	println!("Expected: {:?}", output.stdout);
 	let mut output: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 	//remove code field for better readability
 	if let Some(code) = output["genesis"]["runtimeGenesis"].as_object_mut().unwrap().get_mut("code")
@@ -127,22 +126,7 @@ fn generate_chain_spec() {
 #[test]
 #[docify::export]
 fn generate_para_chain_spec() {
-	let output = Command::new(get_chain_spec_builder_path())
-		.arg("-c")
-		.arg("/dev/stdout")
-		.arg("create")
-		.arg("-c")
-		.arg("polkadot")
-		.arg("-p")
-		.arg("1000")
-		.arg("-r")
-		.arg(WASM_FILE_PATH)
-		.arg("named-preset")
-		.arg("preset_2")
-		.output()
-		.expect("Failed to execute command");
 
-	
 	let output = bash!(
 		chain-spec-builder -c /dev/stdout create -c polkadot -p 1000 -r WASM_FILE_PATH named-preset preset_2
 	);
