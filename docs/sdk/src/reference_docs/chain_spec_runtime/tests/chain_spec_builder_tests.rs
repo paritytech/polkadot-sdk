@@ -21,16 +21,6 @@ macro_rules! bash(
 );
 
 fn get_chain_spec_builder_path() -> &'static str {
-	// dev-dependencies do not build binary. So let's do the naive work-around here:
-	/*let _ = std::process::Command::new("cargo")
-		.arg("build")
-		.arg("--release")
-		.arg("-p")
-		.arg("staging-chain-spec-builder")
-		.arg("--bin")
-		.arg("chain-spec-builder")
-		.status()
-		.expect("Failed to execute command");*/
 	run_cmd!(
 		cargo build --release -p staging-chain-spec-builder --bin chain-spec-builder
 	).expect("Failed to execute command");
