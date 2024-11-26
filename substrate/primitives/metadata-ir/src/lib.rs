@@ -70,6 +70,16 @@ pub fn into_v14(metadata: MetadataIR) -> RuntimeMetadataPrefixed {
 	latest.into()
 }
 
+/// INTERNAL USE ONLY
+///
+/// Special trait that is used together with `InternalConstructRuntime` by `construct_runtime!` to
+/// fetch the runtime api metadata without exploding when there is no runtime api implementation
+/// available.
+#[doc(hidden)]
+pub trait InternalImplRuntimeApis {
+	fn runtime_metadata(&self) -> alloc::vec::Vec<RuntimeApiMetadataIR>;
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;
