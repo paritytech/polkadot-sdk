@@ -19,7 +19,6 @@
 //! work.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod mock;
 pub mod tests;
 
 use frame_support::Parameter;

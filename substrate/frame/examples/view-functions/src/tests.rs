@@ -19,12 +19,60 @@
 #![cfg(test)]
 
 use crate::{
-	mock::*,
 	pallet::{self, Pallet},
 	pallet2,
 };
 use codec::{Decode, Encode};
-use frame_support::traits::ViewFunction;
+use scale_info::{
+	form::PortableForm,
+	meta_type,
+};
+
+use frame_metadata::RuntimeMetadata;
+use frame_support::{
+	derive_impl,
+	traits::ViewFunction,
+	pallet_prelude::PalletInfoAccess,
+};
+use sp_io::hashing::twox_128;
+use sp_runtime::testing::TestXt;
+use sp_metadata_ir::{
+	ViewFunctionGroupIR,
+	ViewFunctionMetadataIR,
+	ViewFunctionArgMetadataIR,
+};
+
+pub type AccountId = u32;
+pub type Balance = u32;
+
+type Block = frame_system::mocking::MockBlock<Runtime>;
+frame_support::construct_runtime!(
+	pub enum Runtime {
+		System: frame_system,
+		ViewFunctionsExample: pallet,
+		ViewFunctionsInstance: pallet2,
+		ViewFunctionsInstance1: pallet2::<Instance1>,
+	}
+);
+
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Runtime {
+	type Block = Block;
+}
+
+impl pallet::Config for Runtime {}
+impl pallet2::Config<pallet2::Instance1> for Runtime {}
+
+impl pallet2::Config for Runtime {}
+
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	use sp_runtime::BuildStorage;
+
+	let t = RuntimeGenesisConfig { system: Default::default() }.build_storage().unwrap();
+	t.into()
+}
 
 #[test]
 fn pallet_get_value_query() {
@@ -67,6 +115,73 @@ fn pallet_multiple_instances() {
 
 		let query_instance1 = pallet2::GetValueViewFunction::<Runtime, Instance1>::new();
 		test_dispatch_view_function(&query_instance1, instance1_value);
+	});
+}
+
+#[test]
+fn metadata_ir_definitions() {
+	new_test_ext().execute_with(|| {
+		let metadata_ir = Runtime::metadata_ir();
+		let pallet1 = metadata_ir.view_functions.groups.iter()
+			.find(|pallet| pallet.name == "ViewFunctionsExample").unwrap();
+
+		fn view_fn_id(preifx_hash: [u8; 16], view_fn_signature: &str) -> [u8; 32] {
+			let mut id = [0u8; 32];
+			id[..16].copy_from_slice(&preifx_hash);
+			id[16..].copy_from_slice(&twox_128(view_fn_signature.as_bytes()));
+			id
+		}
+
+
+		let get_value_id = view_fn_id(
+			<ViewFunctionsExample as PalletInfoAccess>::name_hash(),
+			"get_value() -> Option<u32>",
+		);
+
+		let get_value_with_arg_id = view_fn_id(
+			<ViewFunctionsExample as PalletInfoAccess>::name_hash(),
+			"get_value_with_arg(u32) -> Option<u32>",
+		);
+
+		pretty_assertions::assert_eq!(
+			pallet1.view_functions,
+			vec![
+				ViewFunctionMetadataIR {
+					name: "get_value",
+					id: get_value_id,
+					args: vec![],
+					output: meta_type::<Option<u32>>(),
+					docs: vec![" Query value no args."],
+				},
+				ViewFunctionMetadataIR {
+					name: "get_value_with_arg",
+					id: get_value_with_arg_id,
+					args: vec![
+						ViewFunctionArgMetadataIR {
+							name: "key",
+							ty: meta_type::<u32>(),
+						},
+					],
+					output: meta_type::<Option<u32>>(),
+					docs: vec![" Query value with args."],
+				},
+			]
+		);
+	});
+}
+
+#[test]
+fn metadata_encoded_to_custom_value() {
+	new_test_ext().execute_with(|| { ;
+		let metadata = sp_metadata_ir::into_latest(Runtime::metadata_ir());
+		// metadata is currently experimental so lives as a custom value.
+		let frame_metadata::RuntimeMetadata::V15(v15) = metadata.1 else {
+			panic!("Expected metadata v15")
+		};
+		let custom_value = v15.custom.map.get("view_functions_experimental").expect("Expected custom value");
+		let view_function_groups: Vec<ViewFunctionGroupIR<PortableForm>> =
+			Decode::decode(&mut &custom_value.value[..]).unwrap();
+		assert_eq!(view_function_groups.len(), 4);
 	});
 }
 

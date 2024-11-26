@@ -113,14 +113,14 @@ impl ViewFunctionDef {
 			.args_names_types()
 			.1
 			.iter()
-			.map(|ty| quote::quote!(#ty).to_string())
+			.map(|ty| quote::quote!(#ty).to_string().replace(" ", ""))
 			.collect::<Vec<_>>()
 			.join(",");
 		let return_type = &self.return_type;
+		let return_type = quote::quote!(#return_type).to_string().replace(" ", "");
 		let view_fn_signature = format!(
 			"{view_function_name}({arg_types}) -> {return_type}",
 			view_function_name = &self.name,
-			return_type = quote::quote!(#return_type),
 		);
 
 		// hash the signature string

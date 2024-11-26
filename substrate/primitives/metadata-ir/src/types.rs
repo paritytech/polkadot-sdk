@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Compact, Encode};
+use codec::{Compact, Decode, Encode};
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
 	prelude::{collections::BTreeMap, vec::Vec},
@@ -121,7 +121,7 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 }
 
 /// Metadata of the top level runtime view function dispatch.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct RuntimeViewFunctionsIR<T: Form = MetaForm> {
 	/// The type implementing the runtime query dispatch.
 	pub ty: T::Type,
@@ -132,7 +132,7 @@ pub struct RuntimeViewFunctionsIR<T: Form = MetaForm> {
 /// Metadata of a runtime view function group.
 ///
 /// For example, view functions associated with a pallet would form a view function group.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct ViewFunctionGroupIR<T: Form = MetaForm> {
 	/// Name of the view function group.
 	pub name: T::String,
@@ -155,7 +155,7 @@ impl IntoPortable for ViewFunctionGroupIR {
 }
 
 /// Metadata of a runtime view function.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct ViewFunctionMetadataIR<T: Form = MetaForm> {
 	/// Query name.
 	pub name: T::String,
@@ -184,7 +184,7 @@ impl IntoPortable for ViewFunctionMetadataIR {
 }
 
 /// Metadata of a runtime method argument.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct ViewFunctionArgMetadataIR<T: Form = MetaForm> {
 	/// Query argument name.
 	pub name: T::String,
