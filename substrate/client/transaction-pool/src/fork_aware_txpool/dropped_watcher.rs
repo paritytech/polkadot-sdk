@@ -206,6 +206,10 @@ where
 						views
 					);
 					views.remove(&key);
+					//todo: merge heads up warning!
+					if views.is_empty() {
+						ctx.pending_dropped_transactions.push(*tx_hash);
+					}
 				});
 
 				self.future_transaction_views.iter_mut().for_each(|(tx_hash, views)| {
