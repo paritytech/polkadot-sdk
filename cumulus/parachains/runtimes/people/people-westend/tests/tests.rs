@@ -17,7 +17,7 @@
 #![cfg(test)]
 
 use parachains_common::AccountId;
-use people_westend_runtime::xcm_config::LocationToAccountId;
+use people_westend_runtime::{Runtime, RuntimeCall, RuntimeOrigin, Block, xcm_config::LocationToAccountId};
 use sp_core::crypto::Ss58Codec;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -131,4 +131,14 @@ fn location_conversion_works() {
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}
+}
+
+#[test]
+fn xcm_payment_api_works() {
+	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block
+	>();
 }

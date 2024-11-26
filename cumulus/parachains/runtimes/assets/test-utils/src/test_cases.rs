@@ -1588,7 +1588,7 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 		})
 }
 
-pub fn xcm_payment_api_works<Runtime, RuntimeCall, RuntimeOrigin, Block>()
+pub fn xcm_payment_api_with_pools_works<Runtime, RuntimeCall, RuntimeOrigin, Block>()
 where
 	Runtime: XcmPaymentApiV1<Block>
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
@@ -1626,17 +1626,12 @@ where
 			.build();
 		let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.clone().into());
 
-		// We first try calling it with a lower XCM version.
-		let lower_version_xcm_to_weigh =
-			versioned_xcm_to_weigh.into_version(XCM_VERSION - 1).unwrap();
-		let xcm_weight = Runtime::query_xcm_weight(lower_version_xcm_to_weigh);
+		let xcm_weight = Runtime::query_xcm_weight(versioned_xcm_to_weigh);
 		assert!(xcm_weight.is_ok());
 		let native_token: Location = Parent.into();
 		let native_token_versioned = VersionedAssetId::from(AssetId(native_token.clone()));
-		let lower_version_native_token =
-			native_token_versioned.clone().into_version(XCM_VERSION - 1).unwrap();
 		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), lower_version_native_token);
+			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), native_token_versioned);
 		assert!(execution_fees.is_ok());
 
 		// We need some balance to create an asset.

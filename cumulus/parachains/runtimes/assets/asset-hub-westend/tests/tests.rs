@@ -1449,7 +1449,13 @@ fn location_conversion_works() {
 
 #[test]
 fn xcm_payment_api_works() {
-	asset_test_utils::test_cases::xcm_payment_api_works::<
+	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block
+	>();
+	asset_test_utils::test_cases::xcm_payment_api_with_pools_works::<
 		Runtime,
 		RuntimeCall,
 		RuntimeOrigin,

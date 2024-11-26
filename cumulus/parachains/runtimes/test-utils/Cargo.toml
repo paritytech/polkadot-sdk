@@ -29,6 +29,7 @@ cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
+parachains-common = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true }
@@ -37,6 +38,7 @@ cumulus-test-relay-sproof-builder = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 pallet-xcm = { workspace = true }
+xcm-runtime-apis = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 
 [dev-dependencies]
