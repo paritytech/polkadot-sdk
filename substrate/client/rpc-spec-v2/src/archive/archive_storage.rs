@@ -221,13 +221,13 @@ where
 			},
 
 			FetchStorageType::Both => {
-				let value = self.client.query_value(hash, &key, maybe_child_trie.as_ref())?;
-				let Some(value) = value else {
+				let Some(value) = self.client.query_value(hash, &key, maybe_child_trie.as_ref())?
+				else {
 					return Ok(None);
 				};
 
-				let hash = self.client.query_hash(hash, &key, maybe_child_trie.as_ref())?;
-				let Some(hash) = hash else {
+				let Some(hash) = self.client.query_hash(hash, &key, maybe_child_trie.as_ref())?
+				else {
 					return Ok(None);
 				};
 
