@@ -23,24 +23,13 @@ use crate::{
 	pallet2,
 };
 use codec::{Decode, Encode};
-use scale_info::{
-	form::PortableForm,
-	meta_type,
-};
+use scale_info::{form::PortableForm, meta_type};
 
 use frame_metadata::RuntimeMetadata;
-use frame_support::{
-	derive_impl,
-	traits::ViewFunction,
-	pallet_prelude::PalletInfoAccess,
-};
+use frame_support::{derive_impl, pallet_prelude::PalletInfoAccess, traits::ViewFunction};
 use sp_io::hashing::twox_128;
+use sp_metadata_ir::{ViewFunctionArgMetadataIR, ViewFunctionGroupIR, ViewFunctionMetadataIR};
 use sp_runtime::testing::TestXt;
-use sp_metadata_ir::{
-	ViewFunctionGroupIR,
-	ViewFunctionMetadataIR,
-	ViewFunctionArgMetadataIR,
-};
 
 pub type AccountId = u32;
 pub type Balance = u32;
@@ -122,8 +111,12 @@ fn pallet_multiple_instances() {
 fn metadata_ir_definitions() {
 	new_test_ext().execute_with(|| {
 		let metadata_ir = Runtime::metadata_ir();
-		let pallet1 = metadata_ir.view_functions.groups.iter()
-			.find(|pallet| pallet.name == "ViewFunctionsExample").unwrap();
+		let pallet1 = metadata_ir
+			.view_functions
+			.groups
+			.iter()
+			.find(|pallet| pallet.name == "ViewFunctionsExample")
+			.unwrap();
 
 		fn view_fn_id(preifx_hash: [u8; 16], view_fn_signature: &str) -> [u8; 32] {
 			let mut id = [0u8; 32];
@@ -131,7 +124,6 @@ fn metadata_ir_definitions() {
 			id[16..].copy_from_slice(&twox_128(view_fn_signature.as_bytes()));
 			id
 		}
-
 
 		let get_value_id = view_fn_id(
 			<ViewFunctionsExample as PalletInfoAccess>::name_hash(),
@@ -156,12 +148,7 @@ fn metadata_ir_definitions() {
 				ViewFunctionMetadataIR {
 					name: "get_value_with_arg",
 					id: get_value_with_arg_id,
-					args: vec![
-						ViewFunctionArgMetadataIR {
-							name: "key",
-							ty: meta_type::<u32>(),
-						},
-					],
+					args: vec![ViewFunctionArgMetadataIR { name: "key", ty: meta_type::<u32>() },],
 					output: meta_type::<Option<u32>>(),
 					docs: vec![" Query value with args."],
 				},
@@ -172,13 +159,17 @@ fn metadata_ir_definitions() {
 
 #[test]
 fn metadata_encoded_to_custom_value() {
-	new_test_ext().execute_with(|| { ;
+	new_test_ext().execute_with(|| {
 		let metadata = sp_metadata_ir::into_latest(Runtime::metadata_ir());
 		// metadata is currently experimental so lives as a custom value.
 		let frame_metadata::RuntimeMetadata::V15(v15) = metadata.1 else {
 			panic!("Expected metadata v15")
 		};
-		let custom_value = v15.custom.map.get("view_functions_experimental").expect("Expected custom value");
+		let custom_value = v15
+			.custom
+			.map
+			.get("view_functions_experimental")
+			.expect("Expected custom value");
 		let view_function_groups: Vec<ViewFunctionGroupIR<PortableForm>> =
 			Decode::decode(&mut &custom_value.value[..]).unwrap();
 		assert_eq!(view_function_groups.len(), 4);
