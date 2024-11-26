@@ -229,7 +229,7 @@ impl<B: BlockT> StateStrategy<B> {
 					allow_missing_state: true,
 					import_existing: true,
 					skip_execution: true,
-					state: Some(state),
+					storage_changes: Some(sc_consensus::StorageChanges::Import(state)),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });

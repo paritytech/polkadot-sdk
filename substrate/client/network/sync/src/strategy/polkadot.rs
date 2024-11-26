@@ -71,6 +71,7 @@ where
 	pub state_request_protocol_name: ProtocolName,
 	/// Block downloader
 	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
+	pub request_state_diff: bool,
 }
 
 /// Proxy to specific syncing strategies used in Polkadot.
@@ -379,6 +380,7 @@ where
 				config.block_downloader.clone(),
 				config.metrics_registry.as_ref(),
 				std::iter::empty(),
+				config.request_state_diff,
 			)?;
 			Ok(Self {
 				config,
@@ -433,6 +435,7 @@ where
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(*peer_id, *best_hash, *best_number)
 						}),
+						self.config.request_state_diff,
 					) {
 						Ok(chain_sync) => chain_sync,
 						Err(e) => {
@@ -463,6 +466,7 @@ where
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(*peer_id, *best_hash, *best_number)
 				}),
+				self.config.request_state_diff,
 			) {
 				Ok(chain_sync) => chain_sync,
 				Err(e) => {

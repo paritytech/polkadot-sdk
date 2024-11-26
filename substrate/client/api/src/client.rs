@@ -25,6 +25,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, NumberFor},
 	Justifications,
 };
+use sp_state_machine::{KeyValueStorageLevel, NetworkStorageChanges};
 use std::{
 	collections::HashSet,
 	fmt::{self, Debug},
@@ -162,6 +163,12 @@ pub trait BlockBackend<Block: BlockT> {
 
 	/// Tells whether the current client configuration requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
+
+	fn state_diff(
+		&self,
+		number: NumberFor<Block>,
+		hash: Block::Hash,
+	) -> sp_blockchain::Result<Option<NetworkStorageChanges>>;
 }
 
 /// Provide a list of potential uncle headers for a given block.

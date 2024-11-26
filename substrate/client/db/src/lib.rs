@@ -74,7 +74,7 @@ use sp_blockchain::{
 };
 use sp_core::{
 	offchain::OffchainOverlayedChange,
-	storage::{well_known_keys, ChildInfo},
+	storage::{well_known_keys, ChildInfo, ChildTrieParentKeyId},
 };
 use sp_database::Transaction;
 use sp_runtime::{
@@ -88,8 +88,8 @@ use sp_runtime::{
 use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
 	BackendTransaction, ChildStorageCollection, DBValue, IndexOperation, IterArgs,
-	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
-	StorageValue, UsageInfo as StateUsageInfo,
+	KeyValueStorageLevel, NetworkStorageChanges, OffchainChangesCollection, StateMachineStats,
+	StorageCollection, StorageIterator, StorageKey, StorageValue, UsageInfo as StateUsageInfo,
 };
 use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
 use utils::BLOCK_GAP_CURRENT_VERSION;
@@ -438,6 +438,7 @@ pub(crate) mod columns {
 	/// Transactions
 	pub const TRANSACTION: u32 = 11;
 	pub const BODY_INDEX: u32 = 12;
+	pub const STATE_DIFF: u32 = 13;
 }
 
 struct PendingBlock<Block: BlockT> {
@@ -836,6 +837,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	commit_state: bool,
 	create_gap: bool,
 	index_ops: Vec<IndexOperation>,
+	record_state_diff: bool,
 }
 
 impl<Block: BlockT> BlockImportOperation<Block> {
@@ -896,6 +898,10 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	for BlockImportOperation<Block>
 {
 	type State = RecordStatsState<RefTrackingState<Block>, Block>;
+
+	fn record_state_diff(&mut self) {
+		self.record_state_diff = true;
+	}
 
 	fn state(&self) -> ClientResult<Option<&Self::State>> {
 		Ok(Some(&self.old_state))
@@ -959,6 +965,37 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	) -> ClientResult<()> {
 		self.storage_updates = update;
 		self.child_storage_updates = child_update;
+		Ok(())
+	}
+
+	fn apply_storage_update(&mut self) -> ClientResult<()> {
+		if self
+			.storage_updates
+			.iter()
+			.any(|(k, _v)| well_known_keys::is_child_storage_key(k))
+		{
+			return Err(sp_blockchain::Error::InvalidState);
+		}
+
+		let child_delta = self
+			.child_storage_updates
+			.iter()
+			.map(|(child_info, child_content)| {
+				(ChildInfo::new_default(&child_info[..]), child_content.clone())
+			})
+			.collect::<Vec<_>>();
+
+		let (_root, transaction) = self.old_state.full_storage_root(
+			self.storage_updates.iter().map(|(k, v)| (&k[..], v.as_ref().map(|v| &v[..]))),
+			child_delta.iter().map(|(child_info, v)| {
+				(child_info, v.iter().map(|(k, v)| (&k[..], v.as_ref().map(|v| &v[..]))))
+			}),
+			StateVersion::V1,
+		);
+
+		self.db_updates = transaction;
+		self.commit_state = true;
+
 		Ok(())
 	}
 
@@ -1509,6 +1546,19 @@ impl<Block: BlockT> Backend<Block> {
 					transaction.set_from_vec(columns::BODY_INDEX, &lookup_key, body);
 				}
 			}
+
+			if operation.record_state_diff {
+				transaction.set_from_vec(
+					columns::STATE_DIFF,
+					&lookup_key,
+					NetworkStorageChanges {
+						main_storage_changes: operation.storage_updates.clone(),
+						child_storage_changes: operation.child_storage_updates.clone(),
+					}
+					.encode(),
+				);
+			}
+
 			if let Some(body) = pending_block.indexed_body {
 				apply_indexed_body::<Block>(&mut transaction, body);
 			}
@@ -2119,6 +2169,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			set_head: None,
 			commit_state: false,
 			create_gap: true,
+			record_state_diff: false,
 			index_ops: Default::default(),
 		})
 	}
@@ -2549,6 +2600,20 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			self.storage.state_db.pruning_mode(),
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical
 		)
+	}
+
+	fn state_diff(
+		&self,
+		number: NumberFor<Block>,
+		hash: Block::Hash,
+	) -> sp_blockchain::Result<Option<NetworkStorageChanges>> {
+		let lookup_key = utils::number_and_hash_to_lookup_key(number, hash)?;
+
+		Ok(self
+			.storage
+			.db
+			.get(columns::STATE_DIFF, &lookup_key[..])
+			.map(|d| NetworkStorageChanges::decode(&mut &d[..]).expect("Failed to decode")))
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()> {

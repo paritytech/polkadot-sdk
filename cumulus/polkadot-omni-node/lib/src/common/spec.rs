@@ -250,6 +250,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						relay_chain_interface: relay_chain_interface.clone(),
 						import_queue: params.import_queue,
 						sybil_resistance_level: Self::SYBIL_RESISTANCE,
+						request_state_diff: true,
 					})
 					.await?;
 

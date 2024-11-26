@@ -53,3 +53,15 @@ impl Default for SyncMode {
 		Self::Full
 	}
 }
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PostSyncMode {
+	Regular,
+	ChainDiff,
+}
+
+impl Default for PostSyncMode {
+	fn default() -> Self {
+		Self::Regular
+	}
+}

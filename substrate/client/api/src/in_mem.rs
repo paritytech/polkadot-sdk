@@ -30,7 +30,7 @@ use sp_runtime::{
 };
 use sp_state_machine::{
 	Backend as StateBackend, BackendTransaction, ChildStorageCollection, InMemoryBackend,
-	IndexOperation, StorageCollection,
+	IndexOperation, KeyValueStorageLevel, NetworkStorageChanges, StorageCollection,
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -522,6 +522,12 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		Ok(())
 	}
 
+	fn record_state_diff(&mut self) {}
+
+	fn apply_storage_update(&mut self) -> sp_blockchain::Result<()> {
+		Ok(())
+	}
+
 	fn update_db_storage(
 		&mut self,
 		update: BackendTransaction<HashingFor<Block>>,
@@ -775,6 +781,14 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 	fn unpin_block(&self, hash: <Block as BlockT>::Hash) {
 		let mut blocks = self.pinned_blocks.write();
 		blocks.entry(hash).and_modify(|counter| *counter -= 1).or_insert(-1);
+	}
+
+	fn state_diff(
+		&self,
+		_number: NumberFor<Block>,
+		_hash: Block::Hash,
+	) -> sp_blockchain::Result<Option<NetworkStorageChanges>> {
+		Ok(None)
 	}
 }
 

@@ -812,6 +812,7 @@ where
 	pub block_relay: Option<BlockRelayParams<Block, Net>>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	pub request_state_diff: bool,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -852,6 +853,7 @@ where
 		warp_sync_config,
 		block_relay,
 		metrics,
+		request_state_diff,
 	} = params;
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
@@ -898,6 +900,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
+		request_state_diff,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1219,6 +1222,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
+		false,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1286,6 +1290,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
+	request_state_diff: bool,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1353,6 +1358,7 @@ where
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
+		request_state_diff,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,

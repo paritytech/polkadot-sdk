@@ -133,7 +133,7 @@ pub use crate::{
 	error::{Error, ExecutionError},
 	ext::Ext,
 	overlayed_changes::{
-		ChildStorageCollection, IndexOperation, OffchainChangesCollection,
+		ChildStorageCollection, IndexOperation, NetworkStorageChanges, OffchainChangesCollection,
 		OffchainOverlayedChanges, OverlayedChanges, StorageChanges, StorageCollection, StorageKey,
 		StorageValue,
 	},
@@ -162,7 +162,7 @@ mod execution {
 	use crate::backend::AsTrieBackend;
 
 	use super::*;
-	use codec::Codec;
+	use codec::{Codec, Decode, Encode};
 	use hash_db::Hasher;
 	use smallvec::SmallVec;
 	use sp_core::{
@@ -459,7 +459,7 @@ mod execution {
 	pub struct KeyValueStates(pub Vec<KeyValueStorageLevel>);
 
 	/// A key value state at any storage level.
-	#[derive(PartialEq, Eq, Clone)]
+	#[derive(PartialEq, Eq, Clone, Debug, Decode, Encode)]
 	pub struct KeyValueStorageLevel {
 		/// State root of the level, for
 		/// top trie it is as an empty byte array.

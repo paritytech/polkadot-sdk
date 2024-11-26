@@ -420,6 +420,7 @@ pub struct BuildNetworkParams<
 	pub spawn_handle: SpawnTaskHandle,
 	pub import_queue: IQ,
 	pub sybil_resistance_level: CollatorSybilResistance,
+	pub request_state_diff: bool,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -434,6 +435,7 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 		relay_chain_interface,
 		import_queue,
 		sybil_resistance_level,
+		request_state_diff,
 	}: BuildNetworkParams<'a, Block, Client, Network, RCInterface, IQ>,
 ) -> sc_service::error::Result<(
 	Arc<dyn NetworkService>,
@@ -507,6 +509,7 @@ where
 		warp_sync_config,
 		block_relay: None,
 		metrics,
+		request_state_diff,
 	})
 }
 

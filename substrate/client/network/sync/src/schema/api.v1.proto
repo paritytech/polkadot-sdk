@@ -67,6 +67,7 @@ message BlockData {
 	bytes justifications = 8; // optional
 	// Indexed block body if requestd.
 	repeated bytes indexed_body = 9; // optional
+	StorageChanges state_diff = 10; // optional
 }
 
 // Request storage data from a peer.
@@ -104,3 +105,17 @@ message StateEntry {
 	bytes value = 2;
 }
 
+message StorageChanges {
+	repeated StorageChange main = 1;
+	repeated ChildStorageChange child = 2;
+}
+
+message StorageChange {
+	bytes key = 1;
+	bytes value = 2; // optional
+}
+
+message ChildStorageChange {
+	bytes key = 1;
+	repeated StorageChange value = 2;
+}

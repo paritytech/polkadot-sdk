@@ -54,6 +54,8 @@ bitflags! {
 		const JUSTIFICATION = 0b00010000;
 		/// Include indexed transactions for a block.
 		const INDEXED_BODY = 0b00100000;
+		/// Include the block post-state diff.
+		const STATE_DIFF = 0b00100000;
 	}
 }
 
@@ -129,6 +131,7 @@ pub mod generic {
 	use crate::message::RequestId;
 	use codec::{Decode, Encode, Input, Output};
 	use sp_runtime::{EncodedJustification, Justifications};
+	use sp_state_machine::{KeyValueStorageLevel, NetworkStorageChanges};
 
 	/// Block data sent in the response.
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
@@ -149,6 +152,8 @@ pub mod generic {
 		pub justification: Option<EncodedJustification>,
 		/// Justifications if requested.
 		pub justifications: Option<Justifications>,
+		/// Optional state diff
+		pub state_diff: Option<NetworkStorageChanges>,
 	}
 
 	/// Request block data from a peer.

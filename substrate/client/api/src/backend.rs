@@ -29,8 +29,8 @@ use sp_runtime::{
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
-	backend::AsTrieBackend, ChildStorageCollection, IndexOperation, IterArgs,
-	OffchainChangesCollection, StorageCollection, StorageIterator,
+	backend::AsTrieBackend, ChildStorageCollection, IndexOperation, IterArgs, KeyValueStorageLevel,
+	NetworkStorageChanges, OffchainChangesCollection, StorageCollection, StorageIterator,
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 pub use sp_trie::MerkleValue;
@@ -162,6 +162,10 @@ pub trait BlockImportOperation<Block: BlockT> {
 	///
 	/// Returns None for backends with locally-unavailable state data.
 	fn state(&self) -> sp_blockchain::Result<Option<&Self::State>>;
+
+	fn record_state_diff(&mut self);
+
+	fn apply_storage_update(&mut self) -> sp_blockchain::Result<()>;
 
 	/// Append block data to the transaction.
 	fn set_block_data(
@@ -635,6 +639,12 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
+
+	fn state_diff(
+		&self,
+		number: NumberFor<Block>,
+		hash: Block::Hash,
+	) -> sp_blockchain::Result<Option<NetworkStorageChanges>>;
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

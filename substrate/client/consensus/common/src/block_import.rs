@@ -124,6 +124,7 @@ pub enum StorageChanges<Block: BlockT> {
 	Changes(sp_state_machine::StorageChanges<HashingFor<Block>>),
 	/// Whole new state.
 	Import(ImportedState<Block>),
+	NetworkChanges(sp_state_machine::NetworkStorageChanges),
 }
 
 /// Imported state data. A vector of key-value pairs that should form a trie.

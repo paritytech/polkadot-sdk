@@ -44,7 +44,8 @@ use sc_client_api::{
 	ProofProvider, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
-	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
+	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedState,
+	StateAction, StorageChanges,
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -74,8 +75,8 @@ use sp_runtime::{
 use sp_state_machine::{
 	prove_child_read, prove_range_read_with_child_with_size, prove_read,
 	read_range_proof_check_with_child_on_proving_backend, Backend as StateBackend,
-	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
-	MAX_NESTED_TRIE_DEPTH,
+	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, NetworkStorageChanges,
+	StorageCollection, MAX_NESTED_TRIE_DEPTH,
 };
 use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, StorageProof};
 use std::{
@@ -151,6 +152,7 @@ impl<H> PrePostHeader<H> {
 enum PrepareStorageChangesResult<Block: BlockT> {
 	Discard(ImportResult),
 	Import(Option<sc_consensus::StorageChanges<Block>>),
+	ImportAndRecordStateDiff(sc_consensus::StorageChanges<Block>),
 }
 
 /// Create an instance of in-memory client.
@@ -496,6 +498,7 @@ where
 		operation: &mut ClientImportOperation<Block, B>,
 		import_block: BlockImportParams<Block>,
 		storage_changes: Option<sc_consensus::StorageChanges<Block>>,
+		record_state_diff: bool,
 	) -> sp_blockchain::Result<ImportResult>
 	where
 		Self: ProvideRuntimeApi<Block>,
@@ -539,6 +542,10 @@ where
 		*self.importing_block.write() = Some(hash);
 
 		operation.op.set_create_gap(create_gap);
+
+		if record_state_diff {
+			operation.op.record_state_diff();
+		}
 
 		let result = self.execute_and_import_block(
 			operation,
@@ -646,9 +653,24 @@ where
 
 						Some((main_sc, child_sc))
 					},
-					sc_consensus::StorageChanges::Import(changes) => {
+					sc_consensus::StorageChanges::NetworkChanges(NetworkStorageChanges {
+						main_storage_changes,
+						child_storage_changes,
+					}) => {
+						trace!(target: "sync", "Importing from network changes");
+						self.backend.begin_state_operation(&mut operation.op, parent_hash)?;
+
+						operation.op.update_storage(
+							main_storage_changes.clone(),
+							child_storage_changes.clone(),
+						)?;
+						operation.op.apply_storage_update()?;
+
+						Some((main_storage_changes, child_storage_changes))
+					},
+					sc_consensus::StorageChanges::Import(ImportedState { state, .. }) => {
 						let mut storage = sp_storage::Storage::default();
-						for state in changes.state.0.into_iter() {
+						for state in state.0.into_iter() {
 							if state.parent_storage_keys.is_empty() && state.state_root.is_empty() {
 								for (key, value) in state.key_values.into_iter() {
 									storage.top.insert(key, value);
@@ -858,10 +880,32 @@ where
 			(_, StateAction::ExecuteIfPossible) => (true, None),
 		};
 
+		// LONG TERM SOLUTION:
+		// if we have regular changes, just apply them and move on as usual.
+		// if we have just the block, launch execution and wait for it.
+		// if we have changes coming from the network, launch execution on a separate task.
+		// - while the execution is going on, apply the storage changes and notify slot-based
+		//   collator on the new channel that we get a half-baked block import.
+		// - when the execution passes, continue with sending the block import notification. either
+		//   this or retract the block.
+
+		// QUICK HACK, ASSUMING EXECUTING THE BLOCK IS NOT EVEN REQUIRED:
+		// if we have regular changes, just apply them and move on as usual.
+		// if we have just the block, launch execution and wait for it.
+		// if we have network changes, just apply them and move on as usual.
+
 		let storage_changes = match (enact_state, storage_changes, &import_block.body) {
 			// We have storage changes and should enact the state, so we don't need to do anything
 			// here
-			(true, changes @ Some(_), _) => changes,
+			(true, Some(inner_changes), _) => {
+				if let sc_consensus::StorageChanges::Changes(inner_changes) = inner_changes {
+					return Ok(PrepareStorageChangesResult::ImportAndRecordStateDiff(
+						sc_consensus::StorageChanges::Changes(inner_changes),
+					))
+				} else {
+					return Ok(PrepareStorageChangesResult::Import(Some(inner_changes)))
+				}
+			},
 			// We should enact state, but don't have any storage changes, so we need to execute the
 			// block.
 			(true, None, Some(ref body)) => {
@@ -1762,17 +1806,19 @@ where
 		let span = tracing::span!(tracing::Level::DEBUG, "import_block");
 		let _enter = span.enter();
 
-		let storage_changes =
+		let (storage_changes, record_state_diff) =
 			match self.prepare_block_storage_changes(&mut import_block).map_err(|e| {
 				warn!("Block prepare storage changes error: {}", e);
 				ConsensusError::ClientImport(e.to_string())
 			})? {
 				PrepareStorageChangesResult::Discard(res) => return Ok(res),
-				PrepareStorageChangesResult::Import(storage_changes) => storage_changes,
+				PrepareStorageChangesResult::Import(storage_changes) => (storage_changes, false),
+				PrepareStorageChangesResult::ImportAndRecordStateDiff(storage_changes) =>
+					(Some(storage_changes), true),
 			};
 
 		self.lock_import_and_run(|operation| {
-			self.apply_block(operation, import_block, storage_changes)
+			self.apply_block(operation, import_block, storage_changes, record_state_diff)
 		})
 		.map_err(|e| {
 			warn!("Block import error: {}", e);
@@ -2020,6 +2066,14 @@ where
 
 	fn requires_full_sync(&self) -> bool {
 		self.backend.requires_full_sync()
+	}
+
+	fn state_diff(
+		&self,
+		number: NumberFor<Block>,
+		hash: Block::Hash,
+	) -> sp_blockchain::Result<Option<NetworkStorageChanges>> {
+		self.backend.state_diff(number, hash)
 	}
 }
 

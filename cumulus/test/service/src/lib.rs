@@ -381,6 +381,7 @@ where
 			                                                             * resistant or null that
 			                                                             * is not producing any
 			                                                             * blocks at all. */
+			request_state_diff: true,
 		})
 		.await?;
 

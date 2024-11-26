@@ -105,6 +105,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 				warp_sync_config: None,
 				block_relay: None,
 				metrics,
+				request_state_diff: false,
 			})?;
 
 		let proposer = sc_basic_authorship::ProposerFactory::new(

@@ -49,7 +49,7 @@ use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
 use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
-use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
+use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock, StorageChanges};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
@@ -343,6 +343,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	actions: Vec<SyncingAction<B>>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
+	request_state_diff: bool,
 }
 
 impl<B, Client> SyncingStrategy<B> for ChainSync<B, Client>
@@ -949,6 +950,7 @@ where
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
+		request_state_diff: bool,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -982,6 +984,7 @@ where
 					None
 				},
 			}),
+			request_state_diff,
 		};
 
 		sync.reset_sync_start_point()?;
@@ -1197,7 +1200,7 @@ where
 										allow_missing_state: true,
 										import_existing: self.import_existing,
 										skip_execution: true,
-										state: None,
+										storage_changes: None,
 									}
 								})
 								.collect();
@@ -1236,7 +1239,7 @@ where
 									allow_missing_state: true,
 									import_existing: self.import_existing,
 									skip_execution: self.skip_execution(),
-									state: None,
+									storage_changes: None,
 								}
 							})
 							.collect()
@@ -1378,7 +1381,11 @@ where
 							allow_missing_state: true,
 							import_existing: false,
 							skip_execution: true,
-							state: None,
+							storage_changes: if let Some(state_diff) = b.state_diff {
+								Some(StorageChanges::NetworkChanges(state_diff))
+							} else {
+								None
+							},
 						}
 					})
 					.collect()
@@ -1761,7 +1768,11 @@ where
 					allow_missing_state: true,
 					import_existing: self.import_existing,
 					skip_execution: self.skip_execution(),
-					state: None,
+					storage_changes: if let Some(state_diff) = block_data.block.state_diff {
+						Some(StorageChanges::NetworkChanges(state_diff))
+					} else {
+						None
+					},
 				}
 			})
 			.collect()
@@ -1819,6 +1830,9 @@ where
 		let gap_sync = &mut self.gap_sync;
 		let disconnected_peers = &mut self.disconnected_peers;
 		let metrics = self.metrics.as_ref();
+		let mode = &self.mode;
+		let request_state_diff = &self.request_state_diff;
+
 		let requests = self
 			.peers
 			.iter_mut()
@@ -1859,7 +1873,11 @@ where
 					&id,
 					peer,
 					blocks,
-					attrs,
+					if matches!(mode, ChainSyncMode::Full) && *request_state_diff {
+						attrs | BlockAttributes::STATE_DIFF
+					} else {
+						attrs
+					},
 					max_parallel,
 					max_blocks_per_request,
 					last_finalized,
@@ -2009,7 +2027,7 @@ where
 					allow_missing_state: true,
 					import_existing: true,
 					skip_execution: self.skip_execution(),
-					state: Some(state),
+					storage_changes: Some(StorageChanges::Import(state)),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
 				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });

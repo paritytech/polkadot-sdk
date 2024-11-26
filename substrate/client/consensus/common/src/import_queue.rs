@@ -41,10 +41,11 @@ use sp_runtime::{
 
 use crate::{
 	block_import::{
-		BlockCheckParams, BlockImport, BlockImportParams, ImportResult, ImportedAux, ImportedState,
+		BlockCheckParams, BlockImport, BlockImportParams, ImportResult, ImportedAux,
 		JustificationImport, StateAction,
 	},
 	metrics::Metrics,
+	StorageChanges,
 };
 
 pub use basic_queue::BasicQueue;
@@ -71,7 +72,7 @@ pub type BoxJustificationImport<B> =
 pub type RuntimeOrigin = sc_network_types::PeerId;
 
 /// Block data used by the queue.
-#[derive(Debug, PartialEq, Eq, Clone)]
+// #[derive(Clone)]
 pub struct IncomingBlock<B: BlockT> {
 	/// Block header hash.
 	pub hash: <B as BlockT>::Hash,
@@ -92,7 +93,7 @@ pub struct IncomingBlock<B: BlockT> {
 	/// Re-validate existing block.
 	pub import_existing: bool,
 	/// Do not compute new state, but rather set it to the given set.
-	pub state: Option<ImportedState<B>>,
+	pub storage_changes: Option<StorageChanges<B>>,
 }
 
 /// Verify a justification of a block
@@ -328,7 +329,10 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 				parent_hash,
 				allow_missing_state: block.allow_missing_state,
 				import_existing: block.import_existing,
-				allow_missing_parent: block.state.is_some(),
+				allow_missing_parent: matches!(
+					block.storage_changes,
+					Some(StorageChanges::Import(_))
+				),
 			})
 			.await,
 	)? {
@@ -348,8 +352,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	import_block.import_existing = block.import_existing;
 	import_block.indexed_body = block.indexed_body;
 
-	if let Some(state) = block.state {
-		let changes = crate::block_import::StorageChanges::Import(state);
+	if let Some(changes) = block.storage_changes {
 		import_block.state_action = StateAction::ApplyChanges(changes);
 	} else if block.skip_execution {
 		import_block.state_action = StateAction::Skip;

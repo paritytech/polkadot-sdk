@@ -24,7 +24,7 @@ use crate::{
 		BlockResponse as BlockResponseSchema, BlockResponse, Direction,
 	},
 	service::network::NetworkServiceHandle,
-	LOG_TARGET,
+	KeyValueStateEntry, StateEntry, LOG_TARGET,
 };
 
 use codec::{Decode, DecodeAll, Encode};
@@ -48,6 +48,7 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header, One, Zero},
 };
+use sp_state_machine::NetworkStorageChanges;
 
 use std::{
 	cmp::min,
@@ -351,6 +352,7 @@ where
 		let get_body = attributes.contains(BlockAttributes::BODY);
 		let get_indexed_body = attributes.contains(BlockAttributes::INDEXED_BODY);
 		let get_justification = attributes.contains(BlockAttributes::JUSTIFICATION);
+		let get_state_diff = attributes.contains(BlockAttributes::STATE_DIFF);
 
 		let mut blocks = Vec::new();
 
@@ -410,6 +412,22 @@ where
 				Vec::new()
 			};
 
+			let state_diff = if get_state_diff {
+				match self.client.state_diff(number, hash)? {
+					Some(state_diff) => Some(state_diff),
+					None => {
+						log::trace!(
+							target: LOG_TARGET,
+							"Missing state diff for block request"
+						);
+						// Not a big deal, this is on a best-effort basis.
+						None
+					},
+				}
+			} else {
+				None
+			};
+
 			let indexed_body = if get_indexed_body {
 				match self.client.block_indexed_body(hash)? {
 					Some(transactions) => transactions,
@@ -438,6 +456,30 @@ where
 				is_empty_justification,
 				justifications,
 				indexed_body,
+				state_diff: state_diff.map(|changes| crate::schema::v1::StorageChanges {
+					main: changes
+						.main_storage_changes
+						.into_iter()
+						.map(|(k, v)| crate::schema::v1::StorageChange {
+							key: k,
+							value: v.unwrap_or_default(),
+						})
+						.collect(),
+					child: changes
+						.child_storage_changes
+						.into_iter()
+						.map(|(k, c)| crate::schema::v1::ChildStorageChange {
+							key: k,
+							value: c
+								.into_iter()
+								.map(|(k, v)| crate::schema::v1::StorageChange {
+									key: k,
+									value: v.unwrap_or_default(),
+								})
+								.collect(),
+						})
+						.collect(),
+				}),
 			};
 
 			let new_total_size = total_size +
@@ -568,6 +610,53 @@ impl FullBlockDownloader {
 					} else {
 						None
 					},
+					state_diff: block_data.state_diff.map(|changes| NetworkStorageChanges {
+						main_storage_changes: changes
+							.main
+							.into_iter()
+							.map(|c| (c.key, if c.value.is_empty() { None } else { Some(c.value) }))
+							.collect(),
+						child_storage_changes: changes
+							.child
+							.into_iter()
+							.map(|c| {
+								(
+									c.key,
+									c.value
+										.into_iter()
+										.map(|c| {
+											(
+												c.key,
+												if c.value.is_empty() {
+													None
+												} else {
+													Some(c.value)
+												},
+											)
+										})
+										.collect(),
+								)
+							})
+							.collect(),
+					}), /* if !block_data.state_diff.is_empty() {
+					     * 	Some(
+					     * 		block_data
+					     * 			.state_diff
+					     * 			.into_iter()
+					     * 			.map(|s| KeyValueStorageLevel {
+					     * 				state_root: s.state_root,
+					     * 				key_values: s
+					     * 					.entries
+					     * 					.into_iter()
+					     * 					.map(|e| (e.key, e.value))
+					     * 					.collect(),
+					     * 				parent_storage_keys: vec![],
+					     * 			})
+					     * 			.collect(),
+					     * 	)
+					     * } else {
+					     * 	None
+					     * }, */
 				})
 			})
 			.collect::<Result<_, _>>()
