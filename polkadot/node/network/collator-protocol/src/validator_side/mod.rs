@@ -1055,7 +1055,7 @@ fn ensure_seconding_limit_is_respected(
 	para_id: ParaId,
 	state: &State,
 ) -> std::result::Result<(), AdvertisementError> {
-	let paths = state.implicit_view.paths_from_leaves_via_relay_parent(relay_parent);
+	let paths = state.implicit_view.paths_via_relay_parent(relay_parent);
 
 	gum::trace!(
 		target: LOG_TARGET,
@@ -2131,7 +2131,7 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 		.get(relay_parent)
 		.ok_or(Error::RelayParentStateNotFound)?;
 	let scheduled_paras = relay_parent_state.assignment.current.iter().collect::<HashSet<_>>();
-	let paths = state.implicit_view.paths_from_leaves_via_relay_parent(relay_parent);
+	let paths = state.implicit_view.paths_via_relay_parent(relay_parent);
 
 	let mut claim_queue_states = Vec::new();
 	for path in paths {

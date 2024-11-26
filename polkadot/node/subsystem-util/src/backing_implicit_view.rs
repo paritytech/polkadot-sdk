@@ -330,12 +330,9 @@ impl View {
 			.map(|mins| mins.allowed_relay_parents_for(para_id, block_info.block_number))
 	}
 
-	/// Returns all paths from a leaf to `relay_parent`. If no paths exist the function
-	/// will return an empty `Vec`.
-	///
-	/// The input is not included in the path so if `relay_parent` happens to be an outer leaf, no
-	/// paths will be returned.
-	fn paths_to_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
+	/// Returns all paths from a leaf to the last block in state containing `relay_parent`. If no
+	/// paths exist the function will return an empty `Vec`.
+	pub fn paths_via_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
 		gum::trace!(
 			target: LOG_TARGET,
 			?relay_parent,
@@ -360,58 +357,44 @@ impl View {
 			let mut path = Vec::new();
 			let mut current_leaf = *leaf;
 			let mut visited = HashSet::new();
+			let mut path_contains_target = false;
 
+			// Start from the leaf and traverse all known blocks
 			loop {
-				if current_leaf == *relay_parent {
-					// path is complete
-					paths.push(path);
+				if visited.contains(&current_leaf) {
+					// There is a cycle - abandon this path
 					break
 				}
 
-				path.push(current_leaf);
-
 				current_leaf = match self.block_info_storage.get(&current_leaf) {
 					Some(info) => {
-						let r = info.parent_hash;
-						if visited.contains(&r) {
-							// There is a cycle so this is not a path to `relay_parent`
-							break
+						// `current_leaf` is a known block - add it to the path and mark it as
+						// visited
+						path.push(current_leaf);
+						visited.insert(current_leaf);
+
+						// `current_leaf` is the target `relay_parent`. Mark the path so that it's
+						// included in the result
+						if current_leaf == *relay_parent {
+							path_contains_target = true;
 						}
-						visited.insert(r);
-						r
+
+						// update `current_leaf` with the parent
+						info.parent_hash
 					},
 					None => {
-						// Parent is not found there for it should be outside the view. Abandon this
-						// path.
+						// path is complete
+						if path_contains_target {
+							// we want the path ordered from oldest to newest so reverse it
+							paths.push(path.into_iter().rev().collect());
+						}
 						break
 					},
-				}
+				};
 			}
 		}
 
 		paths
-	}
-
-	/// Returns all paths from the leaves via `relay_parent` up to its allowed ancestry
-	pub fn paths_from_leaves_via_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
-		let mut result = Vec::new();
-
-		let ancestors =
-			self.known_allowed_relay_parents_under(relay_parent, None).unwrap_or_default();
-
-		for p in self.paths_to_relay_parent(relay_parent) {
-			let full_path =
-				ancestors.iter().rev().copied().chain(p.into_iter()).collect::<Vec<_>>();
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?ancestors,
-				?full_path,
-				"Found a full path", );
-			result.push(full_path);
-		}
-
-		result
 	}
 
 	async fn fetch_fresh_leaf_and_insert_ancestry<Sender>(
@@ -892,10 +875,19 @@ mod tests {
 
 				assert_eq!(view.leaves.len(), 1);
 				assert!(view.leaves.contains_key(leaf));
-				assert!(view.paths_to_relay_parent(&CHAIN_B[0]).is_empty());
+				assert!(view.paths_via_relay_parent(&CHAIN_B[0]).is_empty());
+				assert!(view.paths_via_relay_parent(&CHAIN_A[0]).is_empty());
 				assert_eq!(
-					view.paths_to_relay_parent(&CHAIN_B[min_min_idx]),
-					vec![expected_ancestry.iter().take(expected_ancestry.len() - 1).copied().collect::<Vec<_>>()]
+					view.paths_via_relay_parent(&CHAIN_B[min_min_idx]),
+					vec![CHAIN_B[min_min_idx..].to_vec()]
+				);
+				assert_eq!(
+					view.paths_via_relay_parent(&CHAIN_B[min_min_idx + 1]),
+					vec![CHAIN_B[min_min_idx..].to_vec()]
+				);
+				assert_eq!(
+					view.paths_via_relay_parent(&leaf),
+					vec![CHAIN_B[min_min_idx..].to_vec()]
 				);
 			}
 		);
@@ -1018,9 +1010,10 @@ mod tests {
 				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)).unwrap().is_empty());
 				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
 
+				assert!(view.paths_via_relay_parent(&CHAIN_A[0]).is_empty());
 				assert_eq!(
-					view.paths_to_relay_parent(&CHAIN_B[min_min_idx]),
-					vec![expected_ancestry.iter().take(expected_ancestry.len() - 1).copied().collect::<Vec<_>>()]
+					view.paths_via_relay_parent(&CHAIN_B[min_min_idx]),
+					vec![CHAIN_B[min_min_idx..].to_vec()]
 				);
 			}
 		);
@@ -1091,10 +1084,10 @@ mod tests {
 				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_B)).unwrap().is_empty());
 				assert!(view.known_allowed_relay_parents_under(&leaf, Some(PARA_C)).unwrap().is_empty());
 
-				assert!(view.paths_to_relay_parent(&GENESIS_HASH).is_empty());
+				assert!(view.paths_via_relay_parent(&GENESIS_HASH).is_empty());
 				assert_eq!(
-					view.paths_to_relay_parent(&CHAIN_A[0]),
-					vec![expected_ancestry.iter().take(expected_ancestry.len() - 1).copied().collect::<Vec<_>>()]
+					view.paths_via_relay_parent(&CHAIN_A[0]),
+					vec![CHAIN_A.to_vec()]
 				);
 			}
 		);
@@ -1314,25 +1307,25 @@ mod tests {
 
 		assert_eq!(view.leaves.len(), 2);
 
-		let mut paths_to_genesis = view.paths_to_relay_parent(&GENESIS_HASH);
+		let mut paths_to_genesis = view.paths_via_relay_parent(&GENESIS_HASH);
 		paths_to_genesis.sort();
 		let mut expected_paths_to_genesis = vec![
-			CHAIN_A.iter().rev().copied().collect::<Vec<_>>(),
-			CHAIN_B.iter().rev().copied().collect::<Vec<_>>(),
+			[GENESIS_HASH].iter().chain(CHAIN_A.iter()).copied().collect::<Vec<_>>(),
+			[GENESIS_HASH].iter().chain(CHAIN_B.iter()).copied().collect::<Vec<_>>(),
 		];
 		expected_paths_to_genesis.sort();
 		assert_eq!(paths_to_genesis, expected_paths_to_genesis);
 
-		let path_to_leaf_in_a = view.paths_to_relay_parent(&CHAIN_A[1]);
+		let path_to_leaf_in_a = view.paths_via_relay_parent(&CHAIN_A[1]);
 		let expected_path_to_leaf_in_a =
-			vec![CHAIN_A[2..].iter().rev().copied().collect::<Vec<_>>()];
+			vec![[GENESIS_HASH].iter().chain(CHAIN_A.iter()).copied().collect::<Vec<_>>()];
 		assert_eq!(path_to_leaf_in_a, expected_path_to_leaf_in_a);
 
-		let path_to_leaf_in_b = view.paths_to_relay_parent(&CHAIN_B[4]);
+		let path_to_leaf_in_b = view.paths_via_relay_parent(&CHAIN_B[4]);
 		let expected_path_to_leaf_in_b =
-			vec![CHAIN_B[5..].iter().rev().copied().collect::<Vec<_>>()];
+			vec![[GENESIS_HASH].iter().chain(CHAIN_B.iter()).copied().collect::<Vec<_>>()];
 		assert_eq!(path_to_leaf_in_b, expected_path_to_leaf_in_b);
 
-		assert_eq!(view.paths_to_relay_parent(&Hash::repeat_byte(0x0A)), Vec::<Vec<Hash>>::new());
+		assert_eq!(view.paths_via_relay_parent(&Hash::repeat_byte(0x0A)), Vec::<Vec<Hash>>::new());
 	}
 }
