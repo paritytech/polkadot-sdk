@@ -23,6 +23,7 @@ fn transacting_should_work() {
 	let message = Xcm::<TestCall>(vec![Transact {
 		origin_kind: OriginKind::Native,
 		call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
+		fallback_max_weight: None,
 	}]);
 	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
@@ -43,6 +44,7 @@ fn transacting_should_respect_max_weight_requirement() {
 	let message = Xcm::<TestCall>(vec![Transact {
 		origin_kind: OriginKind::Native,
 		call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
+		fallback_max_weight: None,
 	}]);
 	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
@@ -65,6 +67,7 @@ fn transacting_should_refund_weight() {
 		call: TestCall::Any(Weight::from_parts(50, 50), Some(Weight::from_parts(30, 30)))
 			.encode()
 			.into(),
+		fallback_max_weight: None,
 	}]);
 	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
@@ -96,6 +99,7 @@ fn paid_transacting_should_refund_payment_for_unused_weight() {
 			call: TestCall::Any(Weight::from_parts(50, 50), Some(Weight::from_parts(10, 10)))
 				.encode()
 				.into(),
+			fallback_max_weight: None,
 		},
 		RefundSurplus,
 		DepositAsset { assets: AllCounted(1).into(), beneficiary: one },
@@ -124,6 +128,7 @@ fn report_successful_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ReportTransactStatus(QueryResponseInfo {
 			destination: Parent.into(),
@@ -159,6 +164,7 @@ fn report_failed_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ReportTransactStatus(QueryResponseInfo {
 			destination: Parent.into(),
@@ -194,6 +200,7 @@ fn expect_successful_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ExpectTransactStatus(MaybeErrorCode::Success),
 	]);
@@ -212,6 +219,7 @@ fn expect_successful_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ExpectTransactStatus(MaybeErrorCode::Success),
 	]);
@@ -238,6 +246,7 @@ fn expect_failed_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ExpectTransactStatus(vec![2].into()),
 	]);
@@ -256,6 +265,7 @@ fn expect_failed_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ExpectTransactStatus(vec![2].into()),
 	]);
@@ -282,6 +292,7 @@ fn clear_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ClearTransactStatus,
 		ReportTransactStatus(QueryResponseInfo {

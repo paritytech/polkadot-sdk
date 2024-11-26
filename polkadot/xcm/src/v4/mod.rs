@@ -36,7 +36,6 @@ use codec::{
 };
 use core::{fmt::Debug, result};
 use derivative::Derivative;
-use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
 mod asset;
@@ -1270,7 +1269,7 @@ impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
 }
 
 // Convert from a v5 XCM to a v4 XCM.
-impl<Call: Decode + GetDispatchInfo> TryFrom<NewXcm<Call>> for Xcm<Call> {
+impl<Call> TryFrom<NewXcm<Call>> for Xcm<Call> {
 	type Error = ();
 	fn try_from(new_xcm: NewXcm<Call>) -> result::Result<Self, Self::Error> {
 		Ok(Xcm(new_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
@@ -1278,7 +1277,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewXcm<Call>> for Xcm<Call> {
 }
 
 // Convert from a v5 instruction to a v4 instruction.
-impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instruction<Call> {
+impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 	type Error = ();
 	fn try_from(new_instruction: NewInstruction<Call>) -> result::Result<Self, Self::Error> {
 		use NewInstruction::*;
@@ -1314,8 +1313,8 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, mut call } => {
-				let require_weight_at_most = call.take_decoded()?.get_dispatch_info().call_weight;
+			Transact { origin_kind, call, fallback_max_weight } => {
+				let require_weight_at_most = fallback_max_weight.unwrap_or(Weight::MAX);
 				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
 			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {

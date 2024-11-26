@@ -333,6 +333,7 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
+		fallback_max_weight: None,
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }
