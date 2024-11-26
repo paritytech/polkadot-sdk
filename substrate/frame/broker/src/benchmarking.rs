@@ -840,19 +840,23 @@ mod benches {
 			Ok(())
 		})?;
 
-		// Advance to the block before `rotate_sale`.
-		advance_to::<T>(timeslice_period.saturating_mul(config.region_length) - 1);
+		// Advance to the block before the rotate_sale in which the auto-renewals will take place.
+		advance_to::<T>(
+			timeslice_period.saturating_mul(config.region_length).saturating_mul(2) - 1,
+		);
 
 		// Advance one block and manually tick so we can isolate the `rotate_sale` call.
-		System::<T>::set_block_number(timeslice_period.saturating_mul(config.region_length).into());
+		System::<T>::set_block_number(
+			timeslice_period.saturating_mul(config.region_length.saturating_mul(2)).into(),
+		);
 		RCBlockNumberProviderOf::<T::Coretime>::set_block_number(
-			timeslice_period.saturating_mul(config.region_length).into(),
+			timeslice_period.saturating_mul(config.region_length.saturating_mul(2)).into(),
 		);
 		let mut status = Status::<T>::get().expect("Sale has started.");
 		let sale = SaleInfo::<T>::get().expect("Sale has started.");
 		Broker::<T>::process_core_count(&mut status);
 		Broker::<T>::process_revenue();
-		status.last_committed_timeslice = config.region_length;
+		status.last_committed_timeslice = config.region_length.saturating_mul(2);
 
 		#[block]
 		{
@@ -864,9 +868,9 @@ mod benches {
 		let new_sale = SaleInfo::<T>::get().expect("Sale has started.");
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 
-		assert_last_event::<T>(
+		assert_has_event::<T>(
 			Event::SaleInitialized {
-				sale_start: new_sale.region_begin.into(),
+				sale_start: new_sale.region_end.into(),
 				leadin_length: 1u32.into(),
 				start_price: Broker::<T>::sale_price(&new_sale, now),
 				end_price: new_prices.end_price,
@@ -892,7 +896,7 @@ mod benches {
 					who,
 					old_core: n_reservations as u16 + n_leases as u16 + indx as u16,
 					core: n_reservations as u16 + n_leases as u16 + indx as u16,
-					price: 10_000_000u32.into(),
+					price: 11_000_000u32.into(), // Renewal bump from config.
 					begin: new_sale.region_begin,
 					duration: config.region_length,
 					workload: Schedule::truncate_from(vec![ScheduleItem {
