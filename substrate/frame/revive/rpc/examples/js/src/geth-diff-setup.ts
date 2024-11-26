@@ -1,5 +1,5 @@
 import { spawn, spawnSync, Subprocess } from 'bun'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { readFileSync } from 'fs'
 import { createWalletClient, defineChain, Hex, http, publicActions } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -109,6 +109,7 @@ export function waitForHealth(url: string) {
 }
 
 export const procs: Subprocess[] = []
+const polkadotSdkPath = resolve(__dirname, '../../../../../../..')
 if (!process.env.USE_LIVE_SERVERS) {
 	procs.push(
 		// Run geth on port 8546
@@ -134,7 +135,7 @@ if (!process.env.USE_LIVE_SERVERS) {
 				{
 					stdout: Bun.file('/tmp/kitchensink.out.log'),
 					stderr: Bun.file('/tmp/kitchensink.err.log'),
-					cwd: join(process.env.HOME!, 'polkadot-sdk'),
+					cwd: polkadotSdkPath,
 				}
 			)
 		})(),
@@ -151,7 +152,7 @@ if (!process.env.USE_LIVE_SERVERS) {
 				{
 					stdout: Bun.file('/tmp/eth-rpc.out.log'),
 					stderr: Bun.file('/tmp/eth-rpc.err.log'),
-					cwd: join(process.env.HOME!, 'polkadot-sdk'),
+					cwd: polkadotSdkPath,
 				}
 			)
 			await waitForHealth('http://localhost:8545/health').catch()
