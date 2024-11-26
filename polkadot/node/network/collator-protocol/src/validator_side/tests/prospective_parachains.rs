@@ -698,7 +698,7 @@ fn accept_advertisements_from_implicit_view() {
 
 #[test]
 fn second_multiple_candidates_per_relay_parent() {
-	let mut test_state = TestState::default();
+	let mut test_state = TestState::with_one_scheduled_para();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -1093,7 +1093,7 @@ fn advertisement_spam_protection() {
 #[case(true)]
 #[case(false)]
 fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
-	let mut test_state = TestState::default();
+	let mut test_state = TestState::with_one_scheduled_para();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -2203,12 +2203,7 @@ fn claims_below_are_counted_correctly() {
 		let collator_a = PeerId::random();
 		let para_id_a = test_state.chain_ids[0];
 
-		update_view(
-			&mut virtual_overseer,
-			&mut test_state,
-			vec![(hash_a, 0), (hash_b, 1), (hash_c, 2)],
-		)
-		.await;
+		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_c, 2)]).await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
