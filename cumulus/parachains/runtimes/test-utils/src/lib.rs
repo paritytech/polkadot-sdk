@@ -445,7 +445,11 @@ impl<
 		// prepare xcm as governance will do
 		let xcm = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			Transact { origin_kind: OriginKind::Superuser, call: call.into(), fallback_max_weight: None },
+			Transact {
+				origin_kind: OriginKind::Superuser,
+				call: call.into(),
+				fallback_max_weight: None,
+			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 

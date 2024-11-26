@@ -493,17 +493,21 @@ pub enum Instruction<Call> {
 	///
 	/// - `origin_kind`: The means of expressing the message origin as a dispatch origin.
 	/// - `call`: The encoded transaction to be applied.
-	/// - `fallback_max_weight`: Used for compatibility with previous versions.
-	///   Corresponds to the `require_weight_at_most` parameter in previous versions.
-	///   If you don't care about compatibility you can just put `None`.
-	///   WARNING: If you do, your XCM won't work with older versions.
+	/// - `fallback_max_weight`: Used for compatibility with previous versions. Corresponds to the
+	///   `require_weight_at_most` parameter in previous versions. If you don't care about
+	///   compatibility you can just put `None`. WARNING: If you do, your XCM won't work with older
+	///   versions.
 	///
 	/// Safety: No concerns.
 	///
 	/// Kind: *Command*.
 	///
 	/// Errors:
-	Transact { origin_kind: OriginKind, fallback_max_weight: Option<Weight>, call: DoubleEncoded<Call> },
+	Transact {
+		origin_kind: OriginKind,
+		fallback_max_weight: Option<Weight>,
+		call: DoubleEncoded<Call>,
+	},
 
 	/// A message to notify about a new incoming HRMP channel. This message is meant to be sent by
 	/// the relay-chain to a para.
@@ -1163,7 +1167,8 @@ impl<Call> Instruction<Call> {
 			HrmpChannelAccepted { recipient } => HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, call, fallback_max_weight } => Transact { origin_kind, call: call.into(), fallback_max_weight },
+			Transact { origin_kind, call, fallback_max_weight } =>
+				Transact { origin_kind, call: call.into(), fallback_max_weight },
 			ReportError(response_info) => ReportError(response_info),
 			DepositAsset { assets, beneficiary } => DepositAsset { assets, beneficiary },
 			DepositReserveAsset { assets, dest, xcm } => DepositReserveAsset { assets, dest, xcm },
@@ -1231,7 +1236,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			TransferAsset { assets, beneficiary } => W::transfer_asset(assets, beneficiary),
 			TransferReserveAsset { assets, dest, xcm } =>
 				W::transfer_reserve_asset(&assets, dest, xcm),
-			Transact { origin_kind, fallback_max_weight, call } => W::transact(origin_kind, fallback_max_weight, call),
+			Transact { origin_kind, fallback_max_weight, call } =>
+				W::transact(origin_kind, fallback_max_weight, call),
 			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
 				W::hrmp_new_channel_open_request(sender, max_message_size, max_capacity),
 			HrmpChannelAccepted { recipient } => W::hrmp_channel_accepted(recipient),
