@@ -1055,32 +1055,17 @@ fn ensure_seconding_limit_is_respected(
 	para_id: ParaId,
 	state: &State,
 ) -> std::result::Result<(), AdvertisementError> {
-	let ancestors = state
-		.implicit_view
-		.known_allowed_relay_parents_under(relay_parent, Some(para_id))
-		.ok_or(AdvertisementError::RelayParentUnknown)?;
-	let paths_from_leaves_to_target = state.implicit_view.paths_to_relay_parent(relay_parent);
+	let paths = state.implicit_view.paths_from_leaves_via_relay_parent(relay_parent);
 
 	gum::trace!(
 		target: LOG_TARGET,
 		?relay_parent,
 		?para_id,
-		?ancestors,
-		?paths_from_leaves_to_target,
+		?paths,
 		"Checking seconding limit",
 	);
 
-	for mut p in paths_from_leaves_to_target {
-		let mut path = ancestors.to_vec();
-		path.append(&mut p);
-
-		gum::trace!(
-			target: LOG_TARGET,
-			?relay_parent,
-			?para_id,
-			?path,
-			"Checking seconding limit for path",
-		);
+	for path in paths {
 		let mut cq_state = ClaimQueueState::new();
 		for ancestor in path {
 			let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
@@ -2146,44 +2131,39 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 		.get(relay_parent)
 		.ok_or(Error::RelayParentStateNotFound)?;
 	let scheduled_paras = relay_parent_state.assignment.current.iter().collect::<HashSet<_>>();
-	let ancestors = state
-		.implicit_view
-		.known_allowed_relay_parents_under(relay_parent, None)
-		.ok_or(Error::RelayParentStateNotFound)?;
-	let paths_from_leaves_to_target = state.implicit_view.paths_to_relay_parent(relay_parent);
+	let paths = state.implicit_view.paths_from_leaves_via_relay_parent(relay_parent);
 
-	let mut cq_states = Vec::new();
-	for mut p in paths_from_leaves_to_target {
-		let mut path = ancestors.to_vec();
-		path.append(&mut p);
+	let mut claim_queue_states = Vec::new();
+	for path in paths {
 		let mut cq_state = ClaimQueueState::new();
-		for para_id in &scheduled_paras {
-			for ancestor in &path {
+		for ancestor in &path {
+			cq_state.add_leaf(
+				&ancestor,
+				&state
+					.per_relay_parent
+					.get(&ancestor)
+					.ok_or(Error::RelayParentStateNotFound)?
+					.assignment
+					.current,
+			);
+
+			for para_id in &scheduled_paras {
 				let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
-				cq_state.add_leaf(
-					&ancestor,
-					&state
-						.per_relay_parent
-						.get(&ancestor)
-						.ok_or(Error::RelayParentStateNotFound)?
-						.assignment
-						.current,
-				);
 				for _ in 0..seconded_and_pending {
 					cq_state.claim_at(&ancestor, &para_id);
 				}
 			}
 		}
-		cq_states.push(cq_state);
+		claim_queue_states.push(cq_state);
 	}
 
-	let res = cq_states
+	let unfulfilled_entries = claim_queue_states
 		.iter_mut()
 		.map(|cq| cq.unclaimed_at(relay_parent))
 		.max_by(|a, b| a.len().cmp(&b.len()))
 		.unwrap_or_default();
 
-	Ok(res)
+	Ok(unfulfilled_entries)
 }
 
 /// Returns the next collation to fetch from the `waiting_queue` and reset the status back to

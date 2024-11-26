@@ -28,6 +28,7 @@ use crate::{
 	inclusion_emulator::RelayChainBlockInfo,
 	request_async_backing_params, request_session_index_for_child,
 	runtime::{self, recv_runtime},
+	LOG_TARGET,
 };
 
 // Always aim to retain 1 block before the active leaves.
@@ -334,7 +335,15 @@ impl View {
 	///
 	/// The input is not included in the path so if `relay_parent` happens to be an outer leaf, no
 	/// paths will be returned.
-	pub fn paths_to_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
+	fn paths_to_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			leaves=?self.leaves,
+			block_info_storage=?self.block_info_storage,
+			"Finding paths via relay parent"
+		);
+
 		if self.leaves.is_empty() {
 			// No outer leaves so the view should be empty. Don't return any paths.
 			return vec![]
@@ -353,8 +362,6 @@ impl View {
 			let mut visited = HashSet::new();
 
 			loop {
-				// If `relay_parent` is an outer leaf we'll immediately return an empty path (which
-				// is the desired behaviour).
 				if current_leaf == *relay_parent {
 					// path is complete
 					paths.push(path);
@@ -383,6 +390,28 @@ impl View {
 		}
 
 		paths
+	}
+
+	/// Returns all paths from the leaves via `relay_parent` up to its allowed ancestry
+	pub fn paths_from_leaves_via_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
+		let mut result = Vec::new();
+
+		let ancestors =
+			self.known_allowed_relay_parents_under(relay_parent, None).unwrap_or_default();
+
+		for p in self.paths_to_relay_parent(relay_parent) {
+			let full_path =
+				ancestors.iter().rev().copied().chain(p.into_iter()).collect::<Vec<_>>();
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?ancestors,
+				?full_path,
+				"Found a full path", );
+			result.push(full_path);
+		}
+
+		result
 	}
 
 	async fn fetch_fresh_leaf_and_insert_ancestry<Sender>(
