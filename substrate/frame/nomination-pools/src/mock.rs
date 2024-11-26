@@ -402,6 +402,11 @@ impl DelegationMigrator for DelegateMock {
 	) -> DispatchResult {
 		unimplemented!("not used in current unit tests")
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn force_kill_agent(_agent: Agent<Self::AccountId>) {
+		unimplemented!("not used in current unit tests")
+	}
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
