@@ -144,7 +144,7 @@ where
 		local_addrs.push(local_addr);
 		let cfg = cfg.clone();
 
-		let mut id_provider2 = id_provider.clone();
+		let id_provider2 = id_provider.clone();
 
 		tokio_handle.spawn(async move {
 			loop {
@@ -197,10 +197,9 @@ where
 					.set_http_middleware(http_middleware)
 					.set_message_buffer_capacity(max_buffer_capacity_per_connection)
 					.set_batch_request_config(batch_config)
-					.custom_tokio_runtime(cfg.tokio_handle.clone())
-					.set_id_provider(RandomStringIdProvider::new(16));
+					.custom_tokio_runtime(cfg.tokio_handle.clone());
 
-				if let Some(provider) = id_provider2.take() {
+				if let Some(provider) = id_provider2.clone() {
 					builder = builder.set_id_provider(provider);
 				} else {
 					builder = builder.set_id_provider(RandomStringIdProvider::new(16));
