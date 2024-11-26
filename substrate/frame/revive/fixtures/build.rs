@@ -215,7 +215,8 @@ fn create_out_dir() -> Result<PathBuf> {
 	write!(
 		file,
 		r#"
-			const OUT_DIR: &str = "{0}";
+			#[allow(dead_code)]
+			const FIXTURE_DIR: &str = "{0}";
 			macro_rules! fixture {{
 				($name: literal) => {{
 					include_bytes!(concat!("{0}", "/", $name, ".polkavm"))

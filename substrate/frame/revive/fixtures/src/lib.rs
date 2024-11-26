@@ -25,7 +25,7 @@ include!(concat!(env!("OUT_DIR"), "/fixture_location.rs"));
 /// Load a given wasm module and returns a wasm binary contents along with it's hash.
 #[cfg(feature = "std")]
 pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
-	let out_dir: std::path::PathBuf = OUT_DIR.into();
+	let out_dir: std::path::PathBuf = FIXTURE_DIR.into();
 	let fixture_path = out_dir.join(format!("{fixture_name}.polkavm"));
 	log::debug!("Loading fixture from {fixture_path:?}");
 	let binary = std::fs::read(fixture_path)?;
@@ -58,7 +58,7 @@ pub mod bench {
 mod test {
 	#[test]
 	fn out_dir_should_have_compiled_mocks() {
-		let out_dir: std::path::PathBuf = crate::OUT_DIR.into();
+		let out_dir: std::path::PathBuf = crate::FIXTURE_DIR.into();
 		assert!(out_dir.join("dummy.polkavm").exists());
 	}
 }
