@@ -814,14 +814,13 @@ fn reject_connection_to_next_group() {
 // invalid.
 #[test]
 fn fetch_next_collation_on_invalid_collation() {
-	let mut test_state = TestState::default();
+	let mut test_state = TestState::with_one_scheduled_para();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
-		let first = test_state.relay_parent;
-		let second = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
-		update_view(&mut virtual_overseer, &mut test_state, vec![(first, 0), (second, 1)]).await;
+		let relay_parent = test_state.relay_parent;
+		update_view(&mut virtual_overseer, &mut test_state, vec![(relay_parent, 0)]).await;
 
 		let peer_b = PeerId::random();
 		let peer_c = PeerId::random();
@@ -844,12 +843,12 @@ fn fetch_next_collation_on_invalid_collation() {
 		)
 		.await;
 
-		advertise_collation(&mut virtual_overseer, peer_b, first, None).await;
-		advertise_collation(&mut virtual_overseer, peer_c, first, None).await;
+		advertise_collation(&mut virtual_overseer, peer_b, relay_parent, None).await;
+		advertise_collation(&mut virtual_overseer, peer_c, relay_parent, None).await;
 
 		let response_channel = assert_fetch_collation_request(
 			&mut virtual_overseer,
-			first,
+			relay_parent,
 			test_state.chain_ids[0],
 			None,
 		)
@@ -859,7 +858,7 @@ fn fetch_next_collation_on_invalid_collation() {
 		let mut candidate_a =
 			dummy_candidate_receipt_bad_sig(dummy_hash(), Some(Default::default()));
 		candidate_a.descriptor.para_id = test_state.chain_ids[0];
-		candidate_a.descriptor.relay_parent = first;
+		candidate_a.descriptor.relay_parent = relay_parent;
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
 			.send(Ok((
@@ -874,7 +873,7 @@ fn fetch_next_collation_on_invalid_collation() {
 
 		let receipt = assert_candidate_backing_second(
 			&mut virtual_overseer,
-			first,
+			relay_parent,
 			test_state.chain_ids[0],
 			&pov,
 			CollationVersion::V1,
@@ -882,8 +881,11 @@ fn fetch_next_collation_on_invalid_collation() {
 		.await;
 
 		// Inform that the candidate was invalid.
-		overseer_send(&mut virtual_overseer, CollatorProtocolMessage::Invalid(first, receipt))
-			.await;
+		overseer_send(
+			&mut virtual_overseer,
+			CollatorProtocolMessage::Invalid(relay_parent, receipt),
+		)
+		.await;
 
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
@@ -896,8 +898,13 @@ fn fetch_next_collation_on_invalid_collation() {
 		);
 
 		// We should see a request for another collation.
-		assert_fetch_collation_request(&mut virtual_overseer, first, test_state.chain_ids[0], None)
-			.await;
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			relay_parent,
+			test_state.chain_ids[0],
+			None,
+		)
+		.await;
 
 		virtual_overseer
 	});
