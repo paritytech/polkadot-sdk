@@ -9,10 +9,6 @@ repository.workspace = true
 edition.workspace = true
 publish = false
 
-[dependencies.command-macros]
-version = "0.2.9"
-features = ["nightly"]
-
 [dependencies]
 docify = { workspace = true }
 codec = { workspace = true }
@@ -46,6 +42,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 
 [dev-dependencies]
 chain-spec-builder = { workspace = true, default-features = true }
+cmd_lib.workspace = true
 sc-chain-spec = { workspace = true, default-features = true }
 
 [features]

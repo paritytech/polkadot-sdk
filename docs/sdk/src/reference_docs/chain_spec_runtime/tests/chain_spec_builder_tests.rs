@@ -1,32 +1,50 @@
-#![feature(proc_macro_hygiene)]
-extern crate command_macros;
-use command_macros::command;
 use serde_json::{json, Value};
 use std::{process::Command, str};
+use cmd_lib::*;
 
 const WASM_FILE_PATH: &str =
 	"../../../../../target/release/wbuild/chain-spec-guide-runtime/chain_spec_guide_runtime.wasm";
 
 const CHAIN_SPEC_BUILDER_PATH: &str = "../../../../../target/release/chain-spec-builder";
 
+macro_rules! bash(
+	( chain-spec-builder $($a:tt)* ) => {{
+		let path = get_chain_spec_builder_path();
+		println!("the path is :{:?}",path);
+		spawn_with_output!(
+			$path $($a)*
+		)
+		.expect("a process running. qed")
+		.wait_with_output()
+		.expect("to get output. qed.")
+	}}
+);
+
 fn get_chain_spec_builder_path() -> &'static str {
 	// dev-dependencies do not build binary. So let's do the naive work-around here:
-	let _ = command!(
+	/*let _ = std::process::Command::new("cargo")
+		.arg("build")
+		.arg("--release")
+		.arg("-p")
+		.arg("staging-chain-spec-builder")
+		.arg("--bin")
+		.arg("chain-spec-builder")
+		.status()
+		.expect("Failed to execute command");*/
+	run_cmd!(
 		cargo build --release -p staging-chain-spec-builder --bin chain-spec-builder
-	).status().expect("Failed to execute command");
+	).expect("Failed to execute command");
 	CHAIN_SPEC_BUILDER_PATH
 }
 
 #[test]
 #[docify::export]
 fn list_presets() {
-	let path = get_chain_spec_builder_path();
-	let output = command!(
-		(path) list_presets -r (WASM_FILE_PATH)
-	).output().expect("Failed to execute command");
+	let output = bash!(
+		chain-spec-builder list-presets -r $WASM_FILE_PATH
+	);
 
-	let output: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-
+	let mut output: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
 	let expected_output = json!({
 		"presets":[
 			"preset_1",
@@ -42,12 +60,11 @@ fn list_presets() {
 #[test]
 #[docify::export]
 fn get_preset() {
-	let path = get_chain_spec_builder_path();
-	let output = command!(
-		(path) display-preset -r (WASM_FILE_PATH) -p preset-2
-	).output().expect("Failed to execute command");
-	let output: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+	let output = bash!(
+		chain-spec-builder display-preset -r $WASM_FILE_PATH -p preset_2
+	);
 
+	let mut output: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
 	//note: copy of chain_spec_guide_runtime::preset_2
 	let expected_output = json!({
 		"bar": {
@@ -68,12 +85,18 @@ fn get_preset() {
 #[test]
 #[docify::export]
 fn generate_chain_spec() {
-	let path = get_chain_spec_builder_path();
-	let output = command!(
-		(path) -c /dev/stdout create -r (WASM_FILE_PATH) named-preset preset_2
-	).output().expect("Failed to execute command");
-	let mut output: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+	let output = Command::new(get_chain_spec_builder_path())
+		.arg("-c")
+		.arg("/dev/stdout")
+		.arg("create")
+		.arg("-r")
+		.arg(WASM_FILE_PATH)
+		.arg("named-preset")
+		.arg("preset_2")
+		.output()
+		.expect("Failed to execute command");
 
+	let mut output: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 	//remove code field for better readability
 	if let Some(code) = output["genesis"]["runtimeGenesis"].as_object_mut().unwrap().get_mut("code")
 	{
@@ -114,13 +137,26 @@ fn generate_chain_spec() {
 #[test]
 #[docify::export]
 fn generate_para_chain_spec() {
-	let path = get_chain_spec_builder_path();
-	let output = command!(
-		(path) -c /dev/stdout create -c polkadot -p 1000 -r (WASM_FILE_PATH) named-preset preset2
-		).output().expect("Failed to execute command");
+	let output = Command::new(get_chain_spec_builder_path())
+		.arg("-c")
+		.arg("/dev/stdout")
+		.arg("create")
+		.arg("-c")
+		.arg("polkadot")
+		.arg("-p")
+		.arg("1000")
+		.arg("-r")
+		.arg(WASM_FILE_PATH)
+		.arg("named-preset")
+		.arg("preset_2")
+		.output()
+		.expect("Failed to execute command");
 
-	let mut output: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-
+	
+	let output = bash!(
+		chain-spec-builder -c /dev/stdout create -c polkadot -p 1000 -r WASM_FILE_PATH named-preset preset_2
+	);
+	let mut output: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
 	//remove code field for better readability
 	if let Some(code) = output["genesis"]["runtimeGenesis"].as_object_mut().unwrap().get_mut("code")
 	{
