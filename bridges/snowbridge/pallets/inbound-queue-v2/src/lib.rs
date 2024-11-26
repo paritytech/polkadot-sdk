@@ -94,21 +94,23 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// The verifier for inbound messages from Ethereum
+		/// The verifier for inbound messages from Ethereum.
 		type Verifier: Verifier;
-
-		/// XCM message sender
+		/// XCM message sender.
 		type XcmSender: SendController<<Self as frame_system::Config>::RuntimeOrigin>;
-		/// Address of the Gateway contract
+		/// Address of the Gateway contract.
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
 		type WeightInfo: WeightInfo;
-		/// AssetHub parachain ID
+		/// AssetHub parachain ID.
 		type AssetHubParaId: Get<u32>;
+		/// Convert a command from Ethereum to an XCM message.
 		type MessageConverter: ConvertMessage;
+		/// The AH XCM execution fee for the static part of the XCM message.
 		type XcmPrologueFee: Get<BalanceOf<Self>>;
+		/// Used to burn fees from the origin account (the relayer), which will be teleported to AH.
 		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
+		/// Used to burn fees.
 		type AssetTransactor: TransactAsset;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
