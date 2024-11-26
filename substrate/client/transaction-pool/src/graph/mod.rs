@@ -43,4 +43,5 @@ pub use self::pool::{
 };
 pub use validated_pool::{IsValidator, ValidatedTransaction};
 
+pub(crate) use self::pool::CheckBannedBeforeVerify;
 pub(crate) use listener::DroppedByLimitsEvent;
