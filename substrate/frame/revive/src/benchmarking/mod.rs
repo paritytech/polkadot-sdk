@@ -103,7 +103,7 @@ where
 			origin,
 			0u32.into(),
 			Weight::MAX,
-			default_deposit_limit::<T>(),
+			DepositLimit::Balance(default_deposit_limit::<T>()),
 			Code::Upload(module.code),
 			data,
 			salt,
