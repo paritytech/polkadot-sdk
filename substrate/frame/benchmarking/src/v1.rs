@@ -1734,8 +1734,8 @@ pub fn show_benchmark_debug_info(
 	components: &[(BenchmarkParameter, u32)],
 	verify: &bool,
 	error_message: &str,
-) -> sp_runtime::RuntimeString {
-	sp_runtime::format_runtime_string!(
+) -> alloc::string::String {
+	alloc::format!(
 		"\n* Pallet: {}\n\
 		* Benchmark: {}\n\
 		* Components: {:?}\n\
@@ -1821,12 +1821,13 @@ macro_rules! add_benchmark {
 		let (config, whitelist) = $params;
 		let $crate::BenchmarkConfig {
 			pallet,
+			instance,
 			benchmark,
 			selected_components,
 			verify,
 			internal_repeats,
 		} = config;
-		if &pallet[..] == &name_string[..] {
+		if &pallet[..] == &name_string[..] && &instance[..] == &instance_string[..] {
 			let benchmark_result = <$location>::run_benchmark(
 				&benchmark[..],
 				&selected_components[..],

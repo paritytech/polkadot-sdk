@@ -414,7 +414,7 @@ fn disabled_validators_cannot_author_blocks() {
 		// so we should still be able to author blocks
 		start_era(2);
 
-		assert_eq!(Staking::current_era().unwrap(), 2);
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get().unwrap(), 2);
 
 		// let's disable the validator at index 0
 		Session::disable_index(0);
@@ -906,7 +906,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 
 		// it should have non-zero weight and the fee has to be paid.
 		// TODO: account for proof size weight
-		assert!(info.weight.ref_time() > 0);
+		assert!(info.call_weight.ref_time() > 0);
 		assert_eq!(info.pays_fee, Pays::Yes);
 
 		// report the equivocation.

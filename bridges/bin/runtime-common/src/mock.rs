@@ -162,7 +162,6 @@ impl pallet_transaction_payment::Config for TestRuntime {
 		MinimumMultiplier,
 		MaximumMultiplier,
 	>;
-	type RuntimeEvent = RuntimeEvent;
 }
 
 impl pallet_bridge_grandpa::Config for TestRuntime {
@@ -196,6 +195,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
+		(),
 		(),
 		ConstU64<100_000>,
 	>;
