@@ -16,17 +16,15 @@ use snowbridge_core::{
 	TokenId,
 };
 use snowbridge_router_primitives::inbound::v2::MessageToXcm;
-use sp_core::H160;
+use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
-	BuildStorage, MultiSignature,
+	BuildStorage, DispatchError, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
 use xcm::prelude::*;
-use xcm_executor::{traits::TransactAsset, AssetsInHolding};
 use xcm_builder::SendControllerWeightInfo;
-use sp_runtime::DispatchError;
-use sp_core::H256;
+use xcm_executor::{traits::TransactAsset, AssetsInHolding};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -113,7 +111,6 @@ impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
 	fn initialize_storage(_: BeaconHeader, _: H256) {}
 }
 
-
 pub struct MockXcmSenderWeights;
 
 impl SendControllerWeightInfo for MockXcmSenderWeights {
@@ -153,6 +150,8 @@ parameter_types! {
 	pub AssetHubLocation: InteriorLocation = Parachain(1000).into();
 }
 
+const XCM_PROLOGUE_FEE: u128 = 1_000_000_000_000;
+
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -160,10 +159,14 @@ impl inbound_queue_v2::Config for Test {
 	type WeightInfo = ();
 	type GatewayAddress = GatewayAddress;
 	type AssetHubParaId = ConstU32<1000>;
-	type MessageConverter =
-		MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, MockTokenIdConvert>;
+	type MessageConverter = MessageToXcm<
+		EthereumNetwork,
+		InboundQueuePalletInstance,
+		MockTokenIdConvert,
+		ConstU128<XCM_PROLOGUE_FEE>,
+	>;
 	type Token = Balances;
-	type XcmPrologueFee = ConstU128<1_000_000_000>;
+	type XcmPrologueFee = ConstU128<XCM_PROLOGUE_FEE>;
 	type AssetTransactor = SuccessfulTransactor;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;

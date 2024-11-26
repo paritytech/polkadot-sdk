@@ -39,6 +39,7 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+use alloc::boxed::Box;
 use codec::{Decode, DecodeAll, Encode};
 use envelope::Envelope;
 use frame_support::{
@@ -50,7 +51,6 @@ use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_std::vec;
 use types::Nonce;
-use alloc::boxed::Box;
 use xcm::prelude::{Junction::*, Location, *};
 
 use snowbridge_core::{
@@ -141,6 +141,8 @@ pub mod pallet {
 		InvalidEnvelope,
 		/// Message has an unexpected nonce.
 		InvalidNonce,
+		/// Fee provided is invalid.
+		InvalidFee,
 		/// Message has an invalid payload.
 		InvalidPayload,
 		/// Message channel is invalid
@@ -206,12 +208,13 @@ pub mod pallet {
 			let message = MessageV2::decode_all(&mut envelope.payload.as_ref())
 				.map_err(|_| Error::<T>::InvalidPayload)?;
 
-			let xcm =
-				T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?;
+			let origin_account_location = Self::account_to_location(who)?;
+
+			let xcm = Self::do_convert(message, origin_account_location.clone())?;
 
 			// Burn the required fees for the static XCM message part
 			burn_fees::<T::AssetTransactor, BalanceOf<T>>(
-				Self::account_to_location(who)?,
+				origin_account_location,
 				T::XcmPrologueFee::get(),
 			)?;
 
@@ -255,17 +258,23 @@ pub mod pallet {
 			Ok(Location::new(0, [AccountId32 { network: None, id: account_bytes }]))
 		}
 
-		pub fn send_xcm(origin: OriginFor<T>, xcm: Xcm<()>, dest_para_id: u32) -> Result<XcmHash, DispatchError> {
-			let versioned_dest = Box::new(VersionedLocation::V5(Location::new(
-				1,
-				[Parachain(dest_para_id)],
-			)));
+		pub fn send_xcm(
+			origin: OriginFor<T>,
+			xcm: Xcm<()>,
+			dest_para_id: u32,
+		) -> Result<XcmHash, DispatchError> {
+			let versioned_dest =
+				Box::new(VersionedLocation::V5(Location::new(1, [Parachain(dest_para_id)])));
 			let versioned_xcm = Box::new(VersionedXcm::V5(xcm));
 			Ok(T::XcmSender::send(origin, versioned_dest, versioned_xcm)?)
 		}
 
-		pub fn do_convert(message: MessageV2) -> Result<Xcm<()>, Error<T>> {
-			Ok(T::MessageConverter::convert(message, T::XcmPrologueFee::get().into()).map_err(|e| Error::<T>::ConvertMessage(e))?)
+		pub fn do_convert(
+			message: MessageV2,
+			origin_account_location: Location,
+		) -> Result<Xcm<()>, Error<T>> {
+			Ok(T::MessageConverter::convert(message, origin_account_location)
+				.map_err(|e| Error::<T>::ConvertMessage(e))?)
 		}
 	}
 }

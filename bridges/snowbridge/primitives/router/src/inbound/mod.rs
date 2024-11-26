@@ -35,5 +35,4 @@ impl<AccountId> EthereumLocationsConverterFor<AccountId> {
 	}
 }
 
-
 pub type CallIndex = [u8; 2];
