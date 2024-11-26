@@ -18,21 +18,21 @@
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
-use syn::{DeriveInput, Result, Data, Error};
+use syn::{Data, DeriveInput, Error, Result};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
-    let data_enum = match &input.data {
-        Data::Enum(data_enum) => data_enum,
-        _ => return Err(Error::new_spanned(&input, "Expected an enum.")),
-    };
-    let ident = format_ident!("{}NumVariants", input.ident);
-    let number_of_variants: usize = data_enum.variants.iter().count();
-    Ok(quote! {
-        pub struct #ident;
-        impl ::frame_support::traits::Get<u32> for #ident {
-            fn get() -> u32 {
-                #number_of_variants as u32
-            }
-        }
-    })
+	let data_enum = match &input.data {
+		Data::Enum(data_enum) => data_enum,
+		_ => return Err(Error::new_spanned(&input, "Expected an enum.")),
+	};
+	let ident = format_ident!("{}NumVariants", input.ident);
+	let number_of_variants: usize = data_enum.variants.iter().count();
+	Ok(quote! {
+		pub struct #ident;
+		impl ::frame_support::traits::Get<u32> for #ident {
+			fn get() -> u32 {
+				#number_of_variants as u32
+			}
+		}
+	})
 }

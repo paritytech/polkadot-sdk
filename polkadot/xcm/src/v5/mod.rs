@@ -196,12 +196,12 @@ pub mod prelude {
 			AssetInstance::{self, *},
 			Assets, BodyId, BodyPart, Error as XcmError, ExecuteXcm,
 			Fungibility::{self, *},
+			Hint::{self, *},
+			HintNumVariants,
 			Instruction::*,
 			InteriorLocation,
 			Junction::{self, *},
 			Junctions::{self, Here},
-			Hint::{self, *},
-			HintNumVariants,
 			Location, MaybeErrorCode,
 			NetworkId::{self, *},
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
@@ -1130,7 +1130,7 @@ pub enum Instruction<Call> {
 	///
 	/// - `hints`: A bounded vector of `ExecutionHint`, specifying the different hints that will
 	/// be activated.
-	SetHints { hints: BoundedVec<Hint, HintNumVariants>	},
+	SetHints { hints: BoundedVec<Hint, HintNumVariants> },
 }
 
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Eq, Clone, xcm_procedural::NumVariants)]

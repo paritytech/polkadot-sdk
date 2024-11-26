@@ -22,15 +22,12 @@ use xcm_procedural::NumVariants;
 #[allow(dead_code)]
 #[derive(NumVariants)]
 enum SomeEnum {
-    Variant1,
-    Variant2,
-    Variant3,
+	Variant1,
+	Variant2,
+	Variant3,
 }
 
 #[test]
 fn num_variants_works() {
-    assert_eq!(
-        SomeEnumNumVariants::get(),
-        3
-    );
+	assert_eq!(SomeEnumNumVariants::get(), 3);
 }

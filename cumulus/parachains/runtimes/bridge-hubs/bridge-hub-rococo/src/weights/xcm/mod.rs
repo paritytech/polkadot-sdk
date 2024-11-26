@@ -260,7 +260,7 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubRococoXcmWeight<Call> {
 			match hint {
 				AssetClaimer { .. } => {
 					weight = weight.saturating_add(XcmGeneric::<Runtime>::asset_claimer());
-				}
+				},
 			}
 		}
 		weight

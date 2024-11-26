@@ -179,7 +179,7 @@ impl<Call> XcmWeightInfo<Call> for CoretimeWestendXcmWeight<Call> {
 			match hint {
 				AssetClaimer { .. } => {
 					weight = weight.saturating_add(XcmGeneric::<Runtime>::asset_claimer());
-				}
+				},
 			}
 		}
 		weight

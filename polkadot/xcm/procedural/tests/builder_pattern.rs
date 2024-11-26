@@ -111,28 +111,27 @@ fn bounded_vecs_use_vecs_and_truncate_them() {
 		.build();
 	assert_eq!(
 		xcm,
-		Xcm(vec![
-			SetHints {
-				hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![
-					AssetClaimer { location: Location::parent() },
-				]),
-			},
-		])
+		Xcm(vec![SetHints {
+			hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![AssetClaimer {
+				location: Location::parent()
+			},]),
+		},])
 	);
 
 	// If we include more than the limit they'll get truncated.
 	let xcm: Xcm<()> = Xcm::builder_unsafe()
-		.set_hints(vec![AssetClaimer { location: claimer.clone() }, AssetClaimer { location: Location::here() }])
+		.set_hints(vec![
+			AssetClaimer { location: claimer.clone() },
+			AssetClaimer { location: Location::here() },
+		])
 		.build();
 	assert_eq!(
 		xcm,
-		Xcm(vec![
-			SetHints {
-				hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![
-					AssetClaimer { location: Location::parent() },
-				]),
-			},
-		])
+		Xcm(vec![SetHints {
+			hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![AssetClaimer {
+				location: Location::parent()
+			},]),
+		},])
 	);
 
 	let xcm: Xcm<()> = Xcm::builder()
@@ -146,10 +145,17 @@ fn bounded_vecs_use_vecs_and_truncate_them() {
 		xcm,
 		Xcm(vec![
 			WithdrawAsset(Asset { id: AssetId(Location::here()), fun: Fungible(100) }.into()),
-			SetHints { hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![AssetClaimer { location: Location::parent() }]) },
+			SetHints {
+				hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![AssetClaimer {
+					location: Location::parent()
+				}])
+			},
 			ClearOrigin,
 			PayFees { asset: Asset { id: AssetId(Location::here()), fun: Fungible(10) } },
-			DepositAsset { assets: All.into(), beneficiary: AccountId32 { id: [0u8; 32], network: None }.into() },
+			DepositAsset {
+				assets: All.into(),
+				beneficiary: AccountId32 { id: [0u8; 32], network: None }.into()
+			},
 		])
 	);
 }

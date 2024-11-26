@@ -19,8 +19,8 @@
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
-mod enum_variants;
 mod builder_pattern;
+mod enum_variants;
 mod v3;
 mod v4;
 mod v5;

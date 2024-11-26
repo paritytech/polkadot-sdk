@@ -293,7 +293,7 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 			match hint {
 				AssetClaimer { .. } => {
 					weight = weight.saturating_add(XcmGeneric::<Runtime>::asset_claimer());
-				}
+				},
 			}
 		}
 		weight

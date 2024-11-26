@@ -20,8 +20,8 @@ use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
-	Data, DataEnum, DeriveInput, Error, Expr, ExprLit, Fields, Ident, Lit, Meta, MetaNameValue,
-	Result, Variant, Type, PathArguments, GenericArgument, TypePath,
+	Data, DataEnum, DeriveInput, Error, Expr, ExprLit, Fields, GenericArgument, Ident, Lit, Meta,
+	MetaNameValue, PathArguments, Result, Type, TypePath, Variant,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
@@ -84,9 +84,11 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
 }
 
 fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStream2> {
-	let methods = data_enum.variants.iter().map(|variant| {
-		convert_variant_to_method(name, variant, None)
-	}).collect::<Result<Vec<_>>>()?;
+	let methods = data_enum
+		.variants
+		.iter()
+		.map(|variant| convert_variant_to_method(name, variant, None))
+		.collect::<Result<Vec<_>>>()?;
 	let output = quote! {
 		impl<Call> XcmBuilder<Call, AnythingGoes> {
 			#(#methods)*
@@ -140,7 +142,11 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		.into_iter()
 		.flatten()
 		.map(|variant| {
-			let method = convert_variant_to_method(name, variant, Some(quote! { XcmBuilder<Call, LoadedHolding> }))?;
+			let method = convert_variant_to_method(
+				name,
+				variant,
+				Some(quote! { XcmBuilder<Call, LoadedHolding> }),
+			)?;
 			Ok(method)
 		})
 		.collect::<Result<Vec<_>>>()?;
@@ -195,7 +201,11 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		.into_iter()
 		.flatten()
 		.map(|variant| {
-			let method = convert_variant_to_method(name, variant, Some(quote! { XcmBuilder<Call, AnythingGoes> }))?;
+			let method = convert_variant_to_method(
+				name,
+				variant,
+				Some(quote! { XcmBuilder<Call, AnythingGoes> }),
+			)?;
 			Ok(method)
 		})
 		.collect::<Result<Vec<_>>>()?;
@@ -221,7 +231,11 @@ fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<To
 		.iter()
 		.find(|variant| variant.ident == "UnpaidExecution")
 		.ok_or(Error::new_spanned(&data_enum.variants, "No UnpaidExecution instruction"))?;
-	let method = convert_variant_to_method(name, &unpaid_execution_variant, Some(quote! { XcmBuilder<Call, AnythingGoes> }))?;
+	let method = convert_variant_to_method(
+		name,
+		&unpaid_execution_variant,
+		Some(quote! { XcmBuilder<Call, AnythingGoes> }),
+	)?;
 	Ok(quote! {
 		impl<Call> XcmBuilder<Call, ExplicitUnpaidRequired> {
 			#method
@@ -230,13 +244,17 @@ fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<To
 }
 
 // Have to call with `XcmBuilder<Call, LoadedHolding>` in allowed_after_load_holding_methods.
-fn convert_variant_to_method(name: &Ident, variant: &Variant, maybe_return_type: Option<TokenStream2>) -> Result<TokenStream2> {
+fn convert_variant_to_method(
+	name: &Ident,
+	variant: &Variant,
+	maybe_return_type: Option<TokenStream2>,
+) -> Result<TokenStream2> {
 	let variant_name = &variant.ident;
 	let method_name_string = &variant_name.to_string().to_snake_case();
 	let method_name = syn::Ident::new(method_name_string, variant_name.span());
 	let docs = get_doc_comments(variant);
 	let method = match &variant.fields {
-		Fields::Unit => {
+		Fields::Unit =>
 			if let Some(return_type) = maybe_return_type {
 				quote! {
 					pub fn #method_name(self) -> #return_type {
@@ -255,8 +273,7 @@ fn convert_variant_to_method(name: &Ident, variant: &Variant, maybe_return_type:
 						self
 					}
 				}
-			}
-		},
+			},
 		Fields::Unnamed(fields) => {
 			let arg_names: Vec<_> = fields
 				.unnamed
@@ -288,37 +305,47 @@ fn convert_variant_to_method(name: &Ident, variant: &Variant, maybe_return_type:
 			}
 		},
 		Fields::Named(fields) => {
-			let normal_fields: Vec<_> = fields.named.iter().filter(|field| {
-				if let Type::Path(TypePath { path, .. }) = &field.ty {
-					for segment in &path.segments {
-						if segment.ident == format_ident!("BoundedVec") {
-							return false;
+			let normal_fields: Vec<_> = fields
+				.named
+				.iter()
+				.filter(|field| {
+					if let Type::Path(TypePath { path, .. }) = &field.ty {
+						for segment in &path.segments {
+							if segment.ident == format_ident!("BoundedVec") {
+								return false;
+							}
 						}
+						true
+					} else {
+						true
 					}
-					true
-				} else {
-					true
-				}
-			}).collect();
-			let bounded_fields: Vec<_> = fields.named.iter().filter(|field| {
-				if let Type::Path(TypePath { path, .. }) = &field.ty {
-					for segment in &path.segments {
-						if segment.ident == format_ident!("BoundedVec") {
-							return true;
+				})
+				.collect();
+			let bounded_fields: Vec<_> = fields
+				.named
+				.iter()
+				.filter(|field| {
+					if let Type::Path(TypePath { path, .. }) = &field.ty {
+						for segment in &path.segments {
+							if segment.ident == format_ident!("BoundedVec") {
+								return true;
+							}
 						}
+						false
+					} else {
+						false
 					}
-					false
-				} else {
-					false
-				}
-			}).collect();
+				})
+				.collect();
 			let arg_names: Vec<_> = normal_fields.iter().map(|field| &field.ident).collect();
 			let arg_types: Vec<_> = normal_fields.iter().map(|field| &field.ty).collect();
 			let bounded_names: Vec<_> = bounded_fields.iter().map(|field| &field.ident).collect();
-			let bounded_types = bounded_fields.iter()
+			let bounded_types = bounded_fields
+				.iter()
 				.map(|field| extract_generic_argument(&field.ty, 0, "BoundedVec's inner type"))
 				.collect::<Result<Vec<_>>>()?;
-			let bounded_sizes = bounded_fields.iter()
+			let bounded_sizes = bounded_fields
+				.iter()
 				.map(|field| extract_generic_argument(&field.ty, 1, "BoundedVec's size"))
 				.collect::<Result<Vec<_>>>()?;
 			let comma_in_the_middle = if normal_fields.is_empty() {
@@ -373,36 +400,38 @@ fn get_doc_comments(variant: &Variant) -> Vec<TokenStream2> {
 }
 
 fn extract_generic_argument<'a>(
-    field_ty: &'a Type,
-    index: usize,
-    expected_msg: &str,
+	field_ty: &'a Type,
+	index: usize,
+	expected_msg: &str,
 ) -> Result<&'a Ident> {
-    if let Type::Path(type_path) = field_ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            if let PathArguments::AngleBracketed(angle_brackets) = &segment.arguments {
-                let args: Vec<_> = angle_brackets.args.iter().collect();
-                if let Some(GenericArgument::Type(Type::Path(TypePath { path, .. }))) = args.get(index) {
-                    return path.get_ident().ok_or_else(|| {
-                        Error::new_spanned(path, format!("Expected an identifier for {}", expected_msg))
-                    });
-                }
-                return Err(Error::new_spanned(
-                    angle_brackets,
-                    format!("Expected a generic argument at index {} for {}", index, expected_msg),
-                ));
-            }
-            return Err(Error::new_spanned(
-                &segment.arguments,
-                format!("Expected angle-bracketed arguments for {}", expected_msg),
-            ));
-        }
-        return Err(Error::new_spanned(
-            &type_path.path,
-            format!("Expected at least one path segment for {}", expected_msg),
-        ));
-    }
-    Err(Error::new_spanned(
-        field_ty,
-        format!("Expected a path type for {}", expected_msg),
-    ))
+	if let Type::Path(type_path) = field_ty {
+		if let Some(segment) = type_path.path.segments.last() {
+			if let PathArguments::AngleBracketed(angle_brackets) = &segment.arguments {
+				let args: Vec<_> = angle_brackets.args.iter().collect();
+				if let Some(GenericArgument::Type(Type::Path(TypePath { path, .. }))) =
+					args.get(index)
+				{
+					return path.get_ident().ok_or_else(|| {
+						Error::new_spanned(
+							path,
+							format!("Expected an identifier for {}", expected_msg),
+						)
+					});
+				}
+				return Err(Error::new_spanned(
+					angle_brackets,
+					format!("Expected a generic argument at index {} for {}", index, expected_msg),
+				));
+			}
+			return Err(Error::new_spanned(
+				&segment.arguments,
+				format!("Expected angle-bracketed arguments for {}", expected_msg),
+			));
+		}
+		return Err(Error::new_spanned(
+			&type_path.path,
+			format!("Expected at least one path segment for {}", expected_msg),
+		));
+	}
+	Err(Error::new_spanned(field_ty, format!("Expected a path type for {}", expected_msg)))
 }

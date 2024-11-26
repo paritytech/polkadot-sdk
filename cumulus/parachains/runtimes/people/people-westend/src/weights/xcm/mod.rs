@@ -257,7 +257,7 @@ impl<Call> XcmWeightInfo<Call> for PeopleWestendXcmWeight<Call> {
 			match hint {
 				AssetClaimer { .. } => {
 					weight = weight.saturating_add(XcmGeneric::<Runtime>::asset_claimer());
-				}
+				},
 			}
 		}
 		weight
