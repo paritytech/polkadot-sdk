@@ -441,10 +441,10 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 	let code_hash = &runtime_code.hash;
 
 	let artifact_version = compute_artifact_version(false, code_hash, &semantics);
-	log::debug!(
+	tracing::debug!(
 		target: "wasmtime-runtime",
-		"Generated precompiled wasm hash: {}",
-		artifact_version.clone()
+		wasm_hash =  %artifact_version,
+		"Generated precompiled wasm hash",
 	);
 
 	let code = runtime_code.fetch_runtime_code().ok_or(WasmError::CodeNotFound)?;
