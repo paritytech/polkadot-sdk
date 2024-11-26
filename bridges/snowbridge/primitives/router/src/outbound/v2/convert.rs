@@ -8,7 +8,7 @@ use frame_support::{ensure, traits::Get, BoundedVec};
 use snowbridge_core::{
 	outbound::v2::{Command, Message},
 	transact::{CallContractParams, RegisterTokenParams, TransactInfo, TransactKind::*},
-	AgentId, TokenId, TokenIdOf, TokenIdOf as LocationIdOf,
+	TokenId, TokenIdOf, TokenIdOf as LocationIdOf,
 };
 use sp_core::H160;
 use sp_runtime::traits::MaybeEquivalence;
@@ -55,7 +55,6 @@ macro_rules! match_expression {
 pub struct XcmConverter<'a, ConvertAssetId, WETHAddress, Call> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
 	ethereum_network: NetworkId,
-	agent_id: AgentId,
 	_marker: PhantomData<(ConvertAssetId, WETHAddress)>,
 }
 impl<'a, ConvertAssetId, WETHAddress, Call> XcmConverter<'a, ConvertAssetId, WETHAddress, Call>
@@ -63,11 +62,10 @@ where
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	WETHAddress: Get<H160>,
 {
-	pub fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId, agent_id: AgentId) -> Self {
+	pub fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId) -> Self {
 		Self {
 			iter: message.inner().iter().peekable(),
 			ethereum_network,
-			agent_id,
 			_marker: Default::default(),
 		}
 	}
@@ -148,9 +146,9 @@ where
 			let _ = self.next();
 		}
 		// Check AliasOrigin.
-		let origin_loc = match_expression!(self.next()?, AliasOrigin(origin), origin)
+		let origin_location = match_expression!(self.next()?, AliasOrigin(origin), origin)
 			.ok_or(AliasOriginExpected)?;
-		let origin = LocationIdOf::convert_location(&origin_loc).ok_or(InvalidOrigin)?;
+		let origin = LocationIdOf::convert_location(origin_location).ok_or(InvalidOrigin)?;
 
 		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
@@ -204,12 +202,7 @@ where
 					weth_amount = amount;
 				}
 
-				commands.push(Command::UnlockNativeToken {
-					agent_id: self.agent_id,
-					token,
-					recipient,
-					amount,
-				});
+				commands.push(Command::UnlockNativeToken { token, recipient, amount });
 			}
 		}
 
@@ -284,6 +277,7 @@ where
 
 		let message = Message {
 			id: (*topic_id).into(),
+			origin_location: origin_location.clone(),
 			origin,
 			fee: fee_amount,
 			commands: BoundedVec::try_from(commands).map_err(|_| TooManyCommands)?,

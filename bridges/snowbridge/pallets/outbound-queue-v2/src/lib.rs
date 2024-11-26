@@ -75,8 +75,9 @@ use snowbridge_core::{
 	inbound::{Message as DeliveryMessage, VerificationError, Verifier},
 	outbound::v2::{
 		abi::{CommandWrapper, InboundMessage, InboundMessageWrapper},
-		GasMeter, Message,
+		Command, GasMeter, Message,
 	},
+	registry::Registry,
 	BasicOperatingMode, RewardLedger, TokenId,
 };
 use snowbridge_merkle_tree::merkle_root;
@@ -141,6 +142,8 @@ pub mod pallet {
 		type EthereumNetwork: Get<NetworkId>;
 
 		type WETHAddress: Get<H160>;
+
+		type Registry: Registry;
 	}
 
 	#[pallet::event]
@@ -331,8 +334,11 @@ pub mod pallet {
 
 			let nonce = Nonce::<T>::get();
 
+			let original_location = message.origin_location;
+
 			let commands: Vec<CommandWrapper> = message
 				.commands
+				.clone()
 				.into_iter()
 				.map(|command| CommandWrapper {
 					kind: command.index(),
@@ -369,6 +375,14 @@ pub mod pallet {
 			<PendingOrders<T>>::insert(nonce, order);
 
 			Nonce::<T>::set(nonce.checked_add(1).ok_or(Unsupported)?);
+
+			for command in message.commands.into_iter() {
+				match command {
+					Command::CreateAgent {} =>
+						T::Registry::register_agent(&original_location).map_err(|_| Corrupt)?,
+					_ => (),
+				}
+			}
 
 			Self::deposit_event(Event::MessageAccepted { id: message.id, nonce });
 

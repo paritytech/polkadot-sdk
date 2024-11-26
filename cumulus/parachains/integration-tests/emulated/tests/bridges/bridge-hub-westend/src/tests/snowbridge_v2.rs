@@ -388,7 +388,7 @@ fn create_agent() {
 		// Check that Ethereum message was queue in the Outbound Queue
 		assert_expected_events!(
 			BridgeHubWestend,
-			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageAccepted{ .. }) => {},]
 		);
 	});
 }

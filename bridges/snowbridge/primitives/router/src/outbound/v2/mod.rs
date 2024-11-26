@@ -89,7 +89,7 @@ where
 		}
 
 		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
-		let (local_net, local_sub) = universal_source.clone()
+		let (local_net, _) = universal_source.clone()
             .ok_or_else(|| {
                 log::error!(target: TARGET, "universal source not provided.");
                 SendError::MissingArgument
@@ -104,16 +104,6 @@ where
 			log::trace!(target: TARGET, "skipped due to unmatched relay network {local_net:?}.");
 			return Err(SendError::NotApplicable)
 		}
-
-		let source_location = Location::new(1, local_sub.clone());
-
-		let agent_id = match AgentHashedDescription::convert_location(&source_location) {
-			Some(id) => id,
-			None => {
-				log::error!(target: TARGET, "unroutable due to not being able to create agent id. '{source_location:?}'");
-				return Err(SendError::NotApplicable)
-			},
-		};
 
 		let message = message.clone().ok_or_else(|| {
 			log::error!(target: TARGET, "xcm message not provided.");
@@ -133,11 +123,8 @@ where
 		);
 		ensure!(result.is_err(), SendError::NotApplicable);
 
-		let mut converter = XcmConverter::<ConvertAssetId, WETHAddress, ()>::new(
-			&message,
-			expected_network,
-			agent_id,
-		);
+		let mut converter =
+			XcmConverter::<ConvertAssetId, WETHAddress, ()>::new(&message, expected_network);
 		let message = converter.convert().map_err(|err| {
 			log::error!(target: TARGET, "unroutable due to pattern matching error '{err:?}'.");
 			SendError::Unroutable

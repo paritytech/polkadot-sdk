@@ -17,6 +17,7 @@ use crate::outbound::v2::abi::{
 };
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_sol_types::SolValue;
+use xcm::prelude::Location;
 
 pub mod abi {
 	use super::MAX_COMMANDS;
@@ -119,6 +120,8 @@ pub const MAX_COMMANDS: u32 = 8;
 /// A message which can be accepted by implementations of `/[`SendMessage`\]`
 #[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
 pub struct Message {
+	/// Origin Location
+	pub origin_location: Location,
 	/// Origin
 	pub origin: H256,
 	/// ID
@@ -150,8 +153,6 @@ pub enum Command {
 	},
 	/// Unlock ERC20 tokens
 	UnlockNativeToken {
-		/// ID of the agent
-		agent_id: H256,
 		/// Address of the ERC20 token
 		token: H160,
 		/// The recipient of the tokens

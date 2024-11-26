@@ -4,10 +4,8 @@
 use frame_support::dispatch::DispatchResult;
 use xcm::prelude::Location;
 
-pub trait TokenRegistry {
-	fn register(location: Location) -> DispatchResult;
-}
+pub trait Registry {
+	fn register_agent(location: &Location) -> DispatchResult;
 
-pub trait AgentRegistry {
-	fn register(location: Location) -> DispatchResult;
+	fn register_token(location: &Location) -> DispatchResult;
 }
