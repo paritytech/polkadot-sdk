@@ -536,16 +536,17 @@ macro_rules! charge_gas {
 /// The kind of call that should be performed.
 enum CallType {
 	/// Execute another instantiated contract
-	Call { callee_ptr: u32, value_ptr: u32, deposit_ptr: u32, weight: Weight },
-	/// Execute deployed code in the context (storage, account ID, value) of the caller contract
-	DelegateCall { code_hash_ptr: u32 },
+	Call { value_ptr: u32 },
+	/// Execute another contract code in the context (storage, account ID, value) of the caller
+	/// contract
+	DelegateCall,
 }
 
 impl CallType {
 	fn cost(&self) -> RuntimeCosts {
 		match self {
 			CallType::Call { .. } => RuntimeCosts::CallBase,
-			CallType::DelegateCall { .. } => RuntimeCosts::DelegateCallBase,
+			CallType::DelegateCall => RuntimeCosts::DelegateCallBase,
 		}
 	}
 }
@@ -987,12 +988,19 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory: &mut M,
 		flags: CallFlags,
 		call_type: CallType,
+		callee_ptr: u32,
+		deposit_ptr: u32,
+		weight: Weight,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		self.charge_gas(call_type.cost())?;
+
+		let callee = memory.read_h160(callee_ptr)?;
+		let deposit_limit =
+			if deposit_ptr == SENTINEL { U256::zero() } else { memory.read_u256(deposit_ptr)? };
 
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
 			let input = self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?;
@@ -1006,13 +1014,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 
 		let call_outcome = match call_type {
-			CallType::Call { callee_ptr, value_ptr, deposit_ptr, weight } => {
-				let callee = memory.read_h160(callee_ptr)?;
-				let deposit_limit = if deposit_ptr == SENTINEL {
-					U256::zero()
-				} else {
-					memory.read_u256(deposit_ptr)?
-				};
+			CallType::Call { value_ptr } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
 				let value = memory.read_u256(value_ptr)?;
 				if value > 0u32.into() {
@@ -1033,13 +1035,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					read_only,
 				)
 			},
-			CallType::DelegateCall { code_hash_ptr } => {
+			CallType::DelegateCall => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
-
-				let code_hash = memory.read_h256(code_hash_ptr)?;
-				self.ext.delegate_call(code_hash, input_data)
+				self.ext.delegate_call(weight, deposit_limit, callee, input_data)
 			},
 		};
 
@@ -1252,12 +1252,10 @@ pub mod env {
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::Call {
-				callee_ptr,
-				value_ptr,
-				deposit_ptr,
-				weight: Weight::from_parts(ref_time_limit, proof_size_limit),
-			},
+			CallType::Call { value_ptr },
+			callee_ptr,
+			deposit_ptr,
+			Weight::from_parts(ref_time_limit, proof_size_limit),
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -1272,7 +1270,10 @@ pub mod env {
 		&mut self,
 		memory: &mut M,
 		flags: u32,
-		code_hash_ptr: u32,
+		address_ptr: u32,
+		ref_time_limit: u64,
+		proof_size_limit: u64,
+		deposit_ptr: u32,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -1281,7 +1282,10 @@ pub mod env {
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::DelegateCall { code_hash_ptr },
+			CallType::DelegateCall,
+			address_ptr,
+			deposit_ptr,
+			Weight::from_parts(ref_time_limit, proof_size_limit),
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
