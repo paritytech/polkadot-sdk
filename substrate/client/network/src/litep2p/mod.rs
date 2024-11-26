@@ -994,7 +994,16 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 						let direction = match endpoint {
 							Endpoint::Dialer { .. } => "out",
-							Endpoint::Listener { .. } => "in",
+							Endpoint::Listener { .. } => {
+								// Increment incoming connections counter.
+								//
+								// Note: For litep2p these are represented by established connections,
+								// while in libp2p (legacy) these are not-yet-negotiated connections. However,
+								// wasting CPU cycles does not justify a slight difference in the metric.
+								metrics.incoming_connections_total.inc();
+
+								"in"
+							},
 						};
 						metrics.connections_opened_total.with_label_values(&[direction]).inc();
 
