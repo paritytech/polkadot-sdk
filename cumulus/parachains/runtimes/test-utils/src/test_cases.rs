@@ -18,7 +18,15 @@
 
 use crate::{AccountIdOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf};
 use codec::Encode;
-use frame_support::{assert_ok, traits::Get};
+use frame_support::{
+	assert_ok,
+	traits::{Get, OriginTrait},
+};
+use parachains_common::AccountId;
+use sp_runtime::traits::{Block as BlockT, StaticLookup};
+use xcm_runtime_apis::fees::{
+	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
+};
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	crate::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -126,5 +134,62 @@ pub fn set_storage_keys_by_governance_works<Runtime>(
 	});
 	runtime.execute_with(|| {
 		assert_storage();
+	});
+}
+
+pub fn xcm_payment_api_with_native_token_works<Runtime, RuntimeCall, RuntimeOrigin, Block>()
+where
+	Runtime: XcmPaymentApiV1<Block>
+		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>
+		+ pallet_balances::Config<Balance = u128>
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	RuntimeOrigin: OriginTrait<AccountId = <Runtime as frame_system::Config>::AccountId>,
+	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
+		From<<Runtime as frame_system::Config>::AccountId>,
+	Block: BlockT,
+{
+	use xcm::prelude::*;
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let transfer_amount = 100u128;
+		let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
+			.withdraw_asset((Here, transfer_amount))
+			.buy_execution((Here, transfer_amount), Unlimited)
+			.deposit_asset(AllCounted(1), [1u8; 32])
+			.build();
+		let versioned_xcm_to_weigh = VersionedXcm::from(xcm_to_weigh.clone().into());
+
+		// We first try calling it with a lower XCM version.
+		let lower_version_xcm_to_weigh =
+			versioned_xcm_to_weigh.clone().into_version(XCM_VERSION - 1).unwrap();
+		let xcm_weight = Runtime::query_xcm_weight(lower_version_xcm_to_weigh);
+		assert!(xcm_weight.is_ok());
+		let native_token: Location = Parent.into();
+		let native_token_versioned = VersionedAssetId::from(AssetId(native_token));
+		let lower_version_native_token =
+			native_token_versioned.clone().into_version(XCM_VERSION - 1).unwrap();
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), lower_version_native_token);
+		assert!(execution_fees.is_ok());
+
+		// Now we call it with the latest version.
+		let xcm_weight = Runtime::query_xcm_weight(versioned_xcm_to_weigh);
+		assert!(xcm_weight.is_ok());
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), native_token_versioned);
+		assert!(execution_fees.is_ok());
+
+		// If we call it with anything other than the native token it will error.
+		let non_existent_token: Location = Here.into();
+		let non_existent_token_versioned = VersionedAssetId::from(AssetId(non_existent_token));
+		let execution_fees =
+			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), non_existent_token_versioned);
+		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
 	});
 }

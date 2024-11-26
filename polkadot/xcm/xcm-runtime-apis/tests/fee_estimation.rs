@@ -430,6 +430,7 @@ fn dry_run_xcm_common(xcm_version: XcmVersion) {
 }
 
 #[test]
+<<<<<<< HEAD
 fn dry_run_xcm_versions() {
 	let tested_versions = [XCM_VERSION, 5, 4, 3];
 
@@ -439,6 +440,8 @@ fn dry_run_xcm_versions() {
 }
 
 #[test]
+=======
+>>>>>>> 139691b1 (Fix `XcmPaymentApi::query_weight_to_asset_fee` version conversion (#6459))
 fn calling_payment_api_with_a_lower_version_works() {
 	let transfer_amount = 100u128;
 	let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()

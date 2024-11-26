@@ -28,7 +28,7 @@ extern crate alloc;
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use alloc::vec::Vec;
 use codec::{Decode, EncodeLike};
-use core::cmp::PartialEq;
+use core::{cmp::PartialEq, marker::PhantomData};
 use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use sp_runtime::traits::TryConvertInto;
@@ -137,24 +137,62 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 		TryConvertInto,
 	>;
 
-/// Returns an iterator of all assets in a pool with `asset`.
-///
-/// Should only be used in runtime APIs since it iterates over the whole
-/// `pallet_asset_conversion::Pools` map.
-///
-/// It takes in any version of an XCM Location but always returns the latest one.
-/// This is to allow some margin of migrating the pools when updating the XCM version.
-///
-/// An error of type `()` is returned if the version conversion fails for XCM locations.
-/// This error should be mapped by the caller to a more descriptive one.
-pub fn get_assets_in_pool_with<
-	Runtime: pallet_asset_conversion::Config<PoolId = (L, L)>,
-	L: TryInto<Location> + Clone + Decode + EncodeLike + PartialEq,
->(
-	asset: &L,
-) -> Result<Vec<AssetId>, ()> {
-	pallet_asset_conversion::Pools::<Runtime>::iter_keys()
-		.filter_map(|(asset_1, asset_2)| {
+/// Adapter implementation for accessing pools (`pallet_asset_conversion`) that uses `AssetKind` as
+/// a `xcm::v*` which could be different from the `xcm::latest`.
+pub struct PoolAdapter<Runtime>(PhantomData<Runtime>);
+impl<
+		Runtime: pallet_asset_conversion::Config<PoolId = (L, L), AssetKind = L>,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Decode + EncodeLike + PartialEq,
+	> PoolAdapter<Runtime>
+{
+	/// Returns a vector of all assets in a pool with `asset`.
+	///
+	/// Should only be used in runtime APIs since it iterates over the whole
+	/// `pallet_asset_conversion::Pools` map.
+	///
+	/// It takes in any version of an XCM Location but always returns the latest one.
+	/// This is to allow some margin of migrating the pools when updating the XCM version.
+	///
+	/// An error of type `()` is returned if the version conversion fails for XCM locations.
+	/// This error should be mapped by the caller to a more descriptive one.
+	pub fn get_assets_in_pool_with(asset: Location) -> Result<Vec<AssetId>, ()> {
+		// convert latest to the `L` version.
+		let asset: L = asset.try_into().map_err(|_| ())?;
+		Self::iter_assets_in_pool_with(&asset)
+			.map(|location| {
+				// convert `L` to the latest `AssetId`
+				location.try_into().map_err(|_| ()).map(AssetId)
+			})
+			.collect::<Result<Vec<_>, _>>()
+	}
+
+	/// Provides a current prices. Wrapper over
+	/// `pallet_asset_conversion::Pallet::<T>::quote_price_tokens_for_exact_tokens`.
+	///
+	/// An error of type `()` is returned if the version conversion fails for XCM locations.
+	/// This error should be mapped by the caller to a more descriptive one.
+	pub fn quote_price_tokens_for_exact_tokens(
+		asset_1: Location,
+		asset_2: Location,
+		amount: Runtime::Balance,
+		include_fees: bool,
+	) -> Result<Option<Runtime::Balance>, ()> {
+		// Convert latest to the `L` version.
+		let asset_1: L = asset_1.try_into().map_err(|_| ())?;
+		let asset_2: L = asset_2.try_into().map_err(|_| ())?;
+
+		// Quote swap price.
+		Ok(pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
+			asset_1,
+			asset_2,
+			amount,
+			include_fees,
+		))
+	}
+
+	/// Helper function for filtering pool.
+	pub fn iter_assets_in_pool_with(asset: &L) -> impl Iterator<Item = L> + '_ {
+		pallet_asset_conversion::Pools::<Runtime>::iter_keys().filter_map(|(asset_1, asset_2)| {
 			if asset_1 == *asset {
 				Some(asset_2)
 			} else if asset_2 == *asset {
@@ -163,8 +201,7 @@ pub fn get_assets_in_pool_with<
 				None
 			}
 		})
-		.map(|location| location.try_into().map_err(|_| ()).map(AssetId))
-		.collect::<Result<Vec<_>, _>>()
+	}
 }
 
 #[cfg(test)]
