@@ -169,6 +169,83 @@ test("Initiate Teleport XCM v4", async () => {
 })
 
 test("Initiate Teleport XCM v5", async () => {
+	const xcm_origin_msg = Enum('V5', [
+		XcmV4Instruction.WithdrawAsset([
+			{
+				id: { parents: 1, interior: XcmV3Junctions.Here() },
+				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
+			},
+
+		]),
+
+		Enum('PayFees', {
+			asset: {
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+			}
+		}),
+		Enum('InitiateTransfer', {
+			destination: {
+				parents: 1,
+				interior: XcmV3Junctions.Here(),
+			},
+			// optional field. an example of usage:
+			// remote_fees: Enum('Teleport', {
+			// 	type: 'Wild',
+			// 	value: {
+			// 		type: 'All',
+			// 		value: undefined,
+			// 	},
+			// }),
+			preserve_origin: false,
+			assets: [Enum('Teleport', {
+				type: 'Wild',
+				value: {
+					type: 'All',
+					value: undefined,
+				},
+			})],
+			remote_xcm: [
+				Enum('PayFees', {
+					asset: {
+						id: {
+							parents: 0,
+							interior: XcmV3Junctions.Here(),
+						},
+						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+					}
+				}),
+				XcmV4Instruction.DepositAsset({
+					assets: XcmV3MultiassetMultiAssetFilter.Definite([{
+						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+						id: { parents: 0, interior: XcmV3Junctions.Here() },
+					}]),
+					beneficiary: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+							network: undefined,
+							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+						})),
+					},
+				}),
+			],
+		}),
+	]);
+
+	const xcm_origin_weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(xcm_origin_msg);
+	const weight_to_asset_fee = await AHApi.apis.XcmPaymentApi.query_weight_to_asset_fee(
+		{ ref_time: xcm_origin_weight.value.ref_time, proof_size: xcm_origin_weight.value.proof_size },
+		Enum('V5', {
+			parents: 1,
+			interior: XcmV3Junctions.Here(),
+		}),
+	);
+
+
+
 	const msg = Enum('V5', [
 		XcmV4Instruction.WithdrawAsset([
 			{
@@ -183,7 +260,7 @@ test("Initiate Teleport XCM v5", async () => {
 					parents: 1,
 					interior: XcmV3Junctions.Here(),
 				},
-				fun: XcmV3MultiassetFungibility.Fungible(2_000_000_000_000n),
+				fun: XcmV3MultiassetFungibility.Fungible(weight_to_asset_fee.value),
 			}
 		}),
 		Enum('InitiateTransfer', {
