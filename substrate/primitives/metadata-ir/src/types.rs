@@ -162,7 +162,7 @@ pub struct ViewFunctionMetadataIR<T: Form = MetaForm> {
 	/// Query id.
 	pub id: [u8; 32],
 	/// Query args.
-	pub args: Vec<QueryArgMetadataIR<T>>,
+	pub args: Vec<ViewFunctionArgMetadataIR<T>>,
 	/// Query output.
 	pub output: T::Type,
 	/// Query documentation.
@@ -185,18 +185,18 @@ impl IntoPortable for ViewFunctionMetadataIR {
 
 /// Metadata of a runtime method argument.
 #[derive(Clone, PartialEq, Eq, Encode, Debug)]
-pub struct QueryArgMetadataIR<T: Form = MetaForm> {
+pub struct ViewFunctionArgMetadataIR<T: Form = MetaForm> {
 	/// Query argument name.
 	pub name: T::String,
 	/// Query argument type.
 	pub ty: T::Type,
 }
 
-impl IntoPortable for QueryArgMetadataIR {
-	type Output = QueryArgMetadataIR<PortableForm>;
+impl IntoPortable for ViewFunctionArgMetadataIR {
+	type Output = ViewFunctionArgMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		QueryArgMetadataIR {
+		ViewFunctionArgMetadataIR {
 			name: self.name.into_portable(registry),
 			ty: registry.register_type(&self.ty),
 		}

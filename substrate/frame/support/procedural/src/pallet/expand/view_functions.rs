@@ -205,7 +205,21 @@ fn impl_view_function_metadata(
 	let view_functions = view_fns.iter().map(|view_fn| {
 		let view_function_struct_ident = view_fn.view_function_struct_ident();
 		let name = &view_fn.name;
-		let args: Vec<TokenStream> = vec![]; // todo
+		let args = view_fn.args.iter().filter_map(|fn_arg| {
+			match fn_arg {
+				syn::FnArg::Receiver(_) => None,
+				syn::FnArg::Typed(typed) => {
+					let pat = &typed.pat;
+					let ty = &typed.ty;
+					Some(quote::quote! {
+						#frame_support::__private::metadata_ir::ViewFunctionArgMetadataIR {
+							name: ::core::stringify!(#pat),
+							ty: #frame_support::__private::scale_info::meta_type::<#ty>(),
+						}
+					})
+				}
+			}
+		});
 
 		let no_docs = vec![];
 		let doc = if cfg!(feature = "no-metadata-docs") { &no_docs } else { &view_fn.docs };
