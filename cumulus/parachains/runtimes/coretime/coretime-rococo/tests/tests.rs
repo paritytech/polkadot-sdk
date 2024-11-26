@@ -16,7 +16,9 @@
 
 #![cfg(test)]
 
-use coretime_rococo_runtime::{Runtime, RuntimeCall, RuntimeOrigin, Block, xcm_config::LocationToAccountId};
+use coretime_rococo_runtime::{
+	xcm_config::LocationToAccountId, Block, Runtime, RuntimeCall, RuntimeOrigin,
+};
 use parachains_common::AccountId;
 use sp_core::crypto::Ss58Codec;
 use xcm::latest::prelude::*;
@@ -139,6 +141,6 @@ fn xcm_payment_api_works() {
 		Runtime,
 		RuntimeCall,
 		RuntimeOrigin,
-		Block
+		Block,
 	>();
 }

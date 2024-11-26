@@ -18,7 +18,10 @@
 
 use crate::{AccountIdOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf};
 use codec::Encode;
-use frame_support::{assert_ok, traits::{Get, OriginTrait}};
+use frame_support::{
+	assert_ok,
+	traits::{Get, OriginTrait},
+};
 use parachains_common::AccountId;
 use sp_runtime::traits::{Block as BlockT, StaticLookup};
 use xcm_runtime_apis::fees::{

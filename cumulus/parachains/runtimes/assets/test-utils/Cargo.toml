@@ -57,6 +57,7 @@ std = [
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-asset-conversion/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
@@ -71,7 +72,6 @@ std = [
 	"sp-runtime/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"xcm/std",
 	"xcm-runtime-apis/std",
-	"pallet-asset-conversion/std"
+	"xcm/std",
 ]

@@ -17,7 +17,9 @@
 #![cfg(test)]
 
 use parachains_common::AccountId;
-use people_westend_runtime::{Runtime, RuntimeCall, RuntimeOrigin, Block, xcm_config::LocationToAccountId};
+use people_westend_runtime::{
+	xcm_config::LocationToAccountId, Block, Runtime, RuntimeCall, RuntimeOrigin,
+};
 use sp_core::crypto::Ss58Codec;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -139,6 +141,6 @@ fn xcm_payment_api_works() {
 		Runtime,
 		RuntimeCall,
 		RuntimeOrigin,
-		Block
+		Block,
 	>();
 }

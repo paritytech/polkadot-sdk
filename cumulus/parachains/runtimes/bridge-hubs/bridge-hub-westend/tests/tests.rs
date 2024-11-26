@@ -27,9 +27,9 @@ use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
 	bridge_to_rococo_config::RococoGlobalConsensusNetwork,
 	xcm_config::{LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	TransactionPayment, TxExtension, UncheckedExtrinsic, Block,
+	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, Executive,
+	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
@@ -532,6 +532,6 @@ fn xcm_payment_api_works() {
 		Runtime,
 		RuntimeCall,
 		RuntimeOrigin,
-		Block
+		Block,
 	>();
 }
