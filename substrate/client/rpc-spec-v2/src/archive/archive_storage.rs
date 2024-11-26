@@ -423,24 +423,34 @@ where
 		Ok(())
 	}
 
-	/// The items provided to this method are obtained by calling `deduplicate_storage_diff_items`.
-	/// The deduplication method ensures that all items `Vec<DiffDetails>` correspond to the same
-	/// `child_trie_key`.
-	///
 	/// This method will iterate over the keys of the main trie or a child trie and fetch the
 	/// given keys. The fetched keys will be sent to the provided `tx` sender to leverage
 	/// the backpressure mechanism.
 	pub async fn handle_trie_queries(
 		&self,
 		hash: Block::Hash,
+		items: Vec<ArchiveStorageDiffItem<String>>,
 		previous_hash: Block::Hash,
-		trie_queries: Vec<Vec<DiffDetails>>,
 		tx: mpsc::Sender<ArchiveStorageDiffEvent>,
 	) -> Result<(), tokio::task::JoinError> {
 		let this = ArchiveStorageDiff { client: self.client.clone() };
 
 		tokio::task::spawn_blocking(move || {
-			for items in trie_queries {
+			// Deduplicate the items.
+			let mut trie_items = match deduplicate_storage_diff_items(items) {
+				Ok(items) => items,
+				Err(error) => {
+					let _ = tx.blocking_send(ArchiveStorageDiffEvent::err(error.to_string()));
+					return
+				},
+			};
+			// Default to using the main storage trie if no items are provided.
+			if trie_items.is_empty() {
+				trie_items.push(Vec::new());
+			}
+			log::trace!(target: LOG_TARGET, "Storage diff deduplicated items: {:?}", trie_items);
+
+			for items in trie_items {
 				log::trace!(
 					target: LOG_TARGET,
 					"handle_trie_queries: hash={:?}, previous_hash={:?}, items={:?}",
@@ -480,7 +490,7 @@ where
 /// Deduplicate the provided items and return a list of `DiffDetails`.
 ///
 /// Each list corresponds to a single child trie or the main trie.
-pub fn deduplicate_storage_diff_items(
+fn deduplicate_storage_diff_items(
 	items: Vec<ArchiveStorageDiffItem<String>>,
 ) -> Result<Vec<Vec<DiffDetails>>, ArchiveError> {
 	let mut deduplicated: HashMap<Option<ChildInfo>, Vec<DiffDetails>> = HashMap::new();
