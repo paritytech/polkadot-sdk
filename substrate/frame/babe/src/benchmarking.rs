@@ -29,7 +29,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn check_equivocation_proof(x: Linear<0, 1>) -> Result<(), BenchmarkError> {
+	fn check_equivocation_proof(x: Linear<0, 1>) {
 		// NOTE: generated with the test below `test_generate_equivocation_report_blob`.
 		// the output is not deterministic since keys are generated randomly (and therefore
 		// signature content changes). it should not affect the benchmark.
@@ -71,7 +71,5 @@ mod benchmarks {
 		assert!(sp_consensus_babe::check_equivocation_proof::<Header>(equivocation_proof2));
 
 		impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(3), crate::mock::Test,);
-
-		Ok(())
 	}
 }
