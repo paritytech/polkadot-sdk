@@ -512,7 +512,7 @@ where
 						target: LOG_TARGET,
 						"[{:?}] Invalid transaction: {} at: {}", pending_tx_hash, e, self.parent_hash
 					);
-					unqueue_invalid.push(pending_tx_hash);
+					unqueue_invalid.push((pending_tx_hash, Some(e)));
 				},
 			}
 		};
@@ -524,7 +524,7 @@ where
 			);
 		}
 
-		self.transaction_pool.remove_invalid(&unqueue_invalid);
+		self.transaction_pool.report_invalid(Some(self.parent_hash), &unqueue_invalid);
 		Ok(end_reason)
 	}
 
