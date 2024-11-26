@@ -2349,7 +2349,8 @@ pub trait BlockNumberProvider {
 		+ TypeInfo
 		+ Debug
 		+ MaxEncodedLen
-		+ Copy;
+		+ Copy
+		+ EncodeLike;
 
 	/// Returns the current block number.
 	///
