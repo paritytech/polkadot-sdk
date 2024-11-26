@@ -591,7 +591,10 @@ pub mod vrf {
 mod tests {
 	use super::{vrf::*, *};
 	use crate::{
-		crypto::{Ss58Codec, VrfPublic, VrfSecret, DEV_ADDRESS, DEV_PHRASE},
+		crypto::{
+			ProofOfPossessionGenerator, ProofOfPossessionVerifier, Ss58Codec, VrfPublic, VrfSecret,
+			DEV_ADDRESS, DEV_PHRASE,
+		},
 		ByteArray as _,
 	};
 	use serde_json;

@@ -765,7 +765,9 @@ pub mod ring_vrf {
 #[cfg(test)]
 mod tests {
 	use super::{ring_vrf::*, vrf::*, *};
-	use crate::crypto::{VrfPublic, VrfSecret, DEV_PHRASE};
+	use crate::crypto::{
+		ProofOfPossessionGenerator, ProofOfPossessionVerifier, VrfPublic, VrfSecret, DEV_PHRASE,
+	};
 
 	const DEV_SEED: &[u8; SEED_SERIALIZED_SIZE] = &[0xcb; SEED_SERIALIZED_SIZE];
 	const TEST_DOMAIN_SIZE: u32 = 1024;
