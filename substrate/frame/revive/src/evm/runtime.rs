@@ -48,7 +48,7 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// We use a fixed value for the gas price.
 /// This let us calculate the gas estimate for a transaction with the formula:
 /// `estimate_gas = substrate_fee / gas_price`.
-pub const GAS_PRICE: u32 = 1_000u32;
+pub const GAS_PRICE: u32 = 1u32;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
@@ -454,6 +454,7 @@ mod test {
 		tx: GenericTransaction,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<Test>,
+		before_validate: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
 	}
 
 	impl UncheckedExtrinsicBuilder {
@@ -468,6 +469,7 @@ mod test {
 				},
 				gas_limit: Weight::zero(),
 				storage_deposit_limit: 0,
+				before_validate: None,
 			}
 		}
 
@@ -494,7 +496,7 @@ mod test {
 		fn call_with(dest: H160) -> Self {
 			let mut builder = Self::new();
 			builder.tx.to = Some(dest);
-			builder.estimate_gas();
+			ExtBuilder::default().build().execute_with(|| builder.estimate_gas());
 			builder
 		}
 
@@ -502,7 +504,7 @@ mod test {
 		fn instantiate_with(code: Vec<u8>, data: Vec<u8>) -> Self {
 			let mut builder = Self::new();
 			builder.tx.input = Some(Bytes(code.into_iter().chain(data.into_iter()).collect()));
-			builder.estimate_gas();
+			ExtBuilder::default().build().execute_with(|| builder.estimate_gas());
 			builder
 		}
 
@@ -511,203 +513,203 @@ mod test {
 			f(&mut self.tx);
 			self
 		}
+		/// Set before_validate function.
+		fn before_validate(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
+			self.before_validate = Some(std::sync::Arc::new(f));
+			self
+		}
 
 		/// Call `check` on the unchecked extrinsic, and `pre_dispatch` on the signed extension.
 		fn check(&self) -> Result<(RuntimeCall, SignedExtra), TransactionValidityError> {
-			let UncheckedExtrinsicBuilder { tx, gas_limit, storage_deposit_limit } = self.clone();
+			ExtBuilder::default().build().execute_with(|| {
+				let UncheckedExtrinsicBuilder {
+					tx,
+					gas_limit,
+					storage_deposit_limit,
+					before_validate,
+				} = self.clone();
 
-			// Fund the account.
-			let account = Account::default();
-			let _ = <Test as crate::Config>::Currency::set_balance(
-				&account.substrate_account(),
-				100_000_000_000_000,
-			);
+				// Fund the account.
+				let account = Account::default();
+				let _ = <Test as crate::Config>::Currency::set_balance(
+					&account.substrate_account(),
+					100_000_000_000_000,
+				);
 
-			let payload =
-				account.sign_transaction(tx.try_into_unsigned().unwrap()).signed_payload();
-			let call = RuntimeCall::Contracts(crate::Call::eth_transact {
-				payload,
-				gas_limit,
-				storage_deposit_limit,
-			});
+				let payload =
+					account.sign_transaction(tx.try_into_unsigned().unwrap()).signed_payload();
+				let call = RuntimeCall::Contracts(crate::Call::eth_transact {
+					payload,
+					gas_limit,
+					storage_deposit_limit,
+				});
 
-			let encoded_len = call.encoded_size();
-			let uxt: Ex = generic::UncheckedExtrinsic::new_bare(call).into();
-			let result: CheckedExtrinsic<_, _, _> = uxt.check(&TestContext {})?;
-			let (account_id, extra): (AccountId32, SignedExtra) = match result.format {
-				ExtrinsicFormat::Signed(signer, extra) => (signer, extra),
-				_ => unreachable!(),
-			};
+				let encoded_len = call.encoded_size();
+				let uxt: Ex = generic::UncheckedExtrinsic::new_bare(call).into();
+				let result: CheckedExtrinsic<_, _, _> = uxt.check(&TestContext {})?;
+				let (account_id, extra): (AccountId32, SignedExtra) = match result.format {
+					ExtrinsicFormat::Signed(signer, extra) => (signer, extra),
+					_ => unreachable!(),
+				};
 
-			extra.clone().validate_and_prepare(
-				RuntimeOrigin::signed(account_id),
-				&result.function,
-				&result.function.get_dispatch_info(),
-				encoded_len,
-				0,
-			)?;
+				before_validate.map(|f| f());
+				extra.clone().validate_and_prepare(
+					RuntimeOrigin::signed(account_id),
+					&result.function,
+					&result.function.get_dispatch_info(),
+					encoded_len,
+					0,
+				)?;
 
-			Ok((result.function, extra))
+				Ok((result.function, extra))
+			})
 		}
 	}
 
 	#[test]
 	fn check_eth_transact_call_works() {
-		ExtBuilder::default().build().execute_with(|| {
-			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-			assert_eq!(
-				builder.check().unwrap().0,
-				crate::Call::call::<Test> {
-					dest: builder.tx.to.unwrap(),
-					value: builder.tx.value.unwrap_or_default().as_u64(),
-					gas_limit: builder.gas_limit,
-					storage_deposit_limit: builder.storage_deposit_limit,
-					data: builder.tx.input.unwrap_or_default().0
-				}
-				.into()
-			);
-		});
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
+		assert_eq!(
+			builder.check().unwrap().0,
+			crate::Call::call::<Test> {
+				dest: builder.tx.to.unwrap(),
+				value: builder.tx.value.unwrap_or_default().as_u64(),
+				gas_limit: builder.gas_limit,
+				storage_deposit_limit: builder.storage_deposit_limit,
+				data: builder.tx.input.unwrap_or_default().0
+			}
+			.into()
+		);
 	}
 
 	#[test]
 	fn check_eth_transact_instantiate_works() {
-		ExtBuilder::default().build().execute_with(|| {
-			let (code, _) = compile_module("dummy").unwrap();
-			let data = vec![];
-			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
+		let (code, _) = compile_module("dummy").unwrap();
+		let data = vec![];
+		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
-			assert_eq!(
-				builder.check().unwrap().0,
-				crate::Call::instantiate_with_code::<Test> {
-					value: builder.tx.value.unwrap_or_default().as_u64(),
-					gas_limit: builder.gas_limit,
-					storage_deposit_limit: builder.storage_deposit_limit,
-					code,
-					data,
-					salt: None
-				}
-				.into()
-			);
-		});
+		assert_eq!(
+			builder.check().unwrap().0,
+			crate::Call::instantiate_with_code::<Test> {
+				value: builder.tx.value.unwrap_or_default().as_u64(),
+				gas_limit: builder.gas_limit,
+				storage_deposit_limit: builder.storage_deposit_limit,
+				code,
+				data,
+				salt: None
+			}
+			.into()
+		);
 	}
 
 	#[test]
 	fn check_eth_transact_nonce_works() {
-		ExtBuilder::default().build().execute_with(|| {
-			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
-				.update(|tx| tx.nonce = Some(1u32.into()));
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
+			.update(|tx| tx.nonce = Some(1u32.into()));
 
-			assert_eq!(
-				builder.check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Future))
-			);
+		assert_eq!(
+			builder.check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Future))
+		);
 
-			<crate::System<Test>>::inc_account_nonce(Account::default().substrate_account());
+		let builder =
+			UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20])).before_validate(|| {
+				<crate::System<Test>>::inc_account_nonce(Account::default().substrate_account());
+			});
 
-			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-			assert_eq!(
-				builder.check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))
-			);
-		});
+		assert_eq!(
+			builder.check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))
+		);
 	}
 
 	#[test]
 	fn check_eth_transact_chain_id_works() {
-		ExtBuilder::default().build().execute_with(|| {
-			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
-				.update(|tx| tx.chain_id = Some(42.into()));
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
+			.update(|tx| tx.chain_id = Some(42.into()));
 
-			assert_eq!(
-				builder.check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
-			);
-		});
+		assert_eq!(
+			builder.check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+		);
 	}
 
 	#[test]
 	fn check_instantiate_data() {
-		ExtBuilder::default().build().execute_with(|| {
-			let code = b"invalid code".to_vec();
-			let data = vec![1];
-			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
+		let code = b"invalid code".to_vec();
+		let data = vec![1];
+		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
-			// Fail because the tx input fail to get the blob length
-			assert_eq!(
-				builder.clone().update(|tx| tx.input = Some(Bytes(vec![1, 2, 3]))).check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
-			);
-		});
+		// Fail because the tx input fail to get the blob length
+		assert_eq!(
+			builder.clone().update(|tx| tx.input = Some(Bytes(vec![1, 2, 3]))).check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+		);
 	}
 
 	#[test]
 	fn check_transaction_fees() {
-		ExtBuilder::default().build().execute_with(|| {
-			let scenarios: [(_, Box<dyn FnOnce(&mut GenericTransaction)>, _); 5] = [
-				(
-					"Eth fees too low",
-					Box::new(|tx| {
-						tx.gas_price = Some(tx.gas_price.unwrap() / 2);
-					}),
-					InvalidTransaction::Payment,
-				),
-				(
-					"Gas fees too high",
-					Box::new(|tx| {
-						tx.gas = Some(tx.gas.unwrap() * 2);
-					}),
-					InvalidTransaction::Call,
-				),
-				(
-					"Gas fees too low",
-					Box::new(|tx| {
-						tx.gas = Some(tx.gas.unwrap() * 2);
-					}),
-					InvalidTransaction::Call,
-				),
-				(
-					"Diff > 10%",
-					Box::new(|tx| {
-						tx.gas = Some(tx.gas.unwrap() * 111 / 100);
-					}),
-					InvalidTransaction::Call,
-				),
-				(
-					"Diff < 10%",
-					Box::new(|tx| {
-						tx.gas_price = Some(tx.gas_price.unwrap() * 2);
-						tx.gas = Some(tx.gas.unwrap() * 89 / 100);
-					}),
-					InvalidTransaction::Call,
-				),
-			];
+		let scenarios: [(_, Box<dyn FnOnce(&mut GenericTransaction)>, _); 5] = [
+			(
+				"Eth fees too low",
+				Box::new(|tx| {
+					tx.gas_price = Some(tx.gas_price.unwrap() / 2);
+				}),
+				InvalidTransaction::Payment,
+			),
+			(
+				"Gas fees too high",
+				Box::new(|tx| {
+					tx.gas = Some(tx.gas.unwrap() * 2);
+				}),
+				InvalidTransaction::Call,
+			),
+			(
+				"Gas fees too low",
+				Box::new(|tx| {
+					tx.gas = Some(tx.gas.unwrap() * 2);
+				}),
+				InvalidTransaction::Call,
+			),
+			(
+				"Diff > 10%",
+				Box::new(|tx| {
+					tx.gas = Some(tx.gas.unwrap() * 111 / 100);
+				}),
+				InvalidTransaction::Call,
+			),
+			(
+				"Diff < 10%",
+				Box::new(|tx| {
+					tx.gas_price = Some(tx.gas_price.unwrap() * 2);
+					tx.gas = Some(tx.gas.unwrap() * 89 / 100);
+				}),
+				InvalidTransaction::Call,
+			),
+		];
 
-			for (msg, update_tx, err) in scenarios {
-				let builder =
-					UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20])).update(update_tx);
+		for (msg, update_tx, err) in scenarios {
+			let builder =
+				UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20])).update(update_tx);
 
-				assert_eq!(builder.check(), Err(TransactionValidityError::Invalid(err)), "{}", msg);
-			}
-		});
+			assert_eq!(builder.check(), Err(TransactionValidityError::Invalid(err)), "{}", msg);
+		}
 	}
 
 	#[test]
 	fn check_transaction_tip() {
-		let _ = env_logger::builder().is_test(true).try_init();
-		ExtBuilder::default().build().execute_with(|| {
-			let (code, _) = compile_module("dummy").unwrap();
-			let data = vec![];
-			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
-				.update(|tx| {
-					tx.gas_price = Some(tx.gas_price.unwrap() * 103 / 100);
-					log::debug!(target: LOG_TARGET, "Gas price: {:?}", tx.gas_price);
-				});
+		let (code, _) = compile_module("dummy").unwrap();
+		let data = vec![];
+		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
+			.update(|tx| {
+				tx.gas_price = Some(tx.gas_price.unwrap() * 103 / 100);
+				log::debug!(target: LOG_TARGET, "Gas price: {:?}", tx.gas_price);
+			});
 
-			let tx = &builder.tx;
-			let expected_tip =
-				tx.gas_price.unwrap() * tx.gas.unwrap() - U256::from(GAS_PRICE) * tx.gas.unwrap();
-			let (_, extra) = builder.check().unwrap();
-			assert_eq!(U256::from(extra.1.tip()), expected_tip);
-		});
+		let tx = &builder.tx;
+		let expected_tip =
+			tx.gas_price.unwrap() * tx.gas.unwrap() - U256::from(GAS_PRICE) * tx.gas.unwrap();
+		let (_, extra) = builder.check().unwrap();
+		assert_eq!(U256::from(extra.1.tip()), expected_tip);
 	}
 }
