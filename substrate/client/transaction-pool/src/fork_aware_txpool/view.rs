@@ -27,8 +27,8 @@ use super::metrics::MetricsLink as PrometheusMetrics;
 use crate::{
 	common::log_xt::log_xt_trace,
 	graph::{
-		self, watcher::Watcher, ExtrinsicFor, ExtrinsicHash, IsValidator, ValidatedTransaction,
-		ValidatedTransactionFor,
+		self, watcher::Watcher, ExtrinsicFor, ExtrinsicHash, IsValidator, TransactionFor,
+		ValidatedTransaction, ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
@@ -454,5 +454,12 @@ where
 				start.elapsed()
 			);
 		}
+	}
+
+	pub(crate) fn remove_invalid(
+		&self,
+		hashes: &[ExtrinsicHash<ChainApi>],
+	) -> Vec<TransactionFor<ChainApi>> {
+		self.pool.validated_pool().remove_invalid(hashes)
 	}
 }

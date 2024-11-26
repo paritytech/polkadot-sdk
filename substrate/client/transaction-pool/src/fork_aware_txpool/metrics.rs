@@ -40,6 +40,8 @@ pub struct Metrics {
 	/// Total number of unwatched transactions in txpool.
 	pub unwatched_txs: Gauge<U64>,
 	/// Total number of transactions reported as invalid.
+	pub reported_invalid_txs: Counter<U64>,
+	/// Total number of transactions removed as invalid.
 	pub removed_invalid_txs: Counter<U64>,
 	/// Total number of finalized transactions.
 	pub finalized_txs: Counter<U64>,
@@ -99,10 +101,17 @@ impl MetricsRegistrant for Metrics {
 				)?,
 				registry,
 			)?,
+			reported_invalid_txs: register(
+				Counter::new(
+					"substrate_sub_txpool_reported_invalid_txs_total",
+					"Total number of transactions reported as invalid.",
+				)?,
+				registry,
+			)?,
 			removed_invalid_txs: register(
 				Counter::new(
 					"substrate_sub_txpool_removed_invalid_txs_total",
-					"Total number of transactions reported as invalid.",
+					"Total number of transactions removed as invalid.",
 				)?,
 				registry,
 			)?,

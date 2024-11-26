@@ -32,8 +32,12 @@ use futures::prelude::*;
 use itertools::Itertools;
 use parking_lot::RwLock;
 use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TransactionSource};
-use sp_blockchain::TreeRoute;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_blockchain::{ApplyExtrinsicFailed, Error as BlockchainError, TreeRoute};
+use sp_runtime::{
+	generic::BlockId,
+	traits::Block as BlockT,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+};
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
 /// The helper structure encapsulates all the views.
@@ -483,5 +487,46 @@ where
 		};
 		futures::future::join_all(finish_revalidation_futures).await;
 		log::trace!(target:LOG_TARGET,"finish_background_revalidations took {:?}", start.elapsed());
+	}
+
+	pub(crate) fn report_invalid(
+		&self,
+		at: Option<Block::Hash>,
+		invalid_tx_errors: &[(ExtrinsicHash<ChainApi>, Option<BlockchainError>)],
+	) -> Vec<ExtrinsicHash<ChainApi>> {
+		let mut remove_from_view = vec![];
+		let mut remove_from_pool = vec![];
+
+		invalid_tx_errors.iter().for_each(|(hash, e)| match e {
+			Some(BlockchainError::ApplyExtrinsicFailed(ApplyExtrinsicFailed::Validity(
+				TransactionValidityError::Invalid(
+					InvalidTransaction::Future | InvalidTransaction::Stale,
+				),
+			))) => {
+				remove_from_view.push(*hash);
+			},
+			_ => {
+				remove_from_pool.push(*hash);
+			},
+		});
+
+		at.inspect(|at| {
+			self.get_view_at(*at, true)
+				.map(|(view, _)| view.remove_invalid(&remove_from_view[..]))
+				.unwrap_or_default();
+		});
+
+		//todo: duplicated code - we need to remove subtree from every view
+		// let active_views = self.active_views.read();
+		// let inactive_views = self.inactive_views.read();
+		// active_views
+		// 	.iter()
+		// 	.chain(inactive_views.iter())
+		// 	.filter(|(_, view)| view.is_imported(&xt_hash))
+		// 	.for_each(|(_, view)| {
+		// 		view.remove_subtree(xt_hash, replaced_with);
+		// 	});
+
+		remove_from_pool
 	}
 }

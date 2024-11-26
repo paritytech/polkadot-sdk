@@ -675,18 +675,49 @@ where
 			.inspect_err(|_| mempool.remove(xt_hash))
 	}
 
-	/// Intended to remove transactions identified by the given hashes, and any dependent
-	/// transactions, from the pool. In current implementation this function only outputs the error.
-	/// Seems that API change is needed here to make this call reasonable.
-	// todo [#5491]: api change? we need block hash here (assuming we need it at all - could be
-	// useful for verification for debugging purposes).
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		if !hashes.is_empty() {
-			log::debug!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
-			log_xt_trace!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
-			self.metrics
-				.report(|metrics| metrics.removed_invalid_txs.inc_by(hashes.len() as _));
-		}
+	// /// Intended to remove transactions identified by the given hashes, and any dependent
+	// /// transactions, from the pool. In current implementation this function only outputs the
+	// error. /// Seems that API change is needed here to make this call reasonable.
+	// // todo [#5491]: api change? we need block hash here (assuming we need it at all - could be
+	// // useful for verification for debugging purposes).
+	// fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
+	// 	if !hashes.is_empty() {
+	// 		log::debug!(target: LOG_TARGET, "fatp::remove_invalid {}", hashes.len());
+	// 		log_xt_trace!(target:LOG_TARGET, hashes, "[{:?}] fatp::remove_invalid");
+	// 		self.metrics
+	// 			.report(|metrics| metrics.removed_invalid_txs.inc_by(hashes.len() as _));
+	// 	}
+	// 	Default::default()
+	// }
+
+	/// Reports invalid transactions to the transaction pool.
+	///
+	/// This function takes an array of tuples, each consisting of a transaction hash and the
+	/// corresponding error that occurred during transaction execution at given block.
+	///
+	/// The transaction pool implementation will determine which transactions should be
+	/// removed from the pool. Transactions that depend on invalid transactions will also
+	/// be removed.
+	fn report_invalid(
+		&self,
+		at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: &[(TxHash<Self>, Option<sp_blockchain::Error>)],
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		self.metrics
+			.report(|metrics| metrics.reported_invalid_txs.inc_by(invalid_tx_errors.len() as _));
+
+		let removed = self.view_store.report_invalid(at, invalid_tx_errors);
+
+		self.metrics
+			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed.len() as _));
+
+		// todo (after merging / rebasing)
+
+		// depending on error:
+		// - handle cloned view with view_store replacements
+		// - remove resulting hashes from mempool and collect Arc<Transaction>
+		// - send notification using listener (should this be done in view_store)
+
 		Default::default()
 	}
 
