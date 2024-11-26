@@ -21,7 +21,8 @@ macro_rules! bash(
 
 fn get_chain_spec_builder_path() -> &'static str {
 	run_cmd!(
-		cargo build --release -p staging-chain-spec-builder --bin chain-spec-builder
+		cargo build --release -p staging-chain-spec-builder --bin chain-spec-builder;
+		export WASM_FILE_PATH=$WASM_FILE_PATH
 	).expect("Failed to execute command");
 	CHAIN_SPEC_BUILDER_PATH
 }
@@ -128,7 +129,7 @@ fn generate_chain_spec() {
 fn generate_para_chain_spec() {
 
 	let output = bash!(
-		chain-spec-builder -c /dev/stdout create -c polkadot -p 1000 -r WASM_FILE_PATH named-preset preset_2
+		chain-spec-builder -c /dev/stdout create -c polkadot -p 1000 -r $WASM_FILE_PATH named-preset preset_2
 	);
 	let mut output: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
 	//remove code field for better readability
