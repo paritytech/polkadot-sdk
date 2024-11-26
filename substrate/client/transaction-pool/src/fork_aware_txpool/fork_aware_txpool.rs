@@ -31,7 +31,10 @@ use crate::{
 	api::FullChainApi,
 	common::log_xt::log_xt_trace,
 	enactment_state::{EnactmentAction, EnactmentState},
-	fork_aware_txpool::{dropped_watcher::DroppedReason, revalidation_worker},
+	fork_aware_txpool::{
+		dropped_watcher::{DroppedReason, DroppedTransaction},
+		revalidation_worker,
+	},
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
@@ -49,8 +52,9 @@ use futures::{
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolStatus, TransactionFor,
-	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
+	error::Error as TxPoolApiError, ChainEvent, ImportNotificationStream,
+	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
+	TransactionStatusStreamFor, TxHash,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -287,7 +291,7 @@ where
 				DroppedReason::LimitsEnforced => {},
 			};
 
-			mempool.remove_dropped_transaction(&dropped_tx_hash).await;
+			mempool.remove_transaction(&dropped_tx_hash);
 			view_store.listener.transaction_dropped(dropped);
 			import_notification_sink.clean_notified_items(&[dropped_tx_hash]);
 		}
@@ -675,9 +679,9 @@ where
 						submission_results
 							.next()
 							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed.")
-							.inspect_err(|_|
-								mempool.remove(insertion.hash)
-							)
+							.inspect_err(|_|{
+								mempool.remove_transaction(&insertion.hash);
+							})
 					})
 				})
 				.collect::<Vec<_>>())
@@ -712,18 +716,20 @@ where
 	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.active_views_count());
 		let xt = Arc::from(xt);
+
 		let InsertionInfo { hash: xt_hash, source: timed_source } =
 			match self.mempool.push_watched(source, xt.clone()) {
 				Ok(result) => result,
-				Err(e) => return Err(e),
+				Err(TxPoolApiError::ImmediatelyDropped) =>
+					self.attempt_transaction_replacement(at, source, true, xt.clone()).await?,
+				Err(e) => return Err(e.into()),
 			};
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
-		self.view_store
-			.submit_and_watch(at, timed_source, xt)
-			.await
-			.inspect_err(|_| self.mempool.remove(xt_hash))
+		self.view_store.submit_and_watch(at, timed_source, xt).await.inspect_err(|_| {
+			self.mempool.remove_transaction(&xt_hash);
+		})
 	}
 
 	/// Intended to remove transactions identified by the given hashes, and any dependent
@@ -1131,7 +1137,7 @@ where
 			for result in watched_results {
 				if let Err(tx_hash) = result {
 					self.view_store.listener.invalidate_transactions(&[tx_hash]);
-					self.mempool.remove(tx_hash);
+					self.mempool.remove_transaction(&tx_hash);
 				}
 			}
 		}
@@ -1262,6 +1268,74 @@ where
 	/// Computes a hash of the provided transaction
 	fn tx_hash(&self, xt: &TransactionFor<Self>) -> TxHash<Self> {
 		self.api.hash_and_length(xt).0
+	}
+
+	/// Attempts to replace a lower-priority transaction in the transaction pool with a new one.
+	///
+	/// This asynchronous function verifies the new transaction against the most recent view. If a
+	/// transaction with a lower priority exists in the transaction pool, it is replaced with the
+	/// new transaction.
+	///
+	/// If no lower-priority transaction is found, the function returns an error indicating the
+	/// transaction was dropped immediately.
+	async fn attempt_transaction_replacement(
+		&self,
+		_: Block::Hash,
+		source: TransactionSource,
+		watched: bool,
+		xt: ExtrinsicFor<ChainApi>,
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, TxPoolApiError> {
+		// 1. we should validate at most_recent, and reuse result to submit there.
+		let at = self
+			.view_store
+			.most_recent_view
+			.read()
+			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
+
+		// 2. validate transaction at `at`
+		let (best_view, _) = self
+			.view_store
+			.get_view_at(at, false)
+			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
+
+		let (tx_hash, validated_tx) = best_view
+			.pool
+			.verify_one(
+				best_view.at.hash,
+				best_view.at.number,
+				TimedTransactionSource::from_transaction_source(source, false),
+				xt.clone(),
+				crate::graph::CheckBannedBeforeVerify::Yes,
+			)
+			.await;
+
+		// 3. check if most_recent_view contains a transaction with lower priority (actually worse -
+		//   do we want to check timestamp too - no: see #4609?)
+		//   Would be perfect to choose transaction with lowest the number of dependant txs in its
+		//   subtree.
+		if let Some(worst_tx_hash) =
+			best_view.pool.validated_pool().find_transaction_with_lower_prio(validated_tx)
+		{
+			// 4. if yes - remove worse transaction from mempool and add new one.
+			log::trace!(target: LOG_TARGET, "found candidate for removal: {worst_tx_hash:?}");
+			let insertion_info =
+				self.mempool.try_replace_transaction(xt, source, watched, worst_tx_hash);
+
+			// 5. notify listner
+			self.view_store
+				.listener
+				.transaction_dropped(DroppedTransaction::new_usurped(worst_tx_hash, tx_hash));
+
+			// 7. remove transaction from the view_store
+			self.view_store.remove_transaction_subtree(worst_tx_hash, tx_hash);
+
+			// 8. add to pending_replacements - make sure it will not sneak back via cloned view
+
+			// 9. subemit new one to the view, this will be done upon in the caller
+			return insertion_info
+		}
+
+		Err(TxPoolApiError::ImmediatelyDropped)
 	}
 }
 

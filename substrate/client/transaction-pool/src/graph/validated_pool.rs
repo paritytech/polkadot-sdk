@@ -126,6 +126,8 @@ impl<B: ChainApi> Clone for ValidatedPool<B> {
 	}
 }
 
+type BaseTransactionFor<B> = base::Transaction<ExtrinsicHash<B>, ExtrinsicFor<B>>;
+
 impl<B: ChainApi> ValidatedPool<B> {
 	/// Create a new transaction pool.
 	pub fn new(options: Options, is_validator: IsValidator, api: Arc<B>) -> Self {
@@ -685,6 +687,54 @@ impl<B: ChainApi> ValidatedPool<B> {
 		pool.futures().for_each(|f| {
 			listener.future(&f.hash);
 		});
+	}
+
+	/// Searches the base pool for a transaction with a lower priority than the given one.
+	///
+	/// Returns the hash of a lower-priority transaction if found, otherwise `None`.
+	pub fn find_transaction_with_lower_prio(
+		&self,
+		tx: ValidatedTransactionFor<B>,
+	) -> Option<ExtrinsicHash<B>> {
+		match tx {
+			ValidatedTransaction::Valid(base::Transaction { priority, .. }) => {
+				let pool = self.pool.read();
+				pool.fold_ready(
+					Some((priority, Option::<Arc<BaseTransactionFor<B>>>::None)),
+					|acc, current| {
+						let (priority, _) = acc.as_ref().expect("acc is initialized. qed");
+						if current.priority < *priority {
+							return Some((current.priority, Some(current.clone())))
+						} else {
+							return acc
+						}
+					},
+				)
+				.map(|r| r.1.map(|tx| tx.hash))?
+			},
+			_ => None,
+		}
+	}
+
+	/// Removes the whole transaction subtree the pool.
+	///
+	/// Intended to be called when removal is a result of replacement. Provided `replaced_with`
+	/// transaction hash is used in emitted _usurped_ event.
+	pub fn remove_subtree(
+		&self,
+		tx_hash: ExtrinsicHash<B>,
+		replaced_with: ExtrinsicHash<B>,
+	) -> Vec<ExtrinsicHash<B>> {
+		self.pool
+			.write()
+			.remove_subtree(&[tx_hash])
+			.into_iter()
+			.map(|tx| tx.hash)
+			.inspect(|tx_hash| {
+				let mut listener = self.listener.write();
+				listener.usurped(&tx_hash, &replaced_with)
+			})
+			.collect::<Vec<_>>()
 	}
 }
 

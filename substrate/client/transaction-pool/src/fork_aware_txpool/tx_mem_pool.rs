@@ -101,19 +101,23 @@ where
 
 	/// Creates a new instance of wrapper for unwatched transaction.
 	fn new_unwatched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>, bytes: usize) -> Self {
-		Self {
-			watched: false,
-			tx,
-			source: TimedTransactionSource::from_transaction_source(source, true),
-			validated_at: AtomicU64::new(0),
-			bytes,
-		}
+		Self::new(false, source, tx, bytes)
 	}
 
 	/// Creates a new instance of wrapper for watched transaction.
 	fn new_watched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>, bytes: usize) -> Self {
+		Self::new(true, source, tx, bytes)
+	}
+
+	/// Creates a new instance of wrapper for a transaction.
+	fn new(
+		watched: bool,
+		source: TransactionSource,
+		tx: ExtrinsicFor<ChainApi>,
+		bytes: usize,
+	) -> Self {
 		Self {
-			watched: true,
+			watched,
 			tx,
 			source: TimedTransactionSource::from_transaction_source(source, true),
 			validated_at: AtomicU64::new(0),
@@ -279,25 +283,50 @@ where
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
 		tx: TxInMemPool<ChainApi, Block>,
-	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, ChainApi::Error> {
+		tx_to_be_removed: Option<ExtrinsicHash<ChainApi>>,
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let bytes = self.transactions.bytes();
 		let mut transactions = self.transactions.write();
+
+		tx_to_be_removed.inspect(|hash| {
+			transactions.remove(hash);
+		});
+
 		let result = match (
-			!self.is_limit_exceeded(transactions.len() + 1, bytes + tx.bytes),
+			self.is_limit_exceeded(transactions.len() + 1, bytes + tx.bytes),
 			transactions.contains_key(&hash),
 		) {
-			(true, false) => {
+			(false, false) => {
 				let source = tx.source();
 				transactions.insert(hash, Arc::from(tx));
 				Ok(InsertionInfo::new(hash, source))
 			},
 			(_, true) =>
-				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)).into()),
-			(false, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped.into()),
+				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash))),
+			(true, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped),
 		};
 		log::trace!(target: LOG_TARGET, "[{:?}] mempool::try_insert: {:?}", hash, result.as_ref().map(|r| r.hash));
 
 		result
+	}
+
+	/// Attempts to replace an existing transaction in the memory pool with a new one.
+	///
+	/// Returns a `Result` containing `InsertionInfo` if the new transaction is successfully
+	/// inserted; otherwise, returns an appropriate error indicating the failure.
+	pub(super) fn try_replace_transaction(
+		&self,
+		new_xt: ExtrinsicFor<ChainApi>,
+		source: TransactionSource,
+		watched: bool,
+		replaced_tx_hash: ExtrinsicHash<ChainApi>,
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
+		let (hash, length) = self.api.hash_and_length(&new_xt);
+		self.try_insert(
+			hash,
+			TxInMemPool::new(watched, source, new_xt, length),
+			Some(replaced_tx_hash),
+		)
 	}
 
 	/// Adds a new unwatched transactions to the internal buffer not exceeding the limit.
@@ -308,12 +337,13 @@ where
 		&self,
 		source: TransactionSource,
 		xts: &[ExtrinsicFor<ChainApi>],
-	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, ChainApi::Error>> {
+	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>>
+	{
 		let result = xts
 			.iter()
 			.map(|xt| {
 				let (hash, length) = self.api.hash_and_length(&xt);
-				self.try_insert(hash, TxInMemPool::new_unwatched(source, xt.clone(), length))
+				self.try_insert(hash, TxInMemPool::new_unwatched(source, xt.clone(), length), None)
 			})
 			.collect::<Vec<_>>();
 		result
@@ -325,18 +355,9 @@ where
 		&self,
 		source: TransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, ChainApi::Error> {
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let (hash, length) = self.api.hash_and_length(&xt);
-		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length))
-	}
-
-	/// Removes transaction from the memory pool which are specified by the given list of hashes.
-	pub(super) async fn remove_dropped_transaction(
-		&self,
-		dropped: &ExtrinsicHash<ChainApi>,
-	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
-		log::debug!(target: LOG_TARGET, "[{:?}] mempool::remove_dropped_transaction", dropped);
-		self.transactions.write().remove(dropped)
+		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length), None)
 	}
 
 	/// Clones and returns a `HashMap` of references to all unwatched transactions in the memory
@@ -362,9 +383,13 @@ where
 			.collect::<HashMap<_, _>>()
 	}
 
-	/// Removes a transaction from the memory pool based on a given hash.
-	pub(super) fn remove(&self, hash: ExtrinsicHash<ChainApi>) {
-		let _ = self.transactions.write().remove(&hash);
+	/// Removes a transaction with given hash from the memory pool.
+	pub(super) fn remove_transaction(
+		&self,
+		hash: &ExtrinsicHash<ChainApi>,
+	) -> Option<Arc<TxInMemPool<ChainApi, Block>>> {
+		log::debug!(target: LOG_TARGET, "[{hash:?}] mempool::remove_transaction");
+		self.transactions.write().remove(hash)
 	}
 
 	/// Revalidates a batch of transactions against the provided finalized block.

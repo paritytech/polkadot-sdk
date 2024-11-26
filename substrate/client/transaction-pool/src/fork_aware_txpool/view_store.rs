@@ -690,4 +690,24 @@ where
 		};
 		let _results = futures::future::join_all(submit_futures).await;
 	}
+
+	/// Removes the whole transaction subtree from every view within the view store.
+	///
+	/// Intended to be called when removal is a result of replacement. Provided `replaced_with`
+	/// transaction hash is used in emitted _usurped_ event.
+	pub(super) fn remove_transaction_subtree(
+		&self,
+		xt_hash: ExtrinsicHash<ChainApi>,
+		replaced_with: ExtrinsicHash<ChainApi>,
+	) {
+		let active_views = self.active_views.read();
+		let inactive_views = self.inactive_views.read();
+		active_views
+			.iter()
+			.chain(inactive_views.iter())
+			.filter(|(_, view)| view.is_imported(&xt_hash))
+			.for_each(|(_, view)| {
+				view.remove_subtree(xt_hash, replaced_with);
+			});
+	}
 }

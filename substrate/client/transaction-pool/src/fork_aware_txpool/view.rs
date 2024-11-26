@@ -460,4 +460,16 @@ where
 		const IGNORE_BANNED: bool = false;
 		self.pool.validated_pool().check_is_known(tx_hash, IGNORE_BANNED).is_err()
 	}
+
+	/// Removes the whole transaction subtree from the inner pool.
+	///
+	/// Intended to be called when removal is a result of replacement. Provided `replaced_with`
+	/// transaction hash is used in emitted _usurped_ event.
+	pub(super) fn remove_subtree(
+		&self,
+		tx_hash: ExtrinsicHash<ChainApi>,
+		replaced_with: ExtrinsicHash<ChainApi>,
+	) -> Vec<ExtrinsicHash<ChainApi>> {
+		self.pool.validated_pool().remove_subtree(tx_hash, replaced_with)
+	}
 }
