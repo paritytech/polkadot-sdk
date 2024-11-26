@@ -133,7 +133,6 @@ for (const env of envs) {
 			} catch (err) {
 				const lastJsonRpcError = jsonRpcErrors.pop()
 				expect(lastJsonRpcError?.code).toBe(-32000)
-				console.log(lastJsonRpcError?.message)
 				expect(lastJsonRpcError?.message).toInclude('insufficient funds')
 				expect(lastJsonRpcError?.data).toBeUndefined()
 			}
