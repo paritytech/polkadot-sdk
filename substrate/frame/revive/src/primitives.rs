@@ -29,9 +29,12 @@ use sp_runtime::{
 };
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum DepositLimit<T> {
+pub enum DepositLimit<Balance> {
+	/// Allows bypassing all balance transfer checks.
 	Unchecked,
-	Balance(T),
+
+	/// Specifies a maximum allowable balance for a deposit.
+	Balance(Balance),
 }
 
 impl<T> DepositLimit<T> {
