@@ -265,7 +265,7 @@ pub mod pallet {
 		}
 
 		pub fn do_convert(message: MessageV2) -> Result<Xcm<()>, Error<T>> {
-			Ok(T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?)
+			Ok(T::MessageConverter::convert(message, T::XcmPrologueFee::get().into()).map_err(|e| Error::<T>::ConvertMessage(e))?)
 		}
 	}
 }

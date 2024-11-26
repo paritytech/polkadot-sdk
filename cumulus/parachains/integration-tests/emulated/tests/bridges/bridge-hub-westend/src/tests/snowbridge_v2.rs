@@ -52,7 +52,7 @@ fn xcm_prologue_fee() {
 			claimer: Some(claimer_bytes)
 		};
 		let xcm = EthereumInboundQueueV2::do_convert(message).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(RuntimeOrigin::root(relayer.clone()), xcm, AssetHubWestend::para_id().into()).unwrap();
+		let _ = EthereumInboundQueueV2::send_xcm(RuntimeOrigin::signed(relayer.clone()), xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,

@@ -88,7 +88,7 @@ for MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId>
         InboundQueuePalletInstance: Get<u8>,
         ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 {
-    fn convert(message: Message) -> Result<Xcm<()>, ConvertMessageError> {
+    fn convert(message: Message, xcm_prologue_fee: u128) -> Result<Xcm<()>, ConvertMessageError> {
         let mut message_xcm: Xcm<()> = Xcm::new();
         if message.xcm.len() > 0 {
             // Decode xcm
@@ -111,8 +111,7 @@ for MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId>
         let network = EthereumNetwork::get();
 
         let fee_asset = Location::new(1, Here);
-        let fee_value = 1_000_000_000u128; // TODO get from command
-        let fee: xcm::prelude::Asset = (fee_asset, fee_value).into();
+        let fee: xcm::prelude::Asset = (fee_asset, xcm_prologue_fee).into();
         let mut instructions = vec![
             ReceiveTeleportedAsset(fee.clone().into()),
             PayFees { asset: fee },

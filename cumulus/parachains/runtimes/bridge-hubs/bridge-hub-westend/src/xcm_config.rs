@@ -250,7 +250,7 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmRouter = XcmRouter;
 	// We want to disallow users sending (arbitrary) XCMs from this chain.
-	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
+	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	// We support local origins dispatching XCM executions.
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmExecuteFilter = Everything;
