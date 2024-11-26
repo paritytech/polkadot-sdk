@@ -479,19 +479,12 @@ impl<
 		};
 
 		// prepare `Transact` xcm
-<<<<<<< HEAD
-		let xcm = Xcm(vec![
-			WithdrawAsset(buy_execution_fee.clone().into()),
-			BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
+		instructions.extend(vec![
 			Transact {
-				origin_kind: OriginKind::Xcm,
+				origin_kind,
 				require_weight_at_most: call.get_dispatch_info().weight,
 				call: call.encode().into(),
 			},
-=======
-		instructions.extend(vec![
-			Transact { origin_kind, call: call.encode().into() },
->>>>>>> bd0d0cde (Bridges testing improvements (#6536))
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 		let xcm = Xcm(instructions);

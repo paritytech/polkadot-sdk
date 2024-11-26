@@ -302,14 +302,6 @@ fn relayed_incoming_message_works() {
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
 				WestendLocation,
-<<<<<<< HEAD
-			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get(), |locations, fee| {
-				bridge_hub_test_utils::open_bridge_with_storage::<
-					Runtime,
-					XcmOverBridgeHubRococoInstance,
-				>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
-			})
-=======
 			>(
 				SiblingParachainLocation::get(),
 				BridgedUniversalLocation::get(),
@@ -321,7 +313,6 @@ fn relayed_incoming_message_works() {
 					>(locations, LegacyLaneId([0, 0, 0, 1]))
 				},
 			)
->>>>>>> bd0d0cde (Bridges testing improvements (#6536))
 			.1
 		},
 		construct_and_apply_extrinsic,
@@ -346,14 +337,6 @@ fn free_relay_extrinsic_works() {
 				XcmOverBridgeHubRococoInstance,
 				LocationToAccountId,
 				WestendLocation,
-<<<<<<< HEAD
-			>(SiblingParachainLocation::get(), BridgedUniversalLocation::get(), |locations, fee| {
-				bridge_hub_test_utils::open_bridge_with_storage::<
-					Runtime,
-					XcmOverBridgeHubRococoInstance,
-				>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
-			})
-=======
 			>(
 				SiblingParachainLocation::get(),
 				BridgedUniversalLocation::get(),
@@ -365,7 +348,6 @@ fn free_relay_extrinsic_works() {
 					>(locations, LegacyLaneId([0, 0, 0, 1]))
 				},
 			)
->>>>>>> bd0d0cde (Bridges testing improvements (#6536))
 			.1
 		},
 		construct_and_apply_extrinsic,
