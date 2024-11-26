@@ -90,7 +90,12 @@ bp-bridge-hub-westend.workspace = true
 snowbridge-router-primitives.workspace = true
 
 [dev-dependencies]
+<<<<<<< HEAD
 asset-test-utils = { default-features = true, path = "../test-utils" }
+=======
+asset-test-utils = { workspace = true, default-features = true }
+parachains-runtimes-test-utils = { workspace = true, default-features = true }
+>>>>>>> 139691b1 (Fix `XcmPaymentApi::query_weight_to_asset_fee` version conversion (#6459))
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
