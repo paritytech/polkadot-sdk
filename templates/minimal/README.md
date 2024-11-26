@@ -110,7 +110,7 @@ chain spec. We'll use `--tmp` flag to start the node with its configurations sto
 temporary directory, which will be deleted at the end of the process.
 
 ```sh
-polkadot-omni-node --chain <path/to/chain_spec.json> --dev-block-time 3000 --tmp
+polkadot-omni-node --chain <path/to/chain_spec.json> --dev
 ```
 
 ### Minimal Template Node

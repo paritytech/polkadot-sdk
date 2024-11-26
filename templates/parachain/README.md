@@ -107,12 +107,11 @@ with the relay chain ID where this instantiation of parachain-template will conn
 
 #### Run Omni Node
 
-Start Omni Node with the generated chain spec. We'll start it development mode (without a relay chain config),
-with a temporary directory for configuration (given `--tmp`), and block production set to create a block with
-every second.
+Start Omni Node with the generated chain spec. We'll start it in development mode (without a relay chain config), producing
+and finalizing blocks based on manual seal, configured below to seal a block with each second.
 
 ```bash
-polkadot-omni-node --chain <path/to/chain_spec.json> --tmp --dev-block-time 1000
+polkadot-omni-node --chain <path/to/chain_spec.json> --dev --dev-block-time 1000
 
 ```
 

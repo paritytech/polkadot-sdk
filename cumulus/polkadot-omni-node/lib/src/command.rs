@@ -232,7 +232,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 						.ok_or("Could not find parachain extension in chain-spec.")?,
 				);
 
-				if cli.run.base.is_dev() {
+				if cli.run.base.is_dev()? {
 					// Set default dev block time to 3000ms if not set.
 					// TODO: take block time from AURA config if set.
 					let dev_block_time = cli.dev_block_time.unwrap_or(DEFAULT_DEV_BLOCK_TIME_MS);
