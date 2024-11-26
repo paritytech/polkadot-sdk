@@ -37,7 +37,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
-	EraIndex, SessionIndex,
+	EraIndex, SessionIndex, StakingInterface, DelegationInterface, Agent,
 };
 use std::collections::BTreeMap;
 
@@ -89,8 +89,10 @@ pub(crate) type Moment = u32;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type AccountId = AccountId;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -599,7 +601,7 @@ impl ExtBuilder {
 			// set the keys for the first session.
 			keys: stakers
 				.into_iter()
-				.map(|(id, ..)| (id, id, SessionKeys { other: (id as AccountId).into() }))
+				.map(|(id, ..)| (id, id, SessionKeys { other: (id as AccountId as u64).into() }))
 				.collect(),
 			..Default::default()
 		}
@@ -944,7 +946,16 @@ pub(crate) fn set_minimum_election_score(
 }
 
 pub(crate) fn staked_amount_for(account_id: AccountId) -> Balance {
-	pallet_staking::asset::staked::<Runtime>(&account_id)
+	Staking::total_stake(&account_id).expect("account must be staker")
+}
+
+pub(crate) fn delegated_balance_for(account_id: AccountId) -> Balance {
+	DelegatedStaking::agent_balance(Agent::from(account_id)).unwrap_or_default()
+}
+
+/// Balance available to be staked for an account.
+pub(crate) fn stakeable_balance_for(account_id: AccountId) -> Balance {
+	pallet_staking::asset::stakeable_balance::<Runtime>(&account_id)
 }
 
 pub(crate) fn staking_events() -> Vec<pallet_staking::Event<Runtime>> {
