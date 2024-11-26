@@ -975,6 +975,8 @@ async fn archive_storage_diff_no_changes() {
 		.unwrap();
 	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
 	builder.push_storage_change(b":AA".to_vec(), Some(b"BB".to_vec())).unwrap();
+	builder.push_storage_change(b":B".to_vec(), Some(b"CC".to_vec())).unwrap();
+	builder.push_storage_change(b":BA".to_vec(), Some(b"CC".to_vec())).unwrap();
 	let prev_block = builder.build().unwrap().block;
 	let prev_hash = format!("{:?}", prev_block.header.hash());
 	client.import(BlockOrigin::Own, prev_block.clone()).await.unwrap();
@@ -1020,6 +1022,8 @@ async fn archive_storage_diff_deleted_changes() {
 		.unwrap();
 	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
 	builder.push_storage_change(b":AA".to_vec(), Some(b"BB".to_vec())).unwrap();
+	builder.push_storage_change(b":B".to_vec(), Some(b"CC".to_vec())).unwrap();
+	builder.push_storage_change(b":BA".to_vec(), Some(b"CC".to_vec())).unwrap();
 	let prev_block = builder.build().unwrap().block;
 	let prev_hash = format!("{:?}", prev_block.header.hash());
 	client.import(BlockOrigin::Own, prev_block.clone()).await.unwrap();
