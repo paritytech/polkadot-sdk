@@ -45,6 +45,7 @@ schnellru = { workspace = true }
 itertools = { workspace = true }
 
 [dev-dependencies]
+async-trait = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server", "ws-client"] }
 serde_json = { workspace = true, default-features = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
