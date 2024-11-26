@@ -171,7 +171,7 @@ pub enum ClientError {
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
 	/// Contract reverted
-	#[error("Contract reverted")]
+	#[error("contract reverted")]
 	Reverted(EthTransactError),
 	/// A decimal conversion failed.
 	#[error("conversion failed")]
