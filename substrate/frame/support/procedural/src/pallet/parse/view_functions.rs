@@ -19,7 +19,7 @@ use frame_support_procedural_tools::get_doc_literals;
 use inflector::Inflector;
 use syn::spanned::Spanned;
 
-/// todo: docs
+/// Parsed representation of an impl block annotated with `pallet::view_functions_experimental`.
 pub struct ViewFunctionsImplDef {
 	/// The where_clause used.
 	pub where_clause: Option<syn::WhereClause>,
@@ -69,6 +69,7 @@ impl ViewFunctionsImplDef {
 	}
 }
 
+/// Parsed representation of a view function definition.
 #[derive(Clone)]
 pub struct ViewFunctionDef {
 	pub name: syn::Ident,
