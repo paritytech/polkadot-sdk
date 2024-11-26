@@ -31,7 +31,7 @@ use num_traits::{
 	CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedRem, CheckedShl, CheckedShr, CheckedSub,
 	Num, NumCast, PrimInt, Saturating, ToPrimitive,
 };
-use scale_info::TypeInfo;
+use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::Get;
 
 #[cfg(feature = "serde")]
@@ -40,13 +40,25 @@ use serde::{Deserialize, Serialize};
 /// A type that wraps another type and provides a default value.
 ///
 /// Passes through arithmetical and many other operations to the inner value.
-#[derive(Encode, Decode, TypeInfo, Debug, MaxEncodedLen)]
+/// Type information for metadata is the same as the inner value's type.
+#[derive(Encode, Decode, Debug, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TypeWithDefault<T, D: Get<T>>(T, PhantomData<D>);
 
 impl<T, D: Get<T>> TypeWithDefault<T, D> {
 	fn new(value: T) -> Self {
 		Self(value, PhantomData)
+	}
+}
+
+// Hides implementation details from the outside (for metadata type information).
+//
+// The type info showed in metadata is the one of the inner value's type.
+impl<T: StaticTypeInfo, D: Get<T> + 'static> TypeInfo for TypeWithDefault<T, D> {
+	type Identity = Self;
+
+	fn type_info() -> scale_info::Type {
+		T::type_info()
 	}
 }
 
@@ -504,3 +516,73 @@ impl<T: HasCompact, D: Get<T>> CompactAs for TypeWithDefault<T, D> {
 		Ok(Self::new(val))
 	}
 }
+<<<<<<< HEAD
+=======
+
+#[cfg(test)]
+mod tests {
+	use super::TypeWithDefault;
+	use scale_info::TypeInfo;
+	use sp_arithmetic::traits::{AtLeast16Bit, AtLeast32Bit, AtLeast8Bit};
+	use sp_core::Get;
+
+	#[test]
+	#[allow(dead_code)]
+	fn test_type_with_default_impl_base_arithmetic() {
+		trait WrapAtLeast8Bit: AtLeast8Bit {}
+		trait WrapAtLeast16Bit: AtLeast16Bit {}
+		trait WrapAtLeast32Bit: AtLeast32Bit {}
+
+		struct Getu8;
+		impl Get<u8> for Getu8 {
+			fn get() -> u8 {
+				0
+			}
+		}
+		type U8WithDefault = TypeWithDefault<u8, Getu8>;
+		impl WrapAtLeast8Bit for U8WithDefault {}
+
+		struct Getu16;
+		impl Get<u16> for Getu16 {
+			fn get() -> u16 {
+				0
+			}
+		}
+		type U16WithDefault = TypeWithDefault<u16, Getu16>;
+		impl WrapAtLeast16Bit for U16WithDefault {}
+
+		struct Getu32;
+		impl Get<u32> for Getu32 {
+			fn get() -> u32 {
+				0
+			}
+		}
+		type U32WithDefault = TypeWithDefault<u32, Getu32>;
+		impl WrapAtLeast32Bit for U32WithDefault {}
+
+		struct Getu64;
+		impl Get<u64> for Getu64 {
+			fn get() -> u64 {
+				0
+			}
+		}
+		type U64WithDefault = TypeWithDefault<u64, Getu64>;
+		impl WrapAtLeast32Bit for U64WithDefault {}
+
+		struct Getu128;
+		impl Get<u128> for Getu128 {
+			fn get() -> u128 {
+				0
+			}
+		}
+		type U128WithDefault = TypeWithDefault<u128, Getu128>;
+		impl WrapAtLeast32Bit for U128WithDefault {}
+
+		assert_eq!(U8WithDefault::type_info(), <u8 as TypeInfo>::type_info());
+		assert_eq!(U16WithDefault::type_info(), <u16 as TypeInfo>::type_info());
+		assert_eq!(U32WithDefault::type_info(), <u32 as TypeInfo>::type_info());
+		assert_eq!(U64WithDefault::type_info(), <u64 as TypeInfo>::type_info());
+		assert_eq!(U128WithDefault::type_info(), <u128 as TypeInfo>::type_info());
+	}
+}
+>>>>>>> fc315ac (Hide nonce implementation details in metadata (#6562))
