@@ -72,4 +72,6 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"xcm-runtime-apis/std",
+	"pallet-asset-conversion/std"
 ]

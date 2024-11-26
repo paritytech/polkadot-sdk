@@ -71,4 +71,6 @@ std = [
 	"sp-runtime/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"parachains-common/std",
+	"xcm-runtime-apis/std"
 ]
