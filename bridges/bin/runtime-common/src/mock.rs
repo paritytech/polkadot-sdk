@@ -196,6 +196,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),
+		(),
 		ConstU64<100_000>,
 	>;
 	type OnMessagesDelivered = ();
