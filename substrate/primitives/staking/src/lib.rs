@@ -428,6 +428,7 @@ impl<AccountId: Clone, Balance: HasCompact + AtLeast32BitUnsigned + Copy + MaxEn
 #[derive(
 	PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
 )]
+#[scale_info(skip_type_params(MaxExposurePageSize))]
 pub struct ExposurePage<
 	AccountId,
 	Balance: HasCompact + MaxEncodedLen,
@@ -464,7 +465,7 @@ impl<A, B: Default + HasCompact + MaxEncodedLen, C: Get<u32>> Default for Exposu
 	Default,
 	MaxEncodedLen,
 )]
-pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
+pub struct PagedExposureMetadata<Balance: HasCompact + MaxEncodedLen> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
 	pub total: Balance,
