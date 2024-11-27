@@ -99,6 +99,7 @@ fn call_in_wasm<E: Externalities>(
 		true,
 		function,
 		call_data,
+		Default::default(),
 	)
 }
 
@@ -424,6 +425,7 @@ fn should_trap_when_heap_exhausted(wasm_method: WasmExecutionMethod) {
 			true,
 			"test_allocate_vec",
 			&16777216_u32.encode(),
+			Default::default(),
 		)
 		.unwrap_err();
 
@@ -463,13 +465,17 @@ fn returns_mutable_static(wasm_method: WasmExecutionMethod) {
 		mk_test_runtime(wasm_method, HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) });
 
 	let mut instance = runtime.new_instance().unwrap();
-	let res = instance.call_export("returns_mutable_static", &[0]).unwrap();
+	let res = instance
+		.call_export("returns_mutable_static", &[0], Default::default())
+		.unwrap();
 	assert_eq!(33, u64::decode(&mut &res[..]).unwrap());
 
 	// We expect that every invocation will need to return the initial
 	// value plus one. If the value increases more than that then it is
 	// a sign that the wasm runtime preserves the memory content.
-	let res = instance.call_export("returns_mutable_static", &[0]).unwrap();
+	let res = instance
+		.call_export("returns_mutable_static", &[0], Default::default())
+		.unwrap();
 	assert_eq!(33, u64::decode(&mut &res[..]).unwrap());
 }
 
@@ -479,13 +485,17 @@ fn returns_mutable_static_bss(wasm_method: WasmExecutionMethod) {
 		mk_test_runtime(wasm_method, HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) });
 
 	let mut instance = runtime.new_instance().unwrap();
-	let res = instance.call_export("returns_mutable_static_bss", &[0]).unwrap();
+	let res = instance
+		.call_export("returns_mutable_static_bss", &[0], Default::default())
+		.unwrap();
 	assert_eq!(1, u64::decode(&mut &res[..]).unwrap());
 
 	// We expect that every invocation will need to return the initial
 	// value plus one. If the value increases more than that then it is
 	// a sign that the wasm runtime preserves the memory content.
-	let res = instance.call_export("returns_mutable_static_bss", &[0]).unwrap();
+	let res = instance
+		.call_export("returns_mutable_static_bss", &[0], Default::default())
+		.unwrap();
 	assert_eq!(1, u64::decode(&mut &res[..]).unwrap());
 }
 
@@ -510,11 +520,13 @@ fn restoration_of_globals(wasm_method: WasmExecutionMethod) {
 	let mut instance = runtime.new_instance().unwrap();
 
 	// On the first invocation we allocate approx. 768KB (75%) of stack and then trap.
-	let res = instance.call_export("allocates_huge_stack_array", &true.encode());
+	let res =
+		instance.call_export("allocates_huge_stack_array", &true.encode(), Default::default());
 	assert!(res.is_err());
 
 	// On the second invocation we allocate yet another 768KB (75%) of stack
-	let res = instance.call_export("allocates_huge_stack_array", &false.encode());
+	let res =
+		instance.call_export("allocates_huge_stack_array", &false.encode(), Default::default());
 	assert!(res.is_ok());
 }
 
@@ -539,6 +551,7 @@ fn parallel_execution(wasm_method: WasmExecutionMethod) {
 							true,
 							"test_twox_128",
 							&[0],
+							Default::default(),
 						)
 						.unwrap(),
 					array_bytes::hex2bytes_unchecked("99e9d85137db46ef4bbea33613baafd5").encode()
@@ -609,7 +622,7 @@ fn allocate_two_gigabyte(wasm_method: WasmExecutionMethod) {
 	let runtime = mk_test_runtime(wasm_method, HeapAllocStrategy::Dynamic { maximum_pages: None });
 
 	let mut instance = runtime.new_instance().unwrap();
-	let res = instance.call_export("allocate_two_gigabyte", &[0]).unwrap();
+	let res = instance.call_export("allocate_two_gigabyte", &[0], Default::default()).unwrap();
 	assert_eq!(10 * 1024 * 1024 * 205, u32::decode(&mut &res[..]).unwrap());
 }
 
@@ -683,10 +696,14 @@ fn memory_is_cleared_between_invocations(wasm_method: WasmExecutionMethod) {
 	.unwrap();
 
 	let mut instance = runtime.new_instance().unwrap();
-	let res = instance.call_export("returns_no_bss_mutable_static", &[0]).unwrap();
+	let res = instance
+		.call_export("returns_no_bss_mutable_static", &[0], Default::default())
+		.unwrap();
 	assert_eq!(1, u64::decode(&mut &res[..]).unwrap());
 
-	let res = instance.call_export("returns_no_bss_mutable_static", &[0]).unwrap();
+	let res = instance
+		.call_export("returns_no_bss_mutable_static", &[0], Default::default())
+		.unwrap();
 	assert_eq!(1, u64::decode(&mut &res[..]).unwrap());
 }
 

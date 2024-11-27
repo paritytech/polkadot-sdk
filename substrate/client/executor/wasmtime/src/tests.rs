@@ -227,7 +227,7 @@ fn test_consume_under_1mb_of_stack_does_not_trap(instantiation_strategy: Instant
 	let mut builder = RuntimeBuilder::new(instantiation_strategy).use_wat(wat);
 	let runtime = builder.build();
 	let mut instance = runtime.new_instance().expect("failed to instantiate a runtime");
-	instance.call_export("main", &[]).unwrap();
+	instance.call_export("main", &[], Default::default()).unwrap();
 }
 
 test_wasm_execution!(test_consume_over_1mb_of_stack_does_trap);
@@ -236,7 +236,7 @@ fn test_consume_over_1mb_of_stack_does_trap(instantiation_strategy: Instantiatio
 	let mut builder = RuntimeBuilder::new(instantiation_strategy).use_wat(wat);
 	let runtime = builder.build();
 	let mut instance = runtime.new_instance().expect("failed to instantiate a runtime");
-	match instance.call_export("main", &[]).unwrap_err() {
+	match instance.call_export("main", &[], Default::default()).unwrap_err() {
 		Error::AbortedDueToTrap(error) => {
 			let expected = "wasm trap: call stack exhausted";
 			assert_eq!(error.message, expected);
@@ -277,7 +277,8 @@ fn test_nan_canonicalization(instantiation_strategy: InstantiationStrategy) {
 
 	let params = (u32::to_le_bytes(ARBITRARY_NAN_BITS), u32::to_le_bytes(1)).encode();
 	let res = {
-		let raw_result = instance.call_export("test_fp_f32add", &params).unwrap();
+		let raw_result =
+			instance.call_export("test_fp_f32add", &params, Default::default()).unwrap();
 		u32::from_le_bytes(<[u8; 4]>::decode(&mut &raw_result[..]).unwrap())
 	};
 	assert_eq!(res, CANONICAL_NAN_BITS);
@@ -294,7 +295,7 @@ fn test_stack_depth_reaching(instantiation_strategy: InstantiationStrategy) {
 	let runtime = builder.build();
 	let mut instance = runtime.new_instance().expect("failed to instantiate a runtime");
 
-	match instance.call_export("test-many-locals", &[]).unwrap_err() {
+	match instance.call_export("test-many-locals", &[], Default::default()).unwrap_err() {
 		Error::AbortedDueToTrap(error) => {
 			let expected = "wasm trap: wasm `unreachable` instruction executed";
 			assert_eq!(error.message, expected);
@@ -349,7 +350,7 @@ fn test_max_memory_pages(
 
 		let runtime = builder.build();
 		let mut instance = runtime.new_instance().unwrap();
-		let _ = instance.call_export("main", &[])?;
+		let _ = instance.call_export("main", &[], Default::default())?;
 		Ok(())
 	}
 
@@ -485,7 +486,7 @@ fn test_instances_without_reuse_are_not_leaked() {
 	// a new instance will be spawned on each call.)
 	let mut instance = runtime.new_instance().unwrap();
 	for _ in 0..10001 {
-		instance.call_export("test_empty_return", &[0]).unwrap();
+		instance.call_export("test_empty_return", &[0], Default::default()).unwrap();
 	}
 }
 

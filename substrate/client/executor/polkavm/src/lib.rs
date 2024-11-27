@@ -21,6 +21,7 @@ use sc_executor_common::{
 	error::{Error, WasmError},
 	wasm_runtime::{AllocationStats, WasmInstance, WasmModule},
 };
+use sp_core::traits::CallContext;
 use sp_wasm_interface::{
 	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
 };
@@ -42,6 +43,7 @@ impl WasmInstance for Instance {
 		&mut self,
 		name: &str,
 		raw_data: &[u8],
+		_context: CallContext,
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>) {
 		let Some(method_index) = self.0.module().lookup_export(name) else {
 			return (

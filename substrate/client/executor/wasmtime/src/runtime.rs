@@ -32,6 +32,7 @@ use sc_executor_common::{
 	util::checked_range,
 	wasm_runtime::{HeapAllocStrategy, WasmInstance, WasmModule},
 };
+use sp_core::traits::CallContext;
 use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{HostFunctions, Pointer, WordSize};
 use std::{
@@ -165,13 +166,14 @@ impl WasmtimeInstance {
 		method: &str,
 		data: &[u8],
 		allocation_stats: &mut Option<AllocationStats>,
+		context: CallContext,
 	) -> Result<Vec<u8>> {
 		match &mut self.strategy {
 			Strategy::RecreateInstance(ref mut instance_creator) => {
 				let mut instance_wrapper = instance_creator.instantiate()?;
 				let heap_base = instance_wrapper.extract_heap_base()?;
 				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-				let allocator = FreeingBumpHeapAllocator::new(heap_base);
+				let allocator = FreeingBumpHeapAllocator::new(heap_base, context);
 
 				perform_call(data, &mut instance_wrapper, entrypoint, allocator, allocation_stats)
 			},
@@ -184,9 +186,10 @@ impl WasmInstance for WasmtimeInstance {
 		&mut self,
 		method: &str,
 		data: &[u8],
+		context: CallContext,
 	) -> (Result<Vec<u8>>, Option<AllocationStats>) {
 		let mut allocation_stats = None;
-		let result = self.call_impl(method, data, &mut allocation_stats);
+		let result = self.call_impl(method, data, &mut allocation_stats, context);
 		(result, allocation_stats)
 	}
 }

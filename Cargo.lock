@@ -22691,6 +22691,7 @@ version = "0.29.0"
 dependencies = [
  "polkavm 0.9.3",
  "sc-allocator 23.0.0",
+ "sp-core 28.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-wasm-interface 20.0.0",
  "thiserror",
@@ -22732,6 +22733,7 @@ dependencies = [
  "log",
  "polkavm 0.9.3",
  "sc-executor-common 0.29.0",
+ "sp-core 28.0.0",
  "sp-wasm-interface 20.0.0",
 ]
 
@@ -22775,6 +22777,7 @@ dependencies = [
  "sc-allocator 23.0.0",
  "sc-executor-common 0.29.0",
  "sc-runtime-test",
+ "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime-interface 24.0.0",
  "sp-wasm-interface 20.0.0",

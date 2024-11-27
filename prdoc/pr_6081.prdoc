@@ -1,0 +1,25 @@
+title: Changes client memory allocation limits when executing in the offchain context
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR refactors the client allocator to allocate up to 2GiB of memory when running in the 
+      offchain context, instead of limiting the allocation to 32MiB as nowadays. This refactor
+      allows for the generation of large chainspecs and memory intensive offchain-worker
+      computation, which is important for staking as the size of the election snapshots increase.
+
+crates:
+ - name: sc-allocator
+   bump: major
+ - name: polkadot-node-core-pvf-common
+   bump: minor
+ - name: sc-executor-common
+   bump: minor
+ - name: sc-executor-polkavm
+   bump: minor
+ - name: sc-executor
+   bump: minor
+ - name: sc-executor-wasmtime
+   bump: minor
+ - name: sp-core
+   bump: minor

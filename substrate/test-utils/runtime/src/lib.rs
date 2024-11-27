@@ -1264,6 +1264,7 @@ mod tests {
 				true,
 				method,
 				data,
+				Default::default(),
 			)
 		}
 
