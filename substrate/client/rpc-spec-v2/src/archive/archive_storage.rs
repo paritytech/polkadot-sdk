@@ -451,11 +451,33 @@ where
 	}
 }
 
+#[derive(Debug, PartialEq)]
 enum Diff<T> {
 	Added(T),
 	Deleted(T),
 	Equal(T),
 }
+
+// impl<T: Ord> PartialEq for Diff<T> {
+// 	fn eq(&self, other: &Self) -> bool {
+// 		match (self, other) {
+// 			(Diff::Added(a), Diff::Added(b)) => a == b,
+// 			(Diff::Deleted(a), Diff::Deleted(b)) => a == b,
+// 			(Diff::Equal(a), Diff::Equal(b)) => a == b,
+// 			_ => false,
+// 		}
+// 	}
+// }
+
+// impl<T: std::fmt::Debug> std::fmt::Debug for Diff<T> {
+// 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+// 		match self {
+// 			Diff::Added(value) => write!(f, "Added({:?})", value),
+// 			Diff::Deleted(value) => write!(f, "Deleted({:?})", value),
+// 			Diff::Equal(value) => write!(f, "Equal({:?})", value),
+// 		}
+// 	}
+// }
 
 fn lexicographic_diff<'a, T, LeftIter, RightIter>(
 	mut left: LeftIter,
@@ -895,5 +917,53 @@ mod tests {
 		];
 
 		assert_eq!(result, expected);
+	}
+
+	#[test]
+	fn test_lexicographic_diff() {
+		let left = vec![1, 2, 3, 4, 5];
+		let right = vec![2, 3, 4, 5, 6];
+
+		let diff = lexicographic_diff(left.into_iter(), right.into_iter()).collect::<Vec<_>>();
+		let expected = vec![
+			Diff::Added(1),
+			Diff::Equal(2),
+			Diff::Equal(3),
+			Diff::Equal(4),
+			Diff::Equal(5),
+			Diff::Deleted(6),
+		];
+		assert_eq!(diff, expected);
+	}
+
+	#[test]
+	fn test_lexicographic_diff_one_side_empty() {
+		let left = vec![];
+		let right = vec![1, 2, 3, 4, 5, 6];
+
+		let diff = lexicographic_diff(left.into_iter(), right.into_iter()).collect::<Vec<_>>();
+		let expected = vec![
+			Diff::Deleted(1),
+			Diff::Deleted(2),
+			Diff::Deleted(3),
+			Diff::Deleted(4),
+			Diff::Deleted(5),
+			Diff::Deleted(6),
+		];
+		assert_eq!(diff, expected);
+
+		let left = vec![1, 2, 3, 4, 5, 6];
+		let right = vec![];
+
+		let diff = lexicographic_diff(left.into_iter(), right.into_iter()).collect::<Vec<_>>();
+		let expected = vec![
+			Diff::Added(1),
+			Diff::Added(2),
+			Diff::Added(3),
+			Diff::Added(4),
+			Diff::Added(5),
+			Diff::Added(6),
+		];
+		assert_eq!(diff, expected);
 	}
 }
