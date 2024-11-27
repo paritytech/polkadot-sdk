@@ -27,6 +27,7 @@
   - [Connect with the Polkadot-JS Apps Front-End](#connect-with-the-polkadot-js-apps-front-end)
   - [Takeaways](#takeaways)
 
+- [Runtime development](#runtime-development)
 - [Contributing](#contributing)
 - [Getting Help](#getting-help)
 
@@ -112,7 +113,6 @@ and finalizing blocks based on manual seal, configured below to seal a block wit
 
 ```bash
 polkadot-omni-node --chain <path/to/chain_spec.json> --dev --dev-block-time 1000
-
 ```
 
 However, such a setup is not close to what would run in production, and for that we need to setup a local
@@ -195,6 +195,15 @@ Development parachains:
 - 🧹 Do not persist the state.
 - 💰 Are preconfigured with a genesis state that includes several prefunded development accounts.
 - 🧑‍⚖️ Development accounts are used as validators, collators, and `sudo` accounts.
+
+## Runtime development
+
+We recommend using [`chopsticks`](https://github.com/AcalaNetwork/chopsticks) when the focus is more on the runtime
+development and `OmniNode` is enough as is.
+
+`OmniNode` can be still used for runtime development if using the `--dev` flag, while `parachain-template-node` doesn't
+support it at this moment (but it can still be used to test a runtime in a full setup where it is started alongside a
+relay chain network, as we do with the `zombienet.toml` file).
 
 ## Contributing
 
