@@ -80,6 +80,17 @@ pub mod v17 {
 				},
 			}
 
+			let old_bonded_eras = v16::BondedEras::<T>::get();
+			// BoundedVec with MaxBondedEras limit, this should always work
+			let bonded_eras_maybe = BoundedVec::try_from(old_bonded_eras);
+			match bonded_eras_maybe {
+				Ok(bonded_eras) => BondedEras::<T>::set(bonded_eras),
+				Err(_) => {
+					log!(warn, "Migration failed for BondedEras from v16 to v17.");
+					migration_errors = true;
+				},
+			}
+
 			let old_invulnerables = v16::Invulnerables::<T>::get();
 			// BoundedVec with MaxWinners limit, this should always work
 			let invulnerables_maybe = BoundedVec::try_from(old_invulnerables);
@@ -160,6 +171,10 @@ pub mod v16 {
 	#[frame_support::storage_alias]
 	pub(crate) type Invulnerables<T: Config> =
 		StorageValue<Pallet<T>, Vec<<T as frame_system::Config>::AccountId>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type BondedEras<T: Config> =
+		StorageValue<Pallet<T>, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
 
 	#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 	pub struct EraRewardPoints<AccountId: Ord> {
