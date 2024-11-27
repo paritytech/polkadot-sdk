@@ -1,4 +1,4 @@
-title: 'authority-discovery: Ignore multi-addresses without IP from DHT records'
+title: Ignore multi-addresses without IP from DHT records
 doc:
 - audience: Node Dev
   description: |-
