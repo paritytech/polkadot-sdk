@@ -14,4 +14,4 @@ crates:
   - name: polkadot-sdk-frame
     bump: minor
   - name: pallet-verify-signature
-    bump: minor 
+    bump: minor
