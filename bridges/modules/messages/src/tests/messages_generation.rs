@@ -111,9 +111,7 @@ where
 		}
 
 		let changeset = trie.commit();
-		let root = changeset.root_hash();
-		changeset.apply_to(&mut mdb);
-		root
+		changeset.apply_to(&mut mdb)
 	};
 
 	// generate storage proof to be delivered to This chain
