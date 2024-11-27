@@ -70,7 +70,8 @@ mod benchmarks {
 				query_id: Default::default(),
 				max_weight: Weight::MAX,
 			},
-			// Worst case is looking through all holdings for every asset explicitly - respecting the limit `MAX_ITEMS_IN_ASSETS`.
+			// Worst case is looking through all holdings for every asset explicitly - respecting
+			// the limit `MAX_ITEMS_IN_ASSETS`.
 			assets: Definite(
 				holding
 					.into_inner()
@@ -217,7 +218,7 @@ mod benchmarks {
 		let xcm = Xcm(vec![instruction]);
 		#[block]
 		{
-			let result = executor.bench_process(xcm)?;
+			let _result = executor.bench_process(xcm)?;
 		}
 		assert_eq!(executor.total_surplus(), &Weight::from_parts(1337, 1337));
 		assert_eq!(executor.total_refunded(), &Weight::from_parts(1337, 1337));
@@ -382,12 +383,12 @@ mod benchmarks {
 		let instruction = Instruction::Trap(10);
 		let xcm = Xcm(vec![instruction]);
 		// In order to access result in the verification below, it needs to be defined here.
-		let mut _result = Ok(());
+		let mut result = Ok(());
 		#[block]
 		{
-			_result = executor.bench_process(xcm);
+			result = executor.bench_process(xcm);
 		}
-		assert!(matches!(_result, Err(ExecutorError { xcm_error: XcmError::Trap(10), .. })));
+		assert!(matches!(result, Err(ExecutorError { xcm_error: XcmError::Trap(10), .. })));
 
 		Ok(())
 	}
