@@ -320,3 +320,70 @@ test("Initiate Teleport XCM v5", async () => {
 	const r = await ahToWnd.signAndSubmit(aliceSigner);
 	expect(r).toBeTruthy();
 })
+
+test("Initiate Teleport with remote fees", async () => {
+	const msg = Enum('V5', [
+		XcmV4Instruction.WithdrawAsset([
+			{
+				id: { parents: 1, interior: XcmV3Junctions.Here() },
+				fun: XcmV3MultiassetFungibility.Fungible(5_000_000_000_000n),
+			},
+
+		]),
+		Enum('PayFees', {
+			asset: {
+				id: {
+					parents: 1,
+					interior: XcmV3Junctions.Here(),
+				},
+				fun: XcmV3MultiassetFungibility.Fungible(2_000_000_000_000n),
+			}
+		}),
+		Enum('InitiateTransfer', {
+			destination: {
+				parents: 1,
+				interior: XcmV3Junctions.Here(),
+			},
+			// optional field. an example of usage:
+			remote_fees: Enum('Teleport', {
+				type: 'Wild',
+				value: {
+					type: 'All',
+					value: undefined,
+				},
+			}),
+			preserve_origin: false,
+			assets: [Enum('Teleport', {
+				type: 'Wild',
+				value: {
+					type: 'All',
+					value: undefined,
+				},
+			})],
+			remote_xcm: [
+				XcmV4Instruction.DepositAsset({
+					assets: XcmV3MultiassetMultiAssetFilter.Definite([{
+						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
+						id: { parents: 0, interior: XcmV3Junctions.Here() },
+					}]),
+					beneficiary: {
+						parents: 0,
+						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
+							network: undefined,
+							id: Binary.fromBytes(hdkdKeyPairBob.publicKey),
+						})),
+					},
+				}),
+			],
+		}),
+	]);
+	const weight = await AHApi.apis.XcmPaymentApi.query_xcm_weight(msg);
+
+	const ahToWnd = AHApi.tx.PolkadotXcm.execute({
+			message: msg,
+			max_weight: { ref_time: weight.value.ref_time, proof_size: weight.value.proof_size },
+		},
+	);
+	const r = await ahToWnd.signAndSubmit(aliceSigner);
+	expect(r).toBeTruthy();
+})
