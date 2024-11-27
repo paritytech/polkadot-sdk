@@ -451,6 +451,7 @@ where
 	}
 }
 
+/// The result of the `lexicographic_diff` method.
 #[derive(Debug, PartialEq)]
 enum Diff<T> {
 	Added(T),
@@ -458,27 +459,7 @@ enum Diff<T> {
 	Equal(T),
 }
 
-// impl<T: Ord> PartialEq for Diff<T> {
-// 	fn eq(&self, other: &Self) -> bool {
-// 		match (self, other) {
-// 			(Diff::Added(a), Diff::Added(b)) => a == b,
-// 			(Diff::Deleted(a), Diff::Deleted(b)) => a == b,
-// 			(Diff::Equal(a), Diff::Equal(b)) => a == b,
-// 			_ => false,
-// 		}
-// 	}
-// }
-
-// impl<T: std::fmt::Debug> std::fmt::Debug for Diff<T> {
-// 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-// 		match self {
-// 			Diff::Added(value) => write!(f, "Added({:?})", value),
-// 			Diff::Deleted(value) => write!(f, "Deleted({:?})", value),
-// 			Diff::Equal(value) => write!(f, "Equal({:?})", value),
-// 		}
-// 	}
-// }
-
+/// Compare two iterators lexicographically and return the differences.
 fn lexicographic_diff<'a, T, LeftIter, RightIter>(
 	mut left: LeftIter,
 	mut right: RightIter,
