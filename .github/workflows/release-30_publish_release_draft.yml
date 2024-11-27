@@ -257,17 +257,24 @@ jobs:
           VERSION="${{ needs.validate-inputs.outputs.release_tag }}"
           fetch_release_artifacts_from_s3 ${{ matrix.binary }} ${{ matrix.target }}
 
+      - name: Rename aarch64-apple-darwin binaries
+        if: ${{ matrix.target == 'aarch64-apple-darwin' }}
+        working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
+        run: |
+          mv ${{ matrix.binary }} ${{ matrix.binary }}-aarch64-apple-darwin
+          mv  ${{ matrix.binary }}.asc ${{ matrix.binary }}-aarch64-apple-darwin.asc
+          mv  ${{ matrix.binary }}.sha256 ${{ matrix.binary }}-aarch64-apple-darwin.sha256
+
+
       - name: Upload ${{ matrix.binary }} binary to release draft
         # uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 #v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
         run: |
-          ls -las
-          for file in ${{ matrix.binary }} ${{ matrix.binary }}.asc ${{ matrix.binary }}.sha256; do
-            echo "Uploading $file to GH"
-            gh release upload ${{ needs.validate-inputs.outputs.release_tag }} $file
-          done
+          echo "Uploading $file to GH"
+          gh release upload ${{ needs.validate-inputs.outputs.release_tag }} ${{ matrix.binary }}* ${{ matrix.binary }}*.asc ${{ matrix.binary }}*.sha256
+
 
         # with:
         #   upload_url: ${{ needs.publish-release-draft.outputs.asset_upload_url }}
