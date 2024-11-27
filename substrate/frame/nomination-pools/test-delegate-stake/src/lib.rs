@@ -25,8 +25,8 @@ use frame_support::{
 };
 use mock::*;
 use pallet_nomination_pools::{
-	BondExtra, BondedPools, Error as PoolsError,
-	Event as PoolsEvent, LastPoolId, PoolMember, PoolMembers, PoolState,
+	BondExtra, BondedPools, Error as PoolsError, Event as PoolsEvent, LastPoolId, PoolMember,
+	PoolMembers, PoolState,
 };
 use pallet_staking::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
