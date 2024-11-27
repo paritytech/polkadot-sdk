@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 hex-literal = { workspace = true, default-features = true }
+hex = { workspace = true, default-features = true }
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { workspace = true }
