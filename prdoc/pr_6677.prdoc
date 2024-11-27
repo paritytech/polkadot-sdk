@@ -6,44 +6,6 @@ doc:
 
     While at it, have stopped the oncall pain of alerts around `incoming_connections_total`. We can rethink the metric expose of litep2p in Q1.
 
-
-
-
-
-    ## [0.8.2] - 2024-11-27
-
-    This release ensures that the provided peer identity is verified at the crypto/noise protocol level, enhancing security and preventing potential misuses.
-    The release also includes a fix that caused `TransportService` component to panic on debug builds.
-
-    ### Fixed
-
-    - req-resp: Fix panic on connection closed for substream open failure  ([#291](https://github.com/paritytech/litep2p/pull/291))
-    - crypto/noise: Verify crypto/noise signature payload  ([#278](https://github.com/paritytech/litep2p/pull/278))
-
-    ### Changed
-
-    - transport_service/logs: Provide less details for trace logs  ([#292](https://github.com/paritytech/litep2p/pull/292))
-
-
-    ## Testing Done
-
-    This has been extensively tested in Kusama on all validators, that are now running litep2p.
-
-    Deployed PR: https://github.com/paritytech/polkadot-sdk/pull/6638
-
-    ### Litep2p Dashboards
-    ![Screenshot 2024-11-26 at 19 19 41](https://github.com/user-attachments/assets/e00b2b2b-7e64-4d96-ab26-165e2b8d0dc9)
-
-
-    ### Libp2p vs Litep2p CPU usage
-
-    After deploying litep2p we have reduced CPU usage from around 300-400% to 200%, this is a significant boost in performance, freeing resources for other subcomponents to function more optimally.
-
-    ![image(1)](https://github.com/user-attachments/assets/fa793df5-4d58-4601-963d-246e56dd2a26)
-
-
-
-    cc @paritytech/sdk-node
 crates:
 - name: sc-network
   bump: patch
