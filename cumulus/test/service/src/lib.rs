@@ -367,7 +367,7 @@ where
 		prometheus_registry.clone(),
 	);
 
-	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
 			net_config,
@@ -497,20 +497,10 @@ where
 					authoring_duration: Duration::from_millis(2000),
 					reinitialize: false,
 					slot_drift: Duration::from_secs(1),
+					spawner: task_manager.spawn_handle(),
 				};
 
-				let (collation_future, block_builder_future) =
-					slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
-				task_manager.spawn_essential_handle().spawn(
-					"collation-task",
-					None,
-					collation_future,
-				);
-				task_manager.spawn_essential_handle().spawn(
-					"block-builder-task",
-					None,
-					block_builder_future,
-				);
+				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
 				let params = AuraParams {
@@ -541,8 +531,6 @@ where
 			}
 		}
 	}
-
-	start_network.start_network();
 
 	Ok((task_manager, client, network, rpc_handlers, transaction_pool, backend))
 }

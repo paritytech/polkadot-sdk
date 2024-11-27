@@ -34,7 +34,7 @@ jobs:
     strategy:
       matrix:
         # Tuples of [package, binary-name]
-        binary: [ [frame-omni-bencher, frame-omni-bencher], [staging-chain-spec-builder, chain-spec-builder], [polkadot-omni-node, polkadot-omni-node] ]
+        binary: [ [frame-omni-bencher, frame-omni-bencher], [staging-chain-spec-builder, chain-spec-builder] ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.0.0
@@ -71,7 +71,7 @@ jobs:
 
       - name: Prepare tooling
         run: |
-          URL=https://github.com/chevdor/tera-cli/releases/download/v0.2.4/tera-cli_linux_amd64.deb
+          URL=https://github.com/chevdor/tera-cli/releases/download/v0.4.0/tera-cli_linux_amd64.deb
           wget $URL -O tera.deb
           sudo dpkg -i tera.deb
 
@@ -161,7 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        binary: [frame-omni-bencher, chain-spec-builder, polkadot-omni-node]
+        binary: [frame-omni-bencher, chain-spec-builder]
 
     steps:
       - name: Download artifacts

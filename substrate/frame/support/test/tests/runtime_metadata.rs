@@ -178,7 +178,7 @@ fn runtime_metadata() {
 				RuntimeApiMethodMetadataIR {
 					name: "wild_card",
 					inputs: vec![RuntimeApiMethodParamMetadataIR::<MetaForm> {
-						name: "_",
+						name: "__runtime_api_generated_name_0__",
 						ty: meta_type::<u32>(),
 					}],
 					output: meta_type::<()>(),
