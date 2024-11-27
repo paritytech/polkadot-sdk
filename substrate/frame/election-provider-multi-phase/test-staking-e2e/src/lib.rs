@@ -22,7 +22,6 @@ pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";
 
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mock::*;
-use pallet_staking::asset::stakeable_balance;
 use pallet_timestamp::Now;
 use sp_core::Get;
 use sp_runtime::Perbill;
