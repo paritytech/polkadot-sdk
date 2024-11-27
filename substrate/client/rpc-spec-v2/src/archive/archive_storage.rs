@@ -315,53 +315,17 @@ where
 		// Iterator over the current block and previous block
 		// at the same time to compare the keys. This approach effectively
 		// leverages backpressure to avoid memory consumption.
-		let mut keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
-		let mut previous_keys_iter =
+		let keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
+		let previous_keys_iter =
 			self.client.raw_keys_iter(previous_hash, maybe_child_trie.clone())?;
 
-		let mut lhs = keys_iter.next();
-		let mut rhs = previous_keys_iter.next();
+		let mut diff_iter = lexicographic_diff(keys_iter, previous_keys_iter);
 
-		loop {
-			// Check if the key was added or deleted or modified based on the
-			// lexicographical order of the keys.
-			let (operation_type, key) = match (&lhs, &rhs) {
-				(Some(lhs_key), Some(rhs_key)) =>
-					if lhs_key < rhs_key {
-						let key = lhs_key.clone();
-
-						lhs = keys_iter.next();
-
-						(ArchiveStorageDiffOperationType::Added, key)
-					} else if lhs_key > rhs_key {
-						let key = rhs_key.clone();
-
-						rhs = previous_keys_iter.next();
-
-						(ArchiveStorageDiffOperationType::Deleted, key)
-					} else {
-						let key = lhs_key.clone();
-
-						lhs = keys_iter.next();
-						rhs = previous_keys_iter.next();
-
-						(ArchiveStorageDiffOperationType::Modified, key)
-					},
-				(Some(lhs_key), None) => {
-					let key = lhs_key.clone();
-
-					lhs = keys_iter.next();
-
-					(ArchiveStorageDiffOperationType::Added, key)
-				},
-				(None, Some(rhs_key)) => {
-					let key = rhs_key.clone();
-
-					rhs = previous_keys_iter.next();
-
-					(ArchiveStorageDiffOperationType::Deleted, key)
-				},
-				(None, None) => break,
+		while let Some(item) = diff_iter.next() {
+			let (operation_type, key) = match item {
+				Diff::Added(key) => (ArchiveStorageDiffOperationType::Added, key),
+				Diff::Deleted(key) => (ArchiveStorageDiffOperationType::Deleted, key),
+				Diff::Equal(key) => (ArchiveStorageDiffOperationType::Modified, key),
 			};
 
 			let Some(fetch_type) = Self::belongs_to_query(&key, &items) else {
@@ -485,6 +449,54 @@ where
 
 		Ok(())
 	}
+}
+
+enum Diff<T> {
+	Added(T),
+	Deleted(T),
+	Equal(T),
+}
+
+fn lexicographic_diff<'a, T, LeftIter, RightIter>(
+	mut left: LeftIter,
+	mut right: RightIter,
+) -> impl Iterator<Item = Diff<T>>
+where
+	T: Ord,
+	LeftIter: Iterator<Item = T>,
+	RightIter: Iterator<Item = T>,
+{
+	let mut a = left.next();
+	let mut b = right.next();
+
+	core::iter::from_fn(move || match (a.take(), b.take()) {
+		(Some(a_value), Some(b_value)) =>
+			if a_value < b_value {
+				b = Some(b_value);
+				a = left.next();
+
+				Some(Diff::Added(a_value))
+			} else if a_value > b_value {
+				a = Some(a_value);
+				b = right.next();
+
+				Some(Diff::Deleted(b_value))
+			} else {
+				a = left.next();
+				b = right.next();
+
+				Some(Diff::Equal(a_value))
+			},
+		(Some(a_value), None) => {
+			a = left.next();
+			Some(Diff::Added(a_value))
+		},
+		(None, Some(b_value)) => {
+			b = right.next();
+			Some(Diff::Deleted(b_value))
+		},
+		(None, None) => None,
+	})
 }
 
 /// Deduplicate the provided items and return a list of `DiffDetails`.
