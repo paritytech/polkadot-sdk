@@ -272,9 +272,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
         run: |
-          echo "Uploading $file to GH"
-          gh release upload ${{ needs.validate-inputs.outputs.release_tag }} ${{ matrix.binary }}* ${{ matrix.binary }}*.asc ${{ matrix.binary }}*.sha256
-
+          if [[ ${{ matrix.target }} == "aarch64-apple-darwin" ]]; then
+            gh release upload ${{ needs.validate-inputs.outputs.release_tag }} ${{ matrix.binary }}-aarch64-apple-darwin ${{ matrix.binary }}-aarch64-apple-darwin.asc ${{ matrix.binary }}-aarch64-apple-darwin.sha256
+          else
+            gh release upload ${{ needs.validate-inputs.outputs.release_tag }} ${{ matrix.binary }} ${{ matrix.binary }}.asc ${{ matrix.binary }}.sha256
+          fi
 
         # with:
         #   upload_url: ${{ needs.publish-release-draft.outputs.asset_upload_url }}
