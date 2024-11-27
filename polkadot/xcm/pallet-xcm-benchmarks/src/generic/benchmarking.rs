@@ -383,7 +383,7 @@ mod benchmarks {
 		let instruction = Instruction::Trap(10);
 		let xcm = Xcm(vec![instruction]);
 		// In order to access result in the verification below, it needs to be defined here.
-		let mut result = Ok(());
+		let result;
 		#[block]
 		{
 			result = executor.bench_process(xcm);
