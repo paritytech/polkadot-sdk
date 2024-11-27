@@ -201,9 +201,34 @@ Development parachains:
 We recommend using [`chopsticks`](https://github.com/AcalaNetwork/chopsticks) when the focus is more on the runtime
 development and `OmniNode` is enough as is.
 
+### Install chopsticks
+
+To use `chopsticks`, please install the latest version according to the installation [guide](https://github.com/AcalaNetwork/chopsticks?tab=readme-ov-file#install).
+
+### Build a raw chain spec
+
+Build the `parachain-template-runtime` as mentioned before in this guide and use `chain-spec-builder`
+again but this time by passing `--raw-storage` flag:
+
+```sh
+chain-spec-builder create --raw-storage --relay-chain "rococo-local" --para-id 1000 --runtime \
+    target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
+```
+
+### Start `chopsticks` with the chain spec
+
+We'll also need to set `--allow-unresolved-imports=true` because the `parachain-template-runtime` is not built
+with the benchmarking feature, and some of the host functions required for it are missing.
+
+```sh
+npx @acala-network/chopsticks@latest --chain-spec <path/to/chain_spec.json> --allow-unresolved-imports=true
+```
+
+### Alternatives
+
 `OmniNode` can be still used for runtime development if using the `--dev` flag, while `parachain-template-node` doesn't
-support it at this moment (but it can still be used to test a runtime in a full setup where it is started alongside a
-relay chain network, as we do with the `zombienet.toml` file).
+support it at this moment. It can still be used to test a runtime in a full setup where it is started alongside a
+relay chain network (see [Parachain Template node](#parachain-template-node) setup).
 
 ## Contributing
 
