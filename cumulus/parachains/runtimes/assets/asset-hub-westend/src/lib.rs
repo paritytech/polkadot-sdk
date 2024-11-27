@@ -337,7 +337,6 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	xcm::v5::Location,
 	AccountId,
 >;
-
 /// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
@@ -1121,6 +1120,7 @@ pub type Migrations = (
 	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

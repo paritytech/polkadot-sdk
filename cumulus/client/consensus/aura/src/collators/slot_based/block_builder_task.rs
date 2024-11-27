@@ -25,7 +25,7 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_primitives::{
 	vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
-	BlockId, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+	BlockId, CoreIndex, Hash as RelayHash, Header as RelayHeader, Block as RelayBlock, Id as ParaId,
 	OccupiedCoreAssumption,
 };
 
@@ -300,8 +300,15 @@ where
 			// on-chain data.
 			collator.collator_service().check_block_status(parent_hash, &parent_header);
 
+			let Ok(relay_slot) = sc_consensus_babe::find_pre_digest::<RelayBlock>(relay_parent_header)
+				.map(|babe_pre_digest| babe_pre_digest.slot()) else {
+				tracing::error!(target: crate::LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
+				continue;
+			};
+
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
 				para_slot.slot,
+				relay_slot,
 				para_slot.timestamp,
 				parent_hash,
 				included_block,

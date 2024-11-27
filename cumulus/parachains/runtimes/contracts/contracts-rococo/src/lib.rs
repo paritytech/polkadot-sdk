@@ -116,6 +116,7 @@ pub type Migrations = (
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>
 );
 
 type EventRecord = frame_system::EventRecord<

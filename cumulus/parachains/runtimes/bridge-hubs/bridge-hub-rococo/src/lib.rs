@@ -182,6 +182,7 @@ pub type Migrations = (
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>
 );
 
 parameter_types! {

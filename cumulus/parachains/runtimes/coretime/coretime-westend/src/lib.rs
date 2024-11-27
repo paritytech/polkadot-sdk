@@ -127,6 +127,7 @@ pub type Migrations = (
 	pallet_broker::migration::MigrateV3ToV4<Runtime, BrokerMigrationV4BlockConversion>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>
 );
 
 /// Executive: handles dispatch to the various modules.
