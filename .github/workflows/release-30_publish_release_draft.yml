@@ -154,7 +154,7 @@ jobs:
         id: create-release
         uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1.1.4
         env:
-          GHITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
           # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ env.REL_TAG }}
@@ -199,7 +199,7 @@ jobs:
         working-directory: ${{ env.ASSET }}
         env:
           # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
           gh release upload ${{ needs.validate-inputs.outputs.release_tag }} ${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm
         # with:
@@ -235,7 +235,7 @@ jobs:
         working-directory: ${{ github.workspace}}/${{ matrix.binary }}
         env:
           # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
             gh release upload ${{ needs.validate-inputs.outputs.release_tag }} ${{ matrix.binary }}
 
@@ -280,7 +280,7 @@ jobs:
       - name: Upload ${{ matrix.binary }} binary to release draft
         env:
           # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
         run: |
           if [[ ${{ matrix.target }} == "aarch64-apple-darwin" ]]; then
