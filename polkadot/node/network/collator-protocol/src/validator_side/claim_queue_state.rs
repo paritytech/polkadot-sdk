@@ -22,7 +22,7 @@ use std::collections::VecDeque;
 use crate::LOG_TARGET;
 use polkadot_primitives::{Hash, Id as ParaId};
 
-/// Represents a single claim from the claim queue, mapped to a relay block.
+/// Represents a single claim from the claim queue, mapped to the relay chain block where it could be backed on-chain.
 /// - `hash` is `Option` since the claim might be for a future block.
 /// - `claim` represents the `ParaId` scheduled for the block. Can be `None` if nothing is scheduled
 ///   at this block.
