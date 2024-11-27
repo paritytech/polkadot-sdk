@@ -162,7 +162,7 @@ jobs:
           body_path: ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
           draft: true
           owner: paritytech
-          repo: paritytech/polkadot-sdk
+          repo: polkadot-sdk
 
   publish-runtimes:
     needs: [ validate-inputs, build-runtimes, publish-release-draft ]
