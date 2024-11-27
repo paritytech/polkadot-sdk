@@ -109,7 +109,7 @@ pub struct StorageResultErr {
 #[serde(tag = "event")]
 pub enum ArchiveStorageEvent {
 	/// Query generated a result.
-	StorageResult(StorageResult),
+	Storage(StorageResult),
 	/// Query encountered an error.
 	StorageErr(ArchiveStorageMethodErr),
 	/// Operation storage is done.
@@ -124,7 +124,7 @@ impl ArchiveStorageEvent {
 
 	/// Create a new `ArchiveStorageEvent::StorageResult` event.
 	pub fn result(result: StorageResult) -> Self {
-		Self::StorageResult(result)
+		Self::Storage(result)
 	}
 
 	/// Checks if the event is a `StorageDone` event.
@@ -139,7 +139,7 @@ impl ArchiveStorageEvent {
 
 	/// Checks if the event is a `StorageResult` event.
 	pub fn is_result(&self) -> bool {
-		matches!(self, Self::StorageResult(_))
+		matches!(self, Self::Storage(_))
 	}
 }
 

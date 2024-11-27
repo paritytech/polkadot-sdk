@@ -399,7 +399,7 @@ async fn archive_storage_hashes_values() {
 
 	assert_eq!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageResult(StorageResult {
+		ArchiveStorageEvent::Storage(StorageResult {
 			key: key.clone(),
 			result: StorageResultType::Hash(expected_hash.clone()),
 		}),
@@ -407,7 +407,7 @@ async fn archive_storage_hashes_values() {
 
 	assert_eq!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageResult(StorageResult {
+		ArchiveStorageEvent::Storage(StorageResult {
 			key: key.clone(),
 			result: StorageResultType::Value(expected_value.clone()),
 		}),
@@ -415,7 +415,7 @@ async fn archive_storage_hashes_values() {
 
 	assert_eq!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageResult(StorageResult {
+		ArchiveStorageEvent::Storage(StorageResult {
 			key: key.clone(),
 			result: StorageResultType::Hash(expected_hash),
 		}),
@@ -423,7 +423,7 @@ async fn archive_storage_hashes_values() {
 
 	assert_eq!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageResult(StorageResult {
+		ArchiveStorageEvent::Storage(StorageResult {
 			key: key.clone(),
 			result: StorageResultType::Value(expected_value),
 		}),
@@ -501,7 +501,7 @@ async fn archive_storage_closest_merkle_value() {
 		loop {
 			let event = get_next_event::<ArchiveStorageEvent>(&mut sub).await;
 			match event {
-				ArchiveStorageEvent::StorageResult(result) => {
+				ArchiveStorageEvent::Storage(result) => {
 					let str_result = match result.result {
 						StorageResultType::ClosestDescendantMerkleValue(value) => value,
 						_ => panic!("Unexpected result type"),
@@ -647,7 +647,7 @@ async fn archive_storage_iterations() {
 
 	assert_eq!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageResult(StorageResult {
+		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":m"),
 			result: StorageResultType::Value(hex_string(b"a")),
 		})
@@ -655,7 +655,7 @@ async fn archive_storage_iterations() {
 
 	assert_eq!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageResult(StorageResult {
+		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":mo"),
 			result: StorageResultType::Value(hex_string(b"ab")),
 		})
@@ -663,7 +663,7 @@ async fn archive_storage_iterations() {
 
 	assert_eq!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageResult(StorageResult {
+		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":moD"),
 			result: StorageResultType::Value(hex_string(b"abcmoD")),
 		})
@@ -671,7 +671,7 @@ async fn archive_storage_iterations() {
 
 	assert_eq!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageResult(StorageResult {
+		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":moc"),
 			result: StorageResultType::Value(hex_string(b"abc")),
 		})
@@ -679,7 +679,7 @@ async fn archive_storage_iterations() {
 
 	assert_eq!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageResult(StorageResult {
+		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":mock"),
 			result: StorageResultType::Value(hex_string(b"abcd")),
 		})
