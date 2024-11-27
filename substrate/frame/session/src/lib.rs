@@ -127,8 +127,8 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get, OneSessionHandler,
-		ValidatorRegistration, ValidatorSet,
+		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
+		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
 	weights::Weight,
 	Parameter,
@@ -732,6 +732,23 @@ impl<T: Config> Pallet<T> {
 			}
 
 			false
+		})
+	}
+
+	/// Re-enable the validator of index `i`, returns `false` if the validator was already enabled.
+	pub fn enable_index(i: u32) -> bool {
+		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
+			return false
+		}
+
+		// If the validator is not disabled, return false.
+		DisabledValidators::<T>::mutate(|disabled| {
+			if let Ok(index) = disabled.binary_search(&i) {
+				disabled.remove(index);
+				true
+			} else {
+				false
+			}
 		})
 	}
 
