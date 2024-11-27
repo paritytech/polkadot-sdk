@@ -115,7 +115,7 @@ pub trait ArchiveApi<Hash> {
 	///
 	/// # Unstable
 	///
-	/// This method is unstable and subject to change in the future.
+	/// This method is unstable and can change in minor or patch releases.
 	#[subscription(
 		name = "archive_unstable_storageDiff" => "archive_unstable_storageDiffEvent",
 		unsubscribe = "archive_unstable_storageDiff_stopStorageDiff",

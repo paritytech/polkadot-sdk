@@ -20,9 +20,7 @@
 
 use crate::{
 	archive::{
-		archive_storage::{deduplicate_storage_diff_items, ArchiveStorageDiff},
-		error::Error as ArchiveError,
-		ArchiveApiServer,
+		archive_storage::ArchiveStorageDiff, error::Error as ArchiveError, ArchiveApiServer,
 	},
 	common::{
 		events::{
@@ -282,20 +280,6 @@ where
 		let fut = async move {
 			let Ok(mut sink) = pending.accept().await.map(Subscription::from) else { return };
 
-			// Deduplicate the items.
-			let mut trie_items = match deduplicate_storage_diff_items(items) {
-				Ok(items) => items,
-				Err(error) => {
-					let _ = sink.send(&ArchiveStorageDiffEvent::err(error.to_string())).await;
-					return
-				},
-			};
-			// Default to using the main storage trie if no items are provided.
-			if trie_items.is_empty() {
-				trie_items.push(Vec::new());
-			}
-			log::trace!(target: LOG_TARGET, "Storage diff deduplicated items: {:?}", trie_items);
-
 			let previous_hash = if let Some(previous_hash) = previous_hash {
 				previous_hash
 			} else {
@@ -309,7 +293,7 @@ where
 
 			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
 			let storage_fut =
-				storage_client.handle_trie_queries(hash, previous_hash, trie_items, tx.clone());
+				storage_client.handle_trie_queries(hash, items, previous_hash, tx.clone());
 
 			// We don't care about the return value of this join:
 			// - process_events might encounter an error (if the client disconnected)

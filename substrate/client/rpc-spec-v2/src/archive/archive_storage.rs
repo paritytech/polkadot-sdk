@@ -120,13 +120,13 @@ where
 			},
 
 			FetchStorageType::Both => {
-				let value = self.client.query_value(hash, &key, maybe_child_trie.as_ref())?;
-				let Some(value) = value else {
+				let Some(value) = self.client.query_value(hash, &key, maybe_child_trie.as_ref())?
+				else {
 					return Ok(None);
 				};
 
-				let hash = self.client.query_hash(hash, &key, maybe_child_trie.as_ref())?;
-				let Some(hash) = hash else {
+				let Some(hash) = self.client.query_hash(hash, &key, maybe_child_trie.as_ref())?
+				else {
 					return Ok(None);
 				};
 
@@ -214,53 +214,17 @@ where
 		// Iterator over the current block and previous block
 		// at the same time to compare the keys. This approach effectively
 		// leverages backpressure to avoid memory consumption.
-		let mut keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
-		let mut previous_keys_iter =
+		let keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
+		let previous_keys_iter =
 			self.client.raw_keys_iter(previous_hash, maybe_child_trie.clone())?;
 
-		let mut lhs = keys_iter.next();
-		let mut rhs = previous_keys_iter.next();
+		let mut diff_iter = lexicographic_diff(keys_iter, previous_keys_iter);
 
-		loop {
-			// Check if the key was added or deleted or modified based on the
-			// lexicographical order of the keys.
-			let (operation_type, key) = match (&lhs, &rhs) {
-				(Some(lhs_key), Some(rhs_key)) =>
-					if lhs_key < rhs_key {
-						let key = lhs_key.clone();
-
-						lhs = keys_iter.next();
-
-						(ArchiveStorageDiffOperationType::Added, key)
-					} else if lhs_key > rhs_key {
-						let key = rhs_key.clone();
-
-						rhs = previous_keys_iter.next();
-
-						(ArchiveStorageDiffOperationType::Deleted, key)
-					} else {
-						let key = lhs_key.clone();
-
-						lhs = keys_iter.next();
-						rhs = previous_keys_iter.next();
-
-						(ArchiveStorageDiffOperationType::Modified, key)
-					},
-				(Some(lhs_key), None) => {
-					let key = lhs_key.clone();
-
-					lhs = keys_iter.next();
-
-					(ArchiveStorageDiffOperationType::Added, key)
-				},
-				(None, Some(rhs_key)) => {
-					let key = rhs_key.clone();
-
-					rhs = previous_keys_iter.next();
-
-					(ArchiveStorageDiffOperationType::Deleted, key)
-				},
-				(None, None) => break,
+		while let Some(item) = diff_iter.next() {
+			let (operation_type, key) = match item {
+				Diff::Added(key) => (ArchiveStorageDiffOperationType::Added, key),
+				Diff::Deleted(key) => (ArchiveStorageDiffOperationType::Deleted, key),
+				Diff::Equal(key) => (ArchiveStorageDiffOperationType::Modified, key),
 			};
 
 			let Some(fetch_type) = Self::belongs_to_query(&key, &items) else {
@@ -322,24 +286,34 @@ where
 		Ok(())
 	}
 
-	/// The items provided to this method are obtained by calling `deduplicate_storage_diff_items`.
-	/// The deduplication method ensures that all items `Vec<DiffDetails>` correspond to the same
-	/// `child_trie_key`.
-	///
 	/// This method will iterate over the keys of the main trie or a child trie and fetch the
 	/// given keys. The fetched keys will be sent to the provided `tx` sender to leverage
 	/// the backpressure mechanism.
 	pub async fn handle_trie_queries(
 		&self,
 		hash: Block::Hash,
+		items: Vec<ArchiveStorageDiffItem<String>>,
 		previous_hash: Block::Hash,
-		trie_queries: Vec<Vec<DiffDetails>>,
 		tx: mpsc::Sender<ArchiveStorageDiffEvent>,
 	) -> Result<(), tokio::task::JoinError> {
 		let this = ArchiveStorageDiff { client: self.client.clone() };
 
 		tokio::task::spawn_blocking(move || {
-			for items in trie_queries {
+			// Deduplicate the items.
+			let mut trie_items = match deduplicate_storage_diff_items(items) {
+				Ok(items) => items,
+				Err(error) => {
+					let _ = tx.blocking_send(ArchiveStorageDiffEvent::err(error.to_string()));
+					return
+				},
+			};
+			// Default to using the main storage trie if no items are provided.
+			if trie_items.is_empty() {
+				trie_items.push(Vec::new());
+			}
+			log::trace!(target: LOG_TARGET, "Storage diff deduplicated items: {:?}", trie_items);
+
+			for items in trie_items {
 				log::trace!(
 					target: LOG_TARGET,
 					"handle_trie_queries: hash={:?}, previous_hash={:?}, items={:?}",
@@ -376,10 +350,61 @@ where
 	}
 }
 
+/// The result of the `lexicographic_diff` method.
+#[derive(Debug, PartialEq)]
+enum Diff<T> {
+	Added(T),
+	Deleted(T),
+	Equal(T),
+}
+
+/// Compare two iterators lexicographically and return the differences.
+fn lexicographic_diff<T, LeftIter, RightIter>(
+	mut left: LeftIter,
+	mut right: RightIter,
+) -> impl Iterator<Item = Diff<T>>
+where
+	T: Ord,
+	LeftIter: Iterator<Item = T>,
+	RightIter: Iterator<Item = T>,
+{
+	let mut a = left.next();
+	let mut b = right.next();
+
+	core::iter::from_fn(move || match (a.take(), b.take()) {
+		(Some(a_value), Some(b_value)) =>
+			if a_value < b_value {
+				b = Some(b_value);
+				a = left.next();
+
+				Some(Diff::Added(a_value))
+			} else if a_value > b_value {
+				a = Some(a_value);
+				b = right.next();
+
+				Some(Diff::Deleted(b_value))
+			} else {
+				a = left.next();
+				b = right.next();
+
+				Some(Diff::Equal(a_value))
+			},
+		(Some(a_value), None) => {
+			a = left.next();
+			Some(Diff::Added(a_value))
+		},
+		(None, Some(b_value)) => {
+			b = right.next();
+			Some(Diff::Deleted(b_value))
+		},
+		(None, None) => None,
+	})
+}
+
 /// Deduplicate the provided items and return a list of `DiffDetails`.
 ///
 /// Each list corresponds to a single child trie or the main trie.
-pub fn deduplicate_storage_diff_items(
+fn deduplicate_storage_diff_items(
 	items: Vec<ArchiveStorageDiffItem<String>>,
 ) -> Result<Vec<Vec<DiffDetails>>, ArchiveError> {
 	let mut deduplicated: HashMap<Option<ChildInfo>, Vec<DiffDetails>> = HashMap::new();
@@ -772,5 +797,53 @@ mod tests {
 		];
 
 		assert_eq!(result, expected);
+	}
+
+	#[test]
+	fn test_lexicographic_diff() {
+		let left = vec![1, 2, 3, 4, 5];
+		let right = vec![2, 3, 4, 5, 6];
+
+		let diff = lexicographic_diff(left.into_iter(), right.into_iter()).collect::<Vec<_>>();
+		let expected = vec![
+			Diff::Added(1),
+			Diff::Equal(2),
+			Diff::Equal(3),
+			Diff::Equal(4),
+			Diff::Equal(5),
+			Diff::Deleted(6),
+		];
+		assert_eq!(diff, expected);
+	}
+
+	#[test]
+	fn test_lexicographic_diff_one_side_empty() {
+		let left = vec![];
+		let right = vec![1, 2, 3, 4, 5, 6];
+
+		let diff = lexicographic_diff(left.into_iter(), right.into_iter()).collect::<Vec<_>>();
+		let expected = vec![
+			Diff::Deleted(1),
+			Diff::Deleted(2),
+			Diff::Deleted(3),
+			Diff::Deleted(4),
+			Diff::Deleted(5),
+			Diff::Deleted(6),
+		];
+		assert_eq!(diff, expected);
+
+		let left = vec![1, 2, 3, 4, 5, 6];
+		let right = vec![];
+
+		let diff = lexicographic_diff(left.into_iter(), right.into_iter()).collect::<Vec<_>>();
+		let expected = vec![
+			Diff::Added(1),
+			Diff::Added(2),
+			Diff::Added(3),
+			Diff::Added(4),
+			Diff::Added(5),
+			Diff::Added(6),
+		];
+		assert_eq!(diff, expected);
 	}
 }

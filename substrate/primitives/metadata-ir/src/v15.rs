@@ -100,7 +100,7 @@ impl From<TransactionExtensionMetadataIR> for SignedExtensionMetadata {
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
 		ExtrinsicMetadata {
-			version: ir.version,
+			version: *ir.versions.iter().min().expect("Metadata V15 supports only one version"),
 			address_ty: ir.address_ty,
 			call_ty: ir.call_ty,
 			signature_ty: ir.signature_ty,
