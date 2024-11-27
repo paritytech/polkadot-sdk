@@ -210,7 +210,7 @@ fn invariants() {
 		);
 
 		assert_err!(
-			Configuration::set_max_pov_size(RuntimeOrigin::root(), MAX_POV_SIZE + 1),
+			Configuration::set_max_pov_size(RuntimeOrigin::root(), POV_SIZE_HARD_LIMIT + 1),
 			Error::<Test>::InvalidNewValue
 		);
 
