@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: update scale-info to 2.11.6
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Updates scale-info to 2.11.6 from 2.11.5. 
+      Updated version of scale-info annotates generated code with `allow(deprecated)`
+
+crates: [ ]
