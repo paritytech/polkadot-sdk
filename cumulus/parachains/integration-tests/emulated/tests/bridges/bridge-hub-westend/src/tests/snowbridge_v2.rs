@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::imports::*;
-use bridge_hub_westend_runtime::{EthereumInboundQueueV2, RuntimeOrigin};
+use bridge_hub_westend_runtime::EthereumInboundQueueV2;
 use frame_support::weights::WeightToFee;
 use snowbridge_router_primitives::inbound::v2::{Asset::NativeTokenERC20, Message};
 use sp_core::H160;
@@ -96,12 +96,7 @@ fn xcm_prologue_fee() {
 			claimer: Some(claimer_bytes),
 		};
 		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(
-			RuntimeOrigin::signed(relayer.clone()),
-			xcm,
-			AssetHubWestend::para_id().into(),
-		)
-		.unwrap();
+		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
 
 		assert_expected_events!(
 			BridgeHubWestend,

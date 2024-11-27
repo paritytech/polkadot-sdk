@@ -21,7 +21,7 @@ use crate::{
 	RuntimeEvent, TransactionByteFee,
 };
 #[cfg(not(feature = "runtime-benchmarks"))]
-use crate::{PolkadotXcm, XcmRouter};
+use crate::XcmRouter;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
@@ -111,7 +111,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type XcmSender = PolkadotXcm;
+	type XcmSender = XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
 	type GatewayAddress = EthereumGatewayAddress;

@@ -16,14 +16,13 @@ use snowbridge_core::{
 	TokenId,
 };
 use snowbridge_router_primitives::inbound::v2::MessageToXcm;
-use sp_core::{H160, H256};
+use sp_core::H160;
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
-	BuildStorage, DispatchError, MultiSignature,
+	BuildStorage, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
-use xcm::prelude::*;
-use xcm_builder::SendControllerWeightInfo;
+use xcm::{latest::SendXcm, prelude::*};
 use xcm_executor::{traits::TransactAsset, AssetsInHolding};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -111,25 +110,28 @@ impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
 	fn initialize_storage(_: BeaconHeader, _: H256) {}
 }
 
-pub struct MockXcmSenderWeights;
-
-impl SendControllerWeightInfo for MockXcmSenderWeights {
-	fn send() -> Weight {
-		return Weight::default();
-	}
-}
-
 // Mock XCM sender that always succeeds
 pub struct MockXcmSender;
+impl SendXcm for MockXcmSender {
+	type Ticket = Xcm<()>;
 
-impl SendController<mock::RuntimeOrigin> for MockXcmSender {
-	type WeightInfo = MockXcmSenderWeights;
-	fn send(
-		_origin: mock::RuntimeOrigin,
-		_dest: Box<VersionedLocation>,
-		_message: Box<VersionedXcm<()>>,
-	) -> Result<XcmHash, DispatchError> {
-		Ok(H256::random().into())
+	fn validate(
+		dest: &mut Option<Location>,
+		xcm: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		if let Some(location) = dest {
+			match location.unpack() {
+				(_, [Parachain(1001)]) => return Err(XcmpSendError::NotApplicable),
+				_ => Ok((xcm.clone().unwrap(), Assets::default())),
+			}
+		} else {
+			Ok((xcm.clone().unwrap(), Assets::default()))
+		}
+	}
+
+	fn deliver(xcm: Self::Ticket) -> core::result::Result<XcmHash, XcmpSendError> {
+		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		Ok(hash)
 	}
 }
 
