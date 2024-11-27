@@ -10217,8 +10217,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b67484b8ac41e1cfdf012f65fa81e88c2ef5f8a7d6dec0e2678c2d06dc04530"
+source = "git+https://github.com/paritytech/litep2p.git?branch=lexnv/investigate-mismatch#eed0f755d591eb49e1b715a78aceb5a653ddf529"
 dependencies = [
  "async-trait",
  "bs58",
@@ -22016,7 +22015,6 @@ dependencies = [
  "async-trait",
  "futures",
  "futures-timer",
- "ip_network",
  "linked_hash_set",
  "log",
  "multihash 0.19.1",
@@ -23121,6 +23119,7 @@ dependencies = [
  "bs58",
  "bytes",
  "ed25519-dalek",
+ "ip_network",
  "libp2p-identity",
  "libp2p-kad",
  "litep2p",
