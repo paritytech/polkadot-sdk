@@ -213,7 +213,7 @@ impl ClaimQueueState {
 	pub(crate) fn unclaimed_at(&mut self, relay_parent: &Hash) -> Vec<ParaId> {
 		let window = self.get_window(relay_parent);
 
-		window.filter(|b| !b.claimed).filter_map(|b| b.claim.clone()).collect()
+		window.filter(|b| !b.claimed).filter_map(|b| b.claim).collect()
 	}
 }
 
