@@ -224,8 +224,8 @@ pub mod prelude {
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, IsMember, OpaqueKeys, SaturatedConversion,
-		Saturating, StaticLookup, TrailingZeroInput, ValidateUnsigned
+		BlockNumberProvider, Bounded, DispatchInfoOf, Dispatchable, IsMember, OpaqueKeys,
+		SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput, ValidateUnsigned,
 	};
 
 	/// Runtime types
