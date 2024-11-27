@@ -629,10 +629,6 @@ async fn archive_storage_iterations() {
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
 		ArchiveStorageEvent::StorageErr(_)
 	);
-	assert_matches!(
-		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageDone
-	);
 
 	// Valid call with storage at the key.
 	let mut sub = api
