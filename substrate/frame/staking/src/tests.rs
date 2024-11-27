@@ -4411,7 +4411,7 @@ fn test_page_count_and_size() {
 		assert_eq!(EraInfo::<Test>::get_paged_exposure(2, &11, 3).unwrap().others().len(), 4);
 
 		// now lets decrease page size even more
-		MaxExposurePageSize::set(5);
+		MaxExposurePageSize::set(20);
 		mock::start_active_era(3);
 
 		// now we expect the max 20 pages (100/5).
