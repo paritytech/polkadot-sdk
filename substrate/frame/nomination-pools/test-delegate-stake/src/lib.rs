@@ -939,6 +939,7 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 }
 
 #[test]
+#[ignore = "TransferStake is incompatible with core staking using fungibles"]
 fn pool_migration_e2e() {
 	new_test_ext().execute_with(|| {
 		LegacyAdapter::set(true);
@@ -1217,6 +1218,7 @@ fn pool_migration_e2e() {
 }
 
 #[test]
+#[ignore = "TransferStake is incompatible with core staking using fungibles"]
 fn disable_pool_operations_on_non_migrated() {
 	new_test_ext().execute_with(|| {
 		LegacyAdapter::set(true);
