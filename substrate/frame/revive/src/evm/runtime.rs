@@ -92,8 +92,12 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicLike
 impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 	for UncheckedExtrinsic<Address, Signature, E>
 {
-	const VERSION: u8 =
-		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extension>::VERSION;
+	const VERSIONS: &'static [u8] = generic::UncheckedExtrinsic::<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::Extension,
+	>::VERSIONS;
 	type TransactionExtensions = E::Extension;
 }
 
