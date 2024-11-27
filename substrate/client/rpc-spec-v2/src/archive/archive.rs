@@ -323,19 +323,31 @@ async fn process_events(rx: &mut mpsc::Receiver<ArchiveStorageDiffEvent>, sink: 
 
 /// Sends all the events to the sink.
 async fn process_storage_events(rx: &mut mpsc::Receiver<QueryResult>, sink: &mut Subscription) {
-	while let Some(event) = rx.recv().await {
-		match event {
-			Ok(None) => continue,
+	loop {
+		tokio::select! {
+			_ = sink.closed() => {
+				break
+			}
 
-			Ok(Some(event)) =>
-				if sink.send(&ArchiveStorageEvent::result(event)).await.is_err() {
-					return
-				},
+			maybe_storage = rx.recv() => {
+				let Some(event) = maybe_storage else {
+					break;
+				};
 
-			Err(error) =>
-				if sink.send(&ArchiveStorageEvent::err(error)).await.is_err() {
-					return
-				},
+				match event {
+					Ok(None) => continue,
+
+					Ok(Some(event)) =>
+						if sink.send(&ArchiveStorageEvent::result(event)).await.is_err() {
+							return
+						},
+
+					Err(error) => {
+						let _ = sink.send(&ArchiveStorageEvent::err(error)).await;
+						return
+					}
+				}
+			}
 		}
 	}
 
