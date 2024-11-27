@@ -78,6 +78,10 @@ pub struct StorageResult {
 	/// The result of the query.
 	#[serde(flatten)]
 	pub result: StorageResultType,
+	/// The child trie key if provided.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default)]
+	pub child_trie_key: Option<String>,
 }
 
 /// The type of the storage query.

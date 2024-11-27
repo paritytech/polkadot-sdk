@@ -94,6 +94,7 @@ where
 				QueryResult::Ok(opt.map(|storage_data| StorageResult {
 					key: hex_string(&key.0),
 					result: StorageResultType::Value(hex_string(&storage_data.0)),
+					child_trie_key: child_key.map(|c| hex_string(&c.storage_key())),
 				}))
 			})
 			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
@@ -117,6 +118,7 @@ where
 				QueryResult::Ok(opt.map(|storage_data| StorageResult {
 					key: hex_string(&key.0),
 					result: StorageResultType::Hash(hex_string(&storage_data.as_ref())),
+					child_trie_key: child_key.map(|c| hex_string(&c.storage_key())),
 				}))
 			})
 			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
@@ -146,6 +148,7 @@ where
 					StorageResult {
 						key: hex_string(&key.0),
 						result: StorageResultType::ClosestDescendantMerkleValue(result),
+						child_trie_key: child_key.map(|c| hex_string(&c.storage_key())),
 					}
 				}))
 			})
