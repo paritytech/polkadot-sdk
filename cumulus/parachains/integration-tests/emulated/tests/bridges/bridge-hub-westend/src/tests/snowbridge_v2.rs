@@ -117,26 +117,16 @@ fn xcm_prologue_fee() {
 #[test]
 fn register_token_xcm() {
 	BridgeHubWestend::execute_with(|| {
-		let weth_contract = H160::zero(); // weth contract placeholder
-		let token: H160 = H160::zero(); // token id placeholder
-		let owner: H256 = H256::zero(); // bridge placeholder
-		let dot_to_eth_rate: u128 = 2_500_000_000_000_000;
+		//let token: H160 = H160::zero(); // token id placeholder
+		let token: H160 = H160::random(); // token id placeholder
+		//let owner: H256 = H256::zero(); // bridge owner placeholder
+		let owner: H256 = H256::random(); // bridge owner placeholder
+		println!("token: {:x?}", token);
+		println!("owner: {:x?}", owner);
 
 		let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
-		let weth_asset = Location::new(
-			2,
-			[
-				GlobalConsensus(ethereum_network_v5),
-				AccountKey20 { network: None, key: weth_contract.into() },
-			],
-		);
 		let dot_asset = Location::new(1, Here);
-
-		let weth_asset_creation: u128 = (CreateAssetDeposit::get() * dot_to_eth_rate) / 10_u128.pow(18);
-		let weth_fee: xcm::prelude::Asset = (weth_asset, weth_asset_creation).into();
 		let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
-
-		println!("weth_asset_creation: {:?}", weth_asset_creation);
 
 		let asset_id = Location::new(
 			2,
@@ -145,7 +135,6 @@ fn register_token_xcm() {
 
 		let register_token_xcm =
 			vec![
-				ExchangeAsset { give: weth_fee.into(), want: dot_fee.clone().into(), maximal: false },
 				PayFees { asset: dot_fee },
 				Transact {
 					origin_kind: OriginKind::Xcm,
