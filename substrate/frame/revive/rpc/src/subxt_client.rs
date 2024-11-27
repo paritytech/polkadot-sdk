@@ -27,8 +27,16 @@ use subxt::config::{signed_extensions, Config, PolkadotConfig};
 		with = "::subxt::utils::Static<::sp_core::U256>"
 	),
 	substitute_type(
-		path = "pallet_revive::primitives::EthContractResult<A, B>",
-		with = "::subxt::utils::Static<::pallet_revive::EthContractResult<A, B>>"
+		path = "pallet_revive::evm::api::rpc_types_gen::GenericTransaction",
+		with = "::subxt::utils::Static<::pallet_revive::evm::GenericTransaction>"
+	),
+	substitute_type(
+		path = "pallet_revive::primitives::EthTransactInfo<B>",
+		with = "::subxt::utils::Static<::pallet_revive::EthTransactInfo<B>>"
+	),
+	substitute_type(
+		path = "pallet_revive::primitives::EthTransactError",
+		with = "::subxt::utils::Static<::pallet_revive::EthTransactError>"
 	),
 	substitute_type(
 		path = "pallet_revive::primitives::ExecReturnValue",

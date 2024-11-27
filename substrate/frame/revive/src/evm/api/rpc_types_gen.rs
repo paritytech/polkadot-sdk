@@ -94,8 +94,8 @@ pub struct Block {
 	/// Uncles
 	pub uncles: Vec<H256>,
 	/// Withdrawals
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub withdrawals: Option<Vec<Withdrawal>>,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub withdrawals: Vec<Withdrawal>,
 	/// Withdrawals root
 	#[serde(rename = "withdrawalsRoot", skip_serializing_if = "Option::is_none")]
 	pub withdrawals_root: Option<H256>,
@@ -114,7 +114,7 @@ pub enum BlockNumberOrTag {
 }
 impl Default for BlockNumberOrTag {
 	fn default() -> Self {
-		BlockNumberOrTag::U256(Default::default())
+		BlockNumberOrTag::BlockTag(Default::default())
 	}
 }
 
@@ -133,7 +133,7 @@ pub enum BlockNumberOrTagOrHash {
 }
 impl Default for BlockNumberOrTagOrHash {
 	fn default() -> Self {
-		BlockNumberOrTagOrHash::U256(Default::default())
+		BlockNumberOrTagOrHash::BlockTag(Default::default())
 	}
 }
 
@@ -148,12 +148,12 @@ pub struct GenericTransaction {
 	pub access_list: Option<AccessList>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
-	#[serde(rename = "blobVersionedHashes", skip_serializing_if = "Option::is_none")]
-	pub blob_versioned_hashes: Option<Vec<H256>>,
+	#[serde(rename = "blobVersionedHashes", default, skip_serializing_if = "Vec::is_empty")]
+	pub blob_versioned_hashes: Vec<H256>,
 	/// blobs
 	/// Raw blob data.
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub blobs: Option<Vec<Bytes>>,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub blobs: Vec<Bytes>,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
 	#[serde(rename = "chainId", skip_serializing_if = "Option::is_none")]
@@ -319,7 +319,7 @@ pub enum TransactionUnsigned {
 }
 impl Default for TransactionUnsigned {
 	fn default() -> Self {
-		TransactionUnsigned::Transaction4844Unsigned(Default::default())
+		TransactionUnsigned::TransactionLegacyUnsigned(Default::default())
 	}
 }
 
@@ -341,13 +341,13 @@ pub type AccessList = Vec<AccessListEntry>;
 )]
 pub enum BlockTag {
 	#[serde(rename = "earliest")]
-	#[default]
 	Earliest,
 	#[serde(rename = "finalized")]
 	Finalized,
 	#[serde(rename = "safe")]
 	Safe,
 	#[serde(rename = "latest")]
+	#[default]
 	Latest,
 	#[serde(rename = "pending")]
 	Pending,
@@ -392,7 +392,7 @@ pub struct Log {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub removed: Option<bool>,
 	/// topics
-	#[serde(skip_serializing_if = "Vec::is_empty")]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub topics: Vec<H256>,
 	/// transaction hash
 	#[serde(rename = "transactionHash")]
@@ -574,7 +574,7 @@ pub enum TransactionSigned {
 }
 impl Default for TransactionSigned {
 	fn default() -> Self {
-		TransactionSigned::Transaction4844Signed(Default::default())
+		TransactionSigned::TransactionLegacySigned(Default::default())
 	}
 }
 

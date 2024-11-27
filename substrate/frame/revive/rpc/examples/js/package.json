@@ -6,16 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview",
-	"generate-types": "typechain --target=ethers-v6 'abi/*.json'"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@typechain/ethers-v6": "^0.5.1",
     "ethers": "^6.13.4",
+    "prettier": "^3.3.3",
     "solc": "^0.8.28",
-    "typechain": "^8.3.2"
+    "viem": "^2.21.47"
   },
   "devDependencies": {
+    "@types/bun": "^1.1.13",
     "typescript": "^5.5.3",
     "vite": "^5.4.8"
   }
