@@ -159,7 +159,7 @@ Then make the changes in the network specification like so:
 # ...
 chain = "dev"
 chain_spec_path = "<TO BE UPDATED WITH A VALID PATH>"
-default_args = ["--dev-block-time 3000"]
+default_args = ["--dev"]
 # ..
 ```
 

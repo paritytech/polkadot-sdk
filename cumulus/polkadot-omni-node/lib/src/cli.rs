@@ -128,9 +128,9 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// This is a dev option, and it won't result in starting or connecting to a parachain network.
 	/// The resulting node will work on its own, running the wasm blob and artificially producing
-	/// a block each `dev_block_time` ms, as if it was part of a parachain. Default to 3000ms if
-	/// not set when using `--dev` flag.
-	#[arg(long, requires = "dev")]
+	/// a block each `dev_block_time` ms, as if it was part of a parachain. Defaults to 3000ms if
+	/// not set and `--dev` is used.
+	#[arg(long)]
 	pub dev_block_time: Option<u64>,
 
 	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.

@@ -241,6 +241,12 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 						.map_err(Into::into);
 				}
 
+				if let Some(dev_block_time) = cli.dev_block_time {
+					return node_spec
+						.start_manual_seal_node(config, para_id, dev_block_time)
+						.map_err(Into::into);
+				}
+
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the
 				// asset-hub chain spec, then rename the base path to the new chain ID. In the case
 				// that both file paths exist, the node will exit, as the user must decide (by
