@@ -362,10 +362,10 @@ test("Initiate Teleport with remote fees", async () => {
 			})],
 			remote_xcm: [
 				XcmV4Instruction.DepositAsset({
-					assets: XcmV3MultiassetMultiAssetFilter.Definite([{
-						fun: XcmV3MultiassetFungibility.Fungible(1_000_000_000_000n),
-						id: { parents: 0, interior: XcmV3Junctions.Here() },
-					}]),
+					assets: XcmV3MultiassetMultiAssetFilter.Wild({
+						type: 'All',
+						value: undefined,
+					}),
 					beneficiary: {
 						parents: 0,
 						interior: XcmV3Junctions.X1(XcmV3Junction.AccountId32({
