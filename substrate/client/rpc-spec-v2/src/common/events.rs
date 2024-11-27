@@ -376,8 +376,11 @@ mod tests {
 	#[test]
 	fn storage_result() {
 		// Item with Value.
-		let item =
-			StorageResult { key: "0x1".into(), result: StorageResultType::Value("res".into()) };
+		let item = StorageResult {
+			key: "0x1".into(),
+			result: StorageResultType::Value("res".into()),
+			child_trie_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","value":"res"}"#;
@@ -387,8 +390,11 @@ mod tests {
 		assert_eq!(dec, item);
 
 		// Item with Hash.
-		let item =
-			StorageResult { key: "0x1".into(), result: StorageResultType::Hash("res".into()) };
+		let item = StorageResult {
+			key: "0x1".into(),
+			result: StorageResultType::Hash("res".into()),
+			child_trie_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","hash":"res"}"#;
@@ -401,6 +407,7 @@ mod tests {
 		let item = StorageResult {
 			key: "0x1".into(),
 			result: StorageResultType::ClosestDescendantMerkleValue("res".into()),
+			child_trie_key: None,
 		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();

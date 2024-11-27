@@ -536,6 +536,7 @@ mod tests {
 				items: vec![StorageResult {
 					key: "0x1".into(),
 					result: StorageResultType::Value("0x123".to_string()),
+					child_trie_key: None,
 				}],
 			});
 

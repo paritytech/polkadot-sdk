@@ -440,6 +440,53 @@ async fn archive_storage_hashes_values() {
 }
 
 #[tokio::test]
+async fn archive_storage_hashes_values_child_trie() {
+	let (client, api) = setup_api();
+
+	// Get child storage values set in `setup_api`.
+	let child_info = hex_string(&CHILD_STORAGE_KEY);
+	let key = hex_string(&KEY);
+	let genesis_hash = format!("{:?}", client.genesis_hash());
+	let expected_hash = format!("{:?}", Blake2Hasher::hash(&CHILD_VALUE));
+	let expected_value = hex_string(&CHILD_VALUE);
+
+	let items: Vec<StorageQuery<String>> = vec![
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues },
+	];
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_unstable_storage",
+			rpc_params![&genesis_hash, items, &child_info],
+		)
+		.await
+		.unwrap();
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: key.clone(),
+			result: StorageResultType::Hash(expected_hash.clone()),
+			child_trie_key: Some(child_info.clone()),
+		})
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: key.clone(),
+			result: StorageResultType::Value(expected_value.clone()),
+			child_trie_key: Some(child_info.clone()),
+		})
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageDone,
+	);
+}
+
+#[tokio::test]
 async fn archive_storage_closest_merkle_value() {
 	let (client, api) = setup_api();
 
