@@ -245,9 +245,10 @@ pub trait StakeStrategy {
 /// strategy in an existing runtime, storage migration is required. See
 /// [`migration::unversioned::DelegationStakeMigration`]. For new runtimes, it is highly recommended
 /// to use the [`DelegateStake`] strategy.
-#[deprecated = "use DelegateStake instead"]
+#[deprecated = "consider migrating to DelegateStake"]
 pub struct TransferStake<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
 
+#[allow(deprecated)]
 impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
 	StakeStrategy for TransferStake<T, Staking>
 {
