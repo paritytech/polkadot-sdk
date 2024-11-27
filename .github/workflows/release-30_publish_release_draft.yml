@@ -238,6 +238,7 @@ jobs:
 
   publish-polkadot-artifacts:
     # needs: [ publish-release-draft ]
+    needs: [ validate-inputs ]
     continue-on-error: true
     runs-on: ubuntu-latest
     strategy:
@@ -262,6 +263,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
         run: |
+          ls -las
           for file in ${{ matrix.binary }} ${{ matrix.binary }}.asc ${{ matrix.binary }}.sha256; do
             echo "Uploading $file to GH"
             gh release upload ${{ needs.validate-inputs.outputs.release_tag }} $file
