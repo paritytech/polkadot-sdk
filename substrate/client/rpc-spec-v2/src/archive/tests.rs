@@ -402,6 +402,7 @@ async fn archive_storage_hashes_values() {
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: key.clone(),
 			result: StorageResultType::Hash(expected_hash.clone()),
+			child_trie_key: None,
 		}),
 	);
 
@@ -410,6 +411,7 @@ async fn archive_storage_hashes_values() {
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: key.clone(),
 			result: StorageResultType::Value(expected_value.clone()),
+			child_trie_key: None,
 		}),
 	);
 
@@ -418,6 +420,7 @@ async fn archive_storage_hashes_values() {
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: key.clone(),
 			result: StorageResultType::Hash(expected_hash),
+			child_trie_key: None,
 		}),
 	);
 
@@ -426,6 +429,7 @@ async fn archive_storage_hashes_values() {
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: key.clone(),
 			result: StorageResultType::Value(expected_value),
+			child_trie_key: None,
 		}),
 	);
 
@@ -650,6 +654,7 @@ async fn archive_storage_iterations() {
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":m"),
 			result: StorageResultType::Value(hex_string(b"a")),
+			child_trie_key: None,
 		})
 	);
 
@@ -658,6 +663,7 @@ async fn archive_storage_iterations() {
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":mo"),
 			result: StorageResultType::Value(hex_string(b"ab")),
+			child_trie_key: None,
 		})
 	);
 
@@ -666,6 +672,7 @@ async fn archive_storage_iterations() {
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":moD"),
 			result: StorageResultType::Value(hex_string(b"abcmoD")),
+			child_trie_key: None,
 		})
 	);
 
@@ -674,6 +681,7 @@ async fn archive_storage_iterations() {
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":moc"),
 			result: StorageResultType::Value(hex_string(b"abc")),
+			child_trie_key: None,
 		})
 	);
 
@@ -682,6 +690,7 @@ async fn archive_storage_iterations() {
 		ArchiveStorageEvent::Storage(StorageResult {
 			key: hex_string(b":mock"),
 			result: StorageResultType::Value(hex_string(b"abcd")),
+			child_trie_key: None,
 		})
 	);
 
