@@ -26,10 +26,6 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use pallet_nomination_pools::{
-	adapter::{Member, Pool, StakeStrategyType},
-	BondType,
-};
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
@@ -139,120 +135,10 @@ impl Convert<sp_core::U256, Balance> for U256ToBalance {
 parameter_types! {
 	pub const PostUnbondingPoolsWindow: u32 = 10;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
-	pub static LegacyAdapter: bool = false;
 }
 
-pub struct MockAdapter;
 type DelegateStake =
 	pallet_nomination_pools::adapter::DelegateStake<Runtime, Staking, DelegatedStaking>;
-type TransferStake = pallet_nomination_pools::adapter::TransferStake<Runtime, Staking>;
-impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
-	type Balance = Balance;
-	type AccountId = AccountId;
-	type CoreStaking = Staking;
-
-	fn strategy_type() -> StakeStrategyType {
-		if LegacyAdapter::get() {
-			return TransferStake::strategy_type()
-		}
-		DelegateStake::strategy_type()
-	}
-	fn transferable_balance(
-		pool_account: Pool<Self::AccountId>,
-		member_account: Member<Self::AccountId>,
-	) -> Self::Balance {
-		if LegacyAdapter::get() {
-			return TransferStake::transferable_balance(pool_account, member_account)
-		}
-		DelegateStake::transferable_balance(pool_account, member_account)
-	}
-
-	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<Self::Balance> {
-		if LegacyAdapter::get() {
-			return TransferStake::total_balance(pool_account)
-		}
-		DelegateStake::total_balance(pool_account)
-	}
-
-	fn member_delegation_balance(member_account: Member<Self::AccountId>) -> Option<Self::Balance> {
-		if LegacyAdapter::get() {
-			return TransferStake::member_delegation_balance(member_account)
-		}
-		DelegateStake::member_delegation_balance(member_account)
-	}
-
-	fn pledge_bond(
-		who: Member<Self::AccountId>,
-		pool_account: Pool<Self::AccountId>,
-		reward_account: &Self::AccountId,
-		amount: Self::Balance,
-		bond_type: BondType,
-	) -> DispatchResult {
-		if LegacyAdapter::get() {
-			return TransferStake::pledge_bond(who, pool_account, reward_account, amount, bond_type)
-		}
-		DelegateStake::pledge_bond(who, pool_account, reward_account, amount, bond_type)
-	}
-
-	fn member_withdraw(
-		who: Member<Self::AccountId>,
-		pool_account: Pool<Self::AccountId>,
-		amount: Self::Balance,
-		num_slashing_spans: u32,
-	) -> DispatchResult {
-		if LegacyAdapter::get() {
-			return TransferStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
-		}
-		DelegateStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
-	}
-
-	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
-		if LegacyAdapter::get() {
-			return TransferStake::dissolve(pool_account)
-		}
-		DelegateStake::dissolve(pool_account)
-	}
-
-	fn pending_slash(pool_account: Pool<Self::AccountId>) -> Self::Balance {
-		if LegacyAdapter::get() {
-			return TransferStake::pending_slash(pool_account)
-		}
-		DelegateStake::pending_slash(pool_account)
-	}
-
-	fn member_slash(
-		who: Member<Self::AccountId>,
-		pool_account: Pool<Self::AccountId>,
-		amount: Self::Balance,
-		maybe_reporter: Option<Self::AccountId>,
-	) -> DispatchResult {
-		if LegacyAdapter::get() {
-			return TransferStake::member_slash(who, pool_account, amount, maybe_reporter)
-		}
-		DelegateStake::member_slash(who, pool_account, amount, maybe_reporter)
-	}
-
-	fn migrate_nominator_to_agent(
-		agent: Pool<Self::AccountId>,
-		reward_account: &Self::AccountId,
-	) -> DispatchResult {
-		if LegacyAdapter::get() {
-			return TransferStake::migrate_nominator_to_agent(agent, reward_account)
-		}
-		DelegateStake::migrate_nominator_to_agent(agent, reward_account)
-	}
-
-	fn migrate_delegation(
-		agent: Pool<Self::AccountId>,
-		delegator: Member<Self::AccountId>,
-		value: Self::Balance,
-	) -> DispatchResult {
-		if LegacyAdapter::get() {
-			return TransferStake::migrate_delegation(agent, delegator, value)
-		}
-		DelegateStake::migrate_delegation(agent, delegator, value)
-	}
-}
 impl pallet_nomination_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -261,7 +147,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type StakeAdapter = MockAdapter;
+	type StakeAdapter = DelegateStake;
 	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = ConstU32<8>;
