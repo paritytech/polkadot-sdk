@@ -192,6 +192,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type BondingDuration: Get<EraIndex>;
 
+		/// Maximum number of eras that staked funds could remain bonded for.
+		///
+		/// Ideally, it should be `BondingDuration::get() + 1` to include all eras in the interval
+		/// [current_era - BondingDuration::get(), current_era].
+		#[pallet::constant]
+		type MaxBondedEras: Get<u32>;
+
 		/// Number of eras that slashes are deferred by, after computation.
 		///
 		/// This should be less than the bonding duration. Set to 0 if slashes
@@ -320,6 +327,7 @@ pub mod pallet {
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
 			pub const BondingDuration: EraIndex = 3;
+			pub const MaxBondedEras: u32 = (BondingDuration::get() as u32) + 1;
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -335,6 +343,7 @@ pub mod pallet {
 			type Reward = ();
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
+			type MaxBondedEras = MaxBondedEras;
 			type SlashDeferDuration = ();
 			type SessionInterface = ();
 			type NextNewSession = ();
@@ -609,11 +618,10 @@ pub mod pallet {
 	/// A mapping from still-bonded eras to the first session index of that era.
 	///
 	/// Must contains information for eras for the range:
-	/// `[active_era - bounding_duration; active_era]`
+	/// `[active_era - bonding_duration; active_era]`
 	#[pallet::storage]
-	#[pallet::unbounded]
 	pub(crate) type BondedEras<T: Config> =
-		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+		StorageValue<_, BoundedVec<(EraIndex, SessionIndex), T::MaxBondedEras>, ValueQuery>;
 
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.

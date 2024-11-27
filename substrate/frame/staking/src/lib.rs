@@ -386,17 +386,15 @@ pub struct ActiveEraInfo {
 ///
 /// This points will be used to reward validators and their respective nominators.
 #[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(MaxActiveValidators))]
-pub struct EraRewardPoints<AccountId: Ord, MaxActiveValidators: Get<u32>> {
+#[scale_info(skip_type_params(MaxWinners))]
+pub struct EraRewardPoints<AccountId: Ord, MaxWinners: Get<u32>> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
 	/// The reward points earned by a given validator.
-	pub individual: BoundedBTreeMap<AccountId, RewardPoint, MaxActiveValidators>,
+	pub individual: BoundedBTreeMap<AccountId, RewardPoint, MaxWinners>,
 }
 
-impl<AccountId: Ord, MaxActiveValidators: Get<u32>> Default
-	for EraRewardPoints<AccountId, MaxActiveValidators>
-{
+impl<AccountId: Ord, MaxWinners: Get<u32>> Default for EraRewardPoints<AccountId, MaxWinners> {
 	fn default() -> Self {
 		EraRewardPoints { total: Default::default(), individual: BoundedBTreeMap::new() }
 	}

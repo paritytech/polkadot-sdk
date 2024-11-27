@@ -541,8 +541,6 @@ impl<T: Config> Pallet<T> {
 		let bonding_duration = T::BondingDuration::get();
 
 		BondedEras::<T>::mutate(|bonded| {
-			bonded.push((active_era, start_session));
-
 			if active_era > bonding_duration {
 				let first_kept = active_era.defensive_saturating_sub(bonding_duration);
 
@@ -559,6 +557,9 @@ impl<T: Config> Pallet<T> {
 					T::SessionInterface::prune_historical_up_to(first_session);
 				}
 			}
+
+			debug_assert!((bonded.len() as u32) < T::MaxBondedEras::get());
+			let _ = bonded.try_push((active_era, start_session));
 		});
 
 		Self::apply_unapplied_slashes(active_era);

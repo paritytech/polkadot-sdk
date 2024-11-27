@@ -177,6 +177,7 @@ pallet_staking_reward_curve::build! {
 }
 parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
+	pub const MaxBondedEras: u32 = (BondingDuration::get() as u32) + 1;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 }
 
