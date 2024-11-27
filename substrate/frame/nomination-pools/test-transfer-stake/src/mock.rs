@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![allow(deprecated)]
+
 use frame_election_provider_support::VoteWeight;
 use frame_support::{
 	assert_ok, derive_impl,

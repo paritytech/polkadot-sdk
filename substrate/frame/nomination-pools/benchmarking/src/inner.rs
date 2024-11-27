@@ -981,7 +981,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn apply_slash() {
-		// Note: With older `TransferStake` strategy, slashing is greedy and apply_slash should
+		// Note: With `TransferStake` strategy, slashing is greedy and apply_slash should
 		// always fail.
 
 		// We want to fill member's unbonding pools. So let's bond with big enough amount.
