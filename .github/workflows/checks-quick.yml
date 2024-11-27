@@ -15,7 +15,6 @@ concurrency:
 permissions: {}
 
 jobs:
-
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
 
@@ -28,7 +27,14 @@ jobs:
     steps:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
       - name: Cargo fmt
+        id: required
         run: cargo +nightly fmt --all -- --check
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
   check-dependency-rules:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -172,6 +178,32 @@ jobs:
         env:
           ASSERT_REGEX: "FAIL-CI"
           GIT_DEPTH: 1
+  check-readme:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Set rust version from env file
+        run: |
+          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
+          echo $RUST_VERSION
+          echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@11df97af8e8102fd60b60a77dfbf58d40cd843b8 # v1.10.1
+        with:
+          cache: false
+          toolchain: ${{ env.RUST_VERSION }}
+          components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
+
+      - name: Find README.docify.md files and check generated READMEs
+        run: .github/scripts/check-missing-readme-generation.sh
 
   confirm-required-checks-quick-jobs-passed:
     runs-on: ubuntu-latest
@@ -187,6 +219,7 @@ jobs:
       - check-markdown
       - check-umbrella
       - check-fail-ci
+      - check-readme
     if: always() && !cancelled()
     steps:
       - run: |

@@ -799,20 +799,43 @@ where
 	}
 }
 
-frame_support::construct_runtime!(
-	pub struct Runtime {
-		// Exclude part `Storage` in order not to check its metadata in tests.
-		System: frame_system exclude_parts { Pallet, Storage },
-		Example: pallet,
-		Example2: pallet2 exclude_parts { Call },
-		#[cfg(feature = "frame-feature-testing")]
-		Example3: pallet3,
-		Example4: pallet4 use_parts { Call },
+#[frame_support::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
 
-		#[cfg(feature = "frame-feature-testing-2")]
-		Example5: pallet5,
-	}
-);
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system + Call + Event<T>;
+
+	#[runtime::pallet_index(1)]
+	pub type Example = pallet;
+
+	#[runtime::pallet_index(2)]
+	#[runtime::disable_call]
+	pub type Example2 = pallet2;
+
+	#[cfg(feature = "frame-feature-testing")]
+	#[runtime::pallet_index(3)]
+	pub type Example3 = pallet3;
+
+	#[runtime::pallet_index(4)]
+	pub type Example4 = pallet4;
+
+	#[cfg(feature = "frame-feature-testing-2")]
+	#[runtime::pallet_index(5)]
+	pub type Example5 = pallet5;
+}
 
 // Test that the part `RuntimeCall` is excluded from Example2 and included in Example4.
 fn _ensure_call_is_correctly_excluded_and_included(call: RuntimeCall) {
@@ -1846,6 +1869,16 @@ fn metadata() {
 			constants: vec![],
 			error: None,
 			docs: vec![" Test that the supertrait check works when we pass some parameter to the `frame_system::Config`."],
+		},
+		PalletMetadata {
+			index: 4,
+			name: "Example4",
+			storage: None,
+			calls: Some(meta_type::<pallet4::Call<Runtime>>().into()),
+			event: None,
+			constants: vec![],
+			error: None,
+			docs: vec![],
 		},
 		#[cfg(feature = "frame-feature-testing-2")]
 		PalletMetadata {
