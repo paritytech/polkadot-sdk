@@ -15,10 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	deprecation::remove_deprecation_attribute,
-	pallet::{parse::helper::MutItemAttrs, Def},
-};
+use crate::pallet::Def;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse_quote, Item};
@@ -51,9 +48,6 @@ Consequently, a runtime that wants to include this pallet must implement this tr
 		),
 	);
 	config_item.attrs.retain(|attr| !attr.path().is_ident("deprecated"));
-	for item in config_item.items.iter_mut() {
-		item.mut_item_attrs().map(remove_deprecation_attribute);
-	}
 
 	// we only emit `DefaultConfig` if there are trait items, so an empty `DefaultConfig` is
 	// impossible consequently.

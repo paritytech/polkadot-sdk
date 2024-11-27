@@ -828,6 +828,7 @@ macro_rules! assert_error_encoded_size {
 		assert_message = [{ $assert_message:literal }]
 		error = [{ $error:ident }]
 	} => {
+		#[allow(deprecated)]
 		const _: () = assert!(
 			<
 				$($path::)+$error<$runtime> as $crate::traits::PalletError

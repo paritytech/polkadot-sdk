@@ -17,7 +17,6 @@
 
 use crate::{
 	counter_prefix,
-	deprecation::remove_deprecation_attribute,
 	pallet::{
 		parse::{
 			helper::two128_str,
@@ -427,8 +426,16 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			Err(e) => return e.into_compile_error(),
 		};
 
+		// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+		let maybe_allow_attrs = storage
+			.attrs
+			.iter()
+			.filter(|attr| attr.path().is_ident("allow"))
+			.collect::<Vec<_>>();
+
 		entries_builder.push(quote::quote_spanned!(storage.attr_span =>
 			#(#cfg_attrs)*
+			#(#maybe_allow_attrs)*
 			(|entries: &mut #frame_support::__private::Vec<_>| {
 				{
 					<#full_ident as #frame_support::storage::StorageEntryMetadataBuilder>::build_metadata(
@@ -442,15 +449,17 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 			})
 		))
 	}
-	for storage in &mut def.storages.iter_mut() {
-		remove_deprecation_attribute(&mut storage.attrs);
-	}
 
 	let getters = def.storages.iter().map(|storage| {
 		if let Some(getter) = &storage.getter {
 			let completed_where_clause =
 				super::merge_where_clauses(&[&storage.where_clause, &def.config.where_clause]);
-
+			// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+			let maybe_allow_attrs = storage
+				.attrs
+				.iter()
+				.filter(|attr| attr.path().is_ident("allow"))
+				.collect::<Vec<_>>();
 			let ident = &storage.ident;
 			let gen = &def.type_use_generics(storage.attr_span);
 			let type_impl_gen = &def.type_impl_generics(storage.attr_span);
@@ -486,7 +495,9 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter() -> #query {
+								#(#maybe_allow_attrs)*
 								<
 									#full_ident as #frame_support::storage::StorageValue<#value>
 								>::get()
@@ -510,9 +521,11 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter<KArg>(k: KArg) -> #query where
 								KArg: #frame_support::__private::codec::EncodeLike<#key>,
 							{
+								#(#maybe_allow_attrs)*
 								<
 									#full_ident as #frame_support::storage::StorageMap<#key, #value>
 								>::get(k)
@@ -536,11 +549,13 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter<KArg>(k: KArg) -> #query where
 								KArg: #frame_support::__private::codec::EncodeLike<#key>,
 							{
 								// NOTE: we can't use any trait here because CountedStorageMap
 								// doesn't implement any.
+								#(#maybe_allow_attrs)*
 								<#full_ident>::get(k)
 							}
 						}
@@ -562,10 +577,12 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter<KArg1, KArg2>(k1: KArg1, k2: KArg2) -> #query where
 								KArg1: #frame_support::__private::codec::EncodeLike<#key1>,
 								KArg2: #frame_support::__private::codec::EncodeLike<#key2>,
 							{
+								#(#maybe_allow_attrs)*
 								<
 									#full_ident as
 									#frame_support::storage::StorageDoubleMap<#key1, #key2, #value>
@@ -590,6 +607,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter<KArg>(key: KArg) -> #query
 							where
 								KArg: #frame_support::storage::types::EncodeLikeTuple<
@@ -597,6 +615,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 								>
 									+ #frame_support::storage::types::TupleToEncodedIter,
 							{
+								#(#maybe_allow_attrs)*
 								<
 									#full_ident as
 									#frame_support::storage::StorageNMap<#keygen, #value>
@@ -621,6 +640,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 						#(#cfg_attrs)*
 						impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 							#[doc = #getter_doc_line]
+							#(#maybe_allow_attrs)*
 							pub fn #getter<KArg>(key: KArg) -> #query
 							where
 								KArg: #frame_support::storage::types::EncodeLikeTuple<
@@ -630,6 +650,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 							{
 								// NOTE: we can't use any trait here because CountedStorageNMap
 								// doesn't implement any.
+								#(#maybe_allow_attrs)*
 								<#full_ident>::get(key)
 							}
 						}
@@ -829,6 +850,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 				for #name
 				#config_where_clause
 			{
+				#[allow(deprecated)]
 				fn get() -> Result<#value_ty, #error_path> {
 					Err(<#error_path>::#variant_name)
 				}

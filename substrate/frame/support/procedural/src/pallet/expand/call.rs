@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use crate::{
-	deprecation::remove_deprecation_attribute,
 	pallet::{
 		expand::warnings::{weight_constant_warning, weight_witness_warning},
 		parse::{call::CallWeightDef, helper::CallReturnType},
@@ -210,8 +209,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				let return_type =
 					&call.methods.get(i).expect("def should be consistent with item").return_type;
 
-				remove_deprecation_attribute(&mut method.attrs);
-
 				let (ok_type, err_type) = match return_type {
 					CallReturnType::DispatchResult => (
 						quote::quote!(()),
@@ -273,10 +270,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	) {
 		Ok(deprecation) => deprecation,
 		Err(e) => return e.into_compile_error(),
-	};
-
-	if let Some(call) = def.call.as_mut() {
-		remove_deprecation_attribute(&mut call.attrs);
 	};
 
 	quote::quote_spanned!(span =>

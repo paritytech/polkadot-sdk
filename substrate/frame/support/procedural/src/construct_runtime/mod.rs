@@ -762,6 +762,7 @@ pub(crate) fn decl_static_assertions(
 		);
 
 		quote! {
+			#[allow(deprecated)]
 			#scrate::__private::tt_call! {
 				macro = [{ #path::tt_error_token }]
 				your_tt_return = [{ #scrate::__private::tt_return }]
@@ -775,6 +776,7 @@ pub(crate) fn decl_static_assertions(
 	});
 
 	quote! {
+		#[allow(deprecated)]
 		#(#error_encoded_size_check)*
 	}
 }

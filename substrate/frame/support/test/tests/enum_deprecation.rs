@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(useless_deprecated, deprecated, clippy::deprecated_semver)]
+#![allow(useless_deprecated, clippy::deprecated_semver)]
 
 use std::collections::BTreeMap;
 
@@ -68,6 +68,8 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::error]
+	#[deprecated = "example error"]
+	#[allow(deprecated)]
 	#[derive(PartialEq, Eq)]
 	pub enum Error<T> {
 		/// error doc comment put in metadata

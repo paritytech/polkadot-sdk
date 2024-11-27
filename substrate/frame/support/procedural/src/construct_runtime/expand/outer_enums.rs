@@ -164,6 +164,7 @@ pub fn expand_outer_enum(
 			#scrate::__private::RuntimeDebug,
 		)]
 		#[allow(non_camel_case_types)]
+		#[allow(deprecated)]
 		pub enum #enum_name_ident {
 			#enum_variants
 		}
@@ -235,6 +236,7 @@ fn expand_enum_conversion(
 
 	quote! {
 		#attr
+		#[allow(deprecated)]
 		impl From<#pallet_enum> for #enum_name_ident {
 			fn from(x: #pallet_enum) -> Self {
 				#enum_name_ident
@@ -242,6 +244,7 @@ fn expand_enum_conversion(
 			}
 		}
 		#attr
+		#[allow(deprecated)]
 		impl TryInto<#pallet_enum> for #enum_name_ident {
 			type Error = ();
 

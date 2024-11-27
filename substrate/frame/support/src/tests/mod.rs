@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(deprecated, clippy::deprecated_semver)]
+#![allow(clippy::deprecated_semver)]
 
 use super::*;
 use sp_io::{MultiRemovalResults, TestExternalities};
@@ -115,21 +115,25 @@ pub mod frame_system {
 
 	#[pallet::storage]
 	#[deprecated]
+	#[allow(deprecated)]
 	pub type Data<T> = StorageMap<_, Twox64Concat, u32, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[deprecated(note = "test")]
+	#[allow(deprecated)]
 	pub type OptionLinkedMap<T> = StorageMap<_, Blake2_128Concat, u32, u32, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn generic_data)]
 	#[deprecated(note = "test", since = "test")]
+	#[allow(deprecated)]
 	pub type GenericData<T: Config> =
 		StorageMap<_, Identity, BlockNumberFor<T>, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn generic_data2)]
 	#[deprecated = "test"]
+	#[allow(deprecated)]
 	pub type GenericData2<T: Config> =
 		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, BlockNumberFor<T>, OptionQuery>;
 
@@ -191,6 +195,7 @@ pub mod frame_system {
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		#[allow(deprecated)]
 		fn build(&self) {
 			for (k, v) in &self.data {
 				<Data<T>>::insert(k, v);
@@ -270,6 +275,7 @@ impl<T: Ord> Sorted for Vec<T> {
 #[test]
 fn map_issue_3318() {
 	new_test_ext().execute_with(|| {
+		#[allow(deprecated)]
 		type OptionLinkedMap = self::frame_system::OptionLinkedMap<Runtime>;
 
 		OptionLinkedMap::insert(1, 1);
@@ -282,6 +288,7 @@ fn map_issue_3318() {
 #[test]
 fn map_swap_works() {
 	new_test_ext().execute_with(|| {
+		#[allow(deprecated)]
 		type OptionLinkedMap = self::frame_system::OptionLinkedMap<Runtime>;
 
 		OptionLinkedMap::insert(0, 0);
@@ -313,6 +320,7 @@ fn map_swap_works() {
 #[test]
 fn double_map_swap_works() {
 	new_test_ext().execute_with(|| {
+		#[allow(deprecated)]
 		type DataDM = self::frame_system::DataDM<Runtime>;
 
 		DataDM::insert(0, 1, 1);
@@ -347,6 +355,7 @@ fn double_map_swap_works() {
 #[test]
 fn map_basic_insert_remove_should_work() {
 	new_test_ext().execute_with(|| {
+		#[allow(deprecated)]
 		type Map = self::frame_system::Data<Runtime>;
 
 		// initialized during genesis
@@ -375,6 +384,7 @@ fn map_basic_insert_remove_should_work() {
 #[test]
 fn map_iteration_should_work() {
 	new_test_ext().execute_with(|| {
+		#[allow(deprecated)]
 		type Map = self::frame_system::Data<Runtime>;
 
 		assert_eq!(Map::iter().collect::<Vec<_>>().sorted(), vec![(15, 42)]);

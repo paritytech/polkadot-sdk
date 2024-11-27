@@ -37,10 +37,8 @@ mod type_value;
 mod validate_unsigned;
 mod warnings;
 
-use crate::{deprecation::remove_deprecation_attribute, pallet::Def};
+use crate::pallet::Def;
 use quote::ToTokens;
-
-use super::parse::helper::MutItemAttrs;
 
 /// Merge where clause together, `where` token span is taken from the first not none one.
 pub fn merge_where_clauses(clauses: &[&Option<syn::WhereClause>]) -> Option<syn::WhereClause> {
@@ -125,11 +123,6 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 
 	let item = &mut def.item.content.as_mut().expect("This is checked by parsing").1;
 	item.push(syn::Item::Verbatim(new_items));
-	for i in item {
-		if let Some(attrs) = i.mut_item_attrs() {
-			remove_deprecation_attribute(attrs);
-		}
-	}
 
 	def.item.into_token_stream()
 }

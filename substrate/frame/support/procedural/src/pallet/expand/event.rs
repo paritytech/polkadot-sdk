@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use crate::{
-	deprecation::remove_deprecation_attribute,
 	pallet::{parse::event::PalletEventDepositAttr, Def},
 	COUNTER,
 };
@@ -109,16 +108,19 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 		Err(e) => return e.into_compile_error(),
 	};
 
-	event_item
-		.variants
-		.iter_mut()
-		.for_each(|variant| remove_deprecation_attribute(&mut variant.attrs));
-
 	if get_doc_literals(&event_item.attrs).is_empty() {
 		event_item
 			.attrs
 			.push(syn::parse_quote!(#[doc = "The `Event` enum of this pallet"]));
 	}
+
+	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+	let maybe_allow_attrs = event_item
+		.attrs
+		.iter()
+		.filter(|attr| attr.path().is_ident("allow"))
+		.cloned()
+		.collect::<Vec<_>>();
 
 	// derive some traits because system event require Clone, FullCodec, Eq, PartialEq and Debug
 	event_item.attrs.push(syn::parse_quote!(
@@ -140,8 +142,6 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 		#[scale_info(skip_type_params(#event_use_gen), capture_docs = #capture_docs)]
 	));
 
-	remove_deprecation_attribute(&mut event_item.attrs);
-
 	let deposit_event = if let Some(deposit_event) = &event.deposit_event {
 		let event_use_gen = &event.gen_kind.type_use_gen(event.attr_span);
 		let trait_use_gen = &def.trait_use_generics(event.attr_span);
@@ -153,6 +153,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 		quote::quote_spanned!(*fn_span =>
 			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
+				#(#maybe_allow_attrs)*
 				#fn_vis fn deposit_event(event: Event<#event_use_gen>) {
 					let event = <
 						<T as Config #trait_use_gen>::RuntimeEvent as
@@ -187,10 +188,12 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 		#deposit_event
 
+		#(#maybe_allow_attrs)*
 		impl<#event_impl_gen> From<#event_ident<#event_use_gen>> for () #event_where_clause {
 			fn from(_: #event_ident<#event_use_gen>) {}
 		}
 
+		#(#maybe_allow_attrs)*
 		impl<#event_impl_gen> #event_ident<#event_use_gen> #event_where_clause {
 			#[allow(dead_code)]
 			#[doc(hidden)]
