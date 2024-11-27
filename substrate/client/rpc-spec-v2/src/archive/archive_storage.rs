@@ -460,7 +460,7 @@ enum Diff<T> {
 }
 
 /// Compare two iterators lexicographically and return the differences.
-fn lexicographic_diff<'a, T, LeftIter, RightIter>(
+fn lexicographic_diff<T, LeftIter, RightIter>(
 	mut left: LeftIter,
 	mut right: RightIter,
 ) -> impl Iterator<Item = Diff<T>>
