@@ -131,9 +131,16 @@ pub trait ChannelStatusProvider {
 	fn is_congested(with: &Location) -> bool;
 }
 
-/// Default implementation of `ChannelStatusProvider`, indicating no congestion.
-impl ChannelStatusProvider for () {
-	fn is_congested(_with: &Location) -> bool {
+/// Tuple implementation of `ChannelStatusProvider`, by default indicating no congestion.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl ChannelStatusProvider for Tuple {
+	fn is_congested(with: &Location) -> bool {
+		for_tuples!( #(
+			if Tuple::is_congested(with) {
+				return true;
+			}
+		)* );
+
 		false
 	}
 }
