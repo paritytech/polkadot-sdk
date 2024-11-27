@@ -85,10 +85,12 @@ jobs:
 
   publish-release-draft:
     runs-on: ubuntu-latest
+    environment: release
     needs: [ validate-inputs, get-rust-versions, build-runtimes ]
     outputs:
       release_url: ${{ steps.create-release.outputs.html_url }}
       asset_upload_url: ${{ steps.create-release.outputs.upload_url }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -164,6 +166,7 @@ jobs:
 
   publish-runtimes:
     needs: [ validate-inputs, build-runtimes, publish-release-draft ]
+    environment: release
     continue-on-error: true
     runs-on: ubuntu-latest
     strategy:
@@ -207,6 +210,7 @@ jobs:
 
   publish-binaries:
     needs: [ validate-inputs, publish-release-draft, build-binaries ]
+    environment: release
     continue-on-error: true
     runs-on: ubuntu-latest
     strategy:
@@ -237,6 +241,7 @@ jobs:
 
   publish-polkadot-artifacts:
     needs: [ validate-inputs, publish-release-draft ]
+    environment: release
     # needs: [ validate-inputs ]
     continue-on-error: true
     runs-on: ubuntu-latest
