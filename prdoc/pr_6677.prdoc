@@ -1,0 +1,11 @@
+title: Update litep2p network backend to v0.8.2
+doc:
+  - audience: [ Node Dev, Node Operator ]
+  description: |
+    This release ensures that the provided peer identity is verified at the crypto/noise protocol level, enhancing security and preventing potential misuses.
+    The release also includes a fix that caused `TransportService` component to panic on debug builds.
+
+crates:
+  - name: sc-network
+    bump: patch
+
