@@ -217,11 +217,8 @@ chain-spec-builder create --raw-storage --relay-chain "rococo-local" --para-id 1
 
 ### Start `chopsticks` with the chain spec
 
-We'll also need to set `--allow-unresolved-imports=true` because the `parachain-template-runtime` is not built
-with the benchmarking feature, and some of the host functions required for it are missing.
-
 ```sh
-npx @acala-network/chopsticks@latest --chain-spec <path/to/chain_spec.json> --allow-unresolved-imports=true
+npx @acala-network/chopsticks@latest --chain-spec <path/to/chain_spec.json>
 ```
 
 ### Alternatives
