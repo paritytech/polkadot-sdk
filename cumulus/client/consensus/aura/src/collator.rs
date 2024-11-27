@@ -187,6 +187,14 @@ where
 			Some(p) => p,
 		};
 
+		tracing::error!(
+			target: crate::LOG_TARGET,
+			"STORAGE CHANGES: {}, {}, {}",
+			proposal.storage_changes.main_storage_changes.encoded_size(),
+			proposal.storage_changes.child_storage_changes.encoded_size(),
+			proposal.storage_changes.offchain_storage_changes.len()
+		);
+
 		let sealed_importable = seal::<_, P>(
 			proposal.block,
 			proposal.storage_changes,
