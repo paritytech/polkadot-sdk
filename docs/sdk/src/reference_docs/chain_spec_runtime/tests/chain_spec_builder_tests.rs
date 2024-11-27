@@ -74,18 +74,10 @@ fn get_preset() {
 #[test]
 #[docify::export]
 fn generate_chain_spec() {
-	let output = Command::new(get_chain_spec_builder_path())
-		.arg("-c")
-		.arg("/dev/stdout")
-		.arg("create")
-		.arg("-r")
-		.arg(WASM_FILE_PATH)
-		.arg("named-preset")
-		.arg("preset_2")
-		.output()
-		.expect("Failed to execute command");
-	println!("Expected: {:?}", output.stdout);
-	let mut output: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+	let output = bash!(
+		chain-spec-builder -c /dev/stdout create -r $WASM_FILE_PATH named-preset preset_2
+	);
+	let mut output: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
 	//remove code field for better readability
 	if let Some(code) = output["genesis"]["runtimeGenesis"].as_object_mut().unwrap().get_mut("code")
 	{
