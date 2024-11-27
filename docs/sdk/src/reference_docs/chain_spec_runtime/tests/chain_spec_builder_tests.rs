@@ -3,7 +3,7 @@ use std::{process::Command, str};
 
 fn wasm_file_path() -> &'static str {
 	chain_spec_guide_runtime::runtime::WASM_BINARY_PATH
-		.expect("chain_spec_guide_runtime wasm should exists. qed")
+		.expect("chain_spec_guide_runtime wasm should exist. qed")
 }
 
 const CHAIN_SPEC_BUILDER_PATH: &str = "../../../../../target/release/chain-spec-builder";
