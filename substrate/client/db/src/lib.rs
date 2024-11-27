@@ -2085,11 +2085,11 @@ impl<Block: BlockT> Backend<Block> {
 			));
 
 			if !matches!(self.blocks_pruning, BlocksPruning::KeepAll) {
-				self.prune_displaced_branches(transaction, &new_displaced, true, false)?;
+				self.prune_displaced_branches(transaction, &new_displaced)?;
 			}
 
 			if !matches!(self.state_pruning, PruningMode::ArchiveAll) {
-				self.prune_displaced_branches(transaction, &new_displaced, false, true)?;
+				self.prune_displaced_branches_state(transaction, &new_displaced)?;
 			}
 		}
 
@@ -2120,7 +2120,8 @@ impl<Block: BlockT> Backend<Block> {
 						self.blockchain.insert_persisted_justifications_if_pinned(hash)?;
 					}
 
-					self.prune_block(transaction, hash, true, false)?;
+					self.blockchain.insert_persisted_body_if_pinned(hash)?;
+					self.prune_block(transaction, BlockId::<Block>::number(number))?;
 				};
 			}
 		}
@@ -2132,7 +2133,7 @@ impl<Block: BlockT> Backend<Block> {
 			if finalized_number >= keep.into() {
 				let number = finalized_number.saturating_sub(keep.into());
 				if let Some(hash) = self.blockchain.hash(number)? {
-					self.prune_block(transaction, hash, false, true)?;
+					self.prune_block_state(transaction, hash)?;
 				}
 			}
 		}
@@ -2143,12 +2144,23 @@ impl<Block: BlockT> Backend<Block> {
 		&self,
 		transaction: &mut Transaction<DbHash>,
 		displaced: &DisplacedLeavesAfterFinalization<Block>,
-		clean_body: bool,
-		clean_state: bool,
 	) -> ClientResult<()> {
 		// Discard all blocks from displaced branches
 		for &hash in displaced.displaced_blocks.iter() {
-			self.prune_block(transaction, hash, clean_body, clean_state)?;
+			self.blockchain.insert_persisted_body_if_pinned(hash)?;
+			self.prune_block(transaction, BlockId::<Block>::hash(hash))?;
+		}
+		Ok(())
+	}
+
+	fn prune_displaced_branches_state(
+		&self,
+		transaction: &mut Transaction<DbHash>,
+		displaced: &DisplacedLeavesAfterFinalization<Block>,
+	) -> ClientResult<()> {
+		// Discard all blocks from displaced branches
+		for &hash in displaced.displaced_blocks.iter() {
+			self.prune_block_state(transaction, hash)?;
 		}
 		Ok(())
 	}
@@ -2156,62 +2168,64 @@ impl<Block: BlockT> Backend<Block> {
 	fn prune_block(
 		&self,
 		transaction: &mut Transaction<DbHash>,
-		hash: Block::Hash,
-		clean_body: bool,
-		clean_state: bool,
+		id: BlockId<Block>,
 	) -> ClientResult<()> {
-		let id = BlockId::<Block>::hash(hash);
-		debug!(target: "db", "Removing block {hash}. Body:{clean_body}, State:{clean_state}");
-		if clean_state {
-			match self.blockchain.header_metadata(hash) {
-				Ok(hdr) => {
-					transaction
-						.release_tree(columns::STATE, DbHash::from_slice(hdr.state_root.as_ref()));
-				},
-				Err(e) => {
-					log::debug!(target: "db", "Failed to get header metadata for block #{id}: {e:?}")
-				},
+		debug!(target: "db", "Removing block #{id}");
+		utils::remove_from_db(
+			transaction,
+			&*self.storage.db,
+			columns::KEY_LOOKUP,
+			columns::BODY,
+			id,
+		)?;
+		utils::remove_from_db(
+			transaction,
+			&*self.storage.db,
+			columns::KEY_LOOKUP,
+			columns::JUSTIFICATIONS,
+			id,
+		)?;
+		if let Some(index) =
+			read_db(&*self.storage.db, columns::KEY_LOOKUP, columns::BODY_INDEX, id)?
+		{
+			utils::remove_from_db(
+				transaction,
+				&*self.storage.db,
+				columns::KEY_LOOKUP,
+				columns::BODY_INDEX,
+				id,
+			)?;
+			match Vec::<DbExtrinsic<Block>>::decode(&mut &index[..]) {
+				Ok(index) =>
+					for ex in index {
+						if let DbExtrinsic::Indexed { hash, .. } = ex {
+							transaction.release(columns::TRANSACTION, hash);
+						}
+					},
+				Err(err) =>
+					return Err(sp_blockchain::Error::Backend(format!(
+						"Error decoding body list: {err}",
+					))),
 			}
 		}
-		if clean_body {
-			self.blockchain.insert_persisted_body_if_pinned(hash)?;
-			utils::remove_from_db(
-				transaction,
-				&*self.storage.db,
-				columns::KEY_LOOKUP,
-				columns::BODY,
-				id,
-			)?;
-			utils::remove_from_db(
-				transaction,
-				&*self.storage.db,
-				columns::KEY_LOOKUP,
-				columns::JUSTIFICATIONS,
-				id,
-			)?;
-			if let Some(index) =
-				read_db(&*self.storage.db, columns::KEY_LOOKUP, columns::BODY_INDEX, id)?
-			{
-				utils::remove_from_db(
-					transaction,
-					&*self.storage.db,
-					columns::KEY_LOOKUP,
-					columns::BODY_INDEX,
-					id,
-				)?;
-				match Vec::<DbExtrinsic<Block>>::decode(&mut &index[..]) {
-					Ok(index) =>
-						for ex in index {
-							if let DbExtrinsic::Indexed { hash, .. } = ex {
-								transaction.release(columns::TRANSACTION, hash);
-							}
-						},
-					Err(err) =>
-						return Err(sp_blockchain::Error::Backend(format!(
-							"Error decoding body list: {err}",
-						))),
-				}
-			}
+		Ok(())
+	}
+
+	fn prune_block_state(
+		&self,
+		transaction: &mut Transaction<DbHash>,
+		hash: Block::Hash,
+	) -> ClientResult<()> {
+		let id = BlockId::<Block>::hash(hash);
+		debug!(target: "db", "Removing block {hash} state");
+		match self.blockchain.header_metadata(hash) {
+			Ok(hdr) => {
+				transaction
+					.release_tree(columns::STATE, DbHash::from_slice(hdr.state_root.as_ref()));
+			},
+			Err(e) => {
+				log::debug!(target: "db", "Failed to get header metadata for block #{id}: {e:?}")
+			},
 		}
 		Ok(())
 	}
