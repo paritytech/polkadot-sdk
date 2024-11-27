@@ -94,14 +94,13 @@ mod benchmark {
 
 	#[benchmark]
 	fn if_else() {
-		let main_call = Box::new(frame_system::Call::remark { remark: vec![0] }.into());
+		// Failing main call.
+		let main_call = Box::new(frame_system::Call::set_code { code: vec![1] }.into());
 		let fallback_call = Box::new(frame_system::Call::remark { remark: vec![1] }.into());
 		let caller = whitelisted_caller();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), main_call, fallback_call);
-
-		assert_last_event::<T>(Event::IfElseMainSuccess.into());
 	}
 
 	impl_benchmark_test_suite! {

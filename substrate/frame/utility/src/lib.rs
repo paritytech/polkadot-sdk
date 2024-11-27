@@ -486,11 +486,6 @@ pub mod pallet {
 		/// ## Use Case
 		/// - Some use cases might involve submitting a `batch` type call in either main, fallback
 		///   or both.
-		///
-		/// ## Weight
-		/// The weight of this call is calculated as the sum of:
-		/// `WeightInfo::if_else()` + `main` |
-		/// `WeightInfo::if_else()` + `main` + `fallback`.
 		#[pallet::call_index(6)]
 		#[pallet::weight({
 			let main = main.get_dispatch_info();
@@ -517,7 +512,7 @@ pub mod pallet {
 			// Track the weights
 			let mut weight = T::WeightInfo::if_else();
 
-			let info = main.get_dispatch_info();
+			let main_info = main.get_dispatch_info();
 
 			// Execute the main call first
 			let main_result = if is_root {
@@ -527,36 +522,37 @@ pub mod pallet {
 			};
 
 			// Add weight of the main call
-			weight = weight.saturating_add(extract_actual_weight(&main_result, &info));
+			weight = weight.saturating_add(extract_actual_weight(&main_result, &main_info));
 
-			if let Err(main_error) = main_result {
-				// If the main call failed, execute the fallback call
-				let fallback_info = fallback.get_dispatch_info();
+			let Err(main_error) = main_result else {
+				// If the main result is Ok, we skip the fallback logic entirely
+				Self::deposit_event(Event::IfElseMainSuccess);
+				return Ok(Some(weight).into());
+			};
 
-				let fallback_result = if is_root {
-					fallback.dispatch_bypass_filter(origin.clone())
-				} else {
-					fallback.dispatch(origin)
-				};
+			// If the main call failed, execute the fallback call
+			let fallback_info = fallback.get_dispatch_info();
 
-				// Add weight of the fallback call
-				weight =
-					weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
+			let fallback_result = if is_root {
+				fallback.dispatch_bypass_filter(origin.clone())
+			} else {
+				fallback.dispatch(origin)
+			};
 
-				if let Err(fallback_error) = fallback_result {
-					// Both calls have failed, return fallback error
-					return Err(sp_runtime::DispatchErrorWithPostInfo {
-						error: fallback_error.error,
-						post_info: Some(weight).into(),
-					})
-				}
+			// Add weight of the fallback call
+			weight = weight.saturating_add(extract_actual_weight(&fallback_result, &fallback_info));
+
+			let Err(fallback_error) = fallback_result else {
 				// Fallback succeeded.
 				Self::deposit_event(Event::IfElseFallbackCalled { main_error: main_error.error });
 				return Ok(Some(weight).into());
-			}
-			// Main call succeeded.
-			Self::deposit_event(Event::IfElseMainSuccess);
-			Ok(Some(weight).into())
+			};
+
+			// Both calls have failed, return fallback error
+			Err(sp_runtime::DispatchErrorWithPostInfo {
+				error: fallback_error.error,
+				post_info: Some(weight).into(),
+			})
 		}
 	}
 

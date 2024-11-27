@@ -927,16 +927,19 @@ fn if_else_with_root_works() {
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::if_else(
 			RuntimeOrigin::root(),
-			Box::new(RuntimeCall::Balances(BalancesCall::force_transfer {
-				source: 1,
-				dest: 2,
-				value: 11
-			})),
-			Box::new(call),
+			RuntimeCall::Balances(BalancesCall::force_transfer { source: 1, dest: 2, value: 11 })
+				.into(),
+			call.into(),
 		));
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_eq!(storage::unhashed::get_raw(&k), Some(k));
+		System::assert_last_event(
+			utility::Event::IfElseFallbackCalled {
+				main_error: TokenError::FundsUnavailable.into(),
+			}
+			.into(),
+		);
 	});
 }
 
@@ -947,8 +950,8 @@ fn if_else_with_signed_works() {
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::if_else(
 			RuntimeOrigin::signed(1),
-			Box::new(call_transfer(2, 11)),
-			Box::new(call_transfer(2, 5))
+			call_transfer(2, 11).into(),
+			call_transfer(2, 5).into()
 		));
 		assert_eq!(Balances::free_balance(1), 5);
 		assert_eq!(Balances::free_balance(2), 15);
@@ -969,8 +972,8 @@ fn if_else_successful_main_call() {
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_ok!(Utility::if_else(
 			RuntimeOrigin::signed(1),
-			Box::new(call_transfer(2, 9)),
-			Box::new(call_transfer(2, 1))
+			call_transfer(2, 9).into(),
+			call_transfer(2, 1).into()
 		));
 		assert_eq!(Balances::free_balance(1), 1);
 		assert_eq!(Balances::free_balance(2), 19);
@@ -980,19 +983,48 @@ fn if_else_successful_main_call() {
 }
 
 #[test]
-fn if_else_failing_else_call() {
+fn if_else_failing_fallback_call() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
 		assert_err_ignore_postinfo!(
 			Utility::if_else(
 				RuntimeOrigin::signed(1),
-				Box::new(call_transfer(2, 11)),
-				Box::new(call_transfer(2, 11))
+				call_transfer(2, 11).into(),
+				call_transfer(2, 11).into()
 			),
 			TokenError::FundsUnavailable
 		);
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 10);
 	})
+}
+
+#[test]
+fn if_else_with_nested_if_else_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Balances::free_balance(1), 10);
+		assert_eq!(Balances::free_balance(2), 10);
+
+		let main_call = call_transfer(2, 11).into();
+		let fallback_call = call_transfer(2, 5).into();
+
+		let nested_if_else_call =
+			RuntimeCall::Utility(UtilityCall::if_else { main: main_call, fallback: fallback_call })
+				.into();
+
+		// Nested `if_else` call.
+		assert_ok!(Utility::if_else(
+			RuntimeOrigin::signed(1),
+			nested_if_else_call,
+			call_transfer(2, 7).into()
+		));
+
+		// inner if_else fallback is executed.
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::free_balance(2), 15);
+
+		// Ensure the correct event was triggered for the main call(nested if_else).
+		System::assert_last_event(utility::Event::IfElseMainSuccess.into());
+	});
 }
