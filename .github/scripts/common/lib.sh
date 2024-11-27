@@ -270,20 +270,19 @@ fetch_debian_package_from_s3() {
 }
 
 # Fetch the release artifacts like binary and signatures from S3. Assumes the ENV are set:
-# - RELEASE_ID
-# - GITHUB_TOKEN
-# - REPO in the form paritytech/polkadot
+# inputs: binary (polkadot), target(aarch64-apple-darwin)
 fetch_release_artifacts_from_s3() {
   BINARY=$1
-  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  TARGET=$2
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${TARGET}/${BINARY}"}
   echo "OUTPUT_DIR : $OUTPUT_DIR"
 
   URL_BASE=$(get_s3_url_base $BINARY)
   echo "URL_BASE=$URL_BASE"
 
-  URL_BINARY=$URL_BASE/$VERSION/$BINARY
-  URL_SHA=$URL_BASE/$VERSION/$BINARY.sha256
-  URL_ASC=$URL_BASE/$VERSION/$BINARY.asc
+  URL_BINARY=$URL_BASE/$VERSION/$TARGET/$BINARY
+  URL_SHA=$URL_BASE/$VERSION/$TARGET/$BINARY.sha256
+  URL_ASC=$URL_BASE/$VERSION/$TARGET/$BINARY.asc
 
   # Fetch artifacts
   mkdir -p "$OUTPUT_DIR"
@@ -306,15 +305,19 @@ fetch_release_artifacts_from_s3() {
 function get_s3_url_base() {
     name=$1
     case $name in
-    polkadot | polkadot-execute-worker | polkadot-prepare-worker | staking-miner)
+      polkadot | polkadot-execute-worker | polkadot-prepare-worker )
         printf "https://releases.parity.io/polkadot"
         ;;
 
-    polkadot-parachain)
-        printf "https://releases.parity.io/cumulus"
+      polkadot-parachain)
+        printf "https://releases.parity.io/polkadot-parachain"
+        ;;
+      
+      polkadot-omni-node)
+        printf "https://releases.parity.io/polkadot-omni-node"
         ;;
 
-    *)
+      *)
         printf "UNSUPPORTED BINARY $name"
         exit 1
         ;;
