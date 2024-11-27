@@ -89,7 +89,7 @@ impl TransactionSigned {
 }
 
 impl TransactionUnsigned {
-	/// Get a signed transaction with a dummy 65 bytes signature.
+	/// Get a signed transaction payload with a dummy 65 bytes signature.
 	pub fn dummy_signed_payload(&self) -> Vec<u8> {
 		const DUMMY_SIGNATURE: [u8; 65] = [0u8; 65];
 		self.unsigned_payload()
