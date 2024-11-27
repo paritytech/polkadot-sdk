@@ -1,5 +1,5 @@
 use serde_json::{json, Value};
-use std::{process::Command, str};
+use std::str;
 use cmd_lib::*;
 
 const WASM_FILE_PATH: &str =
