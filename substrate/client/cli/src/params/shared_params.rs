@@ -35,7 +35,9 @@ pub struct SharedParams {
 	///
 	/// This flag sets `--chain=dev`, `--force-authoring`, `--rpc-cors=all`, `--alice`, and `--tmp`
 	/// flags, unless explicitly overridden. It also disables local peer discovery (see `--no-mdns`
-	/// and `--discover-local`).
+	/// and `--discover-local`). With this flag some nodes might start with manual seal, producing
+	/// blocks at certain events (e.g. `polkadot-omni-node`, which produces blocks at certain
+	/// intervals dictated by `--dev-block-time`).
 	#[arg(long)]
 	pub dev: bool,
 
