@@ -113,6 +113,8 @@ pub fn expand_runtime_metadata(
 						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Extension
 					>();
 
+				use #scrate::__private::metadata_ir::InternalImplRuntimeApis;
+
 				#scrate::__private::metadata_ir::MetadataIR {
 					pallets: #scrate::__private::vec![ #(#pallets),* ],
 					extrinsic: #scrate::__private::metadata_ir::ExtrinsicMetadataIR {
