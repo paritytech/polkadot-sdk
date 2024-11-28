@@ -207,10 +207,10 @@ impl ExtBuilder {
 				(30, self.balance_factor * 50),
 				(40, self.balance_factor * 50),
 				// stashes
-				(11, self.balance_factor * 1000),
-				(21, self.balance_factor * 1000),
-				(31, self.balance_factor * 500),
-				(41, self.balance_factor * 1000),
+				(11, self.balance_factor * 1500),
+				(21, self.balance_factor * 1500),
+				(31, self.balance_factor * 1000),
+				(41, self.balance_factor * 2000),
 			],
 		}
 		.assimilate_storage(&mut storage)
