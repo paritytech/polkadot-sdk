@@ -121,33 +121,43 @@ fn xcm_prologue_fee() {
 #[test]
 fn register_token_xcm() {
 	BridgeHubWestend::execute_with(|| {
-		let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into(); // token id placeholder
-		println!("token: {:x?}", token);
-
-		let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
-		let dot_asset = Location::new(1, Here);
-		let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
-
-		let asset_id = Location::new(
-			2,
-			[
-				GlobalConsensus(ethereum_network_v5),
-				AccountKey20 { network: None, key: token.into() },
-			],
-		);
-
-		println!(
-			"register token mainnet: {:x?}",
-			get_xcm_hex(1u64, asset_id.clone(), dot_fee.clone())
-		);
-		println!("register token sepolia: {:x?}", get_xcm_hex(11155111u64, asset_id, dot_fee));
+		println!("register token mainnet: {:x?}", get_xcm_hex(1u64));
+		println!("===============================",);
+		println!("register token sepolia: {:x?}", get_xcm_hex(11155111u64));
 	});
 }
 
-fn get_xcm_hex(chain_id: u64, asset_id: Location, dot_fee: xcm::prelude::Asset) -> String {
+fn get_xcm_hex(chain_id: u64) -> String {
 	let owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
+	let weth_token_id: H160 = hex!("be68fc2d8249eb60bfcf0e71d5a0d2f2e292c4ed").into(); // TODO insert token id
+	let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into(); // token id placeholder
+	let weth_amount = 300_000_000_000_000u128;
+
+	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
+	let dot_asset = Location::new(1, Here);
+	let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
+
+	println!("register token id: {:x?}", token);
+	println!("weth token id: {:x?}", weth_token_id);
+	println!("weth_amount: {:x?}", hex::encode(weth_amount.encode()));
+	println!("dot asset: {:x?}", hex::encode(dot_fee.encode()));
+
+	let weth_asset = Location::new(
+		2,
+		[
+			GlobalConsensus(ethereum_network_v5),
+			AccountKey20 { network: None, key: weth_token_id.into() },
+		],
+	);
+	let weth_fee: xcm::prelude::Asset = (weth_asset, weth_amount).into(); // TODO replace Weth fee acmount
+
+	let asset_id = Location::new(
+		2,
+		[GlobalConsensus(ethereum_network_v5), AccountKey20 { network: None, key: token.into() }],
+	);
 
 	let register_token_xcm = vec![
+		ExchangeAsset { give: weth_fee.into(), want: dot_fee.clone().into(), maximal: false },
 		PayFees { asset: dot_fee },
 		Transact {
 			origin_kind: OriginKind::Xcm,
