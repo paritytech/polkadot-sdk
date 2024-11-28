@@ -986,7 +986,15 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 						let direction = match endpoint {
 							Endpoint::Dialer { .. } => "out",
-							Endpoint::Listener { .. } => "in",
+							Endpoint::Listener { .. } => {
+								// Increment incoming connections counter.
+								//
+								// Note: For litep2p these are represented by established negotiated connections,
+								// while for libp2p (legacy) these represent not-yet-negotiated connections.
+								metrics.incoming_connections_total.inc();
+
+								"in"
+							},
 						};
 						metrics.connections_opened_total.with_label_values(&[direction]).inc();
 
@@ -1058,6 +1066,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									NegotiationError::ParseError(_) => "parse-error",
 									NegotiationError::IoError(_) => "io-error",
 									NegotiationError::WebSocket(_) => "webscoket-error",
+									NegotiationError::BadSignature => "bad-signature",
 								}
 							};
 
