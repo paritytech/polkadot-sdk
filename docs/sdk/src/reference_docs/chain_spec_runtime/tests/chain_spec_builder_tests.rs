@@ -52,7 +52,6 @@ fn get_chain_spec_builder_path() -> &'static str {
 	CHAIN_SPEC_BUILDER_PATH
 }
 
-
 #[docify::export]
 fn cmd_list_presets(path: &str) {
 	let path = wasm_file_path();
@@ -70,12 +69,9 @@ fn cmd_list_presets(path: &str) {
 }
 
 #[test]
-fn list_presets(){
-	cmd_list_presets(
-		wasm_file_path()
-	);
+fn list_presets() {
+	cmd_list_presets(wasm_file_path());
 }
-
 
 #[docify::export]
 fn cmd_get_preset(path: &str) {
@@ -97,10 +93,8 @@ fn cmd_get_preset(path: &str) {
 }
 
 #[test]
-fn get_preset(){
-	cmd_get_preset(
-		wasm_file_path()
-	);
+fn get_preset() {
+	cmd_get_preset(wasm_file_path());
 }
 
 #[docify::export]
@@ -138,10 +132,8 @@ fn cmd_generate_chain_spec(path: &str) {
 }
 
 #[test]
-fn generate_chain_spec(){
-	cmd_generate_chain_spec(
-		wasm_file_path()
-	);
+fn generate_chain_spec() {
+	cmd_generate_chain_spec(wasm_file_path());
 }
 
 #[docify::export]
@@ -182,10 +174,8 @@ fn cmd_generate_para_chain_spec(path: &str) {
 }
 
 #[test]
-fn generate_para_chain_spec(){
-	cmd_generate_para_chain_spec(
-		wasm_file_path()
-	);
+fn generate_para_chain_spec() {
+	cmd_generate_para_chain_spec(wasm_file_path());
 }
 
 #[test]
