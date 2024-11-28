@@ -1262,10 +1262,7 @@ where
 	{
 		log::debug!(target: LOG_TARGET, "bare_eth_transact: tx: {tx:?} gas_limit: {gas_limit:?}");
 
-		let Some(from) = tx.from else {
-			return Err(EthTransactError::Message("Missing from address".into()));
-		};
-
+		let from = tx.from.unwrap_or_default();
 		let origin = T::AddressMapper::to_account_id(&from);
 
 		let storage_deposit_limit = if tx.gas.is_some() {

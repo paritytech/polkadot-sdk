@@ -12,7 +12,8 @@
 		"ethers": "^6.13.4",
 		"prettier": "^3.3.3",
 		"solc": "^0.8.28",
-		"viem": "^2.21.47"
+		"viem": "^2.21.47",
+		"@parity/revive": "^0.0.5"
 	},
 	"devDependencies": {
 		"@types/bun": "^1.1.13",
