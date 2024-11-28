@@ -22,7 +22,8 @@ use std::collections::VecDeque;
 use crate::LOG_TARGET;
 use polkadot_primitives::{Hash, Id as ParaId};
 
-/// Represents a single claim from the claim queue, mapped to the relay chain block where it could be backed on-chain.
+/// Represents a single claim from the claim queue, mapped to the relay chain block where it could
+/// be backed on-chain.
 /// - `hash` is `Option` since the claim might be for a future block.
 /// - `claim` represents the `ParaId` scheduled for the block. Can be `None` if nothing is scheduled
 ///   at this block.
@@ -155,38 +156,16 @@ impl ClaimQueueState {
 	}
 
 	pub(crate) fn claim_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
-		let window = self.get_window(relay_parent);
-
-		for w in window {
-			if w.claimed {
-				continue
-			}
-
-			if w.claim == Some(*para_id) {
-				w.claimed = true;
-				gum::trace!(
-					target: LOG_TARGET,
-					?para_id,
-					?relay_parent,
-					claim_info=?w,
-					"Successful claim"
-				);
-				return true;
-			}
-		}
-
 		gum::trace!(
 			target: LOG_TARGET,
 			?para_id,
 			?relay_parent,
-			"Unsuccessful claim"
+			"claim_at"
 		);
-		false
+		self.find_a_claim(relay_parent, para_id, true)
 	}
 
 	pub(crate) fn can_claim_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
-		let window = self.get_window(relay_parent);
-
 		gum::trace!(
 			target: LOG_TARGET,
 			?para_id,
@@ -194,15 +173,27 @@ impl ClaimQueueState {
 			"can_claim_at"
 		);
 
+		self.find_a_claim(relay_parent, para_id, false)
+	}
+
+	// Returns `true` if there is a claim within `relay_parent`'s view of the claim queue for
+	// `para_id`. If `claim_it` is set to `true` the slot is claimed. Otherwise the function just
+	// reports the availability of the slot.
+	fn find_a_claim(&mut self, relay_parent: &Hash, para_id: &ParaId, claim_it: bool) -> bool {
+		let window = self.get_window(relay_parent);
+
 		for w in window {
 			gum::trace!(
 				target: LOG_TARGET,
 				?para_id,
 				?relay_parent,
 				claim_info=?w,
+				?claim_it,
 				"Checking claim"
 			);
+
 			if !w.claimed && w.claim == Some(*para_id) {
+				w.claimed = claim_it;
 				return true
 			}
 		}
