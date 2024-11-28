@@ -281,7 +281,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 			// run notifications
 			let mut listener = self.listener.write();
 			for h in &removed {
-				listener.limit_enforced(h);
+				listener.limits_enforced(h);
 			}
 
 			removed

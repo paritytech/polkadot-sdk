@@ -1315,23 +1315,23 @@ where
 			best_view.pool.validated_pool().find_transaction_with_lower_prio(validated_tx)
 		{
 			// 4. if yes - remove worse transaction from mempool and add new one.
-			log::trace!(target: LOG_TARGET, "found candidate for removal: {worst_tx_hash:?}");
+			log::trace!(target: LOG_TARGET, "found candidate for removal: {worst_tx_hash:?} replaced by {tx_hash:?}");
 			let insertion_info =
-				self.mempool.try_replace_transaction(xt, source, watched, worst_tx_hash);
+				self.mempool.try_replace_transaction(xt, source, watched, worst_tx_hash)?;
 
 			// 5. notify listner
 			// 6. remove transaction from the view_store
 			self.view_store.remove_transaction_subtree(
 				worst_tx_hash,
 				|listener, removed_tx_hash| {
-					listener.usurped(&removed_tx_hash, &tx_hash);
+					listener.limits_enforced(&removed_tx_hash);
 				},
 			);
 
 			// 8. add to pending_replacements - make sure it will not sneak back via cloned view
 
 			// 9. subemit new one to the view, this will be done upon in the caller
-			return insertion_info
+			return Ok(insertion_info)
 		}
 
 		Err(TxPoolApiError::ImmediatelyDropped)
