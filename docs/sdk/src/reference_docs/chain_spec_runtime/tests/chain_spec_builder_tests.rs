@@ -56,7 +56,7 @@ fn list_presets() {
 	);
 }
 
-#[docify::export]
+#[docify::export_content]
 fn cmd_get_preset(path: &str) -> String {
 	bash!(
 		chain-spec-builder display-preset -r $path -p preset_2
@@ -86,7 +86,7 @@ fn get_preset() {
 	);
 }
 
-#[docify::export]
+#[docify::export_content]
 fn cmd_generate_chain_spec(path: &str) -> String {
 	bash!(
 		chain-spec-builder -c /dev/stdout create -r $path named-preset preset_2
@@ -135,7 +135,7 @@ fn generate_chain_spec() {
 	);
 }
 
-#[docify::export]
+#[docify::export_content]
 fn cmd_generate_para_chain_spec(path: &str) -> String {
 	bash!(
 		chain-spec-builder -c /dev/stdout create -c polkadot -p 1000 -r $path named-preset preset_2
@@ -186,7 +186,7 @@ fn generate_para_chain_spec() {
 }
 
 #[test]
-#[docify::export]
+#[docify::export_content]
 fn preset_4_json() {
 	assert_eq!(
 		chain_spec_guide_runtime::presets::preset_4(),
