@@ -198,6 +198,42 @@ pub mod pallet {
 			// To see example on offchain worker, please refer to example-offchain-worker pallet
 			// accompanied in this repository.
 		}
+
+		// The on_idle hook is called when the system is idle, typically
+		// during periods when no extrinsics are being processed.
+		// More details about the hook can be found here: https://github.com/paritytech/substrate/issues/4064.
+		fn on_idle(_n: BlockNumberFor<T>, _remaining_weight: Weight) -> Weight {
+			// Log the block number at which the on_idle hook is being called
+			log::info!("on_idle called at block number {:?}", n);
+
+			// Return weight for the operation; this indicates the computational cost
+			// In this case, we return Weight::zero() because we are not performing any heavy
+			// operations.
+			Weight::zero()
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			unimplemented!()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			unimplemented!()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			unimplemented!()
+		}
+
+		// Assert invariants that must always be held in a pallet with non-trivial.
+		// More details about implementing the `try-state`
+		// can be found here: https://github.com/paritytech/polkadot-sdk/issues/239.
+		// This pallet contains trivial logic hence no invariant checking required.
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			unimplemented!()
+		}
 	}
 
 	// The call declaration. This states the entry points that we handle. The
