@@ -155,23 +155,14 @@ jobs:
 
       - name: Create draft release
         id: create-release
-        # uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1.1.4
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
-          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create ${{ env.REL_TAG }} \
             --repo paritytech/polkadot-sdk \
             --draft \
             --title "Polkadot ${{ env.REL_TAG }}" \
             --notes-file ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
-        # with:
-        #   tag_name: ${{ env.REL_TAG }}
-        #   release_name: Polkadot ${{ env.REL_TAG }}
-        #   body_path: ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
-        #   draft: true
-        #   owner: paritytech
-        #   repo: polkadot-sdk
 
   publish-runtimes:
     needs: [ validate-inputs, build-runtimes, publish-release-draft ]
@@ -205,18 +196,12 @@ jobs:
             repositories: polkadot-sdk
 
       - name: Upload compressed ${{ matrix.chain }} v${{ env.SPEC }} wasm
-        # uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 #v1.0.2
-        working-directory: ${{ env.ASSET }}
         env:
-          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
-          gh release upload ${{ needs.validate-inputs.outputs.release_tag }} --repo paritytech/polkadot-sdk ${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm
-        # with:
-        #   upload_url: ${{ needs.publish-release-draft.outputs.asset_upload_url }}
-        #   asset_path: ${{ env.ASSET }}
-        #   asset_name: ${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm
-        #   asset_content_type: application/wasm
+          gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
+            --repo paritytech/polkadot-sdk \
+            '${{ env.ASSET }}#${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm'
 
   publish-binaries:
     needs: [ validate-inputs, publish-release-draft, build-binaries ]
@@ -243,9 +228,7 @@ jobs:
             repositories: polkadot-sdk
 
       - name: Upload ${{ matrix.binary }} binary
-        working-directory: ${{ github.workspace}}/${{ matrix.binary }}
         env:
-          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
             gh release upload ${{ needs.validate-inputs.outputs.release_tag }} --repo paritytech/polkadot-sdk ${{ matrix.binary }}
@@ -253,7 +236,6 @@ jobs:
   publish-polkadot-artifacts:
     needs: [ validate-inputs, publish-release-draft ]
     environment: release
-    # needs: [ validate-inputs ]
     continue-on-error: true
     runs-on: ubuntu-latest
     strategy:
@@ -298,9 +280,9 @@ jobs:
           if [[ ${{ matrix.target }} == "aarch64-apple-darwin" ]]; then
             gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
               --repo paritytech/polkadot-sdk \
-              ${{ matrix.binary }}#${{ matrix.binary }}-aarch64-apple-darwin \
-              ${{ matrix.binary }}.asc#${{ matrix.binary }}-aarch64-apple-darwin.asc \
-              ${{ matrix.binary }}.sha256#${{ matrix.binary }}-aarch64-apple-darwin.sha256
+              '${{ matrix.binary }}#${{ matrix.binary }}-aarch64-apple-darwin' \
+              '${{ matrix.binary }}.asc#${{ matrix.binary }}-aarch64-apple-darwin.asc' \
+              '${{ matrix.binary }}.sha256#${{ matrix.binary }}-aarch64-apple-darwin.sha256'
           else
             gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
               --repo paritytech/polkadot-sdk \
