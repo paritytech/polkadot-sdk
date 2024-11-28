@@ -100,8 +100,8 @@ use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure, print,
 	traits::{
-		fungible::Credit, tokens::Pay, Currency, Defensive, ExistenceRequirement::KeepAlive, Get,
-		Imbalance, OnUnbalanced, ReservableCurrency, WithdrawReasons,
+		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
+		ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec, PalletId,
@@ -212,9 +212,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The staking balance.
-		type Currency: Currency<Self::AccountId>
-			+ ReservableCurrency<Self::AccountId>
-			+ frame_support::traits::fungible::Balanced<Self::AccountId, Balance = BalanceOf<Self, I>>;
+		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
 		/// Origin from which rejections must come.
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
