@@ -318,12 +318,11 @@ use frame_support::{
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
-use frame_system::RawOrigin;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
-	DispatchResult, Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
+	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
