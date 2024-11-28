@@ -59,7 +59,7 @@ fn test_minimal_dev_chain_spec_rt_validity() {
     properties.insert("tokenSymbol".to_string(), "UNIT".into());
     let current_wasm = WASM_BINARY.expect("Development wasm not available");
 
-    let test_chain_spec = ChainSpec::builder(
+    let test_chain_spec: serde_json::Value = serde_json::from_str(ChainSpec::builder(
         current_wasm,
         Extensions {
             relay_chain: "dev".into(),
@@ -70,7 +70,9 @@ fn test_minimal_dev_chain_spec_rt_validity() {
         .with_chain_type(ChainType::Local)
         .with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
         .with_properties(properties.clone())
-        .build();
+        .build()
+        .as_json(false)
+    ).unwrap();
 
     let existing_chain_spec = ChainSpec::from_json_file(
             "../dev_chain_spec.json".into()
