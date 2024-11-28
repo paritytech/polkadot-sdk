@@ -31,7 +31,10 @@ use crate::{
 	api::FullChainApi,
 	common::log_xt::log_xt_trace,
 	enactment_state::{EnactmentAction, EnactmentState},
-	fork_aware_txpool::{dropped_watcher::DroppedReason, revalidation_worker},
+	fork_aware_txpool::{
+		dropped_watcher::{DroppedReason, DroppedTransaction},
+		revalidation_worker,
+	},
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
@@ -1320,6 +1323,10 @@ where
 				self.mempool.try_replace_transaction(xt, source, watched, worst_tx_hash)?;
 
 			// 5. notify listner
+			self.view_store
+				.listener
+				.transaction_dropped(DroppedTransaction::new_enforced_by_limts(worst_tx_hash));
+
 			// 6. remove transaction from the view_store
 			self.view_store.remove_transaction_subtree(
 				worst_tx_hash,
