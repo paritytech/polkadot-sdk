@@ -33,10 +33,13 @@ use crate::{
 use bitvec::vec::BitVec;
 use colored::Colorize;
 use itertools::Itertools;
+use polkadot_network_bridge::Network;
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
+	authority_discovery::AuthorityDiscovery,
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
-	request_response::{IncomingRequest, ReqProtocolNames},
+	peer_set::PeerSetProtocolNames,
+	request_response::{IncomingRequest, ReqProtocolNames, Requests},
 	v3::{self, BackedCandidateManifest, StatementFilter},
 	view, Versioned, View,
 };
@@ -50,6 +53,7 @@ use polkadot_overseer::{
 use polkadot_primitives::{
 	AuthorityDiscoveryId, Block, GroupIndex, Hash, Id, ValidatorId, ValidatorIndex,
 };
+use polkadot_service::overseer::{NetworkBridgeMetrics, NetworkBridgeTxSubsystem};
 use polkadot_statement_distribution::StatementDistributionSubsystem;
 use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
@@ -59,6 +63,7 @@ use sc_service::SpawnTaskHandle;
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::RuntimeAppPublic;
 use std::{
+	collections::{HashMap, HashSet},
 	sync::{atomic::Ordering, Arc},
 	time::{Duration, Instant},
 };
@@ -75,6 +80,73 @@ pub fn make_keystore() -> KeystorePtr {
 	Keystore::sr25519_generate_new(&*keystore, AuthorityDiscoveryId::ID, Some("//Node0"))
 		.expect("Insert key into keystore");
 	keystore
+}
+
+#[derive(Clone)]
+struct DummyNetwork;
+
+#[async_trait::async_trait]
+impl Network for DummyNetwork {
+	async fn set_reserved_peers(
+		&mut self,
+		_protocol: sc_network::ProtocolName,
+		_multiaddresses: HashSet<sc_network::Multiaddr>,
+	) -> Result<(), String> {
+		Ok(())
+	}
+
+	async fn add_peers_to_reserved_set(
+		&mut self,
+		_protocol: sc_network::ProtocolName,
+		_multiaddresses: HashSet<sc_network::Multiaddr>,
+	) -> Result<(), String> {
+		Ok(())
+	}
+
+	async fn remove_from_peers_set(
+		&mut self,
+		_protocol: sc_network::ProtocolName,
+		_peers: Vec<PeerId>,
+	) -> Result<(), String> {
+		Ok(())
+	}
+
+	async fn start_request<AD: AuthorityDiscovery>(
+		&self,
+		_authority_discovery: &mut AD,
+		_req: Requests,
+		_req_protocol_names: &ReqProtocolNames,
+		_if_disconnected: sc_network::IfDisconnected,
+	) {
+	}
+
+	fn report_peer(&self, _who: PeerId, _rep: sc_network::ReputationChange) {}
+
+	fn disconnect_peer(&self, _who: PeerId, _protocol: sc_network::ProtocolName) {}
+
+	fn peer_role(&self, _who: PeerId, _handshake: Vec<u8>) -> Option<sc_network::ObservedRole> {
+		None
+	}
+}
+
+#[derive(Clone, Debug)]
+struct DummyAuthotiryDiscoveryService;
+
+#[async_trait::async_trait]
+impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
+	async fn get_addresses_by_authority_id(
+		&mut self,
+		_authority: AuthorityDiscoveryId,
+	) -> Option<HashSet<sc_network::Multiaddr>> {
+		None
+	}
+
+	async fn get_authority_ids_by_peer_id(
+		&mut self,
+		_peer_id: PeerId,
+	) -> Option<HashSet<AuthorityDiscoveryId>> {
+		None
+	}
 }
 
 fn build_overseer(
@@ -130,10 +202,20 @@ fn build_overseer(
 		Metrics::try_register(&dependencies.registry).unwrap(),
 		rand::rngs::StdRng::from_entropy(),
 	);
-	let network_bridge_tx = MockNetworkBridgeTx::new(
-		network,
-		network_interface.subsystem_sender(),
-		state.test_authorities.clone(),
+
+	let network_bridge_metrics =
+		NetworkBridgeMetrics::register(Some(&dependencies.registry)).unwrap();
+
+	let authority_disccovery_service = DummyAuthotiryDiscoveryService;
+	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
+	let dummy_network = DummyNetwork;
+	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
+		dummy_network,
+		authority_disccovery_service,
+		network_bridge_metrics,
+		ReqProtocolNames::new(GENESIS_HASH, None),
+		PeerSetProtocolNames::new(GENESIS_HASH, None),
+		notification_sinks,
 	);
 	let network_bridge_rx =
 		MockNetworkBridgeRx::new(network_receiver, Some(candidate_req_cfg), false);

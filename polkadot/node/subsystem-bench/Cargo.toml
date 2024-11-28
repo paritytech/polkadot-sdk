@@ -96,6 +96,9 @@ pyroscope = { workspace = true }
 pyroscope_pprofrs = { workspace = true }
 strum = { features = ["derive"], workspace = true, default-features = true }
 
+parking_lot = { workspace = true, default-features = true }
+polkadot-network-bridge = { workspace = true, default-features = true }
+
 [features]
 default = []
 memprofile = [
