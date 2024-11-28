@@ -21,7 +21,7 @@ jobs:
     uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
 
   validate-inputs:
-    needs: [check-synchronization]
+    needs: [ check-synchronization ]
     if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
     runs-on: ubuntu-latest
     outputs:
@@ -40,7 +40,7 @@ jobs:
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
   get-rust-versions:
-    needs: [validate-inputs]
+    needs: [ validate-inputs ]
     runs-on: ubuntu-latest
     outputs:
       rustc-stable: ${{ steps.get-rust-versions.outputs.stable }}
@@ -51,15 +51,16 @@ jobs:
           echo "stable=$RUST_STABLE_VERSION" >> $GITHUB_OUTPUT
 
   build-runtimes:
-    needs: [validate-inputs]
+    needs: [ validate-inputs ]
     uses: "./.github/workflows/release-srtool.yml"
     with:
        excluded_runtimes: "asset-hub-rococo bridge-hub-rococo contracts-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first"
        build_opts: "--features on-chain-release-build"
+       profile: production
 
   # TODO: replace this job with fetch-binaries-from-s3 and move this job to  .github/workflows/release-build-rc.yml
   build-binaries:
-    needs: [validate-inputs]
+    needs: [ validate-inputs ]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -254,13 +255,13 @@ jobs:
           VERSION="${{ needs.validate-inputs.outputs.release_tag }}"
           fetch_release_artifacts_from_s3 ${{ matrix.binary }} ${{ matrix.target }}
 
-      # - name: Rename aarch64-apple-darwin binaries
-      #   if: ${{ matrix.target == 'aarch64-apple-darwin' }}
-      #   working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
-      #   run: |
-      #     mv ${{ matrix.binary }} ${{ matrix.binary }}-aarch64-apple-darwin
-      #     mv  ${{ matrix.binary }}.asc ${{ matrix.binary }}-aarch64-apple-darwin.asc
-      #     mv  ${{ matrix.binary }}.sha256 ${{ matrix.binary }}-aarch64-apple-darwin.sha256
+      - name: Rename aarch64-apple-darwin binaries
+        if: ${{ matrix.target == 'aarch64-apple-darwin' }}
+        working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
+        run: |
+          mv ${{ matrix.binary }} ${{ matrix.binary }}-aarch64-apple-darwin
+          mv ${{ matrix.binary }}.asc ${{ matrix.binary }}-aarch64-apple-darwin.asc
+          mv ${{ matrix.binary }}.sha256 ${{ matrix.binary }}-aarch64-apple-darwin.sha256
 
       - name: Generate content write token for the release automation
         id: generate_write_token
@@ -273,16 +274,15 @@ jobs:
 
       - name: Upload ${{ matrix.binary }} binary to release draft
         env:
-          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
         run: |
           if [[ ${{ matrix.target }} == "aarch64-apple-darwin" ]]; then
             gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
               --repo paritytech/polkadot-sdk \
-              '${{ matrix.binary }}#${{ matrix.binary }}-aarch64-apple-darwin' \
-              '${{ matrix.binary }}.asc#${{ matrix.binary }}-aarch64-apple-darwin.asc' \
-              '${{ matrix.binary }}.sha256#${{ matrix.binary }}-aarch64-apple-darwin.sha256'
+              ${{ matrix.binary }}-aarch64-apple-darwin \
+              ${{ matrix.binary }}-aarch64-apple-darwin.asc \
+              ${{ matrix.binary }}-aarch64-apple-darwin.sha256
           else
             gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
               --repo paritytech/polkadot-sdk \
@@ -291,23 +291,23 @@ jobs:
               ${{ matrix.binary }}.sha256
           fi
 
-  # post_to_matrix:
-  #   runs-on: ubuntu-latest
-  #   needs: publish-release-draft
-  #   environment: release
-  #   strategy:
-  #     matrix:
-  #       channel:
-  #         - name: "Team: RelEng Internal"
-  #           room: '!GvAyzgCDgaVrvibaAF:parity.io'
+  post_to_matrix:
+    runs-on: ubuntu-latest
+    needs: publish-release-draft
+    environment: release
+    strategy:
+      matrix:
+        channel:
+          - name: "Team: RelEng Internal"
+            room: '!GvAyzgCDgaVrvibaAF:parity.io'
 
-  #   steps:
-  #     - name: Send Matrix message to ${{ matrix.channel.name }}
-  #       uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
-  #       with:
-  #         room_id: ${{ matrix.channel.room }}
-  #         access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
-  #         server: m.parity.io
-  #         message: |
-  #           **New version of polkadot tagged**: ${{ github.ref_name }}<br/>
-  #           Draft release created: ${{ needs.publish-release-draft.outputs.release_url }}
+    steps:
+      - name: Send Matrix message to ${{ matrix.channel.name }}
+        uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
+        with:
+          room_id: ${{ matrix.channel.room }}
+          access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
+          server: m.parity.io
+          message: |
+            **New version of polkadot tagged**: ${{ github.ref_name }}<br/>
+            Draft release created: ${{ needs.publish-release-draft.outputs.release_url }}
