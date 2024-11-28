@@ -516,16 +516,13 @@ where
 				.unwrap_or_default();
 		});
 
-		//todo: duplicated code - we need to remove subtree from every view
-		// let active_views = self.active_views.read();
-		// let inactive_views = self.inactive_views.read();
-		// active_views
-		// 	.iter()
-		// 	.chain(inactive_views.iter())
-		// 	.filter(|(_, view)| view.is_imported(&xt_hash))
-		// 	.for_each(|(_, view)| {
-		// 		view.remove_subtree(xt_hash, replaced_with);
-		// 	});
+		//todo - merge with priorites:
+		// let removed from_pool = self.view_store.remove_transaction_subtree(
+		// 	worst_tx_hash,
+		// 	|listener, removed_tx_hash| { &mut Listener<<Block as Block>::Hash, …>, <Block as Block>::Hash
+		// 		listener.invalid(&removed_tx_hash, &tx_hash);
+		// 	},
+		// );
 
 		remove_from_pool
 	}
