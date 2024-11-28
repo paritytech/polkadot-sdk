@@ -73,7 +73,6 @@ use snowbridge_core::{
 		v2::{Command as CommandV2, Message as MessageV2, SendMessage as SendMessageV2},
 		OperatingMode, SendError,
 	},
-	registry::Registry,
 	sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
 	PricingParameters as PricingParametersRecord, TokenId, TokenIdOf, PRIMARY_GOVERNANCE_CHANNEL,
 	SECONDARY_GOVERNANCE_CHANNEL,
@@ -875,27 +874,6 @@ pub mod pallet {
 		}
 		fn convert_back(location: &Location) -> Option<TokenId> {
 			NativeToForeignId::<T>::get(location)
-		}
-	}
-
-	impl<T: Config> Registry for pallet::Pallet<T> {
-		fn register_agent(location: &Location) -> DispatchResult {
-			let agent_id = agent_id_of::<T>(&location)?;
-			ensure!(!Agents::<T>::contains_key(agent_id), Error::<T>::AgentAlreadyCreated);
-			Agents::<T>::insert(agent_id, ());
-			Ok(())
-		}
-
-		fn register_token(location: &Location) -> DispatchResult {
-			ensure!(
-				NativeToForeignId::<T>::contains_key(location.clone()),
-				Error::<T>::TokenAlreadyCreated
-			);
-			let token_id = TokenIdOf::convert_location(&location)
-				.ok_or(Error::<T>::LocationConversionFailed)?;
-			ForeignToNativeId::<T>::insert(token_id, location.clone());
-			NativeToForeignId::<T>::insert(location.clone(), token_id);
-			Ok(())
 		}
 	}
 }

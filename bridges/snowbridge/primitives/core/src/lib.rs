@@ -13,10 +13,8 @@ pub mod location;
 pub mod operating_mode;
 pub mod outbound;
 pub mod pricing;
-pub mod registry;
 pub mod reward;
 pub mod ringbuffer;
-pub mod transact;
 
 pub use location::{AgentId, AgentIdOf, TokenId, TokenIdOf};
 pub use polkadot_parachain_primitives::primitives::{

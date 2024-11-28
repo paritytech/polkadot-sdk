@@ -3,11 +3,12 @@
 //! # Outbound
 //!
 //! Common traits and types
+use crate::Vec;
 use codec::{Decode, Encode};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
-use sp_core::RuntimeDebug;
+use sp_core::{RuntimeDebug, H160};
 
 pub mod v1;
 pub mod v2;
@@ -46,4 +47,12 @@ pub enum SendError {
 pub enum DryRunError {
 	ConvertLocationFailed,
 	ConvertXcmFailed,
+}
+
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct TransactInfo {
+	pub target: H160,
+	pub data: Vec<u8>,
+	pub gas_limit: u64,
+	pub value: u128,
 }

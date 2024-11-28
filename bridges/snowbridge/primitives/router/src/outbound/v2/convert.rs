@@ -6,8 +6,10 @@ use codec::DecodeAll;
 use core::slice::Iter;
 use frame_support::{ensure, traits::Get, BoundedVec};
 use snowbridge_core::{
-	outbound::v2::{Command, Message},
-	transact::{CallContractParams, RegisterTokenParams, TransactInfo, TransactKind::*},
+	outbound::{
+		v2::{Command, Message},
+		TransactInfo,
+	},
 	TokenId, TokenIdOf, TokenIdOf as LocationIdOf,
 };
 use sp_core::H160;
@@ -239,37 +241,18 @@ where
 		let transact_call = match_expression!(self.peek(), Ok(Transact { call, .. }), call);
 		if let Some(transact_call) = transact_call {
 			let _ = self.next();
-			let message =
+			let transact =
 				TransactInfo::decode_all(&mut transact_call.clone().into_encoded().as_slice())
 					.map_err(|_| TransactDecodeFailed)?;
-			match message.kind {
-				RegisterAgent => commands.push(Command::CreateAgent {}),
-				RegisterToken => {
-					let params = RegisterTokenParams::decode_all(&mut message.params.as_slice())
-						.map_err(|_| TransactParamsDecodeFailed)?;
-					let token_id =
-						TokenIdOf::convert_location(&params.location).ok_or(InvalidAsset)?;
-					commands.push(Command::RegisterForeignToken {
-						token_id,
-						name: params.metadata.name.into_inner(),
-						symbol: params.metadata.symbol.into_inner(),
-						decimals: params.metadata.decimals,
-					});
-				},
-				CallContract => {
-					let params = CallContractParams::decode_all(&mut message.params.as_slice())
-						.map_err(|_| TransactParamsDecodeFailed)?;
-					if params.value > 0 {
-						ensure!(weth_amount > params.value, CallContractValueInsufficient);
-					}
-					commands.push(Command::CallContract {
-						target: params.target,
-						data: params.data,
-						gas_limit: params.gas_limit,
-						value: params.value,
-					});
-				},
+			if transact.value > 0 {
+				ensure!(weth_amount > transact.value, CallContractValueInsufficient);
 			}
+			commands.push(Command::CallContract {
+				target: transact.target,
+				data: transact.data,
+				gas_limit: transact.gas_limit,
+				value: transact.value,
+			});
 		}
 
 		// ensure SetTopic exists
