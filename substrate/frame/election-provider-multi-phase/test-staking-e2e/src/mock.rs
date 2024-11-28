@@ -523,7 +523,7 @@ impl Default for BalancesExtBuilder {
 			(100, 100),
 			(200, 100),
 			// stashes
-			(11, 1000),
+			(11, 1100),
 			(21, 2000),
 			(31, 3000),
 			(41, 4000),
@@ -952,11 +952,6 @@ pub(crate) fn staked_amount_for(account_id: AccountId) -> Balance {
 
 pub(crate) fn delegated_balance_for(account_id: AccountId) -> Balance {
 	DelegatedStaking::agent_balance(Agent::from(account_id)).unwrap_or_default()
-}
-
-/// Balance available to be staked for an account.
-pub(crate) fn stakeable_balance_for(account_id: AccountId) -> Balance {
-	pallet_staking::asset::stakeable_balance::<Runtime>(&account_id)
 }
 
 pub(crate) fn staking_events() -> Vec<pallet_staking::Event<Runtime>> {

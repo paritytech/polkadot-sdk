@@ -327,8 +327,8 @@ fn automatic_unbonding_pools() {
 		assert_eq!(<Runtime as pallet_nomination_pools::Config>::MaxUnbonding::get(), 1);
 
 		// init state of pool members.
-		let init_stakeable_balance_2 = stakeable_balance_for(2);
-		let init_stakeable_balance_3 = stakeable_balance_for(3);
+		let init_free_balance_2 = Balances::free_balance(2);
+		let init_free_balance_3 = Balances::free_balance(3);
 
 		let pool_bonded_account = Pools::generate_bonded_account(1);
 
@@ -410,7 +410,7 @@ fn automatic_unbonding_pools() {
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(2), 2, 10));
 		assert_eq!(delegated_balance_for(pool_bonded_account), 15);
 
-		assert_eq!(stakeable_balance_for(2), 20);
+		assert_eq!(Balances::free_balance(2), 20);
 		assert_eq!(TotalValueLocked::<Runtime>::get(), 15);
 
 		// 3 cannot withdraw yet.
@@ -430,8 +430,8 @@ fn automatic_unbonding_pools() {
 
 		// final conditions are the expected.
 		assert_eq!(delegated_balance_for(pool_bonded_account), 5); // 5 init bonded
-		assert_eq!(stakeable_balance_for(2), init_stakeable_balance_2);
-		assert_eq!(stakeable_balance_for(3), init_stakeable_balance_3);
+		assert_eq!(Balances::free_balance(2), init_free_balance_2);
+		assert_eq!(Balances::free_balance(3), init_free_balance_3);
 
 		assert_eq!(TotalValueLocked::<Runtime>::get(), init_tvl);
 	});
