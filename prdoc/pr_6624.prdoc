@@ -9,7 +9,7 @@ doc:
       "See issue #6194."
 
 crates:  
-  - name: sdk
+  - name: polkadot-omni-node
     bump: patch
-  - name: chain_spec_runtime
+  - name: chain-spec-builder
     bump: patch
