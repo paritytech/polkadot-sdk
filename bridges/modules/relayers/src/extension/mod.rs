@@ -326,7 +326,9 @@ where
 		};
 
 		// we only boost priority if relayer has staked required balance
-		if !RelayersPallet::<R, C::BridgeRelayersPalletInstance>::is_registration_active(&data.relayer) {
+		if !RelayersPallet::<R, C::BridgeRelayersPalletInstance>::is_registration_active(
+			&data.relayer,
+		) {
 			return Ok((Default::default(), Some(data), origin))
 		}
 
@@ -382,7 +384,11 @@ where
 		match call_result {
 			RelayerAccountAction::None => (),
 			RelayerAccountAction::Reward(relayer, reward_account, reward) => {
-				RelayersPallet::<R, C::BridgeRelayersPalletInstance>::register_relayer_reward(reward_account, &relayer, reward);
+				RelayersPallet::<R, C::BridgeRelayersPalletInstance>::register_relayer_reward(
+					reward_account,
+					&relayer,
+					reward,
+				);
 
 				log::trace!(
 					target: LOG_TARGET,
