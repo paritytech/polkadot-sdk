@@ -9414,9 +9414,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b67484b8ac41e1cfdf012f65fa81e88c2ef5f8a7d6dec0e2678c2d06dc04530"
+checksum = "569e7dbec8a0d4b08d30f4942cd579cfe8db5d3f83f8604abe61697c38d17e73"
 dependencies = [
  "async-trait",
  "bs58",
