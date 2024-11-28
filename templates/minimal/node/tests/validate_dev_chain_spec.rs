@@ -74,13 +74,11 @@ fn test_minimal_dev_chain_spec_rt_validity() {
         .as_json(false)
     ).unwrap();
 
-    let existing_chain_spec = ChainSpec::from_json_file(
-            "../dev_chain_spec.json".into()
-        ).expect("failed to find development chain spec");
-
-    let test_chain_data:(String, u32, u32) = decode_runtime_info(&test_chain_spec).expect("failed to retrieve test chain runtime info");
-    let current_chain_data:(String, u32, u32) = decode_runtime_info(&existing_chain_spec).expect("failed to retrieve current chain runtime info");
-
-    assert_eq!(test_chain_data, current_chain_data);
+    	let existing_chain_spec_file =
+		std::fs::File::open("../dev_chain_spec.json").expect("file should open. qed");
+	let existing_chain_spec_reader = BufReader::new(existing_chain_spec_file);
+	let existing_chain_spec: serde_json::Value =
+		serde_json::from_reader(existing_chain_spec_reader).expect("should read proper JSON. qed");
+	assert_eq!(test_chain_spec, existing_chain_spec);
 }
 
