@@ -54,7 +54,6 @@ fn get_chain_spec_builder_path() -> &'static str {
 
 #[docify::export]
 fn cmd_list_presets(path: &str) {
-	let path = wasm_file_path();
 	bash!(
 		chain-spec-builder {
 			"presets":[
@@ -138,7 +137,6 @@ fn generate_chain_spec() {
 
 #[docify::export]
 fn cmd_generate_para_chain_spec(path: &str) {
-	let path = wasm_file_path();
 	bash2!(
 		chain-spec-builder {
 			"name": "Custom",
