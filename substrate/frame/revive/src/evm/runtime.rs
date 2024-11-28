@@ -17,7 +17,7 @@
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
 	evm::api::{GenericTransaction, TransactionSigned},
-	AccountIdOf, AddressMapper, BalanceOf, MomentOf, Weight, LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, MomentOf, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -136,15 +136,8 @@ where
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
 			if let Ok(call) = self.0.function.clone().try_into() {
-				if let crate::Call::eth_transact { payload, gas_limit, storage_deposit_limit } =
-					call
-				{
-					let checked = E::try_into_checked_extrinsic(
-						payload,
-						gas_limit,
-						storage_deposit_limit,
-						self.encoded_size(),
-					)?;
+				if let crate::Call::eth_transact { payload } = call {
+					let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
 					return Ok(checked)
 				};
 			}
@@ -277,8 +270,6 @@ pub trait EthExtra {
 	/// - `encoded_len`: The encoded length of the extrinsic.
 	fn try_into_checked_extrinsic(
 		payload: Vec<u8>,
-		gas_limit: Weight,
-		storage_deposit_limit: BalanceOf<Self::Config>,
 		encoded_len: usize,
 	) -> Result<
 		CheckedExtrinsic<AccountIdOf<Self::Config>, CallOf<Self::Config>, Self::Extension>,
@@ -320,6 +311,10 @@ pub trait EthExtra {
 			})?;
 
 		let data = input.unwrap_or_default().0;
+
+		let gas_encoder = <Self::Config as crate::Config>::EthGasEncoder::get();
+		let (gas_limit, storage_deposit_limit) = gas_encoder.decode(gas.unwrap_or_default());
+
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
 				dest,

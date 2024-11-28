@@ -41,7 +41,7 @@ pub mod test_utils;
 pub mod weights;
 
 use crate::{
-	evm::{runtime::GAS_PRICE, GenericTransaction},
+	evm::{runtime::GAS_PRICE, EthGasEncoder, GenericTransaction},
 	exec::{AccountIdOf, ExecError, Executable, Ext, Key, Origin, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
@@ -308,6 +308,9 @@ pub mod pallet {
 		/// The ratio between the decimal representation of the native token and the ETH token.
 		#[pallet::constant]
 		type NativeToEthRatio: Get<u32>;
+
+		#[pallet::no_default]
+		type EthGasEncoder: Get<EthGasEncoder<BalanceOf<Self>>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -784,12 +787,7 @@ pub mod pallet {
 		#[allow(unused_variables)]
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::MAX)]
-		pub fn eth_transact(
-			origin: OriginFor<T>,
-			payload: Vec<u8>,
-			gas_limit: Weight,
-			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
-		) -> DispatchResultWithPostInfo {
+		pub fn eth_transact(origin: OriginFor<T>, payload: Vec<u8>) -> DispatchResultWithPostInfo {
 			Err(frame_system::Error::CallFiltered::<T>.into())
 		}
 
@@ -1426,17 +1424,16 @@ where
 		// the encoded length of the gas limit specified in the transaction (tx.gas).
 		// We iteratively compute the fee by adjusting tx.gas until the fee stabilizes.
 		// with a maximum of 3 iterations to avoid an infinite loop.
+		let gas_encoder = T::EthGasEncoder::get();
+
 		for _ in 0..3 {
 			let Ok(unsigned_tx) = tx.clone().try_into_unsigned() else {
 				log::debug!(target: LOG_TARGET, "Failed to convert to unsigned");
 				return Err(EthTransactError::Message("Invalid transaction".into()));
 			};
 
-			let eth_dispatch_call = crate::Call::<T>::eth_transact {
-				payload: unsigned_tx.dummy_signed_payload(),
-				gas_limit: result.gas_required,
-				storage_deposit_limit: result.storage_deposit,
-			};
+			let eth_dispatch_call =
+				crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
 			let encoded_len = utx_encoded_size(eth_dispatch_call);
 			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
 				encoded_len,
@@ -1445,6 +1442,9 @@ where
 			)
 			.into();
 			let eth_gas: U256 = (fee / GAS_PRICE.into()).into();
+			let eth_gas = gas_encoder
+				.encode(eth_gas, result.gas_required, result.storage_deposit)
+				.map_err(|_| EthTransactError::Message("Failed to encode gas".into()))?;
 
 			if eth_gas == result.eth_gas {
 				log::trace!(target: LOG_TARGET, "bare_eth_call: encoded_len: {encoded_len:?} eth_gas: {eth_gas:?}");

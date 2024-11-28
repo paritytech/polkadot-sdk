@@ -20,3 +20,6 @@
 mod api;
 pub use api::*;
 pub mod runtime;
+
+mod gas_encoder;
+pub use gas_encoder::*;
