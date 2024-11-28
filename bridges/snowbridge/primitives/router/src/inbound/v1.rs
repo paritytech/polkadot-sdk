@@ -449,7 +449,7 @@ where
 
 #[cfg(test)]
 mod tests {
-	use crate::inbound::{CallIndex, GlobalConsensusEthereumConvertsFor};
+	use crate::inbound::{CallIndex, EthereumLocationsConverterFor};
 	use frame_support::{assert_ok, parameter_types};
 	use hex_literal::hex;
 	use xcm::prelude::*;

@@ -17,14 +17,6 @@ use xcm::{
 
 const LOG_TARGET: &str = "snowbridge-router-primitives";
 
-/// Messages from Ethereum are versioned. This is because in future,
-/// we may want to evolve the protocol so that the ethereum side sends XCM messages directly.
-/// Instead having BridgeHub transcode the messages into XCM.
-#[derive(Clone, Encode, Decode, RuntimeDebug)]
-pub enum VersionedMessage {
-	V2(Message),
-}
-
 /// The ethereum side sends messages which are transcoded into XCM on BH. These messages are
 /// self-contained, in that they can be transcoded using only information in the message.
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -33,12 +25,15 @@ pub struct Message {
 	pub origin: H160,
 	/// The assets
 	pub assets: Vec<Asset>,
-	// The command originating from the Gateway contract
+	/// The command originating from the Gateway contract
 	pub xcm: Vec<u8>,
-	// The claimer in the case that funds get trapped.
+	/// The claimer in the case that funds get trapped.
 	pub claimer: Option<Vec<u8>>,
 }
 
+/// An asset that will be transacted on AH. The asset will be reserved/withdrawn and placed into
+/// the holding register. The user needs to provide additional xcm to deposit the asset
+/// in a beneficiary account.
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum Asset {
 	NativeTokenERC20 {
@@ -178,88 +173,48 @@ where
 
 #[cfg(test)]
 mod tests {
-	use crate::inbound::{
-		v2::{ConvertMessage, Message, MessageToXcm},
-		CallIndex, GlobalConsensusEthereumConvertsFor,
-	};
+	use crate::inbound::v2::{ConvertMessage, Message, MessageToXcm};
 	use codec::Decode;
 	use frame_support::{assert_ok, parameter_types};
 	use hex_literal::hex;
-	use sp_runtime::traits::ConstU8;
+	use sp_core::H256;
+	use sp_runtime::traits::{ConstU128, ConstU8};
 	use xcm::prelude::*;
-	use xcm_executor::traits::ConvertLocation;
+
+	use snowbridge_core::TokenId;
+	use sp_runtime::traits::MaybeEquivalence;
 
 	const NETWORK: NetworkId = Ethereum { chain_id: 11155111 };
 
 	parameter_types! {
 		pub EthereumNetwork: NetworkId = NETWORK;
-
-		pub const CreateAssetCall: CallIndex = [1, 1];
-		pub const CreateAssetExecutionFee: u128 = 123;
-		pub const CreateAssetDeposit: u128 = 891;
-		pub const SendTokenExecutionFee: u128 = 592;
 	}
 
-	#[test]
-	fn test_contract_location_with_network_converts_successfully() {
-		let expected_account: [u8; 32] =
-			hex!("ce796ae65569a670d0c1cc1ac12515a3ce21b5fbf729d63d7b289baad070139d");
-		let contract_location = Location::new(2, [GlobalConsensus(NETWORK)]);
-
-		let account =
-			GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location)
-				.unwrap();
-
-		assert_eq!(account, expected_account);
-	}
-
-	#[test]
-	fn test_contract_location_with_incorrect_location_fails_convert() {
-		let contract_location = Location::new(2, [GlobalConsensus(Polkadot), Parachain(1000)]);
-
-		assert_eq!(
-			GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location),
-			None,
-		);
-	}
-
-	#[test]
-	fn test_reanchor_all_assets() {
-		let ethereum_context: InteriorLocation = [GlobalConsensus(Ethereum { chain_id: 1 })].into();
-		let ethereum = Location::new(2, ethereum_context.clone());
-		let ah_context: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1000)].into();
-		let global_ah = Location::new(1, ah_context.clone());
-		let assets = vec![
-			// DOT
-			Location::new(1, []),
-			// GLMR (Some Polkadot parachain currency)
-			Location::new(1, [Parachain(2004)]),
-			// AH asset
-			Location::new(0, [PalletInstance(50), GeneralIndex(42)]),
-			// KSM
-			Location::new(2, [GlobalConsensus(Kusama)]),
-			// KAR (Some Kusama parachain currency)
-			Location::new(2, [GlobalConsensus(Kusama), Parachain(2000)]),
-		];
-		for asset in assets.iter() {
-			// reanchor logic in pallet_xcm on AH
-			let mut reanchored_asset = asset.clone();
-			assert_ok!(reanchored_asset.reanchor(&ethereum, &ah_context));
-			// reanchor back to original location in context of Ethereum
-			let mut reanchored_asset_with_ethereum_context = reanchored_asset.clone();
-			assert_ok!(
-				reanchored_asset_with_ethereum_context.reanchor(&global_ah, &ethereum_context)
-			);
-			assert_eq!(reanchored_asset_with_ethereum_context, asset.clone());
+	pub struct MockTokenIdConvert;
+	impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
+		fn convert(_id: &TokenId) -> Option<Location> {
+			Some(Location::parent())
+		}
+		fn convert_back(_loc: &Location) -> Option<TokenId> {
+			None
 		}
 	}
 
 	#[test]
-	fn test_convert_message() {
+	fn convert_message() {
 		let payload = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf040197874824853fb4ad04794ccfd1cc8d2a7463839cfcbc6a315a1045c60ab85f400000b2d3595bf00600000000000000000000").to_vec();
+		let origin_account =
+			Location::new(0, AccountId32 { id: H256::random().into(), network: None });
+
 		let message = Message::decode(&mut payload.as_ref());
 		assert_ok!(message.clone());
-		let result = MessageToXcm::<EthereumNetwork, ConstU8<80>>::convert(message.unwrap());
+
+		let result = MessageToXcm::<
+			EthereumNetwork,
+			ConstU8<80>,
+			MockTokenIdConvert,
+			ConstU128<1_000_000_000_000>,
+		>::convert(message.unwrap(), origin_account);
 		assert_ok!(result);
 	}
 }

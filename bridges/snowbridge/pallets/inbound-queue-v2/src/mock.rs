@@ -6,6 +6,7 @@ use crate::{self as inbound_queue_v2};
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU128, ConstU32},
+	weights::IdentityFee,
 };
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
