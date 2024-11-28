@@ -115,7 +115,7 @@ pub enum ArchiveStorageEvent {
 	/// Query generated a result.
 	Storage(StorageResult),
 	/// Query encountered an error.
-	StorageErr(ArchiveStorageMethodErr),
+	StorageError(ArchiveStorageMethodErr),
 	/// Operation storage is done.
 	StorageDone,
 }
@@ -123,7 +123,7 @@ pub enum ArchiveStorageEvent {
 impl ArchiveStorageEvent {
 	/// Create a new `ArchiveStorageEvent::StorageErr` event.
 	pub fn err(error: String) -> Self {
-		Self::StorageErr(ArchiveStorageMethodErr { error })
+		Self::StorageError(ArchiveStorageMethodErr { error })
 	}
 
 	/// Create a new `ArchiveStorageEvent::StorageResult` event.
@@ -138,7 +138,7 @@ impl ArchiveStorageEvent {
 
 	/// Checks if the event is a `StorageErr` event.
 	pub fn is_err(&self) -> bool {
-		matches!(self, Self::StorageErr(_))
+		matches!(self, Self::StorageError(_))
 	}
 
 	/// Checks if the event is a `StorageResult` event.

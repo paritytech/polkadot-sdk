@@ -559,7 +559,7 @@ async fn archive_storage_closest_merkle_value() {
 					};
 					merkle_values.insert(result.key, str_result);
 				},
-				ArchiveStorageEvent::StorageErr(err) => panic!("Unexpected error {err:?}"),
+				ArchiveStorageEvent::StorageError(err) => panic!("Unexpected error {err:?}"),
 				ArchiveStorageEvent::StorageDone => break,
 			}
 		}
@@ -678,7 +678,7 @@ async fn archive_storage_iterations() {
 
 	assert_matches!(
 		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
-		ArchiveStorageEvent::StorageErr(_)
+		ArchiveStorageEvent::StorageError(_)
 	);
 
 	// Valid call with storage at the key.
