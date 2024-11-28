@@ -8,6 +8,4 @@ doc:
     description: |
       "See issue #6194."
 
-crates:  
-  - name: polkadot-sdk-docs-first-node
-    bump: patch
+crates: []
