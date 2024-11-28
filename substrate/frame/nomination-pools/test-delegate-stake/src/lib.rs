@@ -21,7 +21,10 @@ mod mock;
 
 use frame_support::{
 	assert_noop, assert_ok, hypothetically,
-	traits::{fungible::{InspectHold, Mutate}, Currency},
+	traits::{
+		fungible::{InspectHold, Mutate},
+		Currency,
+	},
 };
 use mock::*;
 use pallet_nomination_pools::{
