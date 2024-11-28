@@ -2,8 +2,10 @@ use serde_json::{json, Value};
 use std::str;
 use cmd_lib::*;
 
-const WASM_FILE_PATH: &str =
-	"../../../../../target/release/wbuild/chain-spec-guide-runtime/chain_spec_guide_runtime.wasm";
+fn wasm_file_path() -> &'static str {
+	chain_spec_guide_runtime::runtime::WASM_BINARY_PATH
+		.expect("chain_spec_guide_runtime wasm should exist. qed")
+}
 
 const CHAIN_SPEC_BUILDER_PATH: &str = "../../../../../target/release/chain-spec-builder";
 
