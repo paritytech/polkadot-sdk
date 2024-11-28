@@ -19,7 +19,7 @@ macro_rules! bash(
 		.expect("a process running. qed")
 		.wait_with_output()
 		.expect("to get output. qed.");
-		let mut output0: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
+		let output0: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
 		assert_eq!(output0, x, "Output did not match expected");
 	}}
 );
