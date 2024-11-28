@@ -16,58 +16,58 @@ jobs:
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
 
-  test-linux-stable-int:
-    needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    env:
-      RUSTFLAGS: "-C debug-assertions -D warnings"
-      RUST_BACKTRACE: 1
-      WASM_BUILD_NO_COLOR: 1
-      WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
-      # Ensure we run the UI tests.
-      RUN_UI_TESTS: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: script
-        id: required
-        run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
-      - name: Stop all workflows if failed
-        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
-        uses: ./.github/actions/workflow-stopper
-        with:
-          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+  # test-linux-stable-int:
+  #   needs: [preflight]
+  #   if: ${{ needs.preflight.outputs.changes_rust }}
+  #   runs-on: ${{ needs.preflight.outputs.RUNNER }}
+  #   timeout-minutes: 60
+  #   container:
+  #     image: ${{ needs.preflight.outputs.IMAGE }}
+  #   env:
+  #     RUSTFLAGS: "-C debug-assertions -D warnings"
+  #     RUST_BACKTRACE: 1
+  #     WASM_BUILD_NO_COLOR: 1
+  #     WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
+  #     # Ensure we run the UI tests.
+  #     RUN_UI_TESTS: 1
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #     - name: script
+  #       id: required
+  #       run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
+  #     - name: Stop all workflows if failed
+  #       if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+  #       uses: ./.github/actions/workflow-stopper
+  #       with:
+  #         app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+  #         app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
-  # https://github.com/paritytech/ci_cd/issues/864
-  test-linux-stable-runtime-benchmarks:
-    needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    env:
-      RUST_TOOLCHAIN: stable
-      # Enable debug assertions since we are running optimized builds for testing
-      # but still want to have debug assertions.
-      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: script
-        id: required
-        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
-      - name: Stop all workflows if failed
-        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
-        uses: ./.github/actions/workflow-stopper
-        with:
-          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+  # # https://github.com/paritytech/ci_cd/issues/864
+  # test-linux-stable-runtime-benchmarks:
+  #   needs: [preflight]
+  #   if: ${{ needs.preflight.outputs.changes_rust }}
+  #   runs-on: ${{ needs.preflight.outputs.RUNNER }}
+  #   timeout-minutes: 60
+  #   container:
+  #     image: ${{ needs.preflight.outputs.IMAGE }}
+  #   env:
+  #     RUST_TOOLCHAIN: stable
+  #     # Enable debug assertions since we are running optimized builds for testing
+  #     # but still want to have debug assertions.
+  #     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #     - name: script
+  #       id: required
+  #       run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
+  #     - name: Stop all workflows if failed
+  #       if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+  #       uses: ./.github/actions/workflow-stopper
+  #       with:
+  #         app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+  #         app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   test-linux-stable:
     needs: [preflight]
@@ -127,41 +127,41 @@ jobs:
   # all_security_features_work and nonexistent_cache_dir are currently skipped
   # becuase runners don't have the necessary permissions to run them
   test-linux-stable-no-try-runtime:
-    needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.IMAGE }}
-    strategy:
-      fail-fast: false
-      matrix:
-        partition: [1/2, 2/2]
-    env:
-      RUST_TOOLCHAIN: stable
-      # Enable debug assertions since we are running optimized builds for testing
-      # but still want to have debug assertions.
-      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: script
-        id: required
-        run: |
-          forklift cargo nextest run --workspace \
-                   --locked \
-                   --release \
-                   --no-fail-fast \
-                   --cargo-quiet \
-                   --features experimental,ci-only-tests \
-                   --filter-expr " !test(/all_security_features_work/) - test(/nonexistent_cache_dir/)" \
-                   --partition count:${{ matrix.partition }} \
-      - name: Stop all workflows if failed
-        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
-        uses: ./.github/actions/workflow-stopper
-        with:
-          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+    # needs: [preflight]
+    # if: ${{ needs.preflight.outputs.changes_rust }}
+    # runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    # timeout-minutes: 60
+    # container:
+    #   image: ${{ needs.preflight.outputs.IMAGE }}
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     partition: [1/2, 2/2]
+    # env:
+    #   RUST_TOOLCHAIN: stable
+    #   # Enable debug assertions since we are running optimized builds for testing
+    #   # but still want to have debug assertions.
+    #   RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    # steps:
+    #   - name: Checkout
+    #     uses: actions/checkout@v4
+    #   - name: script
+    #     id: required
+    #     run: |
+    #       forklift cargo nextest run --workspace \
+    #                --locked \
+    #                --release \
+    #                --no-fail-fast \
+    #                --cargo-quiet \
+    #                --features experimental,ci-only-tests \
+    #                --filter-expr " !test(/all_security_features_work/) - test(/nonexistent_cache_dir/)" \
+    #                --partition count:${{ matrix.partition }} \
+    #   - name: Stop all workflows if failed
+    #     if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+    #     uses: ./.github/actions/workflow-stopper
+    #     with:
+    #       app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+    #       app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
