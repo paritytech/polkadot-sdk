@@ -949,7 +949,15 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 						let direction = match endpoint {
 							Endpoint::Dialer { .. } => "out",
-							Endpoint::Listener { .. } => "in",
+							Endpoint::Listener { .. } => {
+								// Increment incoming connections counter.
+								//
+								// Note: For litep2p these are represented by established negotiated connections,
+								// while for libp2p (legacy) these represent not-yet-negotiated connections.
+								metrics.incoming_connections_total.inc();
+
+								"in"
+							},
 						};
 						metrics.connections_opened_total.with_label_values(&[direction]).inc();
 
@@ -1006,12 +1014,42 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							"failed to dial peer at {address:?}: {error:?}",
 						);
 
+<<<<<<< HEAD
 						let reason = match error {
 							Litep2pError::PeerIdMismatch(_, _) => "invalid-peer-id",
 							Litep2pError::Timeout | Litep2pError::TransportError(_) |
 							Litep2pError::IoError(_) | Litep2pError::WebSocket(_) => "transport-error",
 							_ => "other",
 						};
+=======
+						if let Some(metrics) = &self.metrics {
+							let reason = match error {
+								DialError::Timeout => "timeout",
+								DialError::AddressError(_) => "invalid-address",
+								DialError::DnsError(_) => "cannot-resolve-dns",
+								DialError::NegotiationError(error) => match error {
+									NegotiationError::Timeout => "timeout",
+									NegotiationError::PeerIdMissing => "missing-peer-id",
+									NegotiationError::StateMismatch => "state-mismatch",
+									NegotiationError::PeerIdMismatch(_,_) => "peer-id-missmatch",
+									NegotiationError::MultistreamSelectError(_) => "multistream-select-error",
+									NegotiationError::SnowError(_) => "noise-error",
+									NegotiationError::ParseError(_) => "parse-error",
+									NegotiationError::IoError(_) => "io-error",
+									NegotiationError::WebSocket(_) => "webscoket-error",
+									NegotiationError::BadSignature => "bad-signature",
+								}
+							};
+
+							metrics.pending_connections_errors_total.with_label_values(&[&reason]).inc();
+						}
+					}
+					Some(Litep2pEvent::ListDialFailures { errors }) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"failed to dial peer on multiple addresses {errors:?}",
+						);
+>>>>>>> 51c3e95 (chore: Update litep2p to v0.8.2 (#6677))
 
 						if let Some(metrics) = &self.metrics {
 							metrics.pending_connections_errors_total.with_label_values(&[reason]).inc();
