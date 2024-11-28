@@ -325,7 +325,7 @@ pub trait StakingUnchecked: StakingInterface {
 	/// Migrate an existing staker to a virtual staker.
 	///
 	/// It would release all funds held by the implementation pallet.
-	fn migrate_to_virtual_staker(who: &Self::AccountId);
+	fn migrate_to_virtual_staker(who: &Self::AccountId) -> DispatchResult;
 
 	/// Book-keep a new bond for `keyless_who` without applying any locks (hence virtual).
 	///

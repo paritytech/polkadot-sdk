@@ -245,8 +245,10 @@ pub trait StakeStrategy {
 /// strategy in an existing runtime, storage migration is required. See
 /// [`migration::unversioned::DelegationStakeMigration`]. For new runtimes, it is highly recommended
 /// to use the [`DelegateStake`] strategy.
+#[deprecated = "consider migrating to DelegateStake"]
 pub struct TransferStake<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
 
+#[allow(deprecated)]
 impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
 	StakeStrategy for TransferStake<T, Staking>
 {
@@ -262,7 +264,8 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		pool_account: Pool<Self::AccountId>,
 		_: Member<Self::AccountId>,
 	) -> BalanceOf<T> {
-		T::Currency::balance(&pool_account.0).saturating_sub(Self::active_stake(pool_account))
+		// free/liquid balance of the pool account.
+		T::Currency::balance(&pool_account.0)
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<BalanceOf<T>> {
