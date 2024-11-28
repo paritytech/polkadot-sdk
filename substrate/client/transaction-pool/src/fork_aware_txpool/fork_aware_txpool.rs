@@ -31,10 +31,7 @@ use crate::{
 	api::FullChainApi,
 	common::log_xt::log_xt_trace,
 	enactment_state::{EnactmentAction, EnactmentState},
-	fork_aware_txpool::{
-		dropped_watcher::{DroppedReason, DroppedTransaction},
-		revalidation_worker,
-	},
+	fork_aware_txpool::{dropped_watcher::DroppedReason, revalidation_worker},
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
@@ -1270,7 +1267,8 @@ where
 		self.api.hash_and_length(xt).0
 	}
 
-	/// Attempts to replace a lower-priority transaction in the transaction pool with a new one.
+	/// Attempts to find and replace a lower-priority transaction in the transaction pool with a new
+	/// one.
 	///
 	/// This asynchronous function verifies the new transaction against the most recent view. If a
 	/// transaction with a lower priority exists in the transaction pool, it is replaced with the
@@ -1322,12 +1320,13 @@ where
 				self.mempool.try_replace_transaction(xt, source, watched, worst_tx_hash);
 
 			// 5. notify listner
-			self.view_store
-				.listener
-				.transaction_dropped(DroppedTransaction::new_usurped(worst_tx_hash, tx_hash));
-
-			// 7. remove transaction from the view_store
-			self.view_store.remove_transaction_subtree(worst_tx_hash, tx_hash);
+			// 6. remove transaction from the view_store
+			self.view_store.remove_transaction_subtree(
+				worst_tx_hash,
+				|listener, removed_tx_hash| {
+					listener.usurped(&removed_tx_hash, &tx_hash);
+				},
+			);
 
 			// 8. add to pending_replacements - make sure it will not sneak back via cloned view
 

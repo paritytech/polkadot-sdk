@@ -465,11 +465,14 @@ where
 	///
 	/// Intended to be called when removal is a result of replacement. Provided `replaced_with`
 	/// transaction hash is used in emitted _usurped_ event.
-	pub(super) fn remove_subtree(
+	pub fn remove_subtree<F>(
 		&self,
 		tx_hash: ExtrinsicHash<ChainApi>,
-		replaced_with: ExtrinsicHash<ChainApi>,
-	) -> Vec<ExtrinsicHash<ChainApi>> {
-		self.pool.validated_pool().remove_subtree(tx_hash, replaced_with)
+		listener_action: F,
+	) -> Vec<ExtrinsicHash<ChainApi>>
+	where
+		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>),
+	{
+		self.pool.validated_pool().remove_subtree(tx_hash, listener_action)
 	}
 }

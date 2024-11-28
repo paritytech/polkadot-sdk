@@ -18,7 +18,6 @@
 
 use std::{
 	collections::{HashMap, HashSet},
-	hash,
 	sync::Arc,
 };
 
@@ -26,17 +25,15 @@ use crate::{common::log_xt::log_xt_trace, LOG_TARGET};
 use futures::channel::mpsc::{channel, Sender};
 use parking_lot::{Mutex, RwLock};
 use sc_transaction_pool_api::{error, PoolStatus, ReadyTransactions};
-use serde::Serialize;
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
-	traits::{self, SaturatedConversion},
+	traits::SaturatedConversion,
 	transaction_validity::{TransactionTag as Tag, ValidTransaction},
 };
 use std::time::Instant;
 
 use super::{
 	base_pool::{self as base, PruneStatus},
-	listener::Listener,
 	pool::{
 		BlockHash, ChainApi, EventStream, ExtrinsicFor, ExtrinsicHash, Options, TransactionFor,
 	},
@@ -85,6 +82,8 @@ impl<Hash, Ex, Error> ValidatedTransaction<Hash, Ex, Error> {
 pub type ValidatedTransactionFor<B> =
 	ValidatedTransaction<ExtrinsicHash<B>, ExtrinsicFor<B>, <B as ChainApi>::Error>;
 
+pub type Listener<B> = super::listener::Listener<ExtrinsicHash<B>, B>;
+
 /// A closure that returns true if the local node is a validator that can author blocks.
 #[derive(Clone)]
 pub struct IsValidator(Arc<Box<dyn Fn() -> bool + Send + Sync>>);
@@ -106,7 +105,7 @@ pub struct ValidatedPool<B: ChainApi> {
 	api: Arc<B>,
 	is_validator: IsValidator,
 	options: Options,
-	listener: RwLock<Listener<ExtrinsicHash<B>, B>>,
+	listener: RwLock<Listener<B>>,
 	pub(crate) pool: RwLock<base::BasePool<ExtrinsicHash<B>, ExtrinsicFor<B>>>,
 	import_notification_sinks: Mutex<Vec<Sender<ExtrinsicHash<B>>>>,
 	rotator: PoolRotator<ExtrinsicHash<B>>,
@@ -716,31 +715,41 @@ impl<B: ChainApi> ValidatedPool<B> {
 		}
 	}
 
-	/// Removes the whole transaction subtree the pool.
+	/// Removes a transaction subtree from the pool, starting from the given transaction hash.
 	///
-	/// Intended to be called when removal is a result of replacement. Provided `replaced_with`
-	/// transaction hash is used in emitted _usurped_ event.
-	pub fn remove_subtree(
+	/// This function traverses the dependency graph of transactions and removes the specified
+	/// transaction along with all its descendant transactions from the pool.
+	///
+	/// A `listener_action` callback function is invoked for every transaction that is removed,
+	/// providing a reference to the pool's listener and the hash of the removed transaction. This
+	/// allows to trigger the required events.
+	///
+	/// Returns a vector containing the hashes of all removed transactions, including the root
+	/// transaction specified by `tx_hash`.
+	pub fn remove_subtree<F>(
 		&self,
 		tx_hash: ExtrinsicHash<B>,
-		replaced_with: ExtrinsicHash<B>,
-	) -> Vec<ExtrinsicHash<B>> {
+		listener_action: F,
+	) -> Vec<ExtrinsicHash<B>>
+	where
+		F: Fn(&mut Listener<B>, ExtrinsicHash<B>),
+	{
 		self.pool
 			.write()
 			.remove_subtree(&[tx_hash])
 			.into_iter()
-			.map(|tx| tx.hash)
-			.inspect(|tx_hash| {
+			.map(|tx| {
+				let removed_tx_hash = tx.hash;
 				let mut listener = self.listener.write();
-				listener.usurped(&tx_hash, &replaced_with)
+				listener_action(&mut *listener, removed_tx_hash);
+				removed_tx_hash
 			})
 			.collect::<Vec<_>>()
 	}
 }
 
-fn fire_events<H, B, Ex>(listener: &mut Listener<H, B>, imported: &base::Imported<H, Ex>)
+fn fire_events<B, Ex>(listener: &mut Listener<B>, imported: &base::Imported<ExtrinsicHash<B>, Ex>)
 where
-	H: hash::Hash + Eq + traits::Member + Serialize,
 	B: ChainApi,
 {
 	match *imported {

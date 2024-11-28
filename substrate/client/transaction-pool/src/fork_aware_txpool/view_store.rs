@@ -38,7 +38,7 @@ use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus};
 use sp_blockchain::TreeRoute;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	sync::Arc,
 	time::Instant,
 };
@@ -691,23 +691,37 @@ where
 		let _results = futures::future::join_all(submit_futures).await;
 	}
 
-	/// Removes the whole transaction subtree from every view within the view store.
+	/// Removes a transaction subtree from the every view in the view_store, starting from the given
+	/// transaction hash.
 	///
-	/// Intended to be called when removal is a result of replacement. Provided `replaced_with`
-	/// transaction hash is used in emitted _usurped_ event.
-	pub(super) fn remove_transaction_subtree(
+	/// This function traverses the dependency graph of transactions and removes the specified
+	/// transaction along with all its descendant transactions from every view.
+	///
+	/// A `listener_action` callback function is invoked for every transaction that is removed,
+	/// providing a reference to the pool's listener and the hash of the removed transaction. This
+	/// allows to trigger the required events. Note listener may be called multiple times for the
+	/// same hash.
+	///
+	/// Returns a vector containing the hashes of all removed transactions, including the root
+	/// transaction specified by `tx_hash`. Vector contains only unique hashes.
+	pub(super) fn remove_transaction_subtree<F>(
 		&self,
 		xt_hash: ExtrinsicHash<ChainApi>,
-		replaced_with: ExtrinsicHash<ChainApi>,
-	) {
+		listener_action: F,
+	) -> Vec<ExtrinsicHash<ChainApi>>
+	where
+		F: Fn(&mut crate::graph::Listener<ChainApi>, ExtrinsicHash<ChainApi>),
+	{
+		let mut seen = HashSet::new();
 		let active_views = self.active_views.read();
 		let inactive_views = self.inactive_views.read();
 		active_views
 			.iter()
 			.chain(inactive_views.iter())
 			.filter(|(_, view)| view.is_imported(&xt_hash))
-			.for_each(|(_, view)| {
-				view.remove_subtree(xt_hash, replaced_with);
-			});
+			.map(|(_, view)| view.remove_subtree(xt_hash, &listener_action))
+			.flatten()
+			.filter(|xt_hash| seen.insert(*xt_hash))
+			.collect()
 	}
 }
