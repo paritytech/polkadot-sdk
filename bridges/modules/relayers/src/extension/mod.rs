@@ -320,15 +320,8 @@ where
 		};
 
 		// we only boost priority if relayer has staked required balance
-<<<<<<< HEAD
-		if !RelayersPallet::<R>::is_registration_active(who) {
-			return Ok(Default::default())
-=======
-		if !RelayersPallet::<R, C::BridgeRelayersPalletInstance>::is_registration_active(
-			&data.relayer,
-		) {
-			return Ok((Default::default(), Some(data), origin))
->>>>>>> 9ec8009c (Multiple instances for pallet-bridge-relayers fix (#6684))
+		if !RelayersPallet::<R, C::BridgeRelayersPalletInstance>::is_registration_active(who) {
+			return Ok(Default::default());
 		}
 
 		// compute priority boost
