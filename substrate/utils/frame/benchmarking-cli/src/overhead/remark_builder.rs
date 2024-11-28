@@ -54,13 +54,15 @@ impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
 
 		log::debug!("Found metadata API version {}.", metadata_api_version);
 		let opaque_metadata = if metadata_api_version > 1 {
-			let Ok(mut supported_metadata_versions) = api.metadata_versions(genesis) else {
+			let Ok(supported_metadata_versions) = api.metadata_versions(genesis) else {
 				return Err("Unable to fetch metadata versions".to_string().into());
 			};
 
 			let latest = supported_metadata_versions
-				.pop()
-				.ok_or("No metadata version supported".to_string())?;
+				.into_iter()
+				.filter(|v| *v != u32::MAX)
+				.max()
+				.ok_or("No stable metadata versions supported".to_string())?;
 
 			api.metadata_at_version(genesis, latest)
 				.map_err(|e| format!("Unable to fetch metadata: {:?}", e))?
