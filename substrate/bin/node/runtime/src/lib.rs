@@ -53,7 +53,9 @@ use frame_support::{
 			Balanced, Credit, HoldConsideration, ItemOf, NativeFromLeft, NativeOrWithId, UnionOf,
 		},
 		tokens::{
-			imbalance::{ResolveTo, ResolveAssetTo}, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
+			imbalance::{ResolveAssetTo, ResolveTo},
+			nonfungibles_v2::Inspect,
+			pay::PayAssetFromAccount,
 			GetSalary, PayFromAccount,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, Contains,
