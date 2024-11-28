@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+use crate::XcmRouter;
 use crate::{
 	xcm_config,
 	xcm_config::{TreasuryAccount, UniversalLocation},
 	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime,
 	RuntimeEvent, TransactionByteFee,
 };
-#[cfg(not(feature = "runtime-benchmarks"))]
-use crate::XcmRouter;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
@@ -73,8 +73,8 @@ parameter_types! {
 	pub EthereumUniversalLocation: InteriorLocation = [GlobalConsensus(EthereumNetwork::get())].into();
 }
 
-/// The XCM execution fee on AH for the static part of the XCM message (not the user provided parts).
-/// Calculated with integration test snowbridge_v2::xcm_prologue_fee
+/// The XCM execution fee on AH for the static part of the XCM message (not the user provided
+/// parts). Calculated with integration test snowbridge_v2::xcm_prologue_fee
 const XCM_PROLOGUE_FEE: u128 = 67_652_000_000;
 
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
@@ -118,8 +118,10 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue_v2::WeightInfo<Runtime>;
+	type WeightToFee = WeightToFee;
 	type AssetHubParaId = ConstU32<1000>;
 	type Token = Balances;
+	type Balance = Balance;
 	type XcmPrologueFee = ConstU128<XCM_PROLOGUE_FEE>;
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 	type MessageConverter = snowbridge_router_primitives::inbound::v2::MessageToXcm<

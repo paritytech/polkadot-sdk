@@ -159,6 +159,7 @@ impl inbound_queue_v2::Config for Test {
 	type Verifier = MockVerifier;
 	type XcmSender = MockXcmSender;
 	type WeightInfo = ();
+	type WeightToFee = IdentityFee<u128>;
 	type GatewayAddress = GatewayAddress;
 	type AssetHubParaId = ConstU32<1000>;
 	type MessageConverter = MessageToXcm<
@@ -168,6 +169,7 @@ impl inbound_queue_v2::Config for Test {
 		ConstU128<XCM_PROLOGUE_FEE>,
 	>;
 	type Token = Balances;
+	type Balance = u128;
 	type XcmPrologueFee = ConstU128<XCM_PROLOGUE_FEE>;
 	type AssetTransactor = SuccessfulTransactor;
 	#[cfg(feature = "runtime-benchmarks")]

@@ -42,7 +42,11 @@ mod test;
 use codec::{Decode, DecodeAll, Encode};
 use envelope::Envelope;
 use frame_support::{
-	traits::fungible::{Inspect, Mutate},
+	traits::{
+		fungible::{Inspect, Mutate},
+		tokens::Balance,
+	},
+	weights::WeightToFee,
 	PalletError,
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
@@ -98,6 +102,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
 		type WeightInfo: WeightInfo;
+		/// Convert a weight value into deductible balance type.
+		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
 		/// AssetHub parachain ID.
 		type AssetHubParaId: Get<u32>;
 		/// Convert a command from Ethereum to an XCM message.
@@ -106,6 +112,8 @@ pub mod pallet {
 		type XcmPrologueFee: Get<BalanceOf<Self>>;
 		/// Used to burn fees from the origin account (the relayer), which will be teleported to AH.
 		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
+		/// Used for the dry run API implementation.
+		type Balance: Balance + From<u128>;
 		/// Used to burn fees.
 		type AssetTransactor: TransactAsset;
 		#[cfg(feature = "runtime-benchmarks")]

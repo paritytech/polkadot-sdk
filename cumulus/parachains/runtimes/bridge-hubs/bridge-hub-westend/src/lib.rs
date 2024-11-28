@@ -51,6 +51,8 @@ use sp_runtime::{
 	ApplyExtrinsicResult,
 };
 
+use snowbridge_router_primitives::inbound::v2::Message;
+use sp_runtime::DispatchError;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -898,6 +900,12 @@ impl_runtime_apis! {
 
 		fn calculate_fee(command: Command, parameters: Option<PricingParameters<Balance>>) -> Fee<Balance> {
 			snowbridge_pallet_outbound_queue::api::calculate_fee::<Runtime>(command, parameters)
+		}
+	}
+
+	impl snowbridge_inbound_queue_v2_runtime_api::InboundQueueApiV2<Block, Balance> for Runtime {
+		fn dry_run(message: Message) -> Result<(Xcm<()>, Balance), DispatchError> {
+			snowbridge_pallet_inbound_queue_v2::api::dry_run::<Runtime>(message)
 		}
 	}
 

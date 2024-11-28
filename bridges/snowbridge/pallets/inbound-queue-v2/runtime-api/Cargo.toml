@@ -15,16 +15,20 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { workspace = true }
-snowbridge-core = { workspace = true }
-snowbridge-router-primitives = { workspace = true }
-xcm = { workspace = true }
+frame-support = { workspace = true, default-features = false }
+sp-api = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+snowbridge-core = { workspace = true, default-features = false }
+snowbridge-router-primitives = { workspace = true, default-features = false }
+xcm = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]
 std = [
+    "frame-support/std",
     "snowbridge-core/std",
     "snowbridge-router-primitives/std",
+    "sp-runtime/std",
     "sp-api/std",
     "xcm/std",
 ]

@@ -13,15 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::imports::*;
-use bridge_hub_westend_runtime::EthereumInboundQueueV2;
-use frame_support::weights::WeightToFee;
-use snowbridge_router_primitives::inbound::v2::{Asset::NativeTokenERC20, Message};
-use sp_core::H160;
-use sp_core::H256;
+use bridge_hub_westend_runtime::{
+	bridge_to_ethereum_config::{CreateAssetCall, CreateAssetDeposit},
+	EthereumInboundQueueV2,
+};
 use codec::Encode;
+use frame_support::weights::WeightToFee;
+use hex_literal::hex;
+use snowbridge_router_primitives::inbound::{
+	v2::{Asset::NativeTokenERC20, Message},
+	EthereumLocationsConverterFor,
+};
+use sp_core::H160;
 use sp_runtime::MultiAddress;
-use bridge_hub_westend_runtime::bridge_to_ethereum_config::CreateAssetCall;
-use bridge_hub_westend_runtime::bridge_to_ethereum_config::CreateAssetDeposit;
 use testnet_parachains_constants::westend::fee::WeightToFee as WeightCalculator;
 
 /// Calculates the XCM prologue fee for sending an XCM to AH.
@@ -117,12 +121,8 @@ fn xcm_prologue_fee() {
 #[test]
 fn register_token_xcm() {
 	BridgeHubWestend::execute_with(|| {
-		//let token: H160 = H160::zero(); // token id placeholder
-		let token: H160 = H160::random(); // token id placeholder
-		//let owner: H256 = H256::zero(); // bridge owner placeholder
-		let owner: H256 = H256::random(); // bridge owner placeholder
+		let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into(); // token id placeholder
 		println!("token: {:x?}", token);
-		println!("owner: {:x?}", owner);
 
 		let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
 		let dot_asset = Location::new(1, Here);
@@ -130,30 +130,40 @@ fn register_token_xcm() {
 
 		let asset_id = Location::new(
 			2,
-			[GlobalConsensus(ethereum_network_v5), AccountKey20 { network: None, key: token.into() }],
-			);
+			[
+				GlobalConsensus(ethereum_network_v5),
+				AccountKey20 { network: None, key: token.into() },
+			],
+		);
 
-		let register_token_xcm =
-			vec![
-				PayFees { asset: dot_fee },
-				Transact {
-					origin_kind: OriginKind::Xcm,
-					call: (
-						CreateAssetCall::get(),
-						asset_id,
-						MultiAddress::<[u8; 32], ()>::Id(owner.into()),
-						1,
-					)
-					.encode()
-					.into(),
-				},
-			];
-		let message_xcm: Xcm<()> = register_token_xcm.into();
-		let versioned_message_xcm = VersionedXcm::V5(message_xcm);
-
-		let xcm_bytes = versioned_message_xcm.encode();
-		let hex_string = hex::encode(xcm_bytes);
-		println!("register token hex: {:x?}", hex_string);
+		println!(
+			"register token mainnet: {:x?}",
+			get_xcm_hex(1u64, asset_id.clone(), dot_fee.clone())
+		);
+		println!("register token sepolia: {:x?}", get_xcm_hex(11155111u64, asset_id, dot_fee));
 	});
 }
 
+fn get_xcm_hex(chain_id: u64, asset_id: Location, dot_fee: xcm::prelude::Asset) -> String {
+	let owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
+
+	let register_token_xcm = vec![
+		PayFees { asset: dot_fee },
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			call: (
+				CreateAssetCall::get(),
+				asset_id,
+				MultiAddress::<[u8; 32], ()>::Id(owner.into()),
+				1,
+			)
+				.encode()
+				.into(),
+		},
+	];
+	let message_xcm: Xcm<()> = register_token_xcm.into();
+	let versioned_message_xcm = VersionedXcm::V5(message_xcm);
+
+	let xcm_bytes = versioned_message_xcm.encode();
+	hex::encode(xcm_bytes)
+}
