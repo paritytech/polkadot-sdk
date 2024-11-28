@@ -31,6 +31,100 @@ use testnet_parachains_constants::westend::fee::WeightToFee as WeightCalculator;
 /// Calculates the XCM prologue fee for sending an XCM to AH.
 const INITIAL_FUND: u128 = 5_000_000_000_000;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+
+#[test]
+fn register_token_v2() {
+	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
+
+	let asset_hub_sovereign = BridgeHubWestend::sovereign_account_id_of(Location::new(
+		1,
+		[Parachain(AssetHubWestend::para_id().into())],
+	));
+
+	let relayer = BridgeHubWestendSender::get();
+	let receiver = AssetHubWestendReceiver::get();
+	BridgeHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
+
+	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
+
+	let chain_id = 11155111u64;
+	let claimer = AccountId32 { network: None, id: receiver.clone().into() };
+	let claimer_bytes = claimer.encode();
+	let origin = H160::random();
+	let relayer_location =
+		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+
+	let owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
+	let weth_token_id: H160 = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14").into();
+	let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into();
+	let weth_amount = 300_000_000_000_000u128;
+
+	let assets = vec![NativeTokenERC20 { token_id: weth_token_id, value: weth_amount }];
+
+	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
+	let dot_asset = Location::new(1, Here);
+	let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
+
+	let weth_asset = Location::new(
+		2,
+		[
+			GlobalConsensus(ethereum_network_v5),
+			AccountKey20 { network: None, key: weth_token_id.into() },
+		],
+	);
+	let weth_fee: xcm::prelude::Asset = (weth_asset, weth_amount).into();
+
+	let asset_id = Location::new(
+		2,
+		[GlobalConsensus(ethereum_network_v5), AccountKey20 { network: None, key: token.into() }],
+	);
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let register_token_instructions = vec![
+			ExchangeAsset { give: weth_fee.into(), want: dot_fee.clone().into(), maximal: false },
+			PayFees { asset: dot_fee },
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				call: (
+					CreateAssetCall::get(),
+					asset_id,
+					MultiAddress::<[u8; 32], ()>::Id(owner.into()),
+					1,
+				)
+					.encode()
+					.into(),
+			},
+		];
+		let xcm: Xcm<()> = register_token_instructions.into();
+		let versioned_message_xcm = VersionedXcm::V5(xcm);
+
+		let message = Message {
+			origin,
+			assets,
+			xcm: versioned_message_xcm.encode(),
+			claimer: Some(claimer_bytes),
+		};
+		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { .. }) => {},]
+		);
+	});
+}
+
 #[test]
 fn xcm_prologue_fee() {
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
