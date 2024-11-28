@@ -13245,6 +13245,7 @@ dependencies = [
  "sp-authority-discovery",
  "sp-core",
  "sp-runtime",
+ "sp-runtime-interface 24.0.0",
  "sp-storage 19.0.0",
  "sp-trie",
  "tokio",

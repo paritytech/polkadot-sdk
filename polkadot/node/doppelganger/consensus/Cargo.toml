@@ -13,6 +13,7 @@ sp-runtime = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
+sp-runtime-interface = { workspace = true, features = ["std"], default-features = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
@@ -23,3 +24,7 @@ tokio = { workspace = true, features = ["fs"] }
 polkadot-primitives = { workspace = true, features = ["std"], default-features = true}
 codec = { version = "3.6.12", default-features = false, package = "parity-scale-codec" }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = []

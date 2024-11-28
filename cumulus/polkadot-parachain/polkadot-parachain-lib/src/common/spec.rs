@@ -43,9 +43,6 @@ use sc_transaction_pool::FullPool;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
-#[cfg(feature = "doppelganger")]
-use polkadot_doppelganger_consensus::DoppelGangerBlockImport;
-
 pub(crate) trait BuildImportQueue<Block: BlockT, RuntimeApi> {
 	fn build_import_queue(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,

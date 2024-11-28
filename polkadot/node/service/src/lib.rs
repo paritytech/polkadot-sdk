@@ -121,15 +121,22 @@ pub use fake_runtime_api::{GetLastTimestamp, RuntimeApi};
 #[cfg(feature = "full-node")]
 pub type FullBackend = sc_service::TFullBackend<Block>;
 
-#[cfg(feature = "full-node")]
+#[cfg(feature = "doppelganger")]
+use polkadot_doppelganger_consensus::{DoppelGangerBlockImport, DoppelGangerContext};
+
+#[cfg(all(feature = "full-node",feature = "doppelganger"))]
+pub type FullClient = sc_service::TFullClient<
+	Block,
+	RuntimeApi,
+	WasmExecutor<(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions, polkadot_doppelganger_consensus::overrides::SignatureVerificationOverride)>,
+>;
+#[cfg(all(feature = "full-node", not(feature = "doppelganger")))]
 pub type FullClient = sc_service::TFullClient<
 	Block,
 	RuntimeApi,
 	WasmExecutor<(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions)>,
 >;
 
-#[cfg(feature = "doppelganger")]
-use polkadot_doppelganger_consensus::{DoppelGangerBlockImport, DoppelGangerContext};
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
