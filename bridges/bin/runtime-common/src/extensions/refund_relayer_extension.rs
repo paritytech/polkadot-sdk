@@ -228,9 +228,44 @@ pub enum RelayerAccountAction<AccountId, Reward> {
 	Slash(AccountId, RewardsAccountParams),
 }
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 /// Everything common among our refund signed extensions.
 pub trait RefundSignedExtension:
 	'static + Clone + Codec + sp_std::fmt::Debug + Default + Eq + PartialEq + Send + Sync + TypeInfo
+=======
+/// A signed extension, built around `pallet-bridge-relayers`.
+///
+/// It may be incorporated into runtime to refund relayers for submitting correct
+/// message delivery and confirmation transactions, optionally batched with required
+/// finality proofs.
+#[derive(
+	DefaultNoBound,
+	CloneNoBound,
+	Decode,
+	Encode,
+	EqNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+)]
+#[scale_info(skip_type_params(Runtime, Config, LaneId))]
+pub struct BridgeRelayersTransactionExtension<Runtime, Config, LaneId>(
+	PhantomData<(Runtime, Config, LaneId)>,
+);
+
+impl<R, C, LaneId> BridgeRelayersTransactionExtension<R, C, LaneId>
+where
+	Self: 'static + Send + Sync,
+	R: RelayersConfig<C::BridgeRelayersPalletInstance, LaneId = LaneId>
+		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
+		+ TransactionPaymentConfig,
+	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
+	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
+	<R as TransactionPaymentConfig>::OnChargeTransaction:
+		OnChargeTransaction<R, Balance = R::Reward>,
+	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
+>>>>>>> 9ec8009 (Multiple instances for pallet-bridge-relayers fix (#6684)):bridges/modules/relayers/src/extension/mod.rs
 {
 	/// This chain runtime.
 	type Runtime: MessagesConfig<<Self::Msgs as RefundableMessagesLaneId>::Instance>
@@ -371,7 +406,11 @@ pub trait RefundSignedExtension:
 		// let's also replace the weight of slashing relayer with the weight of rewarding relayer
 		if call_info.is_receive_messages_proof_call() {
 			post_info_weight = post_info_weight.saturating_sub(
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 				<Self::Runtime as RelayersConfig>::WeightInfo::extra_weight_of_successful_receive_messages_proof_call(),
+=======
+				<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::WeightInfo::extra_weight_of_successful_receive_messages_proof_call(),
+>>>>>>> 9ec8009 (Multiple instances for pallet-bridge-relayers fix (#6684)):bridges/modules/relayers/src/extension/mod.rs
 			);
 		}
 
@@ -415,6 +454,7 @@ pub trait RefundSignedExtension:
 	}
 }
 
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 /// Adapter that allow implementing `sp_runtime::traits::SignedExtension` for any
 /// `RefundSignedExtension`.
 #[derive(
@@ -428,6 +468,26 @@ pub trait RefundSignedExtension:
 	TypeInfo,
 )]
 pub struct RefundSignedExtensionAdapter<T: RefundSignedExtension>(T);
+=======
+impl<R, C, LaneId> TransactionExtension<R::RuntimeCall>
+	for BridgeRelayersTransactionExtension<R, C, LaneId>
+where
+	Self: 'static + Send + Sync,
+	R: RelayersConfig<C::BridgeRelayersPalletInstance, LaneId = LaneId>
+		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
+		+ TransactionPaymentConfig,
+	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
+	R::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	<R::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
+	<R as TransactionPaymentConfig>::OnChargeTransaction:
+		OnChargeTransaction<R, Balance = R::Reward>,
+	LaneId: Clone + Copy + Decode + Encode + Debug + TypeInfo,
+{
+	const IDENTIFIER: &'static str = C::IdProvider::STR;
+	type Implicit = ();
+	type Pre = Option<PreDispatchData<R::AccountId, C::RemoteGrandpaChainBlockNumber, LaneId>>;
+	type Val = Self::Pre;
+>>>>>>> 9ec8009 (Multiple instances for pallet-bridge-relayers fix (#6684)):bridges/modules/relayers/src/extension/mod.rs
 
 impl<T: RefundSignedExtension> SignedExtension for RefundSignedExtensionAdapter<T>
 where
@@ -467,8 +527,15 @@ where
 		};
 
 		// we only boost priority if relayer has staked required balance
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 		if !RelayersPallet::<T::Runtime>::is_registration_active(who) {
 			return Ok(Default::default())
+=======
+		if !RelayersPallet::<R, C::BridgeRelayersPalletInstance>::is_registration_active(
+			&data.relayer,
+		) {
+			return Ok((Default::default(), Some(data), origin))
+>>>>>>> 9ec8009 (Multiple instances for pallet-bridge-relayers fix (#6684)):bridges/modules/relayers/src/extension/mod.rs
 		}
 
 		// compute priority boost
@@ -525,7 +592,11 @@ where
 		match call_result {
 			RelayerAccountAction::None => (),
 			RelayerAccountAction::Reward(relayer, reward_account, reward) => {
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 				RelayersPallet::<T::Runtime>::register_relayer_reward(
+=======
+				RelayersPallet::<R, C::BridgeRelayersPalletInstance>::register_relayer_reward(
+>>>>>>> 9ec8009 (Multiple instances for pallet-bridge-relayers fix (#6684)):bridges/modules/relayers/src/extension/mod.rs
 					reward_account,
 					&relayer,
 					reward,
@@ -541,7 +612,11 @@ where
 				);
 			},
 			RelayerAccountAction::Slash(relayer, slash_account) =>
+<<<<<<< HEAD:bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs
 				RelayersPallet::<T::Runtime>::slash_and_deregister(
+=======
+				RelayersPallet::<R, C::BridgeRelayersPalletInstance>::slash_and_deregister(
+>>>>>>> 9ec8009 (Multiple instances for pallet-bridge-relayers fix (#6684)):bridges/modules/relayers/src/extension/mod.rs
 					&relayer,
 					ExplicitOrAccountParams::Params(slash_account),
 				),
