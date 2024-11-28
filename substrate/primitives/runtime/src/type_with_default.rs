@@ -516,8 +516,6 @@ impl<T: HasCompact, D: Get<T>> CompactAs for TypeWithDefault<T, D> {
 		Ok(Self::new(val))
 	}
 }
-<<<<<<< HEAD
-=======
 
 #[cfg(test)]
 mod tests {
@@ -585,4 +583,3 @@ mod tests {
 		assert_eq!(U128WithDefault::type_info(), <u128 as TypeInfo>::type_info());
 	}
 }
->>>>>>> fc315ac5 (Hide nonce implementation details in metadata (#6562))
