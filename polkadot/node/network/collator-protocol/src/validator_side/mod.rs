@@ -1462,9 +1462,6 @@ async fn process_msg<Context>(
 				"DistributeCollation message is not expected on the validator side of the protocol",
 			);
 		},
-		ReportCollator(id) => {
-			report_collator(&mut state.reputation, ctx.sender(), &state.peer_data, id).await;
-		},
 		NetworkBridgeUpdate(event) => {
 			if let Err(e) = handle_network_msg(ctx, state, keystore, event).await {
 				gum::warn!(

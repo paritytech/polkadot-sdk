@@ -16,7 +16,7 @@
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
-	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned},
+	evm::api::{GenericTransaction, TransactionSigned},
 	AccountIdOf, AddressMapper, BalanceOf, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
@@ -92,8 +92,12 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicLike
 impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 	for UncheckedExtrinsic<Address, Signature, E>
 {
-	const VERSION: u8 =
-		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extension>::VERSION;
+	const VERSIONS: &'static [u8] = generic::UncheckedExtrinsic::<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::Extension,
+	>::VERSIONS;
 	type TransactionExtensions = E::Extension;
 }
 
@@ -293,7 +297,7 @@ pub trait EthExtra {
 		CallOf<Self::Config>: From<crate::Call<Self::Config>>,
 		<Self::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
-		let tx = rlp::decode::<TransactionLegacySigned>(&payload).map_err(|err| {
+		let tx = TransactionSigned::decode(&payload).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
 			InvalidTransaction::Call
 		})?;
@@ -305,33 +309,33 @@ pub trait EthExtra {
 
 		let signer =
 			<Self::Config as crate::Config>::AddressMapper::to_fallback_account_id(&signer);
-		let TransactionLegacyUnsigned { nonce, chain_id, to, value, input, gas, gas_price, .. } =
-			tx.transaction_legacy_unsigned;
+		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
+			GenericTransaction::from_signed(tx, None);
 
 		if chain_id.unwrap_or_default() != <Self::Config as crate::Config>::ChainId::get().into() {
 			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 			return Err(InvalidTransaction::Call);
 		}
 
-		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(value).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
-			InvalidTransaction::Call
-		})?;
+		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(value.unwrap_or_default())
+			.map_err(|err| {
+				log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
+				InvalidTransaction::Call
+			})?;
 
+		let data = input.unwrap_or_default().0;
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
 				dest,
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				data: input.0,
+				data,
 			}
 		} else {
-			let blob = match polkavm::ProgramBlob::blob_length(&input.0) {
-				Some(blob_len) => blob_len
-					.try_into()
-					.ok()
-					.and_then(|blob_len| (input.0.split_at_checked(blob_len))),
+			let blob = match polkavm::ProgramBlob::blob_length(&data) {
+				Some(blob_len) =>
+					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len))),
 				_ => None,
 			};
 
@@ -350,18 +354,18 @@ pub trait EthExtra {
 			}
 		};
 
-		let nonce = nonce.try_into().map_err(|_| InvalidTransaction::Call)?;
+		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
 
 		// Fees calculated with the fixed `GAS_PRICE`
 		// When we dry-run the transaction, we set the gas to `Fee / GAS_PRICE`
 		let eth_fee_no_tip = U256::from(GAS_PRICE)
-			.saturating_mul(gas)
+			.saturating_mul(gas.unwrap_or_default())
 			.try_into()
 			.map_err(|_| InvalidTransaction::Call)?;
 
 		// Fees with the actual gas_price from the transaction.
-		let eth_fee: BalanceOf<Self::Config> = U256::from(gas_price)
-			.saturating_mul(gas)
+		let eth_fee: BalanceOf<Self::Config> = U256::from(gas_price.unwrap_or_default())
+			.saturating_mul(gas.unwrap_or_default())
 			.try_into()
 			.map_err(|_| InvalidTransaction::Call)?;
 
@@ -414,7 +418,6 @@ mod test {
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
-	use rlp::Encodable;
 	use sp_runtime::{
 		traits::{Checkable, DispatchTransaction},
 		MultiAddress, MultiSignature,
@@ -523,7 +526,7 @@ mod test {
 				100_000_000_000_000,
 			);
 
-			let payload = account.sign_transaction(tx).rlp_bytes().to_vec();
+			let payload = account.sign_transaction(tx.into()).signed_payload();
 			let call = RuntimeCall::Contracts(crate::Call::eth_transact {
 				payload,
 				gas_limit,
