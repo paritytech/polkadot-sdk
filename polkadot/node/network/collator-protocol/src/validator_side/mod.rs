@@ -48,6 +48,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
+	claim_queue_state::ClaimQueueState,
 	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
 	request_async_backing_params, request_claim_queue, request_session_index_for_child,
 	runtime::{recv_runtime, request_node_features},
@@ -63,11 +64,8 @@ use crate::error::{Error, FetchError, Result, SecondingError};
 
 use self::collation::BlockedCollationId;
 
-use self::claim_queue_state::ClaimQueueState;
-
 use super::{modify_reputation, tick_stream, LOG_TARGET};
 
-mod claim_queue_state;
 mod collation;
 mod metrics;
 

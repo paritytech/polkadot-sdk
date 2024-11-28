@@ -1266,6 +1266,8 @@ async fn seconding_sanity_check<Context>(
 	let candidate_relay_parent = hypothetical_candidate.relay_parent();
 	let candidate_hash = hypothetical_candidate.candidate_hash();
 
+	// TODO: throttle here
+
 	for head in implicit_view.leaves() {
 		// Check that the candidate relay parent is allowed for para, skip the
 		// leaf otherwise.
@@ -1602,6 +1604,7 @@ async fn import_statement<Context>(
 	// our active leaves.
 	if let StatementWithPVD::Seconded(candidate, pvd) = statement.payload() {
 		if !per_candidate.contains_key(&candidate_hash) {
+			// TODO: throttle here
 			let (tx, rx) = oneshot::channel();
 			ctx.send_message(ProspectiveParachainsMessage::IntroduceSecondedCandidate(
 				IntroduceSecondedCandidateRequest {

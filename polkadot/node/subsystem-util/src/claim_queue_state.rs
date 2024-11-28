@@ -82,18 +82,19 @@ struct ClaimInfo {
 /// claim. If not - this means that the claim queue changed for some reason so the claim can't be
 /// inherited. This should not happen under normal circumstances. But if it happens it means that we
 /// have got one claim which won't be satisfied in the worst case scenario.
-pub(crate) struct ClaimQueueState {
+pub struct ClaimQueueState {
 	block_state: VecDeque<ClaimInfo>,
 	future_blocks: VecDeque<ClaimInfo>,
 }
 
 impl ClaimQueueState {
-	pub(crate) fn new() -> Self {
+	/// Create an empty `ClaimQueueState`. Use [`add_leaf`] to populate it.
+	pub fn new() -> Self {
 		Self { block_state: VecDeque::new(), future_blocks: VecDeque::new() }
 	}
 
-	// Appends a new leaf
-	pub(crate) fn add_leaf(&mut self, hash: &Hash, claim_queue: &Vec<ParaId>) {
+	/// Appends a new leaf with its corresponding claim queue to the state.
+	pub fn add_leaf(&mut self, hash: &Hash, claim_queue: &Vec<ParaId>) {
 		if self.block_state.iter().any(|s| s.hash == Some(*hash)) {
 			return
 		}
@@ -165,7 +166,9 @@ impl ClaimQueueState {
 		window.chain(self.future_blocks.iter_mut()).take(cq_len)
 	}
 
-	pub(crate) fn claim_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
+	/// Claims the first available slot for `para_id` at `relay_parent`. Returns `true` if the claim
+	/// was successful.
+	pub fn claim_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
 		gum::trace!(
 			target: LOG_TARGET,
 			?para_id,
@@ -175,7 +178,9 @@ impl ClaimQueueState {
 		self.find_a_claim(relay_parent, para_id, true)
 	}
 
-	pub(crate) fn can_claim_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
+	/// Returns `true` if a claim can be made for `para_id` at `relay_parent`. The function only
+	/// performs a check. No actual claim is made.
+	pub fn can_claim_at(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
 		gum::trace!(
 			target: LOG_TARGET,
 			?para_id,
@@ -211,7 +216,8 @@ impl ClaimQueueState {
 		false
 	}
 
-	pub(crate) fn unclaimed_at(&mut self, relay_parent: &Hash) -> Vec<ParaId> {
+	/// Returns a `Vec` of `ParaId`s with all claims which can be made at `relay_parent`.
+	pub fn unclaimed_at(&mut self, relay_parent: &Hash) -> Vec<ParaId> {
 		let window = self.get_window(relay_parent);
 
 		window.filter(|b| !b.claimed).filter_map(|b| b.claim).collect()
