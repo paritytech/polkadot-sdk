@@ -47,6 +47,8 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	pub collator_service: CS,
 	/// Receiver channel for communication with the block builder task.
 	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
+	/// The handle from the special slot based block import.
+	pub block_import_handle: super::SlotBasedBlockImportHandle<Block>,
 }
 
 /// Asynchronously executes the collation task for a parachain.
@@ -55,28 +57,49 @@ pub struct Params<Block: BlockT, RClient, CS> {
 /// collations to the relay chain. It listens for new best relay chain block notifications and
 /// handles collator messages. If our parachain is scheduled on a core and we have a candidate,
 /// the task will build a collation and send it to the relay chain.
-pub async fn run_collation_task<Block, RClient, CS>(mut params: Params<Block, RClient, CS>)
-where
+pub async fn run_collation_task<Block, RClient, CS>(
+	Params {
+		relay_client,
+		collator_key,
+		para_id,
+		reinitialize,
+		collator_service,
+		mut collator_receiver,
+		mut block_import_handle,
+	}: Params<Block, RClient, CS>,
+) where
 	Block: BlockT,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 {
-	let Ok(mut overseer_handle) = params.relay_client.overseer_handle() else {
+	let Ok(mut overseer_handle) = relay_client.overseer_handle() else {
 		tracing::error!(target: LOG_TARGET, "Failed to get overseer handle.");
 		return
 	};
 
 	cumulus_client_collator::initialize_collator_subsystems(
 		&mut overseer_handle,
-		params.collator_key,
-		params.para_id,
-		params.reinitialize,
+		collator_key,
+		para_id,
+		reinitialize,
 	)
 	.await;
 
-	let collator_service = params.collator_service;
-	while let Some(collator_message) = params.collator_receiver.next().await {
-		handle_collation_message(collator_message, &collator_service, &mut overseer_handle).await;
+	loop {
+		futures::select! {
+			collator_message = collator_receiver.next() => {
+				let Some(message) = collator_message else {
+					return;
+				};
+
+				handle_collation_message(message, &collator_service, &mut overseer_handle).await;
+			},
+			block_import_msg = block_import_handle.next().fuse() => {
+				// TODO: Implement me.
+				// Issue: https://github.com/paritytech/polkadot-sdk/issues/6495
+				let _ = block_import_msg;
+			}
+		}
 	}
 }
 

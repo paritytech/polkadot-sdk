@@ -60,6 +60,7 @@ pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
