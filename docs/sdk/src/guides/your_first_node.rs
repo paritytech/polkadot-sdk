@@ -103,11 +103,11 @@
 #[cfg(test)]
 mod tests {
 	use assert_cmd::Command;
+	use cmd_lib::*;
 	use rand::Rng;
 	use sc_chain_spec::{DEV_RUNTIME_PRESET, LOCAL_TESTNET_RUNTIME_PRESET};
 	use sp_genesis_builder::PresetId;
 	use std::path::PathBuf;
-	use cmd_lib::*;
 
 	const PARA_RUNTIME: &'static str = "parachain-template-runtime";
 	const FIRST_RUNTIME: &'static str = "polkadot-sdk-docs-first-runtime";
@@ -176,7 +176,8 @@ mod tests {
 			fn build_runtime() {
 				run_cmd!(
 					cargo build --release -p $FIRST_RUNTIME
-				).expect("Failed to run command");
+				)
+				.expect("Failed to run command");
 			}
 			build_runtime()
 		}
@@ -275,7 +276,7 @@ mod tests {
 			run_cmd!(
 				$chain_spec_builder -c $output create --para-id 1000 --relay-chain dontcare -r $runtime_str named-preset development
 			).expect("Failed to run command");
-			std::fs::remove_file(output).unwrap();			
+			std::fs::remove_file(output).unwrap();
 		}
 		build_para_chain_spec_works();
 	}

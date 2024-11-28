@@ -1,6 +1,6 @@
+use cmd_lib::*;
 use serde_json::{json, Value};
 use std::str;
-use cmd_lib::*;
 
 fn wasm_file_path() -> &'static str {
 	chain_spec_guide_runtime::runtime::WASM_BINARY_PATH
@@ -47,7 +47,8 @@ macro_rules! bash2(
 fn get_chain_spec_builder_path() -> &'static str {
 	run_cmd!(
 		cargo build --release -p staging-chain-spec-builder --bin chain-spec-builder
-	).expect("Failed to execute command");
+	)
+	.expect("Failed to execute command");
 	CHAIN_SPEC_BUILDER_PATH
 }
 
@@ -66,7 +67,6 @@ fn list_presets() {
 			]
 		}, list-presets -r $path
 	);
-
 }
 
 #[test]
@@ -88,7 +88,6 @@ fn get_preset() {
 			},
 		}, display-preset -r $path -p preset_2
 	);
-
 }
 
 #[test]
@@ -125,7 +124,6 @@ fn generate_chain_spec() {
 			}
 		  }, -c /dev/stdout create -r $path named-preset preset_2
 	);
-	
 }
 
 #[test]
@@ -164,7 +162,6 @@ fn generate_para_chain_spec() {
 			}}
 		  , -c /dev/stdout create -c polkadot -p 1000 -r $path named-preset preset_2
 	);
-
 }
 
 #[test]
