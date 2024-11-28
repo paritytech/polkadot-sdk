@@ -135,8 +135,8 @@ jobs:
     if: ${{ inputs.binary == 'chain-spec-builder' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
     with:
-      binary: '["staging-chain-spec-builder"]'
-      package: "chain-spec-builder"
+      binary: '["chain-spec-builder"]'
+      package: "staging-chain-spec-builder"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
     secrets:
@@ -245,8 +245,8 @@ jobs:
     if: ${{ inputs.binary == 'chain-spec-builder' || inputs.binary == 'all' }}
     uses: "./.github/workflows/release-reusable-rc-buid.yml"
     with:
-      binary: '["staging-chain-spec-builder"]'
-      package: "chain-spec-builder"
+      binary: '["chain-spec-builder"]'
+      package: "staging-chain-spec-builder"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
     secrets:
