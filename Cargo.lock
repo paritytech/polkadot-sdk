@@ -19019,6 +19019,7 @@ version = "0.0.1"
 dependencies = [
  "assert_cmd",
  "chain-spec-guide-runtime",
+ "cmd_lib",
  "cumulus-client-service",
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",

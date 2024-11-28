@@ -8,14 +8,37 @@ const WASM_FILE_PATH: &str =
 const CHAIN_SPEC_BUILDER_PATH: &str = "../../../../../target/release/chain-spec-builder";
 
 macro_rules! bash(
-	( chain-spec-builder $($a:tt)* ) => {{
+	( chain-spec-builder $x:tt, $($a:tt)* ) => {{
 		let path = get_chain_spec_builder_path();
-		spawn_with_output!(
+		let x: serde_json::Value = json!($x);
+		let output = spawn_with_output!(
 			$path $($a)*
 		)
 		.expect("a process running. qed")
 		.wait_with_output()
-		.expect("to get output. qed.")
+		.expect("to get output. qed.");
+		let mut output0: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
+		assert_eq!(output0, x, "Output did not match expected");
+	}}
+);
+
+macro_rules! bash2(
+	( chain-spec-builder $x:tt, $($a:tt)* ) => {{
+		let path = get_chain_spec_builder_path();
+		let x: serde_json::Value = json!($x);
+		let output = spawn_with_output!(
+			$path $($a)*
+		)
+		.expect("a process running. qed")
+		.wait_with_output()
+		.expect("to get output. qed.");
+		let mut output0: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
+		//remove code field for better readability
+	if let Some(code) = output0["genesis"]["runtimeGenesis"].as_object_mut().unwrap().get_mut("code")
+	{
+		*code = Value::String("0x123".to_string());
+	}
+		assert_eq!(output0, x, "Output did not match expected");
 	}}
 );
 
@@ -29,137 +52,114 @@ fn get_chain_spec_builder_path() -> &'static str {
 #[test]
 #[docify::export]
 fn list_presets() {
-	let output = bash!(
-		chain-spec-builder list-presets -r $WASM_FILE_PATH
+	bash!(
+		chain-spec-builder {
+			"presets":[
+				"preset_1",
+				"preset_2",
+				"preset_3",
+				"preset_4",
+				"preset_invalid"
+			]
+		}, list-presets -r $WASM_FILE_PATH
 	);
 
-	let mut output: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
-	let expected_output = json!({
-		"presets":[
-			"preset_1",
-			"preset_2",
-			"preset_3",
-			"preset_4",
-			"preset_invalid"
-		]
-	});
-	assert_eq!(output, expected_output, "Output did not match expected");
 }
 
 #[test]
 #[docify::export]
 fn get_preset() {
-	let output = bash!(
-		chain-spec-builder display-preset -r $WASM_FILE_PATH -p preset_2
+	bash!(
+		chain-spec-builder {
+			"bar": {
+				"initialAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
+			},
+			"foo": {
+				"someEnum": {
+					"Data2": {
+						"values": "0x0c10"
+					}
+				},
+				"someInteger": 200
+			},
+		}, display-preset -r $WASM_FILE_PATH -p preset_2
 	);
 
-	let mut output: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
-	//note: copy of chain_spec_guide_runtime::preset_2
-	let expected_output = json!({
-		"bar": {
-			"initialAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
-		},
-		"foo": {
-			"someEnum": {
-				"Data2": {
-					"values": "0x0c10"
-				}
-			},
-			"someInteger": 200
-		},
-	});
-	assert_eq!(output, expected_output, "Output did not match expected");
 }
 
 #[test]
 #[docify::export]
 fn generate_chain_spec() {
-	let output = bash!(
-		chain-spec-builder -c /dev/stdout create -r $WASM_FILE_PATH named-preset preset_2
-	);
-	let mut output: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
-	//remove code field for better readability
-	if let Some(code) = output["genesis"]["runtimeGenesis"].as_object_mut().unwrap().get_mut("code")
-	{
-		*code = Value::String("0x123".to_string());
-	}
-
-	let expected_output = json!({
-	  "name": "Custom",
-	  "id": "custom",
-	  "chainType": "Live",
-	  "bootNodes": [],
-	  "telemetryEndpoints": null,
-	  "protocolId": null,
-	  "properties": { "tokenDecimals": 12, "tokenSymbol": "UNIT" },
-	  "codeSubstitutes": {},
-	  "genesis": {
-		"runtimeGenesis": {
-		  "code": "0x123",
-		  "patch": {
-			"bar": {
-			  "initialAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"
-			},
-			"foo": {
-			  "someEnum": {
-				"Data2": {
-				  "values": "0x0c10"
+	bash2!(
+		chain-spec-builder {
+			"name": "Custom",
+			"id": "custom",
+			"chainType": "Live",
+			"bootNodes": [],
+			"telemetryEndpoints": null,
+			"protocolId": null,
+			"properties": { "tokenDecimals": 12, "tokenSymbol": "UNIT" },
+			"codeSubstitutes": {},
+			"genesis": {
+			  "runtimeGenesis": {
+				"code": "0x123",
+				"patch": {
+				  "bar": {
+					"initialAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"
+				  },
+				  "foo": {
+					"someEnum": {
+					  "Data2": {
+						"values": "0x0c10"
+					  }
+					},
+					"someInteger": 200
+				  }
 				}
-			  },
-			  "someInteger": 200
+			  }
 			}
-		  }
-		}
-	  }
-	});
-	assert_eq!(output, expected_output, "Output did not match expected");
+		  }, -c /dev/stdout create -r $WASM_FILE_PATH named-preset preset_2
+	);
+	
 }
 
 #[test]
 #[docify::export]
 fn generate_para_chain_spec() {
 
-	let output = bash!(
-		chain-spec-builder -c /dev/stdout create -c polkadot -p 1000 -r $WASM_FILE_PATH named-preset preset_2
-	);
-	let mut output: serde_json::Value = serde_json::from_slice(&output.as_bytes()).unwrap();
-	//remove code field for better readability
-	if let Some(code) = output["genesis"]["runtimeGenesis"].as_object_mut().unwrap().get_mut("code")
-	{
-		*code = Value::String("0x123".to_string());
-	}
-
-	let expected_output = json!({
-	  "name": "Custom",
-	  "id": "custom",
-	  "chainType": "Live",
-	  "bootNodes": [],
-	  "telemetryEndpoints": null,
-	  "protocolId": null,
-	  "relay_chain": "polkadot",
-	  "para_id": 1000,
-	  "properties": { "tokenDecimals": 12, "tokenSymbol": "UNIT" },
-	  "codeSubstitutes": {},
-	  "genesis": {
-		"runtimeGenesis": {
-		  "code": "0x123",
-		  "patch": {
-			"bar": {
-			  "initialAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"
-			},
-			"foo": {
-			  "someEnum": {
-				"Data2": {
-				  "values": "0x0c10"
+	bash2!(
+		chain-spec-builder {
+			"name": "Custom",
+			"id": "custom",
+			"chainType": "Live",
+			"bootNodes": [],
+			"telemetryEndpoints": null,
+			"protocolId": null,
+			"relay_chain": "polkadot",
+			"para_id": 1000,
+			"properties": { "tokenDecimals": 12, "tokenSymbol": "UNIT" },
+			"codeSubstitutes": {},
+			"genesis": {
+			  "runtimeGenesis": {
+				"code": "0x123",
+				"patch": {
+				  "bar": {
+					"initialAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"
+				  },
+				  "foo": {
+					"someEnum": {
+					  "Data2": {
+						"values": "0x0c10"
+					  }
+					},
+					"someInteger": 200
+				  }
 				}
-			  },
-			  "someInteger": 200
-			}
-		  }
-		}
-	  }
-	});
-	assert_eq!(output, expected_output, "Output did not match expected");
+			  }
+			}}
+		  , -c /dev/stdout create -c polkadot -p 1000 -r $WASM_FILE_PATH named-preset preset_2
+	);
+
 }
 
 #[test]
