@@ -4,12 +4,10 @@
 title: Use `cmd_lib` instead of `std::process::Command` when using `#[docify::export]`
 
 doc:
-  - audience: Node Dev
+  - audience: Runtime Dev
     description: |
       "See issue #6194."
 
 crates:  
-  - name: polkadot-omni-node
-    bump: patch
-  - name: chain-spec-builder
+  - name: polkadot-sdk-docs-first-node
     bump: patch
