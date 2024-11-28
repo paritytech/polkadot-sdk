@@ -2154,6 +2154,11 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 		claim_queue_states.push(cq_state);
 	}
 
+	// From the claim queue state for each leaf we have to return a combined single one. Go for a
+	// simple solution and return the longest one. In theory we always prefer the earliest entries
+	// in the claim queue so there is a good chance that the longest path is the one with
+	// unsatisfied entries in the beginning. This is not guaranteed as we might have fetched 2nd or
+	// 3rd spot from the claim queue but it should be good enough.
 	let unfulfilled_entries = claim_queue_states
 		.iter_mut()
 		.map(|cq| cq.unclaimed_at(relay_parent))
