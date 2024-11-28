@@ -4,10 +4,7 @@ use futures::FutureExt;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
-use sc_service::{
-	build_polkadot_syncing_strategy, error::Error as ServiceError, Configuration, TaskManager,
-	WarpSyncConfig,
-};
+use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncConfig};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use solochain_template_runtime::{self, apis::RuntimeApi, opaque::Block};
@@ -31,7 +28,7 @@ pub type Service = sc_service::PartialComponents<
 	FullBackend,
 	FullSelectChain,
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::FullPool<Block, FullClient>,
+	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
 	(
 		sc_consensus_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
 		sc_consensus_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
@@ -67,12 +64,15 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
 	);
 
 	let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
@@ -169,17 +169,7 @@ pub fn new_full<
 		Vec::default(),
 	));
 
-	let syncing_strategy = build_polkadot_syncing_strategy(
-		config.protocol_id(),
-		config.chain_spec.fork_id(),
-		&mut net_config,
-		Some(WarpSyncConfig::WithProvider(warp_sync)),
-		client.clone(),
-		&task_manager.spawn_handle(),
-		config.prometheus_config.as_ref().map(|config| &config.registry),
-	)?;
-
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
@@ -188,15 +178,13 @@ pub fn new_full<
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			syncing_strategy,
+			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
 		})?;
 
 	if config.offchain_worker.enabled {
-		task_manager.spawn_handle().spawn(
-			"offchain-workers-runner",
-			"offchain-worker",
+		let offchain_workers =
 			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 				runtime_api_provider: client.clone(),
 				is_validator: config.role.is_authority(),
@@ -208,9 +196,11 @@ pub fn new_full<
 				network_provider: Arc::new(network.clone()),
 				enable_http_requests: true,
 				custom_extensions: |_| vec![],
-			})
-			.run(client.clone(), task_manager.spawn_handle())
-			.boxed(),
+			})?;
+		task_manager.spawn_handle().spawn(
+			"offchain-workers-runner",
+			"offchain-worker",
+			offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
 		);
 	}
 
@@ -339,6 +329,5 @@ pub fn new_full<
 		);
 	}
 
-	network_starter.start_network();
 	Ok(task_manager)
 }

@@ -24,8 +24,9 @@ use std::{
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost, Block as PBlock, BlockId, BlockNumber,
-		CommittedCandidateReceipt, CoreIndex, CoreState, Hash as PHash, Header as PHeader,
+		runtime_api::ParachainHost,
+		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
+		Block as PBlock, BlockId, BlockNumber, CoreIndex, Hash as PHash, Header as PHeader,
 		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
@@ -363,7 +364,6 @@ fn build_polkadot_full_node(
 			// Disable BEEFY. It should not be required by the internal relay chain node.
 			enable_beefy: false,
 			force_authoring_backoff: false,
-			jaeger_agent: None,
 			telemetry_worker_handle,
 
 			// Cumulus doesn't spawn PVF workers, so we can disable version checks.
@@ -379,6 +379,7 @@ fn build_polkadot_full_node(
 			execute_workers_max_num: None,
 			prepare_workers_hard_max_num: None,
 			prepare_workers_soft_max_num: None,
+			enable_approval_voting_parallel: false,
 		},
 	)?;
 

@@ -1,3 +1,5 @@
+use polkadot_sdk::*;
+
 use parachain_template_runtime as runtime;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
@@ -24,7 +26,7 @@ impl Extensions {
 	}
 }
 
-pub fn development_config() -> ChainSpec {
+pub fn development_chain_spec() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "UNIT".into());
@@ -43,10 +45,11 @@ pub fn development_config() -> ChainSpec {
 	.with_id("dev")
 	.with_chain_type(ChainType::Development)
 	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
+	.with_properties(properties)
 	.build()
 }
 
-pub fn local_testnet_config() -> ChainSpec {
+pub fn local_chain_spec() -> ChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "UNIT".into());

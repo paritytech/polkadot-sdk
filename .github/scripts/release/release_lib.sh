@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Set the new version by replacing the value of the constant given as patetrn
+# Set the new version by replacing the value of the constant given as pattern
 # in the file.
 #
 # input: pattern, version, file
@@ -115,4 +115,27 @@ set_polkadot_parachain_binary_version() {
     MESSAGE="Bump versions in: ${cargo_toml_file}"
     commit_with_message "$MESSAGE"
     git_show_log "$MESSAGE"
+}
+
+
+upload_s3_release() {
+    alias aws='podman run --rm -it docker.io/paritytech/awscli -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_BUCKET aws'
+
+    product=$1
+    version=$2
+    target=$3
+
+    echo "Working on product:  $product "
+    echo "Working on version:  $version "
+    echo "Working on platform: $target "
+
+    echo "Current content, should be empty on new uploads:"
+    aws s3 ls "s3://releases.parity.io/${product}/${version}/${target}" --recursive --human-readable --summarize || true
+    echo "Content to be uploaded:"
+    artifacts="artifacts/$product/"
+    ls "$artifacts"
+    aws s3 sync --acl public-read "$artifacts" "s3://releases.parity.io/${product}/${version}/${target}"
+    echo "Uploaded files:"
+    aws s3 ls "s3://releases.parity.io/${product}/${version}/${target}" --recursive --human-readable --summarize
+    echo "✅ The release should be at https://releases.parity.io/${product}/${version}/${target}"
 }

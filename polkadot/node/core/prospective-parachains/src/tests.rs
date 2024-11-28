@@ -25,9 +25,12 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	async_backing::{AsyncBackingParams, BackingState, Constraints, InboundHrmpLimitations},
-	CommittedCandidateReceipt, CoreIndex, HeadData, Header, PersistedValidationData, ScheduledCore,
-	ValidationCodeHash,
+	async_backing::{AsyncBackingParams, Constraints, InboundHrmpLimitations},
+	vstaging::{
+		async_backing::BackingState, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		MutateDescriptorV2,
+	},
+	CoreIndex, HeadData, Header, PersistedValidationData, ScheduledCore, ValidationCodeHash,
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use rstest::rstest;
@@ -393,15 +396,15 @@ async fn handle_leaf_activation(
 		);
 
 		for pending in pending_availability {
-			if !used_relay_parents.contains(&pending.descriptor.relay_parent) {
+			if !used_relay_parents.contains(&pending.descriptor.relay_parent()) {
 				send_block_header(
 					virtual_overseer,
-					pending.descriptor.relay_parent,
+					pending.descriptor.relay_parent(),
 					pending.relay_parent_number,
 				)
 				.await;
 
-				used_relay_parents.insert(pending.descriptor.relay_parent);
+				used_relay_parents.insert(pending.descriptor.relay_parent());
 			}
 		}
 	}
@@ -436,7 +439,7 @@ async fn introduce_seconded_candidate(
 	pvd: PersistedValidationData,
 ) {
 	let req = IntroduceSecondedCandidateRequest {
-		candidate_para: candidate.descriptor().para_id,
+		candidate_para: candidate.descriptor.para_id(),
 		candidate_receipt: candidate,
 		persisted_validation_data: pvd,
 	};
@@ -455,7 +458,7 @@ async fn introduce_seconded_candidate_failed(
 	pvd: PersistedValidationData,
 ) {
 	let req = IntroduceSecondedCandidateRequest {
-		candidate_para: candidate.descriptor().para_id,
+		candidate_para: candidate.descriptor.para_id(),
 		candidate_receipt: candidate,
 		persisted_validation_data: pvd,
 	};
@@ -476,7 +479,7 @@ async fn back_candidate(
 	virtual_overseer
 		.send(overseer::FromOrchestra::Communication {
 			msg: ProspectiveParachainsMessage::CandidateBacked(
-				candidate.descriptor.para_id,
+				candidate.descriptor.para_id(),
 				candidate_hash,
 			),
 		})
@@ -568,7 +571,7 @@ macro_rules! make_and_back_candidate {
 			$test_state.validation_code_hash,
 		);
 		// Set a field to make this candidate unique.
-		candidate.descriptor.para_head = Hash::from_low_u64_le($index);
+		candidate.descriptor.set_para_head(Hash::from_low_u64_le($index));
 		let candidate_hash = candidate.hash();
 		introduce_seconded_candidate(&mut $virtual_overseer, candidate.clone(), pvd).await;
 		back_candidate(&mut $virtual_overseer, &candidate, candidate_hash).await;
@@ -1378,7 +1381,7 @@ fn check_backable_query_single_candidate() {
 			test_state.validation_code_hash,
 		);
 		// Set a field to make this candidate unique.
-		candidate_b.descriptor.para_head = Hash::from_low_u64_le(1000);
+		candidate_b.descriptor.set_para_head(Hash::from_low_u64_le(1000));
 		let candidate_hash_b = candidate_b.hash();
 
 		// Introduce candidates.

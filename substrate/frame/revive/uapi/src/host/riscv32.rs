@@ -58,29 +58,25 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn transfer(address_ptr: *const u8, value_ptr: *const u8) -> ReturnCode;
 		pub fn call(ptr: *const u8) -> ReturnCode;
-		pub fn delegate_call(
-			flags: u32,
-			code_hash_ptr: *const u8,
-			input_data_ptr: *const u8,
-			input_data_len: u32,
-			out_ptr: *mut u8,
-			out_len_ptr: *mut u32,
-		) -> ReturnCode;
+		pub fn delegate_call(ptr: *const u8) -> ReturnCode;
 		pub fn instantiate(ptr: *const u8) -> ReturnCode;
 		pub fn terminate(beneficiary_ptr: *const u8);
 		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
+		pub fn origin(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
-		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
+		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
+		pub fn code_size(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn own_code_hash(out_ptr: *mut u8);
 		pub fn caller_is_origin() -> ReturnCode;
 		pub fn caller_is_root() -> ReturnCode;
 		pub fn address(out_ptr: *mut u8);
 		pub fn weight_to_fee(ref_time: u64, proof_size: u64, out_ptr: *mut u8);
 		pub fn weight_left(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn get_immutable_data(out_ptr: *mut u8, out_len_ptr: *mut u32);
+		pub fn set_immutable_data(ptr: *const u8, len: u32);
 		pub fn balance(out_ptr: *mut u8);
 		pub fn balance_of(addr_ptr: *const u8, out_ptr: *mut u8);
 		pub fn chain_id(out_ptr: *mut u8);
@@ -94,6 +90,7 @@ mod sys {
 			data_len: u32,
 		);
 		pub fn block_number(out_ptr: *mut u8);
+		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -131,6 +128,8 @@ mod sys {
 			msg_len: u32,
 			out_ptr: *mut u8,
 		) -> ReturnCode;
+		pub fn return_data_size(out_ptr: *mut u8);
+		pub fn return_data_copy(out_ptr: *mut u8, out_len_ptr: *mut u32, offset: u32);
 	}
 }
 
@@ -300,33 +299,46 @@ impl HostFn for HostFnImpl {
 
 	fn delegate_call(
 		flags: CallFlags,
-		code_hash: &[u8; 32],
+		address: &[u8; 20],
+		ref_time_limit: u64,
+		proof_size_limit: u64,
+		deposit_limit: Option<&[u8; 32]>,
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let ret_code = {
-			unsafe {
-				sys::delegate_call(
-					flags.bits(),
-					code_hash.as_ptr(),
-					input.as_ptr(),
-					input.len() as u32,
-					output_ptr,
-					&mut output_len,
-				)
-			}
+		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
+		#[repr(packed)]
+		#[allow(dead_code)]
+		struct Args {
+			flags: u32,
+			address: *const u8,
+			ref_time_limit: u64,
+			proof_size_limit: u64,
+			deposit_limit: *const u8,
+			input: *const u8,
+			input_len: u32,
+			output: *mut u8,
+			output_len: *mut u32,
+		}
+		let args = Args {
+			flags: flags.bits(),
+			address: address.as_ptr(),
+			ref_time_limit,
+			proof_size_limit,
+			deposit_limit: deposit_limit_ptr,
+			input: input.as_ptr(),
+			input_len: input.len() as _,
+			output: output_ptr,
+			output_len: &mut output_len as *mut _,
 		};
+
+		let ret_code = { unsafe { sys::delegate_call(&args as *const Args as *const _) } };
 
 		if let Some(ref mut output) = output {
 			extract_from_slice(output, output_len as usize);
 		}
 
-		ret_code.into()
-	}
-
-	fn transfer(address: &[u8; 20], value: &[u8; 32]) -> Result {
-		let ret_code = unsafe { sys::transfer(address.as_ptr(), value.as_ptr()) };
 		ret_code.into()
 	}
 
@@ -449,7 +461,7 @@ impl HostFn for HostFnImpl {
 
 	impl_wrapper_for! {
 		[u8; 32] => block_number, balance, value_transferred, now, minimum_balance, chain_id;
-		[u8; 20] => address, caller;
+		[u8; 20] => address, caller, origin;
 	}
 
 	fn weight_left(output: &mut &mut [u8]) {
@@ -500,6 +512,16 @@ impl HostFn for HostFnImpl {
 		ret_val.into_bool()
 	}
 
+	fn get_immutable_data(output: &mut &mut [u8]) {
+		let mut output_len = output.len() as u32;
+		unsafe { sys::get_immutable_data(output.as_mut_ptr(), &mut output_len) };
+		extract_from_slice(output, output_len as usize);
+	}
+
+	fn set_immutable_data(data: &[u8]) {
+		unsafe { sys::set_immutable_data(data.as_ptr(), data.len() as u32) }
+	}
+
 	fn balance_of(address: &[u8; 20], output: &mut [u8; 32]) {
 		unsafe { sys::balance_of(address.as_ptr(), output.as_mut_ptr()) };
 	}
@@ -514,9 +536,12 @@ impl HostFn for HostFnImpl {
 		ret_val.into()
 	}
 
-	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) -> Result {
-		let ret_val = unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) };
-		ret_val.into()
+	fn code_hash(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) }
+	}
+
+	fn code_size(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::code_size(address.as_ptr(), output.as_mut_ptr()) }
 	}
 
 	fn own_code_hash(output: &mut [u8; 32]) {
@@ -547,5 +572,21 @@ impl HostFn for HostFnImpl {
 			)
 		};
 		ret_code.into()
+	}
+
+	fn return_data_size(output: &mut [u8; 32]) {
+		unsafe { sys::return_data_size(output.as_mut_ptr()) };
+	}
+
+	fn return_data_copy(output: &mut &mut [u8], offset: u32) {
+		let mut output_len = output.len() as u32;
+		{
+			unsafe { sys::return_data_copy(output.as_mut_ptr(), &mut output_len, offset) };
+		}
+		extract_from_slice(output, output_len as usize);
+	}
+
+	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
+		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
 }
