@@ -52,9 +52,9 @@ fn get_chain_spec_builder_path() -> &'static str {
 	CHAIN_SPEC_BUILDER_PATH
 }
 
-#[test]
+
 #[docify::export]
-fn list_presets() {
+fn cmd_list_presets(path: &str) {
 	let path = wasm_file_path();
 	bash!(
 		chain-spec-builder {
@@ -70,9 +70,15 @@ fn list_presets() {
 }
 
 #[test]
+fn list_presets(){
+	cmd_list_presets(
+		wasm_file_path()
+	);
+}
+
+
 #[docify::export]
-fn get_preset() {
-	let path = wasm_file_path();
+fn cmd_get_preset(path: &str) {
 	bash!(
 		chain-spec-builder {
 			"bar": {
@@ -91,9 +97,14 @@ fn get_preset() {
 }
 
 #[test]
+fn get_preset(){
+	cmd_get_preset(
+		wasm_file_path()
+	);
+}
+
 #[docify::export]
-fn generate_chain_spec() {
-	let path = wasm_file_path();
+fn cmd_generate_chain_spec(path: &str) {
 	bash2!(
 		chain-spec-builder {
 			"name": "Custom",
@@ -127,8 +138,14 @@ fn generate_chain_spec() {
 }
 
 #[test]
+fn generate_chain_spec(){
+	cmd_generate_chain_spec(
+		wasm_file_path()
+	);
+}
+
 #[docify::export]
-fn generate_para_chain_spec() {
+fn cmd_generate_para_chain_spec(path: &str) {
 	let path = wasm_file_path();
 	bash2!(
 		chain-spec-builder {
@@ -161,6 +178,13 @@ fn generate_para_chain_spec() {
 			  }
 			}}
 		  , -c /dev/stdout create -c polkadot -p 1000 -r $path named-preset preset_2
+	);
+}
+
+#[test]
+fn generate_para_chain_spec(){
+	cmd_generate_para_chain_spec(
+		wasm_file_path()
 	);
 }
 
