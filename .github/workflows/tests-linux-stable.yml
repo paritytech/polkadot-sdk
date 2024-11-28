@@ -98,6 +98,8 @@ jobs:
       - name: script
         id: required
         run: |
+          # install nightly toolchain for rustfmt and clippy for revive fixtures
+          rustup component add rustfmt clippy rust-src --toolchain "nightly-2024-11-19"
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory '*'
           forklift cargo nextest run \
