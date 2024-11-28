@@ -99,7 +99,7 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 		let msg = r#"Invalid `define_env` attribute macro: expected no attributes:
 					 - `#[define_env]`"#;
 		let span = TokenStream2::from(attr).span();
-		return syn::Error::new(span, msg).to_compile_error().into();
+		return syn::Error::new(span, msg).to_compile_error().into()
 	}
 
 	let item = syn::parse_macro_input!(item as syn::ItemMod);
@@ -193,20 +193,20 @@ impl HostFn {
 			match ident.as_str() {
 				"api_version" => {
 					if api_version.is_some() {
-						return Err(err(span, "#[api_version] can only be specified once"));
+						return Err(err(span, "#[api_version] can only be specified once"))
 					}
 					api_version =
 						Some(attr.parse_args::<syn::LitInt>().and_then(|lit| lit.base10_parse())?);
 				},
 				"mutating" => {
 					if mutating {
-						return Err(err(span, "#[mutating] can only be specified once"));
+						return Err(err(span, "#[mutating] can only be specified once"))
 					}
 					mutating = true;
 				},
 				"cfg" => {
 					if cfg.is_some() {
-						return Err(err(span, "#[cfg] can only be specified once"));
+						return Err(err(span, "#[cfg] can only be specified once"))
 					}
 					cfg = Some(attr);
 				},
@@ -236,7 +236,7 @@ impl HostFn {
 			.fold(0u32, |acc, valid| if valid { acc + 1 } else { acc });
 
 		if special_args != 2 {
-			return Err(err(span, msg));
+			return Err(err(span, msg))
 		}
 
 		// process return type
@@ -257,7 +257,7 @@ impl HostFn {
 				match &result.arguments {
 					syn::PathArguments::AngleBracketed(group) => {
 						if group.args.len() != 2 {
-							return Err(err(span, &msg));
+							return Err(err(span, &msg))
 						};
 
 						let arg2 = group.args.last().ok_or(err(span, &msg))?;
@@ -296,7 +296,7 @@ impl HostFn {
 								.to_string()),
 							syn::Type::Tuple(tt) => {
 								if !tt.elems.is_empty() {
-									return Err(err(arg1.span(), &msg));
+									return Err(err(arg1.span(), &msg))
 								};
 								Ok("()".to_string())
 							},
@@ -323,13 +323,10 @@ fn is_valid_special_arg(idx: usize, arg: &FnArg) -> bool {
 	match (idx, arg) {
 		(0, FnArg::Receiver(rec)) => rec.reference.is_some() && rec.mutability.is_some(),
 		(1, FnArg::Typed(pat)) => {
-			let ident = if let syn::Pat::Ident(ref ident) = *pat.pat {
-				&ident.ident
-			} else {
-				return false;
-			};
+			let ident =
+				if let syn::Pat::Ident(ref ident) = *pat.pat { &ident.ident } else { return false };
 			if !(ident == "memory" || ident == "_memory") {
-				return false;
+				return false
 			}
 			matches!(*pat.ty, syn::Type::Reference(_))
 		},
@@ -353,12 +350,12 @@ where
 		let Some(ident) = path.path.get_ident() else {
 			panic!("Type needs to be ident");
 		};
-		let size = if ident == "i8"
-			|| ident == "i16"
-			|| ident == "i32"
-			|| ident == "u8"
-			|| ident == "u16"
-			|| ident == "u32"
+		let size = if ident == "i8" ||
+			ident == "i16" ||
+			ident == "i32" ||
+			ident == "u8" ||
+			ident == "u16" ||
+			ident == "u32"
 		{
 			1
 		} else if ident == "i64" || ident == "u64" {
@@ -370,7 +367,7 @@ where
 		if registers_used > ALLOWED_REGISTERS {
 			return quote! {
 				let (#( #param_names, )*): (#( #param_types, )*) = memory.read_as(__a0__)?;
-			};
+			}
 		}
 		let this_reg = quote::format_ident!("__a{}__", idx);
 		let next_reg = quote::format_ident!("__a{}__", idx + 1);
