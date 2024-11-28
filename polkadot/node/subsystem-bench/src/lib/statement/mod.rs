@@ -21,7 +21,7 @@ use crate::{
 	mock::{
 		candidate_backing::MockCandidateBacking,
 		chain_api::{ChainApiState, MockChainApi},
-		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
+		network_bridge::MockNetworkBridgeRx,
 		prospective_parachains::MockProspectiveParachains,
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
@@ -53,13 +53,16 @@ use polkadot_overseer::{
 use polkadot_primitives::{
 	AuthorityDiscoveryId, Block, GroupIndex, Hash, Id, ValidatorId, ValidatorIndex,
 };
-use polkadot_service::overseer::{NetworkBridgeMetrics, NetworkBridgeTxSubsystem};
+use polkadot_service::overseer::{
+	NetworkBridgeMetrics, NetworkBridgeRxSubsystem, NetworkBridgeTxSubsystem,
+};
 use polkadot_statement_distribution::StatementDistributionSubsystem;
 use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
 use sc_network::request_responses::ProtocolConfig;
 use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
+use sp_consensus::SyncOracle;
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::RuntimeAppPublic;
 use std::{
@@ -131,6 +134,19 @@ impl Network for DummyNetwork {
 
 #[derive(Clone, Debug)]
 struct DummyAuthotiryDiscoveryService;
+
+#[derive(Clone)]
+struct DummySyncOracle;
+
+impl SyncOracle for DummySyncOracle {
+	fn is_major_syncing(&self) -> bool {
+		false
+	}
+
+	fn is_offline(&self) -> bool {
+		false
+	}
+}
 
 #[async_trait::async_trait]
 impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
@@ -206,19 +222,30 @@ fn build_overseer(
 	let network_bridge_metrics =
 		NetworkBridgeMetrics::register(Some(&dependencies.registry)).unwrap();
 
-	let authority_disccovery_service = DummyAuthotiryDiscoveryService;
+	let authority_discovery_service = DummyAuthotiryDiscoveryService;
 	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
 	let dummy_network = DummyNetwork;
+	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
 	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
-		dummy_network,
-		authority_disccovery_service,
-		network_bridge_metrics,
+		dummy_network.clone(),
+		authority_discovery_service.clone(),
+		network_bridge_metrics.clone(),
 		ReqProtocolNames::new(GENESIS_HASH, None),
-		PeerSetProtocolNames::new(GENESIS_HASH, None),
-		notification_sinks,
+		peer_set_protocol_names.clone(),
+		Arc::clone(&notification_sinks),
 	);
-	let network_bridge_rx =
-		MockNetworkBridgeRx::new(network_receiver, Some(candidate_req_cfg), false);
+	let dummy_sync_oracle = Box::new(DummySyncOracle);
+	let notification_services = HashMap::new();
+	let network_bridge_rx = NetworkBridgeRxSubsystem::new(
+		dummy_network,
+		authority_discovery_service,
+		dummy_sync_oracle,
+		network_bridge_metrics,
+		peer_set_protocol_names,
+		notification_services,
+		Arc::clone(&notification_sinks),
+		false,
+	);
 
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_runtime_api(|_| mock_runtime_api)
