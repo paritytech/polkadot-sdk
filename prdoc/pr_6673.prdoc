@@ -1,0 +1,7 @@
+title: 'chain-spec-guide-runtime: path to wasm blob fixed'
+doc:
+- audience: Runtime Dev
+  description: In `chain-spec-guide-runtime` crate's tests, there was assumption that
+    release version of wasm blob exists. This PR uses `chain_spec_guide_runtime::runtime::WASM_BINARY_PATH`
+    const to use correct path to runtime blob.
+crates: []
