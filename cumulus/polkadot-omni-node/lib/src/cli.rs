@@ -133,7 +133,8 @@ pub struct Cli<Config: CliConfig> {
 	/// as if it was part of a parachain.
 	///
 	/// The `--dev` flag sets the `dev_block_time` to a default value of 3000ms unless explicitly
-	/// provided.	#[arg(long)]
+	/// provided.	
+	#[arg(long)]
 	pub dev_block_time: Option<u64>,
 
 	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
