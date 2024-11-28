@@ -33,6 +33,7 @@ use bp_runtime::{Chain, RangeInclusiveExt, StaticStrProvider};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
+	pallet_prelude::TransactionSource,
 	weights::Weight,
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -128,7 +129,7 @@ pub struct BridgeRelayersTransactionExtension<Runtime, Config, LaneId>(
 impl<R, C, LaneId> BridgeRelayersTransactionExtension<R, C, LaneId>
 where
 	Self: 'static + Send + Sync,
-	R: RelayersConfig<LaneId = LaneId>
+	R: RelayersConfig<C::BridgeRelayersPalletInstance, LaneId = LaneId>
 		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
 		+ TransactionPaymentConfig,
 	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
@@ -249,7 +250,7 @@ where
 		// let's also replace the weight of slashing relayer with the weight of rewarding relayer
 		if call_info.is_receive_messages_proof_call() {
 			post_info_weight = post_info_weight.saturating_sub(
-				<R as RelayersConfig>::WeightInfo::extra_weight_of_successful_receive_messages_proof_call(),
+				<R as RelayersConfig<C::BridgeRelayersPalletInstance>>::WeightInfo::extra_weight_of_successful_receive_messages_proof_call(),
 			);
 		}
 
@@ -277,7 +278,7 @@ impl<R, C, LaneId> TransactionExtension<R::RuntimeCall>
 	for BridgeRelayersTransactionExtension<R, C, LaneId>
 where
 	Self: 'static + Send + Sync,
-	R: RelayersConfig<LaneId = LaneId>
+	R: RelayersConfig<C::BridgeRelayersPalletInstance, LaneId = LaneId>
 		+ BridgeMessagesConfig<C::BridgeMessagesPalletInstance, LaneId = LaneId>
 		+ TransactionPaymentConfig,
 	C: ExtensionConfig<Runtime = R, LaneId = LaneId>,
@@ -304,6 +305,7 @@ where
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, R::RuntimeCall> {
 		// Prepare relevant data for `prepare`
 		let parsed_call = match C::parse_and_check_for_obsolete_call(call)? {
@@ -324,7 +326,9 @@ where
 		};
 
 		// we only boost priority if relayer has staked required balance
-		if !RelayersPallet::<R>::is_registration_active(&data.relayer) {
+		if !RelayersPallet::<R, C::BridgeRelayersPalletInstance>::is_registration_active(
+			&data.relayer,
+		) {
 			return Ok((Default::default(), Some(data), origin))
 		}
 
@@ -380,7 +384,11 @@ where
 		match call_result {
 			RelayerAccountAction::None => (),
 			RelayerAccountAction::Reward(relayer, reward_account, reward) => {
-				RelayersPallet::<R>::register_relayer_reward(reward_account, &relayer, reward);
+				RelayersPallet::<R, C::BridgeRelayersPalletInstance>::register_relayer_reward(
+					reward_account,
+					&relayer,
+					reward,
+				);
 
 				log::trace!(
 					target: LOG_TARGET,
@@ -392,7 +400,7 @@ where
 				);
 			},
 			RelayerAccountAction::Slash(relayer, slash_account) =>
-				RelayersPallet::<R>::slash_and_deregister(
+				RelayersPallet::<R, C::BridgeRelayersPalletInstance>::slash_and_deregister(
 					&relayer,
 					ExplicitOrAccountParams::Params(slash_account),
 				),
@@ -463,7 +471,9 @@ mod tests {
 	use pallet_utility::Call as UtilityCall;
 	use sp_runtime::{
 		traits::{ConstU64, DispatchTransaction, Header as HeaderT},
-		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidity, ValidTransaction,
+		},
 		DispatchError,
 	};
 
@@ -1076,6 +1086,8 @@ mod tests {
 				&call,
 				&DispatchInfo::default(),
 				0,
+				External,
+				0,
 			)
 			.map(|t| t.0)
 	}
@@ -1088,6 +1100,8 @@ mod tests {
 				&call,
 				&DispatchInfo::default(),
 				0,
+				External,
+				0,
 			)
 			.map(|t| t.0)
 	}
@@ -1099,6 +1113,8 @@ mod tests {
 				Some(relayer_account_at_this_chain()).into(),
 				&call,
 				&DispatchInfo::default(),
+				0,
+				External,
 				0,
 			)
 			.map(|t| t.0)
@@ -1125,6 +1141,7 @@ mod tests {
 				&call,
 				&DispatchInfo::default(),
 				0,
+				0,
 			)
 			.map(|(pre, _)| pre)
 	}
@@ -1142,6 +1159,7 @@ mod tests {
 				&call,
 				&DispatchInfo::default(),
 				0,
+				0,
 			)
 			.map(|(pre, _)| pre)
 	}
@@ -1158,6 +1176,7 @@ mod tests {
 				Some(relayer_account_at_this_chain()).into(),
 				&call,
 				&DispatchInfo::default(),
+				0,
 				0,
 			)
 			.map(|(pre, _)| pre)
