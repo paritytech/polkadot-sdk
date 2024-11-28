@@ -749,16 +749,28 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				self.mdns.on_swarm_event(FromSwarm::NewListenAddr(e));
 			},
 			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) => {
-				let new_addr = addr.clone().with(Protocol::P2p(self.local_peer_id));
+				let mut address = addr.clone();
 
-				if Self::can_add_to_dht(addr) {
+				if let Some(Protocol::P2p(peer_id)) = addr.iter().last() {
+					if peer_id != self.local_peer_id {
+						warn!(
+							target: "sub-libp2p",
+							"🔍 Discovered external address for a peer that is not us: {addr}",
+						);
+						// Ensure this address is not propagated to kademlia.
+						return
+					}
+				} else {
+					address.push(Protocol::P2p(self.local_peer_id));
+				}
+
+				if Self::can_add_to_dht(&address) {
 					// NOTE: we might re-discover the same address multiple times
 					// in which case we just want to refrain from logging.
-					if self.known_external_addresses.insert(new_addr.clone()) {
+					if self.known_external_addresses.insert(address.clone()) {
 						info!(
 						  target: "sub-libp2p",
-						  "🔍 Discovered new external address for our node: {}",
-						  new_addr,
+						  "🔍 Discovered new external address for our node: {address}",
 						);
 					}
 				}
