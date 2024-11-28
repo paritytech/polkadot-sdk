@@ -290,6 +290,8 @@ parameter_types! {
 	pub const NoNetwork: Option<NetworkId> = None;
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId, NoNetwork>;
 
 impl pallet_xcm::Config for Runtime {

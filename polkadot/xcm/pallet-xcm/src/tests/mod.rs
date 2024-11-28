@@ -1058,7 +1058,7 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		let mut counter = 0;
 		while let Some(migration) = maybe_migration.take() {
 			counter += 1;
-			let (_, m) = XcmPallet::check_xcm_version_change(migration, Weight::zero());
+			let (_, m) = XcmPallet::lazy_migration(migration, Weight::zero());
 			maybe_migration = m;
 		}
 		assert_eq!(counter, 4);
@@ -1211,7 +1211,7 @@ fn multistage_migration_works() {
 			let mut weight_used = Weight::zero();
 			while let Some(migration) = maybe_migration.take() {
 				counter += 1;
-				let (w, m) = XcmPallet::check_xcm_version_change(migration, Weight::zero());
+				let (w, m) = XcmPallet::lazy_migration(migration, Weight::zero());
 				maybe_migration = m;
 				weight_used.saturating_accrue(w);
 			}
