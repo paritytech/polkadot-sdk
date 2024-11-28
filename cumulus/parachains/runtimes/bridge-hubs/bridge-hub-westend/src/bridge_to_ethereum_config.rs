@@ -149,7 +149,6 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type ConvertAssetId = EthereumSystem;
 	type EthereumNetwork = EthereumNetwork;
 	type WETHAddress = WETHAddress;
-	type Registry = EthereumSystem;
 }
 
 #[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]

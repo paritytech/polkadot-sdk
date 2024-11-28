@@ -295,11 +295,12 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::outbound::v2::tests::{BridgedNetwork, MockTokenIdConvert, NonBridgedNetwork};
+	use crate::outbound::v2::tests::{
+		BridgedNetwork, MockTokenIdConvert, NonBridgedNetwork, WETHAddress,
+	};
 	use hex_literal::hex;
 	use snowbridge_core::AgentIdOf;
-	use sp_std::default::Default;
-	use xcm::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+	use xcm::latest::WESTEND_GENESIS_HASH;
 
 	#[test]
 	fn xcm_converter_convert_success() {
@@ -315,9 +316,15 @@ mod tests {
 		.into();
 		let filter: AssetFilter = assets.clone().into();
 
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
+
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -328,7 +335,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 		let result = converter.convert();
 		assert!(result.is_ok());
 	}
@@ -346,10 +353,15 @@ mod tests {
 		}]
 		.into();
 		let filter: AssetFilter = Wild(All);
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -360,7 +372,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 		let result = converter.convert();
 		assert_eq!(result.is_ok(), true);
 	}
@@ -378,10 +390,15 @@ mod tests {
 		}]
 		.into();
 		let filter: AssetFilter = assets.clone().into();
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -392,13 +409,13 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::SetTopicExpected));
 	}
 
 	#[test]
-	fn xcm_converter_convert_with_partial_message_yields_unexpected_end_of_xcm() {
+	fn xcm_converter_convert_with_partial_message_yields_invalid_fee_asset() {
 		let network = BridgedNetwork::get();
 
 		let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
@@ -410,7 +427,7 @@ mod tests {
 		let message: Xcm<()> = vec![WithdrawAsset(assets)].into();
 
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::UnexpectedEndOfXcm));
 	}
@@ -423,13 +440,15 @@ mod tests {
 		let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
 		let asset_location = [AccountKey20 { network: None, key: token_address }].into();
-		let fee_asset =
-			Asset { id: AssetId(Location { parents: 0, interior: Here }), fun: Fungible(1000) };
-
 		let assets: Assets =
 			vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
 
 		let filter: AssetFilter = assets.clone().into();
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
@@ -444,7 +463,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 		let result = converter.convert();
 		assert_eq!(result.is_ok(), true);
 	}
@@ -457,7 +476,11 @@ mod tests {
 		let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
 		let asset_location: Location = [AccountKey20 { network: None, key: token_address }].into();
-		let fee_asset = Asset { id: AssetId(asset_location.clone()), fun: Fungible(1001) };
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
 
 		let assets: Assets =
 			vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
@@ -477,7 +500,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 		let result = converter.convert();
 		assert_eq!(result.is_ok(), true);
 	}
@@ -489,7 +512,7 @@ mod tests {
 		let message: Xcm<()> = vec![].into();
 
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::UnexpectedEndOfXcm));
@@ -508,10 +531,15 @@ mod tests {
 		}]
 		.into();
 		let filter: AssetFilter = assets.clone().into();
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -523,7 +551,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::EndOfXcmMessageExpected));
@@ -554,7 +582,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::WithdrawAssetExpected));
@@ -572,16 +600,22 @@ mod tests {
 		}]
 		.into();
 
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
+
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			SetTopic([0; 32]),
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::DepositAssetExpected));
@@ -591,22 +625,20 @@ mod tests {
 	fn xcm_converter_convert_without_assets_yields_no_reserve_assets() {
 		let network = BridgedNetwork::get();
 
-		let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
-
 		let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
 		let assets: Assets = vec![].into();
 		let filter: AssetFilter = assets.clone().into();
 
-		let fee = Asset {
-			id: AssetId(AccountKey20 { network: None, key: token_address }.into()),
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
 			fun: Fungible(1000),
-		};
+		}
+		.into();
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: fee.clone() },
-			WithdrawAsset(assets.clone()),
+			PayFees { asset: fee_asset },
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
 				assets: filter,
@@ -616,7 +648,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::NoReserveAssets));
@@ -642,10 +674,15 @@ mod tests {
 		]
 		.into();
 		let filter: AssetFilter = assets.clone().into();
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -656,7 +693,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.is_ok(), true);
@@ -675,10 +712,15 @@ mod tests {
 		}]
 		.into();
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(0));
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -689,7 +731,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::FilterDoesNotConsumeAllAssets));
@@ -708,10 +750,15 @@ mod tests {
 		}]
 		.into();
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -722,7 +769,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::ZeroAssetTransfer));
@@ -740,10 +787,14 @@ mod tests {
 		}]
 		.into();
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
+		let fee_asset: Asset = Asset {
+			id: AssetId(AccountKey20 { network: None, key: WETHAddress::get().0 }.into()),
+			fun: Fungible(1000),
+		};
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone().into()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -754,7 +805,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::AssetResolutionFailed));
@@ -775,10 +826,14 @@ mod tests {
 		}]
 		.into();
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
+		let fee_asset: Asset = Asset {
+			id: AssetId(AccountKey20 { network: None, key: WETHAddress::get().0 }.into()),
+			fun: Fungible(1000),
+		};
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone().into()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -789,7 +844,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::AssetResolutionFailed));
@@ -811,10 +866,14 @@ mod tests {
 		}]
 		.into();
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
+		let fee_asset: Asset = Asset {
+			id: AssetId(AccountKey20 { network: None, key: WETHAddress::get().0 }.into()),
+			fun: Fungible(1000),
+		};
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone().into()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -825,7 +884,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::AssetResolutionFailed));
@@ -846,9 +905,14 @@ mod tests {
 		}]
 		.into();
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
+		let fee_asset: Asset = Asset {
+			id: AssetId(AccountKey20 { network: None, key: WETHAddress::get().0 }.into()),
+			fun: Fungible(1000),
+		};
+
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone().into()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -860,7 +924,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::BeneficiaryResolutionFailed));
@@ -880,10 +944,14 @@ mod tests {
 		}]
 		.into();
 		let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
+		let fee_asset: Asset = Asset {
+			id: AssetId(AccountKey20 { network: None, key: WETHAddress::get().0 }.into()),
+			fun: Fungible(1000),
+		};
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			WithdrawAsset(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -898,7 +966,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::BeneficiaryResolutionFailed));
@@ -943,10 +1011,14 @@ mod tests {
 		let assets: Assets =
 			vec![Asset { id: AssetId(asset_location.clone()), fun: Fungible(amount) }].into();
 		let filter: AssetFilter = assets.clone().into();
+		let fee_asset: Asset = Asset {
+			id: AssetId(AccountKey20 { network: None, key: WETHAddress::get().0 }.into()),
+			fun: Fungible(1000),
+		};
 
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			ReserveAssetDeposited(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -957,13 +1029,14 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 		let expected_payload =
 			Command::MintForeignToken { recipient: beneficiary_address.into(), amount, token_id };
 		let expected_message = Message {
+			origin_location: Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)]),
 			id: [0; 32].into(),
 			origin: hex!("aa16eddac8725928eaeda4aae518bf10d02bee80382517d21464a5cdf8d1d8e1").into(),
-			fee: 1000000,
+			fee: 1000,
 			commands: BoundedVec::try_from(vec![expected_payload]).unwrap(),
 		};
 		let result = converter.convert();
@@ -980,16 +1053,21 @@ mod tests {
 		// Invalid asset location from a different consensus
 		let asset_location = Location {
 			parents: 2,
-			interior: [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH))].into(),
+			interior: [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))].into(),
 		};
 
 		let assets: Assets =
 			vec![Asset { id: AssetId(asset_location), fun: Fungible(amount) }].into();
 		let filter: AssetFilter = assets.clone().into();
 
+		let fee_asset: Asset = Asset {
+			id: AssetId(AccountKey20 { network: None, key: WETHAddress::get().0 }.into()),
+			fun: Fungible(1000),
+		};
+
 		let message: Xcm<()> = vec![
 			WithdrawAsset(assets.clone()),
-			PayFees { asset: assets.get(0).unwrap().clone() },
+			PayFees { asset: fee_asset },
 			ReserveAssetDeposited(assets.clone()),
 			AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 			DepositAsset {
@@ -1000,7 +1078,7 @@ mod tests {
 		]
 		.into();
 		let mut converter =
-			XcmConverter::<MockTokenIdConvert, ()>::new(&message, network, Default::default());
+			XcmConverter::<MockTokenIdConvert, WETHAddress, ()>::new(&message, network);
 		let result = converter.convert();
 		assert_eq!(result.err(), Some(XcmConverterError::InvalidAsset));
 	}

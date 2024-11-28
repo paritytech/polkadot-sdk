@@ -203,10 +203,7 @@ mod tests {
 		AgentIdOf,
 	};
 	use sp_std::default::Default;
-	use xcm::{
-		latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
-		prelude::SendError as XcmSendError,
-	};
+	use xcm::{latest::WESTEND_GENESIS_HASH, prelude::SendError as XcmSendError};
 
 	parameter_types! {
 		const MaxMessageSize: u32 = u32::MAX;
@@ -214,6 +211,7 @@ mod tests {
 		UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(1013)].into();
 		pub const BridgedNetwork: NetworkId =  Ethereum{ chain_id: 1 };
 		pub const NonBridgedNetwork: NetworkId =  Ethereum{ chain_id: 2 };
+		pub WETHAddress: H160 = H160(hex_literal::hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"));
 	}
 
 	struct MockOkOutboundQueue;
@@ -286,6 +284,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 		assert_eq!(result, Err(XcmSendError::NotApplicable));
 	}
@@ -305,6 +304,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 		assert_eq!(result, Err(XcmSendError::MissingArgument));
 	}
@@ -330,6 +330,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 		assert_eq!(result, Err(XcmSendError::NotApplicable));
 	}
@@ -349,6 +350,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 		assert_eq!(result, Err(XcmSendError::MissingArgument));
 	}
@@ -368,6 +370,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 		assert_eq!(result, Err(XcmSendError::NotApplicable));
 	}
@@ -387,6 +390,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 		assert_eq!(result, Err(XcmSendError::NotApplicable));
 	}
@@ -407,6 +411,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 		assert_eq!(result, Err(XcmSendError::NotApplicable));
 	}
@@ -426,6 +431,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 		assert_eq!(result, Err(XcmSendError::MissingArgument));
 	}
@@ -446,6 +452,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 		assert_eq!(result, Err(XcmSendError::MissingArgument));
 	}
@@ -466,6 +473,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 		assert_eq!(result, Err(XcmSendError::MissingArgument));
 	}
@@ -514,6 +522,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 		assert_eq!(result, Err(XcmSendError::NotApplicable));
@@ -542,6 +551,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 		assert_eq!(result, Err(XcmSendError::NotApplicable));
@@ -564,13 +574,17 @@ mod tests {
 			fun: Fungible(1000),
 		}]
 		.into();
-		let fee = assets.clone().get(0).unwrap().clone();
+		let fee_asset: Asset = Asset {
+			id: AssetId([AccountKey20 { network: None, key: WETHAddress::get().0 }].into()),
+			fun: Fungible(1000),
+		}
+		.into();
 		let filter: AssetFilter = assets.clone().into();
 
 		let mut message: Option<Xcm<()>> = Some(
 			vec![
 				WithdrawAsset(assets.clone()),
-				PayFees { asset: fee.clone() },
+				PayFees { asset: fee_asset },
 				WithdrawAsset(assets.clone()),
 				AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
 				DepositAsset {
@@ -589,6 +603,7 @@ mod tests {
 				MockOkOutboundQueue,
 				AgentIdOf,
 				MockTokenIdConvert,
+				WETHAddress,
 			>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
 		assert!(result.is_ok());
@@ -602,6 +617,7 @@ mod tests {
 			MockErrOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			WETHAddress,
 		>::deliver((hex!("deadbeef").to_vec(), XcmHash::default()));
 		assert_eq!(result, Err(XcmSendError::Transport("other transport error")))
 	}
@@ -646,6 +662,7 @@ mod tests {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			WETHAddress,
 		>::validate(
 			network,
 			channel,
@@ -702,6 +719,7 @@ mod tests {
 			MockOkOutboundQueue,
 			AgentIdOf,
 			MockTokenIdConvert,
+			WETHAddress,
 		>::validate(
 			network,
 			channel,
