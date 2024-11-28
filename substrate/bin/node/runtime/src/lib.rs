@@ -53,7 +53,7 @@ use frame_support::{
 			Balanced, Credit, HoldConsideration, ItemOf, NativeFromLeft, NativeOrWithId, UnionOf,
 		},
 		tokens::{
-			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
+			imbalance::{ResolveTo, ResolveAssetTo}, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
 			GetSalary, PayFromAccount,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, Contains,
@@ -717,10 +717,10 @@ impl pallet_staking::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
-	type RewardRemainder = pallet_treasury::FungibleCompat<Self>;
+	type RewardRemainder = ResolveTo<TreasuryAccount, Balances>;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Slash = pallet_treasury::FungibleCompat<Self>; // send the slashed funds to the treasury.
+	type Slash = ResolveTo<TreasuryAccount, Balances>; // send the slashed funds to the treasury.
 	type Reward = (); // rewards are minted from the void
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;

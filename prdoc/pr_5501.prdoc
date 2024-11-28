@@ -18,10 +18,8 @@ crates:
   - name: pallet-delegated-staking
     bump: patch
   - name: pallet-nomination-pools
-    bump: patch
-  - name: frame-support
-    bump: patch
-  - name: pallet-treasury
+    bump: minor
+  - name: pallet-nomination-pools-runtime-api
     bump: patch
   - name: sp-staking
     bump: patch
