@@ -74,7 +74,7 @@ parameter_types! {
 }
 
 /// The XCM execution fee on AH for the static part of the XCM message (not the user provided
-/// parts). Calculated with integration test snowbridge_v2::xcm_prologue_fee
+/// xcm). Teleported from BH. Calculated with integration test snowbridge_v2::xcm_prologue_fee.
 const XCM_PROLOGUE_FEE: u128 = 67_652_000_000;
 
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
