@@ -9,7 +9,7 @@ crates:
   - name: sc-network
     bump: major
   - name: sc-network-types
-    bump: patch
+    bump: minor
   - name: sc-network-sync
     bump: patch
   - name: sc-telemetry
