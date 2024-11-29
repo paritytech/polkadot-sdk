@@ -138,11 +138,11 @@ jobs:
       #     RELEASE_ID="${{ needs.validate-inputs.outputs.RELEASE_ID }}"
       #     fetch_release_artifacts
 
-      # - name: Upload artifacts
-      #   uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
-      #   with:
-      #     name: release-artifacts
-      #     path: release-artifacts/${{ env.BINARY }}/**/*
+      - name: Upload artifacts
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: release-artifacts
+          path: release-artifacts/x86_64-unknown-linux-gnu/${{ env.BINARY }}/**/*
 
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
