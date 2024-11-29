@@ -178,6 +178,7 @@ jobs:
         working-directory: release-artifacts
         if: ${{ env.IMAGE_TYPE == 'rc' }}
         id: fetch_rc_refs
+        shell: bash
         run: |
           . ../.github/scripts/common/lib.sh
 
@@ -200,6 +201,7 @@ jobs:
         working-directory: release-artifacts
         if: ${{ env.IMAGE_TYPE == 'release'}}
         id: fetch_release_refs
+        shell: bash
         run: |
           . ../.github/scripts/common/lib.sh
           chmod a+rx $BINARY
