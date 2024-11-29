@@ -182,19 +182,9 @@ jobs:
         run: |
           . ../.github/scripts/common/lib.sh
 
-          chmod a+rx $BINARY
-
-          if [[ $BINARY != 'chain-spec-builder' ]]; then
-            RC=$(echo  ${{ needs.validate-inputs.outputs.stable_tag }} | sed -n 's/.*\(-rc[0-9]*\)$/\1/p')
-            VERSION=$(./$BINARY --version | awk '{ print $2 }' )
-            release=$( echo $VERSION | cut -f1 -d- )-$RC
-          else
-            release=$(echo ${{ needs.validate-inputs.outputs.version }} | sed 's/^v//')
-          fi
-
           commit=$(git rev-parse --short HEAD) && \
           echo "commit=${commit}" >> $GITHUB_OUTPUT
-          echo "release=${release}" >> $GITHUB_OUTPUT
+          echo "release=$(echo ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
           echo "tag=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.stable_tag }})" >> $GITHUB_OUTPUT
 
       - name: Fetch release tags
@@ -204,17 +194,9 @@ jobs:
         shell: bash
         run: |
           . ../.github/scripts/common/lib.sh
-          chmod a+rx $BINARY
-
-          if [[ $BINARY != 'chain-spec-builder' ]]; then
-            VERSION=$(./$BINARY --version | awk '{ print $2 }' )
-            release=$( echo $VERSION | cut -f1 -d- )
-          else
-            release=$(echo ${{ needs.validate-inputs.outputs.version }} | sed 's/^v//')
-          fi
 
           echo "tag=latest" >> $GITHUB_OUTPUT
-          echo "release=${release}" >> $GITHUB_OUTPUT
+          echo "release=$(echo ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
           echo "stable=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.stable_tag }})" >> $GITHUB_OUTPUT
 
       - name: Build Injected Container image for polkadot rc
