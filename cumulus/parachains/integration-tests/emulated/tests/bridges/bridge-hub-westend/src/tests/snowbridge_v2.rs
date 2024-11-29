@@ -18,7 +18,7 @@ use bridge_hub_westend_runtime::{
 	EthereumInboundQueueV2,
 };
 use codec::Encode;
-use frame_support::weights::WeightToFee;
+use frame_support::{traits::fungibles::Mutate, weights::WeightToFee};
 use hex_literal::hex;
 use snowbridge_router_primitives::inbound::{
 	v2::{Asset::NativeTokenERC20, Message},
@@ -31,6 +31,50 @@ use testnet_parachains_constants::westend::fee::WeightToFee as WeightCalculator;
 /// Calculates the XCM prologue fee for sending an XCM to AH.
 const INITIAL_FUND: u128 = 5_000_000_000_000;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
+const WETH_FEE: u128 = 1_000_000_000_000;
+
+pub fn weth_location() -> Location {
+	Location::new(
+		2,
+		[
+			GlobalConsensus(EthereumNetwork::get().into()),
+			AccountKey20 { network: None, key: WETH.into() },
+		],
+	)
+}
+
+pub fn register_weth() {
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
+			RuntimeOrigin::root(),
+			weth_location().try_into().unwrap(),
+			assethub_sovereign.clone().into(),
+			true,
+			1000, //ED will be used as exchange rate by default when used to PayFees with
+		));
+
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
+			weth_location().try_into().unwrap(),
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
+			weth_location().try_into().unwrap(),
+			&AssetHubWestendReceiver::get(),
+			1000000,
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint_into(
+			weth_location().try_into().unwrap(),
+			&AssetHubWestendSender::get(),
+			1000000,
+		));
+	});
+}
 
 #[test]
 fn register_token_v2() {
@@ -40,7 +84,7 @@ fn register_token_v2() {
 	let receiver = AssetHubWestendReceiver::get();
 	BridgeHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
 
-	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
+	register_weth();
 
 	let chain_id = 11155111u64;
 	let claimer = AccountId32 { network: None, id: receiver.clone().into() };
@@ -50,23 +94,16 @@ fn register_token_v2() {
 		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
 
 	let owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
-	let weth_token_id: H160 = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14").into();
-	let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into();
-	let weth_amount = 9_000_000_000_000_000_000_000u128;
+	AssetHubWestend::fund_accounts(vec![(owner.into(), INITIAL_FUND)]);
 
-	let assets = vec![NativeTokenERC20 { token_id: weth_token_id, value: weth_amount }];
+	let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into();
+	let weth_amount = 9_000_000_000_000u128;
+
+	let assets = vec![NativeTokenERC20 { token_id: WETH.into(), value: weth_amount }];
 
 	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
-	let dot_asset = Location::new(1, Here);
 
-	let weth_asset = Location::new(
-		2,
-		[
-			GlobalConsensus(ethereum_network_v5),
-			AccountKey20 { network: None, key: weth_token_id.into() },
-		],
-	);
-	let weth_fee: xcm::prelude::Asset = (weth_asset, weth_amount).into();
+	let weth_fee: xcm::prelude::Asset = (weth_location(), WETH_FEE).into();
 
 	let asset_id = Location::new(
 		2,
@@ -88,6 +125,7 @@ fn register_token_v2() {
 					.encode()
 					.into(),
 			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
 		];
 		let xcm: Xcm<()> = register_token_instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
