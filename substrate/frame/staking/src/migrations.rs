@@ -24,6 +24,7 @@ use frame_support::{
 	pallet_prelude::{NMapKey, OptionQuery, ValueQuery},
 	storage_alias,
 	traits::{GetStorageVersion, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
+	WeakBoundedVec,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -143,6 +144,19 @@ pub mod v17 {
 				}
 			}
 
+			for (era, validator, old_reward_pages) in v16::ClaimedRewards::<T>::iter() {
+				let reward_pages_maybe = WeakBoundedVec::try_from(old_reward_pages);
+				match reward_pages_maybe {
+					Ok(reward_pages) => {
+						ClaimedRewards::<T>::insert(era, validator, reward_pages);
+					},
+					Err(_) => {
+						log!(warn, "Migration failed for ClaimedRewards from v16 to v17.");
+						migration_errors = true;
+					},
+				}
+			}
+
 			if migration_errors {
 				log!(warn, "v17 applied with some errors: state may be not coherent.");
 			} else {
@@ -175,6 +189,17 @@ pub mod v16 {
 	#[frame_support::storage_alias]
 	pub(crate) type BondedEras<T: Config> =
 		StorageValue<Pallet<T>, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type ClaimedRewards<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Vec<Page>,
+		ValueQuery,
+	>;
 
 	#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 	pub struct EraRewardPoints<AccountId: Ord> {

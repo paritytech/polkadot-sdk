@@ -1177,8 +1177,11 @@ impl<T: Config> EraInfo<T> {
 			return
 		}
 
-		// add page to claimed entries
-		claimed_pages.push(page);
+		// try to add page to claimed entries
+		if claimed_pages.try_push(page).is_err() {
+			defensive!("Limit reached for maximum number of pages.");
+			return
+		}
 		ClaimedRewards::<T>::insert(era, validator, claimed_pages);
 	}
 

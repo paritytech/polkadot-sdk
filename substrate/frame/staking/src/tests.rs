@@ -235,6 +235,9 @@ fn basic_setup_works() {
 
 		// New era is not being forced
 		assert_eq!(ForceEra::<Test>::get(), Forcing::NotForcing);
+
+		// MaxBondedEras must be coherent with BondingDuration
+		assert_eq!(MaxBondedEras::get(), (BondingDuration::get() as u32) + 1);
 	});
 }
 
@@ -6612,7 +6615,9 @@ fn should_retain_era_info_only_upto_history_depth() {
 		let validator_stash = 10;
 
 		for era in 0..4 {
-			ClaimedRewards::<Test>::insert(era, &validator_stash, vec![0, 1, 2]);
+			let rewards = WeakBoundedVec::try_from(vec![0, 1, 2]);
+			assert!(rewards.is_ok());
+			ClaimedRewards::<Test>::insert(era, &validator_stash, rewards.unwrap());
 			for page in 0..3 {
 				ErasStakersPaged::<Test>::insert(
 					(era, &validator_stash, page),
@@ -8507,7 +8512,7 @@ mod getters {
 		mock::{self},
 		pallet::pallet::{Invulnerables, MinimumValidatorCount, ValidatorCount},
 		slashing,
-		tests::{MaxWinners, Staking, Test},
+		tests::{MaxWinners, Staking, Test, WeakBoundedVec},
 		ActiveEra, ActiveEraInfo, BalanceOf, BoundedBTreeMap, BoundedVec, CanceledSlashPayout,
 		ClaimedRewards, CurrentEra, CurrentPlannedSession, EraRewardPoints, ErasRewardPoints,
 		ErasStartSessionIndex, ErasTotalStake, ErasValidatorPrefs, ErasValidatorReward, ForceEra,
@@ -8656,7 +8661,7 @@ mod getters {
 			// given
 			let era: EraIndex = 12;
 			let account_id: mock::AccountId = 1;
-			let rewards = Vec::<Page>::new();
+			let rewards = WeakBoundedVec::force_from(vec![], None);
 			ClaimedRewards::<Test>::insert(era, account_id, rewards.clone());
 
 			// when

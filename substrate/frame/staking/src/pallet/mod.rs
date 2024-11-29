@@ -235,6 +235,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
 
+		/// The maximum number of nominators reward pages per nominator.
+		///
+		/// Note: `MaxRewardPagesPerValidator` is used to bound the number of pages in
+		/// `ClaimedRewards` and is unsafe to reduce without handling it in a migration.
+		#[pallet::constant]
+		type MaxRewardPagesPerValidator: Get<u32>;
+
 		/// Something that provides a best-effort sorted list of voters aka electing nominators,
 		/// used for NPoS election.
 		///
@@ -353,6 +360,7 @@ pub mod pallet {
 			type EventListeners = ();
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
 			type MaxInvulnerables = ConstU32<20>;
+			type MaxRewardPagesPerValidator = ConstU32<20>;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -539,7 +547,7 @@ pub mod pallet {
 		EraIndex,
 		Twox64Concat,
 		T::AccountId,
-		Vec<Page>,
+		WeakBoundedVec<Page, T::MaxRewardPagesPerValidator>,
 		ValueQuery,
 	>;
 
@@ -1012,7 +1020,7 @@ pub mod pallet {
 		pub fn claimed_rewards<EncodeLikeEraIndex, EncodeLikeAccountId>(
 			era_index: EncodeLikeEraIndex,
 			account_id: EncodeLikeAccountId,
-		) -> Vec<Page>
+		) -> WeakBoundedVec<Page, T::MaxRewardPagesPerValidator>
 		where
 			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 			EncodeLikeAccountId: codec::EncodeLike<T::AccountId>,
