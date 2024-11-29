@@ -27,7 +27,7 @@ use crate::{
 	graph::{
 		self,
 		base_pool::{TimedTransactionSource, Transaction},
-		ExtrinsicFor, ExtrinsicHash, TransactionFor,
+		BaseSubmitOutcome, ExtrinsicFor, ExtrinsicHash, TransactionFor, ValidatedPoolSubmitOutcome,
 	},
 	ReadyIteratorFor, LOG_TARGET,
 };
@@ -173,6 +173,18 @@ where
 	pending_txs_tasks: RwLock<HashMap<ExtrinsicHash<ChainApi>, PendingPreInsertTask<ChainApi>>>,
 }
 
+/// Type alias to outcome of submission to `ViewStore`.
+pub(super) type ViewStoreSubmitOutcome<ChainApi> =
+	BaseSubmitOutcome<ChainApi, TxStatusStream<ChainApi>>;
+
+impl<ChainApi: graph::ChainApi> From<ValidatedPoolSubmitOutcome<ChainApi>>
+	for ViewStoreSubmitOutcome<ChainApi>
+{
+	fn from(value: ValidatedPoolSubmitOutcome<ChainApi>) -> Self {
+		Self::new(value.hash(), value.priority())
+	}
+}
+
 impl<ChainApi, Block> ViewStore<ChainApi, Block>
 where
 	Block: BlockT,
@@ -200,7 +212,7 @@ where
 	pub(super) async fn submit(
 		&self,
 		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)> + Clone,
-	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
+	) -> HashMap<Block::Hash, Vec<Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error>>> {
 		let submit_futures = {
 			let active_views = self.active_views.read();
 			active_views
@@ -208,7 +220,16 @@ where
 				.map(|(_, view)| {
 					let view = view.clone();
 					let xts = xts.clone();
-					async move { (view.at.hash, view.submit_many(xts).await) }
+					async move {
+						(
+							view.at.hash,
+							view.submit_many(xts)
+								.await
+								.into_iter()
+								.map(|r| r.map(Into::into))
+								.collect::<Vec<_>>(),
+						)
+					}
 				})
 				.collect::<Vec<_>>()
 		};
@@ -221,7 +242,7 @@ where
 	pub(super) fn submit_local(
 		&self,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
+	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
 		let active_views = self
 			.active_views
 			.read()
@@ -236,12 +257,14 @@ where
 			.map(|view| view.submit_local(xt.clone()))
 			.find_or_first(Result::is_ok);
 
-		if let Some(Err(err)) = result {
-			log::trace!(target: LOG_TARGET, "[{:?}] submit_local: err: {}", tx_hash, err);
-			return Err(err)
-		};
-
-		Ok(tx_hash)
+		match result {
+			Some(Err(err)) => {
+				log::trace!(target: LOG_TARGET, "[{:?}] submit_local: err: {}", tx_hash, err);
+				Err(err)
+			},
+			None => Ok(ViewStoreSubmitOutcome::new_no_priority(tx_hash)),
+			Some(Ok(r)) => Ok(r.into()),
+		}
 	}
 
 	/// Import a single extrinsic and starts to watch its progress in the pool.
@@ -256,7 +279,7 @@ where
 		_at: Block::Hash,
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<TxStatusStream<ChainApi>, ChainApi::Error> {
+	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
 			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
@@ -271,13 +294,13 @@ where
 					let source = source.clone();
 					async move {
 						match view.submit_and_watch(source, xt).await {
-							Ok(watcher) => {
+							Ok(mut result) => {
 								self.listener.add_view_watcher_for_tx(
 									tx_hash,
 									view.at.hash,
-									watcher.into_stream().boxed(),
+									result.expect_watcher().into_stream().boxed(),
 								);
-								Ok(())
+								Ok(result)
 							},
 							Err(e) => Err(e),
 						}
@@ -285,17 +308,21 @@ where
 				})
 				.collect::<Vec<_>>()
 		};
-		let maybe_error = futures::future::join_all(submit_and_watch_futures)
+		let result = futures::future::join_all(submit_and_watch_futures)
 			.await
 			.into_iter()
 			.find_or_first(Result::is_ok);
 
-		if let Some(Err(err)) = maybe_error {
-			log::trace!(target: LOG_TARGET, "[{:?}] submit_and_watch: err: {}", tx_hash, err);
-			return Err(err);
-		};
-
-		Ok(external_watcher)
+		match result {
+			Some(Err(err)) => {
+				log::trace!(target: LOG_TARGET, "[{:?}] submit_and_watch: err: {}", tx_hash, err);
+				return Err(err);
+			},
+			Some(Ok(result)) =>
+				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher)),
+			None =>
+				Ok(ViewStoreSubmitOutcome::new_no_priority(tx_hash).with_watcher(external_watcher)),
+		}
 	}
 
 	/// Returns the pool status for every active view.
@@ -702,11 +729,11 @@ where
 	) {
 		if watched {
 			match view.submit_and_watch(source, xt).await {
-				Ok(watcher) => {
+				Ok(mut result) => {
 					self.listener.add_view_watcher_for_tx(
 						xt_hash,
 						view.at.hash,
-						watcher.into_stream().boxed(),
+						result.expect_watcher().into_stream().boxed(),
 					);
 				},
 				Err(e) => {
