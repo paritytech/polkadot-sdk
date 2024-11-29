@@ -165,7 +165,7 @@ pub mod metadata {
 	/// Execute a set of checks to ensure runtime/parachain compatibility.
 	///
 	/// The checks will emit warning level logs in case the runtime doesn't comply with the
-	/// conventions at https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions.
+	/// conventions documented at [OmniNode docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html).
 	pub fn verify_parachain_compatibility(
 		metadata: &RuntimeMetadataPrefixed,
 	) -> Result<(), sc_service::error::Error> {
