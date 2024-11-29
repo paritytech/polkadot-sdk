@@ -573,9 +573,6 @@ pub mod pallet {
 		AccountUnmapped,
 		/// Tried to map an account that is already mapped.
 		AccountAlreadyMapped,
-		/// An integer that is too large for the specified argument type was passed to a host
-		/// function.
-		ArgumentTooLarge,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.

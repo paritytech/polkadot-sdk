@@ -395,7 +395,7 @@ where
 	let bindings = param_names.zip(param_types).enumerate().map(|(idx, (name, ty))| {
 		let reg = quote::format_ident!("__a{}__", idx);
 		quote! {
-			let #name: #ty = #reg.try_into().map_err(|_| <Error<E::T>>::ArgumentTooLarge)?;
+			let #name = #reg as #ty;
 		}
 	});
 	quote! {
