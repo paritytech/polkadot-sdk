@@ -110,11 +110,11 @@ use frame_support::{
 	traits::{tokens::Balance, Contains, Defensive, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
-use snowbridge_core::{
-	outbound::v1::{Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS},
-	BasicOperatingMode, ChannelId,
-};
+use snowbridge_core::{BasicOperatingMode, ChannelId};
 use snowbridge_merkle_tree::merkle_root;
+use snowbridge_outbound_primitives::v1::{
+	Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS,
+};
 use sp_core::{H256, U256};
 use sp_runtime::{
 	traits::{CheckedDiv, Hash},

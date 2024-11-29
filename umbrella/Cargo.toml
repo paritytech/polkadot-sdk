@@ -504,7 +504,6 @@ serde = [
 	"pallet-treasury?/serde",
 	"pallet-xcm?/serde",
 	"snowbridge-beacon-primitives?/serde",
-	"snowbridge-core?/serde",
 	"snowbridge-ethereum?/serde",
 	"snowbridge-pallet-ethereum-client?/serde",
 	"snowbridge-pallet-inbound-queue?/serde",

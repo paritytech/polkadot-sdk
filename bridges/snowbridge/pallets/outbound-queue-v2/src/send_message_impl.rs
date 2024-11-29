@@ -8,7 +8,7 @@ use frame_support::{
 	ensure,
 	traits::{EnqueueMessage, Get},
 };
-use snowbridge_core::outbound::{
+use snowbridge_outbound_primitives::{
 	v2::{primary_governance_origin, Message, SendMessage},
 	SendError, SendMessageFeeProvider,
 };

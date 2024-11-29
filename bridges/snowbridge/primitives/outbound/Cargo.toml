@@ -1,6 +1,6 @@
 [package]
-name = "snowbridge-core"
-description = "Snowbridge Core"
+name = "snowbridge-outbound-primitives"
+description = "Snowbridge outbound primitives"
 version = "0.2.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
@@ -22,17 +22,15 @@ xcm-builder = { workspace = true }
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-sp-io = { workspace = true }
 sp-core = { workspace = true }
 sp-arithmetic = { workspace = true }
-
-snowbridge-beacon-primitives = { workspace = true }
 
 ethabi = { workspace = true }
 alloy-primitives = { features = ["rlp"], workspace = true }
 alloy-sol-types = { workspace = true }
+
+snowbridge-core = { workspace = true }
 
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
@@ -49,20 +47,10 @@ std = [
 	"frame-system/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
-	"snowbridge-beacon-primitives/std",
+	"snowbridge-core/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
 	"sp-std/std",
 	"xcm-builder/std",
 	"xcm/std",
-]
-runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
 ]

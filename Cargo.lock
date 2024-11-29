@@ -2512,6 +2512,7 @@ dependencies = [
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-core 0.2.0",
+ "snowbridge-outbound-primitives",
  "snowbridge-pallet-inbound-queue-fixtures 0.10.0",
  "snowbridge-pallet-outbound-queue 0.2.0",
  "snowbridge-pallet-system 0.2.0",
@@ -2594,6 +2595,7 @@ dependencies = [
  "snowbridge-beacon-primitives 0.2.0",
  "snowbridge-core 0.2.0",
  "snowbridge-merkle-tree",
+ "snowbridge-outbound-primitives",
  "snowbridge-outbound-queue-runtime-api 0.2.0",
  "snowbridge-outbound-router-primitives",
  "snowbridge-pallet-ethereum-client 0.2.0",
@@ -2753,6 +2755,7 @@ dependencies = [
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-core 0.2.0",
+ "snowbridge-outbound-primitives",
  "snowbridge-outbound-router-primitives",
  "snowbridge-pallet-inbound-queue 0.2.0",
  "snowbridge-pallet-inbound-queue-fixtures 0.10.0",
@@ -2835,6 +2838,7 @@ dependencies = [
  "snowbridge-beacon-primitives 0.2.0",
  "snowbridge-core 0.2.0",
  "snowbridge-merkle-tree",
+ "snowbridge-outbound-primitives",
  "snowbridge-outbound-queue-runtime-api 0.2.0",
  "snowbridge-outbound-queue-runtime-api-v2",
  "snowbridge-outbound-router-primitives",
@@ -24743,7 +24747,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain-primitives 6.0.0",
  "scale-info",
- "serde",
  "snowbridge-beacon-primitives 0.2.0",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
@@ -24853,6 +24856,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "snowbridge-outbound-primitives"
+version = "0.2.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
+ "ethabi-decode 2.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "hex",
+ "hex-literal",
+ "parity-scale-codec",
+ "polkadot-parachain-primitives 6.0.0",
+ "scale-info",
+ "snowbridge-core 0.2.0",
+ "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-std 14.0.0",
+ "staging-xcm 7.0.0",
+ "staging-xcm-builder 7.0.0",
+ "staging-xcm-executor 7.0.0",
+]
+
+[[package]]
 name = "snowbridge-outbound-queue-merkle-tree"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -24872,6 +24898,7 @@ dependencies = [
  "parity-scale-codec",
  "snowbridge-core 0.2.0",
  "snowbridge-merkle-tree",
+ "snowbridge-outbound-primitives",
  "sp-api 26.0.0",
  "sp-std 14.0.0",
 ]
@@ -24899,6 +24926,7 @@ dependencies = [
  "scale-info",
  "snowbridge-core 0.2.0",
  "snowbridge-merkle-tree",
+ "snowbridge-outbound-primitives",
  "sp-api 26.0.0",
  "sp-std 14.0.0",
  "staging-xcm 7.0.0",
@@ -24914,6 +24942,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "snowbridge-core 0.2.0",
+ "snowbridge-outbound-primitives",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -25095,6 +25124,7 @@ dependencies = [
  "serde",
  "snowbridge-core 0.2.0",
  "snowbridge-merkle-tree",
+ "snowbridge-outbound-primitives",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
@@ -25144,6 +25174,7 @@ dependencies = [
  "serde",
  "snowbridge-core 0.2.0",
  "snowbridge-merkle-tree",
+ "snowbridge-outbound-primitives",
  "snowbridge-outbound-router-primitives",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
@@ -25172,6 +25203,7 @@ dependencies = [
  "polkadot-primitives 7.0.0",
  "scale-info",
  "snowbridge-core 0.2.0",
+ "snowbridge-outbound-primitives",
  "snowbridge-pallet-outbound-queue 0.2.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
@@ -25249,6 +25281,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "snowbridge-core 0.2.0",
+ "snowbridge-outbound-primitives",
  "sp-arithmetic 23.0.0",
  "sp-std 14.0.0",
  "staging-xcm 7.0.0",

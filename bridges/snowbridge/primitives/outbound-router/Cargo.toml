@@ -27,6 +27,7 @@ xcm-executor = { workspace = true }
 xcm-builder = { workspace = true }
 
 snowbridge-core = { workspace = true }
+snowbridge-outbound-primitives = { workspace = true }
 
 hex-literal = { workspace = true, default-features = true }
 
@@ -40,6 +41,7 @@ std = [
 	"log/std",
 	"scale-info/std",
 	"snowbridge-core/std",
+	"snowbridge-outbound-primitives/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -47,11 +49,4 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
-]
-runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
-	"snowbridge-core/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
 ]

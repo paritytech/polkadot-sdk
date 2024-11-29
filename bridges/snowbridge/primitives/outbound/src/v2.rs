@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! # Outbound V2 primitives
 
-use crate::outbound::{OperatingMode, SendError};
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::ConstU32, BoundedVec};
 use hex_literal::hex;
@@ -11,7 +10,8 @@ use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::{vec, vec::Vec};
 
-use crate::outbound::v2::abi::{
+use crate::{OperatingMode, SendError};
+use abi::{
 	CallContractParams, MintForeignTokenParams, RegisterForeignTokenParams, SetOperatingModeParams,
 	UnlockNativeTokenParams, UpgradeParams,
 };

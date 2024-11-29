@@ -5,12 +5,10 @@
 use codec::DecodeAll;
 use core::slice::Iter;
 use frame_support::{ensure, traits::Get, BoundedVec};
-use snowbridge_core::{
-	outbound::{
-		v2::{Command, Message},
-		TransactInfo,
-	},
-	TokenId, TokenIdOf, TokenIdOf as LocationIdOf,
+use snowbridge_core::{TokenId, TokenIdOf, TokenIdOf as LocationIdOf};
+use snowbridge_outbound_primitives::{
+	v2::{Command, Message},
+	TransactInfo,
 };
 use sp_core::H160;
 use sp_runtime::traits::MaybeEquivalence;

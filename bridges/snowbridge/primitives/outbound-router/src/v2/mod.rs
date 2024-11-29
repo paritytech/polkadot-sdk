@@ -13,7 +13,8 @@ use frame_support::{
 	ensure,
 	traits::{Contains, Get, ProcessMessageError},
 };
-use snowbridge_core::{outbound::v2::SendMessage, TokenId};
+use snowbridge_core::TokenId;
+use snowbridge_outbound_primitives::v2::SendMessage;
 use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{marker::PhantomData, ops::ControlFlow, prelude::*};

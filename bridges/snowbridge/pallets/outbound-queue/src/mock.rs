@@ -10,10 +10,10 @@ use frame_support::{
 
 use snowbridge_core::{
 	gwei, meth,
-	outbound::v1::*,
 	pricing::{PricingParameters, Rewards},
 	ParaId, PRIMARY_GOVERNANCE_CHANNEL,
 };
+use snowbridge_outbound_primitives::v1::*;
 use sp_core::{ConstU32, ConstU8, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},

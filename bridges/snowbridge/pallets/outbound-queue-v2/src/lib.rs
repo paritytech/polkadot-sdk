@@ -73,13 +73,13 @@ use frame_support::{
 pub use pallet::*;
 use snowbridge_core::{
 	inbound::{Message as DeliveryMessage, VerificationError, Verifier},
-	outbound::v2::{
-		abi::{CommandWrapper, InboundMessage, InboundMessageWrapper},
-		GasMeter, Message,
-	},
 	BasicOperatingMode, RewardLedger, TokenId,
 };
 use snowbridge_merkle_tree::merkle_root;
+use snowbridge_outbound_primitives::v2::{
+	abi::{CommandWrapper, InboundMessage, InboundMessageWrapper},
+	GasMeter, Message,
+};
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Hash, MaybeEquivalence},

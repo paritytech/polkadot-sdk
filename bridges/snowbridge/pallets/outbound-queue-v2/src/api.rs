@@ -4,14 +4,14 @@
 
 use crate::{Config, MessageLeaves};
 use frame_support::storage::StorageStreamIter;
-use snowbridge_core::outbound::{
+use snowbridge_merkle_tree::{merkle_proof, MerkleProof};
+use snowbridge_outbound_primitives::{
 	v2::{
 		abi::{CommandWrapper, InboundMessage},
 		GasMeter, Message,
 	},
 	DryRunError,
 };
-use snowbridge_merkle_tree::{merkle_proof, MerkleProof};
 use snowbridge_outbound_router_primitives::v2::convert::XcmConverter;
 use sp_core::Get;
 use sp_std::{default::Default, vec::Vec};

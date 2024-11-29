@@ -11,7 +11,6 @@ mod tests;
 pub mod inbound;
 pub mod location;
 pub mod operating_mode;
-pub mod outbound;
 pub mod pricing;
 pub mod reward;
 pub mod ringbuffer;

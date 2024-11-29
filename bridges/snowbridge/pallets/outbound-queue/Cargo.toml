@@ -30,7 +30,8 @@ sp-arithmetic = { workspace = true }
 
 bridge-hub-common = { workspace = true }
 
-snowbridge-core = { features = ["serde"], workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-outbound-primitives = { workspace = true }
 snowbridge-merkle-tree = { workspace = true }
 ethabi = { workspace = true }
 
@@ -52,6 +53,7 @@ std = [
 	"serde/std",
 	"snowbridge-core/std",
 	"snowbridge-merkle-tree/std",
+	"snowbridge-outbound-primitives/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",

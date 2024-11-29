@@ -25,6 +25,9 @@ use crate::{
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
+use snowbridge_outbound_primitives::{
+	v1::ConstantGasMeter, v2::ConstantGasMeter as ConstantGasMeterV2,
+};
 use snowbridge_outbound_router_primitives::{
 	v1::EthereumBlobExporter, v2::EthereumBlobExporter as EthereumBlobExporterV2,
 };
@@ -125,7 +128,7 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type Decimals = ConstU8<12>;
 	type MaxMessagePayloadSize = ConstU32<2048>;
 	type MaxMessagesPerBlock = ConstU32<32>;
-	type GasMeter = snowbridge_core::outbound::v1::ConstantGasMeter;
+	type GasMeter = ConstantGasMeter;
 	type Balance = Balance;
 	type WeightToFee = WeightToFee;
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue::WeightInfo<Runtime>;
@@ -139,7 +142,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type MessageQueue = MessageQueue;
 	type MaxMessagePayloadSize = ConstU32<2048>;
 	type MaxMessagesPerBlock = ConstU32<32>;
-	type GasMeter = snowbridge_core::outbound::v2::ConstantGasMeter;
+	type GasMeter = ConstantGasMeterV2;
 	type Balance = Balance;
 	type WeightToFee = WeightToFee;
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;

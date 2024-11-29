@@ -47,6 +47,7 @@ bridge-hub-westend-runtime = { workspace = true }
 # Snowbridge
 snowbridge-core = { workspace = true }
 snowbridge-router-primitives = { workspace = true }
+snowbridge-outbound-primitives = { workspace = true }
 snowbridge-outbound-router-primitives = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }

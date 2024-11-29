@@ -2,14 +2,11 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! # Outbound V1 primitives
 
-use crate::{
-	outbound::{OperatingMode, SendError, SendMessageFeeProvider},
-	pricing::UD60x18,
-	ChannelId,
-};
+use crate::{OperatingMode, SendError, SendMessageFeeProvider};
 use codec::{Decode, Encode};
 use ethabi::Token;
 use scale_info::TypeInfo;
+use snowbridge_core::{pricing::UD60x18, ChannelId};
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160, H256, U256};
 use sp_std::{borrow::ToOwned, vec, vec::Vec};

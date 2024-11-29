@@ -2,12 +2,10 @@ use super::*;
 use crate::v2::convert::XcmConverterError;
 use frame_support::{parameter_types, BoundedVec};
 use hex_literal::hex;
-use snowbridge_core::{
-	outbound::{
-		v2::{Command, Message},
-		SendError, SendMessageFeeProvider,
-	},
-	AgentIdOf, TokenIdOf,
+use snowbridge_core::{AgentIdOf, TokenIdOf};
+use snowbridge_outbound_primitives::{
+	v2::{Command, Message},
+	SendError, SendMessageFeeProvider,
 };
 use sp_std::default::Default;
 use xcm::{latest::WESTEND_GENESIS_HASH, prelude::SendError as XcmSendError};

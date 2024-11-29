@@ -11,12 +11,10 @@ use frame_support::{
 };
 
 use codec::Encode;
-use snowbridge_core::{
-	outbound::{
-		v2::{abi::InboundMessageWrapper, primary_governance_origin, Command, SendMessage},
-		SendError,
-	},
-	ChannelId, ParaId,
+use snowbridge_core::{ChannelId, ParaId};
+use snowbridge_outbound_primitives::{
+	v2::{abi::InboundMessageWrapper, primary_governance_origin, Command, SendMessage},
+	SendError,
 };
 use sp_core::{hexdisplay::HexDisplay, H256};
 

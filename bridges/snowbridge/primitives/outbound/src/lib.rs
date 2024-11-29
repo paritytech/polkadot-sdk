@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+#![cfg_attr(not(feature = "std"), no_std)]
 //! # Outbound
 //!
 //! Common traits and types
-use crate::Vec;
+pub mod v1;
+pub mod v2;
+
 use codec::{Decode, Encode};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160};
-
-pub mod v1;
-pub mod v2;
+use sp_std::vec::Vec;
 
 /// The operating mode of Channels and Gateway contract on Ethereum.
 #[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]

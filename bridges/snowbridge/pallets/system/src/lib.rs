@@ -67,14 +67,13 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use snowbridge_core::{
-	meth,
-	outbound::{
-		v1::{Command, Initializer, Message, SendMessage},
-		OperatingMode, SendError,
-	},
-	sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
+	meth, sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
 	PricingParameters as PricingParametersRecord, TokenId, TokenIdOf, PRIMARY_GOVERNANCE_CHANNEL,
 	SECONDARY_GOVERNANCE_CHANNEL,
+};
+use snowbridge_outbound_primitives::{
+	v1::{Command, Initializer, Message, SendMessage},
+	OperatingMode, SendError,
 };
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_io::hashing::blake2_256;

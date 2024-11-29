@@ -14,10 +14,10 @@ use snowbridge_core::{
 	gwei,
 	inbound::{Log, Proof, VerificationError, Verifier},
 	meth,
-	outbound::v2::*,
 	pricing::{PricingParameters, Rewards},
 	ParaId,
 };
+use snowbridge_outbound_primitives::v2::*;
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},

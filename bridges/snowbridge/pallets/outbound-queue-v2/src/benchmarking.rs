@@ -5,10 +5,8 @@ use super::*;
 use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_benchmarking::v2::*;
-use snowbridge_core::{
-	outbound::v1::{Command, Initializer, QueuedMessage},
-	ChannelId,
-};
+use snowbridge_core::ChannelId;
+use snowbridge_outbound_primitives::v1::{Command, Initializer, QueuedMessage};
 use sp_core::{H160, H256};
 
 #[allow(unused_imports)]

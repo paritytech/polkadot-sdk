@@ -10,12 +10,10 @@ use frame_support::{
 	CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use frame_system::unique;
-use snowbridge_core::{
-	outbound::{
-		v1::{Fee, Message, QueuedMessage, SendMessage, VersionedQueuedMessage},
-		SendError, SendMessageFeeProvider,
-	},
-	ChannelId, PRIMARY_GOVERNANCE_CHANNEL,
+use snowbridge_core::{ChannelId, PRIMARY_GOVERNANCE_CHANNEL};
+use snowbridge_outbound_primitives::{
+	v1::{Fee, Message, QueuedMessage, SendMessage, VersionedQueuedMessage},
+	SendError, SendMessageFeeProvider,
 };
 use sp_core::H256;
 use sp_runtime::BoundedVec;

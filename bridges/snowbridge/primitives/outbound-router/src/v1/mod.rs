@@ -10,10 +10,8 @@ use core::slice::Iter;
 use codec::{Decode, Encode};
 
 use frame_support::{ensure, traits::Get};
-use snowbridge_core::{
-	outbound::v1::{AgentExecuteCommand, Command, Message, SendMessage},
-	AgentId, ChannelId, ParaId, TokenId, TokenIdOf,
-};
+use snowbridge_core::{AgentId, ChannelId, ParaId, TokenId, TokenIdOf};
+use snowbridge_outbound_primitives::v1::{AgentExecuteCommand, Command, Message, SendMessage};
 use sp_core::{H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};

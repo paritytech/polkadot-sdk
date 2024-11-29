@@ -91,10 +91,8 @@ pub use sp_runtime::BuildStorage;
 
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use rococo_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
-use snowbridge_core::{
-	outbound::v1::{Command, Fee},
-	AgentId, PricingParameters,
-};
+use snowbridge_core::{AgentId, PricingParameters};
+pub use snowbridge_outbound_primitives::v1::{Command, ConstantGasMeter, Fee};
 use xcm::{latest::prelude::*, prelude::*};
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},

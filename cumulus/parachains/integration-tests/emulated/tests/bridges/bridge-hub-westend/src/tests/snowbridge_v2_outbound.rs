@@ -15,7 +15,8 @@
 use crate::imports::*;
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
-use snowbridge_core::{outbound::TransactInfo, AssetMetadata};
+use snowbridge_core::AssetMetadata;
+use snowbridge_outbound_primitives::TransactInfo;
 use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
 use sp_runtime::MultiAddress;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
