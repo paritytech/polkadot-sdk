@@ -24,7 +24,7 @@ use std::{
 use crate::{common::log_xt::log_xt_trace, LOG_TARGET};
 use futures::channel::mpsc::{channel, Sender};
 use parking_lot::{Mutex, RwLock};
-use sc_transaction_pool_api::{error, PoolStatus, ReadyTransactions};
+use sc_transaction_pool_api::{error, PoolStatus, ReadyTransactions, TransactionPriority};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::SaturatedConversion,
@@ -78,10 +78,11 @@ impl<Hash, Ex, Error> ValidatedTransaction<Hash, Ex, Error> {
 	}
 }
 
-/// A type of validated transaction stored in the pool.
+/// A type of validated transaction stored in the validated pool.
 pub type ValidatedTransactionFor<B> =
 	ValidatedTransaction<ExtrinsicHash<B>, ExtrinsicFor<B>, <B as ChainApi>::Error>;
 
+/// A type alias representing ValidatedPool listener for given ChainApi type.
 pub type Listener<B> = super::listener::Listener<ExtrinsicHash<B>, B>;
 
 /// A closure that returns true if the local node is a validator that can author blocks.
@@ -97,6 +98,54 @@ impl From<bool> for IsValidator {
 impl From<Box<dyn Fn() -> bool + Send + Sync>> for IsValidator {
 	fn from(is_validator: Box<dyn Fn() -> bool + Send + Sync>) -> Self {
 		Self(Arc::new(is_validator))
+	}
+}
+
+/// Represents the result of `submit` or `submit_and_watch` operations.
+pub struct BaseSubmitOutcome<B: ChainApi, W> {
+	/// The hash of the submitted transaction.
+	hash: ExtrinsicHash<B>,
+	/// A transaction watcher. This is `Some` for `submit_and_watch` and `None` for `submit`.
+	watcher: Option<W>,
+	/// The priority of the transaction. Defaults to zero if unknown.
+	priority: TransactionPriority,
+}
+
+/// Type alias to outcome of submission to `ValidatedPool`.
+pub type ValidatedPoolSubmitOutcome<B> =
+	BaseSubmitOutcome<B, Watcher<ExtrinsicHash<B>, ExtrinsicHash<B>>>;
+
+impl<B: ChainApi, W> BaseSubmitOutcome<B, W> {
+	/// Creates a new instance with given hash and priority.
+	pub fn new(hash: ExtrinsicHash<B>, priority: TransactionPriority) -> Self {
+		Self { hash, priority, watcher: None }
+	}
+
+	/// Creates a new instance with given hash and zeroed priority.
+	pub fn new_no_priority(hash: ExtrinsicHash<B>) -> Self {
+		Self { hash, priority: 0u64, watcher: None }
+	}
+
+	/// Sets the transaction watcher.
+	pub fn with_watcher(mut self, watcher: W) -> Self {
+		self.watcher = Some(watcher);
+		self
+	}
+
+	/// Provides priority of submitted transaction.
+	pub fn priority(&self) -> TransactionPriority {
+		self.priority
+	}
+
+	/// Provides hash of submitted transaction.
+	pub fn hash(&self) -> ExtrinsicHash<B> {
+		self.hash
+	}
+
+	/// Provides a watcher. Should only be called on outcomes of `submit_and_watch`. Otherwise will
+	/// panic (that would mean logical error in program).
+	pub fn expect_watcher(&mut self) -> W {
+		self.watcher.take().expect("watcher was set in submit_and_watch. qed")
 	}
 }
 
@@ -176,7 +225,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 	pub fn submit(
 		&self,
 		txs: impl IntoIterator<Item = ValidatedTransactionFor<B>>,
-	) -> Vec<Result<ExtrinsicHash<B>, B::Error>> {
+	) -> Vec<Result<ValidatedPoolSubmitOutcome<B>, B::Error>> {
 		let results = txs
 			.into_iter()
 			.map(|validated_tx| self.submit_one(validated_tx))
@@ -192,7 +241,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		results
 			.into_iter()
 			.map(|res| match res {
-				Ok(ref hash) if removed.contains(hash) =>
+				Ok(outcome) if removed.contains(&outcome.hash) =>
 					Err(error::Error::ImmediatelyDropped.into()),
 				other => other,
 			})
@@ -200,9 +249,13 @@ impl<B: ChainApi> ValidatedPool<B> {
 	}
 
 	/// Submit single pre-validated transaction to the pool.
-	fn submit_one(&self, tx: ValidatedTransactionFor<B>) -> Result<ExtrinsicHash<B>, B::Error> {
+	fn submit_one(
+		&self,
+		tx: ValidatedTransactionFor<B>,
+	) -> Result<ValidatedPoolSubmitOutcome<B>, B::Error> {
 		match tx {
 			ValidatedTransaction::Valid(tx) => {
+				let priority = tx.priority;
 				log::trace!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one", tx.hash);
 				if !tx.propagate && !(self.is_validator.0)() {
 					return Err(error::Error::Unactionable.into())
@@ -230,7 +283,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 
 				let mut listener = self.listener.write();
 				fire_events(&mut *listener, &imported);
-				Ok(*imported.hash())
+				Ok(ValidatedPoolSubmitOutcome::new(*imported.hash(), priority))
 			},
 			ValidatedTransaction::Invalid(hash, err) => {
 				log::trace!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one invalid: {:?}", hash, err);
@@ -294,7 +347,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 	pub fn submit_and_watch(
 		&self,
 		tx: ValidatedTransactionFor<B>,
-	) -> Result<Watcher<ExtrinsicHash<B>, ExtrinsicHash<B>>, B::Error> {
+	) -> Result<ValidatedPoolSubmitOutcome<B>, B::Error> {
 		match tx {
 			ValidatedTransaction::Valid(tx) => {
 				let hash = self.api.hash_and_length(&tx.data).0;
@@ -302,7 +355,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 				self.submit(std::iter::once(ValidatedTransaction::Valid(tx)))
 					.pop()
 					.expect("One extrinsic passed; one result returned; qed")
-					.map(|_| watcher)
+					.map(|outcome| outcome.with_watcher(watcher))
 			},
 			ValidatedTransaction::Invalid(hash, err) => {
 				self.rotator.ban(&Instant::now(), std::iter::once(hash));
