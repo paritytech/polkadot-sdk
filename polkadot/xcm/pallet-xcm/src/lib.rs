@@ -75,6 +75,7 @@ use xcm_runtime_apis::{
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
+use xcm_executor::traits::{FeeManager, FeeReason};
 
 pub trait WeightInfo {
 	fn send() -> Weight;
@@ -240,7 +241,7 @@ pub mod pallet {
 		type XcmExecuteFilter: Contains<(Location, Xcm<<Self as Config>::RuntimeCall>)>;
 
 		/// Something to execute an XCM message.
-		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers;
+		type XcmExecutor: ExecuteXcm<<Self as Config>::RuntimeCall> + XcmAssetTransfers + FeeManager;
 
 		/// Our XCM filter which messages to be teleported using the dedicated extrinsic must pass.
 		type XcmTeleportFilter: Contains<(Location, Vec<Asset>)>;
@@ -362,7 +363,10 @@ pub mod pallet {
 			let message: Xcm<()> = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
 
 			let message_id = Self::send_xcm(interior, dest.clone(), message.clone())
-				.map_err(Error::<T>::from)?;
+				.map_err(|error| {
+					tracing::error!(target: "xcm::pallet_xcm::send", ?error, ?dest, ?message, "XCM send failed with error");
+					Error::<T>::from(error)
+				})?;
 			let e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
 			Self::deposit_event(e);
 			Ok(message_id)
@@ -1799,7 +1803,10 @@ impl<T: Config> Pallet<T> {
 
 		if let Some(remote_xcm) = remote_xcm {
 			let (ticket, price) = validate_send::<T::XcmRouter>(dest.clone(), remote_xcm.clone())
-				.map_err(Error::<T>::from)?;
+				.map_err(|error| {
+					tracing::error!(target: "xcm::pallet_xcm::execute_xcm_transfer", ?error, ?dest, ?remote_xcm, "XCM validate_send failed with error");
+					Error::<T>::from(error)
+				})?;
 			if origin != Here.into_location() {
 				Self::charge_fees(origin.clone(), price.clone()).map_err(|error| {
 					tracing::error!(
@@ -1809,7 +1816,11 @@ impl<T: Config> Pallet<T> {
 					Error::<T>::FeesNotMet
 				})?;
 			}
-			let message_id = T::XcmRouter::deliver(ticket).map_err(Error::<T>::from)?;
+			let message_id = T::XcmRouter::deliver(ticket)
+				.map_err(|error| {
+					tracing::error!(target: "xcm::pallet_xcm::execute_xcm_transfer", ?error, ?dest, ?remote_xcm, "XCM deliver failed with error");
+					Error::<T>::from(error)
+				})?;
 
 			let e = Event::Sent { origin, destination: dest, message: remote_xcm, message_id };
 			Self::deposit_event(e);
@@ -2468,17 +2479,17 @@ impl<T: Config> Pallet<T> {
 		mut message: Xcm<()>,
 	) -> Result<XcmHash, SendError> {
 		let interior = interior.into();
+		let local_origin = interior.clone().into();
 		let dest = dest.into();
-		let maybe_fee_payer = if interior != Junctions::Here {
+		let is_waived =
+			<T::XcmExecutor as FeeManager>::is_waived(Some(&local_origin), FeeReason::ChargeFees);
+		if interior != Junctions::Here {
 			message.0.insert(0, DescendOrigin(interior.clone()));
-			Some(interior.into())
-		} else {
-			None
-		};
+		}
 		tracing::debug!(target: "xcm::send_xcm", "{:?}, {:?}", dest.clone(), message.clone());
 		let (ticket, price) = validate_send::<T::XcmRouter>(dest, message)?;
-		if let Some(fee_payer) = maybe_fee_payer {
-			Self::charge_fees(fee_payer, price).map_err(|e| {
+		if !is_waived {
+			Self::charge_fees(local_origin, price).map_err(|e| {
 				tracing::error!(
 					target: "xcm::pallet_xcm::send_xcm",
 					?e,
@@ -2536,7 +2547,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns execution result, events, and any forwarded XCMs to other locations.
 	/// Meant to be used in the `xcm_runtime_apis::dry_run::DryRunApi` runtime API.
-	pub fn dry_run_xcm<Runtime, Router, RuntimeCall, XcmConfig>(
+	pub fn dry_run_xcm<Runtime, Router, RuntimeCall: Decode + GetDispatchInfo, XcmConfig>(
 		origin_location: VersionedLocation,
 		xcm: VersionedXcm<RuntimeCall>,
 	) -> Result<XcmDryRunEffects<<Runtime as frame_system::Config>::RuntimeEvent>, XcmDryRunApiError>
@@ -2807,6 +2818,44 @@ impl<T: Config> Pallet<T> {
 	/// set.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		use migration::data::NeedsMigration;
+
+		// Take the minimum version between `SafeXcmVersion` and `latest - 1` and ensure that the
+		// operational data is stored at least at that version, for example, to prevent issues when
+		// removing older XCM versions.
+		let minimal_allowed_xcm_version = if let Some(safe_xcm_version) = SafeXcmVersion::<T>::get()
+		{
+			XCM_VERSION.saturating_sub(1).min(safe_xcm_version)
+		} else {
+			XCM_VERSION.saturating_sub(1)
+		};
+
+		// check `Queries`
+		ensure!(
+			!Queries::<T>::iter_values()
+				.any(|data| data.needs_migration(minimal_allowed_xcm_version)),
+			TryRuntimeError::Other("`Queries` data should be migrated to the higher xcm version!")
+		);
+
+		// check `LockedFungibles`
+		ensure!(
+			!LockedFungibles::<T>::iter_values()
+				.any(|data| data.needs_migration(minimal_allowed_xcm_version)),
+			TryRuntimeError::Other(
+				"`LockedFungibles` data should be migrated to the higher xcm version!"
+			)
+		);
+
+		// check `RemoteLockedFungibles`
+		ensure!(
+			!RemoteLockedFungibles::<T>::iter()
+				.any(|(key, data)| key.needs_migration(minimal_allowed_xcm_version) ||
+					data.needs_migration(minimal_allowed_xcm_version)),
+			TryRuntimeError::Other(
+				"`RemoteLockedFungibles` data should be migrated to the higher xcm version!"
+			)
+		);
+
 		// if migration has been already scheduled, everything is ok and data will be eventually
 		// migrated
 		if CurrentMigration::<T>::exists() {
@@ -2887,7 +2936,7 @@ impl<T: Config> xcm_executor::traits::Enact for UnlockTicket<T> {
 		let mut maybe_remove_index = None;
 		let mut locked = BalanceOf::<T>::zero();
 		let mut found = false;
-		// We could just as well do with with an into_iter, filter_map and collect, however this way
+		// We could just as well do with an into_iter, filter_map and collect, however this way
 		// avoids making an allocation.
 		for (i, x) in locks.iter_mut().enumerate() {
 			if x.1.try_as::<_>().defensive() == Ok(&self.unlocker) {
@@ -3029,7 +3078,7 @@ impl<T: Config> xcm_executor::traits::AssetLock for Pallet<T> {
 }
 
 impl<T: Config> WrapVersion for Pallet<T> {
-	fn wrap_version<RuntimeCall>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		dest: &Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
@@ -3268,7 +3317,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 					});
 					return Weight::zero()
 				}
-				return match maybe_notify {
+				match maybe_notify {
 					Some((pallet_index, call_index)) => {
 						// This is a bit horrible, but we happen to know that the `Call` will
 						// be built by `(pallet_index: u8, call_index: u8, QueryId, Response)`.

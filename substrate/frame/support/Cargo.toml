@@ -19,10 +19,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 array-bytes = { workspace = true }
 binary-merkle-tree.workspace = true
 serde = { features = ["alloc", "derive"], workspace = true }
-codec = { features = ["derive", "max-encoded-len"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-frame-metadata = { features = ["current"], workspace = true }
-sp-api = { features = ["frame-metadata"], workspace = true }
+codec = { features = [
+	"derive",
+	"max-encoded-len",
+], workspace = true }
+scale-info = { features = [
+	"derive",
+], workspace = true }
+frame-metadata = { features = [
+	"current",
+	"unstable",
+], workspace = true }
+sp-api = { features = [
+	"frame-metadata",
+], workspace = true }
 sp-std = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
@@ -60,6 +70,7 @@ pretty_assertions = { workspace = true }
 sp-timestamp = { workspace = true }
 frame-system = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
+Inflector = { workspace = true }
 
 [features]
 default = ["std"]

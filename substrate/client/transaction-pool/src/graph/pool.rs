@@ -73,13 +73,24 @@ pub trait ChainApi: Send + Sync {
 		+ Send
 		+ 'static;
 
-	/// Verify extrinsic at given block.
+	/// Asynchronously verify extrinsic at given block.
 	fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: ExtrinsicFor<Self>,
 	) -> Self::ValidationFuture;
+
+	/// Synchronously verify given extrinsic at given block.
+	///
+	/// Validates a transaction by calling into the runtime. Same as `validate_transaction` but
+	/// blocks the current thread when performing validation.
+	fn validate_transaction_blocking(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		source: TransactionSource,
+		uxt: ExtrinsicFor<Self>,
+	) -> Result<TransactionValidity, Self::Error>;
 
 	/// Returns a block number given the block id.
 	fn block_id_to_number(

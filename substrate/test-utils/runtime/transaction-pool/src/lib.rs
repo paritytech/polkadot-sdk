@@ -450,6 +450,15 @@ impl ChainApi for TestApi {
 		ready(Ok(Ok(validity)))
 	}
 
+	fn validate_transaction_blocking(
+		&self,
+		_at: <Self::Block as BlockT>::Hash,
+		_source: TransactionSource,
+		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+	) -> Result<TransactionValidity, Error> {
+		unimplemented!();
+	}
+
 	fn block_id_to_number(
 		&self,
 		at: &BlockId<Self::Block>,

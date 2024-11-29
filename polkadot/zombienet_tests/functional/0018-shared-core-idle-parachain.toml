@@ -1,0 +1,39 @@
+[settings]
+timeout = 1000
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+  max_validators_per_core = 2
+  lookahead = 2
+  num_cores = 4
+  group_rotation_frequency = 4
+
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
+  needed_approvals = 3
+
+[relaychain]
+default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
+chain = "rococo-local"
+command = "polkadot"
+
+  [[relaychain.node_groups]]
+  name = "validator"
+  args = ["-lruntime=debug,parachain=debug"]
+  count = 4
+
+[[parachains]]
+id = 2000
+register_para = false
+onboard_as_parachain = false
+add_to_genesis = false
+chain = "glutton-westend-local-2000"
+    [parachains.genesis.runtimeGenesis.patch.glutton]
+    compute = "50000000"
+    storage = "2500000000"
+    trashDataCount = 5120
+
+    [parachains.collator]
+    name = "collator-2000"
+    image = "{{CUMULUS_IMAGE}}"
+    command = "polkadot-parachain"
+    args = ["-lparachain=debug"]
