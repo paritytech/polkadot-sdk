@@ -33,7 +33,7 @@ sc-network-types = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
 sc-network-light = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
-sc-service = { features = ["test-helpers"], workspace = true }
+sc-service = { workspace = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
