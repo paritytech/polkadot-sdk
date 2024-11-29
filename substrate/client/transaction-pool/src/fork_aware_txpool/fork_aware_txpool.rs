@@ -1133,6 +1133,8 @@ where
 			.into_iter()
 			.zip(hashes)
 			.map(|(result, tx_hash)| {
+				//todo: we may need a bool flag here indicating if we need to update priority
+				//(premature optimization)
 				result
 					.map(|outcome| self.mempool.update_transaction(&outcome.into()))
 					.or_else(|_| Err(tx_hash))
