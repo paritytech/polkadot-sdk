@@ -401,7 +401,8 @@ mod tests {
 			TimedTransactionSource::new_external(false),
 			uxt.clone().into(),
 		))
-		.expect("Should be valid");
+		.expect("Should be valid")
+		.hash();
 
 		block_on(queue.revalidate_later(han_of_block0.hash, vec![uxt_hash]));
 
@@ -440,7 +441,7 @@ mod tests {
 				vec![(source.clone(), uxt0.into()), (source, uxt1.into())],
 			))
 			.into_iter()
-			.map(|r| r.expect("Should be valid"))
+			.map(|r| r.expect("Should be valid").hash())
 			.collect::<Vec<_>>();
 
 		assert_eq!(api.validation_requests().len(), 2);
