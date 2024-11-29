@@ -1035,8 +1035,8 @@ async fn archive_storage_diff_deleted_changes() {
 		.unwrap();
 	builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
