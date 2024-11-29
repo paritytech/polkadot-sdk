@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Remove usage of AccountKeyring"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Compared with AccountKeyring, Sr25519Keyring and Ed25519Keyring are more intuitive.
+      When both Sr25519Keyring and Ed25519Keyring are required, using AccountKeyring bring confusion.
+      There are two AccountKeyring definitions, it becomes more complex if export two AccountKeyring from frame.
+
+crates:
+    
