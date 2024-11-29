@@ -59,7 +59,11 @@ use polkadot_service::overseer::{
 use polkadot_statement_distribution::StatementDistributionSubsystem;
 use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
-use sc_network::request_responses::ProtocolConfig;
+use sc_network::{
+	config::{FullNetworkConfiguration, NetworkConfiguration},
+	request_responses::ProtocolConfig,
+	NetworkWorker,
+};
 use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
 use sp_consensus::SyncOracle;
@@ -176,6 +180,8 @@ fn build_overseer(
 	OverseerHandle,
 	Vec<ProtocolConfig>,
 ) {
+	let handle = Arc::new(dependencies.runtime.handle().clone());
+	let _guard = handle.enter();
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
 	let spawn_task_handle = dependencies.task_manager.spawn_handle();
@@ -202,14 +208,20 @@ fn build_overseer(
 		state.pvd.clone(),
 		state.own_backing_group.clone(),
 	);
-	let (statement_req_receiver, statement_req_cfg) =
-		IncomingRequest::get_config_receiver::<Block, sc_network::NetworkWorker<Block, Hash>>(
-			&ReqProtocolNames::new(GENESIS_HASH, None),
-		);
-	let (candidate_req_receiver, candidate_req_cfg) =
-		IncomingRequest::get_config_receiver::<Block, sc_network::NetworkWorker<Block, Hash>>(
-			&ReqProtocolNames::new(GENESIS_HASH, None),
-		);
+	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
+	let net_conf = NetworkConfiguration::new_local();
+	let mut network_config =
+		FullNetworkConfiguration::<Block, Hash, NetworkWorker<Block, Hash>>::new(&net_conf, None);
+	let (statement_req_receiver, statement_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	network_config.add_request_response_protocol(statement_req_cfg.clone());
+	let (candidate_req_receiver, candidate_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	network_config.add_request_response_protocol(candidate_req_cfg);
 	let keystore = make_keystore();
 	let subsystem = StatementDistributionSubsystem::new(
 		keystore.clone(),
@@ -219,6 +231,63 @@ fn build_overseer(
 		rand::rngs::StdRng::from_entropy(),
 	);
 
+	use sc_network::{
+		config::{NonReservedPeerMode, Params, ProtocolId},
+		NotificationMetrics,
+	};
+	use sc_network_common::sync::message::BlockAnnouncesHandshake;
+	use sc_service::{config::SetConfig, Role};
+	use sp_runtime::traits::Zero;
+
+	let role = Role::Full;
+	let (block_announce_config, notification_service) =
+		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
+			"/block-announces/1".into(),
+			vec!["/bench-notifications-protocol/block-announces/1".into()],
+			1024,
+			Some(sc_network::config::NotificationHandshake::new(
+				BlockAnnouncesHandshake::<Block>::build(
+					sc_network::Roles::from(&role),
+					Zero::zero(),
+					GENESIS_HASH,
+					GENESIS_HASH,
+				),
+			)),
+			SetConfig {
+				in_peers: 1,
+				out_peers: 1,
+				reserved_nodes: vec![],
+				non_reserved_mode: NonReservedPeerMode::Accept,
+			},
+			NotificationMetrics::new(None),
+			network_config.peer_store_handle(),
+		);
+	let worker =
+		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::new(Params::<
+			Block,
+			Hash,
+			NetworkWorker<Block, Hash>,
+		> {
+			block_announce_config,
+			role,
+			executor: Box::new(|f| {
+				tokio::spawn(f);
+			}),
+			genesis_hash: GENESIS_HASH,
+			network_config,
+			protocol_id: ProtocolId::from("bench-protocol-name"),
+			fork_id: None,
+			metrics_registry: None,
+			bitswap_config: None,
+			notification_metrics: NotificationMetrics::new(None),
+		})
+		.unwrap();
+
+	let network_service =
+		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::network_service(
+			&worker,
+		);
+
 	let network_bridge_metrics =
 		NetworkBridgeMetrics::register(Some(&dependencies.registry)).unwrap();
 
@@ -227,17 +296,17 @@ fn build_overseer(
 	let dummy_network = DummyNetwork;
 	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
 	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
-		dummy_network.clone(),
+		Arc::clone(&network_service),
 		authority_discovery_service.clone(),
 		network_bridge_metrics.clone(),
-		ReqProtocolNames::new(GENESIS_HASH, None),
+		req_protocol_names,
 		peer_set_protocol_names.clone(),
 		Arc::clone(&notification_sinks),
 	);
 	let dummy_sync_oracle = Box::new(DummySyncOracle);
 	let notification_services = HashMap::new();
 	let network_bridge_rx = NetworkBridgeRxSubsystem::new(
-		dummy_network,
+		Arc::clone(&network_service),
 		authority_discovery_service,
 		dummy_sync_oracle,
 		network_bridge_metrics,

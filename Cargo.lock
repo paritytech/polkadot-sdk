@@ -19457,6 +19457,7 @@ dependencies = [
  "rand_distr",
  "sc-keystore",
  "sc-network",
+ "sc-network-common",
  "sc-network-types",
  "sc-service",
  "schnorrkel 0.11.4",
