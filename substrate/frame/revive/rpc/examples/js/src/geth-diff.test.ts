@@ -138,6 +138,21 @@ for (const env of envs) {
 			}
 		})
 
+		test('eth_call transfer (not enough funds)', async () => {
+			expect.assertions(3)
+			try {
+				await env.accountWallet.sendTransaction({
+					to: '0x75E480dB528101a381Ce68544611C169Ad7EB342',
+					value: parseEther('10'),
+				})
+			} catch (err) {
+				const lastJsonRpcError = jsonRpcErrors.pop()
+				expect(lastJsonRpcError?.code).toBe(-32000)
+				expect(lastJsonRpcError?.message).toInclude('insufficient funds')
+				expect(lastJsonRpcError?.data).toBeUndefined()
+			}
+		})
+
 		test('eth_estimate (not enough funds)', async () => {
 			expect.assertions(3)
 			try {
