@@ -150,7 +150,7 @@ where
 
 		// Set the alias origin to the original sender on Ethereum. Important to be before the
 		// arbitrary XCM that is appended to the message on the next line.
-		instructions.push(AliasOrigin(origin_location.into()));
+		// instructions.push(AliasOrigin(origin_location.into()));
 
 		// Add the XCM sent in the message to the end of the xcm instruction
 		instructions.extend(message_xcm.0);
