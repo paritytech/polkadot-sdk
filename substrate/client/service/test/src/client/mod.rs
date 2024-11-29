@@ -29,7 +29,7 @@ use sc_consensus::{
 	BlockCheckParams, BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult,
 };
 use sc_executor::WasmExecutor;
-use sc_service::client::{new_in_mem, Client, LocalCallExecutor};
+use sc_service::client::{new_with_backend, Client, LocalCallExecutor};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
 use sp_core::{testing::TaskExecutor, traits::CallContext, H256};
@@ -2087,13 +2087,13 @@ fn cleans_up_closed_notification_sinks_on_block_import() {
 	// NOTE: we need to build the client here instead of using the client
 	// provided by test_runtime_client otherwise we can't access the private
 	// `import_notification_sinks` and `finality_notification_sinks` fields.
-	let mut client = new_in_mem::<_, Block, _, RuntimeApi>(
+	let mut client = new_with_backend::<_, _, Block, _, RuntimeApi>(
 		backend,
 		executor,
 		genesis_block_builder,
-		None,
-		None,
 		Box::new(TaskExecutor::new()),
+		None,
+		None,
 		client_config,
 	)
 	.unwrap();
