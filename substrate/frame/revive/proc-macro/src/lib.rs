@@ -342,7 +342,8 @@ where
 	const ALLOWED_REGISTERS: u32 = 6;
 	let mut registers_used = 0;
 	let mut bindings = vec![];
-	for (idx, (name, ty)) in param_names.clone().zip(param_types.clone()).enumerate() {
+	let mut idx = 0;
+	for (name, ty) in param_names.clone().zip(param_types.clone()) {
 		let syn::Type::Path(path) = &**ty else {
 			panic!("Type needs to be path");
 		};
@@ -380,6 +381,7 @@ where
 			}
 		};
 		bindings.push(binding);
+		idx += size;
 	}
 	quote! {
 		#( #bindings )*
