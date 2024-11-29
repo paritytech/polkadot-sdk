@@ -1,0 +1,406 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: update scale-info to 2.11.6
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Updates scale-info to 2.11.1 from 2.11.5. 
+      Updated version of scale-info annotates generated code with `allow(deprecated)`
+
+crates:
+  - name: bridge-runtime-common
+    bump: none
+  - name: bp-header-chain
+    bump: none
+  - name: bp-runtime
+    bump: none
+  - name: frame-support
+    bump: none
+  - name: sp-core
+    bump: none
+  - name: sp-trie
+    bump: none
+  - name: sp-runtime
+    bump: none
+  - name: sp-application-crypto
+    bump: none
+  - name: sp-arithmetic
+    bump: none
+  - name: sp-weights
+    bump: none
+  - name: sp-api
+    bump: none
+  - name: sp-metadata-ir
+    bump: none
+  - name: sp-version
+    bump: none
+  - name: sp-inherents
+    bump: none
+  - name: frame-executive
+    bump: none
+  - name: frame-system
+    bump: none
+  - name: pallet-balances
+    bump: none
+  - name: frame-benchmarking
+    bump: none
+  - name: pallet-migrations
+    bump: none
+  - name: cumulus-pallet-parachain-system
+    bump: none
+  - name: cumulus-primitives-core
+    bump: none
+  - name: polkadot-core-primitives
+    bump: none
+  - name: polkadot-parachain-primitives
+    bump: none
+  - name: polkadot-primitives
+    bump: none
+  - name: sp-authority-discovery 
+    bump: none
+  - name: sp-consensus-slots
+    bump: none
+  - name: sp-staking
+    bump: none
+  - name: staging-xcm
+    bump: none
+  - name: cumulus-primitives-parachain-inherent
+    bump: none
+  - name: pallet-message-queue
+    bump: none
+  - name: polkadot-runtime-common
+    bump: none
+  - name: frame-election-provider-support
+    bump: none
+  - name: sp-npos-elections
+    bump: none
+  - name: sp-consensus-grandpa
+    bump: none
+  - name: polkadot-primitives
+    bump: none
+  - name: sp-authority-discovery 
+    bump: none
+  - name: sp-consensus-grandpa
+    bump: none
+  - name: sp-genesis-builder
+    bump: none
+  - name: sp-consensus-babe
+    bump: none
+  - name: sp-mixnet
+    bump: none
+  - name: sc-rpc-api
+    bump: none
+  - name: sp-session
+    bump: none
+  - name: sp-statement-store
+    bump: none
+  - name: sp-transaction-storage-proof
+    bump: none
+  - name: pallet-asset-rate
+    bump: none
+  - name: pallet-authorship
+    bump: none
+  - name: pallet-babe
+    bump: none
+  - name: pallet-session
+    bump: none
+  - name: pallet-timestamp
+    bump: none
+  - name: pallet-offences
+    bump: none
+  - name: pallet-staking
+    bump: none
+  - name: pallet-bags-list
+    bump: none
+  - name: pallet-broker
+    bump: none
+  - name: pallet-election-provider-multi-phase
+    bump: none
+  - name: pallet-fast-unstake
+    bump: none
+  - name: pallet-identity
+    bump: none
+  - name: pallet-transaction-payment
+    bump: none
+  - name: pallet-treasury
+    bump: none
+  - name: pallet-utility
+    bump: none
+  - name: pallet-collective
+    bump: none
+  - name: pallet-root-testing
+    bump: none
+  - name: pallet-vesting
+    bump: none
+  - name: polkadot-runtime-parachains
+    bump: none
+  - name: pallet-authority-discovery
+    bump: none
+  - name: pallet-mmr
+    bump: none
+  - name: sp-mmr-primitives
+    bump: none
+  - name: staging-xcm-executor
+    bump: none
+  - name: staging-xcm-builder
+    bump: none
+  - name: pallet-asset-conversion
+    bump: none
+  - name: pallet-assets
+    bump: none
+  - name: pallet-salary
+    bump: none
+  - name: pallet-ranked-collective
+    bump: none
+  - name: pallet-xcm
+    bump: none
+  - name: xcm-runtime-apis
+    bump: none
+  - name: pallet-grandpa
+    bump: none
+  - name: pallet-indices
+    bump: none
+  - name: pallet-sudo
+    bump: none
+  - name: sp-consensus-beefy
+    bump: none
+  - name: cumulus-primitives-storage-weight-reclaim
+    bump: none
+  - name: cumulus-pallet-aura-ext
+    bump: none
+  - name: pallet-aura
+    bump: none
+  - name: sp-consensus-aura
+    bump: none
+  - name: pallet-collator-selection
+    bump: none
+  - name: pallet-glutton
+    bump: none
+  - name: staging-parachain-info
+    bump: none
+  - name: westend-runtime
+    bump: none
+  - name: frame-metadata-hash-extension
+    bump: none
+  - name: frame-system-benchmarking
+    bump: none
+  - name: pallet-beefy
+    bump: none
+  - name: pallet-beefy-mmr
+    bump: none
+  - name: pallet-conviction-voting
+    bump: none
+  - name: pallet-scheduler
+    bump: none
+  - name: pallet-preimage
+    bump: none
+  - name: pallet-delegated-staking
+    bump: none
+  - name: pallet-nomination-pools
+    bump: none
+  - name: pallet-democracy
+    bump: none
+  - name: pallet-elections-phragmen
+    bump: none
+  - name: pallet-membership
+    bump: none
+  - name: pallet-multisig
+    bump: none
+  - name: polkadot-sdk-frame
+    bump: none
+  - name: pallet-dev-mode
+    bump: none
+  - name: pallet-verify-signature
+    bump: none
+  - name: pallet-nomination-pools-benchmarking
+    bump: none
+  - name: pallet-offences-benchmarking
+    bump: none
+  - name: pallet-im-online
+    bump: none
+  - name: pallet-parameters
+    bump: none
+  - name: pallet-proxy
+    bump: none
+  - name: pallet-recovery
+    bump: none
+  - name: pallet-referenda
+    bump: none
+  - name: pallet-society
+    bump: none
+  - name: pallet-state-trie-migration
+    bump: none
+  - name: pallet-whitelist
+    bump: none
+  - name: pallet-xcm-benchmarks
+    bump: none
+  - name: rococo-runtime
+    bump: none
+  - name: pallet-bounties
+    bump: none
+  - name: pallet-child-bounties
+    bump: none
+  - name: pallet-nis
+    bump: none
+  - name: pallet-tips
+    bump: none
+  - name: parachains-common
+    bump: none
+  - name: pallet-asset-tx-payment
+    bump: none
+  - name: cumulus-pallet-xcmp-queue
+    bump: none
+  - name: bp-xcm-bridge-hub-router
+    bump: none
+  - name: pallet-xcm-bridge-hub-router
+    bump: none
+  - name: assets-common
+    bump: none
+  - name: bp-messages
+    bump: none
+  - name: bp-parachains
+    bump: none
+  - name: bp-polkadot-core
+    bump: none
+  - name: bp-relayers
+    bump: none
+  - name: bp-xcm-bridge-hub
+    bump: none
+  - name: bridge-hub-common
+    bump: none
+  - name: snowbridge-core
+    bump: none
+  - name: snowbridge-beacon-primitives
+    bump: none
+  - name: snowbridge-ethereum
+    bump: none
+  - name: pallet-bridge-grandpa
+    bump: none
+  - name: pallet-bridge-messages
+    bump: none
+  - name: pallet-bridge-parachains
+    bump: none
+  - name: pallet-bridge-relayers
+    bump: none
+  - name: pallet-xcm-bridge-hub
+    bump: none
+  - name: cumulus-pallet-dmp-queue
+    bump: none
+  - name: cumulus-pallet-solo-to-para
+    bump: none
+  - name: cumulus-pallet-xcm
+    bump: none
+  - name: cumulus-ping
+    bump: none
+  - name: frame-benchmarking-pallet-pov
+    bump: none
+  - name: pallet-alliance
+    bump: none
+  - name: pallet-asset-conversion-ops
+    bump: none
+  - name: pallet-asset-conversion-tx-payment
+    bump: none
+  - name: pallet-assets-freezer
+    bump: none
+  - name: pallet-atomic-swap
+    bump: none
+  - name: pallet-collective-content
+    bump: none
+  - name: pallet-contracts
+    bump: none
+  - name: pallet-contracts-uapi
+    bump: none
+  - name: pallet-insecure-randomness-collective-flip
+    bump: none
+  - name: pallet-contracts-mock-network
+    bump: none
+  - name: xcm-simulator
+    bump: none
+  - name: pallet-core-fellowship
+    bump: none
+  - name: pallet-lottery
+    bump: none
+  - name: pallet-mixnet
+    bump: none
+  - name: pallet-nft-fractionalization
+    bump: none
+  - name: pallet-nfts
+    bump: none
+  - name: pallet-node-authorization
+    bump: none
+  - name: pallet-paged-list
+    bump: none
+  - name: pallet-remark
+    bump: none
+  - name: pallet-revive
+    bump: none
+  - name: pallet-revive-uapi
+    bump: none
+  - name: pallet-revive-eth-rpc
+    bump: none
+  - name: pallet-skip-feeless-payment
+    bump: none
+  - name: pallet-revive-mock-network
+    bump: none
+  - name: pallet-root-offences
+    bump: none
+  - name: pallet-safe-mode
+    bump: none
+  - name: pallet-scored-pool
+    bump: none
+  - name: pallet-statement
+    bump: none
+  - name: pallet-transaction-storage
+    bump: none
+  - name: pallet-tx-pause
+    bump: none
+  - name: pallet-uniques
+    bump: none
+  - name: snowbridge-outbound-queue-merkle-tree
+    bump: none
+  - name: snowbridge-pallet-ethereum-client
+    bump: none
+  - name: snowbridge-pallet-inbound-queue
+    bump: none
+  - name: snowbridge-router-primitives
+    bump: none
+  - name: snowbridge-pallet-outbound-queue
+    bump: none
+  - name: snowbridge-pallet-system
+    bump: none
+  - name: bp-asset-hub-rococo
+    bump: none
+  - name: bp-asset-hub-westend
+    bump: none
+  - name: bp-polkadot-bulletin
+    bump: none
+  - name: asset-hub-rococo-runtime
+    bump: none
+  - name: asset-hub-westend-runtime
+    bump: none
+  - name: bridge-hub-rococo-runtime
+    bump: none
+  - name: bridge-hub-westend-runtime
+    bump: none
+  - name: collectives-westend-runtime
+    bump: none
+  - name: coretime-rococo-runtime
+    bump: none
+  - name: coretime-westend-runtime
+    bump: none
+  - name: people-rococo-runtime
+    bump: none
+  - name: people-westend-runtime
+    bump: none
+  - name: penpal-runtime
+    bump: none
+  - name: contracts-rococo-runtime
+    bump: none
+  - name: glutton-westend-runtime
+    bump: none
+  - name: rococo-parachain-runtime
+    bump: none
+  - name: xcm-simulator-example
+    bump: none
