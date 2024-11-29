@@ -27,6 +27,7 @@ use crate::{
 	event::{DhtEvent, Event},
 	litep2p::{
 		discovery::{Discovery, DiscoveryEvent},
+		metrics::Litep2pMetricsRegistry,
 		peerstore::Peerstore,
 		service::{Litep2pNetworkService, NetworkServiceCommand},
 		shim::{
@@ -96,6 +97,7 @@ use std::{
 };
 
 mod discovery;
+mod metrics;
 mod peerstore;
 mod service;
 mod shim;
@@ -465,6 +467,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			})
 			.with_notification_protocol(params.block_announce_config.config);
 
+		// Forward the registry to litep2p.
+		let litep2p_registry =
+			params.metrics_registry.clone().map(Litep2pMetricsRegistry::from_registry);
+
 		// initialize request-response protocols
 		let metrics = match &params.metrics_registry {
 			Some(registry) => Some(register_without_sources(registry)?),
@@ -559,6 +565,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				Some(crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING as usize),
 			))
 			.with_executor(executor);
+
+		if let Some(litep2p_registry) = litep2p_registry {
+			config_builder = config_builder.with_metrics_registry(Arc::new(litep2p_registry));
+		}
 
 		if let Some(config) = maybe_mdns_config {
 			config_builder = config_builder.with_mdns(config);
