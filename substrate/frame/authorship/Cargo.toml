@@ -31,5 +31,5 @@ std = [
 	"scale-info/std",
 ]
 try-runtime = [
-	"frame/std",
+	"frame/try-runtime",
 ]
