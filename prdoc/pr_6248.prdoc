@@ -6,11 +6,9 @@ doc:
       Upgrade libp2p from 0.52.4 to 0.54.1
 
 crates:
-  - name: sc-authority-discovery
-    bump: major
   - name: sc-network
     bump: major
   - name: sc-network-sync
-    bump: major
+    bump: patch
   - name: sc-telemetry
-    bump: major
+    bump: minor
