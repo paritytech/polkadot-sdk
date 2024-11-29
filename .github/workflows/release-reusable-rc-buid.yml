@@ -330,7 +330,7 @@ jobs:
 
   upload-frame-omni-bencher-artifacts-to-s3:
     if: ${{ inputs.package == 'frame-omni-bencher' && inputs.target == 'x86_64-unknown-linux-gnu' }}
-    needs: [build-macos-rc]
+    needs: [build-rc]
     uses: ./.github/workflows/release-reusable-s3-upload.yml
     with:
       package: ${{ inputs.package }}
@@ -343,7 +343,7 @@ jobs:
 
   upload-chain-spec-builder-artifacts-to-s3:
     if: ${{ inputs.package == 'staging-chain-spec-builder' && inputs.target == 'x86_64-unknown-linux-gnu' }}
-    needs: [build-macos-rc]
+    needs: [build-rc]
     uses: ./.github/workflows/release-reusable-s3-upload.yml
     with:
       package: chain-spec-builder
