@@ -129,23 +129,36 @@ pub mod code {
 			Error::<T>::CodeRejected
 		})?;
 
+		if !program.is_64_bit() {
+			log::debug!(target: LOG_TARGET, "32bit programs are not supported.");
+			Err(Error::<T>::CodeRejected)?;
+		}
+
 		// This scans the whole program but we only do it once on code deployment.
 		// It is safe to do unchecked math in u32 because the size of the program
 		// was already checked above.
-		use polkavm::program::ISA32_V1_NoSbrk as ISA;
+		use polkavm::program::ISA64_V1 as ISA;
 		let mut num_instructions: u32 = 0;
 		let mut max_basic_block_size: u32 = 0;
 		let mut basic_block_size: u32 = 0;
 		for inst in program.instructions(ISA) {
+			use polkavm::program::Instruction;
 			num_instructions += 1;
 			basic_block_size += 1;
 			if inst.kind.opcode().starts_new_basic_block() {
 				max_basic_block_size = max_basic_block_size.max(basic_block_size);
 				basic_block_size = 0;
 			}
-			if matches!(inst.kind, polkavm::program::Instruction::invalid) {
-				log::debug!(target: LOG_TARGET, "invalid instruction at offset {}", inst.offset);
-				return Err(<Error<T>>::InvalidInstruction.into())
+			match inst.kind {
+				Instruction::invalid => {
+					log::debug!(target: LOG_TARGET, "invalid instruction at offset {}", inst.offset);
+					return Err(<Error<T>>::InvalidInstruction.into())
+				},
+				Instruction::sbrk(_, _) => {
+					log::debug!(target: LOG_TARGET, "sbrk instruction is not allowed. offset {}", inst.offset);
+					return Err(<Error<T>>::InvalidInstruction.into())
+				},
+				_ => (),
 			}
 		}
 
