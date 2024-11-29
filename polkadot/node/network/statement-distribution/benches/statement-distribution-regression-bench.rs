@@ -29,6 +29,7 @@ use std::io::Write;
 const BENCH_COUNT: usize = 50;
 
 fn main() -> Result<(), String> {
+	sp_tracing::try_init_simple();
 	let mut messages = vec![];
 	let mut config = TestConfiguration::default();
 	config.n_cores = 100;

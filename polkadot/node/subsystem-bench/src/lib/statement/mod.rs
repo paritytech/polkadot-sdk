@@ -92,9 +92,6 @@ pub fn make_keystore() -> KeystorePtr {
 	keystore
 }
 
-#[derive(Clone, Debug)]
-struct DummyAuthotiryDiscoveryService;
-
 #[derive(Clone)]
 struct DummySyncOracle;
 
@@ -108,19 +105,24 @@ impl SyncOracle for DummySyncOracle {
 	}
 }
 
+#[derive(Clone, Debug)]
+struct DummyAuthotiryDiscoveryService;
+
 #[async_trait::async_trait]
 impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
 	async fn get_addresses_by_authority_id(
 		&mut self,
-		_authority: AuthorityDiscoveryId,
+		authority: AuthorityDiscoveryId,
 	) -> Option<HashSet<sc_network::Multiaddr>> {
+		println!("get_addresses_by_authority_id authority: {:?}", authority);
 		None
 	}
 
 	async fn get_authority_ids_by_peer_id(
 		&mut self,
-		_peer_id: PeerId,
+		peer_id: PeerId,
 	) -> Option<HashSet<AuthorityDiscoveryId>> {
+		println!("get_authority_ids_by_peer_id peer_id: {:?}", peer_id);
 		None
 	}
 }
