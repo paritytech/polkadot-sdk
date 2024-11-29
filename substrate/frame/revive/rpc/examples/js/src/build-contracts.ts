@@ -53,7 +53,6 @@ for (const { keypath, contract, file } of input) {
 		const out = JSON.parse(evmCompile(input))
 		const entry = out.contracts[file][contract]
 		writeFileSync(join('evm', `${keypath}.bin`), Buffer.from(entry.evm.bytecode.object, 'hex'))
-		writeFileSync(join('abi', `${keypath}.json`), JSON.stringify(entry.abi, null, 2))
 		writeFileSync(
 			join('abi', `${keypath}.ts`),
 			await format(`export const abi = ${JSON.stringify(entry.abi, null, 2)} as const`, {
