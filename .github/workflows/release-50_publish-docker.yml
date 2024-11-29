@@ -194,7 +194,7 @@ jobs:
           commit=$(git rev-parse --short HEAD) && \
           echo "commit=${commit}" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
-          echo "tag=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
+          echo "tag=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.stable_tag }})" >> $GITHUB_OUTPUT
 
       - name: Fetch release tags
         working-directory: release-artifacts
@@ -213,7 +213,7 @@ jobs:
 
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
-          echo "stable=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
+          echo "stable=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.stable_tag }})" >> $GITHUB_OUTPUT
 
       - name: Build Injected Container image for polkadot rc
         if: ${{ env.BINARY == 'polkadot' }}
