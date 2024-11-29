@@ -31,9 +31,9 @@ fn get_chain_spec_builder_path() -> &'static str {
 }
 
 #[docify::export_content]
-fn cmd_list_presets(path: &str) -> String {
+fn cmd_list_presets(path_runtime: &str) -> String {
 	bash!(
-		chain-spec-builder list-presets -r $path
+		chain-spec-builder list-presets -r $path_runtime
 	)
 }
 
@@ -57,9 +57,9 @@ fn list_presets() {
 }
 
 #[docify::export_content]
-fn cmd_get_preset(path: &str) -> String {
+fn cmd_get_preset(path_runtime: &str) -> String {
 	bash!(
-		chain-spec-builder display-preset -r $path -p preset_2
+		chain-spec-builder display-preset -r $path_runtime -p preset_2
 	)
 }
 
@@ -87,9 +87,9 @@ fn get_preset() {
 }
 
 #[docify::export_content]
-fn cmd_generate_chain_spec(path: &str) -> String {
+fn cmd_generate_chain_spec(path_runtime: &str) -> String {
 	bash!(
-		chain-spec-builder -c /dev/stdout create -r $path named-preset preset_2
+		chain-spec-builder -c /dev/stdout create -r $path_runtime named-preset preset_2
 	)
 }
 
@@ -136,9 +136,9 @@ fn generate_chain_spec() {
 }
 
 #[docify::export_content]
-fn cmd_generate_para_chain_spec(path: &str) -> String {
+fn cmd_generate_para_chain_spec(path_runtime: &str) -> String {
 	bash!(
-		chain-spec-builder -c /dev/stdout create -c polkadot -p 1000 -r $path named-preset preset_2
+		chain-spec-builder -c /dev/stdout create -c polkadot -p 1000 -r $path_runtime named-preset preset_2
 	)
 }
 
