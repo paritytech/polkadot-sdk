@@ -339,7 +339,7 @@ impl PeerData {
 #[derive(Debug)]
 struct GroupAssignments {
 	/// Current assignments.
-	current: Vec<ParaId>,
+	current: VecDeque<ParaId>,
 }
 
 struct PerRelayParent {
@@ -526,7 +526,7 @@ where
 		}
 	}
 
-	let assignment = GroupAssignments { current: assigned_paras.into_iter().collect() };
+	let assignment = GroupAssignments { current: assigned_paras };
 	let collations = Collations::new(&assignment.current);
 
 	Ok(Some(PerRelayParent {
@@ -2135,7 +2135,7 @@ async fn handle_collation_fetch_response(
 // Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
 // order in the claim queue so the earlier an element is located in the `Vec` the higher its
 // priority is.
-fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<Vec<ParaId>> {
+fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<VecDeque<ParaId>> {
 	let relay_parent_state = state
 		.per_relay_parent
 		.get(relay_parent)

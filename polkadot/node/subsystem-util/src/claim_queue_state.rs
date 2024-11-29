@@ -95,7 +95,7 @@ impl ClaimQueueState {
 	}
 
 	/// Appends a new leaf with its corresponding claim queue to the state.
-	pub fn add_leaf(&mut self, hash: &Hash, claim_queue: &Vec<ParaId>) {
+	pub fn add_leaf(&mut self, hash: &Hash, claim_queue: &VecDeque<ParaId>) {
 		if self.block_state.iter().any(|s| s.hash == Some(*hash)) {
 			return
 		}
@@ -132,7 +132,7 @@ impl ClaimQueueState {
 		let claim_info = if let Some(new_leaf) = self.future_blocks.pop_front() {
 			ClaimInfo {
 				hash: Some(*hash),
-				claim: claim_queue.first().copied(),
+				claim: claim_queue.front().copied(),
 				claim_queue_len: claim_queue.len(),
 				claimed: new_leaf.claimed,
 			}
@@ -140,7 +140,7 @@ impl ClaimQueueState {
 			// maybe the claim queue was empty but we still need to add a leaf
 			ClaimInfo {
 				hash: Some(*hash),
-				claim: claim_queue.first().copied(),
+				claim: claim_queue.front().copied(),
 				claim_queue_len: claim_queue.len(),
 				claimed: false,
 			}
@@ -218,7 +218,7 @@ impl ClaimQueueState {
 	}
 
 	/// Returns a `Vec` of `ParaId`s with all claims which can be made at `relay_parent`.
-	pub fn unclaimed_at(&mut self, relay_parent: &Hash) -> Vec<ParaId> {
+	pub fn unclaimed_at(&mut self, relay_parent: &Hash) -> VecDeque<ParaId> {
 		let window = self.get_window(relay_parent);
 
 		window.filter(|b| !b.claimed).filter_map(|b| b.claim).collect()
@@ -267,7 +267,7 @@ impl PerLeafClaimQueueState {
 
 	/// Adds new leaf to the state. If the parent of the leaf is already in the state `leaf` is
 	/// added to the corresponding path. Otherwise a new path is created.
-	pub fn add_leaf(&mut self, leaf: &Hash, claim_queue: &Vec<ParaId>, parent: Hash) {
+	pub fn add_leaf(&mut self, leaf: &Hash, claim_queue: &VecDeque<ParaId>, parent: &Hash) {
 		// try to find the parent of the new leaf in the state and append the leaf to it
 		for path in &mut self.state {
 			let path_leaf = if let Some(p) = path.get_leaf() {
@@ -277,7 +277,7 @@ impl PerLeafClaimQueueState {
 				continue;
 			};
 
-			if path_leaf == parent {
+			if path_leaf == *parent {
 				path.add_leaf(leaf, claim_queue);
 				return
 			}
@@ -324,7 +324,7 @@ mod test {
 			let mut state = ClaimQueueState::new();
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let para_id = ParaId::new(1);
-			let claim_queue = vec![para_id, para_id, para_id];
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue);
 			assert_eq!(state.unclaimed_at(&relay_parent_a), vec![para_id, para_id, para_id]);
@@ -410,7 +410,7 @@ mod test {
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let relay_parent_b = Hash::from_low_u64_be(2);
 			let para_id = ParaId::new(1);
-			let claim_queue = vec![para_id, para_id, para_id];
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue);
 			state.add_leaf(&relay_parent_b, &claim_queue);
@@ -471,7 +471,7 @@ mod test {
 			let mut state = ClaimQueueState::new();
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let para_id = ParaId::new(1);
-			let claim_queue = vec![para_id, para_id, para_id];
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue);
 
@@ -553,7 +553,7 @@ mod test {
 			let mut state = ClaimQueueState::new();
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let para_id = ParaId::new(1);
-			let claim_queue = vec![para_id, para_id, para_id];
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue);
 
@@ -680,7 +680,7 @@ mod test {
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let para_id_a = ParaId::new(1);
 			let para_id_b = ParaId::new(2);
-			let claim_queue = vec![para_id_a, para_id_b, para_id_a];
+			let claim_queue = VecDeque::from(vec![para_id_a, para_id_b, para_id_a]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue);
 			assert!(state.can_claim_at(&relay_parent_a, &para_id_a));
@@ -817,7 +817,7 @@ mod test {
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let para_id_a = ParaId::new(1);
 			let para_id_b = ParaId::new(2);
-			let claim_queue_a = vec![para_id_a, para_id_b, para_id_a];
+			let claim_queue_a = VecDeque::from(vec![para_id_a, para_id_b, para_id_a]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue_a);
 			assert!(state.can_claim_at(&relay_parent_a, &para_id_a));
@@ -855,7 +855,7 @@ mod test {
 			);
 
 			let relay_parent_b = Hash::from_low_u64_be(2);
-			let claim_queue_b = vec![para_id_a, para_id_a, para_id_a]; // should be [b, a, ...]
+			let claim_queue_b = VecDeque::from(vec![para_id_a, para_id_a, para_id_a]); // should be [b, a, ...]
 			state.add_leaf(&relay_parent_b, &claim_queue_b);
 
 			// because of the unexpected change in claim queue we lost the claim for paraB and have
@@ -906,7 +906,7 @@ mod test {
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let para_id_a = ParaId::new(1);
 			let para_id_b = ParaId::new(2);
-			let claim_queue_a = vec![para_id_a, para_id_b, para_id_b];
+			let claim_queue_a = VecDeque::from(vec![para_id_a, para_id_b, para_id_b]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue_a);
 			assert!(state.can_claim_at(&relay_parent_a, &para_id_a));
@@ -944,7 +944,7 @@ mod test {
 			);
 
 			let relay_parent_b = Hash::from_low_u64_be(2);
-			let claim_queue_b = vec![para_id_a, para_id_a, para_id_a]; // should be [b, b, ...]
+			let claim_queue_b = VecDeque::from(vec![para_id_a, para_id_a, para_id_a]); // should be [b, b, ...]
 			state.add_leaf(&relay_parent_b, &claim_queue_b);
 
 			// because of the unexpected change in claim queue we lost both claims for paraB and
@@ -993,7 +993,7 @@ mod test {
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let relay_parent_b = Hash::from_low_u64_be(2);
 			let para_id = ParaId::new(1);
-			let claim_queue = vec![para_id, para_id, para_id];
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue);
 			state.add_leaf(&relay_parent_b, &claim_queue);
@@ -1012,7 +1012,7 @@ mod test {
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let relay_parent_b = Hash::from_low_u64_be(2);
 			let para_id = ParaId::new(1);
-			let claim_queue = vec![para_id, para_id, para_id];
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue);
 			state.add_leaf(&relay_parent_b, &claim_queue);
@@ -1031,7 +1031,7 @@ mod test {
 			let relay_parent_b = Hash::from_low_u64_be(2);
 			let relay_parent_c = Hash::from_low_u64_be(3);
 			let para_id = ParaId::new(1);
-			let claim_queue = vec![para_id, para_id, para_id];
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 
 			state.add_leaf(&relay_parent_a, &claim_queue);
 			state.add_leaf(&relay_parent_b, &claim_queue);
@@ -1053,20 +1053,20 @@ mod test {
 		fn add_leaf_works() {
 			let mut state = PerLeafClaimQueueState::new();
 			let para_id = ParaId::new(1);
-			let claim_queue = vec![para_id, para_id, para_id];
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let relay_parent_b = Hash::from_low_u64_be(2);
 			let relay_parent_c = Hash::from_low_u64_be(3);
 
 			// 0 -> a -> b
 			//  \-> c
-			state.add_leaf(&relay_parent_a, &claim_queue, Hash::from_low_u64_be(0));
+			state.add_leaf(&relay_parent_a, &claim_queue, &Hash::from_low_u64_be(0));
 			assert_eq!(state.state.len(), 1);
 
-			state.add_leaf(&relay_parent_b, &claim_queue, relay_parent_a);
+			state.add_leaf(&relay_parent_b, &claim_queue, &relay_parent_a);
 			assert_eq!(state.state.len(), 1);
 
-			state.add_leaf(&relay_parent_c, &claim_queue, Hash::from_low_u64_be(0));
+			state.add_leaf(&relay_parent_c, &claim_queue, &Hash::from_low_u64_be(0));
 			assert_eq!(state.state.len(), 2);
 		}
 
@@ -1074,16 +1074,16 @@ mod test {
 		fn remove_works() {
 			let mut state = PerLeafClaimQueueState::new();
 			let para_id = ParaId::new(1);
-			let claim_queue = vec![para_id, para_id, para_id];
+			let claim_queue = VecDeque::from(vec![para_id, para_id, para_id]);
 			let relay_parent_a = Hash::from_low_u64_be(1);
 			let relay_parent_b = Hash::from_low_u64_be(2);
 			let relay_parent_c = Hash::from_low_u64_be(3);
 
 			// 0 -> a -> b
 			//  \-> c
-			state.add_leaf(&relay_parent_a, &claim_queue, Hash::from_low_u64_be(0));
-			state.add_leaf(&relay_parent_b, &claim_queue, relay_parent_a);
-			state.add_leaf(&relay_parent_c, &claim_queue, Hash::from_low_u64_be(0));
+			state.add_leaf(&relay_parent_a, &claim_queue, &Hash::from_low_u64_be(0));
+			state.add_leaf(&relay_parent_b, &claim_queue, &relay_parent_a);
+			state.add_leaf(&relay_parent_c, &claim_queue, &Hash::from_low_u64_be(0));
 
 			let removed = vec![relay_parent_a, relay_parent_b];
 			state.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().cloned()));
@@ -1098,7 +1098,7 @@ mod test {
 		let mut state = ClaimQueueState::new();
 		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id_a = ParaId::new(1);
-		let claim_queue_a = vec![];
+		let claim_queue_a = VecDeque::new();
 
 		state.add_leaf(&relay_parent_a, &claim_queue_a);
 		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![]);
@@ -1120,7 +1120,7 @@ mod test {
 		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![]);
 
 		let relay_parent_b = Hash::from_low_u64_be(2);
-		let claim_queue_b = vec![para_id_a];
+		let claim_queue_b = VecDeque::from(vec![para_id_a]);
 		state.add_leaf(&relay_parent_b, &claim_queue_b);
 
 		assert_eq!(
@@ -1152,7 +1152,7 @@ mod test {
 		assert!(state.claim_at(&relay_parent_b, &para_id_a));
 
 		let relay_parent_c = Hash::from_low_u64_be(3);
-		let claim_queue_c = vec![para_id_a, para_id_a];
+		let claim_queue_c = VecDeque::from(vec![para_id_a, para_id_a]);
 		state.add_leaf(&relay_parent_c, &claim_queue_c);
 
 		assert_eq!(
@@ -1208,7 +1208,7 @@ mod test {
 		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id_a = ParaId::new(1);
 		let para_id_b = ParaId::new(2);
-		let claim_queue_a = vec![para_id_a, para_id_b, para_id_a];
+		let claim_queue_a = VecDeque::from(vec![para_id_a, para_id_b, para_id_a]);
 
 		state.add_leaf(&relay_parent_a, &claim_queue_a);
 		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![para_id_a, para_id_b, para_id_a]);
@@ -1241,7 +1241,7 @@ mod test {
 		);
 
 		let relay_parent_b = Hash::from_low_u64_be(2);
-		let claim_queue_b = vec![para_id_a, para_id_b]; // should be [b, a]
+		let claim_queue_b = VecDeque::from(vec![para_id_a, para_id_b]); // should be [b, a]
 		state.add_leaf(&relay_parent_b, &claim_queue_b);
 
 		assert_eq!(state.unclaimed_at(&relay_parent_b), vec![para_id_a, para_id_b]);
@@ -1282,7 +1282,7 @@ mod test {
 		let relay_parent_a = Hash::from_low_u64_be(1);
 		let para_id_a = ParaId::new(1);
 		let para_id_b = ParaId::new(2);
-		let claim_queue_a = vec![para_id_a, para_id_b, para_id_a, para_id_b];
+		let claim_queue_a = VecDeque::from(vec![para_id_a, para_id_b, para_id_a, para_id_b]);
 
 		state.add_leaf(&relay_parent_a, &claim_queue_a);
 
@@ -1330,7 +1330,7 @@ mod test {
 		let relay_parent_b = Hash::from_low_u64_be(2);
 		let para_id_a = ParaId::new(1);
 		let para_id_b = ParaId::new(2);
-		let claim_queue_b = vec![para_id_b, para_id_a];
+		let claim_queue_b = VecDeque::from(vec![para_id_b, para_id_a]);
 		state.add_leaf(&relay_parent_b, &claim_queue_b);
 
 		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![para_id_a, para_id_b, para_id_a]);
