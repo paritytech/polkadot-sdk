@@ -1326,7 +1326,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 							error,
 						);
 						fallback_max_weight.unwrap_or(Weight::MAX)
-					}
+					},
 				};
 				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
 			},

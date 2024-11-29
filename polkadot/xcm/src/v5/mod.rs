@@ -495,8 +495,8 @@ pub enum Instruction<Call> {
 	/// - `call`: The encoded transaction to be applied.
 	/// - `fallback_max_weight`: Used for compatibility with previous versions. Corresponds to the
 	///   `require_weight_at_most` parameter in previous versions. If you don't care about
-	///   compatibility you can just put `None`. WARNING: If you do, your XCM might not work with older
-	///   versions. Make sure to dry-run and validate.
+	///   compatibility you can just put `None`. WARNING: If you do, your XCM might not work with
+	///   older versions. Make sure to dry-run and validate.
 	///
 	/// Safety: No concerns.
 	///
