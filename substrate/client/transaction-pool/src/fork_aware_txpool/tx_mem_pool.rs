@@ -288,12 +288,13 @@ where
 		tx: TxInMemPool<ChainApi, Block>,
 		tx_to_be_removed: Option<ExtrinsicHash<ChainApi>>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
-		let bytes = self.transactions.bytes();
 		let mut transactions = self.transactions.write();
 
 		tx_to_be_removed.inspect(|hash| {
 			transactions.remove(hash);
 		});
+
+		let bytes = self.transactions.bytes();
 
 		let result = match (
 			self.is_limit_exceeded(transactions.len() + 1, bytes + tx.bytes),
