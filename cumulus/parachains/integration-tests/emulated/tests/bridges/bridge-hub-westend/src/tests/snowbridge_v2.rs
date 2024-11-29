@@ -36,11 +36,6 @@ use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 fn register_token_v2() {
 	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
 
-	let asset_hub_sovereign = BridgeHubWestend::sovereign_account_id_of(Location::new(
-		1,
-		[Parachain(AssetHubWestend::para_id().into())],
-	));
-
 	let relayer = BridgeHubWestendSender::get();
 	let receiver = AssetHubWestendReceiver::get();
 	BridgeHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
@@ -57,13 +52,12 @@ fn register_token_v2() {
 	let owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
 	let weth_token_id: H160 = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14").into();
 	let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into();
-	let weth_amount = 300_000_000_000_000u128;
+	let weth_amount = 9_000_000_000_000_000_000_000u128;
 
 	let assets = vec![NativeTokenERC20 { token_id: weth_token_id, value: weth_amount }];
 
 	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
 	let dot_asset = Location::new(1, Here);
-	let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
 
 	let weth_asset = Location::new(
 		2,
@@ -81,17 +75,15 @@ fn register_token_v2() {
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-
 		let register_token_instructions = vec![
-			ExchangeAsset { give: weth_fee.into(), want: dot_fee.clone().into(), maximal: false },
-			PayFees { asset: dot_fee },
+			PayFees { asset: weth_fee.into() },
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				call: (
 					CreateAssetCall::get(),
 					asset_id,
 					MultiAddress::<[u8; 32], ()>::Id(owner.into()),
-					1,
+					1u128,
 				)
 					.encode()
 					.into(),
