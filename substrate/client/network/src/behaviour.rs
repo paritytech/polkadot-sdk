@@ -310,6 +310,16 @@ impl<B: BlockT> Behaviour<B> {
 	) {
 		self.discovery.store_record(record_key, record_value, publisher, expires);
 	}
+
+	/// Start providing `key` on the DHT.
+	pub fn start_providing(&mut self, key: RecordKey) {
+		self.discovery.start_providing(key)
+	}
+
+	/// Stop providing `key` on the DHT.
+	pub fn stop_providing(&mut self, key: &RecordKey) {
+		self.discovery.stop_providing(key)
+	}
 }
 
 impl From<CustomMessageOutcome> for BehaviourOut {
@@ -387,6 +397,8 @@ impl From<DiscoveryOut> for BehaviourOut {
 				),
 			DiscoveryOut::ValuePutFailed(key, duration) =>
 				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key.into()), Some(duration)),
+			DiscoveryOut::StartProvidingFailed(key) =>
+				BehaviourOut::Dht(DhtEvent::StartProvidingFailed(key.into()), None),
 			DiscoveryOut::RandomKademliaStarted => BehaviourOut::RandomKademliaStarted,
 		}
 	}

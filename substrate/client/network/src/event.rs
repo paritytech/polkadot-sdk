@@ -45,6 +45,9 @@ pub enum DhtEvent {
 	/// An error has occurred while putting a record into the DHT.
 	ValuePutFailed(Key),
 
+	/// An error occured while registering as a content provider on the DHT.
+	StartProvidingFailed(Key),
+
 	/// The DHT received a put record request.
 	PutRecordRequest(Key, Vec<u8>, Option<sc_network_types::PeerId>, Option<std::time::Instant>),
 }

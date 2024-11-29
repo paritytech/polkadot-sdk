@@ -466,6 +466,24 @@ impl DiscoveryBehaviour {
 			}
 		}
 	}
+
+	/// Register as a content provider on the DHT for `key`.
+	pub fn start_providing(&mut self, key: RecordKey) {
+		if let Some(kad) = self.kademlia.as_mut() {
+			if let Err(e) = kad.start_providing(key.clone()) {
+				warn!(target: "sub-libp2p", "Libp2p => Failed to start providing {key:?}: {e}.");
+				self.pending_events.push_back(DiscoveryOut::StartProvidingFailed(key));
+			}
+		}
+	}
+
+	/// Deregister as a content provider on the DHT for `key`.
+	pub fn stop_providing(&mut self, key: &RecordKey) {
+		if let Some(kad) = self.kademlia.as_mut() {
+			kad.stop_providing(key);
+		}
+	}
+
 	/// Store a record in the Kademlia record store.
 	pub fn store_record(
 		&mut self,
@@ -580,6 +598,9 @@ pub enum DiscoveryOut {
 	///
 	/// Returning the corresponding key as well as the request duration.
 	ValuePutFailed(RecordKey, Duration),
+
+	/// Starting providing a key failed.
+	StartProvidingFailed(RecordKey),
 
 	/// Started a random Kademlia query.
 	///

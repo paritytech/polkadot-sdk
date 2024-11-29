@@ -973,6 +973,14 @@ where
 			expires,
 		));
 	}
+
+	fn start_providing(&self, key: KademliaKey) {
+		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::StartProviding(key));
+	}
+
+	fn stop_providing(&self, key: KademliaKey) {
+		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::StopProviding(key));
+	}
 }
 
 #[async_trait::async_trait]
@@ -1333,6 +1341,8 @@ enum ServiceToWorkerMsg {
 		update_local_storage: bool,
 	},
 	StoreRecord(KademliaKey, Vec<u8>, Option<PeerId>, Option<Instant>),
+	StartProviding(KademliaKey),
+	StopProviding(KademliaKey),
 	AddKnownAddress(PeerId, Multiaddr),
 	EventStream(out_events::Sender),
 	Request {
@@ -1466,6 +1476,10 @@ where
 				.network_service
 				.behaviour_mut()
 				.store_record(key.into(), value, publisher, expires),
+			ServiceToWorkerMsg::StartProviding(key) =>
+				self.network_service.behaviour_mut().start_providing(key.into()),
+			ServiceToWorkerMsg::StopProviding(key) =>
+				self.network_service.behaviour_mut().stop_providing(&key.into()),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =>
 				self.network_service.behaviour_mut().add_known_address(peer_id, addr),
 			ServiceToWorkerMsg::EventStream(sender) => self.event_streams.push(sender),
@@ -1678,6 +1692,7 @@ where
 							DhtEvent::ValuePut(_) => "value-put",
 							DhtEvent::ValuePutFailed(_) => "value-put-failed",
 							DhtEvent::PutRecordRequest(_, _, _, _) => "put-record-request",
+							DhtEvent::StartProvidingFailed(_) => "start-providing-failed",
 						};
 						metrics
 							.kademlia_query_duration
