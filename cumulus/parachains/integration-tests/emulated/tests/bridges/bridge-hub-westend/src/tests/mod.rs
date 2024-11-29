@@ -20,7 +20,7 @@ mod claim_assets;
 mod register_bridged_assets;
 mod send_xcm;
 mod snowbridge;
-mod snowbridge_v2;
+mod snowbridge_v2_outbound;
 mod teleport;
 mod transact;
 

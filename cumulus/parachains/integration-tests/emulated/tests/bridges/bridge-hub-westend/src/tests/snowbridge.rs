@@ -256,6 +256,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 	});
 
 	BridgeHubWestend::execute_with(|| {
+		use bridge_hub_westend_runtime::xcm_config::TreasuryAccount;
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		// Check that the transfer token back to Ethereum message was queue in the Ethereum
 		// Outbound Queue
@@ -264,12 +265,21 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			vec![RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued{ .. }) => {},]
 		);
 		let events = BridgeHubWestend::events();
+		// Check that the local fee was credited to the Snowbridge sovereign account
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
+					if *who == TreasuryAccount::get().into() && *amount == 5071000000
+			)),
+			"Snowbridge sovereign takes local fee."
+		);
 		// Check that the remote fee was credited to the AssetHub sovereign account
 		assert!(
 			events.iter().any(|event| matches!(
 				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who,.. })
-					if *who == assethub_sovereign
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
+					if *who == assethub_sovereign && *amount == 2680000000000,
 			)),
 			"AssetHub sovereign takes remote fee."
 		);
