@@ -10596,9 +10596,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "parity-scale-codec",
  "polkadot-sdk 0.1.0",
- "serde",
  "serde_json",
 ]
 
@@ -10609,7 +10607,10 @@ dependencies = [
  "pallet-minimal-template",
  "parity-scale-codec",
  "polkadot-sdk 0.1.0",
+ "sc-chain-spec",
+ "sc-service",
  "scale-info",
+ "serde",
  "serde_json",
 ]
 

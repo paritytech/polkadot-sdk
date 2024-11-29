@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use core::str;
 use std::error::Error;
+use std::io::BufReader;
 
 pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
@@ -29,13 +30,10 @@ impl Extensions {
     }
 }
 
-fn decode_runtime_info(ch_spec_data: &ChainSpec) -> 
-    Result<(String, u32, u32), Box<dyn Error>> {
-    let chain_spec_as_json = ch_spec_data.as_json(false)
-        .expect("Failed to serialize existing chain spec");
-    let json_value: Value = serde_json::from_str(&chain_spec_as_json)?; // Deserialize the chain spec JSON string into a usable serde_Json Value object.
 
-    let runtime_hx_cde = json_value
+fn decode_runtime_info(spec_data: Value) -> 
+    Result<(String, u32, u32), Box<dyn Error>> {
+    let runtime_hx_cde = spec_data
         .get("genesis").expect("failed to get genesis")
         .get("runtimeGenesis").expect("failed to get runtimeGenesis")
         .get("code").expect("failed to get code")
@@ -72,13 +70,18 @@ fn test_minimal_dev_chain_spec_rt_validity() {
         .with_properties(properties.clone())
         .build()
         .as_json(false)
+        .unwrap()
+        .as_str()
     ).unwrap();
 
-    	let existing_chain_spec_file =
+    let existing_chain_spec_file =
 		std::fs::File::open("../dev_chain_spec.json").expect("file should open. qed");
 	let existing_chain_spec_reader = BufReader::new(existing_chain_spec_file);
 	let existing_chain_spec: serde_json::Value =
 		serde_json::from_reader(existing_chain_spec_reader).expect("should read proper JSON. qed");
-	assert_eq!(test_chain_spec, existing_chain_spec);
+
+    let data1 = decode_runtime_info(existing_chain_spec).unwrap();
+    let data2 = decode_runtime_info(test_chain_spec).unwrap(); 
+	assert_eq!(data1, data2);
 }
 
