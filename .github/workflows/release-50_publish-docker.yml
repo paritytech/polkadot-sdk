@@ -30,15 +30,15 @@ on:
           - polkadot-parachain
           - chain-spec-builder
 
-      release_id:
-        description: |
-          Release ID.
-          You can find it using the command:
-          curl -s \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/$OWNER/$REPO/releases | \
-            jq '.[] | { name: .name, id: .id }'
-        required: true
-        type: number
+      # release_id:
+      #   description: |
+      #     Release ID.
+      #     You can find it using the command:
+      #     curl -s \
+      #       -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/$OWNER/$REPO/releases | \
+      #       jq '.[] | { name: .name, id: .id }'
+      #   required: true
+      #   type: number
 
       registry:
         description: Container registry
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.validate_inputs.outputs.VERSION }}
-      release_id: ${{ steps.validate_inputs.outputs.RELEASE_ID }}
+      # release_id: ${{ steps.validate_inputs.outputs.RELEASE_ID }}
       stable_tag: ${{ steps.validate_inputs.outputs.stable_tag }}
 
     steps:
@@ -97,10 +97,10 @@ jobs:
           VERSION=$(filter_version_from_input "${{ inputs.version }}")
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
-          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
-          echo "RELEASE_ID=${RELEASE_ID}" >> $GITHUB_OUTPUT
+          # RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
+          # echo "RELEASE_ID=${RELEASE_ID}" >> $GITHUB_OUTPUT
 
-          echo "Release ID: $RELEASE_ID"
+          # echo "Release ID: $RELEASE_ID"
 
           STABLE_TAG=$(validate_stable_tag ${{ inputs.stable_tag }})
           echo "stable_tag=${STABLE_TAG}" >> $GITHUB_OUTPUT
