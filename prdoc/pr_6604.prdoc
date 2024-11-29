@@ -4,4 +4,4 @@ doc:
   description: Or otherwise throw an error.
 crates:
 - name: polkadot-runtime-parachains
-  bump: patch
+  bump: major
