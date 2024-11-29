@@ -67,7 +67,7 @@ parameter_types! {
 	// see the `FEE_BOOST_PER_PARACHAIN_HEADER` constant get the meaning of this value
 	pub PriorityBoostPerParachainHeader: u64 = 1_396_340_903_540_903;
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
-	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+	pub PriorityBoostPerMessage: u64 = 364_088_888_888_888;
 
 	pub BridgeHubRococoLocation: Location = Location::new(
 		2,
