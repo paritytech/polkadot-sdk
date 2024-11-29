@@ -29,7 +29,7 @@ use core::ops::Sub;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Get, Zero},
-	BoundedVec, DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
+	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating, WeakBoundedVec,
 };
 
 pub mod offence;
@@ -397,10 +397,10 @@ impl<AccountId: Clone, Balance: HasCompact + AtLeast32BitUnsigned + Copy + MaxEn
 		for chunk in individual_chunks {
 			debug_assert!(chunk.len() <= MaxExposurePageSize::get() as usize);
 			let mut page_total: Balance = Zero::zero();
-			let mut others: BoundedVec<
+			let mut others: WeakBoundedVec<
 				IndividualExposure<AccountId, Balance>,
 				MaxExposurePageSize,
-			> = BoundedVec::new();
+			> = WeakBoundedVec::force_from(vec![], None);
 			for individual in chunk.iter() {
 				page_total.saturating_accrue(individual.value);
 				let _ = others.try_push(IndividualExposure {
@@ -438,12 +438,15 @@ pub struct ExposurePage<
 	#[codec(compact)]
 	pub page_total: Balance,
 	/// The portions of nominators stashes that are exposed.
-	pub others: BoundedVec<IndividualExposure<AccountId, Balance>, MaxExposurePageSize>,
+	pub others: WeakBoundedVec<IndividualExposure<AccountId, Balance>, MaxExposurePageSize>,
 }
 
 impl<A, B: Default + HasCompact + MaxEncodedLen, C: Get<u32>> Default for ExposurePage<A, B, C> {
 	fn default() -> Self {
-		ExposurePage { page_total: Default::default(), others: BoundedVec::new() }
+		ExposurePage {
+			page_total: Default::default(),
+			others: WeakBoundedVec::force_from(vec![], None),
+		}
 	}
 }
 

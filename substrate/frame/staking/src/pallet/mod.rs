@@ -684,7 +684,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type DisabledValidators<T: Config> = StorageValue<
 		_,
-		BoundedVec<
+		WeakBoundedVec<
 			(u32, OffenceSeverity),
 			<T::ElectionProvider as ElectionProviderBase>::MaxWinners,
 		>,
