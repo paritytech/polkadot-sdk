@@ -112,6 +112,23 @@ fn dmq_length_and_head_updated_properly() {
 }
 
 #[test]
+fn dmq_fail_if_para_does_not_exist() {
+	let a = ParaId::from(1312);
+
+	new_test_ext(default_genesis_config()).execute_with(|| {
+		assert_eq!(Dmp::dmq_length(a), 0);
+
+		assert!(matches!(
+			queue_downward_message(a, vec![1, 2, 3]),
+			Err(QueueDownwardMessageError::Unroutable)
+		));
+
+		assert_eq!(Dmp::dmq_length(a), 0);
+		assert!(Dmp::dmq_mqc_head(a).is_zero());
+	});
+}
+
+#[test]
 fn dmp_mqc_head_fixture() {
 	let a = ParaId::from(2000);
 
