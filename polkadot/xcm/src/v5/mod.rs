@@ -1597,7 +1597,7 @@ mod tests {
 			WithdrawAsset((Here, 1u128).into()),
 			Transact {
 				origin_kind: OriginKind::SovereignAccount,
-				call: vec![].into(),
+				call: vec![200, 200, 200].into(),
 				fallback_max_weight: Some(Weight::from_parts(1_000_000, 1_024)),
 			},
 		]);
@@ -1605,7 +1605,7 @@ mod tests {
 			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
 			OldInstruction::Transact {
 				origin_kind: OriginKind::SovereignAccount,
-				call: vec![].into(),
+				call: vec![200, 200, 200].into(),
 				require_weight_at_most: Weight::from_parts(1_000_000, 1_024),
 			},
 		]);
@@ -1618,7 +1618,7 @@ mod tests {
 			WithdrawAsset((Here, 1u128).into()),
 			Transact {
 				origin_kind: OriginKind::SovereignAccount,
-				call: vec![].into(),
+				call: vec![200, 200, 200].into(),
 				fallback_max_weight: None,
 			},
 		]);
@@ -1626,10 +1626,21 @@ mod tests {
 			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
 			OldInstruction::Transact {
 				origin_kind: OriginKind::SovereignAccount,
-				call: vec![].into(),
+				call: vec![200, 200, 200].into(),
 				require_weight_at_most: Weight::MAX,
 			},
 		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm_without_fallback.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		let xcm_with_max_weight_fallback = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![200, 200, 200].into(),
+				fallback_max_weight: Some(Weight::MAX),
+			},
+		]);
+		assert_eq!(new_xcm, xcm_with_max_weight_fallback);
 	}
 
 	#[test]

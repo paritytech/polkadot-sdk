@@ -27968,6 +27968,7 @@ dependencies = [
  "bounded-collections",
  "derivative",
  "environmental",
+ "frame-support 28.0.0",
  "hex",
  "hex-literal",
  "impl-trait-for-tuples",

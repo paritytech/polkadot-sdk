@@ -26,6 +26,7 @@ extern crate alloc;
 
 use codec::{Decode, DecodeLimit, Encode, Error as CodecError, Input, MaxEncodedLen};
 use derivative::Derivative;
+use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
 pub mod v3;
@@ -325,7 +326,7 @@ pub enum VersionedXcm<RuntimeCall> {
 	V5(v5::Xcm<RuntimeCall>),
 }
 
-impl<C> IntoVersion for VersionedXcm<C> {
+impl<C: Decode + GetDispatchInfo> IntoVersion for VersionedXcm<C> {
 	fn into_version(self, n: Version) -> Result<Self, ()> {
 		Ok(match n {
 			3 => Self::V3(self.try_into()?),
@@ -381,7 +382,7 @@ impl<RuntimeCall> From<v5::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
 	}
 }
 
-impl<Call> TryFrom<VersionedXcm<Call>> for v3::Xcm<Call> {
+impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v3::Xcm<Call> {
 	type Error = ();
 	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
 		use VersionedXcm::*;
@@ -396,7 +397,7 @@ impl<Call> TryFrom<VersionedXcm<Call>> for v3::Xcm<Call> {
 	}
 }
 
-impl<Call> TryFrom<VersionedXcm<Call>> for v4::Xcm<Call> {
+impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v4::Xcm<Call> {
 	type Error = ();
 	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
 		use VersionedXcm::*;
@@ -408,7 +409,7 @@ impl<Call> TryFrom<VersionedXcm<Call>> for v4::Xcm<Call> {
 	}
 }
 
-impl<Call> TryFrom<VersionedXcm<Call>> for v5::Xcm<Call> {
+impl<Call: Decode + GetDispatchInfo> TryFrom<VersionedXcm<Call>> for v5::Xcm<Call> {
 	type Error = ();
 	fn try_from(x: VersionedXcm<Call>) -> Result<Self, ()> {
 		use VersionedXcm::*;
@@ -426,7 +427,7 @@ impl<Call> TryFrom<VersionedXcm<Call>> for v5::Xcm<Call> {
 /// Convert an `Xcm` datum into a `VersionedXcm`, based on a destination `Location` which will
 /// interpret it.
 pub trait WrapVersion {
-	fn wrap_version<RuntimeCall>(
+	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
 		dest: &latest::Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()>;
@@ -459,7 +460,7 @@ impl WrapVersion for () {
 /// wrapping it.
 pub struct AlwaysV3;
 impl WrapVersion for AlwaysV3 {
-	fn wrap_version<Call>(
+	fn wrap_version<Call: Decode + GetDispatchInfo>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
@@ -476,7 +477,7 @@ impl GetVersion for AlwaysV3 {
 /// wrapping it.
 pub struct AlwaysV4;
 impl WrapVersion for AlwaysV4 {
-	fn wrap_version<Call>(
+	fn wrap_version<Call: Decode + GetDispatchInfo>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
@@ -493,7 +494,7 @@ impl GetVersion for AlwaysV4 {
 /// wrapping it.
 pub struct AlwaysV5;
 impl WrapVersion for AlwaysV5 {
-	fn wrap_version<Call>(
+	fn wrap_version<Call: Decode + GetDispatchInfo>(
 		_: &latest::Location,
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
