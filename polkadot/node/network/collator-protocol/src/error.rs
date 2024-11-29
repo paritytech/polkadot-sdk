@@ -102,7 +102,15 @@ impl SecondingError {
 			self,
 			PersistedValidationDataMismatch |
 				CandidateHashMismatch |
+<<<<<<< HEAD
 				Duplicate | ParentHeadDataMismatch
+=======
+				RelayParentMismatch |
+				ParentHeadDataMismatch |
+				InvalidCoreIndex(_, _) |
+				InvalidSessionIndex(_, _) |
+				InvalidReceiptVersion(_)
+>>>>>>> 5e0bcb0e (Let's be a bit less strict here. (#6662))
 		)
 	}
 }
