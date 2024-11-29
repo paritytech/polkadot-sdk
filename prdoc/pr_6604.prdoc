@@ -1,7 +1,7 @@
 title: 'dmp: Check that the para exist before delivering a message'
 doc:
 - audience: Runtime Dev
-  description: null
+  description: Or otherwise throw an error.
 crates:
 - name: polkadot-runtime-parachains
   bump: patch
