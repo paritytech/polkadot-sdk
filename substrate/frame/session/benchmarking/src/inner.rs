@@ -50,7 +50,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn set_keys() -> Result<(), BenchmarkError>{
+	fn set_keys() -> Result<(), BenchmarkError> {
 		let n = MaxNominationsOf::<T>::get();
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
@@ -74,7 +74,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn purge_keys() -> Result<(), BenchmarkError>{
+	fn purge_keys() -> Result<(), BenchmarkError> {
 		let n = MaxNominationsOf::<T>::get();
 		let (v_stash, _) = create_validator_with_nominators::<T>(
 			n,
@@ -128,7 +128,12 @@ mod benchmarks {
 		assert!(Historical::<T>::check_proof(key, key_owner_proof2).is_some());
 	}
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test, extra = false);
+	impl_benchmark_test_suite!(
+		Pallet,
+		crate::mock::new_test_ext(),
+		crate::mock::Test,
+		extra = false
+	);
 }
 
 /// Sets up the benchmark for checking a membership proof. It creates the given
