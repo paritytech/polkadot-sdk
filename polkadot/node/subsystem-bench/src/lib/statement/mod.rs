@@ -60,15 +60,18 @@ use polkadot_statement_distribution::StatementDistributionSubsystem;
 use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
 use sc_network::{
-	config::{FullNetworkConfiguration, NetworkConfiguration},
+	config::{
+		FullNetworkConfiguration, NetworkConfiguration, NonReservedPeerMode, Params, ProtocolId,
+	},
 	request_responses::ProtocolConfig,
-	NetworkWorker,
+	NetworkWorker, NotificationMetrics,
 };
+use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sc_network_types::PeerId;
-use sc_service::SpawnTaskHandle;
+use sc_service::{config::SetConfig, Role, SpawnTaskHandle};
 use sp_consensus::SyncOracle;
 use sp_keystore::{Keystore, KeystorePtr};
-use sp_runtime::RuntimeAppPublic;
+use sp_runtime::{traits::Zero, RuntimeAppPublic};
 use std::{
 	collections::{HashMap, HashSet},
 	sync::{atomic::Ordering, Arc},
@@ -87,53 +90,6 @@ pub fn make_keystore() -> KeystorePtr {
 	Keystore::sr25519_generate_new(&*keystore, AuthorityDiscoveryId::ID, Some("//Node0"))
 		.expect("Insert key into keystore");
 	keystore
-}
-
-#[derive(Clone)]
-struct DummyNetwork;
-
-#[async_trait::async_trait]
-impl Network for DummyNetwork {
-	async fn set_reserved_peers(
-		&mut self,
-		_protocol: sc_network::ProtocolName,
-		_multiaddresses: HashSet<sc_network::Multiaddr>,
-	) -> Result<(), String> {
-		Ok(())
-	}
-
-	async fn add_peers_to_reserved_set(
-		&mut self,
-		_protocol: sc_network::ProtocolName,
-		_multiaddresses: HashSet<sc_network::Multiaddr>,
-	) -> Result<(), String> {
-		Ok(())
-	}
-
-	async fn remove_from_peers_set(
-		&mut self,
-		_protocol: sc_network::ProtocolName,
-		_peers: Vec<PeerId>,
-	) -> Result<(), String> {
-		Ok(())
-	}
-
-	async fn start_request<AD: AuthorityDiscovery>(
-		&self,
-		_authority_discovery: &mut AD,
-		_req: Requests,
-		_req_protocol_names: &ReqProtocolNames,
-		_if_disconnected: sc_network::IfDisconnected,
-	) {
-	}
-
-	fn report_peer(&self, _who: PeerId, _rep: sc_network::ReputationChange) {}
-
-	fn disconnect_peer(&self, _who: PeerId, _protocol: sc_network::ProtocolName) {}
-
-	fn peer_role(&self, _who: PeerId, _handshake: Vec<u8>) -> Option<sc_network::ObservedRole> {
-		None
-	}
 }
 
 #[derive(Clone, Debug)]
@@ -231,14 +187,6 @@ fn build_overseer(
 		rand::rngs::StdRng::from_entropy(),
 	);
 
-	use sc_network::{
-		config::{NonReservedPeerMode, Params, ProtocolId},
-		NotificationMetrics,
-	};
-	use sc_network_common::sync::message::BlockAnnouncesHandshake;
-	use sc_service::{config::SetConfig, Role};
-	use sp_runtime::traits::Zero;
-
 	let role = Role::Full;
 	let (block_announce_config, mut notification_service) =
 		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
@@ -293,7 +241,6 @@ fn build_overseer(
 
 	let authority_discovery_service = DummyAuthotiryDiscoveryService;
 	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
-	let dummy_network = DummyNetwork;
 	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
 	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
 		Arc::clone(&network_service),
