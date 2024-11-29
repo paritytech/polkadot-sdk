@@ -38,7 +38,7 @@ use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
 	authority_discovery::AuthorityDiscovery,
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
-	peer_set::PeerSetProtocolNames,
+	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{IncomingRequest, ReqProtocolNames, Requests},
 	v3::{self, BackedCandidateManifest, StatementFilter},
 	view, Versioned, View,
@@ -240,7 +240,7 @@ fn build_overseer(
 	use sp_runtime::traits::Zero;
 
 	let role = Role::Full;
-	let (block_announce_config, notification_service) =
+	let (block_announce_config, mut notification_service) =
 		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
 			"/block-announces/1".into(),
 			vec!["/bench-notifications-protocol/block-announces/1".into()],
@@ -304,7 +304,10 @@ fn build_overseer(
 		Arc::clone(&notification_sinks),
 	);
 	let dummy_sync_oracle = Box::new(DummySyncOracle);
-	let notification_services = HashMap::new();
+	let notification_services = HashMap::from_iter([
+		(PeerSet::Validation, notification_service.clone().unwrap()),
+		(PeerSet::Collation, notification_service),
+	]);
 	let network_bridge_rx = NetworkBridgeRxSubsystem::new(
 		Arc::clone(&network_service),
 		authority_discovery_service,
