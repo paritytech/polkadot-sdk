@@ -72,7 +72,7 @@ pub mod v17 {
 
 			let old_disabled_validators = v16::DisabledValidators::<T>::get();
 			// BoundedVec with MaxWinners limit, this should always work
-			let disabled_validators_maybe = BoundedVec::try_from(old_disabled_validators);
+			let disabled_validators_maybe = WeakBoundedVec::try_from(old_disabled_validators);
 			match disabled_validators_maybe {
 				Ok(disabled_validators) => DisabledValidators::<T>::set(disabled_validators),
 				Err(_) => {
@@ -124,7 +124,7 @@ pub mod v17 {
 			}
 
 			for ((era, validator, page), old_exposure_page) in v16::ErasStakersPaged::<T>::iter() {
-				let individual_exposures_maybe = BoundedVec::try_from(old_exposure_page.others);
+				let individual_exposures_maybe = WeakBoundedVec::try_from(old_exposure_page.others);
 				match individual_exposures_maybe {
 					Ok(individual_exposures) => {
 						let exposure_page = ExposurePage::<

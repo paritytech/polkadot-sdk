@@ -760,7 +760,7 @@ impl<
 	/// Create a new instance of `PagedExposure` from legacy clipped exposures.
 	pub fn from_clipped(exposure: Exposure<AccountId, Balance>) -> Self {
 		let old_exposures = exposure.others.len();
-		let others = BoundedVec::try_from(exposure.others).unwrap_or_default();
+		let others = WeakBoundedVec::try_from(exposure.others).unwrap_or_default();
 		defensive_assert!(old_exposures == others.len(), "Too many exposures for a page");
 		Self {
 			exposure_metadata: PagedExposureMetadata {

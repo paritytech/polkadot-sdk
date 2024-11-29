@@ -702,7 +702,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub validator_count: u32,
 		pub minimum_validator_count: u32,
-		pub invulnerables: Vec<T::AccountId>,
+		pub invulnerables: BoundedVec<T::AccountId, T::MaxInvulnerables>,
 		pub force_era: Forcing,
 		pub slash_reward_fraction: Perbill,
 		pub canceled_payout: BalanceOf<T>,
@@ -723,7 +723,7 @@ pub mod pallet {
 				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
 				"Too many invulnerable validators at genesis."
 			);
-			<Invulnerables<T>>::put(BoundedVec::truncate_from(self.invulnerables.clone()));
+			<Invulnerables<T>>::put(&self.invulnerables);
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
