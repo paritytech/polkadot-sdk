@@ -26,7 +26,10 @@
 //!   it), while on other forks tx can be valid. Depending on which view is chosen to be cloned,
 //!   such transaction could not be present in the newly created view.
 
-use super::{metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener};
+use super::{
+	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
+	view_store::ViewStoreSubmitOutcome,
+};
 use crate::{
 	common::log_xt::log_xt_trace,
 	graph,
@@ -486,6 +489,10 @@ where
 			transactions.remove(i);
 		});
 		self.listener.invalidate_transactions(&invalid_hashes);
+	}
+
+	pub(super) fn update_transaction(&self, outcome: &ViewStoreSubmitOutcome<ChainApi>) {
+		// todo!()
 	}
 }
 
