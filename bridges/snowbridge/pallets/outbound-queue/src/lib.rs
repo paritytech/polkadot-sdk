@@ -7,7 +7,7 @@
 //! Messages come either from sibling parachains via XCM, or BridgeHub itself
 //! via the `snowbridge-pallet-system`:
 //!
-//! 1. `snowbridge_router_primitives::outbound::EthereumBlobExporter::deliver`
+//! 1. `snowbridge_outbound_router_primitives::EthereumBlobExporter::deliver`
 //! 2. `snowbridge_pallet_system::Pallet::send`
 //!
 //! The message submission pipeline works like this:

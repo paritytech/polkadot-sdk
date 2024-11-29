@@ -4,25 +4,18 @@
 
 use crate::{Config, MessageLeaves};
 use frame_support::storage::StorageStreamIter;
-use snowbridge_core::{
-	outbound::{
-		v2::{
-			abi::{CommandWrapper, InboundMessage},
-			GasMeter, Message,
-		},
-		DryRunError,
+use snowbridge_core::outbound::{
+	v2::{
+		abi::{CommandWrapper, InboundMessage},
+		GasMeter, Message,
 	},
-	AgentIdOf,
+	DryRunError,
 };
 use snowbridge_merkle_tree::{merkle_proof, MerkleProof};
-use snowbridge_router_primitives::outbound::v2::convert::XcmConverter;
+use snowbridge_outbound_router_primitives::v2::convert::XcmConverter;
 use sp_core::Get;
 use sp_std::{default::Default, vec::Vec};
-use xcm::{
-	latest::Location,
-	prelude::{Parachain, Xcm},
-};
-use xcm_executor::traits::ConvertLocation;
+use xcm::prelude::Xcm;
 
 pub fn prove_message<T>(leaf_index: u64) -> Option<MerkleProof>
 where
@@ -40,12 +33,8 @@ pub fn dry_run<T>(xcm: Xcm<()>) -> Result<(InboundMessage, T::Balance), DryRunEr
 where
 	T: Config,
 {
-	let mut converter = XcmConverter::<T::ConvertAssetId, ()>::new(
-		&xcm,
-		T::EthereumNetwork::get(),
-		AgentIdOf::convert_location(&Location::new(1, Parachain(1000)))
-			.ok_or(DryRunError::ConvertLocationFailed)?,
-	);
+	let mut converter =
+		XcmConverter::<T::ConvertAssetId, T::WETHAddress, ()>::new(&xcm, T::EthereumNetwork::get());
 
 	let message: Message = converter.convert().map_err(|_| DryRunError::ConvertXcmFailed)?;
 

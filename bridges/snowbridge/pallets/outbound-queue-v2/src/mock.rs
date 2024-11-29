@@ -83,8 +83,6 @@ impl Verifier for MockVerifier {
 
 const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
 const WETH: [u8; 20] = hex!["C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"];
-const ASSET_HUB_AGENT: [u8; 32] =
-	hex!["81c5ab2571199e3188135178f3c2c8e2d268be1313d029b30f534fa579b69b79"];
 
 parameter_types! {
 	pub const OwnParaId: ParaId = ParaId::new(1013);
@@ -96,7 +94,7 @@ parameter_types! {
 	};
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
-
+	pub storage WETHAddress: H160 = H160(hex_literal::hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"));
 }
 
 pub const DOT: u128 = 10_000_000_000;
@@ -115,6 +113,7 @@ impl crate::Config for Test {
 	type RewardLedger = ();
 	type ConvertAssetId = ();
 	type EthereumNetwork = EthereumNetwork;
+	type WETHAddress = WETHAddress;
 }
 
 fn setup() {
@@ -151,6 +150,7 @@ where
 	let _marker = PhantomData::<T>; // for clippy
 
 	Message {
+		origin_location: Default::default(),
 		origin: primary_governance_origin(),
 		id: Default::default(),
 		fee: 0,
@@ -171,6 +171,7 @@ where
 	let _marker = PhantomData::<T>; // for clippy
 
 	Message {
+		origin_location: Default::default(),
 		origin: Default::default(),
 		id: Default::default(),
 		fee: 0,
@@ -188,11 +189,11 @@ where
 
 pub fn mock_message(sibling_para_id: u32) -> Message {
 	Message {
+		origin_location: Default::default(),
 		origin: H256::from_low_u64_be(sibling_para_id as u64),
 		id: H256::from_low_u64_be(1),
 		fee: 1_000,
 		commands: BoundedVec::try_from(vec![Command::UnlockNativeToken {
-			agent_id: H256(ASSET_HUB_AGENT),
 			token: H160(WETH),
 			recipient: H160(GATEWAY_ADDRESS),
 			amount: 1_000_000,

@@ -25,10 +25,10 @@ use crate::{
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
-use snowbridge_router_primitives::{
-	inbound::v1::MessageToXcm,
-	outbound::{v1::EthereumBlobExporter, v2::EthereumBlobExporter as EthereumBlobExporterV2},
+use snowbridge_outbound_router_primitives::{
+	v1::EthereumBlobExporter, v2::EthereumBlobExporter as EthereumBlobExporterV2,
 };
+use snowbridge_router_primitives::inbound::v1::MessageToXcm;
 use sp_core::H160;
 use testnet_parachains_constants::westend::{
 	currency::*,
@@ -58,12 +58,17 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	EthereumSystem,
 >;
 
+parameter_types! {
+	pub storage WETHAddress: H160 = H160(hex_literal::hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"));
+}
+
 pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	UniversalLocation,
 	EthereumNetwork,
 	snowbridge_pallet_outbound_queue_v2::Pallet<Runtime>,
 	snowbridge_core::AgentIdOf,
 	EthereumSystem,
+	WETHAddress,
 >;
 
 // Ethereum Bridge
@@ -143,6 +148,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type RewardLedger = ();
 	type ConvertAssetId = EthereumSystem;
 	type EthereumNetwork = EthereumNetwork;
+	type WETHAddress = WETHAddress;
 }
 
 #[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]

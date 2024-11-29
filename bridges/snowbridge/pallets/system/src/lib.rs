@@ -255,6 +255,7 @@ pub mod pallet {
 		InvalidTokenTransferFees,
 		InvalidPricingParameters,
 		InvalidUpgradeParameters,
+		TokenAlreadyCreated,
 	}
 
 	/// The set of registered agents
@@ -833,6 +834,7 @@ pub mod pallet {
 		fn send_governance_call(origin: H256, command: CommandV2) -> DispatchResult {
 			let message = MessageV2 {
 				origin,
+				origin_location: Default::default(),
 				id: Default::default(),
 				fee: Default::default(),
 				commands: BoundedVec::try_from(vec![command]).unwrap(),

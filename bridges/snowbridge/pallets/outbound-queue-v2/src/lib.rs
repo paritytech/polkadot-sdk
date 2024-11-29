@@ -7,7 +7,7 @@
 //! Messages come either from sibling parachains via XCM, or BridgeHub itself
 //! via the `snowbridge-pallet-system`:
 //!
-//! 1. `snowbridge_router_primitives::outbound::v2::EthereumBlobExporter::deliver`
+//! 1. `snowbridge_outbound_router_primitives::v2::EthereumBlobExporter::deliver`
 //! 2. `snowbridge_pallet_system::Pallet::send_v2`
 //!
 //! The message submission pipeline works like this:
@@ -139,6 +139,8 @@ pub mod pallet {
 		type ConvertAssetId: MaybeEquivalence<TokenId, Location>;
 
 		type EthereumNetwork: Get<NetworkId>;
+
+		type WETHAddress: Get<H160>;
 	}
 
 	#[pallet::event]
@@ -331,6 +333,7 @@ pub mod pallet {
 
 			let commands: Vec<CommandWrapper> = message
 				.commands
+				.clone()
 				.into_iter()
 				.map(|command| CommandWrapper {
 					kind: command.index(),
