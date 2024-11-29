@@ -1353,8 +1353,8 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_kind, require_weight_at_most: _, call } =>
-				Self::Transact { origin_kind, call: call.into(), fallback_max_weight: None },
+			Transact { origin_kind, require_weight_at_most, call } =>
+				Self::Transact { origin_kind, call: call.into(), fallback_max_weight: Some(require_weight_at_most) },
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
 				destination: response_info.destination.try_into().map_err(|_| ())?,
@@ -1585,6 +1585,48 @@ mod tests {
 		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
 		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
 		assert_eq!(new_xcm, xcm);
+	}
+
+	#[test]
+	fn transact_roundtrip_works() {
+		// We can convert as long as there's a fallback.
+		let xcm = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![].into(),
+				fallback_max_weight: Some(Weight::from_parts(1_000_000, 1_024)),
+			},
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+			OldInstruction::Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![].into(),
+				require_weight_at_most: Weight::from_parts(1_000_000, 1_024),
+			},
+		]);
+		assert_eq!(old_xcm, OldXcm::<()>::try_from(xcm.clone()).unwrap());
+		let new_xcm: Xcm<()> = old_xcm.try_into().unwrap();
+		assert_eq!(new_xcm, xcm);
+
+		// If we have no fallback the resulting message won't know the weight.
+		let xcm_without_fallback = Xcm::<()>(vec![
+			WithdrawAsset((Here, 1u128).into()),
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![].into(),
+				fallback_max_weight: None,
+			},
+		]);
+		let old_xcm = OldXcm::<()>(vec![
+			OldInstruction::WithdrawAsset((OldHere, 1u128).into()),
+			OldInstruction::Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call: vec![].into(),
+				require_weight_at_most: Weight::MAX,
+			},
+		]);
 	}
 
 	#[test]
