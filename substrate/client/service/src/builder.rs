@@ -756,8 +756,6 @@ where
 			backend.clone(),
 			genesis_hash,
 			task_executor.clone(),
-			// Defaults to sensible limits for the `Archive`.
-			sc_rpc_spec_v2::archive::ArchiveConfig::default(),
 		)
 		.into_rpc();
 		rpc_api.merge(archive_v2).map_err(|e| Error::Application(e.into()))?;
