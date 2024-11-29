@@ -18,9 +18,12 @@
 //! Simple ECDSA secp256k1 API.
 
 use crate::crypto::{
-	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes,
-	SecretStringError, SignatureBytes,
+	CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+	ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError,
+	SignatureBytes,
 };
+
+use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -154,7 +157,7 @@ fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
 }
 
 /// A key pair.
-#[derive(Clone)]
+#[derive(Clone, ProofOfPossession)]
 pub struct Pair {
 	public: Public,
 	secret: SecretKey,
@@ -628,5 +631,14 @@ mod test {
 		let msg = sp_crypto_hashing::blake2_256(b"this is a different message");
 		let key = sig.recover_prehashed(&msg).unwrap();
 		assert_ne!(pair.public(), key);
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_pop_should_fail() {
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let pop = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(&pop, &pair.public()));
+		assert_eq!(Pair::verify_proof_of_possession(&pop, &other_pair.public()), false);
 	}
 }

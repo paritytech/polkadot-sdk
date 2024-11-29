@@ -24,8 +24,10 @@
 use crate::crypto::VrfSecret;
 use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
+	ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError,
+	SignatureBytes, UncheckedFrom, VrfPublic,
 };
+use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
@@ -75,7 +77,7 @@ impl CryptoType for Signature {
 type Seed = [u8; SEED_SERIALIZED_SIZE];
 
 /// Bandersnatch secret key.
-#[derive(Clone)]
+#[derive(Clone, ProofOfPossession)]
 pub struct Pair {
 	secret: SecretKey,
 	seed: Seed,
@@ -1086,5 +1088,14 @@ mod tests {
 		let enc2 = vd2.encode();
 
 		assert_eq!(enc1, enc2);
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_pop_should_fail() {
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let pop = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(&pop, &pair.public()));
+		assert_eq!(Pair::verify_proof_of_possession(&pop, &other_pair.public()), false);
 	}
 }

@@ -19,10 +19,12 @@
 
 use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
-	PublicBytes, SecretStringError, SignatureBytes,
+	ProofOfPossessionGenerator, ProofOfPossessionVerifier, PublicBytes, SecretStringError,
+	SignatureBytes,
 };
 
 use ed25519_zebra::{SigningKey, VerificationKey};
+use sp_crypto_pubkeycrypto_proc_macro::ProofOfPossession;
 
 use alloc::vec::Vec;
 
@@ -50,7 +52,7 @@ pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519Tag>;
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Ed25519Tag>;
 
 /// A key pair.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, ProofOfPossession)]
 pub struct Pair {
 	public: VerificationKey,
 	secret: SigningKey,
@@ -327,5 +329,14 @@ mod tests {
 		assert!(deserialize_signature("\"Not an actual signature.\"").is_err());
 		// Poorly-sized
 		assert!(deserialize_signature("\"abc123\"").is_err());
+	}
+
+	#[test]
+	fn good_proof_of_possession_should_work_bad_pop_should_fail() {
+		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
+		let pop = pair.generate_proof_of_possession();
+		assert!(Pair::verify_proof_of_possession(&pop, &pair.public()));
+		assert_eq!(Pair::verify_proof_of_possession(&pop, &other_pair.public()), false);
 	}
 }
