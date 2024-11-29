@@ -573,8 +573,6 @@ pub mod pallet {
 		AccountUnmapped,
 		/// Tried to map an account that is already mapped.
 		AccountAlreadyMapped,
-		/// The transaction used to dry-run a contract is invalid.
-		InvalidGenericTransaction,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
