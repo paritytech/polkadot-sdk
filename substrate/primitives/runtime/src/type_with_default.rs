@@ -565,7 +565,7 @@ mod tests {
 			}
 		}
 		type U64WithDefault = TypeWithDefault<u64, Getu64>;
-		impl WrapAtLeast32Bit for U64WithDefault {}
+		impl WrapAtLeast64Bit for U64WithDefault {}
 
 		struct Getu128;
 		impl Get<u128> for Getu128 {
@@ -574,7 +574,7 @@ mod tests {
 			}
 		}
 		type U128WithDefault = TypeWithDefault<u128, Getu128>;
-		impl WrapAtLeast32Bit for U128WithDefault {}
+		impl WrapAtLeast128Bit for U128WithDefault {}
 
 		assert_eq!(U8WithDefault::type_info(), <u8 as TypeInfo>::type_info());
 		assert_eq!(U16WithDefault::type_info(), <u16 as TypeInfo>::type_info());
