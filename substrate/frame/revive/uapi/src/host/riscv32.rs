@@ -58,16 +58,8 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn transfer(address_ptr: *const u8, value_ptr: *const u8) -> ReturnCode;
 		pub fn call(ptr: *const u8) -> ReturnCode;
-		pub fn delegate_call(
-			flags: u32,
-			code_hash_ptr: *const u8,
-			input_data_ptr: *const u8,
-			input_data_len: u32,
-			out_ptr: *mut u8,
-			out_len_ptr: *mut u32,
-		) -> ReturnCode;
+		pub fn delegate_call(ptr: *const u8) -> ReturnCode;
 		pub fn instantiate(ptr: *const u8) -> ReturnCode;
 		pub fn terminate(beneficiary_ptr: *const u8);
 		pub fn input(out_ptr: *mut u8, out_len_ptr: *mut u32);
@@ -76,6 +68,7 @@ mod sys {
 		pub fn origin(out_ptr: *mut u8);
 		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
 		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
+		pub fn code_size(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn own_code_hash(out_ptr: *mut u8);
 		pub fn caller_is_origin() -> ReturnCode;
 		pub fn caller_is_root() -> ReturnCode;
@@ -97,6 +90,7 @@ mod sys {
 			data_len: u32,
 		);
 		pub fn block_number(out_ptr: *mut u8);
+		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn hash_sha2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
@@ -305,33 +299,46 @@ impl HostFn for HostFnImpl {
 
 	fn delegate_call(
 		flags: CallFlags,
-		code_hash: &[u8; 32],
+		address: &[u8; 20],
+		ref_time_limit: u64,
+		proof_size_limit: u64,
+		deposit_limit: Option<&[u8; 32]>,
 		input: &[u8],
 		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
-		let ret_code = {
-			unsafe {
-				sys::delegate_call(
-					flags.bits(),
-					code_hash.as_ptr(),
-					input.as_ptr(),
-					input.len() as u32,
-					output_ptr,
-					&mut output_len,
-				)
-			}
+		let deposit_limit_ptr = ptr_or_sentinel(&deposit_limit);
+		#[repr(packed)]
+		#[allow(dead_code)]
+		struct Args {
+			flags: u32,
+			address: *const u8,
+			ref_time_limit: u64,
+			proof_size_limit: u64,
+			deposit_limit: *const u8,
+			input: *const u8,
+			input_len: u32,
+			output: *mut u8,
+			output_len: *mut u32,
+		}
+		let args = Args {
+			flags: flags.bits(),
+			address: address.as_ptr(),
+			ref_time_limit,
+			proof_size_limit,
+			deposit_limit: deposit_limit_ptr,
+			input: input.as_ptr(),
+			input_len: input.len() as _,
+			output: output_ptr,
+			output_len: &mut output_len as *mut _,
 		};
+
+		let ret_code = { unsafe { sys::delegate_call(&args as *const Args as *const _) } };
 
 		if let Some(ref mut output) = output {
 			extract_from_slice(output, output_len as usize);
 		}
 
-		ret_code.into()
-	}
-
-	fn transfer(address: &[u8; 20], value: &[u8; 32]) -> Result {
-		let ret_code = unsafe { sys::transfer(address.as_ptr(), value.as_ptr()) };
 		ret_code.into()
 	}
 
@@ -533,6 +540,10 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::code_hash(address.as_ptr(), output.as_mut_ptr()) }
 	}
 
+	fn code_size(address: &[u8; 20], output: &mut [u8; 32]) {
+		unsafe { sys::code_size(address.as_ptr(), output.as_mut_ptr()) }
+	}
+
 	fn own_code_hash(output: &mut [u8; 32]) {
 		unsafe { sys::own_code_hash(output.as_mut_ptr()) }
 	}
@@ -573,5 +584,9 @@ impl HostFn for HostFnImpl {
 			unsafe { sys::return_data_copy(output.as_mut_ptr(), &mut output_len, offset) };
 		}
 		extract_from_slice(output, output_len as usize);
+	}
+
+	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
+		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
 }

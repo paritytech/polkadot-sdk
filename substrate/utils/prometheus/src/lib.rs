@@ -102,6 +102,7 @@ async fn init_prometheus_with_listener(
 	log::info!(target: "prometheus", "〽️ Prometheus exporter started at {}", listener.local_addr()?);
 
 	let server = hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new());
+	let graceful = hyper_util::server::graceful::GracefulShutdown::new();
 
 	loop {
 		let io = match listener.accept().await {
@@ -120,6 +121,7 @@ async fn init_prometheus_with_listener(
 				hyper::service::service_fn(move |req| request_metrics(req, registry.clone())),
 			)
 			.into_owned();
+		let conn = graceful.watch(conn);
 
 		tokio::spawn(async move {
 			if let Err(err) = conn.await {

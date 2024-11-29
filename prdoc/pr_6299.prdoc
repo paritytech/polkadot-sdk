@@ -1,0 +1,8 @@
+title: migrate pallet-recovery to benchmark V2 syntax
+doc:
+- audience: Runtime Dev
+  description: |-
+    migrate pallet-recovery to benchmark V2 syntax
+crates:
+- name: pallet-recovery
+  bump: patch

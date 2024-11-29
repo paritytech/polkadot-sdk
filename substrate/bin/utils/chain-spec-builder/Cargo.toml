@@ -21,15 +21,28 @@ path = "bin/main.rs"
 name = "chain-spec-builder"
 
 [lib]
-crate-type = ["rlib"]
+# Docs tests are not needed since the code samples that would be executed
+# are exercised already in the context of unit/integration tests, by virtue
+# of using a combination of encapsulation in functions + `docify::export`.
+# This is a practice we should use for new code samples if any.
+doctest = false
 
 [dependencies]
 clap = { features = ["derive"], workspace = true }
+docify = { workspace = true }
 log = { workspace = true, default-features = true }
-sc-chain-spec = { features = ["clap"], workspace = true, default-features = true }
+sc-chain-spec = { features = [
+	"clap",
+], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 substrate-test-runtime = { workspace = true }
+cmd_lib = { workspace = true }
+docify = { workspace = true }
+
+[features]
+# `cargo build --feature=generate-readme` updates the `README.md` file.
+generate-readme = []

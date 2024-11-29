@@ -15,10 +15,7 @@ use snowbridge_pallet_ethereum_client_fixtures::*;
 use sp_core::{Get, H160, U256};
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header, AccountId32, DigestItem, SaturatedConversion, Saturating};
-use xcm::{
-	latest::prelude::*,
-	v3::Error::{self, Barrier},
-};
+use xcm::latest::prelude::*;
 use xcm_executor::XcmExecutor;
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
@@ -374,7 +371,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 				Weight::zero(),
 			);
 			// check error is barrier
-			assert_err!(outcome.ensure_complete(), Barrier);
+			assert_err!(outcome.ensure_complete(), XcmError::Barrier);
 		});
 }
 
@@ -388,7 +385,7 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 	weth_contract_address: H160,
 	destination_address: H160,
 	fee_amount: u128,
-	expected_error: Error,
+	expected_error: XcmError,
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
