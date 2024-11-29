@@ -149,7 +149,7 @@ fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
 			Some("execution reverted".to_string())
 		},
 		_ => {
-			log::debug!(target: LOG_TARGET, "Unknown revert function selector: {function_selector:?}");
+			log::debug!(target: LOG_TARGET, "Unknown revert function selector: {error_selector:?}");
 			Some("execution reverted".to_string())
 		},
 	}

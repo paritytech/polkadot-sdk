@@ -1298,7 +1298,7 @@ where
 			{
 				let balance = Self::evm_balance(&from);
 				return Err(EthTransactError::Message(
-						format!("insufficient funds for gas * price + value: address {from:?} have {balance} want {evm_value} (supplied gas {})",
+						format!("insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {})",
 							tx.gas.unwrap_or_default()))
 					);
 			}
