@@ -36,7 +36,7 @@ snowbridge-core = { features = ["serde"], workspace = true }
 ethabi = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 snowbridge-merkle-tree = { workspace = true }
-snowbridge-router-primitives = { workspace = true }
+snowbridge-outbound-router-primitives = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 xcm-builder = { workspace = true }
@@ -61,7 +61,7 @@ std = [
 	"serde/std",
 	"snowbridge-core/std",
 	"snowbridge-merkle-tree/std",
-	"snowbridge-router-primitives/std",
+	"snowbridge-outbound-router-primitives/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -79,7 +79,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
-	"snowbridge-router-primitives/runtime-benchmarks",
+	"snowbridge-outbound-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

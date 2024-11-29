@@ -12,7 +12,7 @@ use snowbridge_core::outbound::{
 	DryRunError,
 };
 use snowbridge_merkle_tree::{merkle_proof, MerkleProof};
-use snowbridge_router_primitives::outbound::v2::convert::XcmConverter;
+use snowbridge_outbound_router_primitives::v2::convert::XcmConverter;
 use sp_core::Get;
 use sp_std::{default::Default, vec::Vec};
 use xcm::prelude::Xcm;
