@@ -44,11 +44,11 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame::{
 	deps::{
-		frame_support::{BoundedSlice, BoundedVec, ConsensusEngineId, Parameter},
+		frame_support::{ConsensusEngineId, Parameter},
 		sp_runtime::{generic::DigestItem, BoundToRuntimeAppPublic, RuntimeAppPublic},
 	},
-	derive::DefaultNoBound,
 	prelude::*,
+	runtime::prelude::{BoundedSlice, BoundedVec},
 	traits::{
 		DisabledValidators, FindAuthor, Get, IsMember, OnTimestampSet, OneSessionHandler,
 		SaturatedConversion, Saturating, Zero,
@@ -175,7 +175,7 @@ pub mod pallet {
 	pub type CurrentSlot<T: Config> = StorageValue<_, Slot, ValueQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(DefaultNoBound)]
+	#[derive(frame::derive::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: Vec<T::AuthorityId>,
 	}
