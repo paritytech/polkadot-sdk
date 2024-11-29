@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Hide nonce implementation details in metadata
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Use custom implementation of TypeInfo for TypeWithDefault to show inner value's type info.
+      This should bring back nonce to u64 in metadata.
+
+crates:
+- name: sp-runtime
+  bump: minor

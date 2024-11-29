@@ -1,0 +1,15 @@
+title: Fix runtime api impl detection by construct runtime
+doc:
+- audience: Runtime Dev
+  description: |-
+    Construct runtime uses autoref-based specialization to fetch the metadata about the implemented runtime apis. This is done to not fail to compile when there are no runtime apis implemented. However, there was an issue with detecting runtime apis when they were implemented in a different file. The problem is solved by moving the trait implemented by `impl_runtime_apis!` to the metadata ir crate.
+
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/6659
+crates:
+- name: frame-support-procedural
+  bump: patch
+- name: sp-api-proc-macro
+  bump: patch
+- name: sp-metadata-ir
+  bump: patch
