@@ -320,6 +320,12 @@ impl<B: BlockT> Behaviour<B> {
 	pub fn stop_providing(&mut self, key: &RecordKey) {
 		self.discovery.stop_providing(key)
 	}
+
+	/// Start searching for providers on the DHT. Will later produce either a `ProvidersFound`
+	/// or `ProvidersNotFound` event.
+	pub fn get_providers(&mut self, key: RecordKey) {
+		self.discovery.get_providers(key)
+	}
 }
 
 impl From<CustomMessageOutcome> for BehaviourOut {
@@ -399,6 +405,15 @@ impl From<DiscoveryOut> for BehaviourOut {
 				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key.into()), Some(duration)),
 			DiscoveryOut::StartProvidingFailed(key) =>
 				BehaviourOut::Dht(DhtEvent::StartProvidingFailed(key.into()), None),
+			DiscoveryOut::ProvidersFound(key, providers, duration) => BehaviourOut::Dht(
+				DhtEvent::ProvidersFound(
+					key.into(),
+					providers.into_iter().map(Into::into).collect(),
+				),
+				Some(duration),
+			),
+			DiscoveryOut::ProvidersNotFound(key, duration) =>
+				BehaviourOut::Dht(DhtEvent::ProvidersNotFound(key.into()), Some(duration)),
 			DiscoveryOut::RandomKademliaStarted => BehaviourOut::RandomKademliaStarted,
 		}
 	}

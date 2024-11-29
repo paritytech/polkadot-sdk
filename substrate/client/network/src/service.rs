@@ -981,6 +981,10 @@ where
 	fn stop_providing(&self, key: KademliaKey) {
 		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::StopProviding(key));
 	}
+
+	fn get_providers(&self, key: KademliaKey) {
+		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::GetProviders(key));
+	}
 }
 
 #[async_trait::async_trait]
@@ -1343,6 +1347,7 @@ enum ServiceToWorkerMsg {
 	StoreRecord(KademliaKey, Vec<u8>, Option<PeerId>, Option<Instant>),
 	StartProviding(KademliaKey),
 	StopProviding(KademliaKey),
+	GetProviders(KademliaKey),
 	AddKnownAddress(PeerId, Multiaddr),
 	EventStream(out_events::Sender),
 	Request {
@@ -1480,6 +1485,8 @@ where
 				self.network_service.behaviour_mut().start_providing(key.into()),
 			ServiceToWorkerMsg::StopProviding(key) =>
 				self.network_service.behaviour_mut().stop_providing(&key.into()),
+			ServiceToWorkerMsg::GetProviders(key) =>
+				self.network_service.behaviour_mut().get_providers(key.into()),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =>
 				self.network_service.behaviour_mut().add_known_address(peer_id, addr),
 			ServiceToWorkerMsg::EventStream(sender) => self.event_streams.push(sender),

@@ -58,8 +58,8 @@ use libp2p::{
 		self,
 		record::store::{MemoryStore, RecordStore},
 		Behaviour as Kademlia, BucketInserts, Config as KademliaConfig, Event as KademliaEvent,
-		GetClosestPeersError, GetRecordOk, PeerRecord, QueryId, QueryResult, Quorum, Record,
-		RecordKey,
+		GetClosestPeersError, GetProvidersError, GetProvidersOk, GetRecordOk, PeerRecord, QueryId,
+		QueryResult, Quorum, Record, RecordKey,
 	},
 	mdns::{self, tokio::Behaviour as TokioMdns},
 	multiaddr::Protocol,
@@ -484,6 +484,13 @@ impl DiscoveryBehaviour {
 		}
 	}
 
+	/// Get content providers for `key` from the DHT.
+	pub fn get_providers(&mut self, key: RecordKey) {
+		if let Some(kad) = self.kademlia.as_mut() {
+			kad.get_providers(key);
+		}
+	}
+
 	/// Store a record in the Kademlia record store.
 	pub fn store_record(
 		&mut self,
@@ -601,6 +608,12 @@ pub enum DiscoveryOut {
 
 	/// Starting providing a key failed.
 	StartProvidingFailed(RecordKey),
+
+	/// The DHT yielded results for the providers request.
+	ProvidersFound(RecordKey, HashSet<PeerId>, Duration),
+
+	/// Providers for the requested key were not found in the DHT.
+	ProvidersNotFound(RecordKey, Duration),
 
 	/// Started a random Kademlia query.
 	///
@@ -997,6 +1010,56 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 								);
 								DiscoveryOut::ValueNotFound(
 									e.into_key(),
+									stats.duration().unwrap_or_default(),
+								)
+							},
+						};
+						return Poll::Ready(ToSwarm::GenerateEvent(ev))
+					},
+					KademliaEvent::OutboundQueryProgressed {
+						result: QueryResult::GetProviders(res),
+						stats,
+						id,
+						..
+					} => {
+						let ev = match res {
+							Ok(GetProvidersOk::FoundProviders { key, providers }) => {
+								debug!(
+									target: "sub-libp2p",
+									"Libp2p => Found providers {:?} for key {:?},  id {:?}, stats {:?}",
+									providers,
+									key,
+									id,
+									stats,
+								);
+
+								DiscoveryOut::ProvidersFound(
+									key,
+									providers,
+									stats.duration().unwrap_or_default(),
+								)
+							},
+							Ok(GetProvidersOk::FinishedWithNoAdditionalRecord {
+								closest_peers: _,
+							}) => {
+								debug!(
+									target: "sub-libp2p",
+									"Libp2p => Finished with no additional providers {:?}, stats {:?}, took {:?} ms",
+									id,
+									stats,
+									stats.duration().map(|val| val.as_millis())
+								);
+
+								continue
+							},
+							Err(GetProvidersError::Timeout { key, closest_peers: _ }) => {
+								debug!(
+									target: "sub-libp2p",
+									"Libp2p => Failed to get providers for {key:?} due to timeout.",
+								);
+
+								DiscoveryOut::ProvidersNotFound(
+									key,
 									stats.duration().unwrap_or_default(),
 								)
 							},
