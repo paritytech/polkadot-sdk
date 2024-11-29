@@ -14,8 +14,8 @@
 use crate::{CallFlags, Result, ReturnFlags, StorageFlags};
 use paste::paste;
 
-#[cfg(target_arch = "riscv32")]
-mod riscv32;
+#[cfg(target_arch = "riscv64")]
+mod riscv64;
 
 macro_rules! hash_fn {
 	( $name:ident, $bytes:literal ) => {

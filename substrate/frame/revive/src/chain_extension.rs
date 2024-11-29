@@ -75,7 +75,7 @@ use crate::{
 	Error,
 };
 use alloc::vec::Vec;
-use codec::{Decode, MaxEncodedLen};
+use codec::Decode;
 use frame_support::weights::Weight;
 use sp_runtime::DispatchError;
 
@@ -302,16 +302,6 @@ impl<'a, 'b, E: Ext, M: ?Sized + Memory<E::T>> Environment<'a, 'b, E, M> {
 		self.memory.read_into_buf(self.input_ptr, sliced)?;
 		*buffer = sliced;
 		Ok(())
-	}
-
-	/// Reads and decodes a type with a size fixed at compile time from contract memory.
-	///
-	/// This function is secure and recommended for all input types of fixed size
-	/// as long as the cost of reading the memory is included in the overall already charged
-	/// weight of the chain extension. This should usually be the case when fixed input types
-	/// are used.
-	pub fn read_as<T: Decode + MaxEncodedLen>(&mut self) -> Result<T> {
-		self.memory.read_as(self.input_ptr)
 	}
 
 	/// Reads and decodes a type with a dynamic size from contract memory.
