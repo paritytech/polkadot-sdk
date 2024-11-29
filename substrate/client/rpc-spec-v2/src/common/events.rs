@@ -78,6 +78,10 @@ pub struct StorageResult {
 	/// The result of the query.
 	#[serde(flatten)]
 	pub result: StorageResultType,
+	/// The child trie key if provided.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default)]
+	pub child_trie_key: Option<String>,
 }
 
 /// The type of the storage query.
@@ -105,23 +109,41 @@ pub struct StorageResultErr {
 
 /// The result of a storage call.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ArchiveStorageResult {
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "event")]
+pub enum ArchiveStorageEvent {
 	/// Query generated a result.
-	Ok(ArchiveStorageMethodOk),
+	Storage(StorageResult),
 	/// Query encountered an error.
-	Err(ArchiveStorageMethodErr),
+	StorageError(ArchiveStorageMethodErr),
+	/// Operation storage is done.
+	StorageDone,
 }
 
-impl ArchiveStorageResult {
-	/// Create a new `ArchiveStorageResult::Ok` result.
-	pub fn ok(result: Vec<StorageResult>, discarded_items: usize) -> Self {
-		Self::Ok(ArchiveStorageMethodOk { result, discarded_items })
+impl ArchiveStorageEvent {
+	/// Create a new `ArchiveStorageEvent::StorageErr` event.
+	pub fn err(error: String) -> Self {
+		Self::StorageError(ArchiveStorageMethodErr { error })
 	}
 
-	/// Create a new `ArchiveStorageResult::Err` result.
-	pub fn err(error: String) -> Self {
-		Self::Err(ArchiveStorageMethodErr { error })
+	/// Create a new `ArchiveStorageEvent::StorageResult` event.
+	pub fn result(result: StorageResult) -> Self {
+		Self::Storage(result)
+	}
+
+	/// Checks if the event is a `StorageDone` event.
+	pub fn is_done(&self) -> bool {
+		matches!(self, Self::StorageDone)
+	}
+
+	/// Checks if the event is a `StorageErr` event.
+	pub fn is_err(&self) -> bool {
+		matches!(self, Self::StorageError(_))
+	}
+
+	/// Checks if the event is a `StorageResult` event.
+	pub fn is_result(&self) -> bool {
+		matches!(self, Self::Storage(_))
 	}
 }
 
@@ -354,8 +376,11 @@ mod tests {
 	#[test]
 	fn storage_result() {
 		// Item with Value.
-		let item =
-			StorageResult { key: "0x1".into(), result: StorageResultType::Value("res".into()) };
+		let item = StorageResult {
+			key: "0x1".into(),
+			result: StorageResultType::Value("res".into()),
+			child_trie_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","value":"res"}"#;
@@ -365,8 +390,11 @@ mod tests {
 		assert_eq!(dec, item);
 
 		// Item with Hash.
-		let item =
-			StorageResult { key: "0x1".into(), result: StorageResultType::Hash("res".into()) };
+		let item = StorageResult {
+			key: "0x1".into(),
+			result: StorageResultType::Hash("res".into()),
+			child_trie_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","hash":"res"}"#;
@@ -379,6 +407,7 @@ mod tests {
 		let item = StorageResult {
 			key: "0x1".into(),
 			result: StorageResultType::ClosestDescendantMerkleValue("res".into()),
+			child_trie_key: None,
 		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
