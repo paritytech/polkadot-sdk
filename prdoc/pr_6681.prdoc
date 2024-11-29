@@ -170,354 +170,237 @@ crates:
     bump: none
   - name: cumulus-pallet-aura-ext
     bump: none
-
   - name: pallet-aura
     bump: none
-
   - name: sp-consensus-aura
     bump: none
-
   - name: pallet-collator-selection
     bump: none
-
   - name: pallet-glutton
     bump: none
-
   - name: staging-parachain-info
     bump: none
-
   - name: westend-runtime
     bump: none
-
   - name: frame-metadata-hash-extension
     bump: none
-
   - name: frame-system-benchmarking
     bump: none
-
   - name: pallet-beefy
     bump: none
-
   - name: pallet-beefy-mmr
     bump: none
-
   - name: pallet-conviction-voting
     bump: none
-
   - name: pallet-scheduler
     bump: none
-
   - name: pallet-preimage
     bump: none
-
   - name: pallet-delegated-staking
     bump: none
-
   - name: pallet-nomination-pools
     bump: none
-
   - name: pallet-democracy
     bump: none
-
   - name: pallet-elections-phragmen
     bump: none
-
   - name: pallet-membership
     bump: none
-
   - name: pallet-multisig
     bump: none
-
   - name: polkadot-sdk-frame
     bump: none
-
   - name: pallet-dev-mode
     bump: none
-
   - name: pallet-verify-signature
     bump: none
-
   - name: pallet-nomination-pools-benchmarking
     bump: none
-
   - name: pallet-offences-benchmarking
     bump: none
-
   - name: pallet-im-online
     bump: none
-
   - name: pallet-parameters
     bump: none
-
   - name: pallet-proxy
     bump: none
-
   - name: pallet-recovery
     bump: none
-
   - name: pallet-referenda
     bump: none
-
   - name: pallet-society
     bump: none
-
   - name: pallet-state-trie-migration
     bump: none
-
   - name: pallet-whitelist
     bump: none
-
   - name: pallet-xcm-benchmarks
     bump: none
-
   - name: rococo-runtime
     bump: none
-
   - name: pallet-bounties
     bump: none
-
   - name: pallet-child-bounties
     bump: none
-
   - name: pallet-nis
     bump: none
-
   - name: pallet-tips
     bump: none
-
   - name: parachains-common
     bump: none
-
   - name: pallet-asset-tx-payment
     bump: none
-
   - name: cumulus-pallet-xcmp-queue
     bump: none
-
   - name: bp-xcm-bridge-hub-router
     bump: none
-
   - name: pallet-xcm-bridge-hub-router
     bump: none
-
   - name: assets-common
     bump: none
-
   - name: bp-messages
     bump: none
-
   - name: bp-parachains
     bump: none
-
   - name: bp-polkadot-core
     bump: none
-
   - name: bp-relayers
     bump: none
-
   - name: bp-xcm-bridge-hub
     bump: none
-
   - name: bridge-hub-common
     bump: none
-
   - name: snowbridge-core
     bump: none
-
   - name: snowbridge-beacon-primitives
     bump: none
-
   - name: snowbridge-ethereum
     bump: none
-
   - name: pallet-bridge-grandpa
     bump: none
-
   - name: pallet-bridge-messages
     bump: none
-
   - name: pallet-bridge-parachains
     bump: none
-
   - name: pallet-bridge-relayers
     bump: none
-
   - name: pallet-xcm-bridge-hub
     bump: none
-
   - name: cumulus-pallet-dmp-queue
     bump: none
-
   - name: cumulus-pallet-solo-to-para
     bump: none
-
   - name: cumulus-pallet-xcm
     bump: none
-
   - name: cumulus-ping
     bump: none
-
   - name: frame-benchmarking-pallet-pov
     bump: none
-
   - name: pallet-alliance
     bump: none
-
   - name: pallet-asset-conversion-ops
     bump: none
-
   - name: pallet-asset-conversion-tx-payment
     bump: none
-
   - name: pallet-assets-freezer
     bump: none
-
   - name: pallet-atomic-swap
     bump: none
-
   - name: pallet-collective-content
     bump: none
-
   - name: pallet-contracts
     bump: none
-
   - name: pallet-contracts-uapi
     bump: none
-
   - name: pallet-insecure-randomness-collective-flip
     bump: none
-
   - name: pallet-contracts-mock-network
     bump: none
-
   - name: xcm-simulator
     bump: none
-
   - name: pallet-core-fellowship
     bump: none
-
   - name: pallet-lottery
     bump: none
-
   - name: pallet-mixnet
     bump: none
-
   - name: pallet-nft-fractionalization
     bump: none
-
   - name: pallet-nfts
     bump: none
-
   - name: pallet-node-authorization
     bump: none
-
   - name: pallet-paged-list
     bump: none
-
   - name: pallet-remark
     bump: none
-
   - name: pallet-revive
     bump: none
-
   - name: pallet-revive-uapi
     bump: none
-
   - name: pallet-revive-eth-rpc
     bump: none
-
   - name: pallet-skip-feeless-payment
     bump: none
-
   - name: pallet-revive-mock-network
     bump: none
-
   - name: pallet-root-offences
     bump: none
-
   - name: pallet-safe-mode
     bump: none
-
   - name: pallet-scored-pool
     bump: none
-
   - name: pallet-statement
     bump: none
-
   - name: pallet-transaction-storage
     bump: none
-
   - name: pallet-tx-pause
     bump: none
-
   - name: pallet-uniques
     bump: none
-
   - name: snowbridge-outbound-queue-merkle-tree
     bump: none
-
   - name: snowbridge-pallet-ethereum-client
     bump: none
-
   - name: snowbridge-pallet-inbound-queue
     bump: none
-
   - name: snowbridge-router-primitives
     bump: none
-
   - name: snowbridge-pallet-outbound-queue
     bump: none
-
   - name: snowbridge-pallet-system
     bump: none
-
   - name: bp-asset-hub-rococo
     bump: none
-
   - name: bp-asset-hub-westend
     bump: none
-
   - name: bp-polkadot-bulletin
     bump: none
-
   - name: asset-hub-rococo-runtime
     bump: none
-
   - name: asset-hub-westend-runtime
     bump: none
-
   - name: bridge-hub-rococo-runtime
     bump: none
-
   - name: bridge-hub-westend-runtime
     bump: none
-
   - name: collectives-westend-runtime
     bump: none
-
   - name: coretime-rococo-runtime
     bump: none
-
   - name: coretime-westend-runtime
     bump: none
-
   - name: people-rococo-runtime
     bump: none
-
   - name: people-westend-runtime
     bump: none
-
   - name: penpal-runtime
     bump: none
-
   - name: contracts-rococo-runtime
     bump: none
-
   - name: glutton-westend-runtime
     bump: none
-
   - name: rococo-parachain-runtime
     bump: none
-
   - name: xcm-simulator-example
     bump: none
