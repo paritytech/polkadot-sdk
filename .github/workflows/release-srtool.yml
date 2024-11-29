@@ -17,10 +17,10 @@ on:
       published_runtimes:
         value: ${{ jobs.find-runtimes.outputs.runtime }}
 
-  schedule:
-    - cron: "00 02 * * 1" # 2AM weekly on monday
-
-  workflow_dispatch:
+permissions:
+    id-token: write
+    attestations: write
+    contents: read
 
 jobs:
   find-runtimes:
@@ -85,6 +85,11 @@ jobs:
           cat ${{ matrix.chain }}-srtool-digest.json
           echo "Compact Runtime: ${{ steps.srtool_build.outputs.wasm }}"
           echo "Compressed Runtime: ${{ steps.srtool_build.outputs.wasm_compressed }}"
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c # v1.4.3
+        with:
+          subject-path:  ${{ steps.srtool_build.outputs.wasm }}
 
       # We now get extra information thanks to subwasm
       - name: Install subwasm
