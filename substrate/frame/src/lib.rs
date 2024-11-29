@@ -342,6 +342,9 @@ pub mod runtime {
 		/// Consider using the new version of this [`frame_construct_runtime`].
 		pub use frame_support::construct_runtime;
 
+		/// Related to runtime contruction.
+		pub use frame_support::BoundedVec;
+
 		/// Macro to amalgamate the runtime into `struct Runtime`.
 		///
 		/// This is the newer version of [`construct_runtime`].

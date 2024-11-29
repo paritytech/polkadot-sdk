@@ -17,7 +17,10 @@
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame::{deps::frame_support::BoundedVec, derive::RuntimeDebug, runtime::prelude::ConstU32};
+use frame::{
+	derive::RuntimeDebug,
+	runtime::prelude::{BoundedVec, ConstU32},
+};
 use scale_info::TypeInfo;
 
 /// A Multihash instance that only supports the basic functionality and no hashing.

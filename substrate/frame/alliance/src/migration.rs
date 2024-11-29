@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use crate::{Config, Pallet, Weight, LOG_TARGET};
-use frame::{deps::frame_support::storage::migration, prelude::*, traits::OnRuntimeUpgrade};
+use frame::{
+	deps::frame_support::{pallet_prelude::*, storage::migration},
+	traits::OnRuntimeUpgrade,
+};
 use log;
 
 /// The in-code storage version.
