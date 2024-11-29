@@ -266,7 +266,8 @@ mod tests {
 	use crate::integration_tests::new_test_ext;
 	use alloc::vec;
 	use frame_support::{assert_ok, parameter_types};
-	use polkadot_runtime_parachains::FeeTracker;
+	use polkadot_primitives::HeadData;
+	use polkadot_runtime_parachains::{paras, FeeTracker};
 	use sp_runtime::FixedU128;
 	use xcm::MAX_XCM_DECODE_DEPTH;
 
@@ -348,6 +349,11 @@ mod tests {
 			configuration::ActiveConfig::<crate::integration_tests::Test>::mutate(|c| {
 				c.max_downward_message_size = u32::MAX;
 			});
+
+			paras::Heads::<crate::integration_tests::Test>::insert(
+				ParaId::from(5555),
+				HeadData(vec![]),
+			);
 
 			// Check that the good message is validated:
 			assert_ok!(<Router as SendXcm>::validate(
