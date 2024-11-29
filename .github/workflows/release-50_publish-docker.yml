@@ -55,7 +55,7 @@ on:
         default: parity
 
       version:
-        description: version to build/release
+        description: Version of the polkadot node release in format v1.16.0 or v1.16.0-rc1
         default: v0.9.18
         required: true
 
@@ -114,50 +114,35 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
 
-        #TODO: this step will be needed when automated triggering will work
-        #this step runs only if the workflow is triggered automatically when new release is published
-        # if: ${{ env.EVENT_NAME == 'release' && env.EVENT_ACTION != '' && env.EVENT_ACTION == 'published' }}
-        # run: |
-        #   mkdir -p release-artifacts && cd release-artifacts
-
-        #   for f in $BINARY $BINARY.asc $BINARY.sha256; do
-        #     URL="https://github.com/${{ github.event.repository.full_name }}/releases/download/${{ github.event.release.tag_name }}/$f"
-        #     echo " - Fetching $f from $URL"
-        #     wget "$URL" -O "$f"
-        #   done
-        #   chmod a+x $BINARY
-        #   ls -al
-
       - name: Fetch rc artifacts or release artifacts from s3 based on version
-        #this step runs only if the workflow is triggered manually
-        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary != 'polkadot-omni-node' && inputs.binary != 'chain-spec-builder'}}
+        # if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary != 'polkadot-omni-node' && inputs.binary != 'chain-spec-builder'}}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION="${{ needs.validate-inputs.outputs.VERSION }}"
+          VERSION="${{ needs.validate-inputs.outputs.stable_tag }}"
           if [[ ${{ inputs.binary }} == 'polkadot' ]]; then
             bins=(polkadot polkadot-prepare-worker polkadot-execute-worker)
             for bin in "${bins[@]}"; do
-              fetch_release_artifacts_from_s3 $bin
+              fetch_release_artifacts_from_s3 $bin x86_64-unknown-linux-gnu
             done
           else
-            fetch_release_artifacts_from_s3 $BINARY
+            fetch_release_artifacts_from_s3 $BINARY x86_64-unknown-linux-gnu
           fi
 
-      - name: Fetch polkadot-omni-node/chain-spec-builder rc artifacts or release artifacts based on release id
-        #this step runs only if the workflow is triggered manually and only for chain-spec-builder
-        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && (inputs.binary == 'polkadot-omni-node' || inputs.binary == 'chain-spec-builder') }}
-        run: |
-          . ./.github/scripts/common/lib.sh
+      # - name: Fetch polkadot-omni-node/chain-spec-builder rc artifacts or release artifacts based on release id
+      #   #this step runs only if the workflow is triggered manually and only for chain-spec-builder
+      #   if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && (inputs.binary == 'polkadot-omni-node' || inputs.binary == 'chain-spec-builder') }}
+      #   run: |
+      #     . ./.github/scripts/common/lib.sh
 
-          RELEASE_ID="${{ needs.validate-inputs.outputs.RELEASE_ID }}"
-          fetch_release_artifacts
+      #     RELEASE_ID="${{ needs.validate-inputs.outputs.RELEASE_ID }}"
+      #     fetch_release_artifacts
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
-        with:
-          name: release-artifacts
-          path: release-artifacts/${{ env.BINARY }}/**/*
+      # - name: Upload artifacts
+      #   uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+      #   with:
+      #     name: release-artifacts
+      #     path: release-artifacts/${{ env.BINARY }}/**/*
 
   build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
     if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'polkadot-parachain' || inputs.binary == 'chain-spec-builder' || inputs.image_type == 'rc' }}
@@ -173,7 +158,7 @@ jobs:
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
 
       - name: Check sha256 ${{ env.BINARY }}
-        if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
+        # if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
         working-directory: release-artifacts
         run: |
           . ../.github/scripts/common/lib.sh
@@ -182,7 +167,7 @@ jobs:
           check_sha256 $BINARY && echo "OK" || echo "ERR"
 
       - name: Check GPG ${{ env.BINARY }}
-        if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
+        # if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'polkadot' }}
         working-directory: release-artifacts
         run: |
           . ../.github/scripts/common/lib.sh
@@ -195,12 +180,20 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          echo "release=${{ needs.validate-inputs.outputs.stable_tag }}" >> $GITHUB_OUTPUT
+          chmod a+rx $BINARY
+
+          if [[ $BINARY != 'chain-spec-builder' ]]; then
+            RC=$(echo  ${{ needs.validate-inputs.outputs.stable_tag }} | sed -n 's/.*\(-rc[0-9]*\)$/\1/p')
+            VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+            release=$( echo $VERSION | cut -f1 -d- )-$RC
+          else
+            release=$(echo ${{ needs.validate-inputs.outputs.version }} | sed 's/^v//')
+          fi
 
           commit=$(git rev-parse --short HEAD) && \
           echo "commit=${commit}" >> $GITHUB_OUTPUT
-
-          echo "tag=${{ needs.validate-inputs.outputs.version }}" >> $GITHUB_OUTPUT
+          echo "release=${release}" >> $GITHUB_OUTPUT
+          echo "tag=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
 
       - name: Fetch release tags
         working-directory: release-artifacts
@@ -213,12 +206,12 @@ jobs:
             VERSION=$(./$BINARY --version | awk '{ print $2 }' )
             release=$( echo $VERSION | cut -f1 -d- )
           else
-            release=$(echo ${{ needs.validate-inputs.outputs.VERSION }} | sed 's/^v//')
+            release=$(echo ${{ needs.validate-inputs.outputs.version }} | sed 's/^v//')
           fi
 
           echo "tag=latest" >> $GITHUB_OUTPUT
           echo "release=${release}" >> $GITHUB_OUTPUT
-          echo "stable=${{ needs.validate-inputs.outputs.stable_tag }}" >> $GITHUB_OUTPUT
+          echo "stable=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
 
       - name: Build Injected Container image for polkadot rc
         if: ${{ env.BINARY == 'polkadot' }}

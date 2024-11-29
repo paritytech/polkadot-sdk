@@ -500,3 +500,16 @@ validate_stable_tag() {
         exit 1
     fi
 }
+
+# Prepare docker stable tag form the polkadot stable tag
+# input: tag (polkaodot-stableYYMM(-X) or polkadot-stableYYMM(-X)-rcX)
+# output: stableYYMM(-X) or stableYYMM(-X)-rcX
+prepare_docker_stable_tag() {
+  tag="$1"
+  if [[ "$tag" =~ stable[0-9]{4}(-[0-9]+)?(-rc[0-9]+)? ]]; then
+      echo "${BASH_REMATCH[0]}"
+  else
+      echo "Tag is invalid: $tag"
+      exit 1
+  fi
+}
