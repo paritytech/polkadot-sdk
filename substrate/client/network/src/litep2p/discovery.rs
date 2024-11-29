@@ -407,6 +407,16 @@ impl Discovery {
 			.await;
 	}
 
+	/// Start providing `key`.
+	pub async fn start_providing(&mut self, key: KademliaKey) {
+		self.kademlia_handle.start_providing(key.into()).await;
+	}
+
+	/// Stop providing `key`.
+	pub async fn stop_providing(&mut self, key: KademliaKey) {
+		self.kademlia_handle.stop_providing(key.into()).await;
+	}
+
 	/// Check if the observed address is a known address.
 	fn is_known_address(known: &Multiaddr, observed: &Multiaddr) -> bool {
 		let mut known = known.iter();

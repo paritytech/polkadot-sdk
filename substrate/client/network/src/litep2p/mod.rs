@@ -715,9 +715,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							let query_id = self.discovery.put_value_to_peers(record.into(), peers, update_local_storage).await;
 							self.pending_put_values.insert(query_id, (kademlia_key, Instant::now()));
 						}
-
 						NetworkServiceCommand::StoreRecord { key, value, publisher, expires } => {
 							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
+						}
+						NetworkServiceCommand::StartProviding { key } => {
+							self.discovery.start_providing(key).await;
+						}
+						NetworkServiceCommand::StopProviding { key } => {
+							self.discovery.stop_providing(key).await;
 						}
 						NetworkServiceCommand::EventStream { tx } => {
 							self.event_streams.push(tx);
