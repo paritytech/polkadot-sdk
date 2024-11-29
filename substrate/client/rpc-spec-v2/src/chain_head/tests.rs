@@ -34,7 +34,7 @@ use jsonrpsee::{
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sc_rpc::testing::TokioTestExecutor;
-use sc_service::client::new_in_mem;
+use sc_service::client::new_with_backend;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_core::{
@@ -2547,13 +2547,13 @@ async fn pin_block_references() {
 	.unwrap();
 
 	let client = Arc::new(
-		new_in_mem::<_, Block, _, RuntimeApi>(
+		new_with_backend::<_, _, Block, _, RuntimeApi>(
 			backend.clone(),
 			executor,
 			genesis_block_builder,
-			None,
-			None,
 			Box::new(TokioTestExecutor::default()),
+			None,
+			None,
 			client_config,
 		)
 		.unwrap(),
