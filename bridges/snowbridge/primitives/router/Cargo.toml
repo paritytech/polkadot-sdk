@@ -24,7 +24,6 @@ sp-std = { workspace = true }
 
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
-xcm-builder = { workspace = true }
 
 snowbridge-core = { workspace = true }
 
@@ -44,7 +43,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
@@ -52,6 +50,5 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]

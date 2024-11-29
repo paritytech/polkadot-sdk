@@ -19,8 +19,8 @@ use crate::XcmRouter;
 use crate::{
 	xcm_config,
 	xcm_config::{TreasuryAccount, UniversalLocation},
-	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumOutboundQueueV2, EthereumSystem,
-	MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
+	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime,
+	RuntimeEvent, TransactionByteFee,
 };
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
@@ -28,7 +28,7 @@ use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards}
 use snowbridge_outbound_router_primitives::{
 	v1::EthereumBlobExporter, v2::EthereumBlobExporter as EthereumBlobExporterV2,
 };
-use snowbridge_router_primitives::inbound::v1::MessageToXcm;
+use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_core::H160;
 use testnet_parachains_constants::westend::{
 	currency::*,
@@ -224,7 +224,6 @@ impl snowbridge_pallet_system::Config for Runtime {
 	type InboundDeliveryCost = EthereumInboundQueue;
 	type UniversalLocation = UniversalLocation;
 	type EthereumLocation = EthereumLocation;
-	type OutboundQueueV2 = EthereumOutboundQueueV2;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

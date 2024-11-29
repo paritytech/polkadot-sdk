@@ -70,7 +70,6 @@ use snowbridge_core::{
 	meth,
 	outbound::{
 		v1::{Command, Initializer, Message, SendMessage},
-		v2::{Command as CommandV2, Message as MessageV2, SendMessage as SendMessageV2},
 		OperatingMode, SendError,
 	},
 	sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
@@ -141,7 +140,7 @@ where
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::dispatch::PostDispatchInfo;
-	use snowbridge_core::{outbound::v2::second_governance_origin, StaticLookup};
+	use snowbridge_core::StaticLookup;
 	use sp_core::U256;
 
 	use super::*;
@@ -155,8 +154,6 @@ pub mod pallet {
 
 		/// Send messages to Ethereum
 		type OutboundQueue: SendMessage<Balance = BalanceOf<Self>>;
-
-		type OutboundQueueV2: SendMessageV2<Balance = BalanceOf<Self>>;
 
 		/// Origin check for XCM locations that can create agents
 		type SiblingOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
@@ -255,7 +252,6 @@ pub mod pallet {
 		InvalidTokenTransferFees,
 		InvalidPricingParameters,
 		InvalidUpgradeParameters,
-		TokenAlreadyCreated,
 	}
 
 	/// The set of registered agents
@@ -642,34 +638,6 @@ pub mod pallet {
 				pays_fee: Pays::No,
 			})
 		}
-
-		/// Registers a Polkadot-native token as a wrapped ERC20 token on Ethereum.
-		/// Privileged. Can only be called by root.
-		///
-		/// Fee required: No
-		///
-		/// - `origin`: Must be root
-		/// - `location`: Location of the asset (relative to this chain)
-		/// - `metadata`: Metadata to include in the instantiated ERC20 contract on Ethereum
-		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::register_token())]
-		pub fn register_token_v2(
-			origin: OriginFor<T>,
-			location: Box<VersionedLocation>,
-			metadata: AssetMetadata,
-		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
-
-			let location: Location =
-				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
-
-			Self::do_register_token_v2(&location, metadata)?;
-
-			Ok(PostDispatchInfo {
-				actual_weight: Some(T::WeightInfo::register_token()),
-				pays_fee: Pays::No,
-			})
-		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -793,57 +761,6 @@ pub mod pallet {
 				foreign_token_id: token_id,
 			});
 
-			Ok(())
-		}
-
-		pub(crate) fn do_register_token_v2(
-			location: &Location,
-			metadata: AssetMetadata,
-		) -> Result<(), DispatchError> {
-			let ethereum_location = T::EthereumLocation::get();
-			// reanchor to Ethereum context
-			let location = location
-				.clone()
-				.reanchored(&ethereum_location, &T::UniversalLocation::get())
-				.map_err(|_| Error::<T>::LocationConversionFailed)?;
-
-			let token_id = TokenIdOf::convert_location(&location)
-				.ok_or(Error::<T>::LocationConversionFailed)?;
-
-			if !ForeignToNativeId::<T>::contains_key(token_id) {
-				NativeToForeignId::<T>::insert(location.clone(), token_id);
-				ForeignToNativeId::<T>::insert(token_id, location.clone());
-			}
-
-			let command = CommandV2::RegisterForeignToken {
-				token_id,
-				name: metadata.name.into_inner(),
-				symbol: metadata.symbol.into_inner(),
-				decimals: metadata.decimals,
-			};
-			Self::send_governance_call(second_governance_origin(), command)?;
-
-			Self::deposit_event(Event::<T>::RegisterToken {
-				location: location.clone().into(),
-				foreign_token_id: token_id,
-			});
-
-			Ok(())
-		}
-
-		fn send_governance_call(origin: H256, command: CommandV2) -> DispatchResult {
-			let message = MessageV2 {
-				origin,
-				origin_location: Default::default(),
-				id: Default::default(),
-				fee: Default::default(),
-				commands: BoundedVec::try_from(vec![command]).unwrap(),
-			};
-
-			let (ticket, _) =
-				T::OutboundQueueV2::validate(&message).map_err(|err| Error::<T>::Send(err))?;
-
-			T::OutboundQueueV2::deliver(ticket).map_err(|err| Error::<T>::Send(err))?;
 			Ok(())
 		}
 	}
