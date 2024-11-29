@@ -6,7 +6,9 @@ title: migrate pallet-alliance to umbrella crate.
 doc:
   - audience: Runtime Dev
     description: |
-      Imports frame umbrella crate systems into pallet-alliance.
+      Imports frame umbrella crate systems into pallet-alliance and 
+      exports BoundedVec as part of runtime::prelude of the 
+      polkadot-sdk-frame crate.
 
 crates:
   - name: pallet-alliance
