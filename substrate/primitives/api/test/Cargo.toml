@@ -21,6 +21,7 @@ sp-version = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
+sp-metadata-ir = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
@@ -40,5 +41,5 @@ name = "bench"
 harness = false
 
 [features]
-"enable-staging-api" = []
+enable-staging-api = []
 disable-ui-tests = []

@@ -79,6 +79,7 @@ use syn::{parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, F
 /// - `Result<(), TrapReason>`,
 /// - `Result<ReturnErrorCode, TrapReason>`,
 /// - `Result<u32, TrapReason>`.
+/// - `Result<u64, TrapReason>`.
 ///
 /// The macro expands to `pub struct Env` declaration, with the following traits implementations:
 /// - `pallet_revive::wasm::Environment<Runtime<E>> where E: Ext`
@@ -127,6 +128,7 @@ struct HostFn {
 enum HostFnReturn {
 	Unit,
 	U32,
+	U64,
 	ReturnCode,
 }
 
@@ -134,8 +136,7 @@ impl HostFnReturn {
 	fn map_output(&self) -> TokenStream2 {
 		match self {
 			Self::Unit => quote! { |_| None },
-			Self::U32 => quote! { |ret_val| Some(ret_val) },
-			Self::ReturnCode => quote! { |ret_code| Some(ret_code.into())  },
+			_ => quote! { |ret_val| Some(ret_val.into()) },
 		}
 	}
 
@@ -143,6 +144,7 @@ impl HostFnReturn {
 		match self {
 			Self::Unit => syn::ReturnType::Default,
 			Self::U32 => parse_quote! { -> u32 },
+			Self::U64 => parse_quote! { -> u64 },
 			Self::ReturnCode => parse_quote! { -> ReturnErrorCode },
 		}
 	}
@@ -243,7 +245,8 @@ impl HostFn {
 		let msg = r#"Should return one of the following:
 				- Result<(), TrapReason>,
 				- Result<ReturnErrorCode, TrapReason>,
-				- Result<u32, TrapReason>"#;
+				- Result<u32, TrapReason>,
+				- Result<u64, TrapReason>"#;
 		let ret_ty = match item.clone().sig.output {
 			syn::ReturnType::Type(_, ty) => Ok(ty.clone()),
 			_ => Err(err(span, &msg)),
@@ -305,6 +308,7 @@ impl HostFn {
 						let returns = match ok_ty_str.as_str() {
 							"()" => Ok(HostFnReturn::Unit),
 							"u32" => Ok(HostFnReturn::U32),
+							"u64" => Ok(HostFnReturn::U64),
 							"ReturnErrorCode" => Ok(HostFnReturn::ReturnCode),
 							_ => Err(err(arg1.span(), &msg)),
 						}?;
@@ -339,50 +343,61 @@ where
 	P: Iterator<Item = &'a std::boxed::Box<syn::Pat>> + Clone,
 	I: Iterator<Item = &'a std::boxed::Box<syn::Type>> + Clone,
 {
-	const ALLOWED_REGISTERS: u32 = 6;
-	let mut registers_used = 0;
-	let mut bindings = vec![];
-	let mut idx = 0;
-	for (name, ty) in param_names.clone().zip(param_types.clone()) {
+	const ALLOWED_REGISTERS: usize = 6;
+
+	// all of them take one register but we truncate them before passing into the function
+	// it is important to not allow any type which has illegal bit patterns like 'bool'
+	if !param_types.clone().all(|ty| {
 		let syn::Type::Path(path) = &**ty else {
 			panic!("Type needs to be path");
 		};
 		let Some(ident) = path.path.get_ident() else {
 			panic!("Type needs to be ident");
 		};
-		let size = if ident == "i8" ||
-			ident == "i16" ||
-			ident == "i32" ||
-			ident == "u8" ||
-			ident == "u16" ||
-			ident == "u32"
-		{
-			1
-		} else if ident == "i64" || ident == "u64" {
-			2
-		} else {
-			panic!("Pass by value only supports primitives");
-		};
-		registers_used += size;
-		if registers_used > ALLOWED_REGISTERS {
-			return quote! {
-				let (#( #param_names, )*): (#( #param_types, )*) = memory.read_as(__a0__)?;
-			}
-		}
-		let this_reg = quote::format_ident!("__a{}__", idx);
-		let next_reg = quote::format_ident!("__a{}__", idx + 1);
-		let binding = if size == 1 {
-			quote! {
-				let #name = #this_reg as #ty;
-			}
-		} else {
-			quote! {
-				let #name = (#this_reg as #ty) | ((#next_reg as #ty) << 32);
-			}
-		};
-		bindings.push(binding);
-		idx += size;
+		matches!(ident.to_string().as_ref(), "u8" | "u16" | "u32" | "u64")
+	}) {
+		panic!("Only primitive unsigned integers are allowed as arguments to syscalls");
 	}
+
+	// too many arguments: pass as pointer to a struct in memory
+	if param_names.clone().count() > ALLOWED_REGISTERS {
+		let fields = param_names.clone().zip(param_types.clone()).map(|(name, ty)| {
+			quote! {
+				#name: #ty,
+			}
+		});
+		return quote! {
+			#[derive(Default)]
+			#[repr(C)]
+			struct Args {
+				#(#fields)*
+			}
+			let Args { #(#param_names,)* } = {
+				let len = ::core::mem::size_of::<Args>();
+				let mut args = Args::default();
+				let ptr = &mut args as *mut Args as *mut u8;
+				// Safety
+				// 1. The struct is initialized at all times.
+				// 2. We only allow primitive integers (no bools) as arguments so every bit pattern is safe.
+				// 3. The reference doesn't outlive the args field.
+				// 4. There is only the single reference to the args field.
+				// 5. The length of the generated slice is the same as the struct.
+				let reference = unsafe {
+					::core::slice::from_raw_parts_mut(ptr, len)
+				};
+				memory.read_into_buf(__a0__ as _, reference)?;
+				args
+			};
+		}
+	}
+
+	// otherwise: one argument per register
+	let bindings = param_names.zip(param_types).enumerate().map(|(idx, (name, ty))| {
+		let reg = quote::format_ident!("__a{}__", idx);
+		quote! {
+			let #name = #reg as #ty;
+		}
+	});
 	quote! {
 		#( #bindings )*
 	}
@@ -409,7 +424,7 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 				memory: &mut M,
 				__syscall_symbol__: &[u8],
 				__available_api_version__: ApiVersion,
-			) -> Result<Option<u32>, TrapReason>
+			) -> Result<Option<u64>, TrapReason>
 			{
 				#impls
 			}
