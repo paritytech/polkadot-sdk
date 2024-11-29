@@ -24737,8 +24737,6 @@ dependencies = [
 name = "snowbridge-core"
 version = "0.2.0"
 dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
  "ethabi-decode 2.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
@@ -24747,6 +24745,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain-primitives 6.0.0",
  "scale-info",
+ "serde",
  "snowbridge-beacon-primitives 0.2.0",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",

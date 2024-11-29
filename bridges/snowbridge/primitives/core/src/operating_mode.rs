@@ -4,6 +4,7 @@ use sp_runtime::RuntimeDebug;
 
 /// Basic operating modes for a bridges module (Normal/Halted).
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BasicOperatingMode {
 	/// Normal mode, when all operations are allowed.
 	Normal,

@@ -12,6 +12,7 @@ categories = ["cryptography::cryptocurrencies"]
 workspace = true
 
 [dependencies]
+serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
@@ -31,8 +32,6 @@ sp-arithmetic = { workspace = true }
 snowbridge-beacon-primitives = { workspace = true }
 
 ethabi = { workspace = true }
-alloy-primitives = { features = ["rlp"], workspace = true }
-alloy-sol-types = { workspace = true }
 
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
@@ -41,14 +40,13 @@ xcm-executor = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
-	"alloy-primitives/std",
-	"alloy-sol-types/std",
 	"codec/std",
 	"ethabi/std",
 	"frame-support/std",
 	"frame-system/std",
 	"polkadot-parachain-primitives/std",
 	"scale-info/std",
+	"serde/std",
 	"snowbridge-beacon-primitives/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
@@ -58,6 +56,7 @@ std = [
 	"xcm-builder/std",
 	"xcm/std",
 ]
+serde = ["dep:serde", "scale-info/serde"]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
