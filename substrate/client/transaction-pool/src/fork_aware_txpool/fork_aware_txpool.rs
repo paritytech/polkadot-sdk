@@ -602,7 +602,7 @@ where
 /// out:
 /// [ Ok(xth0), Ok(xth1), Err ]
 /// ```
-fn reduce_multiview_result<H, E>(input: HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
+fn reduce_multiview_result<H, D, E>(input: HashMap<H, Vec<Result<D, E>>>) -> Vec<Result<D, E>> {
 	let mut values = input.values();
 	let Some(first) = values.next() else {
 		return Default::default();
@@ -684,6 +684,10 @@ where
 							})
 					})
 				})
+				.map(|r| r.map(|r| {
+					mempool.update_transaction(&r);
+					r.hash()
+				}))
 				.collect::<Vec<_>>())
 	}
 
@@ -727,9 +731,16 @@ where
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
-		self.view_store.submit_and_watch(at, timed_source, xt).await.inspect_err(|_| {
-			self.mempool.remove_transaction(&xt_hash);
-		})
+		self.view_store
+			.submit_and_watch(at, timed_source, xt)
+			.await
+			.inspect_err(|_| {
+				self.mempool.remove_transaction(&xt_hash);
+			})
+			.map(|mut outcome| {
+				self.mempool.update_transaction(&outcome);
+				outcome.expect_watcher()
+			})
 	}
 
 	/// Intended to remove transactions identified by the given hashes, and any dependent
@@ -863,7 +874,13 @@ where
 			.extend_unwatched(TransactionSource::Local, &[xt.clone()])
 			.remove(0)?;
 
-		self.view_store.submit_local(xt).or_else(|_| Ok(xt_hash))
+		self.view_store
+			.submit_local(xt)
+			.map(|outcome| {
+				self.mempool.update_transaction(&outcome);
+				outcome.hash()
+			})
+			.or_else(|_| Ok(xt_hash))
 	}
 }
 
@@ -1115,7 +1132,11 @@ where
 			.await
 			.into_iter()
 			.zip(hashes)
-			.map(|(result, tx_hash)| result.or_else(|_| Err(tx_hash)))
+			.map(|(result, tx_hash)| {
+				result
+					.map(|outcome| self.mempool.update_transaction(&outcome.into()))
+					.or_else(|_| Err(tx_hash))
+			})
 			.collect::<Vec<_>>();
 
 		let submitted_count = watched_results.len();
@@ -1490,7 +1511,7 @@ mod reduce_multiview_result_tests {
 	fn empty() {
 		sp_tracing::try_init_simple();
 		let input = HashMap::default();
-		let r = reduce_multiview_result::<H256, Error>(input);
+		let r = reduce_multiview_result::<H256, H256, Error>(input);
 		assert!(r.is_empty());
 	}
 
