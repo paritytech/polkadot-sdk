@@ -163,6 +163,9 @@ pub struct Litep2pNetworkBackend {
 	/// Pending `PUT_VALUE` queries.
 	pending_put_values: HashMap<QueryId, (RecordKey, Instant)>,
 
+	/// Pending `GET_PROVIDERS` queries.
+	pending_get_providers: HashMap<QueryId, (RecordKey, Instant)>,
+
 	/// Discovery.
 	discovery: Discovery,
 
@@ -617,6 +620,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			discovery,
 			pending_put_values: HashMap::new(),
 			pending_get_values: HashMap::new(),
+			pending_get_providers: HashMap::new(),
 			peerstore_handle: peer_store_handle,
 			block_announce_protocol,
 			event_streams: out_events::OutChannels::new(None)?,
@@ -723,6 +727,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 						NetworkServiceCommand::StopProviding { key } => {
 							self.discovery.stop_providing(key).await;
+						}
+						NetworkServiceCommand::GetProviders { key } => {
+							let query_id = self.discovery.get_providers(key.clone()).await;
+							self.pending_get_providers.insert(query_id, (key, Instant::now()));
 						}
 						NetworkServiceCommand::EventStream { tx } => {
 							self.event_streams.push(tx);
@@ -881,48 +889,88 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						}
 					}
-					Some(DiscoveryEvent::QueryFailed { query_id }) => {
-						match self.pending_get_values.remove(&query_id) {
-							None => match self.pending_put_values.remove(&query_id) {
-								None => log::warn!(
-									target: LOG_TARGET,
-									"non-existent query failed ({query_id:?})",
-								),
-								Some((key, started)) => {
-									log::debug!(
-										target: LOG_TARGET,
-										"`PUT_VALUE` ({query_id:?}) failed for key {key:?}",
-									);
-
-									self.event_streams.send(Event::Dht(
-										DhtEvent::ValuePutFailed(key)
-									));
-
-									if let Some(ref metrics) = self.metrics {
-										metrics
-											.kademlia_query_duration
-											.with_label_values(&["value-put-failed"])
-											.observe(started.elapsed().as_secs_f64());
-									}
-								}
-							}
+					Some(DiscoveryEvent::GetProvidersSuccess { query_id, providers }) => {
+						match self.pending_get_providers.remove(&query_id) {
+							None => log::warn!(
+								target: LOG_TARGET,
+								"`GET_PROVIDERS` succeeded for a non-existent query",
+							),
 							Some((key, started)) => {
-								log::debug!(
+								log::trace!(
 									target: LOG_TARGET,
-									"`GET_VALUE` ({query_id:?}) failed for key {key:?}",
+									"`GET_PROVIDERS` for {key:?} ({query_id:?}) succeeded",
 								);
 
 								self.event_streams.send(Event::Dht(
-									DhtEvent::ValueNotFound(key)
+									DhtEvent::ProvidersFound(
+										key.into(),
+										providers.into_iter().map(|p| p.peer.into()).collect()
+									)
 								));
 
 								if let Some(ref metrics) = self.metrics {
 									metrics
 										.kademlia_query_duration
-										.with_label_values(&["value-get-failed"])
+										.with_label_values(&["providers-get"])
 										.observe(started.elapsed().as_secs_f64());
 								}
 							}
+						}
+					}
+					Some(DiscoveryEvent::QueryFailed { query_id }) => {
+						if let Some((key, started)) = self.pending_get_values.remove(&query_id) {
+							log::debug!(
+								target: LOG_TARGET,
+								"`GET_VALUE` ({query_id:?}) failed for key {key:?}",
+							);
+
+							self.event_streams.send(Event::Dht(
+								DhtEvent::ValueNotFound(key)
+							));
+
+							if let Some(ref metrics) = self.metrics {
+								metrics
+									.kademlia_query_duration
+									.with_label_values(&["value-get-failed"])
+									.observe(started.elapsed().as_secs_f64());
+							}
+						} else if let Some((key, started)) = self.pending_put_values.remove(&query_id) {
+							log::debug!(
+								target: LOG_TARGET,
+								"`PUT_VALUE` ({query_id:?}) failed for key {key:?}",
+							);
+
+							self.event_streams.send(Event::Dht(
+								DhtEvent::ValuePutFailed(key)
+							));
+
+							if let Some(ref metrics) = self.metrics {
+								metrics
+									.kademlia_query_duration
+									.with_label_values(&["value-put-failed"])
+									.observe(started.elapsed().as_secs_f64());
+							}
+						} else if let Some((key, started)) = self.pending_get_providers.remove(&query_id) {
+							log::debug!(
+								target: LOG_TARGET,
+								"`GET_PROVIDERS` ({query_id:?}) failed for key {key:?}"
+							);
+
+							self.event_streams.send(Event::Dht(
+								DhtEvent::ProvidersNotFound(key)
+							));
+
+							if let Some(ref metrics) = self.metrics {
+								metrics
+									.kademlia_query_duration
+									.with_label_values(&["providers-get-failed"])
+									.observe(started.elapsed().as_secs_f64());
+							}
+						} else {
+							log::warn!(
+								target: LOG_TARGET,
+								"non-existent query failed ({query_id:?})",
+							);
 						}
 					}
 					Some(DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols, .. }) => {

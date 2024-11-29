@@ -1693,6 +1693,8 @@ where
 							DhtEvent::ValuePutFailed(_) => "value-put-failed",
 							DhtEvent::PutRecordRequest(_, _, _, _) => "put-record-request",
 							DhtEvent::StartProvidingFailed(_) => "start-providing-failed",
+							DhtEvent::ProvidersFound(_, _) => "providers-found",
+							DhtEvent::ProvidersNotFound(_) => "providers-not-found",
 						};
 						metrics
 							.kademlia_query_duration

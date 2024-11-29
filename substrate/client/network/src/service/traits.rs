@@ -240,6 +240,9 @@ pub trait NetworkDHTProvider {
 
 	/// Deregister this node as a provider for `key` on the DHT.
 	fn stop_providing(&self, key: KademliaKey);
+
+	/// Start getting the list of providers for `key` on the DHT.
+	fn get_providers(&self, key: KademliaKey);
 }
 
 impl<T> NetworkDHTProvider for Arc<T>
@@ -275,6 +278,10 @@ where
 
 	fn stop_providing(&self, key: KademliaKey) {
 		T::stop_providing(self, key)
+	}
+
+	fn get_providers(&self, key: KademliaKey) {
+		T::get_providers(self, key)
 	}
 }
 
