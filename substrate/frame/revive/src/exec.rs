@@ -563,6 +563,7 @@ pub struct Stack<'a, T: Config, E> {
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
 	/// Whether or not actual transfer of funds should be performed.
+	/// This is set to `true` exclusively when we simulate a call through eth_transact.
 	skip_transfer: bool,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,

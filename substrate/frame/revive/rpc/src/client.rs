@@ -188,7 +188,6 @@ pub enum ClientError {
 }
 
 const REVERT_CODE: i32 = 3;
-// TODO convert error code to https://eips.ethereum.org/EIPS/eip-1474#error-codes
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		match err {
