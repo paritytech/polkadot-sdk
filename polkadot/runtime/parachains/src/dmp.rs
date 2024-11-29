@@ -225,19 +225,7 @@ impl<T: Config> Pallet<T> {
 		msg: DownwardMessage,
 	) -> Result<(), QueueDownwardMessageError> {
 		let serialized_len = msg.len() as u32;
-		if serialized_len > config.max_downward_message_size {
-			return Err(QueueDownwardMessageError::ExceedsMaxMessageSize)
-		}
-
-		// Hard limit on Queue size
-		if Self::dmq_length(para) > Self::dmq_max_length(config.max_downward_message_size) {
-			return Err(QueueDownwardMessageError::ExceedsMaxMessageSize)
-		}
-
-		// If the head exists, we assume the parachain is legit and exists.
-		if !paras::Heads::<T>::contains_key(para) {
-			return Err(QueueDownwardMessageError::Unroutable)
-		}
+		Self::can_queue_downward_message(config, &para, &msg)?;
 
 		let inbound =
 			InboundDownwardMessage { msg, sent_at: frame_system::Pallet::<T>::block_number() };
