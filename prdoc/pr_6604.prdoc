@@ -5,3 +5,5 @@ doc:
 crates:
 - name: polkadot-runtime-parachains
   bump: major
+- name: polkadot-runtime-common
+  bump: major
