@@ -175,10 +175,11 @@ jobs:
           check_gpg $BINARY
 
       - name: Fetch rc commit and tag
+        working-directory: release-artifacts
         if: ${{ env.IMAGE_TYPE == 'rc' }}
         id: fetch_rc_refs
         run: |
-          . ./.github/scripts/common/lib.sh
+          . ../.github/scripts/common/lib.sh
 
           chmod a+rx $BINARY
 
@@ -200,6 +201,7 @@ jobs:
         if: ${{ env.IMAGE_TYPE == 'release'}}
         id: fetch_release_refs
         run: |
+          . ../.github/scripts/common/lib.sh
           chmod a+rx $BINARY
 
           if [[ $BINARY != 'chain-spec-builder' ]]; then
