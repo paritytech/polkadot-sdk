@@ -219,6 +219,9 @@ impl<
 			return (None, None)
 		}
 
+		// allow more initialization for target parachain
+		ToParachainHelper::ensure(Parachain::get());
+
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
 			// if not waived, we need to set up accounts for paying and receiving fees
@@ -238,9 +241,6 @@ impl<
 				XcmConfig::AssetTransactor::deposit_asset(&fee, &origin_ref, None).unwrap();
 			}
 
-			// allow more initialization for target parachain
-			ToParachainHelper::ensure(Parachain::get());
-
 			// expected worst case - direct withdraw
 			fees_mode = Some(FeesMode { jit_withdraw: true });
 		}
@@ -257,6 +257,15 @@ pub trait EnsureForParachain {
 impl EnsureForParachain for () {
 	fn ensure(_: ParaId) {
 		// doing nothing
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: polkadot_runtime_parachains::dmp::Config> EnsureForParachain
+	for polkadot_runtime_parachains::dmp::Pallet<T>
+{
+	fn ensure(para: ParaId) {
+		polkadot_runtime_parachains::paras::Heads::<T>::insert(para, alloc::vec![]);
 	}
 }
 

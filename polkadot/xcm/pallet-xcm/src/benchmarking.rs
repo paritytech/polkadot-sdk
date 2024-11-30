@@ -96,6 +96,13 @@ benchmarks! {
 		)?
 		.into();
 		let versioned_msg = VersionedXcm::from(msg);
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_dest.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
 	}: _<RuntimeOrigin<T>>(send_origin, Box::new(versioned_dest), Box::new(versioned_msg))
 
 	teleport_assets {
@@ -259,6 +266,14 @@ benchmarks! {
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?
 		.into();
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_loc.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
+
 	}: _(RawOrigin::Root, Box::new(versioned_loc))
 
 	force_unsubscribe_version_notify {
@@ -267,6 +282,13 @@ benchmarks! {
 		)?;
 		let versioned_loc: VersionedLocation = loc.clone().into();
 		let _ = crate::Pallet::<T>::request_version_notify(loc);
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_loc.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
 	}: _(RawOrigin::Root, Box::new(versioned_loc))
 
 	force_suspension {}: _(RawOrigin::Root, true)
