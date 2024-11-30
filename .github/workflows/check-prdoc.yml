@@ -21,6 +21,7 @@ env:
 jobs:
   check-prdoc:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.event.pull_request.number != ''
     steps:
       - name: Checkout repo

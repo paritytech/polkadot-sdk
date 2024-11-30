@@ -35,8 +35,8 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex, GroupIndex, Hash, HashT,
-	OccupiedCore, SessionIndex,
+	vstaging::OccupiedCore, AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex,
+	GroupIndex, Hash, HashT, SessionIndex,
 };
 use sc_network::ProtocolName;
 
@@ -170,8 +170,8 @@ impl FetchTaskConfig {
 				candidate_hash: core.candidate_hash,
 				index: session_info.our_index,
 			},
-			erasure_root: core.candidate_descriptor.erasure_root,
-			relay_parent: core.candidate_descriptor.relay_parent,
+			erasure_root: core.candidate_descriptor.erasure_root(),
+			relay_parent: core.candidate_descriptor.relay_parent(),
 			metrics,
 			sender,
 			chunk_index,

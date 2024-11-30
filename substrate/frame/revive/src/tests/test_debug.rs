@@ -23,6 +23,7 @@ use crate::{
 	test_utils::*,
 };
 use frame_support::traits::Currency;
+use pretty_assertions::assert_eq;
 use sp_core::H160;
 use std::cell::RefCell;
 
@@ -99,146 +100,139 @@ impl CallSpan for TestCallSpan {
 	}
 }
 
-/// We can only run the tests if we have a riscv toolchain installed
-#[cfg(feature = "riscv")]
-mod run_tests {
-	use super::*;
-	use pretty_assertions::assert_eq;
+#[test]
+fn debugging_works() {
+	let (wasm_caller, _) = compile_module("call").unwrap();
+	let (wasm_callee, _) = compile_module("store_call").unwrap();
 
-	#[test]
-	fn debugging_works() {
-		let (wasm_caller, _) = compile_module("call").unwrap();
-		let (wasm_callee, _) = compile_module("store_call").unwrap();
-
-		fn current_stack() -> Vec<DebugFrame> {
-			DEBUG_EXECUTION_TRACE.with(|stack| stack.borrow().clone())
-		}
-
-		fn deploy(wasm: Vec<u8>) -> H160 {
-			Contracts::bare_instantiate(
-				RuntimeOrigin::signed(ALICE),
-				0,
-				GAS_LIMIT,
-				deposit_limit::<Test>(),
-				Code::Upload(wasm),
-				vec![],
-				Some([0u8; 32]),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-			)
-			.result
-			.unwrap()
-			.addr
-		}
-
-		fn constructor_frame(contract_address: &H160, after: bool) -> DebugFrame {
-			DebugFrame {
-				contract_address: *contract_address,
-				call: ExportedFunction::Constructor,
-				input: vec![],
-				result: if after { Some(vec![]) } else { None },
-			}
-		}
-
-		fn call_frame(contract_address: &H160, args: Vec<u8>, after: bool) -> DebugFrame {
-			DebugFrame {
-				contract_address: *contract_address,
-				call: ExportedFunction::Call,
-				input: args,
-				result: if after { Some(vec![]) } else { None },
-			}
-		}
-
-		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-			let _ = Balances::deposit_creating(&ALICE, 1_000_000);
-
-			assert_eq!(current_stack(), vec![]);
-
-			let addr_caller = deploy(wasm_caller);
-			let addr_callee = deploy(wasm_callee);
-
-			assert_eq!(
-				current_stack(),
-				vec![
-					constructor_frame(&addr_caller, false),
-					constructor_frame(&addr_caller, true),
-					constructor_frame(&addr_callee, false),
-					constructor_frame(&addr_callee, true),
-				]
-			);
-
-			let main_args = (100u32, &addr_callee.clone()).encode();
-			let inner_args = (100u32).encode();
-
-			assert_ok!(Contracts::call(
-				RuntimeOrigin::signed(ALICE),
-				addr_caller,
-				0,
-				GAS_LIMIT,
-				deposit_limit::<Test>(),
-				main_args.clone()
-			));
-
-			let stack_top = current_stack()[4..].to_vec();
-			assert_eq!(
-				stack_top,
-				vec![
-					call_frame(&addr_caller, main_args.clone(), false),
-					call_frame(&addr_callee, inner_args.clone(), false),
-					call_frame(&addr_callee, inner_args, true),
-					call_frame(&addr_caller, main_args, true),
-				]
-			);
-		});
+	fn current_stack() -> Vec<DebugFrame> {
+		DEBUG_EXECUTION_TRACE.with(|stack| stack.borrow().clone())
 	}
 
-	#[test]
-	fn call_interception_works() {
-		let (wasm, _) = compile_module("dummy").unwrap();
+	fn deploy(wasm: Vec<u8>) -> H160 {
+		Contracts::bare_instantiate(
+			RuntimeOrigin::signed(ALICE),
+			0,
+			GAS_LIMIT,
+			deposit_limit::<Test>(),
+			Code::Upload(wasm),
+			vec![],
+			Some([0u8; 32]),
+			DebugInfo::Skip,
+			CollectEvents::Skip,
+		)
+		.result
+		.unwrap()
+		.addr
+	}
 
-		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-			let _ = Balances::deposit_creating(&ALICE, 1_000_000);
+	fn constructor_frame(contract_address: &H160, after: bool) -> DebugFrame {
+		DebugFrame {
+			contract_address: *contract_address,
+			call: ExportedFunction::Constructor,
+			input: vec![],
+			result: if after { Some(vec![]) } else { None },
+		}
+	}
 
-			let account_id = Contracts::bare_instantiate(
-				RuntimeOrigin::signed(ALICE),
-				0,
-				GAS_LIMIT,
-				deposit_limit::<Test>(),
-				Code::Upload(wasm),
-				vec![],
-				// some salt to ensure that the address of this contract is unique among all tests
-				Some([0x41; 32]),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-			)
-			.result
-			.unwrap()
-			.addr;
+	fn call_frame(contract_address: &H160, args: Vec<u8>, after: bool) -> DebugFrame {
+		DebugFrame {
+			contract_address: *contract_address,
+			call: ExportedFunction::Call,
+			input: args,
+			result: if after { Some(vec![]) } else { None },
+		}
+	}
 
-			// no interception yet
-			assert_ok!(Contracts::call(
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = Balances::deposit_creating(&ALICE, 1_000_000);
+
+		assert_eq!(current_stack(), vec![]);
+
+		let addr_caller = deploy(wasm_caller);
+		let addr_callee = deploy(wasm_callee);
+
+		assert_eq!(
+			current_stack(),
+			vec![
+				constructor_frame(&addr_caller, false),
+				constructor_frame(&addr_caller, true),
+				constructor_frame(&addr_callee, false),
+				constructor_frame(&addr_callee, true),
+			]
+		);
+
+		let main_args = (100u32, &addr_callee.clone()).encode();
+		let inner_args = (100u32).encode();
+
+		assert_ok!(Contracts::call(
+			RuntimeOrigin::signed(ALICE),
+			addr_caller,
+			0,
+			GAS_LIMIT,
+			deposit_limit::<Test>(),
+			main_args.clone()
+		));
+
+		let stack_top = current_stack()[4..].to_vec();
+		assert_eq!(
+			stack_top,
+			vec![
+				call_frame(&addr_caller, main_args.clone(), false),
+				call_frame(&addr_callee, inner_args.clone(), false),
+				call_frame(&addr_callee, inner_args, true),
+				call_frame(&addr_caller, main_args, true),
+			]
+		);
+	});
+}
+
+#[test]
+fn call_interception_works() {
+	let (wasm, _) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = Balances::deposit_creating(&ALICE, 1_000_000);
+
+		let account_id = Contracts::bare_instantiate(
+			RuntimeOrigin::signed(ALICE),
+			0,
+			GAS_LIMIT,
+			deposit_limit::<Test>(),
+			Code::Upload(wasm),
+			vec![],
+			// some salt to ensure that the address of this contract is unique among all tests
+			Some([0x41; 32]),
+			DebugInfo::Skip,
+			CollectEvents::Skip,
+		)
+		.result
+		.unwrap()
+		.addr;
+
+		// no interception yet
+		assert_ok!(Contracts::call(
+			RuntimeOrigin::signed(ALICE),
+			account_id,
+			0,
+			GAS_LIMIT,
+			deposit_limit::<Test>(),
+			vec![],
+		));
+
+		// intercept calls to this contract
+		INTERCEPTED_ADDRESS.with(|i| *i.borrow_mut() = Some(account_id));
+
+		assert_err_ignore_postinfo!(
+			Contracts::call(
 				RuntimeOrigin::signed(ALICE),
 				account_id,
 				0,
 				GAS_LIMIT,
 				deposit_limit::<Test>(),
 				vec![],
-			));
-
-			// intercept calls to this contract
-			INTERCEPTED_ADDRESS.with(|i| *i.borrow_mut() = Some(account_id));
-
-			assert_err_ignore_postinfo!(
-				Contracts::call(
-					RuntimeOrigin::signed(ALICE),
-					account_id,
-					0,
-					GAS_LIMIT,
-					deposit_limit::<Test>(),
-					vec![],
-				),
-				<Error<Test>>::ContractReverted,
-			);
-		});
-	}
+			),
+			<Error<Test>>::ContractReverted,
+		);
+	});
 }

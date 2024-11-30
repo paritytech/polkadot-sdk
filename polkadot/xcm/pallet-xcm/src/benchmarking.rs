@@ -128,14 +128,14 @@ benchmarks! {
 					&origin_location,
 					None,
 				).map_err(|error| {
-				  log::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+				  tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
 				  BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
 			NonFungible(instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
 					.map_err(|error| {
-						log::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+						tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
 						BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 					})?;
 			}
@@ -178,14 +178,14 @@ benchmarks! {
 					&origin_location,
 					None,
 				).map_err(|error| {
-				  log::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+				  tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
 				  BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
 			NonFungible(instance) => {
 				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(&asset, &origin_location, None)
 					.map_err(|error| {
-						log::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+						tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
 						BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 					})?;
 			}
@@ -382,8 +382,8 @@ benchmarks! {
 			asset.clone().into(),
 			&XcmContext { origin: None, message_id: [0u8; 32], topic: None }
 		);
-		let versioned_assets = VersionedAssets::V4(asset.into());
-	}: _<RuntimeOrigin<T>>(claim_origin.into(), Box::new(versioned_assets), Box::new(VersionedLocation::V4(claim_location)))
+		let versioned_assets = VersionedAssets::from(Assets::from(asset));
+	}: _<RuntimeOrigin<T>>(claim_origin.into(), Box::new(versioned_assets), Box::new(VersionedLocation::from(claim_location)))
 
 	impl_benchmark_test_suite!(
 		Pallet,

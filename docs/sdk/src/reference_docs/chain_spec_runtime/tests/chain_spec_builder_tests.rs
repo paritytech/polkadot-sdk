@@ -1,8 +1,10 @@
 use serde_json::{json, Value};
 use std::{process::Command, str};
 
-const WASM_FILE_PATH: &str =
-	"../../../../../target/release/wbuild/chain-spec-guide-runtime/chain_spec_guide_runtime.wasm";
+fn wasm_file_path() -> &'static str {
+	chain_spec_guide_runtime::runtime::WASM_BINARY_PATH
+		.expect("chain_spec_guide_runtime wasm should exist. qed")
+}
 
 const CHAIN_SPEC_BUILDER_PATH: &str = "../../../../../target/release/chain-spec-builder";
 
@@ -26,7 +28,7 @@ fn list_presets() {
 	let output = Command::new(get_chain_spec_builder_path())
 		.arg("list-presets")
 		.arg("-r")
-		.arg(WASM_FILE_PATH)
+		.arg(wasm_file_path())
 		.output()
 		.expect("Failed to execute command");
 
@@ -50,7 +52,7 @@ fn get_preset() {
 	let output = Command::new(get_chain_spec_builder_path())
 		.arg("display-preset")
 		.arg("-r")
-		.arg(WASM_FILE_PATH)
+		.arg(wasm_file_path())
 		.arg("-p")
 		.arg("preset_2")
 		.output()
@@ -58,7 +60,7 @@ fn get_preset() {
 
 	let output: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
-	//note: copy of chain_spec_guide_runtime::preset_1
+	//note: copy of chain_spec_guide_runtime::preset_2
 	let expected_output = json!({
 		"bar": {
 			"initialAccount": "5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL",
@@ -83,7 +85,7 @@ fn generate_chain_spec() {
 		.arg("/dev/stdout")
 		.arg("create")
 		.arg("-r")
-		.arg(WASM_FILE_PATH)
+		.arg(wasm_file_path())
 		.arg("named-preset")
 		.arg("preset_2")
 		.output()
@@ -140,7 +142,7 @@ fn generate_para_chain_spec() {
 		.arg("-p")
 		.arg("1000")
 		.arg("-r")
-		.arg(WASM_FILE_PATH)
+		.arg(wasm_file_path())
 		.arg("named-preset")
 		.arg("preset_2")
 		.output()
@@ -185,4 +187,21 @@ fn generate_para_chain_spec() {
 	  }
 	});
 	assert_eq!(output, expected_output, "Output did not match expected");
+}
+
+#[test]
+#[docify::export]
+fn preset_4_json() {
+	assert_eq!(
+		chain_spec_guide_runtime::presets::preset_4(),
+		json!({
+			"foo": {
+				"someEnum": {
+					"Data2": {
+						"values": "0x0c10"
+					}
+				},
+			},
+		})
+	);
 }

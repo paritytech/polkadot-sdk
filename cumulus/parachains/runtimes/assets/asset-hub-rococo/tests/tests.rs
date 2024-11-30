@@ -21,13 +21,13 @@ use asset_hub_rococo_runtime::{
 	xcm_config,
 	xcm_config::{
 		bridging, AssetFeeAsExistentialDepositMultiplierFeeCharger, CheckingAccount,
-		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, ForeignCreatorsSovereignAccountOf,
-		LocationToAccountId, StakingPot, TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
+		ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger, LocationToAccountId, StakingPot,
+		TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection,
-	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
-	MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	SessionKeys, TrustBackedAssetsInstance, XcmpQueue,
+	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
+	CollatorSelection, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
+	MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin, SessionKeys, TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -941,7 +941,7 @@ asset_test_utils::include_teleports_for_foreign_assets_works!(
 	CheckingAccount,
 	WeightToFee,
 	ParachainSystem,
-	ForeignCreatorsSovereignAccountOf,
+	LocationToAccountId,
 	ForeignAssetsInstance,
 	collator_session_keys(),
 	slot_durations(),
@@ -1015,7 +1015,7 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 	Runtime,
 	XcmConfig,
 	WeightToFee,
-	ForeignCreatorsSovereignAccountOf,
+	LocationToAccountId,
 	ForeignAssetsInstance,
 	Location,
 	WithLatestLocationConverter<Location>,
@@ -1078,6 +1078,7 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 mod asset_hub_rococo_tests {
 	use super::*;
 	use asset_hub_rococo_runtime::PolkadotXcm;
+	use xcm::latest::WESTEND_GENESIS_HASH;
 	use xcm_executor::traits::ConvertLocation;
 
 	fn bridging_to_asset_hub_westend() -> TestBridgingConfig {
@@ -1108,8 +1109,10 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location =
-			Location::new(2, [Junction::GlobalConsensus(NetworkId::Westend)]);
+		let foreign_asset_id_location = Location::new(
+			2,
+			[Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))],
+		);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
@@ -1143,7 +1146,7 @@ mod asset_hub_rococo_tests {
 			},
 			(
 				[PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into(),
-				GlobalConsensus(Westend),
+				GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 				[Parachain(1000)].into()
 			),
 			|| {
@@ -1182,8 +1185,10 @@ mod asset_hub_rococo_tests {
 		let block_author_account = AccountId::from(BLOCK_AUTHOR_ACCOUNT);
 		let staking_pot = StakingPot::get();
 
-		let foreign_asset_id_location =
-			Location::new(2, [Junction::GlobalConsensus(NetworkId::Westend)]);
+		let foreign_asset_id_location = Location::new(
+			2,
+			[Junction::GlobalConsensus(NetworkId::ByGenesis(WESTEND_GENESIS_HASH))],
+		);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as foreign asset owner (can be whoever for this scenario)
 		let foreign_asset_owner =
@@ -1210,7 +1215,7 @@ mod asset_hub_rococo_tests {
 			bridging_to_asset_hub_westend,
 			(
 				[PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)].into(),
-				GlobalConsensus(Westend),
+				GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 				[Parachain(1000)].into()
 			),
 			|| {
@@ -1465,4 +1470,20 @@ fn location_conversion_works() {
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}
+}
+
+#[test]
+fn xcm_payment_api_works() {
+	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
+	asset_test_utils::test_cases::xcm_payment_api_with_pools_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
 }

@@ -27,9 +27,9 @@ use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
 	bridge_to_rococo_config::RococoGlobalConsensusNetwork,
 	xcm_config::{LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	SignedExtra, TransactionPayment, UncheckedExtrinsic,
+	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, Executive,
+	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
@@ -46,7 +46,7 @@ use sp_runtime::{
 	AccountId32, Perbill,
 };
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
-use xcm::latest::prelude::*;
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 // Random para id of sibling chain used in tests.
@@ -81,7 +81,7 @@ fn construct_extrinsic(
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
-	let extra: SignedExtra = (
+	let tx_ext: TxExtension = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
@@ -94,12 +94,13 @@ fn construct_extrinsic(
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
-	);
-	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
+	)
+		.into();
+	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
-	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), extra)
+	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), tx_ext)
 }
 
 fn construct_and_apply_extrinsic(
@@ -245,10 +246,11 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 				>(
 					SiblingParachainLocation::get(),
 					BridgedUniversalLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime, XcmOverBridgeHubRococoInstance
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
 					}
 				).1
 			},
@@ -295,7 +297,7 @@ fn relayed_incoming_message_works() {
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 		SIBLING_PARACHAIN_ID,
-		Westend,
+		ByGenesis(WESTEND_GENESIS_HASH),
 		|| {
 			// we need to create lane between sibling parachain and remote destination
 			bridge_hub_test_utils::ensure_opened_bridge::<
@@ -306,11 +308,12 @@ fn relayed_incoming_message_works() {
 			>(
 				SiblingParachainLocation::get(),
 				BridgedUniversalLocation::get(),
-				|locations, fee| {
+				false,
+				|locations, _fee| {
 					bridge_hub_test_utils::open_bridge_with_storage::<
 						Runtime,
 						XcmOverBridgeHubRococoInstance,
-					>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					>(locations, LegacyLaneId([0, 0, 0, 1]))
 				},
 			)
 			.1
@@ -329,7 +332,7 @@ fn free_relay_extrinsic_works() {
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 		SIBLING_PARACHAIN_ID,
-		Westend,
+		ByGenesis(WESTEND_GENESIS_HASH),
 		|| {
 			// we need to create lane between sibling parachain and remote destination
 			bridge_hub_test_utils::ensure_opened_bridge::<
@@ -340,11 +343,12 @@ fn free_relay_extrinsic_works() {
 			>(
 				SiblingParachainLocation::get(),
 				BridgedUniversalLocation::get(),
-				|locations, fee| {
+				false,
+				|locations, _fee| {
 					bridge_hub_test_utils::open_bridge_with_storage::<
 						Runtime,
 						XcmOverBridgeHubRococoInstance,
-					>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					>(locations, LegacyLaneId([0, 0, 0, 1]))
 				},
 			)
 			.1
@@ -520,4 +524,14 @@ fn location_conversion_works() {
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}
+}
+
+#[test]
+fn xcm_payment_api_works() {
+	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
 }

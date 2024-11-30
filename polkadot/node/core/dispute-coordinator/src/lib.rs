@@ -46,7 +46,7 @@ use polkadot_node_subsystem_util::{
 	runtime::{Config as RuntimeInfoConfig, RuntimeInfo},
 };
 use polkadot_primitives::{
-	DisputeStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorIndex,
+	vstaging::ScrapedOnChainVotes, DisputeStatement, SessionIndex, SessionInfo, ValidatorIndex,
 };
 
 use crate::{

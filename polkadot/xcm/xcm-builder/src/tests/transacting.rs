@@ -22,7 +22,6 @@ fn transacting_should_work() {
 
 	let message = Xcm::<TestCall>(vec![Transact {
 		origin_kind: OriginKind::Native,
-		require_weight_at_most: Weight::from_parts(50, 50),
 		call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
 	}]);
 	let mut hash = fake_message_hash(&message);
@@ -43,7 +42,6 @@ fn transacting_should_respect_max_weight_requirement() {
 
 	let message = Xcm::<TestCall>(vec![Transact {
 		origin_kind: OriginKind::Native,
-		require_weight_at_most: Weight::from_parts(40, 40),
 		call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
 	}]);
 	let mut hash = fake_message_hash(&message);
@@ -55,10 +53,7 @@ fn transacting_should_respect_max_weight_requirement() {
 		weight_limit,
 		Weight::zero(),
 	);
-	assert_eq!(
-		r,
-		Outcome::Incomplete { used: Weight::from_parts(50, 50), error: XcmError::MaxWeightInvalid }
-	);
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(60, 60) });
 }
 
 #[test]
@@ -67,7 +62,6 @@ fn transacting_should_refund_weight() {
 
 	let message = Xcm::<TestCall>(vec![Transact {
 		origin_kind: OriginKind::Native,
-		require_weight_at_most: Weight::from_parts(50, 50),
 		call: TestCall::Any(Weight::from_parts(50, 50), Some(Weight::from_parts(30, 30)))
 			.encode()
 			.into(),
@@ -98,7 +92,6 @@ fn paid_transacting_should_refund_payment_for_unused_weight() {
 		BuyExecution { fees, weight_limit: Limited(Weight::from_parts(100, 100)) },
 		Transact {
 			origin_kind: OriginKind::Native,
-			require_weight_at_most: Weight::from_parts(50, 50),
 			// call estimated at 50 but only takes 10.
 			call: TestCall::Any(Weight::from_parts(50, 50), Some(Weight::from_parts(10, 10)))
 				.encode()
@@ -130,7 +123,6 @@ fn report_successful_transact_status_should_work() {
 	let message = Xcm::<TestCall>(vec![
 		Transact {
 			origin_kind: OriginKind::Native,
-			require_weight_at_most: Weight::from_parts(50, 50),
 			call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
 		},
 		ReportTransactStatus(QueryResponseInfo {
@@ -166,7 +158,6 @@ fn report_failed_transact_status_should_work() {
 	let message = Xcm::<TestCall>(vec![
 		Transact {
 			origin_kind: OriginKind::Native,
-			require_weight_at_most: Weight::from_parts(50, 50),
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
 		},
 		ReportTransactStatus(QueryResponseInfo {
@@ -202,7 +193,6 @@ fn expect_successful_transact_status_should_work() {
 	let message = Xcm::<TestCall>(vec![
 		Transact {
 			origin_kind: OriginKind::Native,
-			require_weight_at_most: Weight::from_parts(50, 50),
 			call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
 		},
 		ExpectTransactStatus(MaybeErrorCode::Success),
@@ -221,7 +211,6 @@ fn expect_successful_transact_status_should_work() {
 	let message = Xcm::<TestCall>(vec![
 		Transact {
 			origin_kind: OriginKind::Native,
-			require_weight_at_most: Weight::from_parts(50, 50),
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
 		},
 		ExpectTransactStatus(MaybeErrorCode::Success),
@@ -248,7 +237,6 @@ fn expect_failed_transact_status_should_work() {
 	let message = Xcm::<TestCall>(vec![
 		Transact {
 			origin_kind: OriginKind::Native,
-			require_weight_at_most: Weight::from_parts(50, 50),
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
 		},
 		ExpectTransactStatus(vec![2].into()),
@@ -267,7 +255,6 @@ fn expect_failed_transact_status_should_work() {
 	let message = Xcm::<TestCall>(vec![
 		Transact {
 			origin_kind: OriginKind::Native,
-			require_weight_at_most: Weight::from_parts(50, 50),
 			call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
 		},
 		ExpectTransactStatus(vec![2].into()),
@@ -294,7 +281,6 @@ fn clear_transact_status_should_work() {
 	let message = Xcm::<TestCall>(vec![
 		Transact {
 			origin_kind: OriginKind::Native,
-			require_weight_at_most: Weight::from_parts(50, 50),
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
 		},
 		ClearTransactStatus,

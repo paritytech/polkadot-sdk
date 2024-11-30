@@ -19,10 +19,14 @@
 use std::collections::HashSet;
 
 use crate::{xcm_config::LocationConverter, *};
+use approx::assert_relative_eq;
 use frame_support::traits::WhitelistedStorageKeys;
+use pallet_staking::EraPayout;
 use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
 use sp_keyring::AccountKeyring::Alice;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
+
+const MILLISECONDS_PER_HOUR: u64 = 60 * 60 * 1000;
 
 #[test]
 fn remove_keys_weight_is_sensible() {
@@ -64,7 +68,7 @@ fn sanity_check_teleport_assets_weight() {
 		weight_limit: Unlimited,
 	}
 	.get_dispatch_info()
-	.weight;
+	.call_weight;
 
 	assert!((weight * 50).all_lt(BlockWeights::get().max_block));
 }
@@ -309,5 +313,96 @@ fn location_conversion_works() {
 		.unwrap();
 
 		assert_eq!(got, expected, "{}", tc.description);
+	}
+}
+
+#[test]
+fn staking_inflation_correct_single_era() {
+	let (to_stakers, to_treasury) = super::EraPayout::era_payout(
+		123, // ignored
+		456, // ignored
+		MILLISECONDS_PER_HOUR,
+	);
+
+	assert_relative_eq!(to_stakers as f64, (4_046 * CENTS) as f64, max_relative = 0.01);
+	assert_relative_eq!(to_treasury as f64, (714 * CENTS) as f64, max_relative = 0.01);
+	// Total per hour is ~47.6 WND
+	assert_relative_eq!(
+		(to_stakers as f64 + to_treasury as f64),
+		(4_760 * CENTS) as f64,
+		max_relative = 0.001
+	);
+}
+
+#[test]
+fn staking_inflation_correct_longer_era() {
+	// Twice the era duration means twice the emission:
+	let (to_stakers, to_treasury) = super::EraPayout::era_payout(
+		123, // ignored
+		456, // ignored
+		2 * MILLISECONDS_PER_HOUR,
+	);
+
+	assert_relative_eq!(to_stakers as f64, (4_046 * CENTS) as f64 * 2.0, max_relative = 0.001);
+	assert_relative_eq!(to_treasury as f64, (714 * CENTS) as f64 * 2.0, max_relative = 0.001);
+}
+
+#[test]
+fn staking_inflation_correct_whole_year() {
+	let (to_stakers, to_treasury) = super::EraPayout::era_payout(
+		123,                                        // ignored
+		456,                                        // ignored
+		(36525 * 24 * MILLISECONDS_PER_HOUR) / 100, // 1 year
+	);
+
+	// Our yearly emissions is about 417k WND:
+	let yearly_emission = 417_307 * UNITS;
+	assert_relative_eq!(
+		to_stakers as f64 + to_treasury as f64,
+		yearly_emission as f64,
+		max_relative = 0.001
+	);
+
+	assert_relative_eq!(to_stakers as f64, yearly_emission as f64 * 0.85, max_relative = 0.001);
+	assert_relative_eq!(to_treasury as f64, yearly_emission as f64 * 0.15, max_relative = 0.001);
+}
+
+// 10 years into the future, our values do not overflow.
+#[test]
+fn staking_inflation_correct_not_overflow() {
+	let (to_stakers, to_treasury) = super::EraPayout::era_payout(
+		123,                                       // ignored
+		456,                                       // ignored
+		(36525 * 24 * MILLISECONDS_PER_HOUR) / 10, // 10 years
+	);
+	let initial_ti: i128 = 5_216_342_402_773_185_773;
+	let projected_total_issuance = (to_stakers as i128 + to_treasury as i128) + initial_ti;
+
+	// In 2034, there will be about 9.39 million WND in existence.
+	assert_relative_eq!(
+		projected_total_issuance as f64,
+		(9_390_000 * UNITS) as f64,
+		max_relative = 0.001
+	);
+}
+
+// Print percent per year, just as convenience.
+#[test]
+fn staking_inflation_correct_print_percent() {
+	let (to_stakers, to_treasury) = super::EraPayout::era_payout(
+		123,                                        // ignored
+		456,                                        // ignored
+		(36525 * 24 * MILLISECONDS_PER_HOUR) / 100, // 1 year
+	);
+	let yearly_emission = to_stakers + to_treasury;
+	let mut ti: i128 = 5_216_342_402_773_185_773;
+
+	for y in 0..10 {
+		let new_ti = ti + yearly_emission as i128;
+		let inflation = 100.0 * (new_ti - ti) as f64 / ti as f64;
+		println!("Year {y} inflation: {inflation}%");
+		ti = new_ti;
+
+		assert!(inflation <= 8.0 && inflation > 2.0, "sanity check");
 	}
 }

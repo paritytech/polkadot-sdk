@@ -75,6 +75,8 @@ pub struct ChainHeadConfig {
 	pub max_lagging_distance: usize,
 	/// The maximum number of `chainHead_follow` subscriptions per connection.
 	pub max_follow_subscriptions_per_connection: usize,
+	/// The maximum number of pending messages per subscription.
+	pub subscription_buffer_cap: usize,
 }
 
 /// Maximum pinned blocks across all connections.
@@ -107,6 +109,7 @@ impl Default for ChainHeadConfig {
 			subscription_max_ongoing_operations: MAX_ONGOING_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		}
 	}
 }
@@ -126,6 +129,8 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	max_lagging_distance: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
+	/// The maximum number of pending messages per subscription.
+	subscription_buffer_cap: usize,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
@@ -148,6 +153,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				backend,
 			),
 			max_lagging_distance: config.max_lagging_distance,
+			subscription_buffer_cap: config.subscription_buffer_cap,
 			_phantom: PhantomData,
 		}
 	}
@@ -196,6 +202,7 @@ where
 		let backend = self.backend.clone();
 		let client = self.client.clone();
 		let max_lagging_distance = self.max_lagging_distance;
+		let subscription_buffer_cap = self.subscription_buffer_cap;
 
 		let fut = async move {
 			// Ensure the current connection ID has enough space to accept a new subscription.
@@ -231,6 +238,7 @@ where
 				with_runtime,
 				sub_id.clone(),
 				max_lagging_distance,
+				subscription_buffer_cap,
 			);
 			let result = chain_head_follow.generate_events(sink, sub_data).await;
 			if let Err(SubscriptionManagementError::BlockDistanceTooLarge) = result {

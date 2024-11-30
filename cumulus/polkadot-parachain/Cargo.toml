@@ -40,6 +40,7 @@ parachains-common = { workspace = true, default-features = true }
 
 # Substrate
 sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
 sc-cli = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }

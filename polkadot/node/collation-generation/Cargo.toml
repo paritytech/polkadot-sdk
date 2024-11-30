@@ -21,6 +21,7 @@ sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 codec = { features = ["bit-vec", "derive"], workspace = true }
+schnellru = { workspace = true }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { workspace = true }
@@ -28,3 +29,4 @@ polkadot-primitives-test-helpers = { workspace = true }
 assert_matches = { workspace = true }
 rstest = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, features = ["test"] }

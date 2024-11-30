@@ -67,11 +67,11 @@ use sc_network_sync::{
 	service::{network::NetworkServiceProvider, syncing_service::SyncingService},
 	state_request_handler::StateRequestHandler,
 	strategy::{
+		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		warp::{
 			AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig,
 			WarpSyncProvider,
 		},
-		PolkadotSyncingStrategy, SyncingConfig,
 	},
 	warp_request_handler,
 };
@@ -833,8 +833,8 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let fork_id = Some(String::from("test-fork-id"));
 
-		let (chain_sync_network_provider, chain_sync_network_handle) =
-			NetworkServiceProvider::new();
+		let chain_sync_network_provider = NetworkServiceProvider::new();
+		let chain_sync_network_handle = chain_sync_network_provider.handle();
 		let mut block_relay_params = BlockRequestHandler::new::<NetworkWorker<_, _>>(
 			chain_sync_network_handle.clone(),
 			&protocol_id,
@@ -908,12 +908,13 @@ pub trait TestNetFactory: Default + Sized + Send {
 			<Block as BlockT>::Hash,
 		>>::register_notification_metrics(None);
 
-		let syncing_config = SyncingConfig {
+		let syncing_config = PolkadotSyncingStrategyConfig {
 			mode: network_config.sync_mode,
 			max_parallel_downloads: network_config.max_parallel_downloads,
 			max_blocks_per_request: network_config.max_blocks_per_request,
 			metrics_registry: None,
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
+			block_downloader: block_relay_params.downloader,
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
@@ -934,16 +935,14 @@ pub trait TestNetFactory: Default + Sized + Send {
 				metrics,
 				&full_net_config,
 				protocol_id.clone(),
-				&fork_id,
+				fork_id.as_deref(),
 				block_announce_validator,
 				syncing_strategy,
 				chain_sync_network_handle,
 				import_queue.service(),
-				block_relay_params.downloader,
 				peer_store_handle.clone(),
 			)
 			.unwrap();
-		let sync_service_import_queue = Box::new(sync_service.clone());
 		let sync_service = Arc::new(sync_service.clone());
 
 		for config in config.request_response_protocols {
@@ -987,8 +986,12 @@ pub trait TestNetFactory: Default + Sized + Send {
 			chain_sync_network_provider.run(service).await;
 		});
 
-		tokio::spawn(async move {
-			import_queue.run(sync_service_import_queue).await;
+		tokio::spawn({
+			let sync_service = sync_service.clone();
+
+			async move {
+				import_queue.run(sync_service.as_ref()).await;
+			}
 		});
 
 		tokio::spawn(async move {

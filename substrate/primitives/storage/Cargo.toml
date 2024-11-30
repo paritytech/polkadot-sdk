@@ -25,12 +25,7 @@ sp-debug-derive = { workspace = true }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"impl-serde/std",
-	"serde/std",
-	"sp-debug-derive/std",
-]
+std = ["codec/std", "impl-serde/std", "serde/std", "sp-debug-derive/std"]
 
 # Serde support without relying on std features.
 serde = ["dep:serde", "impl-serde"]

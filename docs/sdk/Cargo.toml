@@ -29,6 +29,7 @@ pallet-example-offchain-worker = { workspace = true, default-features = true }
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
 docify = { workspace = true }
+serde_json = { workspace = true }
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 polkadot-sdk = { features = ["runtime-full"], workspace = true, default-features = true }
@@ -39,6 +40,8 @@ subkey = { workspace = true, default-features = true }
 frame-system = { workspace = true }
 frame-support = { workspace = true }
 frame-executive = { workspace = true }
+frame-benchmarking = { workspace = true }
+pallet-example-authorization-tx-extension = { workspace = true, default-features = true }
 pallet-example-single-block-migrations = { workspace = true, default-features = true }
 frame-metadata-hash-extension = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
@@ -69,6 +72,9 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true, default-feature
 cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features = true }
 
+# Omni Node
+polkadot-omni-node-lib = { workspace = true, default-features = true }
+
 # Pallets and FRAME internals
 pallet-aura = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
@@ -91,6 +97,7 @@ pallet-scheduler = { workspace = true, default-features = true }
 pallet-referenda = { workspace = true, default-features = true }
 pallet-broker = { workspace = true, default-features = true }
 pallet-babe = { workspace = true, default-features = true }
+pallet-grandpa = { workspace = true, default-features = true }
 
 # Primitives
 sp-io = { workspace = true, default-features = true }
@@ -105,6 +112,7 @@ sp-arithmetic = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+sp-weights = { workspace = true, default-features = true }
 
 
 # XCM
@@ -116,9 +124,18 @@ xcm-simulator = { workspace = true }
 pallet-xcm = { workspace = true }
 
 # runtime guides
-chain-spec-guide-runtime = { workspace = true }
+
+chain-spec-guide-runtime = { workspace = true, default-features = true }
 
 # Templates
-minimal-template-runtime = { workspace = true }
-solochain-template-runtime = { workspace = true }
-parachain-template-runtime = { workspace = true }
+minimal-template-runtime = { workspace = true, default-features = true }
+solochain-template-runtime = { workspace = true, default-features = true }
+parachain-template-runtime = { workspace = true, default-features = true }
+
+# local packages
+first-runtime = { workspace = true, default-features = true }
+first-pallet = { workspace = true, default-features = true }
+
+[dev-dependencies]
+assert_cmd = "2.0.14"
+rand = "0.8"

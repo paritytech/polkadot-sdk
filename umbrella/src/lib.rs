@@ -580,6 +580,10 @@ pub use pallet_remark;
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
 
+/// An Ethereum JSON-RPC server for pallet-revive.
+#[cfg(feature = "pallet-revive-eth-rpc")]
+pub use pallet_revive_eth_rpc;
+
 /// Fixtures for testing and benchmarking.
 #[cfg(feature = "pallet-revive-fixtures")]
 pub use pallet_revive_fixtures;
@@ -704,6 +708,10 @@ pub use pallet_uniques;
 /// FRAME utilities pallet.
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
+
+/// FRAME verify signature pallet.
+#[cfg(feature = "pallet-verify-signature")]
+pub use pallet_verify_signature;
 
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]

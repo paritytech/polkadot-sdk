@@ -25,11 +25,9 @@ use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
-use sp_core::{sr25519, storage::Storage, Pair, Public};
-use sp_runtime::{
-	traits::{AccountIdConversion, IdentifyAccount, Verify},
-	BuildStorage, MultiSignature,
-};
+use sp_core::storage::Storage;
+use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
+use sp_runtime::{traits::AccountIdConversion, BuildStorage};
 
 // Polakdot
 use parachains_common::BlockNumber;
@@ -43,13 +41,12 @@ use polkadot_primitives::{AssignmentId, ValidatorId};
 pub const XCM_V2: u32 = 2;
 pub const XCM_V3: u32 = 3;
 pub const XCM_V4: u32 = 4;
+pub const XCM_V5: u32 = 5;
 pub const REF_TIME_THRESHOLD: u64 = 33;
 pub const PROOF_SIZE_THRESHOLD: u64 = 33;
 
 /// The default XCM version to set in genesis config.
 pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
-
-type AccountPublic = <MultiSignature as Verify>::Signer;
 
 // (trust-backed) Asset registered on AH and reserve-transferred between Parachain and AH
 pub const RESERVABLE_ASSET_ID: u32 = 1;
@@ -59,42 +56,27 @@ pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 // USDT registered on AH as (trust-backed) Asset and reserve-transferred between Parachain and AH
 pub const USDT_ID: u32 = 1984;
 
-pub const PENPAL_ID: u32 = 2000;
+pub const PENPAL_A_ID: u32 = 2000;
 pub const PENPAL_B_ID: u32 = 2001;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 parameter_types! {
-	pub PenpalTeleportableAssetLocation: xcm::v4::Location
-		= xcm::v4::Location::new(1, [
-				xcm::v4::Junction::Parachain(PENPAL_ID),
-				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalATeleportableAssetLocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [
+				xcm::v5::Junction::Parachain(PENPAL_A_ID),
+				xcm::v5::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v5::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
-	pub PenpalSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_ID).into_account_truncating();
-	pub PenpalBTeleportableAssetLocation: xcm::v4::Location
-		= xcm::v4::Location::new(1, [
-				xcm::v4::Junction::Parachain(PENPAL_B_ID),
-				xcm::v4::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v4::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalBTeleportableAssetLocation: xcm::v5::Location
+		= xcm::v5::Location::new(1, [
+				xcm::v5::Junction::Parachain(PENPAL_B_ID),
+				xcm::v5::Junction::PalletInstance(ASSETS_PALLET_ID),
+				xcm::v5::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
+	pub PenpalASiblingSovereignAccount: AccountId = Sibling::from(PENPAL_A_ID).into_account_truncating();
 	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
-}
-
-/// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-/// Helper function to generate an account ID from seed.
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
 pub fn get_host_config() -> HostConfiguration<BlockNumber> {
@@ -130,34 +112,10 @@ pub mod accounts {
 	use super::*;
 	pub const ALICE: &str = "Alice";
 	pub const BOB: &str = "Bob";
-	pub const CHARLIE: &str = "Charlie";
-	pub const DAVE: &str = "Dave";
-	pub const EVE: &str = "Eve";
-	pub const FERDIE: &str = "Ferdie";
-	pub const ALICE_STASH: &str = "Alice//stash";
-	pub const BOB_STASH: &str = "Bob//stash";
-	pub const CHARLIE_STASH: &str = "Charlie//stash";
-	pub const DAVE_STASH: &str = "Dave//stash";
-	pub const EVE_STASH: &str = "Eve//stash";
-	pub const FERDIE_STASH: &str = "Ferdie//stash";
-	pub const FERDIE_BEEFY: &str = "Ferdie//stash";
 	pub const DUMMY_EMPTY: &str = "JohnDoe";
 
 	pub fn init_balances() -> Vec<AccountId> {
-		vec![
-			get_account_id_from_seed::<sr25519::Public>(ALICE),
-			get_account_id_from_seed::<sr25519::Public>(BOB),
-			get_account_id_from_seed::<sr25519::Public>(CHARLIE),
-			get_account_id_from_seed::<sr25519::Public>(DAVE),
-			get_account_id_from_seed::<sr25519::Public>(EVE),
-			get_account_id_from_seed::<sr25519::Public>(FERDIE),
-			get_account_id_from_seed::<sr25519::Public>(ALICE_STASH),
-			get_account_id_from_seed::<sr25519::Public>(BOB_STASH),
-			get_account_id_from_seed::<sr25519::Public>(CHARLIE_STASH),
-			get_account_id_from_seed::<sr25519::Public>(DAVE_STASH),
-			get_account_id_from_seed::<sr25519::Public>(EVE_STASH),
-			get_account_id_from_seed::<sr25519::Public>(FERDIE_STASH),
-		]
+		Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect()
 	}
 }
 
@@ -166,16 +124,15 @@ pub mod collators {
 
 	pub fn invulnerables() -> Vec<(AccountId, AuraId)> {
 		vec![
-			(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_from_seed::<AuraId>("Alice"),
-			),
-			(get_account_id_from_seed::<sr25519::Public>("Bob"), get_from_seed::<AuraId>("Bob")),
+			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+			(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 		]
 	}
 }
 
 pub mod validators {
+	use sp_consensus_beefy::test_utils::Keyring;
+
 	use super::*;
 
 	pub fn initial_authorities() -> Vec<(
@@ -188,16 +145,15 @@ pub mod validators {
 		AuthorityDiscoveryId,
 		BeefyId,
 	)> {
-		let seed = "Alice";
 		vec![(
-			get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
-			get_account_id_from_seed::<sr25519::Public>(seed),
-			get_from_seed::<BabeId>(seed),
-			get_from_seed::<GrandpaId>(seed),
-			get_from_seed::<ValidatorId>(seed),
-			get_from_seed::<AssignmentId>(seed),
-			get_from_seed::<AuthorityDiscoveryId>(seed),
-			get_from_seed::<BeefyId>(seed),
+			Sr25519Keyring::AliceStash.to_account_id(),
+			Sr25519Keyring::Alice.to_account_id(),
+			BabeId::from(Sr25519Keyring::Alice.public()),
+			GrandpaId::from(Ed25519Keyring::Alice.public()),
+			ValidatorId::from(Sr25519Keyring::Alice.public()),
+			AssignmentId::from(Sr25519Keyring::Alice.public()),
+			AuthorityDiscoveryId::from(Sr25519Keyring::Alice.public()),
+			BeefyId::from(Keyring::<BeefyId>::Alice.public()),
 		)]
 	}
 }

@@ -29,7 +29,7 @@ use futures::{select, FutureExt};
 use polkadot_node_subsystem::{
 	errors::SubsystemError, messages::ProvisionerMessage, overseer::Handle,
 };
-use polkadot_primitives::{Block, Hash, InherentData as ParachainsInherentData};
+use polkadot_primitives::{vstaging::InherentData as ParachainsInherentData, Block, Hash};
 use std::{sync::Arc, time};
 
 pub(crate) const LOG_TARGET: &str = "parachain::parachains-inherent";
