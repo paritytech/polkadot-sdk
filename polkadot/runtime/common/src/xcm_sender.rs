@@ -190,7 +190,7 @@ impl<
 		ExistentialDeposit: Get<Option<Asset>>,
 		PriceForDelivery: PriceForMessageDelivery<Id = ParaId>,
 		Parachain: Get<ParaId>,
-		ToParachainHelper: EnsureForParachain,
+		ToParachainHelper: polkadot_runtime_parachains::EnsureForParachain,
 	> xcm_builder::EnsureDelivery
 	for ToParachainDeliveryHelper<
 		XcmConfig,
@@ -245,27 +245,6 @@ impl<
 			fees_mode = Some(FeesMode { jit_withdraw: true });
 		}
 		(fees_mode, None)
-	}
-}
-
-/// Ensure more initialization for `ParaId`. (e.g. open HRMP channels, ...)
-#[cfg(feature = "runtime-benchmarks")]
-pub trait EnsureForParachain {
-	fn ensure(para_id: ParaId);
-}
-#[cfg(feature = "runtime-benchmarks")]
-impl EnsureForParachain for () {
-	fn ensure(_: ParaId) {
-		// doing nothing
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl<T: polkadot_runtime_parachains::dmp::Config> EnsureForParachain
-	for polkadot_runtime_parachains::dmp::Pallet<T>
-{
-	fn ensure(para: ParaId) {
-		polkadot_runtime_parachains::paras::Heads::<T>::insert(para, alloc::vec![]);
 	}
 }
 

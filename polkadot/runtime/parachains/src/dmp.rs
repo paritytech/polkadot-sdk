@@ -360,3 +360,10 @@ impl<T: Config> FeeTracker for Pallet<T> {
 		})
 	}
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> crate::EnsureForParachain for Pallet<T> {
+	fn ensure(para: ParaId) {
+		paras::Heads::<T>::insert(para, alloc::vec![]);
+	}
+}
