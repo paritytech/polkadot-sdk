@@ -98,7 +98,7 @@ benchmarks! {
 		let versioned_msg = VersionedXcm::from(msg);
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+		T::DeliveryHelper::ensure_successful_delivery(
 			&Default::default(),
 			&versioned_dest.clone().try_into().unwrap(),
 			FeeReason::ChargeFees,
@@ -171,7 +171,7 @@ benchmarks! {
 		}
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+		T::DeliveryHelper::ensure_successful_delivery(
 			&origin_location,
 			&destination,
 			FeeReason::ChargeFees,
@@ -234,6 +234,13 @@ benchmarks! {
 		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedAssets = assets.into();
+
+		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
+		T::DeliveryHelper::ensure_successful_delivery(
+			&Default::default(),
+			&versioned_dest.clone().try_into().unwrap(),
+			FeeReason::ChargeFees,
+		);
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0, WeightLimit::Unlimited)
 	verify {
 		// run provided verification function
@@ -268,7 +275,7 @@ benchmarks! {
 		.into();
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+		T::DeliveryHelper::ensure_successful_delivery(
 			&Default::default(),
 			&versioned_loc.clone().try_into().unwrap(),
 			FeeReason::ChargeFees,
@@ -281,14 +288,15 @@ benchmarks! {
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
 		let versioned_loc: VersionedLocation = loc.clone().into();
-		let _ = crate::Pallet::<T>::request_version_notify(loc);
 
 		// Ensure that origin can send to destination (e.g. setup delivery fees, ensure router setup, ...)
-		let (_, _) = T::DeliveryHelper::ensure_successful_delivery(
+		T::DeliveryHelper::ensure_successful_delivery(
 			&Default::default(),
 			&versioned_loc.clone().try_into().unwrap(),
 			FeeReason::ChargeFees,
 		);
+
+		let _ = crate::Pallet::<T>::request_version_notify(loc);
 	}: _(RawOrigin::Root, Box::new(versioned_loc))
 
 	force_suspension {}: _(RawOrigin::Root, true)
