@@ -739,7 +739,10 @@ pub fn new_full<
 	let role = config.role;
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks = if !force_authoring_backoff &&
-		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
+		(config.chain_spec.is_polkadot() ||
+			config.chain_spec.is_kusama() ||
+			config.chain_spec.is_rococo() ||
+			config.chain_spec.is_westend())
 	{
 		// the block authoring backoff is disabled by default on production networks
 		None
@@ -763,8 +766,8 @@ pub fn new_full<
 	// unless explicitly enabled by the commandline option.
 	// This is meant to be temporary until we have enough confidence in the new system to enable it
 	// by default on all networks.
-	let enable_approval_voting_parallel =
-		!config.chain_spec.is_polkadot() || enable_approval_voting_parallel;
+	// let enable_approval_voting_parallel =
+	// 	!config.chain_spec.is_polkadot() || enable_approval_voting_parallel;
 
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();

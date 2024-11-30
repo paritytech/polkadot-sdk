@@ -116,10 +116,10 @@ pub fn check_approval(
 ) -> Check {
 	// any set of size f+1 contains at least one honest node. If at least one
 	// honest node approves, the candidate should be approved.
-	let approvals = candidate.approvals();
-	if 3 * approvals.count_ones() > approvals.len() {
-		return Check::ApprovedOneThird
-	}
+	// let approvals = candidate.approvals();
+	// if 3 * approvals.count_ones() > approvals.len() {
+	// 	return Check::ApprovedOneThird
+	// }
 
 	match required {
 		RequiredTranches::Pending { .. } => Check::Unapproved,

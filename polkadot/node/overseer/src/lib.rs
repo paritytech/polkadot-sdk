@@ -464,7 +464,7 @@ pub async fn forward_events<P: BlockchainEvents<Block>>(client: Arc<P>, mut hand
 	event=Event,
 	signal=OverseerSignal,
 	error=SubsystemError,
-	message_capacity=2048,
+	message_capacity=256,
 )]
 pub struct Overseer<SupportsParachains> {
 	#[subsystem(CandidateValidationMessage, sends: [
@@ -523,7 +523,7 @@ pub struct Overseer<SupportsParachains> {
 	])]
 	bitfield_signing: BitfieldSigning,
 
-	#[subsystem(blocking, message_capacity: 8192, BitfieldDistributionMessage, sends: [
+	#[subsystem(blocking, message_capacity: 1024, BitfieldDistributionMessage, sends: [
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 		ProvisionerMessage,
@@ -581,7 +581,7 @@ pub struct Overseer<SupportsParachains> {
 	])]
 	collator_protocol: CollatorProtocol,
 
-	#[subsystem(blocking, message_capacity: 64000, ApprovalDistributionMessage, sends: [
+	#[subsystem(blocking, message_capacity: 256, ApprovalDistributionMessage, sends: [
 		NetworkBridgeTxMessage,
 		ApprovalVotingMessage,
 		RuntimeApiMessage,
@@ -598,7 +598,7 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 	])]
 	approval_voting: ApprovalVoting,
-	#[subsystem(blocking, message_capacity: 64000, ApprovalVotingParallelMessage, sends: [
+	#[subsystem(blocking, message_capacity: 256, ApprovalVotingParallelMessage, sends: [
 		AvailabilityRecoveryMessage,
 		CandidateValidationMessage,
 		ChainApiMessage,
@@ -619,7 +619,7 @@ pub struct Overseer<SupportsParachains> {
 	], can_receive_priority_messages)]
 	gossip_support: GossipSupport,
 
-	#[subsystem(blocking, message_capacity: 32000, DisputeCoordinatorMessage, sends: [
+	#[subsystem(blocking, message_capacity: 256, DisputeCoordinatorMessage, sends: [
 		RuntimeApiMessage,
 		ChainApiMessage,
 		DisputeDistributionMessage,
