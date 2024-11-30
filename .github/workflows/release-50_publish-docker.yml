@@ -321,6 +321,7 @@ jobs:
       - name: Fetch values
         id: fetch-data
         run: |
+          . ./.github/scripts/common/lib.sh
           date=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
           echo "date=$date" >> $GITHUB_OUTPUT
           echo "stable=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.stable_tag }})" >> $GITHUB_OUTPUT
