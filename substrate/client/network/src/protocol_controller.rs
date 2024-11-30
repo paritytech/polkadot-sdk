@@ -464,7 +464,7 @@ impl ProtocolController {
 	/// maintain connections with such peers.
 	fn on_add_reserved_peer(&mut self, peer_id: PeerId) {
 		if self.reserved_nodes.contains_key(&peer_id) {
-			warn!(
+			debug!(
 				target: LOG_TARGET,
 				"Trying to add an already reserved node {peer_id} as reserved on {:?}.",
 				self.set_id,
