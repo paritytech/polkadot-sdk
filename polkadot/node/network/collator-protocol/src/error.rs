@@ -157,7 +157,7 @@ pub fn log_error(result: Result<()>, ctx: &'static str) -> std::result::Result<(
 	match result.into_nested()? {
 		Ok(()) => Ok(()),
 		Err(jfyi) => {
-			gum::warn!(target: LOG_TARGET, error = ?jfyi, ctx);
+			sp_tracing::warn!(target: LOG_TARGET, error = ?jfyi, ctx);
 			Ok(())
 		},
 	}

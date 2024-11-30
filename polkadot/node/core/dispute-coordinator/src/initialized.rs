@@ -178,7 +178,7 @@ impl Initialized {
 			let res =
 				self.run_until_error(&mut ctx, &mut backend, &mut initial_data, &*clock).await;
 			if let Ok(()) = res {
-				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
+				sp_tracing::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
 				return Ok(())
 			}
 			log_error(res)?;
@@ -230,13 +230,13 @@ impl Initialized {
 		}
 
 		loop {
-			gum::trace!(target: LOG_TARGET, "Waiting for message");
+			sp_tracing::trace!(target: LOG_TARGET, "Waiting for message");
 			let mut overlay_db = OverlayedBackend::new(backend);
 			let default_confirm = Box::new(|| Ok(()));
 			let confirm_write =
 				match MuxedMessage::receive(ctx, &mut self.participation_receiver).await? {
 					MuxedMessage::Participation(msg) => {
-						gum::trace!(target: LOG_TARGET, "MuxedMessage::Participation");
+						sp_tracing::trace!(target: LOG_TARGET, "MuxedMessage::Participation");
 						let ParticipationStatement {
 							session,
 							candidate_hash,
@@ -244,7 +244,7 @@ impl Initialized {
 							outcome,
 						} = self.participation.get_participation_result(ctx, msg).await?;
 						if let Some(valid) = outcome.validity() {
-							gum::trace!(
+							sp_tracing::trace!(
 								target: LOG_TARGET,
 								?session,
 								?candidate_hash,
@@ -262,14 +262,14 @@ impl Initialized {
 							)
 							.await?;
 						} else {
-							gum::warn!(target: LOG_TARGET, ?outcome, "Dispute participation failed");
+							sp_tracing::warn!(target: LOG_TARGET, ?outcome, "Dispute participation failed");
 						}
 						default_confirm
 					},
 					MuxedMessage::Subsystem(msg) => match msg {
 						FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 						FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
-							gum::trace!(target: LOG_TARGET, "OverseerSignal::ActiveLeaves");
+							sp_tracing::trace!(target: LOG_TARGET, "OverseerSignal::ActiveLeaves");
 							self.process_active_leaves_update(
 								ctx,
 								&mut overlay_db,
@@ -280,7 +280,7 @@ impl Initialized {
 							default_confirm
 						},
 						FromOrchestra::Signal(OverseerSignal::BlockFinalized(_, n)) => {
-							gum::trace!(target: LOG_TARGET, "OverseerSignal::BlockFinalized");
+							sp_tracing::trace!(target: LOG_TARGET, "OverseerSignal::BlockFinalized");
 							self.scraper.process_finalized_block(&n);
 							default_confirm
 						},
@@ -306,7 +306,7 @@ impl Initialized {
 		update: ActiveLeavesUpdate,
 		now: u64,
 	) -> Result<()> {
-		gum::trace!(target: LOG_TARGET, timestamp = now, "Processing ActiveLeavesUpdate");
+		sp_tracing::trace!(target: LOG_TARGET, timestamp = now, "Processing ActiveLeavesUpdate");
 		let scraped_updates =
 			self.scraper.process_active_leaves_update(ctx.sender(), &update).await?;
 		log_error(
@@ -317,7 +317,7 @@ impl Initialized {
 		self.participation.process_active_leaves_update(ctx, &update).await?;
 
 		if let Some(new_leaf) = update.activated {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				leaf_hash = ?new_leaf.hash,
 				block_number = new_leaf.number,
@@ -350,7 +350,7 @@ impl Initialized {
 							.get_session_info_by_index(ctx.sender(), new_leaf.hash, idx)
 							.await
 						{
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								session_idx,
 								leaf_hash = ?new_leaf.hash,
@@ -369,7 +369,7 @@ impl Initialized {
 				},
 				Ok(_) => { /* no new session => nothing to cache */ },
 				Err(err) => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						?err,
 						"Failed to update session cache for disputes - can't fetch session index",
@@ -381,7 +381,7 @@ impl Initialized {
 
 			self.process_unapplied_slashes(ctx, new_leaf.hash, unapplied_slashes).await;
 
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				timestamp = now,
 				"Will process {} onchain votes",
@@ -392,7 +392,7 @@ impl Initialized {
 				.await;
 		}
 
-		gum::trace!(target: LOG_TARGET, timestamp = now, "Done processing ActiveLeavesUpdate");
+		sp_tracing::trace!(target: LOG_TARGET, timestamp = now, "Done processing ActiveLeavesUpdate");
 		Ok(())
 	}
 
@@ -405,7 +405,7 @@ impl Initialized {
 		unapplied_slashes: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
 	) {
 		for (session_index, candidate_hash, pending) in unapplied_slashes {
-			gum::info!(
+			sp_tracing::info!(
 				target: LOG_TARGET,
 				?session_index,
 				?candidate_hash,
@@ -416,7 +416,7 @@ impl Initialized {
 			let pinned_hash = self.runtime_info.get_block_in_session(session_index);
 			let inclusions = self.scraper.get_blocks_including_candidate(&candidate_hash);
 			if pinned_hash.is_none() && inclusions.is_empty() {
-				gum::info!(
+				sp_tracing::info!(
 					target: LOG_TARGET,
 					?session_index,
 					"Couldn't find blocks in the session for an unapplied slash",
@@ -453,7 +453,7 @@ impl Initialized {
 						Err(runtime::Error::RuntimeRequest(RuntimeApiError::NotSupported {
 							..
 						})) => {
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								?session_index,
 								?candidate_hash,
@@ -462,7 +462,7 @@ impl Initialized {
 							);
 						},
 						Err(error) => {
-							gum::warn!(
+							sp_tracing::warn!(
 								target: LOG_TARGET,
 								?error,
 								?session_index,
@@ -485,7 +485,7 @@ impl Initialized {
 			let expected_keys = pending.keys.len();
 			let resolved_keys = key_ownership_proofs.len();
 			if resolved_keys < expected_keys {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?session_index,
 					?candidate_hash,
@@ -500,7 +500,7 @@ impl Initialized {
 			{
 				let validator_id = dispute_proof.validator_id.clone();
 
-				gum::info!(
+				sp_tracing::info!(
 					target: LOG_TARGET,
 					?session_index,
 					?candidate_hash,
@@ -520,7 +520,7 @@ impl Initialized {
 					Err(runtime::Error::RuntimeRequest(RuntimeApiError::NotSupported {
 						..
 					})) => {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							?session_index,
 							?candidate_hash,
@@ -528,7 +528,7 @@ impl Initialized {
 						);
 					},
 					Err(error) => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							?error,
 							?session_index,
@@ -537,7 +537,7 @@ impl Initialized {
 						);
 					},
 					Ok(Some(())) => {
-						gum::info!(
+						sp_tracing::info!(
 							target: LOG_TARGET,
 							?session_index,
 							?candidate_hash,
@@ -546,7 +546,7 @@ impl Initialized {
 						);
 					},
 					Ok(None) => {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							?session_index,
 							?candidate_hash,
@@ -581,7 +581,7 @@ impl Initialized {
 			match res {
 				Ok(()) => {},
 				Err(error) => {
-					gum::warn!(target: LOG_TARGET, ?error, "Skipping scraping block due to error",);
+					sp_tracing::warn!(target: LOG_TARGET, ?error, "Skipping scraping block due to error",);
 				},
 			};
 		}
@@ -616,7 +616,7 @@ impl Initialized {
 			{
 				Ok(extended_session_info) => &extended_session_info.session_info,
 				Err(err) => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						?session,
 						?err,
@@ -627,7 +627,7 @@ impl Initialized {
 			};
 
 			let candidate_hash = candidate_receipt.hash();
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?relay_parent,
@@ -640,7 +640,7 @@ impl Initialized {
 						.validators
 						.get(validator_index)
 						.or_else(|| {
-							gum::error!(
+							sp_tracing::error!(
 								target: LOG_TARGET,
 								?session,
 								?validator_index,
@@ -696,13 +696,13 @@ impl Initialized {
 				)
 				.await?;
 			match import_result {
-				ImportStatementsResult::ValidImport => gum::trace!(
+				ImportStatementsResult::ValidImport => sp_tracing::trace!(
 					target: LOG_TARGET,
 					?relay_parent,
 					?session,
 					"Imported backing votes from chain"
 				),
-				ImportStatementsResult::InvalidImport => gum::warn!(
+				ImportStatementsResult::InvalidImport => sp_tracing::warn!(
 					target: LOG_TARGET,
 					?relay_parent,
 					?session,
@@ -714,7 +714,7 @@ impl Initialized {
 		// Import disputes from on-chain, this already went through a vote so it's assumed
 		// as verified. This will only be stored, gossiping it is not necessary.
 		for DisputeStatementSet { candidate_hash, session, statements } in disputes {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?session,
@@ -727,7 +727,7 @@ impl Initialized {
 			{
 				Ok(extended_session_info) => &extended_session_info.session_info,
 				Err(err) => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						?session,
@@ -745,7 +745,7 @@ impl Initialized {
 						.validators
 						.get(validator_index)
 						.or_else(|| {
-							gum::error!(
+							sp_tracing::error!(
 								target: LOG_TARGET,
 								?candidate_hash,
 								?session,
@@ -769,7 +769,7 @@ impl Initialized {
 				})
 				.collect::<Vec<_>>();
 			if statements.is_empty() {
-				gum::debug!(target: LOG_TARGET, "Skipping empty from chain dispute import");
+				sp_tracing::debug!(target: LOG_TARGET, "Skipping empty from chain dispute import");
 				continue
 			}
 			let import_result = self
@@ -784,13 +784,13 @@ impl Initialized {
 				)
 				.await?;
 			match import_result {
-				ImportStatementsResult::ValidImport => gum::trace!(
+				ImportStatementsResult::ValidImport => sp_tracing::trace!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?session,
 					"Imported statement of dispute from on-chain"
 				),
-				ImportStatementsResult::InvalidImport => gum::warn!(
+				ImportStatementsResult::InvalidImport => sp_tracing::warn!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?session,
@@ -816,7 +816,7 @@ impl Initialized {
 				statements,
 				pending_confirmation,
 			} => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_receipt.hash(),
 					?session,
@@ -848,20 +848,20 @@ impl Initialized {
 				}
 			},
 			DisputeCoordinatorMessage::RecentDisputes(tx) => {
-				gum::trace!(target: LOG_TARGET, "Loading recent disputes from db");
+				sp_tracing::trace!(target: LOG_TARGET, "Loading recent disputes from db");
 				let recent_disputes = if let Some(disputes) = overlay_db.load_recent_disputes()? {
 					disputes
 				} else {
 					BTreeMap::new()
 				};
-				gum::trace!(target: LOG_TARGET, "Loaded recent disputes from db");
+				sp_tracing::trace!(target: LOG_TARGET, "Loaded recent disputes from db");
 
 				let _ = tx.send(
 					recent_disputes.into_iter().map(|(k, v)| (k.0, k.1, v)).collect::<Vec<_>>(),
 				);
 			},
 			DisputeCoordinatorMessage::ActiveDisputes(tx) => {
-				gum::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::ActiveDisputes");
+				sp_tracing::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::ActiveDisputes");
 				let recent_disputes = if let Some(disputes) = overlay_db.load_recent_disputes()? {
 					disputes
 				} else {
@@ -877,7 +877,7 @@ impl Initialized {
 				);
 			},
 			DisputeCoordinatorMessage::QueryCandidateVotes(query, tx) => {
-				gum::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::QueryCandidateVotes");
+				sp_tracing::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::QueryCandidateVotes");
 				let mut query_output = Vec::new();
 				for (session_index, candidate_hash) in query {
 					if let Some(v) =
@@ -885,7 +885,7 @@ impl Initialized {
 					{
 						query_output.push((session_index, candidate_hash, v.into()));
 					} else {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							session_index,
 							"No votes found for candidate",
@@ -900,7 +900,7 @@ impl Initialized {
 				candidate_receipt,
 				valid,
 			) => {
-				gum::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::IssueLocalStatement");
+				sp_tracing::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::IssueLocalStatement");
 				self.issue_local_statement(
 					ctx,
 					overlay_db,
@@ -917,7 +917,7 @@ impl Initialized {
 				block_descriptions,
 				tx,
 			} => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					"DisputeCoordinatorMessage::DetermineUndisputedChain"
 				);
@@ -949,7 +949,7 @@ impl Initialized {
 		statements: Vec<(SignedDisputeStatement, ValidatorIndex)>,
 		now: Timestamp,
 	) -> FatalResult<ImportStatementsResult> {
-		gum::trace!(target: LOG_TARGET, ?statements, "In handle import statements");
+		sp_tracing::trace!(target: LOG_TARGET, ?statements, "In handle import statements");
 		if self.session_is_ancient(session) {
 			// It is not valid to participate in an ancient dispute (spam?) or too new.
 			return Ok(ImportStatementsResult::InvalidImport)
@@ -963,7 +963,7 @@ impl Initialized {
 			MaybeCandidateReceipt::AssumeBackingVotePresent(candidate_hash) => match &votes_in_db {
 				Some(votes) => votes.candidate_receipt.descriptor().relay_parent(),
 				None => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						session,
 						?candidate_hash,
@@ -985,7 +985,7 @@ impl Initialized {
 		.await
 		{
 			None => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					session,
 					"We are lacking a `SessionInfo` for handling import of statements."
@@ -998,7 +998,7 @@ impl Initialized {
 
 		let n_validators = env.validators().len();
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			?session,
@@ -1020,7 +1020,7 @@ impl Initialized {
 				if let MaybeCandidateReceipt::Provides(candidate_receipt) = candidate_receipt {
 					CandidateVoteState::new_from_receipt(candidate_receipt)
 				} else {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						session,
 						?candidate_hash,
@@ -1030,7 +1030,7 @@ impl Initialized {
 				},
 		};
 
-		gum::trace!(target: LOG_TARGET, ?candidate_hash, ?session, "Loaded votes");
+		sp_tracing::trace!(target: LOG_TARGET, ?candidate_hash, ?session, "Loaded votes");
 
 		let controlled_indices = env.controlled_indices();
 		let own_statements = statements
@@ -1052,7 +1052,7 @@ impl Initialized {
 			if intermediate_result.is_freshly_disputed() ||
 				intermediate_result.is_freshly_concluded()
 			{
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?session,
@@ -1086,14 +1086,14 @@ impl Initialized {
 				}
 				match rx.await {
 					Err(_) => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							"Fetch for approval votes got cancelled, only expected during shutdown!"
 						);
 						intermediate_result
 					},
 					Ok(votes) => {
-						gum::trace!(
+						sp_tracing::trace!(
 							target: LOG_TARGET,
 							count = votes.len(),
 							"Successfully received approval votes."
@@ -1102,7 +1102,7 @@ impl Initialized {
 					},
 				}
 			} else {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?session,
@@ -1112,7 +1112,7 @@ impl Initialized {
 			}
 		};
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			?session,
@@ -1132,7 +1132,7 @@ impl Initialized {
 			is_potential_spam(&self.scraper, &new_state, &candidate_hash, is_disabled);
 		let allow_participation = !potential_spam;
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?own_vote_missing,
 			?potential_spam,
@@ -1165,7 +1165,7 @@ impl Initialized {
 					self.spam_slots.add_unconfirmed(session, candidate_hash, *index);
 			}
 			if !free_spam_slots_available {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?session,
@@ -1184,7 +1184,7 @@ impl Initialized {
 		// We don't participate in disputes on finalized candidates.
 		if own_vote_missing && is_disputed && allow_participation {
 			let priority = ParticipationPriority::with_priority_if(is_included);
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?priority,
@@ -1211,7 +1211,7 @@ impl Initialized {
 				.await;
 			log_error(r)?;
 		} else {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?is_confirmed,
@@ -1234,7 +1234,7 @@ impl Initialized {
 			for (validator_index, sig) in our_approval_votes {
 				let pub_key = match env.validators().get(validator_index) {
 					None => {
-						gum::error!(
+						sp_tracing::error!(
 							target: LOG_TARGET,
 							?validator_index,
 							?session,
@@ -1251,7 +1251,7 @@ impl Initialized {
 					pub_key.clone(),
 					sig.clone(),
 				);
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?session,
@@ -1265,7 +1265,7 @@ impl Initialized {
 					validator_index,
 				) {
 					Err(err) => {
-						gum::error!(
+						sp_tracing::error!(
 							target: LOG_TARGET,
 							?err,
 							"No ongoing dispute, but we checked there is one!"
@@ -1287,7 +1287,7 @@ impl Initialized {
 
 				let status =
 					recent_disputes.entry((session, candidate_hash)).or_insert_with(|| {
-						gum::info!(
+						sp_tracing::info!(
 							target: LOG_TARGET,
 							?candidate_hash,
 							session,
@@ -1298,7 +1298,7 @@ impl Initialized {
 
 				*status = *new_status;
 
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?status,
@@ -1315,7 +1315,7 @@ impl Initialized {
 		if import_result.has_fresh_byzantine_threshold_against() {
 			let blocks_including = self.scraper.get_blocks_including_candidate(&candidate_hash);
 			for (parent_block_number, parent_block_hash) in &blocks_including {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?parent_block_number,
@@ -1326,7 +1326,7 @@ impl Initialized {
 			if blocks_including.len() > 0 {
 				ctx.send_message(ChainSelectionMessage::RevertBlocks(blocks_including)).await;
 			} else {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?session,
@@ -1341,7 +1341,7 @@ impl Initialized {
 		}
 		self.metrics.on_valid_votes(import_result.imported_valid_votes());
 		self.metrics.on_invalid_votes(import_result.imported_invalid_votes());
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			?session,
@@ -1356,7 +1356,7 @@ impl Initialized {
 
 		self.metrics.on_approval_votes(import_result.imported_approval_votes());
 		if import_result.is_freshly_concluded_for() {
-			gum::info!(
+			sp_tracing::info!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				session,
@@ -1364,7 +1364,7 @@ impl Initialized {
 			);
 			for (statement, validator_index) in own_statements.iter() {
 				if statement.statement().indicates_invalidity() {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						?validator_index,
@@ -1373,7 +1373,7 @@ impl Initialized {
 				}
 			}
 			for validator_index in new_state.votes().invalid.keys() {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?validator_index,
@@ -1385,7 +1385,7 @@ impl Initialized {
 			self.metrics.on_concluded_valid();
 		}
 		if import_result.is_freshly_concluded_against() {
-			gum::info!(
+			sp_tracing::info!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				session,
@@ -1393,7 +1393,7 @@ impl Initialized {
 			);
 			for (statement, validator_index) in own_statements.iter() {
 				if statement.statement().indicates_validity() {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						?validator_index,
@@ -1403,7 +1403,7 @@ impl Initialized {
 			}
 			for (validator_index, (kind, _sig)) in new_state.votes().valid.raw() {
 				let is_backer = kind.is_backing();
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					?validator_index,
@@ -1437,7 +1437,7 @@ impl Initialized {
 		valid: bool,
 		now: Timestamp,
 	) -> Result<()> {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			?session,
@@ -1458,7 +1458,7 @@ impl Initialized {
 		.await
 		{
 			None => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					session,
 					"Missing info for session which has an active dispute",
@@ -1507,7 +1507,7 @@ impl Initialized {
 				},
 				Ok(None) => {},
 				Err(err) => {
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						?err,
 						"Encountered keystore error while signing dispute statement",
@@ -1521,7 +1521,7 @@ impl Initialized {
 			let dispute_message =
 				match make_dispute_message(env.session_info(), &votes, statement.clone(), *index) {
 					Err(err) => {
-						gum::debug!(target: LOG_TARGET, ?err, "Creating dispute message failed.");
+						sp_tracing::debug!(target: LOG_TARGET, ?err, "Creating dispute message failed.");
 						continue
 					},
 					Ok(dispute_message) => dispute_message,
@@ -1544,7 +1544,7 @@ impl Initialized {
 				.await?
 			{
 				ImportStatementsResult::InvalidImport => {
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						?session,
@@ -1552,7 +1552,7 @@ impl Initialized {
 					);
 				},
 				ImportStatementsResult::ValidImport => {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						?session,

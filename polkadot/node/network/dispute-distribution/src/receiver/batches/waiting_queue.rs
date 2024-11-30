@@ -150,7 +150,7 @@ mod tests {
 
 			// Receive them in order at expected times:
 			queue.wait_ready(now).await;
-			gum::trace!(target: LOG_TARGET, "After first wait.");
+			sp_tracing::trace!(target: LOG_TARGET, "After first wait.");
 
 			let now = start + Duration::from_millis(1);
 			assert!(Instant::now() - start >= Duration::from_millis(1));
@@ -160,7 +160,7 @@ mod tests {
 			assert!(queue.pop_ready(now).is_none(), "No more entry expected to be ready.");
 
 			queue.wait_ready(now).await;
-			gum::trace!(target: LOG_TARGET, "After second wait.");
+			sp_tracing::trace!(target: LOG_TARGET, "After second wait.");
 			let now = start + Duration::from_millis(3);
 			assert!(Instant::now() - start >= Duration::from_millis(3));
 			assert_eq!(queue.pop_ready(now).map(|p| p.payload), Some(1u32));
@@ -178,14 +178,14 @@ mod tests {
 
 			queue.wait_ready(now).await;
 			// Newly pushed element should have become ready:
-			gum::trace!(target: LOG_TARGET, "After third wait.");
+			sp_tracing::trace!(target: LOG_TARGET, "After third wait.");
 			let now = start + Duration::from_millis(4);
 			assert!(Instant::now() - start >= Duration::from_millis(4));
 			assert_eq!(queue.pop_ready(now).map(|p| p.payload), Some(3u32));
 			assert!(queue.pop_ready(now).is_none(), "No more entry expected to be ready.");
 
 			queue.wait_ready(now).await;
-			gum::trace!(target: LOG_TARGET, "After fourth wait.");
+			sp_tracing::trace!(target: LOG_TARGET, "After fourth wait.");
 			let now = start + Duration::from_millis(5);
 			assert!(Instant::now() - start >= Duration::from_millis(5));
 			assert_eq!(queue.pop_ready(now).map(|p| p.payload), Some(2u32));

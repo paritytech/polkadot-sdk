@@ -899,7 +899,7 @@ async fn overseer_recv_with_timeout(
 	overseer: &mut VirtualOverseer,
 	timeout: Duration,
 ) -> Option<AllMessages> {
-	gum::trace!("waiting for message...");
+	sp_tracing::trace!("waiting for message...");
 	overseer.recv().timeout(timeout).await
 }
 

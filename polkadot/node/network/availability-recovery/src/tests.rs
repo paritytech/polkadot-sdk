@@ -211,7 +211,7 @@ async fn overseer_send(
 	overseer: &mut TestSubsystemContextHandle<AvailabilityRecoveryMessage>,
 	msg: AvailabilityRecoveryMessage,
 ) {
-	gum::trace!(msg = ?msg, "sending message");
+	sp_tracing::trace!(msg = ?msg, "sending message");
 	overseer
 		.send(FromOrchestra::Communication { msg })
 		.timeout(TIMEOUT)
@@ -224,9 +224,9 @@ async fn overseer_send(
 async fn overseer_recv(
 	overseer: &mut TestSubsystemContextHandle<AvailabilityRecoveryMessage>,
 ) -> AllMessages {
-	gum::trace!("waiting for message ...");
+	sp_tracing::trace!("waiting for message ...");
 	let msg = overseer.recv().timeout(TIMEOUT).await.expect("TIMEOUT is enough to recv.");
-	gum::trace!(msg = ?msg, "received message");
+	sp_tracing::trace!(msg = ?msg, "received message");
 	msg
 }
 
@@ -450,7 +450,7 @@ impl TestState {
 				let _ = tx.send(if with_data {
 					Some(self.available_data.clone())
 				} else {
-					gum::debug!("Sending None");
+					sp_tracing::debug!("Sending None");
 					None
 				});
 			}

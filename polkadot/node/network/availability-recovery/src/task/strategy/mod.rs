@@ -97,7 +97,7 @@ fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
 		match branch_hash(&params.erasure_root, chunk.proof(), chunk.index.0 as usize) {
 			Ok(hash) => hash,
 			Err(e) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?params.candidate_hash,
 					chunk_index = ?chunk.index,
@@ -109,7 +109,7 @@ fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
 		};
 	let erasure_chunk_hash = BlakeTwo256::hash(&chunk.chunk);
 	if anticipated_hash != erasure_chunk_hash {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			candidate_hash = ?params.candidate_hash,
 			chunk_index = ?chunk.index,
@@ -141,7 +141,7 @@ async fn do_post_recovery_check(
 				.map_err(|_| RecoveryError::ChannelClosed)?;
 
 			reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?.ok_or_else(|| {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					candidate_hash = ?params.candidate_hash,
 					erasure_root = ?params.erasure_root,
@@ -153,7 +153,7 @@ async fn do_post_recovery_check(
 		PostRecoveryCheck::PovHash => {
 			let pov = data.pov.clone();
 			(pov.hash() == params.pov_hash).then_some(data).ok_or_else(|| {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					candidate_hash = ?params.candidate_hash,
 					expected_pov_hash = ?params.pov_hash,
@@ -292,7 +292,7 @@ impl State {
 
 				for (validator_index, chunk) in chunks {
 					if is_chunk_valid(params, &chunk) {
-						gum::trace!(
+						sp_tracing::trace!(
 							target: LOG_TARGET,
 							candidate_hash = ?params.candidate_hash,
 							chunk_index = ?chunk.index,
@@ -303,7 +303,7 @@ impl State {
 							Chunk { chunk: chunk.chunk, validator_index },
 						);
 					} else {
-						gum::error!(
+						sp_tracing::error!(
 							target: LOG_TARGET,
 							"Loaded invalid chunk from disk! Disk/Db corruption _very_ likely - please fix ASAP!"
 						);
@@ -313,7 +313,7 @@ impl State {
 				chunk_indices
 			},
 			Err(oneshot::Canceled) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					candidate_hash = ?params.candidate_hash,
 					"Failed to reach the availability store"
@@ -342,7 +342,7 @@ impl State {
 		let to_launch = desired_requests_count - already_requesting_count;
 		let mut requests = Vec::with_capacity(to_launch);
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			"Attempting to launch {} requests",
@@ -351,7 +351,7 @@ impl State {
 
 		while requesting_chunks.len() < desired_requests_count {
 			if let Some((authority_id, validator_index)) = validators.pop_back() {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?authority_id,
 					?validator_index,
@@ -399,7 +399,7 @@ impl State {
 								// `AvailabilityChunkMapping` feature is only enabled after the
 								// v1 version is removed. Still, log this.
 								if chunk_mapping_enabled {
-									gum::info!(
+									sp_tracing::info!(
 										target: LOG_TARGET,
 										?candidate_hash,
 										authority_id = ?authority_id_clone,
@@ -495,7 +495,7 @@ impl State {
 						Some(chunk) =>
 							if is_chunk_valid(params, &chunk) {
 								metrics.on_chunk_request_succeeded(strategy_type);
-								gum::trace!(
+								sp_tracing::trace!(
 									target: LOG_TARGET,
 									candidate_hash = ?params.candidate_hash,
 									?authority_id,
@@ -516,7 +516,7 @@ impl State {
 							},
 						None => {
 							metrics.on_chunk_request_no_such_chunk(strategy_type);
-							gum::trace!(
+							sp_tracing::trace!(
 								target: LOG_TARGET,
 								candidate_hash = ?params.candidate_hash,
 								?authority_id,
@@ -534,7 +534,7 @@ impl State {
 				Err(err) => {
 					error_count += 1;
 
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						candidate_hash= ?params.candidate_hash,
 						?err,
@@ -549,7 +549,7 @@ impl State {
 						RequestError::InvalidResponse(_) => {
 							metrics.on_chunk_request_invalid(strategy_type);
 
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								candidate_hash = ?params.candidate_hash,
 								?err,
@@ -614,7 +614,7 @@ impl State {
 				self.chunk_count(),
 				self.systematic_chunk_count(params.systematic_threshold),
 			) {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					validators_len = validators.len(),
 					candidate_hash = ?params.candidate_hash,

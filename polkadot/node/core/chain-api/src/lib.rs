@@ -133,7 +133,7 @@ where
 				},
 				ChainApiMessage::Ancestors { hash, k, response_channel } => {
 					let _timer = subsystem.metrics.time_ancestors();
-					gum::trace!(target: LOG_TARGET, hash=%hash, k=k, "ChainApiMessage::Ancestors");
+					sp_tracing::trace!(target: LOG_TARGET, hash=%hash, k=k, "ChainApiMessage::Ancestors");
 
 					let next_parent_stream = futures::stream::unfold(
 						(hash, subsystem.client.clone()),

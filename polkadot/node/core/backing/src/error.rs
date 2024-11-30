@@ -127,6 +127,6 @@ pub fn log_error(result: Result<()>) -> std::result::Result<(), FatalError> {
 impl JfyiError {
 	/// Log a `JfyiError`.
 	pub fn log(self) {
-		gum::debug!(target: LOG_TARGET, error = ?self);
+		sp_tracing::debug!(target: LOG_TARGET, error = ?self);
 	}
 }

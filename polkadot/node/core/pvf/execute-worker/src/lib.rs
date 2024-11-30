@@ -174,7 +174,7 @@ pub fn worker_entrypoint(
 						worker_info
 					)
 				})?;
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?worker_info,
 					?security_status,
@@ -292,7 +292,7 @@ pub fn worker_entrypoint(
 					}
 				}
 
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?worker_info,
 					"worker: sending result to host: {:?}",
@@ -455,7 +455,7 @@ fn handle_child_process(
 		send_child_response(&mut pipe_write, job_error_from_errno("closing stream", errno));
 	}
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		worker_job_pid = %process::id(),
 		"worker job: executing artifact",
@@ -584,7 +584,7 @@ fn handle_parent_process(
 		.map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
 	let status = nix::sys::wait::waitpid(job_pid, None);
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?worker_info,
 		%job_pid,
@@ -604,7 +604,7 @@ fn handle_parent_process(
 	// time
 	let cpu_tv = get_total_cpu_usage(usage_after) - get_total_cpu_usage(usage_before);
 	if cpu_tv >= timeout {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?worker_info,
 			%job_pid,
@@ -632,7 +632,7 @@ fn handle_parent_process(
 					Ok(Ok(WorkerResponse { job_response, pov_size, duration: cpu_tv }))
 				},
 				Err(job_error) => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						?worker_info,
 						%job_pid,

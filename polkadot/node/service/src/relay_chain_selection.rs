@@ -154,7 +154,7 @@ where
 {
 	/// Use the plain longest chain algorithm exclusively.
 	pub fn new_longest_chain(backend: Arc<B>) -> Self {
-		gum::debug!(target: LOG_TARGET, "Using {} chain selection algorithm", "longest");
+		sp_tracing::debug!(target: LOG_TARGET, "Using {} chain selection algorithm", "longest");
 
 		Self {
 			longest_chain: sc_consensus::LongestChain::new(backend.clone()),
@@ -171,7 +171,7 @@ where
 		spawn_handle: Option<SpawnTaskHandle>,
 		approval_voting_parallel_enabled: bool,
 	) -> Self {
-		gum::debug!(target: LOG_TARGET, "Using dispute aware relay-chain selection algorithm",);
+		sp_tracing::debug!(target: LOG_TARGET, "Using dispute aware relay-chain selection algorithm",);
 
 		SelectRelayChain {
 			longest_chain: sc_consensus::LongestChain::new(backend.clone()),
@@ -352,7 +352,7 @@ where
 			.map_err(Error::LeavesCanceled)
 			.map_err(|e| ConsensusError::Other(Box::new(e)))?;
 
-		gum::trace!(target: LOG_TARGET, ?leaves, "Chain selection leaves");
+		sp_tracing::trace!(target: LOG_TARGET, ?leaves, "Chain selection leaves");
 
 		Ok(leaves)
 	}
@@ -368,7 +368,7 @@ where
 			.first()
 			.ok_or_else(|| ConsensusError::Other(Box::new(Error::EmptyLeaves)))?;
 
-		gum::trace!(target: LOG_TARGET, ?best_leaf, "Best chain");
+		sp_tracing::trace!(target: LOG_TARGET, ?best_leaf, "Best chain");
 
 		self.block_header(best_leaf)
 	}
@@ -403,7 +403,7 @@ where
 				.map_err(Error::BestLeafContainingCanceled)
 				.map_err(|e| ConsensusError::Other(Box::new(e)))?;
 
-			gum::trace!(target: LOG_TARGET, ?best, "Best leaf containing");
+			sp_tracing::trace!(target: LOG_TARGET, ?best, "Best leaf containing");
 
 			match best {
 				// No viable leaves containing the block.
@@ -420,7 +420,7 @@ where
 			Some(max) => {
 				if max <= target_number {
 					if max < target_number {
-						gum::warn!(
+						sp_tracing::warn!(
 							LOG_TARGET,
 							max_number = max,
 							target_number,
@@ -433,7 +433,7 @@ where
 				let subchain_header = self.block_header(subchain_head)?;
 
 				if subchain_header.number <= max {
-					gum::trace!(target: LOG_TARGET, ?subchain_head, "Constrained sub-chain head",);
+					sp_tracing::trace!(target: LOG_TARGET, ?subchain_head, "Constrained sub-chain head",);
 					subchain_head
 				} else {
 					let (ancestor_hash, _) =
@@ -443,7 +443,7 @@ where
 							&subchain_header,
 						)
 						.map_err(|e| ConsensusError::ChainLookup(format!("{:?}", e)))?;
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?ancestor_hash,
 						"Grandpa walk backwards sub-chain head"
@@ -490,7 +490,7 @@ where
 			}
 		};
 
-		gum::trace!(target: LOG_TARGET, ?subchain_head, "Ancestor approval restriction applied",);
+		sp_tracing::trace!(target: LOG_TARGET, ?subchain_head, "Ancestor approval restriction applied",);
 
 		let lag = initial_leaf_number.saturating_sub(subchain_number);
 		self.metrics.note_approval_checking_finality_lag(lag);
@@ -530,7 +530,7 @@ where
 			if Some(subchain_block_descriptions.len() as _) !=
 				subchain_number.checked_sub(target_number)
 			{
-				gum::error!(
+				sp_tracing::error!(
 					LOG_TARGET,
 					present_block_descriptions = subchain_block_descriptions.len(),
 					target_number,
@@ -565,7 +565,7 @@ where
 						(lag_disputes, subchain_head)
 					},
 					Err(e) => {
-						gum::error!(
+						sp_tracing::error!(
 							target: LOG_TARGET,
 							error = ?e,
 							"Call to `DetermineUndisputedChain` failed",
@@ -580,7 +580,7 @@ where
 			(lag, subchain_head)
 		};
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?subchain_head,
 			"Disputed blocks in ancestry restriction applied",
@@ -593,7 +593,7 @@ where
 			let safe_target = initial_leaf_number - MAX_FINALITY_LAG;
 
 			if safe_target <= target_number {
-				gum::warn!(target: LOG_TARGET, ?target_hash, "Safeguard enforced finalization");
+				sp_tracing::warn!(target: LOG_TARGET, ?target_hash, "Safeguard enforced finalization");
 				// Minimal vote needs to be on the target number.
 				Ok(target_hash)
 			} else {
@@ -606,7 +606,7 @@ where
 				)
 				.map_err(|e| ConsensusError::ChainLookup(format!("{:?}", e)))?;
 
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?forced_target,
 					"Safeguard enforced finalization of child"

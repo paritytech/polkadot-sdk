@@ -101,13 +101,13 @@ impl SessionCache {
 		parent: Hash,
 		session_index: SessionIndex,
 	) -> Result<Option<&'a SessionInfo>> {
-		gum::trace!(target: LOG_TARGET, session_index, "Calling `get_session_info`");
+		sp_tracing::trace!(target: LOG_TARGET, session_index, "Calling `get_session_info`");
 
 		if self.session_info_cache.get(&session_index).is_none() {
 			if let Some(info) =
 				Self::query_info_from_runtime(ctx, runtime, parent, session_index).await?
 			{
-				gum::trace!(target: LOG_TARGET, session_index, "Storing session info in lru!");
+				sp_tracing::trace!(target: LOG_TARGET, session_index, "Storing session info in lru!");
 				self.session_info_cache.insert(session_index, info);
 			} else {
 				return Ok(None)
@@ -123,7 +123,7 @@ impl SessionCache {
 	/// subsystem on this.
 	pub fn report_bad_log(&mut self, report: BadValidators) {
 		if let Err(err) = self.report_bad(report) {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				err = ?err,
 				"Reporting bad validators failed with error"

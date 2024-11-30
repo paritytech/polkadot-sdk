@@ -49,7 +49,7 @@ pub(crate) fn send_validation_message_v1(
 	metrics: &Metrics,
 	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 ) {
-	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v1 message to peers",);
+	sp_tracing::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v1 message to peers",);
 
 	send_message(
 		peers,
@@ -69,7 +69,7 @@ pub(crate) fn send_validation_message_v3(
 	metrics: &Metrics,
 	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 ) {
-	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v3 message to peers",);
+	sp_tracing::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v3 message to peers",);
 
 	send_message(
 		peers,
@@ -163,7 +163,7 @@ fn send_message<M>(
 
 	let notification_sinks = network_notification_sinks.lock();
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?peers,
 		?peer_set,
@@ -284,7 +284,7 @@ impl Network for Arc<dyn NetworkService> {
 		let peer_id = match peer {
 			Recipient::Peer(peer_id) => Some(peer_id),
 			Recipient::Authority(authority) => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?authority,
 					"Searching for peer id to connect to authority",
@@ -312,12 +312,12 @@ impl Network for Arc<dyn NetworkService> {
 
 		let peer_id = match peer_id {
 			None => {
-				gum::debug!(target: LOG_TARGET, "Discovering authority failed");
+				sp_tracing::debug!(target: LOG_TARGET, "Discovering authority failed");
 				match pending_response
 					.send(Err(RequestFailure::Network(OutboundFailure::DialFailure)))
 				{
 					Err(_) => {
-						gum::debug!(target: LOG_TARGET, "Sending failed request response failed.")
+						sp_tracing::debug!(target: LOG_TARGET, "Sending failed request response failed.")
 					},
 					Ok(_) => {},
 				}
@@ -326,7 +326,7 @@ impl Network for Arc<dyn NetworkService> {
 			Some(peer_id) => peer_id,
 		};
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			%peer_id,
 			protocol = %req_protocol_names.get_name(protocol),

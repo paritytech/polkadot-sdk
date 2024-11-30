@@ -146,7 +146,7 @@ async fn modify_reputation(
 	peer: PeerId,
 	rep: Rep,
 ) {
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		rep = ?rep,
 		peer_id = %peer,

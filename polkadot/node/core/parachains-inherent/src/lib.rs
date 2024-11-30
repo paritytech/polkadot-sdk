@@ -58,7 +58,7 @@ impl<C: sp_blockchain::HeaderBackend<Block>> ParachainsInherentDataProvider<C> {
 	) -> Result<ParachainsInherentData, Error> {
 		let pid = async {
 			let (sender, receiver) = futures::channel::oneshot::channel();
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?parent,
 				"Inherent data requested by Babe"
@@ -70,7 +70,7 @@ impl<C: sp_blockchain::HeaderBackend<Block>> ParachainsInherentDataProvider<C> {
 				.map_err(|e| Error::Subsystem(e))?;
 
 			let (sender, receiver) = futures::channel::oneshot::channel();
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?parent,
 				"Requesting inherent data (after having waited for activation)"
@@ -106,7 +106,7 @@ impl<C: sp_blockchain::HeaderBackend<Block>> ParachainsInherentDataProvider<C> {
 				parent_header,
 			},
 			Err(err) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					%err,
 					"Could not get provisioner inherent data; injecting default data",

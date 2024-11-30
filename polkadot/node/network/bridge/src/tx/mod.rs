@@ -157,7 +157,7 @@ where
 	match msg {
 		NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer, rep)) => {
 			if !rep.value.is_positive() {
-				gum::debug!(target: LOG_TARGET, ?peer, ?rep, action = "ReportPeer");
+				sp_tracing::debug!(target: LOG_TARGET, ?peer, ?rep, action = "ReportPeer");
 			}
 
 			metrics.on_report_event();
@@ -167,7 +167,7 @@ where
 			for (peer, score) in batch {
 				let rep = ReputationChange::new(score, "Aggregated reputation change");
 				if !rep.value.is_positive() {
-					gum::debug!(target: LOG_TARGET, ?peer, ?rep, action = "ReportPeer");
+					sp_tracing::debug!(target: LOG_TARGET, ?peer, ?rep, action = "ReportPeer");
 				}
 
 				metrics.on_report_event();
@@ -175,7 +175,7 @@ where
 			}
 		},
 		NetworkBridgeTxMessage::DisconnectPeer(peer, peer_set) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "DisconnectPeer",
 				?peer,
@@ -187,7 +187,7 @@ where
 			network_service.disconnect_peer(peer, protocol);
 		},
 		NetworkBridgeTxMessage::SendValidationMessage(peers, msg) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "SendValidationMessages",
 				?msg,
@@ -216,7 +216,7 @@ where
 			}
 		},
 		NetworkBridgeTxMessage::SendValidationMessages(msgs) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "SendValidationMessages",
 				num_messages = %msgs.len(),
@@ -247,7 +247,7 @@ where
 			}
 		},
 		NetworkBridgeTxMessage::SendCollationMessage(peers, msg) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "SendCollationMessages",
 				num_messages = 1usize,
@@ -269,7 +269,7 @@ where
 			}
 		},
 		NetworkBridgeTxMessage::SendCollationMessages(msgs) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "SendCollationMessages",
 				num_messages = %msgs.len(),
@@ -293,7 +293,7 @@ where
 			}
 		},
 		NetworkBridgeTxMessage::SendRequests(reqs, if_disconnected) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "SendRequests",
 				num_requests = %reqs.len(),
@@ -331,7 +331,7 @@ where
 			}
 		},
 		NetworkBridgeTxMessage::ConnectToValidators { validator_ids, peer_set, failed } => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "ConnectToValidators",
 				peer_set = ?peer_set,
@@ -354,7 +354,7 @@ where
 			return (network_service, ads)
 		},
 		NetworkBridgeTxMessage::ConnectToResolvedValidators { validator_addrs, peer_set } => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "ConnectToPeers",
 				peer_set = ?peer_set,
@@ -372,7 +372,7 @@ where
 		},
 
 		NetworkBridgeTxMessage::AddToResolvedValidators { validator_addrs, peer_set } => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				action = "AddToResolvedValidators",
 				peer_set = ?peer_set,

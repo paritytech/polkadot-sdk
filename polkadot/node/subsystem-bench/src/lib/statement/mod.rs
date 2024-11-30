@@ -268,7 +268,7 @@ pub async fn benchmark_statement_distribution(
 	let mut candidates_advertised = 0;
 	for block_info in state.block_infos.iter() {
 		let block_num = block_info.number as usize;
-		gum::info!(target: LOG_TARGET, "Current block {}/{} {:?}", block_num, config.num_blocks, block_info.hash);
+		sp_tracing::info!(target: LOG_TARGET, "Current block {}/{} {:?}", block_num, config.num_blocks, block_info.hash);
 		env.metrics().set_current_block(block_num);
 		env.import_block(block_info.clone()).await;
 
@@ -429,7 +429,7 @@ pub async fn benchmark_statement_distribution(
 				.filter(|v| v.load(Ordering::SeqCst))
 				.collect::<Vec<_>>()
 				.len();
-			gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifests_count, candidates_advertised);
+			sp_tracing::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifests_count, candidates_advertised);
 
 			if manifests_count == candidates_advertised {
 				break;
@@ -439,8 +439,8 @@ pub async fn benchmark_statement_distribution(
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
-	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
-	gum::info!(target: LOG_TARGET,
+	sp_tracing::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	sp_tracing::info!(target: LOG_TARGET,
 		"Avg block time: {}",
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);

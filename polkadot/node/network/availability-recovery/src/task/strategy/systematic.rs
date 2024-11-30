@@ -129,7 +129,7 @@ impl FetchSystematicChunks {
 						recovery_duration.map(|rd| rd.stop_and_discard());
 					})
 					.inspect(|_| {
-						gum::trace!(
+						sp_tracing::trace!(
 							target: LOG_TARGET,
 							candidate_hash = ?common_params.candidate_hash,
 							erasure_root = ?common_params.erasure_root,
@@ -141,7 +141,7 @@ impl FetchSystematicChunks {
 				reconstruct_duration.map(|rd| rd.stop_and_discard());
 				recovery_duration.map(|rd| rd.stop_and_discard());
 
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?common_params.candidate_hash,
 					erasure_root = ?common_params.erasure_root,
@@ -183,7 +183,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				if self.validators.iter().any(|(c_index, _)| c_index == our_c_index) &&
 					!state.received_chunks.contains_key(our_c_index)
 				{
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						candidate_hash = ?common_params.candidate_hash,
 						erasure_root = ?common_params.erasure_root,
@@ -244,7 +244,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				systematic_chunk_count,
 				self.threshold,
 			) {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?common_params.candidate_hash,
 					erasure_root = ?common_params.erasure_root,

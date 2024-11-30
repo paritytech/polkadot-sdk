@@ -58,13 +58,13 @@ impl Subsystem1 {
 			match ctx.try_recv().await {
 				Ok(Some(msg)) => {
 					if let FromOrchestra::Communication { msg } = msg {
-						gum::info!("msg {:?}", msg);
+						sp_tracing::info!("msg {:?}", msg);
 					}
 					continue 'louy
 				},
 				Ok(None) => (),
 				Err(_) => {
-					gum::info!("exiting");
+					sp_tracing::info!("exiting");
 					break 'louy
 				},
 			}
@@ -115,7 +115,7 @@ impl Subsystem2 {
 			"subsystem-2-job",
 			Box::pin(async {
 				loop {
-					gum::info!("Job tick");
+					sp_tracing::info!("Job tick");
 					Delay::new(Duration::from_secs(1)).await;
 				}
 			}),
@@ -125,14 +125,14 @@ impl Subsystem2 {
 		loop {
 			match ctx.try_recv().await {
 				Ok(Some(msg)) => {
-					gum::info!("Subsystem2 received message {:?}", msg);
+					sp_tracing::info!("Subsystem2 received message {:?}", msg);
 					continue
 				},
 				Ok(None) => {
 					pending!();
 				},
 				Err(_) => {
-					gum::info!("exiting");
+					sp_tracing::info!("exiting");
 					return
 				},
 			}
@@ -177,7 +177,7 @@ fn main() {
 			select! {
 				_ = overseer_fut => break,
 				_ = timer_stream.next() => {
-					gum::info!("tick");
+					sp_tracing::info!("tick");
 				}
 				complete => break,
 			}

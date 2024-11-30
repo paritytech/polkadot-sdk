@@ -368,7 +368,7 @@ impl<Ctx: Context> Table<Ctx> {
 		group: Ctx::GroupId,
 	) -> ImportResult<Ctx> {
 		if !context.is_member_of(&authority, &group) {
-			gum::debug!(target: LOG_TARGET,  authority = ?authority, group = ?group, "New `Misbehavior::UnauthorizedStatement`, candidate backed by validator that doesn't belong to expected group" );
+			sp_tracing::debug!(target: LOG_TARGET,  authority = ?authority, group = ?group, "New `Misbehavior::UnauthorizedStatement`, candidate backed by validator that doesn't belong to expected group" );
 			return Err(Misbehavior::UnauthorizedStatement(UnauthorizedStatement {
 				statement: SignedStatement {
 					signature,

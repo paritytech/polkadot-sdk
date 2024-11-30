@@ -381,7 +381,7 @@ async fn distribute_collation<Context>(
 	let per_relay_parent = match state.per_relay_parent.get_mut(&candidate_relay_parent) {
 		Some(per_relay_parent) => per_relay_parent,
 		None => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				para_id = %id,
 				candidate_relay_parent = %candidate_relay_parent,
@@ -399,7 +399,7 @@ async fn distribute_collation<Context>(
 	};
 
 	if per_relay_parent.collations.len() >= collations_limit {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?candidate_relay_parent,
 			?relay_parent_mode,
@@ -411,7 +411,7 @@ async fn distribute_collation<Context>(
 
 	// We have already seen collation for this relay parent.
 	if per_relay_parent.collations.contains_key(&candidate_hash) {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?candidate_relay_parent,
 			?candidate_hash,
@@ -425,7 +425,7 @@ async fn distribute_collation<Context>(
 	let (our_cores, num_cores) =
 		match determine_cores(ctx.sender(), id, candidate_relay_parent, relay_parent_mode).await? {
 			(cores, _num_cores) if cores.is_empty() => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					para_id = %id,
 					"looks like no core is assigned to {} at {}", id, candidate_relay_parent,
@@ -438,7 +438,7 @@ async fn distribute_collation<Context>(
 
 	let elastic_scaling = our_cores.len() > 1;
 	if elastic_scaling {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			para_id = %id,
 			cores = ?our_cores,
@@ -448,7 +448,7 @@ async fn distribute_collation<Context>(
 
 	// Double check that the specified `core_index` is among the ones our para has assignments for.
 	if !our_cores.iter().any(|assigned_core| assigned_core == &core_index) {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			para_id = %id,
 			relay_parent = ?candidate_relay_parent,
@@ -470,7 +470,7 @@ async fn distribute_collation<Context>(
 		determine_our_validators(ctx, runtime, our_core, num_cores, candidate_relay_parent).await?;
 
 	if validators.is_empty() {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			core = ?our_core,
 			"there are no validators assigned to core",
@@ -491,7 +491,7 @@ async fn distribute_collation<Context>(
 		&validators,
 	);
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		para_id = %id,
 		candidate_relay_parent = %candidate_relay_parent,
@@ -635,7 +635,7 @@ async fn determine_our_validators<Context>(
 		.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 		.await?
 		.session_info;
-	gum::debug!(target: LOG_TARGET, ?session_index, "Received session info");
+	sp_tracing::debug!(target: LOG_TARGET, ?session_index, "Received session info");
 	let groups = &info.validator_groups;
 	let rotation_info = get_group_rotation_info(ctx.sender(), relay_parent).await?;
 
@@ -747,7 +747,7 @@ async fn advertise_collation<Context>(
 		// Check that peer will be able to request the collation.
 		if let CollationVersion::V1 = protocol_version {
 			if per_relay_parent.prospective_parachains_mode.is_enabled() {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?relay_parent,
 					peer_id = %peer,
@@ -758,7 +758,7 @@ async fn advertise_collation<Context>(
 		}
 
 		let Some(validator_group) = per_relay_parent.validator_group.get_mut(&core_index) else {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?core_index,
@@ -771,7 +771,7 @@ async fn advertise_collation<Context>(
 		match should_advertise {
 			ShouldAdvertiseTo::Yes => {},
 			ShouldAdvertiseTo::NotAuthority | ShouldAdvertiseTo::AlreadyAdvertised => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?relay_parent,
 					?candidate_hash,
@@ -783,7 +783,7 @@ async fn advertise_collation<Context>(
 			},
 		}
 
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			?candidate_hash,
@@ -854,7 +854,7 @@ async fn process_msg<Context>(
 				Some(id) if candidate_receipt.descriptor.para_id() != id => {
 					// If the ParaId of a collation requested to be distributed does not match
 					// the one we expect, we ignore the message.
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						para_id = %candidate_receipt.descriptor.para_id(),
 						collating_on = %id,
@@ -878,7 +878,7 @@ async fn process_msg<Context>(
 					.await?;
 				},
 				None => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						para_id = %candidate_receipt.descriptor.para_id(),
 						"DistributeCollation message while not collating on any",
@@ -892,7 +892,7 @@ async fn process_msg<Context>(
 			let _ = state.metrics.time_process_msg();
 
 			if let Err(e) = handle_network_msg(ctx, runtime, state, event).await {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					err = ?e,
 					"Failed to handle incoming network message",
@@ -900,7 +900,7 @@ async fn process_msg<Context>(
 			}
 		},
 		msg @ (Invalid(..) | Seconded(..)) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"{:?} message is not expected on the collator side of the protocol",
 				msg,
@@ -940,7 +940,7 @@ async fn send_collation(
 		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
 
 	if let Err(_) = request.send_outgoing_response(response) {
-		gum::warn!(target: LOG_TARGET, "Sending collation response failed");
+		sp_tracing::warn!(target: LOG_TARGET, "Sending collation response failed");
 	}
 
 	state.active_collation_fetches.push(
@@ -972,7 +972,7 @@ async fn handle_incoming_peer_message<Context>(
 		Versioned::V1(V1::Declare(..)) |
 		Versioned::V2(V2::Declare(..)) |
 		Versioned::V3(V2::Declare(..)) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?origin,
 				"Declare message is not expected on the collator side of the protocol",
@@ -985,7 +985,7 @@ async fn handle_incoming_peer_message<Context>(
 		Versioned::V1(V1::AdvertiseCollation(_)) |
 		Versioned::V2(V2::AdvertiseCollation { .. }) |
 		Versioned::V3(V2::AdvertiseCollation { .. }) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?origin,
 				"AdvertiseCollation message is not expected on the collator side of the protocol",
@@ -1002,7 +1002,7 @@ async fn handle_incoming_peer_message<Context>(
 		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) |
 		Versioned::V3(V2::CollationSeconded(relay_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?statement,
 					?origin,
@@ -1018,7 +1018,7 @@ async fn handle_incoming_peer_message<Context>(
 					state.collation_result_senders.remove(&statement.payload().candidate_hash());
 
 				if let Some(sender) = removed {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?statement,
 						?origin,
@@ -1030,7 +1030,7 @@ async fn handle_incoming_peer_message<Context>(
 					let relay_parent = match state.per_relay_parent.get(&relay_parent) {
 						Some(per_relay_parent) => per_relay_parent,
 						None => {
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								candidate_relay_parent = %relay_parent,
 								candidate_hash = ?&statement.payload().candidate_hash(),
@@ -1042,7 +1042,7 @@ async fn handle_incoming_peer_message<Context>(
 					match relay_parent.collations.get(&statement.payload().candidate_hash()) {
 						Some(_) => {
 							// We've seen this collation before, so a seconded statement is expected
-							gum::trace!(
+							sp_tracing::trace!(
 								target: LOG_TARGET,
 								?statement,
 								?origin,
@@ -1050,7 +1050,7 @@ async fn handle_incoming_peer_message<Context>(
 							);
 						},
 						None => {
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								candidate_hash = ?&statement.payload().candidate_hash(),
 								?origin,
@@ -1083,7 +1083,7 @@ async fn handle_incoming_request<Context>(
 			let per_relay_parent = match state.per_relay_parent.get_mut(&relay_parent) {
 				Some(per_relay_parent) => per_relay_parent,
 				None => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						relay_parent = %relay_parent,
 						"received a `RequestCollation` for a relay parent out of our view",
@@ -1100,7 +1100,7 @@ async fn handle_incoming_request<Context>(
 				VersionedCollationRequest::V2(req) =>
 					per_relay_parent.collations.get_mut(&req.payload.candidate_hash),
 				_ => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						relay_parent = %relay_parent,
 						prospective_parachains_mode = ?mode,
@@ -1121,7 +1121,7 @@ async fn handle_incoming_request<Context>(
 						collation.parent_head_data.clone(),
 					)
 				} else {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						relay_parent = %relay_parent,
 						"received a `RequestCollation` for a relay parent we don't have collation stored.",
@@ -1136,7 +1136,7 @@ async fn handle_incoming_request<Context>(
 			let candidate_hash = receipt.hash();
 
 			if !waiting.waiting_peers.insert((peer_id, candidate_hash)) {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					"Dropping incoming request as peer has a request in flight already."
 				);
@@ -1160,7 +1160,7 @@ async fn handle_incoming_request<Context>(
 			}
 		},
 		Some(our_para_id) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				for_para_id = %para_id,
 				our_para_id = %our_para_id,
@@ -1168,7 +1168,7 @@ async fn handle_incoming_request<Context>(
 			);
 		},
 		None => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				for_para_id = %para_id,
 				"received a `RequestCollation` while not collating on any para",
@@ -1212,7 +1212,7 @@ async fn handle_peer_view_change<Context>(
 				})
 				.unwrap_or_default(),
 			None => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?peer_id,
 					new_leaf = ?added,
@@ -1259,13 +1259,13 @@ async fn handle_network_msg<Context>(
 		PeerConnected(peer_id, observed_role, protocol_version, maybe_authority) => {
 			// If it is possible that a disconnected validator would attempt a reconnect
 			// it should be handled here.
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?observed_role, ?maybe_authority, "Peer connected");
+			sp_tracing::trace!(target: LOG_TARGET, ?peer_id, ?observed_role, ?maybe_authority, "Peer connected");
 
 			let version = match protocol_version.try_into() {
 				Ok(version) => version,
 				Err(err) => {
 					// Network bridge is expected to handle this.
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						?peer_id,
 						?observed_role,
@@ -1284,7 +1284,7 @@ async fn handle_network_msg<Context>(
 			});
 
 			if let Some(authority_ids) = maybe_authority {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?authority_ids,
 					?peer_id,
@@ -1296,23 +1296,23 @@ async fn handle_network_msg<Context>(
 			}
 		},
 		PeerViewChange(peer_id, view) => {
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?view, "Peer view change");
+			sp_tracing::trace!(target: LOG_TARGET, ?peer_id, ?view, "Peer view change");
 			handle_peer_view_change(ctx, state, peer_id, view).await;
 		},
 		PeerDisconnected(peer_id) => {
-			gum::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
+			sp_tracing::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
 			state.peer_data.remove(&peer_id);
 			state.peer_ids.remove(&peer_id);
 		},
 		OurViewChange(view) => {
-			gum::trace!(target: LOG_TARGET, ?view, "Own view change");
+			sp_tracing::trace!(target: LOG_TARGET, ?view, "Own view change");
 			handle_our_view_change(ctx, state, view).await?;
 		},
 		PeerMessage(remote, msg) => {
 			handle_incoming_peer_message(ctx, runtime, state, remote, msg).await?;
 		},
 		UpdatedAuthorityIds(peer_id, authority_ids) => {
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Updated authority ids");
+			sp_tracing::trace!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Updated authority ids");
 			if let Some(version) = state.peer_data.get(&peer_id).map(|d| d.version) {
 				if state.peer_ids.insert(peer_id, authority_ids).is_none() {
 					declare(ctx, state, &peer_id, version).await;
@@ -1407,7 +1407,7 @@ async fn handle_our_view_change<Context>(
 		};
 
 		for removed in &pruned {
-			gum::debug!(target: LOG_TARGET, relay_parent = ?removed, "Removing relay parent because our view changed.");
+			sp_tracing::debug!(target: LOG_TARGET, relay_parent = ?removed, "Removing relay parent because our view changed.");
 
 			let collations = state
 				.per_relay_parent
@@ -1422,19 +1422,19 @@ async fn handle_our_view_change<Context>(
 				state.validator_groups_buf.remove_candidate(&candidate_hash);
 
 				match collation.status {
-					CollationStatus::Created => gum::warn!(
+					CollationStatus::Created => sp_tracing::warn!(
 						target: LOG_TARGET,
 						candidate_hash = ?collation.receipt.hash(),
 						pov_hash = ?collation.pov.hash(),
 						"Collation wasn't advertised to any validator.",
 					),
-					CollationStatus::Advertised => gum::debug!(
+					CollationStatus::Advertised => sp_tracing::debug!(
 						target: LOG_TARGET,
 						candidate_hash = ?collation.receipt.hash(),
 						pov_hash = ?collation.pov.hash(),
 						"Collation was advertised but not requested by any validator.",
 					),
-					CollationStatus::Requested => gum::debug!(
+					CollationStatus::Requested => sp_tracing::debug!(
 						target: LOG_TARGET,
 						candidate_hash = ?collation.receipt.hash(),
 						pov_hash = ?collation.pov.hash(),
@@ -1522,7 +1522,7 @@ async fn run_inner<Context>(
 				state.active_collation_fetches.select_next_some() => {
 				let next = if let Some(waiting) = state.waiting_collation_fetches.get_mut(&relay_parent) {
 					if timed_out {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							?relay_parent,
 							?peer_id,
@@ -1595,7 +1595,7 @@ async fn run_inner<Context>(
 			_ = reconnect_timeout => {
 				connect_to_validators(&mut ctx, &state.validator_groups_buf).await;
 
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					timeout = ?RECONNECT_AFTER_LEAF_TIMEOUT,
 					"Peer-set updated due to a timeout"

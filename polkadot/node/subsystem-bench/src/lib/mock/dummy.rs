@@ -54,7 +54,7 @@ macro_rules! mock {
                                         }
                                     },
                                     orchestra::FromOrchestra::Communication { msg } => {
-                                        gum::debug!(target: LOG_TARGET, msg = ?msg, "mocked subsystem received message");
+                                        sp_tracing::debug!(target: LOG_TARGET, msg = ?msg, "mocked subsystem received message");
                                     }
                                 }
 
@@ -62,7 +62,7 @@ macro_rules! mock {
                             }
                             _ = sleep(Duration::from_secs(6)).fuse() => {
                                 if count_total_msg > 0 {
-                                    gum::trace!(target: LOG_TARGET, "Subsystem {} processed {} messages since last time", stringify!($subsystem_name), count_total_msg);
+                                    sp_tracing::trace!(target: LOG_TARGET, "Subsystem {} processed {} messages since last time", stringify!($subsystem_name), count_total_msg);
                                 }
                                 count_total_msg = 0;
                             }

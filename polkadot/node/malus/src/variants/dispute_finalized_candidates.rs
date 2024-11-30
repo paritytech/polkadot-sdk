@@ -78,7 +78,7 @@ where
 				finalized_hash,
 				finalized_height,
 			)) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: MALUS,
 					"😈 Block Finalization Interception! Block: {:?}", finalized_hash,
 				);
@@ -107,14 +107,14 @@ where
 							.await;
 						let disputable_hash = match rx.await {
 							Ok(Ok(Some(hash))) => {
-								gum::debug!(
+								sp_tracing::debug!(
 									target: MALUS,
 									"😈 Time to search {:?}`th ancestor! Block: {:?}", dispute_offset, hash,
 								);
 								hash
 							},
 							_ => {
-								gum::debug!(
+								sp_tracing::debug!(
 									target: MALUS,
 									"😈 Seems the target is not yet finalized! Nothing to dispute."
 								);
@@ -128,14 +128,14 @@ where
 						let events = match events {
 							Ok(Ok(events)) => events,
 							Ok(Err(e)) => {
-								gum::error!(
+								sp_tracing::error!(
 									target: MALUS,
 									"😈 Failed to fetch candidate events: {:?}", e
 								);
 								return // Early return from the async block
 							},
 							Err(e) => {
-								gum::error!(
+								sp_tracing::error!(
 									target: MALUS,
 									"😈 Failed to fetch candidate events: {:?}", e
 								);
@@ -151,7 +151,7 @@ where
 							Some(CandidateEvent::CandidateIncluded(candidate, _, _, _)) =>
 								candidate,
 							_ => {
-								gum::error!(
+								sp_tracing::error!(
 									target: MALUS,
 									"😈 No candidate included event found! Nothing to dispute."
 								);
@@ -173,14 +173,14 @@ where
 						let session_index = match rx.await {
 							Ok(Ok(session_index)) => session_index,
 							_ => {
-								gum::error!(
+								sp_tracing::error!(
 									target: MALUS,
 									"😈 Failed to fetch session index for candidate."
 								);
 								return // Early return from the async block
 							},
 						};
-						gum::info!(
+						sp_tracing::info!(
 							target: MALUS,
 							"😈 Disputing candidate with hash: {:?} in session {:?}", candidate_hash, session_index,
 						);
@@ -241,7 +241,7 @@ impl OverseerGen for DisputeFinalizedCandidates {
 		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
-		gum::info!(
+		sp_tracing::info!(
 			target: MALUS,
 			"😈 Started Malus node that disputes finalized blocks after they are {:?} finalizations deep.",
 			&self.dispute_offset,

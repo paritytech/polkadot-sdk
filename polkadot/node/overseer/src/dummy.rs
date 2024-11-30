@@ -39,7 +39,7 @@ where
 					Err(_) => return Ok(()),
 					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
 					Ok(overseer_msg) => {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: "dummy-subsystem",
 							"Discarding a message sent from overseer {:?}",
 							overseer_msg

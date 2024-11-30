@@ -86,6 +86,6 @@ pub fn log_error(result: Result<()>) -> std::result::Result<(), FatalError> {
 impl JfyiError {
 	/// Log a `JfyiError`.
 	pub fn log(self) {
-		gum::warn!(target: LOG_TARGET, "{}", self);
+		sp_tracing::warn!(target: LOG_TARGET, "{}", self);
 	}
 }

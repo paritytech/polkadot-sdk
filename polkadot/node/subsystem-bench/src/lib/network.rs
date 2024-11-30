@@ -121,7 +121,7 @@ impl RateLimit {
 
 		// Sleep until next tick.
 		if !next_tick_delta.is_zero() {
-			gum::trace!(target: LOG_TARGET, "need to sleep {}ms", next_tick_delta.as_millis());
+			sp_tracing::trace!(target: LOG_TARGET, "need to sleep {}ms", next_tick_delta.as_millis());
 			tokio::time::sleep(next_tick_delta).await;
 		}
 
@@ -140,9 +140,9 @@ impl RateLimit {
 		}
 
 		while self.credits < 0 {
-			gum::trace!(target: LOG_TARGET, "Before refill: {:?}", &self);
+			sp_tracing::trace!(target: LOG_TARGET, "Before refill: {:?}", &self);
 			self.refill().await;
-			gum::trace!(target: LOG_TARGET, "After refill: {:?}", &self);
+			sp_tracing::trace!(target: LOG_TARGET, "After refill: {:?}", &self);
 		}
 	}
 }
@@ -292,7 +292,7 @@ impl NetworkInterface {
 								.unbounded_send(peer_message)
 								.expect("network bridge subsystem is alive");
 						} else {
-							gum::info!(target: LOG_TARGET, "Uplink channel closed, network interface task exiting");
+							sp_tracing::info!(target: LOG_TARGET, "Uplink channel closed, network interface task exiting");
 							break
 						}
 					},
@@ -301,7 +301,7 @@ impl NetworkInterface {
 							match proxied_request.result {
 								Ok(result) => {
 									let bytes = result.encoded_size();
-									gum::trace!(target: LOG_TARGET, size = bytes, "proxied request completed");
+									sp_tracing::trace!(target: LOG_TARGET, size = bytes, "proxied request completed");
 
 									// Enforce bandwidth based on the response the node has sent.
 									// TODO: Fix the stall of RX when TX lock() takes a while to refill
@@ -319,11 +319,11 @@ impl NetworkInterface {
 									).expect("network is alive");
 								}
 								Err(e) => {
-									gum::warn!(target: LOG_TARGET, "Node req/response failure: {:?}", e)
+									sp_tracing::warn!(target: LOG_TARGET, "Node req/response failure: {:?}", e)
 								}
 							}
 						} else {
-							gum::debug!(target: LOG_TARGET, "No more active proxied requests");
+							sp_tracing::debug!(target: LOG_TARGET, "No more active proxied requests");
 							// break
 						}
 					}
@@ -371,7 +371,7 @@ impl NetworkInterface {
 
 					tx_network.inc_sent(size);
 				} else {
-					gum::info!(target: LOG_TARGET, "Downlink channel closed, network interface task exiting");
+					sp_tracing::info!(target: LOG_TARGET, "Downlink channel closed, network interface task exiting");
 					break
 				}
 			}
@@ -423,7 +423,7 @@ impl NetworkInterface {
 
 				// Send the response to the original request sender.
 				if sender.send(Ok((response, protocol_name))).is_err() {
-					gum::warn!(target: LOG_TARGET, response_size, "response oneshot canceled by node")
+					sp_tracing::warn!(target: LOG_TARGET, response_size, "response oneshot canceled by node")
 				}
 			},
 		};
@@ -564,7 +564,7 @@ async fn emulated_peer_loop(
 						panic!("Emulated message from peer {:?} not handled", message.peer());
 					}
 				} else {
-					gum::debug!(target: LOG_TARGET, "Downlink channel closed, peer task exiting");
+					sp_tracing::debug!(target: LOG_TARGET, "Downlink channel closed, peer task exiting");
 					break
 				}
 			},
@@ -583,7 +583,7 @@ async fn emulated_peer_loop(
 					},
 					Some(message) => emulated_peer.send_message(message).await,
 					None => {
-						gum::debug!(target: LOG_TARGET, "Action channel closed, peer task exiting");
+						sp_tracing::debug!(target: LOG_TARGET, "Action channel closed, peer task exiting");
 						break
 					}
 				}
@@ -593,7 +593,7 @@ async fn emulated_peer_loop(
 					match proxied_request.result {
 						Ok(result) => {
 							let bytes = result.encoded_size();
-							gum::trace!(target: LOG_TARGET, size = bytes, "Peer proxied request completed");
+							sp_tracing::trace!(target: LOG_TARGET, size = bytes, "Peer proxied request completed");
 
 							emulated_peer.rx_limiter().reap(bytes).await;
 							stats.inc_received(bytes);
@@ -607,7 +607,7 @@ async fn emulated_peer_loop(
 							).expect("network is alive");
 						}
 						Err(e) => {
-							gum::warn!(target: LOG_TARGET, "Node req/response failure: {:?}", e)
+							sp_tracing::warn!(target: LOG_TARGET, "Node req/response failure: {:?}", e)
 						}
 					}
 				}
@@ -789,8 +789,8 @@ pub fn new_network(
 	handlers: Vec<Arc<dyn HandleNetworkMessage + Sync + Send>>,
 ) -> (NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver) {
 	let n_peers = config.n_validators;
-	gum::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {} peer network.", n_peers).bright_blue());
-	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}", config.connectivity, config.latency).bright_black());
+	sp_tracing::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {} peer network.", n_peers).bright_blue());
+	sp_tracing::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}", config.connectivity, config.latency).bright_black());
 
 	let metrics =
 		Metrics::new(&dependencies.registry).expect("Metrics always register successfully");
@@ -833,7 +833,7 @@ pub fn new_network(
 		peers[*peer].disconnect();
 	}
 
-	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
+	sp_tracing::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
 
 	let handle = NetworkEmulatorHandle {
 		peers,
@@ -893,7 +893,7 @@ impl NetworkEmulatorHandle {
 		let dst_peer = self.peer(from_peer);
 
 		if !dst_peer.is_connected() {
-			gum::warn!(target: LOG_TARGET, "Attempted to send message from a peer not connected to our node, operation ignored");
+			sp_tracing::warn!(target: LOG_TARGET, "Attempted to send message from a peer not connected to our node, operation ignored");
 			return Err(EmulatedPeerError::NotConnected)
 		}
 
@@ -910,7 +910,7 @@ impl NetworkEmulatorHandle {
 		let dst_peer = self.peer(from_peer);
 
 		if !dst_peer.is_connected() {
-			gum::warn!(target: LOG_TARGET, "Attempted to send request from a peer not connected to our node, operation ignored");
+			sp_tracing::warn!(target: LOG_TARGET, "Attempted to send request from a peer not connected to our node, operation ignored");
 			return Err(EmulatedPeerError::NotConnected)
 		}
 

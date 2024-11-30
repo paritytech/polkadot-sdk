@@ -241,7 +241,7 @@ impl RuntimeInfo {
 				.unwrap_or(NodeFeatures::EMPTY);
 			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
 			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
-				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
+				sp_tracing::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
 			}
 
 			let full_info = ExtendedSessionInfo {
@@ -510,7 +510,7 @@ where
 	if let Err(error::Error::RuntimeRequest(RuntimeApiError::NotSupported { runtime_api_name })) =
 		&result
 	{
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?relay_parent,
 			"Prospective parachains are disabled, {} is not supported by the current Runtime API",
@@ -544,7 +544,7 @@ pub async fn request_min_backing_votes(
 
 	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = min_backing_votes_res
 	{
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?parent,
 			"Querying the backing threshold from the runtime is not supported by the current Runtime API",
@@ -573,7 +573,7 @@ pub async fn request_node_features(
 	.await;
 
 	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?parent,
 			"Querying the node features from the runtime is not supported by the current Runtime API",
@@ -648,7 +648,7 @@ pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<Runti
 			.await
 			.map_err(Error::RuntimeRequestCanceled)??
 	} else {
-		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
+		sp_tracing::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
 		vec![]
 	};
 
@@ -675,7 +675,7 @@ pub async fn fetch_claim_queue(
 			.map_err(Error::RuntimeRequestCanceled)??;
 		Ok(Some(res.into()))
 	} else {
-		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
+		sp_tracing::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
 		Ok(None)
 	}
 }

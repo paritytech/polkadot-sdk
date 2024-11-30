@@ -129,11 +129,11 @@ impl Display for TestMetric {
 // Returns `false` if metric should be skipped.
 fn check_metric_family(mf: &MetricFamily) -> bool {
 	if mf.get_metric().is_empty() {
-		gum::error!(target: LOG_TARGET, "MetricFamily has no metrics: {:?}", mf);
+		sp_tracing::error!(target: LOG_TARGET, "MetricFamily has no metrics: {:?}", mf);
 		return false
 	}
 	if mf.get_name().is_empty() {
-		gum::error!(target: LOG_TARGET, "MetricFamily has no name: {:?}", mf);
+		sp_tracing::error!(target: LOG_TARGET, "MetricFamily has no name: {:?}", mf);
 		return false
 	}
 

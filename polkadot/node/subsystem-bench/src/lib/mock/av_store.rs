@@ -63,7 +63,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 		match message {
 			NetworkMessage::RequestFromNode(peer, request) => match request {
 				Requests::ChunkFetching(outgoing_request) => {
-					gum::debug!(target: LOG_TARGET, request = ?outgoing_request, "Received `RequestFromNode`");
+					sp_tracing::debug!(target: LOG_TARGET, request = ?outgoing_request, "Received `RequestFromNode`");
 					let validator_index: usize = outgoing_request.payload.index.0 as usize;
 					let candidate_hash = outgoing_request.payload.candidate_hash;
 
@@ -71,7 +71,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						.candidate_hashes
 						.get(&candidate_hash)
 						.expect("candidate was generated previously; qed");
-					gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+					sp_tracing::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
 					let candidate_chunks = self.chunks.get(*candidate_index).unwrap();
 					let chunk_indices = self
@@ -92,7 +92,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 					));
 
 					if let Err(err) = outgoing_request.pending_response.send(response) {
-						gum::error!(target: LOG_TARGET, ?err, "Failed to send `ChunkFetchingResponse`");
+						sp_tracing::error!(target: LOG_TARGET, ?err, "Failed to send `ChunkFetchingResponse`");
 					}
 
 					None
@@ -103,7 +103,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						.candidate_hashes
 						.get(&candidate_hash)
 						.expect("candidate was generated previously; qed");
-					gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+					sp_tracing::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
 					let available_data = self.available_data.get(*candidate_index).unwrap().clone();
 
@@ -159,7 +159,7 @@ impl MockAvailabilityStore {
 			.candidate_hashes
 			.get(&candidate_hash)
 			.expect("candidate was generated previously; qed");
-		gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+		sp_tracing::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
 		let n_validators = self.state.chunks[0].len();
 		let candidate_chunks = self.state.chunks.get(*candidate_index).unwrap();
@@ -199,7 +199,7 @@ impl<Context> MockAvailabilityStore {
 #[overseer::contextbounds(AvailabilityStore, prefix = self::overseer)]
 impl MockAvailabilityStore {
 	async fn run<Context>(self, mut ctx: Context) {
-		gum::debug!(target: LOG_TARGET, "Subsystem running");
+		sp_tracing::debug!(target: LOG_TARGET, "Subsystem running");
 		loop {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
@@ -210,14 +210,14 @@ impl MockAvailabilityStore {
 					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					AvailabilityStoreMessage::QueryAvailableData(candidate_hash, tx) => {
-						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAvailableData");
+						sp_tracing::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAvailableData");
 
 						// We never have the full available data.
 						let _ = tx.send(None);
 					},
 					AvailabilityStoreMessage::QueryAllChunks(candidate_hash, tx) => {
 						// We always have our own chunk.
-						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAllChunks");
+						sp_tracing::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAllChunks");
 						self.respond_to_query_all_request(
 							candidate_hash,
 							|index| index == 0.into(),
@@ -226,14 +226,14 @@ impl MockAvailabilityStore {
 						.await;
 					},
 					AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx) => {
-						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryChunkSize");
+						sp_tracing::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryChunkSize");
 
 						let candidate_index = self
 							.state
 							.candidate_hashes
 							.get(&candidate_hash)
 							.expect("candidate was generated previously; qed");
-						gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+						sp_tracing::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
 						let chunk_size = self
 							.state
@@ -251,7 +251,7 @@ impl MockAvailabilityStore {
 						tx,
 						validator_index,
 					} => {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							chunk_index = ?chunk.index,
 							validator_index = ?validator_index,

@@ -150,14 +150,14 @@ pub fn make_dispute_message(
 	let before_request = Instant::now();
 	let valid_vote =
 		make_explicit_signed(MOCK_VALIDATORS[valid_validator.0 as usize], candidate_hash, true);
-	gum::trace!(
+	sp_tracing::trace!(
 		"Passed time for valid vote: {:#?}",
 		Instant::now().saturating_duration_since(before_request)
 	);
 	let before_request = Instant::now();
 	let invalid_vote =
 		make_explicit_signed(MOCK_VALIDATORS[invalid_validator.0 as usize], candidate_hash, false);
-	gum::trace!(
+	sp_tracing::trace!(
 		"Passed time for invalid vote: {:#?}",
 		Instant::now().saturating_duration_since(before_request)
 	);
@@ -215,7 +215,7 @@ impl AuthorityDiscovery for MockAuthorityDiscovery {
 			if p == &peer_id {
 				let result =
 					HashSet::from([MOCK_VALIDATORS_DISCOVERY_KEYS.get(&a).unwrap().clone()]);
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					%peer_id,
 					?result,

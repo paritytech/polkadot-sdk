@@ -50,7 +50,6 @@ futures-timer = { workspace = true }
 bincode = { workspace = true }
 sha1 = { workspace = true }
 hex = { workspace = true, default-features = true }
-gum = { workspace = true, default-features = true }
 polkadot-erasure-coding = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }

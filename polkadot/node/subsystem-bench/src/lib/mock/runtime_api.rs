@@ -179,7 +179,7 @@ impl MockRuntimeApi {
 						return
 					},
 				orchestra::FromOrchestra::Communication { msg } => {
-					gum::debug!(target: LOG_TARGET, msg=?msg, "recv message");
+					sp_tracing::debug!(target: LOG_TARGET, msg=?msg, "recv message");
 
 					match msg {
 						RuntimeApiMessage::Request(
@@ -317,7 +317,7 @@ impl MockRuntimeApi {
 						) => {
 							let validation_code = ValidationCode(Vec::new());
 							if let Err(err) = tx.send(Ok(Some(validation_code))) {
-								gum::error!(target: LOG_TARGET, ?err, "validation code wasn't received");
+								sp_tracing::error!(target: LOG_TARGET, ?err, "validation code wasn't received");
 							}
 						},
 						RuntimeApiMessage::Request(
@@ -325,7 +325,7 @@ impl MockRuntimeApi {
 							RuntimeApiRequest::ApprovalVotingParams(_, tx),
 						) =>
 							if let Err(err) = tx.send(Ok(ApprovalVotingParams::default())) {
-								gum::error!(target: LOG_TARGET, ?err, "Voting params weren't received");
+								sp_tracing::error!(target: LOG_TARGET, ?err, "Voting params weren't received");
 							},
 						RuntimeApiMessage::Request(_parent, RuntimeApiRequest::ClaimQueue(tx)) => {
 							tx.send(Ok(self.state.claim_queue.clone())).unwrap();

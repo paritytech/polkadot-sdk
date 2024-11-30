@@ -261,7 +261,7 @@ impl Participation {
 		req: ParticipationRequest,
 		recent_head: Hash,
 	) -> FatalResult<()> {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			candidate_hash = ?req.candidate_hash(),
 			session = req.session(),
@@ -313,7 +313,7 @@ async fn participate(
 
 	let available_data = match recover_available_data_rx.await {
 		Err(oneshot::Canceled) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"`Oneshot` got cancelled when recovering available data {:?}",
 				req.candidate_hash(),
@@ -323,7 +323,7 @@ async fn participate(
 		},
 		Ok(Ok(data)) => data,
 		Ok(Err(RecoveryError::Invalid)) => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				candidate_hash = ?req.candidate_hash(),
 				session = req.session(),
@@ -335,7 +335,7 @@ async fn participate(
 			return
 		},
 		Ok(Err(RecoveryError::Unavailable)) | Ok(Err(RecoveryError::ChannelClosed)) => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				candidate_hash = ?req.candidate_hash(),
 				session = req.session(),
@@ -357,7 +357,7 @@ async fn participate(
 	{
 		Ok(Some(code)) => code,
 		Ok(None) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"Validation code unavailable for code hash {:?} in the state of block {:?}",
 				req.candidate_receipt().descriptor.validation_code_hash(),
@@ -368,7 +368,7 @@ async fn participate(
 			return
 		},
 		Err(err) => {
-			gum::warn!(target: LOG_TARGET, ?err, "Error when fetching validation code.");
+			sp_tracing::warn!(target: LOG_TARGET, ?err, "Error when fetching validation code.");
 			send_result(&mut result_sender, req, ParticipationOutcome::Error).await;
 			return
 		},
@@ -397,7 +397,7 @@ async fn participate(
 	// the validation and if valid, whether the commitments hash matches
 	match validation_rx.await {
 		Err(oneshot::Canceled) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"`Oneshot` got cancelled when validating candidate {:?}",
 				req.candidate_hash(),
@@ -406,7 +406,7 @@ async fn participate(
 			return
 		},
 		Ok(Err(err)) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"Candidate {:?} validation failed with: {:?}",
 				req.candidate_hash(),
@@ -417,7 +417,7 @@ async fn participate(
 		},
 
 		Ok(Ok(ValidationResult::Invalid(invalid))) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"Candidate {:?} considered invalid: {:?}",
 				req.candidate_hash(),
@@ -439,7 +439,7 @@ async fn send_result(
 	outcome: ParticipationOutcome,
 ) {
 	if let Err(err) = sender.feed(WorkerMessage::from_request(req, outcome)).await {
-		gum::error!(
+		sp_tracing::error!(
 			target: LOG_TARGET,
 			?err,
 			"Sending back participation result failed. Dispute coordinator not working properly!"

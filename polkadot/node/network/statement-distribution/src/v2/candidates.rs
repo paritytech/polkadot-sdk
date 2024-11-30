@@ -355,7 +355,7 @@ impl Candidates {
 			},
 		});
 
-		gum::trace!(
+		sp_tracing::trace!(
 			target: crate::LOG_TARGET,
 			"Candidates remaining after cleanup: {}",
 			self.candidates.len(),

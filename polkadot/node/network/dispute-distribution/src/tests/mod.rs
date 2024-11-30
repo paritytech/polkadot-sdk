@@ -99,7 +99,10 @@ fn send_honors_rate_limit() {
 		let before_request = Instant::now();
 		send_dispute(&mut handle, candidate).await;
 		// First send should not be rate limited:
-		gum::trace!("Passed time: {:#?}", Instant::now().saturating_duration_since(before_request));
+		sp_tracing::trace!(
+			"Passed time: {:#?}",
+			Instant::now().saturating_duration_since(before_request)
+		);
 		// This test would likely be flaky on CI:
 		//assert!(Instant::now().saturating_duration_since(before_request) < SEND_RATE_LIMIT);
 
@@ -107,7 +110,7 @@ fn send_honors_rate_limit() {
 		let candidate = make_candidate_receipt(relay_parent);
 		send_dispute(&mut handle, candidate).await;
 		// Second send should be rate limited:
-		gum::trace!(
+		sp_tracing::trace!(
 			"Passed time for send_dispute: {:#?}",
 			Instant::now().saturating_duration_since(before_request)
 		);
@@ -124,7 +127,7 @@ async fn send_dispute(
 ) {
 	let before_request = Instant::now();
 	let message = make_dispute_message(candidate.clone(), ALICE_INDEX, FERDIE_INDEX);
-	gum::trace!(
+	sp_tracing::trace!(
 		"Passed time for making message: {:#?}",
 		Instant::now().saturating_duration_since(before_request)
 	);
@@ -134,7 +137,7 @@ async fn send_dispute(
 			msg: DisputeDistributionMessage::SendDispute(message.clone()),
 		})
 		.await;
-	gum::trace!(
+	sp_tracing::trace!(
 		"Passed time for sending message: {:#?}",
 		Instant::now().saturating_duration_since(before_request)
 	);
@@ -216,7 +219,7 @@ fn received_request_triggers_import() {
 		)
 		.await;
 
-		gum::trace!(target: LOG_TARGET, "Concluding.");
+		sp_tracing::trace!(target: LOG_TARGET, "Concluding.");
 		conclude(&mut handle).await;
 	};
 	test_harness(test);
@@ -254,13 +257,13 @@ fn batching_works() {
 		let message = make_dispute_message(candidate.clone(), CHARLIE_INDEX, FERDIE_INDEX);
 		let peer = MOCK_AUTHORITY_DISCOVERY.get_peer_id_by_authority(Sr25519Keyring::Charlie);
 		rx_responses.push(send_network_dispute_request(req_tx, peer, message.clone().into()).await);
-		gum::trace!("Imported 3 votes into batch");
+		sp_tracing::trace!("Imported 3 votes into batch");
 
 		Delay::new(BATCH_COLLECTING_INTERVAL);
-		gum::trace!("Batch should still be alive");
+		sp_tracing::trace!("Batch should still be alive");
 		// Batch should still be alive (2 new votes):
 		// Let's import two more votes, but fully duplicates - should not extend batch live.
-		gum::trace!("Importing duplicate votes");
+		sp_tracing::trace!("Importing duplicate votes");
 		let mut rx_responses_duplicate = Vec::new();
 		let message = make_dispute_message(candidate.clone(), BOB_INDEX, FERDIE_INDEX);
 		let peer = MOCK_AUTHORITY_DISCOVERY.get_peer_id_by_authority(Sr25519Keyring::Bob);
@@ -281,7 +284,7 @@ fn batching_works() {
 						reputation_changes,
 						sent_feedback: _,
 					} = resp;
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						?reputation_changes,
 						"Received reputation changes."
@@ -295,7 +298,7 @@ fn batching_works() {
 		}
 
 		Delay::new(BATCH_COLLECTING_INTERVAL).await;
-		gum::trace!("Batch should be ready now (only duplicates have been added)");
+		sp_tracing::trace!("Batch should be ready now (only duplicates have been added)");
 
 		let pending_confirmation = assert_matches!(
 			handle.recv().await,
@@ -332,7 +335,7 @@ fn batching_works() {
 					if let Some(sent_feedback) = sent_feedback {
 						sent_feedback.send(()).unwrap();
 					}
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						"Valid import happened."
 						);
@@ -341,7 +344,7 @@ fn batching_works() {
 			);
 		}
 
-		gum::trace!(target: LOG_TARGET, "Concluding.");
+		sp_tracing::trace!(target: LOG_TARGET, "Concluding.");
 		conclude(&mut handle).await;
 	};
 	test_harness(test);
@@ -380,7 +383,7 @@ fn receive_rate_limit_is_enforced() {
 		let message = make_dispute_message(candidate.clone(), CHARLIE_INDEX, FERDIE_INDEX);
 		rx_responses.push(send_network_dispute_request(req_tx, peer, message.clone().into()).await);
 
-		gum::trace!("Import one too much:");
+		sp_tracing::trace!("Import one too much:");
 
 		let message = make_dispute_message(candidate.clone(), CHARLIE_INDEX, ALICE_INDEX);
 		let rx_response_flood =
@@ -394,7 +397,7 @@ fn receive_rate_limit_is_enforced() {
 					reputation_changes,
 					sent_feedback: _,
 				} = resp;
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?reputation_changes,
 					"Received reputation changes."
@@ -403,11 +406,11 @@ fn receive_rate_limit_is_enforced() {
 				assert_eq!(reputation_changes.len(), 1);
 			}
 		);
-		gum::trace!("Need to wait 2 patch intervals:");
+		sp_tracing::trace!("Need to wait 2 patch intervals:");
 		Delay::new(BATCH_COLLECTING_INTERVAL).await;
 		Delay::new(BATCH_COLLECTING_INTERVAL).await;
 
-		gum::trace!("Batch should be ready now");
+		sp_tracing::trace!("Batch should be ready now");
 
 		let pending_confirmation = assert_matches!(
 			handle.recv().await,
@@ -445,7 +448,7 @@ fn receive_rate_limit_is_enforced() {
 					if let Some(sent_feedback) = sent_feedback {
 						sent_feedback.send(()).unwrap();
 					}
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						"Valid import happened."
 						);
@@ -454,7 +457,7 @@ fn receive_rate_limit_is_enforced() {
 			);
 		}
 
-		gum::trace!(target: LOG_TARGET, "Concluding.");
+		sp_tracing::trace!(target: LOG_TARGET, "Concluding.");
 		conclude(&mut handle).await;
 	};
 	test_harness(test);
@@ -702,7 +705,7 @@ async fn nested_network_dispute_request<'a, F, O>(
 					if let Some(sent_feedback) = sent_feedback {
 						sent_feedback.send(()).unwrap();
 					}
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						"Valid import happened."
 					);
@@ -894,7 +897,7 @@ where
 		match subsystem.run(ctx).await {
 			Ok(()) => {},
 			Err(fatal) => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?fatal,
 					"Dispute distribution exited with fatal error."

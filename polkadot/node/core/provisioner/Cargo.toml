@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }

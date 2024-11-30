@@ -147,7 +147,7 @@ impl MockCandidateBacking {
 						return
 					},
 				orchestra::FromOrchestra::Communication { msg } => {
-					gum::trace!(target: LOG_TARGET, msg=?msg, "recv message");
+					sp_tracing::trace!(target: LOG_TARGET, msg=?msg, "recv message");
 
 					match msg {
 						CandidateBackingMessage::Statement(relay_parent, statement) => {

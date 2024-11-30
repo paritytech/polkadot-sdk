@@ -193,7 +193,7 @@ pub async fn has_required_runtime<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	gum::trace!(target: LOG_TARGET, ?relay_parent, "Fetching ParachainHost runtime api version");
+	sp_tracing::trace!(target: LOG_TARGET, ?relay_parent, "Fetching ParachainHost runtime api version");
 
 	let (tx, rx) = oneshot::channel();
 	sender
@@ -202,7 +202,7 @@ where
 
 	match rx.await {
 		Result::Ok(Ok(runtime_version)) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?runtime_version,
@@ -212,7 +212,7 @@ where
 			runtime_version >= required_runtime_version
 		},
 		Result::Ok(Err(RuntimeApiError::Execution { source: error, .. })) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?error,
@@ -221,7 +221,7 @@ where
 			false
 		},
 		Result::Ok(Err(RuntimeApiError::NotSupported { .. })) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				"NotSupported error while fetching ParachainHost runtime api version"
@@ -229,7 +229,7 @@ where
 			false
 		},
 		Result::Err(_) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				"Cancelled error while fetching ParachainHost runtime api version"

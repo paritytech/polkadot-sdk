@@ -288,7 +288,7 @@ fn test_harness<T: Future<Output = TestHarness>>(
 const TIMEOUT: Duration = Duration::from_millis(100);
 
 async fn overseer_send(overseer: &mut VirtualOverseer, msg: CollatorProtocolMessage) {
-	gum::trace!(?msg, "sending message");
+	sp_tracing::trace!(?msg, "sending message");
 	overseer
 		.send(FromOrchestra::Communication { msg })
 		.timeout(TIMEOUT)
@@ -306,10 +306,10 @@ async fn overseer_recv_with_timeout(
 	overseer: &mut VirtualOverseer,
 	timeout: Duration,
 ) -> Option<AllMessages> {
-	gum::trace!("waiting for message...");
+	sp_tracing::trace!("waiting for message...");
 	let msg = overseer.recv().timeout(timeout).await;
 
-	gum::trace!(?msg, "received message");
+	sp_tracing::trace!(?msg, "received message");
 
 	msg
 }
@@ -318,10 +318,10 @@ async fn overseer_peek_with_timeout(
 	overseer: &mut VirtualOverseer,
 	timeout: Duration,
 ) -> Option<&AllMessages> {
-	gum::trace!("peeking for message...");
+	sp_tracing::trace!("peeking for message...");
 	let msg = overseer.peek().timeout(timeout).await;
 
-	gum::trace!(?msg, "received message");
+	sp_tracing::trace!(?msg, "received message");
 
 	msg.flatten()
 }

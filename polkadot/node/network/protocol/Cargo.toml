@@ -26,7 +26,7 @@ thiserror = { workspace = true }
 fatality = { workspace = true }
 rand = { workspace = true, default-features = true }
 derive_more = { workspace = true, default-features = true }
-gum = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 bitvec = { workspace = true, default-features = true }
 
 [dev-dependencies]

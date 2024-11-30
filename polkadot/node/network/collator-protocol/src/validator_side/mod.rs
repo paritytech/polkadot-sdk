@@ -273,7 +273,7 @@ impl PeerData {
 							candidates.insert(candidate_hash);
 						} else {
 							if self.version != CollationVersion::V1 {
-								gum::error!(
+								sp_tracing::error!(
 									target: LOG_TARGET,
 									"Programming error, `candidate_hash` can not be `None` \
 									 for non `V1` networking.",
@@ -490,7 +490,7 @@ where
 		) {
 		rotation_info.core_for_group(group, cores.len())
 	} else {
-		gum::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
+		sp_tracing::trace!(target: LOG_TARGET, ?relay_parent, "Not a validator");
 		return Ok(None)
 	};
 
@@ -515,7 +515,7 @@ where
 		let entry = current_assignments.entry(*para_id).or_default();
 		*entry += 1;
 		if *entry == 1 {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?relay_parent,
 				para_id = ?para_id,
@@ -545,7 +545,7 @@ fn remove_outgoing(
 			*occupied.get_mut() -= 1;
 			if *occupied.get() == 0 {
 				occupied.remove_entry();
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					para_id = ?cur,
 					"Unassigned from a parachain",
@@ -729,7 +729,7 @@ async fn request_collation(
 		.collation_requests_cancel_handles
 		.insert(pending_collation, cancellation_token);
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		peer_id = %peer_id,
 		%para_id,
@@ -784,7 +784,7 @@ async fn process_incoming_peer_message<Context>(
 			let peer_data = match state.peer_data.get_mut(&origin) {
 				Some(p) => p,
 				None => {
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						peer_id = ?origin,
 						?para_id,
@@ -802,7 +802,7 @@ async fn process_incoming_peer_message<Context>(
 			};
 
 			if peer_data.is_collating() {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					peer_id = ?origin,
 					?para_id,
@@ -819,7 +819,7 @@ async fn process_incoming_peer_message<Context>(
 			}
 
 			if !signature.verify(&*protocol_v1::declare_signature_payload(&origin), &collator_id) {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					peer_id = ?origin,
 					?para_id,
@@ -836,7 +836,7 @@ async fn process_incoming_peer_message<Context>(
 			}
 
 			if state.current_assignments.contains_key(&para_id) {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					peer_id = ?origin,
 					?collator_id,
@@ -846,7 +846,7 @@ async fn process_incoming_peer_message<Context>(
 
 				peer_data.set_collating(collator_id, para_id);
 			} else {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					peer_id = ?origin,
 					?collator_id,
@@ -862,7 +862,7 @@ async fn process_incoming_peer_message<Context>(
 					COST_UNNEEDED_COLLATOR,
 				)
 				.await;
-				gum::trace!(target: LOG_TARGET, "Disconnecting unneeded collator");
+				sp_tracing::trace!(target: LOG_TARGET, "Disconnecting unneeded collator");
 				disconnect_peer(ctx.sender(), origin).await;
 			}
 		},
@@ -870,7 +870,7 @@ async fn process_incoming_peer_message<Context>(
 			if let Err(err) =
 				handle_advertisement(ctx.sender(), state, relay_parent, origin, None).await
 			{
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					peer_id = ?origin,
 					?relay_parent,
@@ -901,7 +901,7 @@ async fn process_incoming_peer_message<Context>(
 			)
 			.await
 			{
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					peer_id = ?origin,
 					?relay_parent,
@@ -918,7 +918,7 @@ async fn process_incoming_peer_message<Context>(
 		Versioned::V1(V1::CollationSeconded(..)) |
 		Versioned::V2(V2::CollationSeconded(..)) |
 		Versioned::V3(V2::CollationSeconded(..)) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
 				"Unexpected `CollationSeconded` message, decreasing reputation",
@@ -985,7 +985,7 @@ where
 	sender.send_message(CandidateBackingMessage::CanSecond(request, tx)).await;
 
 	rx.await.unwrap_or_else(|err| {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?err,
 			?candidate_relay_parent,
@@ -1012,7 +1012,7 @@ async fn second_unblocked_collations<Context>(
 		.remove(&BlockedCollationId { para_id, parent_head_data_hash: head_data_hash })
 	{
 		if !unblocked_collations.is_empty() {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				"Candidate outputting head data with hash {} unblocked {} collations for seconding.",
 				head_data_hash,
@@ -1026,7 +1026,7 @@ async fn second_unblocked_collations<Context>(
 			let relay_parent = unblocked_collation.candidate_receipt.descriptor.relay_parent();
 
 			if let Err(err) = kick_off_seconding(ctx, state, unblocked_collation).await {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?relay_parent,
 					?para_id,
@@ -1130,7 +1130,7 @@ where
 	.await;
 
 	if let Err(fetch_error) = result {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			relay_parent = ?relay_parent,
 			para_id = ?para_id,
@@ -1157,7 +1157,7 @@ async fn enqueue_collation<Sender>(
 where
 	Sender: CollatorProtocolSenderTrait,
 {
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		peer_id = ?peer_id,
 		%para_id,
@@ -1168,7 +1168,7 @@ where
 		Some(rp_state) => rp_state,
 		None => {
 			// Race happened, not an error.
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				peer_id = ?peer_id,
 				%para_id,
@@ -1188,7 +1188,7 @@ where
 
 	let collations = &mut per_relay_parent.collations;
 	if collations.is_seconded_limit_reached(relay_parent_mode) {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			peer_id = ?peer_id,
 			%para_id,
@@ -1203,7 +1203,7 @@ where
 
 	match collations.status {
 		CollationStatus::Fetching | CollationStatus::WaitingOnValidation => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				peer_id = ?peer_id,
 				%para_id,
@@ -1221,7 +1221,7 @@ where
 			fetch_collation(sender, state, pending_collation, collator_id).await?;
 		},
 		CollationStatus::Seconded => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				peer_id = ?peer_id,
 				%para_id,
@@ -1365,7 +1365,7 @@ where
 		// declare.
 		if let Some(para_id) = peer_data.collating_para() {
 			if !state.current_assignments.contains_key(&para_id) {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?peer_id,
 					?para_id,
@@ -1395,7 +1395,7 @@ async fn handle_network_msg<Context>(
 				Ok(version) => version,
 				Err(err) => {
 					// Network bridge is expected to handle this.
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						?peer_id,
 						?observed_role,
@@ -1450,21 +1450,21 @@ async fn process_msg<Context>(
 
 	match msg {
 		CollateOn(id) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				para_id = %id,
 				"CollateOn message is not expected on the validator side of the protocol",
 			);
 		},
 		DistributeCollation { .. } => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				"DistributeCollation message is not expected on the validator side of the protocol",
 			);
 		},
 		NetworkBridgeUpdate(event) => {
 			if let Err(e) = handle_network_msg(ctx, state, keystore, event).await {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					err = ?e,
 					"Failed to handle incoming network message",
@@ -1475,7 +1475,7 @@ async fn process_msg<Context>(
 			let receipt = match stmt.payload() {
 				Statement::Seconded(receipt) => receipt,
 				Statement::Valid(_) => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						?stmt,
 						relay_parent = %parent,
@@ -1536,7 +1536,7 @@ async fn process_msg<Context>(
 				)
 				.await;
 			} else {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					relay_parent = ?parent,
 					"Collation has been seconded, but the relay parent is deactivated",
@@ -1558,7 +1558,7 @@ async fn process_msg<Context>(
 						Some(candidate_receipt.commitments_hash) =>
 					entry.remove().collator_id,
 				Entry::Occupied(_) => {
-					gum::error!(
+					sp_tracing::error!(
 						target: LOG_TARGET,
 						relay_parent = ?parent,
 						candidate = ?candidate_receipt.hash(),
@@ -1625,7 +1625,7 @@ async fn run_inner<Context>(
 			res = ctx.recv().fuse() => {
 				match res {
 					Ok(FromOrchestra::Communication { msg }) => {
-						gum::trace!(target: LOG_TARGET, msg = ?msg, "received a message");
+						sp_tracing::trace!(target: LOG_TARGET, msg = ?msg, "received a message");
 						process_msg(
 							&mut ctx,
 							&keystore,
@@ -1661,7 +1661,7 @@ async fn run_inner<Context>(
 
 				match kick_off_seconding(&mut ctx, &mut state, res).await {
 					Err(err) => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							relay_parent = ?pending_collation.relay_parent,
 							para_id = ?pending_collation.para_id,
@@ -1701,7 +1701,7 @@ async fn run_inner<Context>(
 			},
 			res = state.collation_fetch_timeouts.select_next_some() => {
 				let (collator_id, maybe_candidate_hash, relay_parent) = res;
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					?relay_parent,
 					?collator_id,
@@ -1735,14 +1735,14 @@ async fn dequeue_next_collation_and_fetch<Context>(
 			.collations
 			.get_next_collation_to_fetch(&previous_fetch, state.prospective_parachains_mode)
 	}) {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			?id,
 			"Successfully dequeued next advertisement - fetching ..."
 		);
 		if let Err(err) = fetch_collation(ctx.sender(), state, next, id).await {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				relay_parent = ?next.relay_parent,
 				para_id = ?next.para_id,
@@ -1820,7 +1820,7 @@ async fn kick_off_seconding<Context>(
 		Some(state) => state,
 		None => {
 			// Relay parent went out of view, not an error.
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?relay_parent,
 				"Fetched collation for a parent out of view",
@@ -1889,7 +1889,7 @@ async fn kick_off_seconding<Context>(
 					pov,
 					maybe_parent_head_data: None,
 				};
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?blocked_collation.candidate_receipt.hash(),
 					relay_parent = ?blocked_collation.candidate_receipt.descriptor.relay_parent(),
@@ -1949,7 +1949,7 @@ async fn disconnect_inactive_peers(
 ) {
 	for (peer, peer_data) in peers {
 		if peer_data.is_inactive(&eviction_policy) {
-			gum::trace!(target: LOG_TARGET, ?peer, "Disconnecting inactive peer");
+			sp_tracing::trace!(target: LOG_TARGET, ?peer, "Disconnecting inactive peer");
 			disconnect_peer(sender, *peer).await;
 		}
 	}
@@ -1969,7 +1969,7 @@ async fn handle_collation_fetch_response(
 
 	let response = match response {
 		Err(CollationFetchError::Cancelled) => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				hash = ?pending_collation.relay_parent,
 				para_id = ?pending_collation.para_id,
@@ -1988,7 +1988,7 @@ async fn handle_collation_fetch_response(
 
 	let result = match response {
 		Err(RequestError::InvalidResponse(err)) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				hash = ?pending_collation.relay_parent,
 				para_id = ?pending_collation.para_id,
@@ -1999,7 +1999,7 @@ async fn handle_collation_fetch_response(
 			Err(Some((pending_collation.peer_id, COST_CORRUPTED_MESSAGE)))
 		},
 		Err(err) if err.is_timed_out() => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				hash = ?pending_collation.relay_parent,
 				para_id = ?pending_collation.para_id,
@@ -2046,7 +2046,7 @@ async fn handle_collation_fetch_response(
 			request_v1::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. } |
 			request_v2::CollationFetchingResponse::CollationWithParentHeadData { receipt, .. },
 		) if receipt.descriptor().para_id() != pending_collation.para_id => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				expected_para_id = ?pending_collation.para_id,
 				got_para_id = ?receipt.descriptor().para_id(),
@@ -2057,7 +2057,7 @@ async fn handle_collation_fetch_response(
 			Err(Some((pending_collation.peer_id, COST_WRONG_PARA)))
 		},
 		Ok(request_v1::CollationFetchingResponse::Collation(candidate_receipt, pov)) => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				para_id = %pending_collation.para_id,
 				hash = ?pending_collation.relay_parent,
@@ -2082,7 +2082,7 @@ async fn handle_collation_fetch_response(
 			pov,
 			parent_head_data,
 		}) => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				para_id = %pending_collation.para_id,
 				hash = ?pending_collation.relay_parent,

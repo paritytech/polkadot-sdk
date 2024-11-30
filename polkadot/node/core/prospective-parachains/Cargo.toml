@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
 gum = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 fatality = { workspace = true }
