@@ -466,7 +466,6 @@ fn construct_runtime_final_expansion(
 		// Therefore, the `Deref` trait will resolve the `runtime_metadata` from `impl_runtime_apis!`
 		// when both macros are called; and will resolve an empty `runtime_metadata` when only the `construct_runtime!`
 		// is called.
-
 		#[doc(hidden)]
 		trait InternalConstructRuntime {
 			#[inline(always)]
@@ -476,6 +475,8 @@ fn construct_runtime_final_expansion(
 		}
 		#[doc(hidden)]
 		impl InternalConstructRuntime for &#name {}
+
+		use #scrate::__private::metadata_ir::InternalImplRuntimeApis;
 
 		#outer_event
 
