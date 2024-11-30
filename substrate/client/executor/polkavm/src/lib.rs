@@ -26,14 +26,13 @@ use sp_wasm_interface::{
 };
 
 #[repr(transparent)]
-pub struct InstancePre(polkavm::InstancePre<(), polkavm::CallError>);
+pub struct InstancePre(polkavm::InstancePre<(), polkavm::CallError<String>>);
 
 #[repr(transparent)]
-pub struct Instance(polkavm::Instance<(), polkavm::CallError>);
+pub struct Instance(polkavm::Instance<(), polkavm::CallError<String>>);
 
 impl WasmModule for InstancePre {
 	fn new_instance(&self) -> Result<Box<dyn WasmInstance>, Error> {
-		// FIXME: Does not return `sc_executor_common::error::Error`.
 		Ok(Box::new(Instance(self.0.instantiate()?)))
 	}
 }
@@ -54,13 +53,21 @@ impl WasmInstance for Instance {
 		// TODO: This will leak guest memory; find a better solution.
 
 		// Make sure the memory is cleared...
-		if let Err(e) = self.0.reset_memory() {
-			return (Err(e.into()), None);
+		if self.0.reset_memory().is_err() {
+			return (
+				Err(format!("call into the runtime method '{name}' failed: initialize memory")
+					.into()),
+				None,
+			);
 		}
 
 		// ...and allocate space for the input payload.
-		if let Err(e) = self.0.sbrk(raw_data_length) {
-			return (Err(e.into()), None);
+		if self.0.sbrk(raw_data_length).is_err() {
+			return (
+				Err(format!("call into the runtime method '{name}' failed: allocate payload")
+					.into()),
+				None,
+			);
 		}
 
 		// Grab the address of where the guest's heap starts; that's where we've just allocated
@@ -125,15 +132,19 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	}
 
 	fn allocate_memory(&mut self, size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
-		let pointer =
-			self.0.instance.sbrk(0).expect("fetching the current heap pointer never fails");
+		let pointer = match self.0.instance.sbrk(0) {
+			Ok(pointer) => pointer.expect("fetching the current heap pointer never fails"),
+			Err(err) => return Err(format!("sbrk failed: {err}")),
+		};
 
 		// TODO: This will leak guest memory; find a better solution.
-		if let Err(_) = self.0.instance.sbrk(size) {
-			return Err(String::from("allocation failed"));
+		match self.0.instance.sbrk(size) {
+			Ok(Some(_)) => (),
+			Ok(None) => return Err(String::from("allocation error")),
+			Err(err) => return Err(format!("sbrk failed: {err}")),
 		}
 
-		Ok(Pointer::new(pointer.unwrap()))
+		Ok(Pointer::new(pointer))
 	}
 
 	fn deallocate_memory(&mut self, _ptr: Pointer<u8>) -> sp_wasm_interface::Result<()> {
@@ -149,7 +160,7 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 fn call_host_function(
 	caller: &mut Caller<()>,
 	function: &dyn Function,
-) -> Result<(), polkavm::CallError> {
+) -> Result<(), polkavm::CallError<String>> {
 	let mut args = [Value::I64(0); Reg::ARG_REGS.len()];
 	let mut nth_reg = 0;
 	for (nth_arg, kind) in function.signature().args.iter().enumerate() {
@@ -162,7 +173,7 @@ fn call_host_function(
 				args[nth_arg] = Value::F32(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as u32);
 				nth_reg += 1;
 			},
-			ValueType::I64 =>
+			ValueType::I64 => {
 				if caller.instance.is_64_bit() {
 					args[nth_arg] = Value::I64(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as i64);
 					nth_reg += 1;
@@ -175,8 +186,9 @@ fn call_host_function(
 
 					args[nth_arg] =
 						Value::I64((u64::from(value_lo) | (u64::from(value_hi) << 32)) as i64);
-				},
-			ValueType::F64 =>
+				}
+			},
+			ValueType::F64 => {
 				if caller.instance.is_64_bit() {
 					args[nth_arg] = Value::F64(caller.instance.reg(Reg::ARG_REGS[nth_reg]));
 					nth_reg += 1;
@@ -188,7 +200,8 @@ fn call_host_function(
 					nth_reg += 1;
 
 					args[nth_arg] = Value::F64(u64::from(value_lo) | (u64::from(value_hi) << 32));
-				},
+				}
+			},
 		}
 	}
 
@@ -203,8 +216,10 @@ fn call_host_function(
 	{
 		Ok(value) => value,
 		Err(error) => {
-			log::warn!("Call into the host function '{}' failed: {error}", function.name());
-			return Err(polkavm::CallError::Trap);
+			return Err(polkavm::CallError::User(format!(
+				"Call into the host function '{}' failed: {error}",
+				function.name()
+			)))
 		},
 	};
 
@@ -216,20 +231,22 @@ fn call_host_function(
 			Value::F32(value) => {
 				caller.instance.set_reg(Reg::A0, value as u64);
 			},
-			Value::I64(value) =>
+			Value::I64(value) => {
 				if caller.instance.is_64_bit() {
 					caller.instance.set_reg(Reg::A0, value as u64);
 				} else {
 					caller.instance.set_reg(Reg::A0, value as u64);
 					caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
-				},
-			Value::F64(value) =>
+				}
+			},
+			Value::F64(value) => {
 				if caller.instance.is_64_bit() {
 					caller.instance.set_reg(Reg::A0, value as u64);
 				} else {
 					caller.instance.set_reg(Reg::A0, value as u64);
 					caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
-				},
+				}
+			},
 		}
 	}
 
@@ -256,11 +273,7 @@ where
 	};
 
 	let module =
-		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob.clone());
-	let module = match module {
-		Ok(ref module) => module,
-		Err(ref error) => Err(WasmError::Other(error.to_string()))?,
-	};
+		polkavm::Module::from_blob(&engine, &polkavm::ModuleConfig::default(), blob.clone())?;
 
 	let mut linker = polkavm::Linker::new();
 
