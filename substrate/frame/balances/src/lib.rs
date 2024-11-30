@@ -183,6 +183,7 @@ use sp_runtime::{
 
 #[cfg(feature = "runtime-benchmarks")]
 use sp_core::{sr25519::Pair as SrPair, Pair};
+use alloc::{format, string::{String, ToString}};
 
 pub use types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
@@ -1288,6 +1289,11 @@ pub mod pallet {
 				"the balance of any account should always be at least the existential deposit.",
 			);
 
+			assert!(
+				derivation.contains("{}"),
+				"Invalid derivation string"
+			);
+
 			for index in 0..num_accounts {
 				// Replace "{}" in the derivation string with the index.
 				let derivation_string = derivation.replace("{}", &index.to_string());
@@ -1298,10 +1304,10 @@ pub mod pallet {
 
 				// Convert the public key to AccountId.
 				let who = T::AccountId::decode(&mut &pair.public().encode()[..])
-					.expect(&format!("Failed to decode public key from pair: {}", pair.public()));
+					.expect(&format!("Failed to decode public key from pair: {:?}", pair.public()));
 
 				frame_system::Pallet::<T>::inc_providers(&who);
-				// Insert the account into the store and ensure it succeeds.
+				// Insert the account into the store and ensure it succeeds(uri).
 				assert!(T::AccountStore::insert(
 					&who,
 					AccountData { free: balance, ..Default::default() }

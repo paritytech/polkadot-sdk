@@ -1,0 +1,135 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Allow configurable number of genesis accounts with specified balances for benchmarking.
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This pull request adds an additional field `dev_accounts` to the `GenesisConfig`
+      of the balances pallet, feature gated by `runtime-benchmarks`.
+
+      Bringing about an abitrary number of derived dev accounts when building the genesis
+      state. Runtime developers should supply a derivation path that includes an index placeholder
+      (i.e. "//Sender/{}") to generate multiple accounts from the same root in a consistent
+      manner.
+
+crates:
+  - name: substrate-test-runtime
+    bump: minor
+  - name: pallet-vesting
+    bump: minor
+  - name: pallet-utility
+    bump: minor
+  - name: pallet-tx-pause
+    bump: minor
+  - name: pallet-treasury
+    bump: minor
+  - name: pallet-transaction-storage
+    bump: minor
+  - name: pallet-transaction-payment
+    bump: minor
+  - name: pallet-asset-conversion-tx-payment
+    bump: minor
+  - name: pallet-asset-tx-payment
+    bump: minor
+  - name: pallet-tips
+    bump: minor
+  - name: pallet-state-trie-migration
+    bump: minor
+  - name: pallet-staking
+    bump: minor
+  - name: pallet-society
+    bump: minor
+  - name: pallet-safe-mode
+    bump: minor
+  - name: pallet-root-offences
+    bump: minor
+  - name: pallet-revive
+    bump: minor
+  - name: pallet-revive-mock-network
+    bump: minor
+  - name: pallet-referenda
+    bump: minor
+  - name: pallet-recovery
+    bump: minor
+  - name: pallet-proxy
+    bump: minor
+  - name: pallet-preimage
+    bump: minor
+  - name: pallet-nis
+    bump: minor
+  - name: pallet-multisig
+    bump: minor
+  - name: pallet-lottery
+    bump: minor
+  - name: pallet-indices
+    bump: minor
+  - name: pallet-identity
+    bump: minor
+  - name: pallet-grandpa
+    bump: minor
+  - name: pallet-fast-unstake
+    bump: minor
+  - name: pallet-elections-phragmen
+    bump: minor
+  - name: pallet-election-provider-multi-phase
+    bump: minor
+  - name: pallet-democracy
+    bump: minor
+  - name: pallet-delegated-staking
+    bump: minor
+  - name: pallet-conviction-voting
+    bump: minor
+  - name: pallet-contracts
+    bump: minor
+  - name: pallet-contracts-mock-network
+    bump: minor
+  - name: pallet-collective
+    bump: minor
+  - name: pallet-child-bounties
+    bump: minor
+  - name: pallet-bounties
+    bump: minor
+  - name: pallet-balances
+    bump: minor
+  - name: pallet-babe
+    bump: minor
+  - name: pallet-asset-conversion
+    bump: minor
+  - name: pallet-alliance
+    bump: minor
+  - name: node-testing
+    bump: minor
+  - name: xcm-simulator-fuzzer
+    bump: minor
+  - name: xcm-simulator-example
+    bump: minor
+  - name: xcm-runtime-apis
+    bump: minor
+  - name: staging-xcm-builder
+    bump: minor
+  - name: pallet-xcm
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: polkadot-runtime-common
+    bump: minor
+  - name: parachains-runtimes-test-utils
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: pallet-collator-selection
+    bump: minor
+  - name: pallet-bridge-messages
+    bump: minor
