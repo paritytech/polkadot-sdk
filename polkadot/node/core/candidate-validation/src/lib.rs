@@ -160,7 +160,7 @@ where
 	match util::runtime::fetch_claim_queue(sender, relay_parent).await {
 		Ok(maybe_cq) => maybe_cq,
 		Err(err) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?err,
@@ -564,7 +564,7 @@ async fn update_active_leaves<Sender>(
 {
 	let ancestors = get_block_ancestors(sender, update.activated.as_ref().map(|x| x.hash)).await;
 	if let Err(err) = validation_backend.update_active_leaves(update, ancestors).await {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?err,
 			"cannot update active leaves in validation backend",
@@ -580,7 +580,7 @@ where
 		Ok(ProspectiveParachainsMode::Enabled { allowed_ancestry_len, .. }) =>
 			Some(allowed_ancestry_len),
 		res => {
-			gum::warn!(target: LOG_TARGET, ?res, "async backing is disabled");
+			sp_tracing::warn!(target: LOG_TARGET, ?res, "async backing is disabled");
 			None
 		},
 	}
@@ -609,7 +609,7 @@ where
 	match rx.await {
 		Ok(Ok(x)) => x,
 		res => {
-			gum::warn!(target: LOG_TARGET, ?res, "cannot request ancestors");
+			sp_tracing::warn!(target: LOG_TARGET, ?res, "cannot request ancestors");
 			vec![]
 		},
 	}
@@ -753,7 +753,7 @@ async fn validate_candidate_exhaustive(
 	let relay_parent = candidate_receipt.descriptor.relay_parent();
 	let para_id = candidate_receipt.descriptor.para_id();
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?validation_code_hash,
 		?para_id,
@@ -765,7 +765,7 @@ async fn validate_candidate_exhaustive(
 		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) => {
 			let Some(expected_session_index) = maybe_expected_session_index else {
 				let error = "cannot fetch session index from the runtime";
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?relay_parent,
 					error,
@@ -874,7 +874,7 @@ async fn validate_candidate_exhaustive(
 			Err(ValidationFailed(e.to_string()))
 		},
 		Err(e @ ValidationError::ExecutionDeadline) => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?para_id,
 				?e,
@@ -884,7 +884,7 @@ async fn validate_candidate_exhaustive(
 		},
 		Ok(res) =>
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head() {
-				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
+				sp_tracing::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
 				let committed_candidate_receipt = CommittedCandidateReceipt {
@@ -902,7 +902,7 @@ async fn validate_candidate_exhaustive(
 				if candidate_receipt.commitments_hash !=
 					committed_candidate_receipt.commitments.hash()
 				{
-					gum::info!(
+					sp_tracing::info!(
 						target: LOG_TARGET,
 						?para_id,
 						"Invalid candidate (commitments hash)"
@@ -923,7 +923,7 @@ async fn validate_candidate_exhaustive(
 						) => {
 							let Some(claim_queue) = maybe_claim_queue else {
 								let error = "cannot fetch the claim queue from the runtime";
-								gum::warn!(
+								sp_tracing::warn!(
 									target: LOG_TARGET,
 									?relay_parent,
 									error
@@ -935,7 +935,7 @@ async fn validate_candidate_exhaustive(
 							if let Err(err) = committed_candidate_receipt
 								.check_core_index(&transpose_claim_queue(claim_queue.0))
 							{
-								gum::warn!(
+								sp_tracing::warn!(
 									target: LOG_TARGET,
 									?err,
 									candidate_hash = ?candidate_receipt.hash(),

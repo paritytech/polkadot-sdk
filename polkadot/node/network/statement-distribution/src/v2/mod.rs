@@ -281,7 +281,7 @@ impl PerSessionState {
 			self.local_validator.get_or_insert(LocalValidatorIndex::Inactive);
 		}
 
-		gum::info!(
+		sp_tracing::info!(
 			target: LOG_TARGET,
 			index_in_gossip_topology = ?local_index,
 			index_in_parachain_authorities = ?self.local_validator,
@@ -434,7 +434,7 @@ pub(crate) async fn handle_network_update<Context>(
 ) {
 	match update {
 		NetworkBridgeEvent::PeerConnected(peer_id, role, protocol_version, mut authority_ids) => {
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, "Peer connected");
+			sp_tracing::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, "Peer connected");
 
 			let versioned_protocol = if protocol_version != ValidationVersion::V2.into() &&
 				protocol_version != ValidationVersion::V3.into()
@@ -451,7 +451,7 @@ pub(crate) async fn handle_network_update<Context>(
 						true
 					},
 					Entry::Occupied(e) => {
-						gum::debug!(
+						sp_tracing::debug!(
 							target: LOG_TARGET,
 							authority_id = ?a,
 							existing_peer = ?e.get(),
@@ -545,7 +545,7 @@ pub(crate) async fn handle_network_update<Context>(
 			// handled by `handle_activated_leaf`
 		},
 		NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) => {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				?peer_id,
 				?authority_ids,
@@ -631,7 +631,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 			let session_info = match session_info {
 				None => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						relay_parent = ?new_relay_parent,
 						"No session info available for current session"
@@ -668,7 +668,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			.expect("either existed or just inserted; qed");
 
 		if !disabled_validators.is_empty() {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				relay_parent = ?new_relay_parent,
 				?session_index,
@@ -734,7 +734,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		);
 	}
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		"Activated leaves. Now tracking {} relay-parents across {} sessions",
 		state.per_relay_parent.len(),
@@ -958,7 +958,7 @@ fn pending_statement_network_message(
 			})
 			.map(|msg| (vec![peer.0], Versioned::V3(msg).into())),
 		ValidationVersion::V1 => {
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
 				legacy should have handled this"
@@ -1102,7 +1102,7 @@ async fn send_pending_grid_messages<Context>(
 						.into(),
 					)),
 					ValidationVersion::V1 => {
-						gum::error!(
+						sp_tracing::error!(
 							target: LOG_TARGET,
 							"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
 							legacy should have handled this"
@@ -1191,7 +1191,7 @@ pub(crate) async fn share_local_statement<Context>(
 		Some(x) => x,
 	};
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		statement = ?statement.payload().to_compact(),
 		"Sharing Statement",
@@ -1235,7 +1235,7 @@ pub(crate) async fn share_local_statement<Context>(
 		per_relay_parent.statement_store.seconded_count(&local_index) ==
 			per_relay_parent.seconding_limit
 	{
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			limit = ?per_relay_parent.seconding_limit,
 			"Local node has issued too many `Seconded` statements",
@@ -1269,7 +1269,7 @@ pub(crate) async fn share_local_statement<Context>(
 			StatementOrigin::Local,
 		) {
 			Ok(false) | Err(_) => {
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					statement = ?compact_statement.payload(),
 					"Candidate backing issued redundant statement?",
@@ -1470,7 +1470,7 @@ async fn circulate_statement<Context>(
 
 	// ship off the network messages to the network bridge.
 	if !statement_to_v2_peers.is_empty() {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?compact_statement,
 			n_peers = ?statement_to_v2_peers.len(),
@@ -1490,7 +1490,7 @@ async fn circulate_statement<Context>(
 	}
 
 	if !statement_to_v3_peers.is_empty() {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?compact_statement,
 			n_peers = ?statement_to_peers.len(),
@@ -1580,7 +1580,7 @@ async fn handle_incoming_statement<Context>(
 
 	let per_session = match state.per_session.get(&per_relay_parent.session) {
 		None => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				session = ?per_relay_parent.session,
 				"Missing expected session info.",
@@ -1593,7 +1593,7 @@ async fn handle_incoming_statement<Context>(
 	let session_info = &per_session.session_info;
 
 	if per_relay_parent.is_disabled(&statement.unchecked_validator_index()) {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
 			validator_index = ?statement.unchecked_validator_index(),
@@ -1782,7 +1782,7 @@ async fn handle_incoming_statement<Context>(
 	) {
 		Err(statement_store::Error::ValidatorUnknown) => {
 			// sanity: should never happen.
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?relay_parent,
 				validator_index = ?originator_index,
@@ -2001,7 +2001,7 @@ async fn provide_candidate_to_grid<Context>(
 	let grid_view = match per_session.grid_view {
 		Some(ref t) => t,
 		None => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				session = relay_parent_state.session,
 				"Cannot handle backable candidate due to lack of topology",
@@ -2013,7 +2013,7 @@ async fn provide_candidate_to_grid<Context>(
 
 	let group_size = match per_session.groups.get(group_index) {
 		None => {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?relay_parent,
@@ -2099,7 +2099,7 @@ async fn provide_candidate_to_grid<Context>(
 	let manifest_peers_v2 = filter_by_peer_version(&manifest_peers, ValidationVersion::V2.into());
 	let manifest_peers_v3 = filter_by_peer_version(&manifest_peers, ValidationVersion::V3.into());
 	if !manifest_peers_v2.is_empty() {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			local_validator = ?per_session.local_validator,
@@ -2118,7 +2118,7 @@ async fn provide_candidate_to_grid<Context>(
 	}
 
 	if !manifest_peers_v3.is_empty() {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			local_validator = ?per_session.local_validator,
@@ -2139,7 +2139,7 @@ async fn provide_candidate_to_grid<Context>(
 	let ack_peers_v2 = filter_by_peer_version(&ack_peers, ValidationVersion::V2.into());
 	let ack_peers_v3 = filter_by_peer_version(&ack_peers, ValidationVersion::V3.into());
 	if !ack_peers_v2.is_empty() {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			local_validator = ?per_session.local_validator,
@@ -2158,7 +2158,7 @@ async fn provide_candidate_to_grid<Context>(
 	}
 
 	if !ack_peers_v3.is_empty() {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			local_validator = ?per_session.local_validator,
@@ -2224,7 +2224,7 @@ async fn fragment_chain_update_inner<Context>(
 	};
 
 	// 2. find out which are in the frontier
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		active_leaf_hash = ?active_leaf_hash,
 		"Calling getHypotheticalMembership from statement distribution for candidates: {:?}",
@@ -2482,7 +2482,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 	}
 
 	if acknowledge {
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			from = ?sender_index,
@@ -2539,7 +2539,7 @@ fn post_acknowledgement_statement_messages(
 				.into(),
 			)),
 			ValidationVersion::V1 => {
-				gum::error!(
+				sp_tracing::error!(
 					target: LOG_TARGET,
 					"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
 					legacy should have handled this"
@@ -2560,7 +2560,7 @@ async fn handle_incoming_manifest<Context>(
 	reputation: &mut ReputationAggregator,
 	metrics: &Metrics,
 ) {
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		candidate_hash = ?manifest.candidate_hash,
 		?peer,
@@ -2595,7 +2595,7 @@ async fn handle_incoming_manifest<Context>(
 
 	if acknowledge {
 		// 4. if already known within grid (confirmed & backed), acknowledge candidate
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			candidate_hash = ?manifest.candidate_hash,
 			"Known candidate - acknowledging manifest",
@@ -2640,7 +2640,7 @@ async fn handle_incoming_manifest<Context>(
 		}
 	} else if !state.candidates.is_confirmed(&manifest.candidate_hash) {
 		// 5. if unconfirmed, add request entry
-		gum::trace!(
+		sp_tracing::trace!(
 			target: LOG_TARGET,
 			candidate_hash = ?manifest.candidate_hash,
 			"Unknown candidate - requesting",
@@ -2689,7 +2689,7 @@ fn acknowledgement_and_statement_messages(
 			.into(),
 		)],
 		ValidationVersion::V1 => {
-			gum::error!(
+			sp_tracing::error!(
 				target: LOG_TARGET,
 				"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
 				legacy should have handled this"
@@ -2735,7 +2735,7 @@ async fn handle_incoming_acknowledgement<Context>(
 	// the candidate hash is included alongside the bitfields, so the candidate
 	// must be confirmed for us to even process it.
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		candidate_hash = ?acknowledgement.candidate_hash,
 		?peer,
@@ -2831,7 +2831,7 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 	// or a bug. Ignore if so
 	let confirmed = match state.candidates.get_confirmed(&candidate_hash) {
 		None => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				"Received backed candidate notification for unknown or unconfirmed",
@@ -2852,7 +2852,7 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 		Some(s) => s,
 	};
 
-	gum::debug!(
+	sp_tracing::debug!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		group_index = ?confirmed.group_index(),
@@ -3096,7 +3096,7 @@ pub(crate) async fn handle_response<Context>(
 		response.candidate_identifier();
 	let peer = *response.requested_peer();
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		?peer,
@@ -3145,7 +3145,7 @@ pub(crate) async fn handle_response<Context>(
 		let (candidate, pvd, statements) = match res.request_status {
 			requests::CandidateRequestStatus::Outdated => return,
 			requests::CandidateRequestStatus::Incomplete => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					"Response incomplete. Retrying"
@@ -3158,7 +3158,7 @@ pub(crate) async fn handle_response<Context>(
 				persisted_validation_data,
 				statements,
 			} => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					n_statements = statements.len(),
@@ -3182,7 +3182,7 @@ pub(crate) async fn handle_response<Context>(
 		{
 			post_confirmation
 		} else {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				"Candidate re-confirmed by request/response: logic error",
@@ -3246,7 +3246,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 	let ResponderMessage { request, sent_feedback } = message;
 	let AttestedCandidateRequest { candidate_hash, ref mask } = &request.payload;
 
-	gum::trace!(
+	sp_tracing::trace!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		peer = ?request.peer,
@@ -3381,7 +3381,7 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 			.1;
 
 		if !seconded_and_sufficient(&sent_filter, Some(threshold)) {
-			gum::info!(
+			sp_tracing::info!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				relay_parent = ?confirmed.relay_parent(),
@@ -3449,25 +3449,25 @@ pub(crate) async fn respond_task(
 				let request = match request_result.into_nested() {
 					Ok(Ok(v)) => v,
 					Err(fatal) => {
-						gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
+						sp_tracing::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
 						return
 					},
 					Ok(Err(jfyi)) => {
-						gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
+						sp_tracing::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
 						continue
 					},
 				};
 
 				// If peer currently being served drop request
 				if active_peers.contains(&request.peer) {
-					gum::trace!(target: LOG_TARGET, "Peer already being served, dropping request");
+					sp_tracing::trace!(target: LOG_TARGET, "Peer already being served, dropping request");
 					metrics.on_request_dropped_peer_rate_limit();
 					continue
 				}
 
 				// If we are over parallel limit wait for one to finish
 				if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
-					gum::trace!(target: LOG_TARGET, "Over max parallel requests, waiting for one to finish");
+					sp_tracing::trace!(target: LOG_TARGET, "Over max parallel requests, waiting for one to finish");
 					metrics.on_max_parallel_requests_reached();
 					let (_, peer) = pending_out.select_next_some().await;
 					active_peers.remove(&peer);
@@ -3480,7 +3480,7 @@ pub(crate) async fn respond_task(
 					.feed(ResponderMessage { request, sent_feedback: pending_sent_tx })
 					.await
 				{
-					gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
+					sp_tracing::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
 					return
 				}
 				let future_with_peer = pending_sent_rx.map(move |result| (result, peer));

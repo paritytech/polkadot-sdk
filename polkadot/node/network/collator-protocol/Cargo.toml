@@ -19,6 +19,7 @@ schnellru.workspace = true
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }

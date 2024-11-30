@@ -119,7 +119,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 					match maybe_data {
 						Some(data) => {
-							gum::trace!(
+							sp_tracing::trace!(
 								target: LOG_TARGET,
 								candidate_hash = ?common_params.candidate_hash,
 								"Received full data",
@@ -132,7 +132,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 							common_params.metrics.on_full_request_invalid();
 							recovery_duration.map(|rd| rd.stop_and_discard());
 
-							gum::debug!(
+							sp_tracing::debug!(
 								target: LOG_TARGET,
 								candidate_hash = ?common_params.candidate_hash,
 								?validator_index,
@@ -160,7 +160,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 							}
 						},
 					};
-					gum::debug!(
+					sp_tracing::debug!(
 						target: LOG_TARGET,
 						candidate_hash = ?common_params.candidate_hash,
 						?validator_index,

@@ -57,6 +57,7 @@ sp-timestamp = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 # Substrate Pallets
 pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }

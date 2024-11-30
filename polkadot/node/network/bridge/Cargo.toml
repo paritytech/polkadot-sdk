@@ -13,7 +13,7 @@ workspace = true
 always-assert = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
-gum = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
 sc-network = { workspace = true, default-features = true }

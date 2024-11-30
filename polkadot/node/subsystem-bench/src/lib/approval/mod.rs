@@ -311,7 +311,7 @@ impl ApprovalTestState {
 		let generated_state: GeneratedState =
 			Decode::decode(&mut messages_bytes.as_slice()).expect("Could not decode messages");
 
-		gum::info!(
+		sp_tracing::info!(
 			"It took {:?} ms to load {:?} unique messages",
 			start.elapsed().as_millis(),
 			generated_state.all_messages.as_ref().map(|val| val.len()).unwrap_or_default()
@@ -344,7 +344,7 @@ impl ApprovalTestState {
 			configuration: configuration.clone(),
 		};
 
-		gum::info!("Built testing state");
+		sp_tracing::info!("Built testing state");
 
 		state
 	}
@@ -411,7 +411,7 @@ impl ApprovalTestState {
 		env: &TestEnvironment,
 		registry: Registry,
 	) -> oneshot::Receiver<()> {
-		gum::info!(target: LOG_TARGET, "Start assignments/approvals production");
+		sp_tracing::info!(target: LOG_TARGET, "Start assignments/approvals production");
 
 		let (producer_tx, producer_rx) = oneshot::channel();
 		let peer_message_source = PeerMessageProducer {
@@ -603,7 +603,7 @@ impl PeerMessageProducer {
 				sleep(Duration::from_millis(50)).await;
 			}
 
-			gum::info!(
+			sp_tracing::info!(
 				"All messages sent max_tranche {:?} last_tranche_with_no_show {:?}",
 				per_candidate_data.values().map(|data| data.max_tranche).max(),
 				per_candidate_data.values().map(|data| data.last_tranche_with_no_show).max()
@@ -625,7 +625,7 @@ impl PeerMessageProducer {
 			self.send_overseer_message(msg, ValidatorIndex(0), None).await;
 			rx.await.expect("Failed to get signatures");
 			self.notify_done.send(()).expect("Failed to notify main loop");
-			gum::info!("All messages processed ");
+			sp_tracing::info!("All messages processed ");
 		});
 	}
 
@@ -728,7 +728,7 @@ impl PeerMessageProducer {
 			&peer_authority_id,
 			protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
 		) {
-			gum::warn!(target: LOG_TARGET, ?sent_by, ?err, "Validator can not send message");
+			sp_tracing::warn!(target: LOG_TARGET, ?sent_by, ?err, "Validator can not send message");
 		}
 	}
 
@@ -751,7 +751,7 @@ impl PeerMessageProducer {
 	// Sends the messages needed by approval-distribution and approval-voting for processing a
 	// message. E.g: PeerViewChange.
 	async fn initialize_block(&mut self, block_info: &BlockTestData) {
-		gum::info!("Initialize block {:?}", block_info.hash);
+		sp_tracing::info!("Initialize block {:?}", block_info.hash);
 		let (tx, rx) = oneshot::channel();
 		self.overseer_handle.wait_for_activation(block_info.hash, tx).await;
 
@@ -932,15 +932,15 @@ fn prepare_test_inner(
 	options: ApprovalsOptions,
 	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, ApprovalTestState) {
-	gum::info!("Prepare test state");
+	sp_tracing::info!("Prepare test state");
 	let state = ApprovalTestState::new(&config, options, &dependencies);
 
-	gum::info!("Build network emulator");
+	sp_tracing::info!("Build network emulator");
 
 	let (network, network_interface, network_receiver) =
 		new_network(&config, &dependencies, &state.test_authorities, vec![Arc::new(state.clone())]);
 
-	gum::info!("Build overseer");
+	sp_tracing::info!("Build overseer");
 
 	let (overseer, overseer_handle) = build_overseer(
 		&state,
@@ -1029,7 +1029,7 @@ pub async fn bench_approvals_run(
 			current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 		}
 
-		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num + 1, env.config().num_blocks);
+		sp_tracing::info!(target: LOG_TARGET, "Current block {}/{}", block_num + 1, env.config().num_blocks);
 		env.metrics().set_current_block(block_num);
 		let block_start_ts = Instant::now();
 
@@ -1040,7 +1040,7 @@ pub async fn bench_approvals_run(
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!("Block time {}", format!("{:?}ms", block_time).cyan());
+		sp_tracing::info!("Block time {}", format!("{:?}ms", block_time).cyan());
 
 		system_clock
 			.wait(slot_number_to_tick(SLOT_DURATION_MILLIS, current_slot + 1))
@@ -1052,7 +1052,7 @@ pub async fn bench_approvals_run(
 	while state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst) <
 		env.config().num_blocks as u32
 	{
-		gum::info!(
+		sp_tracing::info!(
 			"Waiting for all blocks to be approved current approved {:} num_sent {:} num_unique {:}",
 			state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst),
 			state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst),
@@ -1061,11 +1061,11 @@ pub async fn bench_approvals_run(
 		tokio::time::sleep(Duration::from_secs(6)).await;
 	}
 
-	gum::info!("Awaiting producer to signal done");
+	sp_tracing::info!("Awaiting producer to signal done");
 
 	producer_rx.await.expect("Failed to receive done from message producer");
 
-	gum::info!("Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed");
+	sp_tracing::info!("Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed");
 	let at_least_messages =
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize;
 	env.wait_until_metric(
@@ -1079,13 +1079,13 @@ pub async fn bench_approvals_run(
 			},
 		)),
 		|value| {
-			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			sp_tracing::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
 		},
 	)
 	.await;
 
-	gum::info!("Requesting approval votes ms");
+	sp_tracing::info!("Requesting approval votes ms");
 
 	for info in &state.blocks {
 		for (index, candidates) in info.candidates.iter().enumerate() {
@@ -1128,14 +1128,14 @@ pub async fn bench_approvals_run(
 		}
 	}
 
-	gum::info!("Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed");
+	sp_tracing::info!("Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed");
 	let at_least_messages =
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize;
 	env.wait_until_metric(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", state.subsystem_name())),
 		|value| {
-			gum::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			sp_tracing::debug!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
 			value >= at_least_messages as f64
 		},
 	)
@@ -1166,7 +1166,7 @@ pub async fn bench_approvals_run(
 	env.stop().await;
 
 	let duration: u128 = start_marker.elapsed().as_millis();
-	gum::info!(
+	sp_tracing::info!(
 		"All blocks processed in {} total_sent_messages_to_node {} total_sent_messages_from_node {} num_unique_messages {}",
 		format!("{:?}ms", duration).cyan(),
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst),

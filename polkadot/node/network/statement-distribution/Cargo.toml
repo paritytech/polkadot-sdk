@@ -16,6 +16,7 @@ gum = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 sp-staking = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }

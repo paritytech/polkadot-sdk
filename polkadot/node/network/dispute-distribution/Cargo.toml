@@ -24,6 +24,7 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 fatality = { workspace = true }
 schnellru = { workspace = true }
@@ -34,7 +35,6 @@ async-channel = { workspace = true }
 async-trait = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
 assert_matches = { workspace = true }

@@ -1013,7 +1013,7 @@ async fn handle_active_leaves_update<Context>(
 			fresh_relay_parent
 		},
 		Some((leaf, Err(e))) => {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				leaf_hash = ?leaf.hash,
 				err = ?e,
@@ -1166,7 +1166,7 @@ async fn construct_per_relay_parent_state<Context>(
 		per_session_cache.executor_params(session_index, parent, ctx.sender()).await;
 	let executor_params = try_runtime_api!(executor_params);
 
-	gum::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
+	sp_tracing::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
 
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
 
@@ -1615,7 +1615,7 @@ async fn import_statement<Context>(
 
 			match rx.await {
 				Err(oneshot::Canceled) => {
-					gum::warn!(
+					sp_tracing::warn!(
 						target: LOG_TARGET,
 						"Could not reach the Prospective Parachains subsystem."
 					);
@@ -1678,7 +1678,7 @@ async fn post_import_statement_actions<Context>(
 				rp_state.inject_core_index,
 			) {
 				let para_id = backed.candidate().descriptor.para_id();
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_hash,
 					relay_parent = ?rp_state.parent,
@@ -1696,13 +1696,13 @@ async fn post_import_statement_actions<Context>(
 				// Notify statement distribution of backed candidate.
 				ctx.send_message(StatementDistributionMessage::Backed(candidate_hash)).await;
 			} else {
-				gum::debug!(target: LOG_TARGET, ?candidate_hash, "Cannot get BackedCandidate");
+				sp_tracing::debug!(target: LOG_TARGET, ?candidate_hash, "Cannot get BackedCandidate");
 			}
 		} else {
-			gum::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate already known");
+			sp_tracing::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate already known");
 		}
 	} else {
-		gum::debug!(target: LOG_TARGET, "No attested candidate");
+		sp_tracing::debug!(target: LOG_TARGET, "No attested candidate");
 	}
 
 	issue_new_misbehaviors(ctx, rp_state.parent, &mut rp_state.table);
@@ -2028,7 +2028,7 @@ async fn handle_second_message<Context>(
 	let relay_parent = candidate.descriptor().relay_parent();
 
 	if candidate.descriptor().persisted_validation_data_hash() != persisted_validation_data.hash() {
-		gum::warn!(
+		sp_tracing::warn!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			"Candidate backing was asked to second candidate with wrong PVD",
@@ -2062,7 +2062,7 @@ async fn handle_second_message<Context>(
 
 	// Sanity check that candidate is from our assignment.
 	if !matches!(assigned_paras, Some(paras) if paras.contains(&candidate.descriptor().para_id())) {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			our_assignment_core = ?rp_state.assigned_core,
 			our_assignment_paras = ?assigned_paras,

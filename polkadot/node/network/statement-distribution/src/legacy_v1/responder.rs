@@ -80,11 +80,11 @@ pub async fn respond(
 		let req = match receiver.recv(|| vec![COST_INVALID_REQUEST]).await.into_nested() {
 			Ok(Ok(v)) => v,
 			Err(fatal) => {
-				gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
+				sp_tracing::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
 				return
 			},
 			Ok(Err(jfyi)) => {
-				gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
+				sp_tracing::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
 				continue
 			},
 		};
@@ -99,12 +99,12 @@ pub async fn respond(
 			})
 			.await
 		{
-			gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
+			sp_tracing::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
 			return
 		}
 		let response = match rx.await {
 			Err(err) => {
-				gum::debug!(target: LOG_TARGET, ?err, "Requested data not found.");
+				sp_tracing::debug!(target: LOG_TARGET, ?err, "Requested data not found.");
 				Err(())
 			},
 			Ok(v) => Ok(StatementFetchingResponse::Statement(v)),
@@ -117,7 +117,7 @@ pub async fn respond(
 		};
 		pending_out.push(pending_sent_rx);
 		if let Err(_) = req.send_outgoing_response(response) {
-			gum::debug!(target: LOG_TARGET, "Sending response failed");
+			sp_tracing::debug!(target: LOG_TARGET, "Sending response failed");
 		}
 	}
 }

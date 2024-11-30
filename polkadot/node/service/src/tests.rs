@@ -110,7 +110,7 @@ async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
 		.await
 		.expect(&format!("{:?} is enough to receive messages.", TIMEOUT));
 
-	gum::trace!("Received message:\n{:?}", &msg);
+	sp_tracing::trace!("Received message:\n{:?}", &msg);
 
 	msg
 }
@@ -118,7 +118,7 @@ async fn overseer_recv_with_timeout(
 	overseer: &mut VirtualOverseer,
 	timeout: Duration,
 ) -> Option<AllMessages> {
-	gum::trace!("Waiting for message...");
+	sp_tracing::trace!("Waiting for message...");
 	overseer.recv().timeout(timeout).await
 }
 
@@ -339,7 +339,7 @@ async fn test_skeleton(
 ) {
 	let undisputed_chain = undisputed_chain.map(|x| (chain.number(x).unwrap().unwrap(), x));
 
-	gum::trace!("best leaf response: {:?}", undisputed_chain);
+	sp_tracing::trace!("best leaf response: {:?}", undisputed_chain);
 	assert_matches!(
 		overseer_recv(
 			virtual_overseer
@@ -358,7 +358,7 @@ async fn test_skeleton(
 		return
 	}
 
-	gum::trace!("approved ancestor response: {:?}", undisputed_chain);
+	sp_tracing::trace!("approved ancestor response: {:?}", undisputed_chain);
 	assert_matches!(
 		overseer_recv(
 			virtual_overseer
@@ -369,7 +369,7 @@ async fn test_skeleton(
 		}
 	);
 
-	gum::trace!("determine undisputed chain response: {:?}", undisputed_chain);
+	sp_tracing::trace!("determine undisputed chain response: {:?}", undisputed_chain);
 
 	let target_block_number = chain.number(target_block_hash).unwrap().unwrap();
 	assert_matches!(
@@ -710,8 +710,8 @@ fn chain_6() -> CaseVars {
 
 	let chain = builder.init();
 
-	gum::trace!(highest_approved = ?chain.highest_approved_ancestors(1, leaf));
-	gum::trace!(undisputed = ?chain.undisputed_chain(1, approved));
+	sp_tracing::trace!(highest_approved = ?chain.highest_approved_ancestors(1, leaf));
+	sp_tracing::trace!(undisputed = ?chain.undisputed_chain(1, approved));
 	CaseVars {
 		chain,
 		target_block: b1,

@@ -128,7 +128,7 @@ impl TestState {
 
 		// For each unique pov we create a candidate receipt.
 		for (index, pov_size) in config.pov_sizes().iter().cloned().unique().enumerate() {
-			gum::info!(target: LOG_TARGET, index, pov_size, "{}", "Generating template candidate".bright_blue());
+			sp_tracing::info!(target: LOG_TARGET, index, pov_size, "{}", "Generating template candidate".bright_blue());
 
 			let mut candidate_receipt = dummy_candidate_receipt(dummy_hash());
 			let pov = PoV { block_data: BlockData(vec![index as u8; pov_size]) };
@@ -181,7 +181,7 @@ impl TestState {
 
 		// Generate all candidates
 		let candidates_count = config.n_cores * config.num_blocks;
-		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", candidates_count).bright_blue());
+		sp_tracing::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", candidates_count).bright_blue());
 		test_state.candidates = (0..candidates_count)
 			.map(|index| {
 				let pov_size = test_state.pov_sizes.next().expect("This is a cycle; qed");
@@ -204,7 +204,7 @@ impl TestState {
 					.candidate_hash_to_core_index
 					.insert(candidate_receipt.hash(), core_index.into());
 
-				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
+				sp_tracing::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
 
 				candidate_receipt
 			})
@@ -284,7 +284,7 @@ impl TestState {
 			})
 			.collect();
 
-		gum::info!(target: LOG_TARGET, "{}","Created test environment.".bright_blue());
+		sp_tracing::info!(target: LOG_TARGET, "{}","Created test environment.".bright_blue());
 
 		test_state
 	}

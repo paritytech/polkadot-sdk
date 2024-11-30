@@ -13,4 +13,4 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 sp-core = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
-gum = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }

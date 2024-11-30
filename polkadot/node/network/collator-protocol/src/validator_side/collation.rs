@@ -256,7 +256,7 @@ impl Collations {
 			if collator_id != &finished_one.0 &&
 				maybe_candidate_hash.map_or(true, |hash| Some(&hash) != finished_one.1.as_ref())
 			{
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					waiting_collation = ?self.fetching_from,
 					?finished_one,

@@ -129,7 +129,7 @@ pub fn build_session_topology<'a>(
 
 	let our_neighbors = match topology.compute_grid_neighbors_for(our_index) {
 		None => {
-			gum::warn!(target: LOG_TARGET, ?our_index, "our index unrecognized in topology?");
+			sp_tracing::warn!(target: LOG_TARGET, ?our_index, "our index unrecognized in topology?");
 
 			return view
 		},
@@ -185,7 +185,7 @@ pub fn build_session_topology<'a>(
 				// but receive from any peers sharing a dimension with both of us
 				let their_neighbors = match topology.compute_grid_neighbors_for(group_val) {
 					None => {
-						gum::warn!(
+						sp_tracing::warn!(
 							target: LOG_TARGET,
 							index = ?group_val,
 							"validator index unrecognized in topology?"
@@ -421,7 +421,7 @@ impl GridTracker {
 		// and receiving groups, we may overwrite a `Full` manifest with a `Acknowledgement`
 		// one.
 		for (v, manifest_mode) in sending_group_manifests.chain(receiving_group_manifests) {
-			gum::trace!(
+			sp_tracing::trace!(
 				target: LOG_TARGET,
 				validator_index = ?v,
 				?manifest_mode,

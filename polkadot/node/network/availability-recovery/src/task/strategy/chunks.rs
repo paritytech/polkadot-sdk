@@ -141,7 +141,7 @@ impl FetchChunks {
 					recovery_duration.map(|rd| rd.stop_and_discard());
 				})
 				.inspect(|_| {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?common_params.candidate_hash,
 						erasure_root = ?common_params.erasure_root,
@@ -150,7 +150,7 @@ impl FetchChunks {
 				}),
 			Err(err) => {
 				recovery_duration.map(|rd| rd.stop_and_discard());
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?common_params.candidate_hash,
 					erasure_root = ?common_params.erasure_root,
@@ -226,7 +226,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				state.chunk_count(),
 				common_params.threshold,
 			) {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?common_params.candidate_hash,
 					erasure_root = ?common_params.erasure_root,

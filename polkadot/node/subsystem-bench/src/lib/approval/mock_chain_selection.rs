@@ -56,7 +56,7 @@ impl MockChainSelection {
 						let approved_in_tick = self.clock.tick_now() -
 							slot_number_to_tick(SLOT_DURATION_MILLIS, block_info.slot);
 
-						gum::info!(target: LOG_TARGET, ?hash, "Chain selection approved  after {:} ms", approved_in_tick * TICK_DURATION_MILLIS);
+						sp_tracing::info!(target: LOG_TARGET, ?hash, "Chain selection approved  after {:} ms", approved_in_tick * TICK_DURATION_MILLIS);
 					},
 			}
 		}

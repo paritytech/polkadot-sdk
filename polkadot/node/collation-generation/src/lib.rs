@@ -126,7 +126,7 @@ impl CollationGenerationSubsystem {
 				..
 			}))) => {
 				if let Err(err) = self.handle_new_activation(activated.map(|v| v.hash), ctx).await {
-					gum::warn!(target: LOG_TARGET, err = ?err, "failed to handle new activation");
+					sp_tracing::warn!(target: LOG_TARGET, err = ?err, "failed to handle new activation");
 				}
 
 				false
@@ -152,7 +152,7 @@ impl CollationGenerationSubsystem {
 				msg: CollationGenerationMessage::SubmitCollation(params),
 			}) => {
 				if let Err(err) = self.handle_submit_collation(params, ctx).await {
-					gum::error!(target: LOG_TARGET, ?err, "Failed to submit collation");
+					sp_tracing::error!(target: LOG_TARGET, ?err, "Failed to submit collation");
 				}
 
 				false
@@ -200,7 +200,7 @@ impl CollationGenerationSubsystem {
 		{
 			Some(v) => v,
 			None => {
-				gum::debug!(
+				sp_tracing::debug!(
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent,
 					our_para = %config.para_id,
@@ -384,7 +384,7 @@ impl CollationGenerationSubsystem {
 					)
 					.await
 					{
-						gum::error!(
+						sp_tracing::error!(
 							target: LOG_TARGET,
 							"Failed to construct and distribute collation: {}",
 							err
@@ -555,7 +555,7 @@ async fn construct_and_distribute_receipt(
 		ccr.to_plain()
 	} else {
 		if commitments.core_selector().map_err(Error::CandidateReceiptCheck)?.is_some() {
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				?pov_hash,
 				?relay_parent,

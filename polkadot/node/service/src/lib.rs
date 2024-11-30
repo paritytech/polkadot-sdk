@@ -41,7 +41,6 @@ mod tests;
 
 #[cfg(feature = "full-node")]
 use {
-	gum::info,
 	polkadot_node_core_approval_voting::{
 		self as approval_voting_subsystem, Config as ApprovalVotingConfig,
 	},
@@ -59,6 +58,7 @@ use {
 	sc_client_api::BlockBackend,
 	sc_consensus_grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider},
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
+	sp_tracing::info,
 };
 
 use polkadot_node_subsystem_util::database::Database;
@@ -1175,7 +1175,7 @@ pub fn new_full<
 				ext_overseer_args,
 			)
 			.map_err(|e| {
-				gum::error!("Failed to init overseer: {}", e);
+				sp_tracing::error!("Failed to init overseer: {}", e);
 				e
 			})?;
 		let handle = Handle::new(overseer_handle.clone());
@@ -1444,7 +1444,7 @@ pub fn build_full<OverseerGenerator: OverseerGen>(
 	params.overseer_message_channel_capacity_override =
 		params.overseer_message_channel_capacity_override.map(move |capacity| {
 			if is_polkadot {
-				gum::warn!("Channel capacity should _never_ be tampered with on polkadot!");
+				sp_tracing::warn!("Channel capacity should _never_ be tampered with on polkadot!");
 			}
 			capacity
 		});

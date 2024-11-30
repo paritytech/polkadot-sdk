@@ -316,7 +316,7 @@ pub async fn benchmark_availability_read(
 	let test_start = Instant::now();
 	for block_info in state.block_infos.iter() {
 		let block_num = block_info.number as usize;
-		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num, env.config().num_blocks);
+		sp_tracing::info!(target: LOG_TARGET, "Current block {}/{}", block_num, env.config().num_blocks);
 		env.metrics().set_current_block(block_num);
 
 		let block_start_ts = Instant::now();
@@ -342,7 +342,7 @@ pub async fn benchmark_availability_read(
 			env.send_message(message).await;
 		}
 
-		gum::info!(target: LOG_TARGET, "{}", format!("{} recoveries pending", batch.len()).bright_black());
+		sp_tracing::info!(target: LOG_TARGET, "{}", format!("{} recoveries pending", batch.len()).bright_black());
 		while let Some(completed) = batch.next().await {
 			let available_data = completed.unwrap().unwrap();
 			env.metrics().on_pov_size(available_data.encoded_size());
@@ -351,17 +351,17 @@ pub async fn benchmark_availability_read(
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{:?}ms", block_time).cyan());
+		sp_tracing::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{:?}ms", block_time).cyan());
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
 	let availability_bytes = availability_bytes / 1024;
-	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
-	gum::info!(target: LOG_TARGET,
+	sp_tracing::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	sp_tracing::info!(target: LOG_TARGET,
 		"Throughput: {}",
 		format!("{} KiB/block", availability_bytes / env.config().num_blocks as u128).bright_red()
 	);
-	gum::info!(target: LOG_TARGET,
+	sp_tracing::info!(target: LOG_TARGET,
 		"Avg block time: {}",
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
@@ -379,7 +379,7 @@ pub async fn benchmark_availability_write(
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
-	gum::info!(target: LOG_TARGET, "Seeding availability store with candidates ...");
+	sp_tracing::info!(target: LOG_TARGET, "Seeding availability store with candidates ...");
 	for (core_index, backed_candidate) in state.backed_candidates.clone().into_iter().enumerate() {
 		let candidate_index = *state.candidate_hashes.get(&backed_candidate.hash()).unwrap();
 		let available_data = state.available_data[candidate_index].clone();
@@ -402,12 +402,12 @@ pub async fn benchmark_availability_write(
 			.expect("Test candidates are stored nicely in availability store");
 	}
 
-	gum::info!(target: LOG_TARGET, "Done");
+	sp_tracing::info!(target: LOG_TARGET, "Done");
 
 	let test_start = Instant::now();
 	for block_info in state.block_infos.iter() {
 		let block_num = block_info.number as usize;
-		gum::info!(target: LOG_TARGET, "Current block #{}", block_num);
+		sp_tracing::info!(target: LOG_TARGET, "Current block #{}", block_num);
 		env.metrics().set_current_block(block_num);
 
 		let block_start_ts = Instant::now();
@@ -445,7 +445,7 @@ pub async fn benchmark_availability_write(
 			}
 		});
 
-		gum::info!(target: LOG_TARGET, "Waiting for all emulated peers to receive their chunk from us ...");
+		sp_tracing::info!(target: LOG_TARGET, "Waiting for all emulated peers to receive their chunk from us ...");
 
 		let responses = futures::future::try_join_all(receivers)
 			.await
@@ -454,7 +454,7 @@ pub async fn benchmark_availability_write(
 		assert!(responses.iter().all(|v| v.result.is_ok()));
 
 		let chunk_fetch_duration = Instant::now().sub(chunk_fetch_start_ts).as_millis();
-		gum::info!(target: LOG_TARGET, "All chunks received in {}ms", chunk_fetch_duration);
+		sp_tracing::info!(target: LOG_TARGET, "All chunks received in {}ms", chunk_fetch_duration);
 
 		let network = env.network().clone();
 		let authorities = env.authorities().clone();
@@ -473,7 +473,7 @@ pub async fn benchmark_availability_write(
 			}
 		}
 
-		gum::info!(
+		sp_tracing::info!(
 			"Waiting for {} bitfields to be received and processed",
 			config.connected_count()
 		);
@@ -486,16 +486,16 @@ pub async fn benchmark_availability_write(
 		)
 		.await;
 
-		gum::info!(target: LOG_TARGET, "All bitfields processed");
+		sp_tracing::info!(target: LOG_TARGET, "All bitfields processed");
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{:?}ms", block_time).cyan());
+		sp_tracing::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{:?}ms", block_time).cyan());
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
-	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
-	gum::info!(target: LOG_TARGET,
+	sp_tracing::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	sp_tracing::info!(target: LOG_TARGET,
 		"Avg block time: {}",
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);

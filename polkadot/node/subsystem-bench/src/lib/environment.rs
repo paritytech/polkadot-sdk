@@ -342,7 +342,7 @@ impl TestEnvironment {
 			};
 			let current_value = test_metrics.sum_by(metric_name);
 
-			gum::debug!(target: LOG_TARGET, metric_name, current_value, "Waiting for metric");
+			sp_tracing::debug!(target: LOG_TARGET, metric_name, current_value, "Waiting for metric");
 			if condition(current_value) {
 				break
 			}

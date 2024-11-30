@@ -539,7 +539,7 @@ async fn handle_introduce_seconded_candidate(
 				added.push(*relay_parent);
 			},
 			Err(FragmentChainError::CandidateAlreadyKnown) => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?para,
 					?relay_parent,
@@ -550,7 +550,7 @@ async fn handle_introduce_seconded_candidate(
 				added.push(*relay_parent);
 			},
 			Err(err) => {
-				gum::trace!(
+				sp_tracing::trace!(
 					target: LOG_TARGET,
 					?para,
 					?relay_parent,
@@ -573,14 +573,14 @@ async fn handle_introduce_seconded_candidate(
 	}
 
 	if added.is_empty() {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			para = ?para,
 			candidate = ?candidate_hash,
 			"Newly-seconded candidate cannot be kept under any relay parent",
 		);
 	} else {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?para,
 			"Added/Kept seconded candidate {:?} on relay parents: {:?}",
@@ -779,7 +779,7 @@ fn answer_hypothetical_membership_request(
 					membership.push(*active_leaf);
 				},
 				Err(err) => {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						para = ?para_id,
 						leaf = ?active_leaf,
@@ -794,7 +794,7 @@ fn answer_hypothetical_membership_request(
 
 	for (candidate, membership) in &response {
 		if membership.is_empty() {
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				para = ?candidate.candidate_para(),
 				active_leaves = ?view.active_leaves,

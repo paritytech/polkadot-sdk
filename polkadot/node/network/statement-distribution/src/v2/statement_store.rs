@@ -128,7 +128,7 @@ impl StatementStore {
 			let group = match groups.get(group_index) {
 				Some(g) => g,
 				None => {
-					gum::error!(
+					sp_tracing::error!(
 						target: crate::LOG_TARGET,
 						?group_index,
 						"groups passed into `insert` differ from those used at store creation"

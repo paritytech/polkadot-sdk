@@ -70,7 +70,7 @@ impl MockChainApi {
 						return
 					},
 				orchestra::FromOrchestra::Communication { msg } => {
-					gum::debug!(target: LOG_TARGET, msg=?msg, "recv message");
+					sp_tracing::debug!(target: LOG_TARGET, msg=?msg, "recv message");
 
 					match msg {
 						ChainApiMessage::BlockHeader(hash, response_channel) => {

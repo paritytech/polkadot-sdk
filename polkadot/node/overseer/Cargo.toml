@@ -21,7 +21,7 @@ polkadot-node-subsystem-types = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 orchestra = { features = ["futures_channel"], workspace = true }
-gum = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 async-trait = { workspace = true }
 tikv-jemalloc-ctl = { optional = true, workspace = true }

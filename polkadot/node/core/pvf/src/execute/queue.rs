@@ -341,7 +341,7 @@ impl Queue {
 
 				let Some(job) = queue.remove(index) else { continue };
 				let _ = job.result_tx.send(Err(ValidationError::ExecutionDeadline));
-				gum::warn!(
+				sp_tracing::warn!(
 					target: LOG_TARGET,
 					?priority,
 					exec_kind = ?job.exec_kind,
@@ -381,7 +381,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 				result_tx,
 				exec_kind,
 			} = pending_execution_request;
-			gum::debug!(
+			sp_tracing::debug!(
 				target: LOG_TARGET,
 				validation_code_hash = ?artifact.id.code_hash,
 				"enqueueing an artifact for execution",
@@ -791,7 +791,7 @@ impl Unscheduled {
 	}
 
 	fn select_next_priority(&self) -> Priority {
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			unscheduled = ?self.unscheduled.iter().map(|(p, q)| (*p, q.len())).collect::<HashMap<Priority, usize>>(),
 			counter = ?self.counter,
@@ -874,7 +874,7 @@ impl Unscheduled {
 		if self.counter.values().sum::<usize>() >= Self::SCHEDULING_WINDOW_SIZE {
 			self.reset_counter();
 		}
-		gum::debug!(
+		sp_tracing::debug!(
 			target: LOG_TARGET,
 			?priority,
 			"Job marked as scheduled",

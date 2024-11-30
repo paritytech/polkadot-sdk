@@ -3354,7 +3354,7 @@ async fn launch_approval<
 
 	let candidate_hash = candidate.hash();
 	let para_id = candidate.descriptor.para_id();
-	gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
+	sp_tracing::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Recovering data.");
 
 	let timer = metrics.time_recover_and_approve();
 	sender

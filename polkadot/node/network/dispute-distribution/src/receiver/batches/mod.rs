@@ -146,7 +146,7 @@ impl Batches {
 			};
 			match batch.tick(now) {
 				TickResult::Done(import) => {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?wake.payload,
 						"Batch became ready."
@@ -154,7 +154,7 @@ impl Batches {
 					imports.push(import);
 				},
 				TickResult::Alive(old_batch, next_tick) => {
-					gum::trace!(
+					sp_tracing::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?wake.payload,
 						"Batch found to be still alive on check."

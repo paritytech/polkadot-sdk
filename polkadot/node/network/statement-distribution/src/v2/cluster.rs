@@ -433,7 +433,7 @@ impl ClusterTracker {
 			// No reason to warn if we are the only node in the cluster.
 			self.validators.len() > 1
 		{
-			gum::warn!(
+			sp_tracing::warn!(
 				target: LOG_TARGET,
 				pending_statements  = ?self.pending,
 				?parent_hash,
