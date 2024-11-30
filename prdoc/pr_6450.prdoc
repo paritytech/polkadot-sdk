@@ -13,4 +13,6 @@ doc:
 
 crates:
   - name: polkadot-omni-node-lib
-    bump: minor 
+    bump: minor
+  - name: polkadot-sdk-docs
+    bump: minor
