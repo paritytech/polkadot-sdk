@@ -321,6 +321,9 @@ function get_s3_url_base() {
         printf "https://releases.parity.io/chain-spec-builder"
         ;;
 
+      frame-omni-bencher)
+        printf "https://releases.parity.io/frame-omni-bencher"
+        ;;
       *)
         printf "UNSUPPORTED BINARY $name"
         exit 1
