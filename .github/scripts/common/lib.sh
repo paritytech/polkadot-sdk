@@ -312,9 +312,13 @@ function get_s3_url_base() {
       polkadot-parachain)
         printf "https://releases.parity.io/polkadot-parachain"
         ;;
-      
+
       polkadot-omni-node)
         printf "https://releases.parity.io/polkadot-omni-node"
+        ;;
+
+      chain-spec-builder)
+        printf "https://releases.parity.io/chain-spec-builder"
         ;;
 
       *)
