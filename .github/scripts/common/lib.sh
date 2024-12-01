@@ -237,15 +237,44 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
+# Fetch deb package from S3. Assumes the ENV are set:
+# - RELEASE_ID
+# - GITHUB_TOKEN
+# - REPO in the form paritytech/polkadot
+fetch_debian_package_from_s3() {
+  BINARY=$1
+  echo "Version    : $VERSION"
+  echo "Repo       : $REPO"
+  echo "Binary     : $BINARY"
+  echo "Tag        : $RELEASE_TAG"
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  echo "OUTPUT_DIR : $OUTPUT_DIR"
+
+  URL_BASE=$(get_s3_url_base $BINARY)
+  echo "URL_BASE=$URL_BASE"
+
+  URL=$URL_BASE/$RELEASE_TAG/x86_64-unknown-linux-gnu/${BINARY}_${VERSION}_amd64.deb
+
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
+
+  echo "Fetching deb package..."
+
+  echo "Fetching %s" "$URL"
+  curl --progress-bar -LO "$URL" || echo "Missing $URL"
+
+  pwd
+  ls -al --color
+  popd > /dev/null
+
+}
+
 # Fetch the release artifacts like binary and signatures from S3. Assumes the ENV are set:
 # - RELEASE_ID
 # - GITHUB_TOKEN
 # - REPO in the form paritytech/polkadot
 fetch_release_artifacts_from_s3() {
   BINARY=$1
-  echo "Version    : $VERSION"
-  echo "Repo       : $REPO"
-  echo "Binary     : $BINARY"
   OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
   echo "OUTPUT_DIR : $OUTPUT_DIR"
 
