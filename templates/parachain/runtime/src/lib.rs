@@ -187,9 +187,6 @@ mod block_times {
 	// NOTE: Currently it is not possible to change the slot duration after the chain has started.
 	// Attempting to do so will brick block production.
 	pub const SLOT_DURATION: u64 = MILLI_SECS_PER_BLOCK;
-
-	/// Minimum period between blocks set for the `pallet_timestamp`.
-	pub const MINIMUM_PERIOD: u64 = SLOT_DURATION / 2;
 }
 pub use block_times::*;
 
