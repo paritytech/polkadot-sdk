@@ -183,6 +183,7 @@ use sp_runtime::{
 
 #[cfg(feature = "runtime-benchmarks")]
 use sp_core::{sr25519::Pair as SrPair, Pair};
+#[cfg(feature = "runtime-benchmarks")]
 use alloc::{format, string::{String, ToString}};
 
 pub use types::{
@@ -521,7 +522,7 @@ pub mod pallet {
 				balances: Default::default(),
 
 				#[cfg(feature = "runtime-benchmarks")]
-				dev_accounts: (One::one(), <T as Config<I>>::ExistentialDeposit::get(), None),
+				dev_accounts: (One::one(), <T as Config<I>>::ExistentialDeposit::get(), Some("//Sender/{}".to_string())),
 			}
 		}
 	}

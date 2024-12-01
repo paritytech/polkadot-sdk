@@ -37,8 +37,7 @@ fn collectives_westend_genesis(
 				.iter()
 				.cloned()
 				.map(|k| (k, COLLECTIVES_WESTEND_ED * 4096))
-				.collect::<Vec<_>>(),
-			..Default::default()
+				.collect::<Vec<_>>()
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {

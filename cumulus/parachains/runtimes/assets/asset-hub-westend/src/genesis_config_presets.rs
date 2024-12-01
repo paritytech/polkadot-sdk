@@ -38,8 +38,7 @@ fn asset_hub_westend_genesis(
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
-			..Default::default()
+			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect()
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {

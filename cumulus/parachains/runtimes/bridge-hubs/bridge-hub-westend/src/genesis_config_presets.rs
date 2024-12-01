@@ -41,8 +41,7 @@ fn bridge_hub_westend_genesis(
 				.iter()
 				.cloned()
 				.map(|k| (k, 1u128 << 60))
-				.collect::<Vec<_>>(),
-			..Default::default()
+				.collect::<Vec<_>>()
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {

@@ -35,7 +35,7 @@ sp-session = { workspace = true }
 sp-api = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 pallet-babe = { workspace = true }
-pallet-balances = { workspace = true }
+pallet-balances = { workspace = true, features = ["runtime-benchmarks"] }
 frame-executive = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
 frame-system = { workspace = true }

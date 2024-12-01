@@ -230,7 +230,7 @@ impl<Runtime: BasicParachainRuntime> ExtBuilder<Runtime> {
 			.unwrap();
 		}
 
-		pallet_balances::GenesisConfig::<Runtime> { balances: self.balances, ..Default::default() }
+		pallet_balances::GenesisConfig::<Runtime> { balances: self.balances }
 			.assimilate_storage(&mut t)
 			.unwrap();
 

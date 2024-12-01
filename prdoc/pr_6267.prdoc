@@ -97,6 +97,8 @@ crates:
     bump: minor
   - name: pallet-asset-conversion
     bump: minor
+  - name: pallet-asset-conversion-ops
+    bump: minor
   - name: pallet-alliance
     bump: minor
   - name: node-testing
@@ -111,23 +113,7 @@ crates:
     bump: minor
   - name: pallet-xcm
     bump: minor
-  - name: westend-runtime
-    bump: minor
-  - name: rococo-runtime
-    bump: minor
   - name: polkadot-runtime-common
-    bump: minor
-  - name: parachains-runtimes-test-utils
-    bump: minor
-  - name: collectives-westend-runtime
-    bump: minor
-  - name: bridge-hub-westend-runtime
-    bump: minor
-  - name: bridge-hub-rococo-runtime
-    bump: minor
-  - name: asset-hub-westend-runtime
-    bump: minor
-  - name: asset-hub-rococo-runtime
     bump: minor
   - name: pallet-collator-selection
     bump: minor
