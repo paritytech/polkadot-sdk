@@ -61,7 +61,9 @@ pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 ///
 /// Does not include the current stake.
 pub fn free_to_stake<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
-	T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite)
+	// since we want to be able to use frozen funds for staking, we force the reduction.
+	// todo(ank4n): test above scenario.
+	T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Force)
 }
 
 /// Set balance that can be staked for `who`.
