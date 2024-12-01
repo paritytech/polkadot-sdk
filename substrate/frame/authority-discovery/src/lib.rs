@@ -28,7 +28,6 @@ extern crate alloc;
 use alloc::vec::Vec;
 use frame::{
 	deps::frame_support::WeakBoundedVec,
-	derive::DefaultNoBound,
 	prelude::*,
 	traits::{Get, OneSessionHandler},
 };
@@ -36,7 +35,6 @@ use sp_authority_discovery::AuthorityId;
 
 pub use pallet::*;
 
-// #[frame_support::pallet]
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
@@ -61,7 +59,7 @@ pub mod pallet {
 	pub(super) type NextKeys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
-	#[derive(DefaultNoBound)]
+	#[derive(frame::derive::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub keys: Vec<AuthorityId>,
@@ -313,8 +311,6 @@ mod tests {
 		let mut externalities = TestExternalities::new(t);
 
 		externalities.execute_with(|| {
-			use frame::deps::frame_support::traits::OneSessionHandler;
-
 			AuthorityDiscovery::on_genesis_session(
 				first_authorities.iter().map(|id| (id, id.clone())),
 			);
