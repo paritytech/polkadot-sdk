@@ -1355,8 +1355,6 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 		},
 	)
 }
-<<<<<<< HEAD
-=======
 
 #[test]
 fn location_conversion_works() {
@@ -1482,4 +1480,3 @@ fn xcm_payment_api_works() {
 		Block,
 	>();
 }
->>>>>>> 139691b1 (Fix `XcmPaymentApi::query_weight_to_asset_fee` version conversion (#6459))

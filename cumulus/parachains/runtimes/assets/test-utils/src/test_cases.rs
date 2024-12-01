@@ -1614,7 +1614,7 @@ where
 			AssetId = u32,
 			Balance = <Runtime as pallet_balances::Config>::Balance,
 		> + pallet_asset_conversion::Config<
-			AssetKind = xcm::v5::Location,
+			AssetKind = xcm::v4::Location,
 			Balance = <Runtime as pallet_balances::Config>::Balance,
 		>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
@@ -1660,7 +1660,7 @@ where
 		));
 		let execution_fees = Runtime::query_weight_to_asset_fee(
 			xcm_weight.unwrap(),
-			asset_not_in_pool.clone().into(),
+			VersionedAssetId::from(AssetId(asset_not_in_pool.clone())),
 		);
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
 
@@ -1672,7 +1672,7 @@ where
 		));
 		let execution_fees = Runtime::query_weight_to_asset_fee(
 			xcm_weight.unwrap(),
-			asset_not_in_pool.clone().into(),
+			VersionedAssetId::from(AssetId(asset_not_in_pool.clone())),
 		);
 		// Still not enough because it doesn't have any liquidity.
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
@@ -1696,7 +1696,7 @@ where
 			test_account
 		));
 		let execution_fees =
-			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), asset_not_in_pool.into());
+			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), VersionedAssetId::from(AssetId(asset_not_in_pool)));
 		// Now it works!
 		assert_ok!(execution_fees);
 	});

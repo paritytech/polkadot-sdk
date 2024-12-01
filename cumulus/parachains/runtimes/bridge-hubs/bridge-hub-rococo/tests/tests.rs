@@ -18,21 +18,11 @@
 
 use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
-<<<<<<< HEAD
-	bridge_common_config, bridge_to_bulletin_config,
-	bridge_to_ethereum_config::EthereumGatewayAddress,
-	bridge_to_westend_config,
-	xcm_config::{LocationToAccountId, RelayNetwork, TokenLocation, XcmConfig},
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	SignedExtra, TransactionPayment, UncheckedExtrinsic,
-=======
 	bridge_common_config, bridge_to_bulletin_config, bridge_to_westend_config,
-	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
+	xcm_config::{LocationToAccountId, RelayNetwork, TokenLocation, XcmConfig},
 	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, Executive,
 	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
->>>>>>> 139691b1 (Fix `XcmPaymentApi::query_weight_to_asset_fee` version conversion (#6459))
+	RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
 use bridge_hub_test_utils::SlotDurations;
 use codec::{Decode, Encode};
@@ -723,8 +713,6 @@ mod bridge_hub_bulletin_tests {
 		)
 	}
 }
-<<<<<<< HEAD
-=======
 
 #[test]
 fn change_required_stake_by_governance_works() {
@@ -866,4 +854,3 @@ fn xcm_payment_api_works() {
 		Block,
 	>();
 }
->>>>>>> 139691b1 (Fix `XcmPaymentApi::query_weight_to_asset_fee` version conversion (#6459))

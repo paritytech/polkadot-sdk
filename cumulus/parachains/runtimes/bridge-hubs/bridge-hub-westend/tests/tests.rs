@@ -27,15 +27,9 @@ use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
 	bridge_to_rococo_config::RococoGlobalConsensusNetwork,
 	xcm_config::{LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
-<<<<<<< HEAD
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	SignedExtra, TransactionPayment, UncheckedExtrinsic,
-=======
 	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, Executive,
 	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
->>>>>>> 139691b1 (Fix `XcmPaymentApi::query_weight_to_asset_fee` version conversion (#6459))
+	RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
@@ -408,8 +402,6 @@ pub fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
 		),
 	)
 }
-<<<<<<< HEAD
-=======
 
 #[test]
 fn location_conversion_works() {
@@ -529,4 +521,3 @@ fn xcm_payment_api_works() {
 		Block,
 	>();
 }
->>>>>>> 139691b1 (Fix `XcmPaymentApi::query_weight_to_asset_fee` version conversion (#6459))

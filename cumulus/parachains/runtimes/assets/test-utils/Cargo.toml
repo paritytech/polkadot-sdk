@@ -11,28 +11,6 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-<<<<<<< HEAD
-frame-support.workspace = true
-frame-system.workspace = true
-pallet-assets.workspace = true
-pallet-balances.workspace = true
-pallet-timestamp.workspace = true
-pallet-session.workspace = true
-sp-io.workspace = true
-sp-runtime.workspace = true
-cumulus-pallet-parachain-system.workspace = true
-cumulus-pallet-xcmp-queue.workspace = true
-pallet-collator-selection.workspace = true
-parachains-common.workspace = true
-cumulus-primitives-core.workspace = true
-parachain-info.workspace = true
-parachains-runtimes-test-utils.workspace = true
-xcm.workspace = true
-xcm-builder.workspace = true
-xcm-executor.workspace = true
-pallet-xcm.workspace = true
-pallet-xcm-bridge-hub-router.workspace = true
-=======
 
 # Substrate
 frame-support = { workspace = true }
@@ -63,7 +41,6 @@ xcm-runtime-apis = { workspace = true }
 
 # Bridges
 pallet-xcm-bridge-hub-router = { workspace = true }
->>>>>>> 139691b1 (Fix `XcmPaymentApi::query_weight_to_asset_fee` version conversion (#6459))
 
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
