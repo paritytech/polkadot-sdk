@@ -17,8 +17,8 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::H160;
-use alloc::vec::Vec;
+use crate::{H160, U256};
+use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
@@ -27,6 +27,30 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
+
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum DepositLimit<Balance> {
+	/// Allows bypassing all balance transfer checks.
+	Unchecked,
+
+	/// Specifies a maximum allowable balance for a deposit.
+	Balance(Balance),
+}
+
+impl<T> DepositLimit<T> {
+	pub fn is_unchecked(&self) -> bool {
+		match self {
+			Self::Unchecked => true,
+			_ => false,
+		}
+	}
+}
+
+impl<T> From<T> for DepositLimit<T> {
+	fn from(value: T) -> Self {
+		Self::Balance(value)
+	}
+}
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
 /// `ContractsApi::instantiate`.
@@ -84,15 +108,22 @@ pub struct ContractResult<R, Balance, EventRecord> {
 
 /// The result of the execution of a `eth_transact` call.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct EthContractResult<Balance, R = Result<ExecReturnValue, DispatchError>> {
-	/// The fee charged for the execution.
-	pub fee: Balance,
+pub struct EthTransactInfo<Balance> {
 	/// The amount of gas that was necessary to execute the transaction.
 	pub gas_required: Weight,
 	/// Storage deposit charged.
 	pub storage_deposit: Balance,
-	/// The execution result.
-	pub result: R,
+	/// The weight and deposit equivalent in EVM Gas.
+	pub eth_gas: U256,
+	/// The execution return value.
+	pub data: Vec<u8>,
+}
+
+/// Error type of a `eth_transact` call.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum EthTransactError {
+	Data(Vec<u8>),
+	Message(String),
 }
 
 /// Result type of a `bare_code_upload` call.
