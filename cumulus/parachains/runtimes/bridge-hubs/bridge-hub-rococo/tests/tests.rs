@@ -324,11 +324,12 @@ mod bridge_hub_westend_tests {
 				>(
 					SiblingParachainLocation::get(),
 					BridgedUniversalLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
 					}
 				).1
 			},
@@ -388,11 +389,12 @@ mod bridge_hub_westend_tests {
 				>(
 					SiblingParachainLocation::get(),
 					BridgedUniversalLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance,
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
 					},
 				)
 				.1
@@ -422,11 +424,12 @@ mod bridge_hub_westend_tests {
 				>(
 					SiblingParachainLocation::get(),
 					BridgedUniversalLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverBridgeHubWestendInstance,
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
 					},
 				)
 				.1
@@ -591,11 +594,12 @@ mod bridge_hub_bulletin_tests {
 				>(
 					SiblingPeopleParachainLocation::get(),
 					BridgedBulletinLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance
-						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+						>(locations, HashedLaneId::try_new(1, 2).unwrap())
 					}
 				).1
 			},
@@ -654,11 +658,12 @@ mod bridge_hub_bulletin_tests {
 				>(
 					SiblingPeopleParachainLocation::get(),
 					BridgedBulletinLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+						>(locations, HashedLaneId::try_new(1, 2).unwrap())
 					},
 				)
 				.1
@@ -687,11 +692,12 @@ mod bridge_hub_bulletin_tests {
 				>(
 					SiblingPeopleParachainLocation::get(),
 					BridgedBulletinLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime,
 							XcmOverPolkadotBulletinInstance,
-						>(locations, fee, HashedLaneId::try_new(1, 2).unwrap())
+						>(locations, HashedLaneId::try_new(1, 2).unwrap())
 					},
 				)
 				.1

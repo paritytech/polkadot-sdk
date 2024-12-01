@@ -3,15 +3,16 @@
 # This is used to build our binaries:
 # - polkadot
 # - polkadot-parachain
-# - polkadot-omni-node 
-#
+# - polkadot-omni-node
 # set -e
 
 BIN=$1
 PACKAGE=${2:-$BIN}
 
 PROFILE=${PROFILE:-production}
-ARTIFACTS=/artifacts/$BIN
+# parity-macos runner needs a path where it can
+# write, so make it relative to github workspace.
+ARTIFACTS=$GITHUB_WORKSPACE/artifacts/$BIN
 VERSION=$(git tag -l --contains HEAD | grep -E "^v.*")
 
 echo "Artifacts will be copied into $ARTIFACTS"
