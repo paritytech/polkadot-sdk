@@ -29,7 +29,7 @@ use core::marker::PhantomData;
 use frame_support::{
 	assert_ok,
 	dispatch::GetDispatchInfo,
-	traits::{fungible::Mutate, OnFinalize, OnInitialize, PalletInfoAccess},
+	traits::{fungible::Mutate, Contains, OnFinalize, OnInitialize, PalletInfoAccess},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
@@ -395,7 +395,7 @@ pub fn ensure_opened_bridge<
 	XcmOverBridgePalletInstance,
 	LocationToAccountId,
 	TokenLocation>
-(source: Location, destination: InteriorLocation, bridge_opener: impl Fn(BridgeLocations, Asset)) -> (BridgeLocations, pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>)
+(source: Location, destination: InteriorLocation, is_paid_xcm_execution: bool, bridge_opener: impl Fn(BridgeLocations, Option<Asset>)) -> (BridgeLocations, pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>)
 where
 	Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
 	XcmOverBridgePalletInstance: 'static,
@@ -416,24 +416,37 @@ TokenLocation: Get<Location>{
 	)
 	.is_none());
 
-	// required balance: ED + fee + BridgeDeposit
-	let bridge_deposit =
-		<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeDeposit::get(
-		);
-	// random high enough value for `BuyExecution` fees
-	let buy_execution_fee_amount = 5_000_000_000_000_u128;
-	let buy_execution_fee = (TokenLocation::get(), buy_execution_fee_amount).into();
-	let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() +
-		buy_execution_fee_amount.into() +
-		bridge_deposit.into();
-
 	// SA of source location needs to have some required balance
-	let source_account_id = LocationToAccountId::convert_location(&source).expect("valid location");
-	let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
-		.expect("mint_into passes");
+	if !<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::AllowWithoutBridgeDeposit::contains(&source) {
+		// required balance: ED + fee + BridgeDeposit
+		let bridge_deposit =
+			<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeDeposit::get(
+			);
+		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() + bridge_deposit.into();
+
+		let source_account_id = LocationToAccountId::convert_location(&source).expect("valid location");
+		let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
+			.expect("mint_into passes");
+	};
+
+	let maybe_paid_execution = if is_paid_xcm_execution {
+		// random high enough value for `BuyExecution` fees
+		let buy_execution_fee_amount = 5_000_000_000_000_u128;
+		let buy_execution_fee = (TokenLocation::get(), buy_execution_fee_amount).into();
+
+		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() +
+			buy_execution_fee_amount.into();
+		let source_account_id =
+			LocationToAccountId::convert_location(&source).expect("valid location");
+		let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
+			.expect("mint_into passes");
+		Some(buy_execution_fee)
+	} else {
+		None
+	};
 
 	// call the bridge opener
-	bridge_opener(*locations.clone(), buy_execution_fee);
+	bridge_opener(*locations.clone(), maybe_paid_execution);
 
 	// check opened bridge
 	let bridge = pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
@@ -452,8 +465,9 @@ TokenLocation: Get<Location>{
 
 /// Utility for opening bridge with dedicated `pallet_xcm_bridge_hub`'s extrinsic.
 pub fn open_bridge_with_extrinsic<Runtime, XcmOverBridgePalletInstance>(
-	locations: BridgeLocations,
-	buy_execution_fee: Asset,
+	(origin, origin_kind): (Location, OriginKind),
+	bridge_destination_universal_location: InteriorLocation,
+	maybe_paid_execution: Option<Asset>,
 ) where
 	Runtime: frame_system::Config
 		+ pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>
@@ -469,15 +483,15 @@ pub fn open_bridge_with_extrinsic<Runtime, XcmOverBridgePalletInstance>(
 		XcmOverBridgePalletInstance,
 	>::open_bridge {
 		bridge_destination_universal_location: Box::new(
-			locations.bridge_destination_universal_location().clone().into(),
+			bridge_destination_universal_location.clone().into(),
 		),
 	});
 
 	// execute XCM as source origin would do with `Transact -> Origin::Xcm`
-	assert_ok!(RuntimeHelper::<Runtime>::execute_as_origin_xcm(
-		locations.bridge_origin_relative_location().clone(),
+	assert_ok!(RuntimeHelper::<Runtime>::execute_as_origin(
+		(origin, origin_kind),
 		open_bridge_call,
-		buy_execution_fee
+		maybe_paid_execution
 	)
 	.ensure_complete());
 }
@@ -486,7 +500,6 @@ pub fn open_bridge_with_extrinsic<Runtime, XcmOverBridgePalletInstance>(
 /// purposes).
 pub fn open_bridge_with_storage<Runtime, XcmOverBridgePalletInstance>(
 	locations: BridgeLocations,
-	_buy_execution_fee: Asset,
 	lane_id: pallet_xcm_bridge_hub::LaneIdOf<Runtime, XcmOverBridgePalletInstance>,
 ) where
 	Runtime: pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>,
@@ -503,8 +516,12 @@ pub fn open_bridge_with_storage<Runtime, XcmOverBridgePalletInstance>(
 }
 
 /// Helper function to close the bridge/lane for `source` and `destination`.
-pub fn close_bridge<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(source: Location, destination: InteriorLocation)
-where
+pub fn close_bridge<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(
+	expected_source: Location,
+	bridge_destination_universal_location: InteriorLocation,
+	(origin, origin_kind): (Location, OriginKind),
+	is_paid_xcm_execution: bool
+) where
 	Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
 	XcmOverBridgePalletInstance: 'static,
 	<Runtime as frame_system::Config>::RuntimeCall: GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
@@ -515,8 +532,8 @@ TokenLocation: Get<Location>{
 	// construct expected bridge configuration
 	let locations =
 		pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
-			source.clone().into(),
-			destination.clone().into(),
+			expected_source.clone().into(),
+			bridge_destination_universal_location.clone().into(),
 		)
 		.expect("valid bridge locations");
 	assert!(pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
@@ -525,35 +542,38 @@ TokenLocation: Get<Location>{
 	.is_some());
 
 	// required balance: ED + fee + BridgeDeposit
-	let bridge_deposit =
-		<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeDeposit::get(
-		);
-	// random high enough value for `BuyExecution` fees
-	let buy_execution_fee_amount = 2_500_000_000_000_u128;
-	let buy_execution_fee = (TokenLocation::get(), buy_execution_fee_amount).into();
-	let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() +
-		buy_execution_fee_amount.into() +
-		bridge_deposit.into();
+	let maybe_paid_execution = if is_paid_xcm_execution {
+		// random high enough value for `BuyExecution` fees
+		let buy_execution_fee_amount = 2_500_000_000_000_u128;
+		let buy_execution_fee = (TokenLocation::get(), buy_execution_fee_amount).into();
 
-	// SA of source location needs to have some required balance
-	let source_account_id = LocationToAccountId::convert_location(&source).expect("valid location");
-	let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
-		.expect("mint_into passes");
+		let balance_needed = <Runtime as pallet_balances::Config>::ExistentialDeposit::get() +
+			buy_execution_fee_amount.into();
+		let source_account_id =
+			LocationToAccountId::convert_location(&expected_source).expect("valid location");
+		let _ = <pallet_balances::Pallet<Runtime>>::mint_into(&source_account_id, balance_needed)
+			.expect("mint_into passes");
+		Some(buy_execution_fee)
+	} else {
+		None
+	};
 
 	// close bridge with `Transact` call
 	let close_bridge_call = RuntimeCallOf::<Runtime>::from(BridgeXcmOverBridgeCall::<
 		Runtime,
 		XcmOverBridgePalletInstance,
 	>::close_bridge {
-		bridge_destination_universal_location: Box::new(destination.into()),
+		bridge_destination_universal_location: Box::new(
+			bridge_destination_universal_location.into(),
+		),
 		may_prune_messages: 16,
 	});
 
 	// execute XCM as source origin would do with `Transact -> Origin::Xcm`
-	assert_ok!(RuntimeHelper::<Runtime>::execute_as_origin_xcm(
-		source.clone(),
+	assert_ok!(RuntimeHelper::<Runtime>::execute_as_origin(
+		(origin, origin_kind),
 		close_bridge_call,
-		buy_execution_fee
+		maybe_paid_execution
 	)
 	.ensure_complete());
 
