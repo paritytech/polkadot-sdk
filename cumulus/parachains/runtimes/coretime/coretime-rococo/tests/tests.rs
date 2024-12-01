@@ -16,15 +16,7 @@
 
 #![cfg(test)]
 
-use coretime_rococo_runtime::{
-	xcm_config::LocationToAccountId, Block, Runtime, RuntimeCall, RuntimeOrigin,
-};
-use parachains_common::AccountId;
-use sp_core::crypto::Ss58Codec;
-use xcm::latest::prelude::*;
-use xcm_runtime_apis::conversions::LocationToAccountHelper;
-
-const ALICE: [u8; 32] = [1u8; 32];
+use coretime_rococo_runtime::Block, Runtime, RuntimeCall, RuntimeOrigin;
 
 #[test]
 fn xcm_payment_api_works() {
