@@ -6244,7 +6244,8 @@ fn proportional_slash_stop_slashing_if_remaining_zero() {
 
 		assert_eq!(BondingDuration::get(), 3);
 
-		// should not slash more than the amount requested, by accidentally slashing the first chunk.
+		// should not slash more than the amount requested, by accidentally slashing the first
+		// chunk.
 		assert_eq!(ledger.slash(18, 1, 0), 18);
 	});
 }
