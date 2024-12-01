@@ -523,6 +523,7 @@ impl Config for Test {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Debug = TestDebug;
 	type ChainId = ChainId;
+	type EthGasEncoder = ();
 }
 
 impl TryFrom<RuntimeCall> for crate::Call<Test> {
