@@ -417,7 +417,7 @@ pub type PoolId = u32;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 pub type BlockNumberFor<T> =
-<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 pub const POINTS_TO_BALANCE_INIT_RATIO: u32 = 1;
 
@@ -1568,7 +1568,7 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 pub mod pallet {
 	use super::*;
 	use frame_support::traits::StorageVersion;
-	use frame_system::{pallet_prelude::{OriginFor, ensure_root, ensure_signed}};
+	use frame_system::pallet_prelude::{ensure_root, ensure_signed, OriginFor};
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
@@ -3100,7 +3100,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: frame_system::pallet_prelude::BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		fn try_state(
+			_n: frame_system::pallet_prelude::BlockNumberFor<T>,
+		) -> Result<(), TryRuntimeError> {
 			Self::do_try_state(u8::MAX)
 		}
 
