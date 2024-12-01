@@ -6,7 +6,7 @@ title: migrate pallet-aura to umbrella crate
 doc:
   - audience: Runtime Dev
     description: |
-      Imports frame umbrella crate systems into pallet-authorship and
+      Imports frame umbrella crate systems into pallet-aura and
       includes BoundedSlice as a runtime::prelude export from the 
       polkadot-sdk-frame crate.
 
