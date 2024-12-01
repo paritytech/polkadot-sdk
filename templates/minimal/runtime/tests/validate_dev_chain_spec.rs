@@ -1,5 +1,3 @@
-use codec::Decode;
-use sp_version::RuntimeVersion;
 use polkadot_sdk::*;
 use minimal_template_runtime::WASM_BINARY;
 use sc_service::ChainType;
@@ -9,9 +7,7 @@ use sc_chain_spec::{
     Properties,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use core::str;
-use std::error::Error;
 use std::io::BufReader;
 
 pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
@@ -50,8 +46,7 @@ fn test_minimal_dev_chain_spec_rt_validity() {
         .with_properties(properties.clone())
         .build()
         .as_json(false)
-        .unwrap()
-    ).unwrap();
+        .unwrap()).unwrap();
 
     let existing_chain_spec_file =
 		std::fs::File::open("../dev_chain_spec.json").expect("file should open. qed");
