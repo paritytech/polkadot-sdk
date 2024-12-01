@@ -23,10 +23,8 @@ use super::{Call as AllianceCall, Pallet as Alliance, *};
 use core::{cmp, mem::size_of};
 use frame::{
 	benchmarking::prelude::*,
-	deps::{
-		frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable},
-		frame_system::{Pallet as System, RawOrigin as SystemOrigin},
-	},
+	deps::frame_system::{Pallet as System, RawOrigin as SystemOrigin},
+	traits::{EnsureOrigin, Get, UnfilteredDispatchable},
 };
 
 const SEED: u32 = 0;
