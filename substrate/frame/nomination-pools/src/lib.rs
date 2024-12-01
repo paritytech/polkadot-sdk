@@ -1568,7 +1568,9 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 pub mod pallet {
 	use super::*;
 	use frame_support::traits::StorageVersion;
-	use frame_system::pallet_prelude::{ensure_root, ensure_signed, OriginFor};
+	use frame_system::pallet_prelude::{
+		ensure_root, ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
+	};
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
@@ -3098,11 +3100,9 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(
-			_n: frame_system::pallet_prelude::BlockNumberFor<T>,
-		) -> Result<(), TryRuntimeError> {
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state(u8::MAX)
 		}
 

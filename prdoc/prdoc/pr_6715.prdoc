@@ -11,4 +11,4 @@ doc:
 
 crates:
 - name: pallet-nomination-pools
-  bump: minor
+  bump: major
