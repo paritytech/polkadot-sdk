@@ -963,6 +963,7 @@ impl pallet_nomination_pools::Config for Runtime {
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
 	>;
+	type BlockNumberProvider = System;
 }
 
 parameter_types! {

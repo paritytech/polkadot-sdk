@@ -368,7 +368,6 @@ use frame_support::{
 	},
 	DefaultNoBound, PalletError,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_core::U256;
 use sp_runtime::{
@@ -406,6 +405,7 @@ pub mod migration;
 pub mod weights;
 
 pub use pallet::*;
+use sp_runtime::traits::BlockNumberProvider;
 pub use weights::WeightInfo;
 
 /// The balance type used by the currency system.
@@ -415,6 +415,9 @@ pub type BalanceOf<T> =
 pub type PoolId = u32;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+
+pub type BlockNumberFor<T> =
+<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 pub const POINTS_TO_BALANCE_INIT_RATIO: u32 = 1;
 
@@ -779,7 +782,7 @@ impl<T: Config> Commission<T> {
 					} else {
 						// throttling if blocks passed is less than `min_delay`.
 						let blocks_surpassed =
-							<frame_system::Pallet<T>>::block_number().saturating_sub(f);
+							T::BlockNumberProvider::current_block_number().saturating_sub(f);
 						blocks_surpassed < t.min_delay
 					}
 				},
@@ -892,7 +895,7 @@ impl<T: Config> Commission<T> {
 
 	/// Updates a commission's `throttle_from` field to the current block.
 	fn register_update(&mut self) {
-		self.throttle_from = Some(<frame_system::Pallet<T>>::block_number());
+		self.throttle_from = Some(T::BlockNumberProvider::current_block_number());
 	}
 
 	/// Checks whether a change rate is less restrictive than the current change rate, if any.
@@ -1565,7 +1568,7 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 pub mod pallet {
 	use super::*;
 	use frame_support::traits::StorageVersion;
-	use frame_system::{ensure_signed, pallet_prelude::*};
+	use frame_system::{pallet_prelude::{OriginFor, ensure_root, ensure_signed}};
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
@@ -1650,6 +1653,9 @@ pub mod pallet {
 
 		/// The origin that can manage pool configurations.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	/// The sum of funds across all pools.
@@ -3092,9 +3098,9 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		fn try_state(_n: frame_system::pallet_prelude::BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state(u8::MAX)
 		}
 
