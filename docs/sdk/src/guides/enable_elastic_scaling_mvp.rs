@@ -103,11 +103,21 @@
 #![doc = docify::embed!("../../cumulus/pallets/parachain-system/src/lib.rs", SelectCore)]
 //!
 //! For the vast majority of use cases though, you will not need to implement a custom core
-//! selector. The `DefaultCoreSelector` implements a round-robin core selection on the cores that
-//! can be occupied by the parachain at the very next relay parent.
+//! selector. There are two core selection policies to choose from (without implementing your own)
+//! `DefaultCoreSelector` and `LookaheadCoreSelector`.
+//!
+//! - The `DefaultCoreSelector` implements a round-robin selection on the cores that can be
+//! occupied by the parachain at the very next relay parent. This is the equivalent to what all
+//! parachains on production networks have been using so far.
+//!
+//! - The `LookaheadCoreSelector` also does a round robin on the assigned cores, but not those that
+//! can be occupied at the very next relay parent. Instead, it uses the ones after. In other words,
+//! the collator gets more time to build and advertise a collation for an assignment. This makes no
+//! difference in practice if the parachain is continuously scheduled on the cores. This policy is
+//! especially desirable for parachains that are sharing a core or that use on-demand coretime.
 //!
 //! In your /runtime/src/lib.rs, define a `SelectCore` type and use this to set the `SelectCore`
-//! property:
+//! property (overwrite it with the chosen policy type):
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", default_select_core)]
 //! ```ignore
 //! impl cumulus_pallet_parachain_system::Config for Runtime {
