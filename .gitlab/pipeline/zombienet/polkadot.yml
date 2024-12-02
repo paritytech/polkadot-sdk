@@ -388,7 +388,7 @@ zombienet-polkadot-malus-0001-dispute-valid:
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- smoke::coretime_revenue::coretime_revenue_test
 
-zombienet-polkadot-coretime-revenue:
+zombienet-polkadot-elastic-scaling-slot-based-3cores:
   extends:
     - .zombienet-polkadot-common
   needs:
@@ -397,9 +397,25 @@ zombienet-polkadot-coretime-revenue:
   before_script:
     - !reference [ ".zombienet-polkadot-common", "before_script" ]
     - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
-    - export CUMULUS_IMAGE="docker.io/paritypr/test-parachain:${PIPELINE_IMAGE_TAG}
+    - export CUMULUS_IMAGE="docker.io/paritypr/test-parachain:${PIPELINE_IMAGE_TAG}"
   script:
     # we want to use `--no-capture` in zombienet tests.
     - unset NEXTEST_FAILURE_OUTPUT
     - unset NEXTEST_SUCCESS_OUTPUT
     - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- elastic_scaling::slot_based_3cores::slot_based_3cores_test
+
+zombienet-polkadot-elastic-scaling-mixed-receipt-versions:
+  extends:
+    - .zombienet-polkadot-common
+  needs:
+    - job: build-polkadot-zombienet-tests
+      artifacts: true
+  before_script:
+    - !reference [ ".zombienet-polkadot-common", "before_script" ]
+    - export POLKADOT_IMAGE="${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - export CUMULUS_IMAGE="docker.io/paritypr/test-parachain:${PIPELINE_IMAGE_TAG}"
+  script:
+    # we want to use `--no-capture` in zombienet tests.
+    - unset NEXTEST_FAILURE_OUTPUT
+    - unset NEXTEST_SUCCESS_OUTPUT
+    - cargo nextest run --archive-file ./artifacts/polkadot-zombienet-tests.tar.zst --no-capture -- elastic_scaling::mixed_receipt_versions::mixed_receipt_versions_test

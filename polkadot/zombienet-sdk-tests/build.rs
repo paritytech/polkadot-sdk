@@ -76,6 +76,7 @@ fn build_wasm(chain: &str) -> PathBuf {
 		"-p",
 		&package,
 		"--profile",
+		// TODO: switch back to release before merging.
 		"testnet",
 		"--target",
 		&target,
@@ -131,8 +132,10 @@ fn main() {
 	let manifest_path = env::var("CARGO_MANIFEST_DIR").unwrap();
 	const METADATA_DIR: &str = "metadata-files";
 	const CHAINS: [&str; 2] = ["rococo", "coretime-rococo"];
-	const CUMULUS_TEST_RUNTIMES: [&str; 2] =
-		["cumulus-test-runtime-elastic-scaling", "cumulus-test-runtime-elastic-scaling-mvp"];
+
+	// Add some cumulus test runtimes if needed. Formatted like
+	// "cumulus-test-runtime-elastic-scaling".
+	const CUMULUS_TEST_RUNTIMES: [&str; 0] = [];
 
 	let metadata_path = format!("{manifest_path}/{METADATA_DIR}");
 
