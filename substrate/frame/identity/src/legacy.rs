@@ -21,9 +21,14 @@ use codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "runtime-benchmarks")]
 use enumflags2::BitFlag;
 use enumflags2::{bitflags, BitFlags};
-use frame_support::{traits::Get, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use frame::{
+	derive::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebug, RuntimeDebugNoBound},
+	runtime::prelude::BoundedVec,
+	traits::Get,
+};
+// use frame_support::{traits::Get, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::{build::Variants, Path, Type, TypeInfo};
-use sp_runtime::{BoundedVec, RuntimeDebug};
+// use sp_runtime::{BoundedVec, RuntimeDebug};
 
 use crate::types::{Data, IdentityInformationProvider};
 
