@@ -1416,7 +1416,7 @@ mod extension_weight_tests {
 			let mut info = call.get_dispatch_info();
 			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
 			info.extension_weight = ext.weight(&call);
-			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0, 0).unwrap();
 			let res = call.dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
 			assert!(post_info.actual_weight.is_none());
@@ -1443,7 +1443,7 @@ mod extension_weight_tests {
 			assert_eq!(info.total_weight(), Weight::from_parts(1000, 0));
 			info.extension_weight = ext.weight(&call);
 			let post_info =
-				ext.dispatch_transaction(Some(0).into(), call, &info, 0).unwrap().unwrap();
+				ext.dispatch_transaction(Some(0).into(), call, &info, 0, 0).unwrap().unwrap();
 			// 1000 call weight + 50 + 200 + 0
 			assert_eq!(post_info.actual_weight, Some(Weight::from_parts(1250, 0)));
 		});
@@ -1462,7 +1462,7 @@ mod extension_weight_tests {
 			assert_eq!(info.call_weight, Weight::from_parts(1000, 0));
 			info.extension_weight = ext.weight(&call);
 			assert_eq!(info.total_weight(), Weight::from_parts(1600, 0));
-			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
 			// 500 actual call weight
@@ -1482,7 +1482,7 @@ mod extension_weight_tests {
 
 			// Second testcase
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(1100), ActualWeightIs(200));
-			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
 			// 500 actual call weight
@@ -1502,7 +1502,7 @@ mod extension_weight_tests {
 
 			// Third testcase
 			let ext: TxExtension = (HalfCostIf(true), FreeIfUnder(1060), ActualWeightIs(200));
-			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
 			// 500 actual call weight
@@ -1522,7 +1522,7 @@ mod extension_weight_tests {
 
 			// Fourth testcase
 			let ext: TxExtension = (HalfCostIf(false), FreeIfUnder(100), ActualWeightIs(300));
-			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0).unwrap();
+			let (pre, _) = ext.validate_and_prepare(Some(0).into(), &call, &info, 0, 0).unwrap();
 			let res = call.clone().dispatch(Some(0).into());
 			let mut post_info = res.unwrap();
 			// 500 actual call weight

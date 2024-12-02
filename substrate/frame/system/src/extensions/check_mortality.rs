@@ -155,7 +155,7 @@ mod tests {
 			<BlockHash<Test>>::insert(16, H256::repeat_byte(1));
 
 			assert_eq!(
-				ext.validate_only(Some(1).into(), CALL, &normal, len, External)
+				ext.validate_only(Some(1).into(), CALL, &normal, len, External, 0)
 					.unwrap()
 					.0
 					.longevity,

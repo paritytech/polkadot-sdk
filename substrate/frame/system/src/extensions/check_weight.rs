@@ -529,7 +529,7 @@ mod tests {
 			// will not fit.
 			assert_eq!(
 				CheckWeight::<Test>(PhantomData)
-					.validate_and_prepare(Some(1).into(), CALL, &normal, len)
+					.validate_and_prepare(Some(1).into(), CALL, &normal, len, 0)
 					.unwrap_err(),
 				InvalidTransaction::ExhaustsResources.into()
 			);
@@ -538,7 +538,8 @@ mod tests {
 				Some(1).into(),
 				CALL,
 				&op,
-				len
+				len,
+				0,
 			));
 
 			// likewise for length limit.
@@ -546,7 +547,7 @@ mod tests {
 			AllExtrinsicsLen::<Test>::put(normal_length_limit());
 			assert_eq!(
 				CheckWeight::<Test>(PhantomData)
-					.validate_and_prepare(Some(1).into(), CALL, &normal, len)
+					.validate_and_prepare(Some(1).into(), CALL, &normal, len, 0)
 					.unwrap_err(),
 				InvalidTransaction::ExhaustsResources.into()
 			);
@@ -554,7 +555,8 @@ mod tests {
 				Some(1).into(),
 				CALL,
 				&op,
-				len
+				len,
+				0,
 			));
 		})
 	}
@@ -571,6 +573,7 @@ mod tests {
 					CALL,
 					tx,
 					s,
+					0,
 				);
 				if f {
 					assert!(r.is_err())
@@ -621,6 +624,7 @@ mod tests {
 					CALL,
 					i,
 					len,
+					0,
 				);
 				if f {
 					assert!(r.is_err())
@@ -656,7 +660,7 @@ mod tests {
 			});
 
 			let pre = CheckWeight::<Test>(PhantomData)
-				.validate_and_prepare(Some(1).into(), CALL, &info, len)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
 				.unwrap()
 				.0;
 			assert_eq!(
@@ -695,7 +699,7 @@ mod tests {
 			});
 
 			let pre = CheckWeight::<Test>(PhantomData)
-				.validate_and_prepare(Some(1).into(), CALL, &info, len)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
 				.unwrap()
 				.0;
 			assert_eq!(
@@ -849,7 +853,8 @@ mod tests {
 				Some(1).into(),
 				CALL,
 				&free,
-				len
+				len,
+				0,
 			));
 			assert_eq!(
 				System::block_weight().total(),

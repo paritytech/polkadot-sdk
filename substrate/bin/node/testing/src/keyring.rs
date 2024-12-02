@@ -124,7 +124,6 @@ pub fn sign(
 				preamble: sp_runtime::generic::Preamble::Signed(
 					sp_runtime::MultiAddress::Id(signed),
 					signature,
-					0,
 					tx_ext,
 				),
 				function: payload.0,
@@ -136,8 +135,8 @@ pub fn sign(
 			function: xt.function,
 		}
 		.into(),
-		ExtrinsicFormat::General(tx_ext) => generic::UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::General(0, tx_ext),
+		ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic {
+			preamble: sp_runtime::generic::Preamble::General(ext_version, tx_ext),
 			function: xt.function,
 		}
 		.into(),

@@ -24,13 +24,13 @@ use sp_runtime::{traits::DispatchTransaction, transaction_validity::TransactionS
 fn skip_feeless_payment_works() {
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0, 0)
 		.unwrap();
 	assert_eq!(PrepareCount::get(), 1);
 
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 0 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0, 0)
 		.unwrap();
 	assert_eq!(PrepareCount::get(), 1);
 }
@@ -47,6 +47,7 @@ fn validate_works() {
 			&DispatchInfo::default(),
 			0,
 			TransactionSource::External,
+			0,
 		)
 		.unwrap();
 	assert_eq!(ValidateCount::get(), 1);
@@ -60,6 +61,7 @@ fn validate_works() {
 			&DispatchInfo::default(),
 			0,
 			TransactionSource::External,
+			0,
 		)
 		.unwrap();
 	assert_eq!(ValidateCount::get(), 1);
@@ -72,14 +74,14 @@ fn validate_prepare_works() {
 
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0, 0)
 		.unwrap();
 	assert_eq!(ValidateCount::get(), 1);
 	assert_eq!(PrepareCount::get(), 1);
 
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 0 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0, 0)
 		.unwrap();
 	assert_eq!(ValidateCount::get(), 1);
 	assert_eq!(PrepareCount::get(), 1);
@@ -87,7 +89,7 @@ fn validate_prepare_works() {
 	// Changes from previous prepare calls persist.
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0, 0)
 		.unwrap();
 	assert_eq!(ValidateCount::get(), 2);
 	assert_eq!(PrepareCount::get(), 2);
