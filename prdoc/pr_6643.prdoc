@@ -8,6 +8,7 @@ doc:
     This can be set to `None` if the instruction is not meant to be sent to chains running XCM versions lower than V5.
     If set to `Some(weight)`, a subsequent conversion to V4 will result in `Transact { require_weight_at_most: weight, .. }`.
     The plan is to remove this workaround in V6 since there will be a good conversion path from V6 to V5.
+
 crates:
 - name: snowbridge-router-primitives
   bump: major
