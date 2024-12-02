@@ -138,6 +138,13 @@ where
 			.map(|()| hash)
 			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_delivery(location: Option<Location>) {
+		if let Some((0, [Parachain(id)])) = location.as_ref().map(|l| l.unpack()) {
+			dmp::Pallet::<T>::make_parachain_reachable(*id);
+		}
+	}
 }
 
 impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P> {
