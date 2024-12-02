@@ -43,12 +43,11 @@
 //!
 //! ```
 //! use pallet_im_online::{self as im_online};
+//! use frame::prelude::*;
 //!
-//! #[frame_support::pallet]
+//! #[frame::pallet]
 //! pub mod pallet {
 //! 	use super::*;
-//! 	use frame_support::pallet_prelude::*;
-//! 	use frame_system::pallet_prelude::*;
 //!
 //! 	#[pallet::pallet]
 //! 	pub struct Pallet<T>(_);
@@ -86,26 +85,28 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	pallet_prelude::*,
+use frame::{
+	arithmetic::{PerThing, Perbill, Permill},
+	deps::{
+		frame_support::{BoundedSlice, WeakBoundedVec},
+		frame_system::offchain::{CreateInherent, SubmitTransaction},
+		sp_io,
+		sp_runtime::{
+			offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
+			print, BoundToRuntimeAppPublic,
+		},
+	},
+	derive::RuntimeDebug,
+	prelude::*,
 	traits::{
-		EstimateNextSessionRotation, Get, OneSessionHandler, ValidatorSet,
+		AtLeast32BitUnsigned, Convert, EstimateNextSessionRotation, OneSessionHandler,
+		SaturatedConversion, Saturating, TrailingZeroInput, ValidatorSet,
 		ValidatorSetWithIdentification,
 	},
-	BoundedSlice, WeakBoundedVec,
-};
-use frame_system::{
-	offchain::{CreateInherent, SubmitTransaction},
-	pallet_prelude::*,
 };
 pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
-use sp_runtime::{
-	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
-	traits::{AtLeast32BitUnsigned, Convert, Saturating, TrailingZeroInput},
-	PerThing, Perbill, Permill, RuntimeDebug, SaturatedConversion,
-};
 use sp_staking::{
 	offence::{Kind, Offence, ReportOffence},
 	SessionIndex,
@@ -249,7 +250,7 @@ pub type IdentificationTuple<T> = (
 
 type OffchainResult<T, A> = Result<A, OffchainErr<BlockNumberFor<T>>>;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 
@@ -366,7 +367,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(frame::derive::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub keys: Vec<T::AuthorityId>,
 	}
@@ -735,7 +736,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
+impl<T: Config> BoundToRuntimeAppPublic for Pallet<T> {
 	type Public = T::AuthorityId;
 }
 
@@ -805,7 +806,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			let validator_set_count = keys.len() as u32;
 			let offence = UnresponsivenessOffence { session_index, validator_set_count, offenders };
 			if let Err(e) = T::ReportUnresponsiveness::report_offence(vec![], offence) {
-				sp_runtime::print(e);
+				print(e);
 			}
 		}
 	}

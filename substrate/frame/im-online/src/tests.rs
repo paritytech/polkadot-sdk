@@ -21,13 +21,17 @@
 
 use super::*;
 use crate::mock::*;
-use frame_support::{assert_noop, dispatch};
-use sp_core::offchain::{
-	testing::{TestOffchainExt, TestTransactionPoolExt},
-	OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
+use frame::{
+	deps::{
+		frame_support::dispatch,
+		sp_core::offchain::{
+			testing::{TestOffchainExt, TestTransactionPoolExt},
+			OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
+		},
+		sp_runtime::testing::UintAuthorityId,
+	},
+	testing_prelude::*,
 };
-use sp_runtime::testing::UintAuthorityId;
-
 #[test]
 fn test_unresponsiveness_slash_fraction() {
 	let dummy_offence =
