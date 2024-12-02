@@ -48,7 +48,7 @@ fn relay_commands_add_registrar() {
 			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 			message: bx!(VersionedXcm::from(Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact { origin_kind, call: add_registrar_call.encode().into() }
+				Transact { origin_kind, call: add_registrar_call.encode().into(), fallback_max_weight: None }
 			]))),
 		});
 
@@ -107,7 +107,7 @@ fn relay_commands_add_registrar_wrong_origin() {
 				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 				message: bx!(VersionedXcm::from(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact { origin_kind, call: add_registrar_call.encode().into() }
+					Transact { origin_kind, call: add_registrar_call.encode().into(), fallback_max_weight: None }
 				]))),
 			});
 
@@ -194,7 +194,7 @@ fn relay_commands_kill_identity() {
 			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 			message: bx!(VersionedXcm::from(Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact { origin_kind, call: kill_identity_call.encode().into() }
+				Transact { origin_kind, call: kill_identity_call.encode().into(), fallback_max_weight: None }
 			]))),
 		});
 
@@ -252,7 +252,7 @@ fn relay_commands_kill_identity_wrong_origin() {
 				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 				message: bx!(VersionedXcm::from(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact { origin_kind, call: kill_identity_call.encode().into() }
+					Transact { origin_kind, call: kill_identity_call.encode().into(), fallback_max_weight: None }
 				]))),
 			});
 
@@ -298,7 +298,7 @@ fn relay_commands_add_remove_username_authority() {
 			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 			message: bx!(VersionedXcm::from(Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact { origin_kind, call: add_username_authority.encode().into() }
+				Transact { origin_kind, call: add_username_authority.encode().into(), fallback_max_weight: None }
 			]))),
 		});
 
@@ -383,7 +383,7 @@ fn relay_commands_add_remove_username_authority() {
 			dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 			message: bx!(VersionedXcm::from(Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-				Transact { origin_kind, call: remove_username_authority.encode().into() }
+				Transact { origin_kind, call: remove_username_authority.encode().into(), fallback_max_weight: None }
 			]))),
 		});
 
@@ -443,7 +443,7 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 				dest: bx!(VersionedLocation::from(Location::new(0, [Parachain(1004)]))),
 				message: bx!(VersionedXcm::from(Xcm(vec![
 					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact { origin_kind, call: add_username_authority.encode().into() }
+					Transact { origin_kind, call: add_username_authority.encode().into(), fallback_max_weight: None }
 				]))),
 			});
 
@@ -483,6 +483,7 @@ fn relay_commands_add_remove_username_authority_wrong_origin() {
 						Transact {
 							origin_kind: OriginKind::SovereignAccount,
 							call: remove_username_authority.encode().into(),
+							fallback_max_weight: None,
 						}
 					]))),
 				});
