@@ -23,7 +23,9 @@ doc:
          queue.
 
 crates:
-  - name: "polkadot-collator-protocol"
-    bump: "patch"
-  - name: "polkadot"
-    bump: "patch"
+  - name: polkadot-collator-protocol
+    bump: patch
+  - name: polkadot
+    bump: patch
+  - name: polkadot-node-subsystem-util
+    bump: minor
