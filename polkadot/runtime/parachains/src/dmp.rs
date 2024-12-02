@@ -337,6 +337,15 @@ impl<T: Config> Pallet<T> {
 	) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
 		DownwardMessageQueues::<T>::get(&recipient)
 	}
+
+	/// Make the parachain reachable for downward messages.
+	///
+	/// Only useable in benchmarks or tests.
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+	pub fn make_parachain_reachable(para: impl Into<ParaId>) {
+		let para = para.into();
+		crate::paras::Heads::<T>::insert(para, para.encode());
+	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
@@ -364,6 +373,6 @@ impl<T: Config> FeeTracker for Pallet<T> {
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: Config> crate::EnsureForParachain for Pallet<T> {
 	fn ensure(para: ParaId) {
-		paras::Heads::<T>::insert(para, alloc::vec![]);
+		Self::make_parachain_reachable(para);
 	}
 }
