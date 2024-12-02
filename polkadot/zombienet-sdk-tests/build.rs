@@ -89,7 +89,7 @@ fn build_wasm(chain: &str) -> PathBuf {
 		.status()
 		.unwrap();
 
-	let wasm_path = &format!("{target_dir}/{target}/testnet/wbuild/{}", wasm_sub_path(chain));
+	let wasm_path = &format!("{target_dir}/{target}/release/wbuild/{}", wasm_sub_path(chain));
 	PathBuf::from(wasm_path)
 }
 
