@@ -94,7 +94,8 @@ mod benchmarks {
 	//   `cargo test -p pallet-example-kitchensink --all-features`, you will see one line per case:
 	//   `test benchmarking::bench_set_foo_benchmark ... ok`
 	//   `test benchmarking::bench_set_foo_using_authorize_benchmark ... ok` in the result.
-	//   `test benchmarking::bench_authorize_set_foo_using_authorize_benchmark ... ok` in the result.
+	//   `test benchmarking::bench_authorize_set_foo_using_authorize_benchmark ... ok` in the
+	// result.
 	//
 	// The line generates three steps per benchmark, with repeat=1 and the three steps are
 	//   [low, mid, high] of the range.
