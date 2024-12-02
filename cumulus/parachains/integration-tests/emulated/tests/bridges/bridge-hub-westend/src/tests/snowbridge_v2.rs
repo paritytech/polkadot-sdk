@@ -44,6 +44,10 @@ pub fn weth_location() -> Location {
 	)
 }
 
+pub fn dot_location() -> Location {
+	Location::new(1, Here)
+}
+
 pub fn register_weth() {
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
 	let assethub_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
@@ -76,15 +80,71 @@ pub fn register_weth() {
 	});
 }
 
+pub(crate) fn set_up_weth_pool_with_wnd_on_ah_westend(asset: v5::Location) {
+	let wnd: v5::Location = v5::Parent.into();
+	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
+	let owner = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+
+	AssetHubWestend::fund_accounts(vec![
+		(owner.clone(), 3_000_000_000_000),
+	]);
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
+
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
+			signed_owner.clone(),
+			asset.clone().into(),
+			owner.clone().into(),
+			3_000_000_000_000,
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
+			signed_owner.clone(),
+			Box::new(wnd.clone()),
+			Box::new(asset.clone()),
+		));
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
+			signed_owner.clone(),
+			Box::new(wnd),
+			Box::new(asset),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			1,
+			1,
+			owner.into()
+		));
+		/*
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
+			]
+		);*/
+	});
+}
+
 #[test]
 fn register_token_v2() {
-	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
-
 	let relayer = BridgeHubWestendSender::get();
 	let receiver = AssetHubWestendReceiver::get();
 	BridgeHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
 
 	register_weth();
+
+	set_up_weth_pool_with_wnd_on_ah_westend(weth_location());
 
 	let chain_id = 11155111u64;
 	let claimer = AccountId32 { network: None, id: receiver.clone().into() };
@@ -93,8 +153,7 @@ fn register_token_v2() {
 	let relayer_location =
 		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
 
-	let owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
-	AssetHubWestend::fund_accounts(vec![(owner.into(), INITIAL_FUND)]);
+	let bridge_owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
 
 	let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into();
 	let weth_amount = 9_000_000_000_000u128;
@@ -110,16 +169,25 @@ fn register_token_v2() {
 		[GlobalConsensus(ethereum_network_v5), AccountKey20 { network: None, key: token.into() }],
 	);
 
+	let dot_asset = Location::new(1, Here);
+	let dot_fee: xcm::prelude::Asset = (dot_asset, CreateAssetDeposit::get()).into();
+
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let register_token_instructions = vec![
+			// Exchange weth for dot to pay the asset creation deposit
+			ExchangeAsset { give: weth_fee.clone().into(), want: dot_fee.clone().into(), maximal: false },
+			// Deposit the dot deposit into the bridge sovereign account (where the asset creation fee
+			// will be deducted from)
+			DepositAsset { assets: dot_fee.into(), beneficiary: bridge_owner.into() },
+			// Pay for the transact execution
 			PayFees { asset: weth_fee.into() },
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				call: (
 					CreateAssetCall::get(),
 					asset_id,
-					MultiAddress::<[u8; 32], ()>::Id(owner.into()),
+					MultiAddress::<[u8; 32], ()>::Id(bridge_owner.into()),
 					1u128,
 				)
 					.encode()
