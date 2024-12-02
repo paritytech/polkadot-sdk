@@ -96,42 +96,52 @@ impl core::fmt::Debug for BridgeId {
 }
 
 /// Local XCM channel manager.
-pub trait LocalXcmChannelManager {
+pub trait LocalXcmChannelManager<Bridge> {
 	/// Error that may be returned when suspending/resuming the bridge.
 	type Error: sp_std::fmt::Debug;
-
-	/// Returns true if the channel with given location is currently congested.
-	///
-	/// The `with` is guaranteed to be in the same consensus. However, it may point to something
-	/// below the chain level - like the contract or pallet instance, for example.
-	fn is_congested(with: &Location) -> bool;
 
 	/// Suspend the bridge, opened by given origin.
 	///
 	/// The `local_origin` is guaranteed to be in the same consensus. However, it may point to
 	/// something below the chain level - like the contract or pallet instance, for example.
-	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error>;
+	fn suspend_bridge(local_origin: &Location, bridge: Bridge) -> Result<(), Self::Error>;
 
 	/// Resume the previously suspended bridge, opened by given origin.
 	///
 	/// The `local_origin` is guaranteed to be in the same consensus. However, it may point to
 	/// something below the chain level - like the contract or pallet instance, for example.
-	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error>;
+	fn resume_bridge(local_origin: &Location, bridge: Bridge) -> Result<(), Self::Error>;
 }
 
-impl LocalXcmChannelManager for () {
+impl<Bridge> LocalXcmChannelManager<Bridge> for () {
 	type Error = ();
 
-	fn is_congested(_with: &Location) -> bool {
+	fn suspend_bridge(_local_origin: &Location, _bridge: Bridge) -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn resume_bridge(_local_origin: &Location, _bridge: Bridge) -> Result<(), Self::Error> {
+		Ok(())
+	}
+}
+
+/// Channel status provider that may report whether it is congested or not.
+pub trait ChannelStatusProvider {
+	/// Returns true if the channel is currently active and can be used.
+	fn is_congested(with: &Location) -> bool;
+}
+
+/// Tuple implementation of `ChannelStatusProvider`, by default indicating no congestion.
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl ChannelStatusProvider for Tuple {
+	fn is_congested(with: &Location) -> bool {
+		for_tuples!( #(
+			if Tuple::is_congested(with) {
+				return true;
+			}
+		)* );
+
 		false
-	}
-
-	fn suspend_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
-		Ok(())
-	}
-
-	fn resume_bridge(_local_origin: &Location, _bridge: BridgeId) -> Result<(), Self::Error> {
-		Ok(())
 	}
 }
 
@@ -141,10 +151,11 @@ pub enum BridgeState {
 	/// Bridge is opened. Associated lanes are also opened.
 	Opened,
 	/// Bridge is suspended. Associated lanes are opened.
+	/// *suspended* means that we have sent the "Suspended" message/signal to the local bridge
+	/// origin.
 	///
-	/// We keep accepting messages to the bridge. The only difference with the `Opened` state
-	/// is that we have sent the "Suspended" message/signal to the local bridge origin.
-	Suspended,
+	/// `bool` - `true` means that we keep accepting messages to the bridge.
+	Suspended(bool),
 	/// Bridge is closed. Associated lanes are also closed.
 	/// After all outbound messages will be pruned, the bridge will vanish without any traces.
 	Closed,
@@ -169,13 +180,63 @@ pub struct Bridge<ThisChain: Chain, LaneId: LaneIdType> {
 
 	/// Current bridge state.
 	pub state: BridgeState,
-	/// Account with the reserved funds. Derived from `self.bridge_origin_relative_location`.
-	pub bridge_owner_account: AccountIdOf<ThisChain>,
+
 	/// Reserved amount on the sovereign account of the sibling bridge origin.
-	pub deposit: BalanceOf<ThisChain>,
+	/// The account is derived from `self.bridge_origin_relative_location`.
+	pub deposit: Option<DepositOf<ThisChain>>,
 
 	/// Mapping to the unique `LaneId`.
 	pub lane_id: LaneId,
+
+	/// Holds data about the `bridge_origin_relative_location` where notifications can be sent for
+	/// handling congestion.
+	pub maybe_notify: Option<Receiver>,
+}
+
+/// Receiver metadata.
+#[derive(
+	CloneNoBound,
+	Decode,
+	Encode,
+	Eq,
+	PartialEqNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebugNoBound,
+	Serialize,
+	Deserialize,
+)]
+pub struct Receiver {
+	/// Pallet index.
+	pub pallet_index: u8,
+	/// Call/extrinsic index.
+	pub call_index: u8,
+}
+
+impl Receiver {
+	/// Create a new receiver.
+	pub fn new(pallet_index: u8, call_index: u8) -> Self {
+		Self { pallet_index, call_index }
+	}
+}
+
+/// An alias for the bridge deposit of `ThisChain`.
+pub type DepositOf<ThisChain> = Deposit<AccountIdOf<ThisChain>, BalanceOf<ThisChain>>;
+
+/// A structure containing information about from whom the deposit is reserved.
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+pub struct Deposit<AccountId, Balance> {
+	/// Account with the reserved funds.
+	pub account: AccountId,
+	/// Reserved amount.
+	pub amount: Balance,
+}
+
+impl<AccountId, Balance> Deposit<AccountId, Balance> {
+	/// Create new deposit.
+	pub fn new(account: AccountId, amount: Balance) -> Self {
+		Self { account, amount }
+	}
 }
 
 /// Locations of bridge endpoints at both sides of the bridge.

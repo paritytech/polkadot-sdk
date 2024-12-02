@@ -271,6 +271,7 @@ pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
 				AssetHubRococo::para_id(),
 			)),
 		)),
+		None,
 	);
 
 	// open AHW -> AHR
@@ -288,5 +289,6 @@ pub(crate) fn open_bridge_between_asset_hub_rococo_and_asset_hub_westend() {
 				AssetHubWestend::para_id(),
 			)),
 		)),
+		None,
 	);
 }

@@ -18,10 +18,10 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{DeliveryFeeFactor, MINIMAL_DELIVERY_FEE_FACTOR};
-use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError};
-use frame_support::traits::{Get, Hooks};
-use sp_runtime::traits::Zero;
+use crate::{BridgeState, Bridges, Call, ResolveBridgeId, MINIMAL_DELIVERY_FEE_FACTOR};
+use frame_benchmarking::v2::*;
+use frame_support::traits::{EnsureOriginWithArg, Hooks};
+use sp_runtime::{traits::Zero, Saturating};
 use xcm::prelude::*;
 
 /// Pallet we're benchmarking here.
@@ -29,32 +29,84 @@ pub struct Pallet<T: Config<I>, I: 'static = ()>(crate::Pallet<T, I>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
 pub trait Config<I: 'static>: crate::Config<I> {
-	/// Fill up queue so it becomes congested.
-	fn make_congested();
-
 	/// Returns destination which is valid for this router instance.
-	/// (Needs to pass `T::Bridges`)
-	/// Make sure that `SendXcm` will pass.
-	fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
-		Ok(Location::new(
-			Self::UniversalLocation::get().len() as u8,
-			[GlobalConsensus(Self::BridgedNetworkId::get().unwrap())],
-		))
-	}
+	fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError>;
+	/// Returns valid origin for `update_bridge_status` (if `T::BridgeHubOrigin` is supported).
+	fn update_bridge_status_origin() -> Option<Self::RuntimeOrigin>;
 }
 
-benchmarks_instance_pallet! {
-	on_initialize_when_non_congested {
-		DeliveryFeeFactor::<T, I>::put(MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR);
-	}: {
-		crate::Pallet::<T, I>::on_initialize(Zero::zero())
+#[instance_benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn on_idle_when_bridge_state_removed() -> Result<(), BenchmarkError> {
+		let bridge_id =
+			T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
+				.ok_or(BenchmarkError::Weightless)?;
+
+		// uncongested and less than a minimal factor is removed
+		Bridges::<T, I>::insert(
+			&bridge_id,
+			BridgeState { delivery_fee_factor: 0.into(), is_congested: false },
+		);
+		assert!(Bridges::<T, I>::get(&bridge_id).is_some());
+
+		#[block]
+		{
+			let _ = crate::Pallet::<T, I>::on_idle(Zero::zero(), Weight::MAX);
+		}
+
+		assert!(Bridges::<T, I>::get(bridge_id).is_none());
+
+		Ok(())
 	}
 
-	on_initialize_when_congested {
-		DeliveryFeeFactor::<T, I>::put(MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR);
-		let _ = T::ensure_bridged_target_destination()?;
-		T::make_congested();
-	}: {
-		crate::Pallet::<T, I>::on_initialize(Zero::zero())
+	#[benchmark]
+	fn on_indle_when_bridge_state_updated() -> Result<(), BenchmarkError> {
+		let bridge_id =
+			T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
+				.ok_or(BenchmarkError::Weightless)?;
+
+		// uncongested and higher than a minimal factor is decreased
+		let old_delivery_fee_factor = MINIMAL_DELIVERY_FEE_FACTOR.saturating_mul(1000.into());
+		Bridges::<T, I>::insert(
+			&bridge_id,
+			BridgeState { delivery_fee_factor: old_delivery_fee_factor, is_congested: false },
+		);
+		assert!(Bridges::<T, I>::get(&bridge_id).is_some());
+
+		#[block]
+		{
+			let _ = crate::Pallet::<T, I>::on_idle(Zero::zero(), Weight::MAX);
+		}
+
+		assert!(
+			Bridges::<T, I>::get(bridge_id).unwrap().delivery_fee_factor < old_delivery_fee_factor
+		);
+		Ok(())
 	}
+
+	#[benchmark]
+	fn update_bridge_status() -> Result<(), BenchmarkError> {
+		let bridge_id =
+			T::BridgeIdResolver::resolve_for_dest(&T::ensure_bridged_target_destination()?)
+				.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let origin = T::update_bridge_status_origin()
+			.ok_or(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let _ = T::BridgeHubOrigin::try_origin(origin.clone(), &bridge_id)
+			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		let is_congested = true;
+
+		#[extrinsic_call]
+		update_bridge_status(origin as T::RuntimeOrigin, bridge_id.clone(), is_congested);
+
+		assert_eq!(
+			Bridges::<T, I>::get(&bridge_id),
+			Some(BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested })
+		);
+		Ok(())
+	}
+
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime);
 }

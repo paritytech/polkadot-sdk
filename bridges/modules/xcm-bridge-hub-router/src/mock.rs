@@ -18,16 +18,20 @@
 
 use crate as pallet_xcm_bridge_hub_router;
 
-use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
+use crate::impls::EnsureIsRemoteBridgeIdResolver;
+use bp_xcm_bridge_hub_router::{BridgeState, ResolveBridgeId};
 use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{Contains, Equals},
 };
+use frame_system::EnsureRoot;
 use sp_runtime::{traits::ConstU128, BuildStorage};
 use sp_std::cell::RefCell;
 use xcm::prelude::*;
-use xcm_builder::{InspectMessageQueues, NetworkExportTable, NetworkExportTableItem};
+use xcm_builder::{
+	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, SovereignPaidRemoteExporter,
+};
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
@@ -41,8 +45,8 @@ pub const BYTE_FEE: u128 = 1_000;
 construct_runtime! {
 	pub enum TestRuntime
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		XcmBridgeHubRouter: pallet_xcm_bridge_hub_router::{Pallet, Storage, Event<T>},
+		System: frame_system,
+		XcmBridgeHubRouter: pallet_xcm_bridge_hub_router,
 	}
 }
 
@@ -69,19 +73,45 @@ impl frame_system::Config for TestRuntime {
 	type Block = Block;
 }
 
-impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+/// Simple implementation where every dest resolves to the exact one `BridgeId`.
+pub struct EveryDestinationToSameBridgeIdResolver;
+impl ResolveBridgeId for EveryDestinationToSameBridgeIdResolver {
+	type BridgeId = ();
 
-	type UniversalLocation = UniversalLocation;
-	type SiblingBridgeHubLocation = SiblingBridgeHubLocation;
-	type BridgedNetworkId = BridgedNetworkId;
-	type Bridges = NetworkExportTable<BridgeTable>;
+	fn resolve_for_dest(_dest: &Location) -> Option<Self::BridgeId> {
+		Some(())
+	}
+
+	fn resolve_for(
+		_bridged_network: &NetworkId,
+		_bridged_dest: &InteriorLocation,
+	) -> Option<Self::BridgeId> {
+		Some(())
+	}
+}
+
+/// An instance of `pallet_xcm_bridge_hub_router` configured to use a remote exporter with the
+/// `ExportMessage` instruction, which will be delivered to a sibling parachain using
+/// `SiblingBridgeHubLocation`.
+#[derive_impl(pallet_xcm_bridge_hub_router::config_preludes::TestDefaultConfig)]
+impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type DestinationVersion =
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
-	type ToBridgeHubSender = TestToBridgeHubSender;
-	type LocalXcmChannelManager = TestLocalXcmChannelManager;
+	type ToBridgeHubSender = SovereignPaidRemoteExporter<
+		pallet_xcm_bridge_hub_router::impls::ViaRemoteBridgeHubExporter<
+			TestRuntime,
+			(),
+			NetworkExportTable<BridgeTable>,
+			BridgedNetworkId,
+			SiblingBridgeHubLocation,
+		>,
+		TestToBridgeHubSender,
+		UniversalLocation,
+	>;
+
+	type BridgeIdResolver = EnsureIsRemoteBridgeIdResolver<UniversalLocation>;
+	type BridgeHubOrigin = EnsureRoot<u64>;
 
 	type ByteFee = ConstU128<BYTE_FEE>;
 	type FeeAsset = BridgeFeeAsset;
@@ -150,25 +180,6 @@ impl InspectMessageQueues for TestToBridgeHubSender {
 	}
 }
 
-pub struct TestLocalXcmChannelManager;
-
-impl TestLocalXcmChannelManager {
-	pub fn make_congested(with: &Location) {
-		frame_support::storage::unhashed::put(
-			&(b"TestLocalXcmChannelManager.Congested", with).encode()[..],
-			&true,
-		);
-	}
-}
-
-impl XcmChannelStatusProvider for TestLocalXcmChannelManager {
-	fn is_congested(with: &Location) -> bool {
-		frame_support::storage::unhashed::get_or_default(
-			&(b"TestLocalXcmChannelManager.Congested", with).encode()[..],
-		)
-	}
-}
-
 /// Return test externalities to use in tests.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
@@ -187,4 +198,34 @@ pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
 
 pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
 	message.using_encoded(sp_io::hashing::blake2_256)
+}
+
+pub(crate) fn set_bridge_state_for<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(
+	dest: &Location,
+	bridge_state: Option<BridgeState>,
+) -> pallet_xcm_bridge_hub_router::BridgeIdOf<T, I> {
+	let bridge_id = <T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
+	if let Some(bridge_state) = bridge_state {
+		pallet_xcm_bridge_hub_router::Bridges::<T, I>::insert(&bridge_id, bridge_state);
+	} else {
+		pallet_xcm_bridge_hub_router::Bridges::<T, I>::remove(&bridge_id);
+	}
+	bridge_id
+}
+
+pub(crate) fn get_bridge_state_for<T: pallet_xcm_bridge_hub_router::Config<I>, I: 'static>(
+	dest: &Location,
+) -> Option<BridgeState> {
+	let bridge_id = <T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
+	pallet_xcm_bridge_hub_router::Bridges::<T, I>::get(bridge_id)
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::benchmarking::Config<()> for TestRuntime {
+	fn ensure_bridged_target_destination() -> Result<Location, frame_benchmarking::BenchmarkError> {
+		Ok(Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]))
+	}
+	fn update_bridge_status_origin() -> Option<RuntimeOrigin> {
+		Some(RuntimeOrigin::root())
+	}
 }

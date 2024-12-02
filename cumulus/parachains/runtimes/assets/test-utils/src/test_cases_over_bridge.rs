@@ -489,7 +489,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		})
 }
 
-pub fn report_bridge_status_from_xcm_bridge_router_works<
+pub fn update_bridge_status_from_xcm_bridge_router_works<
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
@@ -498,8 +498,10 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 >(
 	collator_session_keys: CollatorSessionKeys<Runtime>,
 	prepare_configuration: fn() -> TestBridgingConfig,
-	congested_message: fn() -> Xcm<XcmConfig::RuntimeCall>,
-	uncongested_message: fn() -> Xcm<XcmConfig::RuntimeCall>,
+	congestion_message: fn(
+		pallet_xcm_bridge_hub_router::BridgeIdOf<Runtime, XcmBridgeHubRouterInstance>,
+		bool,
+	) -> Xcm<XcmConfig::RuntimeCall>,
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -532,12 +534,29 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 		.with_tracing()
 		.build()
 		.execute_with(|| {
-			let report_bridge_status = |is_congested: bool| {
+			let update_bridge_status = |is_congested: bool| {
 				// prepare bridge config
-				let TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
+				let TestBridgingConfig {
+					local_bridge_hub_location, bridged_target_location, ..
+				} = prepare_configuration();
+
+				use pallet_xcm_bridge_hub_router::ResolveBridgeId;
+				let bridge_id = <<Runtime as pallet_xcm_bridge_hub_router::Config<
+					XcmBridgeHubRouterInstance,
+				>>::BridgeIdResolver>::resolve_for_dest(
+					&bridged_target_location
+				)
+				.expect("resolved BridgeId");
+
+				// check before
+				let bridge_state = pallet_xcm_bridge_hub_router::Bridges::<
+					Runtime,
+					XcmBridgeHubRouterInstance,
+				>::get(&bridge_id);
+				let is_congested_before = bridge_state.map(|bs| bs.is_congested).unwrap_or(false);
 
 				// Call received XCM execution
-				let xcm = if is_congested { congested_message() } else { uncongested_message() };
+				let xcm = congestion_message(bridge_id.clone(), is_congested);
 				let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
 				// execute xcm as XcmpQueue would do
@@ -551,13 +570,18 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 					Weight::zero(),
 				);
 				assert_ok!(outcome.ensure_complete());
-				assert_eq!(
-					is_congested,
-					<<Runtime as pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>>::LocalXcmChannelManager as pallet_xcm_bridge_hub_router::XcmChannelStatusProvider>::is_congested(&local_bridge_hub_location)
-				);
+
+				// check after
+				let bridge_state = pallet_xcm_bridge_hub_router::Bridges::<
+					Runtime,
+					XcmBridgeHubRouterInstance,
+				>::get(&bridge_id);
+				let is_congested_after = bridge_state.map(|bs| bs.is_congested).unwrap_or(false);
+				assert_eq!(is_congested_after, is_congested);
+				assert_ne!(is_congested_after, is_congested_before,);
 			};
 
-			report_bridge_status(true);
-			report_bridge_status(false);
+			update_bridge_status(true);
+			update_bridge_status(false);
 		})
 }

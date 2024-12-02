@@ -27,7 +27,8 @@ use asset_hub_rococo_runtime::{
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
 	CollatorSelection, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
 	MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, SessionKeys, TrustBackedAssetsInstance, XcmpQueue,
+	RuntimeEvent, RuntimeOrigin, SessionKeys, ToWestendXcmRouterInstance,
+	TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -1270,6 +1271,34 @@ mod asset_hub_rococo_tests {
 			}),
 			WeightLimit::Unlimited,
 		);
+	}
+
+	#[test]
+	fn update_bridge_status_from_xcm_bridge_router_for_rococo_works() {
+		asset_test_utils::test_cases_over_bridge::update_bridge_status_from_xcm_bridge_router_works::<
+			Runtime,
+			AllPalletsWithoutSystem,
+			XcmConfig,
+			LocationToAccountId,
+			ToWestendXcmRouterInstance,
+		>(collator_session_keys(), bridging_to_asset_hub_westend, |bridge_id, is_congested| {
+			vec![
+				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				Transact {
+					origin_kind: OriginKind::Xcm,
+					call: RuntimeCall::ToWestendXcmRouter(
+						pallet_xcm_bridge_hub_router::Call::update_bridge_status {
+							bridge_id,
+							is_congested,
+						},
+					)
+					.encode()
+					.into(),
+				},
+				ExpectTransactStatus(MaybeErrorCode::Success),
+			]
+			.into()
+		})
 	}
 }
 

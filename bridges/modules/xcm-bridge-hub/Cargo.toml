@@ -22,6 +22,7 @@ bp-xcm-bridge-hub = { workspace = true }
 pallet-bridge-messages = { workspace = true }
 
 # Substrate Dependencies
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
@@ -49,6 +50,7 @@ std = [
 	"bp-runtime/std",
 	"bp-xcm-bridge-hub/std",
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -66,6 +68,7 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",

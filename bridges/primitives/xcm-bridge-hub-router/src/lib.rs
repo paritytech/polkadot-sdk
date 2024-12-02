@@ -18,29 +18,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::H256;
+use sp_core::sp_std::fmt::Debug;
 use sp_runtime::{FixedU128, RuntimeDebug};
-use xcm::latest::prelude::Location;
-
-/// Minimal delivery fee factor.
-pub const MINIMAL_DELIVERY_FEE_FACTOR: FixedU128 = FixedU128::from_u32(1);
-
-/// XCM channel status provider that may report whether it is congested or not.
-///
-/// By channel we mean the physical channel that is used to deliver messages of one
-/// of the bridge queues.
-pub trait XcmChannelStatusProvider {
-	/// Returns true if the channel is currently congested.
-	fn is_congested(with: &Location) -> bool;
-}
-
-impl XcmChannelStatusProvider for () {
-	fn is_congested(_with: &Location) -> bool {
-		false
-	}
-}
+use xcm::latest::prelude::{InteriorLocation, Location, NetworkId};
 
 /// Current status of the bridge.
 #[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
@@ -51,17 +33,33 @@ pub struct BridgeState {
 	pub is_congested: bool,
 }
 
-impl Default for BridgeState {
-	fn default() -> BridgeState {
-		BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested: false }
-	}
+/// Trait that resolves a specific `BridgeId` for `dest`.
+pub trait ResolveBridgeId {
+	/// Bridge identifier.
+	type BridgeId: FullCodec + MaxEncodedLen + TypeInfo + Debug + Clone + PartialEq + Eq;
+	/// Resolves `Self::BridgeId` for `dest`. If `None`, it means there is no supported bridge ID.
+	fn resolve_for_dest(bridged_dest: &Location) -> Option<Self::BridgeId>;
+
+	/// Resolves `Self::BridgeId` for `bridged_network` and `bridged_dest`. If `None`, it means
+	/// there is no supported bridge ID.
+	fn resolve_for(
+		bridged_network: &NetworkId,
+		bridged_dest: &InteriorLocation,
+	) -> Option<Self::BridgeId>;
 }
 
-/// A minimized version of `pallet-xcm-bridge-hub-router::Call` that can be used without a runtime.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-#[allow(non_camel_case_types)]
-pub enum XcmBridgeHubRouterCall {
-	/// `pallet-xcm-bridge-hub-router::Call::report_bridge_status`
-	#[codec(index = 0)]
-	report_bridge_status { bridge_id: H256, is_congested: bool },
+/// The default implementation of `ResolveBridgeId` for `()` returns `None`.
+impl ResolveBridgeId for () {
+	type BridgeId = ();
+
+	fn resolve_for_dest(_dest: &Location) -> Option<Self::BridgeId> {
+		None
+	}
+
+	fn resolve_for(
+		_bridged_network: &NetworkId,
+		_bridged_dest: &InteriorLocation,
+	) -> Option<Self::BridgeId> {
+		None
+	}
 }
