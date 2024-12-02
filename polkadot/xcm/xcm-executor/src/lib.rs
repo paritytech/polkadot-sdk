@@ -1086,12 +1086,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			DepositReserveAsset { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
-					let maybe_delivery_fee_from_holding = if self.fees.is_empty() {
-						self.get_delivery_fee_from_holding(&assets, &dest, &xcm)?
+					// When not using `PayFees`, nor `JIT_WITHDRAW`, transport fees are paid from
+					// transferred assets.
+					let maybe_transport_fee_from_holding = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
+						self.get_delivery_fee_from_holding(&assets, &dest, FeeReason::DepositReserveAsset, &xcm)?
 					} else {
 						None
 					};
-
 					let mut message = Vec::with_capacity(xcm.len() + 2);
 					// now take assets to deposit (after having taken delivery fees)
 					let deposited = self.holding.saturating_take(assets);
@@ -1106,7 +1107,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message.push(ClearOrigin);
 					// append custom instructions
 					message.extend(xcm.0.into_iter());
-					if let Some(delivery_fee) = maybe_delivery_fee_from_holding {
+					if let Some(delivery_fee) = maybe_transport_fee_from_holding {
 						// Put back delivery_fee in holding register to be charged by XcmSender.
 						self.holding.subsume_assets(delivery_fee);
 					}
@@ -1121,6 +1122,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			InitiateReserveWithdraw { assets, reserve, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
+					// When not using `PayFees`, nor `JIT_WITHDRAW`, transport fees are paid from
+					// transferred assets.
+					let maybe_transport_fee_from_holding = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
+						self.get_delivery_fee_from_holding(&assets, &reserve, FeeReason::InitiateReserveWithdraw, &xcm)?
+					} else {
+						None
+					};
 					let assets = self.holding.saturating_take(assets);
 					let mut message = Vec::with_capacity(xcm.len() + 2);
 					Self::do_reserve_withdraw_assets(
@@ -1133,6 +1141,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message.push(ClearOrigin);
 					// append custom instructions
 					message.extend(xcm.0.into_iter());
+					if let Some(delivery_fee) = maybe_transport_fee_from_holding {
+						// Put back delivery_fee in holding register to be charged by XcmSender.
+						self.holding.subsume_assets(delivery_fee);
+					}
 					self.send(reserve, Xcm(message), FeeReason::InitiateReserveWithdraw)?;
 					Ok(())
 				});
@@ -1144,6 +1156,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			InitiateTeleport { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
+					// When not using `PayFees`, nor `JIT_WITHDRAW`, transport fees are paid from
+					// transferred assets.
+					let maybe_transport_fee_from_holding = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
+						self.get_delivery_fee_from_holding(&assets, &dest, FeeReason::InitiateTeleport, &xcm)?
+					} else {
+						None
+					};
 					let assets = self.holding.saturating_take(assets);
 					let mut message = Vec::with_capacity(xcm.len() + 2);
 					Self::do_teleport_assets(assets, &dest, &mut message, &self.context)?;
@@ -1151,6 +1170,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message.push(ClearOrigin);
 					// append custom instructions
 					message.extend(xcm.0.into_iter());
+					if let Some(delivery_fee) = maybe_transport_fee_from_holding {
+						// Put back delivery_fee in holding register to be charged by XcmSender.
+						self.holding.subsume_assets(delivery_fee);
+					}
 					self.send(dest.clone(), Xcm(message), FeeReason::InitiateTeleport)?;
 					Ok(())
 				});
@@ -1707,14 +1730,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(())
 	}
 
-	/// Gets the necessary delivery fee to send a reserve transfer message to `destination` from
-	/// holding.
+	/// Gets the necessary delivery fee from holding to send an onward transfer message to
+	/// `destination`.
 	///
 	/// Will be removed once the transition from `BuyExecution` to `PayFees` is complete.
 	fn get_delivery_fee_from_holding(
 		&mut self,
 		assets: &AssetFilter,
 		destination: &Location,
+		reason: FeeReason,
 		xcm: &Xcm<()>,
 	) -> Result<Option<AssetsInHolding>, XcmError> {
 		// we need to do this take/put cycle to solve wildcards and get exact assets to
@@ -1722,13 +1746,27 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let to_weigh = self.holding.saturating_take(assets.clone());
 		self.holding.subsume_assets(to_weigh.clone());
 		let to_weigh_reanchored = Self::reanchored(to_weigh, &destination, None);
-		let mut message_to_weigh = vec![ReserveAssetDeposited(to_weigh_reanchored), ClearOrigin];
+		let remote_instruction = match reason {
+			FeeReason::DepositReserveAsset => ReserveAssetDeposited(to_weigh_reanchored),
+			FeeReason::InitiateReserveWithdraw => WithdrawAsset(to_weigh_reanchored),
+			FeeReason::InitiateTeleport => ReceiveTeleportedAsset(to_weigh_reanchored),
+			_ => {
+				tracing::debug!(
+					target: "xcm::get_delivery_fee_from_holding",
+					"Unexpected transport fee reason",
+				);
+				return Err(XcmError::NotHoldingFees);
+			},
+		};
+		let mut message_to_weigh = Vec::with_capacity(xcm.len() + 2);
+		message_to_weigh.push(remote_instruction);
+		message_to_weigh.push(ClearOrigin);
 		message_to_weigh.extend(xcm.0.clone().into_iter());
 		let (_, fee) =
 			validate_send::<Config::XcmSender>(destination.clone(), Xcm(message_to_weigh))?;
 		let maybe_delivery_fee = fee.get(0).map(|asset_needed_for_fees| {
 			tracing::trace!(
-				target: "xcm::fees::DepositReserveAsset",
+				target: "xcm::fees::get_delivery_fee_from_holding",
 				"Asset provided to pay for fees {:?}, asset required for delivery fees: {:?}",
 				self.asset_used_in_buy_execution, asset_needed_for_fees,
 			);
@@ -1736,7 +1774,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.calculate_asset_for_delivery_fees(asset_needed_for_fees.clone());
 			// set aside fee to be charged by XcmSender
 			let delivery_fee = self.holding.saturating_take(asset_to_pay_for_fees.into());
-			tracing::trace!(target: "xcm::fees::DepositReserveAsset", ?delivery_fee);
+			tracing::trace!(target: "xcm::fees::get_delivery_fee_from_holding", ?delivery_fee);
 			delivery_fee
 		});
 		Ok(maybe_delivery_fee)
