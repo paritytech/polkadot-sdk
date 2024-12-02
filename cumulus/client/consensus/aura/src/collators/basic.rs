@@ -171,7 +171,11 @@ where
 
 			let Ok(Some(code)) =
 				params.para_client.state_at(parent_hash).map_err(drop).and_then(|s| {
-					s.storage(&sp_core::storage::well_known_keys::CODE).map_err(drop)
+					s.storage(&sp_core::storage::well_known_keys::PENDING_CODE)
+						.map_err(drop)
+						.or_else(|_| {
+							s.storage(&sp_core::storage::well_known_keys::CODE).map_err(drop)
+						})
 				})
 			else {
 				continue;
