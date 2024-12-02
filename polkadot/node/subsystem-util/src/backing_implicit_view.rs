@@ -330,7 +330,7 @@ impl View {
 			.map(|mins| mins.allowed_relay_parents_for(para_id, block_info.block_number))
 	}
 
-	/// Returns all paths from a leaf to the last block in state containing `relay_parent`. If no
+	/// Returns all paths from each leaf to the last block in state containing `relay_parent`. If no
 	/// paths exist the function will return an empty `Vec`.
 	pub fn paths_via_relay_parent(&self, relay_parent: &Hash) -> Vec<Vec<Hash>> {
 		gum::trace!(

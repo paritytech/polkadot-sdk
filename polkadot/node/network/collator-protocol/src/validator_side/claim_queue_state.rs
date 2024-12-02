@@ -46,7 +46,8 @@ struct ClaimInfo {
 /// should be built/fetched/accepted (depending on the context) at each block.
 ///
 /// Since the claim queue peeks into the future blocks there is a relation between the claim queue
-/// state between the current block and the future blocks. Let's see an example:
+/// state between the current block and the future blocks. 
+/// Let's see an example with 2 co-scheduled parachains:
 /// - relay parent 1; Claim queue: [A, B, A]
 /// - relay parent 2; Claim queue: [B, A, B]
 /// - relay parent 3; Claim queue: [A, B, A]
