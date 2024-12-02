@@ -35,7 +35,9 @@
 
 use crate::{
 	configuration::{random_latency, TestAuthorities, TestConfiguration},
-	environment::TestEnvironmentDependencies,
+	dummy_builder,
+	environment::{TestEnvironmentDependencies, GENESIS_HASH},
+	mock::AlwaysSupportsParachains,
 	NODE_UNDER_TEST,
 };
 use codec::Encode;
@@ -56,24 +58,51 @@ use net_protocol::{
 	request_response::{Recipient, Requests, ResponseSender},
 	ObservedRole, VersionedValidationProtocol, View,
 };
-use polkadot_node_network_protocol::{self as net_protocol, Versioned};
+use polkadot_node_network_protocol::{
+	self as net_protocol,
+	authority_discovery::AuthorityDiscovery,
+	peer_set::{PeerSet, PeerSetProtocolNames},
+	request_response::{
+		v1::StatementFetchingRequest, v2::AttestedCandidateRequest, IncomingRequest as IncomingReq,
+		IncomingRequestReceiver, ReqProtocolNames,
+	},
+	Versioned,
+};
 use polkadot_node_subsystem::messages::StatementDistributionMessage;
 use polkadot_node_subsystem_types::messages::NetworkBridgeEvent;
 use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, CounterVec, Opts, PrometheusError, Registry,
 };
-use polkadot_overseer::AllMessages;
-use polkadot_primitives::AuthorityDiscoveryId;
+use polkadot_overseer::{
+	AllMessages, Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
+};
+use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash};
+use polkadot_service::overseer::{
+	NetworkBridgeMetrics, NetworkBridgeRxSubsystem, NetworkBridgeTxSubsystem,
+};
 use prometheus_endpoint::U64;
 use rand::{seq::SliceRandom, thread_rng};
 use sc_network::{
-	request_responses::{IncomingRequest, OutgoingResponse},
-	RequestFailure,
+	config::{
+		FullNetworkConfiguration, NetworkConfiguration, NonReservedPeerMode, Params, ProtocolId,
+		RequestResponseConfig,
+	},
+	multiaddr,
+	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
+	NetworkWorker, NotificationMetrics, RequestFailure,
 };
-use sc_network_types::PeerId;
-use sc_service::SpawnTaskHandle;
+use sc_network_common::sync::message::BlockAnnouncesHandshake;
+use sc_network_types::{
+	ed25519::{Keypair, SecretKey},
+	PeerId,
+};
+use sc_service::{config::SetConfig, Role, SpawnTaskHandle};
+use sp_consensus::SyncOracle;
+use sp_core::{blake2_256, ed25519, Pair};
+use sp_runtime::traits::Zero;
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
+	net::Ipv4Addr,
 	sync::Arc,
 	task::Poll,
 	time::{Duration, Instant},
@@ -833,6 +862,13 @@ pub fn new_network(
 		peers[*peer].disconnect();
 	}
 
+	for peer in peers.iter() {
+		if !peer.is_connected() {
+			continue
+		}
+		let _ = build_peer_overseer(dependencies);
+	}
+
 	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
 
 	let handle = NetworkEmulatorHandle {
@@ -1083,6 +1119,159 @@ impl RequestExt for Requests {
 			_ => unimplemented!("received an unexpected request"),
 		}
 	}
+}
+
+#[derive(Clone)]
+pub struct DummySyncOracle;
+
+impl SyncOracle for DummySyncOracle {
+	fn is_major_syncing(&self) -> bool {
+		false
+	}
+
+	fn is_offline(&self) -> bool {
+		false
+	}
+}
+
+#[derive(Clone, Debug)]
+pub struct DummyAuthotiryDiscoveryService;
+
+#[async_trait::async_trait]
+impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
+	async fn get_addresses_by_authority_id(
+		&mut self,
+		authority: AuthorityDiscoveryId,
+	) -> Option<HashSet<sc_network::Multiaddr>> {
+		println!("get_addresses_by_authority_id authority: {:?}", authority);
+		None
+	}
+
+	async fn get_authority_ids_by_peer_id(
+		&mut self,
+		peer_id: PeerId,
+	) -> Option<HashSet<AuthorityDiscoveryId>> {
+		println!("get_authority_ids_by_peer_id peer_id: {:?}", peer_id);
+		None
+	}
+}
+
+fn build_peer_overseer(
+	dependencies: &TestEnvironmentDependencies,
+) -> (
+	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
+	OverseerHandle,
+	IncomingRequestReceiver<StatementFetchingRequest>,
+	IncomingRequestReceiver<AttestedCandidateRequest>,
+) {
+	let handle = Arc::new(dependencies.runtime.handle().clone());
+	let _guard = handle.enter();
+	let overseer_connector = OverseerConnector::with_event_capacity(64000);
+	let overseer_metrics = OverseerMetrics::default();
+	let spawn_task_handle = dependencies.task_manager.spawn_handle();
+
+	let network_bridge_metrics = NetworkBridgeMetrics::default();
+
+	let authority_discovery_service = DummyAuthotiryDiscoveryService;
+	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
+	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
+
+	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
+	let net_conf = NetworkConfiguration::new_local();
+	let mut network_config =
+		FullNetworkConfiguration::<Block, Hash, NetworkWorker<Block, Hash>>::new(&net_conf, None);
+	let (statement_req_receiver, statement_req_cfg) =
+		IncomingReq::<StatementFetchingRequest>::get_config_receiver::<
+			Block,
+			NetworkWorker<Block, Hash>,
+		>(&req_protocol_names);
+	network_config.add_request_response_protocol(statement_req_cfg);
+	let (candidate_req_receiver, candidate_req_cfg) =
+		IncomingReq::<AttestedCandidateRequest>::get_config_receiver::<
+			Block,
+			NetworkWorker<Block, Hash>,
+		>(&req_protocol_names);
+	network_config.add_request_response_protocol(candidate_req_cfg);
+	let role = Role::Full;
+	let (block_announce_config, mut notification_service) =
+		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
+			"/block-announces/1".into(),
+			vec!["/bench-notifications-protocol/block-announces/1".into()],
+			1024,
+			Some(sc_network::config::NotificationHandshake::new(
+				BlockAnnouncesHandshake::<Block>::build(
+					sc_network::Roles::from(&role),
+					Zero::zero(),
+					GENESIS_HASH,
+					GENESIS_HASH,
+				),
+			)),
+			SetConfig {
+				in_peers: 1,
+				out_peers: 1,
+				reserved_nodes: vec![],
+				non_reserved_mode: NonReservedPeerMode::Accept,
+			},
+			NotificationMetrics::new(None),
+			network_config.peer_store_handle(),
+		);
+	let worker =
+		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::new(Params::<
+			Block,
+			Hash,
+			NetworkWorker<Block, Hash>,
+		> {
+			block_announce_config,
+			role,
+			executor: Box::new(|f| {
+				tokio::spawn(f);
+			}),
+			genesis_hash: GENESIS_HASH,
+			network_config,
+			protocol_id: ProtocolId::from("bench-protocol-name"),
+			fork_id: None,
+			metrics_registry: None,
+			bitswap_config: None,
+			notification_metrics: NotificationMetrics::new(None),
+		})
+		.unwrap();
+	let network_service =
+		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::network_service(
+			&worker,
+		);
+	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
+		Arc::clone(&network_service),
+		authority_discovery_service.clone(),
+		network_bridge_metrics.clone(),
+		req_protocol_names,
+		peer_set_protocol_names.clone(),
+		Arc::clone(&notification_sinks),
+	);
+
+	let dummy_sync_oracle = Box::new(DummySyncOracle);
+	let notification_services = HashMap::from_iter([
+		(PeerSet::Validation, notification_service.clone().unwrap()),
+		(PeerSet::Collation, notification_service),
+	]);
+	let network_bridge_rx = NetworkBridgeRxSubsystem::new(
+		Arc::clone(&network_service),
+		authority_discovery_service,
+		dummy_sync_oracle,
+		network_bridge_metrics,
+		peer_set_protocol_names,
+		notification_services,
+		Arc::clone(&notification_sinks),
+		false,
+	);
+
+	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
+		.replace_network_bridge_tx(|_| network_bridge_tx)
+		.replace_network_bridge_rx(|_| network_bridge_rx);
+
+	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();
+	let overseer_handle = OverseerHandle::new(raw_handle);
+
+	(overseer, overseer_handle, statement_req_receiver, candidate_req_receiver)
 }
 
 #[cfg(test)]

@@ -26,7 +26,10 @@ use crate::{
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
-	network::{new_network, NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver},
+	network::{
+		new_network, DummyAuthotiryDiscoveryService, DummySyncOracle, NetworkEmulatorHandle,
+		NetworkInterface, NetworkInterfaceReceiver,
+	},
 	usage::BenchmarkUsage,
 	NODE_UNDER_TEST,
 };
@@ -39,7 +42,10 @@ use polkadot_node_network_protocol::{
 	authority_discovery::AuthorityDiscovery,
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	peer_set::{PeerSet, PeerSetProtocolNames},
-	request_response::{IncomingRequest, ReqProtocolNames, Requests},
+	request_response::{
+		v1::StatementFetchingRequest, v2::AttestedCandidateRequest, IncomingRequest,
+		ReqProtocolNames, Requests,
+	},
 	v3::{self, BackedCandidateManifest, StatementFilter},
 	view, Versioned, View,
 };
@@ -90,41 +96,6 @@ pub fn make_keystore() -> KeystorePtr {
 	Keystore::sr25519_generate_new(&*keystore, AuthorityDiscoveryId::ID, Some("//Node0"))
 		.expect("Insert key into keystore");
 	keystore
-}
-
-#[derive(Clone)]
-struct DummySyncOracle;
-
-impl SyncOracle for DummySyncOracle {
-	fn is_major_syncing(&self) -> bool {
-		false
-	}
-
-	fn is_offline(&self) -> bool {
-		false
-	}
-}
-
-#[derive(Clone, Debug)]
-struct DummyAuthotiryDiscoveryService;
-
-#[async_trait::async_trait]
-impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
-	async fn get_addresses_by_authority_id(
-		&mut self,
-		authority: AuthorityDiscoveryId,
-	) -> Option<HashSet<sc_network::Multiaddr>> {
-		println!("get_addresses_by_authority_id authority: {:?}", authority);
-		None
-	}
-
-	async fn get_authority_ids_by_peer_id(
-		&mut self,
-		peer_id: PeerId,
-	) -> Option<HashSet<AuthorityDiscoveryId>> {
-		println!("get_authority_ids_by_peer_id peer_id: {:?}", peer_id);
-		None
-	}
 }
 
 fn build_overseer(
