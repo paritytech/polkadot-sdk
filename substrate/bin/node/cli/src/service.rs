@@ -513,7 +513,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		Vec::default(),
 	));
 
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
@@ -801,7 +801,6 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		);
 	}
 
-	network_starter.start_network();
 	Ok(NewFullBase {
 		task_manager,
 		client,

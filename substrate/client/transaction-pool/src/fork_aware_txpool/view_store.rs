@@ -91,7 +91,6 @@ where
 		&self,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>> + Clone,
-		xts_hashes: impl IntoIterator<Item = ExtrinsicHash<ChainApi>> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>>> {
 		let submit_futures = {
 			let active_views = self.active_views.read();
@@ -100,9 +99,7 @@ where
 				.map(|(_, view)| {
 					let view = view.clone();
 					let xts = xts.clone();
-					self.dropped_stream_controller
-						.add_initial_views(xts_hashes.clone(), view.at.hash);
-					async move { (view.at.hash, view.submit_many(source, xts.clone()).await) }
+					async move { (view.at.hash, view.submit_many(source, xts).await) }
 				})
 				.collect::<Vec<_>>()
 		};
@@ -127,11 +124,7 @@ where
 
 		let result = active_views
 			.iter()
-			.map(|view| {
-				self.dropped_stream_controller
-					.add_initial_views(std::iter::once(tx_hash), view.at.hash);
-				view.submit_local(xt.clone())
-			})
+			.map(|view| view.submit_local(xt.clone()))
 			.find_or_first(Result::is_ok);
 
 		if let Some(Err(err)) = result {
@@ -154,10 +147,10 @@ where
 		_at: Block::Hash,
 		source: TransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-	) -> Result<TxStatusStream<ChainApi>, (ChainApi::Error, Option<TxStatusStream<ChainApi>>)> {
+	) -> Result<TxStatusStream<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
-			return Err((PoolError::AlreadyImported(Box::new(tx_hash)).into(), None))
+			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
 		};
 		let submit_and_watch_futures = {
 			let active_views = self.active_views.read();
@@ -166,8 +159,6 @@ where
 				.map(|(_, view)| {
 					let view = view.clone();
 					let xt = xt.clone();
-					self.dropped_stream_controller
-						.add_initial_views(std::iter::once(tx_hash), view.at.hash);
 					async move {
 						match view.submit_and_watch(source, xt).await {
 							Ok(watcher) => {
@@ -191,7 +182,7 @@ where
 
 		if let Some(Err(err)) = maybe_error {
 			log::trace!(target: LOG_TARGET, "[{:?}] submit_and_watch: err: {}", tx_hash, err);
-			return Err((err, Some(external_watcher)));
+			return Err(err);
 		};
 
 		Ok(external_watcher)

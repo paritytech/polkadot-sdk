@@ -18,7 +18,7 @@
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::{input, u64_output};
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -31,6 +31,12 @@ pub extern "C" fn deploy() {
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
+	// Not payable
+	let value = u64_output!(api::value_transferred,);
+	if value > 0 {
+		panic!();
+	}
+
 	input!(128, data: [u8],);
 	api::deposit_event(&[], data);
 }

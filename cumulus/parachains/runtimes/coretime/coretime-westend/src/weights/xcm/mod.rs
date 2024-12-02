@@ -254,4 +254,7 @@ impl<Call> XcmWeightInfo<Call> for CoretimeWestendXcmWeight<Call> {
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()
 	}
+	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
+		XcmGeneric::<Runtime>::execute_with_origin()
+	}
 }

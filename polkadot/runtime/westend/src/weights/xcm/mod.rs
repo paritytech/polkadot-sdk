@@ -294,6 +294,9 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	fn unpaid_execution(_: &WeightLimit, _: &Option<Location>) -> Weight {
 		XcmGeneric::<Runtime>::unpaid_execution()
 	}
+	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<RuntimeCall>) -> Weight {
+		XcmGeneric::<Runtime>::execute_with_origin()
+	}
 }
 
 #[test]

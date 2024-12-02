@@ -27,7 +27,6 @@ use array_bytes::bytes2hex;
 use futures::{FutureExt, Stream};
 use futures_timer::Delay;
 use ip_network::IpNetwork;
-use libp2p::kad::record::Key as KademliaKey;
 use litep2p::{
 	protocol::{
 		libp2p::{
@@ -45,6 +44,7 @@ use litep2p::{
 	PeerId, ProtocolName,
 };
 use parking_lot::RwLock;
+use sc_network_types::kad::Key as KademliaKey;
 use schnellru::{ByLength, LruMap};
 
 use std::{

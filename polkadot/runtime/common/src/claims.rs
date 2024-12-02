@@ -39,7 +39,8 @@ use sp_runtime::{
 		Dispatchable, TransactionExtension, Zero,
 	},
 	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
+		ValidTransaction,
 	},
 	RuntimeDebug,
 };
@@ -663,6 +664,7 @@ where
 		_len: usize,
 		_self_implicit: Self::Implicit,
 		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
 	) -> Result<
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
@@ -716,6 +718,7 @@ mod tests {
 	use super::*;
 	use hex_literal::hex;
 	use secp_utils::*;
+	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	use codec::Encode;
 	// The testing primitives are very useful for avoiding having to work with signatures
@@ -1075,7 +1078,7 @@ mod tests {
 			});
 			let di = c.get_dispatch_info();
 			assert_eq!(di.pays_fee, Pays::No);
-			let r = p.validate_only(Some(42).into(), &c, &di, 20);
+			let r = p.validate_only(Some(42).into(), &c, &di, 20, External, 0);
 			assert_eq!(r.unwrap().0, ValidTransaction::default());
 		});
 	}
@@ -1088,13 +1091,13 @@ mod tests {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = p.validate_only(Some(42).into(), &c, &di, 20);
+			let r = p.validate_only(Some(42).into(), &c, &di, 20, External, 0);
 			assert!(r.is_err());
 			let c = RuntimeCall::Claims(ClaimsCall::attest {
 				statement: StatementKind::Saft.to_text().to_vec(),
 			});
 			let di = c.get_dispatch_info();
-			let r = p.validate_only(Some(69).into(), &c, &di, 20);
+			let r = p.validate_only(Some(69).into(), &c, &di, 20, External, 0);
 			assert!(r.is_err());
 		});
 	}
@@ -1736,7 +1739,7 @@ mod benchmarking {
 			#[block]
 			{
 				assert!(ext
-					.test_run(RawOrigin::Signed(account).into(), &call, &info, 0, |_| {
+					.test_run(RawOrigin::Signed(account).into(), &call, &info, 0, 0, |_| {
 						Ok(Default::default())
 					})
 					.unwrap()

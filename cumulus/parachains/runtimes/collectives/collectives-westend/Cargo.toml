@@ -94,6 +94,7 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 
 [dev-dependencies]
 sp-io = { features = ["std"], workspace = true, default-features = true }
+parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
