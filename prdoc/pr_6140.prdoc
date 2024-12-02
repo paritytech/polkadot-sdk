@@ -35,8 +35,6 @@ doc:
       NOTE: prior to transaction extension, `StorageWeightReclaim` also missed the some proof size used by other transaction extension prior to itself. This is also fixed by the wrapping `StorageWeightReclaim`.
 
 crates:
-- name: cumulus-pallet-weight-reclaim
-  bump: major
 - name: cumulus-primitives-storage-weight-reclaim
   bump: minor
 - name: sp-runtime
