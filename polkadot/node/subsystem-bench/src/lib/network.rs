@@ -221,12 +221,7 @@ impl NetworkMessage {
 pub struct NetworkInterface {
 	// Sender for subsystems.
 	bridge_to_interface_sender: UnboundedSender<NetworkMessage>,
-	peer_overseers: Vec<(
-		Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
-		OverseerHandle,
-		IncomingRequestReceiver<StatementFetchingRequest>,
-		IncomingRequestReceiver<AttestedCandidateRequest>,
-	)>,
+	pub peer_ids: Vec<PeerId>,
 }
 
 // Wraps the receiving side of a interface to bridge channel. It is a required
@@ -271,12 +266,7 @@ impl NetworkInterface {
 		network: NetworkEmulatorHandle,
 		bandwidth_bps: usize,
 		mut from_network: UnboundedReceiver<NetworkMessage>,
-		peer_overseers: Vec<(
-			Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
-			OverseerHandle,
-			IncomingRequestReceiver<StatementFetchingRequest>,
-			IncomingRequestReceiver<AttestedCandidateRequest>,
-		)>,
+		peer_ids: Vec<PeerId>,
 	) -> (NetworkInterface, NetworkInterfaceReceiver) {
 		let rx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
 		let tx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
@@ -423,7 +413,7 @@ impl NetworkInterface {
 		spawn_task_handle.spawn("network-interface-tx", "test-environment", tx_task);
 
 		(
-			Self { bridge_to_interface_sender, peer_overseers },
+			Self { bridge_to_interface_sender, peer_ids },
 			NetworkInterfaceReceiver(interface_to_bridge_receiver),
 		)
 	}
@@ -478,7 +468,7 @@ pub struct EmulatedPeerHandle {
 	messages_tx: UnboundedSender<NetworkMessage>,
 	/// Send actions to be performed by the peer.
 	actions_tx: UnboundedSender<NetworkMessage>,
-	peer_id: PeerId,
+	pub peer_id: PeerId,
 	authority_id: AuthorityDiscoveryId,
 }
 
@@ -737,7 +727,7 @@ impl PeerEmulatorStats {
 
 /// The state of a peer on the emulated network.
 #[derive(Clone)]
-enum Peer {
+pub enum Peer {
 	Connected(EmulatedPeerHandle),
 	Disconnected(EmulatedPeerHandle),
 }
@@ -762,6 +752,13 @@ impl Peer {
 		}
 	}
 
+	pub fn handle_mut(&mut self) -> &mut EmulatedPeerHandle {
+		match self {
+			Peer::Connected(ref mut emulator) => emulator,
+			Peer::Disconnected(ref mut emulator) => emulator,
+		}
+	}
+
 	pub fn authority_id(&self) -> AuthorityDiscoveryId {
 		match self {
 			Peer::Connected(handle) | Peer::Disconnected(handle) => handle.authority_id.clone(),
@@ -779,7 +776,7 @@ impl Peer {
 #[derive(Clone)]
 pub struct NetworkEmulatorHandle {
 	// Per peer network emulation.
-	peers: Vec<Peer>,
+	pub peers: Vec<Peer>,
 	/// Per peer stats.
 	stats: Vec<Arc<PeerEmulatorStats>>,
 	/// Each emulated peer is a validator.
@@ -874,11 +871,7 @@ pub fn new_network(
 		peers[*peer].disconnect();
 	}
 
-	let peer_overseers = peers
-		.iter()
-		.filter(|peer| peer.is_connected())
-		.map(|_| build_peer_overseer(dependencies))
-		.collect();
+	let peer_ids = peers.iter().map(|_| build_peer_overseer(dependencies).2).collect();
 
 	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
 
@@ -894,7 +887,7 @@ pub fn new_network(
 		handle.clone(),
 		config.bandwidth,
 		from_network,
-		peer_overseers,
+		peer_ids,
 	);
 
 	(handle, network_interface, network_interface_receiver)
@@ -1173,6 +1166,7 @@ fn build_peer_overseer(
 ) -> (
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 	OverseerHandle,
+	PeerId,
 	IncomingRequestReceiver<StatementFetchingRequest>,
 	IncomingRequestReceiver<AttestedCandidateRequest>,
 ) {
@@ -1283,7 +1277,13 @@ fn build_peer_overseer(
 	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();
 	let overseer_handle = OverseerHandle::new(raw_handle);
 
-	(overseer, overseer_handle, statement_req_receiver, candidate_req_receiver)
+	(
+		overseer,
+		overseer_handle,
+		network_service.local_peer_id(),
+		statement_req_receiver,
+		candidate_req_receiver,
+	)
 }
 
 #[cfg(test)]

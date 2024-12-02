@@ -95,8 +95,9 @@ pub fn make_keystore() -> KeystorePtr {
 
 fn build_overseer(
 	state: &TestState,
-	network: NetworkEmulatorHandle,
-	network_interface: NetworkInterface,
+	test_authorities: &TestAuthorities,
+	_network: NetworkEmulatorHandle,
+	_network_interface: NetworkInterface,
 	network_receiver: NetworkInterfaceReceiver,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (
@@ -111,7 +112,7 @@ fn build_overseer(
 	let spawn_task_handle = dependencies.task_manager.spawn_handle();
 	let mock_runtime_api = MockRuntimeApi::new(
 		state.config.clone(),
-		state.test_authorities.clone(),
+		test_authorities.clone(),
 		state.candidate_receipts.clone(),
 		Default::default(),
 		Default::default(),
@@ -123,12 +124,7 @@ fn build_overseer(
 	let mock_prospective_parachains = MockProspectiveParachains::new();
 	let mock_candidate_backing = MockCandidateBacking::new(
 		state.config.clone(),
-		state
-			.test_authorities
-			.validator_pairs
-			.get(NODE_UNDER_TEST as usize)
-			.unwrap()
-			.clone(),
+		test_authorities.validator_pairs.get(NODE_UNDER_TEST as usize).unwrap().clone(),
 		state.pvd.clone(),
 		state.own_backing_group.clone(),
 	);
@@ -251,16 +247,37 @@ fn build_overseer(
 pub fn prepare_test(
 	state: &TestState,
 	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, Vec<ProtocolConfig>) {
+) -> (TestEnvironment, TestAuthorities, Vec<ProtocolConfig>) {
 	let dependencies = TestEnvironmentDependencies::default();
-	let (network, network_interface, network_receiver) = new_network(
+	let (mut network, network_interface, network_receiver) = new_network(
 		&state.config,
 		&dependencies,
 		&state.test_authorities,
 		vec![Arc::new(state.clone())],
 	);
-	let (overseer, overseer_handle, cfg) =
-		build_overseer(state, network.clone(), network_interface, network_receiver, &dependencies);
+
+	network.peers.iter_mut().enumerate().for_each(|(i, peer)| {
+		peer.handle_mut().peer_id = network_interface.peer_ids[i];
+	});
+
+	// Replacing PeerIds with the ones from the network
+	let mut test_authorities = state.test_authorities.clone();
+	test_authorities.peer_ids = network_interface.peer_ids.clone();
+	test_authorities.peer_id_to_authority = test_authorities
+		.peer_ids
+		.iter()
+		.cloned()
+		.zip(test_authorities.validator_authority_id.iter().cloned())
+		.collect();
+
+	let (overseer, overseer_handle, cfg) = build_overseer(
+		state,
+		&test_authorities,
+		network.clone(),
+		network_interface,
+		network_receiver,
+		&dependencies,
+	);
 
 	(
 		TestEnvironment::new(
@@ -269,9 +286,10 @@ pub fn prepare_test(
 			network,
 			overseer,
 			overseer_handle,
-			state.test_authorities.clone(),
+			test_authorities.clone(),
 			with_prometheus_endpoint,
 		),
+		test_authorities,
 		cfg,
 	)
 }
@@ -322,6 +340,7 @@ pub fn generate_topology(test_authorities: &TestAuthorities) -> SessionGridTopol
 
 pub async fn benchmark_statement_distribution(
 	env: &mut TestEnvironment,
+	test_authorities: &TestAuthorities,
 	state: &TestState,
 ) -> BenchmarkUsage {
 	state.reset_trackers();
@@ -350,7 +369,7 @@ pub async fn benchmark_statement_distribution(
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
-	let topology = generate_topology(&state.test_authorities);
+	let topology = generate_topology(test_authorities);
 	let peer_connected_messages = env.network().generate_peer_connected(|e| {
 		AllMessages::StatementDistribution(StatementDistributionMessage::NetworkBridgeUpdate(e))
 	});
@@ -375,8 +394,7 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(peer_view_change).await;
 		}
 
-		let seconding_peer_id = *state
-			.test_authorities
+		let seconding_peer_id = *test_authorities
 			.peer_ids
 			.get(seconding_validator_in_own_backing_group.0 as usize)
 			.unwrap();
@@ -424,8 +442,7 @@ pub async fn benchmark_statement_distribution(
 			.iter()
 			.chain(connected_neighbors_y.iter())
 			.map(|validator_index| {
-				let peer_id =
-					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+				let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
 				let group_index =
 					groups.iter().position(|group| group.contains(validator_index)).unwrap();
 				(peer_id, group_index)
@@ -434,8 +451,7 @@ pub async fn benchmark_statement_distribution(
 		let two_hop_x_peers_and_groups = connected_neighbors_x
 			.iter()
 			.flat_map(|validator_index| {
-				let peer_id =
-					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+				let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
 				topology
 					.compute_grid_neighbors_for(*validator_index)
 					.unwrap()
@@ -454,8 +470,7 @@ pub async fn benchmark_statement_distribution(
 		let two_hop_y_peers_and_groups = connected_neighbors_y
 			.iter()
 			.flat_map(|validator_index| {
-				let peer_id =
-					*state.test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+				let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
 				topology
 					.compute_grid_neighbors_for(*validator_index)
 					.unwrap()
