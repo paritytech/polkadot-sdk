@@ -55,7 +55,7 @@ mod bench {
 
 		#[block]
 		{
-			assert!(ext.test_run(origin, &call, &info, 0, |_| Ok(post_info)).unwrap().is_ok());
+			assert!(ext.test_run(origin, &call, &info, 0, 0, |_| Ok(post_info)).unwrap().is_ok());
 		}
 
 		let final_block_proof_size =

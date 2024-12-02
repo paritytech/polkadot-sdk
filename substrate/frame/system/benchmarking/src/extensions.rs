@@ -284,7 +284,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(post_info))
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, 0, |_| Ok(post_info))
 				.unwrap()
 				.unwrap();
 		}

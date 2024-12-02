@@ -748,7 +748,7 @@ mod tests {
 
 			// Validate and prepare extrinsic
 			let pre = CheckWeight::<Test>(PhantomData)
-				.validate_and_prepare(Some(1).into(), CALL, &info, len)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
 				.unwrap()
 				.0;
 
@@ -804,7 +804,7 @@ mod tests {
 
 			// Validate and prepare extrinsic
 			let pre = CheckWeight::<Test>(PhantomData)
-				.validate_and_prepare(Some(1).into(), CALL, &info, len)
+				.validate_and_prepare(Some(1).into(), CALL, &info, len, 0)
 				.unwrap()
 				.0;
 
