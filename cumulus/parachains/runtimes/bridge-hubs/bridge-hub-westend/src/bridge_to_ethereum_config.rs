@@ -39,7 +39,7 @@ use benchmark_helpers::DoNothingRouter;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
 use pallet_xcm::EnsureXcm;
 use sp_runtime::{
-	traits::{ConstU128, ConstU32, ConstU8, Keccak256},
+	traits::{ConstU32, ConstU8, Keccak256},
 	FixedU128,
 };
 use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain};

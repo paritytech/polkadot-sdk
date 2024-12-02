@@ -18,7 +18,7 @@ use bridge_hub_westend_runtime::{
 	EthereumInboundQueueV2,
 };
 use codec::Encode;
-use frame_support::{traits::fungibles::Mutate, weights::WeightToFee};
+use frame_support::{traits::fungibles::Mutate};
 use hex_literal::hex;
 use snowbridge_router_primitives::inbound::{
 	v2::{Asset::NativeTokenERC20, Message},
@@ -26,7 +26,6 @@ use snowbridge_router_primitives::inbound::{
 };
 use sp_core::H160;
 use sp_runtime::MultiAddress;
-use testnet_parachains_constants::westend::fee::WeightToFee as WeightCalculator;
 
 /// Calculates the XCM prologue fee for sending an XCM to AH.
 const INITIAL_FUND: u128 = 5_000_000_000_000;
@@ -41,10 +40,6 @@ pub fn weth_location() -> Location {
 			AccountKey20 { network: None, key: WETH.into() },
 		],
 	)
-}
-
-pub fn dot_location() -> Location {
-	Location::new(1, Here)
 }
 
 pub fn register_weth() {
@@ -94,8 +89,6 @@ pub(crate) fn set_up_weth_pool_with_wnd_on_ah_westend(asset: v5::Location) {
 
 		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
 		let signed_bh_sovereign = <AssetHubWestend as Chain>::RuntimeOrigin::signed(bh_sovereign.clone());
-
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
 			signed_bh_sovereign.clone(),
@@ -165,15 +158,13 @@ fn register_token_v2() {
 	let bridge_owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
 
 	let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into();
-	let weth_amount = 9_000_000_000_000u128;
-
-	let assets = vec![NativeTokenERC20 { token_id: WETH.into(), value: weth_amount }];
 
 	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
 
-	let weth_fee_value: u128 = 1_000_000_000_000;
-	let weth_fee: xcm::prelude::Asset = (weth_location(), weth_fee_value).into();
-	let weth_transact_fee: xcm::prelude::Asset = (weth_location(), weth_fee_value).into();
+	// Used to pay the asset creation deposit.
+	let weth_asset_value = 9_000_000_000_000u128;
+	let assets = vec![NativeTokenERC20 { token_id: WETH.into(), value: weth_asset_value }];
+	let asset_deposit_weth: xcm::prelude::Asset = (weth_location(), weth_asset_value).into();
 
 	let asset_id = Location::new(
 		2,
@@ -187,11 +178,11 @@ fn register_token_v2() {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let register_token_instructions = vec![
 			// Exchange weth for dot to pay the asset creation deposit
-			ExchangeAsset { give: weth_fee.clone().into(), want: dot_fee.clone().into(), maximal: false },
+			ExchangeAsset { give: asset_deposit_weth.clone().into(), want: dot_fee.clone().into(), maximal: false },
 			// Deposit the dot deposit into the bridge sovereign account (where the asset creation fee
 			// will be deducted from)
 			DepositAsset { assets: dot_fee.into(), beneficiary: bridge_owner.into() },
-			// Pay for the transact execution
+			// Call to create the asset.
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				call: (
