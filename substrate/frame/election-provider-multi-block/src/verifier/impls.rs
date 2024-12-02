@@ -1,6 +1,6 @@
-// ohis file is part of Substrate.
+// This file is part of Substrate.
 
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,20 +16,17 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-	unsigned::miner, verifier::weights::WeightInfo, MinerSupportsOf, Pallet as CorePallet,
-	SolutionOf,
-};
+use crate::{unsigned::miner, verifier::weights::WeightInfo, MinerSupportsOf, SolutionOf};
 use pallet::*;
 
 use frame_election_provider_support::PageIndex;
 use frame_support::{
 	ensure,
 	pallet_prelude::Weight,
-	traits::{Defensive, TryCollect},
+	traits::{Defensive, DefensiveSaturating, TryCollect},
 	BoundedVec,
 };
-use sp_runtime::{traits::Zero, Perbill};
+use sp_runtime::Perbill;
 use sp_std::{collections::btree_map::BTreeMap, marker::PhantomData, vec::Vec};
 
 #[frame_support::pallet]
@@ -63,11 +60,13 @@ pub(crate) mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// Started a signed submission verification with `claimed_score`.
+		VerificationStarted { claimed_score: ElectionScore },
 		/// A verificaction failed at the given page.
 		VerificationFailed { page: PageIndex, error: FeasibilityError },
 		/// The final verifications of the `finalize_verification` failed. If this error happened,
 		/// all the single pages passed the feasibility checks.
-		FinalVerificationFailed { error: FeasibilityError },
+		FinalizeVerificationFailed { error: FeasibilityError },
 		/// The given page has been correctly verified, with the number of backers that are part of
 		/// the page.
 		Verified { page: PageIndex, backers: u32 },
@@ -75,6 +74,109 @@ pub(crate) mod pallet {
 		Queued { score: ElectionScore, old_score: Option<ElectionScore> },
 		/// The solution data was not available for a specific page.
 		SolutionDataUnavailable { page: PageIndex },
+	}
+
+	/// Supports of the solution of the variant X.
+	///
+	/// A potential valid or invalid solution may be stored in this variant during the round.
+	#[pallet::storage]
+	pub type QueuedSolutionX<T: Config> =
+		StorageMap<_, Twox64Concat, PageIndex, MinerSupportsOf<T::MinerConfig>>;
+
+	/// Supports of the solution of the variant Y.
+	///
+	/// A potential valid or invalid solution may be stored in this variant during the round.
+	#[pallet::storage]
+	pub type QueuedSolutionY<T: Config> =
+		StorageMap<_, Twox64Concat, PageIndex, MinerSupportsOf<T::MinerConfig>>;
+
+	/// The `(amount, count)` of backings, keyed by page.
+	///
+	/// This is stored to facilitate the `MaxBackersPerWinner` check at the end of an async
+	/// verification. Once the solution is valid (i.e. verified), the solution backings are not
+	/// useful anymore and can be cleared.
+	#[pallet::storage]
+	pub(crate) type QueuedSolutionBackings<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		PageIndex,
+		BoundedVec<(T::AccountId, PartialBackings), T::MaxWinnersPerPage>,
+	>;
+
+	/// The score of the current valid solution.
+	#[pallet::storage]
+	type QueuedSolutionScore<T: Config> = StorageValue<_, ElectionScore>;
+
+	/// Pointer for the storage variant (X or Y) that stores the current valid variant.
+	#[pallet::storage]
+	type QueuedValidVariant<T: Config> = StorageValue<_, SolutionPointer, ValueQuery>;
+
+	/// The minimum score that each solution must have to be considered feasible.
+	#[pallet::storage]
+	pub(crate) type MinimumScore<T: Config> = StorageValue<_, ElectionScore>;
+
+	/// Current status of the verification process.
+	#[pallet::storage]
+	pub(crate) type VerificationStatus<T: Config> = StorageValue<_, Status, ValueQuery>;
+
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		pub minimum_score: Option<ElectionScore>,
+		pub _phantom: PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			if let Some(min_score) = self.minimum_score {
+				Pallet::<T>::set_minimum_score(min_score);
+			}
+		}
+	}
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(PhantomData<T>);
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_bn: BlockNumberFor<T>) -> Weight {
+			match VerificationStatus::<T>::get() {
+				// all submission pages have been verified. finalize.
+				Status::Ongoing(current_page) if current_page.is_zero() =>
+					Self::finalize_verification(),
+				Status::Ongoing(current_page) =>
+					Self::progress_verification(current_page.defensive_saturating_sub(1)),
+				Status::Nothing => {
+					// verifier should be (re)start if not enable during the signed validation and
+					// there are still existing pending submissions to be verified.
+					if CorePallet::<T>::current_phase().is_signed_validation() &&
+						<T::SolutionDataProvider as SolutionDataProvider>::has_pending_submission(
+							CorePallet::<T>::current_round(),
+						) {
+						let _ = <Pallet<T> as AsyncVerifier>::start().defensive();
+
+						// TODO
+						Default::default()
+					} else {
+						T::DbWeight::get().reads(1)
+					}
+				},
+			}
+		}
+
+		fn integrity_test() {
+			assert_eq!(T::MaxWinnersPerPage::get(), <Self as Verifier>::MaxWinnersPerPage::get());
+			assert_eq!(
+				T::MaxBackersPerWinner::get(),
+				<Self as Verifier>::MaxBackersPerWinner::get()
+			);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	/// A wrapper type of the storage items related to the queued solution.
@@ -130,7 +232,7 @@ pub(crate) mod pallet {
 			});
 		}
 
-		/// Clear all relevant storage items.
+		/// Clear all verifier storage items.
 		pub(crate) fn kill() {
 			Self::mutate_checked(|| {
 				let _ = QueuedSolutionX::<T>::clear(u32::MAX, None);
@@ -147,7 +249,7 @@ pub(crate) mod pallet {
 		/// the queued solution score and flip the invalid variant.
 		pub(crate) fn finalize_solution(score: ElectionScore) {
 			sublog!(
-				info,
+				debug,
 				"verifier",
 				"finalizing verification of a correct solution, replacing old score {:?} with {:?}",
 				QueuedSolutionScore::<T>::get(),
@@ -169,15 +271,9 @@ pub(crate) mod pallet {
                     .iter()
                     .map(|(x, s)| (x.clone(), PartialBackings {total: s.total, backers: s.voters.len() as u32}))
                     .try_collect()
-                    .expect("`SupportsOf` is bounded by <Pallet<T> as Verifier>::MaxWinnersPerPage which is ensured by an integrity test; qed.");
+                    .expect("`SupportsOf` is bounded by Verifier::MaxWinnersPerPage which is ensured by an integrity test; qed.");
 
 				QueuedSolutionBackings::<T>::insert(page, backings);
-
-				// update the last stored page.
-				RemainingUnsignedPages::<T>::mutate(|remaining| {
-					remaining.retain(|p| *p != page);
-					sublog!(debug, "verifier", "updated remaining pages, current: {:?}", remaining);
-				});
 
 				// store the new page into the invalid variant storage type.
 				match Self::invalid() {
@@ -188,6 +284,8 @@ pub(crate) mod pallet {
 		}
 
 		/// Computes the score and the winner count of a stored variant solution.
+		///
+		/// At this point we expect all the single `T::Pages` to be verified and in storage.
 		pub(crate) fn compute_current_score() -> Result<(ElectionScore, u32), FeasibilityError> {
 			// ensures that all the pages are complete;
 			if QueuedSolutionBackings::<T>::iter_keys().count() != T::Pages::get() as usize {
@@ -239,111 +337,313 @@ pub(crate) mod pallet {
 		pub(crate) fn invalid() -> SolutionPointer {
 			Self::valid().other()
 		}
+
+		/// Returns the next *valid* missing solution page while in signed and unsigned submissions
+		/// are ongoing.
+		pub(crate) fn next_missing_solution_page() -> Option<PageIndex> {
+			match CorePallet::<T>::current_phase() {
+				crate::Phase::Unsigned(_) | crate::Phase::Signed => {
+					let expected_pages: BoundedVec<PageIndex, T::Pages> = BoundedVec::truncate_from(
+						(CorePallet::<T>::lsp()..=CorePallet::<T>::msp()).collect::<Vec<_>>(),
+					);
+					let stored_pages = QueuedSolutionBackings::<T>::iter_keys().collect::<Vec<_>>();
+
+					expected_pages
+						.into_iter()
+						.filter(|e| !stored_pages.contains(e))
+						.collect::<Vec<_>>()
+						.pop()
+				},
+				_ => None,
+			}
+		}
 	}
 
 	#[cfg(any(test, debug_assertions, feature = "runtime-benchmarks"))]
 	impl<T: Config> QueuedSolution<T> {
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
-			Self::check_variants()
+			Self::check_variants()?;
+			Self::check_out_of_phase()
 		}
 
 		/// Invariants:
 		///
 		/// 1. The valid and invalid solution pointers are always different.
+		/// 2. If the queued solution is in storage, the valid variant solution should be set with
+		///    the expected T::Pages number of pages (unless it is unsigned solution),
+		/// 3. If the queued solution is in storage, the backings storage is empty (not needed
+		///    anymore as the score has been calculated and stored)
 		fn check_variants() -> Result<(), &'static str> {
 			ensure!(
 				QueuedSolution::<T>::valid() != QueuedSolution::<T>::invalid(),
 				"valid and invalid solution pointers are the same"
 			);
+
+			if QueuedSolution::<T>::queued_score().is_some() &&
+				!CorePallet::<T>::current_phase().is_unsigned()
+			{
+				match Self::valid() {
+					SolutionPointer::X => {
+						ensure!(
+                            QueuedSolutionX::<T>::iter_keys().count() as u32 == T::Pages::get(),
+                            "solution does not exist/incomplete in valid variant with a queued score."
+                        )
+					},
+					SolutionPointer::Y => {
+						ensure!(
+                            QueuedSolutionY::<T>::iter_keys().count() as u32 == T::Pages::get(),
+                            "solution does not exist/incomplete in valid variant with a queued score."
+                        )
+					},
+				}
+			}
+
+			Ok(())
+		}
+
+		/// Invariants:
+		///
+		/// TODO: finish invariants
+		fn check_out_of_phase() -> Result<(), &'static str> {
+			let async_verifier_ongoing = <Pallet<T> as AsyncVerifier>::status().is_ongoing();
+			let current_phase = CorePallet::<T>::current_phase();
+
+			// queued backings and queued solution may only exist during signed validation and
+			// unsigned phases.
+			if !(current_phase.is_unsigned() || current_phase.is_signed_validation()) {
+				ensure!(
+					QueuedSolutionBackings::<T>::iter_keys().count() == 0,
+					"backings may be stored only during unsigned and signed validation phases"
+				);
+				ensure!(
+					QueuedSolutionX::<T>::iter_keys().count() as u32 == 0,
+					"nothing happening, queued solution should be empty."
+				);
+				ensure!(
+					QueuedSolutionY::<T>::iter_keys().count() as u32 == 0,
+					"nothing happening, queued solution should be empty."
+				);
+			}
+
+			if !current_phase.is_signed_validation() {
+				ensure!(
+					!async_verifier_ongoing,
+					"async verifier status should *not* be ongoing out of signed validation phase."
+				);
+			}
+
 			Ok(())
 		}
 	}
+}
 
-	/// Supports of the solution of the variant X.
-	///
-	/// A potential valid or invalid solution may be stored in this variant during the round.
-	#[pallet::storage]
-	pub type QueuedSolutionX<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, MinerSupportsOf<T::MinerConfig>>;
+impl<T: impls::pallet::Config> Pallet<T> {
+	// TODO
+	fn progress_verification(current_page: PageIndex) -> Weight {
+		if let Some(page_solution) =
+			<T::SolutionDataProvider as SolutionDataProvider>::get_paged_solution(current_page)
+		{
+			Self::progress_verification_inner(page_solution, current_page)
+		} else {
+			Self::verification_failed(VerificationResult::DataUnavailable, Some(current_page));
+			Self::deposit_event(Event::<T>::SolutionDataUnavailable { page: current_page });
 
-	/// Supports of the solution of the variant Y.
-	///
-	/// A potential valid or invalid solution may be stored in this variant during the round.
-	#[pallet::storage]
-	pub type QueuedSolutionY<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, MinerSupportsOf<T::MinerConfig>>;
-
-	/// The `(amount, count)` of backings, keyed by page.
-	///
-	/// This is stored to facilitate the `MaxBackersPerWinner` check at the end of an async
-	/// verification. Once the solution is valid (i.e. verified), the solution backings are not
-	/// useful anymore and can be cleared.
-	#[pallet::storage]
-	pub(crate) type QueuedSolutionBackings<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		PageIndex,
-		BoundedVec<(T::AccountId, PartialBackings), T::MaxWinnersPerPage>,
-	>;
-
-	/// The score of the current valid solution.
-	#[pallet::storage]
-	type QueuedSolutionScore<T: Config> = StorageValue<_, ElectionScore>;
-
-	/// Pointer for the storage variant (X or Y) that stores the current valid variant.
-	#[pallet::storage]
-	type QueuedValidVariant<T: Config> = StorageValue<_, SolutionPointer, ValueQuery>;
-
-	/// The minimum score that each solution must have to be considered feasible.
-	#[pallet::storage]
-	pub(crate) type MinimumScore<T: Config> = StorageValue<_, ElectionScore>;
-
-	/// Current status of the verification process.
-	#[pallet::storage]
-	pub(crate) type VerificationStatus<T: Config> = StorageValue<_, Status, ValueQuery>;
-
-	// For unsigned page solutions only.
-	#[pallet::storage]
-	pub(crate) type RemainingUnsignedPages<T: Config> =
-		StorageValue<_, BoundedVec<PageIndex, T::Pages>, ValueQuery>;
-
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-		pub minimum_score: Option<ElectionScore>,
-		pub _phantom: PhantomData<T>,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			if let Some(min_score) = self.minimum_score {
-				Pallet::<T>::set_minimum_score(min_score);
-			}
-		}
-	}
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(PhantomData<T>);
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-			Self::do_on_initialize(n)
-		}
-
-		fn integrity_test() {
-			assert_eq!(T::MaxWinnersPerPage::get(), <Self as Verifier>::MaxWinnersPerPage::get());
-			assert_eq!(
+			<T as Config>::WeightInfo::on_initialize_ongoing_failed(
 				T::MaxBackersPerWinner::get(),
-				<Self as Verifier>::MaxBackersPerWinner::get()
+				T::MaxWinnersPerPage::get(),
+			)
+		}
+	}
+
+	// TODO
+	fn progress_verification_inner(
+		page_solution: SolutionOf<T::MinerConfig>,
+		current_page: PageIndex,
+	) -> Weight {
+		match Self::feasibility_check(page_solution, current_page) {
+			Ok(supports) => {
+				let backers = supports.len() as u32;
+				QueuedSolution::<T>::set_page(current_page, supports);
+				Self::deposit_event(Event::<T>::Verified { page: current_page, backers });
+
+				VerificationStatus::<T>::put(Status::Ongoing(current_page));
+
+				<T as Config>::WeightInfo::on_initialize_ongoing(
+					T::MaxBackersPerWinner::get(),
+					T::MaxWinnersPerPage::get(),
+				)
+			},
+
+			Err(error) => {
+				Self::verification_failed(VerificationResult::Rejected, Some(current_page));
+				Self::deposit_event(Event::<T>::VerificationFailed { page: current_page, error });
+
+				<T as Config>::WeightInfo::on_initialize_ongoing_finalize_failed(
+					T::MaxBackersPerWinner::get(),
+					T::MaxWinnersPerPage::get(),
+				)
+			},
+		}
+	}
+
+	// TODO
+	fn finalize_verification() -> Weight {
+		let max_backers_winner = T::MaxBackersPerWinner::get();
+		let max_winners_page = T::MaxWinnersPerPage::get();
+
+		// last page, finalize everything. At this point, the solution data
+		// provider should have a score ready for us. Otherwise, a default score
+		// will be rejected and reset the ongoing verification which is the desired
+		// behaviour.
+		debug_assert!(<VerificationStatus<T>>::get() == Status::Ongoing(CorePallet::<T>::lsp()));
+		let claimed_score = T::SolutionDataProvider::get_score().defensive_unwrap_or_default();
+
+		match Self::finalize_verification_inner(claimed_score) {
+			Ok(_) => {
+				VerificationStatus::<T>::put(Status::Nothing);
+				T::SolutionDataProvider::report_result(VerificationResult::Queued);
+
+				<T as Config>::WeightInfo::on_initialize_ongoing_finalize(
+					max_backers_winner,
+					max_winners_page,
+				)
+			},
+			Err(error) => {
+				Self::verification_failed(VerificationResult::DataUnavailable, None);
+				Self::deposit_event(Event::<T>::FinalizeVerificationFailed { error });
+
+				<T as Config>::WeightInfo::on_initialize_ongoing_finalize_failed(
+					max_backers_winner,
+					max_winners_page,
+				)
+			},
+		}
+	}
+
+	pub(crate) fn finalize_verification_inner(
+		claimed_score: ElectionScore,
+	) -> Result<(), FeasibilityError> {
+		let outcome =
+			QueuedSolution::<T>::compute_current_score().and_then(|(final_score, winner_count)| {
+				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap_or_default();
+
+				match (final_score == claimed_score, winner_count <= desired_targets) {
+					(true, true) => {
+						let old_score = QueuedSolution::<T>::queued_score();
+						QueuedSolution::<T>::finalize_solution(final_score);
+						Self::deposit_event(Event::<T>::Queued { score: final_score, old_score });
+
+						Ok(())
+					},
+					(false, true) => Err(FeasibilityError::InvalidScore),
+					(true, false) => Err(FeasibilityError::WrongWinnerCount),
+					(false, false) => Err(FeasibilityError::InvalidScore),
+				}
+			});
+
+		sublog!(debug, "verifier", "finalize verification outcome: {:?}", outcome);
+		outcome
+	}
+
+	fn verification_failed(reason: VerificationResult, maybe_page: Option<PageIndex>) {
+		// TODO: simplify.
+		if let Some(page) = maybe_page {
+			sublog!(
+				debug,
+				"verifier",
+				"Page {} verification failed due to {:?} at {:?}.",
+				page,
+				reason,
+				CorePallet::<T>::current_phase(),
+			);
+		} else {
+			sublog!(
+				debug,
+				"verifier",
+				"Verification failed due to {:?} at finalization stage of round {:?}.",
+				reason,
+				CorePallet::<T>::current_phase(),
 			);
 		}
 
-		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			Self::do_try_state()
-		}
+		// restart verification in the next msp.
+		//VerificationStatus::<T>::put(Status::Ongoing(CorePallet::<T>::msp()));
+
+		VerificationStatus::<T>::put(Status::Nothing);
+		QueuedSolution::<T>::clear_invalid_and_backings();
+		T::SolutionDataProvider::report_result(reason);
+	}
+
+	pub(crate) fn do_verify_sync(
+		partial_solution: SolutionOf<T::MinerConfig>,
+		partial_score: ElectionScore,
+		page: PageIndex,
+	) -> Result<MinerSupportsOf<T::MinerConfig>, FeasibilityError> {
+		let _ = Self::ensure_score_quality(partial_score)?;
+		let supports = Self::feasibility_check(partial_solution.clone(), page)?;
+
+		// TODO: implement fn evaluate on `BondedSupports`; remove extra clone.
+		let real_score = sp_npos_elections::evaluate_support(
+			supports.clone().into_iter().map(|(_, backings)| backings),
+		);
+		ensure!(real_score == partial_score, FeasibilityError::InvalidScore);
+
+		// queue valid solution of single page.
+		QueuedSolution::<T>::set_page(page, supports.clone());
+
+		Ok(supports)
+	}
+
+	/// Checks if `score` improves the current queued score by `T::SolutionImprovementThreshold` and
+	/// that it is higher than `MinimumScore`.
+	pub fn ensure_score_quality(score: ElectionScore) -> Result<(), FeasibilityError> {
+		let is_improvement = <Self as Verifier>::queued_score().map_or(true, |best_score| {
+			score.strict_threshold_better(best_score, T::SolutionImprovementThreshold::get())
+		});
+		ensure!(is_improvement, FeasibilityError::ScoreTooLow);
+
+		let is_greater_than_min_trusted = MinimumScore::<T>::get()
+			.map_or(true, |min_score| score.strict_threshold_better(min_score, Perbill::zero()));
+
+		ensure!(is_greater_than_min_trusted, FeasibilityError::ScoreTooLow);
+
+		Ok(())
+	}
+}
+
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+impl<T: Config> Pallet<T> {
+	/// Forces a valid solution in storage that pass the sanity checks.
+	pub(crate) fn force_valid_solution(
+		page: PageIndex,
+		supports: MinerSupportsOf<T::MinerConfig>,
+		score: ElectionScore,
+	) {
+		QueuedSolution::<T>::set_page(page, supports);
+		QueuedSolution::<T>::finalize_solution(score);
+		VerificationStatus::<T>::put(Status::Nothing);
+
+		QueuedSolution::<T>::sanity_check().unwrap();
+	}
+
+	/// Returns the current minimum score.
+	pub(crate) fn minimum_score() -> Option<ElectionScore> {
+		MinimumScore::<T>::get()
+	}
+
+	/// Returns the number backings/pages verified and stored.
+	#[allow(dead_code)]
+	pub(crate) fn pages_backed() -> usize {
+		QueuedSolutionBackings::<T>::iter_keys().count()
+	}
+}
+
+#[cfg(any(test, feature = "try-runtime"))]
+impl<T: Config> Pallet<T> {
+	pub(crate) fn do_try_state(
+		_bn: crate::BlockNumberFor<T>,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		QueuedSolution::<T>::sanity_check().map_err(|e| e.into())
 	}
 }
 
@@ -370,7 +670,7 @@ impl<T: Config + impls::pallet::Config> Verifier for Pallet<T> {
 	}
 
 	fn next_missing_solution_page() -> Option<PageIndex> {
-		let next_missing = RemainingUnsignedPages::<T>::get().last().copied();
+		let next_missing = QueuedSolution::<T>::next_missing_solution_page();
 		sublog!(debug, "verifier", "next missing page: {:?}", next_missing);
 
 		next_missing
@@ -386,7 +686,6 @@ impl<T: Config + impls::pallet::Config> Verifier for Pallet<T> {
 		partial_score: ElectionScore,
 		page: PageIndex,
 	) -> Result<MinerSupportsOf<T::MinerConfig>, FeasibilityError> {
-		let maybe_current_score = Self::queued_score();
 		match Self::do_verify_sync(partial_solution, partial_score, page) {
 			Ok(supports) => {
 				sublog!(
@@ -399,7 +698,7 @@ impl<T: Config + impls::pallet::Config> Verifier for Pallet<T> {
 				Self::deposit_event(Event::<T>::Verified { page, backers: supports.len() as u32 });
 				Self::deposit_event(Event::<T>::Queued {
 					score: partial_score,
-					old_score: maybe_current_score,
+					old_score: Self::queued_score(),
 				});
 				Ok(supports)
 			},
@@ -458,7 +757,7 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 	type SolutionDataProvider = T::SolutionDataProvider;
 
 	fn force_finalize_verification(claimed_score: ElectionScore) -> Result<(), FeasibilityError> {
-		Self::finalize_async_verification(claimed_score)
+		Self::finalize_verification_inner(claimed_score)
 	}
 
 	fn status() -> Status {
@@ -479,6 +778,11 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 				// despite the verification failed, this was a successful `start` operation.
 				Ok(())
 			} else {
+				Self::deposit_event(Event::<T>::VerificationStarted { claimed_score });
+
+				// start verifying first page.
+				Pallet::<T>::progress_verification(CorePallet::<T>::msp());
+
 				VerificationStatus::<T>::put(Status::Ongoing(CorePallet::<T>::msp()));
 				Ok(())
 			}
@@ -506,227 +810,5 @@ impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn set_status(status: Status) {
 		VerificationStatus::<T>::put(status);
-	}
-}
-
-impl<T: impls::pallet::Config> Pallet<T> {
-	fn do_on_initialize(_now: crate::BlockNumberFor<T>) -> Weight {
-		let max_backers_winner = T::MaxBackersPerWinner::get();
-		let max_winners_page = T::MaxWinnersPerPage::get();
-
-		match CorePallet::<T>::current_phase() {
-			// reset remaining unsigned pages after snapshot is created.
-			crate::Phase::Snapshot(page) if page == CorePallet::<T>::lsp() => {
-				RemainingUnsignedPages::<T>::mutate(|remaining| {
-					*remaining = BoundedVec::truncate_from(
-						(CorePallet::<T>::lsp()..CorePallet::<T>::msp() + 1).collect::<Vec<_>>(),
-					);
-				});
-
-				sublog!(
-					debug,
-					"verifier",
-					"reset remaining unsgined pages to {:?}",
-					RemainingUnsignedPages::<T>::get()
-				);
-			},
-			_ => (),
-		}
-
-		if let Status::Ongoing(current_page) = <VerificationStatus<T>>::get() {
-			let maybe_page_solution =
-				<T::SolutionDataProvider as SolutionDataProvider>::get_paged_solution(current_page);
-
-			if maybe_page_solution.is_none() {
-				sublog!(
-					error,
-					"verifier",
-					"T::SolutionDataProvider failed to deliver page {} at {:?}.",
-					current_page,
-					CorePallet::<T>::current_phase(),
-				);
-				// reset election data and notify the `T::SolutionDataProvider`.
-				QueuedSolution::<T>::clear_invalid_and_backings();
-				VerificationStatus::<T>::put(Status::Nothing);
-				T::SolutionDataProvider::report_result(VerificationResult::DataUnavailable);
-
-				Self::deposit_event(Event::<T>::SolutionDataUnavailable { page: current_page });
-
-				return <T as Config>::WeightInfo::on_initialize_ongoing_failed(
-					max_backers_winner,
-					max_winners_page,
-				);
-			}
-
-			let page_solution = maybe_page_solution.expect("page solution checked to exist; qed.");
-			let maybe_supports = Self::feasibility_check(page_solution, current_page);
-
-			// TODO: can refator out some of these code blocks to clean up the code.
-			let weight_consumed = match maybe_supports {
-				Ok(supports) => {
-					Self::deposit_event(Event::<T>::Verified {
-						page: current_page,
-						backers: supports.len() as u32,
-					});
-					QueuedSolution::<T>::set_page(current_page, supports);
-
-					if current_page > CorePallet::<T>::lsp() {
-						// election didn't finish, tick forward.
-						VerificationStatus::<T>::put(Status::Ongoing(
-							current_page.saturating_sub(1),
-						));
-						<T as Config>::WeightInfo::on_initialize_ongoing(
-							max_backers_winner,
-							max_winners_page,
-						)
-					} else {
-						// last page, finalize everything. At this point, the solution data
-						// provider should have a score ready for us. Otherwise, a default score
-						// will reset the whole election which is the desired behaviour.
-						let claimed_score =
-							T::SolutionDataProvider::get_score().defensive_unwrap_or_default();
-
-						// reset the election status.
-						VerificationStatus::<T>::put(Status::Nothing);
-
-						match Self::finalize_async_verification(claimed_score) {
-							Ok(_) => {
-								T::SolutionDataProvider::report_result(VerificationResult::Queued);
-								<T as Config>::WeightInfo::on_initialize_ongoing_finalize(
-									max_backers_winner,
-									max_winners_page,
-								)
-							},
-							Err(_) => {
-								T::SolutionDataProvider::report_result(
-									VerificationResult::Rejected,
-								);
-								// kill the solution in case of error.
-								QueuedSolution::<T>::clear_invalid_and_backings();
-								<T as Config>::WeightInfo::on_initialize_ongoing_finalize_failed(
-									max_backers_winner,
-									max_winners_page,
-								)
-							},
-						}
-					}
-				},
-				Err(error) => {
-					// the paged solution is invalid.
-					Self::deposit_event(Event::<T>::VerificationFailed {
-						page: current_page,
-						error,
-					});
-					VerificationStatus::<T>::put(Status::Nothing);
-					QueuedSolution::<T>::clear_invalid_and_backings();
-					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
-
-					// TODO: may need to be a differnt another branch.
-					<T as Config>::WeightInfo::on_initialize_ongoing_finalize_failed(
-						max_backers_winner,
-						max_winners_page,
-					)
-				},
-			};
-
-			weight_consumed
-		} else {
-			// nothing to do yet.
-			// TOOD(return weight reads=1)
-			Default::default()
-		}
-	}
-
-	pub(crate) fn do_verify_sync(
-		partial_solution: SolutionOf<T::MinerConfig>,
-		partial_score: ElectionScore,
-		page: PageIndex,
-	) -> Result<MinerSupportsOf<T::MinerConfig>, FeasibilityError> {
-		let _ = Self::ensure_score_quality(partial_score)?;
-		let supports = Self::feasibility_check(partial_solution.clone(), page)?;
-
-		// TODO: implement fn evaluate on `BondedSupports`; remove extra clone.
-		let real_score = sp_npos_elections::evaluate_support(
-			supports.clone().into_iter().map(|(_, backings)| backings),
-		);
-		ensure!(real_score == partial_score, FeasibilityError::InvalidScore);
-
-		// queue valid solution of single page.
-		QueuedSolution::<T>::set_page(page, supports.clone());
-
-		Ok(supports)
-	}
-
-	pub(crate) fn finalize_async_verification(
-		claimed_score: ElectionScore,
-	) -> Result<(), FeasibilityError> {
-		let outcome = QueuedSolution::<T>::compute_current_score()
-			.and_then(|(final_score, winner_count)| {
-				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap_or_default();
-
-				match (final_score == claimed_score, winner_count <= desired_targets) {
-					(true, true) => {
-						QueuedSolution::<T>::finalize_solution(final_score);
-						Self::deposit_event(Event::<T>::Queued {
-							score: final_score,
-							old_score: QueuedSolution::<T>::queued_score(),
-						});
-
-						Ok(())
-					},
-					(false, true) => Err(FeasibilityError::InvalidScore),
-					(true, false) => Err(FeasibilityError::WrongWinnerCount),
-					(false, false) => Err(FeasibilityError::InvalidScore),
-				}
-			})
-			.map_err(|err| {
-				sublog!(warn, "verifier", "finalizing the solution was invalid due to {:?}", err);
-				Self::deposit_event(Event::<T>::VerificationFailed {
-					page: Zero::zero(),
-					error: err.clone(),
-				});
-				err
-			});
-
-		sublog!(debug, "verifier", "finalize verification outcome: {:?}", outcome);
-		outcome
-	}
-
-	/// Checks if `score` improves the current queued score by `T::SolutionImprovementThreshold` and
-	/// that it is higher than `MinimumScore`.
-	pub fn ensure_score_quality(score: ElectionScore) -> Result<(), FeasibilityError> {
-		let is_improvement = <Self as Verifier>::queued_score().map_or(true, |best_score| {
-			score.strict_threshold_better(best_score, T::SolutionImprovementThreshold::get())
-		});
-		ensure!(is_improvement, FeasibilityError::ScoreTooLow);
-
-		let is_greater_than_min_trusted = MinimumScore::<T>::get()
-			.map_or(true, |min_score| score.strict_threshold_better(min_score, Perbill::zero()));
-
-		ensure!(is_greater_than_min_trusted, FeasibilityError::ScoreTooLow);
-
-		Ok(())
-	}
-
-	/// Returns the current minimum score.
-	#[cfg(any(test, feature = "try-runtime"))]
-	pub(crate) fn minimum_score() -> Option<ElectionScore> {
-		MinimumScore::<T>::get()
-	}
-
-	/// Returns the number backings/pages verified and stored.
-	#[cfg(any(test, feature = "runtime-benchmarks"))]
-	#[allow(dead_code)]
-	pub(crate) fn pages_backed() -> usize {
-		QueuedSolutionBackings::<T>::iter_keys().count()
-	}
-}
-
-#[cfg(any(test, feature = "try-runtime"))]
-impl<T: Config> Pallet<T> {
-	pub(crate) fn do_try_state(
-		_bn: crate::BlockNumberFor<T>,
-	) -> Result<(), sp_runtime::TryRuntimeError> {
-		QueuedSolution::<T>::sanity_check().map_err(|e| e.into())
 	}
 }

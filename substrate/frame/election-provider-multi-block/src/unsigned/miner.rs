@@ -163,6 +163,7 @@ impl<T: Config> Miner<T> {
 		// that they are part of. this needs to be the same indexing fn in the verifier side to
 		// sync when reconstructing the assingments page from a solution.
 		//let binding_targets = all_targets.clone();
+
 		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
 		let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
 
@@ -649,11 +650,8 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		(VoterSnapshotPagedOf<T::MinerConfig>, TargetSnaphsotOf<T::MinerConfig>),
 		OffchainMinerError,
 	> {
-		// prepare range to fetch all pages of the target and voter snapshot.
-		let paged_range = 0..EPM::<T>::msp() + 1;
-
 		// fetch all pages of the voter snapshot and collect them in a bounded vec.
-		let all_voter_pages: BoundedVec<_, T::Pages> = paged_range
+		let all_voter_pages: BoundedVec<_, T::Pages> = (EPM::<T>::lsp()..=EPM::<T>::msp())
 			.map(|page| {
 				Snapshot::<T>::voters(page)
 					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))

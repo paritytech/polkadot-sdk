@@ -47,7 +47,7 @@ parameter_types! {
 		(70, 70, bounded_vec![70]),
 		(80, 80, bounded_vec![80]),
 	];
-	pub static EpochLength: u64 = 30;
+	pub static EpochLength: u64 = 100;
 	pub static DesiredTargets: data_provider::Result<u32> = Ok(5);
 
 	pub static LastIteratedTargetIndex: Option<usize> = None;

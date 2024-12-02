@@ -126,7 +126,11 @@ mod mock;
 pub use pallet::*;
 pub use types::*;
 
-pub use crate::{unsigned::miner, verifier::Verifier, weights::WeightInfo};
+pub use crate::{
+	unsigned::miner,
+	verifier::{AsyncVerifier, Verifier},
+	weights::WeightInfo,
+};
 
 /// Log target for this the core EPM-MB pallet.
 const LOG_TARGET: &'static str = "runtime::multiblock-election";
@@ -413,13 +417,30 @@ pub mod pallet {
 						remaining_blocks > unsigned_deadline =>
 				{
 					Self::phase_transition(Phase::SignedValidation(now));
+
 					T::WeightInfo::on_phase_transition()
 				},
 
-				// start unsigned phase. The `unsigned` sub-pallet will take further actions now.
+				// force start unsigned phase. The `unsigned` sub-pallet will take further actions
+				// now.
 				Phase::Signed | Phase::SignedValidation(_)
 					if remaining_blocks <= unsigned_deadline && remaining_blocks > Zero::zero() =>
 				{
+					// force stop any async verification that may be happening.
+					<T::Verifier as AsyncVerifier>::stop();
+
+					Self::phase_transition(Phase::Unsigned(now));
+					T::WeightInfo::on_phase_transition()
+				},
+
+				// signed validation phase has found a valid solution, progress to unsigned phase.
+				Phase::SignedValidation(_)
+					if <T::Verifier as verifier::Verifier>::queued_score().is_some() =>
+				{
+					debug_assert!(
+						<T::Verifier as AsyncVerifier>::status() == verifier::Status::Nothing
+					);
+
 					Self::phase_transition(Phase::Unsigned(now));
 					T::WeightInfo::on_phase_transition()
 				},
@@ -439,10 +460,8 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
-			// the signed validator phase must not be less than the number of pages of a
-			// submission.
 			assert!(
-				T::SignedValidationPhase::get() <= T::Pages::get().into(),
+				T::SignedValidationPhase::get() >= T::Pages::get().into(),
 				"signed validaton phase ({:?}) should not be less than the number of pages per submission ({:?})",
 				T::SignedValidationPhase::get(),
 				T::Pages::get(),
@@ -570,8 +589,8 @@ impl<T: Config> Snapshot<T> {
 			Ok(())
 		};
 
-		// if phase off, snapshot should be empty.
 		match Pallet::<T>::current_phase() {
+			// if phase off, snapshot should be empty.
 			Phase::Off => {
 				ensure!(Self::targets().is_none(), "phase off, no target snapshot expected.");
 				for page in (Pallet::<T>::lsp()..=Pallet::<T>::msp()).rev() {
@@ -589,6 +608,16 @@ impl<T: Config> Snapshot<T> {
 				} else {
 					Ok(())
 				}
+			},
+			Phase::Signed | Phase::Unsigned(_) => {
+				// snapshot should exist during signed and unsigned phases.
+				ensure!(
+					Self::targets().is_some(),
+					"target snapshot not available in signed/unsigned phases."
+				);
+				check_voter_snapshots(T::Pages::get())?;
+
+				Ok(())
 			},
 			_ => Ok(()),
 		}
@@ -694,6 +723,7 @@ impl<T: Config> Pallet<T> {
 				.map_err(|_| ElectionError::<T>::DataProvider)?;
 
 		let count = paged_voters.len() as u32;
+
 		Snapshot::<T>::set_voters(remaining_pages, paged_voters);
 
 		Ok(count)

@@ -34,9 +34,9 @@
 //! - The edges of a solution (voter -> targets) match the expected by the current snapshot. This
 //! check can be performed at the page level.
 //! - The total number of winners in the solution is sufficient. This check can only be performed
-//!   when the full paged solution is available;;
+//!   when the full paged solution is available;
 //! - The election score is higher than the expected minimum score. This check can only be performed
-//!   when the full paged solution is available;;
+//!   when the full paged solution is available;
 //! - All of the bounds of the election are respected, namely:
 //!  * [`Verifier::MaxBackersPerWinner`] - which set the total max of voters are backing a target,
 //!  per election. This check can only be performed when the full paged solution is available;
@@ -71,7 +71,7 @@ pub mod benchmarking;
 #[cfg(test)]
 mod tests;
 
-use crate::{PageIndex, SupportsOf};
+use crate::{PageIndex, Pallet as CorePallet, SupportsOf};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Get;
 use sp_npos_elections::{ElectionScore, ExtendedBalance};
@@ -132,6 +132,13 @@ pub enum Status {
 impl Default for Status {
 	fn default() -> Self {
 		Status::Nothing
+	}
+}
+
+impl Status {
+	#[cfg(any(test, debug_assertions))]
+	pub(crate) fn is_ongoing(&self) -> bool {
+		matches!(self, Status::Ongoing(_))
 	}
 }
 
@@ -252,7 +259,7 @@ pub trait AsyncVerifier: Verifier {
 	fn status() -> Status;
 
 	/// Start a verification process.
-	fn start() -> Result<(), &'static str>; // new error type?
+	fn start() -> Result<(), &'static str>;
 
 	/// Stop the verification.
 	///
@@ -290,6 +297,9 @@ pub trait SolutionDataProvider {
 
 	/// Get the claimed score of the current best solution.
 	fn get_score() -> Option<ElectionScore>;
+
+	/// Returns whether the submission queue has more submissions to process in a given round.
+	fn has_pending_submission(era: u32) -> bool;
 
 	/// Hook to report back the results of the verification of the current candidate solution that
 	/// is being exposed via [`Self::get_paged_solution`] and [`Self::get_score`].

@@ -41,7 +41,7 @@ mod phase_transition {
 			let next_election = <<Runtime as Config>::DataProvider as ElectionDataProvider>::next_election_prediction(
                 System::block_number()
             );
-            assert_eq!(next_election, 30);
+            assert_eq!(next_election, 100);
 
             let phase_transitions = calculate_phases();
 
@@ -92,7 +92,7 @@ mod phase_transition {
 			let next_election = <<Runtime as Config>::DataProvider as ElectionDataProvider>::next_election_prediction(
                 System::block_number()
             );
-            assert_eq!(next_election, 30);
+            assert_eq!(next_election, 100);
 
             let phase_transitions = calculate_phases();
 
@@ -129,21 +129,18 @@ mod phase_transition {
 	fn emergency_phase_works() {
 		let (mut ext, _) = ExtBuilder::default().build_offchainify(1);
 		ext.execute_with(|| {
-        	let next_election = <<Runtime as Config>::DataProvider as ElectionDataProvider>::next_election_prediction(
-                System::block_number()
-            );
+			// if election fails, enters in emergency phase.
+			ElectionFailure::<T>::set(ElectionFailureStrategy::Emergency);
 
-            // if election fails, enters in emergency phase.
-            ElectionFailure::<T>::set(ElectionFailureStrategy::Emergency);
-
-			compute_snapshot_checked();
-            roll_to(next_election);
+			// force phase export for elect to be called without any solution stored.
+			set_phase_to(Phase::Export(System::block_number()));
 
 			// election will fail due to inexistent solution.
-            assert!(MultiPhase::elect(Pallet::<T>::msp()).is_err());
+			assert!(MultiPhase::elect(Pallet::<T>::msp()).is_err());
+
 			// thus entering in emergency phase.
-            assert_eq!(<CurrentPhase<T>>::get(), Phase::Emergency);
-        })
+			assert_eq!(<CurrentPhase<T>>::get(), Phase::Emergency);
+		})
 	}
 
 	#[test]
@@ -157,7 +154,7 @@ mod phase_transition {
             // if election fails, restart the election round.
             ElectionFailure::<T>::set(ElectionFailureStrategy::Restart);
 
-			compute_snapshot_checked();
+			// roll to next election without ocw to prevent solution to be stored.
             roll_to(next_election);
 
 			// election will fail due to inexistent solution.

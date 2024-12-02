@@ -1,6 +1,6 @@
-// Threports_result_rejection_workilpart of Substrate.
+// This file is part of Substrate.
 
-// Copyright (C) 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,45 +24,492 @@ use crate::{
 use frame_support::testing_prelude::*;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::Perbill;
+use substrate_test_utils::assert_eq_uvec;
 
-#[test]
-fn ensure_score_quality_works() {
-	ExtBuilder::default()
-		.solution_improvements_threshold(Perbill::from_percent(10))
-		.build_and_execute(|| {
-			assert_eq!(MinimumScore::<T>::get(), Default::default());
-			assert!(<Pallet<T> as Verifier>::queued_score().is_none());
+mod e2e {
+	use super::*;
 
-			// if minimum score is not set and there's no queued score, any score has quality.
-			assert_ok!(Pallet::<T>::ensure_score_quality(ElectionScore {
-				minimal_stake: 1,
-				sum_stake: 1,
-				sum_stake_squared: 1
-			}));
+	use crate::{signed::pallet::Submissions, Snapshot};
+	use frame_election_provider_support::ElectionProvider;
 
-			// if minimum score is set, the score being evaluated must be higher than the minimum
-			// score.
-			MinimumScore::<T>::set(
-				ElectionScore { minimal_stake: 10, sum_stake: 20, sum_stake_squared: 300 }.into(),
+	#[test]
+	fn single_page_works() {
+		ExtBuilder::default()
+			.pages(1)
+			.signed_max_submissions(2)
+			.unsigned_phase(0)
+			.build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+				assert_ok!(Snapshot::<T>::ensure());
+
+				let submitted_solution = mine_full().unwrap();
+				let claimed_score = submitted_solution.score;
+
+				// 99 registers and submits solution page.
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), claimed_score));
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					0,
+					Some(submitted_solution.solution_pages[0].clone())
+				));
+
+				// async verfier is idle.
+				assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Nothing);
+				// no queued validated score at this point.
+				assert_eq!(QueuedSolution::<Runtime>::queued_score(), None);
+				// no queued backings or variant solutions in storage yet.
+				assert!(QueuedSolutionX::<T>::iter_keys().count() == 0);
+				assert!(QueuedSolutionY::<T>::iter_keys().count() == 0);
+				assert!(QueuedSolutionBackings::<T>::iter_keys().count() == 0);
+
+				// roll to signed validated phase to start validating the queued submission.
+				let phase_transition = calculate_phases();
+				roll_to(*phase_transition.get("validate").unwrap() - 1);
+				// one block before signed validations is signed phase.
+				assert_eq!(current_phase(), Phase::Signed);
+				// no verifier events yet.
+				assert!(verifier_events().is_empty());
+
+				// next block is signed validation.
+				roll_one();
+				let validation_started = System::block_number();
+				assert_eq!(current_phase(), Phase::SignedValidation(validation_started));
+
+				// async verfier verified single page.
+				assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Ongoing(0));
+				// no queued validated score at this point.
+				assert_eq!(QueuedSolution::<T>::queued_score(), None);
+				// invalid variant starts to be set.
+				assert_eq!(QueuedSolution::<T>::invalid(), SolutionPointer::Y);
+				assert_eq_uvec!(QueuedSolutionY::<T>::iter_keys().collect::<Vec<_>>(), vec![0]);
+				// the other variant remains empty.
+				assert!(QueuedSolutionX::<T>::iter_keys().count() == 0);
+				assert!(QueuedSolutionBackings::<T>::iter_keys().count() > 0);
+
+				// queued solution still none.
+				assert_eq!(QueuedSolution::<Runtime>::queued_score(), None);
+
+				// roll one to finalize validation.
+				roll_one();
+				assert_eq!(current_phase(), Phase::SignedValidation(validation_started));
+
+				// valid solution has been queued, we're gold.
+				assert_eq!(QueuedSolution::<Runtime>::queued_score(), Some(claimed_score));
+				// validation finished successfully, thus the async verifier is off.
+				assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Nothing);
+
+				// set phase to export to call elect.
+				set_phase_to(Phase::Export(0));
+
+				// now confirm that calling `elect` maps to the expected solution backings that were
+				// successful submitted by 99.
+				let expected_supports =
+					Pallet::<T>::feasibility_check(submitted_solution.solution_pages[0].clone(), 0)
+						.unwrap();
+				assert_eq!(MultiPhase::elect(0).unwrap(), expected_supports);
+
+				// check all events.
+				assert_eq!(
+					verifier_events(),
+					vec![
+						Event::VerificationStarted {
+							claimed_score: ElectionScore {
+								minimal_stake: 10,
+								sum_stake: 50,
+								sum_stake_squared: 666
+							}
+						},
+						Event::Verified { page: 0, backers: 4 },
+						Event::Queued {
+							score: ElectionScore {
+								minimal_stake: 10,
+								sum_stake: 50,
+								sum_stake_squared: 666,
+							},
+							old_score: None,
+						}
+					]
+				);
+			})
+	}
+
+	// Test case:
+	// * max submissions are registered;
+	// * one submitter submits all pages;
+	// * first submission validation is valid (checked with async verifier).
+	// * election is successful with highest submission's score.
+	#[test]
+	fn multi_page_works() {
+		let (mut ext, pool) =
+			ExtBuilder::default().pages(3).signed_max_submissions(2).build_offchainify(1);
+
+		ext.execute_with(|| {
+			roll_to_phase_with_ocw(Phase::Signed, Some(pool.clone()));
+
+			// snapshot should exist now.
+			assert_ok!(Snapshot::<T>::ensure());
+
+			// 99 registers with good submission and submits all pages.
+			let submitted_solution = mine_full().unwrap();
+			let claimed_score = submitted_solution.score;
+
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), claimed_score));
+			// note: page submission order does not matter.
+			for page in 0..=CorePallet::<T>::msp() {
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					page,
+					Some(submitted_solution.solution_pages[page as usize].clone())
+				));
+			}
+
+			// 10 registers with default submission.
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(10), Default::default()));
+
+			// async verfier is idle.
+			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Nothing);
+			// no queued validated score at this point.
+			assert_eq!(QueuedSolution::<Runtime>::queued_score(), None);
+			// no queued backings or variant solutions in storage yet.
+			assert!(QueuedSolutionX::<T>::iter_keys().count() == 0);
+			assert!(QueuedSolutionY::<T>::iter_keys().count() == 0);
+			assert!(QueuedSolutionBackings::<T>::iter_keys().count() == 0);
+
+			// roll to signed validated phase to start validating the queued submission.
+			let phase_transition = calculate_phases();
+			roll_to_with_ocw(*phase_transition.get("validate").unwrap() - 1, Some(pool.clone()));
+			// one block before signed validations is signed phase.
+			assert_eq!(current_phase(), Phase::Signed);
+			// no verifier events yet.
+			assert!(verifier_events().is_empty());
+
+			// next block is signed validation.
+			roll_one_with_ocw(Some(pool.clone()));
+			assert_eq!(current_phase(), Phase::SignedValidation(System::block_number()));
+
+			// the async verifier has started verifying the best stored submit. It verifies the
+			// score and the msp page.
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::VerificationStarted { claimed_score },
+					Event::Verified { page: 2, backers: 2 }
+				]
+			);
+			// it wraps the page index 2 since it's signaled to start verifying page 2 in the next
+			// block.
+			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Ongoing(2));
+
+			// the invalid queued solution variant starts to be filled as the async verifier starts
+			// processing the pages.
+			assert_eq!(QueuedSolution::<T>::invalid(), SolutionPointer::Y);
+			assert_eq_uvec!(QueuedSolutionY::<T>::iter_keys().collect::<Vec<_>>(), vec![2]);
+			// solution backings start to get populated.
+			assert_eq_uvec!(QueuedSolutionBackings::<T>::iter_keys().collect::<Vec<_>>(), vec![2]);
+			// the other variant remains empty.
+			assert!(QueuedSolutionX::<T>::iter_keys().count() == 0);
+
+			// still no queued score though, since not all pages have been verified.
+			assert_eq!(QueuedSolution::<Runtime>::queued_score(), None);
+
+			// progress block to verify page 1.
+			roll_one_with_ocw(Some(pool.clone()));
+			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Ongoing(1));
+
+			assert_eq!(verifier_events().pop().unwrap(), Event::Verified { page: 1, backers: 2 });
+
+			assert_eq_uvec!(QueuedSolutionY::<T>::iter_keys().collect::<Vec<_>>(), vec![1, 2]);
+			assert_eq_uvec!(
+				QueuedSolutionBackings::<T>::iter_keys().collect::<Vec<_>>(),
+				vec![1, 2]
+			);
+			assert!(QueuedSolutionX::<T>::iter_keys().count() == 0);
+
+			// progress block to verify last page (lsp).
+			roll_one_with_ocw(Some(pool.clone()));
+			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Ongoing(0));
+
+			// queued solution has all the pages.
+			assert_eq_uvec!(QueuedSolutionY::<T>::iter_keys().collect::<Vec<_>>(), vec![0, 1, 2]);
+			assert_eq!(QueuedSolutionY::<T>::iter_keys().count() as u32, Pages::get());
+			// queued solution does not exist yet, the validation will be finalized in the next
+			// block.
+			assert_eq!(QueuedSolution::<Runtime>::queued_score(), None);
+
+			// next block will finalize the solution and wrap the signed validation phase up.
+			roll_one_with_ocw(Some(pool.clone()));
+			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Nothing);
+
+			// now the queued score matches that of the claimed_score from the accepted submission.
+			assert_eq!(QueuedSolution::<Runtime>::queued_score(), Some(claimed_score));
+			// the valid variant pointer has changed.
+			assert_eq!(QueuedSolution::<T>::valid(), SolutionPointer::Y);
+			assert_eq!(QueuedSolution::<T>::invalid(), SolutionPointer::X);
+			// and the solution backings have been cleared, since they are not required anymore
+			// after the solution has been validated and accepted.
+			assert!(QueuedSolutionBackings::<T>::iter_keys().count() == 0);
+
+			// check all events.
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::Verified { page: 0, backers: 5 },
+					Event::Queued {
+						score: ElectionScore {
+							minimal_stake: 50,
+							sum_stake: 310,
+							sum_stake_squared: 19650
+						},
+						old_score: None,
+					}
+				]
 			);
 
-			// score is not higher than minimum score.
-			assert_err!(
-				Pallet::<T>::ensure_score_quality(ElectionScore {
-					minimal_stake: 1,
-					sum_stake: 1,
-					sum_stake_squared: 1,
-				}),
-				FeasibilityError::ScoreTooLow
-			);
+			// now a submission has been accepted, next block transitions to unsigned phase.
+			roll_one_with_ocw(Some(pool.clone()));
+			assert_eq!(current_phase(), Phase::Unsigned(System::block_number()));
 
-			// if score improves the current one by the minimum solution improvement, we're gold.
-			assert_ok!(Pallet::<T>::ensure_score_quality(ElectionScore {
-				minimal_stake: 11,
-				sum_stake: 22,
-				sum_stake_squared: 300
-			}));
+			// progress to the export phase without the OCW (thus no unsigned submissions). now we
+			// can fetch the election pages from the signed submission.
+			roll_to(*phase_transition.get("export").unwrap());
+			assert_eq!(current_phase(), Phase::Export(System::block_number()));
+
+			// now confirm that calling `elect` maps to the expected solution backings that were
+			// successful submitted by 99. note: order matters, elect must be called from msp to
+			// lsp.
+			for page in (0..=CorePallet::<T>::msp()).rev() {
+				let expected_supports = Pallet::<T>::feasibility_check(
+					submitted_solution.solution_pages[page as usize].clone(),
+					page,
+				)
+				.unwrap();
+				assert_eq!(MultiPhase::elect(page).unwrap(), expected_supports);
+			}
 		})
+	}
+
+	// Test case:
+	// * max submissions are registered;
+	// * first submission verification fails.
+	// * second best submission is successful.
+	#[test]
+	fn e2e_first_submission_verification_continues_works() {
+		let (mut ext, pool) = ExtBuilder::default()
+			.unsigned_phase(0)
+			.pages(2)
+			.signed_max_submissions(3)
+			.build_offchainify(1);
+
+		ext.execute_with(|| {
+			roll_to_phase_with_ocw(Phase::Signed, Some(pool.clone()));
+
+			// snapshot should exist now.
+			assert_ok!(Snapshot::<T>::ensure());
+
+			// 99 registers with good submission and submits all pages. the registed claimed score
+			// has the wrong score, so the verification will fail.
+			let submitted_solution = mine_full().unwrap();
+			let ok_claimed_score = submitted_solution.score;
+			let wrong_claimed_score = ElectionScore {
+				minimal_stake: u128::MAX,
+				sum_stake: u128::MAX,
+				sum_stake_squared: u128::MAX,
+			};
+			assert!(ok_claimed_score < wrong_claimed_score);
+
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), wrong_claimed_score));
+			// note: page submission order does not matter.
+			for page in 0..=CorePallet::<T>::msp() {
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					page,
+					Some(submitted_solution.solution_pages[page as usize].clone())
+				));
+			}
+
+			// 10 registers with the correct score and submission pages.
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(10), ok_claimed_score));
+			// note: page submission order does not matter.
+			for page in 0..=CorePallet::<T>::msp() {
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(10),
+					page,
+					Some(submitted_solution.solution_pages[page as usize].clone())
+				));
+			}
+
+			// The 99 submission will be the first to be verified since it has registed with a
+			// higher score.
+			let mut sorted_submissions = Submissions::<T>::scores_for(current_round());
+			assert_eq!(sorted_submissions.pop().unwrap(), (99, wrong_claimed_score));
+			assert_eq!(sorted_submissions.pop().unwrap(), (10, ok_claimed_score));
+
+			// async verfier is idle.
+			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Nothing);
+			// no queued validated score at this point.
+			assert_eq!(QueuedSolution::<Runtime>::queued_score(), None);
+			// no queued backings or variant solutions in storage yet.
+			assert!(QueuedSolutionX::<T>::iter_keys().count() == 0);
+			assert!(QueuedSolutionY::<T>::iter_keys().count() == 0);
+			assert!(QueuedSolutionBackings::<T>::iter_keys().count() == 0);
+
+			// roll to signed validated phase to start validating the queued submission.
+			let phase_transition = calculate_phases();
+			roll_to_with_ocw(*phase_transition.get("validate").unwrap() - 1, Some(pool.clone()));
+			// one block before signed validations is signed phase.
+			assert_eq!(current_phase(), Phase::Signed);
+			// no verifier events yet.
+			assert!(verifier_events().is_empty());
+
+			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Nothing);
+
+			// next block is signed validation.
+			roll_one_with_ocw(Some(pool.clone()));
+
+			let started_validation_at = System::block_number();
+			assert_eq!(current_phase(), Phase::SignedValidation(started_validation_at));
+
+			// verification started and first page has been verified.
+			assert_eq!(
+				verifier_events(),
+				[
+					Event::VerificationStarted { claimed_score: wrong_claimed_score },
+					Event::Verified { page: 1, backers: 4 }
+				]
+			);
+
+			// verify second page.
+			roll_one_with_ocw(Some(pool.clone()));
+			assert_eq!(current_phase(), Phase::SignedValidation(started_validation_at));
+
+			assert_eq!(verifier_events(), [Event::Verified { page: 0, backers: 4 }]);
+
+			// one more block to finalize the verification, which fails.
+			roll_one_with_ocw(Some(pool.clone()));
+
+			assert_eq!(
+				verifier_events(),
+				[Event::FinalizeVerificationFailed { error: FeasibilityError::InvalidScore }]
+			);
+
+			// start verifying second submitted solution.
+			roll_one_with_ocw(Some(pool.clone()));
+			assert_eq!(
+				verifier_events(),
+				[
+					Event::VerificationStarted { claimed_score: ok_claimed_score },
+					Event::Verified { page: 1, backers: 4 }
+				]
+			);
+
+			// verify page 2.
+			roll_one_with_ocw(Some(pool.clone()));
+			assert_eq!(verifier_events(), [Event::Verified { page: 0, backers: 4 }],);
+
+			// verification finalization also worked as expected.
+			roll_one_with_ocw(Some(pool.clone()));
+			assert_eq!(
+				verifier_events(),
+				[Event::Queued { score: ok_claimed_score, old_score: None }]
+			);
+
+			// progress to the export phase without the OCW (thus no unsigned submissions). now we
+			// can fetch the election pages from the signed submission.
+			roll_to(*phase_transition.get("export").unwrap());
+			assert_eq!(current_phase(), Phase::Export(System::block_number()));
+
+			// now confirm that calling `elect` maps to the expected solution backings that were
+			// successful submitted by 100. note: order matters, elect must be called from msp to
+			// lsp.
+			for page in (0..=CorePallet::<T>::msp()).rev() {
+				let expected_supports = Pallet::<T>::feasibility_check(
+					submitted_solution.solution_pages[page as usize].clone(),
+					page,
+				)
+				.unwrap();
+				assert_eq!(MultiPhase::elect(page).unwrap(), expected_supports);
+			}
+		})
+	}
+
+	// Test case:
+	// * max submissions are registered;
+	// * all submissions validation fail;
+	// * no unsigned phase, thus election round fails.
+	#[test]
+	fn e2e_all_submissions_verification_final_fail() {
+		let (mut ext, pool) = ExtBuilder::default()
+			.unsigned_phase(0)
+			.pages(2)
+			.signed_max_submissions(3)
+			.build_offchainify(1);
+
+		ext.execute_with(|| {
+			let phase_transition = calculate_phases();
+			roll_to_phase_with_ocw(Phase::Signed, Some(pool.clone()));
+
+			// snapshot should exist now.
+			assert_ok!(Snapshot::<T>::ensure());
+
+			// 99 registers with good submission and submits all pages. the registed claimed score
+			// has the wrong score, so the verification will fail.
+			let submitted_solution = mine_full().unwrap();
+			let ok_claimed_score = submitted_solution.score;
+			let wrong_claimed_score = ElectionScore {
+				minimal_stake: u128::MAX,
+				sum_stake: u128::MAX,
+				sum_stake_squared: u128::MAX,
+			};
+			assert!(ok_claimed_score < wrong_claimed_score);
+
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), wrong_claimed_score));
+			// note: page submission order does not matter.
+			for page in 0..=CorePallet::<T>::msp() {
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(99),
+					page,
+					Some(submitted_solution.solution_pages[page as usize].clone())
+				));
+			}
+
+			// 10 also submits with incorrect score and submission pages.
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(10), wrong_claimed_score));
+			// note: page submission order does not matter.
+			for page in 0..=CorePallet::<T>::msp() {
+				assert_ok!(SignedPallet::submit_page(
+					RuntimeOrigin::signed(10),
+					page,
+					Some(submitted_solution.solution_pages[page as usize].clone())
+				));
+			}
+
+			// no submissino is valid, thus both will fail during signed validation phase.
+			roll_to(*phase_transition.get("unsigned").unwrap() - 1);
+			assert!(current_phase().is_signed_validation());
+
+			assert_eq!(
+				verifier_events(),
+				[
+					Event::VerificationStarted { claimed_score: wrong_claimed_score },
+					Event::Verified { page: 1, backers: 4 },
+					Event::Verified { page: 0, backers: 4 },
+					Event::FinalizeVerificationFailed { error: FeasibilityError::InvalidScore },
+					Event::VerificationStarted { claimed_score: wrong_claimed_score },
+					Event::Verified { page: 1, backers: 4 },
+					Event::Verified { page: 0, backers: 4 },
+					Event::FinalizeVerificationFailed { error: FeasibilityError::InvalidScore }
+				],
+			);
+
+			// progress to the export phase without the OCW (thus no unsigned submissions).
+			roll_to(*phase_transition.get("export").unwrap() + 100);
+			assert_eq!(current_phase(), Phase::Export(System::block_number()));
+
+			// a good solution was not found, error when calling elect and end up in emergency
+			// phase.
+			assert!(MultiPhase::elect(CorePallet::<T>::msp()).is_err());
+		})
+	}
 }
 
 mod solution {
@@ -70,19 +517,15 @@ mod solution {
 
 	#[test]
 	fn variant_flipping_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().core_try_state(false).build_and_execute(|| {
 			assert!(QueuedSolution::<T>::valid() != QueuedSolution::<T>::invalid());
 
 			let valid_before = QueuedSolution::<T>::valid();
 			let invalid_before = valid_before.other();
 
-			let mock_score = ElectionScore { minimal_stake: 10, ..Default::default() };
+			set_phase_to(Phase::Unsigned(0));
+			Pallet::<T>::force_valid_solution(0, Default::default(), Default::default());
 
-			// queue solution and flip variant.
-			QueuedSolution::<T>::finalize_solution(mock_score);
-
-			// solution has been queued
-			assert_eq!(QueuedSolution::<T>::queued_score().unwrap(), mock_score);
 			// variant has flipped.
 			assert_eq!(QueuedSolution::<T>::valid(), invalid_before);
 			assert_eq!(QueuedSolution::<T>::invalid(), valid_before);
@@ -94,10 +537,52 @@ mod feasibility_check {
 	use super::*;
 
 	#[test]
+	fn ensure_score_quality_works() {
+		ExtBuilder::default()
+			.solution_improvements_threshold(Perbill::from_percent(10))
+			.build_and_execute(|| {
+				assert_eq!(MinimumScore::<T>::get(), Default::default());
+				assert!(<Pallet<T> as Verifier>::queued_score().is_none());
+
+				// if minimum score is not set and there's no queued score, any score has quality.
+				assert_ok!(Pallet::<T>::ensure_score_quality(ElectionScore {
+					minimal_stake: 1,
+					sum_stake: 1,
+					sum_stake_squared: 1
+				}));
+
+				// if minimum score is set, the score being evaluated must be higher than the
+				// minimum score.
+				MinimumScore::<T>::set(
+					ElectionScore { minimal_stake: 10, sum_stake: 20, sum_stake_squared: 300 }
+						.into(),
+				);
+
+				// score is not higher than minimum score.
+				assert_err!(
+					Pallet::<T>::ensure_score_quality(ElectionScore {
+						minimal_stake: 1,
+						sum_stake: 1,
+						sum_stake_squared: 1,
+					}),
+					FeasibilityError::ScoreTooLow
+				);
+
+				// if score improves the current one by the minimum solution improvement, we're
+				// gold.
+				assert_ok!(Pallet::<T>::ensure_score_quality(ElectionScore {
+					minimal_stake: 11,
+					sum_stake: 22,
+					sum_stake_squared: 300
+				}));
+			})
+	}
+
+	#[test]
 	fn winner_indices_page_in_bounds() {
 		ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
 			roll_to_phase(Phase::Signed);
-			let mut solution = mine_full(1).unwrap();
+			let mut solution = mine_full().unwrap();
 			assert_eq!(crate::Snapshot::<Runtime>::targets().unwrap().len(), 8);
 
 			// swap all votes from 3 to 4 to invalidate index 4.
@@ -145,17 +630,6 @@ mod feasibility_check {
 			);
 		})
 	}
-
-	#[test]
-	fn desired_targets_not_in_snapshot() {
-		ExtBuilder::default().no_desired_targets().build_and_execute(|| {
-			set_phase_to(Phase::Signed);
-			assert_err!(
-				VerifierPallet::feasibility_check(TestNposSolution::default(), 0),
-				FeasibilityError::SnapshotUnavailable,
-			);
-		})
-	}
 }
 
 mod sync_verifier {
@@ -168,7 +642,7 @@ mod sync_verifier {
 		fn given_better_solution_stores_provided_page_as_valid_solution() {
 			ExtBuilder::default().pages(1).build_and_execute(|| {
 				roll_to_phase(Phase::Signed);
-				let solution = mine_full(0).unwrap();
+				let solution = mine_full().unwrap();
 
 				// empty solution storage items before verification
 				assert!(<VerifierPallet as Verifier>::next_missing_solution_page().is_some());
@@ -179,6 +653,7 @@ mod sync_verifier {
 				}
 				.is_none());
 
+				set_phase_to(Phase::Unsigned(0));
 				assert_ok!(<VerifierPallet as Verifier>::verify_synchronous(
 					solution.solution_pages[0].clone(),
 					solution.score,
@@ -187,7 +662,6 @@ mod sync_verifier {
 
 				// solution storage items filled after verification
 				assert!(QueuedSolutionBackings::<Runtime>::get(0).is_some());
-				assert_eq!(<VerifierPallet as Verifier>::next_missing_solution_page(), None);
 				assert!(match QueuedSolution::<Runtime>::invalid() {
 					SolutionPointer::X => QueuedSolutionX::<T>::get(0),
 					SolutionPointer::Y => QueuedSolutionY::<T>::get(0),
@@ -200,13 +674,15 @@ mod sync_verifier {
 		fn returns_error_if_score_quality_is_lower_than_expected() {
 			ExtBuilder::default().pages(1).build_and_execute(|| {
 				roll_to_phase(Phase::Signed);
+				let solution = mine_full().unwrap();
+
+				set_phase_to(Phase::Unsigned(0));
 
 				// a solution already stored
 				let score =
 					ElectionScore { minimal_stake: u128::max_value(), ..Default::default() };
-				QueuedSolution::<T>::finalize_solution(score);
+				Pallet::<T>::force_valid_solution(0, Default::default(), score);
 
-				let solution = mine_full(0).unwrap();
 				assert_err!(
 					<VerifierPallet as Verifier>::verify_synchronous(
 						solution.solution_pages[0].clone(),
@@ -223,7 +699,7 @@ mod sync_verifier {
 			ExtBuilder::default().build_and_execute(|| {
 				roll_to_phase(Phase::Signed);
 
-				let solution = mine_full(0).unwrap();
+				let solution = mine_full().unwrap();
 				let _ = crate::PagedVoterSnapshot::<Runtime>::clear(u32::MAX, None);
 				assert_err!(
 					<VerifierPallet as Verifier>::verify_synchronous(
@@ -240,7 +716,7 @@ mod sync_verifier {
 		fn returns_error_if_computed_score_is_different_than_provided() {
 			ExtBuilder::default().build_and_execute(|| {
 				roll_to_phase(Phase::Signed);
-				let solution = mine_full(0).unwrap();
+				let solution = mine_full().unwrap();
 				assert_err!(
 					<VerifierPallet as Verifier>::verify_synchronous(
 						solution.solution_pages[0].clone(),
@@ -260,8 +736,8 @@ mod sync_verifier {
 			let msp = crate::Pallet::<T>::msp();
 			assert!(msp == <T as crate::Config>::Pages::get() - 1 && msp == 2);
 
-			// run to snapshot phase to reset `RemainingUnsignedPages`.
-			roll_to_phase(Phase::Snapshot(crate::Pallet::<T>::lsp()));
+			// enforce unsigned phase.
+			set_phase_to(Phase::Unsigned(System::block_number()));
 
 			// msp page is the next missing.
 			assert_eq!(<VerifierPallet as Verifier>::next_missing_solution_page(), Some(msp));
@@ -313,9 +789,12 @@ mod async_verifier {
 			ExtBuilder::default().pages(1).build_and_execute(|| {
 				roll_to_phase(Phase::Signed);
 				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
-				QueuedSolution::<T>::set_page(0, Default::default());
 
-				let claimed_score: ElectionScore = Default::default();
+				set_phase_to(Phase::Unsigned(0));
+				Pallet::<T>::force_valid_solution(0, Default::default(), Default::default());
+
+				let claimed_score: ElectionScore =
+					ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 10 };
 				assert_err!(
 					<VerifierPallet as AsyncVerifier>::force_finalize_verification(claimed_score),
 					FeasibilityError::InvalidScore
@@ -327,14 +806,15 @@ mod async_verifier {
 		fn winner_count_differs_from_desired_targets() {
 			ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
 				roll_to_phase(Phase::Signed);
-				let solution = mine_full(0).unwrap();
+				let solution = mine_full().unwrap();
 				let supports =
 					VerifierPallet::feasibility_check(solution.solution_pages[0].clone(), 0);
 				assert!(supports.is_ok());
 				let supports = supports.unwrap();
 
 				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), solution.score));
-				QueuedSolution::<T>::set_page(0, supports);
+				set_phase_to(Phase::Unsigned(0));
+				Pallet::<T>::force_valid_solution(0, supports, solution.score);
 
 				// setting desired targets value to a lower one, to make the solution verification
 				// fail
@@ -356,20 +836,16 @@ mod async_verifier {
 		}
 
 		#[test]
-		fn valid_score_results_with_solution_finalized() {
+		fn force_verification_without_pages_fails() {
 			ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
 				roll_to_phase(Phase::Signed);
-				let solution = mine_full(0).unwrap();
+				let solution = mine_full().unwrap();
 				let supports =
 					VerifierPallet::feasibility_check(solution.solution_pages[0].clone(), 0);
 				assert!(supports.is_ok());
-				let supports = supports.unwrap();
 
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), solution.score));
-				QueuedSolution::<T>::set_page(0, supports);
-
-				// no stored score so far
-				assert!(QueuedSolution::<Runtime>::queued_score().is_none());
+				set_phase_to(Phase::Unsigned(0));
+				Pallet::<T>::force_valid_solution(0, supports.unwrap(), solution.score);
 
 				assert_ok!(<VerifierPallet as AsyncVerifier>::force_finalize_verification(
 					solution.score
@@ -383,24 +859,20 @@ mod async_verifier {
 
 	#[test]
 	fn stopping_the_verification_cleans_storage_items() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().pages(1).build_and_execute(|| {
 			roll_to_phase(Phase::Signed);
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
-			QueuedSolution::<T>::set_page(0, Default::default());
 
-			assert_ne!(
-				QueuedSolutionX::<Runtime>::iter().count() +
-					QueuedSolutionY::<Runtime>::iter().count(),
-				0
-			);
-			assert_ne!(QueuedSolutionBackings::<Runtime>::iter().count(), 0);
+			set_phase_to(Phase::Unsigned(0));
+			Pallet::<T>::force_valid_solution(0, Default::default(), Default::default());
 
 			<VerifierPallet as AsyncVerifier>::stop();
 
 			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Nothing);
-			assert_eq!(QueuedSolutionX::<Runtime>::iter().count(), 0);
-			assert_eq!(QueuedSolutionY::<Runtime>::iter().count(), 0);
-			assert_eq!(QueuedSolutionBackings::<Runtime>::iter().count(), 0);
+			// invalid pointer has been cleared.
+			assert_eq!(QueuedSolution::<T>::invalid(), SolutionPointer::X);
+			assert_eq!(QueuedSolutionX::<T>::iter().count(), 0);
+			assert_eq!(QueuedSolutionBackings::<T>::iter().count(), 0);
 		});
 	}
 
@@ -411,6 +883,7 @@ mod async_verifier {
 		#[test]
 		fn fails_if_verification_is_ongoing() {
 			ExtBuilder::default().build_and_execute(|| {
+				set_phase_to(Phase::SignedValidation(System::block_number()));
 				<VerifierPallet as AsyncVerifier>::set_status(Status::Ongoing(0));
 				assert_err!(<VerifierPallet as AsyncVerifier>::start(), "verification ongoing");
 			});
@@ -514,28 +987,12 @@ mod async_verifier {
 					);
 				})
 		}
-
-		#[test]
-		fn given_better_score_sets_verification_status_to_ongoing() {
-			ExtBuilder::default().build_and_execute(|| {
-				roll_to_phase(Phase::Signed);
-				let msp = crate::Pallet::<T>::msp();
-
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
-				assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Nothing);
-
-				assert_ok!(<VerifierPallet as AsyncVerifier>::start());
-
-				assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Ongoing(msp));
-			});
-		}
 	}
 }
 
 mod hooks {
 	use super::*;
 	use crate::signed::pallet::Submissions;
-	use frame_support::traits::Hooks;
 
 	#[test]
 	fn on_initialize_ongoing_fails() {
@@ -555,7 +1012,8 @@ mod hooks {
 				Some(metadata.clone()),
 			);
 
-			// force ongoing status.
+			// force ongoing status and validate phase.
+			set_phase_to(Phase::SignedValidation(System::block_number()));
 			<VerifierPallet as AsyncVerifier>::set_status(Status::Ongoing(0));
 			assert_eq!(<VerifierPallet as AsyncVerifier>::status(), Status::Ongoing(0));
 
@@ -567,80 +1025,8 @@ mod hooks {
 
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<T>::VerificationFailed {
-					page: 0,
-					error: FeasibilityError::SnapshotUnavailable
-				}]
+				vec![Event::FinalizeVerificationFailed { error: FeasibilityError::Incomplete },]
 			);
-		});
-	}
-
-	#[test]
-	fn on_initialize_ongoing_invalid_score() {
-		ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
-			// solution insertion
-			let round = current_round();
-			let score = ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 10 };
-			let metadata = Submissions::submission_metadata_from(
-				score,
-				Default::default(),
-				Default::default(),
-				Default::default(),
-			);
-			Submissions::<T>::insert_score_and_metadata(round, 1, Some(score), Some(metadata));
-
-			// needed for targets to exist in the snapshot
-			roll_to_phase(Phase::Signed);
-			let _ = mine_full(0).unwrap();
-
-			<VerifierPallet as AsyncVerifier>::set_status(Status::Ongoing(0));
-
-			assert_eq!(VerifierPallet::on_initialize(0), Default::default());
-
-			assert_eq!(
-				verifier_events(),
-				vec![
-					Event::<T>::Verified { page: 0, backers: 0 },
-					Event::<T>::VerificationFailed {
-						page: 0,
-						error: FeasibilityError::InvalidScore
-					}
-				]
-			);
-			assert!(QueuedSolution::<Runtime>::queued_score().is_none());
-			assert_eq!(VerificationStatus::<T>::get(), Status::Nothing);
-		});
-	}
-
-	#[test]
-	fn on_initialize_ongoing_works() {
-		ExtBuilder::default().pages(1).desired_targets(2).build_and_execute(|| {
-			roll_to_phase(Phase::Signed);
-			let solution = mine_full(0).unwrap();
-			let supports = VerifierPallet::feasibility_check(solution.solution_pages[0].clone(), 0);
-			assert!(supports.is_ok());
-
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), solution.score));
-			QueuedSolution::<T>::set_page(0, supports.unwrap());
-
-			assert_ok!(<VerifierPallet as AsyncVerifier>::force_finalize_verification(
-				solution.score
-			));
-
-			<VerifierPallet as AsyncVerifier>::set_status(Status::Ongoing(0));
-
-			assert_eq!(VerifierPallet::on_initialize(0), Default::default());
-
-			assert_eq!(
-				verifier_events(),
-				vec![
-					Event::<T>::Queued { score: solution.score, old_score: Some(solution.score) },
-					Event::Verified { page: 0, backers: 0 },
-					Event::VerificationFailed { page: 0, error: FeasibilityError::InvalidScore },
-				]
-			);
-
-			assert_eq!(VerificationStatus::<T>::get(), Status::Nothing);
 		});
 	}
 }

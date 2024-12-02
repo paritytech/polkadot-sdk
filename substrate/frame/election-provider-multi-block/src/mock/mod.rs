@@ -52,9 +52,9 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances,
 		MultiPhase: epm,
-		VerifierPallet: verifier_pallet,
 		SignedPallet: signed_pallet,
 		UnsignedPallet: unsigned_pallet,
+		VerifierPallet: verifier_pallet,
 	}
 );
 
@@ -114,9 +114,10 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	pub static SignedPhase: BlockNumber = 3;
+	// same as signed validation phase + 20 blocks for margin.
+	pub static SignedPhase: BlockNumber = ((Pages::get() + 1) * MaxSubmissions::get() + 20).into();
+	pub static SignedValidationPhase: BlockNumber = ((Pages::get() + 1) * MaxSubmissions::get()).into();
 	pub static UnsignedPhase: BlockNumber = 5;
-	pub static SignedValidationPhase: BlockNumber = Pages::get().into();
 	pub static Lookhaead: BlockNumber = 0;
 	pub static VoterSnapshotPerBlock: VoterIndex = 5;
 	pub static TargetSnapshotPerBlock: TargetIndex = 8;
@@ -506,12 +507,17 @@ pub(crate) fn mine_and_verify_all() -> Result<
 	>,
 	&'static str,
 > {
+	let phase = current_phase();
+
 	let msp = crate::Pallet::<T>::msp();
 	let mut paged_supports = vec![];
 
 	for page in (0..=msp).rev() {
 		let (_, score, solution) =
 			OffchainWorkerMiner::<T>::mine(page).map_err(|e| "error mining")?;
+
+		set_phase_to(Phase::SignedValidation(0));
+		<VerifierPallet as AsyncVerifier>::set_status(verifier::Status::Ongoing(0));
 
 		let supports =
 			<VerifierPallet as verifier::Verifier>::verify_synchronous(solution, score, page)
@@ -520,6 +526,7 @@ pub(crate) fn mine_and_verify_all() -> Result<
 		paged_supports.push(supports);
 	}
 
+	set_phase_to(phase);
 	Ok(paged_supports)
 }
 
@@ -533,7 +540,6 @@ pub(crate) fn roll_to(n: BlockNumber) {
 		UnsignedPallet::on_initialize(bn);
 		UnsignedPallet::offchain_worker(bn);
 
-		// TODO: add try-checks for all pallets here too, as we progress the blocks.
 		log!(
 			trace,
 			"Block: {}, Phase: {:?}, Round: {:?}, Election at {:?}",
@@ -617,7 +623,6 @@ pub fn calculate_phases() -> HashMap<&'static str, BlockNumber> {
 	let mut map = HashMap::new();
 
 	let next_election = election_prediction();
-
 	let export_deadline = next_election - (ExportPhaseLimit::get() + Lookhaead::get());
 	let expected_unsigned = export_deadline - UnsignedPhase::get();
 	let expected_validate = expected_unsigned - SignedValidationPhase::get();
@@ -665,7 +670,7 @@ pub fn balances(who: AccountId) -> (Balance, Balance) {
 	)
 }
 
-pub fn mine_full(pages: PageIndex) -> Result<PagedRawSolution<T>, MinerError> {
+pub fn mine_full() -> Result<PagedRawSolution<T>, MinerError> {
 	let (targets, voters) =
 		OffchainWorkerMiner::<T>::fetch_snapshots().map_err(|_| MinerError::DataProvider)?;
 
@@ -695,42 +700,49 @@ pub fn mine(
 }
 
 // Pallet events filters.
+// TODO: may be simplified with a macro.
+parameter_types! {
+	static SignedEventsIdx: usize = 0;
+	static UnsignedEventsIdx: usize = 0;
+	static VerifierEventsIdx: usize = 0;
+}
 
 pub(crate) fn unsigned_events() -> Vec<crate::unsigned::Event<T>> {
-	System::events()
+	let all: Vec<_> = System::events()
 		.into_iter()
 		.map(|r| r.event)
 		.filter_map(
 			|e| if let RuntimeEvent::UnsignedPallet(inner) = e { Some(inner) } else { None },
 		)
-		.collect()
+		.collect();
+
+	let seen = UnsignedEventsIdx::get();
+	UnsignedEventsIdx::set(all.len());
+	all.into_iter().skip(seen).collect()
 }
 
 pub(crate) fn signed_events() -> Vec<crate::signed::Event<T>> {
-	System::events()
+	let all: Vec<_> = System::events()
 		.into_iter()
 		.map(|r| r.event)
 		.filter_map(|e| if let RuntimeEvent::SignedPallet(inner) = e { Some(inner) } else { None })
-		.collect()
+		.collect();
+
+	let seen = SignedEventsIdx::get();
+	SignedEventsIdx::set(all.len());
+	all.into_iter().skip(seen).collect()
 }
 
 pub(crate) fn verifier_events() -> Vec<crate::verifier::Event<T>> {
-	System::events()
+	let all: Vec<_> = System::events()
 		.into_iter()
 		.map(|r| r.event)
 		.filter_map(
 			|e| if let RuntimeEvent::VerifierPallet(inner) = e { Some(inner) } else { None },
 		)
-		.collect()
-}
+		.collect();
 
-// TODO fix or use macro.
-pub(crate) fn filter_events(
-	types: Vec<RuntimeEvent>,
-) -> Vec<impl std::cmp::PartialEq + std::fmt::Debug> {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| if types.contains(&e) { Some(e) } else { None })
-		.collect()
+	let seen = VerifierEventsIdx::get();
+	VerifierEventsIdx::set(all.len());
+	all.into_iter().skip(seen).collect()
 }

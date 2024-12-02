@@ -927,25 +927,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// The `on_initialize` signals the [`AsyncVerifier`] whenever it should start or stop the
-		/// asynchronous verification of stored submissions.
-		///
-		/// - Start async verification at the beginning of the [`crate::Phase::SignedValidation`].
-		/// - Stops async verification at the beginning of the [`crate::Phase::Unsigned`].
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			if CorePallet::<T>::current_phase().is_signed_validation_open_at(Some(now)) {
-				sublog!(debug, "signed", "signed validation phase started, signaling the verifier to start async verifiacton.");
-				let _ = <T::Verifier as AsyncVerifier>::start().defensive();
-			};
-
-			if CorePallet::<T>::current_phase().is_unsigned_open_at(now) {
-				sublog!(debug, "signed", "signed validation phase ended, signaling the verifier to stop async verifiacton.");
-				<T::Verifier as AsyncVerifier>::stop();
-			}
-
-			Weight::default()
-		}
-
 		fn integrity_test() {}
 
 		#[cfg(feature = "try-runtime")]
@@ -972,6 +953,11 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 	fn get_score() -> Option<ElectionScore> {
 		let round = CorePallet::<T>::current_round();
 		Submissions::<T>::leader(round).map(|(_who, score)| score)
+	}
+
+	/// Returns whether the submission queue has more submissions to process in a given round.
+	fn has_pending_submission(era: u32) -> bool {
+		!Submissions::<T>::scores_for(era).is_empty()
 	}
 
 	/// Called by an external entity to report a verification result of the current *best*

@@ -172,7 +172,7 @@ frame_election_provider_support::generate_solution_type!(
 parameter_types! {
 	pub static SignedPhase: BlockNumber = 10;
 	pub static UnsignedPhase: BlockNumber = 10;
-	pub static SignedValidationPhase: BlockNumber = Pages::get().into();
+	pub static SignedValidationPhase: BlockNumber = ((Pages::get() + 1) * MaxSubmissions::get()).into();
 	pub static Lookhaead: BlockNumber = Pages::get();
 	pub static VoterSnapshotPerBlock: VoterIndex = 4;
 	pub static TargetSnapshotPerBlock: TargetIndex = 8;
