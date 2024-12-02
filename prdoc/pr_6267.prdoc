@@ -15,8 +15,6 @@ doc:
       manner.
 
 crates:
-  - name: substrate-test-runtime
-    bump: minor
   - name: pallet-vesting
     bump: minor
   - name: pallet-utility
@@ -29,9 +27,9 @@ crates:
     bump: minor
   - name: pallet-transaction-payment
     bump: minor
-  - name: pallet-asset-conversion-tx-payment
-    bump: minor
   - name: pallet-asset-tx-payment
+    bump: minor
+  - name: pallet-asset-conversion-tx-payment
     bump: minor
   - name: pallet-tips
     bump: minor
@@ -100,8 +98,6 @@ crates:
   - name: pallet-asset-conversion-ops
     bump: minor
   - name: pallet-alliance
-    bump: minor
-  - name: node-testing
     bump: minor
   - name: xcm-simulator-fuzzer
     bump: minor

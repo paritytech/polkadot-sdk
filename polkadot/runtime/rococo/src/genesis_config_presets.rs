@@ -166,7 +166,7 @@ fn rococo_testnet_genesis(
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>()
+			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
 		session: SessionConfig {
 			keys: initial_authorities
@@ -427,7 +427,7 @@ fn rococo_staging_testnet_config_genesis() -> serde_json::Value {
 				.iter()
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-				.collect::<Vec<_>>()
+				.collect::<Vec<_>>(),
 		},
 		session: SessionConfig {
 			keys: initial_authorities
