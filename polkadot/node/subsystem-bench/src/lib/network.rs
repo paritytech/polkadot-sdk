@@ -221,6 +221,12 @@ impl NetworkMessage {
 pub struct NetworkInterface {
 	// Sender for subsystems.
 	bridge_to_interface_sender: UnboundedSender<NetworkMessage>,
+	peer_overseers: Vec<(
+		Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
+		OverseerHandle,
+		IncomingRequestReceiver<StatementFetchingRequest>,
+		IncomingRequestReceiver<AttestedCandidateRequest>,
+	)>,
 }
 
 // Wraps the receiving side of a interface to bridge channel. It is a required
@@ -265,6 +271,12 @@ impl NetworkInterface {
 		network: NetworkEmulatorHandle,
 		bandwidth_bps: usize,
 		mut from_network: UnboundedReceiver<NetworkMessage>,
+		peer_overseers: Vec<(
+			Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
+			OverseerHandle,
+			IncomingRequestReceiver<StatementFetchingRequest>,
+			IncomingRequestReceiver<AttestedCandidateRequest>,
+		)>,
 	) -> (NetworkInterface, NetworkInterfaceReceiver) {
 		let rx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
 		let tx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
@@ -411,7 +423,7 @@ impl NetworkInterface {
 		spawn_task_handle.spawn("network-interface-tx", "test-environment", tx_task);
 
 		(
-			Self { bridge_to_interface_sender },
+			Self { bridge_to_interface_sender, peer_overseers },
 			NetworkInterfaceReceiver(interface_to_bridge_receiver),
 		)
 	}
@@ -862,12 +874,11 @@ pub fn new_network(
 		peers[*peer].disconnect();
 	}
 
-	for peer in peers.iter() {
-		if !peer.is_connected() {
-			continue
-		}
-		let _ = build_peer_overseer(dependencies);
-	}
+	let peer_overseers = peers
+		.iter()
+		.filter(|peer| peer.is_connected())
+		.map(|_| build_peer_overseer(dependencies))
+		.collect();
 
 	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
 
@@ -883,6 +894,7 @@ pub fn new_network(
 		handle.clone(),
 		config.bandwidth,
 		from_network,
+		peer_overseers,
 	);
 
 	(handle, network_interface, network_interface_receiver)

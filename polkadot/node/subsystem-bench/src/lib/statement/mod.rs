@@ -39,13 +39,9 @@ use itertools::Itertools;
 use polkadot_network_bridge::Network;
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
-	authority_discovery::AuthorityDiscovery,
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	peer_set::{PeerSet, PeerSetProtocolNames},
-	request_response::{
-		v1::StatementFetchingRequest, v2::AttestedCandidateRequest, IncomingRequest,
-		ReqProtocolNames, Requests,
-	},
+	request_response::{IncomingRequest, ReqProtocolNames},
 	v3::{self, BackedCandidateManifest, StatementFilter},
 	view, Versioned, View,
 };
@@ -75,11 +71,10 @@ use sc_network::{
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sc_network_types::PeerId;
 use sc_service::{config::SetConfig, Role, SpawnTaskHandle};
-use sp_consensus::SyncOracle;
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::{traits::Zero, RuntimeAppPublic};
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	sync::{atomic::Ordering, Arc},
 	time::{Duration, Instant},
 };
