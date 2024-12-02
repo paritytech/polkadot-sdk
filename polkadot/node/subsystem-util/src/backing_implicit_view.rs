@@ -143,17 +143,6 @@ impl From<BlockInfoProspectiveParachains> for RelayChainBlockInfo {
 	}
 }
 
-/// Error in constructing a path from an outer relay parent to a target relay parent.
-#[fatality::fatality]
-pub enum PathError {
-	/// The relay parent is not present in the view.
-	#[error("The relay parent is not present in the view")]
-	UnknownRelayParent(Hash),
-	/// There are no relay parents to build on in the view.
-	#[error("The view is empty")]
-	NoRelayParentsToBuildOn,
-}
-
 impl View {
 	/// Get an iterator over active leaves in the view.
 	pub fn leaves(&self) -> impl Iterator<Item = &Hash> {
@@ -342,7 +331,7 @@ impl View {
 		);
 
 		if self.leaves.is_empty() {
-			// No outer leaves so the view should be empty. Don't return any paths.
+			// No leaves so the view should be empty. Don't return any paths.
 			return vec![]
 		};
 
@@ -351,7 +340,7 @@ impl View {
 			return vec![]
 		}
 
-		// Find all paths from each outer leaf to `relay_parent`.
+		// Find all paths from each leaf to `relay_parent`.
 		let mut paths = Vec::new();
 		for (leaf, _) in &self.leaves {
 			let mut path = Vec::new();

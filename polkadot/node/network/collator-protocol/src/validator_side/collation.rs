@@ -23,8 +23,11 @@
 //!       entries in the claim queue at a specific relay parent. When calculating this limit the
 //!       validator counts all advertisements within its view not just at the relay parent.
 //!    3. If the advertisement was accepted, it's queued for fetch (per relay parent).
-//!    4. Once it's requested, the collation is said to be Pending.
-//!    5. Pending collation becomes Fetched once received, we send it to backing for validation.
+//!    4. Once it's requested, the collation is said to be pending fetch
+//!       (`CollationStatus::Fetching`).
+//!    5. Pending fetch collation becomes pending validation
+//!       (`CollationStatus::WaitingOnValidation`) once received, we send it to backing for
+//!       validation.
 //!    6. If it turns to be invalid or async backing allows seconding another candidate, carry on
 //!       with the next advertisement, otherwise we're done with this relay parent.
 //!
