@@ -30,16 +30,6 @@ on:
           - polkadot-parachain
           - chain-spec-builder
 
-      # release_id:
-      #   description: |
-      #     Release ID.
-      #     You can find it using the command:
-      #     curl -s \
-      #       -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/$OWNER/$REPO/releases | \
-      #       jq '.[] | { name: .name, id: .id }'
-      #   required: true
-      #   type: number
-
       registry:
         description: Container registry
         required: true
@@ -78,7 +68,12 @@ env:
   IMAGE_TYPE: ${{ inputs.image_type }}
 
 jobs:
+  check-synchronization:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+
   validate-inputs:
+    needs: [check-synchronization]
+    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.validate_inputs.outputs.VERSION }}
