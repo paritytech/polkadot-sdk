@@ -47,27 +47,6 @@ fn test_submit_happy_path() {
 }
 
 #[test]
-fn test_submit_xcm_invalid_channel() {
-	new_tester().execute_with(|| {
-		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
-
-		// Submit message
-		let message = Message {
-			event_log: mock_event_log_invalid_channel(),
-			proof: Proof {
-				receipt_proof: Default::default(),
-				execution_proof: mock_execution_proof(),
-			},
-		};
-		assert_noop!(
-			InboundQueue::submit(origin.clone(), message.clone()),
-			Error::<Test>::InvalidChannel,
-		);
-	});
-}
-
-#[test]
 fn test_submit_with_invalid_gateway() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
@@ -151,7 +130,7 @@ fn test_set_operating_mode_root_only() {
 fn test_send_native_erc20_token_payload() {
 	new_tester().execute_with(|| {
         // To generate test data: forge test --match-test testSendEther  -vvvv
-        let payload = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf04005615deb798bb3e4dfa0139dfa1b3d433cc23b72f0000b2d3595bf00600000000000000000000").to_vec();
+        let payload = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf0030ef7dba020000000000000000000004005615deb798bb3e4dfa0139dfa1b3d433cc23b72f0000b2d3595bf00600000000000000000000").to_vec();
         let message = MessageV2::decode(&mut payload.as_ref());
         assert_ok!(message.clone());
 
@@ -179,12 +158,13 @@ fn test_send_native_erc20_token_payload() {
 #[test]
 fn test_send_foreign_erc20_token_payload() {
 	new_tester().execute_with(|| {
-        let payload = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf040197874824853fb4ad04794ccfd1cc8d2a7463839cfcbc6a315a1045c60ab85f400000b2d3595bf00600000000000000000000").to_vec();
+        let payload = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf0030ef7dba0200000000000000000000040197874824853fb4ad04794ccfd1cc8d2a7463839cfcbc6a315a1045c60ab85f400000b2d3595bf00600000000000000000000").to_vec();
         let message = MessageV2::decode(&mut payload.as_ref());
         assert_ok!(message.clone());
 
-        let inbound_message = message.unwrap();
+       	let inbound_message = message.unwrap();
 
+        let expected_fee = 3_000_000_000_000u128;
         let expected_origin: H160 = hex!("29e3b139f4393adda86303fcdaa35f60bb7092bf").into();
         let expected_token_id: H256 = hex!("97874824853fb4ad04794ccfd1cc8d2a7463839cfcbc6a315a1045c60ab85f40").into();
         let expected_value = 500000000000000000u128;
@@ -192,6 +172,7 @@ fn test_send_foreign_erc20_token_payload() {
         let expected_claimer: Option<Vec<u8>> = None;
 
         assert_eq!(expected_origin, inbound_message.origin);
+        assert_eq!(expected_fee, inbound_message.fee);
         assert_eq!(1, inbound_message.assets.len());
         if let Asset::ForeignTokenERC20 { token_id, value } = &inbound_message.assets[0] {
             assert_eq!(expected_token_id, *token_id);
@@ -207,7 +188,7 @@ fn test_send_foreign_erc20_token_payload() {
 #[test]
 fn test_register_token_inbound_message_with_xcm_and_claimer() {
 	new_tester().execute_with(|| {
-        let payload = hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a904005615deb798bb3e4dfa0139dfa1b3d433cc23b72f00000000000000000000000000000000300508020401000002286bee0a015029e3b139f4393adda86303fcdaa35f60bb7092bf").to_vec();
+        let payload = hex!("5991a2df15a8f6a256d3ec51e99254cd3fb576a90030ef7dba020000000000000000000004005615deb798bb3e4dfa0139dfa1b3d433cc23b72f00000000000000000000000000000000300508020401000002286bee0a015029e3b139f4393adda86303fcdaa35f60bb7092bf").to_vec();
         let message = MessageV2::decode(&mut payload.as_ref());
         assert_ok!(message.clone());
 

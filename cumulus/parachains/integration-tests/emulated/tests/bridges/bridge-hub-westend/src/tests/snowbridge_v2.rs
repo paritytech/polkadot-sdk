@@ -32,7 +32,6 @@ use testnet_parachains_constants::westend::fee::WeightToFee as WeightCalculator;
 const INITIAL_FUND: u128 = 5_000_000_000_000;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 const WETH: [u8; 20] = hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14");
-const WETH_FEE: u128 = 1_000_000_000_000;
 
 pub fn weth_location() -> Location {
 	Location::new(
@@ -147,6 +146,7 @@ pub(crate) fn set_up_weth_pool_with_wnd_on_ah_westend(asset: v5::Location) {
 
 #[test]
 fn register_token_v2() {
+	// Whole register token fee is 374_851_000_000
 	let relayer = BridgeHubWestendSender::get();
 	let receiver = AssetHubWestendReceiver::get();
 	BridgeHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
@@ -171,8 +171,9 @@ fn register_token_v2() {
 
 	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
 
-	let weth_fee: xcm::prelude::Asset = (weth_location(), WETH_FEE).into();
-	let weth_transact_fee: xcm::prelude::Asset = (weth_location(), WETH_FEE / 2).into();
+	let weth_fee_value: u128 = 1_000_000_000_000;
+	let weth_fee: xcm::prelude::Asset = (weth_location(), weth_fee_value).into();
+	let weth_transact_fee: xcm::prelude::Asset = (weth_location(), weth_fee_value).into();
 
 	let asset_id = Location::new(
 		2,
@@ -191,7 +192,6 @@ fn register_token_v2() {
 			// will be deducted from)
 			DepositAsset { assets: dot_fee.into(), beneficiary: bridge_owner.into() },
 			// Pay for the transact execution
-			//PayFees { asset: weth_transact_fee.into() },
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				call: (
@@ -210,6 +210,7 @@ fn register_token_v2() {
 
 		let message = Message {
 			origin,
+			fee: 1_500_000_000_000u128,
 			assets,
 			xcm: versioned_message_xcm.encode(),
 			claimer: Some(claimer_bytes),
@@ -231,93 +232,6 @@ fn register_token_v2() {
 			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Created { .. }) => {},]
 		);
 	});
-}
-
-#[test]
-fn xcm_prologue_fee() {
-	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id().into(), INITIAL_FUND);
-
-	let asset_hub_sovereign = BridgeHubWestend::sovereign_account_id_of(Location::new(
-		1,
-		[Parachain(AssetHubWestend::para_id().into())],
-	));
-
-	let relayer = BridgeHubWestendSender::get();
-	let receiver = AssetHubWestendReceiver::get();
-	BridgeHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
-
-	let mut token_ids = Vec::new();
-	for _ in 0..8 {
-		token_ids.push(H160::random());
-	}
-
-	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		for token_id in token_ids.iter() {
-			let token_id = *token_id;
-
-			let asset_location = Location::new(
-				2,
-				[
-					GlobalConsensus(ethereum_network_v5),
-					AccountKey20 { network: None, key: token_id.into() },
-				],
-			);
-
-			assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::force_create(
-				RuntimeOrigin::root(),
-				asset_location.clone(),
-				asset_hub_sovereign.clone().into(),
-				false,
-				1,
-			));
-
-			assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::asset_exists(
-				asset_location.clone().try_into().unwrap(),
-			));
-		}
-	});
-
-	let native_tokens: Vec<snowbridge_router_primitives::inbound::v2::Asset> = token_ids
-		.iter()
-		.map(|token_id| NativeTokenERC20 { token_id: *token_id, value: 3_000_000_000 })
-		.collect();
-
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-
-		let claimer = AccountId32 { network: None, id: receiver.clone().into() };
-		let claimer_bytes = claimer.encode();
-		let origin = H160::random();
-		let relayer_location =
-			Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
-
-		let message_xcm_instructions =
-			vec![DepositAsset { assets: Wild(AllCounted(8)), beneficiary: receiver.into() }];
-		let message_xcm: Xcm<()> = message_xcm_instructions.into();
-		let versioned_message_xcm = VersionedXcm::V5(message_xcm);
-
-		let message = Message {
-			origin,
-			assets: native_tokens,
-			xcm: versioned_message_xcm.encode(),
-			claimer: Some(claimer_bytes),
-		};
-		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
-		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
-
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
-		);
-	});
-
-	let execution_fee = WeightCalculator::weight_to_fee(&Weight::from_parts(1410450000, 33826));
-	let buffered_fee = execution_fee * 2;
-	println!("buffered execution fee for prologue for 8 assets: {}", buffered_fee);
 }
 
 #[test]

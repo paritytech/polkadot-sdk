@@ -52,7 +52,6 @@ use frame_support::{
 use frame_system::{ensure_signed, pallet_prelude::*};
 use scale_info::TypeInfo;
 use snowbridge_core::{
-	fees::burn_fees,
 	inbound::{Message, VerificationError, Verifier},
 	sparse_bitmap::SparseBitmap,
 	BasicOperatingMode,
@@ -65,7 +64,6 @@ use sp_std::vec;
 use types::Nonce;
 pub use weights::WeightInfo;
 use xcm::prelude::{send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, *};
-use xcm_executor::traits::TransactAsset;
 
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_beacon_primitives::BeaconHeader;
@@ -108,14 +106,10 @@ pub mod pallet {
 		type AssetHubParaId: Get<u32>;
 		/// Convert a command from Ethereum to an XCM message.
 		type MessageConverter: ConvertMessage;
-		/// The AH XCM execution fee for the static part of the XCM message.
-		type XcmPrologueFee: Get<BalanceOf<Self>>;
 		/// Used to burn fees from the origin account (the relayer), which will be teleported to AH.
 		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
 		/// Used for the dry run API implementation.
 		type Balance: Balance + From<u128>;
-		/// Used to burn fees.
-		type AssetTransactor: TransactAsset;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
 	}
@@ -233,12 +227,6 @@ pub mod pallet {
 			let origin_account_location = Self::account_to_location(who)?;
 
 			let xcm = Self::do_convert(message, origin_account_location.clone())?;
-
-			// Burn the required fees for the static XCM message part
-			burn_fees::<T::AssetTransactor, BalanceOf<T>>(
-				origin_account_location,
-				T::XcmPrologueFee::get(),
-			)?;
 
 			// Todo: Deposit fee(in Ether) to RewardLeger which should cover all of:
 			// T::RewardLeger::deposit(who, envelope.fee.into())?;

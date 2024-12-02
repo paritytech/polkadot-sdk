@@ -11,7 +11,7 @@ use sp_core::{Get, RuntimeDebug, H160, H256};
 use sp_runtime::traits::MaybeEquivalence;
 use sp_std::prelude::*;
 use xcm::{
-	prelude::{Junction::AccountKey20, *},
+	prelude::{Asset as XcmAsset, Junction::AccountKey20, *},
 	MAX_XCM_DECODE_DEPTH,
 };
 
@@ -23,6 +23,8 @@ const LOG_TARGET: &str = "snowbridge-router-primitives";
 pub struct Message {
 	/// The origin address
 	pub origin: H160,
+	/// Fee in weth to cover the xcm execution on AH.
+	pub fee: u128,
 	/// The assets
 	pub assets: Vec<Asset>,
 	/// The command originating from the Gateway contract
@@ -67,24 +69,24 @@ pub trait ConvertMessage {
 	fn convert(message: Message, origin_account: Location) -> Result<Xcm<()>, ConvertMessageError>;
 }
 
-pub struct MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, XcmPrologueFee>
+pub struct MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, WethAddress>
 where
 	EthereumNetwork: Get<NetworkId>,
 	InboundQueuePalletInstance: Get<u8>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	XcmPrologueFee: Get<u128>,
+	WethAddress: Get<H160>,
 {
 	_phantom:
-		PhantomData<(EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, XcmPrologueFee)>,
+		PhantomData<(EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, WethAddress)>,
 }
 
-impl<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, XcmPrologueFee> ConvertMessage
-	for MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, XcmPrologueFee>
+impl<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, WethAddress> ConvertMessage
+	for MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, WethAddress>
 where
 	EthereumNetwork: Get<NetworkId>,
 	InboundQueuePalletInstance: Get<u8>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
-	XcmPrologueFee: Get<u128>,
+	WethAddress: Get<H160>,
 {
 	fn convert(
 		message: Message,
@@ -112,13 +114,14 @@ where
 
 		let network = EthereumNetwork::get();
 
-		let fee_asset = Location::new(1, Here);
-		let fee: xcm::prelude::Asset = (fee_asset.clone(), XcmPrologueFee::get()).into();
+		// use weth as asset
+		let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get()), AccountKey20 { network: None, key: WethAddress::get().into() } ]);
+		let fee: XcmAsset = (fee_asset.clone(), message.fee).into();
 		let mut instructions = vec![
-			ReceiveTeleportedAsset(fee.clone().into()),
-			PayFees { asset: fee },
 			DescendOrigin(PalletInstance(InboundQueuePalletInstance::get()).into()),
 			UniversalOrigin(GlobalConsensus(network)),
+			ReserveAssetDeposited(fee.clone().into()),
+			PayFees { asset: fee },
 		];
 
 		for asset in &message.assets {
@@ -150,6 +153,7 @@ where
 
 		// Set the alias origin to the original sender on Ethereum. Important to be before the
 		// arbitrary XCM that is appended to the message on the next line.
+		// TODO allow address from Ethereum to create foreign assets on AH
 		// instructions.push(AliasOrigin(origin_location.into()));
 
 		// Add the XCM sent in the message to the end of the xcm instruction
@@ -158,7 +162,6 @@ where
 		let appendix = vec![
 			RefundSurplus,
 			// Refund excess fees to the relayer
-			// TODO maybe refund all fees to the relayer instead of just DOT?
 			DepositAsset {
 				assets: Wild(AllOf { id: AssetId(fee_asset.into()), fun: WildFungible }),
 				beneficiary: origin_account_location,

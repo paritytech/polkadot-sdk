@@ -5,7 +5,7 @@ use super::*;
 use crate::{self as inbound_queue_v2};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32},
+	traits::ConstU32,
 	weights::IdentityFee,
 };
 use hex_literal::hex;
@@ -104,6 +104,7 @@ impl Verifier for MockVerifier {
 }
 
 const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
+const WETH_ADDRESS: [u8; 20] = hex!["fff9976782d46cc05630d1f6ebab18b2324d6b14"];
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
@@ -149,11 +150,10 @@ impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
 parameter_types! {
 	pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
+	pub const WethAddress: H160 = H160(WETH_ADDRESS);
 	pub const InboundQueuePalletInstance: u8 = 80;
 	pub AssetHubLocation: InteriorLocation = Parachain(1000).into();
 }
-
-const XCM_PROLOGUE_FEE: u128 = 1_000_000_000_000;
 
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -167,12 +167,10 @@ impl inbound_queue_v2::Config for Test {
 		EthereumNetwork,
 		InboundQueuePalletInstance,
 		MockTokenIdConvert,
-		ConstU128<XCM_PROLOGUE_FEE>,
+		WethAddress,
 	>;
 	type Token = Balances;
 	type Balance = u128;
-	type XcmPrologueFee = ConstU128<XCM_PROLOGUE_FEE>;
-	type AssetTransactor = SuccessfulTransactor;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 }

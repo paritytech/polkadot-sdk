@@ -71,11 +71,8 @@ parameter_types! {
 	};
 	pub AssetHubFromEthereum: Location = Location::new(1,[GlobalConsensus(RelayNetwork::get()),Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID)]);
 	pub EthereumUniversalLocation: InteriorLocation = [GlobalConsensus(EthereumNetwork::get())].into();
+	pub WethAddress: H160 = H160(hex_literal::hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14"));
 }
-
-/// The XCM execution fee on AH for the static part of the XCM message (not the user provided
-/// xcm). Teleported from BH. Calculated with integration test snowbridge_v2::xcm_prologue_fee.
-const XCM_PROLOGUE_FEE: u128 = 67_652_000_000;
 
 impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -122,13 +119,11 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type AssetHubParaId = ConstU32<1000>;
 	type Token = Balances;
 	type Balance = Balance;
-	type XcmPrologueFee = ConstU128<XCM_PROLOGUE_FEE>;
-	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 	type MessageConverter = snowbridge_router_primitives::inbound::v2::MessageToXcm<
 		EthereumNetwork,
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
 		EthereumSystem,
-		ConstU128<XCM_PROLOGUE_FEE>,
+		WethAddress,
 	>;
 }
 
