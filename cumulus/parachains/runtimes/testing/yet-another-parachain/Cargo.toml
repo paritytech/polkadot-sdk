@@ -21,6 +21,7 @@ frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-aura = { workspace = true }
+pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -38,6 +39,13 @@ sp-runtime = { workspace = true }
 sp-session = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
+xcm.workspace = true
+xcm-builder.workspace = true
+xcm-executor.workspace = true
+pallet-xcm.workspace = true
+pallet-message-queue.workspace = true
+cumulus-pallet-xcm = { workspace = true }
+cumulus-pallet-xcmp-queue = { workspace = true }
 
 # Polkadot
 polkadot-parachain-primitives = { workspace = true }
