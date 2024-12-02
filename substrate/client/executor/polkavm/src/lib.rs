@@ -43,6 +43,13 @@ impl WasmInstance for Instance {
 		name: &str,
 		raw_data: &[u8],
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>) {
+		let Some(_) = self.0.module().exports().find(|e| e.symbol() == name) else {
+			return (
+				Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
+				None,
+			);
+		};
+
 		let Ok(raw_data_length) = u32::try_from(raw_data.len()) else {
 			return (
 				Err(format!("cannot call runtime method '{name}': input payload is too big").into()),
