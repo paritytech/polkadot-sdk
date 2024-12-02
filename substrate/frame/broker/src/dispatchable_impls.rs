@@ -104,16 +104,10 @@ impl<T: Config> Pallet<T> {
 			ideal_cores_sold: 0,
 			cores_offered: 0,
 			cores_sold: 0,
+			sale_index: 0,
 		};
 
-		// Get current sale_id and increment it
-		let current_sale_id = SaleId::<T>::get();
-		let new_sale_id = current_sale_id.saturating_add(1);
-	
-		// Store the new sale_id for the next sale
-		SaleId::<T>::put(new_sale_id);
-
-		Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count, sale_id: new_sale_id });
+		Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count });
 		Self::rotate_sale(old_sale, &config, &status);
 		Status::<T>::put(&status);
 		Ok(())

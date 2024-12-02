@@ -233,6 +233,7 @@ mod benches {
 					.saturating_sub(T::MaxLeasedCores::get())
 					.try_into()
 					.unwrap(),
+				sale_index: 0u32,
 			}
 			.into(),
 		);
@@ -803,6 +804,7 @@ mod benches {
 			ideal_cores_sold: 0,
 			cores_offered: 0,
 			cores_sold: 0,
+			sale_index: 0u32,
 		};
 
 		let status = StatusRecord {
@@ -862,6 +864,7 @@ mod benches {
 					.saturating_sub(T::MaxLeasedCores::get())
 					.try_into()
 					.unwrap(),
+				sale_index: 1u32,
 			}
 			.into(),
 		);

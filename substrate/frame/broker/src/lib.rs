@@ -194,10 +194,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
 
-	/// Id of the current sale.
-	#[pallet::storage]
-	pub type SaleId<T> = StorageValue<_, u32, ValueQuery>;
-
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -327,6 +323,8 @@ pub mod pallet {
 			ideal_cores_sold: CoreIndex,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
+			/// Identifier for the current sale
+			sale_index: u32,
 		},
 		/// A new lease has been created.
 		Leased {
@@ -350,8 +348,6 @@ pub mod pallet {
 			price: BalanceOf<T>,
 			/// The maximum number of cores which this pallet will attempt to assign.
 			core_count: CoreIndex,
-			/// Identifier for the current sale.
-			sale_id: u32,
 		},
 		/// The act of claiming revenue has begun.
 		RevenueClaimBegun {

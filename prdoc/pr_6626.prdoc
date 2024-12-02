@@ -4,10 +4,10 @@
 title: coretime sale id
 
 doc:
-  - audience: Runtime Dev
+  - audience: Runtime Dev & Runtime Users
     description: |
       This pull request adds a `sale_id` in the event emitted when coretime sale starts.
 
 crates:
   - name: pallet-broker
-    bump: minor
+    bump: major
