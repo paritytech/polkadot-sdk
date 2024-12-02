@@ -499,7 +499,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	assert_total_issuance(relay_client.clone(), para_client.clone(), total_issuance).await;
 
-	log::info!("Test finished successfuly");
+	log::info!("Test finished successfully");
 
 	Ok(())
 }

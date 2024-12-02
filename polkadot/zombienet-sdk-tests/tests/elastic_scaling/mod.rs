@@ -1,5 +1,5 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-mod elastic_scaling;
-mod smoke;
+#[cfg(feature = "zombie-metadata")]
+mod slot_based_3cores;
