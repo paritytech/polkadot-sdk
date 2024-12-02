@@ -49,7 +49,7 @@ use scale_info::TypeInfo;
 use sp_application_crypto::Ss58Codec;
 use sp_keyring::AccountKeyring;
 
-use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
+use sp_application_crypto::{ecdsa, ed25519, sr25519, blsRuntimeAppPublic, bls381};
 use sp_core::{OpaqueMetadata, RuntimeDebug};
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
@@ -219,6 +219,11 @@ decl_runtime_apis! {
 		///
 		/// Returns the signature generated for the message `ecdsa`.
 		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic);
+		/// Test that 'bls381' crypto works in the runtime
+		///
+		/// Returns the signature generated for the message `bls381`.
+		#[cfg(feature = "bls-experimental")]
+		fn test_bls381_crypto() -> (bls381::AppSignature, bls381::AppPublic);
 		/// Run various tests against storage.
 		fn test_storage();
 		/// Check a witness.
@@ -580,6 +585,11 @@ impl_runtime_apis! {
 			test_ecdsa_crypto()
 		}
 
+		#[cfg(feature = "bls-experimental")]
+		fn test_bls381_crypto() -> (bls381::AppSignature, bls381::AppPublic) {
+			test_bls381_crypto()
+		}
+
 		fn test_storage() {
 			test_read_storage();
 			test_read_child_storage();
@@ -802,6 +812,23 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic) {
 	let signature = public0.sign(&"ecdsa").expect("Generates a valid `ecdsa` signature.");
 
 	assert!(public0.verify(&"ecdsa", &signature));
+	(signature, public0)
+}
+
+#[cfg(feature = "bls-experimental")]
+fn test_bls381_crypto() -> (bls381::AppSignature, bls381::AppPublic) {
+	let public0 = bls381::AppPublic::generate_pair(None);
+	let public1 = bls381::AppPublic::generate_pair(None);
+	let public2 = bls381::AppPublic::generate_pair(None);
+
+	let all = bls381::AppPublic::all();
+	assert!(all.contains(&public0));
+	assert!(all.contains(&public1));
+	assert!(all.contains(&public2));
+
+	let signature = public0.sign(&"bls381").expect("Generates a valid `bls381` signature.");
+
+	assert!(public0.verify(&"bls381", &signature));
 	(signature, public0)
 }
 
