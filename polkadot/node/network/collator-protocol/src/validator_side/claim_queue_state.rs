@@ -46,7 +46,7 @@ struct ClaimInfo {
 /// should be built/fetched/accepted (depending on the context) at each block.
 ///
 /// Since the claim queue peeks into the future blocks there is a relation between the claim queue
-/// state between the current block and the future blocks. 
+/// state between the current block and the future blocks.
 /// Let's see an example with 2 co-scheduled parachains:
 /// - relay parent 1; Claim queue: [A, B, A]
 /// - relay parent 2; Claim queue: [B, A, B]
@@ -139,6 +139,11 @@ impl ClaimQueueState {
 				claimed: false,
 			}
 		};
+
+		// `future_blocks` can't be longer than the length of the claim queue at the last block - 1.
+		// For example this can happen if at relay block N we have got a claim queue of a length 4
+		// and it's shrunk to 2.
+		self.future_blocks.truncate(claim_queue.len().saturating_sub(1));
 
 		self.block_state.push_back(claim_info);
 	}
@@ -769,6 +774,278 @@ mod test {
 					claimed: false
 				}
 			])
+		);
+	}
+
+	#[test]
+	fn empty_claim_queue() {
+		let mut state = ClaimQueueState::new();
+		let relay_parent_a = Hash::from_low_u64_be(1);
+		let para_id_a = ParaId::new(1);
+		let claim_queue_a = vec![];
+
+		state.add_leaf(&relay_parent_a, &claim_queue_a);
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![]);
+
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![ClaimInfo {
+				hash: Some(relay_parent_a),
+				claim: None,
+				claim_queue_len: 0,
+				claimed: false,
+			},])
+		);
+		// no claim queue so we know nothing about future blocks
+		assert!(state.future_blocks.is_empty());
+
+		assert!(!state.can_claim_at(&relay_parent_a, &para_id_a));
+		assert!(!state.claim_at(&relay_parent_a, &para_id_a));
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![]);
+
+		let relay_parent_b = Hash::from_low_u64_be(2);
+		let claim_queue_b = vec![para_id_a];
+		state.add_leaf(&relay_parent_b, &claim_queue_b);
+
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![
+				ClaimInfo {
+					hash: Some(relay_parent_a),
+					claim: None,
+					claim_queue_len: 0,
+					claimed: false,
+				},
+				ClaimInfo {
+					hash: Some(relay_parent_b),
+					claim: Some(para_id_a),
+					claim_queue_len: 1,
+					claimed: false,
+				},
+			])
+		);
+		// claim queue with length 1 doesn't say anything about future blocks
+		assert!(state.future_blocks.is_empty());
+
+		assert!(!state.can_claim_at(&relay_parent_a, &para_id_a));
+		assert!(!state.claim_at(&relay_parent_a, &para_id_a));
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![]);
+
+		assert!(state.can_claim_at(&relay_parent_b, &para_id_a));
+		assert_eq!(state.unclaimed_at(&relay_parent_b), vec![para_id_a]);
+		assert!(state.claim_at(&relay_parent_b, &para_id_a));
+
+		let relay_parent_c = Hash::from_low_u64_be(3);
+		let claim_queue_c = vec![para_id_a, para_id_a];
+		state.add_leaf(&relay_parent_c, &claim_queue_c);
+
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![
+				ClaimInfo {
+					hash: Some(relay_parent_a),
+					claim: None,
+					claim_queue_len: 0,
+					claimed: false,
+				},
+				ClaimInfo {
+					hash: Some(relay_parent_b),
+					claim: Some(para_id_a),
+					claim_queue_len: 1,
+					claimed: true,
+				},
+				ClaimInfo {
+					hash: Some(relay_parent_c),
+					claim: Some(para_id_a),
+					claim_queue_len: 2,
+					claimed: false,
+				},
+			])
+		);
+		// claim queue with length 2 fills only one future block
+		assert_eq!(
+			state.future_blocks,
+			VecDeque::from(vec![ClaimInfo {
+				hash: None,
+				claim: Some(para_id_a),
+				claim_queue_len: 1,
+				claimed: false,
+			},])
+		);
+
+		assert!(!state.can_claim_at(&relay_parent_a, &para_id_a));
+		assert!(!state.claim_at(&relay_parent_a, &para_id_a));
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![]);
+
+		// already claimed
+		assert!(!state.can_claim_at(&relay_parent_b, &para_id_a));
+		assert_eq!(state.unclaimed_at(&relay_parent_b), vec![]);
+		assert!(!state.claim_at(&relay_parent_b, &para_id_a));
+
+		assert!(state.can_claim_at(&relay_parent_c, &para_id_a));
+		assert_eq!(state.unclaimed_at(&relay_parent_c), vec![para_id_a, para_id_a]);
+	}
+
+	#[test]
+	fn claim_queue_becomes_shorter() {
+		let mut state = ClaimQueueState::new();
+		let relay_parent_a = Hash::from_low_u64_be(1);
+		let para_id_a = ParaId::new(1);
+		let para_id_b = ParaId::new(2);
+		let claim_queue_a = vec![para_id_a, para_id_b, para_id_a];
+
+		state.add_leaf(&relay_parent_a, &claim_queue_a);
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![para_id_a, para_id_b, para_id_a]);
+
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![ClaimInfo {
+				hash: Some(relay_parent_a),
+				claim: Some(para_id_a),
+				claim_queue_len: 3,
+				claimed: false,
+			},])
+		);
+		assert_eq!(
+			state.future_blocks,
+			VecDeque::from(vec![
+				ClaimInfo {
+					hash: None,
+					claim: Some(para_id_b),
+					claim_queue_len: 1,
+					claimed: false
+				},
+				ClaimInfo {
+					hash: None,
+					claim: Some(para_id_a),
+					claim_queue_len: 1,
+					claimed: false
+				}
+			])
+		);
+
+		let relay_parent_b = Hash::from_low_u64_be(2);
+		let claim_queue_b = vec![para_id_a, para_id_b]; // should be [b, a]
+		state.add_leaf(&relay_parent_b, &claim_queue_b);
+
+		assert_eq!(state.unclaimed_at(&relay_parent_b), vec![para_id_a, para_id_b]);
+		// claims for `relay_parent_a` has changed.
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![para_id_a, para_id_a, para_id_b]);
+
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![
+				ClaimInfo {
+					hash: Some(relay_parent_a),
+					claim: Some(para_id_a),
+					claim_queue_len: 3,
+					claimed: false,
+				},
+				ClaimInfo {
+					hash: Some(relay_parent_b),
+					claim: Some(para_id_a),
+					claim_queue_len: 2,
+					claimed: false,
+				}
+			])
+		);
+		assert_eq!(
+			state.future_blocks,
+			VecDeque::from(vec![ClaimInfo {
+				hash: None,
+				claim: Some(para_id_b),
+				claim_queue_len: 1,
+				claimed: false
+			},])
+		);
+	}
+
+	#[test]
+	fn claim_queue_becomes_shorter_and_drops_future_claims() {
+		let mut state = ClaimQueueState::new();
+		let relay_parent_a = Hash::from_low_u64_be(1);
+		let para_id_a = ParaId::new(1);
+		let para_id_b = ParaId::new(2);
+		let claim_queue_a = vec![para_id_a, para_id_b, para_id_a, para_id_b];
+
+		state.add_leaf(&relay_parent_a, &claim_queue_a);
+
+		assert_eq!(
+			state.unclaimed_at(&relay_parent_a),
+			vec![para_id_a, para_id_b, para_id_a, para_id_b]
+		);
+
+		// We start with claim queue len 4.
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![ClaimInfo {
+				hash: Some(relay_parent_a),
+				claim: Some(para_id_a),
+				claim_queue_len: 4,
+				claimed: false,
+			},])
+		);
+		// we have got three future blocks
+		assert_eq!(
+			state.future_blocks,
+			VecDeque::from(vec![
+				ClaimInfo {
+					hash: None,
+					claim: Some(para_id_b),
+					claim_queue_len: 1,
+					claimed: false
+				},
+				ClaimInfo {
+					hash: None,
+					claim: Some(para_id_a),
+					claim_queue_len: 1,
+					claimed: false
+				},
+				ClaimInfo {
+					hash: None,
+					claim: Some(para_id_b),
+					claim_queue_len: 1,
+					claimed: false
+				}
+			])
+		);
+
+		// The next claim len is 2, so we loose one future block
+		let relay_parent_b = Hash::from_low_u64_be(2);
+		let para_id_a = ParaId::new(1);
+		let para_id_b = ParaId::new(2);
+		let claim_queue_b = vec![para_id_b, para_id_a];
+		state.add_leaf(&relay_parent_b, &claim_queue_b);
+
+		assert_eq!(state.unclaimed_at(&relay_parent_a), vec![para_id_a, para_id_b, para_id_a]);
+		assert_eq!(state.unclaimed_at(&relay_parent_b), vec![para_id_b, para_id_a]);
+
+		assert_eq!(
+			state.block_state,
+			VecDeque::from(vec![
+				ClaimInfo {
+					hash: Some(relay_parent_a),
+					claim: Some(para_id_a),
+					claim_queue_len: 4,
+					claimed: false,
+				},
+				ClaimInfo {
+					hash: Some(relay_parent_b),
+					claim: Some(para_id_b),
+					claim_queue_len: 2,
+					claimed: false,
+				}
+			])
+		);
+
+		assert_eq!(
+			state.future_blocks,
+			VecDeque::from(vec![ClaimInfo {
+				hash: None,
+				claim: Some(para_id_a),
+				claim_queue_len: 1,
+				claimed: false
+			},])
 		);
 	}
 }
