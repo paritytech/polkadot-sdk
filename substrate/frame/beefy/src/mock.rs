@@ -147,6 +147,10 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 }
 
 impl<Header: HeaderT> AncestryHelperWeightInfo<Header> for MockAncestryHelper {
+	fn is_proof_optimal(_proof: &<Self as AncestryHelper<HeaderFor<Test>>>::Proof) -> Weight {
+		unimplemented!()
+	}
+
 	fn extract_validation_context() -> Weight {
 		unimplemented!()
 	}
