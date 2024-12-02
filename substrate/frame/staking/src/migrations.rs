@@ -70,6 +70,8 @@ pub mod v17 {
 		fn on_runtime_upgrade() -> Weight {
 			let mut migration_errors = false;
 
+			v16::MaxValidatorsCount::<T>::kill();
+
 			let old_disabled_validators = v16::DisabledValidators::<T>::get();
 			// BoundedVec with MaxWinners limit, this should always work
 			let disabled_validators_maybe = WeakBoundedVec::try_from(old_disabled_validators);
@@ -248,6 +250,9 @@ pub mod v16 {
 		ExposurePage<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
 		OptionQuery,
 	>;
+
+	#[frame_support::storage_alias]
+	pub(crate) type MaxValidatorsCount<T: Config> = StorageValue<Pallet<T>, u32, OptionQuery>;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV15ToV16<T> {

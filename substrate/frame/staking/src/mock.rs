@@ -290,6 +290,7 @@ impl crate::pallet::pallet::Config for Test {
 		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxRewardPagesPerValidator = ConstU32<20>;
+	type MaxValidatorsCount = ConstU32<300>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

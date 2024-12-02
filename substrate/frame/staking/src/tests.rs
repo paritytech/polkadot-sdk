@@ -53,7 +53,6 @@ fn set_staking_configs_works() {
 			ConfigOp::Set(1_500),
 			ConfigOp::Set(2_000),
 			ConfigOp::Set(10),
-			ConfigOp::Set(20),
 			ConfigOp::Set(Percent::from_percent(75)),
 			ConfigOp::Set(Zero::zero()),
 			ConfigOp::Set(Zero::zero())
@@ -61,7 +60,6 @@ fn set_staking_configs_works() {
 		assert_eq!(MinNominatorBond::<Test>::get(), 1_500);
 		assert_eq!(MinValidatorBond::<Test>::get(), 2_000);
 		assert_eq!(MaxNominatorsCount::<Test>::get(), Some(10));
-		assert_eq!(MaxValidatorsCount::<Test>::get(), Some(20));
 		assert_eq!(ChillThreshold::<Test>::get(), Some(Percent::from_percent(75)));
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
 		assert_eq!(MaxStakedRewards::<Test>::get(), Some(Percent::from_percent(0)));
@@ -92,7 +90,6 @@ fn set_staking_configs_works() {
 		assert_eq!(MinNominatorBond::<Test>::get(), 0);
 		assert_eq!(MinValidatorBond::<Test>::get(), 0);
 		assert_eq!(MaxNominatorsCount::<Test>::get(), None);
-		assert_eq!(MaxValidatorsCount::<Test>::get(), None);
 		assert_eq!(ChillThreshold::<Test>::get(), None);
 		assert_eq!(MinCommission::<Test>::get(), Perbill::from_percent(0));
 		assert_eq!(MaxStakedRewards::<Test>::get(), None);
@@ -1808,7 +1805,6 @@ fn max_staked_rewards_works() {
 		// sets new max staked rewards through set_staking_configs.
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
-			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -5711,7 +5707,6 @@ fn chill_other_works() {
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
-				ConfigOp::Remove,
 				ConfigOp::Noop,
 			));
 
@@ -5730,7 +5725,6 @@ fn chill_other_works() {
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
-				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5753,7 +5747,6 @@ fn chill_other_works() {
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Remove,
-				ConfigOp::Remove,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5774,7 +5767,6 @@ fn chill_other_works() {
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
-				ConfigOp::Set(10),
 				ConfigOp::Set(10),
 				ConfigOp::Set(Percent::from_percent(75)),
 				ConfigOp::Noop,
@@ -5820,7 +5812,6 @@ fn capped_stakers_works() {
 			RuntimeOrigin::root(),
 			ConfigOp::Set(10),
 			ConfigOp::Set(10),
-			ConfigOp::Set(max),
 			ConfigOp::Set(max),
 			ConfigOp::Remove,
 			ConfigOp::Remove,
@@ -5892,7 +5883,6 @@ fn capped_stakers_works() {
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Remove,
-			ConfigOp::Remove,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
@@ -5925,7 +5915,6 @@ fn min_commission_works() {
 
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
-			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,

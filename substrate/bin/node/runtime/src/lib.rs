@@ -749,6 +749,7 @@ impl pallet_staking::Config for Runtime {
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxRewardPagesPerValidator = ConstU32<20>;
+	type MaxValidatorsCount = ConstU32<300>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {

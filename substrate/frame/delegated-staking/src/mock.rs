@@ -24,7 +24,7 @@ use frame_support::{
 	PalletId,
 };
 
-use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
+use sp_runtime::{traits::IdentityLookup, BoundedVec, BuildStorage, Perbill};
 
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -217,7 +217,7 @@ impl ExtBuilder {
 			// ideal validator count
 			validator_count: 2,
 			minimum_validator_count: 1,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),

@@ -188,7 +188,7 @@ impl Default for ExtBuilder {
 		Self {
 			validator_count: 2,
 			minimum_validator_count: 0,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			balance_factor: 1,
 		}
 	}
@@ -235,7 +235,7 @@ impl ExtBuilder {
 			stakers: stakers.clone(),
 			validator_count: self.validator_count,
 			minimum_validator_count: self.minimum_validator_count,
-			invulnerables: self.invulnerables,
+			invulnerables: BoundedVec::force_from(self.invulnerables),
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		}

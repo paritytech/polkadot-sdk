@@ -1021,7 +1021,6 @@ mod benchmarks {
 			ConfigOp::Set(BalanceOf::<T>::max_value()),
 			ConfigOp::Set(BalanceOf::<T>::max_value()),
 			ConfigOp::Set(u32::MAX),
-			ConfigOp::Set(u32::MAX),
 			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(Perbill::max_value()),
 			ConfigOp::Set(Percent::max_value()),
@@ -1030,7 +1029,6 @@ mod benchmarks {
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
 		assert_eq!(MinValidatorBond::<T>::get(), BalanceOf::<T>::max_value());
 		assert_eq!(MaxNominatorsCount::<T>::get(), Some(u32::MAX));
-		assert_eq!(MaxValidatorsCount::<T>::get(), Some(u32::MAX));
 		assert_eq!(ChillThreshold::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
@@ -1047,13 +1045,11 @@ mod benchmarks {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
-			ConfigOp::Remove,
 		);
 
 		assert!(!MinNominatorBond::<T>::exists());
 		assert!(!MinValidatorBond::<T>::exists());
 		assert!(!MaxNominatorsCount::<T>::exists());
-		assert!(!MaxValidatorsCount::<T>::exists());
 		assert!(!ChillThreshold::<T>::exists());
 		assert!(!MinCommission::<T>::exists());
 		assert!(!MaxStakedRewards::<T>::exists());
@@ -1076,7 +1072,6 @@ mod benchmarks {
 			RawOrigin::Root.into(),
 			ConfigOp::Set(BalanceOf::<T>::max_value()),
 			ConfigOp::Set(BalanceOf::<T>::max_value()),
-			ConfigOp::Set(0),
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),

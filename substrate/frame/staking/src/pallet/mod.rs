@@ -143,6 +143,12 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type NominationsQuota: NominationsQuota<BalanceOf<Self>>;
 
+		/// The maximum validator count before we stop allowing new validators to join.
+		///
+		/// This is a dynamic runtime parameters, so updates do not require storage migrations.
+		#[pallet::constant]
+		type MaxValidatorsCount: Get<u32>;
+
 		/// Number of eras to keep in history.
 		///
 		/// Following information is kept for eras in `[current_era -
@@ -361,6 +367,7 @@ pub mod pallet {
 			type DisablingStrategy = crate::UpToLimitDisablingStrategy;
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxRewardPagesPerValidator = ConstU32<20>;
+			type MaxValidatorsCount = ConstU32<300>;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -426,12 +433,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Validators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, ValidatorPrefs, ValueQuery>;
-
-	/// The maximum validator count before we stop allowing new validators to join.
-	///
-	/// When this value is not set, no limits are enforced.
-	#[pallet::storage]
-	pub type MaxValidatorsCount<T> = StorageValue<_, u32, OptionQuery>;
 
 	/// The map from nominator stash key to their nomination preferences, namely the validators that
 	/// they wish to support.
@@ -710,7 +711,6 @@ pub mod pallet {
 			Vec<(T::AccountId, T::AccountId, BalanceOf<T>, crate::StakerStatus<T::AccountId>)>,
 		pub min_nominator_bond: BalanceOf<T>,
 		pub min_validator_bond: BalanceOf<T>,
-		pub max_validator_count: Option<u32>,
 		pub max_nominator_count: Option<u32>,
 	}
 
@@ -729,9 +729,6 @@ pub mod pallet {
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
 			MinNominatorBond::<T>::put(self.min_nominator_bond);
 			MinValidatorBond::<T>::put(self.min_validator_bond);
-			if let Some(x) = self.max_validator_count {
-				MaxValidatorsCount::<T>::put(x);
-			}
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
 			}
@@ -1347,12 +1344,10 @@ pub mod pallet {
 				// If this error is reached, we need to adjust the `MinValidatorBond` and start
 				// calling `chill_other`. Until then, we explicitly block new validators to protect
 				// the runtime.
-				if let Some(max_validators) = MaxValidatorsCount::<T>::get() {
-					ensure!(
-						Validators::<T>::count() < max_validators,
-						Error::<T>::TooManyValidators
-					);
-				}
+				ensure!(
+					Validators::<T>::count() < T::MaxValidatorsCount::get(),
+					Error::<T>::TooManyValidators,
+				);
 			}
 
 			Self::do_remove_nominator(stash);
@@ -1911,7 +1906,6 @@ pub mod pallet {
 			min_nominator_bond: ConfigOp<BalanceOf<T>>,
 			min_validator_bond: ConfigOp<BalanceOf<T>>,
 			max_nominator_count: ConfigOp<u32>,
-			max_validator_count: ConfigOp<u32>,
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
 			max_staked_rewards: ConfigOp<Percent>,
@@ -1931,7 +1925,6 @@ pub mod pallet {
 			config_op_exp!(MinNominatorBond<T>, min_nominator_bond);
 			config_op_exp!(MinValidatorBond<T>, min_validator_bond);
 			config_op_exp!(MaxNominatorsCount<T>, max_nominator_count);
-			config_op_exp!(MaxValidatorsCount<T>, max_validator_count);
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
@@ -1955,8 +1948,8 @@ pub mod pallet {
 		///
 		/// * A `ChillThreshold` must be set and checked which defines how close to the max
 		///   nominators or validators we must reach before users can start chilling one-another.
-		/// * A `MaxNominatorCount` and `MaxValidatorCount` must be set which is used to determine
-		///   how close we are to the threshold.
+		/// * A `MaxNominatorCount` must be set which is used to determine how close we are to the
+		///   threshold.
 		/// * A `MinNominatorBond` and `MinValidatorBond` must be set and checked, which determines
 		///   if this is a person that should be chilled because they have not met the threshold
 		///   bond required.
@@ -1984,7 +1977,7 @@ pub mod pallet {
 			//
 			// * A `ChillThreshold` is set which defines how close to the max nominators or
 			//   validators we must reach before users can start chilling one-another.
-			// * A `MaxNominatorCount` and `MaxValidatorCount` which is used to determine how close
+			// * A `MaxNominatorCount` and `MaxValidatorsCount` which is used to determine how close
 			//   we are to the threshold.
 			// * A `MinNominatorBond` and `MinValidatorBond` which is the final condition checked to
 			//   determine this is a person that should be chilled because they have not met the
@@ -2009,8 +2002,7 @@ pub mod pallet {
 					);
 					MinNominatorBond::<T>::get()
 				} else if Validators::<T>::contains_key(&stash) {
-					let max_validator_count =
-						MaxValidatorsCount::<T>::get().ok_or(Error::<T>::CannotChillOther)?;
+					let max_validator_count = T::MaxValidatorsCount::get();
 					let current_validator_count = Validators::<T>::count();
 					ensure!(
 						threshold * max_validator_count < current_validator_count,

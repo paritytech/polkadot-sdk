@@ -287,6 +287,14 @@ pub mod dynamic_params {
 		#[codec(index = 4)]
 		pub static UseAuctionSlots: bool = false;
 	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod staking {
+		/// Maximum number of validators allowed.
+		#[codec(index = 0)]
+		pub static MaxValidatorsCount: u32 = 300;
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -319,6 +327,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 
 		match key {
 			Inflation(_) => frame_system::ensure_root(origin.clone()),
+			Staking(_) => frame_system::ensure_root(origin.clone()),
 		}
 		.map_err(|_| origin)
 	}
@@ -760,6 +769,7 @@ impl pallet_staking::Config for Runtime {
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxRewardPagesPerValidator = frame_support::traits::ConstU32<20>;
+	type MaxValidatorsCount = dynamic_params::staking::MaxValidatorsCount;
 }
 
 impl pallet_fast_unstake::Config for Runtime {

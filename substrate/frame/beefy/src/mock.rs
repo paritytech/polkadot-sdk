@@ -36,7 +36,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	testing::TestXt,
 	traits::{Header as HeaderT, OpaqueKeys},
-	BuildStorage, Perbill,
+	BoundedVec, BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 use sp_state_machine::BasicExternalities;
@@ -303,7 +303,7 @@ impl ExtBuilder {
 			validator_count: 2,
 			force_era: pallet_staking::Forcing::ForceNew,
 			minimum_validator_count: 0,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			..Default::default()
 		};
 
