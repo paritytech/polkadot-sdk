@@ -304,6 +304,10 @@ impl<T: Config> AncestryHelperWeightInfo<HeaderFor<T>> for Pallet<T>
 where
 	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing>,
 {
+	fn is_proof_optimal(proof: &<Self as AncestryHelper<HeaderFor<T>>>::Proof) -> Weight {
+		<T as Config>::WeightInfo::n_leafs_proof_is_optimal(proof.leaf_count.saturated_into())
+	}
+
 	fn extract_validation_context() -> Weight {
 		<T as Config>::WeightInfo::extract_validation_context()
 	}

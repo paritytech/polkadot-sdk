@@ -51,6 +51,7 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_beefy_mmr`.
 pub trait WeightInfo {
+	fn n_leafs_proof_is_optimal(n: u32, ) -> Weight;
 	fn extract_validation_context() -> Weight;
 	fn read_peak() -> Weight;
 	fn n_items_proof_is_non_canonical(n: u32, ) -> Weight;
@@ -59,6 +60,16 @@ pub trait WeightInfo {
 /// Weights for `pallet_beefy_mmr` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	fn n_leafs_proof_is_optimal(n: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_187_000 picoseconds.
+		Weight::from_parts(2_216_147, 0)
+			// Standard Error: 80
+			.saturating_add(Weight::from_parts(488, 0).saturating_mul(n.into()))
+	}
+
 	/// Storage: `System::BlockHash` (r:1 w:0)
 	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	fn extract_validation_context() -> Weight {
@@ -98,6 +109,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
+	fn n_leafs_proof_is_optimal(n: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_187_000 picoseconds.
+		Weight::from_parts(2_216_147, 0)
+			// Standard Error: 80
+			.saturating_add(Weight::from_parts(488, 0).saturating_mul(n.into()))
+	}
+
 	/// Storage: `System::BlockHash` (r:1 w:0)
 	/// Proof: `System::BlockHash` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	fn extract_validation_context() -> Weight {
