@@ -68,15 +68,7 @@ where
 	AddView(BlockHash<C>, ViewStream<C>),
 	/// Removes an existing view's stream associated with a specific block hash.
 	RemoveView(BlockHash<C>),
-	/// Adds initial views for given extrinsics hashes.
-	///
-	/// This message should be sent when the external submission of a transaction occures. It
-	/// provides the list of initial views for given extrinsics hashes.
-	/// The dropped notification is not sent if it comes from the initial views. It allows to keep
-	/// transaction in the mempool, even if all the views are full at the time of submitting
-	/// transaction to the pool.
-	AddInitialViews(Vec<ExtrinsicHash<C>>, BlockHash<C>),
-	/// Removes all initial views for given extrinsic hashes.
+	/// Removes internal states for given extrinsic hashes.
 	///
 	/// Intended to ba called on finalization.
 	RemoveFinalizedTxs(Vec<ExtrinsicHash<C>>),
@@ -90,7 +82,6 @@ where
 		match self {
 			Command::AddView(..) => write!(f, "AddView"),
 			Command::RemoveView(..) => write!(f, "RemoveView"),
-			Command::AddInitialViews(..) => write!(f, "AddInitialViews"),
 			Command::RemoveFinalizedTxs(..) => write!(f, "RemoveFinalizedTxs"),
 		}
 	}
@@ -118,13 +109,6 @@ where
 	///
 	/// Once transaction is dropped, dropping view is removed from the set.
 	transaction_states: HashMap<ExtrinsicHash<C>, HashSet<BlockHash<C>>>,
-
-	/// The list of initial view for every extrinsic.
-	///
-	/// Dropped notifications from initial views will be silenced. This allows to accept the
-	/// transaction into the mempool, even if all the views are full at the time of submitting new
-	/// transaction.
-	initial_views: HashMap<ExtrinsicHash<C>, HashSet<BlockHash<C>>>,
 }
 
 impl<C> MultiViewDropWatcherContext<C>
@@ -164,15 +148,7 @@ where
 							.iter()
 							.all(|h| !self.stream_map.contains_key(h))
 					{
-						return self
-							.initial_views
-							.get(&tx_hash)
-							.map(|list| !list.contains(&block_hash))
-							.unwrap_or(true)
-							.then(|| {
-								debug!("[{:?}] dropped_watcher: removing tx", tx_hash);
-								tx_hash
-							})
+						return Some(tx_hash)
 					}
 				} else {
 					debug!("[{:?}] dropped_watcher: removing (non-tracked) tx", tx_hash);
@@ -201,7 +177,6 @@ where
 			stream_map: StreamMap::new(),
 			command_receiver,
 			transaction_states: Default::default(),
-			initial_views: Default::default(),
 		};
 
 		let stream_map = futures::stream::unfold(ctx, |mut ctx| async move {
@@ -217,17 +192,13 @@ where
 							Command::RemoveView(key) => {
 								trace!(target: LOG_TARGET,"dropped_watcher: Command::RemoveView {key:?} views:{:?}",ctx.stream_map.keys().collect::<Vec<_>>());
 								ctx.stream_map.remove(&key);
-							},
-							Command::AddInitialViews(xts,block_hash) => {
-								log_xt_trace!(target: LOG_TARGET, xts.clone(), "[{:?}] dropped_watcher: xt initial view added {block_hash:?}");
-								xts.into_iter().for_each(|xt| {
-									ctx.initial_views.entry(xt).or_default().insert(block_hash);
+								ctx.transaction_states.iter_mut().for_each(|(_,state)| {
+									state.remove(&key);
 								});
 							},
 							Command::RemoveFinalizedTxs(xts) => {
 								log_xt_trace!(target: LOG_TARGET, xts.clone(), "[{:?}] dropped_watcher: finalized xt removed");
 								xts.iter().for_each(|xt| {
-									ctx.initial_views.remove(xt);
 									ctx.transaction_states.remove(xt);
 								});
 
@@ -291,34 +262,13 @@ where
 		});
 	}
 
-	/// Adds the initial view for the given transactions hashes.
-	///
-	/// This message should be called when the external submission of a transaction occures. It
-	/// provides the list of initial views for given extrinsics hashes.
-	///
-	/// The dropped notification is not sent if it comes from the initial views. It allows to keep
-	/// transaction in the mempool, even if all the views are full at the time of submitting
-	/// transaction to the pool.
-	pub fn add_initial_views(
-		&self,
-		xts: impl IntoIterator<Item = ExtrinsicHash<C>> + Clone,
-		block_hash: BlockHash<C>,
-	) {
-		let _ = self
-			.controller
-			.unbounded_send(Command::AddInitialViews(xts.into_iter().collect(), block_hash))
-			.map_err(|e| {
-				trace!(target: LOG_TARGET, "dropped_watcher: add_initial_views_ send message failed: {e}");
-			});
-	}
-
-	/// Removes all initial views for finalized transactions.
+	/// Removes status info for finalized transactions.
 	pub fn remove_finalized_txs(&self, xts: impl IntoIterator<Item = ExtrinsicHash<C>> + Clone) {
 		let _ = self
 			.controller
 			.unbounded_send(Command::RemoveFinalizedTxs(xts.into_iter().collect()))
 			.map_err(|e| {
-				trace!(target: LOG_TARGET, "dropped_watcher: remove_initial_views send message failed: {e}");
+				trace!(target: LOG_TARGET, "dropped_watcher: remove_finalized_txs send message failed: {e}");
 			});
 	}
 }
@@ -468,65 +418,6 @@ mod dropped_watcher_tests {
 		.boxed();
 		let block_hash2 = H256::repeat_byte(0x03);
 		watcher.add_view(block_hash2, view_stream2);
-		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
-		assert_eq!(handle.await.unwrap(), vec![tx_hash]);
-	}
-
-	#[tokio::test]
-	async fn test06() {
-		sp_tracing::try_init_simple();
-		let (watcher, mut output_stream) = MultiViewDroppedWatcher::new();
-		assert!(output_stream.next().now_or_never().is_none());
-
-		let block_hash0 = H256::repeat_byte(0x01);
-		let block_hash1 = H256::repeat_byte(0x02);
-		let tx_hash = H256::repeat_byte(0x0b);
-
-		let view_stream0 = futures::stream::iter(vec![
-			(tx_hash, TransactionStatus::Future),
-			(tx_hash, TransactionStatus::InBlock((block_hash1, 0))),
-		])
-		.boxed();
-		watcher.add_view(block_hash0, view_stream0);
-		assert!(output_stream.next().now_or_never().is_none());
-
-		let view_stream1 = futures::stream::iter(vec![
-			(tx_hash, TransactionStatus::Ready),
-			(tx_hash, TransactionStatus::Dropped),
-		])
-		.boxed();
-
-		watcher.add_view(block_hash1, view_stream1);
-		watcher.add_initial_views(vec![tx_hash], block_hash1);
-		assert!(output_stream.next().now_or_never().is_none());
-	}
-
-	#[tokio::test]
-	async fn test07() {
-		sp_tracing::try_init_simple();
-		let (watcher, mut output_stream) = MultiViewDroppedWatcher::new();
-		assert!(output_stream.next().now_or_never().is_none());
-
-		let block_hash0 = H256::repeat_byte(0x01);
-		let block_hash1 = H256::repeat_byte(0x02);
-		let tx_hash = H256::repeat_byte(0x0b);
-
-		let view_stream0 = futures::stream::iter(vec![
-			(tx_hash, TransactionStatus::Future),
-			(tx_hash, TransactionStatus::InBlock((block_hash1, 0))),
-		])
-		.boxed();
-		watcher.add_view(block_hash0, view_stream0);
-		watcher.add_initial_views(vec![tx_hash], block_hash0);
-		assert!(output_stream.next().now_or_never().is_none());
-
-		let view_stream1 = futures::stream::iter(vec![
-			(tx_hash, TransactionStatus::Ready),
-			(tx_hash, TransactionStatus::Dropped),
-		])
-		.boxed();
-		watcher.add_view(block_hash1, view_stream1);
-
 		let handle = tokio::spawn(async move { output_stream.take(1).collect::<Vec<_>>().await });
 		assert_eq!(handle.await.unwrap(), vec![tx_hash]);
 	}

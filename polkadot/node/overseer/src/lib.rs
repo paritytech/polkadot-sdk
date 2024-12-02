@@ -468,6 +468,7 @@ pub async fn forward_events<P: BlockchainEvents<Block>>(client: Arc<P>, mut hand
 )]
 pub struct Overseer<SupportsParachains> {
 	#[subsystem(CandidateValidationMessage, sends: [
+		ChainApiMessage,
 		RuntimeApiMessage,
 	])]
 	candidate_validation: CandidateValidation,

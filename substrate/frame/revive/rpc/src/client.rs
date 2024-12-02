@@ -17,25 +17,24 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 use crate::{
-	rlp,
 	runtime::GAS_PRICE,
 	subxt_client::{
-		revive::calls::types::EthTransact, runtime_types::pallet_revive::storage::ContractInfo,
+		revive::{calls::types::EthTransact, events::ContractEmitted},
+		runtime_types::pallet_revive::storage::ContractInfo,
 	},
-	TransactionLegacySigned, LOG_TARGET,
+	LOG_TARGET,
 };
-use codec::Encode;
 use futures::{stream, StreamExt};
-use jsonrpsee::types::{ErrorCode, ErrorObjectOwned};
+use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
 use pallet_revive::{
 	create1,
 	evm::{
-		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, ReceiptInfo,
-		SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
+		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes256, GenericTransaction, Log,
+		ReceiptInfo, SyncingProgress, SyncingStatus, TransactionSigned, H160, H256, U256,
 	},
-	EthContractResult,
+	EthTransactError, EthTransactInfo,
 };
-use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_core::keccak_256;
 use sp_weights::Weight;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -44,9 +43,9 @@ use std::{
 };
 use subxt::{
 	backend::{
-		legacy::LegacyRpcMethods,
+		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
 		rpc::{
-			reconnecting_rpc_client::{Client as ReconnectingRpcClient, ExponentialBackoff},
+			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 			RpcClient,
 		},
 	},
@@ -57,10 +56,7 @@ use subxt::{
 };
 use subxt_client::transaction_payment::events::TransactionFeePaid;
 use thiserror::Error;
-use tokio::{
-	sync::{watch::Sender, RwLock},
-	task::JoinSet,
-};
+use tokio::sync::{watch::Sender, RwLock};
 
 use crate::subxt_client::{self, system::events::ExtrinsicSuccess, SrcChainConfig};
 
@@ -102,72 +98,125 @@ struct BlockCache<const N: usize> {
 	tx_hashes_by_block_and_index: HashMap<H256, HashMap<U256, H256>>,
 }
 
-fn unwrap_subxt_err(err: &subxt::Error) -> String {
+/// Unwrap the original `jsonrpsee::core::client::Error::Call` error.
+fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
+	use subxt::backend::rpc::reconnecting_rpc_client;
 	match err {
-		subxt::Error::Rpc(err) => unwrap_rpc_err(err),
-		_ => err.to_string(),
+		subxt::error::RpcError::ClientError(err) => {
+			match err.downcast_ref::<reconnecting_rpc_client::Error>() {
+				Some(reconnecting_rpc_client::Error::RpcError(
+					jsonrpsee::core::client::Error::Call(err),
+				)) => Some(err.clone().into_owned()),
+				_ => None,
+			}
+		},
+		_ => None,
 	}
 }
 
-fn unwrap_rpc_err(err: &subxt::error::RpcError) -> String {
-	match err {
-		subxt::error::RpcError::ClientError(err) => match err
-			// TODO use the re-export from subxt once available
-			.downcast_ref::<jsonrpsee::core::ClientError>()
-		{
-			Some(jsonrpsee::core::ClientError::Call(call_err)) => call_err.message().to_string(),
-			Some(other_err) => other_err.to_string(),
-			None => err.to_string(),
+/// Extract the revert message from a revert("msg") solidity statement.
+fn extract_revert_message(exec_data: &[u8]) -> Option<String> {
+	let error_selector = exec_data.get(0..4)?;
+
+	match error_selector {
+		// assert(false)
+		[0x4E, 0x48, 0x7B, 0x71] => {
+			let panic_code: u32 = U256::from_big_endian(exec_data.get(4..36)?).try_into().ok()?;
+
+			// See https://docs.soliditylang.org/en/latest/control-structures.html#panic-via-assert-and-error-via-require
+			let msg = match panic_code {
+				0x00 => "generic panic",
+				0x01 => "assert(false)",
+				0x11 => "arithmetic underflow or overflow",
+				0x12 => "division or modulo by zero",
+				0x21 => "enum overflow",
+				0x22 => "invalid encoded storage byte array accessed",
+				0x31 => "out-of-bounds array access; popping on an empty array",
+				0x32 => "out-of-bounds access of an array or bytesN",
+				0x41 => "out of memory",
+				0x51 => "uninitialized function",
+				code => return Some(format!("execution reverted: unknown panic code: {code:#x}")),
+			};
+
+			Some(format!("execution reverted: {msg}"))
 		},
-		_ => err.to_string(),
+		// revert(string)
+		[0x08, 0xC3, 0x79, 0xA0] => {
+			let decoded = ethabi::decode(&[ethabi::ParamType::String], &exec_data[4..]).ok()?;
+			if let Some(ethabi::Token::String(msg)) = decoded.first() {
+				return Some(format!("execution reverted: {msg}"))
+			}
+			Some("execution reverted".to_string())
+		},
+		_ => {
+			log::debug!(target: LOG_TARGET, "Unknown revert function selector: {error_selector:?}");
+			Some("execution reverted".to_string())
+		},
 	}
 }
 
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
+	/// A [`jsonrpsee::core::ClientError`] wrapper error.
+	#[error(transparent)]
+	Jsonrpsee(#[from] jsonrpsee::core::ClientError),
 	/// A [`subxt::Error`] wrapper error.
-	#[error("{}",unwrap_subxt_err(.0))]
+	#[error(transparent)]
 	SubxtError(#[from] subxt::Error),
 	/// A [`RpcError`] wrapper error.
-	#[error("{}",unwrap_rpc_err(.0))]
+	#[error(transparent)]
 	RpcError(#[from] RpcError),
 	/// A [`codec::Error`] wrapper error.
 	#[error(transparent)]
 	CodecError(#[from] codec::Error),
-	/// The dry run failed.
-	#[error("Dry run failed")]
-	DryRunFailed,
+	/// Contract reverted
+	#[error("contract reverted")]
+	Reverted(EthTransactError),
 	/// A decimal conversion failed.
-	#[error("Conversion failed")]
+	#[error("conversion failed")]
 	ConversionFailed,
 	/// The block hash was not found.
-	#[error("Hash not found")]
+	#[error("hash not found")]
 	BlockNotFound,
 	/// The transaction fee could not be found
-	#[error("TransactionFeePaid event not found")]
+	#[error("transactionFeePaid event not found")]
 	TxFeeNotFound,
-	/// The token decimals property was not found
-	#[error("tokenDecimals not found in properties")]
-	TokenDecimalsNotFound,
 	/// The cache is empty.
-	#[error("Cache is empty")]
+	#[error("cache is empty")]
 	CacheEmpty,
 }
 
-const GENERIC_ERROR_CODE: ErrorCode = ErrorCode::ServerError(-32000);
-
-// Convert a `ClientError` to an RPC `ErrorObjectOwned`.
+const REVERT_CODE: i32 = 3;
 impl From<ClientError> for ErrorObjectOwned {
-	fn from(value: ClientError) -> Self {
-		log::debug!(target: LOG_TARGET, "ClientError: {value:?}");
-		ErrorObjectOwned::owned::<()>(GENERIC_ERROR_CODE.code(), value.to_string(), None)
+	fn from(err: ClientError) -> Self {
+		match err {
+			ClientError::SubxtError(subxt::Error::Rpc(err)) | ClientError::RpcError(err) => {
+				if let Some(err) = unwrap_call_err(&err) {
+					return err;
+				}
+				ErrorObjectOwned::owned::<Vec<u8>>(
+					CALL_EXECUTION_FAILED_CODE,
+					err.to_string(),
+					None,
+				)
+			},
+			ClientError::Reverted(EthTransactError::Data(data)) => {
+				let msg = extract_revert_message(&data).unwrap_or_default();
+				let data = format!("0x{}", hex::encode(data));
+				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
+			},
+			ClientError::Reverted(EthTransactError::Message(msg)) =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
+			_ =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
+		}
 	}
 }
 
 /// The number of recent blocks maintained by the cache.
 /// For each block in the cache, we also store the EVM transaction receipts.
-pub const CACHE_SIZE: usize = 10;
+pub const CACHE_SIZE: usize = 256;
 
 impl<const N: usize> BlockCache<N> {
 	fn latest_block(&self) -> Option<&Arc<SubstrateBlock>> {
@@ -198,11 +247,10 @@ impl<const N: usize> BlockCache<N> {
 }
 
 /// A client connect to a node and maintains a cache of the last `CACHE_SIZE` blocks.
+#[derive(Clone)]
 pub struct Client {
 	/// The inner state of the client.
 	inner: Arc<ClientInner>,
-	// JoinSet to manage spawned tasks.
-	join_set: JoinSet<Result<(), ClientError>>,
 	/// A watch channel to signal cache updates.
 	pub updates: tokio::sync::watch::Receiver<()>,
 }
@@ -215,7 +263,6 @@ struct ClientInner {
 	cache: Shared<BlockCache<CACHE_SIZE>>,
 	chain_id: u64,
 	max_block_weight: Weight,
-	native_to_evm_ratio: U256,
 }
 
 impl ClientInner {
@@ -231,15 +278,10 @@ impl ClientInner {
 
 		let rpc = LegacyRpcMethods::<SrcChainConfig>::new(RpcClient::new(rpc_client.clone()));
 
-		let (native_to_evm_ratio, chain_id, max_block_weight) =
-			tokio::try_join!(native_to_evm_ratio(&rpc), chain_id(&api), max_block_weight(&api))?;
+		let (chain_id, max_block_weight) =
+			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
 
-		Ok(Self { api, rpc_client, rpc, cache, chain_id, max_block_weight, native_to_evm_ratio })
-	}
-
-	/// Convert a native balance to an EVM balance.
-	fn native_to_evm_decimals(&self, value: U256) -> U256 {
-		value.saturating_mul(self.native_to_evm_ratio)
+		Ok(Self { api, rpc_client, rpc, cache, chain_id, max_block_weight })
 	}
 
 	/// Get the receipt infos from the extrinsics in a block.
@@ -252,66 +294,80 @@ impl ClientInner {
 
 		// Filter extrinsics from pallet_revive
 		let extrinsics = extrinsics.iter().flat_map(|ext| {
-			let ext = ext.ok()?;
-
 			let call = ext.as_extrinsic::<EthTransact>().ok()??;
-			let tx = rlp::decode::<TransactionLegacySigned>(&call.payload).ok()?;
-			let from = tx.recover_eth_address().ok()?;
-			let contract_address = if tx.transaction_legacy_unsigned.to.is_none() {
-				Some(create1(&from, tx.transaction_legacy_unsigned.nonce.try_into().ok()?))
+			let transaction_hash = H256(keccak_256(&call.payload));
+			let signed_tx = TransactionSigned::decode(&call.payload).ok()?;
+			let from = signed_tx.recover_eth_address().ok()?;
+			let tx_info = GenericTransaction::from_signed(signed_tx.clone(), Some(from));
+			let contract_address = if tx_info.to.is_none() {
+				Some(create1(&from, tx_info.nonce.unwrap_or_default().try_into().ok()?))
 			} else {
 				None
 			};
 
-			Some((from, tx, contract_address, ext))
+			Some((from, signed_tx, tx_info, transaction_hash, contract_address, ext))
 		});
 
 		// Map each extrinsic to a receipt
 		stream::iter(extrinsics)
-			.map(|(from, tx, contract_address, ext)| async move {
+			.map(|(from, signed_tx, tx_info, transaction_hash, contract_address, ext)| async move {
 				let events = ext.events().await?;
 				let tx_fees =
 					events.find_first::<TransactionFeePaid>()?.ok_or(ClientError::TxFeeNotFound)?;
 
-				let gas_price = tx.transaction_legacy_unsigned.gas_price;
+				let gas_price = tx_info.gas_price.unwrap_or_default();
 				let gas_used = (tx_fees.tip.saturating_add(tx_fees.actual_fee))
 					.checked_div(gas_price.as_u128())
 					.unwrap_or_default();
 
-				let success = events.find_first::<ExtrinsicSuccess>().is_ok();
+				let success = events.has::<ExtrinsicSuccess>()?;
 				let transaction_index = ext.index();
-				let transaction_hash = BlakeTwo256::hash(&Vec::from(ext.bytes()).encode());
 				let block_hash = block.hash();
 				let block_number = block.number().into();
 
-				let receipt = ReceiptInfo {
+				// get logs from ContractEmitted event
+				let logs = events.iter()
+					.filter_map(|event_details| {
+						let event_details = event_details.ok()?;
+						let event = event_details.as_event::<ContractEmitted>().ok()??;
+
+						Some(Log {
+							address: event.contract,
+							topics: event.topics,
+							data: Some(event.data.into()),
+							block_number: Some(block_number),
+							transaction_hash,
+							transaction_index: Some(transaction_index.into()),
+							block_hash: Some(block_hash),
+							log_index: Some(event_details.index().into()),
+							..Default::default()
+						})
+					}).collect();
+
+
+				log::debug!(target: LOG_TARGET, "Adding receipt for tx hash: {transaction_hash:?} - block: {block_number:?}");
+				let receipt = ReceiptInfo::new(
 					block_hash,
 					block_number,
 					contract_address,
 					from,
-					to: tx.transaction_legacy_unsigned.to,
-					effective_gas_price: gas_price,
-					gas_used: gas_used.into(),
-					status: Some(if success { U256::one() } else { U256::zero() }),
+					logs,
+					tx_info.to,
+					gas_price,
+					gas_used.into(),
+					success,
 					transaction_hash,
-					transaction_index: transaction_index.into(),
-					..Default::default()
-				};
+					transaction_index.into(),
+					tx_info.r#type.unwrap_or_default()
+				);
 
-				Ok::<_, ClientError>((receipt.transaction_hash, (tx.into(), receipt)))
+				Ok::<_, ClientError>((receipt.transaction_hash, (signed_tx, receipt)))
 			})
 			.buffer_unordered(10)
 			.collect::<Vec<Result<_, _>>>()
 			.await
 			.into_iter()
 			.collect::<Result<HashMap<_, _>, _>>()
-	}
-}
-
-/// Drop all the tasks spawned by the client on drop.
-impl Drop for Client {
-	fn drop(&mut self) {
-		self.join_set.abort_all()
 	}
 }
 
@@ -329,19 +385,6 @@ async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, 
 	Ok(max_block.0)
 }
 
-/// Fetch the native to EVM ratio from the substrate chain.
-async fn native_to_evm_ratio(rpc: &LegacyRpcMethods<SrcChainConfig>) -> Result<U256, ClientError> {
-	let props = rpc.system_properties().await?;
-	let eth_decimals = U256::from(18u32);
-	let native_decimals: U256 = props
-		.get("tokenDecimals")
-		.and_then(|v| v.as_number()?.as_u64())
-		.ok_or(ClientError::TokenDecimalsNotFound)?
-		.into();
-
-	Ok(U256::from(10u32).pow(eth_decimals - native_decimals))
-}
-
 /// Extract the block timestamp.
 async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 	let extrinsics = block.extrinsics().await.ok()?;
@@ -355,18 +398,20 @@ async fn extract_block_timestamp(block: &SubstrateBlock) -> Option<u64> {
 impl Client {
 	/// Create a new client instance.
 	/// The client will subscribe to new blocks and maintain a cache of [`CACHE_SIZE`] blocks.
-	pub async fn from_url(url: &str) -> Result<Self, ClientError> {
+	pub async fn from_url(
+		url: &str,
+		spawn_handle: &sc_service::SpawnEssentialTaskHandle,
+	) -> Result<Self, ClientError> {
 		log::info!(target: LOG_TARGET, "Connecting to node at: {url} ...");
 		let inner: Arc<ClientInner> = Arc::new(ClientInner::from_url(url).await?);
 		log::info!(target: LOG_TARGET, "Connected to node at: {url}");
 
 		let (tx, mut updates) = tokio::sync::watch::channel(());
-		let mut join_set = JoinSet::new();
-		join_set.spawn(Self::subscribe_blocks(inner.clone(), tx));
-		join_set.spawn(Self::subscribe_reconnect(inner.clone()));
+
+		spawn_handle.spawn("subscribe-blocks", None, Self::subscribe_blocks(inner.clone(), tx));
 
 		updates.changed().await.expect("tx is not dropped");
-		Ok(Self { inner, join_set, updates })
+		Ok(Self { inner, updates })
 	}
 
 	/// Expose the storage API.
@@ -421,25 +466,16 @@ impl Client {
 		}
 	}
 
-	/// Subscribe and log reconnection events.
-	async fn subscribe_reconnect(inner: Arc<ClientInner>) -> Result<(), ClientError> {
-		let rpc = inner.as_ref().rpc_client.clone();
-		loop {
-			let reconnected = rpc.reconnect_initiated().await;
-			log::info!(target: LOG_TARGET, "RPC client connection lost");
-			let now = std::time::Instant::now();
-			reconnected.await;
-			log::info!(target: LOG_TARGET, "RPC client reconnection took `{}s`", now.elapsed().as_secs());
-		}
-	}
-
 	/// Subscribe to new blocks and update the cache.
-	async fn subscribe_blocks(inner: Arc<ClientInner>, tx: Sender<()>) -> Result<(), ClientError> {
+	async fn subscribe_blocks(inner: Arc<ClientInner>, tx: Sender<()>) {
 		log::info!(target: LOG_TARGET, "Subscribing to new blocks");
-		let mut block_stream =
-			inner.as_ref().api.blocks().subscribe_best().await.inspect_err(|err| {
-				log::error!("Failed to subscribe to blocks: {err:?}");
-			})?;
+		let mut block_stream = match inner.as_ref().api.blocks().subscribe_best().await {
+			Ok(s) => s,
+			Err(err) => {
+				log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
+				return;
+			},
+		};
 
 		while let Some(block) = block_stream.next().await {
 			let block = match block {
@@ -447,13 +483,14 @@ impl Client {
 				Err(err) => {
 					if err.is_disconnected_will_reconnect() {
 						log::warn!(
+							target: LOG_TARGET,
 							"The RPC connection was lost and we may have missed a few blocks"
 						);
 						continue;
 					}
 
-					log::error!("Failed to fetch block: {err:?}");
-					return Err(err.into());
+					log::error!(target: LOG_TARGET, "Failed to fetch block: {err:?}");
+					return;
 				},
 			};
 
@@ -464,12 +501,11 @@ impl Client {
 				.receipt_infos(&block)
 				.await
 				.inspect_err(|err| {
-					log::error!("Failed to get receipts: {err:?}");
+					log::error!(target: LOG_TARGET, "Failed to get receipts: {err:?}");
 				})
 				.unwrap_or_default();
 
 			if !receipts.is_empty() {
-				log::debug!(target: LOG_TARGET, "Adding {} receipts", receipts.len());
 				let values = receipts
 					.iter()
 					.map(|(hash, (_, receipt))| (receipt.transaction_index, *hash))
@@ -491,7 +527,6 @@ impl Client {
 		}
 
 		log::info!(target: LOG_TARGET, "Block subscription ended");
-		Ok(())
 	}
 }
 
@@ -565,6 +600,12 @@ impl Client {
 		cache.tx_hashes_by_block_and_index.get(block_hash).map(|v| v.len())
 	}
 
+	/// Get the system health.
+	pub async fn system_health(&self) -> Result<SystemHealth, ClientError> {
+		let health = self.inner.rpc.system_health().await?;
+		Ok(health)
+	}
+
 	/// Get the balance of the given address.
 	pub async fn balance(
 		&self,
@@ -576,8 +617,9 @@ impl Client {
 
 		let runtime_api = self.runtime_api(at).await?;
 		let payload = subxt_client::apis().revive_api().balance(address);
-		let balance = runtime_api.call(payload).await?.into();
-		Ok(self.inner.native_to_evm_decimals(balance))
+		let balance = runtime_api.call(payload).await?;
+
+		Ok(*balance)
 	}
 
 	/// Get the contract storage for the given contract address and key.
@@ -620,43 +662,23 @@ impl Client {
 		Ok(result)
 	}
 
-	/// Dry run a transaction and returns the [`EthContractResult`] for the transaction.
+	/// Dry run a transaction and returns the [`EthTransactInfo`] for the transaction.
 	pub async fn dry_run(
 		&self,
-		tx: &GenericTransaction,
+		tx: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-	) -> Result<EthContractResult<Balance>, ClientError> {
+	) -> Result<EthTransactInfo<Balance>, ClientError> {
 		let runtime_api = self.runtime_api(&block).await?;
-		let value = tx
-			.value
-			.unwrap_or_default()
-			.try_into()
-			.map_err(|_| ClientError::ConversionFailed)?;
+		let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
 
-		// TODO: remove once subxt is updated
-		let from = tx.from.map(|v| v.0.into());
-		let to = tx.to.map(|v| v.0.into());
-
-		let payload = subxt_client::apis().revive_api().eth_transact(
-			from.unwrap_or_default(),
-			to,
-			value,
-			tx.input.clone().unwrap_or_default().0,
-			None,
-			None,
-		);
-		let res = runtime_api.call(payload).await?.0;
-		Ok(res)
-	}
-
-	/// Dry run a transaction and returns the gas estimate for the transaction.
-	pub async fn estimate_gas(
-		&self,
-		tx: &GenericTransaction,
-		block: BlockNumberOrTagOrHash,
-	) -> Result<U256, ClientError> {
-		let dry_run = self.dry_run(tx, block).await?;
-		Ok(U256::from(dry_run.fee / GAS_PRICE as u128) + GAS_PRICE)
+		let result = runtime_api.call(payload).await?;
+		match result {
+			Err(err) => {
+				log::debug!(target: LOG_TARGET, "Dry run failed {err:?}");
+				Err(ClientError::Reverted(err.0))
+			},
+			Ok(result) => Ok(result.0),
+		}
 	}
 
 	/// Get the nonce of the given address.

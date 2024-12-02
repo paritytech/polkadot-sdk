@@ -348,6 +348,10 @@ pub enum InvalidCandidate {
 	CodeHashMismatch,
 	/// Validation has generated different candidate commitments.
 	CommitmentsHashMismatch,
+	/// The candidate receipt contains an invalid session index.
+	InvalidSessionIndex,
+	/// The candidate receipt contains an invalid core index.
+	InvalidCoreIndex,
 }
 
 /// Result of the validation of the candidate.

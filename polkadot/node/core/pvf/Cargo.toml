@@ -38,6 +38,7 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
+sc-tracing = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-pvf-prepare-worker = { optional = true, workspace = true, default-features = true }
@@ -52,6 +53,7 @@ criterion = { features = [
 hex-literal = { workspace = true, default-features = true }
 
 polkadot-node-core-pvf-common = { features = ["test-utils"], workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
 # For benches and integration tests, depend on ourselves with the test-utils
 # feature.
 polkadot-node-core-pvf = { features = ["test-utils"], workspace = true, default-features = true }

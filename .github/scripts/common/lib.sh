@@ -237,15 +237,44 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
+# Fetch deb package from S3. Assumes the ENV are set:
+# - RELEASE_ID
+# - GITHUB_TOKEN
+# - REPO in the form paritytech/polkadot
+fetch_debian_package_from_s3() {
+  BINARY=$1
+  echo "Version    : $VERSION"
+  echo "Repo       : $REPO"
+  echo "Binary     : $BINARY"
+  echo "Tag        : $RELEASE_TAG"
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  echo "OUTPUT_DIR : $OUTPUT_DIR"
+
+  URL_BASE=$(get_s3_url_base $BINARY)
+  echo "URL_BASE=$URL_BASE"
+
+  URL=$URL_BASE/$RELEASE_TAG/x86_64-unknown-linux-gnu/${BINARY}_${VERSION}_amd64.deb
+
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
+
+  echo "Fetching deb package..."
+
+  echo "Fetching %s" "$URL"
+  curl --progress-bar -LO "$URL" || echo "Missing $URL"
+
+  pwd
+  ls -al --color
+  popd > /dev/null
+
+}
+
 # Fetch the release artifacts like binary and signatures from S3. Assumes the ENV are set:
 # - RELEASE_ID
 # - GITHUB_TOKEN
 # - REPO in the form paritytech/polkadot
 fetch_release_artifacts_from_s3() {
   BINARY=$1
-  echo "Version    : $VERSION"
-  echo "Repo       : $REPO"
-  echo "Binary     : $BINARY"
   OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
   echo "OUTPUT_DIR : $OUTPUT_DIR"
 
@@ -306,9 +335,10 @@ function import_gpg_keys() {
   EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
   MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
   PARITY_RELEASES="90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE"
+  PARITY_RELEASES_SIGN_COMMITS="D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
   echo "Importing GPG keys from $GPG_KEYSERVER"
-  for key in $SEC $EGOR $MORGAN $PARITY_RELEASES; do
+  for key in $SEC $EGOR $MORGAN $PARITY_RELEASES $PARITY_RELEASES_SIGN_COMMITS; do
     (
       echo "Importing GPG key $key"
       gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key

@@ -198,7 +198,7 @@ where
 			let block_weight_proof_size = current.total().proof_size();
 			let missing_from_node = node_side_pov_size.saturating_sub(block_weight_proof_size);
 			if missing_from_node > 0 {
-				log::warn!(
+				log::debug!(
 					target: LOG_TARGET,
 					"Node-side PoV size higher than runtime proof size weight. node-side: {node_side_pov_size} extrinsic_len: {extrinsic_len} runtime: {block_weight_proof_size}, missing: {missing_from_node}. Setting to node-side proof size."
 				);

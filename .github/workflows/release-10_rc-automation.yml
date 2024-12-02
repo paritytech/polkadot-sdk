@@ -23,12 +23,46 @@ jobs:
           - name: "RelEng: Polkadot Release Coordination"
             room: '!cqAmzdIcbOFwrdrubV:parity.io'
     environment: release
+    env:
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
+      PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
 
     steps:
+      - name: Install pgpkkms
+        run: |
+          # Install pgpkms that is used to sign commits
+          pip install git+https://github.com/paritytech-release/pgpkms.git@5a8f82fbb607ea102d8c178e761659de54c7af69
+
+      - name: Generate content write token for the release automation
+        id: generate_write_token
+        uses: actions/create-github-app-token@v1
+        with:
+            app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
+            private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+            owner: paritytech
+
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
         with:
           fetch-depth: 0
+          token: ${{ steps.generate_write_token.outputs.token }}
+
+      - name: Import gpg keys
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          import_gpg_keys
+
+      - name: Config git
+        run: |
+          git config --global commit.gpgsign true
+          git config --global gpg.program /home/runner/.local/bin/pgpkms-git
+          git config --global user.name "ParityReleases"
+          git config --global user.email "release-team@parity.io"
+          git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
       - name: Compute next rc tag
         # if: ${{ steps.get_rel_product.outputs.product == 'polkadot' }}
@@ -58,13 +92,12 @@ jobs:
           fi
 
       - name: Apply new tag
-        uses: tvdias/github-tagger@ed7350546e3e503b5e942dffd65bc8751a95e49d # v0.0.2
-        with:
-          # We can't use the normal GITHUB_TOKEN for the following reason:
-          # https://docs.github.com/en/actions/reference/events-that-trigger-workflows#triggering-new-workflows-using-a-personal-access-token
-          # RELEASE_BRANCH_TOKEN requires public_repo OAuth scope
-          repo-token: "${{ secrets.RELEASE_BRANCH_TOKEN }}"
-          tag: ${{ steps.compute_tag.outputs.new_tag }}
+        env:
+          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          RC_TAG: ${{ steps.compute_tag.outputs.new_tag }}
+        run: |
+         git tag -s $RC_TAG -m "new rc tag $RC_TAG"
+         git push origin $RC_TAG
 
       - name: Send Matrix message to ${{ matrix.channel.name }}
         uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3

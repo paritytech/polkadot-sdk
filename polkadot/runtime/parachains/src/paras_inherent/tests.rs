@@ -1864,11 +1864,8 @@ mod enter {
 				v2_descriptor: true,
 				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
 					if candidate.descriptor.para_id() == 1.into() {
-						// Drop the core selector to make it invalid
-						candidate
-							.commitments
-							.upward_messages
-							.truncate(candidate.commitments.upward_messages.len() - 1);
+						// Make the core selector invalid
+						candidate.commitments.upward_messages[1].truncate(0);
 					}
 					candidate
 				}),

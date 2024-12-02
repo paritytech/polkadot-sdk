@@ -14,8 +14,8 @@
 use crate::{CallFlags, Result, ReturnFlags, StorageFlags};
 use paste::paste;
 
-#[cfg(target_arch = "riscv32")]
-mod riscv32;
+#[cfg(target_arch = "riscv64")]
+mod riscv64;
 
 macro_rules! hash_fn {
 	( $name:ident, $bytes:literal ) => {
@@ -104,6 +104,14 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - `output`: A reference to the output data buffer to write the block number.
 	fn block_number(output: &mut [u8; 32]);
+
+	/// Stores the block hash of the given block number into the supplied buffer.
+	///
+	/// # Parameters
+	///
+	/// - `block_number`: A reference to the block number buffer.
+	/// - `output`: A reference to the output data buffer to write the block number.
+	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
@@ -315,7 +323,13 @@ pub trait HostFn: private::Sealed {
 	/// # Parameters
 	///
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
-	/// - `code_hash`: The hash of the code to be executed.
+	/// - `address`: The address of the code to be executed. Should be decodable as an
+	///   `T::AccountId`. Traps otherwise.
+	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
+	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
+	/// - `deposit_limit`: The storage deposit limit for delegate call. Passing `None` means setting
+	///   no specific limit for the call, which implies storage usage up to the limit of the parent
+	///   call.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
 	///   is provided then the output buffer is not copied.
@@ -330,7 +344,10 @@ pub trait HostFn: private::Sealed {
 	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
 	fn delegate_call(
 		flags: CallFlags,
-		code_hash: &[u8; 32],
+		address: &[u8; 20],
+		ref_time_limit: u64,
+		proof_size_limit: u64,
+		deposit_limit: Option<&[u8; 32]>,
 		input_data: &[u8],
 		output: Option<&mut &mut [u8]>,
 	) -> Result;
@@ -591,18 +608,6 @@ pub trait HostFn: private::Sealed {
 	///
 	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
 	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result;
-
-	/// Transfer some amount of funds into the specified account.
-	///
-	/// # Parameters
-	///
-	/// - `address`: The address of the account to transfer funds to.
-	/// - `value`: The U256 value to transfer.
-	///
-	/// # Errors
-	///
-	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	fn transfer(address: &[u8; 20], value: &[u8; 32]) -> Result;
 
 	/// Remove the calling account and transfer remaining **free** balance.
 	///
