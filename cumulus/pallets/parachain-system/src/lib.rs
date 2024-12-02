@@ -192,6 +192,7 @@ pub mod ump_constants {
 }
 
 /// Trait for selecting the next core to build the candidate for.
+#[docify::export]
 pub trait SelectCore {
 	/// Core selector information for the current block.
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset);

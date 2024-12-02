@@ -12,11 +12,6 @@
 //! to lower the latency between a transaction being submitted and it getting built in a parachain
 //! block.
 //!
-//! At present, with Asynchronous Backing enabled, a parachain can only include a block on the relay
-//! chain every 6 seconds, irregardless of how many cores the parachain acquires. Elastic scaling
-//! builds further on the 10x throughput increase of Async Backing, enabling collators to submit up
-//! to 3 parachain blocks per relay chain block, resulting in a further 3x throughput increase.
-//!
 //! ## Current limitations of the MVP
 //!
 //! The full implementation of elastic scaling spans across the entire relay/parachain stack and is
@@ -41,18 +36,15 @@
 //!    (measured up to 10 collators) is utilising 2 cores with authorship time of 1.3 seconds per
 //!    block, which leaves 400ms for networking overhead. This would allow for 2.6 seconds of
 //!    execution, compared to the 2 seconds async backing enabled.
-//!    [More experiments](https://github.com/paritytech/polkadot-sdk/issues/4696) are being
-//!    conducted in this space.
-//! 3. **Trusted collator set.** The collator set needs to be trusted until there’s a mitigation
-//!    that would prevent or deter multiple collators from submitting the same collation to multiple
-//!    backing groups. A solution is being discussed
-//!    [here](https://github.com/polkadot-fellows/RFCs/issues/92).
-//! 4. **Fixed scaling.** For true elasticity, the parachain must be able to seamlessly acquire or
+//!    The development required for lifting this limitation is tracked by
+//!    [this issue](https://github.com/paritytech/polkadot-sdk/issues/5190)
+//! 2. **Fixed scaling.** For true elasticity, the parachain must be able to seamlessly acquire or
 //!    sell coretime as the user demand grows and shrinks over time, in an automated manner. This is
 //!    currently lacking - a parachain can only scale up or down by “manually” acquiring coretime.
 //!    This is not in the scope of the relay chain functionality. Parachains can already start
 //!    implementing such autoscaling, but we aim to provide a framework/examples for developing
 //!    autoscaling strategies.
+//!    Tracked by [this issue](https://github.com/paritytech/polkadot-sdk/issues/1487).
 //!
 //! Another hard limitation that is not envisioned to ever be lifted is that parachains which create
 //! forks will generally not be able to utilise the full number of cores they acquire.
@@ -66,9 +58,10 @@
 //! - Ensure the `AsyncBackingParams.max_candidate_depth` value is configured to a value that is at
 //!   least double the maximum targeted parachain velocity. For example, if the parachain will build
 //!   at most 3 candidates per relay chain block, the `max_candidate_depth` should be at least 6.
-//! - Use a trusted single collator for maximum throughput.
 //! - Ensure enough coretime is assigned to the parachain. For maximum throughput the upper bound is
 //!   3 cores.
+//! - Ensure the `CandidateReceiptV2` node feature is enabled on the relay chain configuration (node
+//!   feature bit number 3).
 //!
 //! <div class="warning">Phase 1 is NOT needed if using the <code>polkadot-parachain</code> or
 //! <code>polkadot-omni-node</code> binary, or <code>polkadot-omni-node-lib</code> built from the
@@ -89,17 +82,53 @@
 #![doc = docify::embed!("../../cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", slot_based_colator_import)]
 //!
 //! 2. In `start_consensus()`
-//!     - Remove the `overseer_handle` param (also remove the
+//!     - Remove the `overseer_handle` and `relay_chain_slot_duration` params (also remove the
 //!     `OverseerHandle` type import if it’s not used elsewhere).
-//!     - Rename `AuraParams` to `SlotBasedParams`, remove the `overseer_handle` field and add a
-//!     `slot_drift` field with a   value of `Duration::from_secs(1)`.
-//!     - Replace the single future returned by `aura::run` with the two futures returned by it and
-//!     spawn them as separate tasks:
+//!     - Rename `AuraParams` to `SlotBasedParams`, remove the `overseer_handle` and
+//!     `relay_chain_slot_duration` fields and add a `slot_drift` field with a value of
+//!     `Duration::from_secs(1)`. Also add a `spawner` field initialized to
+//!     `task_manager.spawn_handle()`.
+//!     - Replace the `aura::run` with the `slot_based::run` call and remove the explicit task
+//!       spawn:
 #![doc = docify::embed!("../../cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", launch_slot_based_collator)]
 //!
-//! 3. In `start_parachain_node()` remove the `overseer_handle` param passed to `start_consensus`.
+//! 3. In `start_parachain_node()` remove the `overseer_handle` and `relay_chain_slot_duration`
+//!    params passed to `start_consensus`.
 //!
-//! ### Phase 2 - Activate fixed factor scaling in the runtime
+//! ### Phase 2 - Configure core selection policy in the parachain runtime
+//!
+//! With the addition of [RFC-103](https://polkadot-fellows.github.io/RFCs/approved/0103-introduce-core-index-commitment.html),
+//! the parachain runtime has the responsibility of selecting which of the assigned cores to build
+//! on. It does so by implementing the `SelectCore` trait.
+#![doc = docify::embed!("../../cumulus/pallets/parachain-system/src/lib.rs", SelectCore)]
+//!
+//! For the vast majority of use cases though, you will not need to implement a custom core
+//! selector. The `DefaultCoreSelector` implements a round-robin core selection on the cores that
+//! can be occupied by the parachain at the very next relay parent.
+//!
+//! In your /runtime/src/lib.rs, define a `SelectCore` type and use this to set the `SelectCore`
+//! property:
+#![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", default_select_core)]
+//! ```ignore
+//! impl cumulus_pallet_parachain_system::Config for Runtime {
+//! ...
+//! type SelectCore = SelectCore<Runtime>;
+//! ...
+//! }
+//! ```
+//!
+//! Next, we need to implement the `GetCoreSelector` runtime API. In the `impl_runtime_apis` block
+//! for your runtime, add the following code:
+//!
+//! ```ignore
+//! impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
+//! 		fn core_selector() -> (cumulus_primitives_core::CoreSelector, cumulus_primitives_core::ClaimQueueOffset) {
+//! 			ParachainSystem::core_selector()
+//! 		}
+//! 	}
+//! ```
+//!
+//! ### Phase 3 - Configure fixed factor scaling in the runtime
 //!
 //! This phase consists of a couple of changes needed to be made to the parachain’s runtime in order
 //! to utilise fixed factor scaling.
@@ -108,8 +137,10 @@
 //! produce per relay chain block (in direct correlation with the number of acquired cores). This
 //! should be either 1 (no scaling), 2 or 3. This is called the parachain velocity.
 //!
-//! If you configure a velocity which is different from the number of assigned cores, the measured
-//! velocity in practice will be the minimum of these two.
+//! <div class="warning">If you configure a velocity which is different from the number of assigned
+//! cores, the measured velocity in practice will be the minimum of these two. However, be mindful
+//! that if the velocity is higher than the number of assigned cores, it's possible that
+//! <a href="https://github.com/paritytech/polkadot-sdk/issues/6667"> only a subset of the collator set will be authoring blocks.</a></div>
 //!
 //! The chosen velocity will also be used to compute:
 //! - The slot duration, by dividing the 6000 ms duration of the relay chain slot duration by the
@@ -127,10 +158,10 @@
 //!      const MAX_BLOCK_PROCESSING_VELOCITY: u32 = 3;
 //!      ```
 //!
-//! 2. Set the `MILLISECS_PER_BLOCK` to the desired value.
+//! 2. Set the `MILLI_SECS_PER_BLOCK` to the desired value.
 //!
 //!      ```ignore
-//!      const MILLISECS_PER_BLOCK: u32 =
+//!      const MILLI_SECS_PER_BLOCK: u32 =
 //!          RELAY_CHAIN_SLOT_DURATION_MILLIS / MAX_BLOCK_PROCESSING_VELOCITY;
 //!      ```
 //!     Note: for a parachain which measures time in terms of its own block number, changing block

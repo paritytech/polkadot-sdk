@@ -12,6 +12,7 @@ workspace = true
 [dependencies]
 bytes = { workspace = true }
 codec = { features = ["derive"], workspace = true }
+docify = { workspace = true }
 environmental = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
