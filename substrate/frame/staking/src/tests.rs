@@ -72,14 +72,12 @@ fn set_staking_configs_works() {
 			ConfigOp::Noop,
 			ConfigOp::Noop,
 			ConfigOp::Noop,
-			ConfigOp::Noop,
 			ConfigOp::Noop
 		)));
 
 		// removing works
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
-			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,

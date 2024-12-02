@@ -111,7 +111,7 @@ pub mod v17 {
 					Ok(individual_rewards) => {
 						let bounded_era_rewards = EraRewardPoints::<
 							<T as frame_system::Config>::AccountId,
-							<<T as Config>::ElectionProvider as ElectionProviderBase>::MaxWinners,
+							<T as Config>::MaxValidatorsCount,
 						> {
 							individual: individual_rewards,
 							total: era_rewards.total,

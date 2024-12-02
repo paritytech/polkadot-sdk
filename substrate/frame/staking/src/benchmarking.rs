@@ -130,10 +130,7 @@ pub fn create_validator_with_nominators<T: Config>(
 		assert_ok!(reward_map.try_insert(validator, reward));
 	}
 	// Give Era Points
-	let reward = EraRewardPoints::<
-		T::AccountId,
-		<T::ElectionProvider as ElectionProviderBase>::MaxWinners,
-	> {
+	let reward = EraRewardPoints::<T::AccountId, T::MaxValidatorsCount> {
 		total: points_total,
 		individual: reward_map,
 	};
@@ -880,10 +877,7 @@ mod benchmarks {
 			assert_ok!(reward_map.try_insert(validator, reward));
 		}
 		// Give Era Points
-		let reward = EraRewardPoints::<
-			T::AccountId,
-			<T::ElectionProvider as ElectionProviderBase>::MaxWinners,
-		> {
+		let reward = EraRewardPoints::<T::AccountId, T::MaxValidatorsCount> {
 			total: points_total,
 			individual: reward_map,
 		};

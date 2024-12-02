@@ -342,7 +342,7 @@ impl Default for ExtBuilder {
 			validator_count: 2,
 			minimum_validator_count: 0,
 			balance_factor: 1,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			has_stakers: true,
 			initialize_first_session: true,
 			min_nominator_bond: ExistentialDeposit::get(),
@@ -376,7 +376,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
-		self.invulnerables = invulnerables;
+		self.invulnerables = BoundedVec::force_from(invulnerables).unwrap();
 		self
 	}
 	pub fn session_per_era(self, length: SessionIndex) -> Self {

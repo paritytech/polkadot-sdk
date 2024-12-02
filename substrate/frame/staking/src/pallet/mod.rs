@@ -582,7 +582,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		EraIndex,
-		EraRewardPoints<T::AccountId, <T::ElectionProvider as ElectionProviderBase>::MaxWinners>,
+		EraRewardPoints<T::AccountId, T::MaxValidatorsCount>,
 		ValueQuery,
 	>;
 
@@ -1050,7 +1050,7 @@ pub mod pallet {
 		/// Get the rewards for the last [`Config::HistoryDepth`] eras.
 		pub fn eras_reward_points<EncodeLikeEraIndex>(
 			era_index: EncodeLikeEraIndex,
-		) -> EraRewardPoints<T::AccountId, <T::ElectionProvider as ElectionProviderBase>::MaxWinners>
+		) -> EraRewardPoints<T::AccountId, T::MaxValidatorsCount>
 		where
 			EncodeLikeEraIndex: codec::EncodeLike<EraIndex>,
 		{
