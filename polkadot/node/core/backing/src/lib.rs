@@ -66,7 +66,7 @@
 #![deny(unused_crate_dependencies)]
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{HashMap, HashSet, VecDeque},
 	sync::Arc,
 };
 
@@ -99,6 +99,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::View as ImplicitView,
+	claim_queue_state::PerLeafClaimQueueState,
 	request_claim_queue, request_disabled_validators, request_session_executor_params,
 	request_session_index_for_child, request_validator_groups, request_validators,
 	runtime::{self, request_min_backing_votes, ClaimQueueSnapshot},
@@ -430,6 +431,8 @@ impl PerSessionCache {
 struct State {
 	/// The utility for managing the implicit and explicit views in a consistent way.
 	implicit_view: ImplicitView,
+	/// The state of the claim queue, per leaf.
+	claim_queue_state: PerLeafClaimQueueState,
 	/// State tracked for all relay-parents backing work is ongoing for. This includes
 	/// all active leaves.
 	per_relay_parent: HashMap<Hash, PerRelayParentState>,
@@ -455,6 +458,7 @@ impl State {
 	) -> Self {
 		State {
 			implicit_view: ImplicitView::default(),
+			claim_queue_state: PerLeafClaimQueueState::new(),
 			per_relay_parent: HashMap::default(),
 			per_candidate: HashMap::new(),
 			per_session_cache: PerSessionCache::default(),
@@ -972,7 +976,10 @@ async fn handle_active_leaves_update<Context>(
 	};
 
 	for deactivated in update.deactivated {
-		state.implicit_view.deactivate_leaf(deactivated);
+		let removed = state.implicit_view.deactivate_leaf(deactivated);
+		state
+			.claim_queue_state
+			.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().copied()));
 	}
 
 	// clean up `per_relay_parent` according to ancestry
@@ -1041,6 +1048,16 @@ async fn handle_active_leaves_update<Context>(
 		.await?;
 
 		if let Some(per) = per {
+			let empty_cq = VecDeque::new();
+			let maybe_claim_queue = if let Some(core_idx) = per.assigned_core {
+				per.claim_queue.0.get(&core_idx)
+			} else {
+				None
+			}
+			.unwrap_or(&empty_cq);
+
+			state.claim_queue_state.add_leaf(&maybe_new, maybe_claim_queue, &per.parent);
+
 			state.per_relay_parent.insert(maybe_new, per);
 		}
 	}

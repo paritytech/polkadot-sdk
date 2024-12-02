@@ -17,7 +17,7 @@
 //! `ClaimQueueState` tracks the state of the claim queue over a set of relay blocks. Refer to
 //! [`ClaimQueueState`] for more details.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::LOG_TARGET;
 use polkadot_primitives::{Hash, Id as ParaId};
@@ -256,48 +256,44 @@ impl ClaimQueueState {
 
 /// Keeps a per leaf state of the claim queue for multiple forks.
 pub struct PerLeafClaimQueueState {
-	state: Vec<ClaimQueueState>,
+	state: HashMap<Hash, ClaimQueueState>,
 }
 
 impl PerLeafClaimQueueState {
 	/// Creates an empty `PerLeafClaimQueueState`
 	pub fn new() -> Self {
-		Self { state: Vec::new() }
+		Self { state: HashMap::new() }
 	}
 
 	/// Adds new leaf to the state. If the parent of the leaf is already in the state `leaf` is
 	/// added to the corresponding path. Otherwise a new path is created.
 	pub fn add_leaf(&mut self, leaf: &Hash, claim_queue: &VecDeque<ParaId>, parent: &Hash) {
-		// try to find the parent of the new leaf in the state and append the leaf to it
-		for path in &mut self.state {
-			let path_leaf = if let Some(p) = path.get_leaf() {
-				p
-			} else {
-				gum::warn!(target: LOG_TARGET, ?path, "Internal error. Can't get the leaf for a path.");
-				continue;
-			};
+		let maybe_path = self.state.remove(parent);
 
-			if path_leaf == *parent {
+		match maybe_path {
+			Some(mut path) => {
 				path.add_leaf(leaf, claim_queue);
+				self.state.insert(*leaf, path);
 				return
-			}
+			},
+			None => {
+				// parent not found in state - add a new path
+				let mut new_path_state = ClaimQueueState::new();
+				new_path_state.add_leaf(leaf, claim_queue);
+				self.state.insert(*leaf, new_path_state);
+			},
 		}
-
-		// parent not found in state - add a new path
-		let mut new_path_state = ClaimQueueState::new();
-		new_path_state.add_leaf(leaf, claim_queue);
-		self.state.push(new_path_state);
 	}
 
 	/// Removes a set of pruned blocks from all paths. If a path becomes empty it is removed from
 	/// the state.
 	pub fn remove_pruned_ancestors(&mut self, removed: &HashSet<Hash>) {
-		for path in &mut self.state {
+		for (_, path) in &mut self.state {
 			path.remove_pruned_ancestors(removed);
 		}
 
 		// Remove all empty paths
-		self.state.retain(|p| !p.empty());
+		self.state.retain(|_, p| !p.empty());
 	}
 }
 
@@ -1089,7 +1085,7 @@ mod test {
 			state.remove_pruned_ancestors(&HashSet::from_iter(removed.iter().cloned()));
 
 			assert_eq!(state.state.len(), 1);
-			assert_eq!(state.state[0].block_state.len(), 1);
+			assert_eq!(state.state[&relay_parent_c].block_state.len(), 1);
 		}
 	}
 
