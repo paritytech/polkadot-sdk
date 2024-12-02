@@ -83,7 +83,8 @@ pub fn register_weth() {
 pub(crate) fn set_up_weth_pool_with_wnd_on_ah_westend(asset: v5::Location) {
 	let wnd: v5::Location = v5::Parent.into();
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
-	let owner = BridgeHubWestend::sovereign_account_id_of(assethub_location);
+	let owner = AssetHubWestendSender::get();
+	let bh_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
 
 	AssetHubWestend::fund_accounts(vec![
 		(owner.clone(), 3_000_000_000_000),
@@ -93,11 +94,19 @@ pub(crate) fn set_up_weth_pool_with_wnd_on_ah_westend(asset: v5::Location) {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
+		let signed_bh_sovereign = <AssetHubWestend as Chain>::RuntimeOrigin::signed(bh_sovereign.clone());
 
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
-			signed_owner.clone(),
+			signed_bh_sovereign.clone(),
+			asset.clone().into(),
+			bh_sovereign.clone().into(),
+			3_500_000_000_000,
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::transfer(
+			signed_bh_sovereign.clone(),
 			asset.clone().into(),
 			owner.clone().into(),
 			3_000_000_000_000,
@@ -126,13 +135,13 @@ pub(crate) fn set_up_weth_pool_with_wnd_on_ah_westend(asset: v5::Location) {
 			1,
 			owner.into()
 		));
-		/*
+
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
 			]
-		);*/
+		);
 	});
 }
 
@@ -163,6 +172,7 @@ fn register_token_v2() {
 	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
 
 	let weth_fee: xcm::prelude::Asset = (weth_location(), WETH_FEE).into();
+	let weth_transact_fee: xcm::prelude::Asset = (weth_location(), WETH_FEE / 2).into();
 
 	let asset_id = Location::new(
 		2,
@@ -181,7 +191,7 @@ fn register_token_v2() {
 			// will be deducted from)
 			DepositAsset { assets: dot_fee.into(), beneficiary: bridge_owner.into() },
 			// Pay for the transact execution
-			PayFees { asset: weth_fee.into() },
+			//PayFees { asset: weth_transact_fee.into() },
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				call: (
