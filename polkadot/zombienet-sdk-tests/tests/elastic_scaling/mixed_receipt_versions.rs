@@ -67,8 +67,6 @@ async fn mixed_receipt_versions_test() -> Result<(), anyhow::Error> {
 				.with_collator(|n| {
 					n.with_name("old-collator-elastic")
 						.with_image("docker.io/paritypr/test-parachain:master-b862b181")
-						// TODO: remove this when committing.
-						.with_command("/Users/alindima/Desktop/code/polkadot-sdk-copy/polkadot-sdk/bin/test-parachain")
 				})
 		})
 		.build()

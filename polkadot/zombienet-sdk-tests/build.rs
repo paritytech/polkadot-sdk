@@ -76,8 +76,7 @@ fn build_wasm(chain: &str) -> PathBuf {
 		"-p",
 		&package,
 		"--profile",
-		// TODO: switch back to release before merging.
-		"testnet",
+		"release",
 		"--target",
 		&target,
 		"--target-dir",
