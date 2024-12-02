@@ -1,8 +1,8 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Test that parachains that use a single slot-based collator with elastic scaling MVP and with
-// elastic scaling with RFC103 can achieve full throughput of 3 candidates per block.
+// Test that a parachain that uses a collator set which builds both V1 and V2 receipts cannot fully
+// utilise elastic scaling but can still make some progress.
 
 use anyhow::anyhow;
 
@@ -20,7 +20,7 @@ use subxt_signer::sr25519::dev;
 use zombienet_sdk::NetworkConfigBuilder;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
+async fn mixed_receipt_versions_test() -> Result<(), anyhow::Error> {
 	env_logger::init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -37,8 +37,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								// Num cores is 4, because 2 extra will be added automatically when registering the paras.
-								"num_cores": 4,
+								// Num cores is 2, because 1 extra will be added automatically when registering the paras.
+								"num_cores": 2,
 								"max_validators_per_core": 1
 							},
 							"async_backing_params": {
@@ -52,27 +52,22 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 				// type.
 				.with_node(|node| node.with_name("validator-0"));
 
-			(1..6).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..3).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
-			// Para 2100 uses the old elastic scaling mvp, which doesn't send the new UMP signal
-			// commitment for selecting the core index.
-			p.with_id(2100)
-				.with_default_command("test-parachain")
-				.with_default_image(images.cumulus.as_str())
-				.with_chain("elastic-scaling-mvp")
-				.with_default_args(vec![("--experimental-use-slot-based").into()])
-				.with_collator(|n| n.with_name("collator-elastic-mvp"))
-		})
-		.with_parachain(|p| {
-			// Para 2200 uses the new RFC103-enabled collator which sens the UMP signal commitment
-			// for selecting the core index
 			p.with_id(2200)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling")
 				.with_default_args(vec![("--experimental-use-slot-based").into()])
+				// This collator uses the image from the PR, which will build a v2 receipt.
 				.with_collator(|n| n.with_name("collator-elastic"))
+				// This collator uses an old image, which will build a v1 receipt.
+				// The image is hardcoded to roughly where the stable2407 was branched off.
+				.with_collator(|n| {
+					n.with_name("old-collator-elastic")
+						.with_image("docker.io/paritypr/test-parachain:master-b862b181")
+				})
 		})
 		.build()
 		.map_err(|e| {
@@ -88,7 +83,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let alice = dev::alice();
 
-	// Assign two extra cores to each parachain.
+	// Assign two extra cores to the parachain.
 	relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(
@@ -101,7 +96,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 								rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
 									core: 0,
 									begin: 0,
-									assignment: vec![(CoreAssignment::Task(2100), PartsOf57600(57600))],
+									assignment: vec![(CoreAssignment::Task(2200), PartsOf57600(57600))],
 									end_hint: None
 								}
 							),
@@ -109,26 +104,10 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 								rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
 									core: 1,
 									begin: 0,
-									assignment: vec![(CoreAssignment::Task(2100), PartsOf57600(57600))],
-									end_hint: None
-								}
-							),
-							rococo::runtime_types::rococo_runtime::RuntimeCall::Coretime(
-								rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
-									core: 2,
-									begin: 0,
 									assignment: vec![(CoreAssignment::Task(2200), PartsOf57600(57600))],
 									end_hint: None
 								}
 							),
-							rococo::runtime_types::rococo_runtime::RuntimeCall::Coretime(
-								rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
-									core: 3,
-									begin: 0,
-									assignment: vec![(CoreAssignment::Task(2200), PartsOf57600(57600))],
-									end_hint: None
-								}
-							)
 						],
 					},
 				)),
@@ -138,18 +117,13 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 		.wait_for_finalized_success()
 		.await?;
 
-	log::info!("2 more cores assigned to each parachain");
+	log::info!("2 more cores assigned to the parachain");
 
-	// Expect a backed candidate count of 40 for each parachain in 15 relay chain blocks (2.66
-	// candidates per para per relay chain block).
-	// Note that only blocks after the first session change and blocks that don't contain a session
-	// change will be counted.
-	assert_para_throughput(
-		&relay_client,
-		15,
-		[(2100, 42..46), (2200, 42..46)].into_iter().collect(),
-	)
-	.await?;
+	// We won't get full throughput as some candidates would be built for the same block and
+	// therefore dropped in the runtime.
+	// The perfect throughput would have been 45 for a parachain with 3 cores over 15 relay chain
+	// blocks.
+	assert_para_throughput(&relay_client, 15, [(2200, 25..35)].into_iter().collect()).await?;
 
 	log::info!("Test finished successfully");
 
