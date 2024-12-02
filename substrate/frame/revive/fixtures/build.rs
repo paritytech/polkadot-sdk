@@ -204,10 +204,14 @@ fn create_out_dir() -> Result<PathBuf> {
 	.join("pallet-revive-fixtures");
 
 	// clean up some leftover symlink from previous versions of this script
-	if out_dir.exists() && !out_dir.is_dir() {
+	let out_exists = out_dir.exists();
+	if out_exists && !out_dir.is_dir() {
 		fs::remove_file(&out_dir)?;
 	}
-	fs::create_dir_all(&out_dir).context("Failed to create output directory")?;
+
+	if !out_exists {
+		fs::create_dir(&out_dir).context("Failed to create output directory")?;
+	}
 
 	// write the location of the out dir so it can be found later
 	let mut file = fs::File::create(temp_dir.join("fixture_location.rs"))
