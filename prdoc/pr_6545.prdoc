@@ -1,0 +1,33 @@
+title: Ignore multi-addresses without IP from DHT records
+doc:
+- audience: Node Dev
+  description: |-
+    Kusama has several authority-discovery records published without a proper mutlti-address format.
+
+    ```bash
+    authority="CzHcp6nEsT4NJuAbf4yCS2J8KKYpvuAe63bkWrPWhjaaT6w"
+    ..
+    addresses={.., /p2p/12D3KooWFegWJubWCeJCbWpDEAwukQmXKaWTyRgRRZ8NNdzmuxSr, ..}
+    ```
+    In the previous example, an multiaddress of form `/p2p/12D3KooWFegWJubWCeJCbWpDEAwukQmXKaWTyRgRRZ8NNdzmuxSr` cannot establish a connection to the authority.
+
+    This PR changes the following:
+    - publishing DHT records no longer includes multi addresses that are empty or just contain `/p2p/[peer]` format
+    - received DHT records are filtered in a similar manner
+    - litep2p and libp2p backends verify discovered external addresses before pushing them to other subcomponents
+
+
+    ### Next Steps
+    - [x] versi-net burnin with detailed logs
+    - [x] kusama nodes (litep2p + libp2p) to ensure the warnings are not excessive
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/6518
+
+    cc @paritytech/networking
+crates:
+- name: sc-authority-discovery
+  bump: patch
+- name: sc-network-types
+  bump: patch
+- name: sc-network
+  bump: patch
