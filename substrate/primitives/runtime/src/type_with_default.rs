@@ -31,7 +31,7 @@ use num_traits::{
 	CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedRem, CheckedShl, CheckedShr, CheckedSub,
 	Num, NumCast, PrimInt, Saturating, ToPrimitive,
 };
-use scale_info::TypeInfo;
+use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::Get;
 
 #[cfg(feature = "serde")]
@@ -40,13 +40,25 @@ use serde::{Deserialize, Serialize};
 /// A type that wraps another type and provides a default value.
 ///
 /// Passes through arithmetical and many other operations to the inner value.
-#[derive(Encode, Decode, TypeInfo, Debug, MaxEncodedLen)]
+/// Type information for metadata is the same as the inner value's type.
+#[derive(Encode, Decode, Debug, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TypeWithDefault<T, D: Get<T>>(T, PhantomData<D>);
 
 impl<T, D: Get<T>> TypeWithDefault<T, D> {
 	fn new(value: T) -> Self {
 		Self(value, PhantomData)
+	}
+}
+
+// Hides implementation details from the outside (for metadata type information).
+//
+// The type info showed in metadata is the one of the inner value's type.
+impl<T: StaticTypeInfo, D: Get<T> + 'static> TypeInfo for TypeWithDefault<T, D> {
+	type Identity = Self;
+
+	fn type_info() -> scale_info::Type {
+		T::type_info()
 	}
 }
 
