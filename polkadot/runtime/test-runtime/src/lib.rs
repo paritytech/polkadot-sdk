@@ -401,6 +401,7 @@ impl pallet_staking::Config for Runtime {
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxRewardPagesPerValidator = ConstU32<20>;
 	type MaxValidatorsCount = ConstU32<300>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 parameter_types! {

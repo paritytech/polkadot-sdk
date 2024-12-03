@@ -291,6 +291,7 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxRewardPagesPerValidator = ConstU32<20>;
 	type MaxValidatorsCount = ConstU32<300>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

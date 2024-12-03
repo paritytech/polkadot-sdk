@@ -770,6 +770,7 @@ impl pallet_staking::Config for Runtime {
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxRewardPagesPerValidator = frame_support::traits::ConstU32<20>;
 	type MaxValidatorsCount = dynamic_params::staking::MaxValidatorsCount;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {

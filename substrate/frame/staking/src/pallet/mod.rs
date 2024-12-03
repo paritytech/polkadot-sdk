@@ -316,6 +316,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
 
+		/// Maximum number of disabled validators.
+		#[pallet::constant]
+		type MaxDisabledValidators: Get<u32>;
+
 		/// Some parameters of the benchmarking.
 		#[cfg(feature = "std")]
 		type BenchmarkingConfig: BenchmarkingConfig;
@@ -368,6 +372,7 @@ pub mod pallet {
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxRewardPagesPerValidator = ConstU32<20>;
 			type MaxValidatorsCount = ConstU32<300>;
+			type MaxDisabledValidators = ConstU32<100>;
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
@@ -683,14 +688,8 @@ pub mod pallet {
 	/// Additionally, each disabled validator is associated with an `OffenceSeverity` which
 	/// represents how severe is the offence that got the validator disabled.
 	#[pallet::storage]
-	pub type DisabledValidators<T: Config> = StorageValue<
-		_,
-		WeakBoundedVec<
-			(u32, OffenceSeverity),
-			<T::ElectionProvider as ElectionProviderBase>::MaxWinners,
-		>,
-		ValueQuery,
-	>;
+	pub type DisabledValidators<T: Config> =
+		StorageValue<_, BoundedVec<(u32, OffenceSeverity), T::MaxDisabledValidators>, ValueQuery>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
