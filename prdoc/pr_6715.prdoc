@@ -6,9 +6,8 @@ title: Update Nomination Pool Pallet to Support Block Number Provider
 doc:
   - audience: Runtime Dev
     description: |
-      This PR makes the nomination pool pallet use the relay chain as a block provider for a parachain on a regular schedule.
-      To migrate existing nomination pool implementations, simply add `type BlockNumberProvider = System` to have the same behavior as before.
-
+       This PR makes the block number provider used in the nomination pool pallet configurable. Before this PR, nomination pool pallet always used the system block number,
+       with this PR some runtime can opt to use the relay chain block number instead.
 crates:
 - name: pallet-nomination-pools
   bump: major
