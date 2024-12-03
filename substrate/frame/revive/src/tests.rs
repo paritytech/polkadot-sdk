@@ -1678,8 +1678,8 @@ fn instantiate_return_code() {
 
 		// Contract has enough balance but the passed code hash is invalid
 		<Test as Config>::Currency::set_balance(&contract.account_id, min_balance + 10_000);
-		let result = builder::bare_call(contract.addr).data(vec![0; 33]).build_and_unwrap_result();
-		assert_return_code!(result, RuntimeReturnCode::CodeNotFound);
+		let result = builder::bare_call(contract.addr).data(vec![0; 33]).build();
+		assert_err!(result.result, <Error<Test>>::CodeNotFound);
 
 		// Contract has enough balance but callee reverts because "1" is passed.
 		let result = builder::bare_call(contract.addr)
@@ -3890,7 +3890,7 @@ fn locking_delegate_dependency_works() {
 		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE_FALLBACK), callee_hashes[0]));
 
 		// Calling should fail since the delegated contract is not on chain anymore.
-		assert_err!(call(&addr_caller, &noop_input).result, Error::<Test>::ContractTrapped);
+		assert_err!(call(&addr_caller, &noop_input).result, Error::<Test>::CodeNotFound);
 
 		// Add the dependency back.
 		Contracts::upload_code(

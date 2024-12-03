@@ -745,27 +745,23 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		Ok(())
 	}
 
-	/// Fallible conversion of `DispatchError` to `ReturnErrorCode`.
-	fn err_into_return_code(from: DispatchError) -> Result<ReturnErrorCode, DispatchError> {
+	/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
+	///
+	/// This is used when converting the error returned from a subcall in order to decide
+	/// whether to trap the caller or allow handling of the error.
+	fn exec_error_into_return_code(from: ExecError) -> Result<ReturnErrorCode, DispatchError> {
+		use crate::exec::ErrorOrigin::Callee;
 		use ReturnErrorCode::*;
 
 		let transfer_failed = Error::<E::T>::TransferFailed.into();
-		let no_code = Error::<E::T>::CodeNotFound.into();
-
-		match from {
-			x if x == transfer_failed => Ok(TransferFailed),
-			x if x == no_code => Ok(CodeNotFound),
-			err => Err(err),
-		}
-	}
-
-	/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
-	fn exec_error_into_return_code(from: ExecError) -> Result<ReturnErrorCode, DispatchError> {
-		use crate::exec::ErrorOrigin::Callee;
 
 		match (from.error, from.origin) {
+			// on ethereum a failing transfer does not trap the caller
+			(err, _) if err == transfer_failed => Ok(TransferFailed),
+			// any error within the sub context will not trap the caller
 			(_, Callee) => Ok(ReturnErrorCode::CalleeTrapped),
-			(err, _) => Self::err_into_return_code(err),
+			// any other error is within the caller and should trap it
+			(err, _) => Err(err),
 		}
 	}
 
@@ -1969,20 +1965,11 @@ pub mod env {
 	/// Disabled until the internal implementation takes care of collecting
 	/// the immutable data of the new code hash.
 	#[mutating]
-	fn set_code_hash(
-		&mut self,
-		memory: &mut M,
-		code_hash_ptr: u32,
-	) -> Result<ReturnErrorCode, TrapReason> {
+	fn set_code_hash(&mut self, memory: &mut M, code_hash_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::SetCodeHash)?;
 		let code_hash: H256 = memory.read_h256(code_hash_ptr)?;
-		match self.ext.set_code_hash(code_hash) {
-			Err(err) => {
-				let code = Self::err_into_return_code(err)?;
-				Ok(code)
-			},
-			Ok(()) => Ok(ReturnErrorCode::Success),
-		}
+		self.ext.set_code_hash(code_hash)?;
+		Ok(())
 	}
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores

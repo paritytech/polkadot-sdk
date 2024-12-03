@@ -85,21 +85,19 @@ define_error_codes! {
 	/// Transfer failed for other not further specified reason. Most probably
 	/// reserved or locked balance of the sender that was preventing the transfer.
 	TransferFailed = 4,
-	/// No code could be found at the supplied code hash.
-	CodeNotFound = 5,
 	/// The call to `debug_message` had no effect because debug message
 	/// recording was disabled.
-	LoggingDisabled = 6,
+	LoggingDisabled = 5,
 	/// The call dispatched by `call_runtime` was executed but returned an error.
-	CallRuntimeFailed = 7,
+	CallRuntimeFailed = 6,
 	/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
-	EcdsaRecoveryFailed = 8,
+	EcdsaRecoveryFailed = 7,
 	/// sr25519 signature verification failed.
-	Sr25519VerifyFailed = 9,
+	Sr25519VerifyFailed = 8,
 	/// The `xcm_execute` call failed.
-	XcmExecutionFailed = 10,
+	XcmExecutionFailed = 9,
 	/// The `xcm_send` call failed.
-	XcmSendFailed = 11,
+	XcmSendFailed = 10,
 }
 
 /// The raw return code returned by the host side.
