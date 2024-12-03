@@ -158,7 +158,6 @@ mod benchmarks {
 		#[extrinsic_call]
 		enter(RawOrigin::None, benchmark);
 
-		let max_validators_per_core = BenchBuilder::<T>::fallback_max_validators_per_core();
 		// Assert that the block was not discarded
 		assert!(Included::<T>::get().is_some());
 		// Assert that there are on-chain votes that got scraped
@@ -215,7 +214,6 @@ mod benchmarks {
 		#[extrinsic_call]
 		enter(RawOrigin::None, benchmark);
 
-		let max_validators_per_core = BenchBuilder::<T>::fallback_max_validators_per_core();
 		// Assert that the block was not discarded
 		assert!(Included::<T>::get().is_some());
 		// Assert that there are on-chain votes that got scraped
