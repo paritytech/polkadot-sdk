@@ -17,7 +17,6 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use std::vec;
 
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
