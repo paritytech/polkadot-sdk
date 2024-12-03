@@ -290,8 +290,24 @@ pub trait TransactionPool: Send + Sync {
 	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
 
 	// *** Block production
-	/// Remove transactions identified by given hashes (and dependent transactions) from the pool.
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>>;
+	/// Reports invalid transactions to the transaction pool.
+	///
+	/// This function accepts an array of tuples, each containing a transaction hash and an
+	/// optional error encountered during the transaction execution at a specific (also optional)
+	/// block.
+	///
+	/// The transaction pool implementation decides which transactions to remove. Transactions
+	/// dependent on invalid ones will also be removed.
+	///
+	/// If the tuple's error is None, the transaction will be forcibly removed from the pool.
+	///
+	/// The optional `at` parameter provides additional context regarding the block where the error
+	/// occurred.
+	fn report_invalid(
+		&self,
+		at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: &[(TxHash<Self>, Option<sp_blockchain::Error>)],
+	) -> Vec<Arc<Self::InPoolTransaction>>;
 
 	// *** logging
 	/// Get futures transaction list.

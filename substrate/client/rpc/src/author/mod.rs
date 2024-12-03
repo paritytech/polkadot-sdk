@@ -164,17 +164,17 @@ where
 		let hashes = bytes_or_hash
 			.into_iter()
 			.map(|x| match x {
-				hash::ExtrinsicOrHash::Hash(h) => Ok(h),
+				hash::ExtrinsicOrHash::Hash(h) => Ok((h, None)),
 				hash::ExtrinsicOrHash::Extrinsic(bytes) => {
 					let xt = Decode::decode(&mut &bytes[..])?;
-					Ok(self.pool.hash_of(&xt))
+					Ok((self.pool.hash_of(&xt), None))
 				},
 			})
 			.collect::<Result<Vec<_>>>()?;
 
 		Ok(self
 			.pool
-			.remove_invalid(&hashes)
+			.report_invalid(None, &hashes)
 			.into_iter()
 			.map(|tx| tx.hash().clone())
 			.collect())

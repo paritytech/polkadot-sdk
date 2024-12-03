@@ -107,8 +107,12 @@ where
 		self.0.ready()
 	}
 
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		self.0.remove_invalid(hashes)
+	fn report_invalid(
+		&self,
+		at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: &[(TxHash<Self>, Option<sp_blockchain::Error>)],
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		self.0.report_invalid(at, invalid_tx_errors)
 	}
 
 	fn futures(&self) -> Vec<Self::InPoolTransaction> {

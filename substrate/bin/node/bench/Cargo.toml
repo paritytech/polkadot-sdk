@@ -25,6 +25,7 @@ kitchensink-runtime = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 derive_more = { features = ["display"], workspace = true }
