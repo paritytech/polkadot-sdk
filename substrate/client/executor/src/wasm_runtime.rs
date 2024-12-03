@@ -319,7 +319,7 @@ where
 			if let Some(wasmtime_precompiled_dir) = wasmtime_precompiled_path {
 				if !wasmtime_precompiled_dir.is_dir() {
 					return Err(WasmError::Instantiation(format!(
-						"--wasmtime-precompiled is not a directory: {}",
+						"Wasmtime precompiled is not a directory: {}",
 						wasmtime_precompiled_dir.display()
 					)))
 				}
@@ -334,7 +334,7 @@ where
 
 				let artifact_version =
 					compute_artifact_version(allow_missing_func_imports, code_hash, &semantics);
-				log::debug!(
+				tracing::debug!(
 					target: "wasmtime-runtime",
 					"Searching for wasm hash: {}",
 					artifact_version.clone()
@@ -346,7 +346,7 @@ where
 						// We check that the artifact was generated for this specific artifact
 						// version and with the same wasm interface version and configuration.
 						if file_name.contains(&artifact_version.clone()) {
-							log::info!(
+							tracing::info!(
 								target: "wasmtime-runtime",
 								"Found precompiled wasm: {}",
 								file_name
@@ -465,7 +465,7 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 	)
 	.map_err(|e| {
 		WasmError::Other(format!(
-			"Fail to create file 'precompiled_wasm_0x{}', I/O Error: {}",
+			"Fail to create file 'precompiled_wasm_{}', I/O Error: {}",
 			&artifact_version, e
 		))
 	})?;

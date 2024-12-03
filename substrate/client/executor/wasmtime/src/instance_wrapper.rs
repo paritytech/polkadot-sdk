@@ -128,7 +128,7 @@ impl<C: AsContextMut> sc_allocator::Memory for MemoryWrapper<'_, C> {
 		self.0
 			.grow(&mut self.1, additional as u64)
 			.map_err(|e| {
-				log::error!(
+				tracing::error!(
 					target: "wasm-executor",
 					"Failed to grow memory by {} pages: {}",
 					additional,
