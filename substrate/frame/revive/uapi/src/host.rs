@@ -138,7 +138,6 @@ pub trait HostFn: private::Sealed {
 	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	/// - [NotCallable][`crate::ReturnErrorCode::NotCallable]
 	fn call(
 		flags: CallFlags,
 		callee: &[u8; 20],

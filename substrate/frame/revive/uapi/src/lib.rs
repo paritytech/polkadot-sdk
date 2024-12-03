@@ -98,6 +98,8 @@ define_error_codes! {
 	XcmExecutionFailed = 9,
 	/// The `xcm_send` call failed.
 	XcmSendFailed = 10,
+	/// The subcall ran out of weight or storage deposit.
+	OutOfResources = 11,
 }
 
 /// The raw return code returned by the host side.
