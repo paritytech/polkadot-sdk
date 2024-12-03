@@ -44,7 +44,7 @@ jobs:
         id: prepare_final_tag
         shell: bash
         run: |
-          tag="$(echo $RELEASE_TAG | sed 's/-rc[0-9]*$//')"
+          tag="$(echo ${{ inputs.release_tag }} | sed 's/-rc[0-9]*$//')"
           echo $tag
           echo "FINAL_TAG=${tag}" >> $GITHUB_OUTPUT
 
