@@ -73,7 +73,7 @@ jobs:
         run: |
           . ./.github/scripts/release/release_lib.sh
 
-          if [[ ${{ inputs.package }} == 'polkadot' && ${{ inputs.target }} == 'aarch64-apple-darwin' ]]; then
+          if [[ ${{ inputs.package }} == 'polkadot' ]]; then
             packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
             for package in "${packages[@]}"; do
               upload_s3_release $package ${{ steps.prepare_final_tag.outputs.final_tag }} ${{ inputs.target }}
