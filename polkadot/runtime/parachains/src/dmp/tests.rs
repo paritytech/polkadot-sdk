@@ -63,7 +63,7 @@ fn queue_downward_message(
 
 fn register_paras(paras: &[ParaId]) {
 	paras.iter().for_each(|p| {
-		paras::Heads::<Test>::insert(p, HeadData(p.encode().into()));
+		Dmp::make_parachain_reachable(*p);
 	});
 }
 
