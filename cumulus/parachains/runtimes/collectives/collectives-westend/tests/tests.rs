@@ -16,7 +16,7 @@
 
 #![cfg(test)]
 
-use collectives_westend_runtime::Block, Runtime, RuntimeCall, RuntimeOrigin;
+use collectives_westend_runtime::{Block, Runtime, RuntimeCall, RuntimeOrigin};
 
 #[test]
 fn xcm_payment_api_works() {
