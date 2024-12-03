@@ -18,8 +18,9 @@
 
 use crate::{
 	common::events::{
-		ArchiveStorageMethodOk, ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType,
-		StorageResultType,
+		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
+		ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageMethodOk,
+		ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType, StorageResultType,
 	},
 	hex_string, MethodResult,
 };
@@ -32,10 +33,13 @@ use super::{
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use jsonrpsee::{
-	core::EmptyServerParams as EmptyParams, rpc_params, MethodsError as Error, RpcModule,
+	core::{server::Subscription as RpcSubscription, EmptyServerParams as EmptyParams},
+	rpc_params, MethodsError as Error, RpcModule,
 };
+
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
+use sc_rpc::testing::TokioTestExecutor;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_core::{Blake2Hasher, Hasher};
@@ -78,11 +82,21 @@ fn setup_api(
 		client.clone(),
 		backend,
 		CHAIN_GENESIS,
+		Arc::new(TokioTestExecutor::default()),
 		ArchiveConfig { max_descendant_responses, max_queried_items },
 	)
 	.into_rpc();
 
 	(client, api)
+}
+
+async fn get_next_event<T: serde::de::DeserializeOwned>(sub: &mut RpcSubscription) -> T {
+	let (event, _sub_id) = tokio::time::timeout(std::time::Duration::from_secs(60), sub.next())
+		.await
+		.unwrap()
+		.unwrap()
+		.unwrap();
+	event
 }
 
 #[tokio::test]
@@ -837,4 +851,261 @@ async fn archive_storage_discarded_items() {
 		},
 		_ => panic!("Unexpected result"),
 	};
+}
+
+#[tokio::test]
+async fn archive_storage_diff_main_trie() {
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
+	builder.push_storage_change(b":AA".to_vec(), Some(b"BB".to_vec())).unwrap();
+	let prev_block = builder.build().unwrap().block;
+	let prev_hash = format!("{:?}", prev_block.header.hash());
+	client.import(BlockOrigin::Own, prev_block.clone()).await.unwrap();
+
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(prev_block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":A".to_vec(), Some(b"11".to_vec())).unwrap();
+	builder.push_storage_change(b":AA".to_vec(), Some(b"22".to_vec())).unwrap();
+	builder.push_storage_change(b":AAA".to_vec(), Some(b"222".to_vec())).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Search for items in the main trie:
+	// - values of keys under ":A"
+	// - hashes of keys under ":AA"
+	let items = vec![
+		ArchiveStorageDiffItem::<String> {
+			key: hex_string(b":A"),
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: None,
+		},
+		ArchiveStorageDiffItem::<String> {
+			key: hex_string(b":AA"),
+			return_type: ArchiveStorageDiffType::Hash,
+			child_trie_key: None,
+		},
+	];
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_unstable_storageDiff",
+			rpc_params![&block_hash, items.clone(), &prev_hash],
+		)
+		.await
+		.unwrap();
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(
+		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: hex_string(b":A"),
+			result: StorageResultType::Value(hex_string(b"11")),
+			operation_type: ArchiveStorageDiffOperationType::Modified,
+			child_trie_key: None,
+		}),
+		event,
+	);
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(
+		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: hex_string(b":AA"),
+			result: StorageResultType::Value(hex_string(b"22")),
+			operation_type: ArchiveStorageDiffOperationType::Modified,
+			child_trie_key: None,
+		}),
+		event,
+	);
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(
+		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: hex_string(b":AA"),
+			result: StorageResultType::Hash(format!("{:?}", Blake2Hasher::hash(b"22"))),
+			operation_type: ArchiveStorageDiffOperationType::Modified,
+			child_trie_key: None,
+		}),
+		event,
+	);
+
+	// Added key.
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(
+		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: hex_string(b":AAA"),
+			result: StorageResultType::Value(hex_string(b"222")),
+			operation_type: ArchiveStorageDiffOperationType::Added,
+			child_trie_key: None,
+		}),
+		event,
+	);
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(
+		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: hex_string(b":AAA"),
+			result: StorageResultType::Hash(format!("{:?}", Blake2Hasher::hash(b"222"))),
+			operation_type: ArchiveStorageDiffOperationType::Added,
+			child_trie_key: None,
+		}),
+		event,
+	);
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(ArchiveStorageDiffEvent::StorageDiffDone, event);
+}
+
+#[tokio::test]
+async fn archive_storage_diff_no_changes() {
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+
+	// Build 2 identical blocks.
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
+	builder.push_storage_change(b":AA".to_vec(), Some(b"BB".to_vec())).unwrap();
+	builder.push_storage_change(b":B".to_vec(), Some(b"CC".to_vec())).unwrap();
+	builder.push_storage_change(b":BA".to_vec(), Some(b"CC".to_vec())).unwrap();
+	let prev_block = builder.build().unwrap().block;
+	let prev_hash = format!("{:?}", prev_block.header.hash());
+	client.import(BlockOrigin::Own, prev_block.clone()).await.unwrap();
+
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(prev_block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
+	builder.push_storage_change(b":AA".to_vec(), Some(b"BB".to_vec())).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Search for items in the main trie with keys prefixed with ":A".
+	let items = vec![ArchiveStorageDiffItem::<String> {
+		key: hex_string(b":A"),
+		return_type: ArchiveStorageDiffType::Value,
+		child_trie_key: None,
+	}];
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_unstable_storageDiff",
+			rpc_params![&block_hash, items.clone(), &prev_hash],
+		)
+		.await
+		.unwrap();
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(ArchiveStorageDiffEvent::StorageDiffDone, event);
+}
+
+#[tokio::test]
+async fn archive_storage_diff_deleted_changes() {
+	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+
+	// Blocks are imported as forks.
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
+	builder.push_storage_change(b":AA".to_vec(), Some(b"BB".to_vec())).unwrap();
+	builder.push_storage_change(b":B".to_vec(), Some(b"CC".to_vec())).unwrap();
+	builder.push_storage_change(b":BA".to_vec(), Some(b"CC".to_vec())).unwrap();
+	let prev_block = builder.build().unwrap().block;
+	let prev_hash = format!("{:?}", prev_block.header.hash());
+	client.import(BlockOrigin::Own, prev_block.clone()).await.unwrap();
+
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder
+		.push_transfer(Transfer {
+			from: AccountKeyring::Alice.into(),
+			to: AccountKeyring::Ferdie.into(),
+			amount: 41,
+			nonce: 0,
+		})
+		.unwrap();
+	builder.push_storage_change(b":A".to_vec(), Some(b"B".to_vec())).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Search for items in the main trie with keys prefixed with ":A".
+	let items = vec![ArchiveStorageDiffItem::<String> {
+		key: hex_string(b":A"),
+		return_type: ArchiveStorageDiffType::Value,
+		child_trie_key: None,
+	}];
+
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_unstable_storageDiff",
+			rpc_params![&block_hash, items.clone(), &prev_hash],
+		)
+		.await
+		.unwrap();
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(
+		ArchiveStorageDiffEvent::StorageDiff(ArchiveStorageDiffResult {
+			key: hex_string(b":AA"),
+			result: StorageResultType::Value(hex_string(b"BB")),
+			operation_type: ArchiveStorageDiffOperationType::Deleted,
+			child_trie_key: None,
+		}),
+		event,
+	);
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_eq!(ArchiveStorageDiffEvent::StorageDiffDone, event);
+}
+
+#[tokio::test]
+async fn archive_storage_diff_invalid_params() {
+	let invalid_hash = hex_string(&INVALID_HASH);
+	let (_, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+
+	// Invalid shape for parameters.
+	let items: Vec<ArchiveStorageDiffItem<String>> = Vec::new();
+	let err = api
+		.subscribe_unbounded(
+			"archive_unstable_storageDiff",
+			rpc_params!["123", items.clone(), &invalid_hash],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::JsonRpc(ref err) if err.code() == crate::chain_head::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid params"
+	);
+
+	// The shape is right, but the block hash is invalid.
+	let items: Vec<ArchiveStorageDiffItem<String>> = Vec::new();
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_unstable_storageDiff",
+			rpc_params![&invalid_hash, items.clone(), &invalid_hash],
+		)
+		.await
+		.unwrap();
+
+	let event = get_next_event::<ArchiveStorageDiffEvent>(&mut sub).await;
+	assert_matches!(event,
+		ArchiveStorageDiffEvent::StorageDiffError(ref err) if err.error.contains("Header was not found")
+	);
 }
