@@ -617,6 +617,12 @@ workspace = true
 [package.authors]
 workspace = true
 
+[package.homepage]
+workspace = true
+
+[package.repository]
+workspace = true
+
 [dependencies.assets-common]
 path = "../cumulus/parachains/runtimes/assets/common"
 default-features = false
