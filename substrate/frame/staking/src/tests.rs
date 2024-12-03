@@ -2329,8 +2329,10 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		let exposure = Exposure::<AccountId, Balance> { total: stake, own: stake, others: vec![] };
 		let mut reward_map = BoundedBTreeMap::new();
 		assert_ok!(reward_map.try_insert(11, 1));
-		let reward =
-			EraRewardPoints::<AccountId, MaxValidatorsCount> { total: 1, individual: reward_map };
+		let reward = EraRewardPoints::<AccountId, <Test as Config>::MaxValidatorsCount> {
+			total: 1,
+			individual: reward_map,
+		};
 
 		// Check reward
 		ErasRewardPoints::<Test>::insert(0, reward);
@@ -6609,7 +6611,10 @@ fn should_retain_era_info_only_upto_history_depth() {
 			for page in 0..3 {
 				ErasStakersPaged::<Test>::insert(
 					(era, &validator_stash, page),
-					ExposurePage { page_total: 100, others: WeakBoundedVec::new() },
+					ExposurePage {
+						page_total: 100,
+						others: WeakBoundedVec::force_from(vec![], None),
+					},
 				);
 			}
 		}
@@ -6657,8 +6662,10 @@ fn test_runtime_api_pending_rewards() {
 		assert_ok!(reward_map.try_insert(validator_two, 1));
 		assert_ok!(reward_map.try_insert(validator_three, 1));
 		// Add reward points
-		let reward =
-			EraRewardPoints::<AccountId, MaxValidatorsCount> { total: 1, individual: reward_map };
+		let reward = EraRewardPoints::<AccountId, <Test as Config>::MaxValidatorsCount> {
+			total: 1,
+			individual: reward_map,
+		};
 		ErasRewardPoints::<Test>::insert(0, reward);
 
 		// build exposure
@@ -8499,11 +8506,9 @@ mod migration_tests {
 mod getters {
 	use crate::{
 		mock::{self},
-		pallet::pallet::{
-			Invulnerables, MaxValidatorsCount, MinimumValidatorCount, ValidatorCount,
-		},
+		pallet::pallet::{Invulnerables, MinimumValidatorCount, ValidatorCount},
 		slashing,
-		tests::{MaxWinners, Staking, Test, WeakBoundedVec},
+		tests::{Staking, Test, WeakBoundedVec},
 		ActiveEra, ActiveEraInfo, BalanceOf, BoundedBTreeMap, BoundedVec, CanceledSlashPayout,
 		ClaimedRewards, CurrentEra, CurrentPlannedSession, EraRewardPoints, ErasRewardPoints,
 		ErasStartSessionIndex, ErasTotalStake, ErasValidatorPrefs, ErasValidatorReward, ForceEra,
@@ -8705,10 +8710,11 @@ mod getters {
 			let era: EraIndex = 12;
 			let mut reward_map = BoundedBTreeMap::new();
 			frame_support::assert_ok!(reward_map.try_insert(11, 1));
-			let reward_points = EraRewardPoints::<mock::AccountId, MaxValidatorsCount> {
-				total: 1,
-				individual: reward_map,
-			};
+			let reward_points =
+				EraRewardPoints::<mock::AccountId, <Test as Config>::MaxValidatorsCount> {
+					total: 1,
+					individual: reward_map,
+				};
 			ErasRewardPoints::<Test>::insert(era, reward_points);
 
 			// when
