@@ -43,8 +43,10 @@ jobs:
 
       - name: Prepare final tag
         id: prepare_final_tag
+        shell: bash
         run: |
-          echo "FINAL_TAG=${${{ inputs.release_tag }}%-rc*}" >> $GITHUB_OUTPUT
+          tag="${{ inputs.release_tag }}%-rc*"
+          echo "FINAL_TAG=${tag}" >> $GITHUB_OUTPUT
 
       - name: Fetch binaries from s3 based on version
         run: |

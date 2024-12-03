@@ -132,7 +132,7 @@ upload_s3_release() {
     echo "Current content, should be empty on new uploads:"
     aws s3 ls "s3://releases.parity.io/${product}/${version}/${target}" --recursive --human-readable --summarize || true
     echo "Content to be uploaded:"
-    artifacts="artifacts/$product/"
+    artifacts="release-artifacts/$target/$product/"
     ls "$artifacts"
     aws s3 sync --acl public-read "$artifacts" "s3://releases.parity.io/${product}/${version}/${target}"
     echo "Uploaded files:"
