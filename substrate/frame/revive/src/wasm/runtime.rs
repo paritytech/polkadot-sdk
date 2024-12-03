@@ -755,15 +755,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let transfer_failed = Error::<E::T>::TransferFailed.into();
 		let out_of_gas = Error::<E::T>::OutOfGas.into();
+		let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
 
+		// errors in the callee do not trap the caller
 		match (from.error, from.origin) {
-			// on ethereum a failing transfer does not trap the caller
 			(err, _) if err == transfer_failed => Ok(TransferFailed),
-			// seperate error if the sub contract ran out of resources
-			(err, Callee) if err == out_of_gas => Ok(OutOfResources),
-			// any error within the sub context will not trap the caller
+			(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
 			(_, Callee) => Ok(CalleeTrapped),
-			// any other error is within the caller and should trap it
 			(err, _) => Err(err),
 		}
 	}
