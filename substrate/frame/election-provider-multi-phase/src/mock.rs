@@ -607,6 +607,10 @@ impl ExtBuilder {
 		<SignedMaxWeight>::set(weight);
 		self
 	}
+	pub fn max_backers_per_winner(self, max: u32) -> Self {
+		MaxBackersPerWinner::set(max);
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage =

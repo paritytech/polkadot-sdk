@@ -1866,6 +1866,99 @@ mod tests {
 	}
 
 	#[test]
+	fn mine_solution_always_respects_max_backers_per_winner() {
+		use crate::mock::MaxBackersPerWinner;
+		use frame_election_provider_support::BoundedSupport;
+
+		let targets = vec![10, 20, 30, 40];
+		let voters = vec![
+			(1, 10, bounded_vec![10, 20, 30]),
+			(2, 10, bounded_vec![10, 20, 30]),
+			(3, 10, bounded_vec![10, 20, 30]),
+			(4, 10, bounded_vec![10, 20, 30]),
+			(5, 10, bounded_vec![10, 20, 40]),
+		];
+		let snapshot = RoundSnapshot { voters: voters.clone(), targets: targets.clone() };
+		let (round, desired_targets) = (1, 3);
+
+		let expected_score_unbounded =
+			ElectionScore { minimal_stake: 12, sum_stake: 50, sum_stake_squared: 874 };
+		let expected_score_bounded =
+			ElectionScore { minimal_stake: 2, sum_stake: 10, sum_stake_squared: 44 };
+
+		// solution without max_backers_per_winner set will be higher than the score when bounds
+		// are set, confirming the trimming when using the same snapshot state.
+		assert!(expected_score_unbounded > expected_score_bounded);
+
+		// election with unbounded max backers per winnner.
+		ExtBuilder::default().max_backers_per_winner(u32::MAX).build_and_execute(|| {
+			assert_eq!(MaxBackersPerWinner::get(), u32::MAX);
+
+			let solution = Miner::<Runtime>::mine_solution_with_snapshot::<
+				<Runtime as Config>::Solver,
+			>(voters.clone(), targets.clone(), desired_targets)
+			.unwrap()
+			.0;
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score: expected_score_unbounded, round },
+				Default::default(),
+				desired_targets,
+				snapshot.clone(),
+				round,
+				Default::default(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				ready_solution.supports.into_iter().collect::<Vec<_>>(),
+				vec![
+					(
+						10,
+						BoundedSupport { total: 21, voters: bounded_vec![(1, 10), (4, 8), (5, 3)] }
+					),
+					(20, BoundedSupport { total: 17, voters: bounded_vec![(2, 10), (5, 7)] }),
+					(30, BoundedSupport { total: 12, voters: bounded_vec![(3, 10), (4, 2)] }),
+				]
+			);
+		});
+
+		// election with max 1 backer per winnner.
+		ExtBuilder::default().max_backers_per_winner(1).build_and_execute(|| {
+			assert_eq!(MaxBackersPerWinner::get(), 1);
+
+			let solution = Miner::<Runtime>::mine_solution_with_snapshot::<
+				<Runtime as Config>::Solver,
+			>(voters, targets, desired_targets)
+			.unwrap()
+			.0;
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score: expected_score_bounded, round },
+				Default::default(),
+				desired_targets,
+				snapshot,
+				round,
+				Default::default(),
+			)
+			.unwrap();
+
+			for (_, supports) in ready_solution.supports.iter() {
+				assert!((supports.voters.len() as u32) <= MaxBackersPerWinner::get());
+			}
+
+			assert_eq!(
+				ready_solution.supports.into_iter().collect::<Vec<_>>(),
+				vec![
+					(10, BoundedSupport { total: 6, voters: bounded_vec![(1, 6)] }),
+					(20, BoundedSupport { total: 2, voters: bounded_vec![(1, 2)] }),
+					(30, BoundedSupport { total: 2, voters: bounded_vec![(1, 2)] }),
+				]
+			);
+		});
+	}
+
+	#[test]
 	fn trim_assignments_length_does_not_modify_when_short_enough() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
