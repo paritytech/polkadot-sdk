@@ -44,7 +44,7 @@ jobs:
         id: prepare_final_tag
         shell: bash
         run: |
-          tag="${{ inputs.release_tag }}%-rc*"
+          tag="$(echo $RELEASE_TAG | sed 's/-rc[0-9]*$//')"
           echo "FINAL_TAG=${tag}" >> $GITHUB_OUTPUT
 
       - name: Fetch binaries from s3 based on version
