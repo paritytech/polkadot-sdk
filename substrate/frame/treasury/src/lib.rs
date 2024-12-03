@@ -113,7 +113,7 @@ pub use weights::WeightInfo;
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub type AssetBalanceOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Balance;
+pub type AssetBalanceOf<T, I = ()> = <<T as Config<I>>::Paymaster as Pay>::Balance;
 pub type PositiveImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
@@ -121,7 +121,8 @@ pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currenc
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
+pub type BeneficiaryLookupOf<T, I = ()> =
+	<<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
 pub type BlockNumberFor<T, I = ()> =
 	<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
@@ -267,6 +268,12 @@ pub mod pallet {
 
 		/// Type for processing spends of [Self::AssetKind] in favor of [`Self::Beneficiary`].
 		type Paymaster: Pay<Beneficiary = Self::Beneficiary, AssetKind = Self::AssetKind>;
+
+		// TODO: make types BalanceOf and AssetBalanceOf same, and get rid of AssetBalanceOf alias
+		// type Paymaster: Pay<
+		//		Balance = <Self::Currency as Currency>::Balance,
+		//		Beneficiary = Self::Beneficiary,
+		//		AssetKind = Self::AssetKind>;
 
 		/// Type for converting the balance of an [Self::AssetKind] to the balance of the native
 		/// asset, solely for the purpose of asserting the result against the maximum allowed spend
@@ -731,8 +738,14 @@ pub mod pallet {
 				Error::<T, I>::AlreadyAttempted
 			);
 
-			let id = T::Paymaster::pay(&spend.beneficiary, spend.asset_kind.clone(), spend.amount)
-				.map_err(|_| Error::<T, I>::PayoutError)?;
+			let treasury_account = Self::treasury_account_id();
+			let id = T::Paymaster::pay(
+				&treasury_account,
+				&spend.beneficiary,
+				spend.asset_kind.clone(),
+				spend.amount,
+			)
+			.map_err(|_| Error::<T, I>::PayoutError)?;
 
 			spend.status = PaymentState::Attempted { id };
 			Spends::<T, I>::insert(index, spend);
@@ -840,6 +853,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
 	/// value and only call this once.
 	pub fn account_id() -> T::AccountId {
+		T::PalletId::get().into_account_truncating()
+	}
+
+	pub fn treasury_account_id() -> T::Beneficiary {
 		T::PalletId::get().into_account_truncating()
 	}
 
