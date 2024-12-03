@@ -751,12 +751,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let transfer_failed = Error::<E::T>::TransferFailed.into();
 		let no_code = Error::<E::T>::CodeNotFound.into();
-		let not_found = Error::<E::T>::ContractNotFound.into();
 
 		match from {
 			x if x == transfer_failed => Ok(TransferFailed),
 			x if x == no_code => Ok(CodeNotFound),
-			x if x == not_found => Ok(NotCallable),
 			err => Err(err),
 		}
 	}

@@ -87,21 +87,19 @@ define_error_codes! {
 	TransferFailed = 4,
 	/// No code could be found at the supplied code hash.
 	CodeNotFound = 5,
-	/// The account that was called is no contract.
-	NotCallable = 6,
 	/// The call to `debug_message` had no effect because debug message
 	/// recording was disabled.
-	LoggingDisabled = 7,
+	LoggingDisabled = 6,
 	/// The call dispatched by `call_runtime` was executed but returned an error.
-	CallRuntimeFailed = 8,
+	CallRuntimeFailed = 7,
 	/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
-	EcdsaRecoveryFailed = 9,
+	EcdsaRecoveryFailed = 8,
 	/// sr25519 signature verification failed.
-	Sr25519VerifyFailed = 10,
+	Sr25519VerifyFailed = 9,
 	/// The `xcm_execute` call failed.
-	XcmExecutionFailed = 11,
+	XcmExecutionFailed = 10,
 	/// The `xcm_send` call failed.
-	XcmSendFailed = 12,
+	XcmSendFailed = 11,
 }
 
 /// The raw return code returned by the host side.
