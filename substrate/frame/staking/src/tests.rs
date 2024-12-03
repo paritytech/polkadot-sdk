@@ -8710,11 +8710,7 @@ mod getters {
 			let era: EraIndex = 12;
 			let mut reward_map = BoundedBTreeMap::new();
 			frame_support::assert_ok!(reward_map.try_insert(11, 1));
-			let reward_points =
-				EraRewardPoints::<mock::AccountId, <Test as Config>::MaxValidatorsCount> {
-					total: 1,
-					individual: reward_map,
-				};
+			let reward_points = EraRewardPoints::<_, _> { total: 1, individual: reward_map };
 			ErasRewardPoints::<Test>::insert(era, reward_points);
 
 			// when
