@@ -256,10 +256,11 @@ where
 				self.future_transaction_views.entry(tx_hash).or_default().insert(block_hash);
 			},
 			TransactionStatus::Ready | TransactionStatus::InBlock(..) => {
-				// note: if future transaction was once seens as the ready we may want to treat it as ready
-				// transactions. Unreferenced future transactions are more likely to be removed when the last
-				// referencing view is removed then ready transactions. Transcaction seen as ready is likely quite close
-				// to be included in some future fork.
+				// note: if future transaction was once seens as the ready we may want to treat it
+				// as ready transactions. Unreferenced future transactions are more likely to be
+				// removed when the last referencing view is removed then ready transactions.
+				// Transcaction seen as ready is likely quite close to be included in some
+				// future fork.
 				if let Some(mut views) = self.future_transaction_views.remove(&tx_hash) {
 					views.insert(block_hash);
 					self.ready_transaction_views.insert(tx_hash, views);
