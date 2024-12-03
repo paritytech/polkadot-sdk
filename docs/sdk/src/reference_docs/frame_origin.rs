@@ -6,7 +6,7 @@
 //!
 //! FRAME's origin abstractions allow you to convey meanings far beyond just an account-id being the
 //! caller of an extrinsic. Nonetheless, an account-id having signed an extrinsic is one of the
-//! meanings that an origin can convey. This is the commonly used [`frame_system::ensure_signed`],
+//! meanings that an origin can convey. This is the commonly used [`ensure_signed`],
 //! where the return value happens to be an account-id.
 //!
 //! Instead, let's establish the following as the correct definition of an origin:
@@ -36,12 +36,12 @@
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", call_simple)]
 //!
 //! Typically, the code of an extrinsic starts with an origin check, such as
-//! [`frame_system::ensure_signed`].
+//! [`ensure_signed`].
 //!
 //! Note that [`OriginFor`](frame_system::pallet_prelude::OriginFor) is merely a shorthand for
-//! [`frame_system::Config::RuntimeOrigin`]. Given the name prefix `Runtime`, we can learn that
+//! [`RuntimeOrigin`]. Given the name prefix `Runtime`, we can learn that
 //! `RuntimeOrigin` is similar to `RuntimeCall` and others, a runtime composite enum that is
-//! amalgamated at the runtime level. Read [`crate::reference_docs::frame_runtime_types`] to
+//! amalgamated at the runtime level. Read [`frame_runtime_types`] to
 //! familiarize yourself with these types.
 //!
 //! To understand this better, we will next create a pallet with a custom origin, which will add a
@@ -55,23 +55,22 @@
 //! And a runtime with the following pallets:
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", runtime_exp)]
 //!
-//! The type [`crate::reference_docs::frame_origin::runtime_for_origin::RuntimeOrigin`] is expanded.
-//! This `RuntimeOrigin` contains a variant for the [`frame_system::RawOrigin`] and the custom
+//! The type [`RuntimeOrigin`] is expanded.
+//! This `RuntimeOrigin` contains a variant for the [`RawOrigin`] and the custom
 //! origin of the pallet.
 //!
-//! > Notice how the [`frame_system::ensure_signed`] is nothing more than a `match` statement. If
+//! > Notice how the [`ensure_signed`] is nothing more than a `match` statement. If
 //! > you want to know where the actual origin of an extrinsic is set (and the signature
 //! > verification happens, if any), see
-//! > [`sp_runtime::generic::CheckedExtrinsic#trait-implementations`], specifically
-//! > [`sp_runtime::traits::Applyable`]'s implementation.
+//! > [`CheckedExtrinsic`], specifically
+//! > [`Applyable`]'s implementation.
 //!
 //! ## Asserting on a Custom Internal Origin
 //!
 //! In order to assert on a custom origin that is defined within your pallet, we need a way to first
 //! convert the `<T as frame_system::Config>::RuntimeOrigin` into the local `enum Origin` of the
 //! current pallet. This is a common process that is explained in
-//! [`crate::reference_docs::frame_runtime_types#
-//! adding-further-constraints-to-runtime-composite-enums`].
+//! [`frame_runtime_types`].
 //!
 //! We use the same process here to express that `RuntimeOrigin` has a number of additional bounds,
 //! as follows.
@@ -93,17 +92,17 @@
 //! Then, within the pallet, we can simply use this "unknown" origin check type:
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", external_origin_usage)]
 //!
-//! Finally, at the runtime, any implementation of [`frame::traits::EnsureOrigin`] can be passed.
+//! Finally, at the runtime, any implementation of [`EnsureOrigin`] can be passed.
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", external_origin_provide)]
 //!
-//! Indeed, some of these implementations of [`frame::traits::EnsureOrigin`] are similar to the ones
-//! that we know about: [`frame::runtime::prelude::EnsureSigned`],
-//! [`frame::runtime::prelude::EnsureSignedBy`], [`frame::runtime::prelude::EnsureRoot`],
-//! [`frame::runtime::prelude::EnsureNone`], etc. But, there are also many more that are not known
+//! Indeed, some of these implementations of [`EnsureOrigin`] are similar to the ones
+//! that we know about: [`EnsureSigned`],
+//! [`EnsureSignedBy`], [`EnsureRoot`],
+//! [`EnsureNone`], etc. But, there are also many more that are not known
 //! to us, and are defined in other pallets.
 //!
-//! For example, [`pallet_collective`] defines [`pallet_collective::EnsureMember`] and
-//! [`pallet_collective::EnsureProportionMoreThan`] and many more, which is exactly what we alluded
+//! For example, [`pallet_collective`] defines [`EnsureMember`] and
+//! [`EnsureProportionMoreThan`] and many more, which is exactly what we alluded
 //! to earlier in this document.
 //!
 //! Make sure to check the full list of [implementors of
@@ -125,7 +124,7 @@
 //! - [Gavin Wood's speech about FRAME features at Protocol Berg 2023.](https://youtu.be/j7b8Upipmeg?si=83_XUgYuJxMwWX4g&t=195)
 //! - [A related StackExchange question.](https://substrate.stackexchange.com/questions/10992/how-do-you-find-the-public-key-for-the-medium-spender-track-origin)
 //!
-//! [^1]: Inherents are essentially unsigned extrinsics that need an [`frame_system::ensure_none`]
+//! [^1]: Inherents are essentially unsigned extrinsics that need an [`ensure_none`]
 //! origin check, and through the virtue of being an inherent, are agreed upon by all validators.
 
 use frame::prelude::*;
@@ -258,3 +257,23 @@ pub mod runtime_for_external_origin {
 		type ExternalOrigin = EnsureSigned<<Self as frame_system::Config>::AccountId>;
 	}
 }
+
+//! [`Applyable`]: sp_runtime::traits::Applyable
+//! [`CheckedExtrinsic`]: sp_runtime::generic::CheckedExtrinsic#trait-implementations
+//! [`EnsureMember`]: pallet_collective::EnsureMember
+//! [`EnsureNone`]: frame::runtime::prelude::EnsureNone
+//! [`EnsureOrigin`]: frame::traits::EnsureOrigin
+//! [`EnsureProportionMoreThan`]: pallet_collective::EnsureProportionMoreThan
+//! [`EnsureRoot`]: frame::runtime::prelude::EnsureRoot
+//! [`EnsureSigned`]: frame::runtime::prelude::EnsureSigned
+//! [`EnsureSignedBy`]: frame::runtime::prelude::EnsureSignedBy
+//! [`RawOrigin`]: frame_system::RawOrigin
+//! [`RuntimeOrigin`]: crate::reference_docs::frame_origin::runtime_for_origin::RuntimeOrigin
+//! [`RuntimeOrigin`]: frame_system::Config::RuntimeOrigin
+//! [`ensure_none`]: frame_system::ensure_none
+//! [`ensure_signed`]: frame_system::ensure_signed
+//! [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types
+//! [`frame_runtime_types`]: crate::reference_docs::frame_runtime_types#adding-further-constraints-to-runtime-composite-enums
+//! [`frame_runtime_types`]: frame_runtime_types
+//! [`pallet_collective`]: pallet_collective
+//! [`pallet_democracy`]: pallet_democracy

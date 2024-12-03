@@ -1,0 +1,8 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Update documentation link shortener script"
+author: vjgaur
+doc:
+  - audience: Node Dev
+    description: "Add script to format documentation links and improve readability of SDK docs"
