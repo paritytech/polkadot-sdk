@@ -300,14 +300,15 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(fn deposit_event)]
-	#[deprecated = "test"]
-	#[allow(deprecated)]
+
 	pub enum Event<T: Config>
 	where
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
 	{
 		/// event doc comment put in metadata
 		Proposed(<T as frame_system::Config>::AccountId),
+		#[deprecated = "test"]
+		#[allow(deprecated)]
 		Spending(BalanceOf<T>),
 		Something(u32),
 		SomethingElse(<T::AccountId as SomeAssociation1>::_1),
@@ -2628,10 +2629,10 @@ fn pallet_metadata() {
 		// Example pallet events are partially and fully deprecated
 		let meta = example.event.unwrap();
 		assert_eq!(
-			DeprecationInfoIR::ItemDeprecated(DeprecationStatusIR::Deprecated {
-				note: "test",
-				since: None
-			}),
+			DeprecationInfoIR::VariantsDeprecated(BTreeMap::from([(
+				codec::Compact(1),
+				DeprecationStatusIR::Deprecated { note: "test", since: None }
+			)])),
 			meta.deprecation_info
 		);
 	}

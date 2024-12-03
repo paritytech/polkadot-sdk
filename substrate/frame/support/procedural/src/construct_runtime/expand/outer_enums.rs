@@ -164,7 +164,6 @@ pub fn expand_outer_enum(
 			#scrate::__private::RuntimeDebug,
 		)]
 		#[allow(non_camel_case_types)]
-		#[allow(deprecated)]
 		pub enum #enum_name_ident {
 			#enum_variants
 		}
