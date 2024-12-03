@@ -51,7 +51,14 @@ jobs:
           . ./.github/scripts/common/lib.sh
 
           VERSION="${{ inputs.release_tag }}"
-          fetch_release_artifacts_from_s3 ${{ inputs.package }} ${{ inputs.target }}
+          if [[ ${{ inputs.package }} == 'polkadot' && ${{ inputs.target }} == 'aarch64-apple-darwin' ]]; then
+            packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
+            for package in "${packages[@]}"; do
+              fetch_release_artifacts_from_s3 $package ${{ inputs.target }}
+            done
+          else
+            fetch_release_artifacts_from_s3 ${{ inputs.package }} ${{ inputs.target }}
+          fi
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
@@ -60,7 +67,15 @@ jobs:
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload ${{ inputs.package }} artifacts to s3
+      - name: Upload ${{ inputs.package }} ${{ inputs.target }} artifacts to s3
         run: |
           . ./.github/scripts/release/release_lib.sh
-          upload_s3_release ${{ inputs.package }} ${{ steps.prepare_final_tag.outputs.final_tag }} ${{ inputs.target }}
+
+          if [[ ${{ inputs.package }} == 'polkadot' && ${{ inputs.target }} == 'aarch64-apple-darwin' ]]; then
+            packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
+            for package in "${packages[@]}"; do
+              upload_s3_release $package ${{ steps.prepare_final_tag.outputs.final_tag }} ${{ inputs.target }}
+            done
+          else
+            upload_s3_release ${{ inputs.package }} ${{ steps.prepare_final_tag.outputs.final_tag }} ${{ inputs.target }}
+          fi
