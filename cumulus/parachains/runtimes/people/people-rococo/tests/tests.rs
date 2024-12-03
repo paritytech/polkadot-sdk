@@ -16,7 +16,7 @@
 
 #![cfg(test)]
 
-use people_rococo_runtime::Block, Runtime, RuntimeCall, RuntimeOrigin;
+use people_rococo_runtime::{Block, Runtime, RuntimeCall, RuntimeOrigin};
 
 #[test]
 fn xcm_payment_api_works() {
