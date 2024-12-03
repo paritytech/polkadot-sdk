@@ -13783,6 +13783,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-meta-tx"
+version = "0.1.0"
+dependencies = [
+ "docify",
+ "frame-benchmarking 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "pallet-balances 28.0.0",
+ "pallet-transaction-payment 28.0.0",
+ "pallet-verify-signature",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-keyring 31.0.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-migrations"
 version = "1.0.0"
 dependencies = [
@@ -18553,6 +18575,7 @@ dependencies = [
  "pallet-lottery 28.0.0",
  "pallet-membership 28.0.0",
  "pallet-message-queue 31.0.0",
+ "pallet-meta-tx",
  "pallet-migrations 1.0.0",
  "pallet-mixnet 0.4.0",
  "pallet-mmr 27.0.0",
@@ -31061,6 +31084,7 @@ dependencies = [
  "pallet-indices 28.0.0",
  "pallet-membership 28.0.0",
  "pallet-message-queue 31.0.0",
+ "pallet-meta-tx",
  "pallet-migrations 1.0.0",
  "pallet-mmr 27.0.0",
  "pallet-multisig 28.0.0",
