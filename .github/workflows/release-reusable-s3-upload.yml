@@ -9,7 +9,7 @@ on:
         type: string
 
       release_tag:
-        description: Tag matching the actual release candidate with the format stableYYMM-rcX or stableYYMM-rcX
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX or polkadot-stableYYMM-rcX
         required: true
         type: string
 
