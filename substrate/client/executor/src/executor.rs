@@ -195,10 +195,12 @@ impl<H> WasmExecutorBuilder<H> {
 		self
 	}
 
-	/// Create the wasm executor with the given `maybe_wasmtime_precompiled_path`, provided that it is `Some`
+	/// Create the wasm executor with the given `maybe_wasmtime_precompiled_path`, provided that it is `Some`.
 	///
-	/// The `maybe_wasmtime_precompiled_path` is an optional whose inner value (if `Some`) is a path to a 
-	/// directory where the executor load precompiled wasmtime modules.
+	/// The `maybe_wasmtime_precompiled_path` is an optional which (if `Some`) its inner value is a path to a 
+	/// directory where the executor loads precompiled wasmtime modules.
+	/// 
+	/// If `None`, calling this function will have no impact on the wasm executor being built.
 	pub fn with_optional_wasmtime_precompiled_path(
 		mut self,
 		maybe_wasmtime_precompiled_path: Option<impl Into<PathBuf>>,
@@ -251,7 +253,7 @@ pub struct WasmExecutor<H> {
 	cache_path: Option<PathBuf>,
 	/// Ignore missing function imports.
 	allow_missing_host_functions: bool,
-	/// TODO
+	/// Optional path to a directory where the executor can find precompiled wasmtime modules.
 	wasmtime_precompiled_path: Option<PathBuf>,
 	phantom: PhantomData<H>,
 }
