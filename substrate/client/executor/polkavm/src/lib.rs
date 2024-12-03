@@ -43,7 +43,7 @@ impl WasmInstance for Instance {
 		name: &str,
 		raw_data: &[u8],
 	) -> (Result<Vec<u8>, Error>, Option<AllocationStats>) {
-		let Some(_) = self.0.module().exports().find(|e| e.symbol() == name) else {
+		let Some(export) = self.0.module().exports().find(|e| e.symbol() == name) else {
 			return (
 				Err(format!("cannot call into the runtime: export not found: '{name}'").into()),
 				None,
@@ -85,7 +85,10 @@ impl WasmInstance for Instance {
 			return (Err(format!("call into the runtime method '{name}': failed to write the input payload into guest memory: {error}").into()), None);
 		}
 
-		match self.0.call_typed(&mut (), name, (data_pointer, raw_data_length)) {
+		match self
+			.0
+			.call_typed(&mut (), export.program_counter(), (data_pointer, raw_data_length))
+		{
 			Ok(()) => {},
 			Err(polkavm::CallError::Trap) => {
 				return (
@@ -180,7 +183,7 @@ fn call_host_function(
 				args[nth_arg] = Value::F32(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as u32);
 				nth_reg += 1;
 			},
-			ValueType::I64 =>
+			ValueType::I64 => {
 				if caller.instance.is_64_bit() {
 					args[nth_arg] = Value::I64(caller.instance.reg(Reg::ARG_REGS[nth_reg]) as i64);
 					nth_reg += 1;
@@ -193,8 +196,9 @@ fn call_host_function(
 
 					args[nth_arg] =
 						Value::I64((u64::from(value_lo) | (u64::from(value_hi) << 32)) as i64);
-				},
-			ValueType::F64 =>
+				}
+			},
+			ValueType::F64 => {
 				if caller.instance.is_64_bit() {
 					args[nth_arg] = Value::F64(caller.instance.reg(Reg::ARG_REGS[nth_reg]));
 					nth_reg += 1;
@@ -206,7 +210,8 @@ fn call_host_function(
 					nth_reg += 1;
 
 					args[nth_arg] = Value::F64(u64::from(value_lo) | (u64::from(value_hi) << 32));
-				},
+				}
+			},
 		}
 	}
 
@@ -220,11 +225,12 @@ fn call_host_function(
 		.execute(&mut Context(caller), &mut args.into_iter().take(function.signature().args.len()))
 	{
 		Ok(value) => value,
-		Err(error) =>
+		Err(error) => {
 			return Err(polkavm::CallError::User(format!(
 				"Call into the host function '{}' failed: {error}",
 				function.name()
-			))),
+			)))
+		},
 	};
 
 	if let Some(value) = value {
@@ -235,20 +241,22 @@ fn call_host_function(
 			Value::F32(value) => {
 				caller.instance.set_reg(Reg::A0, value as u64);
 			},
-			Value::I64(value) =>
+			Value::I64(value) => {
 				if caller.instance.is_64_bit() {
 					caller.instance.set_reg(Reg::A0, value as u64);
 				} else {
 					caller.instance.set_reg(Reg::A0, value as u64);
 					caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
-				},
-			Value::F64(value) =>
+				}
+			},
+			Value::F64(value) => {
 				if caller.instance.is_64_bit() {
 					caller.instance.set_reg(Reg::A0, value as u64);
 				} else {
 					caller.instance.set_reg(Reg::A0, value as u64);
 					caller.instance.set_reg(Reg::A1, (value >> 32) as u64);
-				},
+				}
+			},
 		}
 	}
 
