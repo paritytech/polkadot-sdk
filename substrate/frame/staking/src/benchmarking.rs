@@ -22,9 +22,7 @@ use crate::{asset, ConfigOp, Pallet as Staking};
 use testing_utils::*;
 
 use codec::Decode;
-use frame_election_provider_support::{
-	bounds::DataProviderBounds, ElectionProviderBase, SortedListProvider,
-};
+use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
 	assert_ok,
 	pallet_prelude::*,

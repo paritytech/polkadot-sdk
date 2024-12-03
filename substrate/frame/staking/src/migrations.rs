@@ -18,7 +18,7 @@
 //! [CHANGELOG.md](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/staking/CHANGELOG.md).
 
 use super::*;
-use frame_election_provider_support::{ElectionProviderBase, SortedListProvider};
+use frame_election_provider_support::SortedListProvider;
 use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::{NMapKey, OptionQuery, ValueQuery},
