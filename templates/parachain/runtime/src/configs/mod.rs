@@ -129,6 +129,11 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+/// Configure the palelt weight reclaim tx.
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
+	type WeightInfo = ();
+}
+
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;

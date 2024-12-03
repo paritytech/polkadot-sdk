@@ -60,7 +60,8 @@ construct_runtime! {
 	}
 }
 
-pub type TxExtension = (frame_system::CheckWeight<TestRuntime>,);
+pub type TxExtension =
+	(frame_system::CheckWeight<TestRuntime>, frame_system::WeightReclaim<TestRuntime>);
 
 // we only use the hash type from this, so using the mock should be fine.
 pub(crate) type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<

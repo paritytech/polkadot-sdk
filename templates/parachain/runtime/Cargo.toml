@@ -48,11 +48,11 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 
 	"cumulus-pallet-aura-ext",
 	"cumulus-pallet-session-benchmarking",
+	"cumulus-pallet-weight-reclaim",
 	"cumulus-pallet-xcm",
 	"cumulus-pallet-xcmp-queue",
 	"cumulus-primitives-aura",
 	"cumulus-primitives-core",
-	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-utility",
 	"pallet-collator-selection",
 	"parachains-common",

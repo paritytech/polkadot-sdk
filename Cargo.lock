@@ -858,11 +858,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -994,11 +994,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -2547,11 +2547,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -2785,11 +2785,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -3515,11 +3515,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -3822,11 +3822,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -3965,11 +3965,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -4066,11 +4066,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -4945,6 +4945,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-pallet-weight-reclaim"
+version = "1.0.0"
+dependencies = [
+ "cumulus-primitives-proof-size-hostfunction 0.2.0",
+ "cumulus-primitives-storage-weight-reclaim 1.0.0",
+ "derivative",
+ "docify",
+ "frame-benchmarking 28.0.0",
+ "frame-support 28.0.0",
+ "frame-system 28.0.0",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-trie 29.0.0",
+]
+
+[[package]]
 name = "cumulus-pallet-xcm"
 version = "0.7.0"
 dependencies = [
@@ -5394,10 +5413,10 @@ dependencies = [
 name = "cumulus-test-client"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-core 0.7.0",
  "cumulus-primitives-parachain-inherent 0.7.0",
  "cumulus-primitives-proof-size-hostfunction 0.2.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-test-relay-sproof-builder 0.7.0",
  "cumulus-test-runtime",
  "cumulus-test-service",
@@ -5459,9 +5478,9 @@ version = "0.1.0"
 dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "frame-executive 28.0.0",
  "frame-support 28.0.0",
  "frame-system 28.0.0",
@@ -5513,8 +5532,8 @@ dependencies = [
  "cumulus-client-pov-recovery",
  "cumulus-client-service",
  "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
@@ -8560,7 +8579,7 @@ dependencies = [
  "hyper 1.3.1",
  "hyper-util",
  "log",
- "rustls 0.23.18",
+ "rustls 0.23.19",
  "rustls-native-certs 0.8.0",
  "rustls-pki-types",
  "tokio",
@@ -9175,7 +9194,7 @@ dependencies = [
  "http 1.1.0",
  "jsonrpsee-core",
  "pin-project",
- "rustls 0.23.18",
+ "rustls 0.23.19",
  "rustls-pki-types",
  "rustls-platform-verifier",
  "soketto 0.8.0",
@@ -9228,7 +9247,7 @@ dependencies = [
  "hyper-util",
  "jsonrpsee-core",
  "jsonrpsee-types",
- "rustls 0.23.18",
+ "rustls 0.23.19",
  "rustls-platform-verifier",
  "serde",
  "serde_json",
@@ -14752,7 +14771,7 @@ dependencies = [
  "anyhow",
  "frame-system 28.0.0",
  "log",
- "polkavm-linker 0.17.0",
+ "polkavm-linker 0.17.1",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -14872,7 +14891,7 @@ dependencies = [
  "bitflags 1.3.2",
  "parity-scale-codec",
  "paste",
- "polkavm-derive 0.17.0",
+ "polkavm-derive 0.17.1",
  "scale-info",
 ]
 
@@ -16572,11 +16591,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "enumflags2",
  "frame-benchmarking 28.0.0",
@@ -16675,11 +16694,11 @@ dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "enumflags2",
  "frame-benchmarking 28.0.0",
@@ -18468,6 +18487,7 @@ dependencies = [
  "cumulus-pallet-parachain-system-proc-macro 0.6.0",
  "cumulus-pallet-session-benchmarking 9.0.0",
  "cumulus-pallet-solo-to-para 0.7.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-ping 0.7.0",
@@ -19055,6 +19075,7 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-proof-size-hostfunction 0.2.0",
  "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "docify",
@@ -19810,9 +19831,9 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive"
-version = "0.17.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0c3dbb6c8c7bd3e5f5b05aa7fc9355acf14df7ce5d392911e77d01090a38d0d"
+checksum = "206caf322dfc02144510ad8360ff2051e5072f0874dcab3b410f78cdd52d0ebb"
 dependencies = [
  "polkavm-derive-impl-macro 0.17.0",
 ]
@@ -19937,9 +19958,9 @@ dependencies = [
 
 [[package]]
 name = "polkavm-linker"
-version = "0.17.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d359dc721d2cc9b555ebb3558c305112ddc5bdac09d26f95f2f7b49c1f2db7e9"
+checksum = "0422ead3030d5cde69e2206dbc7d65da872b121876507cd5363f6c6e6aa45157"
 dependencies = [
  "dirs",
  "gimli 0.31.1",
@@ -20638,7 +20659,7 @@ dependencies = [
  "quinn-proto 0.11.8",
  "quinn-udp 0.5.4",
  "rustc-hash 2.0.0",
- "rustls 0.23.18",
+ "rustls 0.23.19",
  "socket2 0.5.7",
  "thiserror",
  "tokio",
@@ -20672,7 +20693,7 @@ dependencies = [
  "rand",
  "ring 0.17.7",
  "rustc-hash 2.0.0",
- "rustls 0.23.18",
+ "rustls 0.23.19",
  "slab",
  "thiserror",
  "tinyvec",
@@ -20963,7 +20984,7 @@ checksum = "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-automata 0.4.8",
+ "regex-automata 0.4.9",
  "regex-syntax 0.8.5",
 ]
 
@@ -20984,9 +21005,9 @@ checksum = "fed1ceff11a1dddaee50c9dc8e4938bd106e9d89ae372f192311e7da498e3b69"
 
 [[package]]
 name = "regex-automata"
-version = "0.4.8"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "368758f23274712b504848e9d5a6f010445cc8b87a7cdb4d7cbee666c1288da3"
+checksum = "809e8dc61f6de73b46c85f4c96486310fe304c434cfa43669d7b40f711150908"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -21159,7 +21180,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "quinn 0.11.5",
- "rustls 0.23.18",
+ "rustls 0.23.19",
  "rustls-pemfile 2.0.0",
  "rustls-pki-types",
  "serde",
@@ -21311,12 +21332,12 @@ version = "0.6.0"
 dependencies = [
  "cumulus-pallet-aura-ext 0.7.0",
  "cumulus-pallet-parachain-system 0.7.0",
+ "cumulus-pallet-weight-reclaim",
  "cumulus-pallet-xcm 0.7.0",
  "cumulus-pallet-xcmp-queue 0.7.0",
  "cumulus-ping 0.7.0",
  "cumulus-primitives-aura 0.7.0",
  "cumulus-primitives-core 0.7.0",
- "cumulus-primitives-storage-weight-reclaim 1.0.0",
  "cumulus-primitives-utility 0.7.0",
  "frame-benchmarking 28.0.0",
  "frame-executive 28.0.0",
@@ -21763,9 +21784,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.18"
+version = "0.23.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c9cc1d47e243d655ace55ed38201c19ae02c148ae56412ab8750e8f0166ab7f"
+checksum = "934b404430bb06b3fae2cba809eb45a1ab1aecd64491213d7c3301b88393f8d1"
 dependencies = [
  "log",
  "once_cell",
@@ -21850,7 +21871,7 @@ dependencies = [
  "jni",
  "log",
  "once_cell",
- "rustls 0.23.18",
+ "rustls 0.23.19",
  "rustls-native-certs 0.7.0",
  "rustls-platform-verifier-android",
  "rustls-webpki 0.102.8",
@@ -23157,7 +23178,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rand",
- "rustls 0.23.18",
+ "rustls 0.23.19",
  "sc-block-builder",
  "sc-client-api",
  "sc-client-db",
@@ -29560,7 +29581,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c7bc40d0e5a97695bb96e27995cd3a08538541b0a846f65bba7a359f36700d4"
 dependencies = [
- "rustls 0.23.18",
+ "rustls 0.23.19",
  "rustls-pki-types",
  "tokio",
 ]
@@ -30271,7 +30292,7 @@ dependencies = [
  "flate2",
  "log",
  "once_cell",
- "rustls 0.23.18",
+ "rustls 0.23.19",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -31941,9 +31962,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-configuration"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ad4fc5b0f1aa54de6bf2d6771c449b41cad47e1cf30559af0a71452686b47ab"
+checksum = "3de034c8aeb865b528ec76da9c26e91acec88b31709b75c053ffd50999a70443"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -31961,9 +31982,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-orchestrator"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4a7dd25842ded75c7f4dc4f38f05fef567bd0b37fd3057c223d4ee34d8fa817"
+checksum = "d5ee915b0c296af3591c7e80ce80beab963f9fec12ddd7dca5b818bdc8ad7304"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -31994,9 +32015,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-prom-metrics-parser"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a63e0c6024dd19b0f8b28afa94f78c211e5c163350ecda4a48084532d74d7cfe"
+checksum = "049d19866bac35574ccc7e6558f2ca2b802a4d7325e48978d55e7337e9cece20"
 dependencies = [
  "pest",
  "pest_derive",
@@ -32005,9 +32026,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-provider"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d87c29390a342d0f4f62b6796861fb82e0e56c49929a272b689e8dbf24eaab9"
+checksum = "f5890668321c0f4c324830e5c47925d82458e484213caa57798ffd350d35f007"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -32036,9 +32057,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-sdk"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "829e5111182caf00ba57cd63656cf0bde6ce6add7f6a9747d15821c202a3f27e"
+checksum = "e713dd9911efe9238e0e1c30dec12884052da456d105014b5de2a5e914350476"
 dependencies = [
  "async-trait",
  "futures",
@@ -32053,9 +32074,9 @@ dependencies = [
 
 [[package]]
 name = "zombienet-support"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99568384a1d9645458ab9de377b3517cb543a1ece5aba905aeb58d269139df4e"
+checksum = "ba603a3cda55bef37fe4a9036521f7e4345726190aa54f4fa0ca7df77d2f7c39"
 dependencies = [
  "anyhow",
  "async-trait",

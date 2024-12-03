@@ -88,17 +88,19 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
-);
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+	Runtime,
+	(
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckTxVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckEra<Runtime>,
+		frame_system::CheckNonce<Runtime>,
+		frame_system::CheckWeight<Runtime>,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	),
+>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
@@ -199,6 +201,10 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = ConstU32<16>;
+}
+
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
+	type WeightInfo = ();
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -402,6 +408,7 @@ construct_runtime!(
 		RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 2,
 		Timestamp: pallet_timestamp = 3,
 		ParachainInfo: parachain_info = 4,
+		WeightReclaim: cumulus_pallet_weight_reclaim = 5,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -448,6 +455,7 @@ mod benches {
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[pallet_contracts, Contracts]
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
+		[cumulus_pallet_weight_reclaim, WeightReclaim]
 	);
 }
 
