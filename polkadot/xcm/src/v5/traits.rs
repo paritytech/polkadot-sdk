@@ -462,7 +462,7 @@ pub trait SendXcm {
 
 	/// Ensure `[Self::delivery]` is successful for the given `location` when called in benchmarks.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful_delivery(location: Option<Location>);
+	fn ensure_successful_delivery(_location: Option<Location>) {}
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
