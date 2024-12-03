@@ -670,16 +670,12 @@ pub trait NposSolver {
 
 /// A wrapper for [`sp_npos_elections::seq_phragmen`] that implements [`NposSolver`]. See the
 /// documentation of [`sp_npos_elections::seq_phragmen`] for more info.
-pub struct SequentialPhragmen<AccountId, Accuracy, MaxBackersPerWinner = (), Balancing = ()>(
-	core::marker::PhantomData<(AccountId, Accuracy, MaxBackersPerWinner, Balancing)>,
+pub struct SequentialPhragmen<AccountId, Accuracy, Balancing = ()>(
+	core::marker::PhantomData<(AccountId, Accuracy, Balancing)>,
 );
 
-impl<
-		AccountId: IdentifierT,
-		Accuracy: PerThing128,
-		MaxBackersPerWinner: Get<Option<u32>>,
-		Balancing: Get<Option<BalancingConfig>>,
-	> NposSolver for SequentialPhragmen<AccountId, Accuracy, MaxBackersPerWinner, Balancing>
+impl<AccountId: IdentifierT, Accuracy: PerThing128, Balancing: Get<Option<BalancingConfig>>>
+	NposSolver for SequentialPhragmen<AccountId, Accuracy, Balancing>
 {
 	type AccountId = AccountId;
 	type Accuracy = Accuracy;
@@ -689,13 +685,7 @@ impl<
 		targets: Vec<Self::AccountId>,
 		voters: Vec<(Self::AccountId, VoteWeight, impl IntoIterator<Item = Self::AccountId>)>,
 	) -> Result<ElectionResult<Self::AccountId, Self::Accuracy>, Self::Error> {
-		sp_npos_elections::seq_phragmen(
-			winners,
-			targets,
-			voters,
-			MaxBackersPerWinner::get(),
-			Balancing::get(),
-		)
+		sp_npos_elections::seq_phragmen(winners, targets, voters, Balancing::get())
 	}
 
 	fn weight<T: WeightInfo>(voters: u32, targets: u32, vote_degree: u32) -> Weight {

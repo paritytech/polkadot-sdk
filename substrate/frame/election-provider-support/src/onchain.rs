@@ -145,9 +145,8 @@ impl<T: Config> OnChainExecution<T> {
 			DispatchClass::Mandatory,
 		);
 
-		// defensive: Since npos solver returns a result always bounded by `desired_targets`, and
-		// ensures the maximum backers per winner, this is never expected to happen as long as npos
-		// solver does what is expected for it to do.
+		// defensive: Since npos solver returns a result always bounded by `desired_targets`, this
+		// is never expected to happen as long as npos solver does what is expected for it to do.
 		let supports: BoundedSupportsOf<Self> =
 			to_supports(&staked).try_into().map_err(|_| Error::TooManyWinners)?;
 

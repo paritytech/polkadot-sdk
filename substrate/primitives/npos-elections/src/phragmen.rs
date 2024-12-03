@@ -71,13 +71,11 @@ pub fn seq_phragmen<AccountId: IdentifierT, P: PerThing128>(
 	to_elect: usize,
 	candidates: Vec<AccountId>,
 	voters: Vec<(AccountId, VoteWeight, impl IntoIterator<Item = AccountId>)>,
-	max_backers_per_candidate: Option<u32>,
 	balancing: Option<BalancingConfig>,
 ) -> Result<ElectionResult<AccountId, P>, crate::Error> {
 	let (candidates, voters) = setup_inputs(candidates, voters);
 
-	let (candidates, mut voters) =
-		seq_phragmen_core::<AccountId>(to_elect, candidates, voters, max_backers_per_candidate)?;
+	let (candidates, mut voters) = seq_phragmen_core::<AccountId>(to_elect, candidates, voters)?;
 
 	if let Some(ref config) = balancing {
 		// NOTE: might create zero-edges, but we will strip them again when we convert voter into
@@ -120,7 +118,6 @@ pub fn seq_phragmen_core<AccountId: IdentifierT>(
 	to_elect: usize,
 	candidates: Vec<CandidatePtr<AccountId>>,
 	mut voters: Vec<Voter<AccountId>>,
-	max_backers_per_candidate: Option<u32>,
 ) -> Result<(Vec<CandidatePtr<AccountId>>, Vec<Voter<AccountId>>), crate::Error> {
 	// we have already checked that we have more candidates than minimum_candidate_count.
 	let to_elect = to_elect.min(candidates.len());
@@ -141,21 +138,10 @@ pub fn seq_phragmen_core<AccountId: IdentifierT>(
 			}
 		}
 
-		// loop 2: increment score and the included backers of a candidate.
-		for voter in &mut voters {
-			for edge in &mut voter.edges {
+		// loop 2: increment score
+		for voter in &voters {
+			for edge in &voter.edges {
 				let mut candidate = edge.candidate.borrow_mut();
-
-				if (candidate.bounded_backers.len() as u32) >=
-					max_backers_per_candidate.unwrap_or(Bounded::max_value()) &&
-					!candidate.bounded_backers.contains(&voter.who)
-				{
-					// if the candidate has reached max backers and the voter is not part of the
-					// bounded backers, taint the edge with skip and continue.
-					edge.skip = true;
-					continue
-				}
-
 				if !candidate.elected && !candidate.approval_stake.is_zero() {
 					let temp_n = multiply_by_rational_with_rounding(
 						voter.load.n(),
@@ -167,7 +153,6 @@ pub fn seq_phragmen_core<AccountId: IdentifierT>(
 					let temp_d = voter.load.d();
 					let temp = Rational128::from(temp_n, temp_d);
 					candidate.score = candidate.score.lazy_saturating_add(temp);
-					candidate.bounded_backers.push(voter.who.clone());
 				}
 			}
 		}
@@ -198,11 +183,6 @@ pub fn seq_phragmen_core<AccountId: IdentifierT>(
 	// update backing stake of candidates and voters
 	for voter in &mut voters {
 		for edge in &mut voter.edges {
-			if edge.skip {
-				// skip this edge as its candidate has already reached max backers.
-				continue
-			}
-
 			if edge.candidate.borrow().elected {
 				// update internal state.
 				edge.weight = multiply_by_rational_with_rounding(
