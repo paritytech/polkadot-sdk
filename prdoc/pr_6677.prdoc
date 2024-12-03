@@ -1,0 +1,11 @@
+title: 'chore: Update litep2p to v0.8.2'
+doc:
+- audience: Node Dev
+  description: |-
+    This includes a critical fix for debug release versions of litep2p (which are running in Kusama as validators).
+
+    While at it, have stopped the oncall pain of alerts around `incoming_connections_total`. We can rethink the metric expose of litep2p in Q1.
+
+crates:
+- name: sc-network
+  bump: minor
