@@ -45,6 +45,7 @@ jobs:
         shell: bash
         run: |
           tag="$(echo $RELEASE_TAG | sed 's/-rc[0-9]*$//')"
+          echo $tag
           echo "FINAL_TAG=${tag}" >> $GITHUB_OUTPUT
 
       - name: Fetch binaries from s3 based on version
@@ -52,7 +53,7 @@ jobs:
           . ./.github/scripts/common/lib.sh
 
           VERSION="${{ inputs.release_tag }}"
-          if [[ ${{ inputs.package }} == 'polkadot' && ${{ inputs.target }} == 'aarch64-apple-darwin' ]]; then
+          if [[ ${{ inputs.package }} == 'polkadot' ]]; then
             packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
             for package in "${packages[@]}"; do
               fetch_release_artifacts_from_s3 $package ${{ inputs.target }}

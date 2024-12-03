@@ -129,15 +129,17 @@ upload_s3_release() {
     echo "Working on version:  $version "
     echo "Working on platform: $target "
 
+    URL_BASE=$(get_s3_url_base $product)
+
     echo "Current content, should be empty on new uploads:"
-    aws s3 ls "s3://releases.parity.io/${product}/${version}/${target}" --recursive --human-readable --summarize || true
+    aws s3 ls "s3://${URL_BASE}/${version}/${target}" --recursive --human-readable --summarize || true
     echo "Content to be uploaded:"
     artifacts="release-artifacts/$target/$product/"
     ls "$artifacts"
-    aws s3 sync --acl public-read "$artifacts" "s3://releases.parity.io/${product}/${version}/${target}"
+    aws s3 sync --acl public-read "$artifacts" "s3://${URL_BASE}/${version}/${target}"
     echo "Uploaded files:"
-    aws s3 ls "s3://releases.parity.io/${product}/${version}/${target}" --recursive --human-readable --summarize
-    echo "✅ The release should be at https://releases.parity.io/${product}/${version}/${target}"
+    aws s3 ls "s3://${URL_BASE}/${version}/${target}" --recursive --human-readable --summarize
+    echo "✅ The release should be at https://${URL_BASE}/${version}/${target}"
 }
 
 # Upload runtimes artifacts to s3 release bucket
@@ -160,4 +162,36 @@ upload_s3_runtimes_release_artifacts() {
   echo "Uploaded files:"
   aws s3 ls "s3://releases.parity.io/polkadot/runtimes/${version}/" --recursive --human-readable --summarize
   echo "✅ The release should be at https://releases.parity.io/polkadot/runtimes/${version}"
+}
+
+
+# Pass the name of the binary as input, it will
+# return the s3 base url
+function get_s3_url_base() {
+    name=$1
+    case $name in
+      polkadot | polkadot-execute-worker | polkadot-prepare-worker )
+        printf "releases.parity.io/polkadot"
+        ;;
+
+      polkadot-parachain)
+        printf "releases.parity.io/polkadot-parachain"
+        ;;
+
+      polkadot-omni-node)
+        printf "releases.parity.io/polkadot-omni-node"
+        ;;
+
+      chain-spec-builder)
+        printf "releases.parity.io/chain-spec-builder"
+        ;;
+
+      frame-omni-bencher)
+        printf "releases.parity.io/frame-omni-bencher"
+        ;;
+      *)
+        printf "UNSUPPORTED BINARY $name"
+        exit 1
+        ;;
+    esac
 }
