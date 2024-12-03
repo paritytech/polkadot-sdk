@@ -138,6 +138,7 @@ pub trait HostFn: private::Sealed {
 	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
+	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn call(
 		flags: CallFlags,
 		callee: &[u8; 20],
@@ -340,7 +341,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
+	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn delegate_call(
 		flags: CallFlags,
 		address: &[u8; 20],
@@ -467,7 +468,7 @@ pub trait HostFn: private::Sealed {
 	/// - [CalleeReverted][`crate::ReturnErrorCode::CalleeReverted]: Output buffer is returned.
 	/// - [CalleeTrapped][`crate::ReturnErrorCode::CalleeTrapped]
 	/// - [TransferFailed][`crate::ReturnErrorCode::TransferFailed]
-	/// - [CodeNotFound][`crate::ReturnErrorCode::CodeNotFound]
+	/// - [OutOfResources][`crate::ReturnErrorCode::OutOfResources]
 	fn instantiate(
 		code_hash: &[u8; 32],
 		ref_time_limit: u64,
