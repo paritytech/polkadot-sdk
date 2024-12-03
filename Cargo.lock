@@ -786,7 +786,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -916,7 +916,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.25.0"
+version = "0.25.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -3936,7 +3936,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.16.1"
+version = "0.16.2"
 dependencies = [
  "assert_matches",
  "bytes",
@@ -4993,7 +4993,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "13.0.0"
+version = "13.1.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -10710,7 +10710,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-message-queue"
-version = "40.0.0"
+version = "40.0.1"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -11718,7 +11718,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "16.0.1"
+version = "16.0.2"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -11738,6 +11738,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
  "xcm-runtime-apis",
 ]
 
@@ -11791,7 +11792,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub-router"
-version = "0.14.1"
+version = "0.14.2"
 dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-benchmarking",
@@ -20623,7 +20624,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "16.0.1"
+version = "16.0.2"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -23070,7 +23071,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "17.0.0"
+version = "17.0.1"
 dependencies = [
  "binary-merkle-tree",
  "bitvec",
