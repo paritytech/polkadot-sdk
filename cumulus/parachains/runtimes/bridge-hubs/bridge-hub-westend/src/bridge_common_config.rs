@@ -22,8 +22,14 @@
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
+use crate::{xcm_config, xcm_config::TreasuryAccount, XcmRouter};
 use bp_messages::LegacyLaneId;
 use frame_support::parameter_types;
+use sp_core::H160;
+use sp_runtime::traits::{ConstU128, ConstU32, ConstU8};
+use testnet_parachains_constants::westend::snowbridge::{
+	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+};
 
 parameter_types! {
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
@@ -31,7 +37,11 @@ parameter_types! {
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
 
 	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
+
+	pub WethAddress: H160 = H160(hex_literal::hex!("fff9976782d46cc05630d1f6ebab18b2324d6b14"));
 }
+
+pub const ASSET_HUB_ID: u32 = westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 
 /// Allows collect and claim rewards for relayers
 pub type RelayersForLegacyLaneIdsMessagesInstance = ();
@@ -53,4 +63,19 @@ impl pallet_bridge_relayers::Config<RelayersForLegacyLaneIdsMessagesInstance> fo
 	>;
 	type WeightInfo = weights::pallet_bridge_relayers::WeightInfo<Runtime>;
 	type LaneId = LegacyLaneId;
+
+	type AssetHubParaId = ConstU32<ASSET_HUB_ID>;
+	type EthereumNetwork = EthereumNetwork;
+	type WethAddress = WethAddress;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type XcmSender = XcmRouter;
+	#[cfg(feature = "runtime-benchmarks")]
+	type XcmSender = DoNothingRouter;
+	type Token = Balances;
+	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
+	type InboundQueuePalletInstance = ConstU8<INBOUND_QUEUE_PALLET_INDEX>;
+	/// Execution cost on AH in Weth. Cost is approximately 0.000000000000000008, added a slightly
+	/// buffer.
+	type AssetHubXCMFee = ConstU128<15>;
+	type TreasuryAccount = TreasuryAccount;
 }
