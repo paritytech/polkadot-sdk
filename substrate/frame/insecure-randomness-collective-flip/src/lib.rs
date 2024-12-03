@@ -42,13 +42,11 @@
 //! ### Example - Get random seed for the current block
 //!
 //! ```
-//! use frame_support::traits::Randomness;
+//! use frame::{prelude::*, traits::Randomness};
 //!
-//! #[frame_support::pallet]
+//! #[frame::pallet]
 //! pub mod pallet {
 //!     use super::*;
-//!     use frame_support::pallet_prelude::*;
-//!     use frame_system::pallet_prelude::*;
 //!
 //!     #[pallet::pallet]
 //!     pub struct Pallet<T>(_);
@@ -73,10 +71,15 @@
 use safe_mix::TripletMix;
 
 use codec::Encode;
+/*
 use frame_support::{pallet_prelude::Weight, traits::Randomness};
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::traits::{Hash, Saturating};
-
+*/
+use frame::{
+	prelude::*,
+	traits::{Hash, Randomness, Saturating},
+};
 const RANDOM_MATERIAL_LEN: u32 = 81;
 
 fn block_number_to_index<T: Config>(block_number: BlockNumberFor<T>) -> usize {
@@ -87,10 +90,10 @@ fn block_number_to_index<T: Config>(block_number: BlockNumberFor<T>) -> usize {
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	//use frame_support::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -167,7 +170,16 @@ impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
 mod tests {
 	use super::*;
 	use crate as pallet_insecure_randomness_collective_flip;
+	use frame::{
+		runtime::{
+			prelude::{construct_runtime, derive_impl, parameter_types},
+			testing_prelude::BuildStorage,
+		},
+		testing_prelude::frame_system::limits,
+		traits::{Header, Randomness},
+	};
 
+	/*
 	use sp_core::H256;
 	use sp_runtime::{traits::Header as _, BuildStorage};
 
@@ -176,10 +188,11 @@ mod tests {
 		traits::{OnInitialize, Randomness},
 	};
 	use frame_system::limits;
+	*/
 
 	type Block = frame_system::mocking::MockBlock<Test>;
 
-	frame_support::construct_runtime!(
+	construct_runtime!(
 		pub enum Test
 		{
 			System: frame_system,
@@ -199,7 +212,7 @@ mod tests {
 
 	impl pallet_insecure_randomness_collective_flip::Config for Test {}
 
-	fn new_test_ext() -> sp_io::TestExternalities {
+	fn new_test_ext() -> frame::deps::sp_io::TestExternalities {
 		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		t.into()
 	}
