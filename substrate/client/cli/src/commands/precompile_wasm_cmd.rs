@@ -130,6 +130,8 @@ impl PrecompileWasmCmd {
 					&self.output_dir,
 				)
 				.map_err(|e| Error::Application(Box::new(e)))?;
+			} else {
+				return Err(Error::Input(format!("The chain spec used does not contain a wasm bytecode in the `:code` storage key")));
 			}
 		}
 
