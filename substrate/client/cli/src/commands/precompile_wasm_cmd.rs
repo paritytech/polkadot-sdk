@@ -33,7 +33,7 @@ use sc_executor::{
 };
 use sc_service::ChainSpec;
 use sp_core::traits::RuntimeCode;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, Header, Hash};
 use sp_state_machine::backend::BackendRuntimeCode;
 use std::{fmt::Debug, path::PathBuf, sync::Arc};
 
@@ -117,7 +117,7 @@ impl PrecompileWasmCmd {
 					code_fetcher: &sp_core::traits::WrappedRuntimeCode(
 						wasm_bytecode.as_slice().into(),
 					),
-					hash: sp_core::blake2_256(&wasm_bytecode).to_vec(),
+					hash: <<B::Header as Header>::Hashing as Hash>::hash(&wasm_bytecode).as_ref().to_vec(),
 					heap_pages: Some(heap_pages as u64),
 				};
 				precompile_and_serialize_versioned_wasm_runtime(
