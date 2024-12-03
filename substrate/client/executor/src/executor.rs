@@ -195,17 +195,17 @@ impl<H> WasmExecutorBuilder<H> {
 		self
 	}
 
-	/// Create the wasm executor with the given `wasmtime_precompiled_path`.
+	/// Create the wasm executor with the given `maybe_wasmtime_precompiled_path`, provided that it is `Some`
 	///
-	/// The `wasmtime_precompiled_path` is a path to a directory where the executor load precompiled
-	/// wasmtime modules.
-	///
-	/// By default there is no `wasmtime_precompiled_path` given.
-	pub fn with_wasmtime_precompiled_path(
+	/// The `maybe_wasmtime_precompiled_path` is an optional whose inner value (if `Some`) is a path to a 
+	/// directory where the executor load precompiled wasmtime modules.
+	pub fn with_optional_wasmtime_precompiled_path(
 		mut self,
-		wasmtime_precompiled_path: impl Into<PathBuf>,
+		maybe_wasmtime_precompiled_path: Option<impl Into<PathBuf>>,
 	) -> Self {
-		self.wasmtime_precompiled_path = Some(wasmtime_precompiled_path.into());
+		if let Some(wasmtime_precompiled_path) = maybe_wasmtime_precompiled_path {
+			self.wasmtime_precompiled_path = Some(wasmtime_precompiled_path.into());
+		}
 		self
 	}
 
