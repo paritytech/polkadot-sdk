@@ -204,9 +204,10 @@ fn create_out_dir() -> Result<PathBuf> {
 	.join("pallet-revive-fixtures");
 
 	// clean up some leftover symlink from previous versions of this script
-	let out_exists = out_dir.exists();
+	let mut out_exists = out_dir.exists();
 	if out_exists && !out_dir.is_dir() {
 		fs::remove_file(&out_dir)?;
+		out_exists = false;
 	}
 
 	if !out_exists {
