@@ -707,18 +707,17 @@ impl<T: Config> Pallet<T> {
 				},
 				_ => {},
 			}
-
 			// election failed, clear election prep metadata.
 			Self::clear_election_metadata();
-
 			Self::deposit_event(Event::StakingElectionFailed);
-			return None
+
+			None
+		} else {
+			Self::deposit_event(Event::StakersElected);
+			Self::trigger_new_era(start_session_index);
+
+			Some(validators)
 		}
-
-		Self::deposit_event(Event::StakersElected);
-		Self::trigger_new_era(start_session_index);
-
-		Some(validators)
 	}
 
 	/// Paginated elect.

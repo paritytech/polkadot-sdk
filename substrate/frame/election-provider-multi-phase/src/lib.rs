@@ -679,6 +679,7 @@ pub mod pallet {
 		/// Maximum number of winners that an election supports.
 		///
 		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
+		#[pallet::constant]
 		type MaxWinners: Get<u32>;
 
 		/// Maximum number of voters that can support a winner in an election solution.
