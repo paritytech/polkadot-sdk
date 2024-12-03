@@ -345,10 +345,7 @@ mod tests {
 				c.max_downward_message_size = u32::MAX;
 			});
 
-			paras::Heads::<crate::integration_tests::Test>::insert(
-				ParaId::from(5555),
-				HeadData(vec![]),
-			);
+			dmp::Pallet::<crate::integration_tests::Test>::make_parachain_reachable(5555);
 
 			// Check that the good message is validated:
 			assert_ok!(<Router as SendXcm>::validate(
