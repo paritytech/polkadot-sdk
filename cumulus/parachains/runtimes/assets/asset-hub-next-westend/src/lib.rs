@@ -24,11 +24,18 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-mod bag_thresholds;
 mod genesis_config_presets;
-mod next;
 mod weights;
 pub mod xcm_config;
+
+// Configurations for next functionality.
+mod bag_thresholds;
+pub mod governance;
+mod staking;
+use governance::{
+	pallet_custom_origins, AuctionAdmin, FellowshipAdmin, GeneralAdmin, LeaseAdmin, StakingAdmin,
+	Treasurer, TreasurySpender,
+};
 
 extern crate alloc;
 
@@ -990,6 +997,18 @@ construct_runtime!(
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 84, // to be swapped out for multi-block
 		DelegatedStaking: pallet_delegated_staking = 85,
+
+		// Governance.
+		Preimage: pallet_preimage = 90,
+		Scheduler: pallet_scheduler = 91,
+		ConvictionVoting: pallet_conviction_voting = 92,
+		Referenda: pallet_referenda = 93,
+		Origins: pallet_custom_origins = 94,
+		Whitelist: pallet_whitelist = 95,
+		Treasury: pallet_treasury = 96,
+
+		// Balances.
+		Vesting: pallet_vesting = 100,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
