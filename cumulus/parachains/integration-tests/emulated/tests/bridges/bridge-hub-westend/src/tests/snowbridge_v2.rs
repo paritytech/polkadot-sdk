@@ -14,11 +14,11 @@
 // limitations under the License.
 use crate::imports::*;
 use bridge_hub_westend_runtime::{
-	bridge_to_ethereum_config::{CreateAssetCall, CreateAssetDeposit},
+	bridge_to_ethereum_config::{CreateAssetCall, CreateAssetDeposit, EthereumGatewayAddress},
 	EthereumInboundQueueV2,
 };
 use codec::Encode;
-use frame_support::{traits::fungibles::Mutate};
+use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
 use snowbridge_router_primitives::inbound::{
 	v2::{Asset::NativeTokenERC20, Message},
@@ -80,15 +80,14 @@ pub(crate) fn set_up_weth_pool_with_wnd_on_ah_westend(asset: v5::Location) {
 	let owner = AssetHubWestendSender::get();
 	let bh_sovereign = BridgeHubWestend::sovereign_account_id_of(assethub_location);
 
-	AssetHubWestend::fund_accounts(vec![
-		(owner.clone(), 3_000_000_000_000),
-	]);
+	AssetHubWestend::fund_accounts(vec![(owner.clone(), 3_000_000_000_000)]);
 
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 		let signed_owner = <AssetHubWestend as Chain>::RuntimeOrigin::signed(owner.clone());
-		let signed_bh_sovereign = <AssetHubWestend as Chain>::RuntimeOrigin::signed(bh_sovereign.clone());
+		let signed_bh_sovereign =
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(bh_sovereign.clone());
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
 			signed_bh_sovereign.clone(),
@@ -151,13 +150,13 @@ fn register_token_v2() {
 	let chain_id = 11155111u64;
 	let claimer = AccountId32 { network: None, id: receiver.clone().into() };
 	let claimer_bytes = claimer.encode();
-	let origin = H160::random();
+
 	let relayer_location =
 		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
 
 	let bridge_owner = EthereumLocationsConverterFor::<[u8; 32]>::from_chain_id(&chain_id);
 
-	let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into();
+	let token: H160 = hex!("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2").into(); // a is the token
 
 	let ethereum_network_v5: NetworkId = EthereumNetwork::get().into();
 
@@ -178,9 +177,13 @@ fn register_token_v2() {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		let register_token_instructions = vec![
 			// Exchange weth for dot to pay the asset creation deposit
-			ExchangeAsset { give: asset_deposit_weth.clone().into(), want: dot_fee.clone().into(), maximal: false },
-			// Deposit the dot deposit into the bridge sovereign account (where the asset creation fee
-			// will be deducted from)
+			ExchangeAsset {
+				give: asset_deposit_weth.clone().into(),
+				want: dot_fee.clone().into(),
+				maximal: false,
+			},
+			// Deposit the dot deposit into the bridge sovereign account (where the asset creation
+			// fee will be deducted from)
 			DepositAsset { assets: dot_fee.into(), beneficiary: bridge_owner.into() },
 			// Call to create the asset.
 			Transact {
@@ -198,6 +201,7 @@ fn register_token_v2() {
 		];
 		let xcm: Xcm<()> = register_token_instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
+		let origin = EthereumGatewayAddress::get();
 
 		let message = Message {
 			origin,

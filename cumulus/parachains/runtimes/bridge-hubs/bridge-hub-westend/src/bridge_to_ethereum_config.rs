@@ -124,6 +124,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
 		EthereumSystem,
 		WethAddress,
+		EthereumGatewayAddress,
 	>;
 }
 

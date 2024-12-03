@@ -63,30 +63,56 @@ pub enum ConvertMessageError {
 	InvalidClaimer,
 	/// Invalid foreign ERC20 token ID
 	InvalidAsset,
+	/// The origin could not be added to the interior location of the origin location.
+	InvalidOrigin,
 }
 
 pub trait ConvertMessage {
 	fn convert(message: Message, origin_account: Location) -> Result<Xcm<()>, ConvertMessageError>;
 }
 
-pub struct MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, WethAddress>
-where
+pub struct MessageToXcm<
+	EthereumNetwork,
+	InboundQueuePalletInstance,
+	ConvertAssetId,
+	WethAddress,
+	GatewayProxyAddress,
+> where
 	EthereumNetwork: Get<NetworkId>,
 	InboundQueuePalletInstance: Get<u8>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	WethAddress: Get<H160>,
+	GatewayProxyAddress: Get<H160>,
 {
-	_phantom:
-		PhantomData<(EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, WethAddress)>,
+	_phantom: PhantomData<(
+		EthereumNetwork,
+		InboundQueuePalletInstance,
+		ConvertAssetId,
+		WethAddress,
+		GatewayProxyAddress,
+	)>,
 }
 
-impl<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, WethAddress> ConvertMessage
-	for MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, ConvertAssetId, WethAddress>
+impl<
+		EthereumNetwork,
+		InboundQueuePalletInstance,
+		ConvertAssetId,
+		WethAddress,
+		GatewayProxyAddress,
+	> ConvertMessage
+	for MessageToXcm<
+		EthereumNetwork,
+		InboundQueuePalletInstance,
+		ConvertAssetId,
+		WethAddress,
+		GatewayProxyAddress,
+	>
 where
 	EthereumNetwork: Get<NetworkId>,
 	InboundQueuePalletInstance: Get<u8>,
 	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
 	WethAddress: Get<H160>,
+	GatewayProxyAddress: Get<H160>,
 {
 	fn convert(
 		message: Message,
@@ -107,15 +133,14 @@ where
 
 		let network = EthereumNetwork::get();
 
-		let origin_location = Location::new(
-			2,
-			[GlobalConsensus(network), AccountKey20 { key: message.origin.into(), network: None }],
-		);
-
-		let network = EthereumNetwork::get();
-
 		// use weth as asset
-		let fee_asset = Location::new(2, [GlobalConsensus(EthereumNetwork::get()), AccountKey20 { network: None, key: WethAddress::get().into() } ]);
+		let fee_asset = Location::new(
+			2,
+			[
+				GlobalConsensus(EthereumNetwork::get()),
+				AccountKey20 { network: None, key: WethAddress::get().into() },
+			],
+		);
 		let fee: XcmAsset = (fee_asset.clone(), message.fee).into();
 		let mut instructions = vec![
 			DescendOrigin(PalletInstance(InboundQueuePalletInstance::get()).into()),
@@ -151,10 +176,19 @@ where
 			instructions.push(SetAssetClaimer { location: claimer_location });
 		}
 
-		// Set the alias origin to the original sender on Ethereum. Important to be before the
-		// arbitrary XCM that is appended to the message on the next line.
-		// TODO allow address from Ethereum to create foreign assets on AH
-		// instructions.push(AliasOrigin(origin_location.into()));
+		let mut origin_location = Location::new(2, [GlobalConsensus(network)]);
+		if message.origin == GatewayProxyAddress::get() {
+			// If the message origin is the gateway proxy contract, set the origin to
+			// Ethereum, for consistency with v1.
+			instructions.push(AliasOrigin(origin_location));
+		} else {
+			// Set the alias origin to the original sender on Ethereum. Important to be before the
+			// arbitrary XCM that is appended to the message on the next line.
+			origin_location
+				.push_interior(AccountKey20 { key: message.origin.into(), network: None })
+				.map_err(|_| ConvertMessageError::InvalidOrigin)?;
+			instructions.push(AliasOrigin(origin_location.into()));
+		}
 
 		// Add the XCM sent in the message to the end of the xcm instruction
 		instructions.extend(message_xcm.0);

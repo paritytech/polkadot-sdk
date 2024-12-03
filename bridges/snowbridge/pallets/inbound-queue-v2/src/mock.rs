@@ -3,11 +3,7 @@
 use super::*;
 
 use crate::{self as inbound_queue_v2};
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::ConstU32,
-	weights::IdentityFee,
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
@@ -163,12 +159,8 @@ impl inbound_queue_v2::Config for Test {
 	type WeightToFee = IdentityFee<u128>;
 	type GatewayAddress = GatewayAddress;
 	type AssetHubParaId = ConstU32<1000>;
-	type MessageConverter = MessageToXcm<
-		EthereumNetwork,
-		InboundQueuePalletInstance,
-		MockTokenIdConvert,
-		WethAddress,
-	>;
+	type MessageConverter =
+		MessageToXcm<EthereumNetwork, InboundQueuePalletInstance, MockTokenIdConvert, WethAddress>;
 	type Token = Balances;
 	type Balance = u128;
 	#[cfg(feature = "runtime-benchmarks")]
