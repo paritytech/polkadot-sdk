@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Helper crate for generating slot ranges for the Polkadot runtime."
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
