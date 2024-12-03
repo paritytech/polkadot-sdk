@@ -52,7 +52,7 @@ jobs:
       matrix:
         target: [ x86_64-unknown-linux-gnu, aarch64-apple-darwin ]
     with:
-      package: ${{ inputs.binary }}
+      package: polkadot
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: ${{ matrix.target }}
     secrets:
@@ -68,7 +68,7 @@ jobs:
       matrix:
         target: [ x86_64-unknown-linux-gnu, aarch64-apple-darwin ]
     with:
-      package: ${{ inputs.binary }}
+      package: polkadot-parachain
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: ${{ matrix.target }}
     secrets:
@@ -84,7 +84,7 @@ jobs:
       matrix:
         target: [ x86_64-unknown-linux-gnu, aarch64-apple-darwin ]
     with:
-      package: ${{ inputs.binary }}
+      package: polkadot-omni-node
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: ${{ matrix.target }}
     secrets:
@@ -100,7 +100,7 @@ jobs:
       matrix:
         target: [ x86_64-unknown-linux-gnu, aarch64-apple-darwin ]
     with:
-      package: ${{ inputs.binary }}
+      package: frame-omni-bencher
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: ${{ matrix.target }}
     secrets:
@@ -116,7 +116,7 @@ jobs:
       matrix:
         target: [ x86_64-unknown-linux-gnu, aarch64-apple-darwin ]
     with:
-      package: ${{ inputs.binary }}
+      package: chain-spec-builder
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: ${{ matrix.target }}
     secrets:
