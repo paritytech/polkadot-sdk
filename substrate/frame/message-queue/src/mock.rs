@@ -42,7 +42,7 @@ impl frame_system::Config for Test {
 	type Block = Block;
 }
 parameter_types! {
-	pub const HeapSize: u32 = 24;
+	pub const HeapSize: u32 = 40;
 	pub const MaxStale: u32 = 2;
 	pub const ServiceWeight: Option<Weight> = Some(Weight::from_parts(100, 100));
 }

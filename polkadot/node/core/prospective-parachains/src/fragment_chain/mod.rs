@@ -630,7 +630,7 @@ impl BackedChain {
 	) -> impl Iterator<Item = FragmentNode> + 'a {
 		let mut found_index = None;
 		for index in 0..self.chain.len() {
-			let node = &self.chain[0];
+			let node = &self.chain[index];
 
 			if found_index.is_some() {
 				self.by_parent_head.remove(&node.parent_head_data_hash);
