@@ -74,7 +74,7 @@ pub mod v17 {
 
 			let old_disabled_validators = v16::DisabledValidators::<T>::get();
 			// BoundedVec with MaxWinners limit, this should always work
-			let disabled_validators_maybe = WeakBoundedVec::try_from(old_disabled_validators);
+			let disabled_validators_maybe = BoundedVec::try_from(old_disabled_validators);
 			match disabled_validators_maybe {
 				Ok(disabled_validators) => DisabledValidators::<T>::set(disabled_validators),
 				Err(_) => {

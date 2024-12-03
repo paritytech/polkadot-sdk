@@ -325,7 +325,7 @@ pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
 	minimum_validator_count: u32,
-	invulnerables: Vec<AccountId>,
+	invulnerables: BoundedVec<AccountId, <Test as Config>::MaxInvulnerables>,
 	has_stakers: bool,
 	initialize_first_session: bool,
 	pub min_nominator_bond: Balance,
@@ -377,7 +377,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
-		self.invulnerables = BoundedVec::force_from(invulnerables).unwrap();
+		self.invulnerables = BoundedVec::try_from(invulnerables).unwrap();
 		self
 	}
 	pub fn session_per_era(self, length: SessionIndex) -> Self {
