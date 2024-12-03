@@ -1249,7 +1249,7 @@ fn transfer_expendable_cannot_kill_account() {
 			test_utils::contract_info_storage_deposit(&addr)
 		);
 
-		// Some ot the total balance is held, so it can't be transferred.
+		// Some or the total balance is held, so it can't be transferred.
 		assert_err!(
 			<<Test as Config>::Currency as Mutate<AccountId32>>::transfer(
 				&account,
@@ -2290,7 +2290,7 @@ fn gas_estimation_for_subcalls() {
 				// Make the same call using the estimated gas. Should succeed.
 				let result = builder::bare_call(addr_caller)
 					.gas_limit(result_orig.gas_required)
-					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero())
+					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 					.data(input.clone())
 					.build();
 				assert_ok!(&result.result);
@@ -2298,7 +2298,7 @@ fn gas_estimation_for_subcalls() {
 				// Check that it fails with too little ref_time
 				let result = builder::bare_call(addr_caller)
 					.gas_limit(result_orig.gas_required.sub_ref_time(1))
-					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero())
+					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 					.data(input.clone())
 					.build();
 				assert_err!(result.result, error);
@@ -2306,7 +2306,7 @@ fn gas_estimation_for_subcalls() {
 				// Check that it fails with too little proof_size
 				let result = builder::bare_call(addr_caller)
 					.gas_limit(result_orig.gas_required.sub_proof_size(1))
-					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero())
+					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 					.data(input.clone())
 					.build();
 				assert_err!(result.result, error);
@@ -3592,7 +3592,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// Set enough deposit limit for the child instantiate. This should succeed.
 		let result = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(callee_info_len + 2 + ED + 4 + 2)
+			.storage_deposit_limit((callee_info_len + 2 + ED + 4 + 2).into())
 			.data((1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 3 + 2)).encode())
 			.build();
 
@@ -3879,7 +3879,7 @@ fn locking_delegate_dependency_works() {
 		// Locking a dependency with a storage limit too low should fail.
 		assert_err!(
 			builder::bare_call(addr_caller)
-				.storage_deposit_limit(dependency_deposit - 1)
+				.storage_deposit_limit((dependency_deposit - 1).into())
 				.data((1u32, hash2addr(&callee_hashes[0]), callee_hashes[0]).encode())
 				.build()
 				.result,
