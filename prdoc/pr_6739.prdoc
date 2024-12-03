@@ -1,0 +1,12 @@
+title: update elastic scaling guide for untrusted collator set
+
+doc:
+  - audience: [Node Dev, Runtime Dev]
+    description: |
+        "Updates the elastic scaling guide for parachains, taking into consideration the completed implementation of
+        [RFC-103](https://github.com/polkadot-fellows/RFCs/pull/103), which enables an untrusted collator set for
+        elastic scaling. Adds the necessary instructions for configuring the parachain so that it can leverage this implementation."
+
+crates:
+  - name: cumulus-pallet-parachain-system
+    bump: none
