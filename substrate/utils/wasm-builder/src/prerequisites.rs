@@ -203,7 +203,7 @@ fn check_wasm_toolchain_installed(
 
 	let target = RuntimeTarget::new();
 	assert!(target == RuntimeTarget::Wasm);
-	if target.rustc_target_build_std() != None {
+	if target.rustc_target_build_std().is_some() {
 		if let Some(sysroot) = dummy_crate.get_sysroot() {
 			let src_path =
 				Path::new(sysroot.trim()).join("lib").join("rustlib").join("src").join("rust");
