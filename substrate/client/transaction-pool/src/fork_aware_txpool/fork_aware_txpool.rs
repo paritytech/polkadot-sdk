@@ -643,7 +643,7 @@ where
 	/// are reduced to single result. Refer to `reduce_multiview_result` for more details.
 	async fn submit_at(
 		&self,
-		_: <Self::Block as BlockT>::Hash,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
@@ -656,6 +656,21 @@ where
 		if view_store.is_empty() {
 			return Ok(mempool_results.into_iter().map(|r| r.map(|r| r.hash)).collect::<Vec<_>>())
 		}
+
+		//todo: review + test maybe?
+		let retries = mempool_results
+			.into_iter()
+			.zip(xts.clone())
+			.map(|(result, xt)| async move {
+				match result {
+					Err(TxPoolApiError::ImmediatelyDropped) =>
+						self.attempt_transaction_replacement(at, source, false, xt).await,
+					result @ _ => result,
+				}
+			})
+			.collect::<Vec<_>>();
+
+		let mempool_results = futures::future::join_all(retries).await;
 
 		let to_be_submitted = mempool_results
 			.iter()
@@ -721,7 +736,7 @@ where
 		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_and_watch views:{}", self.tx_hash(&xt), self.active_views_count());
 		let xt = Arc::from(xt);
 
-		let InsertionInfo { hash: xt_hash, source: timed_source } =
+		let InsertionInfo { hash: xt_hash, source: timed_source, .. } =
 			match self.mempool.push_watched(source, xt.clone()) {
 				Ok(result) => result,
 				Err(TxPoolApiError::ImmediatelyDropped) =>
@@ -1333,33 +1348,31 @@ where
 			)
 			.await;
 
-		// 3. check if most_recent_view contains a transaction with lower priority (actually worse -
-		//   do we want to check timestamp too - no: see #4609?)
-		//   Would be perfect to choose transaction with lowest the number of dependant txs in its
-		//   subtree.
-		if let Some(worst_tx_hash) =
-			best_view.pool.validated_pool().find_transaction_with_lower_prio(validated_tx)
-		{
+		if let Some(priority) = validated_tx.priority() {
+			// 3. check if mempool contains a transaction with lower priority (actually worse - do
+			//    we want to check timestamp too - no: see #4609?) Would be perfect to choose
+			//    transaction with lowest the number of dependant txs in its   subtree.
 			// 4. if yes - remove worse transaction from mempool and add new one.
-			log::trace!(target: LOG_TARGET, "found candidate for removal: {worst_tx_hash:?} replaced by {tx_hash:?}");
 			let insertion_info =
-				self.mempool.try_replace_transaction(xt, source, watched, worst_tx_hash)?;
+				self.mempool.try_replace_transaction(xt, priority, source, watched)?;
 
-			// 5. notify listner
-			self.view_store
-				.listener
-				.transaction_dropped(DroppedTransaction::new_enforced_by_limts(worst_tx_hash));
+			for worst_hash in &insertion_info.removed {
+				log::trace!(target: LOG_TARGET, "removed: {worst_hash:?} replaced by {tx_hash:?}");
+				// 5. notify listner
+				self.view_store
+					.listener
+					.transaction_dropped(DroppedTransaction::new_enforced_by_limts(*worst_hash));
 
-			// 6. remove transaction from the view_store
-			self.view_store.remove_transaction_subtree(
-				worst_tx_hash,
-				|listener, removed_tx_hash| {
-					listener.limits_enforced(&removed_tx_hash);
-				},
-			);
+				// 6. remove transaction from the view_store
+				self.view_store.remove_transaction_subtree(
+					*worst_hash,
+					|listener, removed_tx_hash| {
+						listener.limits_enforced(&removed_tx_hash);
+					},
+				);
+			}
 
 			// 8. add to pending_replacements - make sure it will not sneak back via cloned view
-
 			// 9. subemit new one to the view, this will be done upon in the caller
 			return Ok(insertion_info)
 		}

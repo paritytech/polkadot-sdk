@@ -76,6 +76,14 @@ impl<Hash, Ex, Error> ValidatedTransaction<Hash, Ex, Error> {
 			valid_till: at.saturated_into::<u64>().saturating_add(validity.longevity),
 		})
 	}
+
+	/// Returns priority for valid transaction, None if transaction is not valid.
+	pub fn priority(&self) -> Option<TransactionPriority> {
+		match self {
+			ValidatedTransaction::Valid(base::Transaction { priority, .. }) => Some(*priority),
+			_ => None,
+		}
+	}
 }
 
 /// A type of validated transaction stored in the validated pool.
@@ -107,8 +115,9 @@ pub struct BaseSubmitOutcome<B: ChainApi, W> {
 	hash: ExtrinsicHash<B>,
 	/// A transaction watcher. This is `Some` for `submit_and_watch` and `None` for `submit`.
 	watcher: Option<W>,
-	/// The priority of the transaction. Defaults to zero if unknown.
-	priority: TransactionPriority,
+
+	/// The priority of the transaction. Defaults to None if unknown.
+	priority: Option<TransactionPriority>,
 }
 
 /// Type alias to outcome of submission to `ValidatedPool`.
@@ -117,13 +126,8 @@ pub type ValidatedPoolSubmitOutcome<B> =
 
 impl<B: ChainApi, W> BaseSubmitOutcome<B, W> {
 	/// Creates a new instance with given hash and priority.
-	pub fn new(hash: ExtrinsicHash<B>, priority: TransactionPriority) -> Self {
+	pub fn new(hash: ExtrinsicHash<B>, priority: Option<TransactionPriority>) -> Self {
 		Self { hash, priority, watcher: None }
-	}
-
-	/// Creates a new instance with given hash and zeroed priority.
-	pub fn new_no_priority(hash: ExtrinsicHash<B>) -> Self {
-		Self { hash, priority: 0u64, watcher: None }
 	}
 
 	/// Sets the transaction watcher.
@@ -133,7 +137,7 @@ impl<B: ChainApi, W> BaseSubmitOutcome<B, W> {
 	}
 
 	/// Provides priority of submitted transaction.
-	pub fn priority(&self) -> TransactionPriority {
+	pub fn priority(&self) -> Option<TransactionPriority> {
 		self.priority
 	}
 
@@ -283,7 +287,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 
 				let mut listener = self.listener.write();
 				fire_events(&mut *listener, &imported);
-				Ok(ValidatedPoolSubmitOutcome::new(*imported.hash(), priority))
+				Ok(ValidatedPoolSubmitOutcome::new(*imported.hash(), Some(priority)))
 			},
 			ValidatedTransaction::Invalid(hash, err) => {
 				log::trace!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one invalid: {:?}", hash, err);

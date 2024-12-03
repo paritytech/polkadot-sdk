@@ -38,15 +38,19 @@ use crate::{
 };
 use futures::FutureExt;
 use itertools::Itertools;
-use sc_transaction_pool_api::TransactionSource;
+use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::Block as BlockT,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use std::{
+	cmp::Ordering,
 	collections::HashMap,
-	sync::{atomic, atomic::AtomicU64, Arc},
+	sync::{
+		atomic::{self, AtomicU64},
+		Arc,
+	},
 	time::Instant,
 };
 
@@ -80,6 +84,9 @@ where
 	source: TimedTransactionSource,
 	/// When the transaction was revalidated, used to periodically revalidate the mem pool buffer.
 	validated_at: AtomicU64,
+	/// Priority of transaction at some block. It is assumed it will not be changed often.
+	//todo: Option is needed here. This means lock. So maybe +AtomicBool?
+	priority: AtomicU64,
 	//todo: we need to add future / ready status at finalized block.
 	//If future transactions are stuck in tx_mem_pool (due to limits being hit), we need a means
 	// to replace them somehow with newly coming transactions.
@@ -112,12 +119,23 @@ where
 		Self::new(true, source, tx, bytes)
 	}
 
-	/// Creates a new instance of wrapper for a transaction.
+	/// Creates a new instance of wrapper for a transaction with no priority.
 	fn new(
 		watched: bool,
 		source: TransactionSource,
 		tx: ExtrinsicFor<ChainApi>,
 		bytes: usize,
+	) -> Self {
+		Self::new_with_priority(watched, source, tx, bytes, 0)
+	}
+
+	/// Creates a new instance of wrapper for a transaction with given priority.
+	fn new_with_priority(
+		watched: bool,
+		source: TransactionSource,
+		tx: ExtrinsicFor<ChainApi>,
+		bytes: usize,
+		priority: TransactionPriority,
 	) -> Self {
 		Self {
 			watched,
@@ -125,6 +143,7 @@ where
 			source: TimedTransactionSource::from_transaction_source(source, true),
 			validated_at: AtomicU64::new(0),
 			bytes,
+			priority: AtomicU64::new(priority),
 		}
 	}
 
@@ -138,6 +157,11 @@ where
 	/// Returns the source of the transaction.
 	pub(crate) fn source(&self) -> TimedTransactionSource {
 		self.source.clone()
+	}
+
+	/// Returns the priority of the transaction.
+	pub(crate) fn priority(&self) -> TransactionPriority {
+		self.priority.load(atomic::Ordering::Relaxed)
 	}
 }
 
@@ -198,11 +222,15 @@ where
 pub(super) struct InsertionInfo<Hash> {
 	pub(super) hash: Hash,
 	pub(super) source: TimedTransactionSource,
+	pub(super) removed: Vec<Hash>,
 }
 
 impl<Hash> InsertionInfo<Hash> {
 	fn new(hash: Hash, source: TimedTransactionSource) -> Self {
-		Self { hash, source }
+		Self::new_with_removed(hash, source, Default::default())
+	}
+	fn new_with_removed(hash: Hash, source: TimedTransactionSource, removed: Vec<Hash>) -> Self {
+		Self { hash, source, removed }
 	}
 }
 
@@ -286,13 +314,8 @@ where
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
 		tx: TxInMemPool<ChainApi, Block>,
-		tx_to_be_removed: Option<ExtrinsicHash<ChainApi>>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let mut transactions = self.transactions.write();
-
-		tx_to_be_removed.inspect(|hash| {
-			transactions.remove(hash);
-		});
 
 		let bytes = self.transactions.bytes();
 
@@ -314,6 +337,85 @@ where
 		result
 	}
 
+	/// Attempts to insert a new transaction in the memory pool and drop some worse existing
+	/// transactions.
+	///
+	/// This operation will not overflow the limit of the mempool. It means that cumulative
+	/// size of removed transactions will be equal (or greated) then size of newly inserted
+	/// transaction.
+	///
+	/// Returns a `Result` containing `InsertionInfo` if the new transaction is successfully
+	/// inserted; otherwise, returns an appropriate error indicating the failure.
+	pub(super) fn try_insert_with_dropping(
+		&self,
+		hash: ExtrinsicHash<ChainApi>,
+		new_tx: TxInMemPool<ChainApi, Block>,
+	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
+		let mut transactions = self.transactions.write();
+
+		if transactions.contains_key(&hash) {
+			return Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)));
+		}
+
+		let mut sorted =
+			transactions.iter().map(|(h, v)| (h.clone(), v.clone())).collect::<Vec<_>>();
+
+		// When pushing higher prio transaction, we need to find a number of lower prio txs, such
+		// that the sum of their bytes is ge then size of new tx. Otherwise we could overflow size
+		// limits. Naive way to do it - rev-sort by priority and eat the tail.
+
+		// reverse (lowest prio last)
+		sorted.sort_by(|(_, a), (_, b)| match b.priority().cmp(&a.priority()) {
+			Ordering::Equal => match (a.source.timestamp, b.source.timestamp) {
+				(Some(a), Some(b)) => b.cmp(&a),
+				_ => Ordering::Equal,
+			},
+			ordering @ _ => ordering,
+		});
+
+		let required_size = new_tx.bytes;
+		let mut total_size = 0usize;
+		let mut to_be_removed = vec![];
+
+		while total_size < required_size {
+			let Some((worst_hash, worst_tx)) = sorted.pop() else {
+				return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
+			};
+
+			if worst_tx.priority() >= new_tx.priority() {
+				return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
+			}
+
+			total_size += worst_tx.bytes;
+			to_be_removed.push(worst_hash);
+		}
+
+		let source = new_tx.source();
+		transactions.insert(hash, Arc::from(new_tx));
+		for worst_hash in &to_be_removed {
+			transactions.remove(worst_hash);
+		}
+		debug_assert!(!self.is_limit_exceeded(transactions.len(), self.transactions.bytes()));
+
+		Ok(InsertionInfo::new_with_removed(hash, source, to_be_removed))
+
+		// let result = match (
+		// 	self.is_limit_exceeded(transactions.len() + 1, bytes + tx.bytes),
+		// 	transactions.contains_key(&hash),
+		// ) {
+		// 	(false, false) => {
+		// 		let source = tx.source();
+		// 		transactions.insert(hash, Arc::from(tx));
+		// 		Ok(InsertionInfo::new(hash, source))
+		// 	},
+		// 	(_, true) =>
+		// 		Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash))),
+		// 	(true, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped),
+		// };
+		// log::trace!(target: LOG_TARGET, "[{:?}] mempool::try_insert: {:?}", hash,
+		// result.as_ref().map(|r| r.hash));
+	}
+
 	/// Attempts to replace an existing transaction in the memory pool with a new one.
 	///
 	/// Returns a `Result` containing `InsertionInfo` if the new transaction is successfully
@@ -321,15 +423,14 @@ where
 	pub(super) fn try_replace_transaction(
 		&self,
 		new_xt: ExtrinsicFor<ChainApi>,
+		priority: TransactionPriority,
 		source: TransactionSource,
 		watched: bool,
-		replaced_tx_hash: ExtrinsicHash<ChainApi>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let (hash, length) = self.api.hash_and_length(&new_xt);
-		self.try_insert(
+		self.try_insert_with_dropping(
 			hash,
-			TxInMemPool::new(watched, source, new_xt, length),
-			Some(replaced_tx_hash),
+			TxInMemPool::new_with_priority(watched, source, new_xt, length, priority),
 		)
 	}
 
@@ -347,7 +448,7 @@ where
 			.iter()
 			.map(|xt| {
 				let (hash, length) = self.api.hash_and_length(&xt);
-				self.try_insert(hash, TxInMemPool::new_unwatched(source, xt.clone(), length), None)
+				self.try_insert(hash, TxInMemPool::new_unwatched(source, xt.clone(), length))
 			})
 			.collect::<Vec<_>>();
 		result
@@ -361,7 +462,7 @@ where
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let (hash, length) = self.api.hash_and_length(&xt);
-		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length), None)
+		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length))
 	}
 
 	/// Clones and returns a `HashMap` of references to all unwatched transactions in the memory
@@ -493,7 +594,11 @@ where
 	}
 
 	pub(super) fn update_transaction(&self, outcome: &ViewStoreSubmitOutcome<ChainApi>) {
-		// todo!()
+		if let Some(priority) = outcome.priority() {
+			if let Some(tx) = self.transactions.write().get_mut(&outcome.hash()) {
+				tx.priority.store(priority, atomic::Ordering::Relaxed);
+			}
+		}
 	}
 }
 
@@ -650,4 +755,6 @@ mod tx_mem_pool_tests {
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 	}
+
+	//add some test for try_insert_with_dropping
 }

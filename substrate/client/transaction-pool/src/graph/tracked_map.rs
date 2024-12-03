@@ -173,6 +173,16 @@ where
 	pub fn len(&mut self) -> usize {
 		self.inner_guard.len()
 	}
+
+	/// Returns an iterator over all values.
+	pub fn values(&self) -> std::collections::hash_map::Values<K, V> {
+		self.inner_guard.values()
+	}
+
+	/// Returns an iterator over all key-value pairs.
+	pub fn iter(&self) -> Iter<'_, K, V> {
+		self.inner_guard.iter()
+	}
 }
 
 #[cfg(test)]

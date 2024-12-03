@@ -262,7 +262,7 @@ where
 				log::trace!(target: LOG_TARGET, "[{:?}] submit_local: err: {}", tx_hash, err);
 				Err(err)
 			},
-			None => Ok(ViewStoreSubmitOutcome::new_no_priority(tx_hash)),
+			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None)),
 			Some(Ok(r)) => Ok(r.into()),
 		}
 	}
@@ -320,8 +320,7 @@ where
 			},
 			Some(Ok(result)) =>
 				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher)),
-			None =>
-				Ok(ViewStoreSubmitOutcome::new_no_priority(tx_hash).with_watcher(external_watcher)),
+			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
 		}
 	}
 

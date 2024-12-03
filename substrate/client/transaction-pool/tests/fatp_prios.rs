@@ -282,10 +282,8 @@ fn fatp_prios_watcher_full_mempool_higher_prio_is_accepted() {
 	api.set_priority(&xt4, 5);
 	api.set_priority(&xt5, 6);
 
-	let _xt0_watcher =
-		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	let _xt1_watcher =
-		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
 
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 	assert_eq!(pool.mempool_len().1, 2);
@@ -313,13 +311,11 @@ fn fatp_prios_watcher_full_mempool_higher_prio_is_accepted() {
 	// let header04 = api.push_block_with_parent(header03.hash(), vec![], true);
 	// block_on(pool.maintain(new_best_block_event(&pool, Some(header03.hash()), header04.hash())));
 
-	let xt2_status = futures::executor::block_on_stream(xt2_watcher).take(2).collect::<Vec<_>>();
-	assert_eq!(xt2_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
-	let xt3_status = futures::executor::block_on_stream(xt3_watcher).take(2).collect::<Vec<_>>();
-	assert_eq!(xt3_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
+	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready, TransactionStatus::Dropped]);
+	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready, TransactionStatus::Dropped]);
 
-	assert_ready_iterator!(header01.hash(), pool, [xt1, xt0]);
-	assert_ready_iterator!(header02.hash(), pool, []);
+	assert_ready_iterator!(header01.hash(), pool, []);
+	assert_ready_iterator!(header02.hash(), pool, [xt3, xt2]);
 	assert_ready_iterator!(header03.hash(), pool, [xt5, xt4]);
 }
 
