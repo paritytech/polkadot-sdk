@@ -777,7 +777,6 @@ pub(crate) fn decl_static_assertions(
 	});
 
 	quote! {
-		#[allow(deprecated)]
 		#(#error_encoded_size_check)*
 	}
 }

@@ -2594,13 +2594,6 @@ fn pallet_metadata() {
 	let pallets = Runtime::metadata_ir().pallets;
 	let example = pallets[0].clone();
 	let example2 = pallets[1].clone();
-	// {
-	// 	// Example2 pallet is deprecated
-	// 	assert_eq!(
-	// 		&DeprecationStatusIR::Deprecated { note: "test", since: None },
-	// 		&example2.deprecation_info
-	// 	)
-	// }
 	{
 		// Example pallet calls is fully and partially deprecated
 		let meta = &example.calls.unwrap();
@@ -2615,7 +2608,6 @@ fn pallet_metadata() {
 	{
 		// Example pallet constant is deprecated
 		let meta = &example.constants[0];
-		dbg!(meta);
 		assert_eq!(
 			DeprecationStatusIR::Deprecated { note: "test 2", since: None },
 			meta.deprecation_info

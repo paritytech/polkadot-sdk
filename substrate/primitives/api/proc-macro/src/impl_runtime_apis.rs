@@ -868,7 +868,11 @@ fn impl_runtime_apis_impl_inner(api_impls: &mut [ItemImpl]) -> Result<TokenStrea
 
 // Filters all attributes except the cfg ones.
 fn filter_cfg_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
-	attrs.iter().filter(|a| a.path().is_ident("cfg")).cloned().collect()
+	attrs
+		.iter()
+		.filter(|a| a.path().is_ident("cfg") || a.path().is_ident("allow"))
+		.cloned()
+		.collect()
 }
 
 #[cfg(test)]

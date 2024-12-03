@@ -45,7 +45,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 	let completed_where_clause = super::merge_where_clauses(&where_clauses);
 
 	let mut config_consts = vec![];
-	for const_ in def.config.consts_metadata.iter_mut() {
+	for const_ in def.config.consts_metadata.iter() {
 		let ident = &const_.ident;
 		let const_type = &const_.type_;
 		let deprecation_info = match crate::deprecation::get_deprecation(
@@ -79,7 +79,7 @@ pub fn expand_constants(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 
 	let mut extra_consts = vec![];
-	for const_ in def.extra_constants.iter_mut().flat_map(|d| &mut d.extra_constants) {
+	for const_ in def.extra_constants.iter().flat_map(|d| &d.extra_constants) {
 		let ident = &const_.ident;
 		let deprecation_info = match crate::deprecation::get_deprecation(
 			&quote::quote! { #frame_support },
