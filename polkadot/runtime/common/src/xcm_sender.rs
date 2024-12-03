@@ -261,8 +261,7 @@ mod tests {
 	use crate::integration_tests::new_test_ext;
 	use alloc::vec;
 	use frame_support::{assert_ok, parameter_types};
-	use polkadot_primitives::HeadData;
-	use polkadot_runtime_parachains::{paras, FeeTracker};
+	use polkadot_runtime_parachains::FeeTracker;
 	use sp_runtime::FixedU128;
 	use xcm::MAX_XCM_DECODE_DEPTH;
 
