@@ -18568,7 +18568,6 @@ dependencies = [
  "pallet-remark 28.0.0",
  "pallet-revive 0.1.0",
  "pallet-revive-eth-rpc",
- "pallet-revive-fixtures 0.1.0",
  "pallet-revive-mock-network 0.1.0",
  "pallet-revive-proc-macro 0.1.0",
  "pallet-revive-uapi 0.1.0",
