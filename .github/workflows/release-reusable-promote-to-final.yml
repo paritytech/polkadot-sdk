@@ -30,7 +30,6 @@ jobs:
 
   promote-release-artifacts:
     environment: release
-    continue-on-error: true
     runs-on: ubuntu-latest
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
