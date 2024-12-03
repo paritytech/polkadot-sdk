@@ -248,4 +248,19 @@ where
 		});
 		Ok((ret, maybe_next_query))
 	}
+
+	/// Raw iterator over the keys.
+	pub fn raw_keys_iter(
+		&self,
+		hash: Block::Hash,
+		child_key: Option<ChildInfo>,
+	) -> Result<impl Iterator<Item = StorageKey>, String> {
+		let keys_iter = if let Some(child_key) = child_key {
+			self.client.child_storage_keys(hash, child_key, None, None)
+		} else {
+			self.client.storage_keys(hash, None, None)
+		};
+
+		keys_iter.map_err(|err| err.to_string())
+	}
 }
