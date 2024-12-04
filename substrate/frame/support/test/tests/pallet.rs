@@ -1931,13 +1931,22 @@ fn metadata() {
 		error_enum_ty: meta_type::<RuntimeError>(),
 	};
 
+	let custom_value: BTreeMap<u8, Vec<u32>> = (0, vec![1]).into_iter().collect();
 	let expected_metadata: RuntimeMetadataPrefixed = RuntimeMetadataLastVersion::new(
 		pallets,
 		extrinsic,
 		meta_type::<Runtime>(),
 		vec![],
 		outer_enums,
-		CustomMetadata { map: Default::default() },
+		CustomMetadata {
+			map: [(
+				"transaction_extensions_by_version".into(),
+				CustomValueMetadata {
+					ty: meta_type::<BTreeMap<u8, Vec<u32>>>(),
+					value: custom_value.encode(),
+				},
+			)],
+		},
 	)
 	.into();
 	let expected_metadata = match expected_metadata.1 {
