@@ -1,13 +1,13 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Test that a parachain that uses a collator set which builds both V1 and V2 receipts cannot fully
-// utilise elastic scaling but can still make some progress.
+// Test that a parachain that uses a basic collator (like adder-collator) with elastic scaling
+// can achieve full throughput of 3 candidates per block.
 
 use anyhow::anyhow;
 
 use super::{
-	helpers::{assert_finalized_block_height, assert_para_throughput},
+	helpers::assert_para_throughput,
 	rococo,
 	rococo::runtime_types::{
 		pallet_broker::coretime_interface::CoreAssignment,
@@ -20,7 +20,7 @@ use subxt_signer::sr25519::dev;
 use zombienet_sdk::NetworkConfigBuilder;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn mixed_receipt_versions_test() -> Result<(), anyhow::Error> {
+async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -38,7 +38,6 @@ async fn mixed_receipt_versions_test() -> Result<(), anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								// Num cores is 2, because 1 extra will be added automatically when registering the paras.
 								"num_cores": 2,
 								"max_validators_per_core": 1
 							},
@@ -53,25 +52,23 @@ async fn mixed_receipt_versions_test() -> Result<(), anyhow::Error> {
 				// type.
 				.with_node(|node| node.with_name("validator-0"));
 
-			(1..3).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
-			p.with_id(2200)
-				.with_default_command("test-parachain")
+			p.with_id(2000)
+				.with_default_command("adder-collator")
+				.cumulus_based(false)
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("elastic-scaling")
-				.with_default_args(vec![
-					("--experimental-use-slot-based").into(),
-					("-lparachain=debug,aura=debug").into(),
-				])
-				// This collator uses the image from the PR, which will build a v2 receipt.
-				.with_collator(|n| n.with_name("collator-elastic"))
-				// This collator uses an old image, which will build a v1 receipt.
-				// The image is hardcoded to roughly where the stable2407 was branched off.
-				.with_collator(|n| {
-					n.with_name("old-collator-elastic")
-						.with_image("docker.io/paritypr/test-parachain:master-b862b181")
-				})
+				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_collator(|n| n.with_name("adder-2000"))
+		})
+		.with_parachain(|p| {
+			p.with_id(2001)
+				.with_default_command("adder-collator")
+				.cumulus_based(false)
+				.with_default_image(images.cumulus.as_str())
+				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_collator(|n| n.with_name("adder-2001"))
 		})
 		.build()
 		.map_err(|e| {
@@ -83,12 +80,11 @@ async fn mixed_receipt_versions_test() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-elastic")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let alice = dev::alice();
 
-	// Assign two extra cores to the parachain.
+	// Assign two extra cores to adder-2000.
 	relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(
@@ -101,7 +97,7 @@ async fn mixed_receipt_versions_test() -> Result<(), anyhow::Error> {
 								rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
 									core: 0,
 									begin: 0,
-									assignment: vec![(CoreAssignment::Task(2200), PartsOf57600(57600))],
+									assignment: vec![(CoreAssignment::Task(2000), PartsOf57600(57600))],
 									end_hint: None
 								}
 							),
@@ -109,7 +105,7 @@ async fn mixed_receipt_versions_test() -> Result<(), anyhow::Error> {
 								rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
 									core: 1,
 									begin: 0,
-									assignment: vec![(CoreAssignment::Task(2200), PartsOf57600(57600))],
+									assignment: vec![(CoreAssignment::Task(2000), PartsOf57600(57600))],
 									end_hint: None
 								}
 							),
@@ -122,18 +118,14 @@ async fn mixed_receipt_versions_test() -> Result<(), anyhow::Error> {
 		.wait_for_finalized_success()
 		.await?;
 
-	log::info!("2 more cores assigned to the parachain");
+	log::info!("2 more cores assigned to adder-2000");
 
-	// We won't get full throughput as some candidates would be built for the same block and
-	// therefore dropped in the runtime.
-	// The perfect throughput would have been 45 for a parachain with 3 cores over 15 relay chain
-	// blocks.
-	assert_para_throughput(&relay_client, 15, [(2200, 25..35)].into_iter().collect()).await?;
-
-	let para_client = para_node.wait_client().await?;
-	// Assert the parachain finalized block height is also on par with the number of backed
-	// candidates.
-	assert_finalized_block_height(&para_client, 22..35).await?;
+	assert_para_throughput(
+		&relay_client,
+		15,
+		[(2000, 40..46), (2001, 12..16)].into_iter().collect(),
+	)
+	.await?;
 
 	log::info!("Test finished successfully");
 

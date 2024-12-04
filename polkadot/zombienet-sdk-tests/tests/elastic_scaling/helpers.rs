@@ -58,3 +58,21 @@ pub async fn assert_para_throughput(
 
 	Ok(())
 }
+
+// Helper function for retrieving the latest finalized block height and asserting it's within a
+// range.
+pub async fn assert_finalized_block_height(
+	client: &OnlineClient<PolkadotConfig>,
+	expected_range: Range<u32>,
+) -> Result<(), anyhow::Error> {
+	if let Some(block) = client.blocks().subscribe_finalized().await?.next().await {
+		let height = block?.number();
+		log::info!("Finalized block number number {height}");
+
+		assert!(
+			expected_range.contains(&height),
+			"Finalized block number {height} not within range {expected_range:?}"
+		);
+	}
+	Ok(())
+}

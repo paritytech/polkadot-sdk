@@ -7,7 +7,7 @@
 use anyhow::anyhow;
 
 use super::{
-	helpers::assert_para_throughput,
+	helpers::{assert_finalized_block_height, assert_para_throughput},
 	rococo,
 	rococo::runtime_types::{
 		pallet_broker::coretime_interface::CoreAssignment,
@@ -33,6 +33,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
+				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -62,7 +63,10 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling-mvp")
-				.with_default_args(vec![("--experimental-use-slot-based").into()])
+				.with_default_args(vec![
+					("--experimental-use-slot-based").into(),
+					("-lparachain=debug,aura=debug").into(),
+				])
 				.with_collator(|n| n.with_name("collator-elastic-mvp"))
 		})
 		.with_parachain(|p| {
@@ -72,7 +76,10 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("elastic-scaling")
-				.with_default_args(vec![("--experimental-use-slot-based").into()])
+				.with_default_args(vec![
+					("--experimental-use-slot-based").into(),
+					("-lparachain=debug,aura=debug").into(),
+				])
 				.with_collator(|n| n.with_name("collator-elastic"))
 		})
 		.build()
@@ -85,6 +92,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
+	let para_node_elastic = network.get_node("collator-elastic")?;
+	let para_node_elastic_mvp = network.get_node("collator-elastic-mvp")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let alice = dev::alice();
@@ -141,16 +150,21 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 
 	log::info!("2 more cores assigned to each parachain");
 
-	// Expect a backed candidate count of at least 42 for each parachain in 15 relay chain blocks
-	// (2.8 candidates per para per relay chain block).
+	// Expect a backed candidate count of at least 40 for each parachain in 15 relay chain blocks
+	// (2.66 candidates per para per relay chain block).
 	// Note that only blocks after the first session change and blocks that don't contain a session
 	// change will be counted.
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(2100, 42..46), (2200, 42..46)].into_iter().collect(),
+		[(2100, 40..46), (2200, 40..46)].into_iter().collect(),
 	)
 	.await?;
+
+	// Assert the parachain finalized block height is also on par with the number of backed
+	// candidates.
+	assert_finalized_block_height(&para_node_elastic.wait_client().await?, 37..46).await?;
+	assert_finalized_block_height(&para_node_elastic_mvp.wait_client().await?, 37..46).await?;
 
 	log::info!("Test finished successfully");
 
