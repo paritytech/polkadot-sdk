@@ -1,0 +1,6 @@
+error: Instructions that load the holding register should take operands
+  --> tests/ui/builder_pattern/loads_holding_no_operands.rs:25:5
+   |
+25 | /     #[builder(loads_holding)]
+26 | |     WithdrawAsset,
+   | |_________________^

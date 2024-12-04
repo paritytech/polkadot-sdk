@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Decrement total_deposit when clearing collection metadata
+
+doc:
+  - audience: Runtime Dev
+    description: Decrements total_deposit by the appropriate amount when collection metadata is cleared.
+
+crates:
+  - name: pallet-uniques
+    bump: patch
+  - name: pallet-nfts
+    bump: patch

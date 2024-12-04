@@ -31,6 +31,7 @@ use std::{
 	io::{self, Write},
 	marker::PhantomData,
 	panic::{self, PanicInfo},
+	sync::LazyLock,
 	thread,
 };
 
@@ -128,8 +129,9 @@ impl Drop for AbortGuard {
 
 // NOTE: When making any changes here make sure to also change this function in `sc-tracing`.
 fn strip_control_codes(input: &str) -> std::borrow::Cow<str> {
-	lazy_static::lazy_static! {
-		static ref RE: Regex = Regex::new(r#"(?x)
+	static RE: LazyLock<Regex> = LazyLock::new(|| {
+		Regex::new(
+			r#"(?x)
 			\x1b\[[^m]+m|        # VT100 escape codes
 			[
 			  \x00-\x09\x0B-\x1F # ASCII control codes / Unicode C0 control codes, except \n
@@ -138,8 +140,10 @@ fn strip_control_codes(input: &str) -> std::borrow::Cow<str> {
 			  \u{202A}-\u{202E}  # Unicode left-to-right / right-to-left control characters
 			  \u{2066}-\u{2069}  # Same as above
 			]
-		"#).expect("regex parsing doesn't fail; qed");
-	}
+		"#,
+		)
+		.expect("regex parsing doesn't fail; qed")
+	});
 
 	RE.replace_all(input, "")
 }

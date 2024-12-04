@@ -65,12 +65,29 @@ pub(crate) mod beefy_protocol_name {
 /// Returns the configuration value to put in
 /// [`sc_network::config::FullNetworkConfiguration`].
 /// For standard protocol name see [`beefy_protocol_name::gossip_protocol_name`].
-pub fn beefy_peers_set_config(
+pub fn beefy_peers_set_config<
+	B: sp_runtime::traits::Block,
+	N: sc_network::NetworkBackend<B, <B as sp_runtime::traits::Block>::Hash>,
+>(
 	gossip_protocol_name: sc_network::ProtocolName,
-) -> sc_network::config::NonDefaultSetConfig {
-	let mut cfg = sc_network::config::NonDefaultSetConfig::new(gossip_protocol_name, 1024 * 1024);
-	cfg.allow_non_reserved(25, 25);
-	cfg
+	metrics: sc_network::service::NotificationMetrics,
+	peer_store_handle: std::sync::Arc<dyn sc_network::peer_store::PeerStoreProvider>,
+) -> (N::NotificationProtocolConfig, Box<dyn sc_network::NotificationService>) {
+	let (cfg, notification_service) = N::notification_config(
+		gossip_protocol_name,
+		Vec::new(),
+		1024 * 1024,
+		None,
+		sc_network::config::SetConfig {
+			in_peers: 25,
+			out_peers: 25,
+			reserved_nodes: Vec::new(),
+			non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
+		},
+		metrics,
+		peer_store_handle,
+	);
+	(cfg, notification_service)
 }
 
 // cost scalars for reporting peers.
@@ -84,8 +101,6 @@ mod cost {
 	pub(super) const BAD_SIGNATURE: Rep = Rep::new(-100, "BEEFY: Bad signature");
 	// Message received with vote from voter not in validator set.
 	pub(super) const UNKNOWN_VOTER: Rep = Rep::new(-150, "BEEFY: Unknown voter");
-	// A message received that cannot be evaluated relative to our current state.
-	pub(super) const OUT_OF_SCOPE_MESSAGE: Rep = Rep::new(-500, "BEEFY: Out-of-scope message");
 	// Message containing invalid proof.
 	pub(super) const INVALID_PROOF: Rep = Rep::new(-5000, "BEEFY: Invalid commit");
 	// Reputation cost per signature checked for invalid proof.
@@ -95,14 +110,14 @@ mod cost {
 	// On-demand request was refused by peer.
 	pub(super) const REFUSAL_RESPONSE: Rep = Rep::new(-100, "BEEFY: Proof request refused");
 	// On-demand request for a proof that can't be found in the backend.
-	pub(super) const UNKOWN_PROOF_REQUEST: Rep = Rep::new(-150, "BEEFY: Unknown proof request");
+	pub(super) const UNKNOWN_PROOF_REQUEST: Rep = Rep::new(-150, "BEEFY: Unknown proof request");
 }
 
 // benefit scalars for reporting peers.
 mod benefit {
 	use sc_network::ReputationChange as Rep;
 	pub(super) const VOTE_MESSAGE: Rep = Rep::new(100, "BEEFY: Round vote message");
-	pub(super) const KNOWN_VOTE_MESSAGE: Rep = Rep::new(50, "BEEFY: Known vote");
+	pub(super) const NOT_INTERESTED: Rep = Rep::new(10, "BEEFY: Not interested in round");
 	pub(super) const VALIDATED_PROOF: Rep = Rep::new(100, "BEEFY: Justification");
 }
 

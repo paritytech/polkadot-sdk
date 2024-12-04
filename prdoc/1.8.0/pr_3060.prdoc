@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add retry mechanics to `pallet-scheduler`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds retry mechanics to pallet-scheduler, as described in the issue above.
+      Users can now set a retry configuration for a task so that, in case its scheduled run fails, it will be retried after a number of blocks, for a specified number of times or until it succeeds.
+      If a retried task runs successfully before running out of retries, its remaining retry counter will be reset to the initial value. If a retried task runs out of retries, it will be removed from the schedule.
+      Tasks which need to be scheduled for a retry are still subject to weight metering and agenda space, same as a regular task. Periodic tasks will have their periodic schedule put on hold while the task is retrying.
+
+crates:
+  - name: pallet-scheduler

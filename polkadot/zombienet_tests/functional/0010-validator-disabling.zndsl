@@ -1,0 +1,21 @@
+Description: Test validator disabling effects
+Network: ./0010-validator-disabling.toml
+Creds: config
+
+# Ensure nodes are up and running
+honest-validator: reports node_roles is 4
+
+# Ensure parachain is registered
+honest-validator: parachain 1000 is registered within 100 seconds
+
+# Ensure parachain made progress
+honest-validator: parachain 1000 block height is at least 1 within 300 seconds
+
+# Wait for the dispute
+honest-validator-1: reports parachain_candidate_disputes_total is at least 1 within 600 seconds
+
+# Disputes should conclude
+honest-validator: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"} is at least 1 within 200 seconds
+
+# Wait for a few blocks for the disabling to take place.
+honest-validator: log line contains "Disabled validators detected" within 180 seconds

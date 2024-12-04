@@ -17,7 +17,7 @@
 
 //! Traits for describing and constraining pallet error types.
 use codec::{Compact, Decode, Encode};
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Trait indicating that the implementing type is going to be included as a field in a variant of
 /// the `#[pallet::error]` enum type.

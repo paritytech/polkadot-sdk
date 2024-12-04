@@ -1,0 +1,26 @@
+[package]
+name = "pallet-minimal-template"
+description = "A minimal pallet built with FRAME, part of Polkadot Sdk."
+version = "0.0.0"
+license = "Unlicense"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+polkadot-sdk = { workspace = true, default-features = false, features = [
+	"experimental",
+	"runtime",
+] }
+
+
+[features]
+default = ["std"]
+std = ["codec/std", "polkadot-sdk/std", "scale-info/std"]

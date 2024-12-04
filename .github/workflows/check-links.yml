@@ -1,0 +1,46 @@
+name: Check links
+
+on:
+  pull_request:
+    paths:
+      - "**.rs"
+      - "**.prdoc"
+      - ".github/workflows/check-links.yml"
+      - ".config/lychee.toml"
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  packages: read
+
+jobs:
+  link-checker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Restore lychee cache
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v3.3.2 (7. Sep 2023)
+        with:
+          path: .lycheecache
+          key: cache-lychee-${{ github.sha }}
+          # This should restore from the most recent one:
+          restore-keys: cache-lychee-
+
+      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.0 (22. Sep 2023)
+
+      - name: Lychee link checker
+        uses: lycheeverse/lychee-action@f81112d0d2814ded911bd23e3beaa9dda9093915 # for v1.9.1 (10. Jan 2024)
+        with:
+          args: >-
+            --config .config/lychee.toml
+            --no-progress
+            './**/*.rs'
+            './**/*.prdoc'
+          fail: true
+        env:
+          # To bypass GitHub rate-limit:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

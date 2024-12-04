@@ -77,10 +77,6 @@ pub fn expand_outer_config(
 		}
 
 		#[cfg(any(feature = "std", test))]
-		#[deprecated(note = "GenesisConfig is planned to be removed in December 2023. Use `RuntimeGenesisConfig` instead.")]
-		pub type GenesisConfig = RuntimeGenesisConfig;
-
-		#[cfg(any(feature = "std", test))]
 		impl #scrate::sp_runtime::BuildStorage for RuntimeGenesisConfig {
 			fn assimilate_storage(
 				&self,
@@ -98,6 +94,17 @@ pub fn expand_outer_config(
 				#genesis_build_calls
 				<AllPalletsWithSystem as #scrate::traits::OnGenesis>::on_genesis();
 			}
+		}
+
+		/// Test the `Default` derive impl of the `RuntimeGenesisConfig`.
+		#[cfg(test)]
+		#[test]
+		fn test_genesis_config_builds() {
+			#scrate::__private::sp_io::TestExternalities::default().execute_with(|| {
+				<RuntimeGenesisConfig as #scrate::traits::BuildGenesisConfig>::build(
+					&RuntimeGenesisConfig::default()
+				);
+			});
 		}
 	}
 }

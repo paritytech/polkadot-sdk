@@ -19,6 +19,7 @@
 //! Definitions of [`ValueEnum`] types.
 
 use clap::ValueEnum;
+use std::str::FromStr;
 
 /// The instantiation strategy to use in compiled mode.
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -167,12 +168,69 @@ pub enum RpcMethods {
 	Unsafe,
 }
 
+impl FromStr for RpcMethods {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"safe" => Ok(RpcMethods::Safe),
+			"unsafe" => Ok(RpcMethods::Unsafe),
+			"auto" => Ok(RpcMethods::Auto),
+			invalid => Err(format!("Invalid rpc methods {invalid}")),
+		}
+	}
+}
+
 impl Into<sc_service::config::RpcMethods> for RpcMethods {
 	fn into(self) -> sc_service::config::RpcMethods {
 		match self {
 			RpcMethods::Auto => sc_service::config::RpcMethods::Auto,
 			RpcMethods::Safe => sc_service::config::RpcMethods::Safe,
 			RpcMethods::Unsafe => sc_service::config::RpcMethods::Unsafe,
+		}
+	}
+}
+
+/// CORS setting
+///
+/// The type is introduced to overcome `Option<Option<T>>` handling of `clap`.
+#[derive(Clone, Debug)]
+pub enum Cors {
+	/// All hosts allowed.
+	All,
+	/// Only hosts on the list are allowed.
+	List(Vec<String>),
+}
+
+impl From<Cors> for Option<Vec<String>> {
+	fn from(cors: Cors) -> Self {
+		match cors {
+			Cors::All => None,
+			Cors::List(list) => Some(list),
+		}
+	}
+}
+
+impl FromStr for Cors {
+	type Err = crate::Error;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let mut is_all = false;
+		let mut origins = Vec::new();
+		for part in s.split(',') {
+			match part {
+				"all" | "*" => {
+					is_all = true;
+					break
+				},
+				other => origins.push(other.to_owned()),
+			}
+		}
+
+		if is_all {
+			Ok(Cors::All)
+		} else {
+			Ok(Cors::List(origins))
 		}
 	}
 }
@@ -225,7 +283,7 @@ pub enum OffchainWorkerEnabled {
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
 #[value(rename_all = "kebab-case")]
 pub enum SyncMode {
-	/// Full sync. Download end verify all blocks.
+	/// Full sync. Download and verify all blocks.
 	Full,
 	/// Download blocks without executing them. Download latest state with proofs.
 	Fast,
@@ -248,6 +306,26 @@ impl Into<sc_network::config::SyncMode> for SyncMode {
 				storage_chain_mode: false,
 			},
 			SyncMode::Warp => sc_network::config::SyncMode::Warp,
+		}
+	}
+}
+
+/// Network backend type.
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
+#[value(rename_all = "lower")]
+pub enum NetworkBackendType {
+	/// Use libp2p for P2P networking.
+	Libp2p,
+
+	/// Use litep2p for P2P networking.
+	Litep2p,
+}
+
+impl Into<sc_network::config::NetworkBackendType> for NetworkBackendType {
+	fn into(self) -> sc_network::config::NetworkBackendType {
+		match self {
+			Self::Libp2p => sc_network::config::NetworkBackendType::Libp2p,
+			Self::Litep2p => sc_network::config::NetworkBackendType::Litep2p,
 		}
 	}
 }

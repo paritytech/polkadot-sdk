@@ -20,7 +20,7 @@
 
 use super::*;
 use authorship::claim_slot;
-use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
+use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 use sc_client_api::{BlockchainEvents, Finalizer};
 use sc_consensus::{BoxBlockImport, BoxJustificationImport};
 use sc_consensus_epochs::{EpochIdentifier, EpochIdentifierPosition};
@@ -98,8 +98,13 @@ impl DummyProposer {
 		&mut self,
 		pre_digests: Digest,
 	) -> future::Ready<Result<Proposal<TestBlock, ()>, Error>> {
-		let block_builder =
-			self.factory.client.new_block_at(self.parent_hash, pre_digests, false).unwrap();
+		let block_builder = BlockBuilderBuilder::new(&*self.factory.client)
+			.on_parent_block(self.parent_hash)
+			.fetch_parent_block_number(&*self.factory.client)
+			.unwrap()
+			.with_inherent_digests(pre_digests)
+			.build()
+			.unwrap();
 
 		let mut block = match block_builder.build().map_err(|e| e.into()) {
 			Ok(b) => b.block,
@@ -138,21 +143,21 @@ thread_local! {
 pub struct PanickingBlockImport<B>(B);
 
 #[async_trait::async_trait]
-impl<B: BlockImport<TestBlock>> BlockImport<TestBlock> for PanickingBlockImport<B>
+impl<BI> BlockImport<TestBlock> for PanickingBlockImport<BI>
 where
-	B: Send,
+	BI: BlockImport<TestBlock> + Send + Sync,
 {
-	type Error = B::Error;
+	type Error = BI::Error;
 
 	async fn import_block(
-		&mut self,
+		&self,
 		block: BlockImportParams<TestBlock>,
 	) -> Result<ImportResult, Self::Error> {
 		Ok(self.0.import_block(block).await.expect("importing block failed"))
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<TestBlock>,
 	) -> Result<ImportResult, Self::Error> {
 		Ok(self.0.check_block(block).await.expect("checking block failed"))
@@ -193,7 +198,7 @@ impl Verifier<TestBlock> for TestVerifier {
 	/// new set of validators to import. If not, err with an Error-Message
 	/// presented to the User in the logs.
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<TestBlock>,
 	) -> Result<BlockImportParams<TestBlock>, String> {
 		// apply post-sealing mutations (i.e. stripping seal, if desired).
@@ -297,7 +302,7 @@ impl TestNetFactory for BabeTestNet {
 async fn rejects_empty_block() {
 	sp_tracing::try_init_simple();
 	let mut net = BabeTestNet::new(3);
-	let block_builder = |builder: BlockBuilder<_, _, _>| builder.build().unwrap().block;
+	let block_builder = |builder: BlockBuilder<_, _>| builder.build().unwrap().block;
 	net.mut_peers(|peer| {
 		peer[0].generate_blocks(1, BlockOrigin::NetworkInitialSync, block_builder);
 	})
@@ -406,7 +411,7 @@ async fn run_one_test(mutator: impl Fn(&mut TestHeader, Stage) + Send + Sync + '
 			let mut net = net.lock();
 			net.poll(cx);
 			for p in net.peers() {
-				for (h, e) in p.failed_verifications() {
+				if let Some((h, e)) = p.failed_verifications().into_iter().next() {
 					panic!("Verification failed for {:?}: {}", h, e);
 				}
 			}
@@ -575,7 +580,7 @@ fn claim_vrf_check() {
 	};
 	let data = make_vrf_sign_data(&epoch.randomness.clone(), 0.into(), epoch.epoch_index);
 	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
-	assert_eq!(pre_digest.vrf_signature.output, sign.output);
+	assert_eq!(pre_digest.vrf_signature.pre_output, sign.pre_output);
 
 	// We expect a SecondaryVRF claim for slot 1
 	let pre_digest = match claim_slot(1.into(), &epoch, &keystore).unwrap().0 {
@@ -584,7 +589,7 @@ fn claim_vrf_check() {
 	};
 	let data = make_vrf_sign_data(&epoch.randomness.clone(), 1.into(), epoch.epoch_index);
 	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
-	assert_eq!(pre_digest.vrf_signature.output, sign.output);
+	assert_eq!(pre_digest.vrf_signature.pre_output, sign.pre_output);
 
 	// Check that correct epoch index has been used if epochs are skipped (primary VRF)
 	let slot = Slot::from(103);
@@ -596,7 +601,7 @@ fn claim_vrf_check() {
 	let data = make_vrf_sign_data(&epoch.randomness.clone(), slot, fixed_epoch.epoch_index);
 	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
 	assert_eq!(fixed_epoch.epoch_index, 11);
-	assert_eq!(claim.vrf_signature.output, sign.output);
+	assert_eq!(claim.vrf_signature.pre_output, sign.pre_output);
 
 	// Check that correct epoch index has been used if epochs are skipped (secondary VRF)
 	let slot = Slot::from(100);
@@ -608,7 +613,7 @@ fn claim_vrf_check() {
 	let data = make_vrf_sign_data(&epoch.randomness.clone(), slot, fixed_epoch.epoch_index);
 	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
 	assert_eq!(fixed_epoch.epoch_index, 11);
-	assert_eq!(pre_digest.vrf_signature.output, sign.output);
+	assert_eq!(pre_digest.vrf_signature.pre_output, sign.pre_output);
 }
 
 // Propose and import a new BABE block on top of the given parent.
@@ -1089,8 +1094,8 @@ async fn obsolete_blocks_aux_data_cleanup() {
 	assert!(aux_data_check(&fork1_hashes[2..3], false));
 	// Present: A4
 	assert!(aux_data_check(&fork1_hashes[3..], true));
-	// Present C4, C5
-	assert!(aux_data_check(&fork3_hashes, true));
+	// Wiped C4, C5
+	assert!(aux_data_check(&fork3_hashes, false));
 }
 
 #[tokio::test]

@@ -2,7 +2,7 @@
 
 Brokerage tool for managing Polkadot Core scheduling.
 
-Properly described in RFC-0001 Agile Coretime.
+Properly described in [RFC-0001 Agile Coretime](https://github.com/polkadot-fellows/RFCs/blob/main/text/0001-agile-coretime.md).
 
 ## Implementation Specifics
 

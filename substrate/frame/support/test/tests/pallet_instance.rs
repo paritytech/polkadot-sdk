@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::any::TypeId;
 use frame_support::{
+	derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
 	pallet_prelude::ValueQuery,
 	parameter_types,
@@ -25,13 +27,13 @@ use frame_support::{
 		UnfilteredDispatchable,
 	},
 	weights::Weight,
+	OrdNoBound, PartialOrdNoBound,
 };
 use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
 	TestExternalities,
 };
 use sp_runtime::{DispatchError, ModuleError};
-use sp_std::any::TypeId;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -87,12 +89,13 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Doc comment put in metadata
 		#[pallet::call_index(0)]
-		#[pallet::weight(Weight::from_parts(*_foo as u64, 0))]
+		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		pub fn foo(
 			origin: OriginFor<T>,
-			#[pallet::compact] _foo: u32,
+			#[pallet::compact] foo: u32,
 		) -> DispatchResultWithPostInfo {
 			let _ = origin;
+			let _ = foo;
 			Self::deposit_event(Event::Something(3));
 			Ok(().into())
 		}
@@ -191,7 +194,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<(T, I)>,
+		_config: core::marker::PhantomData<(T, I)>,
 		_myfield: u32,
 	}
 
@@ -206,6 +209,8 @@ pub mod pallet {
 		RuntimeDebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
+		PartialOrdNoBound,
+		OrdNoBound,
 		Encode,
 		Decode,
 		scale_info::TypeInfo,
@@ -291,6 +296,7 @@ pub mod pallet2 {
 	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -302,7 +308,6 @@ impl frame_system::Config for Runtime {
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU32<250>;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -355,7 +360,8 @@ fn call_expand() {
 	assert_eq!(
 		call_foo.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(3, 0),
+			call_weight: Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		}
@@ -367,7 +373,8 @@ fn call_expand() {
 	assert_eq!(
 		call_foo.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(3, 0),
+			call_weight: Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		}
@@ -935,9 +942,9 @@ fn metadata() {
 
 	let extrinsic = ExtrinsicMetadata {
 		ty: scale_info::meta_type::<UncheckedExtrinsic>(),
-		version: 4,
+		version: 5,
 		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+			identifier: "UnitTransactionExtension",
 			ty: scale_info::meta_type::<()>(),
 			additional_signed: scale_info::meta_type::<()>(),
 		}],

@@ -18,11 +18,9 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{Bridge, Call};
-
-use bp_xcm_bridge_hub_router::{BridgeState, MINIMAL_DELIVERY_FEE_FACTOR};
-use frame_benchmarking::benchmarks_instance_pallet;
-use frame_support::traits::{EnsureOrigin, Get, Hooks, UnfilteredDispatchable};
+use crate::{DeliveryFeeFactor, MINIMAL_DELIVERY_FEE_FACTOR};
+use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError};
+use frame_support::traits::{Get, Hooks};
 use sp_runtime::traits::Zero;
 use xcm::prelude::*;
 
@@ -37,57 +35,26 @@ pub trait Config<I: 'static>: crate::Config<I> {
 	/// Returns destination which is valid for this router instance.
 	/// (Needs to pass `T::Bridges`)
 	/// Make sure that `SendXcm` will pass.
-	fn ensure_bridged_target_destination() -> MultiLocation {
-		MultiLocation::new(
+	fn ensure_bridged_target_destination() -> Result<Location, BenchmarkError> {
+		Ok(Location::new(
 			Self::UniversalLocation::get().len() as u8,
-			X1(GlobalConsensus(Self::BridgedNetworkId::get().unwrap())),
-		)
+			[GlobalConsensus(Self::BridgedNetworkId::get().unwrap())],
+		))
 	}
 }
 
 benchmarks_instance_pallet! {
 	on_initialize_when_non_congested {
-		Bridge::<T, I>::put(BridgeState {
-			is_congested: false,
-			delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR,
-		});
+		DeliveryFeeFactor::<T, I>::put(MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR);
 	}: {
 		crate::Pallet::<T, I>::on_initialize(Zero::zero())
 	}
 
 	on_initialize_when_congested {
-		Bridge::<T, I>::put(BridgeState {
-			is_congested: false,
-			delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR,
-		});
+		DeliveryFeeFactor::<T, I>::put(MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR);
+		let _ = T::ensure_bridged_target_destination()?;
 		T::make_congested();
 	}: {
 		crate::Pallet::<T, I>::on_initialize(Zero::zero())
-	}
-
-	report_bridge_status {
-		Bridge::<T, I>::put(BridgeState::default());
-
-		let origin: T::RuntimeOrigin = T::BridgeHubOrigin::try_successful_origin().expect("expected valid BridgeHubOrigin");
-		let bridge_id = Default::default();
-		let is_congested = true;
-
-		let call = Call::<T, I>::report_bridge_status { bridge_id, is_congested };
-	}: { call.dispatch_bypass_filter(origin)? }
-	verify {
-		assert!(Bridge::<T, I>::get().is_congested);
-	}
-
-	send_message {
-		// make local queue congested, because it means additional db write
-		T::make_congested();
-
-		let dest = T::ensure_bridged_target_destination();
-		let xcm = sp_std::vec![].into();
-	}: {
-		send_xcm::<crate::Pallet<T, I>>(dest, xcm).expect("message is sent")
-	}
-	verify {
-		assert!(Bridge::<T, I>::get().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR);
 	}
 }

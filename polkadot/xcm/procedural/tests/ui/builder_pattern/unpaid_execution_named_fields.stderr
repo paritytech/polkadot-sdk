@@ -1,0 +1,5 @@
+error: UnpaidExecution should have named fields
+  --> tests/ui/builder_pattern/unpaid_execution_named_fields.rs:26:5
+   |
+26 |     UnpaidExecution(u32, u32),
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^

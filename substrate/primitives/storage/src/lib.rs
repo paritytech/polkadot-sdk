@@ -19,18 +19,19 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::fmt::Display;
+extern crate alloc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_debug_derive::RuntimeDebug;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use ref_cast::RefCast;
-use sp_std::{
+use core::{
+	fmt::Display,
 	ops::{Deref, DerefMut},
-	vec::Vec,
 };
+use ref_cast::RefCast;
 
 /// Storage key.
 #[derive(PartialEq, Eq, RuntimeDebug)]
@@ -49,9 +50,7 @@ impl AsRef<[u8]> for StorageKey {
 }
 
 /// Storage key with read/write tracking information.
-#[derive(
-	PartialEq, Eq, Ord, PartialOrd, sp_std::hash::Hash, RuntimeDebug, Clone, Encode, Decode,
-)]
+#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, RuntimeDebug, Clone, Encode, Decode)]
 pub struct TrackedStorageKey {
 	pub key: Vec<u8>,
 	pub reads: u32,
@@ -178,7 +177,7 @@ pub struct Storage {
 
 /// Storage change set
 #[derive(RuntimeDebug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, PartialEq, Eq))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, PartialEq, Eq, Clone))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct StorageChangeSet<Hash> {
 	/// Block hash
@@ -294,7 +293,7 @@ impl ChildInfo {
 		}
 	}
 
-	/// Return a the full location in the direct parent of
+	/// Return the full location in the direct parent of
 	/// this trie.
 	pub fn prefixed_storage_key(&self) -> PrefixedStorageKey {
 		match self {
@@ -303,7 +302,7 @@ impl ChildInfo {
 		}
 	}
 
-	/// Returns a the full location in the direct parent of
+	/// Returns the full location in the direct parent of
 	/// this trie.
 	pub fn into_prefixed_storage_key(self) -> PrefixedStorageKey {
 		match self {
@@ -414,12 +413,13 @@ impl ChildTrieParentKeyId {
 ///
 /// V0 and V1 uses a same trie implementation, but V1 will write external value node in the trie for
 /// value with size at least `TRIE_VALUE_NODE_THRESHOLD`.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Encode, Decode))]
 pub enum StateVersion {
 	/// Old state version, no value nodes.
 	V0 = 0,
 	/// New state version can use value nodes.
+	#[default]
 	V1 = 1,
 }
 
@@ -432,12 +432,6 @@ impl Display for StateVersion {
 	}
 }
 
-impl Default for StateVersion {
-	fn default() -> Self {
-		StateVersion::V1
-	}
-}
-
 impl From<StateVersion> for u8 {
 	fn from(version: StateVersion) -> u8 {
 		version as u8
@@ -446,10 +440,11 @@ impl From<StateVersion> for u8 {
 
 impl TryFrom<u8> for StateVersion {
 	type Error = ();
-	fn try_from(val: u8) -> sp_std::result::Result<StateVersion, ()> {
+	fn try_from(val: u8) -> core::result::Result<StateVersion, ()> {
 		match val {
 			0 => Ok(StateVersion::V0),
 			1 => Ok(StateVersion::V1),
+			2 => Ok(StateVersion::V1),
 			_ => Err(()),
 		}
 	}
@@ -458,7 +453,7 @@ impl TryFrom<u8> for StateVersion {
 impl StateVersion {
 	/// If defined, values in state of size bigger or equal
 	/// to this threshold will use a separate trie node.
-	/// Otherwhise, value will be inlined in branch or leaf
+	/// Otherwise, value will be inlined in branch or leaf
 	/// node.
 	pub fn state_value_threshold(&self) -> Option<u32> {
 		match self {

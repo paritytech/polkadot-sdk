@@ -1,0 +1,10 @@
+title: Improve storage monitor API
+
+doc:
+  - audience: Node Dev
+    description: |
+      This removes the need to unnecessarily provide a very specific data structure DatabaseSource and removes huge
+      sc-client-db dependency from storage monitor. It is now possible to use storage monitor with any path.
+
+crates:
+  - name: sc-storage-monitor

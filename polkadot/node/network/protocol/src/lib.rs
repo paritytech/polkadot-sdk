@@ -19,13 +19,13 @@
 #![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_primitives::{BlockNumber, Hash};
-use std::{collections::HashMap, fmt};
+use std::fmt;
 
 #[doc(hidden)]
-pub use polkadot_node_jaeger as jaeger;
-pub use sc_network::{IfDisconnected, PeerId};
+pub use sc_network::IfDisconnected;
+pub use sc_network_types::PeerId;
 #[doc(hidden)]
 pub use std::sync::Arc;
 
@@ -90,31 +90,16 @@ impl Into<sc_network::ObservedRole> for ObservedRole {
 }
 
 /// Specialized wrapper around [`View`].
-///
-/// Besides the access to the view itself, it also gives access to the [`jaeger::Span`] per
-/// leave/head.
 #[derive(Debug, Clone, Default)]
 pub struct OurView {
 	view: View,
-	span_per_head: HashMap<Hash, Arc<jaeger::Span>>,
 }
 
 impl OurView {
 	/// Creates a new instance.
-	pub fn new(
-		heads: impl IntoIterator<Item = (Hash, Arc<jaeger::Span>)>,
-		finalized_number: BlockNumber,
-	) -> Self {
-		let state_per_head = heads.into_iter().collect::<HashMap<_, _>>();
-		let view = View::new(state_per_head.keys().cloned(), finalized_number);
-		Self { view, span_per_head: state_per_head }
-	}
-
-	/// Returns the span per head map.
-	///
-	/// For each head there exists one span in this map.
-	pub fn span_per_head(&self) -> &HashMap<Hash, Arc<jaeger::Span>> {
-		&self.span_per_head
+	pub fn new(heads: impl IntoIterator<Item = Hash>, finalized_number: BlockNumber) -> Self {
+		let view = View::new(heads, finalized_number);
+		Self { view }
 	}
 }
 
@@ -132,8 +117,7 @@ impl std::ops::Deref for OurView {
 	}
 }
 
-/// Construct a new [`OurView`] with the given chain heads, finalized number 0 and disabled
-/// [`jaeger::Span`]'s.
+/// Construct a new [`OurView`] with the given chain heads, finalized number 0
 ///
 /// NOTE: Use for tests only.
 ///
@@ -148,7 +132,7 @@ impl std::ops::Deref for OurView {
 macro_rules! our_view {
 	( $( $hash:expr ),* $(,)? ) => {
 		$crate::OurView::new(
-			vec![ $( $hash.clone() ),* ].into_iter().map(|h| (h, $crate::Arc::new($crate::jaeger::Span::Disabled))),
+			vec![ $( $hash.clone() ),* ].into_iter().map(|h| h),
 			0,
 		)
 	};
@@ -253,25 +237,29 @@ impl View {
 
 /// A protocol-versioned type.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Versioned<V1, V2> {
+pub enum Versioned<V1, V2, V3 = V2> {
 	/// V1 type.
 	V1(V1),
 	/// V2 type.
 	V2(V2),
+	/// V3 type
+	V3(V3),
 }
 
-impl<V1: Clone, V2: Clone> Versioned<&'_ V1, &'_ V2> {
+impl<V1: Clone, V2: Clone, V3: Clone> Versioned<&'_ V1, &'_ V2, &'_ V3> {
 	/// Convert to a fully-owned version of the message.
-	pub fn clone_inner(&self) -> Versioned<V1, V2> {
+	pub fn clone_inner(&self) -> Versioned<V1, V2, V3> {
 		match *self {
 			Versioned::V1(inner) => Versioned::V1(inner.clone()),
 			Versioned::V2(inner) => Versioned::V2(inner.clone()),
+			Versioned::V3(inner) => Versioned::V3(inner.clone()),
 		}
 	}
 }
 
 /// All supported versions of the validation protocol message.
-pub type VersionedValidationProtocol = Versioned<v1::ValidationProtocol, v2::ValidationProtocol>;
+pub type VersionedValidationProtocol =
+	Versioned<v1::ValidationProtocol, v2::ValidationProtocol, v3::ValidationProtocol>;
 
 impl From<v1::ValidationProtocol> for VersionedValidationProtocol {
 	fn from(v1: v1::ValidationProtocol) -> Self {
@@ -282,6 +270,12 @@ impl From<v1::ValidationProtocol> for VersionedValidationProtocol {
 impl From<v2::ValidationProtocol> for VersionedValidationProtocol {
 	fn from(v2: v2::ValidationProtocol) -> Self {
 		VersionedValidationProtocol::V2(v2)
+	}
+}
+
+impl From<v3::ValidationProtocol> for VersionedValidationProtocol {
+	fn from(v3: v3::ValidationProtocol) -> Self {
+		VersionedValidationProtocol::V3(v3)
 	}
 }
 
@@ -307,12 +301,12 @@ macro_rules! impl_versioned_full_protocol_from {
 				match versioned_from {
 					Versioned::V1(x) => Versioned::V1(x.into()),
 					Versioned::V2(x) => Versioned::V2(x.into()),
+					Versioned::V3(x) => Versioned::V3(x.into()),
 				}
 			}
 		}
 	};
 }
-
 /// Implement `TryFrom` for one versioned enum variant into the inner type.
 /// `$m_ty::$variant(inner) -> Ok(inner)`
 macro_rules! impl_versioned_try_from {
@@ -320,7 +314,8 @@ macro_rules! impl_versioned_try_from {
 		$from:ty,
 		$out:ty,
 		$v1_pat:pat => $v1_out:expr,
-		$v2_pat:pat => $v2_out:expr
+		$v2_pat:pat => $v2_out:expr,
+		$v3_pat:pat => $v3_out:expr
 	) => {
 		impl TryFrom<$from> for $out {
 			type Error = crate::WrongVariant;
@@ -330,6 +325,7 @@ macro_rules! impl_versioned_try_from {
 				match x {
 					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out)),
 					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out)),
+					Versioned::V3($v3_pat) => Ok(Versioned::V3($v3_out)),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -343,6 +339,7 @@ macro_rules! impl_versioned_try_from {
 				match x {
 					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out.clone())),
 					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out.clone())),
+					Versioned::V3($v3_pat) => Ok(Versioned::V3($v3_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -351,8 +348,11 @@ macro_rules! impl_versioned_try_from {
 }
 
 /// Version-annotated messages used by the bitfield distribution subsystem.
-pub type BitfieldDistributionMessage =
-	Versioned<v1::BitfieldDistributionMessage, v2::BitfieldDistributionMessage>;
+pub type BitfieldDistributionMessage = Versioned<
+	v1::BitfieldDistributionMessage,
+	v2::BitfieldDistributionMessage,
+	v3::BitfieldDistributionMessage,
+>;
 impl_versioned_full_protocol_from!(
 	BitfieldDistributionMessage,
 	VersionedValidationProtocol,
@@ -362,12 +362,16 @@ impl_versioned_try_from!(
 	VersionedValidationProtocol,
 	BitfieldDistributionMessage,
 	v1::ValidationProtocol::BitfieldDistribution(x) => x,
-	v2::ValidationProtocol::BitfieldDistribution(x) => x
+	v2::ValidationProtocol::BitfieldDistribution(x) => x,
+	v3::ValidationProtocol::BitfieldDistribution(x) => x
 );
 
 /// Version-annotated messages used by the statement distribution subsystem.
-pub type StatementDistributionMessage =
-	Versioned<v1::StatementDistributionMessage, v2::StatementDistributionMessage>;
+pub type StatementDistributionMessage = Versioned<
+	v1::StatementDistributionMessage,
+	v2::StatementDistributionMessage,
+	v3::StatementDistributionMessage,
+>;
 impl_versioned_full_protocol_from!(
 	StatementDistributionMessage,
 	VersionedValidationProtocol,
@@ -377,12 +381,16 @@ impl_versioned_try_from!(
 	VersionedValidationProtocol,
 	StatementDistributionMessage,
 	v1::ValidationProtocol::StatementDistribution(x) => x,
-	v2::ValidationProtocol::StatementDistribution(x) => x
+	v2::ValidationProtocol::StatementDistribution(x) => x,
+	v3::ValidationProtocol::StatementDistribution(x) => x
 );
 
 /// Version-annotated messages used by the approval distribution subsystem.
-pub type ApprovalDistributionMessage =
-	Versioned<v1::ApprovalDistributionMessage, v2::ApprovalDistributionMessage>;
+pub type ApprovalDistributionMessage = Versioned<
+	v1::ApprovalDistributionMessage,
+	v2::ApprovalDistributionMessage,
+	v3::ApprovalDistributionMessage,
+>;
 impl_versioned_full_protocol_from!(
 	ApprovalDistributionMessage,
 	VersionedValidationProtocol,
@@ -392,13 +400,18 @@ impl_versioned_try_from!(
 	VersionedValidationProtocol,
 	ApprovalDistributionMessage,
 	v1::ValidationProtocol::ApprovalDistribution(x) => x,
-	v2::ValidationProtocol::ApprovalDistribution(x) => x
+	v2::ValidationProtocol::ApprovalDistribution(x) => x,
+	v3::ValidationProtocol::ApprovalDistribution(x) => x
 
 );
 
 /// Version-annotated messages used by the gossip-support subsystem (this is void).
-pub type GossipSupportNetworkMessage =
-	Versioned<v1::GossipSupportNetworkMessage, v2::GossipSupportNetworkMessage>;
+pub type GossipSupportNetworkMessage = Versioned<
+	v1::GossipSupportNetworkMessage,
+	v2::GossipSupportNetworkMessage,
+	v3::GossipSupportNetworkMessage,
+>;
+
 // This is a void enum placeholder, so never gets sent over the wire.
 impl TryFrom<VersionedValidationProtocol> for GossipSupportNetworkMessage {
 	type Error = WrongVariant;
@@ -426,12 +439,13 @@ impl_versioned_try_from!(
 	VersionedCollationProtocol,
 	CollatorProtocolMessage,
 	v1::CollationProtocol::CollatorProtocol(x) => x,
+	v2::CollationProtocol::CollatorProtocol(x) => x,
 	v2::CollationProtocol::CollatorProtocol(x) => x
 );
 
 /// v1 notification protocol types.
 pub mod v1 {
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, CompactStatement, Hash,
@@ -439,7 +453,7 @@ pub mod v1 {
 	};
 
 	use polkadot_node_primitives::{
-		approval::{IndirectAssignmentCert, IndirectSignedApprovalVote},
+		approval::v1::{IndirectAssignmentCert, IndirectSignedApprovalVote},
 		UncheckedSignedFullStatement,
 	};
 
@@ -580,7 +594,7 @@ pub mod v1 {
 	///
 	/// The payload is the local peer id of the node, which serves to prove that it
 	/// controls the collator key it is declaring an intention to collate under.
-	pub fn declare_signature_payload(peer_id: &sc_network::PeerId) -> Vec<u8> {
+	pub fn declare_signature_payload(peer_id: &sc_network_types::PeerId) -> Vec<u8> {
 		let mut payload = peer_id.to_bytes();
 		payload.extend_from_slice(b"COLL");
 		payload
@@ -590,7 +604,7 @@ pub mod v1 {
 /// v2 network protocol types.
 pub mod v2 {
 	use bitvec::{order::Lsb0, slice::BitSlice, vec::BitVec};
-	use parity_scale_codec::{Decode, Encode};
+	use codec::{Decode, Encode};
 
 	use polkadot_primitives::{
 		CandidateHash, CandidateIndex, CollatorId, CollatorSignature, GroupIndex, Hash,
@@ -598,7 +612,7 @@ pub mod v2 {
 	};
 
 	use polkadot_node_primitives::{
-		approval::{IndirectAssignmentCert, IndirectSignedApprovalVote},
+		approval::v1::{IndirectAssignmentCert, IndirectSignedApprovalVote},
 		UncheckedSignedFullStatement,
 	};
 
@@ -833,9 +847,71 @@ pub mod v2 {
 	///
 	/// The payload is the local peer id of the node, which serves to prove that it
 	/// controls the collator key it is declaring an intention to collate under.
-	pub fn declare_signature_payload(peer_id: &sc_network::PeerId) -> Vec<u8> {
+	pub fn declare_signature_payload(peer_id: &sc_network_types::PeerId) -> Vec<u8> {
 		let mut payload = peer_id.to_bytes();
 		payload.extend_from_slice(b"COLL");
 		payload
 	}
+}
+
+/// v3 network protocol types.
+/// Purpose is for changing ApprovalDistributionMessage to
+/// include more than one assignment and approval in a message.
+pub mod v3 {
+	use codec::{Decode, Encode};
+
+	use polkadot_node_primitives::approval::v2::{
+		CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2,
+	};
+
+	/// This parts of the protocol did not change from v2, so just alias them in v3.
+	pub use super::v2::{
+		declare_signature_payload, BackedCandidateAcknowledgement, BackedCandidateManifest,
+		BitfieldDistributionMessage, GossipSupportNetworkMessage, StatementDistributionMessage,
+		StatementFilter,
+	};
+
+	/// Network messages used by the approval distribution subsystem.
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+	pub enum ApprovalDistributionMessage {
+		/// Assignments for candidates in recent, unfinalized blocks.
+		/// We use a bitfield to reference claimed candidates, where the bit index is equal to
+		/// candidate index.
+		///
+		/// Actually checking the assignment may yield a different result.
+		///
+		/// TODO at next protocol upgrade opportunity:
+		/// - remove redundancy `candidate_index` vs `core_index`
+		/// - `<https://github.com/paritytech/polkadot-sdk/issues/675>`
+		#[codec(index = 0)]
+		Assignments(Vec<(IndirectAssignmentCertV2, CandidateBitfield)>),
+		/// Approvals for candidates in some recent, unfinalized block.
+		#[codec(index = 1)]
+		Approvals(Vec<IndirectSignedApprovalVoteV2>),
+	}
+
+	/// All network messages on the validation peer-set.
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, derive_more::From)]
+	pub enum ValidationProtocol {
+		/// Bitfield distribution messages
+		#[codec(index = 1)]
+		#[from]
+		BitfieldDistribution(BitfieldDistributionMessage),
+		/// Statement distribution messages
+		#[codec(index = 3)]
+		#[from]
+		StatementDistribution(StatementDistributionMessage),
+		/// Approval distribution messages
+		#[codec(index = 4)]
+		#[from]
+		ApprovalDistribution(ApprovalDistributionMessage),
+	}
+}
+
+/// Returns the subset of `peers` with the specified `version`.
+pub fn filter_by_peer_version(
+	peers: &[(PeerId, peer_set::ProtocolVersion)],
+	version: peer_set::ProtocolVersion,
+) -> Vec<PeerId> {
+	peers.iter().filter(|(_, v)| v == &version).map(|(p, _)| *p).collect::<Vec<_>>()
 }

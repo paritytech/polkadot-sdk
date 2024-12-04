@@ -1,0 +1,9 @@
+title: "[ci] Enable zombienet jobs in PRs"
+author: alvicsam
+topic: Tests
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

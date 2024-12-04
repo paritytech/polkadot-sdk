@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
+// This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 #![cfg(unix)]
 
@@ -57,7 +57,6 @@ async fn purge_chain_rocksdb_works() {
 		assert!(cmd.wait().unwrap().success());
 		assert!(tmpdir.path().join("chains/rococo_dev").exists());
 		assert!(tmpdir.path().join("chains/rococo_dev/db/full").exists());
-		assert!(tmpdir.path().join("chains/rococo_dev/db/full/parachains").exists());
 
 		// Purge chain
 		let status = Command::new(cargo_bin("polkadot"))
@@ -102,7 +101,6 @@ async fn purge_chain_paritydb_works() {
 		assert!(cmd.wait().unwrap().success());
 		assert!(tmpdir.path().join("chains/rococo_dev").exists());
 		assert!(tmpdir.path().join("chains/rococo_dev/paritydb/full").exists());
-		assert!(tmpdir.path().join("chains/rococo_dev/paritydb/parachains").exists());
 
 		// Purge chain
 		let status = Command::new(cargo_bin("polkadot"))
@@ -118,8 +116,6 @@ async fn purge_chain_paritydb_works() {
 		// Make sure that the chain folder exists, but `db/full` is deleted.
 		assert!(tmpdir.path().join("chains/rococo_dev").exists());
 		assert!(!tmpdir.path().join("chains/rococo_dev/paritydb/full").exists());
-		// Parachains removal requires calling "purge-chain --parachains".
-		assert!(tmpdir.path().join("chains/rococo_dev/paritydb/parachains").exists());
 	})
 	.await;
 }

@@ -1,0 +1,24 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Westend/Rococo Asset Hub: auto incremented asset id for trust backed assets"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Setup auto incremented asset id to `50_000_000` for trust backed assets.
+
+      ### Migration
+      This change does not break the API but introduces a new constraint. It implements 
+      an auto-incremented ID strategy for Trust-Backed Assets (50 pallet instance indexes on both 
+      networks), starting at ID 50,000,000. Each new asset must be created with an ID that is one 
+      greater than the last asset created. The next ID can be fetched from the `NextAssetId` 
+      storage item of the assets pallet. An empty `NextAssetId` storage item indicates no 
+      constraint on the next asset ID and can serve as a feature flag for this release.
+
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major

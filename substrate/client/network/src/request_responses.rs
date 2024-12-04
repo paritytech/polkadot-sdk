@@ -36,6 +36,7 @@
 
 use crate::{
 	peer_store::{PeerStoreProvider, BANNED_THRESHOLD},
+	service::traits::RequestResponseConfig as RequestResponseConfigT,
 	types::ProtocolName,
 	ReputationChange,
 };
@@ -56,12 +57,76 @@ use libp2p::{
 use std::{
 	collections::{hash_map::Entry, HashMap},
 	io, iter,
+	ops::Deref,
 	pin::Pin,
+	sync::Arc,
 	task::{Context, Poll},
 	time::{Duration, Instant},
 };
 
-pub use libp2p::request_response::{Config, InboundFailure, OutboundFailure, RequestId};
+pub use libp2p::request_response::{Config, RequestId};
+
+/// Possible failures occurring in the context of sending an outbound request and receiving the
+/// response.
+#[derive(Debug, thiserror::Error)]
+pub enum OutboundFailure {
+	/// The request could not be sent because a dialing attempt failed.
+	#[error("Failed to dial the requested peer")]
+	DialFailure,
+	/// The request timed out before a response was received.
+	#[error("Timeout while waiting for a response")]
+	Timeout,
+	/// The connection closed before a response was received.
+	#[error("Connection was closed before a response was received")]
+	ConnectionClosed,
+	/// The remote supports none of the requested protocols.
+	#[error("The remote supports none of the requested protocols")]
+	UnsupportedProtocols,
+}
+
+impl From<request_response::OutboundFailure> for OutboundFailure {
+	fn from(out: request_response::OutboundFailure) -> Self {
+		match out {
+			request_response::OutboundFailure::DialFailure => OutboundFailure::DialFailure,
+			request_response::OutboundFailure::Timeout => OutboundFailure::Timeout,
+			request_response::OutboundFailure::ConnectionClosed =>
+				OutboundFailure::ConnectionClosed,
+			request_response::OutboundFailure::UnsupportedProtocols =>
+				OutboundFailure::UnsupportedProtocols,
+		}
+	}
+}
+
+/// Possible failures occurring in the context of receiving an inbound request and sending a
+/// response.
+#[derive(Debug, thiserror::Error)]
+pub enum InboundFailure {
+	/// The inbound request timed out, either while reading the incoming request or before a
+	/// response is sent
+	#[error("Timeout while receiving request or sending response")]
+	Timeout,
+	/// The connection closed before a response could be send.
+	#[error("Connection was closed before a response could be sent")]
+	ConnectionClosed,
+	/// The local peer supports none of the protocols requested by the remote.
+	#[error("The local peer supports none of the protocols requested by the remote")]
+	UnsupportedProtocols,
+	/// The local peer failed to respond to an inbound request
+	#[error("The response channel was dropped without sending a response to the remote")]
+	ResponseOmission,
+}
+
+impl From<request_response::InboundFailure> for InboundFailure {
+	fn from(out: request_response::InboundFailure) -> Self {
+		match out {
+			request_response::InboundFailure::ResponseOmission => InboundFailure::ResponseOmission,
+			request_response::InboundFailure::Timeout => InboundFailure::Timeout,
+			request_response::InboundFailure::ConnectionClosed => InboundFailure::ConnectionClosed,
+			request_response::InboundFailure::UnsupportedProtocols =>
+				InboundFailure::UnsupportedProtocols,
+		}
+	}
+}
 
 /// Error in a request.
 #[derive(Debug, thiserror::Error)]
@@ -128,11 +193,17 @@ pub struct ProtocolConfig {
 	pub inbound_queue: Option<async_channel::Sender<IncomingRequest>>,
 }
 
+impl RequestResponseConfigT for ProtocolConfig {
+	fn protocol_name(&self) -> &ProtocolName {
+		&self.name
+	}
+}
+
 /// A single request received by a peer on a request-response protocol.
 #[derive(Debug)]
 pub struct IncomingRequest {
 	/// Who sent the request.
-	pub peer: PeerId,
+	pub peer: sc_network_types::PeerId,
 
 	/// Request sent by the remote. Will always be smaller than
 	/// [`ProtocolConfig::max_request_size`].
@@ -170,6 +241,13 @@ pub struct OutgoingResponse {
 	/// >			when the response has been fully sent out, but rather when it has fully been
 	/// >			written to the buffer managed by the operating system.
 	pub sent_feedback: Option<oneshot::Sender<()>>,
+}
+
+/// Information stored about a pending request.
+struct PendingRequest {
+	started_at: Instant,
+	response_tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
+	fallback_request: Option<(Vec<u8>, ProtocolName)>,
 }
 
 /// When sending a request, what to do on a disconnected recipient.
@@ -264,8 +342,7 @@ pub struct RequestResponsesBehaviour {
 	>,
 
 	/// Pending requests, passed down to a request-response [`Behaviour`], awaiting a reply.
-	pending_requests:
-		HashMap<ProtocolRequestId, (Instant, oneshot::Sender<Result<Vec<u8>, RequestFailure>>)>,
+	pending_requests: HashMap<ProtocolRequestId, PendingRequest>,
 
 	/// Whenever an incoming request arrives, a `Future` is added to this list and will yield the
 	/// start time and the response to send back to the remote.
@@ -281,7 +358,7 @@ pub struct RequestResponsesBehaviour {
 	send_feedback: HashMap<ProtocolRequestId, oneshot::Sender<()>>,
 
 	/// Primarily used to get a reputation of a node.
-	peer_store: Box<dyn PeerStoreProvider>,
+	peer_store: Arc<dyn PeerStoreProvider>,
 }
 
 /// Generated by the response builder and waiting to be processed.
@@ -298,12 +375,11 @@ impl RequestResponsesBehaviour {
 	/// the same protocol is passed twice.
 	pub fn new(
 		list: impl Iterator<Item = ProtocolConfig>,
-		peer_store: Box<dyn PeerStoreProvider>,
+		peer_store: Arc<dyn PeerStoreProvider>,
 	) -> Result<Self, RegisterError> {
 		let mut protocols = HashMap::new();
 		for protocol in list {
 			let mut cfg = Config::default();
-			cfg.set_connection_keep_alive(Duration::from_secs(10));
 			cfg.set_request_timeout(protocol.request_timeout);
 
 			let protocol_support = if protocol.inbound_queue.is_some() {
@@ -312,13 +388,13 @@ impl RequestResponsesBehaviour {
 				ProtocolSupport::Outbound
 			};
 
-			let rq_rp = Behaviour::new(
+			let rq_rp = Behaviour::with_codec(
 				GenericCodec {
 					max_request_size: protocol.max_request_size,
 					max_response_size: protocol.max_response_size,
 				},
-				iter::once(protocol.name.as_bytes().to_vec())
-					.chain(protocol.fallback_names.iter().map(|name| name.as_bytes().to_vec()))
+				iter::once(protocol.name.clone())
+					.chain(protocol.fallback_names)
 					.zip(iter::repeat(protocol_support)),
 				cfg,
 			);
@@ -348,29 +424,25 @@ impl RequestResponsesBehaviour {
 	pub fn send_request(
 		&mut self,
 		target: &PeerId,
-		protocol_name: &str,
+		protocol_name: ProtocolName,
 		request: Vec<u8>,
-		pending_response: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		pending_response: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	) {
 		log::trace!(target: "sub-libp2p", "send request to {target} ({protocol_name:?}), {} bytes", request.len());
 
-		if let Some((protocol, _)) = self.protocols.get_mut(protocol_name) {
-			if protocol.is_connected(target) || connect.should_connect() {
-				let request_id = protocol.send_request(target, request);
-				let prev_req_id = self.pending_requests.insert(
-					(protocol_name.to_string().into(), request_id).into(),
-					(Instant::now(), pending_response),
-				);
-				debug_assert!(prev_req_id.is_none(), "Expect request id to be unique.");
-			} else if pending_response.send(Err(RequestFailure::NotConnected)).is_err() {
-				log::debug!(
-					target: "sub-libp2p",
-					"Not connected to peer {:?}. At the same time local \
-					 node is no longer interested in the result.",
-					target,
-				);
-			}
+		if let Some((protocol, _)) = self.protocols.get_mut(protocol_name.deref()) {
+			Self::send_request_inner(
+				protocol,
+				&mut self.pending_requests,
+				target,
+				protocol_name,
+				request,
+				fallback_request,
+				pending_response,
+				connect,
+			)
 		} else if pending_response.send(Err(RequestFailure::UnknownProtocol)).is_err() {
 			log::debug!(
 				target: "sub-libp2p",
@@ -380,12 +452,43 @@ impl RequestResponsesBehaviour {
 			);
 		}
 	}
+
+	fn send_request_inner(
+		behaviour: &mut Behaviour<GenericCodec>,
+		pending_requests: &mut HashMap<ProtocolRequestId, PendingRequest>,
+		target: &PeerId,
+		protocol_name: ProtocolName,
+		request: Vec<u8>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		pending_response: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
+		connect: IfDisconnected,
+	) {
+		if behaviour.is_connected(target) || connect.should_connect() {
+			let request_id = behaviour.send_request(target, request);
+			let prev_req_id = pending_requests.insert(
+				(protocol_name.to_string().into(), request_id).into(),
+				PendingRequest {
+					started_at: Instant::now(),
+					response_tx: pending_response,
+					fallback_request,
+				},
+			);
+			debug_assert!(prev_req_id.is_none(), "Expect request id to be unique.");
+		} else if pending_response.send(Err(RequestFailure::NotConnected)).is_err() {
+			log::debug!(
+				target: "sub-libp2p",
+				"Not connected to peer {:?}. At the same time local \
+				 node is no longer interested in the result.",
+				target,
+			);
+		}
+	}
 }
 
 impl NetworkBehaviour for RequestResponsesBehaviour {
 	type ConnectionHandler =
 		MultiHandler<String, <Behaviour<GenericCodec> as NetworkBehaviour>::ConnectionHandler>;
-	type OutEvent = Event;
+	type ToSwarm = Event;
 
 	fn handle_pending_inbound_connection(
 		&mut self,
@@ -501,9 +604,9 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 				for (p, _) in self.protocols.values_mut() {
 					NetworkBehaviour::on_swarm_event(p, FromSwarm::ListenerError(e));
 				},
-			FromSwarm::ExpiredExternalAddr(e) =>
+			FromSwarm::ExternalAddrExpired(e) =>
 				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExpiredExternalAddr(e));
+					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExternalAddrExpired(e));
 				},
 			FromSwarm::NewListener(e) =>
 				for (p, _) in self.protocols.values_mut() {
@@ -513,9 +616,13 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 				for (p, _) in self.protocols.values_mut() {
 					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExpiredListenAddr(e));
 				},
-			FromSwarm::NewExternalAddr(e) =>
+			FromSwarm::NewExternalAddrCandidate(e) =>
 				for (p, _) in self.protocols.values_mut() {
-					NetworkBehaviour::on_swarm_event(p, FromSwarm::NewExternalAddr(e));
+					NetworkBehaviour::on_swarm_event(p, FromSwarm::NewExternalAddrCandidate(e));
+				},
+			FromSwarm::ExternalAddrConfirmed(e) =>
+				for (p, _) in self.protocols.values_mut() {
+					NetworkBehaviour::on_swarm_event(p, FromSwarm::ExternalAddrConfirmed(e));
 				},
 			FromSwarm::AddressChange(e) =>
 				for (p, _) in self.protocols.values_mut() {
@@ -550,7 +657,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 		&mut self,
 		cx: &mut Context,
 		params: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
+	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		'poll_all: loop {
 			// Poll to see if any response is ready to be sent back.
 			while let Poll::Ready(Some(outcome)) = self.pending_responses.poll_next_unpin(cx) {
@@ -596,8 +703,10 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 				}
 			}
 
+			let mut fallback_requests = vec![];
+
 			// Poll request-responses protocols.
-			for (protocol, (behaviour, resp_builder)) in &mut self.protocols {
+			for (protocol, (ref mut behaviour, ref mut resp_builder)) in &mut self.protocols {
 				'poll_protocol: while let Poll::Ready(ev) = behaviour.poll(cx, params) {
 					let ev = match ev {
 						// Main events we are interested in.
@@ -619,10 +728,18 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								handler,
 								event: ((*protocol).to_string(), event),
 							}),
-						ToSwarm::ReportObservedAddr { address, score } =>
-							return Poll::Ready(ToSwarm::ReportObservedAddr { address, score }),
 						ToSwarm::CloseConnection { peer_id, connection } =>
 							return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
+						ToSwarm::NewExternalAddrCandidate(observed) =>
+							return Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
+						ToSwarm::ExternalAddrConfirmed(addr) =>
+							return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
+						ToSwarm::ExternalAddrExpired(addr) =>
+							return Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
+						ToSwarm::ListenOn { opts } =>
+							return Poll::Ready(ToSwarm::ListenOn { opts }),
+						ToSwarm::RemoveListener { id } =>
+							return Poll::Ready(ToSwarm::RemoveListener { id }),
 					};
 
 					match ev {
@@ -634,7 +751,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 							self.pending_responses_arrival_time
 								.insert((protocol.clone(), request_id).into(), Instant::now());
 
-							let reputation = self.peer_store.peer_reputation(&peer);
+							let reputation = self.peer_store.peer_reputation(&peer.into());
 
 							if reputation < BANNED_THRESHOLD {
 								log::debug!(
@@ -658,7 +775,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								// because the latter allocates an extra slot for every cloned
 								// sender.
 								let _ = resp_builder.try_send(IncomingRequest {
-									peer,
+									peer: peer.into(),
 									payload: request,
 									pending_response: tx,
 								});
@@ -698,17 +815,21 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								.pending_requests
 								.remove(&(protocol.clone(), request_id).into())
 							{
-								Some((started, pending_response)) => {
+								Some(PendingRequest { started_at, response_tx, .. }) => {
 									log::trace!(
 										target: "sub-libp2p",
 										"received response from {peer} ({protocol:?}), {} bytes",
 										response.as_ref().map_or(0usize, |response| response.len()),
 									);
 
-									let delivered = pending_response
-										.send(response.map_err(|()| RequestFailure::Refused))
+									let delivered = response_tx
+										.send(
+											response
+												.map_err(|()| RequestFailure::Refused)
+												.map(|resp| (resp, protocol.clone())),
+										)
 										.map_err(|_| RequestFailure::Obsolete);
-									(started, delivered)
+									(started_at, delivered)
 								},
 								None => {
 									log::warn!(
@@ -742,9 +863,37 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								.pending_requests
 								.remove(&(protocol.clone(), request_id).into())
 							{
-								Some((started, pending_response)) => {
-									if pending_response
-										.send(Err(RequestFailure::Network(error.clone())))
+								Some(PendingRequest {
+									started_at,
+									response_tx,
+									fallback_request,
+								}) => {
+									// Try using the fallback request if the protocol was not
+									// supported.
+									if let request_response::OutboundFailure::UnsupportedProtocols =
+										error
+									{
+										if let Some((fallback_request, fallback_protocol)) =
+											fallback_request
+										{
+											log::trace!(
+												target: "sub-libp2p",
+												"Request with id {:?} failed. Trying the fallback protocol. {}",
+												request_id,
+												fallback_protocol.deref()
+											);
+											fallback_requests.push((
+												peer,
+												fallback_protocol,
+												fallback_request,
+												response_tx,
+											));
+											continue
+										}
+									}
+
+									if response_tx
+										.send(Err(RequestFailure::Network(error.clone().into())))
 										.is_err()
 									{
 										log::debug!(
@@ -754,7 +903,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 											request_id,
 										);
 									}
-									started
+									started_at
 								},
 								None => {
 									log::warn!(
@@ -771,7 +920,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								peer,
 								protocol: protocol.clone(),
 								duration: started.elapsed(),
-								result: Err(RequestFailure::Network(error)),
+								result: Err(RequestFailure::Network(error.into())),
 							};
 
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
@@ -788,7 +937,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 							let out = Event::InboundRequest {
 								peer,
 								protocol: protocol.clone(),
-								result: Err(ResponseFailure::Network(error)),
+								result: Err(ResponseFailure::Network(error.into())),
 							};
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
 						},
@@ -825,6 +974,25 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 				}
 			}
 
+			// Send out fallback requests.
+			for (peer, protocol, request, pending_response) in fallback_requests.drain(..) {
+				if let Some((behaviour, _)) = self.protocols.get_mut(&protocol) {
+					Self::send_request_inner(
+						behaviour,
+						&mut self.pending_requests,
+						&peer,
+						protocol,
+						request,
+						None,
+						pending_response,
+						// We can error if not connected because the
+						// previous attempt would have tried to establish a
+						// connection already or errored and we wouldn't have gotten here.
+						IfDisconnected::ImmediateError,
+					);
+				}
+			}
+
 			break Poll::Pending
 		}
 	}
@@ -857,7 +1025,7 @@ pub struct GenericCodec {
 
 #[async_trait::async_trait]
 impl Codec for GenericCodec {
-	type Protocol = Vec<u8>;
+	type Protocol = ProtocolName;
 	type Request = Vec<u8>;
 	type Response = Result<Vec<u8>, ()>;
 
@@ -976,6 +1144,7 @@ mod tests {
 	use super::*;
 
 	use crate::mock::MockPeerStore;
+	use assert_matches::assert_matches;
 	use futures::{channel::oneshot, executor::LocalPool, task::Spawn};
 	use libp2p::{
 		core::{
@@ -984,7 +1153,7 @@ mod tests {
 		},
 		identity::Keypair,
 		noise,
-		swarm::{Executor, Swarm, SwarmBuilder, SwarmEvent},
+		swarm::{Config as SwarmConfig, Executor, Swarm, SwarmEvent},
 		Multiaddr,
 	};
 	use std::{iter, time::Duration};
@@ -1007,25 +1176,27 @@ mod tests {
 			.multiplex(libp2p::yamux::Config::default())
 			.boxed();
 
-		let behaviour = RequestResponsesBehaviour::new(list, Box::new(MockPeerStore {})).unwrap();
+		let behaviour = RequestResponsesBehaviour::new(list, Arc::new(MockPeerStore {})).unwrap();
 
 		let runtime = tokio::runtime::Runtime::new().unwrap();
-		let mut swarm = SwarmBuilder::with_executor(
+
+		let mut swarm = Swarm::new(
 			transport,
 			behaviour,
 			keypair.public().to_peer_id(),
-			TokioExecutor(runtime),
-		)
-		.build();
+			SwarmConfig::with_executor(TokioExecutor(runtime)),
+		);
+
 		let listen_addr: Multiaddr = format!("/memory/{}", rand::random::<u64>()).parse().unwrap();
 
 		swarm.listen_on(listen_addr.clone()).unwrap();
+
 		(swarm, listen_addr)
 	}
 
 	#[test]
 	fn basic_request_response_works() {
-		let protocol_name = "/test/req-resp/1";
+		let protocol_name = ProtocolName::from("/test/req-resp/1");
 		let mut pool = LocalPool::new();
 
 		// Build swarms whose behaviour is [`RequestResponsesBehaviour`].
@@ -1053,7 +1224,7 @@ mod tests {
 					.unwrap();
 
 				let protocol_config = ProtocolConfig {
-					name: From::from(protocol_name),
+					name: protocol_name.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 1024 * 1024,
@@ -1102,8 +1273,9 @@ mod tests {
 						let (sender, receiver) = oneshot::channel();
 						swarm.behaviour_mut().send_request(
 							&peer_id,
-							protocol_name,
+							protocol_name.clone(),
 							b"this is a request".to_vec(),
+							None,
 							sender,
 							IfDisconnected::ImmediateError,
 						);
@@ -1118,13 +1290,16 @@ mod tests {
 				}
 			}
 
-			assert_eq!(response_receiver.unwrap().await.unwrap().unwrap(), b"this is a response");
+			assert_eq!(
+				response_receiver.unwrap().await.unwrap().unwrap(),
+				(b"this is a response".to_vec(), protocol_name)
+			);
 		});
 	}
 
 	#[test]
 	fn max_response_size_exceeded() {
-		let protocol_name = "/test/req-resp/1";
+		let protocol_name = ProtocolName::from("/test/req-resp/1");
 		let mut pool = LocalPool::new();
 
 		// Build swarms whose behaviour is [`RequestResponsesBehaviour`].
@@ -1150,7 +1325,7 @@ mod tests {
 					.unwrap();
 
 				let protocol_config = ProtocolConfig {
-					name: From::from(protocol_name),
+					name: protocol_name.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 8, // <-- important for the test
@@ -1201,8 +1376,9 @@ mod tests {
 						let (sender, receiver) = oneshot::channel();
 						swarm.behaviour_mut().send_request(
 							&peer_id,
-							protocol_name,
+							protocol_name.clone(),
 							b"this is a request".to_vec(),
+							None,
 							sender,
 							IfDisconnected::ImmediateError,
 						);
@@ -1236,14 +1412,14 @@ mod tests {
 	/// See [`ProtocolRequestId`] for additional information.
 	#[test]
 	fn request_id_collision() {
-		let protocol_name_1 = "/test/req-resp-1/1";
-		let protocol_name_2 = "/test/req-resp-2/1";
+		let protocol_name_1 = ProtocolName::from("/test/req-resp-1/1");
+		let protocol_name_2 = ProtocolName::from("/test/req-resp-2/1");
 		let mut pool = LocalPool::new();
 
 		let mut swarm_1 = {
 			let protocol_configs = vec![
 				ProtocolConfig {
-					name: From::from(protocol_name_1),
+					name: protocol_name_1.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 1024 * 1024,
@@ -1251,7 +1427,7 @@ mod tests {
 					inbound_queue: None,
 				},
 				ProtocolConfig {
-					name: From::from(protocol_name_2),
+					name: protocol_name_2.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 1024 * 1024,
@@ -1269,7 +1445,7 @@ mod tests {
 
 			let protocol_configs = vec![
 				ProtocolConfig {
-					name: From::from(protocol_name_1),
+					name: protocol_name_1.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 1024 * 1024,
@@ -1277,7 +1453,7 @@ mod tests {
 					inbound_queue: Some(tx_1),
 				},
 				ProtocolConfig {
-					name: From::from(protocol_name_2),
+					name: protocol_name_2.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 1024 * 1024,
@@ -1359,15 +1535,17 @@ mod tests {
 						let (sender_2, receiver_2) = oneshot::channel();
 						swarm_1.behaviour_mut().send_request(
 							&peer_id,
-							protocol_name_1,
+							protocol_name_1.clone(),
 							b"this is a request".to_vec(),
+							None,
 							sender_1,
 							IfDisconnected::ImmediateError,
 						);
 						swarm_1.behaviour_mut().send_request(
 							&peer_id,
-							protocol_name_2,
+							protocol_name_2.clone(),
 							b"this is a request".to_vec(),
+							None,
 							sender_2,
 							IfDisconnected::ImmediateError,
 						);
@@ -1385,8 +1563,239 @@ mod tests {
 				}
 			}
 			let (response_receiver_1, response_receiver_2) = response_receivers.unwrap();
-			assert_eq!(response_receiver_1.await.unwrap().unwrap(), b"this is a response");
-			assert_eq!(response_receiver_2.await.unwrap().unwrap(), b"this is a response");
+			assert_eq!(
+				response_receiver_1.await.unwrap().unwrap(),
+				(b"this is a response".to_vec(), protocol_name_1)
+			);
+			assert_eq!(
+				response_receiver_2.await.unwrap().unwrap(),
+				(b"this is a response".to_vec(), protocol_name_2)
+			);
+		});
+	}
+
+	#[test]
+	fn request_fallback() {
+		let protocol_name_1 = ProtocolName::from("/test/req-resp/2");
+		let protocol_name_1_fallback = ProtocolName::from("/test/req-resp/1");
+		let protocol_name_2 = ProtocolName::from("/test/another");
+		let mut pool = LocalPool::new();
+
+		let protocol_config_1 = ProtocolConfig {
+			name: protocol_name_1.clone(),
+			fallback_names: Vec::new(),
+			max_request_size: 1024,
+			max_response_size: 1024 * 1024,
+			request_timeout: Duration::from_secs(30),
+			inbound_queue: None,
+		};
+		let protocol_config_1_fallback = ProtocolConfig {
+			name: protocol_name_1_fallback.clone(),
+			fallback_names: Vec::new(),
+			max_request_size: 1024,
+			max_response_size: 1024 * 1024,
+			request_timeout: Duration::from_secs(30),
+			inbound_queue: None,
+		};
+		let protocol_config_2 = ProtocolConfig {
+			name: protocol_name_2.clone(),
+			fallback_names: Vec::new(),
+			max_request_size: 1024,
+			max_response_size: 1024 * 1024,
+			request_timeout: Duration::from_secs(30),
+			inbound_queue: None,
+		};
+
+		// This swarm only speaks protocol_name_1_fallback and protocol_name_2.
+		// It only responds to requests.
+		let mut older_swarm = {
+			let (tx_1, mut rx_1) = async_channel::bounded::<IncomingRequest>(64);
+			let (tx_2, mut rx_2) = async_channel::bounded::<IncomingRequest>(64);
+			let mut protocol_config_1_fallback = protocol_config_1_fallback.clone();
+			protocol_config_1_fallback.inbound_queue = Some(tx_1);
+
+			let mut protocol_config_2 = protocol_config_2.clone();
+			protocol_config_2.inbound_queue = Some(tx_2);
+
+			pool.spawner()
+				.spawn_obj(
+					async move {
+						for _ in 0..2 {
+							if let Some(rq) = rx_1.next().await {
+								let (fb_tx, fb_rx) = oneshot::channel();
+								assert_eq!(rq.payload, b"request on protocol /test/req-resp/1");
+								let _ = rq.pending_response.send(super::OutgoingResponse {
+									result: Ok(
+										b"this is a response on protocol /test/req-resp/1".to_vec()
+									),
+									reputation_changes: Vec::new(),
+									sent_feedback: Some(fb_tx),
+								});
+								fb_rx.await.unwrap();
+							}
+						}
+
+						if let Some(rq) = rx_2.next().await {
+							let (fb_tx, fb_rx) = oneshot::channel();
+							assert_eq!(rq.payload, b"request on protocol /test/other");
+							let _ = rq.pending_response.send(super::OutgoingResponse {
+								result: Ok(b"this is a response on protocol /test/other".to_vec()),
+								reputation_changes: Vec::new(),
+								sent_feedback: Some(fb_tx),
+							});
+							fb_rx.await.unwrap();
+						}
+					}
+					.boxed()
+					.into(),
+				)
+				.unwrap();
+
+			build_swarm(vec![protocol_config_1_fallback, protocol_config_2].into_iter())
+		};
+
+		// This swarm speaks all protocols.
+		let mut new_swarm = build_swarm(
+			vec![
+				protocol_config_1.clone(),
+				protocol_config_1_fallback.clone(),
+				protocol_config_2.clone(),
+			]
+			.into_iter(),
+		);
+
+		{
+			let dial_addr = older_swarm.1.clone();
+			Swarm::dial(&mut new_swarm.0, dial_addr).unwrap();
+		}
+
+		// Running `older_swarm`` in the background.
+		pool.spawner()
+			.spawn_obj({
+				async move {
+					loop {
+						_ = older_swarm.0.select_next_some().await;
+					}
+				}
+				.boxed()
+				.into()
+			})
+			.unwrap();
+
+		// Run the newer swarm. Attempt to make requests on all protocols.
+		let (mut swarm, _) = new_swarm;
+		let mut older_peer_id = None;
+
+		pool.run_until(async move {
+			let mut response_receiver = None;
+			// Try the new protocol with a fallback.
+			loop {
+				match swarm.select_next_some().await {
+					SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+						older_peer_id = Some(peer_id);
+						let (sender, receiver) = oneshot::channel();
+						swarm.behaviour_mut().send_request(
+							&peer_id,
+							protocol_name_1.clone(),
+							b"request on protocol /test/req-resp/2".to_vec(),
+							Some((
+								b"request on protocol /test/req-resp/1".to_vec(),
+								protocol_config_1_fallback.name.clone(),
+							)),
+							sender,
+							IfDisconnected::ImmediateError,
+						);
+						response_receiver = Some(receiver);
+					},
+					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+						result.unwrap();
+						break
+					},
+					_ => {},
+				}
+			}
+			assert_eq!(
+				response_receiver.unwrap().await.unwrap().unwrap(),
+				(
+					b"this is a response on protocol /test/req-resp/1".to_vec(),
+					protocol_name_1_fallback.clone()
+				)
+			);
+			// Try the old protocol with a useless fallback.
+			let (sender, response_receiver) = oneshot::channel();
+			swarm.behaviour_mut().send_request(
+				older_peer_id.as_ref().unwrap(),
+				protocol_name_1_fallback.clone(),
+				b"request on protocol /test/req-resp/1".to_vec(),
+				Some((
+					b"dummy request, will fail if processed".to_vec(),
+					protocol_config_1_fallback.name.clone(),
+				)),
+				sender,
+				IfDisconnected::ImmediateError,
+			);
+			loop {
+				match swarm.select_next_some().await {
+					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+						result.unwrap();
+						break
+					},
+					_ => {},
+				}
+			}
+			assert_eq!(
+				response_receiver.await.unwrap().unwrap(),
+				(
+					b"this is a response on protocol /test/req-resp/1".to_vec(),
+					protocol_name_1_fallback.clone()
+				)
+			);
+			// Try the new protocol with no fallback. Should fail.
+			let (sender, response_receiver) = oneshot::channel();
+			swarm.behaviour_mut().send_request(
+				older_peer_id.as_ref().unwrap(),
+				protocol_name_1.clone(),
+				b"request on protocol /test/req-resp-2".to_vec(),
+				None,
+				sender,
+				IfDisconnected::ImmediateError,
+			);
+			loop {
+				match swarm.select_next_some().await {
+					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+						assert_matches!(
+							result.unwrap_err(),
+							RequestFailure::Network(OutboundFailure::UnsupportedProtocols)
+						);
+						break
+					},
+					_ => {},
+				}
+			}
+			assert!(response_receiver.await.unwrap().is_err());
+			// Try the other protocol with no fallback.
+			let (sender, response_receiver) = oneshot::channel();
+			swarm.behaviour_mut().send_request(
+				older_peer_id.as_ref().unwrap(),
+				protocol_name_2.clone(),
+				b"request on protocol /test/other".to_vec(),
+				None,
+				sender,
+				IfDisconnected::ImmediateError,
+			);
+			loop {
+				match swarm.select_next_some().await {
+					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+						result.unwrap();
+						break
+					},
+					_ => {},
+				}
+			}
+			assert_eq!(
+				response_receiver.await.unwrap().unwrap(),
+				(b"this is a response on protocol /test/other".to_vec(), protocol_name_2.clone())
+			);
 		});
 	}
 }

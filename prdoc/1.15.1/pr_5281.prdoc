@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: PoV-Reclaim - Set `BlockWeight` to node-side PoV size if mismatch is detected
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      After this change, the `StorageWeightReclaim` `SignedExtension` will check the node-side PoV size after every
+      extrinsic. If we detect a case where the returned proof size is higher than the `BlockWeight` value of the
+      runtime, we set `BlockWeight` to the size returned from the node.
+
+crates:
+  - name: cumulus-primitives-storage-weight-reclaim
+    bump: patch
+  - name: frame-system
+    bump: minor

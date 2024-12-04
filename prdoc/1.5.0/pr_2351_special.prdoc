@@ -1,0 +1,9 @@
+title: "frame-system: Add last_runtime_upgrade_spec_version"
+author: bkchr
+topic: Frame
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
 };
@@ -29,7 +30,6 @@ use frame_support::{
 };
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::Bounded;
-use sp_std::prelude::*;
 
 use crate::Pallet as Uniques;
 
@@ -431,9 +431,9 @@ benchmarks_instance_pallet! {
 		let buyer_lookup = T::Lookup::unlookup(buyer.clone());
 		let price = ItemPrice::<T, I>::from(0u32);
 		let origin = SystemOrigin::Signed(seller.clone()).into();
-		Uniques::<T, I>::set_price(origin, collection.clone(), item, Some(price.clone()), Some(buyer_lookup))?;
+		Uniques::<T, I>::set_price(origin, collection.clone(), item, Some(price), Some(buyer_lookup))?;
 		T::Currency::make_free_balance_be(&buyer, DepositBalanceOf::<T, I>::max_value());
-	}: _(SystemOrigin::Signed(buyer.clone()), collection.clone(), item, price.clone())
+	}: _(SystemOrigin::Signed(buyer.clone()), collection.clone(), item, price)
 	verify {
 		assert_last_event::<T, I>(Event::ItemBought {
 			collection: collection.clone(),

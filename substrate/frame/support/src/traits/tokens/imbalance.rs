@@ -19,13 +19,13 @@
 //! with unbalanced operations.
 
 use crate::traits::misc::{SameOrOther, TryDrop};
+use core::ops::Div;
 use sp_runtime::traits::Saturating;
-use sp_std::ops::Div;
 
 mod on_unbalanced;
 mod signed_imbalance;
 mod split_two_ways;
-pub use on_unbalanced::OnUnbalanced;
+pub use on_unbalanced::{OnUnbalanced, ResolveAssetTo, ResolveTo};
 pub use signed_imbalance::SignedImbalance;
 pub use split_two_ways::SplitTwoWays;
 
@@ -58,7 +58,7 @@ pub use split_two_ways::SplitTwoWays;
 ///
 /// You can always retrieve the raw balance value using `peek`.
 #[must_use]
-pub trait Imbalance<Balance>: Sized + TryDrop + Default {
+pub trait Imbalance<Balance>: Sized + TryDrop + Default + TryMerge {
 	/// The oppositely imbalanced type. They come in pairs.
 	type Opposite: Imbalance<Balance>;
 
@@ -71,6 +71,10 @@ pub trait Imbalance<Balance>: Sized + TryDrop + Default {
 	/// Consume `self` and return two independent instances; the first
 	/// is guaranteed to be at most `amount` and the second will be the remainder.
 	fn split(self, amount: Balance) -> (Self, Self);
+
+	/// Mutate `self` by extracting a new instance with at most `amount` value, reducing `self`
+	/// accordingly.
+	fn extract(&mut self, amount: Balance) -> Self;
 
 	/// Consume `self` and return two independent instances; the amounts returned will be in
 	/// approximately the same ratio as `first`:`second`.
@@ -178,6 +182,13 @@ pub trait Imbalance<Balance>: Sized + TryDrop + Default {
 	fn peek(&self) -> Balance;
 }
 
+/// Try to merge two imbalances.
+pub trait TryMerge: Sized {
+	/// Consume `self` and an `other` to return a new instance that combines both. Errors with
+	/// Err(self, other) if the imbalances cannot be merged (e.g. imbalances of different assets).
+	fn try_merge(self, other: Self) -> Result<Self, (Self, Self)>;
+}
+
 #[cfg(feature = "std")]
 impl<Balance: Default> Imbalance<Balance> for () {
 	type Opposite = ();
@@ -189,6 +200,9 @@ impl<Balance: Default> Imbalance<Balance> for () {
 	}
 	fn split(self, _: Balance) -> (Self, Self) {
 		((), ())
+	}
+	fn extract(&mut self, _: Balance) -> Self {
+		()
 	}
 	fn ration(self, _: u32, _: u32) -> (Self, Self)
 	where
@@ -227,5 +241,12 @@ impl<Balance: Default> Imbalance<Balance> for () {
 	}
 	fn peek(&self) -> Balance {
 		Default::default()
+	}
+}
+
+#[cfg(feature = "std")]
+impl TryMerge for () {
+	fn try_merge(self, _: Self) -> Result<Self, (Self, Self)> {
+		Ok(())
 	}
 }

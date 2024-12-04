@@ -1,0 +1,11 @@
+title: "`fungible::Unbalanced::decrease_balance`: Handle `precision` properly"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `fungible::Unbalanced::decrease_balance` will now handle `precision` properly. This means when
+      passing `Exact`, it will ensure that the available balance is bigger or equal to the `amount`
+      that should be deducted.
+
+crates:
+  - name: "frame-support"

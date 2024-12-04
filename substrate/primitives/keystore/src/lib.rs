@@ -17,36 +17,50 @@
 
 //! Keystore traits
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 #[cfg(feature = "std")]
 pub mod testing;
 
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls377, bls381};
+use sp_core::{bls381, ecdsa_bls381};
 use sp_core::{
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
 	ecdsa, ed25519, sr25519,
 };
 
-use std::sync::Arc;
+use alloc::{string::String, sync::Arc, vec::Vec};
 
 /// Keystore error
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum Error {
 	/// Public key type is not supported
-	#[error("Key not supported: {0:?}")]
 	KeyNotSupported(KeyTypeId),
 	/// Validation error
-	#[error("Validation error: {0}")]
 	ValidationError(String),
 	/// Keystore unavailable
-	#[error("Keystore unavailable")]
 	Unavailable,
 	/// Programming errors
-	#[error("An unknown keystore error occurred: {0}")]
 	Other(String),
 }
+
+impl core::fmt::Display for Error {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+		match self {
+			Error::KeyNotSupported(key_type) => write!(fmt, "Key not supported: {key_type:?}"),
+			Error::ValidationError(error) => write!(fmt, "Validation error: {error}"),
+			Error::Unavailable => fmt.write_str("Keystore unavailable"),
+			Error::Other(error) => write!(fmt, "An unknown keystore error occurred: {error}"),
+		}
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
 
 /// Something that generates, stores and provides access to secret keys.
 pub trait Keystore: Send + Sync {
@@ -92,19 +106,19 @@ pub trait Keystore: Send + Sync {
 		data: &sr25519::vrf::VrfSignData,
 	) -> Result<Option<sr25519::vrf::VrfSignature>, Error>;
 
-	/// Generate an sr25519 VRF output for a given input data.
+	/// Generate an sr25519 VRF pre-output for a given input data.
 	///
 	/// Receives [`KeyTypeId`] and an [`sr25519::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
 	///
 	/// Returns `None` if the given `key_type` and `public` combination doesn't
 	/// exist in the keystore or an `Err` when something failed.
-	fn sr25519_vrf_output(
+	fn sr25519_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &sr25519::Public,
 		input: &sr25519::vrf::VrfInput,
-	) -> Result<Option<sr25519::vrf::VrfOutput>, Error>;
+	) -> Result<Option<sr25519::vrf::VrfPreOutput>, Error>;
 
 	/// Returns all ed25519 public keys for the given key type.
 	fn ed25519_public_keys(&self, key_type: KeyTypeId) -> Vec<ed25519::Public>;
@@ -223,7 +237,7 @@ pub trait Keystore: Send + Sync {
 		input: &bandersnatch::vrf::VrfSignData,
 	) -> Result<Option<bandersnatch::vrf::VrfSignature>, Error>;
 
-	/// Generate a bandersnatch VRF (pre)output for a given input data.
+	/// Generate a bandersnatch VRF pre-output for a given input data.
 	///
 	/// Receives [`KeyTypeId`] and an [`bandersnatch::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
@@ -231,12 +245,12 @@ pub trait Keystore: Send + Sync {
 	/// Returns `None` if the given `key_type` and `public` combination doesn't
 	/// exist in the keystore or an `Err` when something failed.
 	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_output(
+	fn bandersnatch_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &bandersnatch::Public,
 		input: &bandersnatch::vrf::VrfInput,
-	) -> Result<Option<bandersnatch::vrf::VrfOutput>, Error>;
+	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error>;
 
 	/// Generate a bandersnatch ring-VRF signature for the given data.
 	///
@@ -266,9 +280,9 @@ pub trait Keystore: Send + Sync {
 	#[cfg(feature = "bls-experimental")]
 	fn bls381_public_keys(&self, id: KeyTypeId) -> Vec<bls381::Public>;
 
-	/// Returns all bls12-377 public keys for the given key type.
+	/// Returns all (ecdsa,bls12-381) paired public keys for the given key type.
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_public_keys(&self, id: KeyTypeId) -> Vec<bls377::Public>;
+	fn ecdsa_bls381_public_keys(&self, id: KeyTypeId) -> Vec<ecdsa_bls381::Public>;
 
 	/// Generate a new bls381 key pair for the given key type and an optional seed.
 	///
@@ -281,16 +295,16 @@ pub trait Keystore: Send + Sync {
 		seed: Option<&str>,
 	) -> Result<bls381::Public, Error>;
 
-	/// Generate a new bls377 key pair for the given key type and an optional seed.
+	/// Generate a new (ecdsa,bls381) key pair for the given key type and an optional seed.
 	///
-	/// Returns an `bls377::Public` key of the generated key pair or an `Err` if
+	/// Returns an `ecdsa_bls381::Public` key of the generated key pair or an `Err` if
 	/// something failed during key generation.
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_generate_new(
+	fn ecdsa_bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
 		seed: Option<&str>,
-	) -> Result<bls377::Public, Error>;
+	) -> Result<ecdsa_bls381::Public, Error>;
 
 	/// Generate a bls381 signature for a given message.
 	///
@@ -308,21 +322,39 @@ pub trait Keystore: Send + Sync {
 		msg: &[u8],
 	) -> Result<Option<bls381::Signature>, Error>;
 
-	/// Generate a bls377 signature for a given message.
+	/// Generate a (ecdsa,bls381) signature pair for a given message.
 	///
-	/// Receives [`KeyTypeId`] and a [`bls377::Public`] key to be able to map
+	/// Receives [`KeyTypeId`] and a [`ecdsa_bls381::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
 	///
-	/// Returns an [`bls377::Signature`] or `None` in case the given `key_type`
+	/// Returns an [`ecdsa_bls381::Signature`] or `None` in case the given `key_type`
 	/// and `public` combination doesn't exist in the keystore.
 	/// An `Err` will be returned if generating the signature itself failed.
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_sign(
+	fn ecdsa_bls381_sign(
 		&self,
 		key_type: KeyTypeId,
-		public: &bls377::Public,
+		public: &ecdsa_bls381::Public,
 		msg: &[u8],
-	) -> Result<Option<bls377::Signature>, Error>;
+	) -> Result<Option<ecdsa_bls381::Signature>, Error>;
+
+	/// Hashes the `message` using keccak256 and then signs it using ECDSA
+	/// algorithm. It does not affect the behavior of BLS12-381 component. It generates
+	/// BLS12-381 Signature according to IETF standard.
+	///
+	/// Receives [`KeyTypeId`] and a [`ecdsa_bls381::Public`] key to be able to map
+	/// them to a private key that exists in the keystore.
+	///
+	/// Returns an [`ecdsa_bls381::Signature`] or `None` in case the given `key_type`
+	/// and `public` combination doesn't exist in the keystore.
+	/// An `Err` will be returned if generating the signature itself failed.
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_sign_with_keccak256(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls381::Public,
+		msg: &[u8],
+	) -> Result<Option<ecdsa_bls381::Signature>, Error>;
 
 	/// Insert a new secret key.
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()>;
@@ -348,7 +380,7 @@ pub trait Keystore: Send + Sync {
 	/// - ecdsa
 	/// - bandersnatch
 	/// - bls381
-	/// - bls377
+	/// - (ecdsa,bls381) paired keys
 	///
 	/// To support more schemes you can overwrite this method.
 	///
@@ -393,10 +425,10 @@ pub trait Keystore: Send + Sync {
 				self.bls381_sign(id, &public, msg)?.map(|s| s.encode())
 			},
 			#[cfg(feature = "bls-experimental")]
-			bls377::CRYPTO_ID => {
-				let public = bls377::Public::from_slice(public)
+			ecdsa_bls381::CRYPTO_ID => {
+				let public = ecdsa_bls381::Public::from_slice(public)
 					.map_err(|_| Error::ValidationError("Invalid public key format".into()))?;
-				self.bls377_sign(id, &public, msg)?.map(|s| s.encode())
+				self.ecdsa_bls381_sign(id, &public, msg)?.map(|s| s.encode())
 			},
 			_ => return Err(Error::KeyNotSupported(id)),
 		};
@@ -435,13 +467,13 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		(**self).sr25519_vrf_sign(key_type, public, data)
 	}
 
-	fn sr25519_vrf_output(
+	fn sr25519_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &sr25519::Public,
 		input: &sr25519::vrf::VrfInput,
-	) -> Result<Option<sr25519::vrf::VrfOutput>, Error> {
-		(**self).sr25519_vrf_output(key_type, public, input)
+	) -> Result<Option<sr25519::vrf::VrfPreOutput>, Error> {
+		(**self).sr25519_vrf_pre_output(key_type, public, input)
 	}
 
 	fn ed25519_public_keys(&self, key_type: KeyTypeId) -> Vec<ed25519::Public> {
@@ -530,13 +562,13 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	}
 
 	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_output(
+	fn bandersnatch_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &bandersnatch::Public,
 		input: &bandersnatch::vrf::VrfInput,
-	) -> Result<Option<bandersnatch::vrf::VrfOutput>, Error> {
-		(**self).bandersnatch_vrf_output(key_type, public, input)
+	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error> {
+		(**self).bandersnatch_vrf_pre_output(key_type, public, input)
 	}
 
 	#[cfg(feature = "bandersnatch-experimental")]
@@ -556,8 +588,8 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_public_keys(&self, id: KeyTypeId) -> Vec<bls377::Public> {
-		(**self).bls377_public_keys(id)
+	fn ecdsa_bls381_public_keys(&self, id: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
+		(**self).ecdsa_bls381_public_keys(id)
 	}
 
 	#[cfg(feature = "bls-experimental")]
@@ -570,12 +602,12 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_generate_new(
+	fn ecdsa_bls381_generate_new(
 		&self,
 		key_type: KeyTypeId,
 		seed: Option<&str>,
-	) -> Result<bls377::Public, Error> {
-		(**self).bls377_generate_new(key_type, seed)
+	) -> Result<ecdsa_bls381::Public, Error> {
+		(**self).ecdsa_bls381_generate_new(key_type, seed)
 	}
 
 	#[cfg(feature = "bls-experimental")]
@@ -589,13 +621,23 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn bls377_sign(
+	fn ecdsa_bls381_sign(
 		&self,
 		key_type: KeyTypeId,
-		public: &bls377::Public,
+		public: &ecdsa_bls381::Public,
 		msg: &[u8],
-	) -> Result<Option<bls377::Signature>, Error> {
-		(**self).bls377_sign(key_type, public, msg)
+	) -> Result<Option<ecdsa_bls381::Signature>, Error> {
+		(**self).ecdsa_bls381_sign(key_type, public, msg)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_sign_with_keccak256(
+		&self,
+		key_type: KeyTypeId,
+		public: &ecdsa_bls381::Public,
+		msg: &[u8],
+	) -> Result<Option<ecdsa_bls381::Signature>, Error> {
+		(**self).ecdsa_bls381_sign_with_keccak256(key_type, public, msg)
 	}
 
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {

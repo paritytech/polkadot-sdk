@@ -126,18 +126,16 @@ mod tests {
 		}
 
 		fn load_spec(&self, _: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
-			Ok(Box::new(GenericChainSpec::from_genesis(
-				"test",
-				"test_id",
-				ChainType::Development,
-				|| unimplemented!("Not required in tests"),
-				Vec::new(),
-				None,
-				None,
-				None,
-				None,
-				NoExtension::None,
-			)))
+			let builder =
+				GenericChainSpec::<NoExtension, ()>::builder(Default::default(), NoExtension::None);
+			Ok(Box::new(
+				builder
+					.with_name("test")
+					.with_id("test_id")
+					.with_chain_type(ChainType::Development)
+					.with_genesis_config_patch(Default::default())
+					.build(),
+			))
 		}
 	}
 

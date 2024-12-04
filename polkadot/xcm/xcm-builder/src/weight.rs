@@ -14,21 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use codec::Decode;
+use core::{marker::PhantomData, result::Result};
 use frame_support::{
 	dispatch::GetDispatchInfo,
-	traits::{tokens::currency::Currency as CurrencyT, Get, OnUnbalanced as OnUnbalancedT},
+	traits::{
+		fungible::{Balanced, Credit, Inspect},
+		Get, OnUnbalanced as OnUnbalancedT,
+	},
 	weights::{
 		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
 		WeightToFee as WeightToFeeT,
 	},
 };
-use parity_scale_codec::Decode;
 use sp_runtime::traits::{SaturatedConversion, Saturating, Zero};
-use sp_std::{marker::PhantomData, result::Result};
-use xcm::latest::{prelude::*, Weight};
+use xcm::latest::{prelude::*, GetWeight, Weight};
 use xcm_executor::{
 	traits::{WeightBounds, WeightTrader},
-	Assets,
+	AssetsInHolding,
 };
 
 pub struct FixedWeightBounds<T, C, M>(PhantomData<(T, C, M)>);
@@ -40,27 +43,30 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 		let mut instructions_left = M::get();
 		Self::weight_with_limit(message, &mut instructions_left)
 	}
-	fn instr_weight(instruction: &Instruction<C>) -> Result<Weight, ()> {
+	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, ()> {
 		Self::instr_weight_with_limit(instruction, &mut u32::max_value())
 	}
 }
 
 impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> {
-	fn weight_with_limit(message: &Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, ()> {
+	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, ()> {
 		let mut r: Weight = Weight::zero();
 		*instrs_limit = instrs_limit.checked_sub(message.0.len() as u32).ok_or(())?;
-		for m in message.0.iter() {
-			r = r.checked_add(&Self::instr_weight_with_limit(m, instrs_limit)?).ok_or(())?;
+		for instruction in message.0.iter_mut() {
+			r = r
+				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
+				.ok_or(())?;
 		}
 		Ok(r)
 	}
 	fn instr_weight_with_limit(
-		instruction: &Instruction<C>,
+		instruction: &mut Instruction<C>,
 		instrs_limit: &mut u32,
 	) -> Result<Weight, ()> {
 		let instr_weight = match instruction {
-			Transact { require_weight_at_most, .. } => *require_weight_at_most,
-			SetErrorHandler(xcm) | SetAppendix(xcm) => Self::weight_with_limit(xcm, instrs_limit)?,
+			Transact { ref mut call, .. } => call.ensure_decoded()?.get_dispatch_info().call_weight,
+			SetErrorHandler(xcm) | SetAppendix(xcm) | ExecuteWithOrigin { xcm, .. } =>
+				Self::weight_with_limit(xcm, instrs_limit)?,
 			_ => Weight::zero(),
 		};
 		T::get().checked_add(&instr_weight).ok_or(())
@@ -80,7 +86,7 @@ where
 		let mut instructions_left = M::get();
 		Self::weight_with_limit(message, &mut instructions_left)
 	}
-	fn instr_weight(instruction: &Instruction<C>) -> Result<Weight, ()> {
+	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, ()> {
 		Self::instr_weight_with_limit(instruction, &mut u32::max_value())
 	}
 }
@@ -92,20 +98,22 @@ where
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {
-	fn weight_with_limit(message: &Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, ()> {
+	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, ()> {
 		let mut r: Weight = Weight::zero();
 		*instrs_limit = instrs_limit.checked_sub(message.0.len() as u32).ok_or(())?;
-		for m in message.0.iter() {
-			r = r.checked_add(&Self::instr_weight_with_limit(m, instrs_limit)?).ok_or(())?;
+		for instruction in message.0.iter_mut() {
+			r = r
+				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
+				.ok_or(())?;
 		}
 		Ok(r)
 	}
 	fn instr_weight_with_limit(
-		instruction: &Instruction<C>,
+		instruction: &mut Instruction<C>,
 		instrs_limit: &mut u32,
 	) -> Result<Weight, ()> {
 		let instr_weight = match instruction {
-			Transact { require_weight_at_most, .. } => *require_weight_at_most,
+			Transact { ref mut call, .. } => call.ensure_decoded()?.get_dispatch_info().call_weight,
 			SetErrorHandler(xcm) | SetAppendix(xcm) => Self::weight_with_limit(xcm, instrs_limit)?,
 			_ => Weight::zero(),
 		};
@@ -114,16 +122,16 @@ where
 }
 
 /// Function trait for handling some revenue. Similar to a negative imbalance (credit) handler, but
-/// for a `MultiAsset`. Sensible implementations will deposit the asset in some known treasury or
+/// for a `Asset`. Sensible implementations will deposit the asset in some known treasury or
 /// block-author account.
 pub trait TakeRevenue {
-	/// Do something with the given `revenue`, which is a single non-wildcard `MultiAsset`.
-	fn take_revenue(revenue: MultiAsset);
+	/// Do something with the given `revenue`, which is a single non-wildcard `Asset`.
+	fn take_revenue(revenue: Asset);
 }
 
 /// Null implementation just burns the revenue.
 impl TakeRevenue for () {
-	fn take_revenue(_revenue: MultiAsset) {}
+	fn take_revenue(_revenue: Asset) {}
 }
 
 /// Simple fee calculator that requires payment in a single fungible at a fixed rate.
@@ -143,9 +151,9 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: Assets,
+		payment: AssetsInHolding,
 		context: &XcmContext,
-	) -> Result<Assets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		log::trace!(
 			target: "xcm::weight",
 			"FixedRateOfFungible::buy_weight weight: {:?}, payment: {:?}, context: {:?}",
@@ -165,7 +173,7 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> WeightTrader for FixedRateOf
 		Ok(unused)
 	}
 
-	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<MultiAsset> {
+	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
 		log::trace!(target: "xcm::weight", "FixedRateOfFungible::refund_weight weight: {:?}, context: {:?}", weight, context);
 		let (id, units_per_second, units_per_mb) = T::get();
 		let weight = weight.min(self.0);
@@ -193,23 +201,23 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> Drop for FixedRateOfFungible
 /// Weight trader which uses the configured `WeightToFee` to set the right price for weight and then
 /// places any weight bought into the right account.
 pub struct UsingComponents<
-	WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
-	AssetId: Get<MultiLocation>,
+	WeightToFee: WeightToFeeT<Balance = <Fungible as Inspect<AccountId>>::Balance>,
+	AssetIdValue: Get<Location>,
 	AccountId,
-	Currency: CurrencyT<AccountId>,
-	OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
+	Fungible: Balanced<AccountId> + Inspect<AccountId>,
+	OnUnbalanced: OnUnbalancedT<Credit<AccountId, Fungible>>,
 >(
 	Weight,
-	Currency::Balance,
-	PhantomData<(WeightToFee, AssetId, AccountId, Currency, OnUnbalanced)>,
+	Fungible::Balance,
+	PhantomData<(WeightToFee, AssetIdValue, AccountId, Fungible, OnUnbalanced)>,
 );
 impl<
-		WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
-		AssetId: Get<MultiLocation>,
+		WeightToFee: WeightToFeeT<Balance = <Fungible as Inspect<AccountId>>::Balance>,
+		AssetIdValue: Get<Location>,
 		AccountId,
-		Currency: CurrencyT<AccountId>,
-		OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
-	> WeightTrader for UsingComponents<WeightToFee, AssetId, AccountId, Currency, OnUnbalanced>
+		Fungible: Balanced<AccountId> + Inspect<AccountId>,
+		OnUnbalanced: OnUnbalancedT<Credit<AccountId, Fungible>>,
+	> WeightTrader for UsingComponents<WeightToFee, AssetIdValue, AccountId, Fungible, OnUnbalanced>
 {
 	fn new() -> Self {
 		Self(Weight::zero(), Zero::zero(), PhantomData)
@@ -218,42 +226,43 @@ impl<
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: Assets,
+		payment: AssetsInHolding,
 		context: &XcmContext,
-	) -> Result<Assets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		log::trace!(target: "xcm::weight", "UsingComponents::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let u128_amount: u128 = amount.try_into().map_err(|_| XcmError::Overflow)?;
-		let required = (Concrete(AssetId::get()), u128_amount).into();
+		let required = Asset { id: AssetId(AssetIdValue::get()), fun: Fungible(u128_amount) };
 		let unused = payment.checked_sub(required).map_err(|_| XcmError::TooExpensive)?;
 		self.0 = self.0.saturating_add(weight);
 		self.1 = self.1.saturating_add(amount);
 		Ok(unused)
 	}
 
-	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<MultiAsset> {
-		log::trace!(target: "xcm::weight", "UsingComponents::refund_weight weight: {:?}, context: {:?}", weight, context);
+	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
+		log::trace!(target: "xcm::weight", "UsingComponents::refund_weight weight: {:?}, context: {:?}, available weight: {:?}, available amount: {:?}", weight, context, self.0, self.1);
 		let weight = weight.min(self.0);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		self.0 -= weight;
 		self.1 = self.1.saturating_sub(amount);
 		let amount: u128 = amount.saturated_into();
+		log::trace!(target: "xcm::weight", "UsingComponents::refund_weight amount to refund: {:?}", amount);
 		if amount > 0 {
-			Some((AssetId::get(), amount).into())
+			Some((AssetIdValue::get(), amount).into())
 		} else {
 			None
 		}
 	}
 }
 impl<
-		WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
-		AssetId: Get<MultiLocation>,
+		WeightToFee: WeightToFeeT<Balance = <Fungible as Inspect<AccountId>>::Balance>,
+		AssetId: Get<Location>,
 		AccountId,
-		Currency: CurrencyT<AccountId>,
-		OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
-	> Drop for UsingComponents<WeightToFee, AssetId, AccountId, Currency, OnUnbalanced>
+		Fungible: Balanced<AccountId> + Inspect<AccountId>,
+		OnUnbalanced: OnUnbalancedT<Credit<AccountId, Fungible>>,
+	> Drop for UsingComponents<WeightToFee, AssetId, AccountId, Fungible, OnUnbalanced>
 {
 	fn drop(&mut self) {
-		OnUnbalanced::on_unbalanced(Currency::issue(self.1));
+		OnUnbalanced::on_unbalanced(Fungible::issue(self.1));
 	}
 }

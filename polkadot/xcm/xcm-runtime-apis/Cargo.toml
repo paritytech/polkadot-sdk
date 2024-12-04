@@ -1,0 +1,63 @@
+[package]
+name = "xcm-runtime-apis"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+repository.workspace = true
+description = "XCM runtime APIs"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+
+frame-support = { workspace = true }
+sp-api = { workspace = true }
+sp-weights = { workspace = true }
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+
+[dev-dependencies]
+frame-system = { workspace = true }
+sp-io = { workspace = true }
+xcm-builder = { workspace = true }
+hex-literal = { workspace = true }
+pallet-xcm = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+xcm-executor = { workspace = true }
+frame-executive = { workspace = true }
+log = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-executive/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"pallet-xcm/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-io/std",
+	"sp-weights/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]

@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::str;
 use sp_io::hashing::twox_128;
-use sp_std::str;
 
 use frame_support::{
 	storage::{generator::StorageValue, StoragePrefixedMap},

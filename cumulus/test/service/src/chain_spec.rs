@@ -16,45 +16,18 @@
 
 #![allow(missing_docs)]
 
+use cumulus_client_service::ParachainHostFunctions;
 use cumulus_primitives_core::ParaId;
-use cumulus_test_runtime::{AccountId, Signature};
-use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
+use cumulus_test_runtime::AccountId;
+use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup, GenesisConfigBuilderRuntimeCaller};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
-use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use serde_json::json;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisExt, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
-/// Extension for the genesis config to add custom keys easily.
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct GenesisExt {
-	/// The runtime genesis config.
-	runtime_genesis_config: cumulus_test_runtime::RuntimeGenesisConfig,
-	/// The parachain id.
-	para_id: ParaId,
-}
-
-impl sp_runtime::BuildStorage for GenesisExt {
-	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
-		sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
-			sp_io::storage::set(cumulus_test_runtime::TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
-			cumulus_test_runtime::ParachainId::set(&self.para_id);
-		});
-
-		self.runtime_genesis_config.assimilate_storage(storage)
-	}
-}
-
-/// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-/// The extensions for the [`ChainSpec`](crate::ChainSpec).
+/// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
 #[serde(deny_unknown_fields)]
 pub struct Extensions {
@@ -69,88 +42,77 @@ impl Extensions {
 	}
 }
 
-type AccountPublic = <Signature as Verify>::Signer;
-
-/// Helper function to generate an account ID from seed.
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
-
 /// Get the chain spec for a specific parachain ID.
 /// The given accounts are initialized with funds in addition
 /// to the default known accounts.
 pub fn get_chain_spec_with_extra_endowed(
-	id: ParaId,
+	id: Option<ParaId>,
 	extra_endowed_accounts: Vec<AccountId>,
+	code: &[u8],
 ) -> ChainSpec {
-	ChainSpec::from_genesis(
-		"Local Testnet",
-		"local_testnet",
-		ChainType::Local,
-		move || GenesisExt {
-			runtime_genesis_config: testnet_genesis_with_default_endowed(
-				extra_endowed_accounts.clone(),
-			),
-			para_id: id,
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		None,
-		Extensions { para_id: id.into() },
+	let runtime_caller = GenesisConfigBuilderRuntimeCaller::<ParachainHostFunctions>::new(code);
+	let mut development_preset = runtime_caller
+		.get_named_preset(Some(&sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET.to_string()))
+		.expect("development preset is available on test runtime; qed");
+
+	// Extract existing balances
+	let existing_balances = development_preset
+		.get("balances")
+		.and_then(|b| b.get("balances"))
+		.and_then(|b| b.as_array())
+		.cloned()
+		.unwrap_or_default();
+
+	// Create new balances by combining existing and extra accounts
+	let mut all_balances = existing_balances;
+	all_balances.extend(extra_endowed_accounts.into_iter().map(|a| json!([a, 1u64 << 60])));
+
+	let mut patch_json = json!({
+		"balances": {
+			"balances": all_balances,
+		}
+	});
+
+	if let Some(id) = id {
+		// Merge parachain ID if given, otherwise use the one from the preset.
+		sc_chain_spec::json_merge(
+			&mut patch_json,
+			json!({
+				"parachainInfo": {
+					"parachainId": id,
+				},
+			}),
+		);
+	};
+
+	sc_chain_spec::json_merge(&mut development_preset, patch_json.into());
+
+	ChainSpec::builder(
+		code,
+		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
+	)
+	.with_name("Local Testnet")
+	.with_id(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(development_preset)
+	.build()
+}
+
+/// Get the chain spec for a specific parachain ID.
+pub fn get_chain_spec(id: Option<ParaId>) -> ChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 	)
 }
 
 /// Get the chain spec for a specific parachain ID.
-pub fn get_chain_spec(id: ParaId) -> ChainSpec {
-	get_chain_spec_with_extra_endowed(id, Default::default())
-}
-
-/// Local testnet genesis for testing.
-pub fn testnet_genesis_with_default_endowed(
-	mut extra_endowed_accounts: Vec<AccountId>,
-) -> cumulus_test_runtime::RuntimeGenesisConfig {
-	let mut endowed = vec![
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		get_account_id_from_seed::<sr25519::Public>("Bob"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie"),
-		get_account_id_from_seed::<sr25519::Public>("Dave"),
-		get_account_id_from_seed::<sr25519::Public>("Eve"),
-		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-	];
-	endowed.append(&mut extra_endowed_accounts);
-
-	testnet_genesis(get_account_id_from_seed::<sr25519::Public>("Alice"), endowed)
-}
-
-/// Creates a local testnet genesis with endowed accounts.
-pub fn testnet_genesis(
-	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
-) -> cumulus_test_runtime::RuntimeGenesisConfig {
-	cumulus_test_runtime::RuntimeGenesisConfig {
-		system: cumulus_test_runtime::SystemConfig {
-			code: cumulus_test_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
-		},
-		glutton: Default::default(),
-		parachain_system: Default::default(),
-		balances: cumulus_test_runtime::BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
-		},
-		sudo: cumulus_test_runtime::SudoConfig { key: Some(root_key) },
-		transaction_payment: Default::default(),
-	}
+pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> ChainSpec {
+	get_chain_spec_with_extra_endowed(
+		id,
+		Default::default(),
+		cumulus_test_runtime::elastic_scaling::WASM_BINARY
+			.expect("WASM binary was not built, please build it!"),
+	)
 }

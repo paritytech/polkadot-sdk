@@ -30,12 +30,13 @@ use std::{
 	hash::Hash,
 };
 
-use primitives::{
+use polkadot_primitives::{
 	effective_minimum_backing_votes, ValidatorSignature,
 	ValidityAttestation as PrimitiveValidityAttestation,
 };
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
+const LOG_TARGET: &str = "parachain::statement-table";
 
 /// Context for the statement table.
 pub trait Context {
@@ -53,23 +54,12 @@ pub trait Context {
 	/// get the digest of a candidate.
 	fn candidate_digest(candidate: &Self::Candidate) -> Self::Digest;
 
-	/// get the group of a candidate.
-	fn candidate_group(candidate: &Self::Candidate) -> Self::GroupId;
-
 	/// Whether a authority is a member of a group.
 	/// Members are meant to submit candidates and vote on validity.
 	fn is_member_of(&self, authority: &Self::AuthorityId, group: &Self::GroupId) -> bool;
 
 	/// Get a validator group size.
 	fn get_group_size(&self, group: &Self::GroupId) -> Option<usize>;
-}
-
-/// Table configuration.
-pub struct Config {
-	/// When this is true, the table will allow multiple seconded candidates
-	/// per authority. This flag means that higher-level code is responsible for
-	/// bounding the number of candidates.
-	pub allow_multiple_seconded: bool,
 }
 
 /// Statements circulated among peers.
@@ -145,15 +135,6 @@ impl<Candidate, Digest, Signature> DoubleSign<Candidate, Digest, Signature> {
 	}
 }
 
-/// Misbehavior: declaring multiple candidates.
-#[derive(PartialEq, Eq, Debug, Clone)]
-pub struct MultipleCandidates<Candidate, Signature> {
-	/// The first candidate seen.
-	pub first: (Candidate, Signature),
-	/// The second candidate seen.
-	pub second: (Candidate, Signature),
-}
-
 /// Misbehavior: submitted statement for wrong group.
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct UnauthorizedStatement<Candidate, Digest, AuthorityId, Signature> {
@@ -167,8 +148,6 @@ pub struct UnauthorizedStatement<Candidate, Digest, AuthorityId, Signature> {
 pub enum Misbehavior<Candidate, Digest, AuthorityId, Signature> {
 	/// Voted invalid and valid on validity.
 	ValidityDoubleVote(ValidityDoubleVote<Candidate, Digest, Signature>),
-	/// Submitted multiple candidates.
-	MultipleCandidates(MultipleCandidates<Candidate, Signature>),
 	/// Submitted a message that was unauthorized.
 	UnauthorizedStatement(UnauthorizedStatement<Candidate, Digest, AuthorityId, Signature>),
 	/// Submitted two valid signatures for the same message.
@@ -247,7 +226,8 @@ impl<Ctx: Context> CandidateData<Ctx> {
 	pub fn attested(
 		&self,
 		validity_threshold: usize,
-	) -> Option<AttestedCandidate<Ctx::GroupId, Ctx::Candidate, Ctx::AuthorityId, Ctx::Signature>> {
+	) -> Option<AttestedCandidate<Ctx::GroupId, Ctx::Candidate, Ctx::AuthorityId, Ctx::Signature>>
+	{
 		let valid_votes = self.validity_votes.len();
 		if valid_votes < validity_threshold {
 			return None
@@ -301,17 +281,14 @@ pub struct Table<Ctx: Context> {
 	authority_data: HashMap<Ctx::AuthorityId, AuthorityData<Ctx>>,
 	detected_misbehavior: HashMap<Ctx::AuthorityId, Vec<MisbehaviorFor<Ctx>>>,
 	candidate_votes: HashMap<Ctx::Digest, CandidateData<Ctx>>,
-	config: Config,
 }
 
 impl<Ctx: Context> Table<Ctx> {
-	/// Create a new `Table` from a `Config`.
-	pub fn new(config: Config) -> Self {
+	pub fn new() -> Self {
 		Table {
 			authority_data: HashMap::default(),
 			detected_misbehavior: HashMap::default(),
 			candidate_votes: HashMap::default(),
-			config,
 		}
 	}
 
@@ -323,7 +300,8 @@ impl<Ctx: Context> Table<Ctx> {
 		digest: &Ctx::Digest,
 		context: &Ctx,
 		minimum_backing_votes: u32,
-	) -> Option<AttestedCandidate<Ctx::GroupId, Ctx::Candidate, Ctx::AuthorityId, Ctx::Signature>> {
+	) -> Option<AttestedCandidate<Ctx::GroupId, Ctx::Candidate, Ctx::AuthorityId, Ctx::Signature>>
+	{
 		self.candidate_votes.get(digest).and_then(|data| {
 			let v_threshold = context.get_group_size(&data.group_id).map_or(usize::MAX, |len| {
 				effective_minimum_backing_votes(len, minimum_backing_votes)
@@ -342,13 +320,13 @@ impl<Ctx: Context> Table<Ctx> {
 	pub fn import_statement(
 		&mut self,
 		context: &Ctx,
+		group_id: Ctx::GroupId,
 		statement: SignedStatement<Ctx::Candidate, Ctx::Digest, Ctx::AuthorityId, Ctx::Signature>,
 	) -> Option<Summary<Ctx::Digest, Ctx::GroupId>> {
 		let SignedStatement { statement, signature, sender: signer } = statement;
-
 		let res = match statement {
 			Statement::Seconded(candidate) =>
-				self.import_candidate(context, signer.clone(), candidate, signature),
+				self.import_candidate(context, signer.clone(), candidate, signature, group_id),
 			Statement::Valid(digest) =>
 				self.validity_vote(context, signer.clone(), digest, ValidityVote::Valid(signature)),
 		};
@@ -387,9 +365,10 @@ impl<Ctx: Context> Table<Ctx> {
 		authority: Ctx::AuthorityId,
 		candidate: Ctx::Candidate,
 		signature: Ctx::Signature,
+		group: Ctx::GroupId,
 	) -> ImportResult<Ctx> {
-		let group = Ctx::candidate_group(&candidate);
 		if !context.is_member_of(&authority, &group) {
+			gum::debug!(target: LOG_TARGET,  authority = ?authority, group = ?group, "New `Misbehavior::UnauthorizedStatement`, candidate backed by validator that doesn't belong to expected group" );
 			return Err(Misbehavior::UnauthorizedStatement(UnauthorizedStatement {
 				statement: SignedStatement {
 					signature,
@@ -407,33 +386,7 @@ impl<Ctx: Context> Table<Ctx> {
 				// if digest is different, fetch candidate and
 				// note misbehavior.
 				let existing = occ.get_mut();
-
-				if !self.config.allow_multiple_seconded && existing.proposals.len() == 1 {
-					let (old_digest, old_sig) = &existing.proposals[0];
-
-					if old_digest != &digest {
-						const EXISTENCE_PROOF: &str =
-							"when proposal first received from authority, candidate \
-							votes entry is created. proposal here is `Some`, therefore \
-							candidate votes entry exists; qed";
-
-						let old_candidate = self
-							.candidate_votes
-							.get(old_digest)
-							.expect(EXISTENCE_PROOF)
-							.candidate
-							.clone();
-
-						return Err(Misbehavior::MultipleCandidates(MultipleCandidates {
-							first: (old_candidate, old_sig.clone()),
-							second: (candidate, signature.clone()),
-						}))
-					}
-
-					false
-				} else if self.config.allow_multiple_seconded &&
-					existing.proposals.iter().any(|(ref od, _)| od == &digest)
-				{
+				if existing.proposals.iter().any(|(ref od, _)| od == &digest) {
 					false
 				} else {
 					existing.proposals.push((digest.clone(), signature.clone()));
@@ -478,10 +431,7 @@ impl<Ctx: Context> Table<Ctx> {
 		if !context.is_member_of(&from, &votes.group_id) {
 			let sig = match vote {
 				ValidityVote::Valid(s) => s,
-				ValidityVote::Issued(_) => panic!(
-					"implicit issuance vote only cast from `import_candidate` after \
-							checking group membership of issuer; qed"
-				),
+				ValidityVote::Issued(s) => s,
 			};
 
 			return Err(Misbehavior::UnauthorizedStatement(UnauthorizedStatement {
@@ -593,14 +543,6 @@ mod tests {
 	use super::*;
 	use std::collections::HashMap;
 
-	fn create_single_seconded<Candidate: Context>() -> Table<Candidate> {
-		Table::new(Config { allow_multiple_seconded: false })
-	}
-
-	fn create_many_seconded<Candidate: Context>() -> Table<Candidate> {
-		Table::new(Config { allow_multiple_seconded: true })
-	}
-
 	#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 	struct AuthorityId(usize);
 
@@ -634,10 +576,6 @@ mod tests {
 			Digest(candidate.1)
 		}
 
-		fn candidate_group(candidate: &Candidate) -> GroupId {
-			GroupId(candidate.0)
-		}
-
 		fn is_member_of(&self, authority: &AuthorityId, group: &GroupId) -> bool {
 			self.authorities.get(authority).map(|v| v == group).unwrap_or(false)
 		}
@@ -653,42 +591,6 @@ mod tests {
 	}
 
 	#[test]
-	fn submitting_two_candidates_can_be_misbehavior() {
-		let context = TestContext {
-			authorities: {
-				let mut map = HashMap::new();
-				map.insert(AuthorityId(1), GroupId(2));
-				map
-			},
-		};
-
-		let mut table = create_single_seconded();
-		let statement_a = SignedStatement {
-			statement: Statement::Seconded(Candidate(2, 100)),
-			signature: Signature(1),
-			sender: AuthorityId(1),
-		};
-
-		let statement_b = SignedStatement {
-			statement: Statement::Seconded(Candidate(2, 999)),
-			signature: Signature(1),
-			sender: AuthorityId(1),
-		};
-
-		table.import_statement(&context, statement_a);
-		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(1)));
-
-		table.import_statement(&context, statement_b);
-		assert_eq!(
-			table.detected_misbehavior[&AuthorityId(1)][0],
-			Misbehavior::MultipleCandidates(MultipleCandidates {
-				first: (Candidate(2, 100), Signature(1)),
-				second: (Candidate(2, 999), Signature(1)),
-			})
-		);
-	}
-
-	#[test]
 	fn submitting_two_candidates_can_be_allowed() {
 		let context = TestContext {
 			authorities: {
@@ -698,7 +600,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_many_seconded();
+		let mut table = Table::new();
 		let statement_a = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -711,10 +613,10 @@ mod tests {
 			sender: AuthorityId(1),
 		};
 
-		table.import_statement(&context, statement_a);
+		table.import_statement(&context, GroupId(2), statement_a);
 		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(1)));
 
-		table.import_statement(&context, statement_b);
+		table.import_statement(&context, GroupId(2), statement_b);
 		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(1)));
 	}
 
@@ -728,14 +630,14 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
 			sender: AuthorityId(1),
 		};
 
-		table.import_statement(&context, statement);
+		table.import_statement(&context, GroupId(2), statement);
 
 		assert_eq!(
 			table.detected_misbehavior[&AuthorityId(1)][0],
@@ -760,7 +662,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 
 		let candidate_a = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
@@ -769,7 +671,7 @@ mod tests {
 		};
 		let candidate_a_digest = Digest(100);
 
-		table.import_statement(&context, candidate_a);
+		table.import_statement(&context, GroupId(2), candidate_a);
 		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(1)));
 		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(2)));
 
@@ -779,7 +681,7 @@ mod tests {
 			signature: Signature(2),
 			sender: AuthorityId(2),
 		};
-		table.import_statement(&context, bad_validity_vote);
+		table.import_statement(&context, GroupId(3), bad_validity_vote);
 
 		assert_eq!(
 			table.detected_misbehavior[&AuthorityId(2)][0],
@@ -804,14 +706,14 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
 			sender: AuthorityId(1),
 		};
 
-		table.import_statement(&context, statement);
+		table.import_statement(&context, GroupId(2), statement);
 		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(1)));
 
 		let invalid_statement = SignedStatement {
@@ -820,7 +722,7 @@ mod tests {
 			sender: AuthorityId(1),
 		};
 
-		table.import_statement(&context, invalid_statement);
+		table.import_statement(&context, GroupId(2), invalid_statement);
 		assert!(table.detected_misbehavior.contains_key(&AuthorityId(1)));
 	}
 
@@ -834,7 +736,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -842,7 +744,7 @@ mod tests {
 		};
 		let candidate_digest = Digest(100);
 
-		table.import_statement(&context, statement);
+		table.import_statement(&context, GroupId(2), statement);
 		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(1)));
 
 		let extra_vote = SignedStatement {
@@ -851,7 +753,7 @@ mod tests {
 			sender: AuthorityId(1),
 		};
 
-		table.import_statement(&context, extra_vote);
+		table.import_statement(&context, GroupId(2), extra_vote);
 		assert_eq!(
 			table.detected_misbehavior[&AuthorityId(1)][0],
 			Misbehavior::ValidityDoubleVote(ValidityDoubleVote::IssuedAndValidity(
@@ -902,7 +804,7 @@ mod tests {
 		};
 
 		// have 2/3 validity guarantors note validity.
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -910,7 +812,7 @@ mod tests {
 		};
 		let candidate_digest = Digest(100);
 
-		table.import_statement(&context, statement);
+		table.import_statement(&context, GroupId(2), statement);
 
 		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(1)));
 		assert!(table.attested_candidate(&candidate_digest, &context, 2).is_none());
@@ -921,7 +823,7 @@ mod tests {
 			sender: AuthorityId(2),
 		};
 
-		table.import_statement(&context, vote);
+		table.import_statement(&context, GroupId(2), vote);
 		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(2)));
 		assert!(table.attested_candidate(&candidate_digest, &context, 2).is_some());
 	}
@@ -936,7 +838,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -944,7 +846,7 @@ mod tests {
 		};
 
 		let summary = table
-			.import_statement(&context, statement)
+			.import_statement(&context, GroupId(2), statement)
 			.expect("candidate import to give summary");
 
 		assert_eq!(summary.candidate, Digest(100));
@@ -963,7 +865,7 @@ mod tests {
 			},
 		};
 
-		let mut table = create_single_seconded();
+		let mut table = Table::new();
 		let statement = SignedStatement {
 			statement: Statement::Seconded(Candidate(2, 100)),
 			signature: Signature(1),
@@ -971,7 +873,7 @@ mod tests {
 		};
 		let candidate_digest = Digest(100);
 
-		table.import_statement(&context, statement);
+		table.import_statement(&context, GroupId(2), statement);
 		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(1)));
 
 		let vote = SignedStatement {
@@ -980,8 +882,9 @@ mod tests {
 			sender: AuthorityId(2),
 		};
 
-		let summary =
-			table.import_statement(&context, vote).expect("candidate vote to give summary");
+		let summary = table
+			.import_statement(&context, GroupId(2), vote)
+			.expect("candidate vote to give summary");
 
 		assert!(!table.detected_misbehavior.contains_key(&AuthorityId(2)));
 

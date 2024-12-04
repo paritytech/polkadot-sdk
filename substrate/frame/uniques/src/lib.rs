@@ -42,6 +42,9 @@ mod types;
 pub mod migration;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::traits::{
 	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,
@@ -51,7 +54,6 @@ use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
 	ArithmeticError, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 pub use pallet::*;
 pub use types::*;
@@ -69,7 +71,10 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(_);
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -162,7 +167,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::storage_prefix = "Class"]
 	/// Details of a collection.
-	pub(super) type Collection<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type Collection<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -171,7 +176,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// The collection, if any, of which an account is willing to take ownership.
-	pub(super) type OwnershipAcceptance<T: Config<I>, I: 'static = ()> =
+	pub type OwnershipAcceptance<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, T::CollectionId>;
 
 	#[pallet::storage]
@@ -205,7 +210,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::storage_prefix = "Asset"]
 	/// The items in existence and their ownership details.
-	pub(super) type Item<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type Item<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -218,7 +223,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::storage_prefix = "ClassMetadataOf"]
 	/// Metadata of a collection.
-	pub(super) type CollectionMetadataOf<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type CollectionMetadataOf<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -229,7 +234,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::storage_prefix = "InstanceMetadataOf"]
 	/// Metadata of an item.
-	pub(super) type ItemMetadataOf<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type ItemMetadataOf<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -254,7 +259,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Price of an asset instance.
-	pub(super) type ItemPriceOf<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type ItemPriceOf<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -853,34 +858,37 @@ pub mod pallet {
 		pub fn transfer_ownership(
 			origin: OriginFor<T>,
 			collection: T::CollectionId,
-			owner: AccountIdLookupOf<T>,
+			new_owner: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			let owner = T::Lookup::lookup(owner)?;
+			let new_owner = T::Lookup::lookup(new_owner)?;
 
-			let acceptable_collection = OwnershipAcceptance::<T, I>::get(&owner);
+			let acceptable_collection = OwnershipAcceptance::<T, I>::get(&new_owner);
 			ensure!(acceptable_collection.as_ref() == Some(&collection), Error::<T, I>::Unaccepted);
 
 			Collection::<T, I>::try_mutate(collection.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
-				if details.owner == owner {
+				if details.owner == new_owner {
 					return Ok(())
 				}
 
 				// Move the deposit to the new owner.
 				T::Currency::repatriate_reserved(
 					&details.owner,
-					&owner,
+					&new_owner,
 					details.total_deposit,
 					Reserved,
 				)?;
-				CollectionAccount::<T, I>::remove(&details.owner, &collection);
-				CollectionAccount::<T, I>::insert(&owner, &collection, ());
-				details.owner = owner.clone();
-				OwnershipAcceptance::<T, I>::remove(&owner);
 
-				Self::deposit_event(Event::OwnerChanged { collection, new_owner: owner });
+				CollectionAccount::<T, I>::remove(&details.owner, &collection);
+				CollectionAccount::<T, I>::insert(&new_owner, &collection, ());
+
+				details.owner = new_owner.clone();
+				OwnershipAcceptance::<T, I>::remove(&new_owner);
+				frame_system::Pallet::<T>::dec_consumers(&new_owner);
+
+				Self::deposit_event(Event::OwnerChanged { collection, new_owner });
 				Ok(())
 			})
 		}
@@ -1393,7 +1401,7 @@ pub mod pallet {
 				.map(|_| None)
 				.or_else(|origin| ensure_signed(origin).map(Some))?;
 
-			let details =
+			let mut details =
 				Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 			if let Some(check_owner) = &maybe_check_owner {
 				ensure!(check_owner == &details.owner, Error::<T, I>::NoPermission);
@@ -1405,6 +1413,8 @@ pub mod pallet {
 
 				let deposit = metadata.take().ok_or(Error::<T, I>::UnknownCollection)?.deposit;
 				T::Currency::unreserve(&details.owner, deposit);
+				details.total_deposit.saturating_reduce(deposit);
+				Collection::<T, I>::insert(&collection, details);
 				Self::deposit_event(Event::CollectionMetadataCleared { collection });
 				Ok(())
 			})
@@ -1427,8 +1437,8 @@ pub mod pallet {
 			maybe_collection: Option<T::CollectionId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let old = OwnershipAcceptance::<T, I>::get(&who);
-			match (old.is_some(), maybe_collection.is_some()) {
+			let exists = OwnershipAcceptance::<T, I>::contains_key(&who);
+			match (exists, maybe_collection.is_some()) {
 				(false, true) => {
 					frame_system::Pallet::<T>::inc_consumers(&who)?;
 				},

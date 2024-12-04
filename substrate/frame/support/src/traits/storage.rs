@@ -17,6 +17,7 @@
 
 //! Traits for encoding data related to pallet's storage items.
 
+use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
 use codec::{Encode, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
@@ -27,7 +28,6 @@ use sp_runtime::{
 	traits::{Convert, Member, Saturating},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// An instance of a pallet in the storage.
 ///
@@ -61,14 +61,39 @@ pub trait StorageInstance {
 	/// Prefix of a pallet to isolate it from other pallets.
 	fn pallet_prefix() -> &'static str;
 
+	/// Return the prefix hash of pallet instance.
+	///
+	/// NOTE: This hash must be `twox_128(pallet_prefix())`.
+	/// Should not impl this function by hand. Only use the default or macro generated impls.
+	fn pallet_prefix_hash() -> [u8; 16] {
+		sp_io::hashing::twox_128(Self::pallet_prefix().as_bytes())
+	}
+
 	/// Prefix given to a storage to isolate from other storages in the pallet.
 	const STORAGE_PREFIX: &'static str;
+
+	/// Return the prefix hash of storage instance.
+	///
+	/// NOTE: This hash must be `twox_128(STORAGE_PREFIX)`.
+	fn storage_prefix_hash() -> [u8; 16] {
+		sp_io::hashing::twox_128(Self::STORAGE_PREFIX.as_bytes())
+	}
+
+	/// Return the prefix hash of instance.
+	///
+	/// NOTE: This hash must be `twox_128(pallet_prefix())++twox_128(STORAGE_PREFIX)`.
+	/// Should not impl this function by hand. Only use the default or macro generated impls.
+	fn prefix_hash() -> [u8; 32] {
+		let mut final_key = [0u8; 32];
+		final_key[..16].copy_from_slice(&Self::pallet_prefix_hash());
+		final_key[16..].copy_from_slice(&Self::storage_prefix_hash());
+
+		final_key
+	}
 }
 
 /// Metadata about storage from the runtime.
-#[derive(
-	codec::Encode, codec::Decode, RuntimeDebug, Eq, PartialEq, Clone, scale_info::TypeInfo,
-)]
+#[derive(Debug, codec::Encode, codec::Decode, Eq, PartialEq, Clone, scale_info::TypeInfo)]
 pub struct StorageInfo {
 	/// Encoded string of pallet name.
 	pub pallet_name: Vec<u8>,
@@ -145,12 +170,19 @@ pub struct Footprint {
 }
 
 impl Footprint {
+	/// Construct a footprint directly from `items` and `len`.
 	pub fn from_parts(items: usize, len: usize) -> Self {
 		Self { count: items as u64, size: len as u64 }
 	}
 
+	/// Construct a footprint with one item, and size equal to the encoded size of `e`.
 	pub fn from_encodable(e: impl Encode) -> Self {
 		Self::from_parts(1, e.encoded_size())
+	}
+
+	/// Construct a footprint with one item, and size equal to the max encoded length of `E`.
+	pub fn from_mel<E: MaxEncodedLen>() -> Self {
+		Self::from_parts(1, E::max_encoded_len())
 	}
 }
 
@@ -181,7 +213,9 @@ where
 /// treated as one*. Don't type to duplicate it, and remember to drop it when you're done with
 /// it.
 #[must_use]
-pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLen {
+pub trait Consideration<AccountId, Footprint>:
+	Member + FullCodec + TypeInfo + MaxEncodedLen
+{
 	/// Create a ticket for the `new` footprint attributable to `who`. This ticket *must* ultimately
 	/// be consumed through `update` or `drop` once the footprint changes or is removed.
 	fn new(who: &AccountId, new: Footprint) -> Result<Self, DispatchError>;
@@ -203,17 +237,41 @@ pub trait Consideration<AccountId>: Member + FullCodec + TypeInfo + MaxEncodedLe
 	fn burn(self, _: &AccountId) {
 		let _ = self;
 	}
+	/// Ensure that creating a ticket for a given account and footprint will be successful if done
+	/// immediately after this call.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(who: &AccountId, new: Footprint);
 }
 
-impl<A> Consideration<A> for () {
-	fn new(_: &A, _: Footprint) -> Result<Self, DispatchError> {
+impl<A, F> Consideration<A, F> for () {
+	fn new(_: &A, _: F) -> Result<Self, DispatchError> {
 		Ok(())
 	}
-	fn update(self, _: &A, _: Footprint) -> Result<(), DispatchError> {
+	fn update(self, _: &A, _: F) -> Result<(), DispatchError> {
 		Ok(())
 	}
 	fn drop(self, _: &A) -> Result<(), DispatchError> {
 		Ok(())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &A, _: F) {}
+}
+
+#[cfg(feature = "experimental")]
+/// An extension of the [`Consideration`] trait that allows for the management of tickets that may
+/// represent no cost. While the [`MaybeConsideration`] still requires proper handling, it
+/// introduces the ability to determine if a ticket represents no cost and can be safely forgotten
+/// without any side effects.
+pub trait MaybeConsideration<AccountId, Footprint>: Consideration<AccountId, Footprint> {
+	/// Returns `true` if this [`Consideration`] represents a no-cost ticket and can be forgotten
+	/// without any side effects.
+	fn is_none(&self) -> bool;
+}
+
+#[cfg(feature = "experimental")]
+impl<A, F> MaybeConsideration<A, F> for () {
+	fn is_none(&self) -> bool {
+		true
 	}
 }
 
@@ -259,7 +317,8 @@ impl_incrementable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::ConstU64;
+	use crate::BoundedVec;
+	use sp_core::{ConstU32, ConstU64};
 
 	#[test]
 	fn linear_storage_price_works() {
@@ -275,5 +334,18 @@ mod tests {
 		assert_eq!(p(1, 8), 31);
 
 		assert_eq!(p(u64::MAX, u64::MAX), u64::MAX);
+	}
+
+	#[test]
+	fn footprint_from_mel_works() {
+		let footprint = Footprint::from_mel::<(u8, BoundedVec<u8, ConstU32<9>>)>();
+		let expected_size = BoundedVec::<u8, ConstU32<9>>::max_encoded_len() as u64;
+		assert_eq!(expected_size, 10);
+		assert_eq!(footprint, Footprint { count: 1, size: expected_size + 1 });
+
+		let footprint = Footprint::from_mel::<(u8, BoundedVec<u8, ConstU32<999>>)>();
+		let expected_size = BoundedVec::<u8, ConstU32<999>>::max_encoded_len() as u64;
+		assert_eq!(expected_size, 1001);
+		assert_eq!(footprint, Footprint { count: 1, size: expected_size + 1 });
 	}
 }

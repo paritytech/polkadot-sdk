@@ -1,0 +1,10 @@
+title: Withdraw Assets Before Checking Out in OnReapIdentity impl
+
+author: joepetrowski
+topic: xcm
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

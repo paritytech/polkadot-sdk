@@ -1,26 +1,62 @@
 [package]
 name = "substrate-wasm-builder"
-version = "5.0.0-dev"
+version = "17.0.0"
 authors.workspace = true
 description = "Utility for building WASM binaries"
 edition.workspace = true
-readme = "README.md"
 repository.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-ansi_term = "0.12.1"
-build-helper = "0.1.1"
-cargo_metadata = "0.15.4"
-strum = { version = "0.24.1", features = ["derive"] }
-tempfile = "3.1.0"
-toml = "0.7.3"
-walkdir = "2.3.2"
-sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
-filetime = "0.2.16"
-wasm-opt = "0.114"
-parity-wasm = "0.45"
+build-helper = { workspace = true }
+cargo_metadata = { workspace = true }
+console = { workspace = true }
+strum = { features = ["derive"], workspace = true, default-features = true }
+tempfile = { workspace = true }
+toml = { workspace = true }
+walkdir = { workspace = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+filetime = { workspace = true }
+wasm-opt = { workspace = true }
+parity-wasm = { workspace = true }
+polkavm-linker = { workspace = true }
+jobserver = { workspace = true }
+
+# Dependencies required for the `metadata-hash` feature.
+merkleized-metadata = { optional = true, workspace = true }
+sc-executor = { optional = true, workspace = true, default-features = true }
+sp-core = { optional = true, workspace = true, default-features = true }
+sp-io = { optional = true, workspace = true, default-features = true }
+sp-version = { optional = true, workspace = true, default-features = true }
+frame-metadata = { features = ["current", "unstable"], optional = true, workspace = true, default-features = true }
+codec = { optional = true, workspace = true, default-features = true }
+array-bytes = { optional = true, workspace = true, default-features = true }
+sp-tracing = { optional = true, workspace = true, default-features = true }
+shlex = { workspace = true }
+
+[features]
+# Enable support for generating the metadata hash.
+#
+# To generate the metadata hash the runtime is build once, executed to build the metadata and then
+# build a second time with the `RUNTIME_METADATA_HASH` environment variable set. The environment
+# variable then contains the hash and can be used inside the runtime.
+#
+# This pulls in quite a lot of dependencies and thus, is disabled by default.
+metadata-hash = [
+	"array-bytes",
+	"codec",
+	"frame-metadata",
+	"merkleized-metadata",
+	"sc-executor",
+	"sp-core",
+	"sp-io",
+	"sp-tracing",
+	"sp-version",
+]

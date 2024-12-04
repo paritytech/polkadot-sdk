@@ -89,7 +89,7 @@ struct RuntimeInterfaceFunctionSet {
 impl RuntimeInterfaceFunctionSet {
 	fn new(version: VersionAttribute, trait_item: &TraitItemFn) -> Result<Self> {
 		Ok(Self {
-			latest_version_to_call: version.is_callable().then(|| version.version),
+			latest_version_to_call: version.is_callable().then_some(version.version),
 			versions: BTreeMap::from([(
 				version.version,
 				RuntimeInterfaceFunction::new(trait_item)?,

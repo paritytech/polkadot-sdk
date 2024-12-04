@@ -1,0 +1,44 @@
+title: "runtimes: presets are provided as config patches"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces usage of build_struct_json_patch macro in all
+      runtimes (also guides) within the code base.  It also fixes macro to support
+      field init shorthand, and Struct Update syntax which were missing in original
+      implementation.
+
+crates:
+  - name: frame-support
+    bump: major
+
+  - name: westend-runtime
+    bump: patch
+
+  - name: rococo-runtime
+    bump: patch
+
+  - name: asset-hub-westend-runtime
+    bump: patch
+
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+
+  - name: bridge-hub-westend-runtime
+    bump: patch
+
+  - name: collectives-westend-runtime
+    bump: patch
+
+  - name: minimal-template-runtime
+    bump: patch
+
+  - name: solochain-template-runtime
+    bump: patch
+
+  - name: parachain-template-runtime
+    bump: patch
+  
+  - name: polkadot-sdk-docs-first-runtime
+    bump: patch
+
