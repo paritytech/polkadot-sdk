@@ -886,6 +886,7 @@ pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
 
 		quote::quote!(
 			#frame_support::try_runtime_enabled! {
+				#[allow(deprecated)]
 				impl<#type_impl_gen> #frame_support::traits::TryDecodeEntireStorage
 				for #pallet_ident<#type_use_gen> #completed_where_clause
 				{
