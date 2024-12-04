@@ -78,10 +78,6 @@ pub struct Configuration {
 	pub blocks_pruning: BlocksPruning,
 	/// Chain configuration.
 	pub chain_spec: Box<dyn ChainSpec>,
-	/// Directory where local WASM precompiled artifacts live. These wasm modules
-	/// take precedence over runtimes when the spec and wasm config matches. Set to `None` to
-	/// disable (default).
-	pub wasmtime_precompiled: Option<PathBuf>,
 	/// Runtime executor configuration.
 	pub executor: ExecutorConfiguration,
 	/// Directory where local WASM runtimes live. These runtimes take precedence
@@ -332,6 +328,10 @@ pub struct RpcConfiguration {
 pub struct ExecutorConfiguration {
 	/// Wasm execution method.
 	pub wasm_method: WasmExecutionMethod,
+	/// Directory where local WASM precompiled artifacts live. These wasm modules
+	/// take precedence over runtimes when the spec and wasm config matches. Set to `None` to
+	/// disable (default).
+	pub wasmtime_precompiled: Option<PathBuf>,
 	/// The size of the instances cache.
 	///
 	/// The default value is 8.
@@ -346,6 +346,7 @@ impl Default for ExecutorConfiguration {
 	fn default() -> Self {
 		Self {
 			wasm_method: WasmExecutionMethod::default(),
+			wasmtime_precompiled: None,
 			max_runtime_instances: 8,
 			default_heap_pages: None,
 			runtime_cache_size: 2,

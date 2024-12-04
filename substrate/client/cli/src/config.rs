@@ -537,9 +537,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
-			wasmtime_precompiled: self.wasmtime_precompiled(),
 			executor: ExecutorConfiguration {
 				wasm_method: self.wasm_method()?,
+				wasmtime_precompiled: self.wasmtime_precompiled(),
 				default_heap_pages: self.default_heap_pages()?,
 				max_runtime_instances,
 				runtime_cache_size,
