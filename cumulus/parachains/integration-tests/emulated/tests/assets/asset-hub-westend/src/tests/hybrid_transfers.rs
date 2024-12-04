@@ -970,7 +970,7 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 		// xcm to be executed at dest
 		let xcm_on_dest = Xcm(vec![
 			// since this is the last hop, we don't need to further use any assets previously
-			// reserved for fees (there are no further hops to cover transport fees for); we
+			// reserved for fees (there are no further hops to cover delivery fees for); we
 			// RefundSurplus to get back any unspent fees
 			RefundSurplus,
 			DepositAsset { assets: Wild(All), beneficiary: t.args.beneficiary },
@@ -1006,7 +1006,7 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 		// xcm to be executed at dest
 		let xcm_on_dest = Xcm(vec![
 			// since this is the last hop, we don't need to further use any assets previously
-			// reserved for fees (there are no further hops to cover transport fees for); we
+			// reserved for fees (there are no further hops to cover delivery fees for); we
 			// RefundSurplus to get back any unspent fees
 			RefundSurplus,
 			DepositAsset { assets: Wild(All), beneficiary: t.args.beneficiary },
