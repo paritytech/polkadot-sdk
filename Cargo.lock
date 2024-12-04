@@ -10505,12 +10505,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "litemap"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
-
-[[package]]
 name = "litep2p"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18842,7 +18836,6 @@ dependencies = [
  "pallet-remark 28.0.0",
  "pallet-revive 0.1.0",
  "pallet-revive-eth-rpc",
- "pallet-revive-fixtures 0.1.0",
  "pallet-revive-mock-network 0.1.0",
  "pallet-revive-proc-macro 0.1.0",
  "pallet-revive-uapi 0.1.0",
