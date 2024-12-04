@@ -20,7 +20,12 @@
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use frame_benchmarking::v2::*;
-use frame_support::{dispatch::DispatchClass, storage, traits::Get};
+use frame_support::{
+	dispatch::DispatchClass,
+	pallet_prelude::{Authorize, TransactionSource},
+	storage,
+	traits::Get,
+};
 use frame_system::{Call, Pallet as System, RawOrigin};
 use sp_core::storage::well_known_keys;
 use sp_runtime::traits::Hash;
@@ -238,7 +243,6 @@ mod benchmarks {
 
 		#[block]
 		{
-			use frame_support::pallet_prelude::Authorize;
 			call.authorize(TransactionSource::External)
 				.ok_or("Call must give some authorization")??;
 		}
