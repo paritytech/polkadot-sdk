@@ -679,14 +679,16 @@ pub mod pallet {
 
 			let item = (reg_index, Judgement::FeePaid(registrar.fee));
 			match id.judgements.binary_search_by_key(&reg_index, |x| x.0) {
-				Ok(i) =>
+				Ok(i) => {
 					if id.judgements[i].1.is_sticky() {
-						return Err(Error::<T>::StickyJudgement.into())
+						return Err(Error::<T>::StickyJudgement.into());
 					} else {
 						id.judgements[i] = item
-					},
-				Err(i) =>
-					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?,
+					}
+				},
+				Err(i) => {
+					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?
+				},
 			}
 
 			T::Currency::reserve(&sender, registrar.fee)?;
@@ -728,7 +730,7 @@ pub mod pallet {
 			let fee = if let Judgement::FeePaid(fee) = id.judgements.remove(pos).1 {
 				fee
 			} else {
-				return Err(Error::<T>::JudgementGiven.into())
+				return Err(Error::<T>::JudgementGiven.into());
 			};
 
 			let err_amount = T::Currency::unreserve(&sender, fee);
@@ -876,7 +878,7 @@ pub mod pallet {
 			let mut id = IdentityOf::<T>::get(&target).ok_or(Error::<T>::InvalidTarget)?;
 
 			if T::Hashing::hash_of(&id.info) != identity {
-				return Err(Error::<T>::JudgementForDifferentIdentity.into())
+				return Err(Error::<T>::JudgementForDifferentIdentity.into());
 			}
 
 			let item = (reg_index, judgement);
@@ -1487,7 +1489,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		// Happy path, user has signed the raw data.
 		if signature.verify(data, &signer) {
-			return Ok(())
+			return Ok(());
 		}
 		// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into
 		// `<Bytes> + data + </Bytes>`, so why we support both wrapped and raw versions.

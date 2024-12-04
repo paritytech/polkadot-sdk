@@ -168,12 +168,12 @@ where
 	) -> Option<OccupiedEntry<ExtrinsicHash<C>, HashSet<BlockHash<C>>>> {
 		if let Entry::Occupied(views_keeping_tx_valid) = self.ready_transaction_views.entry(tx_hash)
 		{
-			return Some(views_keeping_tx_valid)
+			return Some(views_keeping_tx_valid);
 		}
 		if let Entry::Occupied(views_keeping_tx_valid) =
 			self.future_transaction_views.entry(tx_hash)
 		{
-			return Some(views_keeping_tx_valid)
+			return Some(views_keeping_tx_valid);
 		}
 		None
 	}
@@ -250,17 +250,14 @@ where
 			self.ready_transaction_views.get(&event.0),
 			self.stream_map.keys().collect::<Vec<_>>(),
 		);
+
 		let (tx_hash, status) = event;
+
 		match status {
 			TransactionStatus::Future => {
 				self.future_transaction_views.entry(tx_hash).or_default().insert(block_hash);
 			},
 			TransactionStatus::Ready | TransactionStatus::InBlock(..) => {
-				// note: if future transaction was once seens as the ready we may want to treat it
-				// as ready transactions. Unreferenced future transactions are more likely to be
-				// removed when the last referencing view is removed then ready transactions.
-				// Transcaction seen as ready is likely quite close to be included in some
-				// future fork.
 				if let Some(mut views) = self.future_transaction_views.remove(&tx_hash) {
 					views.insert(block_hash);
 					self.ready_transaction_views.insert(tx_hash, views);
@@ -269,20 +266,27 @@ where
 				}
 			},
 			TransactionStatus::Dropped => {
+				// Extract the borrow of stream_map into a local variable to avoid overlapping borrows
+				let stream_map_keys: HashSet<_> = self.stream_map.keys().cloned().collect();
+
 				if let Some(mut views_keeping_tx_valid) = self.transaction_views(tx_hash) {
-					views_keeping_tx_valid.get_mut().remove(&block_hash);
-					if views_keeping_tx_valid.get().is_empty() {
-						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
+					// Collect keys into a vector before mutating anything
+					let keys: Vec<_> = views_keeping_tx_valid.get().iter().cloned().collect();
+
+					// Use the local variable for checks
+					let all_keys_valid = keys.iter().all(|h| !stream_map_keys.contains(h));
+
+					if all_keys_valid {
+						views_keeping_tx_valid.get_mut().clear();
 					}
-				} else {
-					debug!("[{:?}] dropped_watcher: removing (non-tracked) tx", tx_hash);
-					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
 				}
 			},
-			TransactionStatus::Usurped(by) =>
-				return Some(DroppedTransaction::new_usurped(tx_hash, by)),
+			TransactionStatus::Usurped(by) => {
+				return Some(DroppedTransaction::new_usurped(tx_hash, by));
+			},
 			_ => {},
-		};
+		}
+
 		None
 	}
 
@@ -292,13 +296,13 @@ where
 			// never drop transaction that was seen as ready. It may not have a referencing
 			// view now, but such fork can appear.
 			if self.ready_transaction_views.get(&tx_hash).is_some() {
-				continue
+				continue;
 			}
 
 			if let Some(views) = self.future_transaction_views.get(&tx_hash) {
 				if views.is_empty() {
 					self.future_transaction_views.remove(&tx_hash);
-					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
+					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash));
 				}
 			}
 		}

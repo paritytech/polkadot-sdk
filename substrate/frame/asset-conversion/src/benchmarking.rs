@@ -127,10 +127,10 @@ fn mint_setup_fee_asset<T: Config>(
 	assert_ok!(T::Assets::mint_into(
 		T::PoolSetupFeeAsset::get(),
 		&caller,
-		T::PoolSetupFee::get() +
-			T::Assets::deposit_required(asset1.clone()) +
-			T::Assets::deposit_required(asset2.clone()) +
-			T::PoolAssets::deposit_required(lp_token.clone())
+		T::PoolSetupFee::get()
+			+ T::Assets::deposit_required(asset1.clone())
+			+ T::Assets::deposit_required(asset2.clone())
+			+ T::PoolAssets::deposit_required(lp_token.clone())
 	));
 }
 
@@ -387,18 +387,18 @@ mod benchmarks {
 			Box::new(asset2.clone())
 		));
 
-		if n > 0 &&
-			<T as Config>::Assets::deposit_held(asset1.clone(), pool_account.clone()).is_some()
+		if n > 0
+			&& <T as Config>::Assets::deposit_held(asset1.clone(), pool_account.clone()).is_some()
 		{
 			let _ = <T as Config>::Assets::refund(asset1.clone(), pool_account.clone());
 		}
-		if n > 1 &&
-			<T as Config>::Assets::deposit_held(asset2.clone(), pool_account.clone()).is_some()
+		if n > 1
+			&& <T as Config>::Assets::deposit_held(asset2.clone(), pool_account.clone()).is_some()
 		{
 			let _ = <T as Config>::Assets::refund(asset2.clone(), pool_account.clone());
 		}
-		if n > 2 &&
-			<T as Config>::PoolAssets::deposit_held(lp_token.clone(), pool_account.clone())
+		if n > 2
+			&& <T as Config>::PoolAssets::deposit_held(lp_token.clone(), pool_account.clone())
 				.is_some()
 		{
 			let _ = <T as Config>::PoolAssets::refund(lp_token, pool_account);

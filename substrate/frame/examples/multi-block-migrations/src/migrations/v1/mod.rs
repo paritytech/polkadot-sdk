@@ -118,7 +118,7 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 				cursor = Some(last_key) // Return the processed key as the new cursor.
 			} else {
 				cursor = None; // Signal that the migration is complete (no more items to process).
-				break
+				break;
 			}
 		}
 		Ok(cursor)

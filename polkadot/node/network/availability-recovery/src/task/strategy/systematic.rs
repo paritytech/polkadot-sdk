@@ -104,8 +104,8 @@ impl FetchSystematicChunks {
 		let chunks = state
 			.received_chunks
 			.range(
-				ChunkIndex(0)..
-					ChunkIndex(
+				ChunkIndex(0)
+					..ChunkIndex(
 						u32::try_from(self.threshold)
 							.expect("validator count should not exceed u32"),
 					),
@@ -131,7 +131,7 @@ impl FetchSystematicChunks {
 					.inspect(|_| {
 						gum::trace!(
 							target: LOG_TARGET,
-							candidate_hash = ?common_params.candidate_hash,
+							candidate_hash = ?common_params.candidate_hash.0,
 							erasure_root = ?common_params.erasure_root,
 							"Data recovery from systematic chunks complete",
 						);
@@ -143,7 +143,7 @@ impl FetchSystematicChunks {
 
 				gum::debug!(
 					target: LOG_TARGET,
-					candidate_hash = ?common_params.candidate_hash,
+					candidate_hash = ?common_params.candidate_hash.0,
 					erasure_root = ?common_params.erasure_root,
 					?err,
 					"Systematic data recovery error",
@@ -180,12 +180,12 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			for (_, our_c_index) in &local_chunk_indices {
 				// If we are among the systematic validators but hold an invalid chunk, we cannot
 				// perform the systematic recovery. Fall through to the next strategy.
-				if self.validators.iter().any(|(c_index, _)| c_index == our_c_index) &&
-					!state.received_chunks.contains_key(our_c_index)
+				if self.validators.iter().any(|(c_index, _)| c_index == our_c_index)
+					&& !state.received_chunks.contains_key(our_c_index)
 				{
 					gum::debug!(
 						target: LOG_TARGET,
-						candidate_hash = ?common_params.candidate_hash,
+						candidate_hash = ?common_params.candidate_hash.0,
 						erasure_root = ?common_params.erasure_root,
 						requesting = %self.requesting_chunks.len(),
 						total_requesting = %self.requesting_chunks.total_len(),
@@ -193,7 +193,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 						chunk_index = ?our_c_index,
 						"Systematic chunk recovery is not possible. We are among the systematic validators but hold an invalid chunk",
 					);
-					return Err(RecoveryError::Unavailable)
+					return Err(RecoveryError::Unavailable);
 				}
 			}
 		}
@@ -201,8 +201,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 		// No need to query the validators that have the chunks we already received or that we know
 		// don't have the data from previous strategies.
 		self.validators.retain(|(c_index, v_index)| {
-			!state.received_chunks.contains_key(c_index) &&
-				state.can_retry_request(
+			!state.received_chunks.contains_key(c_index)
+				&& state.can_retry_request(
 					&(common_params.validator_authority_keys[v_index.0 as usize].clone(), *v_index),
 					SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT,
 				)
@@ -235,7 +235,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			// If received_chunks has `systematic_chunk_threshold` entries, attempt to recover the
 			// data.
 			if systematic_chunk_count >= self.threshold {
-				return self.attempt_systematic_recovery::<Sender>(state, common_params).await
+				return self.attempt_systematic_recovery::<Sender>(state, common_params).await;
 			}
 
 			if Self::is_unavailable(
@@ -246,7 +246,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			) {
 				gum::debug!(
 					target: LOG_TARGET,
-					candidate_hash = ?common_params.candidate_hash,
+					candidate_hash = ?common_params.candidate_hash.0,
 					erasure_root = ?common_params.erasure_root,
 					%systematic_chunk_count,
 					requesting = %self.requesting_chunks.len(),
@@ -256,7 +256,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					"Data recovery from systematic chunks is not possible",
 				);
 
-				return Err(RecoveryError::Unavailable)
+				return Err(RecoveryError::Unavailable);
 			}
 
 			let desired_requests_count =
@@ -264,7 +264,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			let already_requesting_count = self.requesting_chunks.len();
 			gum::debug!(
 				target: LOG_TARGET,
-				?common_params.candidate_hash,
+				canddate_hash = ?common_params.candidate_hash.0,
 				?desired_requests_count,
 				total_received = ?systematic_chunk_count,
 				systematic_threshold = ?self.threshold,

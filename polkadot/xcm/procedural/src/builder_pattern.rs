@@ -357,11 +357,12 @@ fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<To
 	let docs = get_doc_comments(unpaid_execution_variant);
 	let fields = match &unpaid_execution_variant.fields {
 		Fields::Named(fields) => fields,
-		_ =>
+		_ => {
 			return Err(Error::new_spanned(
 				unpaid_execution_variant,
 				"UnpaidExecution should have named fields",
-			)),
+			))
+		},
 	};
 	let arg_names: Vec<_> = fields.named.iter().map(|field| &field.ident).collect();
 	let arg_types: Vec<_> = fields.named.iter().map(|field| &field.ty).collect();

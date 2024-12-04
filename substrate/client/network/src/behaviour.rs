@@ -335,10 +335,12 @@ impl From<CustomMessageOutcome> for BehaviourOut {
 				set_id,
 				notifications_sink,
 			} => BehaviourOut::NotificationStreamReplaced { remote, set_id, notifications_sink },
-			CustomMessageOutcome::NotificationStreamClosed { remote, set_id } =>
-				BehaviourOut::NotificationStreamClosed { remote, set_id },
-			CustomMessageOutcome::NotificationsReceived { remote, set_id, notification } =>
-				BehaviourOut::NotificationsReceived { remote, set_id, notification },
+			CustomMessageOutcome::NotificationStreamClosed { remote, set_id } => {
+				BehaviourOut::NotificationStreamClosed { remote, set_id }
+			},
+			CustomMessageOutcome::NotificationsReceived { remote, set_id, notification } => {
+				BehaviourOut::NotificationsReceived { remote, set_id, notification }
+			},
 		}
 	}
 }
@@ -346,12 +348,15 @@ impl From<CustomMessageOutcome> for BehaviourOut {
 impl From<request_responses::Event> for BehaviourOut {
 	fn from(event: request_responses::Event) -> Self {
 		match event {
-			request_responses::Event::InboundRequest { protocol, result, .. } =>
-				BehaviourOut::InboundRequest { protocol, result },
-			request_responses::Event::RequestFinished { protocol, duration, result, .. } =>
-				BehaviourOut::RequestFinished { protocol, duration, result },
-			request_responses::Event::ReputationChanges { peer, changes } =>
-				BehaviourOut::ReputationChanges { peer, changes },
+			request_responses::Event::InboundRequest { protocol, result, .. } => {
+				BehaviourOut::InboundRequest { protocol, result }
+			},
+			request_responses::Event::RequestFinished { protocol, duration, result, .. } => {
+				BehaviourOut::RequestFinished { protocol, duration, result }
+			},
+			request_responses::Event::ReputationChanges { peer, changes } => {
+				BehaviourOut::ReputationChanges { peer, changes }
+			},
 		}
 	}
 }
@@ -374,19 +379,24 @@ impl From<DiscoveryOut> for BehaviourOut {
 				BehaviourOut::None
 			},
 			DiscoveryOut::Discovered(peer_id) => BehaviourOut::Discovered(peer_id),
-			DiscoveryOut::ValueFound(results, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValueFound(results.into()), Some(duration)),
-			DiscoveryOut::ValueNotFound(key, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValueNotFound(key.into()), Some(duration)),
-			DiscoveryOut::ValuePut(key, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValuePut(key.into()), Some(duration)),
-			DiscoveryOut::PutRecordRequest(record_key, record_value, publisher, expires) =>
+			DiscoveryOut::ValueFound(results, duration) => {
+				BehaviourOut::Dht(DhtEvent::ValueFound(results.into()), Some(duration))
+			},
+			DiscoveryOut::ValueNotFound(key, duration) => {
+				BehaviourOut::Dht(DhtEvent::ValueNotFound(key.into()), Some(duration))
+			},
+			DiscoveryOut::ValuePut(key, duration) => {
+				BehaviourOut::Dht(DhtEvent::ValuePut(key.into()), Some(duration))
+			},
+			DiscoveryOut::PutRecordRequest(record_key, record_value, publisher, expires) => {
 				BehaviourOut::Dht(
 					DhtEvent::PutRecordRequest(record_key.into(), record_value, publisher, expires),
 					None,
-				),
-			DiscoveryOut::ValuePutFailed(key, duration) =>
-				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key.into()), Some(duration)),
+				)
+			},
+			DiscoveryOut::ValuePutFailed(key, duration) => {
+				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key.into()), Some(duration))
+			},
 			DiscoveryOut::RandomKademliaStarted => BehaviourOut::RandomKademliaStarted,
 		}
 	}

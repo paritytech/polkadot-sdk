@@ -54,12 +54,12 @@ pub fn check_env_vars_were_cleared(worker_info: &WorkerInfo) -> bool {
 		// randomness for malicious code. It should be removed in the job process, which does no
 		// logging.
 		if key == "RUST_LOG" {
-			continue
+			continue;
 		}
 		// An exception for MacOS. This is not a secure platform anyway, so we let it slide.
 		#[cfg(target_os = "macos")]
 		if key == "__CF_USER_TEXT_ENCODING" {
-			continue
+			continue;
 		}
 
 		gum::error!(

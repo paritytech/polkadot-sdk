@@ -21,14 +21,14 @@
 //! 	pub type Something<T> = StorageValue<_, NewType>;
 //! }
 //! ```
-//! 
+//!
 //! This raises a number of compiler errors, like:
 //! ```text
 //! the trait `MaxEncodedLen` is not implemented for `NewType`, which is required by
 //! `frame::prelude::StorageValue<_GeneratedPrefixForStorageSomething<T>, NewType>:
 //! StorageInfoTrait`
 //! ```
-//! 
+//!
 //! This implies the following set of traits that need to be derived for a type to be stored in
 //! `frame` storage:
 //! ```rust
@@ -46,7 +46,7 @@
 //! 	pub type Something<T> = StorageValue<_, NewType>;
 //! }
 //! ```
-//! 
+//!
 //! Next, let's look at how this will differ if we are to store a type that is derived from `T` in
 //! storage, such as [`frame::prelude::BlockNumberFor`]:
 //! ```compile_fail
@@ -64,14 +64,14 @@
 //! 	pub type Something<T: Config> = StorageValue<_, NewType<T>>;
 //! }
 //! ```
-//! 
+//!
 //! Surprisingly, this will also raise a number of errors, like:
 //! ```text
 //! the trait `TypeInfo` is not implemented for `T`, which is required
 //! by`frame_support::pallet_prelude::StorageValue<pallet_2::_GeneratedPrefixForStorageSomething<T>,
 //! pallet_2::NewType<T>>:StorageEntryMetadataBuilder
 //! ```
-//! 
+//!
 //! Why is that? The underlying reason is that the `TypeInfo` `derive` macro will only work for
 //! `NewType` if all of `NewType`'s generics also implement `TypeInfo`. This is not the case for `T`
 //! in the example above.
@@ -99,7 +99,7 @@
 //! 	pub type Something<T: Config> = StorageValue<_, NewType<T>>;
 //! }
 //! ```
-//! 
+//!
 //! Next, let's say we wish to store `NewType` as [`frame::prelude::ValueQuery`], which means it
 //! must also implement `Default`. This should be as simple as adding `derive(Default)` to it,
 //! right?
@@ -119,7 +119,7 @@
 //! 	pub type Something<T: Config> = StorageValue<_, NewType<T>, ValueQuery>;
 //! }
 //! ```
-//! 
+//!
 //! Under the hood, the expansion of the `derive(Default)` will suffer from the same restriction as
 //! before: it will only work if `T: Default`, and `T` is not `Default`. Note that this is an
 //! expected issue: `T` is merely a wrapper of many other types, such as `BlockNumberFor<T>`.
@@ -163,7 +163,7 @@
 //! 	pub type Something<T: Config> = StorageValue<_, NewType<T>, ValueQuery>;
 //! }
 //! ```
-//! 
+//!
 //! Finally, if a custom type that is provided through `Config` is to be stored in the storage, it
 //! is subject to the same trait requirements. The following does not work:
 //! ```compile_fail
@@ -180,7 +180,7 @@
 //! 	pub type Something<T: Config> = StorageValue<_, T::CustomType>;
 //! }
 //! ```
-//! 
+//!
 //! But adding the right trait bounds will fix it.
 //! ```rust
 //! #[frame::pallet]

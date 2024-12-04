@@ -243,7 +243,7 @@ where
 		// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
 		// obsolete and also the underlying issue will be fixed.
 		if self.last_slot_processed.fetch_max(*info.slot, Ordering::Relaxed) >= *info.slot {
-			return None
+			return None;
 		}
 
 		let res = self.aura_worker.lock().await.on_slot(info).await?;

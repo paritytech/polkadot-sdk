@@ -59,7 +59,7 @@ impl<T> Spinlock<T> {
 				.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
 				.is_ok()
 			{
-				return SpinlockGuard { lock: self }
+				return SpinlockGuard { lock: self };
 			}
 			// We failed to acquire the lock; wait until it's unlocked.
 			//

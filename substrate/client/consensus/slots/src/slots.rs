@@ -156,7 +156,7 @@ where
 						e,
 					);
 					// Let's retry at the next slot.
-					continue
+					continue;
 				},
 			};
 
@@ -173,7 +173,7 @@ where
 						e,
 					);
 					// Let's retry at the next slot.
-					continue
+					continue;
 				},
 			};
 
@@ -189,7 +189,7 @@ where
 					self.slot_duration,
 					chain_head,
 					None,
-				)
+				);
 			}
 		}
 	}

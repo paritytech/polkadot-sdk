@@ -71,7 +71,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						.candidate_hashes
 						.get(&candidate_hash)
 						.expect("candidate was generated previously; qed");
-					gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+					gum::warn!(target: LOG_TARGET, candidate_hash = ?candidate_hash.0, candidate_index, "Candidate mapped to index");
 
 					let candidate_chunks = self.chunks.get(*candidate_index).unwrap();
 					let chunk_indices = self
@@ -103,7 +103,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						.candidate_hashes
 						.get(&candidate_hash)
 						.expect("candidate was generated previously; qed");
-					gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+					gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash.0, candidate_index, "Candidate mapped to index");
 
 					let available_data = self.available_data.get(*candidate_index).unwrap().clone();
 
@@ -159,7 +159,7 @@ impl MockAvailabilityStore {
 			.candidate_hashes
 			.get(&candidate_hash)
 			.expect("candidate was generated previously; qed");
-		gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+		gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash.0, candidate_index, "Candidate mapped to index");
 
 		let n_validators = self.state.chunks[0].len();
 		let candidate_chunks = self.state.chunks.get(*candidate_index).unwrap();
@@ -204,20 +204,21 @@ impl MockAvailabilityStore {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) =>
+				orchestra::FromOrchestra::Signal(signal) => {
 					if signal == OverseerSignal::Conclude {
-						return
-					},
+						return;
+					}
+				},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					AvailabilityStoreMessage::QueryAvailableData(candidate_hash, tx) => {
-						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAvailableData");
+						gum::debug!(target: LOG_TARGET, candidate_hash = candidate_hash = ?candidate_hash.0, "Responding to QueryAvailableData");
 
 						// We never have the full available data.
 						let _ = tx.send(None);
 					},
 					AvailabilityStoreMessage::QueryAllChunks(candidate_hash, tx) => {
 						// We always have our own chunk.
-						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAllChunks");
+						gum::debug!(target: LOG_TARGET, candidate_hash = candidate_hash = ?candidate_hash.0, "Responding to QueryAllChunks");
 						self.respond_to_query_all_request(
 							candidate_hash,
 							|index| index == 0.into(),
@@ -226,14 +227,14 @@ impl MockAvailabilityStore {
 						.await;
 					},
 					AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx) => {
-						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryChunkSize");
+						gum::debug!(target: LOG_TARGET, candidate_hash = candidate_hash = ?candidate_hash.0, "Responding to QueryChunkSize");
 
 						let candidate_index = self
 							.state
 							.candidate_hashes
 							.get(&candidate_hash)
 							.expect("candidate was generated previously; qed");
-						gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash.0, candidate_index, "Candidate mapped to index");
 
 						let chunk_size = self
 							.state
@@ -255,7 +256,7 @@ impl MockAvailabilityStore {
 							target: LOG_TARGET,
 							chunk_index = ?chunk.index,
 							validator_index = ?validator_index,
-							candidate_hash = ?candidate_hash,
+							candidate_hash = candidate_hash = ?candidate_hash.0,
 							"Responding to StoreChunk"
 						);
 						let _ = tx.send(Ok(()));

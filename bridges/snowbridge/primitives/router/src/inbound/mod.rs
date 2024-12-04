@@ -189,10 +189,12 @@ where
 		use Command::*;
 		use VersionedMessage::*;
 		match message {
-			V1(MessageV1 { chain_id, command: RegisterToken { token, fee } }) =>
-				Ok(Self::convert_register_token(message_id, chain_id, token, fee)),
-			V1(MessageV1 { chain_id, command: SendToken { token, destination, amount, fee } }) =>
-				Ok(Self::convert_send_token(message_id, chain_id, token, destination, amount, fee)),
+			V1(MessageV1 { chain_id, command: RegisterToken { token, fee } }) => {
+				Ok(Self::convert_register_token(message_id, chain_id, token, fee))
+			},
+			V1(MessageV1 { chain_id, command: SendToken { token, destination, amount, fee } }) => {
+				Ok(Self::convert_send_token(message_id, chain_id, token, destination, amount, fee))
+			},
 			V1(MessageV1 {
 				chain_id,
 				command: SendNativeToken { token_id, destination, amount, fee },
@@ -313,8 +315,9 @@ where
 
 		let (dest_para_id, beneficiary, dest_para_fee) = match destination {
 			// Final destination is a 32-byte account on AssetHub
-			Destination::AccountId32 { id } =>
-				(None, Location::new(0, [AccountId32 { network: None, id }]), 0),
+			Destination::AccountId32 { id } => {
+				(None, Location::new(0, [AccountId32 { network: None, id }]), 0)
+			},
 			// Final destination is a 32-byte account on a sibling of AssetHub
 			Destination::ForeignAccountId32 { para_id, id, fee } => (
 				Some(para_id),
@@ -414,8 +417,9 @@ where
 
 		let beneficiary = match destination {
 			// Final destination is a 32-byte account on AssetHub
-			Destination::AccountId32 { id } =>
-				Ok(Location::new(0, [AccountId32 { network: None, id }])),
+			Destination::AccountId32 { id } => {
+				Ok(Location::new(0, [AccountId32 { network: None, id }]))
+			},
 			// Forwarding to a destination parachain is not allowed for PNA and is validated on the
 			// Ethereum side. https://github.com/Snowfork/snowbridge/blob/e87ddb2215b513455c844463a25323bb9c01ff36/contracts/src/Assets.sol#L216-L224
 			_ => Err(ConvertMessageError::InvalidDestination),
@@ -461,10 +465,12 @@ where
 {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(2, [GlobalConsensus(Ethereum { chain_id })]) =>
-				Some(Self::from_chain_id(chain_id).into()),
-			(2, [GlobalConsensus(Ethereum { chain_id }), AccountKey20 { network: _, key }]) =>
-				Some(Self::from_chain_id_with_key(chain_id, *key).into()),
+			(2, [GlobalConsensus(Ethereum { chain_id })]) => {
+				Some(Self::from_chain_id(chain_id).into())
+			},
+			(2, [GlobalConsensus(Ethereum { chain_id }), AccountKey20 { network: _, key }]) => {
+				Some(Self::from_chain_id_with_key(chain_id, *key).into())
+			},
 			_ => None,
 		}
 	}

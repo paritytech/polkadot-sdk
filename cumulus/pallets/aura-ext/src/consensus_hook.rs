@@ -120,7 +120,7 @@ impl<
 
 		// can never author when the unincluded segment is full.
 		if size_after_included >= C {
-			return false
+			return false;
 		}
 
 		// TODO: This logic needs to be adjusted.

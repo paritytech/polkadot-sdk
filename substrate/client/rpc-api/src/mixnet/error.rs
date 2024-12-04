@@ -36,8 +36,9 @@ impl From<Error> for ErrorObjectOwned {
 			sc_mixnet::Error::Post(PostErr::TooManyFragments) => BASE_ERROR + 101,
 			sc_mixnet::Error::Post(PostErr::SessionMixnodesNotKnown(_)) => BASE_ERROR + 102,
 			sc_mixnet::Error::Post(PostErr::SessionDisabled(_)) => BASE_ERROR + 103,
-			sc_mixnet::Error::Post(PostErr::Topology(TopologyErr::NoConnectedGatewayMixnodes)) =>
-				BASE_ERROR + 151,
+			sc_mixnet::Error::Post(PostErr::Topology(TopologyErr::NoConnectedGatewayMixnodes)) => {
+				BASE_ERROR + 151
+			},
 			sc_mixnet::Error::Post(PostErr::Topology(_)) => BASE_ERROR + 150,
 			sc_mixnet::Error::Post(_) => BASE_ERROR + 100,
 			sc_mixnet::Error::Remote(RemoteErr::Other(_)) => BASE_ERROR + 200,

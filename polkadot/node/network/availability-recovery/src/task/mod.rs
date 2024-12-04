@@ -123,7 +123,7 @@ where
 				Err(oneshot::Canceled) => {
 					gum::warn!(
 						target: LOG_TARGET,
-						candidate_hash = ?self.params.candidate_hash,
+						candidate_hash = ?self.params.candidate_hash.0,
 						"Failed to reach the availability store",
 					)
 				},
@@ -137,7 +137,7 @@ where
 	/// in-order and return whenever the first one recovers the full `AvailableData`.
 	pub async fn run(mut self) -> Result<AvailableData, RecoveryError> {
 		if let Some(data) = self.in_availability_store().await {
-			return Ok(data)
+			return Ok(data);
 		}
 
 		self.params.metrics.on_recovery_started();
@@ -150,7 +150,7 @@ where
 
 			gum::debug!(
 				target: LOG_TARGET,
-				candidate_hash = ?self.params.candidate_hash,
+				candidate_hash = ?self.params.candidate_hash.0,
 				"Starting `{}` strategy",
 				display_name
 			);
@@ -158,27 +158,29 @@ where
 			let res = current_strategy.run(&mut self.state, &mut self.sender, &self.params).await;
 
 			match res {
-				Err(RecoveryError::Unavailable) =>
+				Err(RecoveryError::Unavailable) => {
 					if self.strategies.front().is_some() {
 						gum::debug!(
 							target: LOG_TARGET,
-							candidate_hash = ?self.params.candidate_hash,
+							candidate_hash = ?self.params.candidate_hash.0,
 							"Recovery strategy `{}` did not conclude. Trying the next one.",
 							display_name
 						);
-						continue
-					},
+						continue;
+					}
+				},
 				Err(err) => {
 					match &err {
-						RecoveryError::Invalid =>
-							self.params.metrics.on_recovery_invalid(strategy_type),
+						RecoveryError::Invalid => {
+							self.params.metrics.on_recovery_invalid(strategy_type)
+						},
 						_ => self.params.metrics.on_recovery_failed(strategy_type),
 					}
-					return Err(err)
+					return Err(err);
 				},
 				Ok(data) => {
 					self.params.metrics.on_recovery_succeeded(strategy_type, data.encoded_size());
-					return Ok(data)
+					return Ok(data);
 				},
 			}
 		}
@@ -186,7 +188,7 @@ where
 		// We have no other strategies to try.
 		gum::warn!(
 			target: LOG_TARGET,
-			candidate_hash = ?self.params.candidate_hash,
+			candidate_hash = ?self.params.candidate_hash.0,
 			"Recovery of available data failed.",
 		);
 

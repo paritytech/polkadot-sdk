@@ -43,17 +43,19 @@ fn parse_pallet_doc_value(attr: &Attribute) -> syn::Result<DocMetaValue> {
 /// - `#[doc = include_str!(PATH)]`: Documentation obtained from a path
 fn parse_doc_value(attr: &Attribute) -> syn::Result<Option<DocMetaValue>> {
 	if !attr.path().is_ident(DOC) {
-		return Ok(None)
+		return Ok(None);
 	}
 
 	let meta = attr.meta.require_name_value()?;
 
 	match &meta.value {
 		syn::Expr::Lit(lit) => Ok(Some(DocMetaValue::Lit(lit.lit.clone()))),
-		syn::Expr::Macro(mac) if mac.mac.path.is_ident("include_str") =>
-			Ok(Some(DocMetaValue::Path(mac.mac.parse_body()?))),
-		_ =>
-			Err(syn::Error::new(attr.span(), "Expected `= \"docs\"` or `= include_str!(\"PATH\")`")),
+		syn::Expr::Macro(mac) if mac.mac.path.is_ident("include_str") => {
+			Ok(Some(DocMetaValue::Path(mac.mac.parse_body()?)))
+		},
+		_ => {
+			Err(syn::Error::new(attr.span(), "Expected `= \"docs\"` or `= include_str!(\"PATH\")`"))
+		},
 	}
 }
 
@@ -128,7 +130,7 @@ pub fn expand_documentation(def: &mut Def) -> proc_macro2::TokenStream {
 			pallet_docs.push(def.item.attrs.remove(index));
 			// Do not increment the index, we have just removed the
 			// element from the attributes.
-			continue
+			continue;
 		}
 
 		index += 1;

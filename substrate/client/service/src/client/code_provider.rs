@@ -118,7 +118,7 @@ where
 		let on_chain_version = self.on_chain_runtime_version(&onchain_code, state)?;
 		let code_and_version = if let Some(d) = self.wasm_override.as_ref().as_ref().and_then(|o| {
 			if ignore_overrides {
-				return None
+				return None;
 			}
 
 			o.get(

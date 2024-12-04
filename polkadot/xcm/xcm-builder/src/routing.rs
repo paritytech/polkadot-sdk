@@ -202,7 +202,7 @@ impl<Inner: SendXcm> SendXcm for EnsureDecodableXcm<Inner> {
 					target: "xcm::validate_xcm_nesting",
 					"EnsureDecodableXcm validate_xcm_nesting error for \nversioned_xcm: {versioned_xcm:?}\nbased on xcm: {msg:?}"
 				);
-				return Err(SendError::Transport("EnsureDecodableXcm validate_xcm_nesting error"))
+				return Err(SendError::Transport("EnsureDecodableXcm validate_xcm_nesting error"));
 			}
 		}
 		Inner::validate(destination, message)

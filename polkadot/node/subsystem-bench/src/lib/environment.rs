@@ -344,7 +344,7 @@ impl TestEnvironment {
 
 			gum::debug!(target: LOG_TARGET, metric_name, current_value, "Waiting for metric");
 			if condition(current_value) {
-				break
+				break;
 			}
 			// Check value every 50ms.
 			tokio::time::sleep(std::time::Duration::from_millis(50)).await;

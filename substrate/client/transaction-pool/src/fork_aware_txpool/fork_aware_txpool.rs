@@ -431,7 +431,7 @@ where
 		log::trace!(target: LOG_TARGET, "fatp::ready_at_light {:?}", at);
 
 		let Ok(block_number) = self.api.resolve_block_number(at) else {
-			return Box::new(std::iter::empty())
+			return Box::new(std::iter::empty());
 		};
 
 		let best_result = {
@@ -650,7 +650,7 @@ where
 		let mempool_results = self.mempool.extend_unwatched(source, &xts);
 
 		if view_store.is_empty() {
-			return Ok(mempool_results.into_iter().map(|r| r.map(|r| r.hash)).collect::<Vec<_>>())
+			return Ok(mempool_results.into_iter().map(|r| r.map(|r| r.hash)).collect::<Vec<_>>());
 		}
 
 		let to_be_submitted = mempool_results
@@ -694,8 +694,9 @@ where
 	) -> Result<TxHash<Self>, Self::Error> {
 		log::trace!(target: LOG_TARGET, "[{:?}] fatp::submit_one views:{}", self.tx_hash(&xt), self.active_views_count());
 		match self.submit_at(_at, source, vec![xt]).await {
-			Ok(mut v) =>
-				v.pop().expect("There is exactly one element in result of submit_at. qed."),
+			Ok(mut v) => {
+				v.pop().expect("There is exactly one element in result of submit_at. qed.")
+			},
 			Err(e) => Err(e),
 		}
 	}
@@ -883,7 +884,7 @@ where
 					"Skipping ChainEvent - no last block in tree route {:?}",
 					tree_route,
 				);
-				return
+				return;
 			},
 		};
 
@@ -893,7 +894,7 @@ where
 				"view already exists for block: {:?}",
 				hash_and_number,
 			);
-			return
+			return;
 		}
 
 		let best_view = self.view_store.find_best_view(tree_route);
@@ -996,7 +997,7 @@ where
 		let recent_finalized_block = self.enactment_state.lock().recent_finalized_block();
 
 		let Ok(tree_route) = self.api.tree_route(recent_finalized_block, at) else {
-			return Default::default()
+			return Default::default();
 		};
 
 		let api = self.api.clone();
@@ -1284,10 +1285,11 @@ where
 		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
 			match self.api.tree_route(from, to) {
 				Ok(tree_route) => Ok(tree_route),
-				Err(e) =>
+				Err(e) => {
 					return Err(format!(
 						"Error occurred while computing tree_route from {from:?} to {to:?}: {e}"
-					)),
+					))
+				},
 			}
 		};
 		let block_id_to_number =

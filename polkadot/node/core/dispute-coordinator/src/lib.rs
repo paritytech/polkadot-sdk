@@ -217,7 +217,7 @@ impl DisputeCoordinatorSubsystem {
 				Ok(None) => continue,
 				Err(e) => {
 					e.split()?.log();
-					continue
+					continue;
 				},
 			};
 
@@ -242,7 +242,7 @@ impl DisputeCoordinatorSubsystem {
 				Ok(v) => v,
 				Err(e) => {
 					e.split()?.log();
-					continue
+					continue;
 				},
 			};
 			if !overlay_db.is_empty() {
@@ -263,7 +263,7 @@ impl DisputeCoordinatorSubsystem {
 					gaps_in_cache,
 				),
 				backend,
-			)))
+			)));
 		}
 	}
 
@@ -296,7 +296,7 @@ impl DisputeCoordinatorSubsystem {
 				.flatten(),
 			Err(e) => {
 				gum::error!(target: LOG_TARGET, "Failed initial load of recent disputes: {:?}", e);
-				return Err(e.into())
+				return Err(e.into());
 			},
 		};
 
@@ -322,7 +322,7 @@ impl DisputeCoordinatorSubsystem {
 					"Can't cache SessionInfo during subsystem initialization. Skipping session."
 				);
 				gap_in_cache = true;
-				continue
+				continue;
 			};
 		}
 
@@ -355,7 +355,7 @@ impl DisputeCoordinatorSubsystem {
 						"We are lacking a `SessionInfo` for handling db votes on startup."
 					);
 
-					continue
+					continue;
 				},
 				Some(env) => env,
 			};
@@ -370,7 +370,7 @@ impl DisputeCoordinatorSubsystem {
 							"Failed initial load of candidate votes: {:?}",
 							e
 						);
-						continue
+						continue;
 					},
 				};
 			let vote_state = CandidateVoteState::new(votes, &env, now);
@@ -384,7 +384,7 @@ impl DisputeCoordinatorSubsystem {
 				gum::trace!(
 					target: LOG_TARGET,
 					?session,
-					?candidate_hash,
+					 candidate_hash = ?candidate_hash.0,
 					"Found potential spam dispute on startup"
 				);
 				spam_disputes
@@ -395,7 +395,7 @@ impl DisputeCoordinatorSubsystem {
 					gum::trace!(
 						target: LOG_TARGET,
 						?session,
-						?candidate_hash,
+						 candidate_hash = ?candidate_hash.0,
 						"Found valid dispute, with no vote from us on startup - participating."
 					);
 					let request_timer = self.metrics.time_participation_pipeline();
@@ -414,7 +414,7 @@ impl DisputeCoordinatorSubsystem {
 					gum::trace!(
 						target: LOG_TARGET,
 						?session,
-						?candidate_hash,
+						 candidate_hash = ?candidate_hash.0,
 						"Found valid dispute, with vote from us on startup - send vote."
 					);
 					send_dispute_messages(ctx, &env, &vote_state).await;
@@ -441,7 +441,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<Activa
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(None),
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
 				if let Some(activated) = update.activated {
-					return Ok(Some(activated))
+					return Ok(Some(activated));
 				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_, _)) => {},
@@ -482,7 +482,7 @@ pub fn is_potential_spam(
 
 	gum::trace!(
 		target: LOG_TARGET,
-		?candidate_hash,
+		 candidate_hash = ?candidate_hash.0,
 		?is_disputed,
 		?is_included,
 		?is_backed,
@@ -515,7 +515,7 @@ async fn send_dispute_messages<Context>(
 				session_index = ?env.session_index(),
 				"Could not find our own key in `SessionInfo`"
 			);
-			continue
+			continue;
 		};
 		let our_vote_signed = SignedDisputeStatement::new_checked(
 			kind.clone(),
@@ -531,7 +531,7 @@ async fn send_dispute_messages<Context>(
 					target: LOG_TARGET,
 					"Checking our own signature failed - db corruption?"
 				);
-				continue
+				continue;
 			},
 		};
 		let dispute_message = match make_dispute_message(
@@ -542,7 +542,7 @@ async fn send_dispute_messages<Context>(
 		) {
 			Err(err) => {
 				gum::debug!(target: LOG_TARGET, ?err, "Creating dispute message failed.");
-				continue
+				continue;
 			},
 			Ok(dispute_message) => dispute_message,
 		};

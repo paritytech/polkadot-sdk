@@ -134,7 +134,7 @@ mod roundtrip {
 			quote! {
 				"bar",
 				a = a,
-				candidate_hash = ?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				b = ?Y::default(),
 				c = ?a,
 				"xxx {} {}",
@@ -153,7 +153,7 @@ mod roundtrip {
 			quote! {
 				target: "bar",
 				a = a,
-				candidate_hash = ?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				b = ?Y::default(),
 				c = a,
 				"xxx",
@@ -170,7 +170,7 @@ mod roundtrip {
 			quote! {
 				target: "bar",
 				a = a,
-				candidate_hash = ?candidate_hash,
+				candidate_hash = ?candidate_hash.0,
 				b = ?Y::default(),
 				c = a,
 			},

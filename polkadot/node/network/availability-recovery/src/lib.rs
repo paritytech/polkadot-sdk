@@ -193,7 +193,7 @@ fn reconstructed_data_matches_root(
 				err = ?e,
 				"Failed to obtain chunks",
 			);
-			return false
+			return false;
 		},
 	};
 
@@ -224,7 +224,8 @@ impl Future for RecoveryHandle {
 		for index in indices_to_remove {
 			gum::debug!(
 				target: LOG_TARGET,
-				candidate_hash = ?self.candidate_hash,
+
+				candidate_hash = ?self.candidate_hash.0,
 				"Receiver for available data dropped.",
 			);
 
@@ -234,11 +235,11 @@ impl Future for RecoveryHandle {
 		if self.awaiting.is_empty() {
 			gum::debug!(
 				target: LOG_TARGET,
-				candidate_hash = ?self.candidate_hash,
+				candidate_hash = ?self.candidate_hash.0,
 				"All receivers for available data dropped.",
 			);
 
-			return Poll::Ready(None)
+			return Poll::Ready(None);
 		}
 
 		let remote = &mut self.remote;
@@ -389,14 +390,14 @@ async fn handle_recover<Context>(
 	if let Some(result) =
 		state.availability_lru.get(&candidate_hash).cloned().map(|v| v.into_result())
 	{
-		return response_sender.send(result).map_err(|_| Error::CanceledResponseSender)
+		return response_sender.send(result).map_err(|_| Error::CanceledResponseSender);
 	}
 
 	if let Some(i) =
 		state.ongoing_recoveries.iter_mut().find(|i| i.candidate_hash == candidate_hash)
 	{
 		i.awaiting.push(response_sender);
-		return Ok(())
+		return Ok(());
 	}
 
 	let session_info_res = state
@@ -418,8 +419,8 @@ async fn handle_recover<Context>(
 					let mut small_pov_size = true;
 
 					match recovery_strategy_kind {
-						RecoveryStrategyKind::BackersFirstIfSizeLower(fetch_chunks_threshold) |
-						RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(
+						RecoveryStrategyKind::BackersFirstIfSizeLower(fetch_chunks_threshold)
+						| RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(
 							fetch_chunks_threshold,
 						) => {
 							// Get our own chunk size to get an estimate of the PoV size.
@@ -432,7 +433,7 @@ async fn handle_recover<Context>(
 								if small_pov_size {
 									gum::trace!(
 										target: LOG_TARGET,
-										?candidate_hash,
+										 candidate_hash = ?candidate_hash.0,
 										pov_size_estimate,
 										fetch_chunks_threshold,
 										"Prefer fetch from backing group",
@@ -448,16 +449,17 @@ async fn handle_recover<Context>(
 					};
 
 					match (&recovery_strategy_kind, small_pov_size) {
-						(RecoveryStrategyKind::BackersFirstAlways, _) |
-						(RecoveryStrategyKind::BackersFirstIfSizeLower(_), true) |
-						(
+						(RecoveryStrategyKind::BackersFirstAlways, _)
+						| (RecoveryStrategyKind::BackersFirstIfSizeLower(_), true)
+						| (
 							RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_),
 							true,
-						) |
-						(RecoveryStrategyKind::BackersThenSystematicChunks, _) =>
+						)
+						| (RecoveryStrategyKind::BackersThenSystematicChunks, _) => {
 							recovery_strategies.push_back(Box::new(FetchFull::new(
 								FetchFullParams { validators: backing_validators.to_vec() },
-							))),
+							)))
+						},
 						_ => {},
 					};
 
@@ -479,9 +481,9 @@ async fn handle_recover<Context>(
 			if let Some(core_index) = maybe_core_index {
 				if matches!(
 					recovery_strategy_kind,
-					RecoveryStrategyKind::BackersThenSystematicChunks |
-						RecoveryStrategyKind::SystematicChunks |
-						RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_)
+					RecoveryStrategyKind::BackersThenSystematicChunks
+						| RecoveryStrategyKind::SystematicChunks
+						| RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_)
 				) && chunk_mapping_enabled
 				{
 					let chunk_indices =
@@ -507,8 +509,8 @@ async fn handle_recover<Context>(
 						.into_iter()
 						.filter(|(c_index, _)| {
 							usize::try_from(c_index.0)
-								.expect("usize is at least u32 bytes on all modern targets.") <
-								systematic_threshold
+								.expect("usize is at least u32 bytes on all modern targets.")
+								< systematic_threshold
 						})
 						.collect();
 
@@ -913,7 +915,7 @@ async fn erasure_task_thread(
 					target: LOG_TARGET,
 					"Erasure task channel closed. Node shutting down ?",
 				);
-				break
+				break;
 			},
 		}
 

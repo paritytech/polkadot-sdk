@@ -157,7 +157,7 @@ impl FetchTaskConfig {
 
 		// Don't run tasks for our backing group:
 		if session_info.our_group == Some(core.group_responsible) {
-			return FetchTaskConfig { live_in, prepared_running: None }
+			return FetchTaskConfig { live_in, prepared_running: None };
 		}
 
 		let prepared_running = RunningTask {
@@ -284,11 +284,11 @@ impl RunningTask {
 						"Node seems to be shutting down, canceling fetch task"
 					);
 					self.metrics.on_fetch(FAILED);
-					return
+					return;
 				},
 				Err(TaskError::PeerError) => {
 					bad_validators.push(validator);
-					continue
+					continue;
 				},
 			};
 
@@ -302,24 +302,24 @@ impl RunningTask {
 						group_index = ?self.group_index,
 						session_index = ?self.session_index,
 						chunk_index = ?self.request.index,
-						candidate_hash = ?self.request.candidate_hash,
+						candidate_hash = ?self.request.candidate_hash.0,
 						"Validator did not have our chunk"
 					);
 					bad_validators.push(validator);
-					continue
+					continue;
 				},
 			};
 
 			// Data genuine?
 			if !self.validate_chunk(&validator, &chunk, self.chunk_index) {
 				bad_validators.push(validator);
-				continue
+				continue;
 			}
 
 			// Ok, let's store it and be happy:
 			self.store_chunk(chunk).await;
 			succeeded = true;
-			break
+			break;
 		}
 		if succeeded {
 			self.metrics.on_fetch(SUCCEEDED);
@@ -344,7 +344,7 @@ impl RunningTask {
 			group_index = ?self.group_index,
 			session_index = ?self.session_index,
 			chunk_index = ?self.request.index,
-			candidate_hash = ?self.request.candidate_hash,
+			candidate_hash = ?self.request.candidate_hash.0,
 			"Starting chunk request",
 		);
 
@@ -369,7 +369,7 @@ impl RunningTask {
 
 		match response_recv.await {
 			Ok((bytes, protocol)) => match protocol {
-				_ if protocol == self.req_v2_protocol_name =>
+				_ if protocol == self.req_v2_protocol_name => {
 					match v2::ChunkFetchingResponse::decode(&mut &bytes[..]) {
 						Ok(chunk_response) => Ok(Option::<ErasureChunk>::from(chunk_response)),
 						Err(e) => {
@@ -380,14 +380,15 @@ impl RunningTask {
 								group_index = ?self.group_index,
 								session_index = ?self.session_index,
 								chunk_index = ?self.request.index,
-								candidate_hash = ?self.request.candidate_hash,
+								candidate_hash = ?self.request.candidate_hash.0,
 								err = ?e,
 								"Peer sent us invalid erasure chunk data (v2)"
 							);
 							Err(TaskError::PeerError)
 						},
-					},
-				_ if protocol == self.req_v1_protocol_name =>
+					}
+				},
+				_ if protocol == self.req_v1_protocol_name => {
 					match v1::ChunkFetchingResponse::decode(&mut &bytes[..]) {
 						Ok(chunk_response) => Ok(Option::<ChunkResponse>::from(chunk_response)
 							.map(|c| c.recombine_into_chunk(&self.request.into()))),
@@ -399,13 +400,14 @@ impl RunningTask {
 								group_index = ?self.group_index,
 								session_index = ?self.session_index,
 								chunk_index = ?self.request.index,
-								candidate_hash = ?self.request.candidate_hash,
+								candidate_hash = ?self.request.candidate_hash.0,
 								err = ?e,
 								"Peer sent us invalid erasure chunk data"
 							);
 							Err(TaskError::PeerError)
 						},
-					},
+					}
+				},
 				_ => {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -414,7 +416,7 @@ impl RunningTask {
 						group_index = ?self.group_index,
 						session_index = ?self.session_index,
 						chunk_index = ?self.request.index,
-						candidate_hash = ?self.request.candidate_hash,
+						candidate_hash = ?self.request.candidate_hash.0,
 						"Peer sent us invalid erasure chunk data - unknown protocol"
 					);
 					Err(TaskError::PeerError)
@@ -428,7 +430,7 @@ impl RunningTask {
 					group_index = ?self.group_index,
 					session_index = ?self.session_index,
 					chunk_index = ?self.request.index,
-					candidate_hash = ?self.request.candidate_hash,
+					candidate_hash = ?self.request.candidate_hash.0,
 					err = ?err,
 					"Peer sent us invalid erasure chunk data"
 				);
@@ -444,7 +446,7 @@ impl RunningTask {
 					group_index = ?self.group_index,
 					session_index = ?self.session_index,
 					chunk_index = ?self.request.index,
-					candidate_hash = ?self.request.candidate_hash,
+					candidate_hash = ?self.request.candidate_hash.0,
 					err = ?err,
 					"Some network error occurred when fetching erasure chunk"
 				);
@@ -460,7 +462,7 @@ impl RunningTask {
 					group_index = ?self.group_index,
 					session_index = ?self.session_index,
 					chunk_index = ?self.request.index,
-					candidate_hash = ?self.request.candidate_hash,
+					candidate_hash = ?self.request.candidate_hash.0,
 					"Erasure chunk request got canceled"
 				);
 				Err(TaskError::PeerError)
@@ -477,13 +479,13 @@ impl RunningTask {
 		if chunk.index != expected_chunk_index {
 			gum::warn!(
 				target: LOG_TARGET,
-				candidate_hash = ?self.request.candidate_hash,
+				candidate_hash = ?self.request.candidate_hash.0,
 				origin = ?validator,
 				chunk_index = ?chunk.index,
 				expected_chunk_index = ?expected_chunk_index,
 				"Validator sent the wrong chunk",
 			);
-			return false
+			return false;
 		}
 		let anticipated_hash =
 			match branch_hash(&self.erasure_root, chunk.proof(), chunk.index.0 as usize) {
@@ -491,18 +493,18 @@ impl RunningTask {
 				Err(e) => {
 					gum::warn!(
 						target: LOG_TARGET,
-						candidate_hash = ?self.request.candidate_hash,
+						candidate_hash = ?self.request.candidate_hash.0,
 						origin = ?validator,
 						error = ?e,
 						"Failed to calculate chunk merkle proof",
 					);
-					return false
+					return false;
 				},
 			};
 		let erasure_chunk_hash = BlakeTwo256::hash(&chunk.chunk);
 		if anticipated_hash != erasure_chunk_hash {
 			gum::warn!(target: LOG_TARGET, origin = ?validator,  "Received chunk does not match merkle tree");
-			return false
+			return false;
 		}
 		true
 	}

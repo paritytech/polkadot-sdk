@@ -407,8 +407,9 @@ mod benchmarks {
 			(0, Some(_)) => panic!("StorageRootHash should be None initially"),
 			(0, None) => StorageRootHash::set(Some(root)),
 			(_, Some(r)) if r == root => {},
-			(_, Some(r)) =>
-				panic!("StorageRootHash should be the same every time: {:?} vs {:?}", r, root),
+			(_, Some(r)) => {
+				panic!("StorageRootHash should be the same every time: {:?} vs {:?}", r, root)
+			},
 			(_, None) => panic!("StorageRootHash should be Some after the first iteration"),
 		}
 

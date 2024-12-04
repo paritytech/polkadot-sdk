@@ -293,20 +293,27 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 			Poll::Pending => return Poll::Pending,
 			Poll::Ready(ToSwarm::GenerateEvent(ev)) => ev,
 			Poll::Ready(ToSwarm::Dial { opts }) => return Poll::Ready(ToSwarm::Dial { opts }),
-			Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }) =>
-				return Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }),
-			Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }) =>
-				return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }),
-			Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)) =>
-				return Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)),
-			Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)) =>
-				return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)),
-			Poll::Ready(ToSwarm::ExternalAddrExpired(addr)) =>
-				return Poll::Ready(ToSwarm::ExternalAddrExpired(addr)),
-			Poll::Ready(ToSwarm::ListenOn { opts }) =>
-				return Poll::Ready(ToSwarm::ListenOn { opts }),
-			Poll::Ready(ToSwarm::RemoveListener { id }) =>
-				return Poll::Ready(ToSwarm::RemoveListener { id }),
+			Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event }) => {
+				return Poll::Ready(ToSwarm::NotifyHandler { peer_id, handler, event })
+			},
+			Poll::Ready(ToSwarm::CloseConnection { peer_id, connection }) => {
+				return Poll::Ready(ToSwarm::CloseConnection { peer_id, connection })
+			},
+			Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed)) => {
+				return Poll::Ready(ToSwarm::NewExternalAddrCandidate(observed))
+			},
+			Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr)) => {
+				return Poll::Ready(ToSwarm::ExternalAddrConfirmed(addr))
+			},
+			Poll::Ready(ToSwarm::ExternalAddrExpired(addr)) => {
+				return Poll::Ready(ToSwarm::ExternalAddrExpired(addr))
+			},
+			Poll::Ready(ToSwarm::ListenOn { opts }) => {
+				return Poll::Ready(ToSwarm::ListenOn { opts })
+			},
+			Poll::Ready(ToSwarm::RemoveListener { id }) => {
+				return Poll::Ready(ToSwarm::RemoveListener { id })
+			},
 		};
 
 		let outcome = match event {
@@ -318,7 +325,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 				notifications_sink,
 				negotiated_fallback,
 				..
-			} =>
+			} => {
 				if set_id == HARDCODED_PEERSETS_SYNC {
 					let _ = self.sync_handle.report_substream_opened(
 						peer_id,
@@ -343,8 +350,9 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 							None
 						},
 					}
-				},
-			NotificationsOut::CustomProtocolReplaced { peer_id, notifications_sink, set_id } =>
+				}
+			},
+			NotificationsOut::CustomProtocolReplaced { peer_id, notifications_sink, set_id } => {
 				if set_id == HARDCODED_PEERSETS_SYNC {
 					let _ = self
 						.sync_handle
@@ -358,7 +366,8 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 							notifications_sink,
 						},
 					)
-				},
+				}
+			},
 			NotificationsOut::CustomProtocolClosed { peer_id, set_id } => {
 				if set_id == HARDCODED_PEERSETS_SYNC {
 					let _ = self.sync_handle.report_substream_closed(peer_id);

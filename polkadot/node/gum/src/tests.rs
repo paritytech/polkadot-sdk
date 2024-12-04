@@ -84,7 +84,7 @@ fn w_candidate_hash_from_scope() {
 	let candidate_hash = CandidateHash(Hash::repeat_byte(0xF1));
 	debug!(target: "bar",
 		a = a,
-		?candidate_hash,
+		 candidate_hash = ?candidate_hash.0,,
 		b = ?Y::default(),
 		c = ?a,
 		"xxx",
@@ -111,7 +111,7 @@ fn w_candidate_hash_aliased_unnecessary() {
 	info!(
 		target: "bar",
 		a = a,
-		candidate_hash = ?candidate_hash,
+		candidate_hash = ?candidate_hash.0,
 		b = ?Y::default(),
 		c = a,
 		"xxx",

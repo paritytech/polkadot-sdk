@@ -190,7 +190,7 @@ where
 						error = ?fatal,
 						"Shutting down"
 					);
-					return
+					return;
 				},
 			}
 		}
@@ -243,7 +243,7 @@ where
 		poll_fn(|ctx| {
 			// In case of Ready(None), we want to wait for pending requests:
 			if let Poll::Ready(Some(v)) = self.pending_imports.poll_next_unpin(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::ConfirmedImport(v?)))
+				return Poll::Ready(Ok(MuxedMessage::ConfirmedImport(v?)));
 			}
 
 			let rate_limited = self.peer_queues.pop_reqs();
@@ -251,13 +251,13 @@ where
 			// We poll rate_limit before batches, so we don't unnecessarily delay importing to
 			// batches.
 			if let Poll::Ready(reqs) = rate_limited.poll(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::WakePeerQueuesPopReqs(reqs)))
+				return Poll::Ready(Ok(MuxedMessage::WakePeerQueuesPopReqs(reqs)));
 			}
 
 			let ready_batches = self.batches.check_batches();
 			pin_mut!(ready_batches);
 			if let Poll::Ready(ready_batches) = ready_batches.poll(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::WakeCheckBatches(ready_batches)))
+				return Poll::Ready(Ok(MuxedMessage::WakeCheckBatches(ready_batches)));
 			}
 
 			let next_req = self.receiver.recv(|| vec![COST_INVALID_REQUEST]);
@@ -266,7 +266,7 @@ where
 				return match r {
 					Err(e) => Poll::Ready(Err(incoming::Error::from(e).into())),
 					Ok(v) => Poll::Ready(Ok(MuxedMessage::NewRequest(v))),
-				}
+				};
 			}
 			Poll::Pending
 		})
@@ -296,7 +296,7 @@ where
 					sent_feedback: None,
 				})
 				.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-				return Err(JfyiError::NotAValidator(peer).into())
+				return Err(JfyiError::NotAValidator(peer).into());
 			},
 			Some(auth_id) => auth_id,
 		};
@@ -315,7 +315,7 @@ where
 				sent_feedback: None,
 			})
 			.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-			return Err(JfyiError::AuthorityFlooding(authority_id))
+			return Err(JfyiError::AuthorityFlooding(authority_id));
 		}
 		Ok(())
 	}
@@ -352,7 +352,7 @@ where
 					})
 					.map_err(|_| JfyiError::SetPeerReputation(peer))?;
 
-				return Err(From::from(JfyiError::InvalidSignature(peer)))
+				return Err(From::from(JfyiError::InvalidSignature(peer)));
 			},
 			Ok(votes) => votes,
 		};
@@ -364,7 +364,7 @@ where
 				// There was no entry yet - start import immediately:
 				gum::trace!(
 					target: LOG_TARGET,
-					?candidate_hash,
+					candidate_hash = ?candidate_hash.0,
 					?peer,
 					"No batch yet - triggering immediate import"
 				);
@@ -376,7 +376,7 @@ where
 				self.start_import(import).await;
 			},
 			FoundBatch::Found(batch) => {
-				gum::trace!(target: LOG_TARGET, ?candidate_hash, "Batch exists - batching request");
+				gum::trace!(target: LOG_TARGET, candidate_hash = ?candidate_hash.0, "Batch exists - batching request");
 				let batch_result =
 					batch.add_votes(valid_vote, invalid_vote, peer, pending_response);
 
@@ -404,7 +404,7 @@ where
 							sent_feedback: None,
 						})
 						.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-					return Err(From::from(JfyiError::RedundantMessage(peer)))
+					return Err(From::from(JfyiError::RedundantMessage(peer)));
 				}
 			},
 		}
@@ -426,10 +426,10 @@ where
 			None => {
 				gum::debug!(
 					target: LOG_TARGET,
-					candidate_hash = ?candidate_receipt.hash(),
+					candidate_hash = ?candidate_receipt.hash().0,
 					"Not importing empty batch"
 				);
-				return
+				return;
 			},
 			Some(vote) => (vote.0.session_index(), *vote.0.candidate_hash()),
 		};

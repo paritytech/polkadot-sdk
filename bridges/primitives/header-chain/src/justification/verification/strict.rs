@@ -58,7 +58,7 @@ impl<Header: HeaderT> JustificationVerifier<Header> for StrictJustificationVerif
 			// inside `finality-grandpa` crate (mostly related to reporting equivocations).
 			// But the only thing that we care about is that only first vote from the
 			// authority is accepted
-			return Err(PrecommitError::DuplicateAuthorityVote)
+			return Err(PrecommitError::DuplicateAuthorityVote);
 		}
 
 		Ok(IterationFlow::Run)

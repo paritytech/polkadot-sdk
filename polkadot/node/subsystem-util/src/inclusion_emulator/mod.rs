@@ -234,7 +234,7 @@ impl Constraints {
 		if let Some(HrmpWatermarkUpdate::Trunk(hrmp_watermark)) = modifications.hrmp_watermark {
 			// head updates are always valid.
 			if self.hrmp_inbound.valid_watermarks.iter().all(|w| w != &hrmp_watermark) {
-				return Err(ModificationError::DisallowedHrmpWatermark(hrmp_watermark))
+				return Err(ModificationError::DisallowedHrmpWatermark(hrmp_watermark));
 			}
 		}
 
@@ -257,7 +257,7 @@ impl Constraints {
 						messages_submitted: outbound_hrmp_mod.messages_submitted,
 					})?;
 			} else {
-				return Err(ModificationError::NoSuchHrmpChannel(*id))
+				return Err(ModificationError::NoSuchHrmpChannel(*id));
 			}
 		}
 
@@ -284,7 +284,7 @@ impl Constraints {
 			})?;
 
 		if self.future_validation_code.is_none() && modifications.code_upgrade_applied {
-			return Err(ModificationError::AppliedNonexistentCodeUpgrade)
+			return Err(ModificationError::AppliedNonexistentCodeUpgrade);
 		}
 
 		Ok(())
@@ -315,7 +315,7 @@ impl Constraints {
 					},
 					HrmpWatermarkUpdate::Trunk(n) => {
 						// Trunk update landing on disallowed watermark is not OK.
-						return Err(ModificationError::DisallowedHrmpWatermark(*n))
+						return Err(ModificationError::DisallowedHrmpWatermark(*n));
 					},
 				},
 			}
@@ -341,7 +341,7 @@ impl Constraints {
 						messages_submitted: outbound_hrmp_mod.messages_submitted,
 					})?;
 			} else {
-				return Err(ModificationError::NoSuchHrmpChannel(*id))
+				return Err(ModificationError::NoSuchHrmpChannel(*id));
 			}
 		}
 
@@ -364,7 +364,7 @@ impl Constraints {
 			return Err(ModificationError::DmpMessagesUnderflow {
 				messages_remaining: new.dmp_remaining_messages.len(),
 				messages_processed: modifications.dmp_messages_processed,
-			})
+			});
 		} else {
 			new.dmp_remaining_messages =
 				new.dmp_remaining_messages[modifications.dmp_messages_processed..].to_vec();
@@ -626,7 +626,7 @@ impl Fragment {
 							if last >= message.recipient {
 								return Err(
 									FragmentValidityError::HrmpMessagesDescendingOrDuplicate(i),
-								)
+								);
 							}
 						}
 
@@ -705,28 +705,29 @@ fn validate_against_constraints(
 		return Err(FragmentValidityError::PersistedValidationDataMismatch(
 			expected_pvd,
 			persisted_validation_data.clone(),
-		))
+		));
 	}
 
 	if constraints.validation_code_hash != *validation_code_hash {
 		return Err(FragmentValidityError::ValidationCodeMismatch(
 			constraints.validation_code_hash,
 			*validation_code_hash,
-		))
+		));
 	}
 
 	if relay_parent.number < constraints.min_relay_parent_number {
 		return Err(FragmentValidityError::RelayParentTooOld(
 			constraints.min_relay_parent_number,
 			relay_parent.number,
-		))
+		));
 	}
 
 	if commitments.new_validation_code.is_some() {
 		match constraints.upgrade_restriction {
 			None => {},
-			Some(UpgradeRestriction::Present) =>
-				return Err(FragmentValidityError::CodeUpgradeRestricted),
+			Some(UpgradeRestriction::Present) => {
+				return Err(FragmentValidityError::CodeUpgradeRestricted)
+			},
 		}
 	}
 
@@ -737,7 +738,7 @@ fn validate_against_constraints(
 		return Err(FragmentValidityError::CodeSizeTooLarge(
 			constraints.max_code_size,
 			announced_code_size,
-		))
+		));
 	}
 
 	if modifications.dmp_messages_processed == 0 {
@@ -746,7 +747,7 @@ fn validate_against_constraints(
 			.get(0)
 			.map_or(false, |&msg_sent_at| msg_sent_at <= relay_parent.number)
 		{
-			return Err(FragmentValidityError::DmpAdvancementRule)
+			return Err(FragmentValidityError::DmpAdvancementRule);
 		}
 	}
 
@@ -754,14 +755,14 @@ fn validate_against_constraints(
 		return Err(FragmentValidityError::HrmpMessagesPerCandidateOverflow {
 			messages_allowed: constraints.max_hrmp_num_per_candidate,
 			messages_submitted: commitments.horizontal_messages.len(),
-		})
+		});
 	}
 
 	if modifications.ump_messages_sent > constraints.max_ump_num_per_candidate {
 		return Err(FragmentValidityError::UmpMessagesPerCandidateOverflow {
 			messages_allowed: constraints.max_ump_num_per_candidate,
 			messages_submitted: commitments.upward_messages.len(),
-		})
+		});
 	}
 
 	constraints

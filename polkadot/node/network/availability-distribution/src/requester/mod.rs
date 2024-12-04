@@ -261,7 +261,7 @@ impl Stream for Requester {
 				Poll::Ready(Some(FromFetchTask::Message(m))) => return Poll::Ready(Some(m)),
 				Poll::Ready(Some(FromFetchTask::Concluded(Some(bad_boys)))) => {
 					self.session_cache.report_bad_log(bad_boys);
-					continue
+					continue;
 				},
 				Poll::Ready(Some(FromFetchTask::Concluded(None))) => continue,
 				Poll::Ready(Some(FromFetchTask::Failed(candidate_hash))) => {
@@ -301,7 +301,7 @@ where
 		Some(parent) => runtime.get_session_index_for_child(sender, *parent).await?,
 		None => {
 			// No first element, i.e. empty.
-			return Ok((0, ancestors))
+			return Ok((0, ancestors));
 		},
 	};
 
@@ -313,7 +313,7 @@ where
 		if session_index == head_session_index {
 			session_ancestry_len += 1;
 		} else {
-			break
+			break;
 		}
 	}
 

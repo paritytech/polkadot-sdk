@@ -102,7 +102,7 @@ pub fn encrypt_ed25519(pk: &sp_core::ed25519::Public, plaintext: &[u8]) -> Resul
 /// Decrypt with the given x25519 secret key.
 pub fn decrypt_x25519(sk: &SecretKey, encrypted: &[u8]) -> Result<Vec<u8>, Error> {
 	if encrypted.len() < PK_LEN + NONCE_LEN {
-		return Err(Error::BadData)
+		return Err(Error::BadData);
 	}
 	let mut ephemeral_pk: [u8; PK_LEN] = Default::default();
 	ephemeral_pk.copy_from_slice(&encrypted[0..PK_LEN]);

@@ -785,8 +785,8 @@ pub mod pallet {
 					_ => Ok(()),
 				});
 				assert!(
-					ValidatorCount::<T>::get() <=
-						<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
+					ValidatorCount::<T>::get()
+						<= <T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
 				);
 			}
 
@@ -963,8 +963,8 @@ pub mod pallet {
 
 			// ensure election results are always bounded with the same value
 			assert!(
-				<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get() ==
-					<T::GenesisElectionProvider as ElectionProviderBase>::MaxWinners::get()
+				<T::ElectionProvider as ElectionProviderBase>::MaxWinners::get()
+					== <T::GenesisElectionProvider as ElectionProviderBase>::MaxWinners::get()
 			);
 
 			assert!(
@@ -1159,17 +1159,17 @@ pub mod pallet {
 			let stash = ensure_signed(origin)?;
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
-				return Err(Error::<T>::AlreadyBonded.into())
+				return Err(Error::<T>::AlreadyBonded.into());
 			}
 
 			// An existing controller cannot become a stash.
 			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
-				return Err(Error::<T>::AlreadyPaired.into())
+				return Err(Error::<T>::AlreadyPaired.into());
 			}
 
 			// Reject a bond which is considered to be _dust_.
 			if value < asset::existential_deposit::<T>() {
-				return Err(Error::<T>::InsufficientBond.into())
+				return Err(Error::<T>::InsufficientBond.into());
 			}
 
 			// Would fail if account has no provider.
@@ -1858,10 +1858,10 @@ pub mod pallet {
 			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
-			let reapable = origin_balance < ed ||
-				origin_balance.is_zero() ||
-				ledger_total < ed ||
-				ledger_total.is_zero();
+			let reapable = origin_balance < ed
+				|| origin_balance.is_zero()
+				|| ledger_total < ed
+				|| ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.
@@ -2022,7 +2022,7 @@ pub mod pallet {
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
-				return Ok(())
+				return Ok(());
 			}
 
 			if caller != controller {

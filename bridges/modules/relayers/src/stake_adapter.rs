@@ -60,8 +60,9 @@ where
 	) -> Result<Currency::Balance, DispatchError> {
 		let beneficiary_account = match beneficiary {
 			ExplicitOrAccountParams::Explicit(account) => account,
-			ExplicitOrAccountParams::Params(params) =>
-				PayRewardFromAccount::<(), AccountId, LaneId>::rewards_account(params),
+			ExplicitOrAccountParams::Params(params) => {
+				PayRewardFromAccount::<(), AccountId, LaneId>::rewards_account(params)
+			},
 		};
 		Currency::repatriate_reserved_named(
 			&ReserveId::get(),

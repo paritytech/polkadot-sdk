@@ -183,7 +183,9 @@ where
 		match call.is_sub_type() {
 			Some(UtilityCall::<Runtime>::batch_all { ref calls })
 				if calls.len() <= max_packed_calls as usize =>
-				calls.iter().collect(),
+			{
+				calls.iter().collect()
+			},
 			Some(_) => vec![],
 			None => vec![call],
 		}

@@ -194,42 +194,49 @@ mod v1 {
 		/// ABI-encode the Command.
 		pub fn abi_encode(&self) -> Vec<u8> {
 			match self {
-				Command::AgentExecute { agent_id, command } =>
+				Command::AgentExecute { agent_id, command } => {
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(agent_id.as_bytes().to_owned()),
 						Token::Bytes(command.abi_encode()),
-					])]),
-				Command::Upgrade { impl_address, impl_code_hash, initializer, .. } =>
+					])])
+				},
+				Command::Upgrade { impl_address, impl_code_hash, initializer, .. } => {
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::Address(*impl_address),
 						Token::FixedBytes(impl_code_hash.as_bytes().to_owned()),
 						initializer
 							.clone()
 							.map_or(Token::Bytes(vec![]), |i| Token::Bytes(i.params)),
-					])]),
-				Command::CreateAgent { agent_id } =>
+					])])
+				},
+				Command::CreateAgent { agent_id } => {
 					ethabi::encode(&[Token::Tuple(vec![Token::FixedBytes(
 						agent_id.as_bytes().to_owned(),
-					)])]),
-				Command::CreateChannel { channel_id, agent_id, mode } =>
+					)])])
+				},
+				Command::CreateChannel { channel_id, agent_id, mode } => {
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(channel_id.as_ref().to_owned()),
 						Token::FixedBytes(agent_id.as_bytes().to_owned()),
 						Token::Uint(U256::from((*mode) as u64)),
-					])]),
-				Command::UpdateChannel { channel_id, mode } =>
+					])])
+				},
+				Command::UpdateChannel { channel_id, mode } => {
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(channel_id.as_ref().to_owned()),
 						Token::Uint(U256::from((*mode) as u64)),
-					])]),
-				Command::SetOperatingMode { mode } =>
-					ethabi::encode(&[Token::Tuple(vec![Token::Uint(U256::from((*mode) as u64))])]),
-				Command::TransferNativeFromAgent { agent_id, recipient, amount } =>
+					])])
+				},
+				Command::SetOperatingMode { mode } => {
+					ethabi::encode(&[Token::Tuple(vec![Token::Uint(U256::from((*mode) as u64))])])
+				},
+				Command::TransferNativeFromAgent { agent_id, recipient, amount } => {
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(agent_id.as_bytes().to_owned()),
 						Token::Address(*recipient),
 						Token::Uint(U256::from(*amount)),
-					])]),
+					])])
+				},
 				Command::SetTokenTransferFees {
 					create_asset_xcm,
 					transfer_asset_xcm,
@@ -239,32 +246,36 @@ mod v1 {
 					Token::Uint(U256::from(*transfer_asset_xcm)),
 					Token::Uint(*register_token),
 				])]),
-				Command::SetPricingParameters { exchange_rate, delivery_cost, multiplier } =>
+				Command::SetPricingParameters { exchange_rate, delivery_cost, multiplier } => {
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::Uint(exchange_rate.clone().into_inner()),
 						Token::Uint(U256::from(*delivery_cost)),
 						Token::Uint(multiplier.clone().into_inner()),
-					])]),
-				Command::TransferNativeToken { agent_id, token, recipient, amount } =>
+					])])
+				},
+				Command::TransferNativeToken { agent_id, token, recipient, amount } => {
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(agent_id.as_bytes().to_owned()),
 						Token::Address(*token),
 						Token::Address(*recipient),
 						Token::Uint(U256::from(*amount)),
-					])]),
-				Command::RegisterForeignToken { token_id, name, symbol, decimals } =>
+					])])
+				},
+				Command::RegisterForeignToken { token_id, name, symbol, decimals } => {
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(token_id.as_bytes().to_owned()),
 						Token::String(name.to_owned()),
 						Token::String(symbol.to_owned()),
 						Token::Uint(U256::from(*decimals)),
-					])]),
-				Command::MintForeignToken { token_id, recipient, amount } =>
+					])])
+				},
+				Command::MintForeignToken { token_id, recipient, amount } => {
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(token_id.as_bytes().to_owned()),
 						Token::Address(*recipient),
 						Token::Uint(U256::from(*amount)),
-					])]),
+					])])
+				},
 			}
 		}
 	}
@@ -304,7 +315,7 @@ mod v1 {
 		/// ABI-encode the sub-command
 		pub fn abi_encode(&self) -> Vec<u8> {
 			match self {
-				AgentExecuteCommand::TransferToken { token, recipient, amount } =>
+				AgentExecuteCommand::TransferToken { token, recipient, amount } => {
 					ethabi::encode(&[
 						Token::Uint(self.index().into()),
 						Token::Bytes(ethabi::encode(&[
@@ -312,7 +323,8 @@ mod v1 {
 							Token::Address(*recipient),
 							Token::Uint(U256::from(*amount)),
 						])),
-					]),
+					])
+				},
 			}
 		}
 	}

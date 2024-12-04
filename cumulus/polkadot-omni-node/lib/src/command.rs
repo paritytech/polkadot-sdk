@@ -88,10 +88,12 @@ fn new_node_spec(
 
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
-			(BlockNumber::U32, Consensus::Aura(aura_id)) =>
-				new_aura_node_spec::<Block<u32>>(aura_id, extra_args),
-			(BlockNumber::U64, Consensus::Aura(aura_id)) =>
-				new_aura_node_spec::<Block<u64>>(aura_id, extra_args),
+			(BlockNumber::U32, Consensus::Aura(aura_id)) => {
+				new_aura_node_spec::<Block<u32>>(aura_id, extra_args)
+			},
+			(BlockNumber::U64, Consensus::Aura(aura_id)) => {
+				new_aura_node_spec::<Block<u64>>(aura_id, extra_args)
+			},
 		},
 	})
 }
@@ -205,8 +207,9 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 					)?;
 					node.run_benchmark_storage_cmd(config, cmd)
 				}),
-				BenchmarkCmd::Machine(cmd) =>
-					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())),
+				BenchmarkCmd::Machine(cmd) => {
+					runner.sync_run(|config| cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()))
+				},
 				#[allow(unreachable_patterns)]
 				_ => Err("Benchmarking sub-command unsupported or compilation feature missing. \
 					Make sure to compile with --features=runtime-benchmarks \
@@ -233,7 +236,7 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				if let Some(dev_block_time) = cli.dev_block_time {
 					return node_spec
 						.start_manual_seal_node(config, para_id, dev_block_time)
-						.map_err(Into::into)
+						.map_err(Into::into);
 				}
 
 				// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the

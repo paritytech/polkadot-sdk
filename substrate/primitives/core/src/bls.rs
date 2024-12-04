@@ -151,7 +151,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECRET_KEY_SERIALIZED_SIZE {
-			return Err(SecretStringError::InvalidSeedLength)
+			return Err(SecretStringError::InvalidSeedLength);
 		}
 		let secret = w3f_bls::SecretKey::from_seed(seed_slice);
 		let public = secret.into_public();
