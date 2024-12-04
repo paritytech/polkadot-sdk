@@ -73,7 +73,7 @@ where
 		LocalCallExecutor {
 			backend: self.backend.clone(),
 			executor: self.executor.clone(),
-			wasmtime_precompiled_path: self.wasmtime_precompiled_path.clone(),	
+			wasmtime_precompiled_path: self.wasmtime_precompiled_path.clone(),
 			code_provider: self.code_provider.clone(),
 			execution_extensions: self.execution_extensions.clone(),
 		}
