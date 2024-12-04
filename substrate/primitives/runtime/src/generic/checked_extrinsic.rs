@@ -30,6 +30,12 @@ use crate::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 
+use super::unchecked_extrinsic::ExtensionVersion;
+
+/// Default version of the [Extension](TransactionExtension) used to construct the inherited
+/// implication for legacy transactions.
+const DEFAULT_EXTENSION_VERSION: ExtensionVersion = 0;
+
 /// The kind of extrinsic this is, including any fields required of that kind. This is basically
 /// the full extrinsic except the `Call`.
 #[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
@@ -42,7 +48,7 @@ pub enum ExtrinsicFormat<AccountId, Extension> {
 	Signed(AccountId, Extension),
 	/// Extrinsic has a default `Origin` of `None` and must pass all `TransactionExtension`s.
 	/// regular checks and includes all extension data.
-	General(Extension),
+	General(ExtensionVersion, Extension),
 }
 
 /// Definition of something that the external world might want to say; its existence implies that it
@@ -85,10 +91,19 @@ where
 			},
 			ExtrinsicFormat::Signed(ref signer, ref extension) => {
 				let origin = Some(signer.clone()).into();
-				extension.validate_only(origin, &self.function, info, len, source).map(|x| x.0)
+				extension
+					.validate_only(
+						origin,
+						&self.function,
+						info,
+						len,
+						source,
+						DEFAULT_EXTENSION_VERSION,
+					)
+					.map(|x| x.0)
 			},
-			ExtrinsicFormat::General(ref extension) => extension
-				.validate_only(None.into(), &self.function, info, len, source)
+			ExtrinsicFormat::General(extension_version, ref extension) => extension
+				.validate_only(None.into(), &self.function, info, len, source, extension_version)
 				.map(|x| x.0),
 		}
 	}
@@ -117,13 +132,10 @@ where
 				self.function,
 				info,
 				len,
+				DEFAULT_EXTENSION_VERSION,
 			),
-			ExtrinsicFormat::General(extension) => extension.dispatch_transaction(
-				None.into(),
-				self.function,
-				info,
-				len,
-			),
+			ExtrinsicFormat::General(extension_version, extension) => extension
+				.dispatch_transaction(None.into(), self.function, info, len, extension_version),
 		}
 	}
 }
@@ -136,7 +148,7 @@ impl<AccountId, Call: Dispatchable, Extension: TransactionExtension<Call>>
 	pub fn extension_weight(&self) -> Weight {
 		match &self.format {
 			ExtrinsicFormat::Bare => Weight::zero(),
-			ExtrinsicFormat::Signed(_, ext) | ExtrinsicFormat::General(ext) =>
+			ExtrinsicFormat::Signed(_, ext) | ExtrinsicFormat::General(_, ext) =>
 				ext.weight(&self.function),
 		}
 	}

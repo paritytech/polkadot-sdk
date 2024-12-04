@@ -17,7 +17,7 @@
 
 //! Cryptographic utilities.
 
-use crate::{ed25519, sr25519};
+use crate::{ed25519, sr25519, U256};
 use alloc::{format, str, vec::Vec};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::{string::String, vec};
@@ -1191,7 +1191,7 @@ macro_rules! impl_from_entropy_base {
 	}
 }
 
-impl_from_entropy_base!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+impl_from_entropy_base!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, U256);
 
 #[cfg(test)]
 mod tests {

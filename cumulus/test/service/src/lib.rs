@@ -90,7 +90,7 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::Pair;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{codec::Encode, generic};
+use sp_runtime::{codec::Encode, generic, MultiAddress};
 use sp_state_machine::BasicExternalities;
 use std::sync::Arc;
 use substrate_test_client::{
@@ -367,7 +367,7 @@ where
 		prometheus_registry.clone(),
 	);
 
-	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
 			net_config,
@@ -497,20 +497,10 @@ where
 					authoring_duration: Duration::from_millis(2000),
 					reinitialize: false,
 					slot_drift: Duration::from_secs(1),
+					spawner: task_manager.spawn_handle(),
 				};
 
-				let (collation_future, block_builder_future) =
-					slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
-				task_manager.spawn_essential_handle().spawn(
-					"collation-task",
-					None,
-					collation_future,
-				);
-				task_manager.spawn_essential_handle().spawn(
-					"block-builder-task",
-					None,
-					block_builder_future,
-				);
+				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
 				let params = AuraParams {
@@ -541,8 +531,6 @@ where
 			}
 		}
 	}
-
-	start_network.start_network();
 
 	Ok((task_manager, client, network, rpc_handlers, transaction_pool, backend))
 }
@@ -970,6 +958,7 @@ pub fn construct_extrinsic(
 		.unwrap_or(2) as u64;
 	let tip = 0;
 	let tx_ext: runtime::TxExtension = (
+		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
@@ -986,12 +975,12 @@ pub fn construct_extrinsic(
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(
 		function,
-		caller.public().into(),
+		MultiAddress::Id(caller.public().into()),
 		runtime::Signature::Sr25519(signature),
 		tx_ext,
 	)

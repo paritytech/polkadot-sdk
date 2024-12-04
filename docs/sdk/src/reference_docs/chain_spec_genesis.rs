@@ -100,17 +100,22 @@
 //! others useful for testing.
 //!
 //! Internally, presets can be provided in a number of ways:
+//! - using [`build_struct_json_patch`] macro (**recommended**):
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_2)]
+//! - JSON using runtime types to serialize values:
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_3)]
 //! - JSON in string form:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_1)]
-//! - JSON using runtime types to serialize values:
-#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_2)]
-#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_3)]
+//!
 //! It is worth noting that a preset does not have to be the full `RuntimeGenesisConfig`, in that
 //! sense that it does not have to contain all the keys of the struct. The preset is actually a JSON
 //! patch that will be merged with the default value of `RuntimeGenesisConfig`. This approach should
 //! simplify maintenance of built-in presets. The following example illustrates a runtime genesis
-//! config patch:
+//! config patch with a single key built using [`build_struct_json_patch`] macro:
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_4)]
+//! This results in the following JSON blob:
+#![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/tests/chain_spec_builder_tests.rs", preset_4_json)]
+//!
 //!
 //! ## Note on the importance of testing presets
 //!
@@ -122,14 +127,18 @@
 //!
 //! ## Note on the importance of using the `deny_unknown_fields` attribute
 //!
-//! It is worth noting that it is easy to make a hard-to-spot mistake, as in the following example
-//! ([`FooStruct`] does not contain `fieldC`):
+//! It is worth noting that when manually building preset JSON blobs it is easy to make a
+//! hard-to-spot mistake, as in the following example ([`FooStruct`] does not contain `fieldC`):
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", preset_invalid)]
 //! Even though `preset_invalid` contains a key that does not exist, the deserialization of the JSON
 //! blob does not fail. The misspelling is silently ignored due to the lack of the
 //! [`deny_unknown_fields`] attribute on the [`FooStruct`] struct, which is internally used in
 //! `GenesisConfig`.
 #![doc = docify::embed!("./src/reference_docs/chain_spec_runtime/src/presets.rs", invalid_preset_works)]
+//!
+//! To avoid this problem [`build_struct_json_patch`] macro shall be used whenever possible (it
+//! internally instantiates the struct before serializang it JSON blob, so all unknown fields shall
+//! be caught at compilation time).
 //!
 //! ## Runtime `GenesisConfig` raw format
 //!
@@ -182,6 +191,7 @@
 //! [`get_preset`]: frame_support::genesis_builder_helper::get_preset
 //! [`pallet::genesis_build`]: frame_support::pallet_macros::genesis_build
 //! [`pallet::genesis_config`]: frame_support::pallet_macros::genesis_config
+//! [`build_struct_json_patch`]: frame_support::build_struct_json_patch
 //! [`BuildGenesisConfig`]: frame_support::traits::BuildGenesisConfig
 //! [`serde`]: https://serde.rs/field-attrs.html
 //! [`get_storage_for_patch`]: sc_chain_spec::GenesisConfigBuilderRuntimeCaller::get_storage_for_patch

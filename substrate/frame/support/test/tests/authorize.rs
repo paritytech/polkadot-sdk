@@ -22,9 +22,12 @@ use frame_support::{
 	pallet_prelude::{TransactionSource, Weight},
 };
 use sp_runtime::{
-	testing::UintAuthorityId, traits::{Applyable, Checkable}, transaction_validity::{
+	testing::UintAuthorityId,
+	traits::{Applyable, Checkable},
+	transaction_validity::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	}, BuildStorage, DispatchError
+	},
+	BuildStorage, DispatchError,
 };
 
 // test for instance
@@ -122,9 +125,13 @@ pub mod pallet1 {
 			Ok(Some(CALL_2_REFUND).into())
 		}
 
-		#[pallet::authorize(Pallet::<T, I>::authorize_call3)]
+		#[pallet::authorize(Self::authorize_call3)]
 		#[pallet::call_index(2)]
-		pub fn call3(origin: OriginFor<T>, valid: bool, _some_gen: T::SomeGeneric) -> DispatchResultWithPostInfo {
+		pub fn call3(
+			origin: OriginFor<T>,
+			valid: bool,
+			_some_gen: T::SomeGeneric,
+		) -> DispatchResultWithPostInfo {
 			ensure_authorized(origin)?;
 
 			let _ = valid;
@@ -148,7 +155,11 @@ pub mod pallet1 {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		fn authorize_call3(_source: TransactionSource, valid: &bool, _some_gen: &T::SomeGeneric) -> TransactionValidityWithRefund {
+		fn authorize_call3(
+			_source: TransactionSource,
+			valid: &bool,
+			_some_gen: &T::SomeGeneric,
+		) -> TransactionValidityWithRefund {
 			if *valid {
 				Ok(Default::default())
 			} else {
@@ -210,6 +221,28 @@ pub mod pallet3 {
 	}
 }
 
+// test for pallet with no authorized call
+#[frame_support::pallet(dev_mode)]
+pub mod pallet4 {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
+		pub fn call1(origin: OriginFor<T>) -> DispatchResult {
+			ensure_authorized(origin)?;
+			Ok(())
+		}
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
@@ -237,6 +270,8 @@ impl pallet2::Config for Runtime {}
 
 impl pallet3::Config for Runtime {}
 
+impl pallet4::Config for Runtime {}
+
 pub type TransactionExtension = frame_system::AuthorizeCall<Runtime>;
 
 pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
@@ -257,6 +292,7 @@ frame_support::construct_runtime!(
 		Pallet3: pallet3,
 		#[cfg(feature = "frame-feature-testing")]
 		Pallet1Instance3: pallet1::<Instance3>,
+		Pallet4: pallet4,
 	}
 );
 
@@ -329,10 +365,8 @@ fn valid_call_weight_test() {
 			dispatch_success: true,
 			call_weight: pallet1::CALL_2_WEIGHT,
 			ext_weight: pallet1::CALL_2_AUTH_WEIGHT,
-			actual_weight:
-				pallet1::CALL_2_REFUND
-				+ pallet1::CALL_2_AUTH_WEIGHT
-				- call_2_auth_weight_refund,
+			actual_weight: pallet1::CALL_2_REFUND + pallet1::CALL_2_AUTH_WEIGHT -
+				call_2_auth_weight_refund,
 		},
 		Test {
 			call: RuntimeCall::Pallet1Instance2(pallet1::Call::call3 { valid: true, some_gen: 1 }),
@@ -400,7 +434,7 @@ fn valid_call_weight_test() {
 }
 
 #[test]
-fn valid_invalid_call() {
+fn call_validity() {
 	struct Test {
 		call: RuntimeCall,
 		validate_res: TransactionValidity,
@@ -485,7 +519,7 @@ fn signed_is_valid_but_dispatch_error() {
 		let len = tx.using_encoded(|e| e.len());
 
 		let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
-			.expect("Transaction is general so signature is good");
+			.expect("Signature is good");
 
 		checked
 			.validate::<Runtime>(TransactionSource::External, &info, len)
@@ -497,5 +531,43 @@ fn signed_is_valid_but_dispatch_error() {
 			.expect_err("origin is wrong for the dispatched call");
 
 		assert_eq!(dispatch_err.error, DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn call_without_authorization() {
+	use frame_support::traits::Authorize;
+
+	new_test_ext().execute_with(|| {
+		let call = RuntimeCall::Pallet4(pallet4::Call::call1 {});
+
+		// tests for trait implementation
+		assert_eq!(call.weight_of_authorize(), Weight::zero());
+		assert_eq!(call.authorize(TransactionSource::External), None);
+		assert_eq!(call.authorize(TransactionSource::InBlock), None);
+		assert_eq!(call.authorize(TransactionSource::Local), None);
+
+		// tests for transaction extension implementation
+		let tx_ext = frame_system::AuthorizeCall::<Runtime>::new();
+
+		let tx = UncheckedExtrinsic::new_transaction(call, tx_ext);
+
+		let info = tx.get_dispatch_info();
+		let len = tx.using_encoded(|e| e.len());
+
+		let checked = Checkable::check(tx, &frame_system::ChainContext::<Runtime>::default())
+			.expect("Transaction is general so signature is good");
+
+		let err = checked
+			.validate::<Runtime>(TransactionSource::External, &info, len)
+			.expect_err("Call is not authorized, transaction is invalid");
+
+		assert_eq!(err, TransactionValidityError::Invalid(InvalidTransaction::UnknownOrigin));
+
+		let err = checked
+			.apply::<Runtime>(&info, len)
+			.expect_err("Call is not authorized, transaction is invalid");
+
+		assert_eq!(err, TransactionValidityError::Invalid(InvalidTransaction::UnknownOrigin));
 	});
 }

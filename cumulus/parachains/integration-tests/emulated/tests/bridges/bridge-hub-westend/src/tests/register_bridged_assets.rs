@@ -30,7 +30,7 @@ fn register_westend_asset_on_rah_from_wah() {
 	let bridged_asset_at_rah = Location::new(
 		2,
 		[
-			GlobalConsensus(Westend),
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 			Parachain(AssetHubWestend::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(ASSET_ID.into()),
@@ -57,7 +57,7 @@ fn register_ethereum_asset_on_rah_from_wah() {
 
 fn register_asset_on_rah_from_wah(bridged_asset_at_rah: Location) {
 	let sa_of_wah_on_rah = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
-		Westend,
+		ByGenesis(WESTEND_GENESIS_HASH),
 		AssetHubWestend::para_id(),
 	);
 

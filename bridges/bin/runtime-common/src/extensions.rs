@@ -391,10 +391,11 @@ mod tests {
 			parameter_types, AsSystemOriginSigner, AsTransactionAuthorizedOrigin, ConstU64,
 			DispatchTransaction, Header as _, TransactionExtension,
 		},
-		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidity, ValidTransaction,
+		},
 		DispatchError,
 	};
-	use sp_runtime::transaction_validity::TransactionSource::External;
 
 	parameter_types! {
 		pub MsgProofsRewardsAccount: RewardsAccountParams<TestLaneIdType> = RewardsAccountParams::new(
@@ -614,6 +615,7 @@ mod tests {
 					&(),
 					0,
 					External,
+					0,
 				),
 				InvalidTransaction::Custom(1)
 			);
@@ -622,7 +624,8 @@ mod tests {
 					42u64.into(),
 					&MockCall { data: 1 },
 					&(),
-					0
+					0,
+					0,
 				),
 				InvalidTransaction::Custom(1)
 			);
@@ -634,6 +637,7 @@ mod tests {
 					&(),
 					0,
 					External,
+					0,
 				),
 				InvalidTransaction::Custom(2)
 			);
@@ -642,21 +646,22 @@ mod tests {
 					42u64.into(),
 					&MockCall { data: 2 },
 					&(),
-					0
+					0,
+					0,
 				),
 				InvalidTransaction::Custom(2)
 			);
 
 			assert_eq!(
 				BridgeRejectObsoleteHeadersAndMessages
-					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0, External)
+					.validate_only(42u64.into(), &MockCall { data: 3 }, &(), 0, External, 0)
 					.unwrap()
 					.0,
 				ValidTransaction { priority: 3, ..Default::default() },
 			);
 			assert_eq!(
 				BridgeRejectObsoleteHeadersAndMessages
-					.validate_and_prepare(42u64.into(), &MockCall { data: 3 }, &(), 0)
+					.validate_and_prepare(42u64.into(), &MockCall { data: 3 }, &(), 0, 0)
 					.unwrap()
 					.0
 					.unwrap(),

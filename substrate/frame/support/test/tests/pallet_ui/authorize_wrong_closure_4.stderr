@@ -5,35 +5,3 @@ error[E0277]: expected a `Fn(TransactionSource, &u32)` closure, found `Result<_,
    |                             ^^ expected an `Fn(TransactionSource, &u32)` closure, found `Result<_, _>`
    |
    = help: the trait `for<'a> Fn(TransactionSource, &'a u32)` is not implemented for `Result<_, _>`
-note: required by a bound in `macro_inner_authorize_call_for_call1`
-  --> tests/pallet_ui/authorize_wrong_closure_4.rs:36:23
-   |
-36 |         #[pallet::authorize(Ok(Default::default()))]
-   |                             ^^ required by this bound in `macro_inner_authorize_call_for_call1`
-
-error[E0277]: expected a `FnOnce(TransactionSource, &u32)` closure, found `Result<_, _>`
-  --> tests/pallet_ui/authorize_wrong_closure_4.rs:36:23
-   |
-36 |         #[pallet::authorize(Ok(Default::default()))]
-   |                             --^^^^^^^^^^^^^^^^^^^^
-   |                             |
-   |                             expected an `FnOnce(TransactionSource, &u32)` closure, found `Result<_, _>`
-   |                             required by a bound introduced by this call
-   |
-   = help: the trait `for<'a> FnOnce(TransactionSource, &'a u32)` is not implemented for `Result<_, _>`
-note: required by a bound in `macro_inner_authorize_call_for_call1`
-  --> tests/pallet_ui/authorize_wrong_closure_4.rs:36:23
-   |
-36 |         #[pallet::authorize(Ok(Default::default()))]
-   |                             ^^ required by this bound in `macro_inner_authorize_call_for_call1`
-
-error[E0618]: expected function, found `Result<_, _>`
-  --> tests/pallet_ui/authorize_wrong_closure_4.rs:18:1
-   |
-18 | #[frame_support::pallet]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^
-   | |
-   | call expression requires function
-   | `authorize_fn` has type `Result<_, _>`
-   |
-   = note: this error originates in the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)

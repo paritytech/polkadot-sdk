@@ -25,8 +25,8 @@ use super::*;
 use crate::Pallet as Kitchensink;
 
 use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
 use frame_support::pallet_prelude::TransactionSource;
+use frame_system::RawOrigin;
 
 // To actually run this benchmark on pallet-example-kitchensink, we need to put this pallet into the
 //   runtime and compile it with `runtime-benchmarks` feature. The detail procedures are
@@ -94,6 +94,8 @@ mod benchmarks {
 	//   `cargo test -p pallet-example-kitchensink --all-features`, you will see one line per case:
 	//   `test benchmarking::bench_set_foo_benchmark ... ok`
 	//   `test benchmarking::bench_set_foo_using_authorize_benchmark ... ok` in the result.
+	//   `test benchmarking::bench_authorize_set_foo_using_authorize_benchmark ... ok` in the
+	// result.
 	//
 	// The line generates three steps per benchmark, with repeat=1 and the three steps are
 	//   [low, mid, high] of the range.

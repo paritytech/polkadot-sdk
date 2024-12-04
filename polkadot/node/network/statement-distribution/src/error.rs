@@ -72,9 +72,6 @@ pub enum Error {
 	#[error("Fetching session info failed {0:?}")]
 	FetchSessionInfo(RuntimeApiError),
 
-	#[error("Fetching availability cores failed {0:?}")]
-	FetchAvailabilityCores(RuntimeApiError),
-
 	#[error("Fetching disabled validators failed {0:?}")]
 	FetchDisabledValidators(runtime::Error),
 
@@ -82,7 +79,7 @@ pub enum Error {
 	FetchValidatorGroups(RuntimeApiError),
 
 	#[error("Fetching claim queue failed {0:?}")]
-	FetchClaimQueue(runtime::Error),
+	FetchClaimQueue(RuntimeApiError),
 
 	#[error("Attempted to share statement when not a validator or not assigned")]
 	InvalidShare,

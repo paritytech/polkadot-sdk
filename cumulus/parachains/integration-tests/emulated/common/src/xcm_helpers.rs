@@ -27,12 +27,11 @@ pub fn xcm_transact_paid_execution(
 	beneficiary: AccountId,
 ) -> VersionedXcm<()> {
 	let weight_limit = WeightLimit::Unlimited;
-	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
 
 	VersionedXcm::from(Xcm(vec![
 		WithdrawAsset(fees.clone().into()),
 		BuyExecution { fees, weight_limit },
-		Transact { require_weight_at_most, origin_kind, call },
+		Transact { origin_kind, call },
 		RefundSurplus,
 		DepositAsset {
 			assets: All.into(),
@@ -50,12 +49,11 @@ pub fn xcm_transact_unpaid_execution(
 	origin_kind: OriginKind,
 ) -> VersionedXcm<()> {
 	let weight_limit = WeightLimit::Unlimited;
-	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
 	let check_origin = None;
 
 	VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit, check_origin },
-		Transact { require_weight_at_most, origin_kind, call },
+		Transact { origin_kind, call },
 	]))
 }
 

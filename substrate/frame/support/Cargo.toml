@@ -28,6 +28,7 @@ scale-info = { features = [
 ], workspace = true }
 frame-metadata = { features = [
 	"current",
+	"unstable",
 ], workspace = true }
 sp-api = { features = [
 	"frame-metadata",
@@ -71,6 +72,7 @@ pretty_assertions = { workspace = true }
 sp-timestamp = { workspace = true }
 frame-system = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
+Inflector = { workspace = true }
 
 [features]
 default = ["std"]

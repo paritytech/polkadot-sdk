@@ -30,6 +30,7 @@ use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 pub type TxExtension = (
+	frame_system::AuthorizeCall<Test>,
 	frame_system::CheckNonZeroSender<Test>,
 	frame_system::CheckSpecVersion<Test>,
 	frame_system::CheckTxVersion<Test>,
@@ -126,7 +127,6 @@ parameter_types! {
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub UniversalLocation: InteriorLocation = (ByGenesis([0; 32]), Parachain(42)).into();
 	pub UnitWeightCost: u64 = 1_000;
-	pub static AdvertisedXcmVersion: u32 = 3;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
 	pub TrustedAssets: (AssetFilter, Location) = (All.into(), Here.into());
@@ -267,7 +267,7 @@ impl pallet_xcm::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
-	type AdvertisedXcmVersion = AdvertisedXcmVersion;
+	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type TrustedLockers = ();
 	type SovereignAccountOf = SovereignAccountOf;
 	type Currency = Balances;

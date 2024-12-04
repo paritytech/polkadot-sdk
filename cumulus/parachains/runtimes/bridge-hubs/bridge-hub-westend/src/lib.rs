@@ -45,7 +45,7 @@ use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
+	generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
@@ -87,6 +87,9 @@ use pallet_bridge_messages::LaneIdOf;
 pub use sp_runtime::BuildStorage;
 
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+
+#[cfg(feature = "runtime-benchmarks")]
+use xcm::latest::ROCOCO_GENESIS_HASH;
 use xcm::prelude::*;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -118,7 +121,8 @@ pub type BlockId = generic::BlockId<Block>;
 
 /// The TransactionExtension to the basic transaction logic.
 pub type TxExtension = (
-	frame_system::CheckNonZeroSender<Runtime>,
+	// `Debug` is implemented for tuple of at most 12 elements, so we group extensions.
+	(frame_system::AuthorizeCall<Runtime>, frame_system::CheckNonZeroSender<Runtime>),
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
@@ -152,20 +156,20 @@ pub type Migrations = (
 		Runtime,
 		bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
 	>,
-	bridge_to_rococo_config::migration::StaticToDynamicLanes,
 	frame_support::migrations::RemoveStorage<
 		BridgeRococoMessagesPalletName,
 		OutboundLanesCongestedSignalsKey,
 		RocksDbWeight,
 	>,
 	pallet_bridge_relayers::migration::v1::MigrationToV1<Runtime, ()>,
-	// permanent
-	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
+	bridge_to_ethereum_config::migrations::MigrationForXcmV5<Runtime>,
+	// permanent
+	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
 
 parameter_types! {
@@ -220,8 +224,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("bridge-hub-westend"),
-	impl_name: create_runtime_str!("bridge-hub-westend"),
+	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
+	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	authoring_version: 1,
 	spec_version: 1_016_001,
 	impl_version: 0,
@@ -510,6 +514,7 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -775,7 +780,8 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			match asset.try_as::<AssetId>() {
+			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
+			match latest_asset_id {
 				Ok(asset_id) if asset_id.0 == xcm_config::WestendLocation::get() => {
 					// for native token
 					Ok(WeightToFee::weight_to_fee(&weight))
@@ -955,7 +961,7 @@ impl_runtime_apis! {
 
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 
@@ -1155,7 +1161,7 @@ impl_runtime_apis! {
 					);
 
 					// open bridge
-					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(NetworkId::Rococo), Parachain(8765)].into();
+					let bridge_destination_universal_location: InteriorLocation = [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(8765)].into();
 					let locations = XcmOverBridgeHubRococo::bridge_locations(
 						sibling_parachain_location.clone(),
 						bridge_destination_universal_location.clone(),
@@ -1177,7 +1183,7 @@ impl_runtime_apis! {
 					Ok(
 						(
 							sibling_parachain_location,
-							NetworkId::Rococo,
+							NetworkId::ByGenesis(ROCOCO_GENESIS_HASH),
 							[Parachain(8765)].into()
 						)
 					)
@@ -1376,7 +1382,10 @@ mod tests {
 		sp_io::TestExternalities::default().execute_with(|| {
             frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
             let payload: TxExtension = (
-                frame_system::CheckNonZeroSender::new(),
+				(
+					frame_system::AuthorizeCall::new(),
+					frame_system::CheckNonZeroSender::new(),
+				),
                 frame_system::CheckSpecVersion::new(),
                 frame_system::CheckTxVersion::new(),
                 frame_system::CheckGenesis::new(),

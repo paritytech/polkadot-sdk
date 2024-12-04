@@ -19,11 +19,14 @@ use crate::Config;
 use frame_support::{
 	dispatch::DispatchInfo,
 	pallet_prelude::{Decode, DispatchResult, Encode, TransactionSource, TypeInfo, Weight},
-	traits::{Authorize, OriginTrait},
+	traits::Authorize,
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use sp_runtime::{
-	traits::{Dispatchable, PostDispatchInfoOf, TransactionExtension, ValidateResult},
+	traits::{
+		AsTransactionAuthorizedOrigin, Dispatchable, PostDispatchInfoOf, TransactionExtension,
+		ValidateResult,
+	},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -58,7 +61,7 @@ where
 		_inherited_implication: &impl Encode,
 		source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		if let Some(crate::RawOrigin::None) = origin.as_system_ref() {
+		if !origin.is_transaction_authorized() {
 			if let Some(authorize) = call.authorize(source) {
 				return authorize.map(|(validity, unspent)| {
 					(validity, unspent, crate::Origin::<T>::Authorized.into())
@@ -106,8 +109,9 @@ mod tests {
 	use sp_runtime::{
 		testing::UintAuthorityId,
 		traits::{Applyable, Checkable, TransactionExtension as _},
-		transaction_validity::{InvalidTransaction, TransactionValidityError},
-		transaction_validity::TransactionSource::External,
+		transaction_validity::{
+			InvalidTransaction, TransactionSource::External, TransactionValidityError,
+		},
 		BuildStorage, DispatchError,
 	};
 
@@ -293,7 +297,7 @@ mod tests {
 	}
 
 	#[test]
-	fn call_filter_not_messed_up() {
+	fn call_filter_preserved() {
 		new_test_ext().execute_with(|| {
 			let ext = frame_system::AuthorizeCall::<Runtime>::new();
 			let filtered_call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });

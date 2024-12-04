@@ -39,7 +39,7 @@ use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::Pair;
 use sp_io::TestExternalities;
 use sp_keystore::testing::MemoryKeystore;
-use sp_runtime::{generic::Era, traits::Header, BuildStorage, SaturatedConversion};
+use sp_runtime::{generic::Era, traits::Header, BuildStorage, MultiAddress, SaturatedConversion};
 use std::sync::Arc;
 pub use substrate_test_client::*;
 
@@ -136,6 +136,7 @@ pub fn generate_extrinsic_with_pair(
 		BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
 	let tip = 0;
 	let tx_ext: TxExtension = (
+		frame_system::AuthorizeCall::<Runtime>::new(),
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckGenesis::<Runtime>::new(),
@@ -152,13 +153,13 @@ pub fn generate_extrinsic_with_pair(
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+		((), (), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 
 	UncheckedExtrinsic::new_signed(
 		function,
-		origin.public().into(),
+		MultiAddress::Id(origin.public().into()),
 		Signature::Sr25519(signature),
 		tx_ext,
 	)
@@ -181,7 +182,7 @@ pub fn transfer(
 	value: Balance,
 ) -> UncheckedExtrinsic {
 	let function = RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
-		dest: dest.public().into(),
+		dest: MultiAddress::Id(dest.public().into()),
 		value,
 	});
 

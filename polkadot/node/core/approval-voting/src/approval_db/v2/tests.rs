@@ -26,7 +26,8 @@ use crate::{
 	ops::{add_block_entry, canonicalize, force_approve, NewCandidateInfo},
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, Hash,
+	vstaging::{CandidateReceiptV2 as CandidateReceipt, MutateDescriptorV2},
+	BlockNumber, CandidateHash, CoreIndex, GroupIndex, Hash,
 };
 
 use polkadot_node_subsystem_util::database::Database;
@@ -35,7 +36,8 @@ use sp_consensus_slots::Slot;
 use std::{collections::HashMap, sync::Arc};
 
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_receipt, dummy_candidate_receipt_bad_sig, dummy_hash,
+	dummy_candidate_receipt_bad_sig, dummy_candidate_receipt_v2,
+	dummy_candidate_receipt_v2_bad_sig, dummy_hash,
 };
 
 const DATA_COL: u32 = 0;
@@ -72,10 +74,10 @@ fn make_block_entry(
 }
 
 fn make_candidate(para_id: ParaId, relay_parent: Hash) -> CandidateReceipt {
-	let mut c = dummy_candidate_receipt(dummy_hash());
+	let mut c = dummy_candidate_receipt_v2(dummy_hash());
 
-	c.descriptor.para_id = para_id;
-	c.descriptor.relay_parent = relay_parent;
+	c.descriptor.set_para_id(para_id);
+	c.descriptor.set_relay_parent(relay_parent);
 
 	c
 }
@@ -95,7 +97,7 @@ fn read_write() {
 		make_block_entry(hash_a, Default::default(), 1, vec![(CoreIndex(0), candidate_hash)]);
 
 	let candidate_entry = CandidateEntry {
-		candidate: dummy_candidate_receipt_bad_sig(dummy_hash(), None),
+		candidate: dummy_candidate_receipt_v2_bad_sig(dummy_hash(), None),
 		session: 5,
 		block_assignments: vec![(
 			hash_a,

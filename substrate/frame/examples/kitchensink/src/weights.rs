@@ -70,11 +70,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	fn set_foo_using_authorize() -> Weight {
-		// TODO TODO:
 		Weight::zero()
 	}
 	fn authorize_set_foo_using_authorize() -> Weight {
-		// TODO TODO:
 		Weight::zero()
 	}
 }
@@ -92,11 +90,9 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	fn set_foo_using_authorize() -> Weight {
-		// TODO TODO:
 		Weight::zero()
 	}
 	fn authorize_set_foo_using_authorize() -> Weight {
-		// TODO TODO:
 		Weight::zero()
 	}
 }

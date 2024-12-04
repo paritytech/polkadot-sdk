@@ -43,14 +43,14 @@ use parachains_common::xcm_config::{AllSiblingSystemParachains, RelayOrOtherSyst
 use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::rococo::currency::UNITS as ROC;
 use xcm::{
-	latest::prelude::*,
+	latest::{prelude::*, WESTEND_GENESIS_HASH},
 	prelude::{InteriorLocation, NetworkId},
 };
 use xcm_builder::{BridgeBlobDispatcher, ParentIsPreset, SiblingParachainConvertsVia};
 
 parameter_types! {
 	pub BridgeRococoToWestendMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8)].into();
-	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
+	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
 	pub WestendGlobalConsensusNetworkLocation: Location = Location::new(
 		2,
 		[GlobalConsensus(WestendGlobalConsensusNetwork::get())]
@@ -121,6 +121,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Ru
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubWestendMessagesInstance,
+		RelayersForLegacyLaneIdsMessagesInstance,
 		DeliveryRewardInBalance,
 	>;
 
@@ -175,13 +176,15 @@ where
 {
 	use pallet_xcm_bridge_hub::{Bridge, BridgeId, BridgeState};
 	use sp_runtime::traits::Zero;
-	use xcm::VersionedInteriorLocation;
+	use xcm::{latest::ROCOCO_GENESIS_HASH, VersionedInteriorLocation};
 
 	// insert bridge metadata
 	let lane_id = with;
 	let sibling_parachain = Location::new(1, [Parachain(sibling_para_id)]);
-	let universal_source = [GlobalConsensus(Rococo), Parachain(sibling_para_id)].into();
-	let universal_destination = [GlobalConsensus(Westend), Parachain(2075)].into();
+	let universal_source =
+		[GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(sibling_para_id)].into();
+	let universal_destination =
+		[GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(2075)].into();
 	let bridge_id = BridgeId::new(&universal_source, &universal_destination);
 
 	// insert only bridge metadata, because the benchmarks create lanes
@@ -254,7 +257,6 @@ mod tests {
 	fn ensure_bridge_integrity() {
 		assert_complete_bridge_types!(
 			runtime: Runtime,
-			with_bridged_chain_grandpa_instance: BridgeGrandpaWestendInstance,
 			with_bridged_chain_messages_instance: WithBridgeHubWestendMessagesInstance,
 			this_chain: bp_bridge_hub_rococo::BridgeHubRococo,
 			bridged_chain: bp_bridge_hub_westend::BridgeHubWestend,
@@ -264,7 +266,6 @@ mod tests {
 			Runtime,
 			BridgeGrandpaWestendInstance,
 			WithBridgeHubWestendMessagesInstance,
-			bp_westend::Westend,
 		>(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
 				block_length: bp_bridge_hub_rococo::BlockLength::get(),

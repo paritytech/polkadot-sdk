@@ -5,6 +5,8 @@ description = "The node-side components that participate in disputes"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -37,6 +39,7 @@ polkadot-primitives-test-helpers = { workspace = true }
 futures-timer = { workspace = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
 
 [features]
 # If not enabled, the dispute coordinator will do nothing.

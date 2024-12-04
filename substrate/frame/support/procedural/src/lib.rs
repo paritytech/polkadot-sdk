@@ -1392,7 +1392,7 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 ///
 ///         #[pallet::weight(Weight::zero())]
 ///         // We can also give the callback as a function
-///         #[pallet::authorize(Pallet::<T>::authorize_some_other_call)]
+///         #[pallet::authorize(Self::authorize_some_other_call)]
 ///         #[pallet::weight_of_authorize(Weight::zero())]
 ///         #[pallet::call_index(1)]
 ///         pub fn some_other_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
@@ -1480,10 +1480,12 @@ pub fn authorize(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// See [`frame_support_procedural::authorize`] for more information on how authorization works.
 ///
-/// # Example:
-/// ```
-/// // TODO TODO: copy paste
-/// ```
+/// Defines the value of the weight of the authorize function. This attribute is similar to
+/// `#[pallet::weight]`:
+/// * it can be ignore in `dev_mode`
+/// * it can be automatically infered from weight info. For the call `foo` the function
+///   `authorize_foo` in the weight info will be used.
+/// * it can be a fixed value like `Weight::from_all(0)` (not recommended in production).
 #[proc_macro_attribute]
 pub fn weight_of_authorize(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

@@ -19,7 +19,7 @@ use super::*;
 use alloc::{vec, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
-use sp_runtime::traits::{ConvertBack, MaybeConvert};
+use sp_runtime::traits::{BlockNumberProvider, ConvertBack, MaybeConvert};
 use CompletionStatus::Complete;
 
 impl<T: Config> Pallet<T> {
@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
 		config: &ConfigRecordOf<T>,
 		status: &StatusRecord,
 	) -> Option<()> {
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 
 		let pool_item =
 			ScheduleItem { assignment: CoreAssignment::Pool, mask: CoreMask::complete() };

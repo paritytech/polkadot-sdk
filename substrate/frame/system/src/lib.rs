@@ -99,7 +99,7 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData};
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
@@ -110,9 +110,9 @@ use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::{
 	generic,
 	traits::{
-		self, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded, CheckEqual, Dispatchable,
-		Hash, Header, Lookup, LookupError, MaybeDisplay, MaybeSerializeDeserialize, Member, One,
-		Saturating, SimpleBitOps, StaticLookup, Zero,
+		self, AsTransactionAuthorizedOrigin, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded,
+		CheckEqual, Dispatchable, Hash, Header, Lookup, LookupError, MaybeDisplay,
+		MaybeSerializeDeserialize, Member, One, Saturating, SimpleBitOps, StaticLookup, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
@@ -130,7 +130,8 @@ use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
-		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
+		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PerDispatchClass,
+		PostDispatchInfo,
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	migrations::MultiStepMigrator,
@@ -310,7 +311,7 @@ pub mod pallet {
 			type Hash = sp_core::hash::H256;
 			type Hashing = sp_runtime::traits::BlakeTwo256;
 			type AccountId = u64;
-			type Lookup = sp_runtime::traits::IdentityLookup<u64>;
+			type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 			type MaxConsumers = frame_support::traits::ConstU32<16>;
 			type AccountData = ();
 			type OnNewAccount = ();
@@ -499,7 +500,8 @@ pub mod pallet {
 		type RuntimeOrigin: Into<Result<RawOrigin<Self::AccountId>, Self::RuntimeOrigin>>
 			+ From<RawOrigin<Self::AccountId>>
 			+ Clone
-			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>;
+			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>
+			+ AsTransactionAuthorizedOrigin;
 
 		#[docify::export(system_runtime_call)]
 		/// The aggregated `RuntimeCall` type.
@@ -507,6 +509,7 @@ pub mod pallet {
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
+			+ GetDispatchInfo
 			+ From<Call<Self>>
 			+ Authorize;
 
@@ -993,6 +996,7 @@ pub mod pallet {
 
 	/// Digest of the current block, also part of the block header.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	#[pallet::unbounded]
 	#[pallet::getter(fn digest)]
 	pub(super) type Digest<T: Config> = StorageValue<_, generic::Digest, ValueQuery>;
@@ -1177,24 +1181,24 @@ pub struct AccountInfo<Nonce, AccountData> {
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
-#[derive(sp_runtime::RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(RuntimeDebug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct LastRuntimeUpgradeInfo {
 	pub spec_version: codec::Compact<u32>,
-	pub spec_name: sp_runtime::RuntimeString,
+	pub spec_name: Cow<'static, str>,
 }
 
 impl LastRuntimeUpgradeInfo {
 	/// Returns if the runtime was upgraded in comparison of `self` and `current`.
 	///
 	/// Checks if either the `spec_version` increased or the `spec_name` changed.
-	pub fn was_upgraded(&self, current: &sp_version::RuntimeVersion) -> bool {
+	pub fn was_upgraded(&self, current: &RuntimeVersion) -> bool {
 		current.spec_version > self.spec_version.0 || current.spec_name != self.spec_name
 	}
 }
 
-impl From<sp_version::RuntimeVersion> for LastRuntimeUpgradeInfo {
-	fn from(version: sp_version::RuntimeVersion) -> Self {
+impl From<RuntimeVersion> for LastRuntimeUpgradeInfo {
+	fn from(version: RuntimeVersion) -> Self {
 		Self { spec_version: version.spec_version.into(), spec_name: version.spec_name }
 	}
 }

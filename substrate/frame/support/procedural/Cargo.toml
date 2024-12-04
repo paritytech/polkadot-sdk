@@ -38,18 +38,14 @@ codec = { features = [
 	"max-encoded-len",
 ], workspace = true }
 regex = { workspace = true }
-sp-metadata-ir = { workspace = true, features = ["std"] }
+sp-metadata-ir = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-core = { workspace = true, features = ["std"] }
-sp-io = { workspace = true, features = ["std"] }
-sp-runtime = { features = [
-	"serde",
-	"runtime-benchmarks",
-	"std",
-], workspace = true }
-frame-system = { workspace = true, features = ["runtime-benchmarks", "std"] }
-frame-support = { workspace = true, features = ["runtime-benchmarks", "std"] }
-frame-benchmarking = { workspace = true, features = ["std"] }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { features = ["runtime-benchmarks", "serde"], workspace = true }
+frame-system = { workspace = true, features = ["runtime-benchmarks"] }
+frame-support = { workspace = true, features = ["runtime-benchmarks"] }
+frame-benchmarking = { workspace = true }
 pretty_assertions = { workspace = true }
 static_assertions = { workspace = true }
 
@@ -65,6 +61,7 @@ std = [
 	"sp-io/std",
 	"sp-metadata-ir/std",
 	"sp-runtime/std",
+	"frame-benchmarking/std",
 ]
 no-metadata-docs = []
 experimental = []

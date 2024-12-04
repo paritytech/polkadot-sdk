@@ -75,6 +75,7 @@ pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 /// Returns transaction extra.
 pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 	(
+		frame_system::AuthorizeCall::new(),
 		frame_system::CheckNonZeroSender::new(),
 		frame_system::CheckSpecVersion::new(),
 		frame_system::CheckTxVersion::new(),
@@ -123,7 +124,6 @@ pub fn sign(
 				preamble: sp_runtime::generic::Preamble::Signed(
 					sp_runtime::MultiAddress::Id(signed),
 					signature,
-					0,
 					tx_ext,
 				),
 				function: payload.0,
@@ -135,8 +135,8 @@ pub fn sign(
 			function: xt.function,
 		}
 		.into(),
-		ExtrinsicFormat::General(tx_ext) => generic::UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::General(0, tx_ext),
+		ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic {
+			preamble: sp_runtime::generic::Preamble::General(ext_version, tx_ext),
 			function: xt.function,
 		}
 		.into(),
