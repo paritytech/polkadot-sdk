@@ -1026,7 +1026,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							Ok(GetProvidersOk::FoundProviders { key, providers }) => {
 								debug!(
 									target: "sub-libp2p",
-									"Libp2p => Found providers {:?} for key {:?},  id {:?}, stats {:?}",
+									"Libp2p => Found providers {:?} for key {:?}, id {:?}, stats {:?}",
 									providers,
 									key,
 									id,
