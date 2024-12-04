@@ -1644,7 +1644,7 @@ where
 		let xcm_weight = Runtime::query_xcm_weight(versioned_xcm_to_weigh);
 		assert!(xcm_weight.is_ok());
 		let native_token: Location = Parent.into();
-		let native_token_versioned = VersionedAssetId::from(AssetId::Concrete(native_token.clone()));
+		let native_token_versioned = VersionedAssetId::from(AssetId::Concrete(native_token));
 		let execution_fees =
 			Runtime::query_weight_to_asset_fee(xcm_weight.unwrap(), native_token_versioned);
 		assert!(execution_fees.is_ok());
@@ -1666,19 +1666,19 @@ where
 		));
 		let execution_fees = Runtime::query_weight_to_asset_fee(
 			xcm_weight.unwrap(),
-			VersionedAssetId::from(AssetId::Concrete(asset_not_in_pool.clone())),
+			VersionedAssetId::from(AssetId::Concrete(asset_not_in_pool)),
 		);
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
 
 		// We add it to a pool with native.
 		assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::create_pool(
 			RuntimeOrigin::signed(test_account.clone()),
-			native_token.clone().try_into().unwrap(),
-			asset_not_in_pool.clone().try_into().unwrap()
+			native_token.try_into().unwrap(),
+			asset_not_in_pool.try_into().unwrap()
 		));
 		let execution_fees = Runtime::query_weight_to_asset_fee(
 			xcm_weight.unwrap(),
-			VersionedAssetId::from(AssetId::Concrete(asset_not_in_pool.clone())),
+			VersionedAssetId::from(AssetId::Concrete(asset_not_in_pool)),
 		);
 		// Still not enough because it doesn't have any liquidity.
 		assert_eq!(execution_fees, Err(XcmPaymentApiError::AssetNotFound));
@@ -1694,7 +1694,7 @@ where
 		assert_ok!(pallet_asset_conversion::Pallet::<Runtime>::add_liquidity(
 			RuntimeOrigin::signed(test_account.clone()),
 			native_token.try_into().unwrap(),
-			asset_not_in_pool.clone().try_into().unwrap(),
+			asset_not_in_pool.try_into().unwrap(),
 			1_000_000_000_000,
 			2_000_000_000_000,
 			0,
