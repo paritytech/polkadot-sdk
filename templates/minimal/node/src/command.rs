@@ -114,6 +114,14 @@ pub fn run() -> sc_cli::Result<()> {
 				cmd.run::<minimal_template_runtime::interface::OpaqueBlock>(&config)
 			})
 		},
+		Some(Subcommand::PrecompileWasm(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.async_run(|config| {
+				let PartialComponents { task_manager, backend, .. } =
+					service::new_partial(&config)?;
+				Ok((cmd.run(backend, config.chain_spec), task_manager))
+			})
+		},
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| async move {
