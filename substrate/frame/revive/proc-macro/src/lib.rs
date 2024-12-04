@@ -119,7 +119,7 @@ struct EnvDef {
 /// Parsed host function definition.
 struct HostFn {
 	item: syn::ItemFn,
-	api_version: Option<u16>,
+	is_stable: bool,
 	name: String,
 	returns: HostFnReturn,
 	cfg: Option<syn::Attribute>,
@@ -183,22 +183,21 @@ impl HostFn {
 		};
 
 		// process attributes
-		let msg = "Only #[api_version(<u16>)], #[cfg] and #[mutating] attributes are allowed.";
+		let msg = "Only #[stable], #[cfg] and #[mutating] attributes are allowed.";
 		let span = item.span();
 		let mut attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident("doc"));
-		let mut api_version = None;
+		let mut is_stable = false;
 		let mut mutating = false;
 		let mut cfg = None;
 		while let Some(attr) = attrs.pop() {
 			let ident = attr.path().get_ident().ok_or(err(span, msg))?.to_string();
 			match ident.as_str() {
-				"api_version" => {
-					if api_version.is_some() {
-						return Err(err(span, "#[api_version] can only be specified once"))
+				"stable" => {
+					if is_stable {
+						return Err(err(span, "#[stable] can only be specified once"))
 					}
-					api_version =
-						Some(attr.parse_args::<syn::LitInt>().and_then(|lit| lit.base10_parse())?);
+					is_stable = true;
 				},
 				"mutating" => {
 					if mutating {
@@ -313,7 +312,7 @@ impl HostFn {
 							_ => Err(err(arg1.span(), &msg)),
 						}?;
 
-						Ok(Self { item, api_version, name, returns, cfg })
+						Ok(Self { item, is_stable, name, returns, cfg })
 					},
 					_ => Err(err(span, &msg)),
 				}
@@ -413,25 +412,17 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let docs = expand_func_doc(def);
 	let stable_functions = expand_func_list(def, false);
 	let all_functions = expand_func_list(def, true);
-	let highest_api_version =
-		def.host_funcs.iter().filter_map(|f| f.api_version).max().unwrap_or_default();
 
 	quote! {
-		#[cfg(test)]
-		pub const HIGHEST_API_VERSION: u16 = #highest_api_version;
-
 		impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 			fn handle_ecall(
 				&mut self,
 				memory: &mut M,
 				__syscall_symbol__: &[u8],
-				__available_api_version__: ApiVersion,
 			) -> Result<Option<u64>, TrapReason>
 			{
 				#impls
 			}
-
-
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
@@ -488,10 +479,6 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 		let body = &f.item.block;
 		let map_output = f.returns.map_output();
 		let output = &f.item.sig.output;
-		let api_version = match f.api_version {
-			Some(version) => quote! { Some(#version) },
-			None => quote! { None },
-		};
 
 		// wrapped host function body call with host function traces
 		// see https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/contracts#host-function-tracing
@@ -527,7 +514,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 
 		quote! {
 			#cfg
-			#syscall_symbol if __is_available__(#api_version) => {
+			#syscall_symbol => {
 				// closure is needed so that "?" can infere the correct type
 				(|| #output {
 					#arg_decoder
@@ -547,18 +534,6 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 
 		// This is the overhead to call an empty syscall that always needs to be charged.
 		self.charge_gas(crate::wasm::RuntimeCosts::HostFn).map_err(TrapReason::from)?;
-
-		// Not all APIs are available depending on configuration or when the code was deployed.
-		// This closure will be used by syscall specific code to perform this check.
-		let __is_available__ = |syscall_version: Option<u16>| {
-			match __available_api_version__ {
-				ApiVersion::UnsafeNewest => true,
-				ApiVersion::Versioned(max_available_version) =>
-					syscall_version
-						.map(|required_version| max_available_version >= required_version)
-						.unwrap_or(false),
-			}
-		};
 
 		// They will be mapped to variable names by the syscall specific code.
 		let (__a0__, __a1__, __a2__, __a3__, __a4__, __a5__) = memory.read_input_regs();
@@ -621,10 +596,8 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 				});
 				quote! { #( #docs )* }
 			};
-			let availability = if let Some(version) = func.api_version {
-				let info = format!(
-					"\n# Required API version\nThis API was added in version **{version}**.",
-				);
+			let availability = if func.is_stable {
+				let info = format!("\n# Stable API\nThis API is stable and will never change.",);
 				quote! { #[doc = #info] }
 			} else {
 				let info =
@@ -648,16 +621,12 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 }
 
 fn expand_func_list(def: &EnvDef, include_unstable: bool) -> TokenStream2 {
-	let docs = def
-		.host_funcs
-		.iter()
-		.filter(|f| include_unstable || f.api_version.is_some())
-		.map(|f| {
-			let name = Literal::byte_string(f.name.as_bytes());
-			quote! {
-				#name.as_slice()
-			}
-		});
+	let docs = def.host_funcs.iter().filter(|f| include_unstable || f.is_stable).map(|f| {
+		let name = Literal::byte_string(f.name.as_bytes());
+		quote! {
+			#name.as_slice()
+		}
+	});
 	let len = docs.clone().count();
 
 	quote! {

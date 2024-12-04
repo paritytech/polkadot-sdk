@@ -23,13 +23,10 @@ mod runtime;
 #[cfg(doc)]
 pub use crate::wasm::runtime::SyscallDoc;
 
-#[cfg(test)]
-pub use runtime::HIGHEST_API_VERSION;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub use crate::wasm::runtime::{ReturnData, TrapReason};
 
-pub use crate::wasm::runtime::{ApiVersion, Memory, Runtime, RuntimeCosts};
+pub use crate::wasm::runtime::{Memory, Runtime, RuntimeCosts};
 
 use crate::{
 	address::AddressMapper,
@@ -39,7 +36,7 @@ use crate::{
 	storage::meter::Diff,
 	weights::WeightInfo,
 	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, Event, ExecError,
-	HoldReason, Pallet, PristineCode, Weight, API_VERSION, LOG_TARGET,
+	HoldReason, Pallet, PristineCode, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -48,7 +45,7 @@ use frame_support::{
 	ensure,
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
-use sp_core::{Get, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 
 /// Validated Wasm module ready for execution.
@@ -87,11 +84,6 @@ pub struct CodeInfo<T: Config> {
 	refcount: u64,
 	/// Length of the code in bytes.
 	code_len: u32,
-	/// The API version that this contract operates under.
-	///
-	/// This determines which host functions are available to the contract. This
-	/// prevents that new host functions become available to already deployed contracts.
-	api_version: u16,
 	/// The behaviour version that this contract operates under.
 	///
 	/// Whenever any observeable change (with the exception of weights) are made we need
@@ -99,7 +91,7 @@ pub struct CodeInfo<T: Config> {
 	/// exposing the old behaviour depending on the set behaviour version of the contract.
 	///
 	/// As of right now this is a reserved field that is always set to 0.
-	behaviour_version: u16,
+	behaviour_version: u32,
 }
 
 impl ExportedFunction {
@@ -144,7 +136,6 @@ where
 			deposit,
 			refcount: 0,
 			code_len,
-			api_version: API_VERSION,
 			behaviour_version: Default::default(),
 		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
@@ -230,7 +221,6 @@ impl<T: Config> CodeInfo<T> {
 			deposit: Default::default(),
 			refcount: 0,
 			code_len: 0,
-			api_version: API_VERSION,
 			behaviour_version: Default::default(),
 		}
 	}
@@ -260,7 +250,6 @@ pub struct PreparedCall<'a, E: Ext> {
 	module: polkavm::Module,
 	instance: polkavm::RawInstance,
 	runtime: Runtime<'a, E, polkavm::RawInstance>,
-	api_version: ApiVersion,
 }
 
 impl<'a, E: Ext> PreparedCall<'a, E>
@@ -271,12 +260,9 @@ where
 	pub fn call(mut self) -> ExecResult {
 		let exec_result = loop {
 			let interrupt = self.instance.run();
-			if let Some(exec_result) = self.runtime.handle_interrupt(
-				interrupt,
-				&self.module,
-				&mut self.instance,
-				self.api_version,
-			) {
+			if let Some(exec_result) =
+				self.runtime.handle_interrupt(interrupt, &self.module, &mut self.instance)
+			{
 				break exec_result
 			}
 		};
@@ -290,7 +276,6 @@ impl<T: Config> WasmBlob<T> {
 		self,
 		mut runtime: Runtime<E, polkavm::RawInstance>,
 		entry_point: ExportedFunction,
-		api_version: ApiVersion,
 	) -> Result<PreparedCall<E>, ExecError> {
 		let mut config = polkavm::Config::default();
 		config.set_backend(Some(polkavm::BackendKind::Interpreter));
@@ -344,7 +329,7 @@ impl<T: Config> WasmBlob<T> {
 		instance.set_gas(gas_limit_polkavm);
 		instance.prepare_call_untyped(entry_program_counter, &[]);
 
-		Ok(PreparedCall { module, instance, runtime, api_version })
+		Ok(PreparedCall { module, instance, runtime })
 	}
 }
 
@@ -365,13 +350,7 @@ where
 		function: ExportedFunction,
 		input_data: Vec<u8>,
 	) -> ExecResult {
-		let api_version = if <E::T as Config>::UnsafeUnstableInterface::get() {
-			ApiVersion::UnsafeNewest
-		} else {
-			ApiVersion::Versioned(self.code_info.api_version)
-		};
-		let prepared_call =
-			self.prepare_call(Runtime::new(ext, input_data), function, api_version)?;
+		let prepared_call = self.prepare_call(Runtime::new(ext, input_data), function)?;
 		prepared_call.call()
 	}
 
