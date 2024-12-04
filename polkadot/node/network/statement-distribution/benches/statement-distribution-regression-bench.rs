@@ -44,7 +44,7 @@ fn main() -> Result<(), String> {
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let (mut env, test_authorities, _cfgs) = prepare_test(&state, false);
+			let (mut env, test_authorities, _cfgs, _service) = prepare_test(&state, false);
 			env.runtime().block_on(benchmark_statement_distribution(
 				&mut env,
 				&test_authorities,

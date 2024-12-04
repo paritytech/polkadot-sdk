@@ -19407,6 +19407,7 @@ dependencies = [
 name = "polkadot-subsystem-bench"
 version = "1.0.0"
 dependencies = [
+ "array-bytes",
  "assert_matches",
  "async-trait",
  "bincode",

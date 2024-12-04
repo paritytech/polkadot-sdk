@@ -97,7 +97,7 @@ use sc_network::{
 	},
 	multiaddr,
 	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
-	Multiaddr, NetworkWorker, NotificationMetrics, RequestFailure,
+	Multiaddr, NetworkWorker, NotificationMetrics, NotificationService, RequestFailure,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sc_network_types::{
@@ -232,7 +232,7 @@ pub struct NetworkInterface {
 	pub peer_ids: Vec<PeerId>,
 	pub handles: Vec<OverseerHandle>,
 	pub listen_addresses: Vec<Multiaddr>,
-	pub peer_store_handles: Vec<Arc<dyn PeerStoreProvider>>,
+	pub notification_services: Vec<Box<dyn NotificationService>>,
 }
 
 // Wraps the receiving side of a interface to bridge channel. It is a required
@@ -280,7 +280,7 @@ impl NetworkInterface {
 		peer_ids: Vec<PeerId>,
 		handles: Vec<OverseerHandle>,
 		listen_addresses: Vec<Multiaddr>,
-		peer_store_handles: Vec<Arc<dyn PeerStoreProvider>>,
+		notification_services: Vec<Box<dyn NotificationService>>,
 	) -> (NetworkInterface, NetworkInterfaceReceiver) {
 		let rx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
 		let tx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
@@ -432,7 +432,7 @@ impl NetworkInterface {
 				peer_ids,
 				handles,
 				listen_addresses,
-				peer_store_handles,
+				notification_services,
 			},
 			NetworkInterfaceReceiver(interface_to_bridge_receiver),
 		)
@@ -894,14 +894,14 @@ pub fn new_network(
 	let mut handles = vec![];
 	let mut peer_ids = vec![];
 	let mut listen_addresses = vec![];
-	let mut peer_store_handles = vec![];
-	for (handle, peer_id, listen_address, peer_store_handle) in
+	let mut notification_services = vec![];
+	for (handle, peer_id, listen_address, notification_service) in
 		peers.iter().skip(1).map(|peer| build_peer_overseer(dependencies))
 	{
 		handles.push(handle);
 		peer_ids.push(peer_id);
 		listen_addresses.push(listen_address);
-		peer_store_handles.push(peer_store_handle);
+		notification_services.push(notification_service);
 	}
 
 	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
@@ -921,7 +921,7 @@ pub fn new_network(
 		peer_ids,
 		handles,
 		listen_addresses,
-		peer_store_handles,
+		notification_services,
 	);
 
 	(handle, network_interface, network_interface_receiver)
@@ -1197,7 +1197,7 @@ impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
 
 fn build_peer_overseer(
 	dependencies: &TestEnvironmentDependencies,
-) -> (OverseerHandle, PeerId, Multiaddr, Arc<dyn PeerStoreProvider>) {
+) -> (OverseerHandle, PeerId, Multiaddr, Box<dyn NotificationService>) {
 	let handle = Arc::new(dependencies.runtime.handle().clone());
 	let _guard = handle.enter();
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
@@ -1235,11 +1235,16 @@ fn build_peer_overseer(
 	network_config.add_request_response_protocol(candidate_req_cfg);
 	let role = Role::Authority;
 	let peer_store_handle = network_config.peer_store_handle();
-	let (block_announce_config, mut notification_service) =
+	let block_announces_protocol =
+		format!("/{}/block-announces/1", array_bytes::bytes2hex("", GENESIS_HASH.as_ref()));
+	let protocol_id = ProtocolId::from("sup");
+	let notification_metrics = NotificationMetrics::new(None);
+	let (block_announce_config, notification_service) =
 		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
-			"/block-announces/1".into(),
-			vec!["/bench-notifications-protocol/block-announces/1".into()],
-			1024,
+			block_announces_protocol.into(),
+			std::iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into())
+				.collect(),
+			1024 * 1024,
 			Some(sc_network::config::NotificationHandshake::new(
 				BlockAnnouncesHandshake::<Block>::build(
 					sc_network::Roles::from(&role),
@@ -1248,16 +1253,17 @@ fn build_peer_overseer(
 					GENESIS_HASH,
 				),
 			)),
+			// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
+			// protocol is still hardcoded into the peerset.
 			SetConfig {
-				in_peers: 1,
-				out_peers: 1,
+				in_peers: 0,
+				out_peers: 0,
 				reserved_nodes: vec![],
-				non_reserved_mode: NonReservedPeerMode::Accept,
+				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
-			NotificationMetrics::new(None),
+			notification_metrics.clone(),
 			Arc::clone(&peer_store_handle),
 		);
-	let notification_metrics = NotificationMetrics::new(None);
 
 	let notification_services = peer_sets_info::<Block, NetworkWorker<Block, Hash>>(
 		IsAuthority::Yes,
@@ -1284,7 +1290,7 @@ fn build_peer_overseer(
 			}),
 			genesis_hash: GENESIS_HASH,
 			network_config,
-			protocol_id: ProtocolId::from("bench-protocol-name"),
+			protocol_id,
 			fork_id: None,
 			metrics_registry: None,
 			bitswap_config: None,
@@ -1336,16 +1342,8 @@ fn build_peer_overseer(
 	let listen_addresses = network_service.listen_addresses();
 
 	let spawn_handle = dependencies.task_manager.spawn_handle();
-	spawn_handle.spawn_blocking("1", "peer_overseer", async move {
-		let overseer_run = overseer.run().fuse();
-		let worker_run = worker.run().fuse();
-		tokio::pin!(overseer_run);
-		tokio::pin!(worker_run);
-		futures::select! {
-			_ = overseer_run => {},
-			_ = worker_run => {},
-		}
-	});
+	spawn_handle.spawn_blocking("1", "peer_overseer", overseer.run());
+	spawn_handle.spawn_blocking("1", "peer_network", worker.run());
 
 	let listen_address = tokio::spawn({
 		let network_service = Arc::clone(&network_service);
@@ -1365,7 +1363,7 @@ fn build_peer_overseer(
 		tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(listen_address))
 			.unwrap();
 
-	(overseer_handle, network_service.local_peer_id(), listen_address, peer_store_handle)
+	(overseer_handle, network_service.local_peer_id(), listen_address, notification_service)
 }
 
 #[cfg(test)]

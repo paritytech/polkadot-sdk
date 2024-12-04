@@ -36,7 +36,7 @@ use crate::{
 use bitvec::vec::BitVec;
 use colored::Colorize;
 use itertools::Itertools;
-use polkadot_network_bridge::Network;
+use polkadot_network_bridge::{peer_sets_info, IsAuthority, Network};
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
@@ -63,10 +63,11 @@ use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
 use sc_network::{
 	config::{
-		FullNetworkConfiguration, NetworkConfiguration, NonReservedPeerMode, Params, ProtocolId,
+		FullNetworkConfiguration, MultiaddrWithPeerId, NetworkConfiguration, NonReservedPeerMode,
+		Params, ProtocolId,
 	},
 	request_responses::ProtocolConfig,
-	NetworkWorker, NotificationMetrics,
+	NetworkWorker, NotificationMetrics, NotificationService,
 };
 use sc_network_common::sync::message::BlockAnnouncesHandshake;
 use sc_network_types::PeerId;
@@ -104,6 +105,7 @@ fn build_overseer(
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 	OverseerHandle,
 	Vec<ProtocolConfig>,
+	Box<dyn NotificationService>,
 ) {
 	let handle = Arc::new(dependencies.runtime.handle().clone());
 	let _guard = handle.enter();
@@ -129,6 +131,7 @@ fn build_overseer(
 		state.own_backing_group.clone(),
 	);
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
+	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
 	let mut net_conf = NetworkConfiguration::new_local();
 	net_conf.listen_addresses = vec![std::iter::once(sc_network::multiaddr::Protocol::Ip4(
 		std::net::Ipv4Addr::new(127, 0, 0, 1),
@@ -157,11 +160,17 @@ fn build_overseer(
 	);
 
 	let role = Role::Authority;
-	let (block_announce_config, mut notification_service) =
+	let peer_store_handle = network_config.peer_store_handle();
+	let block_announces_protocol =
+		format!("/{}/block-announces/1", array_bytes::bytes2hex("", GENESIS_HASH.as_ref()));
+	let protocol_id = ProtocolId::from("sup");
+	let notification_metrics = NotificationMetrics::new(Some(&dependencies.registry));
+	let (block_announce_config, notification_service) =
 		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
-			"/block-announces/1".into(),
-			vec!["/bench-notifications-protocol/block-announces/1".into()],
-			1024,
+			block_announces_protocol.into(),
+			std::iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into())
+				.collect(),
+			1024 * 1024,
 			Some(sc_network::config::NotificationHandshake::new(
 				BlockAnnouncesHandshake::<Block>::build(
 					sc_network::Roles::from(&role),
@@ -170,15 +179,30 @@ fn build_overseer(
 					GENESIS_HASH,
 				),
 			)),
+			// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
+			// protocol is still hardcoded into the peerset.
 			SetConfig {
-				in_peers: 1,
-				out_peers: 1,
+				in_peers: 0,
+				out_peers: 0,
 				reserved_nodes: vec![],
-				non_reserved_mode: NonReservedPeerMode::Accept,
+				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
-			NotificationMetrics::new(None),
-			network_config.peer_store_handle(),
+			notification_metrics.clone(),
+			Arc::clone(&peer_store_handle),
 		);
+
+	let notification_services = peer_sets_info::<Block, NetworkWorker<Block, Hash>>(
+		IsAuthority::Yes,
+		&peer_set_protocol_names,
+		notification_metrics.clone(),
+		Arc::clone(&peer_store_handle),
+	)
+	.into_iter()
+	.map(|(config, (peerset, service))| {
+		network_config.add_notification_protocol(config);
+		(peerset, service)
+	})
+	.collect::<std::collections::HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>();
 	let worker =
 		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::new(Params::<
 			Block,
@@ -192,11 +216,11 @@ fn build_overseer(
 			}),
 			genesis_hash: GENESIS_HASH,
 			network_config,
-			protocol_id: ProtocolId::from("bench-protocol-name"),
+			protocol_id,
 			fork_id: None,
-			metrics_registry: None,
+			metrics_registry: Some(dependencies.registry.clone()),
 			bitswap_config: None,
-			notification_metrics: NotificationMetrics::new(None),
+			notification_metrics,
 		})
 		.unwrap();
 
@@ -210,7 +234,6 @@ fn build_overseer(
 
 	let authority_discovery_service = DummyAuthotiryDiscoveryService;
 	let notification_sinks = Arc::new(parking_lot::Mutex::new(HashMap::new()));
-	let peer_set_protocol_names = PeerSetProtocolNames::new(GENESIS_HASH, None);
 	let network_bridge_tx = NetworkBridgeTxSubsystem::new(
 		Arc::clone(&network_service),
 		authority_discovery_service.clone(),
@@ -220,10 +243,6 @@ fn build_overseer(
 		Arc::clone(&notification_sinks),
 	);
 	let dummy_sync_oracle = Box::new(DummySyncOracle);
-	let notification_services = HashMap::from_iter([
-		(PeerSet::Validation, notification_service.clone().unwrap()),
-		(PeerSet::Collation, notification_service),
-	]);
 	let network_bridge_rx = NetworkBridgeRxSubsystem::new(
 		Arc::clone(&network_service),
 		authority_discovery_service,
@@ -253,7 +272,6 @@ fn build_overseer(
 		let local_peer_id = network_service.local_peer_id();
 		let network_service = Arc::clone(&network_service);
 		let test_authorities = test_authorities.clone();
-		let handles = network_interface.peer_store_handles.clone();
 
 		async move {
 			while network_service.listen_addresses().is_empty() {
@@ -266,24 +284,22 @@ fn build_overseer(
 				.cloned()
 				.zip(test_authorities.listen_address.iter().cloned())
 			{
-				network_service.add_known_address(peer_id, listen_address.into());
+				network_service.add_known_address(peer_id, listen_address.clone().into());
 			}
 
-			for handle in handles {
-				handle.set_peer_role(&local_peer_id, sc_network::ObservedRole::Authority);
-			}
+			tokio::time::sleep(Duration::from_secs(1)).await;
 		}
 	});
 
 	let _ = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(ready));
 
-	(overseer, overseer_handle, vec![])
+	(overseer, overseer_handle, vec![], notification_service)
 }
 
 pub fn prepare_test(
 	state: &TestState,
 	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, TestAuthorities, Vec<ProtocolConfig>) {
+) -> (TestEnvironment, TestAuthorities, Vec<ProtocolConfig>, Box<dyn NotificationService>) {
 	let dependencies = TestEnvironmentDependencies::default();
 	let (mut network, network_interface, network_receiver) = new_network(
 		&state.config,
@@ -309,7 +325,7 @@ pub fn prepare_test(
 		.zip(test_authorities.validator_authority_id.iter().cloned())
 		.collect();
 
-	let (overseer, overseer_handle, cfg) = build_overseer(
+	let (overseer, overseer_handle, cfg, service) = build_overseer(
 		state,
 		&test_authorities,
 		network.clone(),
@@ -330,6 +346,7 @@ pub fn prepare_test(
 		),
 		test_authorities,
 		cfg,
+		service,
 	)
 }
 
@@ -428,7 +445,6 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(peer_view_change).await;
 		}
 
-		println!("{:?}", test_authorities.peer_ids);
 		let seconding_peer_id = *test_authorities.peer_ids.get(0).unwrap();
 		let candidate = state.candidate_receipts.get(&block_info.hash).unwrap().first().unwrap();
 		let candidate_hash = candidate.hash();
