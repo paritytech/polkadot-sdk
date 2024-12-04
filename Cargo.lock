@@ -7016,6 +7016,7 @@ dependencies = [
  "sc-client-db",
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
+ "sc-runtime-utilities",
  "sc-service",
  "sc-sysinfo",
  "serde",
