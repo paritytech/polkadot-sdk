@@ -38,6 +38,7 @@ use crate::{
 };
 use futures::FutureExt;
 use itertools::Itertools;
+use parking_lot::RwLock;
 use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
@@ -84,9 +85,9 @@ where
 	source: TimedTransactionSource,
 	/// When the transaction was revalidated, used to periodically revalidate the mem pool buffer.
 	validated_at: AtomicU64,
-	/// Priority of transaction at some block. It is assumed it will not be changed often.
-	//todo: Option is needed here. This means lock. So maybe +AtomicBool?
-	priority: AtomicU64,
+	/// Priority of transaction at some block. It is assumed it will not be changed often. None if
+	/// not known.
+	priority: RwLock<Option<TransactionPriority>>,
 	//todo: we need to add future / ready status at finalized block.
 	//If future transactions are stuck in tx_mem_pool (due to limits being hit), we need a means
 	// to replace them somehow with newly coming transactions.
@@ -126,7 +127,7 @@ where
 		tx: ExtrinsicFor<ChainApi>,
 		bytes: usize,
 	) -> Self {
-		Self::new_with_priority(watched, source, tx, bytes, 0)
+		Self::new_with_optional_priority(watched, source, tx, bytes, None)
 	}
 
 	/// Creates a new instance of wrapper for a transaction with given priority.
@@ -137,13 +138,24 @@ where
 		bytes: usize,
 		priority: TransactionPriority,
 	) -> Self {
+		Self::new_with_optional_priority(watched, source, tx, bytes, Some(priority))
+	}
+
+	/// Creates a new instance of wrapper for a transaction with given priority.
+	fn new_with_optional_priority(
+		watched: bool,
+		source: TransactionSource,
+		tx: ExtrinsicFor<ChainApi>,
+		bytes: usize,
+		priority: Option<TransactionPriority>,
+	) -> Self {
 		Self {
 			watched,
 			tx,
 			source: TimedTransactionSource::from_transaction_source(source, true),
 			validated_at: AtomicU64::new(0),
 			bytes,
-			priority: AtomicU64::new(priority),
+			priority: priority.into(),
 		}
 	}
 
@@ -160,8 +172,8 @@ where
 	}
 
 	/// Returns the priority of the transaction.
-	pub(crate) fn priority(&self) -> TransactionPriority {
-		self.priority.load(atomic::Ordering::Relaxed)
+	pub(crate) fn priority(&self) -> Option<TransactionPriority> {
+		*self.priority.read()
 	}
 }
 
@@ -357,8 +369,10 @@ where
 			return Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)));
 		}
 
-		let mut sorted =
-			transactions.iter().map(|(h, v)| (h.clone(), v.clone())).collect::<Vec<_>>();
+		let mut sorted = transactions
+			.iter()
+			.filter_map(|(h, v)| v.priority().map(|_| (h.clone(), v.clone())))
+			.collect::<Vec<_>>();
 
 		// When pushing higher prio transaction, we need to find a number of lower prio txs, such
 		// that the sum of their bytes is ge then size of new tx. Otherwise we could overflow size
@@ -594,11 +608,12 @@ where
 	}
 
 	pub(super) fn update_transaction(&self, outcome: &ViewStoreSubmitOutcome<ChainApi>) {
-		if let Some(priority) = outcome.priority() {
-			if let Some(tx) = self.transactions.write().get_mut(&outcome.hash()) {
-				tx.priority.store(priority, atomic::Ordering::Relaxed);
-			}
-		}
+		outcome.priority().map(|priority| {
+			self.transactions
+				.write()
+				.get_mut(&outcome.hash())
+				.map(|p| *p.priority.write() = Some(priority))
+		});
 	}
 }
 
