@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Fixtures for testing and benchmarking"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -18,10 +20,8 @@ anyhow = { workspace = true, default-features = true, optional = true }
 log = { workspace = true }
 
 [build-dependencies]
-parity-wasm = { workspace = true }
-tempfile = { workspace = true }
 toml = { workspace = true }
-polkavm-linker = { version = "0.14.0" }
+polkavm-linker = { version = "0.17.0" }
 anyhow = { workspace = true, default-features = true }
 
 [features]

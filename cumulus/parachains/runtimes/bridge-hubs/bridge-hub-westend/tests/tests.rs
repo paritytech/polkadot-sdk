@@ -27,9 +27,9 @@ use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
 	bridge_to_rococo_config::RococoGlobalConsensusNetwork,
 	xcm_config::{LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig},
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	TransactionPayment, TxExtension, UncheckedExtrinsic,
+	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, Executive,
+	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension, UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
@@ -249,10 +249,11 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 				>(
 					SiblingParachainLocation::get(),
 					BridgedUniversalLocation::get(),
-					|locations, fee| {
+					false,
+					|locations, _fee| {
 						bridge_hub_test_utils::open_bridge_with_storage::<
 							Runtime, XcmOverBridgeHubRococoInstance
-						>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+						>(locations, LegacyLaneId([0, 0, 0, 1]))
 					}
 				).1
 			},
@@ -310,11 +311,12 @@ fn relayed_incoming_message_works() {
 			>(
 				SiblingParachainLocation::get(),
 				BridgedUniversalLocation::get(),
-				|locations, fee| {
+				false,
+				|locations, _fee| {
 					bridge_hub_test_utils::open_bridge_with_storage::<
 						Runtime,
 						XcmOverBridgeHubRococoInstance,
-					>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					>(locations, LegacyLaneId([0, 0, 0, 1]))
 				},
 			)
 			.1
@@ -344,11 +346,12 @@ fn free_relay_extrinsic_works() {
 			>(
 				SiblingParachainLocation::get(),
 				BridgedUniversalLocation::get(),
-				|locations, fee| {
+				false,
+				|locations, _fee| {
 					bridge_hub_test_utils::open_bridge_with_storage::<
 						Runtime,
 						XcmOverBridgeHubRococoInstance,
-					>(locations, fee, LegacyLaneId([0, 0, 0, 1]))
+					>(locations, LegacyLaneId([0, 0, 0, 1]))
 				},
 			)
 			.1
@@ -524,4 +527,14 @@ fn location_conversion_works() {
 
 		assert_eq!(got, expected, "{}", tc.description);
 	}
+}
+
+#[test]
+fn xcm_payment_api_works() {
+	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
 }
