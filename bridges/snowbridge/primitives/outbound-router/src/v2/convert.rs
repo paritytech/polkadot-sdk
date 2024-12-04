@@ -5,7 +5,7 @@
 use codec::DecodeAll;
 use core::slice::Iter;
 use frame_support::{ensure, traits::Get, BoundedVec};
-use snowbridge_core::{TokenId, TokenIdOf, TokenIdOf as LocationIdOf};
+use snowbridge_core::{AgentIdOf, TokenId, TokenIdOf};
 use snowbridge_outbound_primitives::{
 	v2::{Command, Message},
 	TransactInfo,
@@ -148,7 +148,7 @@ where
 		// Check AliasOrigin.
 		let origin_location = match_expression!(self.next()?, AliasOrigin(origin), origin)
 			.ok_or(AliasOriginExpected)?;
-		let origin = LocationIdOf::convert_location(origin_location).ok_or(InvalidOrigin)?;
+		let origin = AgentIdOf::convert_location(origin_location).ok_or(InvalidOrigin)?;
 
 		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
