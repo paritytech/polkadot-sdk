@@ -1,0 +1,14 @@
+title: Collect transaction extensions by versions into custom metadata for v15
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+      This PR collects the transaction_extensions_by_version type information into the metadata V15 custom types.
+      This ensures the V15 contains enough information to work with multiple transaction extensions. The meaning of this field is identical to the one collected by the V16 unstable.
+      It includes indexes of extrinsics from the signed_extension field of the extrinsic metadata.
+
+crates:
+  - name: sp-metadata-ir
+    bump: patch
+  - name: frame-support-test
+    bump: none
