@@ -1,9 +1,9 @@
-title: "xcm-executor: take transport fee from transferred assets if necessary"
+title: "xcm-executor: take delivery fee from transferred assets if necessary"
 
 doc:
   - audience: Runtime Dev
     description: |
-      In asset transfers, as a last resort, XCM transport fees are taken from
+      In asset transfers, as a last resort, XCM delivery fees are taken from
       transferred assets rather than failing the transfer.
 
 crates:

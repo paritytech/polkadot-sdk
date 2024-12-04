@@ -1089,7 +1089,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let mut assets = self.holding.saturating_take(assets);
 					// When not using `PayFees`, nor `JIT_WITHDRAW`, transport fees are paid from
 					// transferred assets.
-					let maybe_transport_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
+					let maybe_delivery_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
 						// Deduct and return the part of `assets` that shall be used for transport fees.
 						self.take_delivery_fee_from_assets(&mut assets, &dest, FeeReason::DepositReserveAsset, &xcm)?
 					} else {
@@ -1107,7 +1107,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message.push(ClearOrigin);
 					// append custom instructions
 					message.extend(xcm.0.into_iter());
-					if let Some(delivery_fee) = maybe_transport_fee_from_assets {
+					if let Some(delivery_fee) = maybe_delivery_fee_from_assets {
 						// Put back delivery_fee in holding register to be charged by XcmSender.
 						self.holding.subsume_assets(delivery_fee);
 					}
@@ -1125,7 +1125,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let mut assets = self.holding.saturating_take(assets);
 					// When not using `PayFees`, nor `JIT_WITHDRAW`, transport fees are paid from
 					// transferred assets.
-					let maybe_transport_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
+					let maybe_delivery_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
 						// Deduct and return the part of `assets` that shall be used for transport fees.
 						self.take_delivery_fee_from_assets(&mut assets, &reserve, FeeReason::InitiateReserveWithdraw, &xcm)?
 					} else {
@@ -1142,7 +1142,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message.push(ClearOrigin);
 					// append custom instructions
 					message.extend(xcm.0.into_iter());
-					if let Some(delivery_fee) = maybe_transport_fee_from_assets {
+					if let Some(delivery_fee) = maybe_delivery_fee_from_assets {
 						// Put back delivery_fee in holding register to be charged by XcmSender.
 						self.holding.subsume_assets(delivery_fee);
 					}
@@ -1160,7 +1160,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let mut assets = self.holding.saturating_take(assets);
 					// When not using `PayFees`, nor `JIT_WITHDRAW`, transport fees are paid from
 					// transferred assets.
-					let maybe_transport_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
+					let maybe_delivery_fee_from_assets = if self.fees.is_empty() && !self.fees_mode.jit_withdraw {
 						// Deduct and return the part of `assets` that shall be used for transport fees.
 						self.take_delivery_fee_from_assets(&mut assets, &dest, FeeReason::InitiateTeleport, &xcm)?
 					} else {
@@ -1172,7 +1172,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					message.push(ClearOrigin);
 					// append custom instructions
 					message.extend(xcm.0.into_iter());
-					if let Some(delivery_fee) = maybe_transport_fee_from_assets {
+					if let Some(delivery_fee) = maybe_delivery_fee_from_assets {
 						// Put back delivery_fee in holding register to be charged by XcmSender.
 						self.holding.subsume_assets(delivery_fee);
 					}
