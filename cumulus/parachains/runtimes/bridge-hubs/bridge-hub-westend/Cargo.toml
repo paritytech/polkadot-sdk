@@ -92,10 +92,12 @@ bridge-runtime-common.workspace = true
 bridge-hub-common.workspace = true
 
 [dev-dependencies]
-static_assertions = { workspace = true, default-features = true }
-bridge-hub-test-utils = { default-features = true, path = "../test-utils" }
-bridge-runtime-common = { features = ["integrity-test"], default-features = true, path = "../../../../../bridges/bin/runtime-common" }
-sp-keyring = { default-features = true, path = "../../../../../substrate/primitives/keyring" }
+bridge-hub-test-utils = { workspace = true, default-features = true }
+bridge-runtime-common = { features = ["integrity-test"], workspace = true, default-features = true }
+snowbridge-runtime-test-common = { workspace = true, default-features = true }
+parachains-runtimes-test-utils = { workspace = true, default-features = true }
+static_assertions = { workspace = true }
+sp-keyring = { workspace = true }
 
 [features]
 default = ["std"]

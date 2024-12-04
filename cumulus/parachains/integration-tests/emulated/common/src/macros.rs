@@ -464,12 +464,23 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 				type Assets = <$asset_hub as [<$asset_hub Pallet>]>::Assets;
 				type AssetConversion = <$asset_hub as [<$asset_hub Pallet>]>::AssetConversion;
 				let wnd = Location::new(1, []);
+				let wnd_v3 = xcm::v3::Location::parent();
 				let usdt = Location::new(0, [PalletInstance(ASSETS_PALLET_ID), GeneralIndex(USDT_ID.into())]);
+				let usdt_v3: xcm::v3::Location = (xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID), xcm::v3::Junction::GeneralIndex(USDT_ID.into())).into();
 				let sender = [<$asset_hub Sender>]::get();
+				// We create USDT if it doesn't exist.
+				let _ = Assets::force_create(
+					RuntimeOrigin::root(),
+					USDT_ID.into(),
+					sender.clone().into(),
+					false,
+					1,
+				);
+				// Then we can create a pool with WND.
 				assert_ok!(AssetConversion::create_pool(
 					RuntimeOrigin::signed(sender.clone()),
-					Box::new(wnd.clone()),
-					Box::new(usdt.clone()),
+					Box::new(wnd_v3),
+					Box::new(usdt_v3),
 				));
 
 				type Runtime = <$asset_hub as Chain>::Runtime;
@@ -502,8 +513,8 @@ macro_rules! test_xcm_fee_querying_apis_work_for_asset_hub {
 				// We make 1 WND = 4 USDT.
 				assert_ok!(AssetConversion::add_liquidity(
 					RuntimeOrigin::signed(sender.clone()),
-					Box::new(wnd),
-					Box::new(usdt.clone()),
+					Box::new(wnd_v3),
+					Box::new(usdt_v3),
 					1_000_000_000_000,
 					4_000_000_000_000,
 					0,

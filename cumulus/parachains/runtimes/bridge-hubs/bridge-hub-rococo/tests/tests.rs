@@ -20,9 +20,9 @@ use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
 	bridge_common_config, bridge_to_bulletin_config, bridge_to_westend_config,
 	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, EthereumGatewayAddress,
-	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
+	AllPalletsWithoutSystem, Block, BridgeRejectObsoleteHeadersAndMessages, EthereumGatewayAddress, Executive,
+	ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
 };
 use bridge_hub_test_utils::SlotDurations;
 use codec::{Decode, Encode};
@@ -591,4 +591,14 @@ mod bridge_hub_bulletin_tests {
 			construct_and_apply_extrinsic,
 		)
 	}
+}
+
+#[test]
+fn xcm_payment_api_works() {
+	parachains_runtimes_test_utils::test_cases::xcm_payment_api_with_native_token_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+	>();
 }
