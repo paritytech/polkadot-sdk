@@ -53,11 +53,13 @@ pub struct DroppedTransaction<Hash> {
 }
 
 impl<Hash> DroppedTransaction<Hash> {
-	fn new_usurped(tx_hash: Hash, by: Hash) -> Self {
+	/// Creates an new instnance with reason set to `DroppedReason::Usurped(by)`.
+	pub fn new_usurped(tx_hash: Hash, by: Hash) -> Self {
 		Self { reason: DroppedReason::Usurped(by), tx_hash }
 	}
 
-	fn new_enforced_by_limts(tx_hash: Hash) -> Self {
+	/// Creates an new instnance with reason set to `DroppedReason::LimitsEnforced`.
+	pub fn new_enforced_by_limts(tx_hash: Hash) -> Self {
 		Self { reason: DroppedReason::LimitsEnforced, tx_hash }
 	}
 }
@@ -204,6 +206,10 @@ where
 						views
 					);
 					views.remove(&key);
+					//todo: merge heads up warning!
+					if views.is_empty() {
+						self.pending_dropped_transactions.push(*tx_hash);
+					}
 				});
 
 				self.future_transaction_views.iter_mut().for_each(|(tx_hash, views)| {

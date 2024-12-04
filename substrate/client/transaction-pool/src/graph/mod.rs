@@ -41,6 +41,9 @@ pub use self::pool::{
 	BlockHash, ChainApi, ExtrinsicFor, ExtrinsicHash, NumberFor, Options, Pool, RawExtrinsicFor,
 	TransactionFor, ValidatedTransactionFor,
 };
-pub use validated_pool::{IsValidator, ValidatedTransaction};
+pub use validated_pool::{
+	BaseSubmitOutcome, IsValidator, Listener, ValidatedPoolSubmitOutcome, ValidatedTransaction,
+};
 
+pub(crate) use self::pool::CheckBannedBeforeVerify;
 pub(crate) use listener::DroppedByLimitsEvent;
