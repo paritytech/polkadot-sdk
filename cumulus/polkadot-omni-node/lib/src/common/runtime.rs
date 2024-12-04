@@ -17,9 +17,9 @@
 //! Runtime parameters.
 
 use cumulus_client_service::ParachainHostFunctions;
-use frame_benchmarking_cli::fetch_latest_metadata_from_code_blob;
 use sc_chain_spec::ChainSpec;
 use sc_executor::WasmExecutor;
+use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 use scale_info::{form::PortableForm, TypeDef, TypeDefPrimitive};
 use std::fmt::Display;
 use subxt_metadata::StorageEntryType;
@@ -169,30 +169,28 @@ impl MetadataInspector {
 				.build(),
 			sp_runtime::Cow::Borrowed(code_bytes.as_slice()),
 		)
+		.map_err(|err| err.to_string().into())
 	}
 }
 
 #[cfg(test)]
-mod tests {, aInspect{
-		{,
-
-
-use cumulus_client_service::ParachainHostFunctions;
-	use sc_executor::WasmExecutor;
-
-	use sc_executor::WasmExecutor;
-		DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME,
+mod tests {
 	use cumulus_client_service::ParachainHostFunctions;
 	use sc_executor::WasmExecutor;
 	use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 
-	fn cumulus_test_runtime_metadata() -> subxt::Metadata {
-		f
-		etch_latest_metadata_from_code_blob(
-			&WasmExecutor::<ParachainHostFunctions>::builder()
+	use crate::runtime::{
+		BlockNumber, MetadataInspector, DEFAULT_FRAME_SYSTEM_PALLET_NAME,
+		DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME,
+	};
 
+	fn cumulus_test_runtime_metadata() -> subxt::Metadata {
+		fetch_latest_metadata_from_code_blob(
+			&WasmExecutor::<ParachainHostFunctions>::builder()
+				.with_allow_missing_host_functions(true)
 				.build(),
 			sp_runtime::Cow::Borrowed(cumulus_test_runtime::WASM_BINARY.unwrap()),
+		)
 		.unwrap()
 	}
 

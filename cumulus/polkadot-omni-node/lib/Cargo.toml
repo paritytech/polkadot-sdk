@@ -26,7 +26,6 @@ docify = { workspace = true }
 # Local
 jsonrpsee = { features = ["server"], workspace = true }
 parachains-common = { workspace = true, default-features = true }
-frame-metadata = { workspace = true, default-features = true }
 scale-info = { workspace = true }
 subxt = { workspace = true, features = ["native"] }
 subxt-metadata = { workspace = true, default-features = true }
