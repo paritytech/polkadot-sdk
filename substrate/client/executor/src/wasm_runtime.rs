@@ -35,7 +35,6 @@ use sp_version::RuntimeVersion;
 use sp_wasm_interface::HostFunctions;
 
 use std::{
-	io::Write,
 	panic::AssertUnwindSafe,
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -437,18 +436,9 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 	)?;
 
 	// Write in a file
-	let mut file = std::fs::File::create(
-		wasmtime_precompiled_path.join(format!("{}{}", PRECOM_FILENAME_PREFIX, &artifact_version)),
-	)
-	.map_err(|e| {
-		WasmError::Other(format!(
-			"Fail to create file '{}{}', I/O Error: {}",
-			PRECOM_FILENAME_PREFIX, &artifact_version, e
-		))
-	})?;
-	file.write_all(&serialized_precompiled_wasm).map_err(|e| {
-		WasmError::Other(format!("Fail to write precompiled artifact, I/O Error: {}", e))
-	})?;
+	std::fs::write(wasmtime_precompiled_path.join(format!("{PRECOM_FILENAME_PREFIX}{artifact_version}")), &serialized_precompiled_wasm).map_err(|e| {  
+        WasmError::Other(format!("Fail to write precompiled artifact, I/O Error: {}", e))  
+    })?;
 
 	Ok(())
 }
