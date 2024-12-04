@@ -21,6 +21,7 @@ use itertools::Itertools;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId, ValidatorPair};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
+use sc_network::Multiaddr;
 use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::AuthorityId;
@@ -245,6 +246,7 @@ impl TestConfiguration {
 			key_seeds,
 			peer_id_to_authority,
 			validator_pairs,
+			listen_address: Default::default(),
 		}
 	}
 }
@@ -275,6 +277,7 @@ pub struct TestAuthorities {
 	pub peer_ids: Vec<PeerId>,
 	pub peer_id_to_authority: HashMap<PeerId, AuthorityDiscoveryId>,
 	pub validator_pairs: Vec<ValidatorPair>,
+	pub listen_address: Vec<Multiaddr>,
 }
 
 /// Sample latency (in milliseconds) from a normal distribution with parameters

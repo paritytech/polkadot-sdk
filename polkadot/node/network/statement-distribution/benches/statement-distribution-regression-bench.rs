@@ -32,8 +32,8 @@ fn main() -> Result<(), String> {
 	sp_tracing::try_init_simple();
 	let mut messages = vec![];
 	let mut config = TestConfiguration::default();
-	config.n_cores = 100;
-	config.n_validators = 500;
+	config.n_cores = 1;
+	config.n_validators = 2;
 	config.num_blocks = 10;
 	config.connectivity = 100;
 	config.generate_pov_sizes();

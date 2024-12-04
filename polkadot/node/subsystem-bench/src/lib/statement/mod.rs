@@ -97,8 +97,8 @@ fn build_overseer(
 	state: &TestState,
 	test_authorities: &TestAuthorities,
 	_network: NetworkEmulatorHandle,
-	_network_interface: NetworkInterface,
-	network_receiver: NetworkInterfaceReceiver,
+	network_interface: NetworkInterface,
+	_network_receiver: NetworkInterfaceReceiver,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (
 	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
@@ -129,14 +129,19 @@ fn build_overseer(
 		state.own_backing_group.clone(),
 	);
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
-	let net_conf = NetworkConfiguration::new_local();
+	let mut net_conf = NetworkConfiguration::new_local();
+	net_conf.listen_addresses = vec![std::iter::once(sc_network::multiaddr::Protocol::Ip4(
+		std::net::Ipv4Addr::new(127, 0, 0, 1),
+	))
+	.chain(std::iter::once(sc_network::multiaddr::Protocol::Tcp(40000)))
+	.collect()];
 	let mut network_config =
 		FullNetworkConfiguration::<Block, Hash, NetworkWorker<Block, Hash>>::new(&net_conf, None);
 	let (statement_req_receiver, statement_req_cfg) = IncomingRequest::get_config_receiver::<
 		Block,
 		NetworkWorker<Block, Hash>,
 	>(&req_protocol_names);
-	network_config.add_request_response_protocol(statement_req_cfg.clone());
+	network_config.add_request_response_protocol(statement_req_cfg);
 	let (candidate_req_receiver, candidate_req_cfg) = IncomingRequest::get_config_receiver::<
 		Block,
 		NetworkWorker<Block, Hash>,
@@ -151,7 +156,7 @@ fn build_overseer(
 		rand::rngs::StdRng::from_entropy(),
 	);
 
-	let role = Role::Full;
+	let role = Role::Authority;
 	let (block_announce_config, mut notification_service) =
 		<NetworkWorker<Block, Hash> as sc_network::NetworkBackend<Block, Hash>>::notification_config(
 			"/block-announces/1".into(),
@@ -241,7 +246,38 @@ fn build_overseer(
 	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();
 	let overseer_handle = OverseerHandle::new(raw_handle);
 
-	(overseer, overseer_handle, vec![statement_req_cfg])
+	let spawn_handle = dependencies.task_manager.spawn_handle();
+	spawn_handle.spawn_blocking("0", "node_network", worker.run());
+
+	let ready = tokio::spawn({
+		let local_peer_id = network_service.local_peer_id();
+		let network_service = Arc::clone(&network_service);
+		let test_authorities = test_authorities.clone();
+		let handles = network_interface.peer_store_handles.clone();
+
+		async move {
+			while network_service.listen_addresses().is_empty() {
+				tokio::time::sleep(Duration::from_millis(10)).await;
+			}
+
+			for (peer_id, listen_address) in test_authorities
+				.peer_ids
+				.iter()
+				.cloned()
+				.zip(test_authorities.listen_address.iter().cloned())
+			{
+				network_service.add_known_address(peer_id, listen_address.into());
+			}
+
+			for handle in handles {
+				handle.set_peer_role(&local_peer_id, sc_network::ObservedRole::Authority);
+			}
+		}
+	});
+
+	let _ = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(ready));
+
+	(overseer, overseer_handle, vec![])
 }
 
 pub fn prepare_test(
@@ -257,12 +293,15 @@ pub fn prepare_test(
 	);
 
 	network.peers.iter_mut().enumerate().for_each(|(i, peer)| {
-		peer.handle_mut().peer_id = network_interface.peer_ids[i];
+		if i != NODE_UNDER_TEST as usize {
+			peer.handle_mut().peer_id = network_interface.peer_ids[i - 1];
+		}
 	});
 
 	// Replacing PeerIds with the ones from the network
 	let mut test_authorities = state.test_authorities.clone();
 	test_authorities.peer_ids = network_interface.peer_ids.clone();
+	test_authorities.listen_address = network_interface.listen_addresses.clone();
 	test_authorities.peer_id_to_authority = test_authorities
 		.peer_ids
 		.iter()
@@ -352,12 +391,7 @@ pub async fn benchmark_statement_distribution(
 		.enumerate()
 		.filter_map(|(i, id)| if env.network().is_peer_connected(id) { Some(i) } else { None })
 		.collect_vec();
-	let seconding_validator_in_own_backing_group = state
-		.own_backing_group
-		.iter()
-		.find(|v| connected_validators.contains(&(v.0 as usize)))
-		.unwrap()
-		.to_owned();
+	let seconding_validator_in_own_backing_group = ValidatorIndex(1);
 
 	let config = env.config().clone();
 	let groups = state.session_info.validator_groups.clone();
@@ -394,10 +428,8 @@ pub async fn benchmark_statement_distribution(
 			env.send_message(peer_view_change).await;
 		}
 
-		let seconding_peer_id = *test_authorities
-			.peer_ids
-			.get(seconding_validator_in_own_backing_group.0 as usize)
-			.unwrap();
+		println!("{:?}", test_authorities.peer_ids);
+		let seconding_peer_id = *test_authorities.peer_ids.get(0).unwrap();
 		let candidate = state.candidate_receipts.get(&block_info.hash).unwrap().first().unwrap();
 		let candidate_hash = candidate.hash();
 		let statement = state
@@ -424,112 +456,112 @@ pub async fn benchmark_statement_distribution(
 			.map(|i| if i == own_backing_group_index { max_messages_per_candidate } else { 0 })
 			.collect_vec();
 
-		let neighbors =
-			topology.compute_grid_neighbors_for(ValidatorIndex(NODE_UNDER_TEST)).unwrap();
-		let connected_neighbors_x = neighbors
-			.validator_indices_x
-			.iter()
-			.filter(|&v| connected_validators.contains(&(v.0 as usize)))
-			.cloned()
-			.collect_vec();
-		let connected_neighbors_y = neighbors
-			.validator_indices_y
-			.iter()
-			.filter(|&v| connected_validators.contains(&(v.0 as usize)))
-			.cloned()
-			.collect_vec();
-		let one_hop_peers_and_groups = connected_neighbors_x
-			.iter()
-			.chain(connected_neighbors_y.iter())
-			.map(|validator_index| {
-				let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
-				let group_index =
-					groups.iter().position(|group| group.contains(validator_index)).unwrap();
-				(peer_id, group_index)
-			})
-			.collect_vec();
-		let two_hop_x_peers_and_groups = connected_neighbors_x
-			.iter()
-			.flat_map(|validator_index| {
-				let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
-				topology
-					.compute_grid_neighbors_for(*validator_index)
-					.unwrap()
-					.validator_indices_y
-					.iter()
-					.map(|validator_neighbor| {
-						let group_index = groups
-							.iter()
-							.position(|group| group.contains(validator_neighbor))
-							.unwrap();
-						(peer_id, group_index)
-					})
-					.collect_vec()
-			})
-			.collect_vec();
-		let two_hop_y_peers_and_groups = connected_neighbors_y
-			.iter()
-			.flat_map(|validator_index| {
-				let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
-				topology
-					.compute_grid_neighbors_for(*validator_index)
-					.unwrap()
-					.validator_indices_x
-					.iter()
-					.map(|validator_neighbor| {
-						let group_index = groups
-							.iter()
-							.position(|group| group.contains(validator_neighbor))
-							.unwrap();
-						(peer_id, group_index)
-					})
-					.collect_vec()
-			})
-			.collect_vec();
+		// let neighbors =
+		// 	topology.compute_grid_neighbors_for(ValidatorIndex(NODE_UNDER_TEST)).unwrap();
+		// let connected_neighbors_x = neighbors
+		// 	.validator_indices_x
+		// 	.iter()
+		// 	.filter(|&v| connected_validators.contains(&(v.0 as usize)))
+		// 	.cloned()
+		// 	.collect_vec();
+		// let connected_neighbors_y = neighbors
+		// 	.validator_indices_y
+		// 	.iter()
+		// 	.filter(|&v| connected_validators.contains(&(v.0 as usize)))
+		// 	.cloned()
+		// 	.collect_vec();
+		// let one_hop_peers_and_groups = connected_neighbors_x
+		// 	.iter()
+		// 	.chain(connected_neighbors_y.iter())
+		// 	.map(|validator_index| {
+		// 		let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+		// 		let group_index =
+		// 			groups.iter().position(|group| group.contains(validator_index)).unwrap();
+		// 		(peer_id, group_index)
+		// 	})
+		// 	.collect_vec();
+		// let two_hop_x_peers_and_groups = connected_neighbors_x
+		// 	.iter()
+		// 	.flat_map(|validator_index| {
+		// 		let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+		// 		topology
+		// 			.compute_grid_neighbors_for(*validator_index)
+		// 			.unwrap()
+		// 			.validator_indices_y
+		// 			.iter()
+		// 			.map(|validator_neighbor| {
+		// 				let group_index = groups
+		// 					.iter()
+		// 					.position(|group| group.contains(validator_neighbor))
+		// 					.unwrap();
+		// 				(peer_id, group_index)
+		// 			})
+		// 			.collect_vec()
+		// 	})
+		// 	.collect_vec();
+		// let two_hop_y_peers_and_groups = connected_neighbors_y
+		// 	.iter()
+		// 	.flat_map(|validator_index| {
+		// 		let peer_id = *test_authorities.peer_ids.get(validator_index.0 as usize).unwrap();
+		// 		topology
+		// 			.compute_grid_neighbors_for(*validator_index)
+		// 			.unwrap()
+		// 			.validator_indices_x
+		// 			.iter()
+		// 			.map(|validator_neighbor| {
+		// 				let group_index = groups
+		// 					.iter()
+		// 					.position(|group| group.contains(validator_neighbor))
+		// 					.unwrap();
+		// 				(peer_id, group_index)
+		// 			})
+		// 			.collect_vec()
+		// 	})
+		// 	.collect_vec();
 
-		for (seconding_peer_id, group_index) in one_hop_peers_and_groups
-			.into_iter()
-			.chain(two_hop_x_peers_and_groups)
-			.chain(two_hop_y_peers_and_groups)
-		{
-			let messages_sent_count = messages_tracker.get_mut(group_index).unwrap();
-			if *messages_sent_count == max_messages_per_candidate {
-				continue
-			}
-			*messages_sent_count += 1;
+		// for (seconding_peer_id, group_index) in one_hop_peers_and_groups
+		// 	.into_iter()
+		// 	.chain(two_hop_x_peers_and_groups)
+		// 	.chain(two_hop_y_peers_and_groups)
+		// {
+		// 	let messages_sent_count = messages_tracker.get_mut(group_index).unwrap();
+		// 	if *messages_sent_count == max_messages_per_candidate {
+		// 		continue
+		// 	}
+		// 	*messages_sent_count += 1;
 
-			let candidate_hash = state
-				.candidate_receipts
-				.get(&block_info.hash)
-				.unwrap()
-				.get(group_index)
-				.unwrap()
-				.hash();
-			let manifest = BackedCandidateManifest {
-				relay_parent: block_info.hash,
-				candidate_hash,
-				group_index: GroupIndex(group_index as u32),
-				para_id: Id::new(group_index as u32 + 1),
-				parent_head_data_hash: state.pvd.parent_head.hash(),
-				statement_knowledge: StatementFilter {
-					seconded_in_group: BitVec::from_iter(
-						groups.get(GroupIndex(group_index as u32)).unwrap().iter().map(|_| true),
-					),
-					validated_in_group: BitVec::from_iter(
-						groups.get(GroupIndex(group_index as u32)).unwrap().iter().map(|_| false),
-					),
-				},
-			};
-			let message = AllMessages::StatementDistribution(
-				StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
-					seconding_peer_id,
-					Versioned::V3(v3::StatementDistributionMessage::BackedCandidateManifest(
-						manifest,
-					)),
-				)),
-			);
-			env.send_message(message).await;
-		}
+		// 	let candidate_hash = state
+		// 		.candidate_receipts
+		// 		.get(&block_info.hash)
+		// 		.unwrap()
+		// 		.get(group_index)
+		// 		.unwrap()
+		// 		.hash();
+		// 	let manifest = BackedCandidateManifest {
+		// 		relay_parent: block_info.hash,
+		// 		candidate_hash,
+		// 		group_index: GroupIndex(group_index as u32),
+		// 		para_id: Id::new(group_index as u32 + 1),
+		// 		parent_head_data_hash: state.pvd.parent_head.hash(),
+		// 		statement_knowledge: StatementFilter {
+		// 			seconded_in_group: BitVec::from_iter(
+		// 				groups.get(GroupIndex(group_index as u32)).unwrap().iter().map(|_| true),
+		// 			),
+		// 			validated_in_group: BitVec::from_iter(
+		// 				groups.get(GroupIndex(group_index as u32)).unwrap().iter().map(|_| false),
+		// 			),
+		// 		},
+		// 	};
+		// 	let message = AllMessages::StatementDistribution(
+		// 		StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
+		// 			seconding_peer_id,
+		// 			Versioned::V3(v3::StatementDistributionMessage::BackedCandidateManifest(
+		// 				manifest,
+		// 			)),
+		// 		)),
+		// 	);
+		// 	env.send_message(message).await;
+		// }
 
 		candidates_advertised += messages_tracker.iter().filter(|&&v| v > 0).collect_vec().len();
 
@@ -540,7 +572,8 @@ pub async fn benchmark_statement_distribution(
 				.filter(|v| v.load(Ordering::SeqCst))
 				.collect::<Vec<_>>()
 				.len();
-			gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifests_count, candidates_advertised);
+			// gum::debug!(target: LOG_TARGET, "{}/{} manifest exchanges", manifests_count,
+			// candidates_advertised);
 
 			if manifests_count == candidates_advertised {
 				break;
