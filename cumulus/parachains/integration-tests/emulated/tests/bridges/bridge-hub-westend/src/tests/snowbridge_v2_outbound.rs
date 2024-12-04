@@ -18,7 +18,6 @@ use hex_literal::hex;
 use snowbridge_core::AssetMetadata;
 use snowbridge_outbound_primitives::TransactInfo;
 use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
-use sp_runtime::MultiAddress;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::v5::AssetTransferFilter;
 use xcm_executor::traits::ConvertLocation;
@@ -95,11 +94,6 @@ pub fn register_relay_token() {
 		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
 
 		// Register WND on BH
-		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::Balances::force_set_balance(
-			RuntimeOrigin::root(),
-			MultiAddress::Id(BridgeHubWestendSender::get()),
-			INITIAL_FUND,
-		));
 		assert_ok!(<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::register_token(
 			RuntimeOrigin::root(),
 			Box::new(VersionedLocation::from(Location::parent())),
@@ -325,71 +319,30 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 	});
 }
 
-// #[test]
-// fn create_agent() {
-// 	fund_sovereign();
-//
-// 	register_weth();
-//
-// 	BridgeHubWestend::execute_with(|| {});
-//
-// 	AssetHubWestend::execute_with(|| {
-// 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-//
-// 		let local_fee_asset =
-// 			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
-//
-// 		// All WETH as fee and reserve_asset is zero, so there is no transfer in this case
-// 		let remote_fee_asset = Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT) };
-// 		let reserve_asset = Asset { id: AssetId(weth_location()), fun: Fungible(0) };
-//
-// 		let assets = vec![
-// 			Asset { id: weth_location().into(), fun: Fungible(TOKEN_AMOUNT) },
-// 			local_fee_asset.clone(),
-// 		];
-//
-// 		let transact_info = TransactInfo { kind: TransactKind::RegisterAgent, params: vec![] };
-//
-// 		let xcms = VersionedXcm::from(Xcm(vec![
-// 			WithdrawAsset(assets.clone().into()),
-// 			PayFees { asset: local_fee_asset.clone() },
-// 			InitiateTransfer {
-// 				destination: destination(),
-// 				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
-// 					remote_fee_asset.clone().into(),
-// 				))),
-// 				preserve_origin: true,
-// 				assets: vec![AssetTransferFilter::ReserveWithdraw(Definite(
-// 					reserve_asset.clone().into(),
-// 				))],
-// 				remote_xcm: Xcm(vec![
-// 					DepositAsset { assets: Wild(AllCounted(2)), beneficiary: beneficiary() },
-// 					Transact {
-// 						origin_kind: OriginKind::SovereignAccount,
-// 						call: transact_info.encode().into(),
-// 					},
-// 				]),
-// 			},
-// 		]));
-//
-// 		// Send the Weth back to Ethereum
-// 		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
-// 			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
-// 			bx!(xcms),
-// 			Weight::from(8_000_000_000),
-// 		)
-// 		.unwrap();
-// 	});
-//
-// 	BridgeHubWestend::execute_with(|| {
-// 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-// 		// Check that Ethereum message was queue in the Outbound Queue
-// 		assert_expected_events!(
-// 			BridgeHubWestend,
-// 			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageAccepted{ .. }) => {},]
-// 		);
-// 	});
-// }
+#[test]
+fn create_agent() {
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		type RuntimeOrigin = <BridgeHubWestend as Chain>::RuntimeOrigin;
+
+		let location = Location::new(
+			1,
+			[
+				Parachain(AssetHubWestend::para_id().into()),
+				AccountId32 { network: None, id: AssetHubWestendSender::get().into() },
+			],
+		);
+
+		<BridgeHubWestend as BridgeHubWestendPallet>::EthereumSystem::force_create_agent(
+			RuntimeOrigin::root(),
+			bx!(location.into()),
+		);
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateAgent{ .. }) => {},]
+		);
+	});
+}
 
 #[test]
 fn transact_with_agent() {

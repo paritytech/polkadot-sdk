@@ -637,6 +637,40 @@ pub mod pallet {
 				pays_fee: Pays::No,
 			})
 		}
+
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::create_agent())]
+		pub fn force_create_agent(
+			origin: OriginFor<T>,
+			location: Box<VersionedLocation>,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+
+			let location: Location =
+				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
+
+			let ethereum_location = T::EthereumLocation::get();
+			let location = location
+				.clone()
+				.reanchored(&ethereum_location, &T::UniversalLocation::get())
+				.map_err(|_| Error::<T>::LocationConversionFailed)?;
+
+			let agent_id = agent_id_of::<T>(&location)?;
+
+			// Record the agent id or fail if it has already been created
+			ensure!(!Agents::<T>::contains_key(agent_id), Error::<T>::AgentAlreadyCreated);
+			Agents::<T>::insert(agent_id, ());
+
+			let command = Command::CreateAgent { agent_id };
+			let pays_fee = PaysFee::<T>::No;
+			Self::send(SECONDARY_GOVERNANCE_CHANNEL, command, pays_fee)?;
+
+			Self::deposit_event(Event::<T>::CreateAgent { location: Box::new(location), agent_id });
+			Ok(PostDispatchInfo {
+				actual_weight: Some(T::WeightInfo::register_token()),
+				pays_fee: Pays::No,
+			})
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
