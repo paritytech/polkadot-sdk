@@ -410,10 +410,18 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let impls = expand_functions(def);
 	let bench_impls = expand_bench_functions(def);
 	let docs = expand_func_doc(def);
-	let stable_functions = expand_func_list(def, false);
-	let all_functions = expand_func_list(def, true);
+	let stable_syscalls = expand_func_list(def, false);
+	let all_syscalls = expand_func_list(def, true);
 
 	quote! {
+		pub fn list_syscalls(include_unstable: bool) -> &'static [&'static [u8]] {
+			if include_unstable {
+				#all_syscalls
+			} else {
+				#stable_syscalls
+			}
+		}
+
 		impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 			fn handle_ecall(
 				&mut self,
@@ -428,16 +436,6 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 		#[cfg(feature = "runtime-benchmarks")]
 		impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			#bench_impls
-		}
-
-		impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
-			fn stable_syscalls() -> &'static [&'static [u8]] {
-				#stable_functions
-			}
-
-			fn all_syscalls() -> &'static [&'static [u8]] {
-				#all_functions
-			}
 		}
 
 		/// Documentation of the syscalls (host functions) available to contracts.

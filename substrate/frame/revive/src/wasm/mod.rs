@@ -45,7 +45,7 @@ use frame_support::{
 	ensure,
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
-use sp_core::{H256, U256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
 /// Validated Wasm module ready for execution.
@@ -122,9 +122,10 @@ where
 {
 	/// We only check for size and nothing else when the code is uploaded.
 	pub fn from_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		// We do size checks when new code is deployed. This allows us to increase
+		// We do validation only when new code is deployed. This allows us to increase
 		// the limits later without affecting already deployed code.
-		let code = limits::code::enforce::<T>(code)?;
+		let available_syscalls = runtime::list_syscalls(T::UnsafeUnstableInterface::get());
+		let code = limits::code::enforce::<T>(code, available_syscalls)?;
 
 		let code_len = code.len() as u32;
 		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
