@@ -17,9 +17,7 @@
 
 //! Convert the IR to V15 metadata.
 
-use std::collections::BTreeMap;
-
-use crate::OuterEnumsIR;
+use crate::{OuterEnumsIR, TrasactionExtensionsByVersion};
 
 use super::types::{
 	ExtrinsicMetadataIR, MetadataIR, PalletMetadataIR, RuntimeApiMetadataIR,
@@ -49,7 +47,7 @@ impl From<MetadataIR> for RuntimeMetadataV15 {
 				map: [(
 					TRANSACTION_EXTENSIONS_BY_VERSION.into(),
 					CustomValueMetadata {
-						ty: meta_type::<BTreeMap<u8, Vec<u32>>>(),
+						ty: meta_type::<TrasactionExtensionsByVersion>(),
 						value: transaction_extensions_by_version.encode(),
 					},
 				)]
