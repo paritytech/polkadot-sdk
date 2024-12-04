@@ -4666,3 +4666,17 @@ fn mapped_address_works() {
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 1_100);
 	});
 }
+
+#[test]
+fn unknown_syscall_rejected() {
+	let (code, _) = compile_module("unknown_syscall").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		assert_err!(
+			builder::bare_instantiate(Code::Upload(code)).build().result,
+			<Error<Test>>::CodeRejected,
+		)
+	});
+}
