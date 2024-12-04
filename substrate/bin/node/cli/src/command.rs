@@ -232,7 +232,7 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { task_manager, backend, .. } =
-					service::new_partial(&config)?;
+					service::new_partial(&config, None)?;
 				Ok((cmd.run(backend, config.chain_spec), task_manager))
 			})
 		},
