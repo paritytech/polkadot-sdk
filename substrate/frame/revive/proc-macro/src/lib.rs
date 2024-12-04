@@ -411,6 +411,8 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let impls = expand_functions(def);
 	let bench_impls = expand_bench_functions(def);
 	let docs = expand_func_doc(def);
+	let stable_functions = expand_func_list(def, false);
+	let all_functions = expand_func_list(def, true);
 	let highest_api_version =
 		def.host_funcs.iter().filter_map(|f| f.api_version).max().unwrap_or_default();
 
@@ -428,11 +430,23 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 			{
 				#impls
 			}
+
+
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
 		impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			#bench_impls
+		}
+
+		impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
+			fn stable_syscalls() -> &'static [&'static [u8]] {
+				#stable_functions
+			}
+
+			fn all_syscalls() -> &'static [&'static [u8]] {
+				#all_functions
+			}
 		}
 
 		/// Documentation of the syscalls (host functions) available to contracts.
@@ -630,5 +644,26 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 
 	quote! {
 		#( #docs )*
+	}
+}
+
+fn expand_func_list(def: &EnvDef, include_unstable: bool) -> TokenStream2 {
+	let docs = def
+		.host_funcs
+		.iter()
+		.filter(|f| include_unstable || f.api_version.is_some())
+		.map(|f| {
+			let name = Literal::byte_string(f.name.as_bytes());
+			quote! {
+				#name.as_slice()
+			}
+		});
+	let len = docs.clone().count();
+
+	quote! {
+		{
+			static FUNCS: [&[u8]; #len] = [#(#docs),*];
+			FUNCS.as_slice()
+		}
 	}
 }
