@@ -6,9 +6,8 @@
 
 use anyhow::anyhow;
 
-use super::{
-	helpers::assert_para_throughput,
-	rococo,
+use crate::helpers::{
+	assert_para_throughput, rococo,
 	rococo::runtime_types::{
 		pallet_broker::coretime_interface::CoreAssignment,
 		polkadot_runtime_parachains::assigner_coretime::PartsOf57600,

@@ -1,9 +1,11 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use super::rococo;
 use std::{collections::HashMap, ops::Range};
 use subxt::{OnlineClient, PolkadotConfig};
+
+#[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
+pub mod rococo {}
 
 // Helper function for asserting the throughput of parachains (total number of backed candidates in
 // a window of relay chain blocks), after the first session change.
@@ -67,7 +69,7 @@ pub async fn assert_finalized_block_height(
 ) -> Result<(), anyhow::Error> {
 	if let Some(block) = client.blocks().subscribe_finalized().await?.next().await {
 		let height = block?.number();
-		log::info!("Finalized block number number {height}");
+		log::info!("Finalized block number {height}");
 
 		assert!(
 			expected_range.contains(&height),
