@@ -78,6 +78,7 @@ pub mod frame_system {
 		#[pallet::constant]
 		#[pallet::no_default]
 		#[deprecated = "this constant is deprecated"]
+		#[allow(deprecated)]
 		type ExampleConstant: Get<()>;
 	}
 
