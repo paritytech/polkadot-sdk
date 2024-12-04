@@ -33,11 +33,16 @@ use sc_executor::{
 };
 use sc_service::ChainSpec;
 use sp_core::traits::RuntimeCode;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, Hash, Header};
 use sp_state_machine::backend::BackendRuntimeCode;
 use std::{fmt::Debug, path::PathBuf, sync::Arc};
 
 /// The `precompile-wasm` command used to serialize a precompiled WASM module.
+///
+/// The WASM code precompiled will be the one used at the latest finalized block
+/// this node is aware of, if this node has the state for that finalized block in
+/// its storage. If that's not the case, it will use the WASM code from the chain
+/// spec passed as parameter when running the node.
 #[derive(Debug, Parser)]
 pub struct PrecompileWasmCmd {
 	#[allow(missing_docs)]
@@ -45,11 +50,12 @@ pub struct PrecompileWasmCmd {
 	pub database_params: DatabaseParams,
 
 	/// The default number of 64KB pages to ever allocate for Wasm execution.
+	///  
 	/// Don't alter this unless you know what you're doing.
 	#[arg(long, value_name = "COUNT")]
 	pub default_heap_pages: Option<u32>,
 
-	/// path to the directory where precompiled artifact will be written
+	/// Path to the directory where precompiled artifact will be written.
 	#[arg()]
 	pub output_dir: PathBuf,
 
@@ -62,6 +68,7 @@ pub struct PrecompileWasmCmd {
 	pub shared_params: SharedParams,
 
 	/// The WASM instantiation method to use.
+	///
 	/// Only has an effect when `wasm-execution` is set to `compiled`.
 	/// The copy-on-write strategies are only supported on Linux.
 	/// If the copy-on-write variant of a strategy is unsupported
@@ -110,7 +117,9 @@ impl PrecompileWasmCmd {
 					code_fetcher: &sp_core::traits::WrappedRuntimeCode(
 						wasm_bytecode.as_slice().into(),
 					),
-					hash: sp_core::blake2_256(&wasm_bytecode).to_vec(),
+					hash: <<B::Header as Header>::Hashing as Hash>::hash(&wasm_bytecode)
+						.as_ref()
+						.to_vec(),
 					heap_pages: Some(heap_pages as u64),
 				};
 				precompile_and_serialize_versioned_wasm_runtime(
@@ -123,6 +132,8 @@ impl PrecompileWasmCmd {
 					&self.output_dir,
 				)
 				.map_err(|e| Error::Application(Box::new(e)))?;
+			} else {
+				return Err(Error::Input(format!("The chain spec used does not contain a wasm bytecode in the `:code` storage key")));
 			}
 		}
 

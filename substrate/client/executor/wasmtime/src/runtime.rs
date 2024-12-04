@@ -205,7 +205,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 			static UNKNOWN_PROFILING_STRATEGY: AtomicBool = AtomicBool::new(false);
 			// Make sure that the warning will not be relogged regularly.
 			if !UNKNOWN_PROFILING_STRATEGY.swap(true, Ordering::Relaxed) {
-				log::warn!("WASMTIME_PROFILING_STRATEGY is set to unknown value, ignored.");
+				tracing::warn!("WASMTIME_PROFILING_STRATEGY is set to unknown value, ignored.");
 			}
 			wasmtime::ProfilingStrategy::None
 		},
@@ -550,7 +550,7 @@ where
 
 	if let Some(ref cache_path) = config.cache_path {
 		if let Err(reason) = setup_wasmtime_caching(cache_path, &mut wasmtime_config) {
-			log::warn!(
+			tracing::warn!(
 				"failed to setup wasmtime cache. Performance may degrade significantly: {}.",
 				reason,
 			);

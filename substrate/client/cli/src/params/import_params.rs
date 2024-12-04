@@ -67,16 +67,24 @@ pub struct ImportParams {
 	/// Specify the path where local precompiled WASM runtimes are stored.
 	/// Only has an effect when `wasm-execution` is set to `compiled`.
 	///
-	/// The precompiled runtimes must have been generated using the `precompile-runtimes`
+	/// The precompiled runtimes must have been generated using the `precompile-wasm`
 	/// subcommand with the same version of wasmtime and the exact same configuration.
 	/// The file name must end with the hash of the configuration. This hash must match, otherwise
 	/// the runtime will be recompiled.
-	#[arg(long, value_name = "PATH")]
+	#[arg(
+        long,
+        value_name = "PATH",
+        value_parser = ImportParams::validate_existing_directory,
+    )]
 	pub wasmtime_precompiled: Option<PathBuf>,
 
 	/// Specify the path where local WASM runtimes are stored.
 	/// These runtimes will override on-chain runtimes when the version matches.
-	#[arg(long, value_name = "PATH")]
+	#[arg(
+        long,
+        value_name = "PATH",
+        value_parser = ImportParams::validate_existing_directory,
+    )]
 	pub wasm_runtime_overrides: Option<PathBuf>,
 
 	#[allow(missing_docs)]
@@ -125,6 +133,16 @@ impl ImportParams {
 	/// by specifying the path where local WASM is stored.
 	pub fn wasm_runtime_overrides(&self) -> Option<PathBuf> {
 		self.wasm_runtime_overrides.clone()
+	}
+
+	/// Validate that the path is a valid directory.
+	fn validate_existing_directory(path: &str) -> Result<PathBuf, String> {
+		let path_buf = PathBuf::from(path);
+		if path_buf.is_dir() {
+			Ok(path_buf)
+		} else {
+			Err(format!("The path '{}' is not a valid directory", path))
+		}
 	}
 }
 

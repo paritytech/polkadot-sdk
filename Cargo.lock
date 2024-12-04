@@ -15104,7 +15104,6 @@ dependencies = [
  "assert_matches",
  "criterion 0.4.0",
  "env_logger 0.9.3",
- "log",
  "num_cpus",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -15155,7 +15154,6 @@ dependencies = [
  "cargo_metadata",
  "cfg-if",
  "libc",
- "log",
  "parity-scale-codec",
  "paste",
  "rustix 0.36.15",
@@ -15167,6 +15165,7 @@ dependencies = [
  "sp-runtime-interface",
  "sp-wasm-interface",
  "tempfile",
+ "tracing",
  "wasmtime",
  "wat",
 ]
