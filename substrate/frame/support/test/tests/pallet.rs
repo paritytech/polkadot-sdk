@@ -1945,7 +1945,9 @@ fn metadata() {
 					ty: meta_type::<BTreeMap<u8, Vec<u32>>>(),
 					value: custom_value.encode(),
 				},
-			)],
+			)]
+			.into_iter()
+			.collect(),
 		},
 	)
 	.into();
