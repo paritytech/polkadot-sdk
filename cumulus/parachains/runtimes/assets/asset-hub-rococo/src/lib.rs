@@ -1360,7 +1360,7 @@ impl_runtime_apis! {
 						Err(XcmPaymentApiError::AssetNotFound)
 					}
 				},
-				Err(_) => {
+				Ok(xcm::v3::AssetId::Abstract(_)) | Err(_) => {
 					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
 					Err(XcmPaymentApiError::VersionedConversionFailed)
 				}
