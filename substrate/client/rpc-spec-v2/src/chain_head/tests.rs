@@ -3228,7 +3228,10 @@ async fn storage_closest_merkle_value() {
 			.await
 			.unwrap();
 		let operation_id = match response {
-			MethodResponse::Started(started) => started.operation_id,
+			MethodResponse::Started(started) => {
+				assert_eq!(started.discarded_items, Some(0));
+				started.operation_id
+			},
 			MethodResponse::LimitReached => panic!("Expected started response"),
 		};
 
