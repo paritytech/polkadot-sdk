@@ -42,12 +42,14 @@ sp-metadata-ir = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
-sp-runtime = { features = ["runtime-benchmarks", "serde"], workspace = true }
-frame-system = { workspace = true, features = ["runtime-benchmarks"] }
-frame-support = { workspace = true, features = ["runtime-benchmarks"] }
-frame-benchmarking = { workspace = true }
+sp-runtime = { features = [
+	"serde"
+], workspace = true }
+frame-system = { workspace = true }
+frame-support = { workspace = true }
 pretty_assertions = { workspace = true }
 static_assertions = { workspace = true }
+frame-benchmarking = { workspace = true }
 
 [features]
 default = ["std"]
