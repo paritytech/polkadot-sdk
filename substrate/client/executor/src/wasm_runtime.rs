@@ -336,8 +336,8 @@ where
 				let file_name = format!("{}{}", PRECOM_FILENAME_PREFIX, &artifact_version);
 				let file_path = std::path::Path::new(wasmtime_precompiled_dir).join(&file_name);
 
-				// If the file exists, and it hasn't been tempered with, the name is known. 
-				// And it is in itself a check for the artifact version, wasm interface 
+				// If the file exists, and it hasn't been tempered with, the name is known.
+				// And it is in itself a check for the artifact version, wasm interface
 				// version and configuration.
 				if file_path.is_file() {
 					tracing::info!(
@@ -348,9 +348,10 @@ where
 
 					// We change the version check strategy to make sure that the file
 					// content was serialized with the exact same config as well
-					let module_version_strategy = sc_executor_wasmtime::ModuleVersionStrategy::Custom(
-						artifact_version.clone(),
-					);
+					let module_version_strategy =
+						sc_executor_wasmtime::ModuleVersionStrategy::Custom(
+							artifact_version.clone(),
+						);
 
 					// # Safety
 					//
@@ -376,7 +377,10 @@ where
 				}
 
 				// If the expected precompiled artifact doesn't exist, we default to compiling it.
-				tracing::warn!("❗️ Precompiled wasm with name '{}' doesn't exist, compiling it.", file_name);
+				tracing::warn!(
+					"❗️ Precompiled wasm with name '{}' doesn't exist, compiling it.",
+					file_name
+				);
 			}
 
 			sc_executor_wasmtime::create_runtime::<H>(
@@ -436,9 +440,13 @@ pub fn precompile_and_serialize_versioned_wasm_runtime<'c>(
 	)?;
 
 	// Write in a file
-	std::fs::write(wasmtime_precompiled_path.join(format!("{PRECOM_FILENAME_PREFIX}{artifact_version}")), &serialized_precompiled_wasm).map_err(|e| {  
-        WasmError::Other(format!("Fail to write precompiled artifact, I/O Error: {}", e))  
-    })?;
+	std::fs::write(
+		wasmtime_precompiled_path.join(format!("{PRECOM_FILENAME_PREFIX}{artifact_version}")),
+		&serialized_precompiled_wasm,
+	)
+	.map_err(|e| {
+		WasmError::Other(format!("Fail to write precompiled artifact, I/O Error: {}", e))
+	})?;
 
 	Ok(())
 }
@@ -454,7 +462,7 @@ fn compute_artifact_version(
 		target: "wasmtime-runtime",
 		allow_missing_func_imports,
 		code_hash = sp_core::bytes::to_hex(&code_hash, false),
-		?semantics, 
+		?semantics,
 		"Computing wasm runtime hash",
 	);
 	let mut buffer = Vec::new();
