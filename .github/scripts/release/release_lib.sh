@@ -139,3 +139,25 @@ upload_s3_release() {
     aws s3 ls "s3://releases.parity.io/${product}/${version}/${target}" --recursive --human-readable --summarize
     echo "✅ The release should be at https://releases.parity.io/${product}/${version}/${target}"
 }
+
+# Upload runtimes artifacts to s3 release bucket
+#
+# input: version (stable release tage.g. polkadot-stable2412 or polkadot-stable2412-rc1)
+# output: none
+upload_s3_runtimes_release_artifacts() {
+  alias aws='podman run --rm -it docker.io/paritytech/awscli -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_BUCKET aws'
+
+  version=$1
+
+  echo "Working on version: $version "
+
+  echo "Current content, should be empty on new uploads:"
+  aws s3 ls "s3://releases.parity.io/polkadot/runtimes/${version}/" --recursive --human-readable --summarize || true
+  echo "Content to be uploaded:"
+  artifacts="artifacts/runtimes/"
+  ls "$artifacts"
+  aws s3 sync --acl public-read "$artifacts" "s3://releases.parity.io/polkadot/runtimes/${version}/"
+  echo "Uploaded files:"
+  aws s3 ls "s3://releases.parity.io/polkadot/runtimes/${version}/" --recursive --human-readable --summarize
+  echo "✅ The release should be at https://releases.parity.io/polkadot/runtimes/${version}"
+}
