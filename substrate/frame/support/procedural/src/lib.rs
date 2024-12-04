@@ -1444,9 +1444,8 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 /// Authorize process comes with 2 attributes macro on top of the authorized call:
 ///
 /// * `#[pallet::authorize($authorized_function)]` - defines the function that authorizes the call.
-///   First argument is the transaction source `TransactionSource`
-///   then followed by the same as call arguments but by reference `&`. Return type is
-///   `TransactionValidityWithRefund`.
+///   First argument is the transaction source `TransactionSource` then followed by the same as call
+///   arguments but by reference `&`. Return type is `TransactionValidityWithRefund`.
 /// * `#[pallet::weight_of_authorize($weight)]` - defines the value of the weight of the authorize
 ///   function. This attribute is similar to `#[pallet::weight]`:
 ///   * it can be ignore in `dev_mode`

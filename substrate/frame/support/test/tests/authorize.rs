@@ -102,7 +102,7 @@ pub mod pallet1 {
 					longevity: *e,
 					propagate: *f,
 				};
-				Ok((valid, authorize_refund.clone()))
+				Ok((valid, *authorize_refund))
 			} else {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 			}
