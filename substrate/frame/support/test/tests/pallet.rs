@@ -1471,7 +1471,7 @@ fn pallet_item_docs_in_metadata() {
 
 #[test]
 fn metadata() {
-	use codec::Decode;
+	use codec::{Decode, Encode};
 	use frame_metadata::{v15::*, *};
 
 	let readme = "Very important information :D\n";
