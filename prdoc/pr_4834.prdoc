@@ -9,3 +9,7 @@ doc:
 crates:
   - name: staging-xcm-executor
     bump: patch
+  - name: snowbridge-router-primitives
+    bump: patch
+  - name: snowbridge-pallet-inbound-queue
+    bump: patch
