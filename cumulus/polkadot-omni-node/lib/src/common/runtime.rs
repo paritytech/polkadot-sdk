@@ -16,10 +16,18 @@
 
 //! Runtime parameters.
 
-use std::fmt::Display;
-
+use cumulus_client_service::ParachainHostFunctions;
+use frame_benchmarking_cli::fetch_latest_metadata_from_code_blob;
 use sc_chain_spec::ChainSpec;
+use sc_executor::WasmExecutor;
 use scale_info::{form::PortableForm, TypeDef, TypeDefPrimitive};
+use std::fmt::Display;
+use subxt_metadata::StorageEntryType;
+
+/// Expected parachain system pallet runtime type name.
+pub const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
+/// Expected frame system pallet type name.
+pub const DEFAULT_FRAME_SYSTEM_PALLET_NAME: &str = "System";
 
 /// The Aura ID used by the Aura consensus
 #[derive(PartialEq)]
@@ -93,169 +101,111 @@ pub trait RuntimeResolver {
 pub struct DefaultRuntimeResolver;
 
 impl RuntimeResolver for DefaultRuntimeResolver {
-	fn runtime(&self, _chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
-		Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)))
+	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
+		let metadata_inspector = MetadataInspector::new(chain_spec)?;
+		let block_number = match metadata_inspector.block_number() {
+			Some(inner) => inner,
+			None => {
+				log::warn!(
+					r#"⚠️  There isn't a runtime type named `System`, corresponding to the `frame-system`
+                pallet (https://docs.rs/frame-system/latest/frame_system/). Please check Omni Node docs for runtime conventions:
+                https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions.
+                Note: We'll assume a block number size of `u32`."#
+				);
+				BlockNumber::U32
+			},
+		};
+
+		if !metadata_inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME) {
+			log::warn!(
+				r#"⚠️   The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
+			   missing from the runtime’s metadata. Please check Omni Node docs for runtime conventions:
+			   https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions."#
+			);
+		}
+
+		Ok(Runtime::Omni(block_number, Consensus::Aura(AuraConsensusId::Sr25519)))
 	}
 }
 
-/// Logic that inspects runtime's metadata for Omni Node compatibility.
-pub mod metadata {
-	use super::BlockNumber;
-	use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed};
+/// Inspect runtime metadata.
+pub struct MetadataInspector(subxt::Metadata);
 
-	const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
-
-	// Checks if pallet exists in runtime's metadata based on pallet name.
-	fn pallet_exists(
-		metadata: &RuntimeMetadataPrefixed,
-		name: &str,
-	) -> Result<bool, sc_service::error::Error> {
-		match &metadata.1 {
-			RuntimeMetadata::V14(inner) => Ok(inner.pallets.iter().any(|p| p.name == name)),
-			RuntimeMetadata::V15(inner) => Ok(inner.pallets.iter().any(|p| p.name == name)),
-			_ => Err(sc_service::error::Error::Application(
-				anyhow::anyhow!(format!(
-					"Metadata version {} not supported for checking against pallet existence.",
-					metadata.0
-				))
-				.into(),
-			)),
-		}
+impl MetadataInspector {
+	/// Creates an instance of `MetadataInspector`.
+	pub fn new(chain_spec: &dyn ChainSpec) -> Result<MetadataInspector, sc_cli::Error> {
+		MetadataInspector::get(chain_spec).map(MetadataInspector)
 	}
 
-	// Get the configured runtime's block number type from `frame-system` pallet storage.
-	fn block_number(
-		metadata: &RuntimeMetadataPrefixed,
-	) -> Result<BlockNumber, sc_service::error::Error> {
-		// Macro to define reusable logic for processing metadata.
-		macro_rules! process_metadata {
-			($metadata:expr) => {{
-				$metadata
-					.pallets
-					.iter()
-					.find(|p| p.name == "System")
-					.and_then(|system| system.storage.as_ref())
-					.and_then(|storage| storage.entries.iter().find(|entry| entry.name == "Number"))
-					.and_then(|number_ty| match number_ty.ty {
-						frame_metadata::v14::StorageEntryType::Plain(ty) => Some(ty.id),
-						_ => None,
-					})
-					.and_then(|number_id| $metadata.types.resolve(number_id))
-					.and_then(|portable_type| BlockNumber::from_type_def(&portable_type.type_def))
-			}};
-		}
-
-		let err_msg = "Can not get block number type from `frame-system-pallet` storage.";
-		match &metadata.1 {
-			RuntimeMetadata::V14(meta) => process_metadata!(meta).ok_or(sc_service::error::Error::Application(
-					anyhow::anyhow!(err_msg).into())),
-			RuntimeMetadata::V15(meta) => process_metadata!(meta).ok_or(sc_service::error::Error::Application(
-					anyhow::anyhow!(err_msg).into())),
-			_ =>
-				Err(sc_service::error::Error::Application(
-					anyhow::anyhow!(format!(
-						"Metadata version {} not supported for checking block number type stored in `frame-system-pallet` storage.",
-						metadata.0
-					))
-					.into(),
-				)),
-		}
+	/// Checks if pallet exists in runtime's metadata based on pallet name.
+	pub fn pallet_exists(&self, name: &str) -> bool {
+		self.0.pallet_by_name(name).is_some()
 	}
 
-	/// Execute a set of checks to ensure runtime/parachain compatibility.
-	///
-	/// The checks will emit warning level logs in case the runtime doesn't comply with the
-	/// conventions documented at [OmniNode docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html).
-	pub fn verify_parachain_compatibility(
-		metadata: &RuntimeMetadataPrefixed,
-	) -> Result<(), sc_service::error::Error> {
-		if !pallet_exists(&metadata, DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME)? {
-			log::warn!(
-				r#"⚠️  The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
-			missing from the runtime’s metadata. Please check Omni Node docs for runtime conventions:
-			https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions."#,
-			);
-		}
-
-		let runtime_block_number = block_number(&metadata)?;
-		if runtime_block_number != BlockNumber::U32 {
-			log::warn!(
-				r#"⚠️  Configured `frame-system` pallet and Omni Node block numbers mismatch, or there isn't a runtime
-				type named `System`, corresponding to the `frame-system` pallet (https://docs.rs/frame-system/38.0.0/frame_system/).
-				Please check Omni Node docs for runtime conventions:
-				https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions."#,
-			);
-		}
-
-		Ok(())
+	/// Get the configured runtime's block number type from `frame-system` pallet storage.
+	pub fn block_number(&self) -> Option<BlockNumber> {
+		let pallet_metadata = self.0.pallet_by_name(DEFAULT_FRAME_SYSTEM_PALLET_NAME);
+		pallet_metadata
+			.and_then(|inner| inner.storage())
+			.and_then(|inner| inner.entry_by_name("Number"))
+			.and_then(|number_ty| match number_ty.entry_type() {
+				StorageEntryType::Plain(ty_id) => Some(ty_id),
+				_ => None,
+			})
+			.and_then(|ty_id| self.0.types().resolve(*ty_id))
+			.and_then(|portable_type| BlockNumber::from_type_def(&portable_type.type_def))
 	}
 
-	#[cfg(test)]
-	mod tests {
-		use crate::runtime::BlockNumber;
-		use codec::{Decode, Encode};
-		use frame_metadata::RuntimeMetadataPrefixed;
-		use sc_executor::WasmExecutor;
-		use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
-
-		fn cumulus_test_runtime_metadata() -> RuntimeMetadataPrefixed {
-			type HostFunctions = (
-				// The allocator functions.
-				sp_io::allocator::HostFunctions,
-				// Logging is good to have for debugging issues.
-				sp_io::logging::HostFunctions,
-				// Give access to the "state", actually the state will be empty, but some chains
-				// put constants into the state and this would panic at metadata generation. Thus,
-				// we give them an empty state to not panic.
-				sp_io::storage::HostFunctions,
-				// The hashing functions.
-				sp_io::hashing::HostFunctions,
-			);
-
-			let executor = WasmExecutor::<HostFunctions>::builder()
+	/// Get the runtime metadata from a wasm blob existing in a chain spec.
+	fn get(chain_spec: &dyn ChainSpec) -> Result<subxt::Metadata, sc_cli::Error> {
+		let mut storage = chain_spec.build_storage()?;
+		let code_bytes = storage
+			.top
+			.remove(sp_storage::well_known_keys::CODE)
+			.ok_or("chain spec genesis does not contain code")?;
+		fetch_latest_metadata_from_code_blob(
+			&WasmExecutor::<ParachainHostFunctions>::builder()
 				.with_allow_missing_host_functions(true)
-				.build();
+				.build(),
+			sp_runtime::Cow::Borrowed(code_bytes.as_slice()),
+		)
+	}
+}
 
-			let wasm = cumulus_test_runtime::WASM_BINARY.expect("to get wasm blob. qed");
-			let runtime_code = RuntimeCode {
-				code_fetcher: &WrappedRuntimeCode(wasm.into()),
-				heap_pages: None,
-				// The hash is only used for caching and thus, not that important for our use case
-				// here.
-				hash: vec![1, 2, 3],
-			};
+#[cfg(test)]
+mod tests {, aInspect{
+		{,
 
-			let metadata = executor
-				.call(
-					&mut sp_io::TestExternalities::default().ext(),
-					&runtime_code,
-					"Metadata_metadata_at_version",
-					&14u32.encode(),
-					CallContext::Offchain,
-				)
-				.0
-				.expect("`Metadata::metadata_at_version` should exist. qed.");
 
-			let metadata = Option::<Vec<u8>>::decode(&mut &metadata[..])
-				.ok()
-				.flatten()
-				.expect("Metadata stable version support is required. qed.");
+use cumulus_client_service::ParachainHostFunctions;
+	use sc_executor::WasmExecutor;
 
-			RuntimeMetadataPrefixed::decode(&mut &metadata[..])
-				.expect("Invalid encoded metadata. qed")
-		}
+	use sc_executor::WasmExecutor;
+		DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME,
+	use cumulus_client_service::ParachainHostFunctions;
+	use sc_executor::WasmExecutor;
+	use sc_runtime_utilities::fetch_latest_metadata_from_code_blob;
 
-		#[test]
-		fn test_pallet_exist() {
-			let metadata = cumulus_test_runtime_metadata();
-			assert!(super::pallet_exists(&metadata, "ParachainSystem").unwrap());
-			assert!(super::pallet_exists(&metadata, "System").unwrap());
-		}
+	fn cumulus_test_runtime_metadata() -> subxt::Metadata {
+		f
+		etch_latest_metadata_from_code_blob(
+			&WasmExecutor::<ParachainHostFunctions>::builder()
 
-		#[test]
-		fn test_runtime_block_number() {
-			let metadata = cumulus_test_runtime_metadata();
-			assert_eq!(super::block_number(&metadata).unwrap(), BlockNumber::U32);
-		}
+				.build(),
+			sp_runtime::Cow::Borrowed(cumulus_test_runtime::WASM_BINARY.unwrap()),
+		.unwrap()
+	}
+
+	#[test]
+	fn test_pallet_exists() {
+		let metadata_inspector = MetadataInspector(cumulus_test_runtime_metadata());
+		assert!(metadata_inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME));
+		assert!(metadata_inspector.pallet_exists(DEFAULT_FRAME_SYSTEM_PALLET_NAME));
+	}
+
+	#[test]
+	fn test_runtime_block_number() {
+		let metadata_inspector = MetadataInspector(cumulus_test_runtime_metadata());
+		assert_eq!(metadata_inspector.block_number().unwrap(), BlockNumber::U32);
 	}
 }

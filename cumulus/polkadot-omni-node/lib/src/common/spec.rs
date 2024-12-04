@@ -14,39 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-	common::{
-		command::NodeCommandRunner,
-		rpc::BuildRpcExtensions,
-		types::{
-			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
-			ParachainService,
-		},
-		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
-	},
-	runtime::metadata::verify_parachain_compatibility,
+use crate::common::{
+	command::NodeCommandRunner,
+	rpc::BuildRpcExtensions,
+	types::{ParachainBackend, ParachainBlockImport, ParachainClient, ParachainService},
+	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
-use codec::Decode;
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
-	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
+	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, ParachainHostFunctions,
+	StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{BlockT, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use frame_metadata::RuntimeMetadataPrefixed;
 use parachains_common::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_consensus::DefaultImportQueue;
-use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
+use sc_executor::HeapAllocStrategy;
+use sc_executor::DEFAULT_HEAP_ALLOC_STRATEGY;
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
-use sp_api::{Metadata, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
@@ -220,24 +213,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let params = Self::new_partial(&parachain_config)?;
 			let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
 			let client = params.client.clone();
-
-			// Best effort check of parachain-system pallet by pallet name.
-			let best_block = client.chain_info().finalized_hash;
-			// The `Metadata::metadata()` API returns only metadata according
-			// to V14 schema. It would be great to return the latest stable
-			// version in the future. There is an alternative to pick the latest
-			// by going through `metadata_versions` and then pick the maximum
-			// with `metadata_at_version`, but that's more code for no real benefit.
-			// The following code is fine with whichever metadata version
-			// contains pallet information, including their names.
-			let metadata = client
-				.runtime_api()
-				.metadata(best_block)
-				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
-			let decoded_metadata = RuntimeMetadataPrefixed::decode(&mut metadata.as_slice())
-				.map_err(|e| sc_service::error::Error::Application(Box::new(e) as Box<_>))?;
-			verify_parachain_compatibility(&decoded_metadata)?;
-
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
 			let (relay_chain_interface, collator_key) = build_relay_chain_interface(
@@ -406,7 +381,7 @@ where
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
 		match parachain_config.network.network_backend {
-			sc_network::config::NetworkBackendType::Libp2p =>
+			sc_network::config::NetworkBackendType::Libp2p => {
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
 					parachain_config,
 					polkadot_config,
@@ -414,8 +389,9 @@ where
 					para_id,
 					hwbench,
 					node_extra_args,
-				),
-			sc_network::config::NetworkBackendType::Litep2p =>
+				)
+			},
+			sc_network::config::NetworkBackendType::Litep2p => {
 				<Self as NodeSpec>::start_node::<sc_network::Litep2pNetworkBackend>(
 					parachain_config,
 					polkadot_config,
@@ -423,7 +399,8 @@ where
 					para_id,
 					hwbench,
 					node_extra_args,
-				),
+				)
+			},
 		}
 	}
 }

@@ -85,7 +85,6 @@ fn new_node_spec(
 	extra_args: &NodeExtraArgs,
 ) -> std::result::Result<Box<dyn DynNodeSpecExt>, sc_cli::Error> {
 	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
-
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
 			(BlockNumber::U32, Consensus::Aura(aura_id)) =>

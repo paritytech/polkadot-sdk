@@ -1,21 +1,28 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+//! Substrate runtime metadata client utilities.
+//!
+//! Provides simpler APIs for calling into a `frame` runtime WASM blob and
+//! return metadata that needs to be checked.
 
 use codec::{Decode, Encode};
+use error::{Error, Result};
 use sc_executor::WasmExecutor;
 use sp_core::{
 	traits::{CallContext, CodeExecutor, FetchRuntimeCode, RuntimeCode},
@@ -25,11 +32,13 @@ use sp_state_machine::BasicExternalities;
 use sp_wasm_interface::HostFunctions;
 use std::borrow::Cow;
 
+pub mod error;
+
 /// Fetches the latest metadata from the given runtime blob.
 pub fn fetch_latest_metadata_from_code_blob<HF: HostFunctions>(
 	executor: &WasmExecutor<HF>,
 	code_bytes: Cow<[u8]>,
-) -> sc_cli::Result<subxt::Metadata> {
+) -> Result<subxt::Metadata> {
 	let runtime_caller = RuntimeCaller::new(executor, code_bytes);
 	let version_result = runtime_caller.call("Metadata_metadata_versions", ());
 
@@ -48,21 +57,24 @@ pub fn fetch_latest_metadata_from_code_blob<HF: HostFunctions>(
 				.call("Metadata_metadata_at_version", latest_stable)
 				.map_err(|_| "Unable to fetch metadata from blob".to_string())?;
 
-			Option::<OpaqueMetadata>::decode(&mut encoded.as_slice())?
-				.ok_or_else(|| "Metadata not found".to_string())?
+			Option::<OpaqueMetadata>::decode(&mut encoded.as_slice())
+				.map_err(|_| <&str as Into<Error>>::into("Unable to decode to opaque metadata"))?
+				.ok_or_else(|| "Opaque metadata not found".to_string())?
 		},
 		Err(_) => {
 			let encoded = runtime_caller
 				.call("Metadata_metadata", ())
 				.map_err(|_| "Unable to fetch metadata from blob".to_string())?;
-			Decode::decode(&mut encoded.as_slice())?
+			Decode::decode(&mut encoded.as_slice())
+				.map_err(|_| <&str as Into<Error>>::into("Unable to decode to opaque metadata"))?
 		},
 	};
 
-	Ok(subxt::Metadata::decode(&mut (*opaque_metadata).as_slice())?)
+	subxt::Metadata::decode(&mut (*opaque_metadata).as_slice())
+		.map_err(|_| "Unable to decode opaque metadata".into())
 }
 
-struct BasicCodeFetcher<'a> {
+pub struct BasicCodeFetcher<'a> {
 	code: Cow<'a, [u8]>,
 	hash: Vec<u8>,
 }
@@ -88,7 +100,7 @@ impl<'a> BasicCodeFetcher<'a> {
 }
 
 /// Simple utility that is used to call into the runtime.
-struct RuntimeCaller<'a, 'b, HF: HostFunctions> {
+pub struct RuntimeCaller<'a, 'b, HF: HostFunctions> {
 	executor: &'b WasmExecutor<HF>,
 	code_fetcher: BasicCodeFetcher<'a>,
 }
@@ -98,7 +110,11 @@ impl<'a, 'b, HF: HostFunctions> RuntimeCaller<'a, 'b, HF> {
 		Self { executor, code_fetcher: BasicCodeFetcher::new(code_bytes) }
 	}
 
-	fn call(&self, method: &str, data: impl Encode) -> sc_executor_common::error::Result<Vec<u8>> {
+	pub fn call(
+		&self,
+		method: &str,
+		data: impl Encode,
+	) -> sc_executor_common::error::Result<Vec<u8>> {
 		let mut ext = BasicExternalities::default();
 		self.executor
 			.call(
@@ -117,6 +133,11 @@ mod tests {
 	use codec::Decode;
 	use sc_executor::WasmExecutor;
 	use sp_version::RuntimeVersion;
+
+	type ParachainHostFunctions = (
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+		sp_io::SubstrateHostFunctions,
+	);
 
 	#[test]
 	fn test_fetch_latest_metadata_from_blob_fetches_metadata() {
