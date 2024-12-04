@@ -369,6 +369,10 @@ where
 			return Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash)));
 		}
 
+		if new_tx.bytes > self.max_transactions_total_bytes {
+			return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
+		}
+
 		let mut sorted = transactions
 			.iter()
 			.filter_map(|(h, v)| v.priority().map(|_| (h.clone(), v.clone())))
@@ -378,7 +382,7 @@ where
 		// that the sum of their bytes is ge then size of new tx. Otherwise we could overflow size
 		// limits. Naive way to do it - rev-sort by priority and eat the tail.
 
-		// reverse (lowest prio last)
+		// reverse (oldest, lowest prio last)
 		sorted.sort_by(|(_, a), (_, b)| match b.priority().cmp(&a.priority()) {
 			Ordering::Equal => match (a.source.timestamp, b.source.timestamp) {
 				(Some(a), Some(b)) => b.cmp(&a),
@@ -387,11 +391,11 @@ where
 			ordering @ _ => ordering,
 		});
 
-		let required_size = new_tx.bytes;
-		let mut total_size = 0usize;
+		let mut total_size_removed = 0usize;
 		let mut to_be_removed = vec![];
+		let free_bytes = self.max_transactions_total_bytes - self.transactions.bytes();
 
-		while total_size < required_size {
+		loop {
 			let Some((worst_hash, worst_tx)) = sorted.pop() else {
 				return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
 			};
@@ -400,8 +404,12 @@ where
 				return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
 			}
 
-			total_size += worst_tx.bytes;
+			total_size_removed += worst_tx.bytes;
 			to_be_removed.push(worst_hash);
+
+			if free_bytes + total_size_removed >= new_tx.bytes {
+				break;
+			}
 		}
 
 		let source = new_tx.source();
@@ -412,28 +420,16 @@ where
 		debug_assert!(!self.is_limit_exceeded(transactions.len(), self.transactions.bytes()));
 
 		Ok(InsertionInfo::new_with_removed(hash, source, to_be_removed))
-
-		// let result = match (
-		// 	self.is_limit_exceeded(transactions.len() + 1, bytes + tx.bytes),
-		// 	transactions.contains_key(&hash),
-		// ) {
-		// 	(false, false) => {
-		// 		let source = tx.source();
-		// 		transactions.insert(hash, Arc::from(tx));
-		// 		Ok(InsertionInfo::new(hash, source))
-		// 	},
-		// 	(_, true) =>
-		// 		Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(hash))),
-		// 	(true, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped),
-		// };
-		// log::trace!(target: LOG_TARGET, "[{:?}] mempool::try_insert: {:?}", hash,
-		// result.as_ref().map(|r| r.hash));
 	}
 
-	/// Attempts to replace an existing transaction in the memory pool with a new one.
+	/// Attempts to insert a new transaction in the memory pool and drop some worse existing
+	/// transactions.
 	///
-	/// Returns a `Result` containing `InsertionInfo` if the new transaction is successfully
-	/// inserted; otherwise, returns an appropriate error indicating the failure.
+	/// This operation will not overflow the limit of the mempool. It means that cumulative
+	/// size of removed transactions will be equal (or greated) then size of newly inserted
+	/// transaction.
+	///
+	/// Refer to [`try_insert_with_dropping`] for more details.
 	pub(super) fn try_replace_transaction(
 		&self,
 		new_xt: ExtrinsicFor<ChainApi>,
@@ -736,6 +732,9 @@ mod tx_mem_pool_tests {
 		assert_eq!(mempool.unwatched_and_watched_count(), (10, 5));
 	}
 
+	/// size of large extrinsic
+	const LARGE_XT_SIZE: usize = 1129;
+
 	fn large_uxt(x: usize) -> Extrinsic {
 		ExtrinsicBuilder::new_include_data(vec![x as u8; 1024]).build()
 	}
@@ -745,8 +744,7 @@ mod tx_mem_pool_tests {
 		sp_tracing::try_init_simple();
 		let max = 10;
 		let api = Arc::from(TestApi::default());
-		//size of large extrinsic is: 1129
-		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, max * 1129);
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, max * LARGE_XT_SIZE);
 
 		let xts = (0..max).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
 
@@ -771,5 +769,192 @@ mod tx_mem_pool_tests {
 		));
 	}
 
-	//add some test for try_insert_with_dropping
+	#[test]
+	fn replacing_works_00() {
+		sp_tracing::try_init_simple();
+		let max = 10;
+		let api = Arc::from(TestApi::default());
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, max * LARGE_XT_SIZE);
+
+		let xts = (0..max).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
+
+		let low_prio = 0u64;
+		let hi_prio = u64::MAX;
+
+		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
+		let (submit_outcomes, hashes): (Vec<_>, Vec<_>) = xts
+			.iter()
+			.map(|t| {
+				let h = api.hash_and_length(t).0;
+				(ViewStoreSubmitOutcome::new(h, Some(low_prio)), h)
+			})
+			.unzip();
+
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		assert!(results.iter().all(Result::is_ok));
+		assert_eq!(mempool.bytes(), total_xts_bytes);
+
+		submit_outcomes.into_iter().for_each(|o| mempool.update_transaction(&o));
+
+		let xt = Arc::from(large_uxt(98));
+		let hash = api.hash_and_length(&xt).0;
+		let result = mempool
+			.try_replace_transaction(xt, hi_prio, TransactionSource::External, false)
+			.unwrap();
+
+		assert_eq!(result.hash, hash);
+		assert_eq!(result.removed, hashes[0..1]);
+	}
+
+	#[test]
+	fn replacing_works_01() {
+		sp_tracing::try_init_simple();
+		let max = 10;
+		let api = Arc::from(TestApi::default());
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, max * LARGE_XT_SIZE);
+
+		let xts = (0..max).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
+
+		let low_prio = 0u64;
+		let hi_prio = u64::MAX;
+
+		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
+		let (submit_outcomes, hashes): (Vec<_>, Vec<_>) = xts
+			.iter()
+			.map(|t| {
+				let h = api.hash_and_length(t).0;
+				(ViewStoreSubmitOutcome::new(h, Some(low_prio)), h)
+			})
+			.unzip();
+
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		assert!(results.iter().all(Result::is_ok));
+		assert_eq!(mempool.bytes(), total_xts_bytes);
+		assert_eq!(total_xts_bytes, max * LARGE_XT_SIZE);
+
+		submit_outcomes.into_iter().for_each(|o| mempool.update_transaction(&o));
+
+		//this one should drop 2 xts (size: 1130):
+		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 1025]).build());
+		let (hash, length) = api.hash_and_length(&xt);
+		assert_eq!(length, 1130);
+		let result = mempool
+			.try_replace_transaction(xt, hi_prio, TransactionSource::External, false)
+			.unwrap();
+
+		assert_eq!(result.hash, hash);
+		assert_eq!(result.removed, hashes[0..2]);
+	}
+
+	#[test]
+	fn replacing_works_02() {
+		sp_tracing::try_init_simple();
+		const COUNT: usize = 10;
+		let api = Arc::from(TestApi::default());
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, COUNT * LARGE_XT_SIZE);
+
+		let xts = (0..COUNT).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
+
+		let hi_prio = u64::MAX;
+
+		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
+		let (submit_outcomes, hashes): (Vec<_>, Vec<_>) = xts
+			.iter()
+			.enumerate()
+			.map(|(prio, t)| {
+				let h = api.hash_and_length(t).0;
+				(ViewStoreSubmitOutcome::new(h, Some((COUNT - prio).try_into().unwrap())), h)
+			})
+			.unzip();
+
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		assert!(results.iter().all(Result::is_ok));
+		assert_eq!(mempool.bytes(), total_xts_bytes);
+
+		submit_outcomes.into_iter().for_each(|o| mempool.update_transaction(&o));
+
+		//this one should drop 3 xts (each of size 1129)
+		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 2154]).build());
+		let (hash, length) = api.hash_and_length(&xt);
+		// overhead is 105, thus length: 105 + 2154
+		assert_eq!(length, 2 * LARGE_XT_SIZE + 1);
+		let result = mempool
+			.try_replace_transaction(xt, hi_prio, TransactionSource::External, false)
+			.unwrap();
+
+		assert_eq!(result.hash, hash);
+		assert!(result.removed.iter().eq(hashes[COUNT - 3..COUNT].iter().rev()));
+	}
+
+	#[test]
+	fn replacing_skips_lower_prio_tx() {
+		sp_tracing::try_init_simple();
+		const COUNT: usize = 10;
+		let api = Arc::from(TestApi::default());
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, COUNT * LARGE_XT_SIZE);
+
+		let xts = (0..COUNT).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
+
+		let hi_prio = 100u64;
+		let low_prio = 10u64;
+
+		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
+		let submit_outcomes = xts
+			.iter()
+			.map(|t| {
+				let h = api.hash_and_length(t).0;
+				ViewStoreSubmitOutcome::new(h, Some(hi_prio))
+			})
+			.collect::<Vec<_>>();
+
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		assert!(results.iter().all(Result::is_ok));
+		assert_eq!(mempool.bytes(), total_xts_bytes);
+
+		submit_outcomes.into_iter().for_each(|o| mempool.update_transaction(&o));
+
+		//this one should drop 3 xts (each of size 1129)
+		let xt = Arc::from(large_uxt(98));
+		let result =
+			mempool.try_replace_transaction(xt, low_prio, TransactionSource::External, false);
+
+		// we did not update priorities (update_transaction was not called):
+		assert!(matches!(
+			result.unwrap_err(),
+			sc_transaction_pool_api::error::Error::ImmediatelyDropped
+		));
+	}
+
+	#[test]
+	fn replacing_is_skipped_if_prios_are_not_set() {
+		sp_tracing::try_init_simple();
+		const COUNT: usize = 10;
+		let api = Arc::from(TestApi::default());
+		let mempool = TxMemPool::new_test(api.clone(), usize::MAX, COUNT * LARGE_XT_SIZE);
+
+		let xts = (0..COUNT).map(|x| Arc::from(large_uxt(x))).collect::<Vec<_>>();
+
+		let hi_prio = u64::MAX;
+
+		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
+
+		let results = mempool.extend_unwatched(TransactionSource::External, &xts);
+		assert!(results.iter().all(Result::is_ok));
+		assert_eq!(mempool.bytes(), total_xts_bytes);
+
+		//this one could drop 3 xts (each of size 1129)
+		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 2154]).build());
+		let length = api.hash_and_length(&xt).1;
+		// overhead is 105, thus length: 105 + 2154
+		assert_eq!(length, 2 * LARGE_XT_SIZE + 1);
+
+		let result =
+			mempool.try_replace_transaction(xt, hi_prio, TransactionSource::External, false);
+
+		// we did not update priorities (update_transaction was not called):
+		assert!(matches!(
+			result.unwrap_err(),
+			sc_transaction_pool_api::error::Error::ImmediatelyDropped
+		));
+	}
 }

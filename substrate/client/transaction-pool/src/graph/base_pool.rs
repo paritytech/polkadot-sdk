@@ -438,16 +438,6 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		self.ready.by_hash(hash)
 	}
 
-	/// Fold a list of ready transactions to compute a single value using initial value of
-	/// accumulator.
-	pub fn fold_ready<R, F>(&self, init: R, mut f: F) -> R
-	where
-		F: FnMut(R, &Arc<Transaction<Hash, Ex>>) -> R,
-	{
-		self.ready
-			.fold::<R, _>(init, |acc, current| f(acc, &current.transaction.transaction))
-	}
-
 	/// Makes sure that the transactions in the queues stay within provided limits.
 	///
 	/// Removes and returns worst transactions from the queues and all transactions that depend on
