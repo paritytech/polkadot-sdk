@@ -654,7 +654,10 @@ where
 		let mempool_results = self.mempool.extend_unwatched(source, &xts);
 
 		if view_store.is_empty() {
-			return Ok(mempool_results.into_iter().map(|r| r.map(|r| r.hash)).collect::<Vec<_>>())
+			return Ok(mempool_results
+				.into_iter()
+				.map(|r| r.map(|r| r.hash).map_err(Into::into))
+				.collect::<Vec<_>>())
 		}
 
 		//todo: review + test maybe?
@@ -690,7 +693,9 @@ where
 		Ok(mempool_results
 				.into_iter()
 				.map(|result| {
-					result.and_then(|insertion| {
+					result
+						.map_err(Into::into)
+						.and_then(|insertion| {
 						submission_results
 							.next()
 							.expect("The number of Ok results in mempool is exactly the same as the size of to-views-submission result. qed.")
