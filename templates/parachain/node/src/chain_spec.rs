@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
-/// Parachain id used for gensis config presets of parachain template.
+/// The relay chain that you want to configure this parachain to connect to.
 pub const RELAY_CHAIN: &'static str = "rococo-local";
 
 /// The extensions for the [`ChainSpec`].
