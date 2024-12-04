@@ -144,9 +144,11 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(Default::default());
 		let (_, sender_location) = account_and_location::<T>(1);
 
-		let instruction = Instruction::SetHints { hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![
-			AssetClaimer { location: sender_location.clone() },
-		]) };
+		let instruction = Instruction::SetHints {
+			hints: BoundedVec::<Hint, HintNumVariants>::truncate_from(vec![AssetClaimer {
+				location: sender_location.clone(),
+			}]),
+		};
 
 		let xcm = Xcm(vec![instruction]);
 		#[block]
