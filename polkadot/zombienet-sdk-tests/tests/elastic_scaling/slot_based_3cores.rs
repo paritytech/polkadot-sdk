@@ -39,7 +39,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 							"scheduler_params": {
 								// Num cores is 4, because 2 extra will be added automatically when registering the paras.
 								"num_cores": 4,
-								"max_validators_per_core": 1
+								"max_validators_per_core": 2
 							},
 							"async_backing_params": {
 								"max_candidate_depth": 6,
@@ -52,7 +52,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 				// type.
 				.with_node(|node| node.with_name("validator-0"));
 
-			(1..6).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..12)
+				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
 			// Para 2100 uses the old elastic scaling mvp, which doesn't send the new UMP signal
@@ -65,7 +66,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 				.with_collator(|n| n.with_name("collator-elastic-mvp"))
 		})
 		.with_parachain(|p| {
-			// Para 2200 uses the new RFC103-enabled collator which sens the UMP signal commitment
+			// Para 2200 uses the new RFC103-enabled collator which sends the UMP signal commitment
 			// for selecting the core index
 			p.with_id(2200)
 				.with_default_command("test-parachain")
@@ -140,8 +141,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 
 	log::info!("2 more cores assigned to each parachain");
 
-	// Expect a backed candidate count of 40 for each parachain in 15 relay chain blocks (2.66
-	// candidates per para per relay chain block).
+	// Expect a backed candidate count of at least 42 for each parachain in 15 relay chain blocks
+	// (2.8 candidates per para per relay chain block).
 	// Note that only blocks after the first session change and blocks that don't contain a session
 	// change will be counted.
 	assert_para_throughput(
