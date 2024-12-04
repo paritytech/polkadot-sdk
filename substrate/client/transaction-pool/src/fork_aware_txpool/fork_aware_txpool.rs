@@ -1329,14 +1329,12 @@ where
 		watched: bool,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, TxPoolApiError> {
-		// 1. we should validate at most_recent, and reuse result to submit there.
 		let at = self
 			.view_store
 			.most_recent_view
 			.read()
 			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
 
-		// 2. validate transaction at `at`
 		let (best_view, _) = self
 			.view_store
 			.get_view_at(at, false)
@@ -1354,21 +1352,15 @@ where
 			.await;
 
 		if let Some(priority) = validated_tx.priority() {
-			// 3. check if mempool contains a transaction with lower priority (actually worse - do
-			//    we want to check timestamp too - no: see #4609?) Would be perfect to choose
-			//    transaction with lowest the number of dependant txs in its   subtree.
-			// 4. if yes - remove worse transaction from mempool and add new one.
 			let insertion_info =
 				self.mempool.try_replace_transaction(xt, priority, source, watched)?;
 
 			for worst_hash in &insertion_info.removed {
 				log::trace!(target: LOG_TARGET, "removed: {worst_hash:?} replaced by {tx_hash:?}");
-				// 5. notify listner
 				self.view_store
 					.listener
 					.transaction_dropped(DroppedTransaction::new_enforced_by_limts(*worst_hash));
 
-				// 6. remove transaction from the view_store
 				self.view_store.remove_transaction_subtree(
 					*worst_hash,
 					|listener, removed_tx_hash| {
@@ -1377,8 +1369,7 @@ where
 				);
 			}
 
-			// 8. add to pending_replacements - make sure it will not sneak back via cloned view
-			// 9. subemit new one to the view, this will be done upon in the caller
+			// todo: add to pending_replacements - make sure it will not sneak back via cloned view
 			return Ok(insertion_info)
 		}
 
