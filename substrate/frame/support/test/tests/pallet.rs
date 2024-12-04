@@ -1931,7 +1931,7 @@ fn metadata() {
 		error_enum_ty: meta_type::<RuntimeError>(),
 	};
 
-	let custom_value: BTreeMap<u8, Vec<u32>> = (0, vec![0]).into_iter().collect();
+	let custom_value: BTreeMap<u8, Vec<u32>> = [(0, vec![0])].into_iter().collect();
 	let expected_metadata: RuntimeMetadataPrefixed = RuntimeMetadataLastVersion::new(
 		pallets,
 		extrinsic,
