@@ -16,15 +16,20 @@ pub mod rococo {}
 #[subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
 mod coretime_rococo {}
 
-use rococo::runtime_types::{
-	staging_xcm::v4::{
-		asset::{Asset, AssetId, Assets, Fungibility},
-		junction::Junction,
-		junctions::Junctions,
-		location::Location,
+use crate::helpers::rococo::{
+	self as rococo_api,
+	runtime_types::{
+		polkadot_parachain_primitives::primitives,
+		staging_xcm::v4::{
+			asset::{Asset, AssetId, Assets, Fungibility},
+			junction::Junction,
+			junctions::Junctions,
+			location::Location,
+		},
+		xcm::{VersionedAssets, VersionedLocation},
 	},
-	xcm::{VersionedAssets, VersionedLocation},
 };
+
 use serde_json::json;
 use std::{fmt::Display, sync::Arc};
 use subxt::{events::StaticEvent, utils::AccountId32, OnlineClient, PolkadotConfig};
@@ -40,8 +45,6 @@ use coretime_rococo::{
 		sp_arithmetic::per_things::Perbill,
 	},
 };
-
-use rococo::{self as rococo_api, runtime_types::polkadot_parachain_primitives::primitives};
 
 type CoretimeRuntimeCall = coretime_api::runtime_types::coretime_rococo_runtime::RuntimeCall;
 type CoretimeUtilityCall = coretime_api::runtime_types::pallet_utility::pallet::Call;
