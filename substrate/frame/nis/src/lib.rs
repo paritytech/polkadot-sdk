@@ -190,13 +190,14 @@ pub mod pallet {
 		},
 		PalletId,
 	};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{BlockNumberFor, ensure_signed, OriginFor};
 	use sp_arithmetic::{PerThing, Perquintill};
 	use sp_runtime::{
-		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero},
+		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero, BlockNumberProvider},
 		Rounding, TokenError,
 	};
 
+	// type BlockNumberFor<T> = <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 	type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 	type DebtOf<T> =
@@ -311,6 +312,8 @@ pub mod pallet {
 		/// The maximum proportion which may be thawed and the period over which it is reset.
 		#[pallet::constant]
 		type ThawThrottle: Get<(Perquintill, BlockNumberFor<Self>)>;
+
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 
 		/// Setup the state for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -517,6 +520,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			// let block_number = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter =
 				WeightCounter { used: Weight::zero(), limit: T::MaxIntakeWeight::get() };
 			if T::IntakePeriod::get().is_zero() || (n % T::IntakePeriod::get()).is_zero() {
@@ -693,7 +697,7 @@ pub mod pallet {
 			let (owner, mut on_hold) = receipt.owner.ok_or(Error::<T>::AlreadyCommunal)?;
 			ensure!(owner == who, Error::<T>::NotOwner);
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= receipt.expiry, Error::<T>::NotExpired);
 
 			let mut summary: SummaryRecordOf<T> = Summary::<T>::get();
@@ -800,7 +804,7 @@ pub mod pallet {
 				Receipts::<T>::get(index).ok_or(Error::<T>::UnknownReceipt)?;
 			// If found, check it is actually communal.
 			ensure!(receipt.owner.is_none(), Error::<T>::NotOwner);
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= receipt.expiry, Error::<T>::NotExpired);
 
 			let mut summary: SummaryRecordOf<T> = Summary::<T>::get();
@@ -1032,7 +1036,7 @@ pub mod pallet {
 				return
 			}
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let our_account = Self::account_id();
 			let issuance: IssuanceInfoOf<T> = Self::issuance_with(&our_account, &summary);
 			let mut remaining = target.saturating_sub(summary.proportion_owed) * issuance.effective;
