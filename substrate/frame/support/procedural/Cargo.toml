@@ -55,6 +55,7 @@ frame-benchmarking = { workspace = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
@@ -63,7 +64,6 @@ std = [
 	"sp-io/std",
 	"sp-metadata-ir/std",
 	"sp-runtime/std",
-	"frame-benchmarking/std",
 ]
 no-metadata-docs = []
 experimental = []
