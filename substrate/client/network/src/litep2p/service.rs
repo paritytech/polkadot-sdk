@@ -104,6 +104,15 @@ pub enum NetworkServiceCommand {
 		expires: Option<Instant>,
 	},
 
+	/// Start providing `key`.
+	StartProviding { key: KademliaKey },
+
+	/// Stop providing `key`.
+	StopProviding { key: KademliaKey },
+
+	/// Get providers for `key`.
+	GetProviders { key: KademliaKey },
+
 	/// Query network status.
 	Status {
 		/// `oneshot::Sender` for sending the status.
@@ -295,6 +304,18 @@ impl NetworkDHTProvider for Litep2pNetworkService {
 			publisher,
 			expires,
 		});
+	}
+
+	fn start_providing(&self, key: KademliaKey) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::StartProviding { key });
+	}
+
+	fn stop_providing(&self, key: KademliaKey) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::StopProviding { key });
+	}
+
+	fn get_providers(&self, key: KademliaKey) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::GetProviders { key });
 	}
 }
 
