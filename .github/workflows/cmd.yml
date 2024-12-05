@@ -296,16 +296,18 @@ jobs:
           repository: ${{ needs.get-pr-branch.outputs.repo }}
           ref: ${{ needs.get-pr-branch.outputs.pr-branch }}
 
-      - name: Set rust version via common env file
+      - name: Set rust version from env file
         run: |
-          cat .github/env >> $GITHUB_ENV
+          RUST_VERSION=$(cat .github/env | sed -E 's/.*ci-unified:([^-]+)-([^-]+).*/\2/')
+          echo $RUST_VERSION
+          echo "RUST_VERSION=${RUST_VERSION}" >> $GITHUB_ENV
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
           targets: "wasm32-unknown-unknown,x86_64-unknown-linux-musl"
           components: "rust-src rustfmt clippy"
-          toolchain: "nightly-${{env.RUST_NIGHTLY_VERSION}}"
+          toolchain: "${{env.RUST_VERSION}}"
 
       - name: Get command
         uses: actions-ecosystem/action-regex-match@v2
