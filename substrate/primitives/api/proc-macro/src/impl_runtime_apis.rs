@@ -883,6 +883,7 @@ mod tests {
 	fn filter_non_cfg_attributes() {
 		let cfg_std: Attribute = parse_quote!(#[cfg(feature = "std")]);
 		let cfg_benchmarks: Attribute = parse_quote!(#[cfg(feature = "runtime-benchmarks")]);
+		let allow: Attribute = parse_quote!(#[allow(non_camel_case_types)]);
 
 		let attrs = vec![
 			cfg_std.clone(),
@@ -893,9 +894,10 @@ mod tests {
 		];
 
 		let filtered = filter_cfg_and_allow_attrs(&attrs);
-		assert_eq!(filtered.len(), 2);
+		assert_eq!(filtered.len(), 3);
 		assert_eq!(cfg_std, filtered[0]);
 		assert_eq!(cfg_benchmarks, filtered[1]);
+		assert_eq!(allow, filtered[2]);
 	}
 
 	#[test]
