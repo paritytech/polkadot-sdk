@@ -130,7 +130,6 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, frame::try_runtime::TryRuntimeError> {
 		use codec::Encode;
-		//use frame_support::ensure;
 
 		// Get the Tips pallet view of balances it has reserved
 		let (account_deposits, _) = Self::get_deposits();
