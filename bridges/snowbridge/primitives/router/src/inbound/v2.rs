@@ -146,10 +146,13 @@ where
 			ReserveAssetDeposited(fee.clone().into()),
 			PayFees { asset: fee },
 		];
+		let mut reserve_assets = vec![];
+		let mut withdraw_assets = vec![];
 
 		for asset in &message.assets {
 			match asset {
 				Asset::NativeTokenERC20 { token_id, value } => {
+
 					let token_location: Location = Location::new(
 						2,
 						[
@@ -157,14 +160,23 @@ where
 							AccountKey20 { network: None, key: (*token_id).into() },
 						],
 					);
-					instructions.push(ReserveAssetDeposited((token_location, *value).into()));
+					let asset: XcmAsset = (token_location, *value).into();
+					reserve_assets.push(asset);
 				},
 				Asset::ForeignTokenERC20 { token_id, value } => {
 					let asset_id = ConvertAssetId::convert(&token_id)
 						.ok_or(ConvertMessageError::InvalidAsset)?;
-					instructions.push(WithdrawAsset((asset_id, *value).into()));
+					let asset: XcmAsset = (asset_id, *value).into();
+					withdraw_assets.push(asset);
 				},
 			}
+		}
+
+		if reserve_assets.len() > 0 {
+			instructions.push(ReserveAssetDeposited(reserve_assets.into()));
+		}
+		if withdraw_assets.len() > 0 {
+			instructions.push(WithdrawAsset(withdraw_assets.into()));
 		}
 
 		if let Some(claimer) = message.claimer {
