@@ -30,7 +30,7 @@ use sp_core::H160;
 use testnet_parachains_constants::westend::{
 	currency::*,
 	fee::WeightToFee,
-	snowbridge::{EthereumLocation, EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX},
+	snowbridge::{EthereumLocation, EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2},
 };
 
 use crate::xcm_config::RelayNetwork;
@@ -89,7 +89,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type MessageConverter = snowbridge_router_primitives::inbound::v1::MessageToXcm<
 		CreateAssetCall,
 		CreateAssetDeposit,
-		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
+		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V1>,
 		AccountId,
 		Balance,
 		EthereumSystem,
@@ -121,7 +121,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type Balance = Balance;
 	type MessageConverter = snowbridge_router_primitives::inbound::v2::MessageToXcm<
 		EthereumNetwork,
-		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
+		ConstU8<INBOUND_QUEUE_PALLET_INDEX_V2>,
 		EthereumSystem,
 		WethAddress,
 		EthereumGatewayAddress,

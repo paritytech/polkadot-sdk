@@ -147,7 +147,7 @@ parameter_types! {
 	pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub const WethAddress: H160 = H160(WETH_ADDRESS);
-	pub const InboundQueuePalletInstance: u8 = 80;
+	pub const InboundQueuePalletInstance: u8 = 84;
 	pub AssetHubLocation: InteriorLocation = Parachain(1000).into();
 }
 
