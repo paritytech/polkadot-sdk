@@ -152,7 +152,6 @@ where
 		for asset in &message.assets {
 			match asset {
 				Asset::NativeTokenERC20 { token_id, value } => {
-
 					let token_location: Location = Location::new(
 						2,
 						[
@@ -179,10 +178,13 @@ where
 			instructions.push(WithdrawAsset(withdraw_assets.into()));
 		}
 
+		let mut refund_surplus_to = origin_account_location;
+
 		if let Some(claimer) = message.claimer {
 			let claimer = Junction::decode(&mut claimer.as_ref())
 				.map_err(|_| ConvertMessageError::InvalidClaimer)?;
 			let claimer_location: Location = Location::new(0, [claimer.into()]);
+			refund_surplus_to = claimer_location.clone();
 			instructions.push(SetAssetClaimer { location: claimer_location });
 		}
 
@@ -190,7 +192,9 @@ where
 		// the original sender on Ethereum. Important to be before the arbitrary XCM that is
 		// appended to the message on the next line.
 		if message.origin != GatewayProxyAddress::get() {
-			instructions.push(DescendOrigin(AccountKey20 { key: message.origin.into(), network: None}.into()));
+			instructions.push(DescendOrigin(
+				AccountKey20 { key: message.origin.into(), network: None }.into(),
+			));
 		}
 
 		// Add the XCM sent in the message to the end of the xcm instruction
@@ -198,10 +202,10 @@ where
 
 		let appendix = vec![
 			RefundSurplus,
-			// Refund excess fees to the relayer
+			// Refund excess fees to the claimer, if present, otherwise the relayer
 			DepositAsset {
 				assets: Wild(AllOf { id: AssetId(fee_asset.into()), fun: WildFungible }),
-				beneficiary: origin_account_location,
+				beneficiary: refund_surplus_to,
 			},
 		];
 
