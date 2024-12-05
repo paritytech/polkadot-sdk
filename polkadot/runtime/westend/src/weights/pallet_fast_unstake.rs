@@ -108,8 +108,6 @@ impl<T: frame_system::Config> pallet_fast_unstake::WeightInfo for WeightInfo<T> 
 	/// Proof Skipped: ElectionProviderMultiPhase CurrentPhase (max_values: Some(1), max_size: None, mode: Measured)
 	/// Storage: Staking CurrentEra (r:1 w:0)
 	/// Proof: Staking CurrentEra (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: Staking ErasStakers (r:257 w:0)
-	/// Proof Skipped: Staking ErasStakers (max_values: None, max_size: None, mode: Measured)
 	/// The range of component `v` is `[1, 256]`.
 	/// The range of component `b` is `[1, 64]`.
 	fn on_idle_check(v: u32, b: u32, ) -> Weight {

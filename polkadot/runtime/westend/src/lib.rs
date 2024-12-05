@@ -287,6 +287,14 @@ pub mod dynamic_params {
 		#[codec(index = 4)]
 		pub static UseAuctionSlots: bool = false;
 	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod staking {
+		/// Maximum number of validators allowed.
+		#[codec(index = 0)]
+		pub static MaxValidatorsCount: u32 = 300;
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -319,6 +327,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 
 		match key {
 			Inflation(_) => frame_system::ensure_root(origin.clone()),
+			Staking(_) => frame_system::ensure_root(origin.clone()),
 		}
 		.map_err(|_| origin)
 	}
@@ -716,6 +725,7 @@ parameter_types! {
 	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: sp_staking::EraIndex = 2;
+	pub const MaxBondedEras: u32 = (BondingDuration::get() as u32) + 1;
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
 	pub const MaxExposurePageSize: u32 = 64;
@@ -738,6 +748,7 @@ impl pallet_staking::Config for Runtime {
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
+	type MaxBondedEras = MaxBondedEras;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type SessionInterface = Self;
@@ -756,6 +767,10 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type DisablingStrategy = pallet_staking::UpToLimitWithReEnablingDisablingStrategy;
+	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
+	type MaxRewardPagesPerValidator = frame_support::traits::ConstU32<20>;
+	type MaxValidatorsCount = dynamic_params::staking::MaxValidatorsCount;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -1839,6 +1854,7 @@ pub mod migrations {
 		parachains_shared::migration::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
 		pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
+		pallet_staking::migrations::v17::MigrateV16ToV17<Runtime>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);

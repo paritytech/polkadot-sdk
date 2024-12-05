@@ -315,13 +315,13 @@ use frame_support::{
 		ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
 	},
 	weights::Weight,
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound, WeakBoundedVec,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
-	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
+	BoundedBTreeMap, Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
 };
 use sp_staking::{
 	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
@@ -385,17 +385,20 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct EraRewardPoints<AccountId: Ord> {
+#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(MaxValidatorsCount))]
+pub struct EraRewardPoints<AccountId: Ord, MaxValidatorsCount: Get<u32>> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
 	/// The reward points earned by a given validator.
-	pub individual: BTreeMap<AccountId, RewardPoint>,
+	pub individual: BoundedBTreeMap<AccountId, RewardPoint, MaxValidatorsCount>,
 }
 
-impl<AccountId: Ord> Default for EraRewardPoints<AccountId> {
+impl<AccountId: Ord, MaxValidatorsCount: Get<u32>> Default
+	for EraRewardPoints<AccountId, MaxValidatorsCount>
+{
 	fn default() -> Self {
-		EraRewardPoints { total: Default::default(), individual: BTreeMap::new() }
+		EraRewardPoints { total: Default::default(), individual: BoundedBTreeMap::new() }
 	}
 }
 
@@ -740,25 +743,35 @@ pub struct Nominations<T: Config> {
 ///
 /// This is useful where we need to take into account the validator's own stake and total exposure
 /// in consideration, in addition to the individual nominators backing them.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
-pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq, MaxEncodedLen)]
+pub struct PagedExposure<
+	AccountId,
+	Balance: HasCompact + MaxEncodedLen,
+	MaxExposurePageSize: Get<u32>,
+> {
 	exposure_metadata: PagedExposureMetadata<Balance>,
-	exposure_page: ExposurePage<AccountId, Balance>,
+	exposure_page: ExposurePage<AccountId, Balance, MaxExposurePageSize>,
 }
 
-impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEncodedLen>
-	PagedExposure<AccountId, Balance>
+impl<
+		AccountId,
+		Balance: HasCompact + Copy + AtLeast32BitUnsigned + MaxEncodedLen,
+		MaxExposurePageSize: Get<u32>,
+	> PagedExposure<AccountId, Balance, MaxExposurePageSize>
 {
 	/// Create a new instance of `PagedExposure` from legacy clipped exposures.
 	pub fn from_clipped(exposure: Exposure<AccountId, Balance>) -> Self {
+		let old_exposures = exposure.others.len();
+		let others = WeakBoundedVec::try_from(exposure.others).unwrap_or_default();
+		defensive_assert!(old_exposures == others.len(), "Too many exposures for a page");
 		Self {
 			exposure_metadata: PagedExposureMetadata {
 				total: exposure.total,
 				own: exposure.own,
-				nominator_count: exposure.others.len() as u32,
+				nominator_count: others.len() as u32,
 				page_count: 1,
 			},
-			exposure_page: ExposurePage { page_total: exposure.total, others: exposure.others },
+			exposure_page: ExposurePage { page_total: exposure.total, others },
 		}
 	}
 
@@ -1051,42 +1064,11 @@ impl<T: Config> EraInfo<T> {
 	/// Returns true if validator has one or more page of era rewards not claimed yet.
 	// Also looks at legacy storage that can be cleaned up after #433.
 	pub fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
-		let page_count = if let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) {
-			overview.page_count
-		} else {
-			if <ErasStakers<T>>::contains_key(era, validator) {
-				// this means non paged exposure, and we treat them as single paged.
-				1
-			} else {
-				// if no exposure, then no rewards to claim.
-				return false
-			}
-		};
-
-		// check if era is marked claimed in legacy storage.
-		if <Ledger<T>>::get(validator)
-			.map(|l| l.legacy_claimed_rewards.contains(&era))
-			.unwrap_or_default()
-		{
-			return false
-		}
-
-		ClaimedRewards::<T>::get(era, validator).len() < page_count as usize
-	}
-
-	/// Temporary function which looks at both (1) passed param `T::StakingLedger` for legacy
-	/// non-paged rewards, and (2) `T::ClaimedRewards` for paged rewards. This function can be
-	/// removed once `T::HistoryDepth` eras have passed and none of the older non-paged rewards
-	/// are relevant/claimable.
-	// Refer tracker issue for cleanup: https://github.com/paritytech/polkadot-sdk/issues/433
-	pub(crate) fn is_rewards_claimed_with_legacy_fallback(
-		era: EraIndex,
-		ledger: &StakingLedger<T>,
-		validator: &T::AccountId,
-		page: Page,
-	) -> bool {
-		ledger.legacy_claimed_rewards.binary_search(&era).is_ok() ||
-			Self::is_rewards_claimed(era, validator, page)
+		<ErasStakersOverview<T>>::get(&era, validator)
+			.map(|overview| {
+				ClaimedRewards::<T>::get(era, validator).len() < overview.page_count as usize
+			})
+			.unwrap_or(false)
 	}
 
 	/// Check if the rewards for the given era and page index have been claimed.
@@ -1094,7 +1076,7 @@ impl<T: Config> EraInfo<T> {
 	/// This is only used for paged rewards. Once older non-paged rewards are no longer
 	/// relevant, `is_rewards_claimed_with_legacy_fallback` can be removed and this function can
 	/// be made public.
-	fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
+	pub(crate) fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
 		ClaimedRewards::<T>::get(era, validator).contains(&page)
 	}
 
@@ -1106,21 +1088,8 @@ impl<T: Config> EraInfo<T> {
 		era: EraIndex,
 		validator: &T::AccountId,
 		page: Page,
-	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
-		let overview = <ErasStakersOverview<T>>::get(&era, validator);
-
-		// return clipped exposure if page zero and paged exposure does not exist
-		// exists for backward compatibility and can be removed as part of #13034
-		if overview.is_none() && page == 0 {
-			return Some(PagedExposure::from_clipped(<ErasStakersClipped<T>>::get(era, validator)))
-		}
-
-		// no exposure for this validator
-		if overview.is_none() {
-			return None
-		}
-
-		let overview = overview.expect("checked above; qed");
+	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>, T::MaxExposurePageSize>> {
+		let overview = <ErasStakersOverview<T>>::get(&era, validator)?;
 
 		// validator stake is added only in page zero
 		let validator_stake = if page == 0 { overview.own } else { Zero::zero() };
@@ -1144,15 +1113,18 @@ impl<T: Config> EraInfo<T> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator);
 
 		if overview.is_none() {
-			return ErasStakers::<T>::get(era, validator)
+			return Exposure::default()
 		}
 
 		let overview = overview.expect("checked above; qed");
 
 		let mut others = Vec::with_capacity(overview.nominator_count as usize);
 		for page in 0..overview.page_count {
-			let nominators = <ErasStakersPaged<T>>::get((era, validator, page));
-			others.append(&mut nominators.map(|n| n.others).defensive_unwrap_or_default());
+			let nominators =
+				<ErasStakersPaged<T>>::get((era, validator, page)).defensive_unwrap_or_default();
+			for nominator_exposure in nominators.others {
+				others.push(nominator_exposure);
+			}
 		}
 
 		Exposure { total: overview.total, own: overview.own, others }
@@ -1178,31 +1150,13 @@ impl<T: Config> EraInfo<T> {
 	}
 
 	/// Returns the next page that can be claimed or `None` if nothing to claim.
-	pub(crate) fn get_next_claimable_page(
-		era: EraIndex,
-		validator: &T::AccountId,
-		ledger: &StakingLedger<T>,
-	) -> Option<Page> {
-		if Self::is_non_paged_exposure(era, validator) {
-			return match ledger.legacy_claimed_rewards.binary_search(&era) {
-				// already claimed
-				Ok(_) => None,
-				// Non-paged exposure is considered as a single page
-				Err(_) => Some(0),
-			}
-		}
-
+	pub(crate) fn get_next_claimable_page(era: EraIndex, validator: &T::AccountId) -> Option<Page> {
 		// Find next claimable page of paged exposure.
 		let page_count = Self::get_page_count(era, validator);
 		let all_claimable_pages: Vec<Page> = (0..page_count).collect();
 		let claimed_pages = ClaimedRewards::<T>::get(era, validator);
 
 		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
-	}
-
-	/// Checks if exposure is paged or not.
-	fn is_non_paged_exposure(era: EraIndex, validator: &T::AccountId) -> bool {
-		<ErasStakersClipped<T>>::contains_key(&era, validator)
 	}
 
 	/// Returns validator commission for this era and page.
@@ -1225,8 +1179,11 @@ impl<T: Config> EraInfo<T> {
 			return
 		}
 
-		// add page to claimed entries
-		claimed_pages.push(page);
+		// try to add page to claimed entries
+		if claimed_pages.try_push(page).is_err() {
+			defensive!("Limit reached for maximum number of pages.");
+			return
+		}
 		ClaimedRewards::<T>::insert(era, validator, claimed_pages);
 	}
 
@@ -1244,7 +1201,8 @@ impl<T: Config> EraInfo<T> {
 			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
 			.saturating_div(page_size as usize);
 
-		let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
+		let (exposure_metadata, exposure_pages) =
+			exposure.into_pages::<T::MaxExposurePageSize>(page_size);
 		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
 
 		<ErasStakersOverview<T>>::insert(era, &validator, &exposure_metadata);

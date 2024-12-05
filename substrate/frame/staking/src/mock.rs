@@ -177,6 +177,7 @@ pallet_staking_reward_curve::build! {
 }
 parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
+	pub const MaxBondedEras: u32 = (BondingDuration::get() as u32) + 1;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 }
 
@@ -287,6 +288,10 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type DisablingStrategy =
 		pallet_staking::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
+	type MaxInvulnerables = ConstU32<20>;
+	type MaxRewardPagesPerValidator = ConstU32<20>;
+	type MaxValidatorsCount = ConstU32<300>;
+	type MaxDisabledValidators = ConstU32<100>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -320,7 +325,7 @@ pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
 	minimum_validator_count: u32,
-	invulnerables: Vec<AccountId>,
+	invulnerables: BoundedVec<AccountId, <Test as Config>::MaxInvulnerables>,
 	has_stakers: bool,
 	initialize_first_session: bool,
 	pub min_nominator_bond: Balance,
@@ -338,7 +343,7 @@ impl Default for ExtBuilder {
 			validator_count: 2,
 			minimum_validator_count: 0,
 			balance_factor: 1,
-			invulnerables: vec![],
+			invulnerables: BoundedVec::new(),
 			has_stakers: true,
 			initialize_first_session: true,
 			min_nominator_bond: ExistentialDeposit::get(),
@@ -372,7 +377,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
-		self.invulnerables = invulnerables;
+		self.invulnerables = BoundedVec::try_from(invulnerables).unwrap();
 		self
 	}
 	pub fn session_per_era(self, length: SessionIndex) -> Self {
