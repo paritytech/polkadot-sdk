@@ -19,16 +19,13 @@
 use crate::{
 	common::events::{
 		ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageDiffOperationType,
-		ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageMethodOk,
-		ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType, StorageResultType,
+		ArchiveStorageDiffResult, ArchiveStorageDiffType, ArchiveStorageEvent, StorageQuery,
+		StorageQueryType, StorageResult, StorageResultType,
 	},
 	hex_string, MethodResult,
 };
 
-use super::{
-	archive::{Archive, ArchiveConfig},
-	*,
-};
+use super::{archive::Archive, *};
 
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
@@ -55,8 +52,6 @@ use substrate_test_runtime_client::{
 
 const CHAIN_GENESIS: [u8; 32] = [0; 32];
 const INVALID_HASH: [u8; 32] = [1; 32];
-const MAX_PAGINATION_LIMIT: usize = 5;
-const MAX_QUERIED_LIMIT: usize = 5;
 const KEY: &[u8] = b":mock";
 const VALUE: &[u8] = b"hello world";
 const CHILD_STORAGE_KEY: &[u8] = b"child";
@@ -65,10 +60,7 @@ const CHILD_VALUE: &[u8] = b"child value";
 type Header = substrate_test_runtime_client::runtime::Header;
 type Block = substrate_test_runtime_client::runtime::Block;
 
-fn setup_api(
-	max_descendant_responses: usize,
-	max_queried_items: usize,
-) -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
+fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
 	let child_info = ChildInfo::new_default(CHILD_STORAGE_KEY);
 	let builder = TestClientBuilder::new().add_extra_child_storage(
 		&child_info,
@@ -83,7 +75,6 @@ fn setup_api(
 		backend,
 		CHAIN_GENESIS,
 		Arc::new(TokioTestExecutor::default()),
-		ArchiveConfig { max_descendant_responses, max_queried_items },
 	)
 	.into_rpc();
 
@@ -101,7 +92,7 @@ async fn get_next_event<T: serde::de::DeserializeOwned>(sub: &mut RpcSubscriptio
 
 #[tokio::test]
 async fn archive_genesis() {
-	let (_client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (_client, api) = setup_api();
 
 	let genesis: String =
 		api.call("archive_unstable_genesisHash", EmptyParams::new()).await.unwrap();
@@ -110,7 +101,7 @@ async fn archive_genesis() {
 
 #[tokio::test]
 async fn archive_body() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	// Invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
@@ -144,7 +135,7 @@ async fn archive_body() {
 
 #[tokio::test]
 async fn archive_header() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	// Invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
@@ -178,7 +169,7 @@ async fn archive_header() {
 
 #[tokio::test]
 async fn archive_finalized_height() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	let client_height: u32 = client.info().finalized_number.saturated_into();
 
@@ -190,7 +181,7 @@ async fn archive_finalized_height() {
 
 #[tokio::test]
 async fn archive_hash_by_height() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	// Genesis height.
 	let hashes: Vec<String> = api.call("archive_unstable_hashByHeight", [0]).await.unwrap();
@@ -296,7 +287,7 @@ async fn archive_hash_by_height() {
 
 #[tokio::test]
 async fn archive_call() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 	let invalid_hash = hex_string(&INVALID_HASH);
 
 	// Invalid parameter (non-hex).
@@ -355,7 +346,7 @@ async fn archive_call() {
 
 #[tokio::test]
 async fn archive_storage_hashes_values() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	let block = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -369,42 +360,23 @@ async fn archive_storage_hashes_values() {
 	let block_hash = format!("{:?}", block.header.hash());
 	let key = hex_string(&KEY);
 
-	let items: Vec<PaginatedStorageQuery<String>> = vec![
-		PaginatedStorageQuery {
-			key: key.clone(),
-			query_type: StorageQueryType::DescendantsHashes,
-			pagination_start_key: None,
-		},
-		PaginatedStorageQuery {
-			key: key.clone(),
-			query_type: StorageQueryType::DescendantsValues,
-			pagination_start_key: None,
-		},
-		PaginatedStorageQuery {
-			key: key.clone(),
-			query_type: StorageQueryType::Hash,
-			pagination_start_key: None,
-		},
-		PaginatedStorageQuery {
-			key: key.clone(),
-			query_type: StorageQueryType::Value,
-			pagination_start_key: None,
-		},
+	let items: Vec<StorageQuery<String>> = vec![
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::Value },
 	];
 
-	let result: ArchiveStorageResult = api
-		.call("archive_unstable_storage", rpc_params![&block_hash, items.clone()])
+	let mut sub = api
+		.subscribe_unbounded("archive_unstable_storage", rpc_params![&block_hash, items.clone()])
 		.await
 		.unwrap();
 
-	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			// Key has not been imported yet.
-			assert_eq!(result.len(), 0);
-			assert_eq!(discarded_items, 0);
-		},
-		_ => panic!("Unexpected result"),
-	};
+	// Key has not been imported yet.
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageDone,
+	);
 
 	// Import a block with the given key value pair.
 	let mut builder = BlockBuilderBuilder::new(&*client)
@@ -420,32 +392,103 @@ async fn archive_storage_hashes_values() {
 	let expected_hash = format!("{:?}", Blake2Hasher::hash(&VALUE));
 	let expected_value = hex_string(&VALUE);
 
-	let result: ArchiveStorageResult = api
-		.call("archive_unstable_storage", rpc_params![&block_hash, items])
+	let mut sub = api
+		.subscribe_unbounded("archive_unstable_storage", rpc_params![&block_hash, items])
 		.await
 		.unwrap();
 
-	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 4);
-			assert_eq!(discarded_items, 0);
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: key.clone(),
+			result: StorageResultType::Hash(expected_hash.clone()),
+			child_trie_key: None,
+		}),
+	);
 
-			assert_eq!(result[0].key, key);
-			assert_eq!(result[0].result, StorageResultType::Hash(expected_hash.clone()));
-			assert_eq!(result[1].key, key);
-			assert_eq!(result[1].result, StorageResultType::Value(expected_value.clone()));
-			assert_eq!(result[2].key, key);
-			assert_eq!(result[2].result, StorageResultType::Hash(expected_hash));
-			assert_eq!(result[3].key, key);
-			assert_eq!(result[3].result, StorageResultType::Value(expected_value));
-		},
-		_ => panic!("Unexpected result"),
-	};
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: key.clone(),
+			result: StorageResultType::Value(expected_value.clone()),
+			child_trie_key: None,
+		}),
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: key.clone(),
+			result: StorageResultType::Hash(expected_hash),
+			child_trie_key: None,
+		}),
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: key.clone(),
+			result: StorageResultType::Value(expected_value),
+			child_trie_key: None,
+		}),
+	);
+
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageDone
+	);
+}
+
+#[tokio::test]
+async fn archive_storage_hashes_values_child_trie() {
+	let (client, api) = setup_api();
+
+	// Get child storage values set in `setup_api`.
+	let child_info = hex_string(&CHILD_STORAGE_KEY);
+	let key = hex_string(&KEY);
+	let genesis_hash = format!("{:?}", client.genesis_hash());
+	let expected_hash = format!("{:?}", Blake2Hasher::hash(&CHILD_VALUE));
+	let expected_value = hex_string(&CHILD_VALUE);
+
+	let items: Vec<StorageQuery<String>> = vec![
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsHashes },
+		StorageQuery { key: key.clone(), query_type: StorageQueryType::DescendantsValues },
+	];
+	let mut sub = api
+		.subscribe_unbounded(
+			"archive_unstable_storage",
+			rpc_params![&genesis_hash, items, &child_info],
+		)
+		.await
+		.unwrap();
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: key.clone(),
+			result: StorageResultType::Hash(expected_hash.clone()),
+			child_trie_key: Some(child_info.clone()),
+		})
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: key.clone(),
+			result: StorageResultType::Value(expected_value.clone()),
+			child_trie_key: Some(child_info.clone()),
+		})
+	);
+
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageDone,
+	);
 }
 
 #[tokio::test]
 async fn archive_storage_closest_merkle_value() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	/// The core of this test.
 	///
@@ -457,55 +500,47 @@ async fn archive_storage_closest_merkle_value() {
 		api: &RpcModule<Archive<Backend, Block, Client<Backend>>>,
 		block_hash: String,
 	) -> HashMap<String, String> {
-		let result: ArchiveStorageResult = api
-			.call(
+		let mut sub = api
+			.subscribe_unbounded(
 				"archive_unstable_storage",
 				rpc_params![
 					&block_hash,
 					vec![
-						PaginatedStorageQuery {
+						StorageQuery {
 							key: hex_string(b":AAAA"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
-							pagination_start_key: None,
 						},
-						PaginatedStorageQuery {
+						StorageQuery {
 							key: hex_string(b":AAAB"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
-							pagination_start_key: None,
 						},
 						// Key with descendant.
-						PaginatedStorageQuery {
+						StorageQuery {
 							key: hex_string(b":A"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
-							pagination_start_key: None,
 						},
-						PaginatedStorageQuery {
+						StorageQuery {
 							key: hex_string(b":AA"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
-							pagination_start_key: None,
 						},
 						// Keys below this comment do not produce a result.
 						// Key that exceed the keyspace of the trie.
-						PaginatedStorageQuery {
+						StorageQuery {
 							key: hex_string(b":AAAAX"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
-							pagination_start_key: None,
 						},
-						PaginatedStorageQuery {
+						StorageQuery {
 							key: hex_string(b":AAABX"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
-							pagination_start_key: None,
 						},
 						// Key that are not part of the trie.
-						PaginatedStorageQuery {
+						StorageQuery {
 							key: hex_string(b":AAX"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
-							pagination_start_key: None,
 						},
-						PaginatedStorageQuery {
+						StorageQuery {
 							key: hex_string(b":AAAX"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
-							pagination_start_key: None,
 						},
 					]
 				],
@@ -513,19 +548,21 @@ async fn archive_storage_closest_merkle_value() {
 			.await
 			.unwrap();
 
-		let merkle_values: HashMap<_, _> = match result {
-			ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, .. }) => result
-				.into_iter()
-				.map(|res| {
-					let value = match res.result {
+		let mut merkle_values = HashMap::new();
+		loop {
+			let event = get_next_event::<ArchiveStorageEvent>(&mut sub).await;
+			match event {
+				ArchiveStorageEvent::Storage(result) => {
+					let str_result = match result.result {
 						StorageResultType::ClosestDescendantMerkleValue(value) => value,
-						_ => panic!("Unexpected StorageResultType"),
+						_ => panic!("Unexpected result type"),
 					};
-					(res.key, value)
-				})
-				.collect(),
-			_ => panic!("Unexpected result"),
-		};
+					merkle_values.insert(result.key, str_result);
+				},
+				ArchiveStorageEvent::StorageError(err) => panic!("Unexpected error {err:?}"),
+				ArchiveStorageEvent::StorageDone => break,
+			}
+		}
 
 		// Response for AAAA, AAAB, A and AA.
 		assert_eq!(merkle_values.len(), 4);
@@ -604,9 +641,9 @@ async fn archive_storage_closest_merkle_value() {
 }
 
 #[tokio::test]
-async fn archive_storage_paginate_iterations() {
+async fn archive_storage_iterations() {
 	// 1 iteration allowed before pagination kicks in.
-	let (client, api) = setup_api(1, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	// Import a new block with storage changes.
 	let mut builder = BlockBuilderBuilder::new(&*client)
@@ -625,237 +662,94 @@ async fn archive_storage_paginate_iterations() {
 
 	// Calling with an invalid hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
-	let result: ArchiveStorageResult = api
-		.call(
+	let mut sub = api
+		.subscribe_unbounded(
 			"archive_unstable_storage",
 			rpc_params![
 				&invalid_hash,
-				vec![PaginatedStorageQuery {
+				vec![StorageQuery {
 					key: hex_string(b":m"),
 					query_type: StorageQueryType::DescendantsValues,
-					pagination_start_key: None,
 				}]
 			],
 		)
 		.await
 		.unwrap();
-	match result {
-		ArchiveStorageResult::Err(_) => (),
-		_ => panic!("Unexpected result"),
-	};
+
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageError(_)
+	);
 
 	// Valid call with storage at the key.
-	let result: ArchiveStorageResult = api
-		.call(
+	let mut sub = api
+		.subscribe_unbounded(
 			"archive_unstable_storage",
 			rpc_params![
 				&block_hash,
-				vec![PaginatedStorageQuery {
+				vec![StorageQuery {
 					key: hex_string(b":m"),
 					query_type: StorageQueryType::DescendantsValues,
-					pagination_start_key: None,
 				}]
 			],
 		)
 		.await
 		.unwrap();
-	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
-			assert_eq!(discarded_items, 0);
 
-			assert_eq!(result[0].key, hex_string(b":m"));
-			assert_eq!(result[0].result, StorageResultType::Value(hex_string(b"a")));
-		},
-		_ => panic!("Unexpected result"),
-	};
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":m"),
+			result: StorageResultType::Value(hex_string(b"a")),
+			child_trie_key: None,
+		})
+	);
 
-	// Continue with pagination.
-	let result: ArchiveStorageResult = api
-		.call(
-			"archive_unstable_storage",
-			rpc_params![
-				&block_hash,
-				vec![PaginatedStorageQuery {
-					key: hex_string(b":m"),
-					query_type: StorageQueryType::DescendantsValues,
-					pagination_start_key: Some(hex_string(b":m")),
-				}]
-			],
-		)
-		.await
-		.unwrap();
-	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
-			assert_eq!(discarded_items, 0);
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":mo"),
+			result: StorageResultType::Value(hex_string(b"ab")),
+			child_trie_key: None,
+		})
+	);
 
-			assert_eq!(result[0].key, hex_string(b":mo"));
-			assert_eq!(result[0].result, StorageResultType::Value(hex_string(b"ab")));
-		},
-		_ => panic!("Unexpected result"),
-	};
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":moD"),
+			result: StorageResultType::Value(hex_string(b"abcmoD")),
+			child_trie_key: None,
+		})
+	);
 
-	// Continue with pagination.
-	let result: ArchiveStorageResult = api
-		.call(
-			"archive_unstable_storage",
-			rpc_params![
-				&block_hash,
-				vec![PaginatedStorageQuery {
-					key: hex_string(b":m"),
-					query_type: StorageQueryType::DescendantsValues,
-					pagination_start_key: Some(hex_string(b":mo")),
-				}]
-			],
-		)
-		.await
-		.unwrap();
-	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
-			assert_eq!(discarded_items, 0);
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":moc"),
+			result: StorageResultType::Value(hex_string(b"abc")),
+			child_trie_key: None,
+		})
+	);
 
-			assert_eq!(result[0].key, hex_string(b":moD"));
-			assert_eq!(result[0].result, StorageResultType::Value(hex_string(b"abcmoD")));
-		},
-		_ => panic!("Unexpected result"),
-	};
+	assert_eq!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::Storage(StorageResult {
+			key: hex_string(b":mock"),
+			result: StorageResultType::Value(hex_string(b"abcd")),
+			child_trie_key: None,
+		})
+	);
 
-	// Continue with pagination.
-	let result: ArchiveStorageResult = api
-		.call(
-			"archive_unstable_storage",
-			rpc_params![
-				&block_hash,
-				vec![PaginatedStorageQuery {
-					key: hex_string(b":m"),
-					query_type: StorageQueryType::DescendantsValues,
-					pagination_start_key: Some(hex_string(b":moD")),
-				}]
-			],
-		)
-		.await
-		.unwrap();
-	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
-			assert_eq!(discarded_items, 0);
-
-			assert_eq!(result[0].key, hex_string(b":moc"));
-			assert_eq!(result[0].result, StorageResultType::Value(hex_string(b"abc")));
-		},
-		_ => panic!("Unexpected result"),
-	};
-
-	// Continue with pagination.
-	let result: ArchiveStorageResult = api
-		.call(
-			"archive_unstable_storage",
-			rpc_params![
-				&block_hash,
-				vec![PaginatedStorageQuery {
-					key: hex_string(b":m"),
-					query_type: StorageQueryType::DescendantsValues,
-					pagination_start_key: Some(hex_string(b":moc")),
-				}]
-			],
-		)
-		.await
-		.unwrap();
-	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
-			assert_eq!(discarded_items, 0);
-
-			assert_eq!(result[0].key, hex_string(b":mock"));
-			assert_eq!(result[0].result, StorageResultType::Value(hex_string(b"abcd")));
-		},
-		_ => panic!("Unexpected result"),
-	};
-
-	// Continue with pagination until no keys are returned.
-	let result: ArchiveStorageResult = api
-		.call(
-			"archive_unstable_storage",
-			rpc_params![
-				&block_hash,
-				vec![PaginatedStorageQuery {
-					key: hex_string(b":m"),
-					query_type: StorageQueryType::DescendantsValues,
-					pagination_start_key: Some(hex_string(b":mock")),
-				}]
-			],
-		)
-		.await
-		.unwrap();
-	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 0);
-			assert_eq!(discarded_items, 0);
-		},
-		_ => panic!("Unexpected result"),
-	};
-}
-
-#[tokio::test]
-async fn archive_storage_discarded_items() {
-	// One query at a time
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, 1);
-
-	// Import a new block with storage changes.
-	let mut builder = BlockBuilderBuilder::new(&*client)
-		.on_parent_block(client.chain_info().genesis_hash)
-		.with_parent_block_number(0)
-		.build()
-		.unwrap();
-	builder.push_storage_change(b":m".to_vec(), Some(b"a".to_vec())).unwrap();
-	let block = builder.build().unwrap().block;
-	let block_hash = format!("{:?}", block.header.hash());
-	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
-
-	// Valid call with storage at the key.
-	let result: ArchiveStorageResult = api
-		.call(
-			"archive_unstable_storage",
-			rpc_params![
-				&block_hash,
-				vec![
-					PaginatedStorageQuery {
-						key: hex_string(b":m"),
-						query_type: StorageQueryType::Value,
-						pagination_start_key: None,
-					},
-					PaginatedStorageQuery {
-						key: hex_string(b":m"),
-						query_type: StorageQueryType::Hash,
-						pagination_start_key: None,
-					},
-					PaginatedStorageQuery {
-						key: hex_string(b":m"),
-						query_type: StorageQueryType::Hash,
-						pagination_start_key: None,
-					}
-				]
-			],
-		)
-		.await
-		.unwrap();
-	match result {
-		ArchiveStorageResult::Ok(ArchiveStorageMethodOk { result, discarded_items }) => {
-			assert_eq!(result.len(), 1);
-			assert_eq!(discarded_items, 2);
-
-			assert_eq!(result[0].key, hex_string(b":m"));
-			assert_eq!(result[0].result, StorageResultType::Value(hex_string(b"a")));
-		},
-		_ => panic!("Unexpected result"),
-	};
+	assert_matches!(
+		get_next_event::<ArchiveStorageEvent>(&mut sub).await,
+		ArchiveStorageEvent::StorageDone
+	);
 }
 
 #[tokio::test]
 async fn archive_storage_diff_main_trie() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	let mut builder = BlockBuilderBuilder::new(&*client)
 		.on_parent_block(client.chain_info().genesis_hash)
@@ -965,7 +859,7 @@ async fn archive_storage_diff_main_trie() {
 
 #[tokio::test]
 async fn archive_storage_diff_no_changes() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	// Build 2 identical blocks.
 	let mut builder = BlockBuilderBuilder::new(&*client)
@@ -1012,7 +906,7 @@ async fn archive_storage_diff_no_changes() {
 
 #[tokio::test]
 async fn archive_storage_diff_deleted_changes() {
-	let (client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (client, api) = setup_api();
 
 	// Blocks are imported as forks.
 	let mut builder = BlockBuilderBuilder::new(&*client)
@@ -1079,7 +973,7 @@ async fn archive_storage_diff_deleted_changes() {
 #[tokio::test]
 async fn archive_storage_diff_invalid_params() {
 	let invalid_hash = hex_string(&INVALID_HASH);
-	let (_, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
+	let (_, api) = setup_api();
 
 	// Invalid shape for parameters.
 	let items: Vec<ArchiveStorageDiffItem<String>> = Vec::new();
