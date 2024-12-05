@@ -20,10 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
-use sp_runtime::traits::Bounded;
-
+use frame::{benchmarking::prelude::*, prelude::Bounded};
 const SEED: u32 = 0;
 
 #[benchmarks]
