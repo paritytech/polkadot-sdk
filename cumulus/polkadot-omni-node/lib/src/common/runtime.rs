@@ -157,7 +157,7 @@ impl MetadataInspector {
 	}
 
 	/// Get the runtime metadata from a wasm blob existing in a chain spec.
-	fn get(chain_spec: &dyn ChainSpec) -> Result<subxt::Metadata, sc_cli::Error> {
+	pub fn get(chain_spec: &dyn ChainSpec) -> Result<subxt::Metadata, sc_cli::Error> {
 		let mut storage = chain_spec.build_storage()?;
 		let code_bytes = storage
 			.top

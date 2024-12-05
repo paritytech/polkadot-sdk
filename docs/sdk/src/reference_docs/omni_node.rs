@@ -196,8 +196,7 @@
 //! The list of checks should evolve and possibly be treated in a separate dedicated space in these
 //! docs, but for now they are only based on a few rules:
 //! * runtimes must define a type for [`cumulus-pallet-parachain-system`], which is recommended to
-//!   be
-//! named as `ParachainSystem`.
+//!   be named as `ParachainSystem`.
 //! * runtimes must define a type for [`frame-system`] pallet, which is recommended to be named as
 //!   `System`.
 //! * runtimes must configure the [`frame-system`] pallet's [`block number`] type as `u32`.

@@ -93,7 +93,6 @@ cumulus-client-parachain-inherent = { workspace = true, default-features = true 
 cumulus-client-service = { workspace = true, default-features = true }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
-
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 futures-timer = "3.0.3"
 

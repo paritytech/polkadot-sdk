@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Substrate runtime metadata client utilities.
+//! Substrate client runtime utilities.
 //!
 //! Provides simpler APIs for calling into a `frame` runtime WASM blob and
 //! return metadata that needs to be checked.
