@@ -190,14 +190,7 @@ where
 		// the original sender on Ethereum. Important to be before the arbitrary XCM that is
 		// appended to the message on the next line.
 		if message.origin != GatewayProxyAddress::get() {
-			let origin_location = Location::new(
-				2,
-				[
-					GlobalConsensus(network),
-					AccountKey20 { key: message.origin.into(), network: None },
-				],
-			);
-			instructions.push(AliasOrigin(origin_location.into()));
+			instructions.push(DescendOrigin(AccountKey20 { key: message.origin.into(), network: None}.into()));
 		}
 
 		// Add the XCM sent in the message to the end of the xcm instruction
