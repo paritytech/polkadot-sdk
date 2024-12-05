@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_democracy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_democracy/index.html">pallet_democracy</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.Delegations.html">Delegations</a></li><li><a href="struct.ReferendumStatus.html">ReferendumStatus</a></li><li><a href="struct.Tally.html">Tally</a></li><li><a href="struct.Vote.html">Vote</a></li><li><a href="migrations/unlock_and_unreserve_all_funds/struct.UnlockAndUnreserveAllFunds.html">migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds</a></li><li><a href="migrations/v1/v1/struct.Migration.html">migrations::v1::v1::Migration</a></li><li><a href="pallet/struct.GenesisConfig.html">pallet::GenesisConfig</a></li><li><a href="pallet/struct.Pallet.html">pallet::Pallet</a></li><li><a href="pallet/storage_types/struct.Blacklist.html">pallet::storage_types::Blacklist</a></li><li><a href="pallet/storage_types/struct.Cancellations.html">pallet::storage_types::Cancellations</a></li><li><a href="pallet/storage_types/struct.DepositOf.html">pallet::storage_types::DepositOf</a></li><li><a href="pallet/storage_types/struct.LastTabledWasExternal.html">pallet::storage_types::LastTabledWasExternal</a></li><li><a href="pallet/storage_types/struct.LowestUnbaked.html">pallet::storage_types::LowestUnbaked</a></li><li><a href="pallet/storage_types/struct.MetadataOf.html">pallet::storage_types::MetadataOf</a></li><li><a href="pallet/storage_types/struct.NextExternal.html">pallet::storage_types::NextExternal</a></li><li><a href="pallet/storage_types/struct.PublicPropCount.html">pallet::storage_types::PublicPropCount</a></li><li><a href="pallet/storage_types/struct.PublicProps.html">pallet::storage_types::PublicProps</a></li><li><a href="pallet/storage_types/struct.ReferendumCount.html">pallet::storage_types::ReferendumCount</a></li><li><a href="pallet/storage_types/struct.ReferendumInfoOf.html">pallet::storage_types::ReferendumInfoOf</a></li><li><a href="pallet/storage_types/struct.VotingOf.html">pallet::storage_types::VotingOf</a></li><li><a href="weights/struct.SubstrateWeight.html">weights::SubstrateWeight</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.AccountVote.html">AccountVote</a></li><li><a href="enum.Conviction.html">Conviction</a></li><li><a href="enum.MetadataOwner.html">MetadataOwner</a></li><li><a href="enum.ReferendumInfo.html">ReferendumInfo</a></li><li><a href="enum.UnvoteScope.html">UnvoteScope</a></li><li><a href="enum.VoteThreshold.html">VoteThreshold</a></li><li><a href="enum.Voting.html">Voting</a></li><li><a href="pallet/enum.Call.html">pallet::Call</a></li><li><a href="pallet/enum.Error.html">pallet::Error</a></li><li><a href="pallet/enum.Event.html">pallet::Event</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.Approved.html">Approved</a></li><li><a href="trait.EncodeInto.html">EncodeInto</a></li><li><a href="migrations/unlock_and_unreserve_all_funds/trait.UnlockConfig.html">migrations::unlock_and_unreserve_all_funds::UnlockConfig</a></li><li><a href="pallet/trait.Config.html">pallet::Config</a></li><li><a href="weights/trait.WeightInfo.html">weights::WeightInfo</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="pallet/dispatchables/fn.blacklist.html">pallet::dispatchables::blacklist</a></li><li><a href="pallet/dispatchables/fn.cancel_proposal.html">pallet::dispatchables::cancel_proposal</a></li><li><a href="pallet/dispatchables/fn.cancel_referendum.html">pallet::dispatchables::cancel_referendum</a></li><li><a href="pallet/dispatchables/fn.clear_public_proposals.html">pallet::dispatchables::clear_public_proposals</a></li><li><a href="pallet/dispatchables/fn.delegate.html">pallet::dispatchables::delegate</a></li><li><a href="pallet/dispatchables/fn.emergency_cancel.html">pallet::dispatchables::emergency_cancel</a></li><li><a href="pallet/dispatchables/fn.external_propose.html">pallet::dispatchables::external_propose</a></li><li><a href="pallet/dispatchables/fn.external_propose_default.html">pallet::dispatchables::external_propose_default</a></li><li><a href="pallet/dispatchables/fn.external_propose_majority.html">pallet::dispatchables::external_propose_majority</a></li><li><a href="pallet/dispatchables/fn.fast_track.html">pallet::dispatchables::fast_track</a></li><li><a href="pallet/dispatchables/fn.propose.html">pallet::dispatchables::propose</a></li><li><a href="pallet/dispatchables/fn.remove_other_vote.html">pallet::dispatchables::remove_other_vote</a></li><li><a href="pallet/dispatchables/fn.remove_vote.html">pallet::dispatchables::remove_vote</a></li><li><a href="pallet/dispatchables/fn.second.html">pallet::dispatchables::second</a></li><li><a href="pallet/dispatchables/fn.set_metadata.html">pallet::dispatchables::set_metadata</a></li><li><a href="pallet/dispatchables/fn.undelegate.html">pallet::dispatchables::undelegate</a></li><li><a href="pallet/dispatchables/fn.unlock.html">pallet::dispatchables::unlock</a></li><li><a href="pallet/dispatchables/fn.veto_external.html">pallet::dispatchables::veto_external</a></li><li><a href="pallet/dispatchables/fn.vote.html">pallet::dispatchables::vote</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.BoundedCallOf.html">BoundedCallOf</a></li><li><a href="type.CallOf.html">CallOf</a></li><li><a href="type.PropIndex.html">PropIndex</a></li><li><a href="type.ReferendumIndex.html">ReferendumIndex</a></li><li><a href="pallet/type.Blacklist.html">pallet::Blacklist</a></li><li><a href="pallet/type.Cancellations.html">pallet::Cancellations</a></li><li><a href="pallet/type.DepositOf.html">pallet::DepositOf</a></li><li><a href="pallet/type.LastTabledWasExternal.html">pallet::LastTabledWasExternal</a></li><li><a href="pallet/type.LowestUnbaked.html">pallet::LowestUnbaked</a></li><li><a href="pallet/type.MetadataOf.html">pallet::MetadataOf</a></li><li><a href="pallet/type.Module.html">pallet::Module</a></li><li><a href="pallet/type.NextExternal.html">pallet::NextExternal</a></li><li><a href="pallet/type.PublicPropCount.html">pallet::PublicPropCount</a></li><li><a href="pallet/type.PublicProps.html">pallet::PublicProps</a></li><li><a href="pallet/type.ReferendumCount.html">pallet::ReferendumCount</a></li><li><a href="pallet/type.ReferendumInfoOf.html">pallet::ReferendumInfoOf</a></li><li><a href="pallet/type.VotingOf.html">pallet::VotingOf</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

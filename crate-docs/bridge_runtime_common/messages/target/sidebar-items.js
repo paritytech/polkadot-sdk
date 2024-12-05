@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["maximal_incoming_message_dispatch_weight","maximal_incoming_message_size","verify_messages_proof"],"struct":["FromBridgedChainMessagesProof","SourceHeaderChainAdapter"],"type":["FromBridgedChainMessagePayload"]};

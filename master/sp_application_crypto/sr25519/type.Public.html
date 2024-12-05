@@ -1,0 +1,160 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An Schnorrkel/Ristretto x25519 (“sr25519”) public key."><title>Public in sp_application_crypto::sr25519 - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_application_crypto" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sp_application_crypto/index.html">sp_application_crypto</a><span class="version">30.0.0</span></h2></div><h2 class="location"><a href="#">Public</a></h2><div class="sidebar-elems"><section><h3><a href="#aliased-type">Aliased type</a></h3><h3><a href="#fields">Fields</a></h3><ul class="block field"><li><a href="#structfield.0">0</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-From%3CPublic%3E-for-CryptoBytes%3Csp_core::::sr25519::Public::%7Bconstant%230%7D,+Sr25519PublicTag%3E">From&lt;Public&gt;</a></li><li><a href="#impl-RuntimePublic-for-CryptoBytes%3Csp_core::::sr25519::Public::%7Bconstant%230%7D,+Sr25519PublicTag%3E">RuntimePublic</a></li></ul></section><h2><a href="index.html">In sp_application_crypto::sr25519</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Type Alias <a href="../index.html">sp_application_crypto</a>::<wbr><a href="index.html">sr25519</a>::<wbr><a class="type" href="#">Public</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub type Public = CryptoBytes&lt;sp_core::::sr25519::Public::{constant#0}, Sr25519PublicTag&gt;;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An Schnorrkel/Ristretto x25519 (“sr25519”) public key.</p>
+</div></details><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>struct Public(pub [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>], _);</code></pre><h2 id="fields" class="fields section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.0" class="structfield section-header"><a href="#structfield.0" class="anchor field">§</a><code>0: [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.array.html">32</a>]</code></span><h2 id="trait-implementations" class="section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-From%3CPublic%3E-for-CryptoBytes%3Csp_core::::sr25519::Public::%7Bconstant%230%7D,+Sr25519PublicTag%3E" class="impl"><a class="src rightside" href="../../src/sp_application_crypto/sr25519.rs.html#27">source</a><a href="#impl-From%3CPublic%3E-for-CryptoBytes%3Csp_core::::sr25519::Public::%7Bconstant%230%7D,+Sr25519PublicTag%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="struct" href="struct.AppPublic.html" title="struct sp_application_crypto::sr25519::AppPublic">Public</a>&gt; for <a class="type" href="type.Public.html" title="type sp_application_crypto::sr25519::Public">Public</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.from" class="method trait-impl"><a class="src rightside" href="../../src/sp_application_crypto/sr25519.rs.html#27">source</a><a href="#method.from" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html#tymethod.from" class="fn">from</a>(outer: <a class="struct" href="struct.AppPublic.html" title="struct sp_application_crypto::sr25519::AppPublic">Public</a>) -&gt; Self</h4></section></summary><div class='docblock'>Converts to this type from the input type.</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-RuntimePublic-for-CryptoBytes%3Csp_core::::sr25519::Public::%7Bconstant%230%7D,+Sr25519PublicTag%3E" class="impl"><a class="src rightside" href="../../src/sp_application_crypto/sr25519.rs.html#32-54">source</a><a href="#impl-RuntimePublic-for-CryptoBytes%3Csp_core::::sr25519::Public::%7Bconstant%230%7D,+Sr25519PublicTag%3E" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="../trait.RuntimePublic.html" title="trait sp_application_crypto::RuntimePublic">RuntimePublic</a> for <a class="type" href="type.Public.html" title="type sp_application_crypto::sr25519::Public">Public</a></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedtype.Signature" class="associatedtype trait-impl"><a href="#associatedtype.Signature" class="anchor">§</a><h4 class="code-header">type <a href="../trait.RuntimePublic.html#associatedtype.Signature" class="associatedtype">Signature</a> = CryptoBytes&lt;sp_core::::sr25519::Signature::{constant#0}, (SignatureTag, Sr25519Tag)&gt;</h4></section></summary><div class='docblock'>The signature that will be generated when signing with the corresponding private key.</div></details><details class="toggle method-toggle" open><summary><section id="method.all" class="method trait-impl"><a class="src rightside" href="../../src/sp_application_crypto/sr25519.rs.html#35-37">source</a><a href="#method.all" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.RuntimePublic.html#tymethod.all" class="fn">all</a>(key_type: <a class="struct" href="../struct.KeyTypeId.html" title="struct sp_application_crypto::KeyTypeId">KeyTypeId</a>) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Self&gt;</h4></section></summary><div class='docblock'>Returns all public keys for the given key type in the keystore.</div></details><details class="toggle method-toggle" open><summary><section id="method.generate_pair" class="method trait-impl"><a class="src rightside" href="../../src/sp_application_crypto/sr25519.rs.html#39-41">source</a><a href="#method.generate_pair" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.RuntimePublic.html#tymethod.generate_pair" class="fn">generate_pair</a>(key_type: <a class="struct" href="../struct.KeyTypeId.html" title="struct sp_application_crypto::KeyTypeId">KeyTypeId</a>, seed: <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;) -&gt; Self</h4></section></summary><div class='docblock'>Generate a public/private pair for the given key type with an optional <code>seed</code> and
+store it in the keystore. <a href="../trait.RuntimePublic.html#tymethod.generate_pair">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.sign" class="method trait-impl"><a class="src rightside" href="../../src/sp_application_crypto/sr25519.rs.html#43-45">source</a><a href="#method.sign" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.RuntimePublic.html#tymethod.sign" class="fn">sign</a>&lt;M: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;&gt;(
+    &amp;self,
+    key_type: <a class="struct" href="../struct.KeyTypeId.html" title="struct sp_application_crypto::KeyTypeId">KeyTypeId</a>,
+    msg: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;M</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="../trait.RuntimePublic.html#associatedtype.Signature" title="type sp_application_crypto::RuntimePublic::Signature">Signature</a>&gt;</h4></section></summary><div class='docblock'>Sign the given message with the corresponding private key of this public key. <a href="../trait.RuntimePublic.html#tymethod.sign">Read more</a></div></details><details class="toggle method-toggle" open><summary><section id="method.verify" class="method trait-impl"><a class="src rightside" href="../../src/sp_application_crypto/sr25519.rs.html#47-49">source</a><a href="#method.verify" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.RuntimePublic.html#tymethod.verify" class="fn">verify</a>&lt;M: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;&gt;(&amp;self, msg: <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.reference.html">&amp;M</a>, signature: &amp;Self::<a class="associatedtype" href="../trait.RuntimePublic.html#associatedtype.Signature" title="type sp_application_crypto::RuntimePublic::Signature">Signature</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a></h4></section></summary><div class='docblock'>Verify that the given signature matches the given message using this public key.</div></details><details class="toggle method-toggle" open><summary><section id="method.to_raw_vec" class="method trait-impl"><a class="src rightside" href="../../src/sp_application_crypto/sr25519.rs.html#51-53">source</a><a href="#method.to_raw_vec" class="anchor">§</a><h4 class="code-header">fn <a href="../trait.RuntimePublic.html#tymethod.to_raw_vec" class="fn">to_raw_vec</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt; <a href="#" class="tooltip" data-notable-ty="Vec&lt;u8&gt;">ⓘ</a></h4></section></summary><div class='docblock'>Returns <code>Self</code> as raw vec.</div></details></div></details></div><script src="../../type.impl/sp_core/crypto_bytes/struct.CryptoBytes.js" data-self-path="sp_application_crypto::sr25519::Public" async></script><script type="text/json" id="notable-traits-data">{"Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.81.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.81.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

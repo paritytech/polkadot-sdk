@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"sc_rpc":[["impl&lt;B: Block&gt; <a class=\"trait\" href=\"sc_rpc/system/trait.SystemApiServer.html\" title=\"trait sc_rpc::system::SystemApiServer\">SystemApiServer</a>&lt;&lt;B as Block&gt;::Hash, &lt;&lt;B as Block&gt;::Header as Header&gt;::Number&gt; for <a class=\"struct\" href=\"sc_rpc/system/struct.System.html\" title=\"struct sc_rpc::system::System\">System</a>&lt;B&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,279 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Types implementing various cost strategies for a given proposal count."><title>pallet_collective::deposit - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_collective" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_collective/index.html">pallet_collective</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module deposit</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In crate pallet_collective</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">pallet_collective</a>::<wbr><a class="mod" href="#">deposit</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_collective/lib.rs.html#192">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Types implementing various cost strategies for a given proposal count.</p>
+<p>These types implement <a href="sp_runtime::traits::Convert">Convert</a> trait and can be used with types
+like <a href="%60frame_support::traits::fungible::HoldConsideration%60">HoldConsideration</a> implementing
+<a href="%60frame_support::traits::Consideration%60">Consideration</a> trait.</p>
+<h4 id="example"><a class="doc-anchor" href="#example">§</a>Example:</h4>
+<ol>
+<li>Linear increasing with helper types.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>deposit_types_with_linear_work() {
+	<span class="kw">type </span>LinearWithSlop2 = <span class="kw">crate</span>::deposit::Linear&lt;ConstU32&lt;<span class="number">2</span>&gt;, ConstU128&lt;<span class="number">10</span>&gt;&gt;;
+	<span class="macro">assert_eq!</span>(&lt;LinearWithSlop2 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">0</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;LinearWithSlop2 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">1</span>), <span class="number">12</span>);
+	<span class="macro">assert_eq!</span>(&lt;LinearWithSlop2 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">2</span>), <span class="number">14</span>);
+	<span class="macro">assert_eq!</span>(&lt;LinearWithSlop2 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">3</span>), <span class="number">16</span>);
+	<span class="macro">assert_eq!</span>(&lt;LinearWithSlop2 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">4</span>), <span class="number">18</span>);
+
+	<span class="kw">type </span>SteppedWithStep3 = <span class="kw">crate</span>::deposit::Stepped&lt;ConstU32&lt;<span class="number">3</span>&gt;, LinearWithSlop2&gt;;
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">0</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">1</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">2</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">3</span>), <span class="number">12</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">4</span>), <span class="number">12</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">5</span>), <span class="number">12</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">6</span>), <span class="number">14</span>);
+
+	<span class="kw">type </span>DelayedWithDelay4 = <span class="kw">crate</span>::deposit::Delayed&lt;ConstU32&lt;<span class="number">4</span>&gt;, SteppedWithStep3&gt;;
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">0</span>), <span class="number">0</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">3</span>), <span class="number">0</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">4</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">5</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">6</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">7</span>), <span class="number">12</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">9</span>), <span class="number">12</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">10</span>), <span class="number">14</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">13</span>), <span class="number">16</span>);
+
+	<span class="kw">type </span>WithCeil13 = <span class="kw">crate</span>::deposit::WithCeil&lt;ConstU128&lt;<span class="number">13</span>&gt;, DelayedWithDelay4&gt;;
+	<span class="macro">assert_eq!</span>(&lt;WithCeil13 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">0</span>), <span class="number">0</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithCeil13 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">4</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithCeil13 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">9</span>), <span class="number">12</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithCeil13 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">10</span>), <span class="number">13</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithCeil13 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">11</span>), <span class="number">13</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithCeil13 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">13</span>), <span class="number">13</span>);
+}</code></pre></div>
+<ol start="2">
+<li>Geometrically increasing with helper types.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>deposit_types_with_geometric_work() {
+	<span class="macro">parameter_types!</span> {
+		<span class="kw">pub const </span>Ratio2: FixedU128 = FixedU128::from_u32(<span class="number">2</span>);
+	}
+	<span class="kw">type </span>WithRatio2Base10 = <span class="kw">crate</span>::deposit::Geometric&lt;Ratio2, ConstU128&lt;<span class="number">10</span>&gt;&gt;;
+	<span class="macro">assert_eq!</span>(&lt;WithRatio2Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">0</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio2Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">1</span>), <span class="number">20</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio2Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">2</span>), <span class="number">40</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio2Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">3</span>), <span class="number">80</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio2Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">4</span>), <span class="number">160</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio2Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">5</span>), <span class="number">320</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio2Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">6</span>), <span class="number">640</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio2Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">7</span>), <span class="number">1280</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio2Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">8</span>), <span class="number">2560</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio2Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">9</span>), <span class="number">5120</span>);
+
+	<span class="kw">type </span>SteppedWithStep3 = <span class="kw">crate</span>::deposit::Stepped&lt;ConstU32&lt;<span class="number">3</span>&gt;, WithRatio2Base10&gt;;
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">0</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">1</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">2</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">3</span>), <span class="number">20</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">4</span>), <span class="number">20</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">5</span>), <span class="number">20</span>);
+	<span class="macro">assert_eq!</span>(&lt;SteppedWithStep3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">6</span>), <span class="number">40</span>);
+
+	<span class="kw">type </span>DelayedWithDelay4 = <span class="kw">crate</span>::deposit::Delayed&lt;ConstU32&lt;<span class="number">4</span>&gt;, SteppedWithStep3&gt;;
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">0</span>), <span class="number">0</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">3</span>), <span class="number">0</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">4</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">5</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">6</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">7</span>), <span class="number">20</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">9</span>), <span class="number">20</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">10</span>), <span class="number">40</span>);
+	<span class="macro">assert_eq!</span>(&lt;DelayedWithDelay4 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">13</span>), <span class="number">80</span>);
+
+	<span class="kw">type </span>WithCeil21 = <span class="kw">crate</span>::deposit::WithCeil&lt;ConstU128&lt;<span class="number">21</span>&gt;, DelayedWithDelay4&gt;;
+	<span class="macro">assert_eq!</span>(&lt;WithCeil21 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">0</span>), <span class="number">0</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithCeil21 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">4</span>), <span class="number">10</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithCeil21 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">9</span>), <span class="number">20</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithCeil21 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">10</span>), <span class="number">21</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithCeil21 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">11</span>), <span class="number">21</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithCeil21 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">13</span>), <span class="number">21</span>);
+}</code></pre></div>
+<ol start="3">
+<li>Geometrically increasing with rounding.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>deposit_round_with_geometric_work() {
+	<span class="macro">parameter_types!</span> {
+		<span class="kw">pub const </span>Ratio1_5: FixedU128 = FixedU128::from_rational(<span class="number">3</span>, <span class="number">2</span>);
+	}
+	<span class="kw">type </span>WithRatio1_5Base10 = <span class="kw">crate</span>::deposit::Geometric&lt;Ratio1_5, ConstU128&lt;<span class="number">10000</span>&gt;&gt;;
+	<span class="macro">assert_eq!</span>(&lt;WithRatio1_5Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">0</span>), <span class="number">10000</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio1_5Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">1</span>), <span class="number">15000</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio1_5Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">2</span>), <span class="number">22500</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio1_5Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">3</span>), <span class="number">33750</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio1_5Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">4</span>), <span class="number">50625</span>);
+	<span class="macro">assert_eq!</span>(&lt;WithRatio1_5Base10 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">5</span>), <span class="number">75937</span>);
+
+	<span class="kw">type </span>RoundWithPrecision3 = <span class="kw">crate</span>::deposit::Round&lt;ConstU32&lt;<span class="number">3</span>&gt;, WithRatio1_5Base10&gt;;
+	<span class="macro">assert_eq!</span>(&lt;RoundWithPrecision3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">0</span>), <span class="number">10000</span>);
+	<span class="macro">assert_eq!</span>(&lt;RoundWithPrecision3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">1</span>), <span class="number">15000</span>);
+	<span class="macro">assert_eq!</span>(&lt;RoundWithPrecision3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">2</span>), <span class="number">22000</span>);
+	<span class="macro">assert_eq!</span>(&lt;RoundWithPrecision3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">3</span>), <span class="number">33000</span>);
+	<span class="macro">assert_eq!</span>(&lt;RoundWithPrecision3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">4</span>), <span class="number">50000</span>);
+	<span class="macro">assert_eq!</span>(&lt;RoundWithPrecision3 <span class="kw">as </span>Convert&lt;<span class="kw">_</span>, u128&gt;&gt;::convert(<span class="number">5</span>), <span class="number">75000</span>);
+}</code></pre></div>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Constant.html" title="struct pallet_collective::deposit::Constant">Constant</a></div><div class="desc docblock-short">Constant deposit amount regardless of current proposal count.
+Returns <code>None</code> if configured with zero deposit.</div></li><li><div class="item-name"><a class="struct" href="struct.Delayed.html" title="struct pallet_collective::deposit::Delayed">Delayed</a></div><div class="desc docblock-short">Defines <code>Delay</code> for supplied <code>Step</code> implementing [<code>Convert</code>] trait.</div></li><li><div class="item-name"><a class="struct" href="struct.Geometric.html" title="struct pallet_collective::deposit::Geometric">Geometric</a></div><div class="desc docblock-short">Geometrically increasing.
+f(x) = a * r^x, a = <code>Base</code>, x = <code>proposal_count</code>, r = <code>Ratio</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.Linear.html" title="struct pallet_collective::deposit::Linear">Linear</a></div><div class="desc docblock-short">Linear increasing with some offset.
+f(x) = ax + b, a = <code>Slope</code>, x = <code>proposal_count</code>, b = <code>Offset</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.Round.html" title="struct pallet_collective::deposit::Round">Round</a></div><div class="desc docblock-short">Rounds a <code>Deposit</code> result with <code>Precision</code>.
+Particularly useful for types like <a href="struct.Geometric.html" title="struct pallet_collective::deposit::Geometric"><code>Geometric</code></a> that might produce deposits with high
+precision.</div></li><li><div class="item-name"><a class="struct" href="struct.Stepped.html" title="struct pallet_collective::deposit::Stepped">Stepped</a></div><div class="desc docblock-short">Defines <code>Period</code> for supplied <code>Step</code> implementing [<code>Convert</code>] trait.</div></li><li><div class="item-name"><a class="struct" href="struct.WithCeil.html" title="struct pallet_collective::deposit::WithCeil">WithCeil</a></div><div class="desc docblock-short">Defines <code>Ceil</code> for supplied <code>Step</code> implementing [<code>Convert</code>] trait.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

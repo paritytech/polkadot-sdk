@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["clear_historic","force_onboard_mbms","force_set_active_cursor","force_set_cursor"]};

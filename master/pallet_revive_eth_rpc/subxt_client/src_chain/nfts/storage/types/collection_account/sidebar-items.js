@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["CollectionAccount","Param0","Param1"]};

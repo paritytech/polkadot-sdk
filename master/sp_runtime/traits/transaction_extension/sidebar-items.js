@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AsTransactionExtension","TransactionExtensionMetadata"],"trait":["DispatchTransaction","TransactionExtension"],"type":["ValidateResult"]};

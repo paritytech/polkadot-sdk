@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["migrate_to_new_account"],"struct":["MigrateToNewAccount"]};

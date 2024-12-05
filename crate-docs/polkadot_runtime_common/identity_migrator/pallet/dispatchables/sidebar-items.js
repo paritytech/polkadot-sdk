@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["poke_deposit","reap_identity"]};

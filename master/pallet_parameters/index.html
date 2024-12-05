@@ -1,0 +1,354 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="⚠️ WARNING ⚠️"><title>pallet_parameters - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_parameters" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_parameters/index.html">pallet_parameters</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#traits">Traits</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_parameters</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_parameters/lib.rs.html#18-270">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="-warning-"><a class="doc-anchor" href="#-warning-">§</a><strong>⚠️ WARNING ⚠️</strong></h2><br>  
+<b>THIS CRATE IS NOT AUDITED AND SHOULD NOT BE USED IN PRODUCTION.</b>  
+<br>  
+<h2 id="parameters"><a class="doc-anchor" href="#parameters">§</a>Parameters</h2>
+<p>Allows to update configuration parameters at runtime.</p>
+<h3 id="pallet-api"><a class="doc-anchor" href="#pallet-api">§</a>Pallet API</h3>
+<p>This pallet exposes two APIs; one <em>inbound</em> side to update parameters, and one <em>outbound</em> side
+to access said parameters. Parameters themselves are defined in the runtime config and will be
+aggregated into an enum. Each parameter is addressed by a <code>key</code> and can have a default value.
+This is not done by the pallet but through the <a href="../frame_support_procedural/attr.dynamic_params.html" title="attr frame_support_procedural::dynamic_params"><code>frame_support::dynamic_params::dynamic_params</code></a>
+macro or alternatives.</p>
+<p>Note that this is incurring one storage read per access. This should not be a problem in most
+cases but must be considered in weight-restrained code.</p>
+<h4 id="inbound"><a class="doc-anchor" href="#inbound">§</a>Inbound</h4>
+<p>The inbound side solely consists of the <a href="pallet/struct.Pallet.html#method.set_parameter" title="associated function pallet_parameters::pallet::Pallet::set_parameter"><code>Pallet::set_parameter</code></a> extrinsic to update the value
+of a parameter. Each parameter can have their own admin origin as given by the
+<a href="pallet/trait.Config.html#associatedtype.AdminOrigin" title="associated type pallet_parameters::pallet::Config::AdminOrigin"><code>Config::AdminOrigin</code></a>.</p>
+<h4 id="outbound"><a class="doc-anchor" href="#outbound">§</a>Outbound</h4>
+<p>The outbound side is runtime facing for the most part. More general, it provides a <code>Get</code>
+implementation and can be used in every spot where that is accepted. Two macros are in place:
+[<code>frame_support::dynamic_params::define_parameters</code> and
+[<code>frame_support::dynamic_params:dynamic_pallet_params</code>] to define and expose parameters in a
+typed manner.</p>
+<p>See the <a href="pallet/index.html" title="mod pallet_parameters::pallet"><code>pallet</code></a> module for more information about the interfaces this pallet exposes,
+including its configuration trait, dispatchables, storage items, events and errors.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>This pallet is a good fit for updating parameters without a runtime upgrade. It is very handy to
+not require a runtime upgrade for a simple parameter change since runtime upgrades require a lot
+of diligence and always bear risks. It seems overkill to update the whole runtime for a simple
+parameter change. This pallet allows for fine-grained control over who can update what.
+The only down-side is that it trades off performance with convenience and should therefore only
+be used in places where that is proven to be uncritical. Values that are rarely accessed but
+change often would be a perfect fit.</p>
+<h4 id="example-configuration"><a class="doc-anchor" href="#example-configuration">§</a>Example Configuration</h4>
+<p>Here is an example of how to define some parameters, including their default values:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::&lt;Runtime&gt;)]
+</span><span class="kw">pub mod </span>dynamic_params {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[dynamic_pallet_params]
+	#[codec(index = <span class="number">3</span>)]
+	</span><span class="kw">pub mod </span>pallet1 {
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span><span class="kw">pub static </span>Key1: u64 = <span class="number">0</span>;
+		<span class="attr">#[codec(index = <span class="number">1</span>)]
+		</span><span class="kw">pub static </span>Key2: u32 = <span class="number">1</span>;
+		<span class="attr">#[codec(index = <span class="number">2</span>)]
+		</span><span class="kw">pub static </span>Key3: u128 = <span class="number">2</span>;
+	}
+
+	<span class="attr">#[dynamic_pallet_params]
+	#[codec(index = <span class="number">1</span>)]
+	</span><span class="kw">pub mod </span>pallet2 {
+		<span class="attr">#[codec(index = <span class="number">2</span>)]
+		</span><span class="kw">pub static </span>Key1: u64 = <span class="number">0</span>;
+		<span class="attr">#[codec(index = <span class="number">1</span>)]
+		</span><span class="kw">pub static </span>Key2: u32 = <span class="number">2</span>;
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span><span class="kw">pub static </span>Key3: u128 = <span class="number">4</span>;
+	}
+
+	<span class="attr">#[dynamic_pallet_params]
+	#[codec(index = <span class="number">2</span>)]
+	</span><span class="kw">pub mod </span>nis {
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span><span class="kw">pub static </span>Target: u64 = <span class="number">0</span>;
+	}
+
+	<span class="attr">#[dynamic_pallet_params]
+	#[codec(index = <span class="number">3</span>)]
+	</span><span class="kw">pub mod </span>somE_weird_SPElLInG_s {
+		<span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span><span class="kw">pub static </span>V: u64 = <span class="number">0</span>;
+	}
+}</code></pre></div>
+<p>A permissioned origin can be define on a per-key basis like this:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>custom_origin {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">pub struct </span>ParamsManager;
+
+	<span class="kw">impl </span>EnsureOriginWithArg&lt;RuntimeOrigin, RuntimeParametersKey&gt; <span class="kw">for </span>ParamsManager {
+		<span class="kw">type </span>Success = ();
+
+		<span class="kw">fn </span>try_origin(
+			origin: RuntimeOrigin,
+			key: <span class="kw-2">&amp;</span>RuntimeParametersKey,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
+			<span class="comment">// Account 123 is allowed to set parameters in benchmarking only:
+			</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+			</span><span class="kw">if </span>ensure_signed(origin.clone()).map_or(<span class="bool-val">false</span>, |acc| acc == <span class="number">123</span>) {
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(());
+			}
+
+			<span class="kw">match </span>key {
+				RuntimeParametersKey::SomEWeirdSPElLInGS(<span class="kw">_</span>) |
+				RuntimeParametersKey::Nis(<span class="kw">_</span>) |
+				RuntimeParametersKey::Pallet1(<span class="kw">_</span>) =&gt; ensure_root(origin.clone()),
+				RuntimeParametersKey::Pallet2(<span class="kw">_</span>) =&gt; ensure_signed(origin.clone()).map(|<span class="kw">_</span>| ()),
+			}
+			.map_err(|<span class="kw">_</span>| origin)
+		}
+
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+		</span><span class="kw">fn </span>try_successful_origin(_key: <span class="kw-2">&amp;</span>RuntimeParametersKey) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
+			<span class="prelude-val">Ok</span>(RuntimeOrigin::signed(<span class="number">123</span>))
+		}
+	}
+}</code></pre></div>
+<p>The pallet will also require a default value for benchmarking. Ideally this is the variant with
+the longest encoded length. Although in either case the PoV benchmarking will take the worst
+case over the whole enum.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+</span><span class="kw">impl </span>Default <span class="kw">for </span>RuntimeParameters {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		RuntimeParameters::Pallet1(dynamic_params::pallet1::Parameters::Key1(
+			dynamic_params::pallet1::Key1,
+			<span class="prelude-val">Some</span>(<span class="number">123</span>),
+		))
+	}
+}</code></pre></div>
+<p>Now the aggregated parameter needs to be injected into the pallet config:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[derive_impl(pallet_parameters::config_preludes::TestDefaultConfig)]
+</span><span class="kw">impl </span>Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>AdminOrigin = custom_origin::ParamsManager;
+	<span class="comment">// RuntimeParameters is injected by the `derive_impl` macro.
+	// RuntimeEvent is injected by the `derive_impl` macro.
+	// WeightInfo is injected by the `derive_impl` macro.
+</span>}</code></pre></div>
+<p>As last step, the parameters can now be used in other pallets 🙌</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>pallet_example_basic::Config <span class="kw">for </span>Runtime {
+	<span class="comment">// Use the dynamic key in the pallet config:
+	</span><span class="kw">type </span>MagicNumber = dynamic_params::pallet1::Key1;
+
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>WeightInfo = ();
+}</code></pre></div>
+<h4 id="examples-usage"><a class="doc-anchor" href="#examples-usage">§</a>Examples Usage</h4>
+<p>Now to demonstrate how the values can be updated:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>set_parameters_example() {
+	new_test_ext().execute_with(|| {
+		<span class="macro">assert_eq!</span>(pallet1::Key3::get(), <span class="number">2</span>, <span class="string">"Default works"</span>);
+
+		<span class="comment">// This gets rejected since the origin is not root.
+		</span><span class="macro">assert_noop!</span>(
+			PalletParameters::set_parameter(
+				Origin::signed(<span class="number">1</span>),
+				Pallet1(pallet1::Parameters::Key3(pallet1::Key3, <span class="prelude-val">Some</span>(<span class="number">123</span>))),
+			),
+			DispatchError::BadOrigin
+		);
+
+		<span class="macro">assert_ok!</span>(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, <span class="prelude-val">Some</span>(<span class="number">123</span>))),
+		));
+
+		<span class="macro">assert_eq!</span>(pallet1::Key3::get(), <span class="number">123</span>, <span class="string">"Update works"</span>);
+		assert_last_event(
+			<span class="kw">crate</span>::Event::Updated {
+				key: RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key3(pallet1::Key3)),
+				old_value: <span class="prelude-val">None</span>,
+				new_value: <span class="prelude-val">Some</span>(RuntimeParametersValue::Pallet1(pallet1::ParametersValue::Key3(
+					<span class="number">123</span>,
+				))),
+			}
+			.into(),
+		);
+	});
+}</code></pre></div>
+<h3 id="low-level--implementation-details"><a class="doc-anchor" href="#low-level--implementation-details">§</a>Low Level / Implementation Details</h3>
+<p>The pallet stores the parameters in a storage map and implements the matching <code>Get&lt;Value&gt;</code> for
+each <code>Key</code> type. The <code>Get</code> then accesses the <code>Parameters</code> map to retrieve the value. An event is
+emitted every time that a value was updated. It is even emitted when the value is changed to the
+same.</p>
+<p>The key and value types themselves are defined by macros and aggregated into a runtime wide
+enum. This enum is then injected into the pallet. This allows it to be used without any changes
+to the pallet that the parameter will be utilized by.</p>
+<h4 id="design-goals"><a class="doc-anchor" href="#design-goals">§</a>Design Goals</h4>
+<ol>
+<li>Easy to update without runtime upgrade.</li>
+<li>Exposes metadata and docs for user convenience.</li>
+<li>Can be permissioned on a per-key base.</li>
+</ol>
+<h4 id="design"><a class="doc-anchor" href="#design">§</a>Design</h4>
+<ol>
+<li>Everything is done at runtime without the need for <code>const</code> values. <code>Get</code> allows for this -
+which is coincidentally an upside and a downside. 2. The types are defined through macros, which
+allows to expose metadata and docs. 3. Access control is done through the <code>EnsureOriginWithArg</code>
+trait, that allows to pass data along to the origin check. It gets passed in the key. The
+implementor can then match on the key and the origin to decide whether the origin is
+permissioned to set the value.</li>
+</ol>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_parameters::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_parameters::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.WeightInfo.html" title="trait pallet_parameters::WeightInfo">WeightInfo</a></div><div class="desc docblock-short">Weight functions needed for <code>pallet_parameters</code>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../substrate_relay_helper/index.html">substrate_relay_helper</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.TransactionParams.html">TransactionParams</a></li><li><a href="struct.UtilityPalletBatchCallBuilder.html">UtilityPalletBatchCallBuilder</a></li><li><a href="cli/struct.HexLaneId.html">cli::HexLaneId</a></li><li><a href="cli/struct.PrometheusParams.html">cli::PrometheusParams</a></li><li><a href="cli/chain_schema/struct.SourceConnectionParams.html">cli::chain_schema::SourceConnectionParams</a></li><li><a href="cli/chain_schema/struct.SourceRuntimeVersionParams.html">cli::chain_schema::SourceRuntimeVersionParams</a></li><li><a href="cli/chain_schema/struct.SourceSigningParams.html">cli::chain_schema::SourceSigningParams</a></li><li><a href="cli/chain_schema/struct.TargetConnectionParams.html">cli::chain_schema::TargetConnectionParams</a></li><li><a href="cli/chain_schema/struct.TargetRuntimeVersionParams.html">cli::chain_schema::TargetRuntimeVersionParams</a></li><li><a href="cli/chain_schema/struct.TargetSigningParams.html">cli::chain_schema::TargetSigningParams</a></li><li><a href="cli/detect_equivocations/struct.DetectEquivocationsParams.html">cli::detect_equivocations::DetectEquivocationsParams</a></li><li><a href="cli/init_bridge/struct.InitBridgeParams.html">cli::init_bridge::InitBridgeParams</a></li><li><a href="cli/relay_headers/struct.RelayHeaderParams.html">cli::relay_headers::RelayHeaderParams</a></li><li><a href="cli/relay_headers/struct.RelayHeadersParams.html">cli::relay_headers::RelayHeadersParams</a></li><li><a href="cli/relay_headers_and_messages/struct.BridgeEndCommonParams.html">cli::relay_headers_and_messages::BridgeEndCommonParams</a></li><li><a href="cli/relay_headers_and_messages/struct.Full2WayBridgeCommonParams.html">cli::relay_headers_and_messages::Full2WayBridgeCommonParams</a></li><li><a href="cli/relay_headers_and_messages/struct.FullBridge.html">cli::relay_headers_and_messages::FullBridge</a></li><li><a href="cli/relay_headers_and_messages/struct.HeadersAndMessagesSharedParams.html">cli::relay_headers_and_messages::HeadersAndMessagesSharedParams</a></li><li><a href="cli/relay_headers_and_messages/parachain_to_parachain/struct.ParachainToParachainBridge.html">cli::relay_headers_and_messages::parachain_to_parachain::ParachainToParachainBridge</a></li><li><a href="cli/relay_headers_and_messages/relay_to_parachain/struct.RelayToParachainBridge.html">cli::relay_headers_and_messages::relay_to_parachain::RelayToParachainBridge</a></li><li><a href="cli/relay_headers_and_messages/relay_to_relay/struct.RelayToRelayBridge.html">cli::relay_headers_and_messages::relay_to_relay::RelayToRelayBridge</a></li><li><a href="cli/relay_messages/struct.RelayMessagesDeliveryConfirmationParams.html">cli::relay_messages::RelayMessagesDeliveryConfirmationParams</a></li><li><a href="cli/relay_messages/struct.RelayMessagesParams.html">cli::relay_messages::RelayMessagesParams</a></li><li><a href="cli/relay_messages/struct.RelayMessagesRangeParams.html">cli::relay_messages::RelayMessagesRangeParams</a></li><li><a href="cli/relay_parachains/struct.RelayParachainHeadParams.html">cli::relay_parachains::RelayParachainHeadParams</a></li><li><a href="cli/relay_parachains/struct.RelayParachainsParams.html">cli::relay_parachains::RelayParachainsParams</a></li><li><a href="equivocation/struct.DirectReportGrandpaEquivocationCallBuilder.html">equivocation::DirectReportGrandpaEquivocationCallBuilder</a></li><li><a href="equivocation/struct.EquivocationDetectionPipelineAdapter.html">equivocation::EquivocationDetectionPipelineAdapter</a></li><li><a href="finality/struct.DirectSubmitGrandpaFinalityProofCallBuilder.html">finality::DirectSubmitGrandpaFinalityProofCallBuilder</a></li><li><a href="finality/struct.FinalitySyncPipelineAdapter.html">finality::FinalitySyncPipelineAdapter</a></li><li><a href="finality/source/struct.SubstrateFinalitySource.html">finality::source::SubstrateFinalitySource</a></li><li><a href="finality/target/struct.SubstrateFinalityTarget.html">finality::target::SubstrateFinalityTarget</a></li><li><a href="finality_base/engine/struct.Grandpa.html">finality_base::engine::Grandpa</a></li><li><a href="messages/struct.BatchProofTransaction.html">messages::BatchProofTransaction</a></li><li><a href="messages/struct.DirectReceiveMessagesDeliveryProofCallBuilder.html">messages::DirectReceiveMessagesDeliveryProofCallBuilder</a></li><li><a href="messages/struct.DirectReceiveMessagesProofCallBuilder.html">messages::DirectReceiveMessagesProofCallBuilder</a></li><li><a href="messages/struct.MessageLaneAdapter.html">messages::MessageLaneAdapter</a></li><li><a href="messages/struct.MessagesRelayLimits.html">messages::MessagesRelayLimits</a></li><li><a href="messages/struct.MessagesRelayParams.html">messages::MessagesRelayParams</a></li><li><a href="messages/source/struct.SubstrateMessagesSource.html">messages::source::SubstrateMessagesSource</a></li><li><a href="messages/target/struct.SubstrateMessagesTarget.html">messages::target::SubstrateMessagesTarget</a></li><li><a href="on_demand/headers/struct.OnDemandHeadersRelay.html">on_demand::headers::OnDemandHeadersRelay</a></li><li><a href="on_demand/parachains/struct.OnDemandParachainsRelay.html">on_demand::parachains::OnDemandParachainsRelay</a></li><li><a href="parachains/struct.DirectSubmitParachainHeadsCallBuilder.html">parachains::DirectSubmitParachainHeadsCallBuilder</a></li><li><a href="parachains/struct.ParachainsPipelineAdapter.html">parachains::ParachainsPipelineAdapter</a></li><li><a href="parachains/source/struct.ParachainsSource.html">parachains::source::ParachainsSource</a></li><li><a href="parachains/target/struct.ParachainsTarget.html">parachains::target::ParachainsTarget</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.HeadersToRelay.html">HeadersToRelay</a></li><li><a href="enum.TaggedAccount.html">TaggedAccount</a></li><li><a href="cli/enum.ExplicitOrMaximal.html">cli::ExplicitOrMaximal</a></li><li><a href="cli/chain_schema/enum.RuntimeVersionType.html">cli::chain_schema::RuntimeVersionType</a></li><li><a href="error/enum.Error.html">error::Error</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.BatchCallBuilder.html">BatchCallBuilder</a></li><li><a href="trait.BatchCallBuilderConstructor.html">BatchCallBuilderConstructor</a></li><li><a href="cli/bridge/trait.CliBridgeBase.html">cli::bridge::CliBridgeBase</a></li><li><a href="cli/bridge/trait.MessagesCliBridge.html">cli::bridge::MessagesCliBridge</a></li><li><a href="cli/bridge/trait.ParachainToRelayHeadersCliBridge.html">cli::bridge::ParachainToRelayHeadersCliBridge</a></li><li><a href="cli/bridge/trait.RelayToRelayEquivocationDetectionCliBridge.html">cli::bridge::RelayToRelayEquivocationDetectionCliBridge</a></li><li><a href="cli/bridge/trait.RelayToRelayEquivocationDetectionCliBridgeBase.html">cli::bridge::RelayToRelayEquivocationDetectionCliBridgeBase</a></li><li><a href="cli/bridge/trait.RelayToRelayHeadersCliBridge.html">cli::bridge::RelayToRelayHeadersCliBridge</a></li><li><a href="cli/detect_equivocations/trait.EquivocationsDetector.html">cli::detect_equivocations::EquivocationsDetector</a></li><li><a href="cli/init_bridge/trait.BridgeInitializer.html">cli::init_bridge::BridgeInitializer</a></li><li><a href="cli/relay_headers/trait.HeadersRelayer.html">cli::relay_headers::HeadersRelayer</a></li><li><a href="cli/relay_headers_and_messages/trait.Full2WayBridge.html">cli::relay_headers_and_messages::Full2WayBridge</a></li><li><a href="cli/relay_headers_and_messages/trait.Full2WayBridgeBase.html">cli::relay_headers_and_messages::Full2WayBridgeBase</a></li><li><a href="cli/relay_messages/trait.MessagesRelayer.html">cli::relay_messages::MessagesRelayer</a></li><li><a href="cli/relay_parachains/trait.ParachainsRelayer.html">cli::relay_parachains::ParachainsRelayer</a></li><li><a href="equivocation/trait.BaseSubstrateEquivocationDetectionPipeline.html">equivocation::BaseSubstrateEquivocationDetectionPipeline</a></li><li><a href="equivocation/trait.ReportEquivocationCallBuilder.html">equivocation::ReportEquivocationCallBuilder</a></li><li><a href="equivocation/trait.SubstrateEquivocationDetectionPipeline.html">equivocation::SubstrateEquivocationDetectionPipeline</a></li><li><a href="finality/trait.BaseSubstrateFinalitySyncPipeline.html">finality::BaseSubstrateFinalitySyncPipeline</a></li><li><a href="finality/trait.SubmitFinalityProofCallBuilder.html">finality::SubmitFinalityProofCallBuilder</a></li><li><a href="finality/trait.SubstrateFinalitySyncPipeline.html">finality::SubstrateFinalitySyncPipeline</a></li><li><a href="finality_base/trait.SubstrateFinalityPipeline.html">finality_base::SubstrateFinalityPipeline</a></li><li><a href="finality_base/engine/trait.Engine.html">finality_base::engine::Engine</a></li><li><a href="messages/trait.ReceiveMessagesDeliveryProofCallBuilder.html">messages::ReceiveMessagesDeliveryProofCallBuilder</a></li><li><a href="messages/trait.ReceiveMessagesProofCallBuilder.html">messages::ReceiveMessagesProofCallBuilder</a></li><li><a href="messages/trait.SubstrateMessageLane.html">messages::SubstrateMessageLane</a></li><li><a href="on_demand/trait.OnDemandRelay.html">on_demand::OnDemandRelay</a></li><li><a href="parachains/trait.SubmitParachainHeadsCallBuilder.html">parachains::SubmitParachainHeadsCallBuilder</a></li><li><a href="parachains/trait.SubstrateParachainsPipeline.html">parachains::SubstrateParachainsPipeline</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="macro.declare_chain_cli_schema.html">declare_chain_cli_schema</a></li><li><a href="macro.declare_chain_connection_params_cli_schema.html">declare_chain_connection_params_cli_schema</a></li><li><a href="macro.declare_chain_runtime_version_params_cli_schema.html">declare_chain_runtime_version_params_cli_schema</a></li><li><a href="macro.declare_chain_signing_params_cli_schema.html">declare_chain_signing_params_cli_schema</a></li><li><a href="macro.declare_parachain_to_parachain_bridge_schema.html">declare_parachain_to_parachain_bridge_schema</a></li><li><a href="macro.declare_relay_to_parachain_bridge_schema.html">declare_relay_to_parachain_bridge_schema</a></li><li><a href="macro.generate_receive_message_delivery_proof_call_builder.html">generate_receive_message_delivery_proof_call_builder</a></li><li><a href="macro.generate_receive_message_proof_call_builder.html">generate_receive_message_proof_call_builder</a></li><li><a href="macro.generate_report_equivocation_call_builder.html">generate_report_equivocation_call_builder</a></li><li><a href="macro.generate_submit_finality_proof_call_builder.html">generate_submit_finality_proof_call_builder</a></li><li><a href="macro.generate_submit_finality_proof_ex_call_builder.html">generate_submit_finality_proof_ex_call_builder</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="equivocation/fn.run.html">equivocation::run</a></li><li><a href="finality/initialize/fn.initialize.html">finality::initialize::initialize</a></li><li><a href="finality/fn.relay_single_header.html">finality::relay_single_header</a></li><li><a href="finality/fn.run.html">finality::run</a></li><li><a href="finality_base/fn.best_synced_header_id.html">finality_base::best_synced_header_id</a></li><li><a href="finality_base/fn.finality_proofs.html">finality_base::finality_proofs</a></li><li><a href="messages/metrics/fn.add_relay_balances_metrics.html">messages::metrics::add_relay_balances_metrics</a></li><li><a href="messages/fn.relay_messages_delivery_confirmation.html">messages::relay_messages_delivery_confirmation</a></li><li><a href="messages/fn.relay_messages_range.html">messages::relay_messages_range</a></li><li><a href="messages/fn.run.html">messages::run</a></li><li><a href="messages/source/fn.best_finalized_peer_header_at_self.html">messages::source::best_finalized_peer_header_at_self</a></li><li><a href="messages/source/fn.read_client_state.html">messages::source::read_client_state</a></li><li><a href="messages/source/fn.read_client_state_from_both_chains.html">messages::source::read_client_state_from_both_chains</a></li><li><a href="proofs/fn.to_raw_storage_proof.html">proofs::to_raw_storage_proof</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="cli/type.DefaultClient.html">cli::DefaultClient</a></li><li><a href="cli/bridge/type.MessagesLaneIdOf.html">cli::bridge::MessagesLaneIdOf</a></li><li><a href="equivocation/type.EquivocationProofOf.html">equivocation::EquivocationProofOf</a></li><li><a href="equivocation/type.KeyOwnerProofOf.html">equivocation::KeyOwnerProofOf</a></li><li><a href="finality/source/type.RequiredHeaderNumberRef.html">finality::source::RequiredHeaderNumberRef</a></li><li><a href="finality_base/type.SubstrateFinalityProof.html">finality_base::SubstrateFinalityProof</a></li><li><a href="finality_base/type.SubstrateFinalityProofsStream.html">finality_base::SubstrateFinalityProofsStream</a></li><li><a href="messages/source/type.SubstrateMessagesProof.html">messages::source::SubstrateMessagesProof</a></li><li><a href="messages/target/type.SubstrateMessagesDeliveryProof.html">messages::target::SubstrateMessagesDeliveryProof</a></li><li><a href="parachains/source/type.RequiredHeaderIdRef.html">parachains::source::RequiredHeaderIdRef</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="cli/constant.LOG_TARGET.html">cli::LOG_TARGET</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

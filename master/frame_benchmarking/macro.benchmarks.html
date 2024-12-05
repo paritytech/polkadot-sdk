@@ -1,0 +1,278 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Construct pallet benchmarks for weighing dispatchables."><title>benchmarks in frame_benchmarking - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_benchmarking/index.html">frame_benchmarking</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Macro <a href="index.html">frame_benchmarking</a>::<wbr><a class="macro" href="#">benchmarks</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/frame_benchmarking/v1.rs.html#172-187">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><span class="macro">macro_rules!</span> benchmarks {
+    (
+		$( <span class="macro-nonterminal">$rest</span>:tt )*
+	) =&gt; { ... };
+}</pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Construct pallet benchmarks for weighing dispatchables.</p>
+<p>Works around the idea of complexity parameters, named by a single letter (which is usually
+upper cased in complexity notation but is lower-cased for use in this macro).</p>
+<p>Complexity parameters (“parameters”) have a range which is a <code>u32</code> pair. Every time a benchmark
+is prepared and run, this parameter takes a concrete value within the range. There is an
+associated instancing block, which is a single expression that is evaluated during
+preparation. It may use <code>?</code> (<code>i.e. </code>return Err(…)`) to bail with a string error. Here’s a
+few examples:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="comment">// These two are equivalent:
+</span><span class="kw">let </span>x <span class="kw">in </span><span class="number">0 </span>.. <span class="number">10</span>;
+<span class="kw">let </span>x <span class="kw">in </span><span class="number">0 </span>.. <span class="number">10 </span>=&gt; ();
+<span class="comment">// This one calls a setup function and might return an error (which would be terminal).
+</span><span class="kw">let </span>y <span class="kw">in </span><span class="number">0 </span>.. <span class="number">10 </span>=&gt; setup(y)<span class="question-mark">?</span>;
+<span class="comment">// This one uses a code block to do lots of stuff:
+</span><span class="kw">let </span>z <span class="kw">in </span><span class="number">0 </span>.. <span class="number">10 </span>=&gt; {
+  <span class="kw">let </span>a = z * z / <span class="number">5</span>;
+  <span class="kw">let </span>b = do_something(a)<span class="question-mark">?</span>;
+  combine_into(z, b);
+}</code></pre></div>
+<p>Note that due to parsing restrictions, if the <code>from</code> expression is not a single token (i.e. a
+literal or constant), then it must be parenthesized.</p>
+<p>The macro allows for a number of “arms”, each representing an individual benchmark. Using the
+simple syntax, the associated dispatchable function maps 1:1 with the benchmark and the name of
+the benchmark is the same as that of the associated function. However, extended syntax allows
+for arbitrary expressions to be evaluated in a benchmark (including for example,
+<code>on_initialize</code>).</p>
+<p>Note that the ranges are <em>inclusive</em> on both sides. This is in contrast to ranges in Rust which
+are left-inclusive right-exclusive.</p>
+<p>Each arm may also have a block of code which is run prior to any instancing and a block of code
+which is run afterwards. All code blocks may draw upon the specific value of each parameter
+at any time. Local variables are shared between the two pre- and post- code blocks, but do not
+leak from the interior of any instancing expressions.</p>
+<p>Example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">benchmarks!</span> {
+  where_clause {  <span class="kw">where </span>T::A: From&lt;u32&gt; } <span class="comment">// Optional line to give additional bound on `T`.
+
+  // first dispatchable: foo; this is a user dispatchable and operates on a `u8` vector of
+  // size `l`
+  </span>foo {
+    <span class="kw">let </span>caller = account::&lt;T&gt;(<span class="string">b"caller"</span>, <span class="number">0</span>, benchmarks_seed);
+    <span class="kw">let </span>l <span class="kw">in </span><span class="number">1 </span>.. MAX_LENGTH =&gt; initialize_l(l);
+  }: <span class="kw">_</span>(RuntimeOrigin::Signed(caller), <span class="macro">vec!</span>[<span class="number">0u8</span>; l])
+
+  <span class="comment">// second dispatchable: bar; this is a root dispatchable and accepts a `u8` vector of size
+  // `l`.
+  // In this case, we explicitly name the call using `bar` instead of `_`.
+  </span>bar {
+    <span class="kw">let </span>l <span class="kw">in </span><span class="number">1 </span>.. MAX_LENGTH =&gt; initialize_l(l);
+  }: bar(RuntimeOrigin::Root, <span class="macro">vec!</span>[<span class="number">0u8</span>; l])
+
+  <span class="comment">// third dispatchable: baz; this is a user dispatchable. It isn't dependent on length like the
+  // other two but has its own complexity `c` that needs setting up. It uses `caller` (in the
+  // pre-instancing block) within the code block. This is only allowed in the param instancers
+  // of arms.
+  </span>baz1 {
+    <span class="kw">let </span>caller = account::&lt;T&gt;(<span class="string">b"caller"</span>, <span class="number">0</span>, benchmarks_seed);
+    <span class="kw">let </span>c = <span class="number">0 </span>.. <span class="number">10 </span>=&gt; setup_c(<span class="kw-2">&amp;</span>caller, c);
+  }: baz(RuntimeOrigin::Signed(caller))
+
+  <span class="comment">// this is a second benchmark of the baz dispatchable with a different setup.
+  </span>baz2 {
+    <span class="kw">let </span>caller = account::&lt;T&gt;(<span class="string">b"caller"</span>, <span class="number">0</span>, benchmarks_seed);
+    <span class="kw">let </span>c = <span class="number">0 </span>.. <span class="number">10 </span>=&gt; setup_c_in_some_other_way(<span class="kw-2">&amp;</span>caller, c);
+  }: baz(RuntimeOrigin::Signed(caller))
+
+  <span class="comment">// You may optionally specify the origin type if it can't be determined automatically like
+  // this.
+  </span>baz3 {
+    <span class="kw">let </span>caller = account::&lt;T&gt;(<span class="string">b"caller"</span>, <span class="number">0</span>, benchmarks_seed);
+    <span class="kw">let </span>l <span class="kw">in </span><span class="number">1 </span>.. MAX_LENGTH =&gt; initialize_l(l);
+  }: baz&lt;T::RuntimeOrigin&gt;(RuntimeOrigin::Signed(caller), <span class="macro">vec!</span>[<span class="number">0u8</span>; l])
+
+  <span class="comment">// this is benchmarking some code that is not a dispatchable.
+  </span>populate_a_set {
+    <span class="kw">let </span>x <span class="kw">in </span><span class="number">0 </span>.. <span class="number">10_000</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>m = Vec::&lt;u32&gt;::new();
+    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..x {
+      m.insert(i);
+    }
+  }: { m.into_iter().collect::&lt;BTreeSet&gt;() }
+}</code></pre></div>
+<p>Test functions are automatically generated for each benchmark and are accessible to you when you
+run <code>cargo test</code>. All tests are named <code>test_benchmark_&lt;benchmark_name&gt;</code>, implemented on the
+Pallet struct, and run them in a test externalities environment. The test function runs your
+benchmark just like a regular benchmark, but only testing at the lowest and highest values for
+each component. The function will return <code>Ok(())</code> if the benchmarks return no errors.</p>
+<p>It is also possible to generate one #<a href="https://doc.rust-lang.org/1.81.0/core/macros/builtin/attr.test.html" title="attr core::macros::builtin::test">test</a> function per benchmark by calling the
+<code>impl_benchmark_test_suite</code> macro inside the <code>benchmarks</code> block. The functions will be named
+<code>bench_&lt;benchmark_name&gt;</code> and can be run via <code>cargo test</code>.
+You will see one line of output per benchmark. This approach will give you more understandable
+error messages and allows for parallel benchmark execution.</p>
+<p>You can optionally add a <code>verify</code> code block at the end of a benchmark to test any final state
+of your benchmark in a unit test. For example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>sort_vector {
+	<span class="kw">let </span>x <span class="kw">in </span><span class="number">1 </span>.. <span class="number">10000</span>;
+	<span class="kw">let </span><span class="kw-2">mut </span>m = Vec::&lt;u32&gt;::new();
+	<span class="kw">for </span>i <span class="kw">in </span>(<span class="number">0</span>..x).rev() {
+		m.push(i);
+	}
+}: {
+	m.sort();
+} verify {
+	<span class="macro">ensure!</span>(m[<span class="number">0</span>] == <span class="number">0</span>, <span class="string">"You forgot to sort!"</span>)
+}</code></pre></div>
+<p>These <code>verify</code> blocks will not affect your benchmark results!</p>
+<p>You can construct benchmark by using the <code>impl_benchmark_test_suite</code> macro or
+by manually implementing them like so:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>test_benchmarks() {
+  new_test_ext().execute_with(|| {
+    <span class="macro">assert_ok!</span>(Pallet::&lt;Test&gt;::test_benchmark_dummy());
+    <span class="macro">assert_err!</span>(Pallet::&lt;Test&gt;::test_benchmark_other_name(), <span class="string">"Bad origin"</span>);
+    <span class="macro">assert_ok!</span>(Pallet::&lt;Test&gt;::test_benchmark_sort_vector());
+    <span class="macro">assert_err!</span>(Pallet::&lt;Test&gt;::test_benchmark_broken_benchmark(), <span class="string">"You forgot to sort!"</span>);
+  });
+}</code></pre></div>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

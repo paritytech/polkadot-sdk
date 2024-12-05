@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["HARD_MESSAGE_SIZE_LIMIT","LOG_TARGET","MINIMAL_DELIVERY_FEE_FACTOR"],"mod":["benchmarking","pallet","weights"],"trait":["XcmChannelStatusProvider"]};

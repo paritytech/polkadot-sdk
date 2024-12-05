@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["account","attribute","collection","collection_account","collection_config_of","collection_metadata_of","collection_role_of","item","item_attributes_approvals_of","item_config_of","item_metadata_of","item_price_of","next_collection_id","ownership_acceptance","pending_swap_of"]};

@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Primitives that may be used at (bridges) runtime level."><title>bp_runtime - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../bp_runtime/index.html">bp_runtime</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">bp_runtime</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/bp_runtime/lib.rs.html#17-516">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Primitives that may be used at (bridges) runtime level.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.paste"><code>pub use sp_runtime::<a class="mod" href="https://docs.rs/paste/1.0.15/paste/index.html" title="mod paste">paste</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="extensions/index.html" title="mod bp_runtime::extensions">extensions</a></div><div class="desc docblock-short">Primitives that may be used for creating signed extensions for indirect runtimes.</div></li><li><div class="item-name"><a class="mod" href="messages/index.html" title="mod bp_runtime::messages">messages</a></div><div class="desc docblock-short">Primitives that may be used by different message delivery and dispatch mechanisms.</div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.decl_bridge_finality_runtime_apis.html" title="macro bp_runtime::decl_bridge_finality_runtime_apis">decl_bridge_finality_runtime_apis</a></div><div class="desc docblock-short">Convenience macro that declares bridge finality runtime apis and related constants for a chain.
+This includes:</div></li><li><div class="item-name"><a class="macro" href="macro.decl_bridge_messages_runtime_apis.html" title="macro bp_runtime::decl_bridge_messages_runtime_apis">decl_bridge_messages_runtime_apis</a></div><div class="desc docblock-short">Convenience macro that declares bridge messages runtime apis and related constants for a chain.
+This includes:</div></li><li><div class="item-name"><a class="macro" href="macro.decl_bridge_runtime_apis.html" title="macro bp_runtime::decl_bridge_runtime_apis">decl_bridge_runtime_apis</a></div><div class="desc docblock-short">Convenience macro that declares bridge finality runtime apis, bridge messages runtime apis
+and related constants for a chain.
+The name of the chain has to be specified in snake case (e.g. <code>bridge_hub_polkadot</code>).</div></li><li><div class="item-name"><a class="macro" href="macro.generate_static_str_provider.html" title="macro bp_runtime::generate_static_str_provider">generate_static_str_provider</a></div><div class="desc docblock-short">A macro that generates <code>StaticStrProvider</code> with the string set to its stringified argument.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.BoundedStorageValue.html" title="struct bp_runtime::BoundedStorageValue">BoundedStorageValue</a></div><div class="desc docblock-short">A bounded runtime storage value.</div></li><li><div class="item-name"><a class="struct" href="struct.HeaderId.html" title="struct bp_runtime::HeaderId">HeaderId</a></div><div class="desc docblock-short">Generic header Id.</div></li><li><div class="item-name"><a class="struct" href="struct.ParachainIdOf.html" title="struct bp_runtime::ParachainIdOf">ParachainIdOf</a></div><div class="desc docblock-short">Adapter for <code>Get&lt;u32&gt;</code> to access <code>PARACHAIN_ID</code> from <code>trait Parachain</code></div></li><li><div class="item-name"><a class="struct" href="struct.PreComputedSize.html" title="struct bp_runtime::PreComputedSize">PreComputedSize</a></div><div class="desc docblock-short">Pre-computed size.</div></li><li><div class="item-name"><a class="struct" href="struct.StorageProofChecker.html" title="struct bp_runtime::StorageProofChecker">StorageProofChecker</a></div><div class="desc docblock-short">This struct is used to read storage values from a subset of a Merklized database. The “proof”
+is a subset of the nodes in the Merkle structure of the database, so that it provides
+authentication against a known Merkle root as well as the values in the
+database themselves.</div></li><li><div class="item-name"><a class="struct" href="struct.UnverifiedStorageProofParams.html" title="struct bp_runtime::UnverifiedStorageProofParams">UnverifiedStorageProofParams</a></div><div class="desc docblock-short">Storage values size requirements.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.BasicOperatingMode.html" title="enum bp_runtime::BasicOperatingMode">BasicOperatingMode</a></div><div class="desc docblock-short">Basic operating modes for a bridges module (Normal/Halted).</div></li><li><div class="item-name"><a class="enum" href="enum.EncodedOrDecodedCall.html" title="enum bp_runtime::EncodedOrDecodedCall">EncodedOrDecodedCall</a></div><div class="desc docblock-short">Chain call, that is either SCALE-encoded, or decoded.</div></li><li><div class="item-name"><a class="enum" href="enum.OwnedBridgeModuleError.html" title="enum bp_runtime::OwnedBridgeModuleError">OwnedBridgeModuleError</a></div><div class="desc docblock-short">Error generated by the <code>OwnedBridgeModule</code> trait.</div></li><li><div class="item-name"><a class="enum" href="enum.StorageProofError.html" title="enum bp_runtime::StorageProofError">StorageProofError</a></div><div class="desc docblock-short">Errors that can occur when interacting with <code>UnverifiedStorageProof</code> and <code>VerifiedStorageProof</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.TransactionEra.html" title="enum bp_runtime::TransactionEra">TransactionEra</a></div><div class="desc docblock-short">Era of specific transaction.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.NO_INSTANCE_ID.html" title="constant bp_runtime::NO_INSTANCE_ID">NO_INSTANCE_ID</a></div><div class="desc docblock-short">Use this when something must be shared among all instances.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Chain.html" title="trait bp_runtime::Chain">Chain</a></div><div class="desc docblock-short">Minimal Substrate-based chain representation that may be used from no_std environment.</div></li><li><div class="item-name"><a class="trait" href="trait.HeaderIdProvider.html" title="trait bp_runtime::HeaderIdProvider">HeaderIdProvider</a></div><div class="desc docblock-short">Generic header id provider.</div></li><li><div class="item-name"><a class="trait" href="trait.OperatingMode.html" title="trait bp_runtime::OperatingMode">OperatingMode</a></div><div class="desc docblock-short">Operating mode for a bridge module.</div></li><li><div class="item-name"><a class="trait" href="trait.OwnedBridgeModule.html" title="trait bp_runtime::OwnedBridgeModule">OwnedBridgeModule</a></div><div class="desc docblock-short">Bridge module that has owner and operating mode</div></li><li><div class="item-name"><a class="trait" href="trait.Parachain.html" title="trait bp_runtime::Parachain">Parachain</a></div><div class="desc docblock-short">Minimal parachain representation that may be used from no_std environment.</div></li><li><div class="item-name"><a class="trait" href="trait.RangeInclusiveExt.html" title="trait bp_runtime::RangeInclusiveExt">RangeInclusiveExt</a></div><div class="desc docblock-short">A trait defining helper methods for <code>RangeInclusive</code> (start..=end)</div></li><li><div class="item-name"><a class="trait" href="trait.Size.html" title="trait bp_runtime::Size">Size</a></div><div class="desc docblock-short">Anything that has size.</div></li><li><div class="item-name"><a class="trait" href="trait.StaticStrProvider.html" title="trait bp_runtime::StaticStrProvider">StaticStrProvider</a></div><div class="desc docblock-short">Trait that provides a static <code>str</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageDoubleMapKeyProvider.html" title="trait bp_runtime::StorageDoubleMapKeyProvider">StorageDoubleMapKeyProvider</a></div><div class="desc docblock-short">Can be used to access the runtime storage key of a <code>StorageDoubleMap</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageMapKeyProvider.html" title="trait bp_runtime::StorageMapKeyProvider">StorageMapKeyProvider</a></div><div class="desc docblock-short">Can be use to access the runtime storage key of a <code>StorageMap</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.UnderlyingChainProvider.html" title="trait bp_runtime::UnderlyingChainProvider">UnderlyingChainProvider</a></div><div class="desc docblock-short">A trait that provides the type of the underlying chain.</div></li><li><div class="item-name"><a class="trait" href="trait.WeightExtraOps.html" title="trait bp_runtime::WeightExtraOps">WeightExtraOps</a></div><div class="desc docblock-short">All extra operations with weights that we need in bridges.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.craft_valid_storage_proof.html" title="fn bp_runtime::craft_valid_storage_proof">craft_valid_storage_proof</a></div><div class="desc docblock-short">Return valid storage proof and state root.</div></li><li><div class="item-name"><a class="fn" href="fn.grow_storage_proof.html" title="fn bp_runtime::grow_storage_proof">grow_storage_proof</a></div><div class="desc docblock-short">Insert values in the provided trie at common-prefix keys in order to inflate the resulting
+storage proof.</div></li><li><div class="item-name"><a class="fn" href="fn.grow_storage_value.html" title="fn bp_runtime::grow_storage_value">grow_storage_value</a></div><div class="desc docblock-short">Add extra data to the storage value so that it’ll be of given size.</div></li><li><div class="item-name"><a class="fn" href="fn.raw_storage_proof_size.html" title="fn bp_runtime::raw_storage_proof_size">raw_storage_proof_size</a></div><div class="desc docblock-short">Calculates size for <code>RawStorageProof</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.record_all_trie_keys.html" title="fn bp_runtime::record_all_trie_keys">record_all_trie_keys</a></div><div class="desc docblock-short">Record all keys for a given root.</div></li><li><div class="item-name"><a class="fn" href="fn.storage_map_final_key.html" title="fn bp_runtime::storage_map_final_key">storage_map_final_key</a></div><div class="desc docblock-short">This is a copy of the
+<code>frame_support::storage::generator::StorageMap::storage_map_final_key</code> for maps based
+on selected hasher.</div></li><li><div class="item-name"><a class="fn" href="fn.storage_value_final_key.html" title="fn bp_runtime::storage_value_final_key">storage_value_final_key</a></div><div class="desc docblock-short">Returns the storage prefix for a specific pallet name and storage name.</div></li><li><div class="item-name"><a class="fn" href="fn.storage_value_key.html" title="fn bp_runtime::storage_value_key">storage_value_key</a></div><div class="desc docblock-short">This is how a storage key of storage value is computed.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AccountIdOf.html" title="type bp_runtime::AccountIdOf">AccountIdOf</a></div><div class="desc docblock-short">Account id type used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.AccountPublicOf.html" title="type bp_runtime::AccountPublicOf">AccountPublicOf</a></div><div class="desc docblock-short">Account public type used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.BalanceOf.html" title="type bp_runtime::BalanceOf">BalanceOf</a></div><div class="desc docblock-short">Balance type used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.BlockNumberOf.html" title="type bp_runtime::BlockNumberOf">BlockNumberOf</a></div><div class="desc docblock-short">Block number used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.ChainId.html" title="type bp_runtime::ChainId">ChainId</a></div><div class="desc docblock-short">Unique identifier of the chain.</div></li><li><div class="item-name"><a class="type" href="type.HashOf.html" title="type bp_runtime::HashOf">HashOf</a></div><div class="desc docblock-short">Hash type used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.HasherOf.html" title="type bp_runtime::HasherOf">HasherOf</a></div><div class="desc docblock-short">Hasher type used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.HeaderIdOf.html" title="type bp_runtime::HeaderIdOf">HeaderIdOf</a></div><div class="desc docblock-short">Header id used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.HeaderOf.html" title="type bp_runtime::HeaderOf">HeaderOf</a></div><div class="desc docblock-short">Header type used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.NonceOf.html" title="type bp_runtime::NonceOf">NonceOf</a></div><div class="desc docblock-short">Transaction nonce type used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.RawStorageProof.html" title="type bp_runtime::RawStorageProof">RawStorageProof</a></div><div class="desc docblock-short">Raw storage proof type (just raw trie nodes).</div></li><li><div class="item-name"><a class="type" href="type.SignatureOf.html" title="type bp_runtime::SignatureOf">SignatureOf</a></div><div class="desc docblock-short">Signature type used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.TransactionEraOf.html" title="type bp_runtime::TransactionEraOf">TransactionEraOf</a></div><div class="desc docblock-short">Transaction era used by the chain.</div></li><li><div class="item-name"><a class="type" href="type.UnderlyingChainOf.html" title="type bp_runtime::UnderlyingChainOf">UnderlyingChainOf</a></div><div class="desc docblock-short">Underlying chain type.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

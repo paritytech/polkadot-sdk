@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ASSET_HUB_ROCOCO_PARACHAIN_ID"],"enum":["Call","XcmBridgeHubRouterCall"],"struct":["XcmBridgeHubRouterTransactCallMaxWeight"]};

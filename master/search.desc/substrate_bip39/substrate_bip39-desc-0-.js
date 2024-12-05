@@ -1,0 +1,1 @@
+searchState.loadedDescShard("substrate_bip39", 0, "Returns the argument unchanged.\nCalls <code>U::from(self)</code>.\n<code>entropy</code> should be a byte array from a correctly recovered …\nSimilar to <code>mini_secret_from_entropy</code>, except that it …")

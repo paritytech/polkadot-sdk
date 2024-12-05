@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="snowbridge_pallet_ethereum_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../snowbridge_pallet_ethereum_client/index.html">snowbridge_pallet_ethereum_client</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="mock/struct.ChainForkVersions.html">mock::ChainForkVersions</a></li><li><a href="mock/struct.PalletInfo.html">mock::PalletInfo</a></li><li><a href="mock/struct.RuntimeGenesisConfig.html">mock::RuntimeGenesisConfig</a></li><li><a href="mock/struct.RuntimeOrigin.html">mock::RuntimeOrigin</a></li><li><a href="mock/struct.Test.html">mock::Test</a></li><li><a href="pallet/struct.MaxFinalizedHeadersToKeep.html">pallet::MaxFinalizedHeadersToKeep</a></li><li><a href="pallet/struct.Pallet.html">pallet::Pallet</a></li><li><a href="pallet/storage_types/struct.CurrentSyncCommittee.html">pallet::storage_types::CurrentSyncCommittee</a></li><li><a href="pallet/storage_types/struct.FinalizedBeaconState.html">pallet::storage_types::FinalizedBeaconState</a></li><li><a href="pallet/storage_types/struct.FinalizedBeaconStateIndex.html">pallet::storage_types::FinalizedBeaconStateIndex</a></li><li><a href="pallet/storage_types/struct.FinalizedBeaconStateMapping.html">pallet::storage_types::FinalizedBeaconStateMapping</a></li><li><a href="pallet/storage_types/struct.InitialCheckpointRoot.html">pallet::storage_types::InitialCheckpointRoot</a></li><li><a href="pallet/storage_types/struct.LatestFinalizedBlockRoot.html">pallet::storage_types::LatestFinalizedBlockRoot</a></li><li><a href="pallet/storage_types/struct.LatestSyncCommitteeUpdatePeriod.html">pallet::storage_types::LatestSyncCommitteeUpdatePeriod</a></li><li><a href="pallet/storage_types/struct.NextSyncCommittee.html">pallet::storage_types::NextSyncCommittee</a></li><li><a href="pallet/storage_types/struct.OperatingMode.html">pallet::storage_types::OperatingMode</a></li><li><a href="pallet/storage_types/struct.ValidatorsRoot.html">pallet::storage_types::ValidatorsRoot</a></li><li><a href="types/struct.AncestryProof.html">types::AncestryProof</a></li><li><a href="types/struct.ExecutionProof.html">types::ExecutionProof</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="mock/enum.OriginCaller.html">mock::OriginCaller</a></li><li><a href="mock/enum.RuntimeCall.html">mock::RuntimeCall</a></li><li><a href="mock/enum.RuntimeError.html">mock::RuntimeError</a></li><li><a href="mock/enum.RuntimeEvent.html">mock::RuntimeEvent</a></li><li><a href="mock/enum.RuntimeFreezeReason.html">mock::RuntimeFreezeReason</a></li><li><a href="mock/enum.RuntimeHoldReason.html">mock::RuntimeHoldReason</a></li><li><a href="mock/enum.RuntimeLockId.html">mock::RuntimeLockId</a></li><li><a href="mock/enum.RuntimeSlashReason.html">mock::RuntimeSlashReason</a></li><li><a href="mock/enum.RuntimeTask.html">mock::RuntimeTask</a></li><li><a href="pallet/enum.Call.html">pallet::Call</a></li><li><a href="pallet/enum.Error.html">pallet::Error</a></li><li><a href="pallet/enum.Event.html">pallet::Event</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="pallet/trait.Config.html">pallet::Config</a></li><li><a href="weights/trait.WeightInfo.html">weights::WeightInfo</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="functions/fn.compute_epoch.html">functions::compute_epoch</a></li><li><a href="functions/fn.compute_period.html">functions::compute_period</a></li><li><a href="functions/fn.decompress_sync_committee_bits.html">functions::decompress_sync_committee_bits</a></li><li><a href="functions/fn.sync_committee_sum.html">functions::sync_committee_sum</a></li><li><a href="mock/fn.get_message_verification_payload.html">mock::get_message_verification_payload</a></li><li><a href="mock/fn.initialize_storage.html">mock::initialize_storage</a></li><li><a href="mock/fn.load_checkpoint_update_fixture.html">mock::load_checkpoint_update_fixture</a></li><li><a href="mock/fn.load_execution_proof_fixture.html">mock::load_execution_proof_fixture</a></li><li><a href="mock/fn.load_finalized_header_update_fixture.html">mock::load_finalized_header_update_fixture</a></li><li><a href="mock/fn.load_next_finalized_header_update_fixture.html">mock::load_next_finalized_header_update_fixture</a></li><li><a href="mock/fn.load_next_sync_committee_update_fixture.html">mock::load_next_sync_committee_update_fixture</a></li><li><a href="mock/fn.load_sync_committee_update_fixture.html">mock::load_sync_committee_update_fixture</a></li><li><a href="mock/fn.load_sync_committee_update_period_0.html">mock::load_sync_committee_update_period_0</a></li><li><a href="mock/fn.load_sync_committee_update_period_0_newer_fixture.html">mock::load_sync_committee_update_period_0_newer_fixture</a></li><li><a href="mock/fn.load_sync_committee_update_period_0_older_fixture.html">mock::load_sync_committee_update_period_0_older_fixture</a></li><li><a href="mock/fn.new_tester.html">mock::new_tester</a></li><li><a href="pallet/dispatchables/fn.force_checkpoint.html">pallet::dispatchables::force_checkpoint</a></li><li><a href="pallet/dispatchables/fn.set_operating_mode.html">pallet::dispatchables::set_operating_mode</a></li><li><a href="pallet/dispatchables/fn.submit.html">pallet::dispatchables::submit</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="mock/type.AllPalletsWithSystem.html">mock::AllPalletsWithSystem</a></li><li><a href="mock/type.AllPalletsWithoutSystem.html">mock::AllPalletsWithoutSystem</a></li><li><a href="mock/type.EthereumBeaconClient.html">mock::EthereumBeaconClient</a></li><li><a href="mock/type.System.html">mock::System</a></li><li><a href="mock/type.Timestamp.html">mock::Timestamp</a></li><li><a href="pallet/type.CurrentSyncCommittee.html">pallet::CurrentSyncCommittee</a></li><li><a href="pallet/type.FinalizedBeaconState.html">pallet::FinalizedBeaconState</a></li><li><a href="pallet/type.FinalizedBeaconStateIndex.html">pallet::FinalizedBeaconStateIndex</a></li><li><a href="pallet/type.FinalizedBeaconStateMapping.html">pallet::FinalizedBeaconStateMapping</a></li><li><a href="pallet/type.InitialCheckpointRoot.html">pallet::InitialCheckpointRoot</a></li><li><a href="pallet/type.LatestFinalizedBlockRoot.html">pallet::LatestFinalizedBlockRoot</a></li><li><a href="pallet/type.LatestSyncCommitteeUpdatePeriod.html">pallet::LatestSyncCommitteeUpdatePeriod</a></li><li><a href="pallet/type.Module.html">pallet::Module</a></li><li><a href="pallet/type.NextSyncCommittee.html">pallet::NextSyncCommittee</a></li><li><a href="pallet/type.OperatingMode.html">pallet::OperatingMode</a></li><li><a href="pallet/type.ValidatorsRoot.html">pallet::ValidatorsRoot</a></li><li><a href="types/type.CheckpointUpdate.html">types::CheckpointUpdate</a></li><li><a href="types/type.FinalizedBeaconStateBuffer.html">types::FinalizedBeaconStateBuffer</a></li><li><a href="types/type.NextSyncCommitteeUpdate.html">types::NextSyncCommitteeUpdate</a></li><li><a href="types/type.SyncAggregate.html">types::SyncAggregate</a></li><li><a href="types/type.SyncCommittee.html">types::SyncCommittee</a></li><li><a href="types/type.SyncCommitteePrepared.html">types::SyncCommitteePrepared</a></li><li><a href="types/type.Update.html">types::Update</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.LOG_TARGET.html">LOG_TARGET</a></li><li><a href="config/constant.BLOCK_ROOTS_DEPTH.html">config::BLOCK_ROOTS_DEPTH</a></li><li><a href="config/constant.BLOCK_ROOTS_INDEX.html">config::BLOCK_ROOTS_INDEX</a></li><li><a href="config/constant.BLOCK_ROOTS_SUBTREE_INDEX.html">config::BLOCK_ROOTS_SUBTREE_INDEX</a></li><li><a href="config/constant.BLOCK_ROOT_AT_INDEX_DEPTH.html">config::BLOCK_ROOT_AT_INDEX_DEPTH</a></li><li><a href="config/constant.CURRENT_SYNC_COMMITTEE_DEPTH.html">config::CURRENT_SYNC_COMMITTEE_DEPTH</a></li><li><a href="config/constant.CURRENT_SYNC_COMMITTEE_INDEX.html">config::CURRENT_SYNC_COMMITTEE_INDEX</a></li><li><a href="config/constant.CURRENT_SYNC_COMMITTEE_SUBTREE_INDEX.html">config::CURRENT_SYNC_COMMITTEE_SUBTREE_INDEX</a></li><li><a href="config/constant.DOMAIN_SYNC_COMMITTEE.html">config::DOMAIN_SYNC_COMMITTEE</a></li><li><a href="config/constant.EPOCHS_PER_SYNC_COMMITTEE_PERIOD.html">config::EPOCHS_PER_SYNC_COMMITTEE_PERIOD</a></li><li><a href="config/constant.EXECUTION_HEADER_DEPTH.html">config::EXECUTION_HEADER_DEPTH</a></li><li><a href="config/constant.EXECUTION_HEADER_INDEX.html">config::EXECUTION_HEADER_INDEX</a></li><li><a href="config/constant.EXECUTION_HEADER_SUBTREE_INDEX.html">config::EXECUTION_HEADER_SUBTREE_INDEX</a></li><li><a href="config/constant.FINALIZED_ROOT_DEPTH.html">config::FINALIZED_ROOT_DEPTH</a></li><li><a href="config/constant.FINALIZED_ROOT_INDEX.html">config::FINALIZED_ROOT_INDEX</a></li><li><a href="config/constant.FINALIZED_ROOT_SUBTREE_INDEX.html">config::FINALIZED_ROOT_SUBTREE_INDEX</a></li><li><a href="config/constant.MAX_BRANCH_PROOF_SIZE.html">config::MAX_BRANCH_PROOF_SIZE</a></li><li><a href="config/constant.MAX_EXTRA_DATA_BYTES.html">config::MAX_EXTRA_DATA_BYTES</a></li><li><a href="config/constant.MAX_FEE_RECIPIENT_SIZE.html">config::MAX_FEE_RECIPIENT_SIZE</a></li><li><a href="config/constant.MAX_LOGS_BLOOM_SIZE.html">config::MAX_LOGS_BLOOM_SIZE</a></li><li><a href="config/constant.NEXT_SYNC_COMMITTEE_DEPTH.html">config::NEXT_SYNC_COMMITTEE_DEPTH</a></li><li><a href="config/constant.NEXT_SYNC_COMMITTEE_INDEX.html">config::NEXT_SYNC_COMMITTEE_INDEX</a></li><li><a href="config/constant.NEXT_SYNC_COMMITTEE_SUBTREE_INDEX.html">config::NEXT_SYNC_COMMITTEE_SUBTREE_INDEX</a></li><li><a href="config/constant.PUBKEY_SIZE.html">config::PUBKEY_SIZE</a></li><li><a href="config/constant.SIGNATURE_SIZE.html">config::SIGNATURE_SIZE</a></li><li><a href="config/constant.SLOTS_PER_EPOCH.html">config::SLOTS_PER_EPOCH</a></li><li><a href="config/constant.SLOTS_PER_HISTORICAL_ROOT.html">config::SLOTS_PER_HISTORICAL_ROOT</a></li><li><a href="config/constant.SYNC_COMMITTEE_BITS_SIZE.html">config::SYNC_COMMITTEE_BITS_SIZE</a></li><li><a href="config/constant.SYNC_COMMITTEE_SIZE.html">config::SYNC_COMMITTEE_SIZE</a></li><li><a href="mock/constant.FREE_SLOTS_INTERVAL.html">mock::FREE_SLOTS_INTERVAL</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

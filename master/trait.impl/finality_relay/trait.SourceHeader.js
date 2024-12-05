@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"relay_substrate_client":[["impl&lt;Header: HeaderT, R: ConsensusLogReader&gt; <a class=\"trait\" href=\"finality_relay/trait.SourceHeader.html\" title=\"trait finality_relay::SourceHeader\">SourceHeader</a>&lt;&lt;Header as Header&gt;::Hash, &lt;Header as Header&gt;::Number, R&gt; for <a class=\"struct\" href=\"relay_substrate_client/struct.SyncHeader.html\" title=\"struct relay_substrate_client::SyncHeader\">SyncHeader</a>&lt;Header&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

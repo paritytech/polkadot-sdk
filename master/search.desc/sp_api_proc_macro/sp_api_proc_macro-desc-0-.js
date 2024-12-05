@@ -1,0 +1,1 @@
+searchState.loadedDescShard("sp_api_proc_macro", 0, "Macros for declaring and implementing runtime apis.")
