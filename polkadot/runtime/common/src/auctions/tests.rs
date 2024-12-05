@@ -19,18 +19,13 @@
 
 #[cfg(test)]
 use super::*;
-use frame_support::{
-	assert_noop, assert_ok, assert_storage_noop,
-};
+use crate::{auctions::mock::*, mock::TestRegistrar};
+use frame_support::{assert_noop, assert_ok, assert_storage_noop};
 use pallet_balances;
-use polkadot_primitives::{Id as ParaId};
+use polkadot_primitives::Id as ParaId;
 use polkadot_primitives_test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 use sp_core::H256;
-use sp_runtime::{
-	DispatchError::BadOrigin,
-};
-use crate::{mock::TestRegistrar, auctions::mock::*};
-//{new_test_ext, run_to_block, set_last_random, leases, TestLeaser, RuntimeOrigin, Test, Auctions, BalanceOf, Balances};
+use sp_runtime::DispatchError::BadOrigin;
 
 #[test]
 fn basic_setup_works() {

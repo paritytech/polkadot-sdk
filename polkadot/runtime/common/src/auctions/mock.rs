@@ -16,6 +16,7 @@
 
 //! Mocking utilities for testing in auctions pallet.
 
+#[cfg(test)]
 use super::*;
 use crate::{auctions, mock::TestRegistrar};
 use frame_support::{
