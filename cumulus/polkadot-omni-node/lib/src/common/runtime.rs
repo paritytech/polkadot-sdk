@@ -26,7 +26,7 @@ use subxt_metadata::StorageEntryType;
 
 /// Expected parachain system pallet runtime type name.
 pub const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
-/// Expected frame system pallet type name.
+/// Expected frame system pallet runtime type name.
 pub const DEFAULT_FRAME_SYSTEM_PALLET_NAME: &str = "System";
 
 /// The Aura ID used by the Aura consensus
