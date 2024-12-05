@@ -10225,9 +10225,9 @@ dependencies = [
 
 [[package]]
 name = "litep2p"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "569e7dbec8a0d4b08d30f4942cd579cfe8db5d3f83f8604abe61697c38d17e73"
+checksum = "14e490b5a6d486711fd0284bd30e607a287343f2935a59a9192bd7109e85f443"
 dependencies = [
  "async-trait",
  "bs58",
@@ -14755,7 +14755,7 @@ dependencies = [
  "anyhow",
  "frame-system 28.0.0",
  "log",
- "polkavm-linker 0.17.0",
+ "polkavm-linker 0.17.1",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -18580,7 +18580,6 @@ dependencies = [
  "pallet-remark 28.0.0",
  "pallet-revive 0.1.0",
  "pallet-revive-eth-rpc",
- "pallet-revive-fixtures 0.1.0",
  "pallet-revive-mock-network 0.1.0",
  "pallet-revive-proc-macro 0.1.0",
  "pallet-revive-uapi 0.1.0",
@@ -19940,9 +19939,9 @@ dependencies = [
 
 [[package]]
 name = "polkavm-linker"
-version = "0.17.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d359dc721d2cc9b555ebb3558c305112ddc5bdac09d26f95f2f7b49c1f2db7e9"
+checksum = "0422ead3030d5cde69e2206dbc7d65da872b121876507cd5363f6c6e6aa45157"
 dependencies = [
  "dirs",
  "gimli 0.31.1",
@@ -26499,7 +26498,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "parity-scale-codec",
- "polkavm-derive 0.9.1",
+ "polkavm-derive 0.17.0",
  "rustversion",
  "secp256k1 0.28.2",
  "sp-core 28.0.0",
@@ -26983,7 +26982,7 @@ dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "polkavm-derive 0.9.1",
+ "polkavm-derive 0.17.0",
  "primitive-types 0.13.1",
  "rustversion",
  "sp-core 28.0.0",
@@ -28627,7 +28626,7 @@ dependencies = [
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
- "polkavm-linker 0.9.2",
+ "polkavm-linker 0.17.1",
  "sc-executor 0.32.0",
  "shlex",
  "sp-core 28.0.0",
