@@ -565,7 +565,7 @@ where
 
 		if log::log_enabled!(log::Level::Info) {
 			info!(
-				"🎁 Prepared block for proposing at {} ({} ms) hash: {:?}; parent_hash: {}; end: {:?}; extrinsics_count: {};",
+				"🎁 Prepared block for proposing at {} ({} ms) hash: {:?}; parent_hash: {}; end: {:?}; extrinsics_count: {}",
 				block.header().number(),
 				block_took.as_millis(),
 				<Block as BlockT>::Hash::from(block.header().hash()),
