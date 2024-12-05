@@ -975,6 +975,7 @@ where
 	/// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
 	///   signatures against rogue-key attacks. In , Annual {{International Conference}} on the
 	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer.
+	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self) -> Self::Signature {
 		let pub_key_as_bytes = self.public().to_raw_vec();
 		let pop_statement = [POP_CONTEXT_TAG, pub_key_as_bytes.as_slice()].concat();
@@ -1016,6 +1017,7 @@ where
 	T: Pair + NonAggregatable,
 	T::Public: CryptoType,
 {
+
 }
 
 impl<T> ProofOfPossessionGenerator for T
@@ -1023,6 +1025,7 @@ where
 	T: Pair + NonAggregatable,
 	T::Public: CryptoType,
 {
+
 }
 
 /// One type is wrapped by another.

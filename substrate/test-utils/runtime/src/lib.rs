@@ -49,7 +49,11 @@ use scale_info::TypeInfo;
 use sp_application_crypto::Ss58Codec;
 use sp_keyring::AccountKeyring;
 
-use sp_application_crypto::{ecdsa, ed25519, sr25519, blsRuntimeAppPublic, bls381};
+use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
+
+#[cfg(feature = "bls-experimental")]
+use sp_application_crypto::{bls381, ecdsa_bls381};
+
 use sp_core::{OpaqueMetadata, RuntimeDebug};
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
@@ -181,6 +185,24 @@ pub type Header = sp_runtime::generic::Header<BlockNumber, Hashing>;
 /// Balance of an account.
 pub type Balance = u64;
 
+#[cfg(not(feature = "bls-experimental"))]
+type Bls381Signature = ();
+
+#[cfg(feature = "bls-experimental")]
+type Bls381Signature = bls381::AppSignature;
+
+#[cfg(not(feature = "bls-experimental"))]
+type Bls381Public = ();
+
+#[cfg(feature = "bls-experimental")]
+type Bls381Public = bls381::AppPublic;
+
+#[cfg(feature = "bls-experimental")]
+compile_error!("bls-experimental is active");
+
+#[cfg(not(feature = "bls-experimental"))]
+compile_error!("bls-experimental is NOT active");
+
 decl_runtime_apis! {
 	#[api_version(2)]
 	pub trait TestAPI {
@@ -206,7 +228,6 @@ decl_runtime_apis! {
 		fn vec_with_capacity(size: u32) -> Vec<u8>;
 		/// Returns the initialized block number.
 		fn get_block_number() -> u64;
-
 		/// Test that `ed25519` crypto works in the runtime.
 		///
 		/// Returns the signature generated for the message `ed25519` and the public key.
@@ -222,8 +243,7 @@ decl_runtime_apis! {
 		/// Test that 'bls381' crypto works in the runtime
 		///
 		/// Returns the signature generated for the message `bls381`.
-		#[cfg(feature = "bls-experimental")]
-		fn test_bls381_crypto() -> (bls381::AppSignature, bls381::AppPublic);
+		fn test_bls381_crypto() -> (Bls381Signature, Bls381Public);
 		/// Run various tests against storage.
 		fn test_storage();
 		/// Check a witness.
@@ -586,8 +606,13 @@ impl_runtime_apis! {
 		}
 
 		#[cfg(feature = "bls-experimental")]
-		fn test_bls381_crypto() -> (bls381::AppSignature, bls381::AppPublic) {
+		fn test_bls381_crypto() -> (Bls381Signature, Bls381Public) {
 			test_bls381_crypto()
+		}
+
+		#[cfg(not(feature = "bls-experimental"))]
+		fn test_bls381_crypto() -> (Bls381Signature, Bls381Public) {
+			((), ())
 		}
 
 		fn test_storage() {
@@ -825,6 +850,8 @@ fn test_bls381_crypto() -> (bls381::AppSignature, bls381::AppPublic) {
 	assert!(all.contains(&public0));
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
+
+	// let pop = bls381::AppPublic::generate_pop();
 
 	let signature = public0.sign(&"bls381").expect("Generates a valid `bls381` signature.");
 

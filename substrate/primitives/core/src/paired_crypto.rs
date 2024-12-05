@@ -405,6 +405,7 @@ where
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
+	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self) -> Self::Signature {
 		let mut raw: [u8; SIGNATURE_LEN] = [0u8; SIGNATURE_LEN];
 

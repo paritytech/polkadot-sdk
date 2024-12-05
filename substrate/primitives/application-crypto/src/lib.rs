@@ -184,7 +184,6 @@ macro_rules! app_crypto_pair_common {
 				proof_of_possession: &Self::Signature,
 				allegedly_possessed_pubkey: &Self::Public,
 			) -> bool {
-			    use sp_core::crypto::ProofOfPossessionVerifier;
 				<$pair>::verify_proof_of_possession(
 					&proof_of_possession.0,
 					allegedly_possessed_pubkey.as_ref(),

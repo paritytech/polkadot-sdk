@@ -21,3 +21,7 @@ sp-application-crypto = { workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-keystore = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
+
+[features]
+full_crypto = []
+bls-experimental = []

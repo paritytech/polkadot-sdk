@@ -20,7 +20,7 @@
 use parking_lot::RwLock;
 use sp_application_crypto::{AppCrypto, AppPair, IsWrappedBy};
 use sp_core::{
-	crypto::{ByteArray, ExposeSecret, KeyTypeId, Pair as CorePair, SecretString, VrfSecret},
+	crypto::{ByteArray, ExposeSecret, KeyTypeId, Pair as CorePair, SecretString, VrfSecret, ProofOfPossessionGenerator},
 	ecdsa, ed25519, sr25519,
 };
 use sp_keystore::{Error as TraitError, Keystore, KeystorePtr};
@@ -355,6 +355,14 @@ impl Keystore for LocalKeystore {
 			msg: &[u8],
 		) -> std::result::Result<Option<bls381::Signature>, TraitError> {
 			self.sign::<bls381::Pair>(key_type, public, msg)
+		}
+
+		fn bls381_generate_pop(
+			&self,
+			key_type: KeyTypeId,
+			public: &bls381::Public
+		) -> std::result::Result<Option<bls381::Signature>, TraitError> {
+			self.bls381_generate_pop(key_type, public)
 		}
 
 		fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
