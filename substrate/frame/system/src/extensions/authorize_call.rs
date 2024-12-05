@@ -273,7 +273,7 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let tx_ext = (frame_system::AuthorizeCall::<Runtime>::new(),);
 
-			let tx = UncheckedExtrinsic::new_signed(call, 42, Default::default(), tx_ext);
+			let tx = UncheckedExtrinsic::new_signed(call, 42, 42.into(), tx_ext);
 
 			let info = tx.get_dispatch_info();
 			let len = tx.using_encoded(|e| e.len());
