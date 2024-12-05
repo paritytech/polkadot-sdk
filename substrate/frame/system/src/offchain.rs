@@ -522,16 +522,16 @@ pub trait SignMessage<T: SigningTypes> {
 /// This interface allows to define the transaction extension that will be used alongside this call
 /// to create the transaction.
 ///
-/// For more information about authorized call see [`frame_support::pallet::authorized`].
+/// For more information about authorized call see [`frame_support::pallet_prelude::authorize`].
 pub trait CreateAuthorizedTransaction<LocalCall>: CreateTransaction<LocalCall> {
 	/// Create the transaction extension to be used alongside an authorized call.
 	///
-	/// For more information about authorized call see [`frame_support::pallet::authorized`].
+	/// For more information about authorized call see [`frame_support::pallet_prelude::authorize`].
 	fn create_extension() -> Self::Extension;
 
 	/// Create a new transaction for an authorized call.
 	///
-	/// For more information about authorized call see [`frame_support::pallet::authorized`].
+	/// For more information about authorized call see [`frame_support::pallet_prelude::authorize`].
 	fn create_authorized_transaction(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Self::create_transaction(call, Self::create_extension())
 	}

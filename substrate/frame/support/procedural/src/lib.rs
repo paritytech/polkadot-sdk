@@ -1477,7 +1477,7 @@ pub fn authorize(_: TokenStream, _: TokenStream) -> TokenStream {
 
 /// Allows to define the weight of the authorize function.
 ///
-/// See `frame_support_procedural::authorize` for more information on how authorization works.
+/// See [`authorize`](macro@authorize) for more information on how authorization works.
 ///
 /// Defines the value of the weight of the authorize function. This attribute is similar to
 /// `#[pallet::weight]`:
