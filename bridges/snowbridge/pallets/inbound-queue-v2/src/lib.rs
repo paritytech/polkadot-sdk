@@ -238,11 +238,11 @@ pub mod pallet {
 
 			// Attempt to forward XCM to AH
 
-			let message_id = Self::send_xcm(xcm, T::AssetHubParaId::get())?;
-			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
-
 			// Set nonce flag to true
 			Nonce::<T>::set(envelope.nonce.into());
+
+			let message_id = Self::send_xcm(xcm, T::AssetHubParaId::get())?;
+			Self::deposit_event(Event::MessageReceived { nonce: envelope.nonce, message_id });
 
 			Ok(())
 		}
