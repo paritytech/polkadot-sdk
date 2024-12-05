@@ -2,9 +2,9 @@ title: Make pallet-recovery supports `BlockNumberProvider`
 doc:
 - audience: Runtime Dev
   description: |-
-    Make pallet-recovery supports `BlockNumberProvider`.
+      This PR enhances the recovery pallet by enabling it to define the source of the block number.
 
-    Part of #6297.
+      A migration is required for `Recoverable` and `ActiveRecoveries` storage items in cases where this pallet has been deployed on a parachain, and its block number type differs from that of the relaychain.
 crates:
 - name: rococo-runtime
   bump: major
