@@ -416,6 +416,7 @@ impl pallet_proxy::Config for Test {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = ConstU64<1>;
 	type AnnouncementDepositFactor = ConstU64<1>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 parameter_types! {
@@ -1127,7 +1128,7 @@ fn deploy_and_call_other_contract() {
 #[test]
 fn delegate_call() {
 	let (caller_wasm, _caller_code_hash) = compile_module("delegate_call").unwrap();
-	let (callee_wasm, callee_code_hash) = compile_module("delegate_call_lib").unwrap();
+	let (callee_wasm, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1137,12 +1138,91 @@ fn delegate_call() {
 			builder::bare_instantiate(Code::Upload(caller_wasm))
 				.value(300_000)
 				.build_and_unwrap_contract();
-		// Only upload 'callee' code
-		assert_ok!(Contracts::upload_code(RuntimeOrigin::signed(ALICE), callee_wasm, 100_000,));
+
+		// Instantiate the 'callee'
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_wasm))
+				.value(100_000)
+				.build_and_unwrap_contract();
 
 		assert_ok!(builder::call(caller_addr)
 			.value(1337)
-			.data(callee_code_hash.as_ref().to_vec())
+			.data((callee_addr, 0u64, 0u64).encode())
+			.build());
+	});
+}
+
+#[test]
+fn delegate_call_with_weight_limit() {
+	let (caller_wasm, _caller_code_hash) = compile_module("delegate_call").unwrap();
+	let (callee_wasm, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Instantiate the 'caller'
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_wasm))
+				.value(300_000)
+				.build_and_unwrap_contract();
+
+		// Instantiate the 'callee'
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_wasm))
+				.value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough weight
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.value(1337)
+				.data((callee_addr, 100u64, 100u64).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 500_000_000u64, 100_000u64).encode())
+			.build());
+	});
+}
+
+#[test]
+fn delegate_call_with_deposit_limit() {
+	let (caller_pvm, _caller_code_hash) = compile_module("delegate_call_deposit_limit").unwrap();
+	let (callee_pvm, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Instantiate the 'caller'
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_pvm))
+				.value(300_000)
+				.build_and_unwrap_contract();
+
+		// Instantiate the 'callee'
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_pvm))
+				.value(100_000)
+				.build_and_unwrap_contract();
+
+		// Delegate call will write 1 storage and deposit of 2 (1 item) + 32 (bytes) is required.
+		// Fails, not enough deposit
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.value(1337)
+				.data((callee_addr, 33u64).encode())
+				.build()
+				.result,
+			Error::<Test>::StorageDepositLimitExhausted,
+		);
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 34u64).encode())
 			.build());
 	});
 }
@@ -1169,7 +1249,7 @@ fn transfer_expendable_cannot_kill_account() {
 			test_utils::contract_info_storage_deposit(&addr)
 		);
 
-		// Some ot the total balance is held, so it can't be transferred.
+		// Some or the total balance is held, so it can't be transferred.
 		assert_err!(
 			<<Test as Config>::Currency as Mutate<AccountId32>>::transfer(
 				&account,
@@ -2210,7 +2290,7 @@ fn gas_estimation_for_subcalls() {
 				// Make the same call using the estimated gas. Should succeed.
 				let result = builder::bare_call(addr_caller)
 					.gas_limit(result_orig.gas_required)
-					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero())
+					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 					.data(input.clone())
 					.build();
 				assert_ok!(&result.result);
@@ -2218,7 +2298,7 @@ fn gas_estimation_for_subcalls() {
 				// Check that it fails with too little ref_time
 				let result = builder::bare_call(addr_caller)
 					.gas_limit(result_orig.gas_required.sub_ref_time(1))
-					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero())
+					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 					.data(input.clone())
 					.build();
 				assert_err!(result.result, error);
@@ -2226,7 +2306,7 @@ fn gas_estimation_for_subcalls() {
 				// Check that it fails with too little proof_size
 				let result = builder::bare_call(addr_caller)
 					.gas_limit(result_orig.gas_required.sub_proof_size(1))
-					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero())
+					.storage_deposit_limit(result_orig.storage_deposit.charge_or_zero().into())
 					.data(input.clone())
 					.build();
 				assert_err!(result.result, error);
@@ -3512,7 +3592,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// Set enough deposit limit for the child instantiate. This should succeed.
 		let result = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(callee_info_len + 2 + ED + 4 + 2)
+			.storage_deposit_limit((callee_info_len + 2 + ED + 4 + 2).into())
 			.data((1u32, &code_hash_callee, U256::from(callee_info_len + 2 + ED + 3 + 2)).encode())
 			.build();
 
@@ -3666,6 +3746,12 @@ fn locking_delegate_dependency_works() {
 		.map(|c| sp_core::H256(sp_io::hashing::keccak_256(c)))
 		.collect();
 
+	let hash2addr = |code_hash: &H256| {
+		let mut addr = H160::zero();
+		addr.as_bytes_mut().copy_from_slice(&code_hash.as_ref()[..20]);
+		addr
+	};
+
 	// Define inputs with various actions to test locking / unlocking delegate_dependencies.
 	// See the contract for more details.
 	let noop_input = (0u32, callee_hashes[0]);
@@ -3675,17 +3761,19 @@ fn locking_delegate_dependency_works() {
 
 	// Instantiate the caller contract with the given input.
 	let instantiate = |input: &(u32, H256)| {
+		let (action, code_hash) = input;
 		builder::bare_instantiate(Code::Upload(wasm_caller.clone()))
 			.origin(RuntimeOrigin::signed(ALICE_FALLBACK))
-			.data(input.encode())
+			.data((action, hash2addr(code_hash), code_hash).encode())
 			.build()
 	};
 
 	// Call contract with the given input.
 	let call = |addr_caller: &H160, input: &(u32, H256)| {
+		let (action, code_hash) = input;
 		builder::bare_call(*addr_caller)
 			.origin(RuntimeOrigin::signed(ALICE_FALLBACK))
-			.data(input.encode())
+			.data((action, hash2addr(code_hash), code_hash).encode())
 			.build()
 	};
 	const ED: u64 = 2000;
@@ -3702,7 +3790,7 @@ fn locking_delegate_dependency_works() {
 		// Upload all the delegated codes (they all have the same size)
 		let mut deposit = Default::default();
 		for code in callee_codes.iter() {
-			let CodeUploadReturnValue { deposit: deposit_per_code, .. } =
+			let CodeUploadReturnValue { deposit: deposit_per_code, code_hash } =
 				Contracts::bare_upload_code(
 					RuntimeOrigin::signed(ALICE_FALLBACK),
 					code.clone(),
@@ -3710,6 +3798,9 @@ fn locking_delegate_dependency_works() {
 				)
 				.unwrap();
 			deposit = deposit_per_code;
+			// Mock contract info by using first 20 bytes of code_hash as address.
+			let addr = hash2addr(&code_hash);
+			ContractInfoOf::<Test>::set(&addr, ContractInfo::new(&addr, 0, code_hash).ok());
 		}
 
 		// Instantiate should now work.
@@ -3746,7 +3837,11 @@ fn locking_delegate_dependency_works() {
 
 		// Locking self should fail.
 		assert_err!(
-			call(&addr_caller, &(1u32, self_code_hash)).result,
+			builder::bare_call(addr_caller)
+				.origin(RuntimeOrigin::signed(ALICE_FALLBACK))
+				.data((1u32, &addr_caller, self_code_hash).encode())
+				.build()
+				.result,
 			Error::<Test>::CannotAddSelfAsDelegateDependency
 		);
 
@@ -3784,8 +3879,8 @@ fn locking_delegate_dependency_works() {
 		// Locking a dependency with a storage limit too low should fail.
 		assert_err!(
 			builder::bare_call(addr_caller)
-				.storage_deposit_limit(dependency_deposit - 1)
-				.data(lock_delegate_dependency_input.encode())
+				.storage_deposit_limit((dependency_deposit - 1).into())
+				.data((1u32, hash2addr(&callee_hashes[0]), callee_hashes[0]).encode())
 				.build()
 				.result,
 			Error::<Test>::StorageDepositLimitExhausted
