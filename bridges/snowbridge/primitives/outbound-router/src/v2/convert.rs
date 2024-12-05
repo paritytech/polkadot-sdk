@@ -130,7 +130,7 @@ where
 		let fee_amount = self.extract_remote_fee()?;
 
 		// Get ENA reserve asset from WithdrawAsset.
-		let enas =
+		let mut enas =
 			match_expression!(self.peek(), Ok(WithdrawAsset(reserve_assets)), reserve_assets);
 		if enas.is_some() {
 			let _ = self.next();
@@ -144,6 +144,15 @@ where
 		);
 		if pnas.is_some() {
 			let _ = self.next();
+		}
+
+		// Try to get ENA again if it is after PNA
+		if enas.is_none() {
+			enas =
+				match_expression!(self.peek(), Ok(WithdrawAsset(reserve_assets)), reserve_assets);
+			if enas.is_some() {
+				let _ = self.next();
+			}
 		}
 		// Check AliasOrigin.
 		let origin_location = match_expression!(self.next()?, AliasOrigin(origin), origin)

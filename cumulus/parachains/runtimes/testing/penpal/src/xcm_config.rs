@@ -30,6 +30,7 @@ use super::{
 };
 use crate::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
 use assets_common::TrustBackedAssetsAsLocation;
+use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
@@ -45,7 +46,9 @@ use parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, TREA
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
 use snowbridge_router_primitives::inbound::EthereumLocationsConverterFor;
-use sp_runtime::traits::{AccountIdConversion, ConvertInto, Identity, TryConvertInto};
+use sp_runtime::traits::{
+	AccountIdConversion, ConvertInto, Identity, TrailingZeroInput, TryConvertInto,
+};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasOriginRootUsingFilter, AllowHrmpNotificationsFromRelayChain,
@@ -59,7 +62,10 @@ use xcm_builder::{
 	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
 	UsingComponents, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
-use xcm_executor::{traits::JustTry, XcmExecutor};
+use xcm_executor::{
+	traits::{ConvertLocation, JustTry},
+	XcmExecutor,
+};
 
 parameter_types! {
 	pub const RelayLocation: Location = Location::parent();
@@ -82,10 +88,34 @@ parameter_types! {
 		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
 }
 
+pub fn derived_from_here<AccountId>() -> AccountId
+where
+	AccountId: Decode + Eq + Clone,
+{
+	b"Here"
+		.using_encoded(|b| AccountId::decode(&mut TrailingZeroInput::new(b)))
+		.expect("infinite length input; no invalid inputs for type; qed")
+}
+
+/// A [`Location`] consisting of a single `Here` [`Junction`] will be converted to the
+///  here `AccountId`.
+pub struct HereIsPreset<AccountId>(PhantomData<AccountId>);
+impl<AccountId: Decode + Eq + Clone> ConvertLocation<AccountId> for HereIsPreset<AccountId> {
+	fn convert_location(location: &Location) -> Option<AccountId> {
+		if location.contains_parents_only(0) {
+			Some(derived_from_here::<AccountId>())
+		} else {
+			None
+		}
+	}
+}
+
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
+	// Here converts to `AccountId`.
+	HereIsPreset<AccountId>,
 	// The parent (Relay-chain) origin converts to the parent `AccountId`.
 	ParentIsPreset<AccountId>,
 	// Sibling parachain origins convert to AccountId via the `ParaId::into`.
