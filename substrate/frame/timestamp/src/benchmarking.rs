@@ -24,8 +24,8 @@ use frame_support::traits::OnFinalize;
 use frame_system::RawOrigin;
 use sp_storage::TrackedStorageKey;
 */
-use frame::{benchmarking::prelude::*, traits::TrackedStorageKey};
 use crate::*;
+use frame::{benchmarking::prelude::*, traits::TrackedStorageKey};
 
 const MAX_TIME: u32 = 100;
 
