@@ -1582,8 +1582,9 @@ async fn handle_actions<
 					session_info_provider,
 				)
 				.await?;
-
-				approval_voting_sender.send_messages(messages.into_iter()).await;
+				for mesasge in messages.into_iter() {
+					approval_voting_sender.send_unbounded_message(message);
+				}
 				let next_actions: Vec<Action> =
 					next_actions.into_iter().map(|v| v.clone()).chain(actions_iter).collect();
 
@@ -1668,6 +1669,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 
 	let mut approval_meta = Vec::with_capacity(all_blocks.len());
 	let mut messages = Vec::new();
+	let mut approvals = Vec::new();
 	let mut actions = Vec::new();
 
 	messages.push(ApprovalDistributionMessage::NewBlocks(Vec::new())); // dummy value.
@@ -1839,7 +1841,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 							if signatures_queued
 								.insert(approval_sig.signed_candidates_indices.clone())
 							{
-								messages.push(ApprovalDistributionMessage::DistributeApproval(
+								approvals.push(ApprovalDistributionMessage::DistributeApproval(
 									IndirectSignedApprovalVoteV2 {
 										block_hash,
 										candidate_indices: approval_sig.signed_candidates_indices,
@@ -1864,6 +1866,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 	}
 
 	messages[0] = ApprovalDistributionMessage::NewBlocks(approval_meta);
+	messages.extend(approvals.into_iter());
 	Ok((messages, actions))
 }
 
@@ -2466,12 +2469,7 @@ fn schedule_wakeup_action(
 				last_assignment_tick.map(|l| l + APPROVAL_DELAY).filter(|t| t > &tick_now),
 				next_no_show,
 			)
-			.map(|tick| Action::ScheduleWakeup {
-				block_hash,
-				block_number,
-				candidate_hash,
-				tick,
-			})
+			.map(|tick| Action::ScheduleWakeup { block_hash, block_number, candidate_hash, tick })
 		},
 		RequiredTranches::Pending { considered, next_no_show, clock_drift, .. } => {
 			// select the minimum of `next_no_show`, or the tick of the next non-empty tranche
