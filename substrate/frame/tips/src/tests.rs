@@ -539,8 +539,6 @@ fn test_migration_v4() {
 	s.top = data.into_iter().collect();
 
 	TestExternalities::new(s).execute_with(|| {
-		// use frame_support::traits::PalletInfoAccess;
-
 		let old_pallet = "Treasury";
 		let new_pallet = <Tips as PalletInfoAccess>::name();
 		storage::migration::move_pallet(new_pallet.as_bytes(), old_pallet.as_bytes());
@@ -552,8 +550,6 @@ fn test_migration_v4() {
 	});
 
 	TestExternalities::new(Storage::default()).execute_with(|| {
-		// use frame_support::traits::PalletInfoAccess;
-
 		let old_pallet = "Treasury";
 		let new_pallet = <Tips as PalletInfoAccess>::name();
 		storage::migration::move_pallet(new_pallet.as_bytes(), old_pallet.as_bytes());
@@ -622,8 +618,6 @@ fn report_awesome_and_tip_works_second_instance() {
 #[test]
 fn equal_entries_invariant() {
 	new_test_ext().execute_with(|| {
-		// use frame_support::pallet_prelude::DispatchError::Other;
-
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 3));
@@ -656,8 +650,6 @@ fn equal_entries_invariant() {
 #[test]
 fn finders_fee_invariant() {
 	new_test_ext().execute_with(|| {
-		// use frame_support::pallet_prelude::DispatchError::Other;
-
 		// Breaks invariant by having a zero deposit.
 		TipReportDepositBase::set(0);
 
@@ -677,8 +669,6 @@ fn finders_fee_invariant() {
 #[test]
 fn reasons_invariant() {
 	new_test_ext().execute_with(|| {
-		// use frame_support::pallet_prelude::DispatchError::Other;
-
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 0));

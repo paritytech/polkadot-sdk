@@ -94,8 +94,6 @@ impl<T: UnlockConfig<I>, I: 'static> UnreserveDeposits<T, I> {
 	///   reserved balance by this pallet
 	/// * `frame_support::weights::Weight`: The weight of this operation.
 	fn get_deposits() -> (BTreeMap<T::AccountId, BalanceOf<T, I>>, Weight) {
-		// use sp_core::Get;
-
 		let mut tips_len = 0;
 		let account_deposits: BTreeMap<T::AccountId, BalanceOf<T, I>> = Tips::<T, I>::iter()
 			.map(|(_hash, open_tip)| open_tip)
@@ -165,8 +163,6 @@ where
 
 	/// Executes the migration, unreserving funds that are locked in Tip deposits.
 	fn on_runtime_upgrade() -> Weight {
-		// use frame_support::traits::Get;
-
 		// Get staked and deposited balances as reported by this pallet.
 		let (account_deposits, initial_reads) = Self::get_deposits();
 
@@ -282,15 +278,15 @@ mod test {
 			assert_eq!(
 				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_0),
 				tipper_0_initial_reserved +
-					<<Test as crate::Config>::TipReportDepositBase as frame::prelude::TypedGet>::get() +
-					<<Test as crate::Config>::DataDepositPerByte as frame::prelude::TypedGet>::get() *
-						tip_0_reason.len() as u64
+					<<Test as crate::Config>::TipReportDepositBase as TypedGet>::get() +
+					<<Test as crate::Config>::DataDepositPerByte as frame::prelude::TypedGet>::get(
+					) * tip_0_reason.len() as u64
 			);
 			assert_eq!(
 				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_1),
 				tipper_1_initial_reserved +
-					<<Test as crate::Config>::TipReportDepositBase as frame::prelude::TypedGet>::get() +
-					<<Test as crate::Config>::DataDepositPerByte as frame::prelude::TypedGet>::get() *
+					<<Test as crate::Config>::TipReportDepositBase as TypedGet>::get() +
+					<<Test as crate::Config>::DataDepositPerByte as TypedGet>::get() *
 						tip_1_reason.len() as u64
 			);
 
