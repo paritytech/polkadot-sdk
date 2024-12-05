@@ -18716,6 +18716,7 @@ dependencies = [
  "sc-rpc-api",
  "sc-rpc-server",
  "sc-rpc-spec-v2",
+ "sc-runtime-utilities",
  "sc-service",
  "sc-state-db",
  "sc-statement-store",
