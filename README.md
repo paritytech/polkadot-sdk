@@ -71,7 +71,7 @@ Take a look at the issues labeled with [`mentor`](https://github.com/paritytech/
 We always recognize valuable contributions by proposing an on-chain tip to the Polkadot network as a token of our
 appreciation.
 
-## Polkadot Fellowship
+## Polkadot Fellowship 
 
 Development in this repo usually goes hand in hand with the `fellowship` organization. In short,
 this repository provides all the SDK pieces needed to build both Polkadot and its parachains. But,
