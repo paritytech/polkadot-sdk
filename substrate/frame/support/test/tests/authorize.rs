@@ -144,7 +144,7 @@ pub mod pallet1 {
 
 		#[cfg(feature = "frame-feature-testing")]
 		#[pallet::call_index(3)]
-		#[pallet::authorize(|_source| Ok(ValidTransaction::default()))]
+		#[pallet::authorize(|_source| Ok((ValidTransaction::default(), Weight::zero())))]
 		#[pallet::weight_of_authorize(CALL_4_AUTH_WEIGHT)]
 		#[pallet::weight(CALL_4_WEIGHT)]
 		pub fn call4(origin: OriginFor<T>) -> DispatchResult {
@@ -395,7 +395,7 @@ fn valid_call_weight_test() {
 			dispatch_success: true,
 			call_weight: pallet1::CALL_4_WEIGHT,
 			ext_weight: pallet1::CALL_4_AUTH_WEIGHT,
-			actual_weight: pallet1::CALL_4_WEIGHT + pallet3::CALL_4_AUTH_WEIGHT,
+			actual_weight: pallet1::CALL_4_WEIGHT + pallet1::CALL_4_AUTH_WEIGHT,
 		},
 	];
 
