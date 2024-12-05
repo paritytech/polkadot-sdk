@@ -595,7 +595,7 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 				quote! { #( #docs )* }
 			};
 			let availability = if func.is_stable {
-				let info = format!("\n# Stable API\nThis API is stable and will never change.",);
+				let info = "\n# Stable API\nThis API is stable and will never change.";
 				quote! { #[doc = #info] }
 			} else {
 				let info =
