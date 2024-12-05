@@ -18,28 +18,20 @@
 //! Treasury pallet tests.
 
 #![cfg(test)]
-/*
-use sp_core::H256;
-
-use sp_runtime::{
-	traits::{BadOrigin, BlakeTwo256, IdentityLookup},
-	BuildStorage, Perbill, Permill,
-};
-use sp_storage::Storage;
-
-use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
-	storage::StoragePrefixedMap,
-	traits::{
-		tokens::{PayFromAccount, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, IntegrityTest, SortedMembers, StorageVersion,
-	},
-	PalletId,
-};
-*/
-use frame::{testing_prelude::*, runtime::{testing_prelude::DispatchError::Other, prelude::{storage::{migration, StoragePrefixedMap}}}, traits::{PalletInfoAccess, IdentityLookup, NeverEnsureOrigin}, arithmetic::{Perbill, Permill}, deps::frame_support::{PalletId, traits::tokens::{PayFromAccount, UnityAssetBalanceConversion}}};
 use super::*;
 use crate::{self as pallet_tips, Event as TipEvent};
+use frame::{
+	arithmetic::{Perbill, Permill},
+	testing_prelude::*,
+	traits::{
+		tokens::{PayFromAccount, UnityAssetBalanceConversion},
+		IdentityLookup, NeverEnsureOrigin, PalletInfoAccess,
+	},
+};
+use storage::StoragePrefixedMap as _;
+
+#[cfg(feature = "try-runtime")]
+use crate::DispatchError::Other;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -197,6 +189,7 @@ pub fn new_test_ext() -> TestExternalities {
 pub fn build_and_execute(test: impl FnOnce() -> ()) {
 	new_test_ext().execute_with(|| {
 		test();
+		#[cfg(feature = "try-runtime")]
 		Tips::do_try_state().expect("All invariants must hold after a test");
 	});
 }
@@ -550,10 +543,7 @@ fn test_migration_v4() {
 
 		let old_pallet = "Treasury";
 		let new_pallet = <Tips as PalletInfoAccess>::name();
-		migration::move_pallet(
-			new_pallet.as_bytes(),
-			old_pallet.as_bytes(),
-		);
+		storage::migration::move_pallet(new_pallet.as_bytes(), old_pallet.as_bytes());
 		StorageVersion::new(0).put::<Tips>();
 
 		crate::migrations::v4::pre_migrate::<Test, Tips, _>(old_pallet);
@@ -566,10 +556,7 @@ fn test_migration_v4() {
 
 		let old_pallet = "Treasury";
 		let new_pallet = <Tips as PalletInfoAccess>::name();
-		migration::move_pallet(
-			new_pallet.as_bytes(),
-			old_pallet.as_bytes(),
-		);
+		storage::migration::move_pallet(new_pallet.as_bytes(), old_pallet.as_bytes());
 		StorageVersion::new(0).put::<Tips>();
 
 		crate::migrations::v4::pre_migrate::<Test, Tips, _>(old_pallet);
@@ -658,6 +645,7 @@ fn equal_entries_invariant() {
 		pallet_tips::Tips::<Test>::insert(hash1, tip);
 
 		// Invariant violated
+		#[cfg(feature = "try-runtime")]
 		assert_eq!(
 			Tips::do_try_state(),
 			Err(Other("Equal length of entries in `Tips` and `Reasons` Storage"))
@@ -678,6 +666,7 @@ fn finders_fee_invariant() {
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"".to_vec(), 3));
 
 		// Invariant violated
+		#[cfg(feature = "try-runtime")]
 		assert_eq!(
 			Tips::do_try_state(),
 			Err(Other("Tips with `finders_fee` should have non-zero `deposit`."))
@@ -704,6 +693,7 @@ fn reasons_invariant() {
 		pallet_tips::Tips::<Test>::insert(hash[0], open_tip);
 
 		// Invariant violated
+		#[cfg(feature = "try-runtime")]
 		assert_eq!(Tips::do_try_state(), Err(Other("no reason for this tip")));
 	})
 }

@@ -61,29 +61,16 @@ pub mod migrations;
 pub mod weights;
 
 extern crate alloc;
-use frame::{prelude::*, traits::{SortedMembers, ContainsLengthBound, OnUnbalanced, BadOrigin, ExistenceRequirement::KeepAlive, ReservableCurrency, AccountIdConversion, Currency}, arithmetic::Percent, runtime::prelude::storage::migration::storage_key_iter};
-/*
-use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
-	Percent, RuntimeDebug,
-};
-*/
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-/*
-use frame_support::{
-	ensure,
+use frame::{
+	arithmetic::Percent,
+	runtime::prelude::*,
 	traits::{
-		ContainsLengthBound, Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get,
-		OnUnbalanced, ReservableCurrency, SortedMembers,
+		AccountIdConversion, BadOrigin, ContainsLengthBound, Currency,
+		ExistenceRequirement::KeepAlive, OnUnbalanced, ReservableCurrency, SortedMembers,
 	},
-	Parameter,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
-*/
-
-#[cfg(any(feature = "try-runtime", test))]
-use frame::try_runtime::TryRuntimeError;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -121,14 +108,10 @@ pub struct OpenTip<
 	finders_fee: bool,
 }
 
-// #[frame_support::pallet]
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
-	/*
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	*/
+
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
@@ -488,7 +471,7 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), frame::try_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -622,12 +605,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			tips: Vec<(AccountId, Balance)>,
 		}
 
-		// use frame_support::{migration::storage_key_iter, Twox64Concat};
-
 		let zero_account = T::AccountId::decode(&mut TrailingZeroInput::new(&[][..]))
 			.expect("infinite input; qed");
 
-		for (hash, old_tip) in storage_key_iter::<
+		for (hash, old_tip) in storage::migration::storage_key_iter::<
 			T::Hash,
 			OldOpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>,
 			Twox64Concat,
@@ -659,14 +640,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// 1. The number of entries in `Tips` should be equal to `Reasons`.
 	/// 2. Reasons exists for each Tip[`OpenTip.reason`].
 	/// 3. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater than zero.
-	#[cfg(any(feature = "try-runtime", test))]
-	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+	#[cfg(feature = "try-runtime")]
+	pub fn do_try_state() -> Result<(), frame::try_runtime::TryRuntimeError> {
 		let reasons = Reasons::<T, I>::iter_keys().collect::<Vec<_>>();
 		let tips = Tips::<T, I>::iter_keys().collect::<Vec<_>>();
 
 		ensure!(
 			reasons.len() == tips.len(),
-			TryRuntimeError::Other("Equal length of entries in `Tips` and `Reasons` Storage")
+			frame::try_runtime::TryRuntimeError::Other(
+				"Equal length of entries in `Tips` and `Reasons` Storage"
+			)
 		);
 
 		for tip in Tips::<T, I>::iter_keys() {
@@ -675,7 +658,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			if open_tip.finders_fee {
 				ensure!(
 					!open_tip.deposit.is_zero(),
-					TryRuntimeError::Other(
+					frame::try_runtime::TryRuntimeError::Other(
 						"Tips with `finders_fee` should have non-zero `deposit`."
 					)
 				)
@@ -683,7 +666,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			ensure!(
 				reasons.contains(&open_tip.reason),
-				TryRuntimeError::Other("no reason for this tip")
+				frame::try_runtime::TryRuntimeError::Other("no reason for this tip")
 			);
 		}
 		Ok(())

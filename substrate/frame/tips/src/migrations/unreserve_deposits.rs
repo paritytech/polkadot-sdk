@@ -20,17 +20,11 @@
 
 use alloc::collections::btree_map::BTreeMap;
 use core::iter::Sum;
-/*
-use frame_support::{
-	pallet_prelude::OptionQuery,
+use frame::{
+	runtime::prelude::*,
 	storage_alias,
-	traits::{Currency, LockableCurrency, OnRuntimeUpgrade, ReservableCurrency},
-	weights::RuntimeDbWeight,
-	Parameter, Twox64Concat,
+	traits::{Currency, LockableCurrency, ReservableCurrency},
 };
-use sp_runtime::{traits::Zero, Saturating};
-*/
-use frame::{prelude::*, storage_alias, traits::{Currency, LockableCurrency, ReservableCurrency}, runtime::prelude::weights::{Weight, RuntimeDbWeight}};
 
 #[cfg(feature = "try-runtime")]
 const LOG_TARGET: &str = "runtime::tips::migrations::unreserve_deposits";
@@ -60,7 +54,7 @@ pub trait UnlockConfig<I>: 'static {
 	/// [`construct_runtime!`](frame_support::construct_runtime).
 	type PalletName: Get<&'static str>;
 	/// The DB weight as configured in the runtime to calculate the correct weight.
-	type DbWeight: Get<RuntimeDbWeight>;
+	type DbWeight: Get<weights::RuntimeDbWeight>;
 	/// The block number as configured in the runtime.
 	type BlockNumber: Parameter + Zero + Copy + Ord;
 }
@@ -136,9 +130,9 @@ where
 	/// Fails with a `TryRuntimeError` if somehow the amount reserved by this pallet is greater than
 	/// the actual total reserved amount for any accounts.
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, frame::try_runtime::TryRuntimeError> {
 		use codec::Encode;
-		use frame_support::ensure;
+		//use frame_support::ensure;
 
 		// Get the Tips pallet view of balances it has reserved
 		let (account_deposits, _) = Self::get_deposits();
@@ -193,7 +187,7 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(
 		account_reserved_before_bytes: alloc::vec::Vec<u8>,
-	) -> Result<(), sp_runtime::TryRuntimeError> {
+	) -> Result<(), frame::try_runtime::TryRuntimeError> {
 		use codec::Decode;
 
 		let account_reserved_before = BTreeMap::<T::AccountId, BalanceOf<T, I>>::decode(
@@ -233,13 +227,8 @@ where
 #[cfg(all(feature = "try-runtime", test))]
 mod test {
 	use super::*;
-	use crate::{
-		migrations::unreserve_deposits::UnreserveDeposits,
-		tests::{new_test_ext, Balances, RuntimeOrigin, Test, Tips},
-	};
-	use frame_support::{assert_ok, parameter_types, traits::TypedGet};
-	use frame_system::pallet_prelude::BlockNumberFor;
-	use sp_core::ConstU64;
+	use crate::tests::{new_test_ext, Balances, RuntimeOrigin, Test, Tips};
+	use frame::testing_prelude::*;
 
 	parameter_types! {
 		const PalletName: &'static str = "Tips";
@@ -250,7 +239,7 @@ mod test {
 		type Currency = Balances;
 		type TipReportDepositBase = ConstU64<1>;
 		type DataDepositPerByte = ConstU64<1>;
-		type Hash = sp_core::H256;
+		type Hash = crate::H256;
 		type AccountId = u128;
 		type BlockNumber = BlockNumberFor<Test>;
 		type DbWeight = ();
@@ -293,15 +282,15 @@ mod test {
 			assert_eq!(
 				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_0),
 				tipper_0_initial_reserved +
-					<Test as crate::Config>::TipReportDepositBase::get() +
-					<Test as crate::Config>::DataDepositPerByte::get() *
+					<<Test as crate::Config>::TipReportDepositBase as frame::prelude::TypedGet>::get() +
+					<<Test as crate::Config>::DataDepositPerByte as frame::prelude::TypedGet>::get() *
 						tip_0_reason.len() as u64
 			);
 			assert_eq!(
 				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_1),
 				tipper_1_initial_reserved +
-					<Test as crate::Config>::TipReportDepositBase::get() +
-					<Test as crate::Config>::DataDepositPerByte::get() *
+					<<Test as crate::Config>::TipReportDepositBase as frame::prelude::TypedGet>::get() +
+					<<Test as crate::Config>::DataDepositPerByte as frame::prelude::TypedGet>::get() *
 						tip_1_reason.len() as u64
 			);
 

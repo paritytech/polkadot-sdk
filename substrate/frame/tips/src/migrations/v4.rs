@@ -15,23 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::super::LOG_TARGET;
 use core::str;
 
-// use sp_io::hashing::twox_128;
-
-use super::super::LOG_TARGET;
-/*
-use frame_support::{
-	storage::StoragePrefixedMap,
-	traits::{
-		Get, GetStorageVersion, PalletInfoAccess, StorageVersion,
-		STORAGE_VERSION_STORAGE_KEY_POSTFIX,
-	},
-	weights::Weight,
-};
-*/
-use frame::{prelude::*, traits::STORAGE_VERSION_STORAGE_KEY_POSTFIX, runtime::prelude::{weights::Weight, storage::{migration, KeyPrefixIterator, StoragePrefixedMap}}};
 use crate as pallet_tips;
+use frame::{runtime::prelude::*, traits::STORAGE_VERSION_STORAGE_KEY_POSTFIX};
+use storage::StoragePrefixedMap as _;
 
 /// Migrate the entire storage of this pallet to a new prefix.
 ///
@@ -65,7 +54,7 @@ pub fn migrate<T: pallet_tips::Config, P: GetStorageVersion + PalletInfoAccess, 
 
 	if on_chain_storage_version < 4 {
 		let storage_prefix = pallet_tips::Tips::<T>::storage_prefix();
-		migration::move_storage_from_pallet(
+		storage::migration::move_storage_from_pallet(
 			storage_prefix,
 			old_pallet_name.as_bytes(),
 			new_pallet_name.as_bytes(),
@@ -73,7 +62,7 @@ pub fn migrate<T: pallet_tips::Config, P: GetStorageVersion + PalletInfoAccess, 
 		log_migration("migration", storage_prefix, old_pallet_name, new_pallet_name);
 
 		let storage_prefix = pallet_tips::Reasons::<T>::storage_prefix();
-		migration::move_storage_from_pallet(
+		storage::migration::move_storage_from_pallet(
 			storage_prefix,
 			old_pallet_name.as_bytes(),
 			new_pallet_name.as_bytes(),
@@ -119,7 +108,7 @@ pub fn pre_migrate<
 	let new_pallet_prefix = twox_128(new_pallet_name.as_bytes());
 	let storage_version_key = twox_128(STORAGE_VERSION_STORAGE_KEY_POSTFIX);
 
-	let mut new_pallet_prefix_iter = KeyPrefixIterator::new(
+	let mut new_pallet_prefix_iter = storage::KeyPrefixIterator::new(
 		new_pallet_prefix.to_vec(),
 		new_pallet_prefix.to_vec(),
 		|key| Ok(key.to_vec()),
@@ -158,26 +147,22 @@ pub fn post_migrate<
 	// Assert that no `Tips` and `Reasons` storages remains at the old prefix.
 	let old_pallet_prefix = twox_128(old_pallet_name.as_bytes());
 	let old_tips_key = [&old_pallet_prefix, &twox_128(storage_prefix_tips)[..]].concat();
-	let old_tips_key_iter = KeyPrefixIterator::new(
-		old_tips_key.to_vec(),
-		old_tips_key.to_vec(),
-		|_| Ok(()),
-	);
+	let old_tips_key_iter =
+		storage::KeyPrefixIterator::new(old_tips_key.to_vec(), old_tips_key.to_vec(), |_| Ok(()));
 	assert_eq!(old_tips_key_iter.count(), 0);
 
 	let old_reasons_key = [&old_pallet_prefix, &twox_128(storage_prefix_reasons)[..]].concat();
-	let old_reasons_key_iter = KeyPrefixIterator::new(
-		old_reasons_key.to_vec(),
-		old_reasons_key.to_vec(),
-		|_| Ok(()),
-	);
+	let old_reasons_key_iter =
+		storage::KeyPrefixIterator::new(old_reasons_key.to_vec(), old_reasons_key.to_vec(), |_| {
+			Ok(())
+		});
 	assert_eq!(old_reasons_key_iter.count(), 0);
 
 	// Assert that the `Tips` and `Reasons` storages (if they exist) have been moved to the new
 	// prefix.
 	// NOTE: storage_version_key is already in the new prefix.
 	let new_pallet_prefix = twox_128(new_pallet_name.as_bytes());
-	let new_pallet_prefix_iter = KeyPrefixIterator::new(
+	let new_pallet_prefix_iter = storage::KeyPrefixIterator::new(
 		new_pallet_prefix.to_vec(),
 		new_pallet_prefix.to_vec(),
 		|_| Ok(()),
