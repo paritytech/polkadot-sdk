@@ -419,7 +419,6 @@ impl pallet_message_queue::Config for Runtime {
 			RuntimeCall,
 		>,
 		EthereumOutboundQueue,
-		EthereumOutboundQueue,
 	>;
 	type Size = u32;
 	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:

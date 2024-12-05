@@ -392,7 +392,7 @@ impl pallet_message_queue::Config for Runtime {
 	type MessageProcessor =
 		pallet_message_queue::mock_helpers::NoopMessageProcessor<AggregateMessageOrigin>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type MessageProcessor = bridge_hub_common::BridgeHubMessageRouter<
+	type MessageProcessor = bridge_hub_common::BridgeHubDualMessageRouter<
 		xcm_builder::ProcessXcmMessage<
 			AggregateMessageOrigin,
 			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
