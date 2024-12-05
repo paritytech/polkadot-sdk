@@ -505,7 +505,7 @@ impl<T: MinerConfig> Miner<T> {
 		let mut edges_trimmed = 0;
 
 		// Reduce (requires round-trip to staked form) and ensures the max backer per winner bound
-        // requirements are met.
+		// requirements are met.
 		let sorted_assignments = {
 			// convert to staked and reduce.
 			let mut staked = assignment_ratio_to_staked_normalized(assignments, &stake_of)?;
@@ -563,7 +563,7 @@ impl<T: MinerConfig> Miner<T> {
 						})
 						.collect();
 
-					// remove dropped edge from assignments.
+					// remove lowest stake edges calculated above from assignments.
 					staked.iter_mut().for_each(|assignment| {
 						if filtered.contains(&assignment.who) {
 							assignment.distribution.retain(|(t, _)| t != target);
@@ -583,6 +583,7 @@ impl<T: MinerConfig> Miner<T> {
 				expected_ok.is_ok()
 			});
 
+			// convert back.
 			assignment_staked_to_ratio_normalized(staked)?
 		};
 
