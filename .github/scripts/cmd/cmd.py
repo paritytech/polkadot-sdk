@@ -58,7 +58,7 @@ bench_example = '''**Examples**:
  %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
-parser_bench = subparsers.add_parser('bench', help='Runs benchmarks', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser_bench = subparsers.add_parser('bench', help='Runs benchmarks (old CLI)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
 
 for arg, config in common_args.items():
     parser_bench.add_argument(arg, **config)
@@ -69,7 +69,7 @@ parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchma
 
 
 """
-BENCH OLD
+BENCH OMNI
 """
 
 bench_example = '''**Examples**:
@@ -86,7 +86,7 @@ bench_example = '''**Examples**:
  %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
-parser_bench_old = subparsers.add_parser('bench-old', help='Runs benchmarks (Old CLI)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser_bench_old = subparsers.add_parser('bench-omni', help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
 
 for arg, config in common_args.items():
     parser_bench_old.add_argument(arg, **config)
