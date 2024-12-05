@@ -15,32 +15,33 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{Config, MaxPermanentSlots, MaxTemporarySlots, Pallet, LOG_TARGET};
-use frame_support::traits::{Get, GetStorageVersion, UncheckedOnRuntimeUpgrade};
+use frame_support::traits::{Get, GetStorageVersion, OnRuntimeUpgrade};
 
-#[cfg(feature = "try-runtime")]
-use alloc::vec::Vec;
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+#[cfg(feature = "try-runtime")]
+use sp_std::vec::Vec;
 
 pub mod v1 {
+
 	use super::*;
-	pub struct VersionUncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
-	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
+	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let on_chain_version = Pallet::<T>::on_chain_storage_version();
-			ensure!(on_chain_version < 1, "assigned_slots::MigrateToV1 migration can be deleted");
+			let onchain_version = Pallet::<T>::on_chain_storage_version();
+			ensure!(onchain_version < 1, "assigned_slots::MigrateToV1 migration can be deleted");
 			Ok(Default::default())
 		}
 
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			let on_chain_version = Pallet::<T>::on_chain_storage_version();
-			if on_chain_version < 1 {
+			let onchain_version = Pallet::<T>::on_chain_storage_version();
+			if onchain_version < 1 {
 				const MAX_PERMANENT_SLOTS: u32 = 100;
 				const MAX_TEMPORARY_SLOTS: u32 = 100;
 
-				MaxPermanentSlots::<T>::put(MAX_PERMANENT_SLOTS);
-				MaxTemporarySlots::<T>::put(MAX_TEMPORARY_SLOTS);
+				<MaxPermanentSlots<T>>::put(MAX_PERMANENT_SLOTS);
+				<MaxTemporarySlots<T>>::put(MAX_TEMPORARY_SLOTS);
 				// Return the weight consumed by the migration.
 				T::DbWeight::get().reads_writes(1, 3)
 			} else {
@@ -51,21 +52,21 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			let on_chain_version = Pallet::<T>::on_chain_storage_version();
-			ensure!(on_chain_version == 1, "assigned_slots::MigrateToV1 needs to be run");
-			assert_eq!(MaxPermanentSlots::<T>::get(), 100);
-			assert_eq!(MaxTemporarySlots::<T>::get(), 100);
+			let onchain_version = Pallet::<T>::on_chain_storage_version();
+			ensure!(onchain_version == 1, "assigned_slots::MigrateToV1 needs to be run");
+			assert_eq!(<MaxPermanentSlots<T>>::get(), 100);
+			assert_eq!(<MaxTemporarySlots<T>>::get(), 100);
 			Ok(())
 		}
 	}
 
-	/// [`VersionUncheckedMigrateToV1`] wrapped in a
+	/// [`MigrateToV1`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
 	/// migration is only performed when on-chain version is 0.
-	pub type MigrateToV1<T> = frame_support::migrations::VersionedMigration<
+	pub type VersionCheckedMigrateToV1<T> = frame_support::migrations::VersionedMigration<
 		0,
 		1,
-		VersionUncheckedMigrateToV1<T>,
+		MigrateToV1<T>,
 		Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;

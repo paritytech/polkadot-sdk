@@ -38,7 +38,7 @@
 #![allow(unused_imports)]
 
 use frame_support::{traits::Get, weights::Weight};
-use core::marker::PhantomData;
+use sp_std::marker::PhantomData;
 
 /// Weight functions for `pallet_session`.
 pub struct WeightInfo<T>(PhantomData<T>);

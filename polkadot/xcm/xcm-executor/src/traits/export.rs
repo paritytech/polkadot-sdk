@@ -20,7 +20,7 @@ use xcm::latest::prelude::*;
 /// spoofed origin. This essentially defines the behaviour of the `ExportMessage` XCM instruction.
 ///
 /// This is quite different to `SendXcm`; `SendXcm` assumes that the local side's location will be
-/// preserved to be represented as the value of the Origin register during the message's execution.
+/// preserved to be represented as the value of the Origin register in the messages execution.
 ///
 /// This trait on the other hand assumes that we do not necessarily want the Origin register to
 /// contain the local (i.e. the caller chain's) location, since it will generally be exporting a
@@ -44,15 +44,15 @@ pub trait ExportXcm {
 	/// The `destination` and `message` must be `Some` (or else an error will be returned) and they
 	/// may only be consumed if the `Err` is not `NotApplicable`.
 	///
-	/// If it is not a destination that can be reached with this type, but possibly could be with
-	/// others, then this *MUST* return `NotApplicable`. Any other error will cause the tuple
+	/// If it is not a destination which can be reached with this type but possibly could by others,
+	/// then this *MUST* return `NotApplicable`. Any other error will cause the tuple
 	/// implementation (used to compose routing systems from different delivery agents) to exit
 	/// early without trying alternative means of delivery.
 	fn validate(
 		network: NetworkId,
 		channel: u32,
-		universal_source: &mut Option<InteriorLocation>,
-		destination: &mut Option<InteriorLocation>,
+		universal_source: &mut Option<InteriorMultiLocation>,
+		destination: &mut Option<InteriorMultiLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket>;
 
@@ -71,11 +71,11 @@ impl ExportXcm for Tuple {
 	fn validate(
 		network: NetworkId,
 		channel: u32,
-		universal_source: &mut Option<InteriorLocation>,
-		destination: &mut Option<InteriorLocation>,
+		universal_source: &mut Option<InteriorMultiLocation>,
+		destination: &mut Option<InteriorMultiLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		let mut maybe_cost: Option<Assets> = None;
+		let mut maybe_cost: Option<MultiAssets> = None;
 		let one_ticket: Self::Ticket = (for_tuples! { #(
 			if maybe_cost.is_some() {
 				None
@@ -108,19 +108,19 @@ impl ExportXcm for Tuple {
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
 pub fn validate_export<T: ExportXcm>(
 	network: NetworkId,
 	channel: u32,
-	universal_source: InteriorLocation,
-	dest: InteriorLocation,
+	universal_source: InteriorMultiLocation,
+	dest: InteriorMultiLocation,
 	msg: Xcm<()>,
 ) -> SendResult<T::Ticket> {
 	T::validate(network, channel, &mut Some(universal_source), &mut Some(dest), &mut Some(msg))
 }
 
 /// Convenience function for using a `SendXcm` implementation. Just interprets the `dest` and wraps
-/// both in `Some` before passing them as mutable references into `T::send_xcm`.
+/// both in `Some` before passing them as as mutable references into `T::send_xcm`.
 ///
 /// Returns either `Ok` with the price of the delivery, or `Err` with the reason why the message
 /// could not be sent.
@@ -130,10 +130,10 @@ pub fn validate_export<T: ExportXcm>(
 pub fn export_xcm<T: ExportXcm>(
 	network: NetworkId,
 	channel: u32,
-	universal_source: InteriorLocation,
-	dest: InteriorLocation,
+	universal_source: InteriorMultiLocation,
+	dest: InteriorMultiLocation,
 	msg: Xcm<()>,
-) -> Result<(XcmHash, Assets), SendError> {
+) -> Result<(XcmHash, MultiAssets), SendError> {
 	let (ticket, price) = T::validate(
 		network,
 		channel,

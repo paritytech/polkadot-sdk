@@ -15,10 +15,16 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::prepare::PrepareJobKind;
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParams;
-use std::{fmt, sync::Arc, time::Duration};
+use sp_core::blake2_256;
+use std::{
+	cmp::{Eq, PartialEq},
+	fmt,
+	sync::Arc,
+	time::Duration,
+};
 
 /// A struct that carries the exhaustive set of data to prepare an artifact out of plain
 /// Wasm binary
@@ -26,9 +32,9 @@ use std::{fmt, sync::Arc, time::Duration};
 /// Should be cheap to clone.
 #[derive(Clone, Encode, Decode)]
 pub struct PvfPrepData {
-	/// Wasm code (maybe compressed)
-	maybe_compressed_code: Arc<Vec<u8>>,
-	/// Wasm code hash.
+	/// Wasm code (uncompressed)
+	code: Arc<Vec<u8>>,
+	/// Wasm code hash
 	code_hash: ValidationCodeHash,
 	/// Executor environment parameters for the session for which artifact is prepared
 	executor_params: Arc<ExecutorParams>,
@@ -46,20 +52,20 @@ impl PvfPrepData {
 		prep_timeout: Duration,
 		prep_kind: PrepareJobKind,
 	) -> Self {
-		let maybe_compressed_code = Arc::new(code);
-		let code_hash = sp_crypto_hashing::blake2_256(&maybe_compressed_code).into();
+		let code = Arc::new(code);
+		let code_hash = blake2_256(&code).into();
 		let executor_params = Arc::new(executor_params);
-		Self { maybe_compressed_code, code_hash, executor_params, prep_timeout, prep_kind }
+		Self { code, code_hash, executor_params, prep_timeout, prep_kind }
 	}
 
-	/// Returns validation code hash
+	/// Returns validation code hash for the PVF
 	pub fn code_hash(&self) -> ValidationCodeHash {
 		self.code_hash
 	}
 
-	/// Returns PVF code blob
-	pub fn maybe_compressed_code(&self) -> Arc<Vec<u8>> {
-		self.maybe_compressed_code.clone()
+	/// Returns PVF code
+	pub fn code(&self) -> Arc<Vec<u8>> {
+		self.code.clone()
 	}
 
 	/// Returns executor params
@@ -80,9 +86,9 @@ impl PvfPrepData {
 	/// Creates a structure for tests.
 	#[cfg(feature = "test-utils")]
 	pub fn from_discriminator_and_timeout(num: u32, timeout: Duration) -> Self {
-		let discriminator_buf = num.to_le_bytes().to_vec();
+		let descriminator_buf = num.to_le_bytes().to_vec();
 		Self::from_code(
-			discriminator_buf,
+			descriminator_buf,
 			ExecutorParams::default(),
 			timeout,
 			PrepareJobKind::Compilation,
@@ -109,7 +115,7 @@ impl fmt::Debug for PvfPrepData {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(
 			f,
-			"Pvf {{ code: [...], code_hash: {:?}, executor_params: {:?}, prep_timeout: {:?} }}",
+			"Pvf {{ code, code_hash: {:?}, executor_params: {:?}, prep_timeout: {:?} }}",
 			self.code_hash, self.executor_params, self.prep_timeout
 		)
 	}

@@ -26,9 +26,9 @@ impl<K, V, S> StorageDecodeLength for BoundedBTreeMap<K, V, S> {}
 pub mod test {
 	use super::*;
 	use crate::Twox128;
-	use alloc::collections::btree_map::BTreeMap;
 	use frame_support::traits::{ConstU32, Get};
 	use sp_io::TestExternalities;
+	use sp_std::collections::btree_map::BTreeMap;
 
 	#[crate::storage_alias]
 	type Foo = StorageValue<Prefix, BoundedBTreeMap<u32, (), ConstU32<7>>>;
@@ -78,17 +78,6 @@ pub mod test {
 			assert!(FooDoubleMap::decode_len(2, 1).is_none());
 			assert!(FooDoubleMap::decode_len(1, 2).is_none());
 			assert!(FooDoubleMap::decode_len(2, 2).is_none());
-		});
-
-		TestExternalities::default().execute_with(|| {
-			let bounded = boundedmap_from_keys::<u32, ConstU32<7>>(&[1, 2, 3]);
-			FooDoubleMap::insert(1, 1, bounded.clone());
-			FooDoubleMap::insert(2, 2, bounded); // duplicate value
-
-			assert_eq!(FooDoubleMap::decode_len(1, 1).unwrap(), 3);
-			assert_eq!(FooDoubleMap::decode_len(2, 2).unwrap(), 3);
-			assert!(FooDoubleMap::decode_len(2, 1).is_none());
-			assert!(FooDoubleMap::decode_len(1, 2).is_none());
 		});
 	}
 }

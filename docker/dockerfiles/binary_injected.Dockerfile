@@ -2,7 +2,7 @@ FROM docker.io/parity/base-bin
 
 # This file allows building a Generic container image
 # based on one or multiple pre-built Linux binaries.
-# Some defaults are set to polkadot but all can be overridden.
+# Some defaults are set to polkadot but all can be overriden.
 
 SHELL ["/bin/bash", "-c"]
 
@@ -32,7 +32,7 @@ LABEL io.parity.image.authors=${AUTHORS} \
 USER root
 WORKDIR /app
 
-# add binary to docker image
+# add polkadot binary to docker image
 # sample for polkadot: COPY ./polkadot ./polkadot-*-worker /usr/local/bin/
 COPY entrypoint.sh .
 COPY "bin/*" "/usr/local/bin/"

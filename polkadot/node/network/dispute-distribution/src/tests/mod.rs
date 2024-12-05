@@ -24,15 +24,15 @@ use std::{
 };
 
 use assert_matches::assert_matches;
-use codec::{Decode, Encode};
 use futures::{
 	channel::oneshot,
 	future::{poll_fn, ready},
 	pin_mut, Future,
 };
 use futures_timer::Delay;
+use parity_scale_codec::{Decode, Encode};
 
-use sc_network::{config::RequestResponseConfig, ProtocolName};
+use sc_network::config::RequestResponseConfig;
 
 use polkadot_node_network_protocol::{
 	request_response::{v1::DisputeRequest, IncomingRequest, ReqProtocolNames},
@@ -57,8 +57,8 @@ use polkadot_node_subsystem_test_helpers::{
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, AuthorityDiscoveryId, Block, CandidateHash,
-	ExecutorParams, Hash, NodeFeatures, SessionIndex, SessionInfo,
+	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, ExecutorParams, Hash, SessionIndex,
+	SessionInfo,
 };
 
 use self::mock::{
@@ -646,16 +646,6 @@ async fn nested_network_dispute_request<'a, F, O>(
 			},
 			unexpected => panic!("Unexpected message {:?}", unexpected),
 		}
-
-		match handle.recv().await {
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_,
-				RuntimeApiRequest::NodeFeatures(_, si_tx),
-			)) => {
-				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
-			},
-			unexpected => panic!("Unexpected message {:?}", unexpected),
-		}
 	}
 
 	// Import should get initiated:
@@ -783,14 +773,6 @@ async fn activate_leaf(
 				tx.send(Ok(Some(ExecutorParams::default()))).expect("Receiver should stay alive.");
 			}
 		);
-		assert_matches!(
-			handle.recv().await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
-			) => {
-				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
-			}
-		);
 	}
 
 	assert_matches!(
@@ -832,7 +814,7 @@ async fn check_sent_requests(
 			if confirm_receive {
 				for req in reqs {
 					req.pending_response.send(
-						Ok((DisputeResponse::Confirmed.encode(), ProtocolName::from("")))
+						Ok(DisputeResponse::Confirmed.encode())
 					)
 					.expect("Subsystem should be listening for a response.");
 				}
@@ -879,10 +861,7 @@ where
 
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, None);
-	let (req_receiver, req_cfg) = IncomingRequest::get_config_receiver::<
-		Block,
-		sc_network::NetworkWorker<Block, Hash>,
-	>(&req_protocol_names);
+	let (req_receiver, req_cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	let subsystem = DisputeDistributionSubsystem::new(
 		keystore,
 		req_receiver,

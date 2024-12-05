@@ -24,5 +24,3 @@ mod header_metadata;
 pub use backend::*;
 pub use error::*;
 pub use header_metadata::*;
-
-const LOG_TARGET: &str = "db::blockchain";

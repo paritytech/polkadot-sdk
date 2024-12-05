@@ -15,8 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{derive_impl, parameter_types, traits::WithdrawReasons};
-use sp_runtime::{traits::Identity, BuildStorage};
+use frame_support::{
+	parameter_types,
+	traits::{ConstU32, ConstU64, WithdrawReasons},
+};
+use sp_core::H256;
+use sp_runtime::{
+	traits::{BlakeTwo256, Identity, IdentityLookup},
+	BuildStorage,
+};
 
 use super::*;
 use crate as pallet_vesting;
@@ -26,22 +33,52 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system,
-		Balances: pallet_balances,
-		Vesting: pallet_vesting,
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>},
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
+	type AccountId = u64;
+	type BaseCallFilter = frame_support::traits::Everything;
+	type BlockHashCount = ConstU64<250>;
+	type BlockLength = ();
+	type BlockWeights = ();
+	type RuntimeCall = RuntimeCall;
+	type DbWeight = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Hash = H256;
+	type Hashing = BlakeTwo256;
 	type Block = Block;
+	type Nonce = u64;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type OnKilledAccount = ();
+	type OnNewAccount = ();
+	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletInfo = PalletInfo;
+	type SS58Prefix = ();
+	type SystemWeightInfo = ();
+	type Version = ();
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type Balance = u64;
+	type DustRemoval = ();
+	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
+	type MaxLocks = ConstU32<10>;
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	type WeightInfo = ();
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type MaxHolds = ();
 }
 parameter_types! {
 	pub const MinVestedTransfer: u64 = 256 * 2;
@@ -57,7 +94,6 @@ impl Config for Test {
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
-	type BlockNumberProvider = System;
 }
 
 pub struct ExtBuilder {

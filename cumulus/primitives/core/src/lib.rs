@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
-// Cumulus is free software: you can redistribute it and/or modify
+// Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Cumulus is distributed in the hope that it will be useful,
+// Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -18,13 +18,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
-use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
+use sp_std::prelude::*;
 
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
@@ -32,7 +30,6 @@ pub use polkadot_parachain_primitives::primitives::{
 	XcmpMessageHandler,
 };
 pub use polkadot_primitives::{
-	vstaging::{ClaimQueueOffset, CoreSelector},
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
 
@@ -67,8 +64,6 @@ pub enum MessageSendError {
 	TooBig,
 	/// Some other error.
 	Other,
-	/// There are too many channels open at once.
-	TooManyChannels,
 }
 
 impl From<MessageSendError> for &'static str {
@@ -79,43 +74,6 @@ impl From<MessageSendError> for &'static str {
 			NoChannel => "NoChannel",
 			TooBig => "TooBig",
 			Other => "Other",
-			TooManyChannels => "TooManyChannels",
-		}
-	}
-}
-
-/// The origin of an inbound message.
-#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug)]
-pub enum AggregateMessageOrigin {
-	/// The message came from the para-chain itself.
-	Here,
-	/// The message came from the relay-chain.
-	///
-	/// This is used by the DMP queue.
-	Parent,
-	/// The message came from a sibling para-chain.
-	///
-	/// This is used by the HRMP queue.
-	Sibling(ParaId),
-}
-
-impl From<AggregateMessageOrigin> for Location {
-	fn from(origin: AggregateMessageOrigin) -> Self {
-		match origin {
-			AggregateMessageOrigin::Here => Location::here(),
-			AggregateMessageOrigin::Parent => Location::parent(),
-			AggregateMessageOrigin::Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
-		}
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl From<u32> for AggregateMessageOrigin {
-	fn from(x: u32) -> Self {
-		match x {
-			0 => Self::Here,
-			1 => Self::Parent,
-			p => Self::Sibling(ParaId::from(p)),
 		}
 	}
 }
@@ -138,12 +96,7 @@ pub struct ChannelInfo {
 
 pub trait GetChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus;
-	fn get_channel_info(id: ParaId) -> Option<ChannelInfo>;
-}
-
-/// List all open outgoing channels.
-pub trait ListChannelInfos {
-	fn outgoing_channels() -> Vec<ParaId>;
+	fn get_channel_max(id: ParaId) -> Option<usize>;
 }
 
 /// Something that should be called when sending an upward message.
@@ -205,7 +158,7 @@ pub struct ParachainBlockData<B: BlockT> {
 	/// The header of the parachain block.
 	header: B::Header,
 	/// The extrinsics of the parachain block.
-	extrinsics: alloc::vec::Vec<B::Extrinsic>,
+	extrinsics: sp_std::vec::Vec<B::Extrinsic>,
 	/// The data that is required to emulate the storage accesses executed by all extrinsics.
 	storage_proof: sp_trie::CompactProof,
 }
@@ -214,7 +167,7 @@ impl<B: BlockT> ParachainBlockData<B> {
 	/// Creates a new instance of `Self`.
 	pub fn new(
 		header: <B as BlockT>::Header,
-		extrinsics: alloc::vec::Vec<<B as BlockT>::Extrinsic>,
+		extrinsics: sp_std::vec::Vec<<B as BlockT>::Extrinsic>,
 		storage_proof: sp_trie::CompactProof,
 	) -> Self {
 		Self { header, extrinsics, storage_proof }
@@ -246,7 +199,7 @@ impl<B: BlockT> ParachainBlockData<B> {
 	}
 
 	/// Deconstruct into the inner parts.
-	pub fn deconstruct(self) -> (B::Header, alloc::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
+	pub fn deconstruct(self) -> (B::Header, sp_std::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
 		(self.header, self.extrinsics, self.storage_proof)
 	}
 }
@@ -395,11 +348,5 @@ sp_api::decl_runtime_apis! {
 		/// The given `header` is the header of the built block for that
 		/// we are collecting the collation info for.
 		fn collect_collation_info(header: &Block::Header) -> CollationInfo;
-	}
-
-	/// Runtime api used to select the core for which the next block will be built.
-	pub trait GetCoreSelectorApi {
-		/// Retrieve core selector and claim queue offset for the next block.
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
 	}
 }

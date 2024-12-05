@@ -21,7 +21,7 @@ use crate::OuterEnumsIR;
 
 use super::types::{
 	ExtrinsicMetadataIR, MetadataIR, PalletMetadataIR, RuntimeApiMetadataIR,
-	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, TransactionExtensionMetadataIR,
+	RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR, SignedExtensionMetadataIR,
 };
 
 use frame_metadata::v15::{
@@ -87,12 +87,12 @@ impl From<PalletMetadataIR> for PalletMetadata {
 	}
 }
 
-impl From<TransactionExtensionMetadataIR> for SignedExtensionMetadata {
-	fn from(ir: TransactionExtensionMetadataIR) -> Self {
+impl From<SignedExtensionMetadataIR> for SignedExtensionMetadata {
+	fn from(ir: SignedExtensionMetadataIR) -> Self {
 		SignedExtensionMetadata {
 			identifier: ir.identifier,
 			ty: ir.ty,
-			additional_signed: ir.implicit,
+			additional_signed: ir.additional_signed,
 		}
 	}
 }
@@ -100,12 +100,12 @@ impl From<TransactionExtensionMetadataIR> for SignedExtensionMetadata {
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
 		ExtrinsicMetadata {
-			version: *ir.versions.iter().min().expect("Metadata V15 supports only one version"),
+			version: ir.version,
 			address_ty: ir.address_ty,
 			call_ty: ir.call_ty,
 			signature_ty: ir.signature_ty,
 			extra_ty: ir.extra_ty,
-			signed_extensions: ir.extensions.into_iter().map(Into::into).collect(),
+			signed_extensions: ir.signed_extensions.into_iter().map(Into::into).collect(),
 		}
 	}
 }

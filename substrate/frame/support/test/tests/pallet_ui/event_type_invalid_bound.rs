@@ -41,4 +41,5 @@ mod pallet {
 	}
 }
 
-fn main() {}
+fn main() {
+}

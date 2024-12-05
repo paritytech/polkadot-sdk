@@ -18,7 +18,7 @@
 
 //! Substrate state API.
 
-use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sp_core::{
 	storage::{StorageChangeSet, StorageData, StorageKey},
 	Bytes,
@@ -29,31 +29,26 @@ pub mod error;
 pub mod helpers;
 
 pub use self::helpers::ReadProof;
-pub use error::Error;
 
 /// Substrate state API
 #[rpc(client, server)]
 pub trait StateApi<Hash> {
 	/// Call a method from the runtime API at a block's state.
 	#[method(name = "state_call", aliases = ["state_callAt"], blocking)]
-	fn call(&self, name: String, bytes: Bytes, hash: Option<Hash>) -> Result<Bytes, Error>;
+	fn call(&self, name: String, bytes: Bytes, hash: Option<Hash>) -> RpcResult<Bytes>;
 
 	/// Returns the keys with prefix, leave empty to get all the keys.
 	#[method(name = "state_getKeys", blocking)]
 	#[deprecated(since = "2.0.0", note = "Please use `getKeysPaged` with proper paging support")]
-	fn storage_keys(
-		&self,
-		prefix: StorageKey,
-		hash: Option<Hash>,
-	) -> Result<Vec<StorageKey>, Error>;
+	fn storage_keys(&self, prefix: StorageKey, hash: Option<Hash>) -> RpcResult<Vec<StorageKey>>;
 
 	/// Returns the keys with prefix, leave empty to get all the keys
-	#[method(name = "state_getPairs", blocking, with_extensions)]
+	#[method(name = "state_getPairs", blocking)]
 	fn storage_pairs(
 		&self,
 		prefix: StorageKey,
 		hash: Option<Hash>,
-	) -> Result<Vec<(StorageKey, StorageData)>, Error>;
+	) -> RpcResult<Vec<(StorageKey, StorageData)>>;
 
 	/// Returns the keys with prefix with pagination support.
 	/// Up to `count` keys will be returned.
@@ -65,28 +60,27 @@ pub trait StateApi<Hash> {
 		count: u32,
 		start_key: Option<StorageKey>,
 		hash: Option<Hash>,
-	) -> Result<Vec<StorageKey>, Error>;
+	) -> RpcResult<Vec<StorageKey>>;
 
 	/// Returns a storage entry at a specific block's state.
 	#[method(name = "state_getStorage", aliases = ["state_getStorageAt"], blocking)]
-	fn storage(&self, key: StorageKey, hash: Option<Hash>) -> Result<Option<StorageData>, Error>;
+	fn storage(&self, key: StorageKey, hash: Option<Hash>) -> RpcResult<Option<StorageData>>;
 
 	/// Returns the hash of a storage entry at a block's state.
 	#[method(name = "state_getStorageHash", aliases = ["state_getStorageHashAt"], blocking)]
-	fn storage_hash(&self, key: StorageKey, hash: Option<Hash>) -> Result<Option<Hash>, Error>;
+	fn storage_hash(&self, key: StorageKey, hash: Option<Hash>) -> RpcResult<Option<Hash>>;
 
 	/// Returns the size of a storage entry at a block's state.
-	#[method(name = "state_getStorageSize", aliases = ["state_getStorageSizeAt"], with_extensions)]
-	async fn storage_size(&self, key: StorageKey, hash: Option<Hash>)
-		-> Result<Option<u64>, Error>;
+	#[method(name = "state_getStorageSize", aliases = ["state_getStorageSizeAt"])]
+	async fn storage_size(&self, key: StorageKey, hash: Option<Hash>) -> RpcResult<Option<u64>>;
 
 	/// Returns the runtime metadata as an opaque blob.
 	#[method(name = "state_getMetadata", blocking)]
-	fn metadata(&self, hash: Option<Hash>) -> Result<Bytes, Error>;
+	fn metadata(&self, hash: Option<Hash>) -> RpcResult<Bytes>;
 
 	/// Get the runtime version.
 	#[method(name = "state_getRuntimeVersion", aliases = ["chain_getRuntimeVersion"], blocking)]
-	fn runtime_version(&self, hash: Option<Hash>) -> Result<RuntimeVersion, Error>;
+	fn runtime_version(&self, hash: Option<Hash>) -> RpcResult<RuntimeVersion>;
 
 	/// Query historical storage entries (by key) starting from a block given as the second
 	/// parameter.
@@ -95,13 +89,13 @@ pub trait StateApi<Hash> {
 	/// Subsequent values in the vector represent changes to the previous state (diffs).
 	/// WARNING: The time complexity of this query is O(|keys|*dist(block, hash)), and the
 	/// memory complexity is O(dist(block, hash)) -- use with caution.
-	#[method(name = "state_queryStorage", blocking, with_extensions)]
+	#[method(name = "state_queryStorage", blocking)]
 	fn query_storage(
 		&self,
 		keys: Vec<StorageKey>,
 		block: Hash,
 		hash: Option<Hash>,
-	) -> Result<Vec<StorageChangeSet<Hash>>, Error>;
+	) -> RpcResult<Vec<StorageChangeSet<Hash>>>;
 
 	/// Query storage entries (by key) at a block hash given as the second parameter.
 	/// NOTE: Each StorageChangeSet in the result corresponds to exactly one element --
@@ -111,15 +105,11 @@ pub trait StateApi<Hash> {
 		&self,
 		keys: Vec<StorageKey>,
 		at: Option<Hash>,
-	) -> Result<Vec<StorageChangeSet<Hash>>, Error>;
+	) -> RpcResult<Vec<StorageChangeSet<Hash>>>;
 
 	/// Returns proof of storage entries at a specific block's state.
 	#[method(name = "state_getReadProof", blocking)]
-	fn read_proof(
-		&self,
-		keys: Vec<StorageKey>,
-		hash: Option<Hash>,
-	) -> Result<ReadProof<Hash>, Error>;
+	fn read_proof(&self, keys: Vec<StorageKey>, hash: Option<Hash>) -> RpcResult<ReadProof<Hash>>;
 
 	/// New runtime version subscription
 	#[subscription(
@@ -136,7 +126,6 @@ pub trait StateApi<Hash> {
 		name = "state_subscribeStorage" => "state_storage",
 		unsubscribe = "state_unsubscribeStorage",
 		item = StorageChangeSet<Hash>,
-		with_extensions,
 	)]
 	fn subscribe_storage(&self, keys: Option<Vec<StorageKey>>);
 
@@ -281,8 +270,8 @@ pub trait StateApi<Hash> {
 	/// [querying substrate storage via rpc][3].
 	///
 	/// [1]: https://docs.substrate.io/main-docs/fundamentals/state-transitions-and-storage/
-	/// [2]: https://www.shawntabrizi.com/blog/substrate/transparent-keys-in-substrate/
-	/// [3]: https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/
+	/// [2]: https://www.shawntabrizi.com/substrate/transparent-keys-in-substrate/
+	/// [3]: https://www.shawntabrizi.com/substrate/querying-substrate-storage-via-rpc/
 	///
 	/// ### Maximum payload size
 	///
@@ -292,12 +281,12 @@ pub trait StateApi<Hash> {
 	///
 	/// If you are having issues with maximum payload size you can use the flag
 	/// `-ltracing=trace` to get some logging during tracing.
-	#[method(name = "state_traceBlock", blocking, with_extensions)]
+	#[method(name = "state_traceBlock", blocking)]
 	fn trace_block(
 		&self,
 		block: Hash,
 		targets: Option<String>,
 		storage_keys: Option<String>,
 		methods: Option<String>,
-	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
+	) -> RpcResult<sp_rpc::tracing::TraceBlockResponse>;
 }

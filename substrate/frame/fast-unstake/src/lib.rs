@@ -17,7 +17,7 @@
 
 //! > Made with *Substrate*, for *Polkadot*.
 //!
-//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/fast-unstake) -
+//! [![github]](https://github.com/paritytech/substrate/frame/fast-unstake) -
 //! [![polkadot]](https://polkadot.network)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
@@ -112,8 +112,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
 pub use pallet::*;
 
 #[cfg(test)]
@@ -143,7 +141,7 @@ macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
 			target: crate::LOG_TARGET,
-			concat!("[{:?}] 💨 ", $patter), frame_system::Pallet::<T>::block_number() $(, $values)*
+			concat!("[{:?}] 💨 ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
 		)
 	};
 }
@@ -152,7 +150,6 @@ macro_rules! log {
 pub mod pallet {
 	use super::*;
 	use crate::types::*;
-	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{Defensive, ReservableCurrency, StorageVersion},
@@ -160,6 +157,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{traits::Zero, DispatchResult};
 	use sp_staking::{EraIndex, StakingInterface};
+	use sp_std::{prelude::*, vec::Vec};
 	pub use weights::WeightInfo;
 
 	#[cfg(feature = "try-runtime")]
@@ -205,6 +203,10 @@ pub mod pallet {
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Use only for benchmarking.
+		#[cfg(feature = "runtime-benchmarks")]
+		type MaxBackersPerValidator: Get<u32>;
 	}
 
 	/// The current "head of the queue" being unstaked.
@@ -229,6 +231,7 @@ pub mod pallet {
 	/// checked. The checking is represented by updating [`UnstakeRequest::checked`], which is
 	/// stored in [`Head`].
 	#[pallet::storage]
+	#[pallet::getter(fn eras_to_check_per_block)]
 	pub type ErasToCheckPerBlock<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::event]
@@ -333,7 +336,7 @@ pub mod pallet {
 		pub fn register_fast_unstake(origin: OriginFor<T>) -> DispatchResult {
 			let ctrl = ensure_signed(origin)?;
 
-			ensure!(ErasToCheckPerBlock::<T>::get() != 0, Error::<T>::CallNotAllowed);
+			ensure!(ErasToCheckPerBlock::<T>::get() != 0, <Error<T>>::CallNotAllowed);
 			let stash_account =
 				T::Staking::stash_by_ctrl(&ctrl).map_err(|_| Error::<T>::NotController)?;
 			ensure!(!Queue::<T>::contains_key(&stash_account), Error::<T>::AlreadyQueued);
@@ -374,7 +377,7 @@ pub mod pallet {
 		pub fn deregister(origin: OriginFor<T>) -> DispatchResult {
 			let ctrl = ensure_signed(origin)?;
 
-			ensure!(ErasToCheckPerBlock::<T>::get() != 0, Error::<T>::CallNotAllowed);
+			ensure!(ErasToCheckPerBlock::<T>::get() != 0, <Error<T>>::CallNotAllowed);
 
 			let stash_account =
 				T::Staking::stash_by_ctrl(&ctrl).map_err(|_| Error::<T>::NotController)?;
@@ -561,7 +564,7 @@ pub mod pallet {
 				if !remaining.is_zero() {
 					Self::halt("not enough balance to unreserve");
 				} else {
-					log!(debug, "unstaked {:?}, outcome: {:?}", stash, result);
+					log!(info, "unstaked {:?}, outcome: {:?}", stash, result);
 					Self::deposit_event(Event::<T>::Unstaked { stash, result });
 				}
 			};
@@ -572,7 +575,7 @@ pub mod pallet {
 					.any(|e| T::Staking::is_exposed_in_era(&stash, e));
 
 				if is_exposed {
-					let _ = T::Currency::slash_reserved(&stash, deposit);
+					T::Currency::slash_reserved(&stash, deposit);
 					log!(info, "slashed {:?} by {:?}", stash, deposit);
 					Self::deposit_event(Event::<T>::Slashed { stash, amount: deposit });
 					false

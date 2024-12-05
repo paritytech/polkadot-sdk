@@ -20,16 +20,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
-extern crate alloc;
-
 pub use mmr_lib;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-use core::fmt;
 use scale_info::TypeInfo;
 use sp_debug_derive::RuntimeDebug;
 use sp_runtime::traits;
+use sp_std::fmt;
+#[cfg(not(feature = "std"))]
+use sp_std::prelude::Vec;
 
 pub mod utils;
 
@@ -144,7 +142,7 @@ impl FullLeaf for OpaqueLeaf {
 ///
 /// It is different from [`OpaqueLeaf`], because it does implement `Codec`
 /// and the encoding has to match raw `Vec<u8>` encoding.
-#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(codec::Encode, codec::Decode, RuntimeDebug, PartialEq, Eq, TypeInfo)]
 pub struct EncodableOpaqueLeaf(pub Vec<u8>);
 
 impl EncodableOpaqueLeaf {
@@ -250,10 +248,10 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
 pub struct Compact<H, T> {
 	/// Internal tuple representation.
 	pub tuple: T,
-	_hash: core::marker::PhantomData<H>,
+	_hash: sp_std::marker::PhantomData<H>,
 }
 
-impl<H, T> core::ops::Deref for Compact<H, T> {
+impl<H, T> sp_std::ops::Deref for Compact<H, T> {
 	type Target = T;
 
 	fn deref(&self) -> &Self::Target {
@@ -352,27 +350,13 @@ impl_leaf_data_for_tuple!(A:0, B:1, C:2, D:3, E:4);
 
 /// An MMR proof data for a group of leaves.
 #[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
-pub struct LeafProof<Hash> {
+pub struct Proof<Hash> {
 	/// The indices of the leaves the proof is for.
 	pub leaf_indices: Vec<LeafIndex>,
 	/// Number of leaves in MMR, when the proof was generated.
 	pub leaf_count: NodeIndex,
-	/// Proof elements (hashes of siblings of inner nodes on the path to the leafs).
+	/// Proof elements (hashes of siblings of inner nodes on the path to the leaf).
 	pub items: Vec<Hash>,
-}
-
-/// An MMR ancestry proof for a prior mmr root.
-#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
-pub struct AncestryProof<Hash> {
-	/// Peaks of the ancestor's mmr
-	pub prev_peaks: Vec<Hash>,
-	/// Number of leaves in the ancestor's MMR.
-	pub prev_leaf_count: u64,
-	/// Number of leaves in MMR, when the proof was generated.
-	pub leaf_count: NodeIndex,
-	/// Proof elements
-	/// (positions and hashes of siblings of inner nodes on the path to the previous peaks).
-	pub items: Vec<(u64, Hash)>,
 }
 
 /// Merkle Mountain Range operation error.
@@ -451,14 +435,14 @@ sp_api::decl_runtime_apis! {
 		fn generate_proof(
 			block_numbers: Vec<BlockNumber>,
 			best_known_block_number: Option<BlockNumber>
-		) -> Result<(Vec<EncodableOpaqueLeaf>, LeafProof<Hash>), Error>;
+		) -> Result<(Vec<EncodableOpaqueLeaf>, Proof<Hash>), Error>;
 
 		/// Verify MMR proof against on-chain MMR for a batch of leaves.
 		///
 		/// Note this function will use on-chain MMR root hash and check if the proof matches the hash.
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
-		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [LeafProof]
-		fn verify_proof(leaves: Vec<EncodableOpaqueLeaf>, proof: LeafProof<Hash>) -> Result<(), Error>;
+		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
+		fn verify_proof(leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>) -> Result<(), Error>;
 
 		/// Verify MMR proof against given root hash for a batch of leaves.
 		///
@@ -466,8 +450,8 @@ sp_api::decl_runtime_apis! {
 		/// proof is verified against given MMR root hash.
 		///
 		/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
-		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [LeafProof]
-		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: LeafProof<Hash>)
+		/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the [Proof]
+		fn verify_proof_stateless(root: Hash, leaves: Vec<EncodableOpaqueLeaf>, proof: Proof<Hash>)
 			-> Result<(), Error>;
 	}
 }
@@ -486,12 +470,12 @@ mod tests {
 
 	type Test = DataOrHash<Keccak256, String>;
 	type TestCompact = Compact<Keccak256, (Test, Test)>;
-	type TestProof = LeafProof<<Keccak256 as traits::Hash>::Output>;
+	type TestProof = Proof<<Keccak256 as traits::Hash>::Output>;
 
 	#[test]
 	fn should_encode_decode_proof() {
 		// given
-		let proof: TestProof = LeafProof {
+		let proof: TestProof = Proof {
 			leaf_indices: vec![5],
 			leaf_count: 10,
 			items: vec![

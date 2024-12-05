@@ -177,7 +177,7 @@ mod benchmarks {
 
 	impl_benchmark_test_suite! {
 		Salary,
-		crate::tests::unit::new_test_ext(),
-		crate::tests::unit::Test,
+		crate::tests::new_test_ext(),
+		crate::tests::Test,
 	}
 }

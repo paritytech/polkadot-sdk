@@ -19,15 +19,15 @@
 
 use super::storage::Footprint;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
-use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
 use sp_runtime::{traits::Convert, BoundedSlice, RuntimeDebug};
+use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 use sp_weights::{Weight, WeightMeter};
 
 /// Errors that can happen when attempting to process a message with
 /// [`ProcessMessage::process_message()`].
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum ProcessMessageError {
 	/// The message data format is unknown (e.g. unrecognised header)
 	BadFormat,
@@ -46,8 +46,6 @@ pub enum ProcessMessageError {
 	/// the case that a queue is re-serviced within the same block after *yielding*. A queue is
 	/// not required to *yield* again when it is being re-serviced withing the same block.
 	Yield,
-	/// The message could not be processed for reaching the stack depth limit.
-	StackLimitReached,
 }
 
 /// Can process messages from a specific origin.
@@ -84,8 +82,6 @@ pub enum ExecuteOverweightError {
 	QueuePaused,
 	/// An unspecified error.
 	Other,
-	/// Another call is currently ongoing and prevents this call from executing.
-	RecursiveDisallowed,
 }
 
 /// Can service queues and execute overweight messages.
@@ -98,8 +94,6 @@ pub trait ServiceQueues {
 	/// - `weight_limit`: The maximum amount of dynamic weight that this call can use.
 	///
 	/// Returns the dynamic weight used by this call; is never greater than `weight_limit`.
-	/// Should only be called in top-level runtime entry points like `on_initialize` or `on_idle`.
-	/// Otherwise, stack depth limit errors may be miss-handled.
 	fn service_queues(weight_limit: Weight) -> Weight;
 
 	/// Executes a message that could not be executed by [`Self::service_queues()`] because it was
@@ -122,17 +116,6 @@ impl<OverweightAddr> ServiceQueues for NoopServiceQueues<OverweightAddr> {
 	}
 }
 
-/// The resource footprint of a queue.
-#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
-pub struct QueueFootprint {
-	/// The number of pages in the queue (including overweight pages).
-	pub pages: u32,
-	/// The number of pages that are ready (not yet processed and also not overweight).
-	pub ready_pages: u32,
-	/// The storage footprint of the queue (including overweight messages).
-	pub storage: Footprint,
-}
-
 /// Can enqueue messages for multiple origins.
 pub trait EnqueueMessage<Origin: MaxEncodedLen> {
 	/// The maximal length any enqueued message may have.
@@ -151,7 +134,7 @@ pub trait EnqueueMessage<Origin: MaxEncodedLen> {
 	fn sweep_queue(origin: Origin);
 
 	/// Return the state footprint of the given queue.
-	fn footprint(origin: Origin) -> QueueFootprint;
+	fn footprint(origin: Origin) -> Footprint;
 }
 
 impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
@@ -163,8 +146,8 @@ impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
 	) {
 	}
 	fn sweep_queue(_: Origin) {}
-	fn footprint(_: Origin) -> QueueFootprint {
-		QueueFootprint::default()
+	fn footprint(_: Origin) -> Footprint {
+		Footprint::default()
 	}
 }
 
@@ -190,7 +173,7 @@ impl<E: EnqueueMessage<O>, O: MaxEncodedLen, N: MaxEncodedLen, C: Convert<N, O>>
 		E::sweep_queue(C::convert(origin));
 	}
 
-	fn footprint(origin: N) -> QueueFootprint {
+	fn footprint(origin: N) -> Footprint {
 		E::footprint(C::convert(origin))
 	}
 }
@@ -212,7 +195,7 @@ pub trait HandleMessage {
 	fn sweep_queue();
 
 	/// Return the state footprint of the queue.
-	fn footprint() -> QueueFootprint;
+	fn footprint() -> Footprint;
 }
 
 /// Adapter type to transform an [`EnqueueMessage`] with an origin into a [`HandleMessage`] impl.
@@ -237,7 +220,7 @@ where
 		E::sweep_queue(O::get());
 	}
 
-	fn footprint() -> QueueFootprint {
+	fn footprint() -> Footprint {
 		E::footprint(O::get())
 	}
 }
@@ -248,14 +231,8 @@ pub trait QueuePausedQuery<Origin> {
 	fn is_paused(origin: &Origin) -> bool;
 }
 
-#[impl_trait_for_tuples::impl_for_tuples(8)]
-impl<Origin> QueuePausedQuery<Origin> for Tuple {
-	fn is_paused(origin: &Origin) -> bool {
-		for_tuples!( #(
-			if Tuple::is_paused(origin) {
-				return true;
-			}
-		)* );
+impl<Origin> QueuePausedQuery<Origin> for () {
+	fn is_paused(_: &Origin) -> bool {
 		false
 	}
 }

@@ -18,23 +18,22 @@
 
 use super::Error;
 use is_executable::IsExecutable;
-use std::path::PathBuf;
+use std::{path::PathBuf, process::Command};
 
 #[cfg(test)]
-thread_local! {
-	static TMP_DIR: std::cell::RefCell<Option<tempfile::TempDir>> = std::cell::RefCell::new(None);
-}
+use std::sync::{Mutex, OnceLock};
 
 /// Override the workers polkadot binary directory path, used for testing.
 #[cfg(test)]
-fn workers_exe_path_override() -> Option<PathBuf> {
-	TMP_DIR.with_borrow(|t| t.as_ref().map(|t| t.path().join("usr/bin")))
+fn workers_exe_path_override() -> &'static Mutex<Option<PathBuf>> {
+	static OVERRIDE: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
+	OVERRIDE.get_or_init(|| Mutex::new(None))
 }
-
 /// Override the workers lib directory path, used for testing.
 #[cfg(test)]
-fn workers_lib_path_override() -> Option<PathBuf> {
-	TMP_DIR.with_borrow(|t| t.as_ref().map(|t| t.path().join("usr/lib/polkadot")))
+fn workers_lib_path_override() -> &'static Mutex<Option<PathBuf>> {
+	static OVERRIDE: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
+	OVERRIDE.get_or_init(|| Mutex::new(None))
 }
 
 /// Determines the final set of paths to use for the PVF workers.
@@ -76,7 +75,11 @@ pub fn determine_workers_paths(
 
 	// Do the version check.
 	if let Some(node_version) = node_version {
-		let worker_version = polkadot_node_core_pvf::get_worker_version(&prep_worker_path)?;
+		let worker_version = Command::new(&prep_worker_path).args(["--version"]).output()?.stdout;
+		let worker_version = std::str::from_utf8(&worker_version)
+			.expect("version is printed as a string; qed")
+			.trim()
+			.to_string();
 		if worker_version != node_version {
 			return Err(Error::WorkerBinaryVersionMismatch {
 				worker_version,
@@ -84,8 +87,11 @@ pub fn determine_workers_paths(
 				worker_path: prep_worker_path,
 			})
 		}
-
-		let worker_version = polkadot_node_core_pvf::get_worker_version(&exec_worker_path)?;
+		let worker_version = Command::new(&exec_worker_path).args(["--version"]).output()?.stdout;
+		let worker_version = std::str::from_utf8(&worker_version)
+			.expect("version is printed as a string; qed")
+			.trim()
+			.to_string();
 		if worker_version != node_version {
 			return Err(Error::WorkerBinaryVersionMismatch {
 				worker_version,
@@ -148,9 +154,12 @@ fn list_workers_paths(
 
 	// Consider the /usr/lib/polkadot/ directory.
 	{
-		let lib_path = PathBuf::from("/usr/lib/polkadot");
+		#[allow(unused_mut)]
+		let mut lib_path = PathBuf::from("/usr/lib/polkadot");
 		#[cfg(test)]
-		let lib_path = if let Some(o) = workers_lib_path_override() { o } else { lib_path };
+		if let Some(ref path_override) = *workers_lib_path_override().lock().unwrap() {
+			lib_path = path_override.clone();
+		}
 
 		let (prep_worker, exec_worker) = build_worker_paths(lib_path, workers_names);
 
@@ -173,10 +182,9 @@ fn get_exe_path() -> Result<PathBuf, Error> {
 	let mut exe_path = std::env::current_exe()?;
 	let _ = exe_path.pop(); // executable file will always have a parent directory.
 	#[cfg(test)]
-	if let Some(o) = workers_exe_path_override() {
-		exe_path = o;
+	if let Some(ref path_override) = *workers_exe_path_override().lock().unwrap() {
+		exe_path = path_override.clone();
 	}
-
 	Ok(exe_path)
 }
 
@@ -204,13 +212,14 @@ mod tests {
 	use super::*;
 
 	use assert_matches::assert_matches;
-	use std::{fs, os::unix::fs::PermissionsExt, path::Path};
+	use serial_test::serial;
+	use std::{env::temp_dir, fs, os::unix::fs::PermissionsExt, path::Path};
 
-	const TEST_NODE_VERSION: &'static str = "v0.1.2";
+	const NODE_VERSION: &'static str = "v0.1.2";
 
 	/// Write a dummy executable to the path which satisfies the version check.
 	fn write_worker_exe(path: impl AsRef<Path>) -> Result<(), Box<dyn std::error::Error>> {
-		let program = get_program(TEST_NODE_VERSION);
+		let program = get_program(NODE_VERSION);
 		fs::write(&path, program)?;
 		Ok(fs::set_permissions(&path, fs::Permissions::from_mode(0o744))?)
 	}
@@ -226,7 +235,7 @@ mod tests {
 
 	fn get_program(version: &str) -> String {
 		format!(
-			"#!/usr/bin/env bash
+			"#!/bin/bash
 
 if [[ $# -ne 1 ]] ; then
     echo \"unexpected number of arguments: $#\"
@@ -251,28 +260,34 @@ echo {}
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Set up <tmp>/usr/lib/polkadot and <tmp>/usr/bin, both empty.
 
-		let tempdir = tempfile::tempdir().unwrap();
-		let tmp_dir = tempdir.path().to_path_buf();
-		TMP_DIR.with_borrow_mut(|t| *t = Some(tempdir));
+		let tempdir = temp_dir();
+		let lib_path = tempdir.join("usr/lib/polkadot");
+		let _ = fs::remove_dir_all(&lib_path);
+		fs::create_dir_all(&lib_path)?;
+		*workers_lib_path_override().lock()? = Some(lib_path);
 
-		fs::create_dir_all(workers_lib_path_override().unwrap()).unwrap();
-		fs::create_dir_all(workers_exe_path_override().unwrap()).unwrap();
+		let exe_path = tempdir.join("usr/bin");
+		let _ = fs::remove_dir_all(&exe_path);
+		fs::create_dir_all(&exe_path)?;
+		*workers_exe_path_override().lock()? = Some(exe_path.clone());
 
-		let custom_path = tmp_dir.join("usr/local/bin");
 		// Set up custom path at <tmp>/usr/local/bin.
-		fs::create_dir_all(&custom_path).unwrap();
+		let custom_path = tempdir.join("usr/local/bin");
+		let _ = fs::remove_dir_all(&custom_path);
+		fs::create_dir_all(&custom_path)?;
 
-		f(tmp_dir, workers_exe_path_override().unwrap())
+		f(tempdir, exe_path)
 	}
 
 	#[test]
+	#[serial]
 	fn test_given_worker_path() {
 		with_temp_dir_structure(|tempdir, exe_path| {
 			let given_workers_path = tempdir.join("usr/local/bin");
 
 			// Try with provided workers path that has missing binaries.
 			assert_matches!(
-				determine_workers_paths(Some(given_workers_path.clone()), None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(Some(given_workers_path.clone()), None, Some(NODE_VERSION.into())),
 				Err(Error::MissingWorkerBinaries { given_workers_path: Some(p1), current_exe_path: p2, workers_names: None }) if p1 == given_workers_path && p2 == exe_path
 			);
 
@@ -284,7 +299,7 @@ echo {}
 			write_worker_exe(&execute_worker_path)?;
 			fs::set_permissions(&execute_worker_path, fs::Permissions::from_mode(0o644))?;
 			assert_matches!(
-				determine_workers_paths(Some(given_workers_path.clone()), None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(Some(given_workers_path.clone()), None, Some(NODE_VERSION.into())),
 				Err(Error::InvalidWorkerBinaries { prep_worker_path: p1, exec_worker_path: p2 }) if p1 == prepare_worker_path && p2 == execute_worker_path
 			);
 
@@ -292,15 +307,15 @@ echo {}
 			fs::set_permissions(&prepare_worker_path, fs::Permissions::from_mode(0o744))?;
 			fs::set_permissions(&execute_worker_path, fs::Permissions::from_mode(0o744))?;
 			assert_matches!(
-				determine_workers_paths(Some(given_workers_path), None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(Some(given_workers_path), None, Some(NODE_VERSION.into())),
 				Ok((p1, p2)) if p1 == prepare_worker_path && p2 == execute_worker_path
 			);
 
 			// Try with valid provided workers path that is a binary file.
-			let given_workers_path = tempdir.join("usr/local/bin/test-worker");
+			let given_workers_path = tempdir.join("usr/local/bin/puppet-worker");
 			write_worker_exe(&given_workers_path)?;
 			assert_matches!(
-				determine_workers_paths(Some(given_workers_path.clone()), None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(Some(given_workers_path.clone()), None, Some(NODE_VERSION.into())),
 				Ok((p1, p2)) if p1 == given_workers_path && p2 == given_workers_path
 			);
 
@@ -310,11 +325,12 @@ echo {}
 	}
 
 	#[test]
+	#[serial]
 	fn missing_workers_paths_throws_error() {
 		with_temp_dir_structure(|tempdir, exe_path| {
 			// Try with both binaries missing.
 			assert_matches!(
-				determine_workers_paths(None, None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(None, None, Some(NODE_VERSION.into())),
 				Err(Error::MissingWorkerBinaries { given_workers_path: None, current_exe_path: p, workers_names: None }) if p == exe_path
 			);
 
@@ -322,7 +338,7 @@ echo {}
 			let prepare_worker_path = tempdir.join("usr/bin/polkadot-prepare-worker");
 			write_worker_exe(&prepare_worker_path)?;
 			assert_matches!(
-				determine_workers_paths(None, None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(None, None, Some(NODE_VERSION.into())),
 				Err(Error::MissingWorkerBinaries { given_workers_path: None, current_exe_path: p, workers_names: None }) if p == exe_path
 			);
 
@@ -331,7 +347,7 @@ echo {}
 			let execute_worker_path = tempdir.join("usr/bin/polkadot-execute-worker");
 			write_worker_exe(&execute_worker_path)?;
 			assert_matches!(
-				determine_workers_paths(None, None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(None, None, Some(NODE_VERSION.into())),
 				Err(Error::MissingWorkerBinaries { given_workers_path: None, current_exe_path: p, workers_names: None }) if p == exe_path
 			);
 
@@ -340,7 +356,7 @@ echo {}
 			let prepare_worker_path = tempdir.join("usr/lib/polkadot/polkadot-prepare-worker");
 			write_worker_exe(&prepare_worker_path)?;
 			assert_matches!(
-				determine_workers_paths(None, None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(None, None, Some(NODE_VERSION.into())),
 				Err(Error::MissingWorkerBinaries { given_workers_path: None, current_exe_path: p, workers_names: None }) if p == exe_path
 			);
 
@@ -349,7 +365,7 @@ echo {}
 			let execute_worker_path = tempdir.join("usr/lib/polkadot/polkadot-execute-worker");
 			write_worker_exe(execute_worker_path)?;
 			assert_matches!(
-				determine_workers_paths(None, None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(None, None, Some(NODE_VERSION.into())),
 				Err(Error::MissingWorkerBinaries { given_workers_path: None, current_exe_path: p, workers_names: None }) if p == exe_path
 			);
 
@@ -359,6 +375,7 @@ echo {}
 	}
 
 	#[test]
+	#[serial]
 	fn should_find_workers_at_all_locations() {
 		with_temp_dir_structure(|tempdir, _| {
 				let prepare_worker_bin_path = tempdir.join("usr/bin/polkadot-prepare-worker");
@@ -384,6 +401,7 @@ echo {}
 	}
 
 	#[test]
+	#[serial]
 	fn should_find_workers_with_custom_names_at_all_locations() {
 		with_temp_dir_structure(|tempdir, _| {
 			let (prep_worker_name, exec_worker_name) = ("test-prepare", "test-execute");
@@ -411,6 +429,7 @@ echo {}
 	}
 
 	#[test]
+	#[serial]
 	fn workers_version_mismatch_throws_error() {
 		let bad_version = "v9.9.9.9";
 
@@ -421,8 +440,8 @@ echo {}
 			write_worker_exe_invalid_version(&prepare_worker_bin_path, bad_version)?;
 			write_worker_exe(&execute_worker_bin_path)?;
 			assert_matches!(
-				determine_workers_paths(None, None, Some(TEST_NODE_VERSION.into())),
-				Err(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) if v1 == bad_version && v2 == TEST_NODE_VERSION && p == prepare_worker_bin_path
+				determine_workers_paths(None, None, Some(NODE_VERSION.into())),
+				Err(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) if v1 == bad_version && v2 == NODE_VERSION && p == prepare_worker_bin_path
 			);
 
 			// Workers at lib location return bad version.
@@ -433,8 +452,8 @@ echo {}
 			write_worker_exe(&prepare_worker_lib_path)?;
 			write_worker_exe_invalid_version(&execute_worker_lib_path, bad_version)?;
 			assert_matches!(
-				determine_workers_paths(None, None, Some(TEST_NODE_VERSION.into())),
-				Err(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) if v1 == bad_version && v2 == TEST_NODE_VERSION && p == execute_worker_lib_path
+				determine_workers_paths(None, None, Some(NODE_VERSION.into())),
+				Err(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) if v1 == bad_version && v2 == NODE_VERSION && p == execute_worker_lib_path
 			);
 
 			// Workers at provided workers location return bad version.
@@ -444,16 +463,16 @@ echo {}
 			write_worker_exe_invalid_version(&prepare_worker_path, bad_version)?;
 			write_worker_exe_invalid_version(&execute_worker_path, bad_version)?;
 			assert_matches!(
-				determine_workers_paths(Some(given_workers_path), None, Some(TEST_NODE_VERSION.into())),
-				Err(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) if v1 == bad_version && v2 == TEST_NODE_VERSION && p == prepare_worker_path
+				determine_workers_paths(Some(given_workers_path), None, Some(NODE_VERSION.into())),
+				Err(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) if v1 == bad_version && v2 == NODE_VERSION && p == prepare_worker_path
 			);
 
 			// Given worker binary returns bad version.
-			let given_workers_path = tempdir.join("usr/local/bin/test-worker");
+			let given_workers_path = tempdir.join("usr/local/bin/puppet-worker");
 			write_worker_exe_invalid_version(&given_workers_path, bad_version)?;
 			assert_matches!(
-				determine_workers_paths(Some(given_workers_path.clone()), None, Some(TEST_NODE_VERSION.into())),
-				Err(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) if v1 == bad_version && v2 == TEST_NODE_VERSION && p == given_workers_path
+				determine_workers_paths(Some(given_workers_path.clone()), None, Some(NODE_VERSION.into())),
+				Err(Error::WorkerBinaryVersionMismatch { worker_version: v1, node_version: v2, worker_path: p }) if v1 == bad_version && v2 == NODE_VERSION && p == given_workers_path
 			);
 
 			Ok(())
@@ -462,6 +481,7 @@ echo {}
 	}
 
 	#[test]
+	#[serial]
 	fn should_find_valid_workers() {
 		// Test bin location.
 		with_temp_dir_structure(|tempdir, _| {
@@ -472,7 +492,7 @@ echo {}
 			write_worker_exe(&execute_worker_bin_path)?;
 
 			assert_matches!(
-				determine_workers_paths(None, None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(None, None, Some(NODE_VERSION.into())),
 				Ok((p1, p2)) if p1 == prepare_worker_bin_path && p2 == execute_worker_bin_path
 			);
 
@@ -489,7 +509,7 @@ echo {}
 			write_worker_exe(&execute_worker_lib_path)?;
 
 			assert_matches!(
-				determine_workers_paths(None, None, Some(TEST_NODE_VERSION.into())),
+				determine_workers_paths(None, None, Some(NODE_VERSION.into())),
 				Ok((p1, p2)) if p1 == prepare_worker_lib_path && p2 == execute_worker_lib_path
 			);
 

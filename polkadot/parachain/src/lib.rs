@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+#![warn(unused_crate_dependencies)]
+
 //! Defines primitive types for creating or validating a parachain.
 //!
 //! When compiled with standard library support, this crate exports a `wasm`
@@ -51,5 +53,3 @@ mod wasm_api;
 
 #[cfg(all(not(feature = "std"), feature = "wasm-api"))]
 pub use wasm_api::*;
-
-extern crate alloc;

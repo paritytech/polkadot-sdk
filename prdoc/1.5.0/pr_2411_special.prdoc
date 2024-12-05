@@ -1,9 +1,0 @@
-title: "polkadot-node-subsystems: `ChainApiBackend` added + polkadot-debug image version fixed"
-author: michalkucharczyk
-topic: Tests
-
-doc:
-  - audience: Runtime Dev
-    description: n/a
-
-crates: []

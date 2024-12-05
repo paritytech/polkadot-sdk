@@ -5,23 +5,20 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 publish = false
-homepage.workspace = true
+homepage = "https://substrate.io"
 repository.workspace = true
-
-[lints]
-workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-tracing = { workspace = true, default-features = true }
-tracing-core = { workspace = true, default-features = true }
-sc-executor = { workspace = true, default-features = true }
-sc-executor-common = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-runtime-interface = { workspace = true, default-features = true }
-sp-runtime-interface-test-wasm = { workspace = true }
-sp-runtime-interface-test-wasm-deprecated = { workspace = true }
-sp-state-machine = { workspace = true, default-features = true }
+tracing = "0.1.29"
+tracing-core = "0.1.28"
+sc-executor = { path = "../../../client/executor" }
+sc-executor-common = { path = "../../../client/executor/common" }
+sp-io = { path = "../../io" }
+sp-runtime = { path = "../../runtime" }
+sp-runtime-interface = { path = ".." }
+sp-runtime-interface-test-wasm = { path = "../test-wasm" }
+sp-runtime-interface-test-wasm-deprecated = { path = "../test-wasm-deprecated" }
+sp-state-machine = { path = "../../state-machine" }

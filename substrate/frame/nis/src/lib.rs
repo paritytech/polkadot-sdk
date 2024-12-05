@@ -76,8 +76,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
 use frame_support::traits::{
 	fungible::{self, Inspect as FunInspect, Mutate as FunMutate},
 	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
@@ -97,7 +95,7 @@ mod mock;
 mod tests;
 pub mod weights;
 
-pub struct WithMaximumOf<A: TypedGet>(core::marker::PhantomData<A>);
+pub struct WithMaximumOf<A: TypedGet>(sp_std::marker::PhantomData<A>);
 impl<A: TypedGet> Convert<Perquintill, A::Type> for WithMaximumOf<A>
 where
 	A::Type: Clone + Unsigned + From<u64>,
@@ -118,7 +116,7 @@ where
 	}
 }
 
-pub struct NoCounterpart<T>(core::marker::PhantomData<T>);
+pub struct NoCounterpart<T>(sp_std::marker::PhantomData<T>);
 impl<T> FunInspect<T> for NoCounterpart<T> {
 	type Balance = u32;
 	fn total_issuance() -> u32 {
@@ -150,30 +148,17 @@ impl<T> fungible::Unbalanced<T> for NoCounterpart<T> {
 	}
 	fn set_total_issuance(_: Self::Balance) {}
 }
-impl<T: Eq> FunMutate<T> for NoCounterpart<T> {}
+impl<T> FunMutate<T> for NoCounterpart<T> {}
 impl<T> Convert<Perquintill, u32> for NoCounterpart<T> {
 	fn convert(_: Perquintill) -> u32 {
 		0
 	}
 }
 
-/// Setup the empty genesis state for benchmarking.
-pub trait BenchmarkSetup {
-	/// Create the counterpart asset. Should panic on error.
-	///
-	/// This is called prior to assuming that a counterpart balance exists.
-	fn create_counterpart_asset();
-}
-
-impl BenchmarkSetup for () {
-	fn create_counterpart_asset() {}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{FunInspect, FunMutate};
 	pub use crate::weights::WeightInfo;
-	use alloc::{vec, vec::Vec};
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
@@ -196,6 +181,7 @@ pub mod pallet {
 		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero},
 		Rounding, TokenError,
 	};
+	use sp_std::prelude::*;
 
 	type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -311,10 +297,6 @@ pub mod pallet {
 		/// The maximum proportion which may be thawed and the period over which it is reset.
 		#[pallet::constant]
 		type ThawThrottle: Get<(Perquintill, BlockNumberFor<Self>)>;
-
-		/// Setup the state for benchmarking.
-		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkSetup: crate::BenchmarkSetup;
 	}
 
 	#[pallet::pallet]
@@ -374,7 +356,7 @@ pub mod pallet {
 		pub receipts_on_hold: Balance,
 	}
 
-	pub struct OnEmptyQueueTotals<T>(core::marker::PhantomData<T>);
+	pub struct OnEmptyQueueTotals<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> Get<QueueTotalsTypeOf<T>> for OnEmptyQueueTotals<T> {
 		fn get() -> QueueTotalsTypeOf<T> {
 			BoundedVec::truncate_from(vec![
@@ -444,7 +426,7 @@ pub mod pallet {
 		},
 		/// An automatic funding of the deficit was made.
 		Funded { deficit: BalanceOf<T> },
-		/// A receipt was transferred.
+		/// A receipt was transfered.
 		Transferred { from: T::AccountId, to: T::AccountId, index: ReceiptIndex },
 	}
 
@@ -475,7 +457,7 @@ pub mod pallet {
 		AlreadyFunded,
 		/// The thaw throttle has been reached for this period.
 		Throttled,
-		/// The operation would result in a receipt worth an insignificant value.
+		/// The operation would result in a receipt worth an insignficant value.
 		MakesDust,
 		/// The receipt is already communal.
 		AlreadyCommunal,
@@ -575,7 +557,7 @@ pub mod pallet {
 					// queue is <Ordered: Lowest ... Highest><Fifo: Last ... First>
 					let mut bid = Bid { amount, who: who.clone() };
 					let net = if queue_full {
-						core::mem::swap(&mut q[0], &mut bid);
+						sp_std::mem::swap(&mut q[0], &mut bid);
 						let _ = T::Currency::release(
 							&HoldReason::NftReceipt.into(),
 							&bid.who,
@@ -756,13 +738,9 @@ pub mod pallet {
 					.map(|_| ())
 					// We ignore this error as it just means the amount we're trying to deposit is
 					// dust and the beneficiary account doesn't exist.
-					.or_else(|e| {
-						if e == TokenError::CannotCreate.into() {
-							Ok(())
-						} else {
-							Err(e)
-						}
-					})?;
+					.or_else(
+						|e| if e == TokenError::CannotCreate.into() { Ok(()) } else { Err(e) },
+					)?;
 					summary.receipts_on_hold.saturating_reduce(on_hold);
 				}
 				T::Currency::release(&HoldReason::NftReceipt.into(), &who, amount, Exact)?;
@@ -814,7 +792,7 @@ pub mod pallet {
 			ensure!(summary.thawed <= throttle, Error::<T>::Throttled);
 
 			let cp_amount = T::CounterpartAmount::convert(receipt.proportion);
-			T::Counterpart::burn_from(&who, cp_amount, Expendable, Exact, Polite)?;
+			T::Counterpart::burn_from(&who, cp_amount, Exact, Polite)?;
 
 			// Multiply the proportion it is by the total issued.
 			let our_account = Self::account_id();
@@ -903,7 +881,6 @@ pub mod pallet {
 			T::Counterpart::burn_from(
 				&who,
 				T::CounterpartAmount::convert(receipt.proportion),
-				Expendable,
 				Exact,
 				Polite,
 			)?;

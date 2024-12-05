@@ -1,5 +1,5 @@
 [package]
-name = "staging-node-cli"
+name = "node-cli"
 version = "3.0.0-dev"
 authors.workspace = true
 description = "Generic Substrate node implementation in Rust."
@@ -7,12 +7,9 @@ build = "build.rs"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 default-run = "substrate-node"
-homepage.workspace = true
+homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
-
-[lints]
-workspace = true
 
 [package.metadata.wasm-pack.profile.release]
 # `wasm-opt` has some problems on linux, see
@@ -23,10 +20,13 @@ wasm-opt = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [badges]
+travis-ci = { repository = "paritytech/substrate" }
 maintenance = { status = "actively-developed" }
-is-it-maintained-issue-resolution = { repository = "paritytech/polkadot-sdk" }
-is-it-maintained-open-issues = { repository = "paritytech/polkadot-sdk" }
+is-it-maintained-issue-resolution = { repository = "paritytech/substrate" }
+is-it-maintained-open-issues = { repository = "paritytech/substrate" }
 
+# The same node binary as the `substrate` (defined in the workspace `Cargo.toml`) binary,
+# but just exposed by this crate here.
 [[bin]]
 name = "substrate-node"
 path = "bin/main.rs"
@@ -37,151 +37,155 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # third-party dependencies
-array-bytes = { workspace = true, default-features = true }
-clap = { features = ["derive"], optional = true, workspace = true }
-codec = { workspace = true, default-features = true }
-serde = { features = ["derive"], workspace = true, default-features = true }
-jsonrpsee = { features = ["server"], workspace = true }
-futures = { workspace = true }
-log = { workspace = true, default-features = true }
-rand = { workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
-subxt-signer = { workspace = true, features = ["unstable-eth"] }
+array-bytes = "6.1"
+clap = { version = "4.4.4", features = ["derive"], optional = true }
+codec = { package = "parity-scale-codec", version = "3.6.1" }
+serde = { version = "1.0.188", features = ["derive"] }
+jsonrpsee = { version = "0.16.2", features = ["server"] }
+futures = "0.3.21"
+log = "0.4.17"
+rand = "0.8"
 
-# The Polkadot-SDK:
-polkadot-sdk = { features = [
-	"fork-tree",
-	"frame-benchmarking-cli",
-	"frame-remote-externalities",
-	"frame-support-procedural-tools",
-	"generate-bags",
-	"mmr-gadget",
-	"mmr-rpc",
-	"pallet-transaction-payment-rpc",
-	"sc-allocator",
-	"sc-authority-discovery",
-	"sc-basic-authorship",
-	"sc-block-builder",
-	"sc-chain-spec",
-	"sc-cli",
-	"sc-client-api",
-	"sc-client-db",
-	"sc-consensus",
-	"sc-consensus-aura",
-	"sc-consensus-babe",
-	"sc-consensus-babe-rpc",
-	"sc-consensus-beefy",
-	"sc-consensus-beefy-rpc",
-	"sc-consensus-epochs",
-	"sc-consensus-grandpa",
-	"sc-consensus-grandpa-rpc",
-	"sc-consensus-manual-seal",
-	"sc-consensus-pow",
-	"sc-consensus-slots",
-	"sc-executor",
-	"sc-executor-common",
-	"sc-executor-polkavm",
-	"sc-executor-wasmtime",
-	"sc-informant",
-	"sc-keystore",
-	"sc-mixnet",
-	"sc-network",
-	"sc-network-common",
-	"sc-network-gossip",
-	"sc-network-light",
-	"sc-network-statement",
-	"sc-network-sync",
-	"sc-network-transactions",
-	"sc-network-types",
-	"sc-offchain",
-	"sc-proposer-metrics",
-	"sc-rpc",
-	"sc-rpc-api",
-	"sc-rpc-server",
-	"sc-rpc-spec-v2",
-	"sc-service",
-	"sc-state-db",
-	"sc-statement-store",
-	"sc-storage-monitor",
-	"sc-sync-state-rpc",
-	"sc-sysinfo",
-	"sc-telemetry",
-	"sc-tracing",
-	"sc-transaction-pool",
-	"sc-transaction-pool-api",
-	"sc-utils",
-	"sp-blockchain",
-	"sp-consensus",
-	"sp-core-hashing",
-	"sp-core-hashing-proc-macro",
-	"sp-database",
-	"sp-maybe-compressed-blob",
-	"sp-panic-handler",
-	"sp-rpc",
-	"staging-chain-spec-builder",
-	"staging-node-inspect",
-	"staging-tracking-allocator",
-	"std",
-	"subkey",
-	"substrate-build-script-utils",
-	"substrate-frame-rpc-support",
-	"substrate-frame-rpc-system",
-	"substrate-prometheus-endpoint",
-	"substrate-rpc-client",
-	"substrate-state-trie-migration-rpc",
-	"substrate-wasm-builder",
-	"tracing-gum",
-], workspace = true, default-features = true }
+# primitives
+sp-authority-discovery = { path = "../../../primitives/authority-discovery" }
+sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
+grandpa-primitives = { package = "sp-consensus-grandpa", path = "../../../primitives/consensus/grandpa" }
+sp-api = { path = "../../../primitives/api" }
+sp-core = { path = "../../../primitives/core" }
+sp-runtime = { path = "../../../primitives/runtime" }
+sp-timestamp = { path = "../../../primitives/timestamp" }
+sp-inherents = { path = "../../../primitives/inherents" }
+sp-keyring = { path = "../../../primitives/keyring" }
+sp-keystore = { path = "../../../primitives/keystore" }
+sp-consensus = { path = "../../../primitives/consensus/common" }
+sp-transaction-storage-proof = { path = "../../../primitives/transaction-storage-proof" }
+sp-io = { path = "../../../primitives/io" }
+sp-statement-store = { path = "../../../primitives/statement-store" }
 
-# Shared code between the staging node and kitchensink runtime:
-kitchensink-runtime = { workspace = true }
-node-rpc = { workspace = true }
-node-primitives = { workspace = true, default-features = true }
-node-inspect = { optional = true, workspace = true, default-features = true }
+# client dependencies
+sc-client-api = { path = "../../../client/api" }
+sc-chain-spec = { path = "../../../client/chain-spec" }
+sc-consensus = { path = "../../../client/consensus/common" }
+sc-transaction-pool = { path = "../../../client/transaction-pool" }
+sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
+sc-statement-store = { path = "../../../client/statement-store" }
+sc-network = { path = "../../../client/network" }
+sc-network-common = { path = "../../../client/network/common" }
+sc-network-sync = { path = "../../../client/network/sync" }
+sc-network-statement = { path = "../../../client/network/statement" }
+sc-consensus-slots = { path = "../../../client/consensus/slots" }
+sc-consensus-babe = { path = "../../../client/consensus/babe" }
+grandpa = { package = "sc-consensus-grandpa", path = "../../../client/consensus/grandpa" }
+sc-rpc = { path = "../../../client/rpc" }
+sc-basic-authorship = { path = "../../../client/basic-authorship" }
+sc-service = { path = "../../../client/service", default-features = false}
+sc-telemetry = { path = "../../../client/telemetry" }
+sc-executor = { path = "../../../client/executor" }
+sc-authority-discovery = { path = "../../../client/authority-discovery" }
+sc-sync-state-rpc = { path = "../../../client/sync-state-rpc" }
+sc-sysinfo = { path = "../../../client/sysinfo" }
+sc-storage-monitor = { path = "../../../client/storage-monitor" }
+sc-offchain = { path = "../../../client/offchain" }
+
+# frame dependencies
+frame-system = { path = "../../../frame/system" }
+frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api" }
+pallet-assets = { path = "../../../frame/assets" }
+pallet-asset-conversion-tx-payment = { path = "../../../frame/transaction-payment/asset-conversion-tx-payment" }
+pallet-asset-tx-payment = { path = "../../../frame/transaction-payment/asset-tx-payment" }
+pallet-im-online = { path = "../../../frame/im-online", default-features = false}
+
+# node-specific dependencies
+kitchensink-runtime = { path = "../runtime" }
+node-rpc = { path = "../rpc" }
+node-primitives = { path = "../primitives" }
+node-executor = { path = "../executor" }
+
+# CLI-specific dependencies
+sc-cli = { path = "../../../client/cli", optional = true}
+frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
+node-inspect = { path = "../inspect", optional = true}
+try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
+serde_json = "1.0.107"
 
 [dev-dependencies]
-futures = { workspace = true }
-tempfile = { workspace = true }
-assert_cmd = { workspace = true }
-nix = { features = ["signal"], workspace = true }
-regex = { workspace = true }
-platforms = { workspace = true }
-soketto = { workspace = true }
-criterion = { features = ["async_tokio"], workspace = true, default-features = true }
-tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
-tokio-util = { features = ["compat"], workspace = true }
-wait-timeout = { workspace = true }
-wat = { workspace = true }
-serde_json = { workspace = true, default-features = true }
-scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
-sp-keyring = { workspace = true }
-pretty_assertions.workspace = true
-
-# These testing-only dependencies are not exported by the Polkadot-SDK crate:
-node-testing = { workspace = true }
-substrate-cli-test-utils = { workspace = true }
-sc-service-test = { workspace = true }
+sc-keystore = { path = "../../../client/keystore" }
+sc-client-db = { path = "../../../client/db" }
+sc-consensus = { path = "../../../client/consensus/common" }
+sc-consensus-babe = { path = "../../../client/consensus/babe" }
+sc-consensus-epochs = { path = "../../../client/consensus/epochs" }
+sc-service-test = { path = "../../../client/service/test" }
+sc-block-builder = { path = "../../../client/block-builder" }
+sp-tracing = { path = "../../../primitives/tracing" }
+sp-blockchain = { path = "../../../primitives/blockchain" }
+futures = "0.3.21"
+tempfile = "3.1.0"
+assert_cmd = "2.0.2"
+nix = { version = "0.26.1", features = ["signal"] }
+serde_json = "1.0"
+regex = "1.6.0"
+platforms = "3.0"
+soketto = "0.7.1"
+criterion = { version = "0.4.0", features = ["async_tokio"] }
+tokio = { version = "1.22.0", features = ["macros", "time", "parking_lot"] }
+tokio-util = { version = "0.7.4", features = ["compat"] }
+wait-timeout = "0.2"
+substrate-rpc-client = { path = "../../../utils/frame/rpc/client" }
+pallet-timestamp = { path = "../../../frame/timestamp" }
+substrate-cli-test-utils = { path = "../../../test-utils/cli" }
 
 [build-dependencies]
-clap = { optional = true, workspace = true }
-clap_complete = { optional = true, workspace = true }
-
-node-inspect = { optional = true, workspace = true, default-features = true }
-
-polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-monitor", "substrate-build-script-utils"], optional = true, workspace = true, default-features = true }
+clap = { version = "4.4.4", optional = true }
+clap_complete = { version = "4.0.2", optional = true }
+node-inspect = { path = "../inspect", optional = true}
+frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
+substrate-build-script-utils = { path = "../../../utils/build-script-utils", optional = true}
+substrate-frame-cli = { path = "../../../utils/frame/frame-utilities-cli", optional = true}
+try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
+sc-cli = { path = "../../../client/cli", optional = true }
+pallet-balances = { path = "../../../frame/balances" }
+sc-storage-monitor = { path = "../../../client/storage-monitor" }
 
 [features]
-default = ["cli"]
-cli = ["clap", "clap_complete", "node-inspect", "polkadot-sdk"]
-runtime-benchmarks = [
-	"kitchensink-runtime/runtime-benchmarks",
-	"node-inspect?/runtime-benchmarks",
-	"polkadot-sdk/runtime-benchmarks",
+default = [ "cli" ]
+cli = [
+	"clap",
+	"clap_complete",
+	"frame-benchmarking-cli",
+	"node-inspect",
+	"sc-cli",
+	"sc-service/rocksdb",
+	"substrate-build-script-utils",
+	"substrate-frame-cli",
+	"try-runtime-cli",
 ]
+runtime-benchmarks = [
+	"frame-benchmarking-cli/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"kitchensink-runtime/runtime-benchmarks",
+	"pallet-asset-tx-payment/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+# Enable features that allow the runtime to be tried and debugged. Name might be subject to change
+# in the near future.
 try-runtime = [
+	"frame-system/try-runtime",
 	"kitchensink-runtime/try-runtime",
-	"polkadot-sdk/try-runtime",
+	"pallet-asset-conversion-tx-payment/try-runtime",
+	"pallet-asset-tx-payment/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-im-online/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
+	"try-runtime-cli/try-runtime",
 ]
 
 [[bench]]
@@ -190,8 +194,4 @@ harness = false
 
 [[bench]]
 name = "block_production"
-harness = false
-
-[[bench]]
-name = "executor"
 harness = false

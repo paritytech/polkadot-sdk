@@ -18,7 +18,7 @@ use super::*;
 
 #[test]
 fn expect_pallet_should_work() {
-	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
+	AllowUnpaidFrom::set(vec![X1(Parachain(1)).into()]);
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
 	let message = Xcm(vec![ExpectPallet {
@@ -28,15 +28,14 @@ fn expect_pallet_should_work() {
 		crate_major: 1,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+	let hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(1),
 		message,
-		&mut hash,
+		hash,
 		Weight::from_parts(50, 50),
-		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
+	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 
 	let message = Xcm(vec![ExpectPallet {
 		index: 1,
@@ -45,20 +44,19 @@ fn expect_pallet_should_work() {
 		crate_major: 1,
 		min_crate_minor: 41,
 	}]);
-	let mut hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+	let hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(1),
 		message,
-		&mut hash,
+		hash,
 		Weight::from_parts(50, 50),
-		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
+	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
 }
 
 #[test]
 fn expect_pallet_should_fail_correctly() {
-	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
+	AllowUnpaidFrom::set(vec![X1(Parachain(1)).into()]);
 	let message = Xcm(vec![ExpectPallet {
 		index: 1,
 		name: b"Balances".as_ref().into(),
@@ -66,21 +64,14 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 60,
 	}]);
-	let mut hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+	let hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(1),
 		message,
-		&mut hash,
+		hash,
 		Weight::from_parts(50, 50),
-		Weight::zero(),
 	);
-	assert_eq!(
-		r,
-		Outcome::Incomplete {
-			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible
-		}
-	);
+	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::VersionIncompatible));
 
 	let message = Xcm(vec![ExpectPallet {
 		index: 1,
@@ -89,18 +80,14 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+	let hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(1),
 		message,
-		&mut hash,
+		hash,
 		Weight::from_parts(50, 50),
-		Weight::zero(),
 	);
-	assert_eq!(
-		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NameMismatch }
-	);
+	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NameMismatch));
 
 	let message = Xcm(vec![ExpectPallet {
 		index: 1,
@@ -109,18 +96,14 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+	let hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(1),
 		message,
-		&mut hash,
+		hash,
 		Weight::from_parts(50, 50),
-		Weight::zero(),
 	);
-	assert_eq!(
-		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NameMismatch }
-	);
+	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NameMismatch));
 
 	let message = Xcm(vec![ExpectPallet {
 		index: 0,
@@ -129,18 +112,14 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+	let hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(1),
 		message,
-		&mut hash,
+		hash,
 		Weight::from_parts(50, 50),
-		Weight::zero(),
 	);
-	assert_eq!(
-		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::NameMismatch }
-	);
+	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::NameMismatch));
 
 	let message = Xcm(vec![ExpectPallet {
 		index: 2,
@@ -149,18 +128,14 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+	let hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(1),
 		message,
-		&mut hash,
+		hash,
 		Weight::from_parts(50, 50),
-		Weight::zero(),
 	);
-	assert_eq!(
-		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::PalletNotFound }
-	);
+	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::PalletNotFound));
 
 	let message = Xcm(vec![ExpectPallet {
 		index: 1,
@@ -169,21 +144,14 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 2,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+	let hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(1),
 		message,
-		&mut hash,
+		hash,
 		Weight::from_parts(50, 50),
-		Weight::zero(),
 	);
-	assert_eq!(
-		r,
-		Outcome::Incomplete {
-			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible
-		}
-	);
+	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::VersionIncompatible));
 
 	let message = Xcm(vec![ExpectPallet {
 		index: 1,
@@ -192,21 +160,14 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 0,
 		min_crate_minor: 42,
 	}]);
-	let mut hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+	let hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(1),
 		message,
-		&mut hash,
+		hash,
 		Weight::from_parts(50, 50),
-		Weight::zero(),
 	);
-	assert_eq!(
-		r,
-		Outcome::Incomplete {
-			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible
-		}
-	);
+	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::VersionIncompatible));
 
 	let message = Xcm(vec![ExpectPallet {
 		index: 1,
@@ -215,19 +176,12 @@ fn expect_pallet_should_fail_correctly() {
 		crate_major: 1,
 		min_crate_minor: 43,
 	}]);
-	let mut hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+	let hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::execute_xcm(
 		Parachain(1),
 		message,
-		&mut hash,
+		hash,
 		Weight::from_parts(50, 50),
-		Weight::zero(),
 	);
-	assert_eq!(
-		r,
-		Outcome::Incomplete {
-			used: Weight::from_parts(10, 10),
-			error: XcmError::VersionIncompatible
-		}
-	);
+	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(10, 10), XcmError::VersionIncompatible));
 }

@@ -25,46 +25,41 @@
 
 #![warn(missing_docs)]
 
-pub use overseer::{
-	gen::{OrchestraError as OverseerError, Timeout},
-	Subsystem, TimeoutExt,
-};
 use polkadot_node_subsystem::{
 	errors::{RuntimeApiError, SubsystemError},
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
+use polkadot_primitives::{slashing, ExecutorParams};
+
+pub use overseer::{
+	gen::{OrchestraError as OverseerError, Timeout},
+	Subsystem, TimeoutExt,
+};
 
 pub use polkadot_node_metrics::{metrics, Metronome};
 
-use codec::Encode;
 use futures::channel::{mpsc, oneshot};
+use parity_scale_codec::Encode;
 
 use polkadot_primitives::{
-	slashing,
-	vstaging::{
-		async_backing::BackingState, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
-	},
-	AsyncBackingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, EncodeAs, ExecutorParams,
-	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, EncodeAs, GroupIndex, GroupRotationInfo, Hash,
+	Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 pub use rand;
-use runtime::get_disabled_validators_with_fallback;
 use sp_application_crypto::AppCrypto;
 use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
-use std::{
-	collections::{BTreeMap, VecDeque},
-	time::Duration,
-};
+use std::time::Duration;
 use thiserror::Error;
 
-pub use determine_new_blocks::determine_new_blocks;
 pub use metered;
 pub use polkadot_node_network_protocol::MIN_GOSSIP_PEERS;
+
+pub use determine_new_blocks::determine_new_blocks;
 
 /// These reexports are required so that external crates can use the `delegated_subsystem` macro
 /// properly.
@@ -72,8 +67,6 @@ pub mod reexports {
 	pub use polkadot_overseer::gen::{SpawnedSubsystem, Spawner, Subsystem, SubsystemContext};
 }
 
-/// Helpers for the validator->chunk index mapping.
-pub mod availability_chunks;
 /// A utility for managing the implicit view of the relay-chain derived from active
 /// leaves and the minimum allowed relay-parents that parachain candidates can have
 /// and be backed in those leaves' children.
@@ -85,9 +78,6 @@ pub mod database;
 pub mod inclusion_emulator;
 /// Convenient and efficient runtime info access.
 pub mod runtime;
-
-/// Helpers for working with unreleased runtime calls
-pub mod vstaging;
 
 /// Nested message sending
 ///
@@ -101,8 +91,6 @@ mod determine_new_blocks;
 
 #[cfg(test)]
 mod tests;
-
-const LOG_TARGET: &'static str = "parachain::subsystem-util";
 
 /// Duration a job will wait after sending a stop signal before hard-aborting.
 pub const JOB_GRACEFUL_STOP_DURATION: Duration = Duration::from_secs(1);
@@ -147,20 +135,6 @@ impl From<OverseerError> for Error {
 	}
 }
 
-impl TryFrom<crate::runtime::Error> for Error {
-	type Error = ();
-
-	fn try_from(e: crate::runtime::Error) -> Result<Self, ()> {
-		use crate::runtime::Error;
-
-		match e {
-			Error::RuntimeRequestCanceled(e) => Ok(Self::Oneshot(e)),
-			Error::RuntimeRequest(e) => Ok(Self::RuntimeApi(e)),
-			Error::NoSuchSession(_) | Error::NoExecutorParams(_) => Err(()),
-		}
-	}
-}
-
 /// A type alias for Runtime API receivers.
 pub type RuntimeApiReceiver<T> = oneshot::Receiver<Result<T, RuntimeApiError>>;
 
@@ -181,62 +155,6 @@ where
 		.await;
 
 	rx
-}
-
-/// Verifies if `ParachainHost` runtime api is at least at version `required_runtime_version`. This
-/// method is used to determine if a given runtime call is supported by the runtime.
-pub async fn has_required_runtime<Sender>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-	required_runtime_version: u32,
-) -> bool
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	gum::trace!(target: LOG_TARGET, ?relay_parent, "Fetching ParachainHost runtime api version");
-
-	let (tx, rx) = oneshot::channel();
-	sender
-		.send_message(RuntimeApiMessage::Request(relay_parent, RuntimeApiRequest::Version(tx)))
-		.await;
-
-	match rx.await {
-		Result::Ok(Ok(runtime_version)) => {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?runtime_version,
-				?required_runtime_version,
-				"Fetched  ParachainHost runtime api version"
-			);
-			runtime_version >= required_runtime_version
-		},
-		Result::Ok(Err(RuntimeApiError::Execution { source: error, .. })) => {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?error,
-				"Execution error while fetching ParachainHost runtime api version"
-			);
-			false
-		},
-		Result::Ok(Err(RuntimeApiError::NotSupported { .. })) => {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				"NotSupported error while fetching ParachainHost runtime api version"
-			);
-			false
-		},
-		Result::Err(_) => {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				"Cancelled error while fetching ParachainHost runtime api version"
-			);
-			false
-		},
-	}
 }
 
 /// Construct specialized request functions for the runtime.
@@ -299,7 +217,6 @@ specialize_requests! {
 	fn request_validation_code(para_id: ParaId, assumption: OccupiedCoreAssumption) -> Option<ValidationCode>; ValidationCode;
 	fn request_validation_code_by_hash(validation_code_hash: ValidationCodeHash) -> Option<ValidationCode>; ValidationCodeByHash;
 	fn request_candidate_pending_availability(para_id: ParaId) -> Option<CommittedCandidateReceipt>; CandidatePendingAvailability;
-	fn request_candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt>; CandidatesPendingAvailability;
 	fn request_candidate_events() -> Vec<CandidateEvent>; CandidateEvents;
 	fn request_session_info(index: SessionIndex) -> Option<SessionInfo>; SessionInfo;
 	fn request_validation_code_hash(para_id: ParaId, assumption: OccupiedCoreAssumption)
@@ -309,10 +226,7 @@ specialize_requests! {
 	fn request_unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>; UnappliedSlashes;
 	fn request_key_ownership_proof(validator_id: ValidatorId) -> Option<slashing::OpaqueKeyOwnershipProof>; KeyOwnershipProof;
 	fn request_submit_report_dispute_lost(dp: slashing::DisputeProof, okop: slashing::OpaqueKeyOwnershipProof) -> Option<()>; SubmitReportDisputeLost;
-	fn request_disabled_validators() -> Vec<ValidatorIndex>; DisabledValidators;
 	fn request_async_backing_params() -> AsyncBackingParams; AsyncBackingParams;
-	fn request_claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>>; ClaimQueue;
-	fn request_para_backing_state(para_id: ParaId) -> Option<BackingState>; ParaBackingState;
 }
 
 /// Requests executor parameters from the runtime effective at given relay-parent. First obtains
@@ -387,7 +301,7 @@ pub fn signing_key_and_index<'a>(
 
 /// Sign the given data with the given validator ID.
 ///
-/// Returns `Ok(None)` if the private key that corresponds to that validator ID is not found in the
+/// Returns `Ok(None)` if the private key that correponds to that validator ID is not found in the
 /// given keystore. Returns an error if the key could not be used for signing.
 pub fn sign(
 	keystore: &KeystorePtr,
@@ -463,7 +377,6 @@ pub struct Validator {
 	signing_context: SigningContext,
 	key: ValidatorId,
 	index: ValidatorIndex,
-	disabled: bool,
 }
 
 impl Validator {
@@ -485,14 +398,7 @@ impl Validator {
 
 		let validators = validators?;
 
-		// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-		// When `DisabledValidators` is released remove this and add a
-		// `request_disabled_validators` call here
-		let disabled_validators = get_disabled_validators_with_fallback(sender, parent)
-			.await
-			.map_err(|e| Error::try_from(e).expect("the conversion is infallible; qed"))?;
-
-		Self::construct(&validators, &disabled_validators, signing_context, keystore)
+		Self::construct(&validators, signing_context, keystore)
 	}
 
 	/// Construct a validator instance without performing runtime fetches.
@@ -500,16 +406,13 @@ impl Validator {
 	/// This can be useful if external code also needs the same data.
 	pub fn construct(
 		validators: &[ValidatorId],
-		disabled_validators: &[ValidatorIndex],
 		signing_context: SigningContext,
 		keystore: KeystorePtr,
 	) -> Result<Self, Error> {
 		let (key, index) =
 			signing_key_and_index(validators, &keystore).ok_or(Error::NotAValidator)?;
 
-		let disabled = disabled_validators.iter().any(|d: &ValidatorIndex| *d == index);
-
-		Ok(Validator { signing_context, key, index, disabled })
+		Ok(Validator { signing_context, key, index })
 	}
 
 	/// Get this validator's id.
@@ -520,11 +423,6 @@ impl Validator {
 	/// Get this validator's local index.
 	pub fn index(&self) -> ValidatorIndex {
 		self.index
-	}
-
-	/// Get the enabled/disabled state of this validator
-	pub fn disabled(&self) -> bool {
-		self.disabled
 	}
 
 	/// Get the current signing context.

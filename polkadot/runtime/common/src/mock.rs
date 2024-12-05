@@ -17,13 +17,11 @@
 //! Mocking utilities for testing.
 
 use crate::traits::Registrar;
-use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchResult, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{
-	HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, ValidationCode,
-};
-use polkadot_runtime_parachains::paras;
+use parity_scale_codec::{Decode, Encode};
+use primitives::{HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, ValidationCode};
+use runtime_parachains::paras;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{traits::SaturatedConversion, DispatchError, Permill};
 use std::{cell::RefCell, collections::HashMap};
@@ -37,7 +35,7 @@ thread_local! {
 	static MANAGERS: RefCell<HashMap<ParaId, Vec<u8>>> = RefCell::new(HashMap::new());
 }
 
-pub struct TestRegistrar<T>(core::marker::PhantomData<T>);
+pub struct TestRegistrar<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 	type AccountId = T::AccountId;
@@ -241,9 +239,7 @@ impl frame_support::traits::EstimateNextSessionRotation<u32> for TestNextSession
 	}
 }
 
-pub fn validators_public_keys(
-	validators: &[Sr25519Keyring],
-) -> Vec<polkadot_primitives::ValidatorId> {
+pub fn validators_public_keys(validators: &[Sr25519Keyring]) -> Vec<primitives::ValidatorId> {
 	validators.iter().map(|v| v.public().into()).collect()
 }
 
@@ -252,7 +248,7 @@ pub fn conclude_pvf_checking<T: paras::Config>(
 	validators: &[Sr25519Keyring],
 	session_index: SessionIndex,
 ) {
-	let num_required = polkadot_primitives::supermajority_threshold(validators.len());
+	let num_required = primitives::supermajority_threshold(validators.len());
 	validators.iter().enumerate().take(num_required).for_each(|(idx, key)| {
 		let validator_index = idx as u32;
 		let statement = PvfCheckStatement {

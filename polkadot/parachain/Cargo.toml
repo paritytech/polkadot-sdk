@@ -4,40 +4,40 @@ description = "Types and utilities for creating and working with parachains"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "6.0.0"
-homepage.workspace = true
-repository.workspace = true
-
-[lints]
-workspace = true
+version = "1.0.0"
 
 [dependencies]
 # note: special care is taken to avoid inclusion of `sp-io` externals when compiling
 # this crate for WASM. This is critical to avoid forcing all parachain WASM into implementing
 # various unnecessary Substrate-specific endpoints.
-codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive", "serde"], workspace = true }
-sp-runtime = { features = ["serde"], workspace = true }
-sp-core = { features = ["serde"], workspace = true }
-sp-weights = { workspace = true }
-polkadot-core-primitives = { workspace = true }
-derive_more = { workspace = true, default-features = true }
-bounded-collections = { features = ["serde"], workspace = true }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = [ "derive" ] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
+sp-std = { path = "../../substrate/primitives/std", default-features = false }
+sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
+sp-core = { path = "../../substrate/primitives/core", default-features = false, features = ["serde"] }
+frame-support = { path = "../../substrate/frame/support", default-features = false }
+polkadot-core-primitives = { path = "../core-primitives", default-features = false }
+derive_more = "0.99.11"
+bounded-collections = { version = "0.1.8", default-features = false, features = ["serde"] }
 
 # all optional crates.
-serde = { features = ["alloc", "derive"], workspace = true }
+serde = { version = "1.0.188", default-features = false, features = ["derive", "alloc"] }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 wasm-api = []
 std = [
 	"bounded-collections/std",
-	"codec/std",
+	"frame-support/std",
+	"parity-scale-codec/std",
 	"polkadot-core-primitives/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"sp-weights/std",
+	"sp-std/std",
 ]
-runtime-benchmarks = ["sp-runtime/runtime-benchmarks"]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

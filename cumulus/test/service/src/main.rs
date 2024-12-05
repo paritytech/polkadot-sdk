@@ -16,13 +16,16 @@
 
 mod cli;
 
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 use cli::{RelayChainCli, Subcommand, TestCollatorCli};
-use cumulus_primitives_core::relay_chain::CollatorPair;
-use cumulus_test_service::{chain_spec, new_partial, AnnounceBlockFn};
+use cumulus_client_cli::generate_genesis_block;
+use cumulus_primitives_core::{relay_chain::CollatorPair, ParaId};
+use cumulus_test_service::AnnounceBlockFn;
+use polkadot_service::runtime_traits::AccountIdConversion;
 use sc_cli::{CliConfiguration, SubstrateCli};
-use sp_core::Pair;
+use sp_core::{hexdisplay::HexDisplay, Encode, Pair};
+use sp_runtime::traits::Block;
 
 pub fn wrap_announce_block() -> Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlockFn> {
 	tracing::info!("Block announcements disabled.");
@@ -41,16 +44,38 @@ fn main() -> Result<(), sc_cli::Error> {
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		},
 
-		Some(Subcommand::ExportGenesisHead(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|mut config| {
-				let partial = new_partial(&mut config, false)?;
-				cmd.run(partial.client)
-			})
+		Some(Subcommand::ExportGenesisState(params)) => {
+			let mut builder = sc_cli::LoggerBuilder::new("");
+			builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
+			let _ = builder.init();
+
+			let spec =
+				cli.load_spec(&params.base.shared_params.chain.clone().unwrap_or_default())?;
+			let state_version = cumulus_test_service::runtime::VERSION.state_version();
+
+			let block: parachains_common::Block = generate_genesis_block(&*spec, state_version)?;
+			let raw_header = block.header().encode();
+			let output_buf = if params.base.raw {
+				raw_header
+			} else {
+				format!("0x{:?}", HexDisplay::from(&block.header().encode())).into_bytes()
+			};
+
+			if let Some(output) = &params.base.output {
+				std::fs::write(output, output_buf)?;
+			} else {
+				std::io::stdout().write_all(&output_buf)?;
+			}
+
+			Ok(())
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run(&*config.chain_spec))
+			runner.sync_run(|_config| {
+				let parachain_id = ParaId::from(cmd.parachain_id);
+				let spec = cumulus_test_service::get_chain_spec(parachain_id);
+				cmd.base.run(&spec)
+			})
 		},
 		None => {
 			let log_filters = cli.run.normalize().log_filters();
@@ -61,39 +86,39 @@ fn main() -> Result<(), sc_cli::Error> {
 			let collator_options = cli.run.collator_options();
 			let tokio_runtime = sc_cli::build_runtime()?;
 			let tokio_handle = tokio_runtime.handle();
-			let parachain_config = cli
+			let config = cli
 				.run
 				.normalize()
 				.create_configuration(&cli, tokio_handle.clone())
 				.expect("Should be able to generate config");
 
-			let relay_chain_cli = RelayChainCli::new(
-				&parachain_config,
+			let parachain_id = ParaId::from(cli.parachain_id);
+			let polkadot_cli = RelayChainCli::new(
+				&config,
 				[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
 			);
-			let tokio_handle = parachain_config.tokio_handle.clone();
-			let relay_chain_config = SubstrateCli::create_configuration(
-				&relay_chain_cli,
-				&relay_chain_cli,
-				tokio_handle,
-			)
-			.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-			let parachain_id = chain_spec::Extensions::try_get(&*parachain_config.chain_spec)
-				.map(|e| e.para_id)
-				.ok_or("Could not find parachain extension in chain-spec.")?;
+			let parachain_account =
+				AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+					&parachain_id,
+				);
+
+			let tokio_handle = config.tokio_handle.clone();
+			let polkadot_config =
+				SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
+					.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
 			tracing::info!("Parachain id: {:?}", parachain_id);
+			tracing::info!("Parachain Account: {}", parachain_account);
 			tracing::info!(
 				"Is collating: {}",
-				if parachain_config.role.is_authority() { "yes" } else { "no" }
+				if config.role.is_authority() { "yes" } else { "no" }
 			);
 			if cli.fail_pov_recovery {
 				tracing::info!("PoV recovery failure enabled");
 			}
 
-			let collator_key =
-				parachain_config.role.is_authority().then(|| CollatorPair::generate().0);
+			let collator_key = config.role.is_authority().then(|| CollatorPair::generate().0);
 
 			let consensus = cli
 				.use_null_consensus
@@ -101,49 +126,20 @@ fn main() -> Result<(), sc_cli::Error> {
 					tracing::info!("Using null consensus.");
 					cumulus_test_service::Consensus::Null
 				})
-				.unwrap_or(cumulus_test_service::Consensus::Aura);
+				.unwrap_or(cumulus_test_service::Consensus::RelayChain);
 
-			let (mut task_manager, _, _, _, _, _) = tokio_runtime
-				.block_on(async move {
-					match relay_chain_config.network.network_backend {
-						sc_network::config::NetworkBackendType::Libp2p =>
-							cumulus_test_service::start_node_impl::<
-								_,
-								sc_network::NetworkWorker<_, _>,
-							>(
-								parachain_config,
-								collator_key,
-								relay_chain_config,
-								parachain_id.into(),
-								cli.disable_block_announcements.then(wrap_announce_block),
-								cli.fail_pov_recovery,
-								|_| Ok(jsonrpsee::RpcModule::new(())),
-								consensus,
-								collator_options,
-								true,
-								cli.experimental_use_slot_based,
-							)
-							.await,
-						sc_network::config::NetworkBackendType::Litep2p =>
-							cumulus_test_service::start_node_impl::<
-								_,
-								sc_network::Litep2pNetworkBackend,
-							>(
-								parachain_config,
-								collator_key,
-								relay_chain_config,
-								parachain_id.into(),
-								cli.disable_block_announcements.then(wrap_announce_block),
-								cli.fail_pov_recovery,
-								|_| Ok(jsonrpsee::RpcModule::new(())),
-								consensus,
-								collator_options,
-								true,
-								cli.experimental_use_slot_based,
-							)
-							.await,
-					}
-				})
+			let (mut task_manager, _, _, _, _) = tokio_runtime
+				.block_on(cumulus_test_service::start_node_impl(
+					config,
+					collator_key,
+					polkadot_config,
+					parachain_id,
+					cli.disable_block_announcements.then(wrap_announce_block),
+					cli.fail_pov_recovery,
+					|_| Ok(jsonrpsee::RpcModule::new(())),
+					consensus,
+					collator_options,
+				))
 				.expect("could not create Cumulus test service");
 
 			tokio_runtime

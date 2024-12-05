@@ -23,13 +23,15 @@ mod tests;
 
 use futures::channel::oneshot;
 use jsonrpsee::{
-	core::{async_trait, JsonValue},
-	Extensions,
+	core::{async_trait, error::Error as JsonRpseeError, JsonValue, RpcResult},
+	types::error::{CallError, ErrorCode, ErrorObject},
 };
-use sc_rpc_api::check_if_safe;
+use sc_rpc_api::DenyUnsafe;
 use sc_tracing::logging;
 use sc_utils::mpsc::TracingUnboundedSender;
 use sp_runtime::traits::{self, Header as HeaderT};
+
+use self::error::Result;
 
 pub use self::helpers::{Health, NodeRole, PeerInfo, SyncState, SystemInfo};
 pub use sc_rpc_api::system::*;
@@ -38,6 +40,7 @@ pub use sc_rpc_api::system::*;
 pub struct System<B: traits::Block> {
 	info: SystemInfo,
 	send_back: TracingUnboundedSender<Request<B>>,
+	deny_unsafe: DenyUnsafe,
 }
 
 /// Request to be processed.
@@ -54,9 +57,9 @@ pub enum Request<B: traits::Block> {
 	/// Must return the state of the network.
 	NetworkState(oneshot::Sender<serde_json::Value>),
 	/// Must return any potential parse error.
-	NetworkAddReservedPeer(String, oneshot::Sender<error::Result<()>>),
+	NetworkAddReservedPeer(String, oneshot::Sender<Result<()>>),
 	/// Must return any potential parse error.
-	NetworkRemoveReservedPeer(String, oneshot::Sender<error::Result<()>>),
+	NetworkRemoveReservedPeer(String, oneshot::Sender<Result<()>>),
 	/// Must return the list of reserved peers
 	NetworkReservedPeers(oneshot::Sender<Vec<String>>),
 	/// Must return the node role.
@@ -70,121 +73,132 @@ impl<B: traits::Block> System<B> {
 	///
 	/// The `send_back` will be used to transmit some of the requests. The user is responsible for
 	/// reading from that channel and answering the requests.
-	pub fn new(info: SystemInfo, send_back: TracingUnboundedSender<Request<B>>) -> Self {
-		System { info, send_back }
+	pub fn new(
+		info: SystemInfo,
+		send_back: TracingUnboundedSender<Request<B>>,
+		deny_unsafe: DenyUnsafe,
+	) -> Self {
+		System { info, send_back, deny_unsafe }
 	}
 }
 
 #[async_trait]
 impl<B: traits::Block> SystemApiServer<B::Hash, <B::Header as HeaderT>::Number> for System<B> {
-	fn system_name(&self) -> Result<String, Error> {
+	fn system_name(&self) -> RpcResult<String> {
 		Ok(self.info.impl_name.clone())
 	}
 
-	fn system_version(&self) -> Result<String, Error> {
+	fn system_version(&self) -> RpcResult<String> {
 		Ok(self.info.impl_version.clone())
 	}
 
-	fn system_chain(&self) -> Result<String, Error> {
+	fn system_chain(&self) -> RpcResult<String> {
 		Ok(self.info.chain_name.clone())
 	}
 
-	fn system_type(&self) -> Result<sc_chain_spec::ChainType, Error> {
+	fn system_type(&self) -> RpcResult<sc_chain_spec::ChainType> {
 		Ok(self.info.chain_type.clone())
 	}
 
-	fn system_properties(&self) -> Result<sc_chain_spec::Properties, Error> {
+	fn system_properties(&self) -> RpcResult<sc_chain_spec::Properties> {
 		Ok(self.info.properties.clone())
 	}
 
-	async fn system_health(&self) -> Result<Health, Error> {
+	async fn system_health(&self) -> RpcResult<Health> {
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::Health(tx));
-		rx.await.map_err(|e| Error::Internal(e.to_string()))
+		rx.await.map_err(|e| JsonRpseeError::to_call_error(e))
 	}
 
-	async fn system_local_peer_id(&self) -> Result<String, Error> {
+	async fn system_local_peer_id(&self) -> RpcResult<String> {
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::LocalPeerId(tx));
-		rx.await.map_err(|e| Error::Internal(e.to_string()))
+		rx.await.map_err(|e| JsonRpseeError::to_call_error(e))
 	}
 
-	async fn system_local_listen_addresses(&self) -> Result<Vec<String>, Error> {
+	async fn system_local_listen_addresses(&self) -> RpcResult<Vec<String>> {
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::LocalListenAddresses(tx));
-		rx.await.map_err(|e| Error::Internal(e.to_string()))
+		rx.await.map_err(|e| JsonRpseeError::to_call_error(e))
 	}
 
 	async fn system_peers(
 		&self,
-		ext: &Extensions,
-	) -> Result<Vec<PeerInfo<B::Hash, <B::Header as HeaderT>::Number>>, Error> {
-		check_if_safe(ext)?;
+	) -> RpcResult<Vec<PeerInfo<B::Hash, <B::Header as HeaderT>::Number>>> {
+		self.deny_unsafe.check_if_safe()?;
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::Peers(tx));
-		rx.await.map_err(|e| Error::Internal(e.to_string()))
+		rx.await.map_err(|e| JsonRpseeError::to_call_error(e))
 	}
 
-	async fn system_network_state(&self, ext: &Extensions) -> Result<JsonValue, Error> {
-		check_if_safe(ext)?;
+	async fn system_network_state(&self) -> RpcResult<JsonValue> {
+		self.deny_unsafe.check_if_safe()?;
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::NetworkState(tx));
-		rx.await.map_err(|e| Error::Internal(e.to_string()))
+		rx.await.map_err(|e| JsonRpseeError::to_call_error(e))
 	}
 
-	async fn system_add_reserved_peer(&self, ext: &Extensions, peer: String) -> Result<(), Error> {
-		check_if_safe(ext)?;
+	async fn system_add_reserved_peer(&self, peer: String) -> RpcResult<()> {
+		self.deny_unsafe.check_if_safe()?;
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::NetworkAddReservedPeer(peer, tx));
 		match rx.await {
 			Ok(Ok(())) => Ok(()),
-			Ok(Err(e)) => Err(e),
-			Err(e) => Err(Error::Internal(e.to_string())),
+			Ok(Err(e)) => Err(JsonRpseeError::from(e)),
+			Err(e) => Err(JsonRpseeError::to_call_error(e)),
 		}
 	}
 
-	async fn system_remove_reserved_peer(
-		&self,
-		ext: &Extensions,
-		peer: String,
-	) -> Result<(), Error> {
-		check_if_safe(ext)?;
+	async fn system_remove_reserved_peer(&self, peer: String) -> RpcResult<()> {
+		self.deny_unsafe.check_if_safe()?;
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::NetworkRemoveReservedPeer(peer, tx));
 		match rx.await {
 			Ok(Ok(())) => Ok(()),
-			Ok(Err(e)) => Err(e),
-			Err(e) => Err(Error::Internal(e.to_string())),
+			Ok(Err(e)) => Err(JsonRpseeError::from(e)),
+			Err(e) => Err(JsonRpseeError::to_call_error(e)),
 		}
 	}
 
-	async fn system_reserved_peers(&self) -> Result<Vec<String>, Error> {
+	async fn system_reserved_peers(&self) -> RpcResult<Vec<String>> {
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::NetworkReservedPeers(tx));
-		rx.await.map_err(|e| Error::Internal(e.to_string()))
+		rx.await.map_err(|e| JsonRpseeError::to_call_error(e))
 	}
 
-	async fn system_node_roles(&self) -> Result<Vec<NodeRole>, Error> {
+	async fn system_node_roles(&self) -> RpcResult<Vec<NodeRole>> {
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::NodeRoles(tx));
-		rx.await.map_err(|e| Error::Internal(e.to_string()))
+		rx.await.map_err(|e| JsonRpseeError::to_call_error(e))
 	}
 
-	async fn system_sync_state(&self) -> Result<SyncState<<B::Header as HeaderT>::Number>, Error> {
+	async fn system_sync_state(&self) -> RpcResult<SyncState<<B::Header as HeaderT>::Number>> {
 		let (tx, rx) = oneshot::channel();
 		let _ = self.send_back.unbounded_send(Request::SyncState(tx));
-		rx.await.map_err(|e| Error::Internal(e.to_string()))
+		rx.await.map_err(|e| JsonRpseeError::to_call_error(e))
 	}
 
-	fn system_add_log_filter(&self, ext: &Extensions, directives: String) -> Result<(), Error> {
-		check_if_safe(ext)?;
+	fn system_add_log_filter(&self, directives: String) -> RpcResult<()> {
+		self.deny_unsafe.check_if_safe()?;
 
 		logging::add_directives(&directives);
-		logging::reload_filter().map_err(|e| Error::Internal(e))
+		logging::reload_filter().map_err(|e| {
+			JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+				ErrorCode::InternalError.code(),
+				e,
+				None::<()>,
+			)))
+		})
 	}
 
-	fn system_reset_log_filter(&self, ext: &Extensions) -> Result<(), Error> {
-		check_if_safe(ext)?;
-		logging::reset_log_filter().map_err(|e| Error::Internal(e))
+	fn system_reset_log_filter(&self) -> RpcResult<()> {
+		self.deny_unsafe.check_if_safe()?;
+		logging::reset_log_filter().map_err(|e| {
+			JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+				ErrorCode::InternalError.code(),
+				e,
+				None::<()>,
+			)))
+		})
 	}
 }

@@ -17,22 +17,19 @@
 //! The session info pallet provides information about validator sets
 //! from prior sessions needed for approvals and disputes.
 //!
-//! See the documentation on [session info][session-info-page] in the implementers' guide.
-//!
-//! [session-info-page]: https://paritytech.github.io/polkadot-sdk/book/runtime/session_info.html
+//! See <https://w3f.github.io/parachain-implementers-guide/runtime/session_info.html>.
+
 use crate::{
 	configuration, paras, scheduler, shared,
 	util::{take_active_subset, take_active_subset_and_inactive},
 };
-use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{OneSessionHandler, ValidatorSet, ValidatorSetWithIdentification},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{
-	AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo,
-};
+use primitives::{AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo};
+use sp_std::vec::Vec;
 
 pub use pallet::*;
 
@@ -88,23 +85,28 @@ pub mod pallet {
 
 	/// The earliest session for which previous session info is stored.
 	#[pallet::storage]
-	pub type EarliestStoredSession<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
+	#[pallet::getter(fn earliest_stored_session)]
+	pub(crate) type EarliestStoredSession<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// Session information in a rolling window.
 	/// Should have an entry in range `EarliestStoredSession..=CurrentSessionIndex`.
 	/// Does not have any entries before the session index in the first session change notification.
 	#[pallet::storage]
-	pub type Sessions<T: Config> = StorageMap<_, Identity, SessionIndex, SessionInfo>;
+	#[pallet::getter(fn session_info)]
+	pub(crate) type Sessions<T: Config> = StorageMap<_, Identity, SessionIndex, SessionInfo>;
 
 	/// The validator account keys of the validators actively participating in parachain consensus.
 	// We do not store this in `SessionInfo` to avoid leaking the `AccountId` type to the client,
 	// which would complicate the migration process if we are to change it in the future.
 	#[pallet::storage]
-	pub type AccountKeys<T: Config> = StorageMap<_, Identity, SessionIndex, Vec<AccountId<T>>>;
+	#[pallet::getter(fn account_keys)]
+	pub(crate) type AccountKeys<T: Config> =
+		StorageMap<_, Identity, SessionIndex, Vec<AccountId<T>>>;
 
 	/// Executor parameter set for a given session index
 	#[pallet::storage]
-	pub type SessionExecutorParams<T: Config> =
+	#[pallet::getter(fn session_executor_params)]
+	pub(crate) type SessionExecutorParams<T: Config> =
 		StorageMap<_, Identity, SessionIndex, ExecutorParams>;
 }
 
@@ -117,7 +119,7 @@ pub trait AuthorityDiscoveryConfig {
 
 impl<T: pallet_authority_discovery::Config> AuthorityDiscoveryConfig for T {
 	fn authorities() -> Vec<AuthorityDiscoveryId> {
-		pallet_authority_discovery::Pallet::<T>::current_authorities().to_vec()
+		<pallet_authority_discovery::Pallet<T>>::current_authorities().to_vec()
 	}
 }
 
@@ -126,17 +128,17 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_on_new_session(
 		notification: &crate::initializer::SessionChangeNotification<BlockNumberFor<T>>,
 	) {
-		let config = configuration::ActiveConfig::<T>::get();
+		let config = <configuration::Pallet<T>>::config();
 
 		let dispute_period = config.dispute_period;
 
 		let validators = notification.validators.clone().into();
 		let discovery_keys = <T as AuthorityDiscoveryConfig>::authorities();
 		let assignment_keys = AssignmentKeysUnsafe::<T>::get();
-		let active_set = shared::ActiveValidatorIndices::<T>::get();
+		let active_set = <shared::Pallet<T>>::active_validator_indices();
 
-		let validator_groups = scheduler::ValidatorGroups::<T>::get();
-		let n_cores = validator_groups.len() as u32;
+		let validator_groups = <scheduler::Pallet<T>>::validator_groups().into();
+		let n_cores = <scheduler::Pallet<T>>::availability_cores().len() as u32;
 		let zeroth_delay_tranche_width = config.zeroth_delay_tranche_width;
 		let relay_vrf_modulo_samples = config.relay_vrf_modulo_samples;
 		let n_delay_tranches = config.n_delay_tranches;
@@ -155,7 +157,7 @@ impl<T: Config> Pallet<T> {
 			for idx in old_earliest_stored_session..new_earliest_stored_session {
 				Sessions::<T>::remove(&idx);
 				// Idx will be missing for a few sessions after the runtime upgrade.
-				// But it shouldn't be a problem.
+				// But it shouldn'be be a problem.
 				AccountKeys::<T>::remove(&idx);
 				SessionExecutorParams::<T>::remove(&idx);
 			}
@@ -177,7 +179,7 @@ impl<T: Config> Pallet<T> {
 			validators, // these are from the notification and are thus already correct.
 			discovery_keys: take_active_subset_and_inactive(&active_set, &discovery_keys),
 			assignment_keys: take_active_subset(&active_set, &assignment_keys),
-			validator_groups: validator_groups.into(),
+			validator_groups,
 			n_cores,
 			zeroth_delay_tranche_width,
 			relay_vrf_modulo_samples,

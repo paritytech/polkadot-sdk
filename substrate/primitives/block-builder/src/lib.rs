@@ -19,8 +19,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{traits::Block as BlockT, ApplyExtrinsicResult};
 
@@ -46,7 +44,7 @@ sp_api::decl_runtime_apis! {
 		/// Generate inherent extrinsics. The inherent data will vary from chain to chain.
 		fn inherent_extrinsics(
 			inherent: InherentData,
-		) -> alloc::vec::Vec<<Block as BlockT>::Extrinsic>;
+		) -> sp_std::vec::Vec<<Block as BlockT>::Extrinsic>;
 
 		/// Check that the inherents are valid. The inherent data will vary from chain to chain.
 		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult;

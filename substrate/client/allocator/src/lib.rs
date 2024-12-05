@@ -18,7 +18,7 @@
 //! Collection of allocator implementations.
 //!
 //! This crate provides the following allocator implementations:
-//! - A freeing-bump allocator: [`FreeingBumpHeapAllocator`]
+//! - A freeing-bump allocator: [`FreeingBumpHeapAllocator`](freeing_bump::FreeingBumpHeapAllocator)
 
 #![warn(missing_docs)]
 

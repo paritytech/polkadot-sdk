@@ -42,7 +42,6 @@ mod keyword {
 	syn::custom_keyword!(ValidateUnsigned);
 	syn::custom_keyword!(FreezeReason);
 	syn::custom_keyword!(HoldReason);
-	syn::custom_keyword!(Task);
 	syn::custom_keyword!(LockId);
 	syn::custom_keyword!(SlashReason);
 	syn::custom_keyword!(exclude_parts);
@@ -65,6 +64,8 @@ pub enum RuntimeDeclaration {
 /// Declaration of a runtime with some pallet with implicit declaration of parts.
 #[derive(Debug)]
 pub struct ImplicitRuntimeDeclaration {
+	pub name: Ident,
+	pub where_section: Option<WhereSection>,
 	pub pallets: Vec<PalletDeclaration>,
 }
 
@@ -96,7 +97,11 @@ impl Parse for RuntimeDeclaration {
 
 		match convert_pallets(pallets.content.inner.into_iter().collect())? {
 			PalletsConversion::Implicit(pallets) =>
-				Ok(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration { pallets })),
+				Ok(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration {
+					name,
+					where_section,
+					pallets,
+				})),
 			PalletsConversion::Explicit(pallets) =>
 				Ok(RuntimeDeclaration::Explicit(ExplicitRuntimeDeclaration {
 					name,
@@ -118,6 +123,9 @@ impl Parse for RuntimeDeclaration {
 #[derive(Debug)]
 pub struct WhereSection {
 	pub span: Span,
+	pub block: syn::TypePath,
+	pub node_block: syn::TypePath,
+	pub unchecked_extrinsic: syn::TypePath,
 }
 
 impl Parse for WhereSection {
@@ -130,23 +138,24 @@ impl Parse for WhereSection {
 			definitions.push(definition);
 			if !input.peek(Token![,]) {
 				if !input.peek(token::Brace) {
-					return Err(input.error("Expected `,` or `{`"));
+					return Err(input.error("Expected `,` or `{`"))
 				}
-				break;
+				break
 			}
 			input.parse::<Token![,]>()?;
 		}
-		remove_kind(input, WhereKind::Block, &mut definitions)?;
-		remove_kind(input, WhereKind::NodeBlock, &mut definitions)?;
-		remove_kind(input, WhereKind::UncheckedExtrinsic, &mut definitions)?;
+		let block = remove_kind(input, WhereKind::Block, &mut definitions)?.value;
+		let node_block = remove_kind(input, WhereKind::NodeBlock, &mut definitions)?.value;
+		let unchecked_extrinsic =
+			remove_kind(input, WhereKind::UncheckedExtrinsic, &mut definitions)?.value;
 		if let Some(WhereDefinition { ref kind_span, ref kind, .. }) = definitions.first() {
 			let msg = format!(
 				"`{:?}` was declared above. Please use exactly one declaration for `{:?}`.",
 				kind, kind
 			);
-			return Err(Error::new(*kind_span, msg));
+			return Err(Error::new(*kind_span, msg))
 		}
-		Ok(Self { span: input.span() })
+		Ok(Self { span: input.span(), block, node_block, unchecked_extrinsic })
 	}
 }
 
@@ -161,6 +170,7 @@ pub enum WhereKind {
 pub struct WhereDefinition {
 	pub kind_span: Span,
 	pub kind: WhereKind,
+	pub value: syn::TypePath,
 }
 
 impl Parse for WhereDefinition {
@@ -173,13 +183,17 @@ impl Parse for WhereDefinition {
 		} else if lookahead.peek(keyword::UncheckedExtrinsic) {
 			(input.parse::<keyword::UncheckedExtrinsic>()?.span(), WhereKind::UncheckedExtrinsic)
 		} else {
-			return Err(lookahead.error());
+			return Err(lookahead.error())
 		};
 
-		let _: Token![=] = input.parse()?;
-		let _: syn::TypePath = input.parse()?;
-
-		Ok(Self { kind_span, kind })
+		Ok(Self {
+			kind_span,
+			kind,
+			value: {
+				let _: Token![=] = input.parse()?;
+				input.parse()?
+			},
+		})
 	}
 }
 
@@ -270,7 +284,7 @@ impl Parse for PalletDeclaration {
 		{
 			return Err(input.error(
 				"Unexpected tokens, expected one of `::{`, `exclude_parts`, `use_parts`, `=`, `,`",
-			));
+			))
 		} else {
 			is_expanded.then_some(extra_parts)
 		};
@@ -283,7 +297,7 @@ impl Parse for PalletDeclaration {
 			let _: keyword::use_parts = input.parse()?;
 			SpecifiedParts::Use(parse_pallet_parts_no_generic(input)?)
 		} else if !input.peek(Token![=]) && !input.peek(Token![,]) && !input.is_empty() {
-			return Err(input.error("Unexpected tokens, expected one of `exclude_parts`, `=`, `,`"));
+			return Err(input.error("Unexpected tokens, expected one of `exclude_parts`, `=`, `,`"))
 		} else {
 			SpecifiedParts::All
 		};
@@ -295,7 +309,7 @@ impl Parse for PalletDeclaration {
 			let index = index.base10_parse::<u8>()?;
 			Some(index)
 		} else if !input.peek(Token![,]) && !input.is_empty() {
-			return Err(input.error("Unexpected tokens, expected one of `=`, `,`"));
+			return Err(input.error("Unexpected tokens, expected one of `=`, `,`"))
 		} else {
 			None
 		};
@@ -307,7 +321,7 @@ impl Parse for PalletDeclaration {
 /// A struct representing a path to a pallet. `PalletPath` is almost identical to the standard
 /// Rust path with a few restrictions:
 /// - No leading colons allowed
-/// - Path segments can only consist of identifiers separated by colons
+/// - Path segments can only consist of identifers separated by colons
 #[derive(Debug, Clone)]
 pub struct PalletPath {
 	pub inner: Path,
@@ -339,7 +353,7 @@ impl Parse for PalletPath {
 			let ident = input.call(Ident::parse_any)?;
 			res.inner.segments.push(ident.into());
 		} else {
-			return Err(lookahead.error());
+			return Err(lookahead.error())
 		}
 
 		while input.peek(Token![::]) && input.peek3(Ident) {
@@ -370,7 +384,7 @@ fn parse_pallet_parts(input: ParseStream) -> Result<Vec<PalletPart>> {
 				"`{}` was already declared before. Please remove the duplicate declaration",
 				part.name(),
 			);
-			return Err(Error::new(part.keyword.span(), msg));
+			return Err(Error::new(part.keyword.span(), msg))
 		}
 	}
 
@@ -390,7 +404,6 @@ pub enum PalletPartKeyword {
 	ValidateUnsigned(keyword::ValidateUnsigned),
 	FreezeReason(keyword::FreezeReason),
 	HoldReason(keyword::HoldReason),
-	Task(keyword::Task),
 	LockId(keyword::LockId),
 	SlashReason(keyword::SlashReason),
 }
@@ -421,8 +434,6 @@ impl Parse for PalletPartKeyword {
 			Ok(Self::FreezeReason(input.parse()?))
 		} else if lookahead.peek(keyword::HoldReason) {
 			Ok(Self::HoldReason(input.parse()?))
-		} else if lookahead.peek(keyword::Task) {
-			Ok(Self::Task(input.parse()?))
 		} else if lookahead.peek(keyword::LockId) {
 			Ok(Self::LockId(input.parse()?))
 		} else if lookahead.peek(keyword::SlashReason) {
@@ -448,7 +459,6 @@ impl PalletPartKeyword {
 			Self::ValidateUnsigned(_) => "ValidateUnsigned",
 			Self::FreezeReason(_) => "FreezeReason",
 			Self::HoldReason(_) => "HoldReason",
-			Self::Task(_) => "Task",
 			Self::LockId(_) => "LockId",
 			Self::SlashReason(_) => "SlashReason",
 		}
@@ -461,7 +471,7 @@ impl PalletPartKeyword {
 
 	/// Returns the names of all pallet parts that allow to have a generic argument.
 	fn all_generic_arg() -> &'static [&'static str] {
-		&["Event", "Error", "Origin", "Config", "Task"]
+		&["Event", "Error", "Origin", "Config"]
 	}
 }
 
@@ -479,7 +489,6 @@ impl ToTokens for PalletPartKeyword {
 			Self::ValidateUnsigned(inner) => inner.to_tokens(tokens),
 			Self::FreezeReason(inner) => inner.to_tokens(tokens),
 			Self::HoldReason(inner) => inner.to_tokens(tokens),
-			Self::Task(inner) => inner.to_tokens(tokens),
 			Self::LockId(inner) => inner.to_tokens(tokens),
 			Self::SlashReason(inner) => inner.to_tokens(tokens),
 		}
@@ -505,7 +514,7 @@ impl Parse for PalletPart {
 				keyword.name(),
 				valid_generics,
 			);
-			return Err(syn::Error::new(keyword.span(), msg));
+			return Err(syn::Error::new(keyword.span(), msg))
 		}
 
 		Ok(Self { keyword, generics })
@@ -566,7 +575,7 @@ fn parse_pallet_parts_no_generic(input: ParseStream) -> Result<Vec<PalletPartNoG
 				"`{}` was already declared before. Please remove the duplicate declaration",
 				part.keyword.name(),
 			);
-			return Err(Error::new(part.keyword.span(), msg));
+			return Err(Error::new(part.keyword.span(), msg))
 		}
 	}
 
@@ -580,7 +589,7 @@ pub struct Pallet {
 	pub is_expanded: bool,
 	/// The name of the pallet, e.g.`System` in `System: frame_system`.
 	pub name: Ident,
-	/// Either automatically inferred, or defined (e.g. `MyPallet ...  = 3,`).
+	/// Either automatically infered, or defined (e.g. `MyPallet ...  = 3,`).
 	pub index: u8,
 	/// The path of the pallet, e.g. `frame_system` in `System: frame_system`.
 	pub path: PalletPath,
@@ -590,8 +599,6 @@ pub struct Pallet {
 	pub pallet_parts: Vec<PalletPart>,
 	/// Expressions specified inside of a #[cfg] attribute.
 	pub cfg_pattern: Vec<cfg_expr::Expression>,
-	/// The doc literals
-	pub docs: Vec<syn::Expr>,
 }
 
 impl Pallet {
@@ -621,7 +628,7 @@ impl Pallet {
 /// +----------+    +----------+    +------------------+
 /// ```
 enum PalletsConversion {
-	/// Pallets implicitly declare parts.
+	/// Pallets implicitely declare parts.
 	///
 	/// `System: frame_system`.
 	Implicit(Vec<PalletDeclaration>),
@@ -635,7 +642,7 @@ enum PalletsConversion {
 	/// Pallets explicitly declare parts that are fully expanded.
 	///
 	/// This is the end state that contains extra parts included by
-	/// default by Substrate.
+	/// default by Subtrate.
 	///
 	/// `System: frame_system expanded::{Error} ::{Pallet, Call}`
 	///
@@ -647,10 +654,10 @@ enum PalletsConversion {
 ///
 /// Check if all pallet have explicit declaration of their parts, if so then assign index to each
 /// pallet using same rules as rust for fieldless enum. I.e. implicit are assigned number
-/// incrementally from last explicit or 0.
+/// incrementedly from last explicit or 0.
 fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConversion> {
 	if pallets.iter().any(|pallet| pallet.pallet_parts.is_none()) {
-		return Ok(PalletsConversion::Implicit(pallets));
+		return Ok(PalletsConversion::Implicit(pallets))
 	}
 
 	let mut indices = HashMap::new();
@@ -678,7 +685,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 				);
 				let mut err = syn::Error::new(used_pallet.span(), &msg);
 				err.combine(syn::Error::new(pallet.name.span(), msg));
-				return Err(err);
+				return Err(err)
 			}
 
 			if let Some(used_pallet) = names.insert(pallet.name.clone(), pallet.name.span()) {
@@ -686,7 +693,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 
 				let mut err = syn::Error::new(used_pallet, &msg);
 				err.combine(syn::Error::new(pallet.name.span(), &msg));
-				return Err(err);
+				return Err(err)
 			}
 
 			let mut pallet_parts = pallet.pallet_parts.expect("Checked above");
@@ -712,7 +719,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 									}
 								})
 							);
-							return Err(syn::Error::new(part.keyword.span(), msg));
+							return Err(syn::Error::new(part.keyword.span(), msg))
 						}
 					},
 				SpecifiedParts::All => (),
@@ -738,7 +745,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 					if attr.path().segments.first().map_or(false, |s| s.ident != "cfg") {
 						let msg = "Unsupported attribute, only #[cfg] is supported on pallet \
 						declarations in `construct_runtime`";
-						return Err(syn::Error::new(attr.span(), msg));
+						return Err(syn::Error::new(attr.span(), msg))
 					}
 
 					attr.parse_args_with(|input: syn::parse::ParseStream| {
@@ -761,7 +768,6 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 				instance: pallet.instance,
 				cfg_pattern,
 				pallet_parts,
-				docs: vec![],
 			})
 		})
 		.collect::<Result<Vec<_>>>()?;

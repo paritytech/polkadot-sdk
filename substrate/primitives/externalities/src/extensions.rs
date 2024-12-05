@@ -23,12 +23,10 @@
 //! It is required that each extension implements the [`Extension`] trait.
 
 use crate::Error;
-use alloc::{
+use sp_std::{
+	any::{Any, TypeId},
 	boxed::Box,
 	collections::btree_map::{BTreeMap, Entry},
-};
-use core::{
-	any::{Any, TypeId},
 	ops::DerefMut,
 };
 
@@ -37,23 +35,16 @@ use core::{
 ///
 /// As extensions are stored as `Box<Any>`, this trait should give more confidence that the correct
 /// type is registered and requested.
-pub trait Extension: Send + 'static {
+pub trait Extension: Send + Any {
 	/// Return the extension as `&mut dyn Any`.
 	///
 	/// This is a trick to make the trait type castable into an `Any`.
 	fn as_mut_any(&mut self) -> &mut dyn Any;
-
-	/// Get the [`TypeId`] of this `Extension`.
-	fn type_id(&self) -> TypeId;
 }
 
 impl Extension for Box<dyn Extension> {
 	fn as_mut_any(&mut self) -> &mut dyn Any {
 		(**self).as_mut_any()
-	}
-
-	fn type_id(&self) -> TypeId {
-		(**self).type_id()
 	}
 }
 
@@ -80,16 +71,12 @@ macro_rules! decl_extension {
 		$vis struct $ext_name (pub $inner);
 
 		impl $crate::Extension for $ext_name {
-			fn as_mut_any(&mut self) -> &mut dyn core::any::Any {
+			fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
 				self
-			}
-
-			fn type_id(&self) -> core::any::TypeId {
-				core::any::Any::type_id(self)
 			}
 		}
 
-		impl core::ops::Deref for $ext_name {
+		impl std::ops::Deref for $ext_name {
 			type Target = $inner;
 
 			fn deref(&self) -> &Self::Target {
@@ -97,7 +84,7 @@ macro_rules! decl_extension {
 			}
 		}
 
-		impl core::ops::DerefMut for $ext_name {
+		impl std::ops::DerefMut for $ext_name {
 			fn deref_mut(&mut self) -> &mut Self::Target {
 				&mut self.0
 			}
@@ -117,12 +104,8 @@ macro_rules! decl_extension {
 		$vis struct $ext_name;
 
 		impl $crate::Extension for $ext_name {
-			fn as_mut_any(&mut self) -> &mut dyn core::any::Any {
+			fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
 				self
-			}
-
-			fn type_id(&self) -> core::any::TypeId {
-				core::any::Any::type_id(self)
 			}
 		}
 	}
@@ -251,26 +234,5 @@ mod tests {
 		let ext_ty = ext.downcast_mut::<DummyExt>().expect("Downcasting works");
 
 		assert_eq!(ext_ty.0, 1);
-	}
-
-	#[test]
-	fn register_box_extension() {
-		let mut exts = Extensions::new();
-		let box1: Box<dyn Extension> = Box::new(DummyExt(1));
-		let box2: Box<dyn Extension> = Box::new(DummyExt2(2));
-		exts.register(box1);
-		exts.register(box2);
-
-		{
-			let ext = exts.get_mut(TypeId::of::<DummyExt>()).expect("Extension 1 is registered");
-			let ext_ty = ext.downcast_mut::<DummyExt>().expect("Downcasting works for Extension 1");
-			assert_eq!(ext_ty.0, 1);
-		}
-		{
-			let ext2 = exts.get_mut(TypeId::of::<DummyExt2>()).expect("Extension 2 is registered");
-			let ext_ty2 =
-				ext2.downcast_mut::<DummyExt2>().expect("Downcasting works for Extension 2");
-			assert_eq!(ext_ty2.0, 2);
-		}
 	}
 }

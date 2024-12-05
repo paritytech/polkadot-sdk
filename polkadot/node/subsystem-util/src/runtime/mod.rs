@@ -18,7 +18,7 @@
 
 use schnellru::{ByLength, LruMap};
 
-use codec::Encode;
+use parity_scale_codec::Encode;
 use sp_application_crypto::AppCrypto;
 use sp_core::crypto::ByteArray;
 use sp_keystore::{Keystore, KeystorePtr};
@@ -30,20 +30,14 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
-	slashing,
-	vstaging::{CandidateEvent, CoreState, OccupiedCore, ScrapedOnChainVotes},
-	AsyncBackingParams, CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo,
-	Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	slashing, AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
-use std::collections::{BTreeMap, VecDeque};
-
 use crate::{
-	has_required_runtime, request_async_backing_params, request_availability_cores,
-	request_candidate_events, request_claim_queue, request_disabled_validators,
+	request_async_backing_params, request_availability_cores, request_candidate_events,
 	request_from_runtime, request_key_ownership_proof, request_on_chain_votes,
 	request_session_executor_params, request_session_index_for_child, request_session_info,
 	request_submit_report_dispute_lost, request_unapplied_slashes, request_validation_code_by_hash,
@@ -79,11 +73,6 @@ pub struct RuntimeInfo {
 	/// overseer seems sensible.
 	session_index_cache: LruMap<Hash, SessionIndex>,
 
-	/// In the happy case, we do not query disabled validators at all. In the worst case, we can
-	/// query it order of `n_cores` times `n_validators` per block, so caching it here seems
-	/// sensible.
-	disabled_validators_cache: LruMap<Hash, Vec<ValidatorIndex>>,
-
 	/// Look up cached sessions by `SessionIndex`.
 	session_info_cache: LruMap<SessionIndex, ExtendedSessionInfo>,
 
@@ -103,8 +92,6 @@ pub struct ExtendedSessionInfo {
 	pub validator_info: ValidatorInfo,
 	/// Session executor parameters
 	pub executor_params: ExecutorParams,
-	/// Node features
-	pub node_features: NodeFeatures,
 }
 
 /// Information about ourselves, in case we are an `Authority`.
@@ -138,7 +125,6 @@ impl RuntimeInfo {
 		Self {
 			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(10))),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
-			disabled_validators_cache: LruMap::new(ByLength::new(100)),
 			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			keystore: cfg.keystore,
 		}
@@ -190,26 +176,6 @@ impl RuntimeInfo {
 		self.get_session_info_by_index(sender, relay_parent, session_index).await
 	}
 
-	/// Get the list of disabled validators at the relay parent.
-	pub async fn get_disabled_validators<Sender>(
-		&mut self,
-		sender: &mut Sender,
-		relay_parent: Hash,
-	) -> Result<Vec<ValidatorIndex>>
-	where
-		Sender: SubsystemSender<RuntimeApiMessage>,
-	{
-		match self.disabled_validators_cache.get(&relay_parent).cloned() {
-			Some(result) => Ok(result),
-			None => {
-				let disabled_validators =
-					get_disabled_validators_with_fallback(sender, relay_parent).await?;
-				self.disabled_validators_cache.insert(relay_parent, disabled_validators.clone());
-				Ok(disabled_validators)
-			},
-		}
-	}
-
 	/// Get `ExtendedSessionInfo` by session index.
 	///
 	/// `request_session_info` still requires the parent to be passed in, so we take the parent
@@ -236,20 +202,7 @@ impl RuntimeInfo {
 
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let node_features = request_node_features(parent, session_index, sender)
-				.await?
-				.unwrap_or(NodeFeatures::EMPTY);
-			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
-			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
-				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
-			}
-
-			let full_info = ExtendedSessionInfo {
-				session_info,
-				validator_info,
-				executor_params,
-				node_features,
-			};
+			let full_info = ExtendedSessionInfo { session_info, validator_info, executor_params };
 
 			self.session_info_cache.insert(session_index, full_info);
 		}
@@ -353,7 +306,7 @@ where
 pub async fn get_occupied_cores<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-) -> Result<Vec<(CoreIndex, OccupiedCore)>>
+) -> Result<Vec<OccupiedCore>>
 where
 	Sender: overseer::SubsystemSender<RuntimeApiMessage>,
 {
@@ -361,10 +314,9 @@ where
 
 	Ok(cores
 		.into_iter()
-		.enumerate()
-		.filter_map(|(core_index, core_state)| {
+		.filter_map(|core_state| {
 			if let CoreState::Occupied(occupied) = core_state {
-				Some((CoreIndex(core_index as u32), occupied))
+				Some(occupied)
 			} else {
 				None
 			}
@@ -553,129 +505,5 @@ pub async fn request_min_backing_votes(
 		Ok(LEGACY_MIN_BACKING_VOTES)
 	} else {
 		min_backing_votes_res
-	}
-}
-
-/// Request the node features enabled in the runtime.
-/// Pass in the session index for caching purposes, as it should only change on session boundaries.
-/// Prior to runtime API version 9, just return `None`.
-pub async fn request_node_features(
-	parent: Hash,
-	session_index: SessionIndex,
-	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
-) -> Result<Option<NodeFeatures>> {
-	let res = recv_runtime(
-		request_from_runtime(parent, sender, |tx| {
-			RuntimeApiRequest::NodeFeatures(session_index, tx)
-		})
-		.await,
-	)
-	.await;
-
-	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
-		gum::trace!(
-			target: LOG_TARGET,
-			?parent,
-			"Querying the node features from the runtime is not supported by the current Runtime API",
-		);
-
-		Ok(None)
-	} else {
-		res.map(Some)
-	}
-}
-
-/// A snapshot of the runtime claim queue at an arbitrary relay chain block.
-#[derive(Default)]
-pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
-
-impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {
-	fn from(claim_queue_snapshot: BTreeMap<CoreIndex, VecDeque<ParaId>>) -> Self {
-		ClaimQueueSnapshot(claim_queue_snapshot)
-	}
-}
-
-impl ClaimQueueSnapshot {
-	/// Returns the `ParaId` that has a claim for `core_index` at the specified `depth` in the
-	/// claim queue. A depth of `0` means the very next block.
-	pub fn get_claim_for(&self, core_index: CoreIndex, depth: usize) -> Option<ParaId> {
-		self.0.get(&core_index)?.get(depth).copied()
-	}
-
-	/// Returns an iterator over all claimed cores and the claiming `ParaId` at the specified
-	/// `depth` in the claim queue.
-	pub fn iter_claims_at_depth(
-		&self,
-		depth: usize,
-	) -> impl Iterator<Item = (CoreIndex, ParaId)> + '_ {
-		self.0
-			.iter()
-			.filter_map(move |(core_index, paras)| Some((*core_index, *paras.get(depth)?)))
-	}
-
-	/// Returns an iterator over all claims on the given core.
-	pub fn iter_claims_for_core(
-		&self,
-		core_index: &CoreIndex,
-	) -> impl Iterator<Item = &ParaId> + '_ {
-		self.0.get(core_index).map(|c| c.iter()).into_iter().flatten()
-	}
-
-	/// Returns an iterator over the whole claim queue.
-	pub fn iter_all_claims(&self) -> impl Iterator<Item = (&CoreIndex, &VecDeque<ParaId>)> + '_ {
-		self.0.iter()
-	}
-}
-
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-/// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
-/// returns an empty vec.
-/// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this function and
-/// replace all usages with `request_disabled_validators`
-pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<RuntimeApiMessage>>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Result<Vec<ValidatorIndex>> {
-	let disabled_validators = if has_required_runtime(
-		sender,
-		relay_parent,
-		RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
-	)
-	.await
-	{
-		request_disabled_validators(relay_parent, sender)
-			.await
-			.await
-			.map_err(Error::RuntimeRequestCanceled)??
-	} else {
-		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
-		vec![]
-	};
-
-	Ok(disabled_validators)
-}
-
-/// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
-/// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
-/// Any specific `RuntimeApiError` is bubbled up to the caller.
-pub async fn fetch_claim_queue(
-	sender: &mut impl SubsystemSender<RuntimeApiMessage>,
-	relay_parent: Hash,
-) -> Result<Option<ClaimQueueSnapshot>> {
-	if has_required_runtime(
-		sender,
-		relay_parent,
-		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
-	)
-	.await
-	{
-		let res = request_claim_queue(relay_parent, sender)
-			.await
-			.await
-			.map_err(Error::RuntimeRequestCanceled)??;
-		Ok(Some(res.into()))
-	} else {
-		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
-		Ok(None)
 	}
 }

@@ -20,7 +20,6 @@ use super::mock::*;
 use crate::{universal_exports::*, WithTopicSource};
 use frame_support::{parameter_types, traits::Get};
 use std::{cell::RefCell, marker::PhantomData};
-use xcm::AlwaysLatest;
 use xcm_executor::{
 	traits::{export_xcm, validate_export},
 	XcmExecutor,
@@ -33,12 +32,11 @@ mod paid_remote_relay_relay;
 mod remote_para_para;
 mod remote_para_para_via_relay;
 mod remote_relay_relay;
-mod universal_exports;
 
 parameter_types! {
 	pub Local: NetworkId = ByGenesis([0; 32]);
 	pub Remote: NetworkId = ByGenesis([1; 32]);
-	pub Price: Assets = Assets::from((Here, 100u128));
+	pub Price: MultiAssets = MultiAssets::from((Here, 100u128));
 	pub static UsingTopic: bool = false;
 }
 
@@ -93,7 +91,7 @@ impl<R: SendXcm> SendXcm for TestTopic<R> {
 		}
 	}
 	fn validate(
-		destination: &mut Option<Location>,
+		destination: &mut Option<MultiLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		Ok(if UsingTopic::get() {
@@ -121,26 +119,26 @@ impl<D: DispatchBlob> HaulBlob for TestBridge<D> {
 }
 
 std::thread_local! {
-	static REMOTE_INCOMING_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
+	static REMOTE_INCOMING_XCM: RefCell<Vec<(MultiLocation, Xcm<()>)>> = RefCell::new(Vec::new());
 }
 struct TestRemoteIncomingRouter;
 impl SendXcm for TestRemoteIncomingRouter {
-	type Ticket = (Location, Xcm<()>);
+	type Ticket = (MultiLocation, Xcm<()>);
 	fn validate(
-		dest: &mut Option<Location>,
+		dest: &mut Option<MultiLocation>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(Location, Xcm<()>)> {
+	) -> SendResult<(MultiLocation, Xcm<()>)> {
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
-		Ok((pair, Assets::new()))
+		Ok((pair, MultiAssets::new()))
 	}
-	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
+	fn deliver(pair: (MultiLocation, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = fake_id();
 		REMOTE_INCOMING_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}
 }
 
-fn take_received_remote_messages() -> Vec<(Location, Xcm<()>)> {
+fn take_received_remote_messages() -> Vec<(MultiLocation, Xcm<()>)> {
 	REMOTE_INCOMING_XCM.with(|r| r.replace(vec![]))
 }
 
@@ -153,18 +151,18 @@ struct UnpaidExecutingRouter<Local, Remote, RemoteExporter>(
 fn price<RemoteExporter: ExportXcm>(
 	n: NetworkId,
 	c: u32,
-	s: &InteriorLocation,
-	d: &InteriorLocation,
+	s: &InteriorMultiLocation,
+	d: &InteriorMultiLocation,
 	m: &Xcm<()>,
-) -> Result<Assets, SendError> {
-	Ok(validate_export::<RemoteExporter>(n, c, s.clone(), d.clone(), m.clone())?.1)
+) -> Result<MultiAssets, SendError> {
+	Ok(validate_export::<RemoteExporter>(n, c, *s, *d, m.clone())?.1)
 }
 
 fn deliver<RemoteExporter: ExportXcm>(
 	n: NetworkId,
 	c: u32,
-	s: InteriorLocation,
-	d: InteriorLocation,
+	s: InteriorMultiLocation,
+	d: InteriorMultiLocation,
 	m: Xcm<()>,
 ) -> Result<XcmHash, SendError> {
 	export_xcm::<RemoteExporter>(n, c, s, d, m).map(|(hash, _)| hash)
@@ -190,7 +188,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 	type Ticket = Xcm<()>;
 
 	fn validate(
-		destination: &mut Option<Location>,
+		destination: &mut Option<MultiLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Xcm<()>> {
 		let expect_dest = Remote::get().relative_to(&Local::get());
@@ -198,7 +196,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 			return Err(NotApplicable)
 		}
 		let message = message.take().ok_or(MissingArgument)?;
-		Ok((message, Assets::new()))
+		Ok((message, MultiAssets::new()))
 	}
 
 	fn deliver(message: Xcm<()>) -> Result<XcmHash, SendError> {
@@ -207,7 +205,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		// though it is `Remote`.
 		ExecutorUniversalLocation::set(Remote::get());
 		let origin = Local::get().relative_to(&Remote::get());
-		AllowUnpaidFrom::set(vec![origin.clone()]);
+		AllowUnpaidFrom::set(vec![origin]);
 		set_exporter_override(price::<RemoteExporter>, deliver::<RemoteExporter>);
 		// The we execute it:
 		let mut id = fake_id();
@@ -223,9 +221,9 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		let entry = LogEntry { local, remote, id, message, outcome: outcome.clone(), paid: false };
 		RoutingLog::mutate(|l| l.push(entry));
 		match outcome {
-			Outcome::Complete { .. } => Ok(id),
-			Outcome::Incomplete { .. } => Err(Transport("Error executing")),
-			Outcome::Error { .. } => Err(Transport("Unable to execute")),
+			Outcome::Complete(..) => Ok(id),
+			Outcome::Incomplete(..) => Err(Transport("Error executing")),
+			Outcome::Error(..) => Err(Transport("Unable to execute")),
 		}
 	}
 }
@@ -240,7 +238,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 	type Ticket = Xcm<()>;
 
 	fn validate(
-		destination: &mut Option<Location>,
+		destination: &mut Option<MultiLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Xcm<()>> {
 		let expect_dest = Remote::get().relative_to(&Local::get());
@@ -248,7 +246,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 			return Err(NotApplicable)
 		}
 		let message = message.take().ok_or(MissingArgument)?;
-		Ok((message, Assets::new()))
+		Ok((message, MultiAssets::new()))
 	}
 
 	fn deliver(message: Xcm<()>) -> Result<XcmHash, SendError> {
@@ -257,7 +255,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		// though it is `Remote`.
 		ExecutorUniversalLocation::set(Remote::get());
 		let origin = Local::get().relative_to(&Remote::get());
-		AllowPaidFrom::set(vec![origin.clone()]);
+		AllowPaidFrom::set(vec![origin]);
 		set_exporter_override(price::<RemoteExporter>, deliver::<RemoteExporter>);
 		// Then we execute it:
 		let mut id = fake_id();
@@ -273,9 +271,9 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		let entry = LogEntry { local, remote, id, message, outcome: outcome.clone(), paid: true };
 		RoutingLog::mutate(|l| l.push(entry));
 		match outcome {
-			Outcome::Complete { .. } => Ok(id),
-			Outcome::Incomplete { .. } => Err(Transport("Error executing")),
-			Outcome::Error { .. } => Err(Transport("Unable to execute")),
+			Outcome::Complete(..) => Ok(id),
+			Outcome::Incomplete(..) => Err(Transport("Error executing")),
+			Outcome::Error(..) => Err(Transport("Unable to execute")),
 		}
 	}
 }

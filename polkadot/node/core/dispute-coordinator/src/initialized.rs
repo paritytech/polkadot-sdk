@@ -34,9 +34,8 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingMessage, ApprovalVotingParallelMessage, BlockDescription,
-		ChainSelectionMessage, DisputeCoordinatorMessage, DisputeDistributionMessage,
-		ImportStatementsResult,
+		ApprovalVotingMessage, BlockDescription, ChainSelectionMessage, DisputeCoordinatorMessage,
+		DisputeDistributionMessage, ImportStatementsResult,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
 };
@@ -44,12 +43,10 @@ use polkadot_node_subsystem_util::runtime::{
 	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
 };
 use polkadot_primitives::{
-	slashing,
-	vstaging::{CandidateReceiptV2 as CandidateReceipt, ScrapedOnChainVotes},
-	BlockNumber, CandidateHash, CompactStatement, DisputeStatement, DisputeStatementSet, Hash,
-	SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	slashing, BlockNumber, CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement,
+	DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex,
 };
-use schnellru::{LruMap, UnlimitedCompact};
 
 use crate::{
 	db,
@@ -95,13 +92,10 @@ pub struct InitialData {
 pub(crate) struct Initialized {
 	keystore: Arc<LocalKeystore>,
 	runtime_info: RuntimeInfo,
-	/// We have the onchain state of disabled validators as well as the offchain
-	/// state that is based on the lost disputes.
-	offchain_disabled_validators: OffchainDisabledValidators,
 	/// This is the highest `SessionIndex` seen via `ActiveLeavesUpdate`. It doesn't matter if it
 	/// was cached successfully or not. It is used to detect ancient disputes.
 	highest_session_seen: SessionIndex,
-	/// Will be set to `true` if an error occurred during the last caching attempt
+	/// Will be set to `true` if an error occured during the last caching attempt
 	gaps_in_cache: bool,
 	spam_slots: SpamSlots,
 	participation: Participation,
@@ -119,7 +113,6 @@ pub(crate) struct Initialized {
 	/// `CHAIN_IMPORT_MAX_BATCH_SIZE` and put the rest here for later processing.
 	chain_import_backlog: VecDeque<ScrapedOnChainVotes>,
 	metrics: Metrics,
-	approval_voting_parallel_enabled: bool,
 }
 
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
@@ -133,22 +126,14 @@ impl Initialized {
 		highest_session_seen: SessionIndex,
 		gaps_in_cache: bool,
 	) -> Self {
-		let DisputeCoordinatorSubsystem {
-			config: _,
-			store: _,
-			keystore,
-			metrics,
-			approval_voting_parallel_enabled,
-		} = subsystem;
+		let DisputeCoordinatorSubsystem { config: _, store: _, keystore, metrics } = subsystem;
 
 		let (participation_sender, participation_receiver) = mpsc::channel(1);
 		let participation = Participation::new(participation_sender, metrics.clone());
-		let offchain_disabled_validators = OffchainDisabledValidators::default();
 
 		Self {
 			keystore,
 			runtime_info,
-			offchain_disabled_validators,
 			highest_session_seen,
 			gaps_in_cache,
 			spam_slots,
@@ -157,7 +142,6 @@ impl Initialized {
 			participation_receiver,
 			chain_import_backlog: VecDeque::new(),
 			metrics,
-			approval_voting_parallel_enabled,
 		}
 	}
 
@@ -335,16 +319,13 @@ impl Initialized {
 					self.runtime_info.pin_block(session_idx, new_leaf.unpin_handle);
 					// Fetch the last `DISPUTE_WINDOW` number of sessions unless there are no gaps
 					// in cache and we are not missing too many `SessionInfo`s
-					let prune_up_to = session_idx.saturating_sub(DISPUTE_WINDOW.get() - 1);
-					let fetch_lower_bound =
-						if !self.gaps_in_cache && self.highest_session_seen > prune_up_to {
-							self.highest_session_seen + 1
-						} else {
-							prune_up_to
-						};
+					let mut lower_bound = session_idx.saturating_sub(DISPUTE_WINDOW.get() - 1);
+					if !self.gaps_in_cache && self.highest_session_seen > lower_bound {
+						lower_bound = self.highest_session_seen + 1
+					}
 
 					// There is a new session. Perform a dummy fetch to cache it.
-					for idx in fetch_lower_bound..=session_idx {
+					for idx in lower_bound..=session_idx {
 						if let Err(err) = self
 							.runtime_info
 							.get_session_info_by_index(ctx.sender(), new_leaf.hash, idx)
@@ -363,9 +344,11 @@ impl Initialized {
 
 					self.highest_session_seen = session_idx;
 
-					db::v1::note_earliest_session(overlay_db, prune_up_to)?;
-					self.spam_slots.prune_old(prune_up_to);
-					self.offchain_disabled_validators.prune_old(prune_up_to);
+					db::v1::note_earliest_session(
+						overlay_db,
+						session_idx.saturating_sub(DISPUTE_WINDOW.get() - 1),
+					)?;
+					self.spam_slots.prune_old(session_idx.saturating_sub(DISPUTE_WINDOW.get() - 1));
 				},
 				Ok(_) => { /* no new session => nothing to cache */ },
 				Err(err) => {
@@ -608,7 +591,7 @@ impl Initialized {
 		// the new active leaf as if we received them via gossip.
 		for (candidate_receipt, backers) in backing_validators_per_candidate {
 			// Obtain the session info, for sake of `ValidatorId`s
-			let relay_parent = candidate_receipt.descriptor.relay_parent();
+			let relay_parent = candidate_receipt.descriptor.relay_parent;
 			let session_info = match self
 				.runtime_info
 				.get_session_info_by_index(ctx.sender(), relay_parent, session)
@@ -659,7 +642,7 @@ impl Initialized {
 						};
 					debug_assert!(
 						SignedDisputeStatement::new_checked(
-							DisputeStatement::Valid(valid_statement_kind.clone()),
+							DisputeStatement::Valid(valid_statement_kind),
 							candidate_hash,
 							session,
 							validator_public.clone(),
@@ -673,7 +656,7 @@ impl Initialized {
 					);
 					let signed_dispute_statement =
 						SignedDisputeStatement::new_unchecked_from_trusted_source(
-							DisputeStatement::Valid(valid_statement_kind.clone()),
+							DisputeStatement::Valid(valid_statement_kind),
 							candidate_hash,
 							session,
 							validator_public,
@@ -959,9 +942,9 @@ impl Initialized {
 		let votes_in_db = overlay_db.load_candidate_votes(session, &candidate_hash)?;
 		let relay_parent = match &candidate_receipt {
 			MaybeCandidateReceipt::Provides(candidate_receipt) =>
-				candidate_receipt.descriptor().relay_parent(),
+				candidate_receipt.descriptor().relay_parent,
 			MaybeCandidateReceipt::AssumeBackingVotePresent(candidate_hash) => match &votes_in_db {
-				Some(votes) => votes.candidate_receipt.descriptor().relay_parent(),
+				Some(votes) => votes.candidate_receipt.descriptor().relay_parent,
 				None => {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -980,7 +963,6 @@ impl Initialized {
 			&mut self.runtime_info,
 			session,
 			relay_parent,
-			self.offchain_disabled_validators.iter(session),
 		)
 		.await
 		{
@@ -996,13 +978,11 @@ impl Initialized {
 			Some(env) => env,
 		};
 
-		let n_validators = env.validators().len();
-
 		gum::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			?session,
-			?n_validators,
+			num_validators = ?env.session_info().validators.len(),
 			"Number of validators"
 		);
 
@@ -1069,21 +1049,9 @@ impl Initialized {
 				// 4. We are waiting (and blocking the whole subsystem) on a response right after -
 				// therefore even with all else failing we will never have more than
 				// one message in flight at any given time.
-				if self.approval_voting_parallel_enabled {
-					ctx.send_unbounded_message(
-						ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
-							candidate_hash,
-							tx,
-						),
-					);
-				} else {
-					ctx.send_unbounded_message(
-						ApprovalVotingMessage::GetApprovalSignaturesForCandidate(
-							candidate_hash,
-							tx,
-						),
-					);
-				}
+				ctx.send_unbounded_message(
+					ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate_hash, tx),
+				);
 				match rx.await {
 					Err(_) => {
 						gum::warn!(
@@ -1116,10 +1084,9 @@ impl Initialized {
 			target: LOG_TARGET,
 			?candidate_hash,
 			?session,
-			?n_validators,
+			num_validators = ?env.session_info().validators.len(),
 			"Import result ready"
 		);
-
 		let new_state = import_result.new_state();
 
 		let is_included = self.scraper.is_candidate_included(&candidate_hash);
@@ -1127,9 +1094,8 @@ impl Initialized {
 		let own_vote_missing = new_state.own_vote_missing();
 		let is_disputed = new_state.is_disputed();
 		let is_confirmed = new_state.is_confirmed();
-		let is_disabled = |v: &ValidatorIndex| env.disabled_indices().contains(v);
-		let potential_spam =
-			is_potential_spam(&self.scraper, &new_state, &candidate_hash, is_disabled);
+		let potential_spam = is_potential_spam(&self.scraper, &new_state, &candidate_hash);
+		// We participate only in disputes which are not potential spam.
 		let allow_participation = !potential_spam;
 
 		gum::trace!(
@@ -1140,7 +1106,6 @@ impl Initialized {
 			?candidate_hash,
 			confirmed = ?new_state.is_confirmed(),
 			has_invalid_voters = ?!import_result.new_invalid_voters().is_empty(),
-			n_disabled_validators = ?env.disabled_indices().len(),
 			"Is spam?"
 		);
 
@@ -1372,16 +1337,6 @@ impl Initialized {
 					);
 				}
 			}
-			for validator_index in new_state.votes().invalid.keys() {
-				gum::debug!(
-					target: LOG_TARGET,
-					?candidate_hash,
-					?validator_index,
-					"Disabled offchain for voting invalid against a valid candidate",
-				);
-				self.offchain_disabled_validators
-					.insert_against_valid(session, *validator_index);
-			}
 			self.metrics.on_concluded_valid();
 		}
 		if import_result.is_freshly_concluded_against() {
@@ -1400,21 +1355,6 @@ impl Initialized {
 						"Voted for a candidate that was concluded invalid.",
 					);
 				}
-			}
-			for (validator_index, (kind, _sig)) in new_state.votes().valid.raw() {
-				let is_backer = kind.is_backing();
-				gum::debug!(
-					target: LOG_TARGET,
-					?candidate_hash,
-					?validator_index,
-					?is_backer,
-					"Disabled offchain for voting valid for an invalid candidate",
-				);
-				self.offchain_disabled_validators.insert_for_invalid(
-					session,
-					*validator_index,
-					is_backer,
-				);
 			}
 			self.metrics.on_concluded_invalid();
 		}
@@ -1452,8 +1392,7 @@ impl Initialized {
 			ctx,
 			&mut self.runtime_info,
 			session,
-			candidate_receipt.descriptor.relay_parent(),
-			self.offchain_disabled_validators.iter(session),
+			candidate_receipt.descriptor.relay_parent,
 		)
 		.await
 		{
@@ -1651,83 +1590,4 @@ fn determine_undisputed_chain(
 	}
 
 	Ok(last)
-}
-
-#[derive(Default)]
-struct OffchainDisabledValidators {
-	// Ideally, we want to use the top `byzantine_threshold` offenders here based on the amount of
-	// stake slashed. However, given that slashing might be applied with a delay, we want to have
-	// some list of offenders as soon as disputes conclude offchain. This list only approximates
-	// the top offenders and only accounts for lost disputes. But that should be good enough to
-	// prevent spam attacks.
-	per_session: BTreeMap<SessionIndex, LostSessionDisputes>,
-}
-
-struct LostSessionDisputes {
-	// We separate lost disputes to prioritize "for invalid" offenders. And among those, we
-	// prioritize backing votes the most. There's no need to limit the size of these sets, as they
-	// are already limited by the number of validators in the session. We use `LruMap` to ensure
-	// the iteration order prioritizes most recently disputes lost over older ones in case we reach
-	// the limit.
-	backers_for_invalid: LruMap<ValidatorIndex, (), UnlimitedCompact>,
-	for_invalid: LruMap<ValidatorIndex, (), UnlimitedCompact>,
-	against_valid: LruMap<ValidatorIndex, (), UnlimitedCompact>,
-}
-
-impl Default for LostSessionDisputes {
-	fn default() -> Self {
-		Self {
-			backers_for_invalid: LruMap::new(UnlimitedCompact),
-			for_invalid: LruMap::new(UnlimitedCompact),
-			against_valid: LruMap::new(UnlimitedCompact),
-		}
-	}
-}
-
-impl OffchainDisabledValidators {
-	fn prune_old(&mut self, up_to_excluding: SessionIndex) {
-		// split_off returns everything after the given key, including the key.
-		let mut relevant = self.per_session.split_off(&up_to_excluding);
-		std::mem::swap(&mut relevant, &mut self.per_session);
-	}
-
-	fn insert_for_invalid(
-		&mut self,
-		session_index: SessionIndex,
-		validator_index: ValidatorIndex,
-		is_backer: bool,
-	) {
-		let entry = self.per_session.entry(session_index).or_default();
-		if is_backer {
-			entry.backers_for_invalid.insert(validator_index, ());
-		} else {
-			entry.for_invalid.insert(validator_index, ());
-		}
-	}
-
-	fn insert_against_valid(
-		&mut self,
-		session_index: SessionIndex,
-		validator_index: ValidatorIndex,
-	) {
-		self.per_session
-			.entry(session_index)
-			.or_default()
-			.against_valid
-			.insert(validator_index, ());
-	}
-
-	/// Iterate over all validators that are offchain disabled.
-	/// The order of iteration prioritizes `for_invalid` offenders (and backers among those) over
-	/// `against_valid` offenders. And most recently lost disputes over older ones.
-	/// NOTE: the iterator might contain duplicates.
-	fn iter(&self, session_index: SessionIndex) -> impl Iterator<Item = ValidatorIndex> + '_ {
-		self.per_session.get(&session_index).into_iter().flat_map(|e| {
-			e.backers_for_invalid
-				.iter()
-				.chain(e.for_invalid.iter())
-				.chain(e.against_valid.iter())
-				.map(|(i, _)| *i)
-		})
-	}
 }

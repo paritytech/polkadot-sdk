@@ -264,21 +264,24 @@ pub fn dummy_overrides() -> WasmOverride {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sc_executor::{HeapAllocStrategy, WasmExecutor};
+	use sc_executor::{HeapAllocStrategy, NativeElseWasmExecutor, WasmExecutor};
 	use std::fs::{self, File};
+	use substrate_test_runtime_client::LocalExecutorDispatch;
 
-	fn executor() -> WasmExecutor {
-		WasmExecutor::builder()
-			.with_onchain_heap_alloc_strategy(HeapAllocStrategy::Static { extra_pages: 128 })
-			.with_offchain_heap_alloc_strategy(HeapAllocStrategy::Static { extra_pages: 128 })
-			.with_max_runtime_instances(1)
-			.with_runtime_cache_size(2)
-			.build()
+	fn executor() -> NativeElseWasmExecutor<substrate_test_runtime_client::LocalExecutorDispatch> {
+		NativeElseWasmExecutor::<substrate_test_runtime_client::LocalExecutorDispatch>::new_with_wasm_executor(
+			WasmExecutor::builder()
+				.with_onchain_heap_alloc_strategy(HeapAllocStrategy::Static {extra_pages: 128})
+				.with_offchain_heap_alloc_strategy(HeapAllocStrategy::Static {extra_pages: 128})
+				.with_max_runtime_instances(1)
+				.with_runtime_cache_size(2)
+				.build()
+		)
 	}
 
 	fn wasm_test<F>(fun: F)
 	where
-		F: Fn(&Path, &[u8], &WasmExecutor),
+		F: Fn(&Path, &[u8], &NativeElseWasmExecutor<LocalExecutorDispatch>),
 	{
 		let exec = executor();
 		let bytes = substrate_test_runtime::wasm_binary_unwrap();

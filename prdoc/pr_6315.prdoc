@@ -1,8 +1,0 @@
-title: Migrate pallet-election-provider-support-benchmarking benchmark to v2
-doc:
-- audience: Runtime Dev
-  description: |-
-    Migrate pallet-election-provider-support-benchmarking benchmark to v2
-crates:
-- name: pallet-election-provider-support-benchmarking
-  bump: patch

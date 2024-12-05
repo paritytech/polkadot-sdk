@@ -257,9 +257,6 @@ pub mod weights;
 
 pub mod migrations;
 
-extern crate alloc;
-
-use alloc::vec::Vec;
 use frame_support::{
 	impl_ensure_origin_with_arg_ignoring_arg,
 	pallet_prelude::*,
@@ -285,6 +282,7 @@ use sp_runtime::{
 	ArithmeticError::Overflow,
 	Percent, RuntimeDebug,
 };
+use sp_std::prelude::*;
 
 pub use weights::WeightInfo;
 
@@ -297,14 +295,14 @@ type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 >>::NegativeImbalance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Vote {
 	approve: bool,
 	weight: u32,
 }
 
 /// A judgement by the suspension judgement origin on a suspended candidate.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum Judgement {
 	/// The suspension judgement origin takes no direct judgment
 	/// and places the candidate back into the bid pool.
@@ -316,9 +314,7 @@ pub enum Judgement {
 }
 
 /// Details of a payout given as a per-block linear "trickle".
-#[derive(
-	Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, Default, TypeInfo)]
 pub struct Payout<Balance, BlockNumber> {
 	/// Total value of the payout.
 	value: Balance,
@@ -331,7 +327,7 @@ pub struct Payout<Balance, BlockNumber> {
 }
 
 /// Status of a vouching member.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum VouchingStatus {
 	/// Member is currently vouching for a user.
 	Vouching,
@@ -343,7 +339,7 @@ pub enum VouchingStatus {
 pub type StrikeCount = u32;
 
 /// A bid for entry into society.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Bid<AccountId, Balance> {
 	/// The bidder/candidate trying to enter society
 	who: AccountId,
@@ -363,9 +359,7 @@ pub type Rank = u32;
 pub type VoteCount = u32;
 
 /// Tally of votes.
-#[derive(
-	Default, Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Default, Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Tally {
 	/// The approval votes.
 	approvals: VoteCount,
@@ -392,7 +386,7 @@ impl Tally {
 }
 
 /// A bid for entry into society.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Candidacy<AccountId, Balance> {
 	/// The index of the round where the candidacy began.
 	round: RoundIndex,
@@ -407,7 +401,7 @@ pub struct Candidacy<AccountId, Balance> {
 }
 
 /// A vote by a member on a candidate application.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum BidKind<AccountId, Balance> {
 	/// The given deposit was paid for this bid.
 	Deposit(Balance),
@@ -426,7 +420,7 @@ pub type PayoutsFor<T, I> =
 	BoundedVec<(BlockNumberFor<T>, BalanceOf<T, I>), <T as Config<I>>::MaxPayouts>;
 
 /// Information concerning a member.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct MemberRecord {
 	rank: Rank,
 	strikes: StrikeCount,
@@ -435,7 +429,7 @@ pub struct MemberRecord {
 }
 
 /// Information concerning a member.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, Default)]
 pub struct PayoutRecord<Balance, PayoutsVec> {
 	paid: Balance,
 	payouts: PayoutsVec,
@@ -447,7 +441,7 @@ pub type PayoutRecordFor<T, I> = PayoutRecord<
 >;
 
 /// Record for an individual new member who was elevated from a candidate recently.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct IntakeRecord<AccountId, Balance> {
 	who: AccountId,
 	bid: Balance,
@@ -457,7 +451,7 @@ pub struct IntakeRecord<AccountId, Balance> {
 pub type IntakeRecordFor<T, I> =
 	IntakeRecord<<T as frame_system::Config>::AccountId, BalanceOf<T, I>>;
 
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct GroupParams<Balance> {
 	max_members: u32,
 	max_intake: u32,
@@ -475,6 +469,7 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
+	#[pallet::without_storage_info]
 	pub struct Pallet<T, I = ()>(_);
 
 	#[pallet::config]
@@ -1367,7 +1362,7 @@ pub mod pallet {
 }
 
 /// Simple ensure origin struct to filter for the founder account.
-pub struct EnsureFounder<T>(core::marker::PhantomData<T>);
+pub struct EnsureFounder<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureFounder<T> {
 	type Success = T::AccountId;
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
@@ -1388,6 +1383,18 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	impl<{ T: Config, A }>
 		EnsureOriginWithArg<T::RuntimeOrigin, A> for EnsureFounder<T>
 	{}
+}
+
+struct InputFromRng<'a, T>(&'a mut T);
+impl<'a, T: RngCore> codec::Input for InputFromRng<'a, T> {
+	fn remaining_len(&mut self) -> Result<Option<usize>, codec::Error> {
+		return Ok(None)
+	}
+
+	fn read(&mut self, into: &mut [u8]) -> Result<(), codec::Error> {
+		self.0.fill_bytes(into);
+		Ok(())
+	}
 }
 
 pub enum Period<BlockNumber> {
@@ -1426,8 +1433,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let weight_root = rank + 1;
 		let weight = weight_root * weight_root;
 		match approve {
-			true => tally.approvals.saturating_accrue(weight),
-			false => tally.rejections.saturating_accrue(weight),
+			true => tally.approvals.saturating_accrue(1),
+			false => tally.rejections.saturating_accrue(1),
 		}
 		Vote { approve, weight }
 	}
@@ -1502,7 +1509,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// the Founder.
 		if MemberCount::<T, I>::get() > 2 {
 			let defender = next_defender
-				.or_else(|| Self::pick_defendant(rng))
+				.or_else(|| Self::pick_defendent(rng))
 				.expect("exited if members empty; qed");
 			let skeptic =
 				Self::pick_member_except(rng, &defender).expect("exited if members empty; qed");
@@ -1864,7 +1871,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// If only the Founder and Head members exist (or the state is inconsistent), then `None`
 	/// may be returned.
-	fn pick_defendant(rng: &mut impl RngCore) -> Option<T::AccountId> {
+	fn pick_defendent(rng: &mut impl RngCore) -> Option<T::AccountId> {
 		let member_count = MemberCount::<T, I>::get();
 		if member_count <= 2 {
 			return None
@@ -1969,7 +1976,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Transfer some `amount` from the main account into the payouts account and reduce the Pot
 	/// by this amount.
 	fn reserve_payout(amount: BalanceOf<T, I>) {
-		// Transfer payout from the Pot into the payouts account.
+		// Tramsfer payout from the Pot into the payouts account.
 		Pot::<T, I>::mutate(|pot| pot.saturating_reduce(amount));
 
 		// this should never fail since we ensure we can afford the payouts in a previous
@@ -1981,7 +1988,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Transfer some `amount` from the main account into the payouts account and increase the Pot
 	/// by this amount.
 	fn unreserve_payout(amount: BalanceOf<T, I>) {
-		// Transfer payout from the Pot into the payouts account.
+		// Tramsfer payout from the Pot into the payouts account.
 		Pot::<T, I>::mutate(|pot| pot.saturating_accrue(amount));
 
 		// this should never fail since we ensure we can afford the payouts in a previous

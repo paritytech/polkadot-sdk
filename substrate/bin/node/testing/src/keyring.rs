@@ -19,61 +19,56 @@
 //! Test accounts.
 
 use codec::Encode;
-use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, TxExtension, UncheckedExtrinsic};
+use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
 use node_primitives::{AccountId, Balance, Nonce};
-use sp_core::{crypto::get_public_from_string_or_panic, ecdsa, ed25519, sr25519};
-use sp_crypto_hashing::blake2_256;
-use sp_keyring::Sr25519Keyring;
-use sp_runtime::generic::{self, Era, ExtrinsicFormat, EXTRINSIC_FORMAT_VERSION};
+use sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
+use sp_runtime::generic::Era;
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
-	Sr25519Keyring::Alice.into()
+	AccountKeyring::Alice.into()
 }
 
 /// Bob's account id.
 pub fn bob() -> AccountId {
-	Sr25519Keyring::Bob.into()
+	AccountKeyring::Bob.into()
 }
 
 /// Charlie's account id.
 pub fn charlie() -> AccountId {
-	Sr25519Keyring::Charlie.into()
+	AccountKeyring::Charlie.into()
 }
 
 /// Dave's account id.
 pub fn dave() -> AccountId {
-	Sr25519Keyring::Dave.into()
+	AccountKeyring::Dave.into()
 }
 
 /// Eve's account id.
 pub fn eve() -> AccountId {
-	Sr25519Keyring::Eve.into()
+	AccountKeyring::Eve.into()
 }
 
 /// Ferdie's account id.
 pub fn ferdie() -> AccountId {
-	Sr25519Keyring::Ferdie.into()
+	AccountKeyring::Ferdie.into()
 }
 
 /// Convert keyrings into `SessionKeys`.
-///
-/// # Panics
-///
-/// Function will panic when invalid string is provided.
-pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
+pub fn to_session_keys(
+	ed25519_keyring: &Ed25519Keyring,
+	sr25519_keyring: &Sr25519Keyring,
+) -> SessionKeys {
 	SessionKeys {
-		grandpa: get_public_from_string_or_panic::<ed25519::Public>(seed).into(),
-		babe: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
-		im_online: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
-		authority_discovery: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
-		mixnet: get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
-		beefy: get_public_from_string_or_panic::<ecdsa::Public>(seed).into(),
+		grandpa: ed25519_keyring.to_owned().public().into(),
+		babe: sr25519_keyring.to_owned().public().into(),
+		im_online: sr25519_keyring.to_owned().public().into(),
+		authority_discovery: sr25519_keyring.to_owned().public().into(),
 	}
 }
 
 /// Returns transaction extra.
-pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
+pub fn signed_extra(nonce: Nonce, extra_fee: Balance) -> SignedExtra {
 	(
 		frame_system::CheckNonZeroSender::new(),
 		frame_system::CheckSpecVersion::new(),
@@ -82,10 +77,7 @@ pub fn tx_ext(nonce: Nonce, extra_fee: Balance) -> TxExtension {
 		frame_system::CheckEra::from(Era::mortal(256, 0)),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
-		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
-		),
-		frame_metadata_hash_extension::CheckMetadataHash::new(false),
+		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
 	)
 }
 
@@ -95,49 +87,26 @@ pub fn sign(
 	spec_version: u32,
 	tx_version: u32,
 	genesis_hash: [u8; 32],
-	metadata_hash: Option<[u8; 32]>,
 ) -> UncheckedExtrinsic {
-	match xt.format {
-		ExtrinsicFormat::Signed(signed, tx_ext) => {
-			let payload = (
-				xt.function,
-				tx_ext.clone(),
-				spec_version,
-				tx_version,
-				genesis_hash,
-				genesis_hash,
-				metadata_hash,
-			);
-			let key = Sr25519Keyring::from_account_id(&signed).unwrap();
-			let signature =
-				payload
-					.using_encoded(|b| {
-						if b.len() > 256 {
-							key.sign(&blake2_256(b))
-						} else {
-							key.sign(b)
-						}
-					})
-					.into();
-			generic::UncheckedExtrinsic {
-				preamble: sp_runtime::generic::Preamble::Signed(
-					sp_runtime::MultiAddress::Id(signed),
-					signature,
-					tx_ext,
-				),
+	match xt.signed {
+		Some((signed, extra)) => {
+			let payload =
+				(xt.function, extra.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
+			let key = AccountKeyring::from_account_id(&signed).unwrap();
+			let signature = payload
+				.using_encoded(|b| {
+					if b.len() > 256 {
+						key.sign(&sp_io::hashing::blake2_256(b))
+					} else {
+						key.sign(b)
+					}
+				})
+				.into();
+			UncheckedExtrinsic {
+				signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
 				function: payload.0,
 			}
-			.into()
 		},
-		ExtrinsicFormat::Bare => generic::UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::Bare(EXTRINSIC_FORMAT_VERSION),
-			function: xt.function,
-		}
-		.into(),
-		ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::General(ext_version, tx_ext),
-			function: xt.function,
-		}
-		.into(),
+		None => UncheckedExtrinsic { signature: None, function: xt.function },
 	}
 }

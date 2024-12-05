@@ -98,10 +98,10 @@
 //! and production.
 //!
 //! ```
-//! # use sp_runtime::testing::{MockCallU64, TestXt};
+//! # use sp_runtime::testing::ExtrinsicWrapper;
 //! # use sp_inherents::{InherentIdentifier, InherentData};
 //! # use futures::FutureExt;
-//! # type Block = sp_runtime::testing::Block<TestXt<MockCallU64, ()>>;
+//! # type Block = sp_runtime::testing::Block<ExtrinsicWrapper<()>>;
 //! # const INHERENT_IDENTIFIER: InherentIdentifier = *b"testinh0";
 //! # struct InherentDataProvider;
 //! # #[async_trait::async_trait]
@@ -162,11 +162,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
-extern crate alloc;
-
 use codec::{Decode, Encode};
 
-use alloc::{
+use sp_std::{
 	collections::btree_map::{BTreeMap, Entry, IntoIter},
 	vec::Vec,
 };

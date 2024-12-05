@@ -17,12 +17,12 @@
 //! To prevent Out of Memory errors on the `DownwardMessageQueue`, an
 //! exponential fee factor (`DeliveryFeeFactor`) is set. The fee factor
 //! increments exponentially after the number of messages in the
-//! `DownwardMessageQueue` passes a threshold. This threshold is set as:
+//! `DownwardMessageQueue` pass a threshold. This threshold is set as:
 //!
 //! ```ignore
 //! // Maximum max sized messages that can be send to
 //! // the DownwardMessageQueue before it runs out of memory
-//! max_messages = MAX_POSSIBLE_ALLOCATION / max_downward_message_size
+//! max_messsages = MAX_POSSIBLE_ALLOCATION / max_downward_message_size
 //! threshold = max_messages / THRESHOLD_FACTOR
 //! ```
 //! Based on the THRESHOLD_FACTOR, the threshold is set as a fraction of the
@@ -46,16 +46,15 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	initializer, FeeTracker,
 };
-use alloc::vec::Vec;
-use core::fmt;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{DownwardMessage, Hash, Id as ParaId, InboundDownwardMessage};
+use primitives::{DownwardMessage, Hash, Id as ParaId, InboundDownwardMessage};
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash as HashT, SaturatedConversion},
 	FixedU128, Saturating,
 };
+use sp_std::{fmt, prelude::*};
 use xcm::latest::SendError;
 
 pub use pallet::*;
@@ -120,7 +119,7 @@ pub mod pallet {
 
 	/// The downward messages addressed for a certain para.
 	#[pallet::storage]
-	pub type DownwardMessageQueues<T: Config> = StorageMap<
+	pub(crate) type DownwardMessageQueues<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ParaId,
@@ -145,7 +144,7 @@ pub mod pallet {
 		FixedU128::from_u32(1)
 	}
 
-	/// The factor to multiply the base delivery fee by.
+	/// The number to multiply the base delivery fee by.
 	#[pallet::storage]
 	pub(crate) type DeliveryFeeFactor<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
@@ -227,7 +226,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let inbound =
-			InboundDownwardMessage { msg, sent_at: frame_system::Pallet::<T>::block_number() };
+			InboundDownwardMessage { msg, sent_at: <frame_system::Pallet<T>>::block_number() };
 
 		// obtain the new link in the MQC and update the head.
 		DownwardMessageQueueHeads::<T>::mutate(para, |head| {
@@ -244,9 +243,10 @@ impl<T: Config> Pallet<T> {
 		let threshold =
 			Self::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
 		if q_len > (threshold as usize) {
-			let message_size_factor = FixedU128::from((serialized_len / 1024) as u128)
-				.saturating_mul(MESSAGE_SIZE_FEE_BASE);
-			Self::increase_fee_factor(para, message_size_factor);
+			let message_size_factor =
+				FixedU128::from_u32(serialized_len.saturating_div(1024) as u32)
+					.saturating_mul(MESSAGE_SIZE_FEE_BASE);
+			Self::increment_fee_factor(para, message_size_factor);
 		}
 
 		Ok(())
@@ -287,7 +287,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Prunes the specified number of messages from the downward message queue of the given para.
-	pub(crate) fn prune_dmq(para: ParaId, processed_downward_messages: u32) {
+	pub(crate) fn prune_dmq(para: ParaId, processed_downward_messages: u32) -> Weight {
 		let q_len = DownwardMessageQueues::<T>::mutate(para, |q| {
 			let processed_downward_messages = processed_downward_messages as usize;
 			if processed_downward_messages > q.len() {
@@ -304,8 +304,9 @@ impl<T: Config> Pallet<T> {
 		let threshold =
 			Self::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
 		if q_len <= (threshold as usize) {
-			Self::decrease_fee_factor(para);
+			Self::decrement_fee_factor(para);
 		}
+		T::DbWeight::get().reads_writes(1, 1)
 	}
 
 	/// Returns the Head of Message Queue Chain for the given para or `None` if there is none
@@ -336,26 +337,32 @@ impl<T: Config> Pallet<T> {
 	) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
 		DownwardMessageQueues::<T>::get(&recipient)
 	}
-}
 
-impl<T: Config> FeeTracker for Pallet<T> {
-	type Id = ParaId;
-
-	fn get_fee_factor(id: Self::Id) -> FixedU128 {
-		DeliveryFeeFactor::<T>::get(id)
-	}
-
-	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		DeliveryFeeFactor::<T>::mutate(id, |f| {
-			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
+	/// Raise the delivery fee factor by a multiplicative factor and stores the resulting value.
+	///
+	/// Returns the new delivery fee factor after the increment.
+	pub(crate) fn increment_fee_factor(para: ParaId, message_size_factor: FixedU128) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(para, |f| {
+			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE + message_size_factor);
 			*f
 		})
 	}
 
-	fn decrease_fee_factor(id: Self::Id) -> FixedU128 {
-		DeliveryFeeFactor::<T>::mutate(id, |f| {
+	/// Reduce the delivery fee factor by a multiplicative factor and stores the resulting value.
+	///
+	/// Does not reduce the fee factor below the initial value, which is currently set as 1.
+	///
+	/// Returns the new delivery fee factor after the decrement.
+	pub(crate) fn decrement_fee_factor(para: ParaId) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(para, |f| {
 			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
 			*f
 		})
+	}
+}
+
+impl<T: Config> FeeTracker for Pallet<T> {
+	fn get_fee_factor(para: ParaId) -> FixedU128 {
+		DeliveryFeeFactor::<T>::get(para)
 	}
 }

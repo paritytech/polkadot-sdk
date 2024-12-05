@@ -6,20 +6,23 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[lints]
-workspace = true
-
 [dependencies]
-smallvec = { workspace = true, default-features = true }
+smallvec = "1.8.0"
 
-frame-support = { workspace = true }
-polkadot-primitives = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+primitives = { package = "polkadot-primitives", path = "../../../primitives", default-features = false }
+runtime-common = { package = "polkadot-runtime-common", path = "../../common", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sp-weights = { path = "../../../../substrate/primitives/weights", default-features = false }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"frame-support/std",
-	"polkadot-primitives/std",
+	"primitives/std",
+	"runtime-common/std",
+	"sp-core/std",
 	"sp-runtime/std",
+	"sp-weights/std",
 ]

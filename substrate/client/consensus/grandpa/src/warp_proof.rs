@@ -16,14 +16,14 @@
 
 //! Utilities for generating and verifying GRANDPA warp sync proofs.
 
-use codec::{Decode, DecodeAll, Encode};
+use parity_scale_codec::{Decode, DecodeAll, Encode};
 
 use crate::{
 	best_justification, find_scheduled_change, AuthoritySetChanges, AuthoritySetHardFork,
 	BlockNumberOps, GrandpaJustification, SharedAuthoritySet,
 };
 use sc_client_api::Backend as ClientBackend;
-use sc_network_sync::strategy::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
+use sc_network_common::sync::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{
@@ -38,7 +38,7 @@ use std::{collections::HashMap, sync::Arc};
 pub enum Error {
 	/// Decoding error.
 	#[error("Failed to decode block hash: {0}.")]
-	DecodeScale(#[from] codec::Error),
+	DecodeScale(#[from] parity_scale_codec::Error),
 	/// Client backend error.
 	#[error("{0}")]
 	Client(#[from] sp_blockchain::Error),
@@ -249,7 +249,7 @@ impl<Block: BlockT, Backend: ClientBackend<Block>> NetworkProvider<Block, Backen
 where
 	NumberFor<Block>: BlockNumberOps,
 {
-	/// Create a new instance for a given backend and authority set.
+	/// Create a new istance for a given backend and authority set.
 	pub fn new(
 		backend: Arc<Backend>,
 		authority_set: SharedAuthoritySet<Block::Hash, NumberFor<Block>>,
@@ -320,9 +320,9 @@ where
 mod tests {
 	use super::WarpSyncProof;
 	use crate::{AuthoritySetChanges, GrandpaJustification};
-	use codec::Encode;
+	use parity_scale_codec::Encode;
 	use rand::prelude::*;
-	use sc_block_builder::BlockBuilderBuilder;
+	use sc_block_builder::BlockBuilderProvider;
 	use sp_blockchain::HeaderBackend;
 	use sp_consensus::BlockOrigin;
 	use sp_consensus_grandpa::GRANDPA_ENGINE_ID;
@@ -338,7 +338,7 @@ mod tests {
 		let mut rng = rand::rngs::StdRng::from_seed([0; 32]);
 		let builder = TestClientBuilder::new();
 		let backend = builder.backend();
-		let client = Arc::new(builder.build());
+		let mut client = Arc::new(builder.build());
 
 		let available_authorities = Ed25519Keyring::iter().collect::<Vec<_>>();
 		let genesis_authorities = vec![(Ed25519Keyring::Alice.public().into(), 1)];
@@ -348,11 +348,7 @@ mod tests {
 		let mut authority_set_changes = Vec::new();
 
 		for n in 1..=100 {
-			let mut builder = BlockBuilderBuilder::new(&*client)
-				.on_parent_block(client.chain_info().best_hash)
-				.with_parent_block_number(client.chain_info().best_number)
-				.build()
-				.unwrap();
+			let mut builder = client.new_block(Default::default()).unwrap();
 			let mut new_authorities = None;
 
 			// we will trigger an authority set change every 10 blocks

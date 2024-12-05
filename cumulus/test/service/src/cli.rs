@@ -14,13 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::path::PathBuf;
+use std::{net::SocketAddr, path::PathBuf};
 
-use cumulus_client_cli::{ExportGenesisHeadCommand, ExportGenesisWasmCommand};
 use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
-	Result as CliResult, RpcEndpoint, SharedParams, SubstrateCli,
+	Result as CliResult, SharedParams, SubstrateCli,
 };
 use sc_service::BasePath;
 
@@ -38,6 +37,9 @@ pub struct TestCollatorCli {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
+	#[arg(default_value_t = 2000u32)]
+	pub parachain_id: u32,
+
 	/// Relay chain arguments
 	#[arg(raw = true)]
 	pub relaychain_args: Vec<String>,
@@ -50,12 +52,6 @@ pub struct TestCollatorCli {
 
 	#[arg(long)]
 	pub fail_pov_recovery: bool,
-
-	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
-	///
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long)]
-	pub experimental_use_slot_based: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -64,11 +60,43 @@ pub enum Subcommand {
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Export the genesis state of the parachain.
-	#[command(alias = "export-genesis-state")]
-	ExportGenesisHead(ExportGenesisHeadCommand),
+	ExportGenesisState(ExportGenesisStateCommand),
 
 	/// Export the genesis wasm of the parachain.
 	ExportGenesisWasm(ExportGenesisWasmCommand),
+}
+
+#[derive(Debug, clap::Parser)]
+#[group(skip)]
+pub struct ExportGenesisStateCommand {
+	#[arg(default_value_t = 2000u32)]
+	pub parachain_id: u32,
+
+	#[command(flatten)]
+	pub base: cumulus_client_cli::ExportGenesisStateCommand,
+}
+
+impl CliConfiguration for ExportGenesisStateCommand {
+	fn shared_params(&self) -> &SharedParams {
+		&self.base.shared_params
+	}
+}
+
+/// Command for exporting the genesis wasm file.
+#[derive(Debug, clap::Parser)]
+#[group(skip)]
+pub struct ExportGenesisWasmCommand {
+	#[arg(default_value_t = 2000u32)]
+	pub parachain_id: u32,
+
+	#[command(flatten)]
+	pub base: cumulus_client_cli::ExportGenesisWasmCommand,
+}
+
+impl CliConfiguration for ExportGenesisWasmCommand {
+	fn shared_params(&self) -> &SharedParams {
+		&self.base.shared_params
+	}
 }
 
 #[derive(Debug)]
@@ -122,7 +150,7 @@ impl CliConfiguration<Self> for RelayChainCli {
 			.or_else(|| self.base_path.clone().map(Into::into)))
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> CliResult<Option<Vec<RpcEndpoint>>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> CliResult<Option<SocketAddr>> {
 		self.base.base.rpc_addr(default_listen_port)
 	}
 
@@ -139,9 +167,10 @@ impl CliConfiguration<Self> for RelayChainCli {
 		_support_url: &String,
 		_impl_version: &String,
 		_logger_hook: F,
+		_config: &sc_service::Configuration,
 	) -> CliResult<()>
 	where
-		F: FnOnce(&mut sc_cli::LoggerBuilder),
+		F: FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration),
 	{
 		unreachable!("PolkadotCli is never initialized; qed");
 	}
@@ -249,7 +278,7 @@ impl SubstrateCli for TestCollatorCli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+		"https://github.com/paritytech/cumulus/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -258,16 +287,8 @@ impl SubstrateCli for TestCollatorCli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"" => {
-				tracing::info!("Using default test service chain spec.");
-				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(2000)))) as Box<_>
-			},
-			"elastic-scaling" => {
-				tracing::info!("Using elastic-scaling chain spec.");
-				Box::new(cumulus_test_service::get_elastic_scaling_chain_spec(Some(ParaId::from(
-					2100,
-				)))) as Box<_>
-			},
+			"" => Box::new(cumulus_test_service::get_chain_spec(ParaId::from(self.parachain_id)))
+				as Box<_>,
 			path => {
 				let chain_spec =
 					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())?;
@@ -301,7 +322,7 @@ impl SubstrateCli for RelayChainCli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+		"https://github.com/paritytech/cumulus/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {

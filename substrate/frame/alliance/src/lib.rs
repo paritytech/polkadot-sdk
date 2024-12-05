@@ -94,9 +94,6 @@ pub mod migration;
 mod types;
 pub mod weights;
 
-extern crate alloc;
-
-use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
@@ -104,6 +101,7 @@ use sp_runtime::{
 	traits::{Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
+use sp_std::{convert::TryInto, prelude::*};
 
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
@@ -114,6 +112,7 @@ use frame_support::{
 	},
 	weights::Weight,
 };
+use pallet_identity::IdentityField;
 use scale_info::TypeInfo;
 
 pub use pallet::*;
@@ -136,9 +135,9 @@ type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 
 /// Interface required for identity verification.
 pub trait IdentityVerifier<AccountId> {
-	/// Function that returns whether an account has the required identities registered with the
-	/// identity provider.
-	fn has_required_identities(who: &AccountId) -> bool;
+	/// Function that returns whether an account has an identity registered with the identity
+	/// provider.
+	fn has_identity(who: &AccountId, fields: u64) -> bool;
 
 	/// Whether an account has been deemed "good" by the provider.
 	fn has_good_judgement(who: &AccountId) -> bool;
@@ -150,7 +149,7 @@ pub trait IdentityVerifier<AccountId> {
 
 /// The non-provider. Imposes no restrictions on account identity.
 impl<AccountId> IdentityVerifier<AccountId> for () {
-	fn has_required_identities(_who: &AccountId) -> bool {
+	fn has_identity(_who: &AccountId, _fields: u64) -> bool {
 		true
 	}
 
@@ -340,7 +339,7 @@ pub mod pallet {
 		/// Balance is insufficient for the required deposit.
 		InsufficientFunds,
 		/// The account's identity does not have display field and website field.
-		WithoutRequiredIdentityFields,
+		WithoutIdentityDisplayAndWebsite,
 		/// The account's identity has no good judgement.
 		WithoutGoodIdentityJudgement,
 		/// The proposal hash is not found.
@@ -444,20 +443,24 @@ pub mod pallet {
 	/// The IPFS CID of the alliance rule.
 	/// Fellows can propose a new rule with a super-majority.
 	#[pallet::storage]
+	#[pallet::getter(fn rule)]
 	pub type Rule<T: Config<I>, I: 'static = ()> = StorageValue<_, Cid, OptionQuery>;
 
 	/// The current IPFS CIDs of any announcements.
 	#[pallet::storage]
+	#[pallet::getter(fn announcements)]
 	pub type Announcements<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<Cid, T::MaxAnnouncementsCount>, ValueQuery>;
 
 	/// Maps members to their candidacy deposit.
 	#[pallet::storage]
+	#[pallet::getter(fn deposit_of)]
 	pub type DepositOf<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T, I>, OptionQuery>;
 
 	/// Maps member type to members of each type.
 	#[pallet::storage]
+	#[pallet::getter(fn members)]
 	pub type Members<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -469,17 +472,20 @@ pub mod pallet {
 	/// A set of members who gave a retirement notice. They can retire after the end of retirement
 	/// period stored as a future block number.
 	#[pallet::storage]
+	#[pallet::getter(fn retiring_members)]
 	pub type RetiringMembers<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, BlockNumberFor<T>, OptionQuery>;
 
 	/// The current list of accounts deemed unscrupulous. These accounts non grata cannot submit
 	/// candidacy.
 	#[pallet::storage]
+	#[pallet::getter(fn unscrupulous_accounts)]
 	pub type UnscrupulousAccounts<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<T::AccountId, T::MaxUnscrupulousItems>, ValueQuery>;
 
 	/// The current list of websites deemed unscrupulous.
 	#[pallet::storage]
+	#[pallet::getter(fn unscrupulous_websites)]
 	pub type UnscrupulousWebsites<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<UrlOf<T, I>, T::MaxUnscrupulousItems>, ValueQuery>;
 
@@ -500,10 +506,10 @@ pub mod pallet {
 			proposal: Box<<T as Config<I>>::Proposal>,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResult {
-			let proposer = ensure_signed(origin)?;
-			ensure!(Self::has_voting_rights(&proposer), Error::<T, I>::NoVotingRights);
+			let proposor = ensure_signed(origin)?;
+			ensure!(Self::has_voting_rights(&proposor), Error::<T, I>::NoVotingRights);
 
-			T::ProposalProvider::propose_proposal(proposer, threshold, proposal, length_bound)?;
+			T::ProposalProvider::propose_proposal(proposor, threshold, proposal, length_bound)?;
 			Ok(())
 		}
 
@@ -1076,10 +1082,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	fn has_identity(who: &T::AccountId) -> DispatchResult {
+		const IDENTITY_FIELD_DISPLAY: u64 = IdentityField::Display as u64;
+		const IDENTITY_FIELD_WEB: u64 = IdentityField::Web as u64;
+
 		let judgement = |who: &T::AccountId| -> DispatchResult {
 			ensure!(
-				T::IdentityVerifier::has_required_identities(who),
-				Error::<T, I>::WithoutRequiredIdentityFields
+				T::IdentityVerifier::has_identity(who, IDENTITY_FIELD_DISPLAY | IDENTITY_FIELD_WEB),
+				Error::<T, I>::WithoutIdentityDisplayAndWebsite
 			);
 			ensure!(
 				T::IdentityVerifier::has_good_judgement(who),

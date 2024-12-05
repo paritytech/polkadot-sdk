@@ -29,14 +29,14 @@ use crate::{
 	traits::{Get, GetDefault, StorageInfo, StorageInfoTrait, StorageInstance},
 	Never,
 };
-use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen, Ref};
 use sp_io::MultiRemovalResults;
 use sp_metadata_ir::StorageEntryMetadataIR;
 use sp_runtime::traits::Saturating;
+use sp_std::prelude::*;
 
-/// A wrapper around a [`StorageMap`] and a [`StorageValue`] (with the value being `u32`) to keep
-/// track of how many items are in a map, without needing to iterate all the values.
+/// A wrapper around a `StorageMap` and a `StorageValue<Value=u32>` to keep track of how many items
+/// are in a map, without needing to iterate all the values.
 ///
 /// This storage item has additional storage read and write overhead when manipulating values
 /// compared to a regular storage map.
@@ -47,51 +47,6 @@ use sp_runtime::traits::Saturating;
 ///
 /// Whenever the counter needs to be updated, an additional read and write occurs to update that
 /// counter.
-///
-/// The total number of items currently stored in the map can be retrieved with the
-/// [`CountedStorageMap::count`] method.
-///
-/// For general information regarding the `#[pallet::storage]` attribute, refer to
-/// [`crate::pallet_macros::storage`].
-///
-/// # Examples
-///
-/// Declaring a counted map:
-///
-/// ```
-/// #[frame_support::pallet]
-/// mod pallet {
-/// # 	use frame_support::pallet_prelude::*;
-/// # 	#[pallet::config]
-/// # 	pub trait Config: frame_system::Config {}
-/// # 	#[pallet::pallet]
-/// # 	pub struct Pallet<T>(_);
-/// 	/// A kitchen-sink CountedStorageMap, with all possible additional attributes.
-///     #[pallet::storage]
-/// 	#[pallet::getter(fn foo)]
-/// 	#[pallet::storage_prefix = "OtherFoo"]
-/// 	#[pallet::unbounded]
-///     pub type Foo<T> = CountedStorageMap<
-/// 		_,
-/// 		Blake2_128Concat,
-/// 		u32,
-/// 		u32,
-/// 		ValueQuery,
-/// 	>;
-///
-/// 	/// Alternative named syntax.
-/// 	#[pallet::storage]
-///     pub type Bar<T> = CountedStorageMap<
-/// 		Hasher = Blake2_128Concat,
-/// 		Key = u32,
-/// 		Value = u32,
-/// 		QueryKind = ValueQuery
-/// 	>;
-/// }
-/// ```
-///
-/// Using a counted map in action:
-#[doc = docify::embed!("src/storage/types/counted_map.rs", test_simple_count_works)]
 pub struct CountedStorageMap<
 	Prefix,
 	Hasher,
@@ -119,11 +74,7 @@ impl<P: CountedStorageMapInstance, H, K, V, Q, O, M> MapWrapper
 	type Map = StorageMap<P, H, K, V, Q, O, M>;
 }
 
-/// The numeric counter type.
-pub type Counter = u32;
-
-type CounterFor<P> =
-	StorageValue<<P as CountedStorageMapInstance>::CounterPrefix, Counter, ValueQuery>;
+type CounterFor<P> = StorageValue<<P as CountedStorageMapInstance>::CounterPrefix, u32, ValueQuery>;
 
 /// On removal logic for updating counter while draining upon some prefix with
 /// [`crate::storage::PrefixIterator`].
@@ -156,7 +107,7 @@ where
 	/// The prefix used to generate the key of the map.
 	pub fn map_storage_final_prefix() -> Vec<u8> {
 		use crate::storage::generator::StorageMap;
-		<Self as MapWrapper>::Map::prefix_hash().to_vec()
+		<Self as MapWrapper>::Map::prefix_hash()
 	}
 
 	/// Get the storage key used to fetch a value corresponding to a specific key.
@@ -310,7 +261,7 @@ where
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completely
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	pub fn decode_len<KeyArg: EncodeLike<Key>>(key: KeyArg) -> Option<usize>
 	where
@@ -427,14 +378,14 @@ where
 	/// can be very heavy, so use with caution.
 	///
 	/// Returns the number of items in the map which is used to set the counter.
-	pub fn initialize_counter() -> Counter {
-		let count = Self::iter_values().count() as Counter;
+	pub fn initialize_counter() -> u32 {
+		let count = Self::iter_values().count() as u32;
 		CounterFor::<Prefix>::set(count);
 		count
 	}
 
 	/// Return the count.
-	pub fn count() -> Counter {
+	pub fn count() -> u32 {
 		CounterFor::<Prefix>::get()
 	}
 }
@@ -508,14 +459,9 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn build_metadata(
-		deprecation_status: sp_metadata_ir::DeprecationStatusIR,
-		docs: Vec<&'static str>,
-		entries: &mut Vec<StorageEntryMetadataIR>,
-	) {
-		<Self as MapWrapper>::Map::build_metadata(deprecation_status.clone(), docs, entries);
+	fn build_metadata(docs: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>) {
+		<Self as MapWrapper>::Map::build_metadata(docs, entries);
 		CounterFor::<Prefix>::build_metadata(
-			deprecation_status,
 			if cfg!(feature = "no-metadata-docs") {
 				vec![]
 			} else {
@@ -780,13 +726,13 @@ mod test {
 			assert_eq!(A::try_get(1), Err(()));
 			assert_eq!(A::count(), 3);
 
-			// Take existing.
+			// Take exsisting.
 			assert_eq!(A::take(4), 10);
 
 			assert_eq!(A::try_get(4), Err(()));
 			assert_eq!(A::count(), 2);
 
-			// Take non-existing.
+			// Take non-exsisting.
 			assert_eq!(A::take(4), ADefault::get());
 
 			assert_eq!(A::try_get(4), Err(()));
@@ -1027,13 +973,13 @@ mod test {
 			assert_eq!(B::try_get(1), Err(()));
 			assert_eq!(B::count(), 3);
 
-			// Take existing.
+			// Take exsisting.
 			assert_eq!(B::take(4), Some(10));
 
 			assert_eq!(B::try_get(4), Err(()));
 			assert_eq!(B::count(), 2);
 
-			// Take non-existing.
+			// Take non-exsisting.
 			assert_eq!(B::take(4), None);
 
 			assert_eq!(B::try_get(4), Err(()));
@@ -1198,7 +1144,7 @@ mod test {
 	fn test_metadata() {
 		type A = CountedStorageMap<Prefix, Twox64Concat, u16, u32, ValueQuery, ADefault>;
 		let mut entries = vec![];
-		A::build_metadata(sp_metadata_ir::DeprecationStatusIR::NotDeprecated, vec![], &mut entries);
+		A::build_metadata(vec![], &mut entries);
 		assert_eq!(
 			entries,
 			vec![
@@ -1212,32 +1158,19 @@ mod test {
 					},
 					default: 97u32.encode(),
 					docs: vec![],
-					deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 				},
 				StorageEntryMetadataIR {
 					name: "counter_for_foo",
 					modifier: StorageEntryModifierIR::Default,
-					ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<Counter>()),
+					ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<u32>()),
 					default: vec![0, 0, 0, 0],
 					docs: if cfg!(feature = "no-metadata-docs") {
 						vec![]
 					} else {
 						vec!["Counter for the related counted storage map"]
 					},
-					deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 				},
 			]
 		);
-	}
-
-	#[docify::export]
-	#[test]
-	fn test_simple_count_works() {
-		type FooCountedMap = CountedStorageMap<Prefix, Twox64Concat, u16, u32>;
-		TestExternalities::default().execute_with(|| {
-			FooCountedMap::insert(1, 1);
-			FooCountedMap::insert(2, 2);
-			assert_eq!(FooCountedMap::count(), 2);
-		});
 	}
 }

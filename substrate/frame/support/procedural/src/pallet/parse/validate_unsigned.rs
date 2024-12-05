@@ -19,10 +19,15 @@ use super::helper;
 use syn::spanned::Spanned;
 
 /// The definition of the pallet validate unsigned implementation.
-pub struct ValidateUnsignedDef {}
+pub struct ValidateUnsignedDef {
+	/// The index of validate unsigned item in pallet module.
+	pub index: usize,
+	/// A set of usage of instance, must be check for consistency with config.
+	pub instances: Vec<helper::InstanceUsage>,
+}
 
 impl ValidateUnsignedDef {
-	pub fn try_from(item: &mut syn::Item) -> syn::Result<Self> {
+	pub fn try_from(index: usize, item: &mut syn::Item) -> syn::Result<Self> {
 		let item = if let syn::Item::Impl(item) = item {
 			item
 		} else {
@@ -47,9 +52,11 @@ impl ValidateUnsignedDef {
 			return Err(syn::Error::new(item.span(), msg))
 		}
 
-		helper::check_pallet_struct_usage(&item.self_ty)?;
-		helper::check_impl_gen(&item.generics, item.impl_token.span())?;
+		let instances = vec![
+			helper::check_pallet_struct_usage(&item.self_ty)?,
+			helper::check_impl_gen(&item.generics, item.impl_token.span())?,
+		];
 
-		Ok(ValidateUnsignedDef {})
+		Ok(ValidateUnsignedDef { index, instances })
 	}
 }

@@ -19,9 +19,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
-use alloc::vec::Vec;
+use sp_std::vec::Vec;
 
 mod app {
 	use sp_application_crypto::{app_crypto, key_types::AUTHORITY_DISCOVERY, sr25519};

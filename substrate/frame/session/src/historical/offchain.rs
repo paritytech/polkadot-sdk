@@ -17,18 +17,20 @@
 
 //! Off-chain logic for creating a proof based data provided by on-chain logic.
 //!
-//! Validator-set extracting an iterator from an off-chain worker stored list containing historical
-//! validator-sets. Based on the logic of historical slashing, but the validation is done off-chain.
+//! Validator-set extracting an iterator from an off-chain worker stored list containing
+//! historical validator-sets.
+//! Based on the logic of historical slashing, but the validation is done off-chain.
 //! Use [`fn store_current_session_validator_set_to_offchain()`](super::onchain) to store the
-//! required data to the offchain validator set. This is used in conjunction with [`ProvingTrie`]
-//! and the off-chain indexing API.
+//! required data to the offchain validator set.
+//! This is used in conjunction with [`ProvingTrie`](super::ProvingTrie) and
+//! the off-chain indexing API.
 
-use alloc::vec::Vec;
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
 	KeyTypeId,
 };
 use sp_session::MembershipProof;
+use sp_std::prelude::*;
 
 use super::{shared, Config, IdentificationTuple, ProvingTrie};
 use crate::{Pallet as SessionModule, SessionIndex};
@@ -60,9 +62,9 @@ impl<T: Config> ValidatorSet<T> {
 
 /// Implement conversion into iterator for usage
 /// with [ProvingTrie](super::ProvingTrie::generate_for).
-impl<T: Config> core::iter::IntoIterator for ValidatorSet<T> {
+impl<T: Config> sp_std::iter::IntoIterator for ValidatorSet<T> {
 	type Item = (T::ValidatorId, T::FullIdentification);
-	type IntoIter = alloc::vec::IntoIter<Self::Item>;
+	type IntoIter = sp_std::vec::IntoIter<Self::Item>;
 	fn into_iter(self) -> Self::IntoIter {
 		self.validator_set.into_iter()
 	}
@@ -171,9 +173,7 @@ mod tests {
 			}
 		});
 
-		crate::GenesisConfig::<Test> { keys, ..Default::default() }
-			.assimilate_storage(&mut t)
-			.unwrap();
+		crate::GenesisConfig::<Test> { keys }.assimilate_storage(&mut t).unwrap();
 
 		let mut ext = sp_io::TestExternalities::new(t);
 

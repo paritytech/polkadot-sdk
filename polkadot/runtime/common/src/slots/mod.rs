@@ -25,7 +25,6 @@
 pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
-use alloc::{vec, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency},
@@ -33,8 +32,9 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use polkadot_primitives::Id as ParaId;
+use primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
+use sp_std::prelude::*;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -114,6 +114,7 @@ pub mod pallet {
 	///
 	/// It is illegal for a `None` value to trail in the list.
 	#[pallet::storage]
+	#[pallet::getter(fn lease)]
 	pub type Leases<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Vec<Option<(T::AccountId, BalanceOf<T>)>>, ValueQuery>;
 
@@ -309,7 +310,7 @@ impl<T: Config> Pallet<T> {
 	// Useful when trying to clean up a parachain leases, as this would tell
 	// you all the balances you need to unreserve.
 	fn all_deposits_held(para: ParaId) -> Vec<(T::AccountId, BalanceOf<T>)> {
-		let mut tracker = alloc::collections::btree_map::BTreeMap::new();
+		let mut tracker = sp_std::collections::btree_map::BTreeMap::new();
 		Leases::<T>::get(para).into_iter().for_each(|lease| match lease {
 			Some((who, amount)) => match tracker.get(&who) {
 				Some(prev_amount) =>
@@ -329,7 +330,7 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
-		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| core::mem::swap(x, y)))
+		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| sp_std::mem::swap(x, y)))
 	}
 }
 
@@ -451,9 +452,9 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		// Note that blocks before `LeaseOffset` do not count as any lease period.
 		let offset_block_now = b.checked_sub(&T::LeaseOffset::get())?;
 		let lease_period = offset_block_now / T::LeasePeriod::get();
-		let at_begin = (offset_block_now % T::LeasePeriod::get()).is_zero();
+		let first_block = (offset_block_now % T::LeasePeriod::get()).is_zero();
 
-		Some((lease_period, at_begin))
+		Some((lease_period, first_block))
 	}
 
 	fn already_leased(
@@ -503,11 +504,11 @@ mod tests {
 	use super::*;
 
 	use crate::{mock::TestRegistrar, slots};
-	use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
+	use ::test_helpers::{dummy_head_data, dummy_validation_code};
+	use frame_support::{assert_noop, assert_ok, parameter_types};
 	use frame_system::EnsureRoot;
 	use pallet_balances;
-	use polkadot_primitives::BlockNumber;
-	use polkadot_primitives_test_helpers::{dummy_head_data, dummy_validation_code};
+	use primitives::BlockNumber;
 	use sp_core::H256;
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},
@@ -519,13 +520,15 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system,
-			Balances: pallet_balances,
-			Slots: slots,
+			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+			Slots: slots::{Pallet, Call, Storage, Event<T>},
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	parameter_types! {
+		pub const BlockHashCount: u32 = 250;
+	}
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -539,6 +542,7 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
+		type BlockHashCount = BlockHashCount;
 		type DbWeight = ();
 		type Version = ();
 		type PalletInfo = PalletInfo;
@@ -551,9 +555,24 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
-	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	parameter_types! {
+		pub const ExistentialDeposit: u64 = 1;
+	}
+
 	impl pallet_balances::Config for Test {
+		type Balance = u64;
+		type RuntimeEvent = RuntimeEvent;
+		type DustRemoval = ();
+		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
+		type WeightInfo = ();
+		type MaxLocks = ();
+		type MaxReserves = ();
+		type ReserveIdentifier = [u8; 8];
+		type RuntimeHoldReason = RuntimeHoldReason;
+		type FreezeIdentifier = ();
+		type MaxHolds = ConstU32<1>;
+		type MaxFreezes = ConstU32<1>;
 	}
 
 	parameter_types! {
@@ -970,7 +989,7 @@ mod benchmarking {
 	use super::*;
 	use frame_support::assert_ok;
 	use frame_system::RawOrigin;
-	use polkadot_runtime_parachains::paras;
+	use runtime_parachains::paras;
 	use sp_runtime::traits::{Bounded, One};
 
 	use frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};

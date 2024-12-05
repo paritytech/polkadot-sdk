@@ -48,9 +48,6 @@ mod types;
 pub mod macros;
 pub mod weights;
 
-extern crate alloc;
-
-use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::traits::{
 	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, Incrementable,
@@ -58,9 +55,10 @@ use frame_support::traits::{
 };
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
-	traits::{BlockNumberProvider, IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
+	traits::{IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
 	RuntimeDebug,
 };
+use sp_std::prelude::*;
 
 pub use pallet::*;
 pub use types::*;
@@ -76,9 +74,9 @@ type AccountIdLookupOf<T> = <<T as SystemConfig>::Lookup as StaticLookup>::Sourc
 pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::ExistenceRequirement};
-	use frame_system::{ensure_signed, pallet_prelude::OriginFor};
+	use frame_system::pallet_prelude::*;
 
-	/// The in-code storage version.
+	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -86,41 +84,17 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[cfg(feature = "runtime-benchmarks")]
-	pub trait BenchmarkHelper<CollectionId, ItemId, Public, AccountId, Signature> {
+	pub trait BenchmarkHelper<CollectionId, ItemId> {
 		fn collection(i: u16) -> CollectionId;
 		fn item(i: u16) -> ItemId;
-		fn signer() -> (Public, AccountId);
-		fn sign(signer: &Public, message: &[u8]) -> Signature;
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	impl<CollectionId, ItemId>
-		BenchmarkHelper<
-			CollectionId,
-			ItemId,
-			sp_runtime::MultiSigner,
-			sp_runtime::AccountId32,
-			sp_runtime::MultiSignature,
-		> for ()
-	where
-		CollectionId: From<u16>,
-		ItemId: From<u16>,
-	{
+	impl<CollectionId: From<u16>, ItemId: From<u16>> BenchmarkHelper<CollectionId, ItemId> for () {
 		fn collection(i: u16) -> CollectionId {
 			i.into()
 		}
 		fn item(i: u16) -> ItemId {
 			i.into()
-		}
-		fn signer() -> (sp_runtime::MultiSigner, sp_runtime::AccountId32) {
-			let public = sp_io::crypto::sr25519_generate(0.into(), None);
-			let account = sp_runtime::MultiSigner::Sr25519(public).into_account();
-			(public.into(), account)
-		}
-		fn sign(signer: &sp_runtime::MultiSigner, message: &[u8]) -> sp_runtime::MultiSignature {
-			sp_runtime::MultiSignature::Sr25519(
-				sp_io::crypto::sr25519_sign(0.into(), &signer.clone().try_into().unwrap(), message)
-					.unwrap(),
-			)
 		}
 	}
 
@@ -210,7 +184,7 @@ pub mod pallet {
 
 		/// The max duration in blocks for deadlines.
 		#[pallet::constant]
-		type MaxDeadlineDuration: Get<BlockNumberFor<Self, I>>;
+		type MaxDeadlineDuration: Get<BlockNumberFor<Self>>;
 
 		/// The max number of attributes a user could set per call.
 		#[pallet::constant]
@@ -232,19 +206,10 @@ pub mod pallet {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		/// A set of helper functions for benchmarking.
-		type Helper: BenchmarkHelper<
-			Self::CollectionId,
-			Self::ItemId,
-			Self::OffchainPublic,
-			Self::AccountId,
-			Self::OffchainSignature,
-		>;
+		type Helper: BenchmarkHelper<Self::CollectionId, Self::ItemId>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-
-		/// Provider for the block number. Normally this is the `frame_system` pallet.
-		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	/// Details of a collection.
@@ -391,7 +356,7 @@ pub mod pallet {
 			T::CollectionId,
 			T::ItemId,
 			PriceWithDirection<ItemPrice<T, I>>,
-			BlockNumberFor<T, I>,
+			BlockNumberFor<T>,
 		>,
 		OptionQuery,
 	>;
@@ -462,7 +427,7 @@ pub mod pallet {
 			item: T::ItemId,
 			owner: T::AccountId,
 			delegate: T::AccountId,
-			deadline: Option<BlockNumberFor<T, I>>,
+			deadline: Option<BlockNumberFor<T>>,
 		},
 		/// An approval for a `delegate` account to transfer the `item` of an item
 		/// `collection` was cancelled by its `owner`.
@@ -557,7 +522,7 @@ pub mod pallet {
 			desired_collection: T::CollectionId,
 			desired_item: Option<T::ItemId>,
 			price: Option<PriceWithDirection<ItemPrice<T, I>>>,
-			deadline: BlockNumberFor<T, I>,
+			deadline: BlockNumberFor<T>,
 		},
 		/// The swap was cancelled.
 		SwapCancelled {
@@ -566,7 +531,7 @@ pub mod pallet {
 			desired_collection: T::CollectionId,
 			desired_item: Option<T::ItemId>,
 			price: Option<PriceWithDirection<ItemPrice<T, I>>>,
-			deadline: BlockNumberFor<T, I>,
+			deadline: BlockNumberFor<T>,
 		},
 		/// The swap has been claimed.
 		SwapClaimed {
@@ -577,7 +542,7 @@ pub mod pallet {
 			received_item: T::ItemId,
 			received_item_owner: T::AccountId,
 			price: Option<PriceWithDirection<ItemPrice<T, I>>>,
-			deadline: BlockNumberFor<T, I>,
+			deadline: BlockNumberFor<T>,
 		},
 		/// New attributes have been set for an `item` of the `collection`.
 		PreSignedAttributesSet {
@@ -860,7 +825,7 @@ pub mod pallet {
 				item_config,
 				|collection_details, collection_config| {
 					let mint_settings = collection_config.mint_settings;
-					let now = T::BlockNumberProvider::current_block_number();
+					let now = frame_system::Pallet::<T>::block_number();
 
 					if let Some(start_block) = mint_settings.start_block {
 						ensure!(start_block <= now, Error::<T, I>::MintNotStarted);
@@ -909,8 +874,8 @@ pub mod pallet {
 								),
 							);
 							Self::deposit_event(Event::PalletAttributeSet {
-								collection: collection_id,
-								item: Some(owned_item),
+								collection,
+								item: Some(item),
 								attribute: pallet_attribute,
 								value: attribute_value,
 							});
@@ -1032,7 +997,7 @@ pub mod pallet {
 					let deadline =
 						details.approvals.get(&origin).ok_or(Error::<T, I>::NoPermission)?;
 					if let Some(d) = deadline {
-						let block_number = T::BlockNumberProvider::current_block_number();
+						let block_number = frame_system::Pallet::<T>::block_number();
 						ensure!(block_number <= *d, Error::<T, I>::ApprovalExpired);
 					}
 				}
@@ -1188,11 +1153,11 @@ pub mod pallet {
 		pub fn transfer_ownership(
 			origin: OriginFor<T>,
 			collection: T::CollectionId,
-			new_owner: AccountIdLookupOf<T>,
+			owner: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			let new_owner = T::Lookup::lookup(new_owner)?;
-			Self::do_transfer_ownership(origin, collection, new_owner)
+			let owner = T::Lookup::lookup(owner)?;
+			Self::do_transfer_ownership(origin, collection, owner)
 		}
 
 		/// Change the Issuer, Admin and Freezer of a collection.
@@ -1293,7 +1258,7 @@ pub mod pallet {
 			collection: T::CollectionId,
 			item: T::ItemId,
 			delegate: AccountIdLookupOf<T>,
-			maybe_deadline: Option<BlockNumberFor<T, I>>,
+			maybe_deadline: Option<BlockNumberFor<T>>,
 		) -> DispatchResult {
 			let maybe_check_origin = T::ForceOrigin::try_origin(origin)
 				.map(|_| None)
@@ -1716,7 +1681,7 @@ pub mod pallet {
 		pub fn update_mint_settings(
 			origin: OriginFor<T>,
 			collection: T::CollectionId,
-			mint_settings: MintSettings<BalanceOf<T, I>, BlockNumberFor<T, I>, T::CollectionId>,
+			mint_settings: MintSettings<BalanceOf<T, I>, BlockNumberFor<T>, T::CollectionId>,
 		) -> DispatchResult {
 			let maybe_check_origin = T::ForceOrigin::try_origin(origin)
 				.map(|_| None)
@@ -1812,7 +1777,7 @@ pub mod pallet {
 			desired_collection: T::CollectionId,
 			maybe_desired_item: Option<T::ItemId>,
 			maybe_price: Option<PriceWithDirection<ItemPrice<T, I>>>,
-			duration: BlockNumberFor<T, I>,
+			duration: BlockNumberFor<T>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			Self::do_create_swap(

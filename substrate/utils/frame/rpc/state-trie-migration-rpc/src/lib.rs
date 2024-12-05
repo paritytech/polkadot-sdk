@@ -18,12 +18,11 @@
 //! Rpc for state migration.
 
 use jsonrpsee::{
-	core::RpcResult,
+	core::{Error as JsonRpseeError, RpcResult},
 	proc_macros::rpc,
-	types::error::{ErrorCode, ErrorObject, ErrorObjectOwned},
-	Extensions,
+	types::error::{CallError, ErrorCode, ErrorObject},
 };
-use sc_rpc_api::check_if_safe;
+use sc_rpc_api::DenyUnsafe;
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
@@ -113,7 +112,7 @@ where
 }
 
 /// Current state migration status.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct MigrationStatusResult {
@@ -133,9 +132,9 @@ pub trait StateMigrationApi<BlockHash> {
 	/// Check current migration state.
 	///
 	/// This call is performed locally without submitting any transactions. Thus executing this
-	/// won't change any state. Nonetheless it is a VERY costly call that should be
+	/// won't change any state. Nonetheless it is a VERY costy call that should be
 	/// only exposed to trusted peers.
-	#[method(name = "state_trieMigrationStatus", with_extensions)]
+	#[method(name = "state_trieMigrationStatus")]
 	fn call(&self, at: Option<BlockHash>) -> RpcResult<MigrationStatusResult>;
 }
 
@@ -143,13 +142,14 @@ pub trait StateMigrationApi<BlockHash> {
 pub struct StateMigration<C, B, BA> {
 	client: Arc<C>,
 	backend: Arc<BA>,
+	deny_unsafe: DenyUnsafe,
 	_marker: std::marker::PhantomData<(B, BA)>,
 }
 
 impl<C, B, BA> StateMigration<C, B, BA> {
 	/// Create new state migration rpc for the given reference to the client.
-	pub fn new(client: Arc<C>, backend: Arc<BA>) -> Self {
-		StateMigration { client, backend, _marker: Default::default() }
+	pub fn new(client: Arc<C>, backend: Arc<BA>, deny_unsafe: DenyUnsafe) -> Self {
+		StateMigration { client, backend, deny_unsafe, _marker: Default::default() }
 	}
 }
 
@@ -159,12 +159,8 @@ where
 	C: Send + Sync + 'static + sc_client_api::HeaderBackend<B>,
 	BA: 'static + sc_client_api::backend::Backend<B>,
 {
-	fn call(
-		&self,
-		ext: &Extensions,
-		at: Option<<B as BlockT>::Hash>,
-	) -> RpcResult<MigrationStatusResult> {
-		check_if_safe(ext)?;
+	fn call(&self, at: Option<<B as BlockT>::Hash>) -> RpcResult<MigrationStatusResult> {
+		self.deny_unsafe.check_if_safe()?;
 
 		let hash = at.unwrap_or_else(|| self.client.info().best_hash);
 		let state = self.backend.state_at(hash).map_err(error_into_rpc_err)?;
@@ -172,10 +168,10 @@ where
 	}
 }
 
-fn error_into_rpc_err(err: impl std::fmt::Display) -> ErrorObjectOwned {
-	ErrorObject::owned(
+fn error_into_rpc_err(err: impl std::fmt::Display) -> JsonRpseeError {
+	JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
 		ErrorCode::InternalError.code(),
 		"Error while checking migration state",
 		Some(err.to_string()),
-	)
+	)))
 }

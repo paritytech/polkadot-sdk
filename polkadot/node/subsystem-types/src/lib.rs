@@ -23,7 +23,7 @@
 #![warn(missing_docs)]
 
 use smallvec::SmallVec;
-use std::fmt;
+use std::{fmt, sync::Arc};
 
 pub use polkadot_primitives::{Block, BlockNumber, Hash};
 
@@ -40,13 +40,45 @@ pub mod errors;
 pub mod messages;
 
 mod runtime_client;
-pub use runtime_client::{ChainApiBackend, DefaultSubsystemClient, RuntimeApiSubsystemClient};
+pub use runtime_client::{DefaultSubsystemClient, RuntimeApiSubsystemClient};
+
+pub use jaeger::*;
+pub use polkadot_node_jaeger as jaeger;
 
 /// How many slots are stack-reserved for active leaves updates
 ///
 /// If there are fewer than this number of slots, then we've wasted some stack space.
 /// If there are greater than this number of slots, then we fall back to a heap vector.
 const ACTIVE_LEAVES_SMALLVEC_CAPACITY: usize = 8;
+
+/// The status of an activated leaf.
+#[derive(Clone, Debug, PartialEq)]
+pub enum LeafStatus {
+	/// A leaf is fresh when it's the first time the leaf has been encountered.
+	/// Most leaves should be fresh.
+	Fresh,
+	/// A leaf is stale when it's encountered for a subsequent time. This will happen
+	/// when the chain is reverted or the fork-choice rule abandons some chain.
+	Stale,
+}
+
+impl LeafStatus {
+	/// Returns a `bool` indicating fresh status.
+	pub fn is_fresh(&self) -> bool {
+		match *self {
+			LeafStatus::Fresh => true,
+			LeafStatus::Stale => false,
+		}
+	}
+
+	/// Returns a `bool` indicating stale status.
+	pub fn is_stale(&self) -> bool {
+		match *self {
+			LeafStatus::Fresh => false,
+			LeafStatus::Stale => true,
+		}
+	}
+}
 
 /// Activated leaf.
 #[derive(Debug, Clone)]
@@ -55,8 +87,15 @@ pub struct ActivatedLeaf {
 	pub hash: Hash,
 	/// The block number.
 	pub number: BlockNumber,
+	/// The status of the leaf.
+	pub status: LeafStatus,
 	/// A handle to unpin the block on drop.
 	pub unpin_handle: UnpinHandle,
+	/// An associated [`jaeger::Span`].
+	///
+	/// NOTE: Each span should only be kept active as long as the leaf is considered active and
+	/// should be dropped when the leaf is deactivated.
+	pub span: Arc<jaeger::Span>,
 }
 
 /// Changes in the set of active leaves: the parachain heads which we care to work on.

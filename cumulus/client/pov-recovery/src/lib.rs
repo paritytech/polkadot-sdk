@@ -6,7 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Cumulus is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -18,7 +18,7 @@
 //!
 //! A parachain needs to build PoVs that are send to the relay chain to progress. These PoVs are
 //! erasure encoded and one piece of it is stored by each relay chain validator. As the relay chain
-//! decides on which PoV per parachain to include and thus, to progress the parachain it can happen
+//! decides on which PoV per parachain to include and thus, to progess the parachain it can happen
 //! that the block corresponding to this PoV isn't propagated in the parachain network. This can
 //! have several reasons, either a malicious collator that managed to include its own PoV and
 //! doesn't want to share it with the rest of the network or maybe a collator went down before it
@@ -48,19 +48,14 @@
 
 use sc_client_api::{BlockBackend, BlockchainEvents, UsageProvider};
 use sc_consensus::import_queue::{ImportQueueService, IncomingBlock};
-use sp_api::RuntimeApiInfo;
 use sp_consensus::{BlockOrigin, BlockStatus, SyncOracle};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
-use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
-use polkadot_node_subsystem::messages::{AvailabilityRecoveryMessage, RuntimeApiRequest};
+use polkadot_node_primitives::{AvailableData, POV_BOMB_LIMIT};
+use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	vstaging::{
-		CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	},
-	Id as ParaId, SessionIndex,
+	CandidateReceipt, CommittedCandidateReceipt, Id as ParaId, SessionIndex,
 };
 
 use cumulus_primitives_core::ParachainBlockData;
@@ -79,9 +74,6 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
-
-#[cfg(test)]
-mod tests;
 
 mod active_candidate_recovery;
 use active_candidate_recovery::ActiveCandidateRecovery;
@@ -346,19 +338,23 @@ where
 		let mut blocks_to_delete = vec![hash];
 
 		while let Some(delete) = blocks_to_delete.pop() {
-			if let Some(children) = self.waiting_for_parent.remove(&delete) {
-				blocks_to_delete.extend(children.iter().map(BlockT::hash));
+			if let Some(childs) = self.waiting_for_parent.remove(&delete) {
+				blocks_to_delete.extend(childs.iter().map(BlockT::hash));
 			}
 		}
 		self.clear_waiting_recovery(&hash);
 	}
 
 	/// Handle a recovered candidate.
-	async fn handle_candidate_recovered(&mut self, block_hash: Block::Hash, pov: Option<&PoV>) {
-		let pov = match pov {
-			Some(pov) => {
+	async fn handle_candidate_recovered(
+		&mut self,
+		block_hash: Block::Hash,
+		available_data: Option<AvailableData>,
+	) {
+		let available_data = match available_data {
+			Some(data) => {
 				self.candidates_in_retry.remove(&block_hash);
-				pov
+				data
 			},
 			None =>
 				if self.candidates_in_retry.insert(block_hash) {
@@ -377,16 +373,18 @@ where
 				},
 		};
 
-		let raw_block_data =
-			match sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT) {
-				Ok(r) => r,
-				Err(error) => {
-					tracing::debug!(target: LOG_TARGET, ?error, "Failed to decompress PoV");
+		let raw_block_data = match sp_maybe_compressed_blob::decompress(
+			&available_data.pov.block_data.0,
+			POV_BOMB_LIMIT,
+		) {
+			Ok(r) => r,
+			Err(error) => {
+				tracing::debug!(target: LOG_TARGET, ?error, "Failed to decompress PoV");
 
-					self.reset_candidate(block_hash);
-					return
-				},
-			};
+				self.reset_candidate(block_hash);
+				return
+			},
+		};
 
 		let block_data = match ParachainBlockData::<Block>::decode(&mut &raw_block_data[..]) {
 			Ok(d) => d,
@@ -418,7 +416,6 @@ where
 						?block_hash,
 						parent_hash = ?parent,
 						parent_scheduled_for_recovery,
-						waiting_blocks = self.waiting_for_parent.len(),
 						"Waiting for recovery of parent.",
 					);
 
@@ -451,13 +448,13 @@ where
 			_ => (),
 		}
 
-		self.import_block(block);
+		self.import_block(block).await;
 	}
 
 	/// Import the given `block`.
 	///
-	/// This will also recursively drain `waiting_for_parent` and import them as well.
-	fn import_block(&mut self, block: Block) {
+	/// This will also recursivley drain `waiting_for_parent` and import them as well.
+	async fn import_block(&mut self, block: Block) {
 		let mut blocks = VecDeque::new();
 
 		tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), "Importing block retrieved using pov_recovery");
@@ -503,7 +500,7 @@ where
 					tracing::debug!(
 						target: LOG_TARGET,
 						block_hash = ?hash,
-						"Could not recover. Block was never announced as candidate"
+						"Cound not recover. Block was never announced as candidate"
 					);
 					return
 				},
@@ -552,7 +549,7 @@ where
 		)
 		.await
 		{
-			Ok(pending_candidates_stream) => pending_candidates_stream.fuse(),
+			Ok(pending_candidate_stream) => pending_candidate_stream.fuse(),
 			Err(err) => {
 				tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve pending candidate stream.");
 				return
@@ -560,13 +557,12 @@ where
 		};
 
 		futures::pin_mut!(pending_candidates);
+
 		loop {
 			select! {
-				next_pending_candidates = pending_candidates.next() => {
-					if let Some((candidates, session_index)) = next_pending_candidates {
-						for candidate in candidates {
-							self.handle_pending_candidate(candidate, session_index);
-						}
+				pending_candidate = pending_candidates.next() => {
+					if let Some((receipt, session_index)) = pending_candidate {
+						self.handle_pending_candidate(receipt, session_index);
 					} else {
 						tracing::debug!(target: LOG_TARGET, "Pending candidates stream ended");
 						return;
@@ -583,17 +579,6 @@ where
 				imported = imported_blocks.next() => {
 					if let Some(imported) = imported {
 						self.clear_waiting_recovery(&imported.hash);
-
-						// We need to double check that no blocks are waiting for this block.
-						// Can happen when a waiting child block is queued to wait for parent while the parent block is still
-						// in the import queue.
-						if let Some(waiting_blocks) = self.waiting_for_parent.remove(&imported.hash) {
-							for block in waiting_blocks {
-								tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), resolved_parent = ?imported.hash, "Found new waiting child block during import, queuing.");
-								self.import_block(block);
-							}
-						};
-
 					} else {
 						tracing::debug!(target: LOG_TARGET,	"Imported blocks stream ended");
 						return;
@@ -610,10 +595,10 @@ where
 				next_to_recover = self.candidate_recovery_queue.next_recovery().fuse() => {
 						self.recover_candidate(next_to_recover).await;
 				},
-				(block_hash, pov) =
+				(block_hash, available_data) =
 					self.active_candidate_recovery.wait_for_recovery().fuse() =>
 				{
-					self.handle_candidate_recovered(block_hash, pov.as_deref()).await;
+					self.handle_candidate_recovered(block_hash, available_data).await;
 				},
 			}
 		}
@@ -625,7 +610,7 @@ async fn pending_candidates(
 	relay_chain_client: impl RelayChainInterface + Clone,
 	para_id: ParaId,
 	sync_service: Arc<dyn SyncOracle + Sync + Send>,
-) -> RelayChainResult<impl Stream<Item = (Vec<CommittedCandidateReceipt>, SessionIndex)>> {
+) -> RelayChainResult<impl Stream<Item = (CommittedCandidateReceipt, SessionIndex)>> {
 	let import_notification_stream = relay_chain_client.import_notification_stream().await?;
 
 	let filtered_stream = import_notification_stream.filter_map(move |n| {
@@ -642,54 +627,16 @@ async fn pending_candidates(
 				return None
 			}
 
-			let runtime_api_version = client_for_closure
-				.version(hash)
+			let pending_availability_result = client_for_closure
+				.candidate_pending_availability(hash, para_id)
 				.await
 				.map_err(|e| {
 					tracing::error!(
 						target: LOG_TARGET,
 						error = ?e,
-						"Failed to fetch relay chain runtime version.",
+						"Failed to fetch pending candidates.",
 					)
-				})
-				.ok()?;
-			let parachain_host_runtime_api_version = runtime_api_version
-				.api_version(
-					&<dyn polkadot_primitives::runtime_api::ParachainHost<
-						polkadot_primitives::Block,
-					>>::ID,
-				)
-				.unwrap_or_default();
-
-			// If the relay chain runtime does not support the new runtime API, fallback to the
-			// deprecated one.
-			let pending_availability_result = if parachain_host_runtime_api_version <
-				RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
-			{
-				#[allow(deprecated)]
-				client_for_closure
-					.candidate_pending_availability(hash, para_id)
-					.await
-					.map_err(|e| {
-						tracing::error!(
-							target: LOG_TARGET,
-							error = ?e,
-							"Failed to fetch pending candidates.",
-						)
-					})
-					.map(|candidate| candidate.into_iter().collect::<Vec<_>>())
-			} else {
-				client_for_closure.candidates_pending_availability(hash, para_id).await.map_err(
-					|e| {
-						tracing::error!(
-							target: LOG_TARGET,
-							error = ?e,
-							"Failed to fetch pending candidates.",
-						)
-					},
-				)
-			};
-
+				});
 			let session_index_result =
 				client_for_closure.session_index_for_child(hash).await.map_err(|e| {
 					tracing::error!(
@@ -699,8 +646,8 @@ async fn pending_candidates(
 					)
 				});
 
-			if let Ok(candidates) = pending_availability_result {
-				session_index_result.map(|session_index| (candidates, session_index)).ok()
+			if let Ok(Some(candidate)) = pending_availability_result {
+				session_index_result.map(|session_index| (candidate, session_index)).ok()
 			} else {
 				None
 			}

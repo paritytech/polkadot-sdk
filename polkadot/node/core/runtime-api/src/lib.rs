@@ -101,7 +101,7 @@ where
 				self.requests_cache.cache_authorities(relay_parent, authorities),
 			Validators(relay_parent, validators) =>
 				self.requests_cache.cache_validators(relay_parent, validators),
-			MinimumBackingVotes(session_index, minimum_backing_votes) => self
+			MinimumBackingVotes(_, session_index, minimum_backing_votes) => self
 				.requests_cache
 				.cache_minimum_backing_votes(session_index, minimum_backing_votes),
 			ValidatorGroups(relay_parent, groups) =>
@@ -133,9 +133,6 @@ where
 			CandidatePendingAvailability(relay_parent, para_id, candidate) => self
 				.requests_cache
 				.cache_candidate_pending_availability((relay_parent, para_id), candidate),
-			CandidatesPendingAvailability(relay_parent, para_id, candidates) => self
-				.requests_cache
-				.cache_candidates_pending_availability((relay_parent, para_id), candidates),
 			CandidateEvents(relay_parent, events) =>
 				self.requests_cache.cache_candidate_events(relay_parent, events),
 			SessionExecutorParams(_relay_parent, session_index, index) =>
@@ -155,7 +152,7 @@ where
 				self.requests_cache.cache_on_chain_votes(relay_parent, scraped),
 			PvfsRequirePrecheck(relay_parent, pvfs) =>
 				self.requests_cache.cache_pvfs_require_precheck(relay_parent, pvfs),
-			SubmitPvfCheckStatement(()) => {},
+			SubmitPvfCheckStatement(_, _, _, ()) => {},
 			ValidationCodeHash(relay_parent, para_id, assumption, hash) => self
 				.requests_cache
 				.cache_validation_code_hash((relay_parent, para_id, assumption), hash),
@@ -168,21 +165,12 @@ where
 			KeyOwnershipProof(relay_parent, validator_id, key_ownership_proof) => self
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
-			RequestResult::ApprovalVotingParams(_relay_parent, session_index, params) =>
-				self.requests_cache.cache_approval_voting_params(session_index, params),
-			SubmitReportDisputeLost(_) => {},
-			DisabledValidators(relay_parent, disabled_validators) =>
-				self.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
+			SubmitReportDisputeLost(_, _, _, _) => {},
 			ParaBackingState(relay_parent, para_id, constraints) => self
 				.requests_cache
 				.cache_para_backing_state((relay_parent, para_id), constraints),
 			AsyncBackingParams(relay_parent, params) =>
 				self.requests_cache.cache_async_backing_params(relay_parent, params),
-			NodeFeatures(session_index, params) =>
-				self.requests_cache.cache_node_features(session_index, params),
-			ClaimQueue(relay_parent, sender) => {
-				self.requests_cache.cache_claim_queue(relay_parent, sender);
-			},
 		}
 	}
 
@@ -255,9 +243,6 @@ where
 			Request::CandidatePendingAvailability(para, sender) =>
 				query!(candidate_pending_availability(para), sender)
 					.map(|sender| Request::CandidatePendingAvailability(para, sender)),
-			Request::CandidatesPendingAvailability(para, sender) =>
-				query!(candidates_pending_availability(para), sender)
-					.map(|sender| Request::CandidatesPendingAvailability(para, sender)),
 			Request::CandidateEvents(sender) =>
 				query!(candidate_events(), sender).map(|sender| Request::CandidateEvents(sender)),
 			Request::SessionExecutorParams(session_index, sender) => {
@@ -311,11 +296,6 @@ where
 						Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender)
 					},
 				),
-			Request::ApprovalVotingParams(session_index, sender) =>
-				query!(approval_voting_params(session_index), sender)
-					.map(|sender| Request::ApprovalVotingParams(session_index, sender)),
-			Request::DisabledValidators(sender) => query!(disabled_validators(), sender)
-				.map(|sender| Request::DisabledValidators(sender)),
 			Request::ParaBackingState(para, sender) => query!(para_backing_state(para), sender)
 				.map(|sender| Request::ParaBackingState(para, sender)),
 			Request::AsyncBackingParams(sender) => query!(async_backing_params(), sender)
@@ -329,17 +309,6 @@ where
 					Some(Request::MinimumBackingVotes(index, sender))
 				}
 			},
-			Request::NodeFeatures(index, sender) => {
-				if let Some(value) = self.requests_cache.node_features(index) {
-					self.metrics.on_cached_request();
-					let _ = sender.send(Ok(value.clone()));
-					None
-				} else {
-					Some(Request::NodeFeatures(index, sender))
-				}
-			},
-			Request::ClaimQueue(sender) =>
-				query!(claim_queue(), sender).map(|sender| Request::ClaimQueue(sender)),
 		}
 	}
 
@@ -370,7 +339,7 @@ where
 	async fn poll_requests(&mut self) {
 		// If there are no active requests, this future should be pending forever.
 		if self.active_requests.len() == 0 {
-			return futures::pending!();
+			return futures::pending!()
 		}
 
 		// If there are active requests, this will always resolve to `Some(_)` when a request is
@@ -435,16 +404,12 @@ where
 
 	macro_rules! query {
 		($req_variant:ident, $api_name:ident ($($param:expr),*), ver = $version:expr, $sender:expr) => {{
-			query!($req_variant, $api_name($($param),*), ver = $version, $sender, result = ( relay_parent $(, $param )* ) )
-		}};
-		($req_variant:ident, $api_name:ident ($($param:expr),*), ver = $version:expr, $sender:expr, result = ( $($results:expr),* ) ) => {{
 			let sender = $sender;
-			let version: u32 = $version; // enforce type for the version expression
+			let version: u32 = $version;	// enforce type for the version expression
 			let runtime_version = client.api_version_parachain_host(relay_parent).await
 				.unwrap_or_else(|e| {
 					gum::warn!(
 						target: LOG_TARGET,
-						api = ?stringify!($api_name),
 						"cannot query the runtime API version: {}",
 						e,
 					);
@@ -472,7 +437,7 @@ where
 			metrics.on_request(res.is_ok());
 			let _ = sender.send(res.clone());
 
-			res.ok().map(|res| RequestResult::$req_variant($( $results, )* res))
+			res.ok().map(|res| RequestResult::$req_variant(relay_parent, $( $param, )* res))
 		}}
 	}
 
@@ -537,12 +502,6 @@ where
 			ver = 1,
 			sender
 		),
-		Request::CandidatesPendingAvailability(para, sender) => query!(
-			CandidatesPendingAvailability,
-			candidates_pending_availability(para),
-			ver = Request::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT,
-			sender
-		),
 		Request::CandidateEvents(sender) => {
 			query!(CandidateEvents, candidate_events(), ver = 1, sender)
 		},
@@ -570,8 +529,7 @@ where
 				SubmitPvfCheckStatement,
 				submit_pvf_check_statement(stmt, signature),
 				ver = 2,
-				sender,
-				result = ()
+				sender
 			)
 		},
 		Request::PvfsRequirePrecheck(sender) => {
@@ -595,32 +553,16 @@ where
 			ver = Request::KEY_OWNERSHIP_PROOF_RUNTIME_REQUIREMENT,
 			sender
 		),
-		Request::ApprovalVotingParams(session_index, sender) => {
-			query!(
-				ApprovalVotingParams,
-				approval_voting_params(session_index),
-				ver = Request::APPROVAL_VOTING_PARAMS_REQUIREMENT,
-				sender
-			)
-		},
 		Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender) => query!(
 			SubmitReportDisputeLost,
 			submit_report_dispute_lost(dispute_proof, key_ownership_proof),
 			ver = Request::SUBMIT_REPORT_DISPUTE_LOST_RUNTIME_REQUIREMENT,
-			sender,
-			result = ()
+			sender
 		),
 		Request::MinimumBackingVotes(index, sender) => query!(
 			MinimumBackingVotes,
 			minimum_backing_votes(index),
 			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
-			sender,
-			result = (index)
-		),
-		Request::DisabledValidators(sender) => query!(
-			DisabledValidators,
-			disabled_validators(),
-			ver = Request::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
 			sender
 		),
 		Request::ParaBackingState(para, sender) => {
@@ -639,18 +581,5 @@ where
 				sender
 			)
 		},
-		Request::NodeFeatures(index, sender) => query!(
-			NodeFeatures,
-			node_features(),
-			ver = Request::NODE_FEATURES_RUNTIME_REQUIREMENT,
-			sender,
-			result = (index)
-		),
-		Request::ClaimQueue(sender) => query!(
-			ClaimQueue,
-			claim_queue(),
-			ver = Request::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
-			sender
-		),
 	}
 }

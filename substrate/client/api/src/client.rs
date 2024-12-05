@@ -25,11 +25,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, NumberFor},
 	Justifications,
 };
-use std::{
-	collections::HashSet,
-	fmt::{self, Debug},
-	sync::Arc,
-};
+use std::{collections::HashSet, fmt, sync::Arc};
 
 use crate::{blockchain::Info, notifications::StorageEventStream, FinalizeSummary, ImportSummary};
 
@@ -65,16 +61,9 @@ pub trait BlockOf {
 pub trait BlockchainEvents<Block: BlockT> {
 	/// Get block import event stream.
 	///
-	/// Not guaranteed to be fired for every imported block. Use
-	/// `every_import_notification_stream()` if you want a notification of every imported block
-	/// regardless.
-	///
-	/// The events for this notification stream are emitted:
-	/// - During initial sync process: if there is a re-org while importing blocks. See
-	/// [here](https://github.com/paritytech/substrate/pull/7118#issuecomment-694091901) for the
-	/// rationale behind this.
-	/// - After initial sync process: on every imported block, regardless of whether it is
-	/// the new best block or not, causes a re-org or not.
+	/// Not guaranteed to be fired for every imported block, only fired when the node
+	/// has synced to the tip or there is a re-org. Use `every_import_notification_stream()`
+	/// if you want a notification of every imported block regardless.
 	fn import_notification_stream(&self) -> ImportNotifications<Block>;
 
 	/// Get a stream of every imported block.
@@ -175,7 +164,7 @@ pub trait ProvideUncles<Block: BlockT> {
 }
 
 /// Client info
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ClientInfo<Block: BlockT> {
 	/// Best block hash.
 	pub chain: Info<Block>,
@@ -282,23 +271,18 @@ impl fmt::Display for UsageInfo {
 }
 
 /// Sends a message to the pinning-worker once dropped to unpin a block in the backend.
+#[derive(Debug)]
 pub struct UnpinHandleInner<Block: BlockT> {
 	/// Hash of the block pinned by this handle
 	hash: Block::Hash,
-	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
-}
-
-impl<Block: BlockT> Debug for UnpinHandleInner<Block> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.debug_struct("UnpinHandleInner").field("pinned_block", &self.hash).finish()
-	}
+	unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
 }
 
 impl<Block: BlockT> UnpinHandleInner<Block> {
 	/// Create a new [`UnpinHandleInner`]
 	pub fn new(
 		hash: Block::Hash,
-		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+		unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
 	) -> Self {
 		Self { hash, unpin_worker_sender }
 	}
@@ -306,23 +290,10 @@ impl<Block: BlockT> UnpinHandleInner<Block> {
 
 impl<Block: BlockT> Drop for UnpinHandleInner<Block> {
 	fn drop(&mut self) {
-		if let Err(err) =
-			self.unpin_worker_sender.unbounded_send(UnpinWorkerMessage::Unpin(self.hash))
-		{
+		if let Err(err) = self.unpin_worker_sender.unbounded_send(self.hash) {
 			log::debug!(target: "db", "Unable to unpin block with hash: {}, error: {:?}", self.hash, err);
 		};
 	}
-}
-
-/// Message that signals notification-based pinning actions to the pinning-worker.
-///
-/// When the notification is dropped, an `Unpin` message should be sent to the worker.
-#[derive(Debug)]
-pub enum UnpinWorkerMessage<Block: BlockT> {
-	/// Should be sent when a import or finality notification is created.
-	AnnouncePin(Block::Hash),
-	/// Should be sent when a import or finality notification is dropped.
-	Unpin(Block::Hash),
 }
 
 /// Keeps a specific block pinned while the handle is alive.
@@ -335,7 +306,7 @@ impl<Block: BlockT> UnpinHandle<Block> {
 	/// Create a new [`UnpinHandle`]
 	pub fn new(
 		hash: Block::Hash,
-		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+		unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
 	) -> UnpinHandle<Block> {
 		UnpinHandle(Arc::new(UnpinHandleInner::new(hash, unpin_worker_sender)))
 	}
@@ -373,7 +344,7 @@ impl<Block: BlockT> BlockImportNotification<Block> {
 		header: Block::Header,
 		is_new_best: bool,
 		tree_route: Option<Arc<sp_blockchain::TreeRoute<Block>>>,
-		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+		unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
 	) -> Self {
 		Self {
 			hash,
@@ -432,7 +403,7 @@ impl<Block: BlockT> FinalityNotification<Block> {
 	/// Create finality notification from finality summary.
 	pub fn from_summary(
 		mut summary: FinalizeSummary<Block>,
-		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+		unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
 	) -> FinalityNotification<Block> {
 		let hash = summary.finalized.pop().unwrap_or_default();
 		FinalityNotification {
@@ -456,7 +427,7 @@ impl<Block: BlockT> BlockImportNotification<Block> {
 	/// Create finality notification from finality summary.
 	pub fn from_summary(
 		summary: ImportSummary<Block>,
-		unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
+		unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
 	) -> BlockImportNotification<Block> {
 		let hash = summary.hash;
 		BlockImportNotification {

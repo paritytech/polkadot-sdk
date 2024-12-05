@@ -16,11 +16,9 @@
 // limitations under the License.
 
 //! Inspect and Mutate traits for Asset metadata
-//!
-//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use crate::dispatch::DispatchResult;
-use alloc::vec::Vec;
+use sp_std::vec::Vec;
 
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	// Get name for an AssetId.

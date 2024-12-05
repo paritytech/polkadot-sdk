@@ -19,31 +19,26 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::*;
-use frame_benchmarking::v2::*;
+use super::*;
+use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
 
+use crate::Pallet as Indices;
+
 const SEED: u32 = 0;
 
-#[benchmarks]
-mod benchmarks {
-	use super::*;
-
-	#[benchmark]
-	fn claim() {
+benchmarks! {
+	claim {
 		let account_index = T::AccountIndex::from(SEED);
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account_index);
-
+	}: _(RawOrigin::Signed(caller.clone()), account_index)
+	verify {
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, caller);
 	}
 
-	#[benchmark]
-	fn transfer() -> Result<(), BenchmarkError> {
+	transfer {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
@@ -52,33 +47,25 @@ mod benchmarks {
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 		T::Currency::make_free_balance_be(&recipient, BalanceOf::<T>::max_value());
 		// Claim the index
-		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), recipient_lookup, account_index);
-
+		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+	}: _(RawOrigin::Signed(caller.clone()), recipient_lookup, account_index)
+	verify {
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, recipient);
-		Ok(())
 	}
 
-	#[benchmark]
-	fn free() -> Result<(), BenchmarkError> {
+	free {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		// Claim the index
-		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account_index);
-
+		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+	}: _(RawOrigin::Signed(caller.clone()), account_index)
+	verify {
 		assert_eq!(Accounts::<T>::get(account_index), None);
-		Ok(())
 	}
 
-	#[benchmark]
-	fn force_transfer() -> Result<(), BenchmarkError> {
+	force_transfer {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let original: T::AccountId = account("original", 0, SEED);
@@ -87,32 +74,25 @@ mod benchmarks {
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 		T::Currency::make_free_balance_be(&recipient, BalanceOf::<T>::max_value());
 		// Claim the index
-		Pallet::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, recipient_lookup, account_index, false);
-
+		Indices::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
+	}: _(RawOrigin::Root, recipient_lookup, account_index, false)
+	verify {
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, recipient);
-		Ok(())
 	}
 
-	#[benchmark]
-	fn freeze() -> Result<(), BenchmarkError> {
+	freeze {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		// Claim the index
-		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), account_index);
-
+		Indices::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
+	}: _(RawOrigin::Signed(caller.clone()), account_index)
+	verify {
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().2, true);
-		Ok(())
 	}
 
 	// TODO in another PR: lookup and unlookup trait weights (not critical)
 
-	impl_benchmark_test_suite!(Pallet, mock::new_test_ext(), mock::Test);
+	impl_benchmark_test_suite!(Indices, crate::mock::new_test_ext(), crate::mock::Test);
 }

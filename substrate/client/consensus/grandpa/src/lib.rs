@@ -56,9 +56,9 @@
 
 #![warn(missing_docs)]
 
-use codec::Decode;
 use futures::{prelude::*, StreamExt};
 use log::{debug, error, info};
+use parity_scale_codec::Decode;
 use parking_lot::RwLock;
 use prometheus_endpoint::{PrometheusError, Registry};
 use sc_client_api::{
@@ -67,7 +67,7 @@ use sc_client_api::{
 	BlockchainEvents, CallExecutor, ExecutorProvider, Finalizer, LockImportRun, StorageProvider,
 };
 use sc_consensus::BlockImport;
-use sc_network::{types::ProtocolName, NetworkBackend, NotificationService};
+use sc_network::types::ProtocolName;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
@@ -343,7 +343,7 @@ pub(crate) trait BlockSyncRequester<Block: BlockT> {
 	/// connected to (NOTE: this assumption will change in the future #3629).
 	fn set_sync_fork_request(
 		&self,
-		peers: Vec<sc_network_types::PeerId>,
+		peers: Vec<sc_network::PeerId>,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 	);
@@ -357,7 +357,7 @@ where
 {
 	fn set_sync_fork_request(
 		&self,
-		peers: Vec<sc_network_types::PeerId>,
+		peers: Vec<sc_network::PeerId>,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 	) {
@@ -471,6 +471,9 @@ where
 	Client: ExecutorProvider<Block, Executor = E> + HeaderBackend<Block>,
 {
 	fn get(&self) -> Result<AuthorityList, ClientError> {
+		// This implementation uses the Grandpa runtime API instead of reading directly from the
+		// `GRANDPA_AUTHORITIES_KEY` as the data may have been migrated since the genesis block of
+		// the chain, whereas the runtime API is backwards compatible.
 		self.executor()
 			.call(
 				self.expect_block_hash_from_id(&BlockId::Number(Zero::zero()))?,
@@ -687,8 +690,6 @@ pub struct GrandpaParams<Block: BlockT, C, N, S, SC, VR> {
 	pub network: N,
 	/// Event stream for syncing-related events.
 	pub sync: S,
-	/// Handle for interacting with `Notifications`.
-	pub notification_service: Box<dyn NotificationService>,
 	/// A voting rule used to potentially restrict target votes.
 	pub voting_rule: VR,
 	/// The prometheus metrics registry.
@@ -707,27 +708,23 @@ pub struct GrandpaParams<Block: BlockT, C, N, S, SC, VR> {
 /// Returns the configuration value to put in
 /// [`sc_network::config::FullNetworkConfiguration`].
 /// For standard protocol name see [`crate::protocol_standard_name`].
-pub fn grandpa_peers_set_config<B: BlockT, N: NetworkBackend<B, <B as BlockT>::Hash>>(
+pub fn grandpa_peers_set_config(
 	protocol_name: ProtocolName,
-	metrics: sc_network::service::NotificationMetrics,
-	peer_store_handle: Arc<dyn sc_network::peer_store::PeerStoreProvider>,
-) -> (N::NotificationProtocolConfig, Box<dyn NotificationService>) {
+) -> sc_network::config::NonDefaultSetConfig {
 	use communication::grandpa_protocol_name;
-	N::notification_config(
-		protocol_name,
-		grandpa_protocol_name::LEGACY_NAMES.iter().map(|&n| n.into()).collect(),
+	sc_network::config::NonDefaultSetConfig {
+		notifications_protocol: protocol_name,
+		fallback_names: grandpa_protocol_name::LEGACY_NAMES.iter().map(|&n| n.into()).collect(),
 		// Notifications reach ~256kiB in size at the time of writing on Kusama and Polkadot.
-		1024 * 1024,
-		None,
-		sc_network::config::SetConfig {
+		max_notification_size: 1024 * 1024,
+		handshake: None,
+		set_config: sc_network::config::SetConfig {
 			in_peers: 0,
 			out_peers: 0,
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: sc_network::config::NonReservedPeerMode::Deny,
 		},
-		metrics,
-		peer_store_handle,
-	)
+	}
 }
 
 /// Run a GRANDPA voter as a task. Provide configuration and a link to a
@@ -750,7 +747,6 @@ where
 		link,
 		network,
 		sync,
-		notification_service,
 		voting_rule,
 		prometheus_registry,
 		shared_voter_state,
@@ -777,7 +773,6 @@ where
 	let network = NetworkBridge::new(
 		network,
 		sync,
-		notification_service,
 		config.clone(),
 		persistent_data.set_state.clone(),
 		prometheus_registry.as_ref(),

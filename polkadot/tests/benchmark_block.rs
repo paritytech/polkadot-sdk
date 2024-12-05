@@ -58,13 +58,7 @@ async fn build_chain(runtime: &str, base_path: &Path) {
 	let mut cmd = Command::new(cargo_bin("polkadot"))
 		.stdout(process::Stdio::piped())
 		.stderr(process::Stdio::piped())
-		.args([
-			"--chain",
-			runtime,
-			"--force-authoring",
-			"--alice",
-			"--unsafe-force-node-key-generation",
-		])
+		.args(["--chain", runtime, "--force-authoring", "--alice"])
 		.arg("-d")
 		.arg(base_path)
 		.arg("--no-hardware-benchmarks")

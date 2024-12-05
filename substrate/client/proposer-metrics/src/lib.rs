@@ -44,14 +44,11 @@ impl MetricsLink {
 }
 
 /// The reason why proposing a block ended.
-#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum EndProposingReason {
 	NoMoreTransactions,
 	HitDeadline,
 	HitBlockSizeLimit,
 	HitBlockWeightLimit,
-	/// No transactions are allowed in the block.
-	TransactionForbidden,
 }
 
 /// Authorship metrics.
@@ -115,7 +112,6 @@ impl Metrics {
 			EndProposingReason::NoMoreTransactions => "no_more_transactions",
 			EndProposingReason::HitBlockSizeLimit => "hit_block_size_limit",
 			EndProposingReason::HitBlockWeightLimit => "hit_block_weight_limit",
-			EndProposingReason::TransactionForbidden => "transactions_forbidden",
 		};
 
 		self.end_proposing_reason.with_label_values(&[reason]).inc();

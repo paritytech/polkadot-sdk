@@ -18,16 +18,15 @@
 
 use std::sync::Arc;
 
-use futures::{channel::oneshot, select, FutureExt};
+use futures::channel::oneshot;
 
-use codec::{Decode, Encode};
 use fatality::Nested;
 use polkadot_node_network_protocol::{
-	request_response::{v1, v2, IncomingRequest, IncomingRequestReceiver, IsRequest},
+	request_response::{v1, IncomingRequest, IncomingRequestReceiver},
 	UnifiedReputationChange as Rep,
 };
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
-use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, SubsystemSender};
+use polkadot_node_subsystem::{jaeger, messages::AvailabilityStoreMessage, SubsystemSender};
 use polkadot_primitives::{CandidateHash, ValidatorIndex};
 
 use crate::{
@@ -67,66 +66,33 @@ pub async fn run_pov_receiver<Sender>(
 }
 
 /// Receiver task to be forked as a separate task to handle chunk requests.
-pub async fn run_chunk_receivers<Sender>(
+pub async fn run_chunk_receiver<Sender>(
 	mut sender: Sender,
-	mut receiver_v1: IncomingRequestReceiver<v1::ChunkFetchingRequest>,
-	mut receiver_v2: IncomingRequestReceiver<v2::ChunkFetchingRequest>,
+	mut receiver: IncomingRequestReceiver<v1::ChunkFetchingRequest>,
 	metrics: Metrics,
 ) where
 	Sender: SubsystemSender<AvailabilityStoreMessage>,
 {
-	let make_resp_v1 = |chunk: Option<ErasureChunk>| match chunk {
-		None => v1::ChunkFetchingResponse::NoSuchChunk,
-		Some(chunk) => v1::ChunkFetchingResponse::Chunk(chunk.into()),
-	};
-
-	let make_resp_v2 = |chunk: Option<ErasureChunk>| match chunk {
-		None => v2::ChunkFetchingResponse::NoSuchChunk,
-		Some(chunk) => v2::ChunkFetchingResponse::Chunk(chunk.into()),
-	};
-
 	loop {
-		select! {
-			res = receiver_v1.recv(|| vec![COST_INVALID_REQUEST]).fuse() => match res.into_nested() {
-				Ok(Ok(msg)) => {
-					answer_chunk_request_log(&mut sender, msg, make_resp_v1, &metrics).await;
-				},
-				Err(fatal) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						error = ?fatal,
-						"Shutting down chunk receiver."
-					);
-					return
-				},
-				Ok(Err(jfyi)) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						error = ?jfyi,
-						"Error decoding incoming chunk request."
-					);
-				}
+		match receiver.recv(|| vec![COST_INVALID_REQUEST]).await.into_nested() {
+			Ok(Ok(msg)) => {
+				answer_chunk_request_log(&mut sender, msg, &metrics).await;
 			},
-			res = receiver_v2.recv(|| vec![COST_INVALID_REQUEST]).fuse() => match res.into_nested() {
-				Ok(Ok(msg)) => {
-					answer_chunk_request_log(&mut sender, msg.into(), make_resp_v2, &metrics).await;
-				},
-				Err(fatal) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						error = ?fatal,
-						"Shutting down chunk receiver."
-					);
-					return
-				},
-				Ok(Err(jfyi)) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						error = ?jfyi,
-						"Error decoding incoming chunk request."
-					);
-				}
-			}
+			Err(fatal) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					error = ?fatal,
+					"Shutting down chunk receiver."
+				);
+				return
+			},
+			Ok(Err(jfyi)) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					error = ?jfyi,
+					"Error decoding incoming chunk request."
+				);
+			},
 		}
 	}
 }
@@ -158,18 +124,15 @@ pub async fn answer_pov_request_log<Sender>(
 /// Variant of `answer_chunk_request` that does Prometheus metric and logging on errors.
 ///
 /// Any errors of `answer_request` will simply be logged.
-pub async fn answer_chunk_request_log<Sender, Req, MakeResp>(
+pub async fn answer_chunk_request_log<Sender>(
 	sender: &mut Sender,
-	req: IncomingRequest<Req>,
-	make_response: MakeResp,
+	req: IncomingRequest<v1::ChunkFetchingRequest>,
 	metrics: &Metrics,
-) where
-	Req: IsRequest + Decode + Encode + Into<v1::ChunkFetchingRequest>,
-	Req::Response: Encode,
+) -> ()
+where
 	Sender: SubsystemSender<AvailabilityStoreMessage>,
-	MakeResp: Fn(Option<ErasureChunk>) -> Req::Response,
 {
-	let res = answer_chunk_request(sender, req, make_response).await;
+	let res = answer_chunk_request(sender, req).await;
 	match res {
 		Ok(result) => metrics.on_served_chunk(if result { SUCCEEDED } else { NOT_FOUND }),
 		Err(err) => {
@@ -193,6 +156,8 @@ pub async fn answer_pov_request<Sender>(
 where
 	Sender: SubsystemSender<AvailabilityStoreMessage>,
 {
+	let _span = jaeger::Span::new(req.payload.candidate_hash, "answer-pov-request");
+
 	let av_data = query_available_data(sender, req.payload.candidate_hash).await?;
 
 	let result = av_data.is_some();
@@ -212,40 +177,39 @@ where
 /// Answer an incoming chunk request by querying the av store.
 ///
 /// Returns: `Ok(true)` if chunk was found and served.
-pub async fn answer_chunk_request<Sender, Req, MakeResp>(
+pub async fn answer_chunk_request<Sender>(
 	sender: &mut Sender,
-	req: IncomingRequest<Req>,
-	make_response: MakeResp,
+	req: IncomingRequest<v1::ChunkFetchingRequest>,
 ) -> Result<bool>
 where
 	Sender: SubsystemSender<AvailabilityStoreMessage>,
-	Req: IsRequest + Decode + Encode + Into<v1::ChunkFetchingRequest>,
-	Req::Response: Encode,
-	MakeResp: Fn(Option<ErasureChunk>) -> Req::Response,
 {
-	// V1 and V2 requests have the same payload, so decoding into either one will work. It's the
-	// responses that differ, hence the `MakeResp` generic.
-	let payload: v1::ChunkFetchingRequest = req.payload.into();
+	let span = jaeger::Span::new(req.payload.candidate_hash, "answer-chunk-request");
 
-	let chunk = query_chunk(sender, payload.candidate_hash, payload.index).await?;
+	let _child_span = span
+		.child("answer-chunk-request")
+		.with_trace_id(req.payload.candidate_hash)
+		.with_chunk_index(req.payload.index.0);
+
+	let chunk = query_chunk(sender, req.payload.candidate_hash, req.payload.index).await?;
 
 	let result = chunk.is_some();
 
 	gum::trace!(
 		target: LOG_TARGET,
-		hash = ?payload.candidate_hash,
-		index = ?payload.index,
+		hash = ?req.payload.candidate_hash,
+		index = ?req.payload.index,
 		peer = ?req.peer,
 		has_data = ?chunk.is_some(),
 		"Serving chunk",
 	);
 
-	let response = make_response(chunk);
+	let response = match chunk {
+		None => v1::ChunkFetchingResponse::NoSuchChunk,
+		Some(chunk) => v1::ChunkFetchingResponse::Chunk(chunk.into()),
+	};
 
-	req.pending_response
-		.send_response(response)
-		.map_err(|_| JfyiError::SendResponse)?;
-
+	req.send_response(response).map_err(|_| JfyiError::SendResponse)?;
 	Ok(result)
 }
 

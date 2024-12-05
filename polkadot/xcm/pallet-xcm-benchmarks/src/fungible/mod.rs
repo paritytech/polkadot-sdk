@@ -37,14 +37,14 @@ pub mod pallet {
 		type CheckedAccount: Get<Option<(Self::AccountId, xcm_builder::MintLocation)>>;
 
 		/// A trusted location which we allow teleports from, and the asset we allow to teleport.
-		type TrustedTeleporter: Get<Option<(xcm::latest::Location, xcm::latest::Asset)>>;
+		type TrustedTeleporter: Get<Option<(xcm::latest::MultiLocation, xcm::latest::MultiAsset)>>;
 
 		/// A trusted location where reserve assets are stored, and the asset we allow to be
 		/// reserves.
-		type TrustedReserve: Get<Option<(xcm::latest::Location, xcm::latest::Asset)>>;
+		type TrustedReserve: Get<Option<(xcm::latest::MultiLocation, xcm::latest::MultiAsset)>>;
 
 		/// Give me a fungible asset that your asset transactor is going to accept.
-		fn get_asset() -> xcm::latest::Asset;
+		fn get_multi_asset() -> xcm::latest::MultiAsset;
 	}
 
 	#[pallet::pallet]

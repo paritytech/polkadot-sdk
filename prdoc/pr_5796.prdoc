@@ -1,8 +1,0 @@
-title: "Fix RPC relay chain interface"
-
-doc:
-
-crates:
-  - name: cumulus-relay-chain-rpc-interface
-    bump: none
-    validate: false

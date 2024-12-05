@@ -17,122 +17,20 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, Config, Pallet};
-use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, StorageVersion},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{
-	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
-	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
-};
+use primitives::{SessionIndex, LEGACY_MIN_BACKING_VOTES};
 use sp_runtime::Perbill;
+use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
 
 use super::v8::V8HostConfiguration;
-/// All configuration of the runtime with respect to paras.
-#[derive(Clone, Encode, Decode, Debug)]
-pub struct V9HostConfiguration<BlockNumber> {
-	pub max_code_size: u32,
-	pub max_head_data_size: u32,
-	pub max_upward_queue_count: u32,
-	pub max_upward_queue_size: u32,
-	pub max_upward_message_size: u32,
-	pub max_upward_message_num_per_candidate: u32,
-	pub hrmp_max_message_num_per_candidate: u32,
-	pub validation_upgrade_cooldown: BlockNumber,
-	pub validation_upgrade_delay: BlockNumber,
-	pub async_backing_params: AsyncBackingParams,
-	pub max_pov_size: u32,
-	pub max_downward_message_size: u32,
-	pub hrmp_max_parachain_outbound_channels: u32,
-	pub hrmp_sender_deposit: Balance,
-	pub hrmp_recipient_deposit: Balance,
-	pub hrmp_channel_max_capacity: u32,
-	pub hrmp_channel_max_total_size: u32,
-	pub hrmp_max_parachain_inbound_channels: u32,
-	pub hrmp_channel_max_message_size: u32,
-	pub executor_params: ExecutorParams,
-	pub code_retention_period: BlockNumber,
-	pub on_demand_cores: u32,
-	pub on_demand_retries: u32,
-	pub on_demand_queue_max_size: u32,
-	pub on_demand_target_queue_utilization: Perbill,
-	pub on_demand_fee_variability: Perbill,
-	pub on_demand_base_fee: Balance,
-	pub on_demand_ttl: BlockNumber,
-	pub group_rotation_frequency: BlockNumber,
-	pub paras_availability_period: BlockNumber,
-	pub scheduling_lookahead: u32,
-	pub max_validators_per_core: Option<u32>,
-	pub max_validators: Option<u32>,
-	pub dispute_period: SessionIndex,
-	pub dispute_post_conclusion_acceptance_period: BlockNumber,
-	pub no_show_slots: u32,
-	pub n_delay_tranches: u32,
-	pub zeroth_delay_tranche_width: u32,
-	pub needed_approvals: u32,
-	pub relay_vrf_modulo_samples: u32,
-	pub pvf_voting_ttl: SessionIndex,
-	pub minimum_validation_upgrade_delay: BlockNumber,
-	pub minimum_backing_votes: u32,
-}
-
-impl<BlockNumber: Default + From<u32>> Default for V9HostConfiguration<BlockNumber> {
-	fn default() -> Self {
-		Self {
-			async_backing_params: AsyncBackingParams {
-				max_candidate_depth: 0,
-				allowed_ancestry_len: 0,
-			},
-			group_rotation_frequency: 1u32.into(),
-			paras_availability_period: 1u32.into(),
-			no_show_slots: 1u32.into(),
-			validation_upgrade_cooldown: Default::default(),
-			validation_upgrade_delay: 2u32.into(),
-			code_retention_period: Default::default(),
-			max_code_size: Default::default(),
-			max_pov_size: Default::default(),
-			max_head_data_size: Default::default(),
-			on_demand_cores: Default::default(),
-			on_demand_retries: Default::default(),
-			scheduling_lookahead: 1,
-			max_validators_per_core: Default::default(),
-			max_validators: None,
-			dispute_period: 6,
-			dispute_post_conclusion_acceptance_period: 100.into(),
-			n_delay_tranches: Default::default(),
-			zeroth_delay_tranche_width: Default::default(),
-			needed_approvals: Default::default(),
-			relay_vrf_modulo_samples: Default::default(),
-			max_upward_queue_count: Default::default(),
-			max_upward_queue_size: Default::default(),
-			max_downward_message_size: Default::default(),
-			max_upward_message_size: Default::default(),
-			max_upward_message_num_per_candidate: Default::default(),
-			hrmp_sender_deposit: Default::default(),
-			hrmp_recipient_deposit: Default::default(),
-			hrmp_channel_max_capacity: Default::default(),
-			hrmp_channel_max_total_size: Default::default(),
-			hrmp_max_parachain_inbound_channels: Default::default(),
-			hrmp_channel_max_message_size: Default::default(),
-			hrmp_max_parachain_outbound_channels: Default::default(),
-			hrmp_max_message_num_per_candidate: Default::default(),
-			pvf_voting_ttl: 2u32.into(),
-			minimum_validation_upgrade_delay: 2.into(),
-			executor_params: Default::default(),
-			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
-			on_demand_base_fee: 10_000_000u128,
-			on_demand_fee_variability: Perbill::from_percent(3),
-			on_demand_target_queue_utilization: Perbill::from_percent(25),
-			on_demand_ttl: 5u32.into(),
-			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
-		}
-	}
-}
+type V9HostConfiguration<BlockNumber> = configuration::HostConfiguration<BlockNumber>;
 
 mod v8 {
 	use super::*;
@@ -164,7 +62,7 @@ mod v9 {
 	>;
 }
 
-pub struct MigrateToV9<T>(core::marker::PhantomData<T>);
+pub struct MigrateToV9<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for MigrateToV9<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
@@ -247,11 +145,11 @@ pvf_voting_ttl                           : pre.pvf_voting_ttl,
 minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
 async_backing_params                     : pre.async_backing_params,
 executor_params                          : pre.executor_params,
-on_demand_queue_max_size                 : pre.on_demand_queue_max_size,
-on_demand_base_fee                       : pre.on_demand_base_fee,
-on_demand_fee_variability                : pre.on_demand_fee_variability,
-on_demand_target_queue_utilization       : pre.on_demand_target_queue_utilization,
-on_demand_ttl                            : pre.on_demand_ttl,
+on_demand_queue_max_size                 : 10_000u32,
+on_demand_base_fee                       : 10_000_000u128,
+on_demand_fee_variability                : Perbill::from_percent(3),
+on_demand_target_queue_utilization       : Perbill::from_percent(25),
+on_demand_ttl                            : 5u32.into(),
 minimum_backing_votes                    : LEGACY_MIN_BACKING_VOTES
 		}
 	};
@@ -308,8 +206,7 @@ mod tests {
 	];
 
 		let v9 =
-			V9HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..])
-				.unwrap();
+			V9HostConfiguration::<primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
 
 		// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -335,7 +232,7 @@ mod tests {
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		let v8 = V8HostConfiguration::<polkadot_primitives::BlockNumber> {
+		let v8 = V8HostConfiguration::<primitives::BlockNumber> {
 			needed_approvals: 69,
 			paras_availability_period: 55,
 			hrmp_recipient_deposit: 1337,
@@ -409,7 +306,7 @@ mod tests {
 	// pallet's storage.
 	#[test]
 	fn test_migrate_to_v9_no_pending() {
-		let v8 = V8HostConfiguration::<polkadot_primitives::BlockNumber>::default();
+		let v8 = V8HostConfiguration::<primitives::BlockNumber>::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			// Implant the v8 version in the state.

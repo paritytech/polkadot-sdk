@@ -20,7 +20,6 @@
 //!
 //! Used for BEEFY gadget internal error handling only
 
-use sp_blockchain::Error as ClientError;
 use std::fmt::Debug;
 
 #[derive(Debug, thiserror::Error)]
@@ -47,12 +46,6 @@ pub enum Error {
 	FinalityStreamTerminated,
 	#[error("Votes gossiping stream terminated")]
 	VotesGossipStreamTerminated,
-}
-
-impl From<ClientError> for Error {
-	fn from(e: ClientError) -> Self {
-		Self::Backend(e.to_string())
-	}
 }
 
 #[cfg(test)]

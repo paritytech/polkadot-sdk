@@ -26,7 +26,7 @@
 //!   to user defined types. And also crate new types and implement block.
 
 mod expand;
-pub(crate) mod parse;
+mod parse;
 
 pub use parse::{composite::keyword::CompositeKeyword, Def};
 use syn::spanned::Spanned;

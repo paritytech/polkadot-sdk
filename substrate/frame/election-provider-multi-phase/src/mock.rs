@@ -21,7 +21,7 @@ use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBounds},
 	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
 };
-pub use frame_support::derive_impl;
+pub use frame_support::{assert_noop, assert_ok, pallet_prelude::GetDefault};
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Hooks},
@@ -54,10 +54,11 @@ pub type UncheckedExtrinsic =
 	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, (), ()>;
 
 frame_support::construct_runtime!(
-	pub enum Runtime {
-		System: frame_system,
-		Balances: pallet_balances,
-		MultiPhase: multi_phase,
+	pub struct Runtime
+	{
+		System: frame_system::{Pallet, Call, Event<T>, Config<T>},
+		Balances: pallet_balances::{Pallet, Call, Event<T>, Config<T>},
+		MultiPhase: multi_phase::{Pallet, Call, Event<T>},
 	}
 );
 
@@ -79,7 +80,11 @@ frame_election_provider_support::generate_solution_type!(
 
 /// All events of this pallet.
 pub(crate) fn multi_phase_events() -> Vec<super::Event<Runtime>> {
-	System::read_events_for_pallet::<super::Event<Runtime>>()
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::MultiPhase(inner) = e { Some(inner) } else { None })
+		.collect::<Vec<_>>()
 }
 
 /// To from `now` to block `n`.
@@ -92,12 +97,12 @@ pub fn roll_to(n: BlockNumber) {
 }
 
 pub fn roll_to_unsigned() {
-	while !matches!(CurrentPhase::<Runtime>::get(), Phase::Unsigned(_)) {
+	while !matches!(MultiPhase::current_phase(), Phase::Unsigned(_)) {
 		roll_to(System::block_number() + 1);
 	}
 }
 pub fn roll_to_signed() {
-	while !matches!(CurrentPhase::<Runtime>::get(), Phase::Signed) {
+	while !matches!(MultiPhase::current_phase(), Phase::Signed) {
 		roll_to(System::block_number() + 1);
 	}
 }
@@ -108,15 +113,6 @@ pub fn roll_to_with_ocw(n: BlockNumber) {
 		System::set_block_number(i);
 		MultiPhase::on_initialize(i);
 		MultiPhase::offchain_worker(i);
-	}
-}
-
-pub fn roll_to_round(n: u32) {
-	assert!(Round::<Runtime>::get() <= n);
-
-	while Round::<Runtime>::get() != n {
-		roll_to_signed();
-		frame_support::assert_ok!(MultiPhase::elect());
 	}
 }
 
@@ -136,7 +132,7 @@ pub struct TrimHelpers {
 ///
 /// Assignments are pre-sorted in reverse order of stake.
 pub fn trim_helpers() -> TrimHelpers {
-	let RoundSnapshot { voters, targets } = Snapshot::<Runtime>::get().unwrap();
+	let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
 	let stakes: std::collections::HashMap<_, _> =
 		voters.iter().map(|(id, stake, _)| (*id, *stake)).collect();
 
@@ -150,7 +146,7 @@ pub fn trim_helpers() -> TrimHelpers {
 	let voter_index = helpers::voter_index_fn_owned::<Runtime>(cache);
 	let target_index = helpers::target_index_fn::<Runtime>(&targets);
 
-	let desired_targets = crate::DesiredTargets::<Runtime>::get().unwrap();
+	let desired_targets = MultiPhase::desired_targets().unwrap();
 
 	let ElectionResult::<_, SolutionAccuracyOf<Runtime>> { mut assignments, .. } =
 		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None).unwrap();
@@ -176,8 +172,8 @@ pub fn trim_helpers() -> TrimHelpers {
 ///
 /// This is a good example of what an offchain miner would do.
 pub fn raw_solution() -> RawSolution<SolutionOf<Runtime>> {
-	let RoundSnapshot { voters, targets } = Snapshot::<Runtime>::get().unwrap();
-	let desired_targets = crate::DesiredTargets::<Runtime>::get().unwrap();
+	let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
+	let desired_targets = MultiPhase::desired_targets().unwrap();
 
 	let ElectionResult::<_, SolutionAccuracyOf<Runtime>> { winners: _, assignments } =
 		seq_phragmen(desired_targets as usize, targets.clone(), voters.clone(), None).unwrap();
@@ -193,14 +189,14 @@ pub fn raw_solution() -> RawSolution<SolutionOf<Runtime>> {
 		to_supports(&staked).evaluate()
 	};
 	let solution =
-		SolutionOf::<Runtime>::from_assignment(&assignments, &voter_index, &target_index).unwrap();
+		<SolutionOf<Runtime>>::from_assignment(&assignments, &voter_index, &target_index).unwrap();
 
-	let round = Round::<Runtime>::get();
+	let round = MultiPhase::round();
 	RawSolution { solution, score, round }
 }
 
 pub fn witness() -> SolutionOrSnapshotSize {
-	Snapshot::<Runtime>::get()
+	MultiPhase::snapshot()
 		.map(|snap| SolutionOrSnapshotSize {
 			voters: snap.voters.len() as u32,
 			targets: snap.targets.len() as u32,
@@ -208,7 +204,6 @@ pub fn witness() -> SolutionOrSnapshotSize {
 		.unwrap_or_default()
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -237,6 +232,7 @@ impl frame_system::Config for Runtime {
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 parameter_types! {
+	pub const ExistentialDeposit: u64 = 1;
 	pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights
 		::with_sensible_defaults(
 			Weight::from_parts(2u64 * constants::WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
@@ -244,9 +240,20 @@ parameter_types! {
 		);
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+	type Balance = Balance;
+	type RuntimeEvent = RuntimeEvent;
+	type DustRemoval = ();
+	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type MaxLocks = ();
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	type WeightInfo = ();
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type MaxHolds = ();
 }
 
 #[derive(Default, Eq, PartialEq, Debug, Clone, Copy)]
@@ -287,6 +294,7 @@ parameter_types! {
 	pub static SignedMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerTxPriority: u64 = 100;
 	pub static BetterSignedThreshold: Perbill = Perbill::zero();
+	pub static BetterUnsignedThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
 	pub static MinerMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerMaxLength: u32 = 256;
@@ -384,6 +392,7 @@ impl crate::Config for Runtime {
 	type EstimateCallFee = frame_support::traits::ConstU32<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
+	type BetterUnsignedThreshold = BetterUnsignedThreshold;
 	type BetterSignedThreshold = BetterSignedThreshold;
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = MinerTxPriority;
@@ -421,21 +430,12 @@ impl Convert<usize, BalanceOf<Runtime>> for Runtime {
 	}
 }
 
-impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type RuntimeCall = RuntimeCall;
+	type OverarchingCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
-}
-
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
-where
-	RuntimeCall: From<LocalCall>,
-{
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Extrinsic::new_bare(call)
-	}
 }
 
 pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
@@ -531,7 +531,10 @@ impl ExtBuilder {
 		<BetterSignedThreshold>::set(p);
 		self
 	}
-
+	pub fn better_unsigned_threshold(self, p: Perbill) -> Self {
+		<BetterUnsignedThreshold>::set(p);
+		self
+	}
 	pub fn phases(self, signed: BlockNumber, unsigned: BlockNumber) -> Self {
 		<SignedPhase>::set(signed);
 		<UnsignedPhase>::set(unsigned);
@@ -633,9 +636,9 @@ impl ExtBuilder {
 
 		#[cfg(feature = "try-runtime")]
 		ext.execute_with(|| {
-			frame_support::assert_ok!(
-				<MultiPhase as frame_support::traits::Hooks<u64>>::try_state(System::block_number())
-			);
+			assert_ok!(<MultiPhase as frame_support::traits::Hooks<u64>>::try_state(
+				System::block_number()
+			));
 		});
 	}
 }

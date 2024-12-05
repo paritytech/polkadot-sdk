@@ -16,30 +16,24 @@
 use super::*;
 use crate as pallet_asset_conversion_tx_payment;
 
+use codec;
 use frame_support::{
-	derive_impl,
 	dispatch::DispatchClass,
 	instances::Instance2,
 	ord_parameter_types,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{
-		fungible, fungibles,
-		tokens::{
-			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
-			imbalance::ResolveAssetTo,
-		},
-		AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced,
-	},
+	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 	PalletId,
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
-use pallet_transaction_payment::FungibleAdapter;
+use pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
+use pallet_transaction_payment::CurrencyAdapter;
+use sp_core::H256;
 use sp_runtime::{
-	traits::{AccountIdConversion, IdentityLookup, SaturatedConversion},
+	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, SaturatedConversion},
 	Permill,
 };
 
@@ -84,24 +78,50 @@ parameter_types! {
 	pub static TransactionByteFee: u64 = 1;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
+	type BlockLength = ();
+	type DbWeight = ();
+	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
+	type RuntimeCall = RuntimeCall;
+	type Hash = H256;
+	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
+	type RuntimeEvent = RuntimeEvent;
+	type BlockHashCount = ConstU64<250>;
+	type Version = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
+	type SS58Prefix = ();
+	type OnSetCode = ();
+	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 10;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+	type Balance = Balance;
+	type RuntimeEvent = RuntimeEvent;
+	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<10>;
 	type AccountStore = System;
+	type MaxLocks = ();
+	type WeightInfo = ();
+	type MaxReserves = ConstU32<50>;
+	type ReserveIdentifier = [u8; 8];
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type MaxHolds = ();
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -128,13 +148,9 @@ parameter_types! {
 }
 
 pub struct DealWithFees;
-impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>>
-	for DealWithFees
-{
-	fn on_unbalanceds(
-		mut fees_then_tips: impl Iterator<
-			Item = fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>,
-		>,
+impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for DealWithFees {
+	fn on_unbalanceds<B>(
+		mut fees_then_tips: impl Iterator<Item = pallet_balances::NegativeImbalance<Runtime>>,
 	) {
 		if let Some(fees) = fees_then_tips.next() {
 			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
@@ -145,38 +161,13 @@ impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId,
 	}
 }
 
-pub struct MockTxPaymentWeights;
-
-impl pallet_transaction_payment::WeightInfo for MockTxPaymentWeights {
-	fn charge_transaction_payment() -> Weight {
-		Weight::from_parts(10, 0)
-	}
-}
-
-pub struct DealWithFungiblesFees;
-impl OnUnbalanced<fungibles::Credit<AccountId, NativeAndAssets>> for DealWithFungiblesFees {
-	fn on_unbalanceds(
-		mut fees_then_tips: impl Iterator<
-			Item = fungibles::Credit<<Runtime as frame_system::Config>::AccountId, NativeAndAssets>,
-		>,
-	) {
-		if let Some(fees) = fees_then_tips.next() {
-			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
-			if let Some(tips) = fees_then_tips.next() {
-				TipUnbalancedAmount::mutate(|a| *a += tips.peek());
-			}
-		}
-	}
-}
-
-#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
+	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
+	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightInfo = MockTxPaymentWeights;
 }
 
 type AssetId = u32;
@@ -231,138 +222,47 @@ impl pallet_assets::Config<Instance2> for Runtime {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
+	pub storage AllowMultiAssetPools: bool = false;
+	// should be non-zero if AllowMultiAssetPools is true, otherwise can be zero
 	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 	pub const MaxSwapPathLength: u32 = 4;
-	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
 
 ord_parameter_types! {
 	pub const AssetConversionOrigin: u64 = AccountIdConversion::<u64>::into_account_truncating(&AssetConversionPalletId::get());
 }
 
-pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
-	AssetConversionPalletId,
-	(NativeOrWithId<u32>, NativeOrWithId<u32>),
->;
-
-type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
-
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type HigherPrecisionBalance = u128;
-	type AssetKind = NativeOrWithId<u32>;
-	type Assets = NativeAndAssets;
-	type PoolId = (Self::AssetKind, Self::AssetKind);
-	type PoolLocator = Chain<
-		WithFirstAsset<Native, AccountId, NativeOrWithId<u32>, PoolIdToAccountId>,
-		Ascending<AccountId, NativeOrWithId<u32>, PoolIdToAccountId>,
-	>;
+	type Currency = Balances;
+	type AssetBalance = <Self as pallet_balances::Config>::Balance;
+	type AssetId = u32;
 	type PoolAssetId = u32;
+	type Assets = Assets;
 	type PoolAssets = PoolAssets;
-	type PoolSetupFee = ConstU64<100>; // should be more or equal to the existential deposit
-	type PoolSetupFeeAsset = Native;
-	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type PalletId = AssetConversionPalletId;
+	type WeightInfo = ();
 	type LPFee = ConstU32<3>; // means 0.3%
+	type PoolSetupFee = ConstU64<100>; // should be more or equal to the existential deposit
+	type PoolSetupFeeReceiver = AssetConversionOrigin;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
+	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = MaxSwapPathLength;
 	type MintMinLiquidity = ConstU64<100>; // 100 is good enough when the main currency has 12 decimals.
-	type WeightInfo = ();
+
+	type Balance = u64;
+	type HigherPrecisionBalance = u128;
+
+	type MultiAssetId = NativeOrAssetId<u32>;
+	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;
+
 	pallet_asset_conversion::runtime_benchmarks_enabled! {
 		type BenchmarkHelper = ();
 	}
 }
 
-/// Weights used in testing.
-pub struct MockWeights;
-
-impl WeightInfo for MockWeights {
-	fn charge_asset_tx_payment_zero() -> Weight {
-		Weight::from_parts(0, 0)
-	}
-
-	fn charge_asset_tx_payment_native() -> Weight {
-		Weight::from_parts(15, 0)
-	}
-
-	fn charge_asset_tx_payment_asset() -> Weight {
-		Weight::from_parts(20, 0)
-	}
-}
-
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AssetId = NativeOrWithId<u32>;
-	type OnChargeAssetTransaction =
-		SwapAssetAdapter<Native, NativeAndAssets, AssetConversion, DealWithFungiblesFees>;
-	type WeightInfo = MockWeights;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = Helper;
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let base_weight = 5;
-	let balance_factor = 100;
-	crate::tests::ExtBuilder::default()
-		.balance_factor(balance_factor)
-		.base_weight(Weight::from_parts(base_weight, 0))
-		.build()
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub struct Helper;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl BenchmarkHelperTrait<u64, NativeOrWithId<u32>, NativeOrWithId<u32>> for Helper {
-	fn create_asset_id_parameter(id: u32) -> (NativeOrWithId<u32>, NativeOrWithId<u32>) {
-		(NativeOrWithId::WithId(id), NativeOrWithId::WithId(id))
-	}
-
-	fn setup_balances_and_pool(asset_id: NativeOrWithId<u32>, account: u64) {
-		use frame_support::{assert_ok, traits::fungibles::Mutate};
-		use sp_runtime::traits::StaticLookup;
-		let NativeOrWithId::WithId(asset_idx) = asset_id.clone() else { unimplemented!() };
-		assert_ok!(Assets::force_create(
-			RuntimeOrigin::root(),
-			asset_idx.into(),
-			42,   /* owner */
-			true, /* is_sufficient */
-			1,
-		));
-
-		let lp_provider = 12;
-		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), lp_provider, u64::MAX / 2));
-		let lp_provider_account = <Runtime as system::Config>::Lookup::unlookup(lp_provider);
-		assert_ok!(Assets::mint_into(asset_idx, &lp_provider_account, u64::MAX / 2));
-
-		let token_1 = Box::new(NativeOrWithId::Native);
-		let token_2 = Box::new(asset_id);
-		assert_ok!(AssetConversion::create_pool(
-			RuntimeOrigin::signed(lp_provider),
-			token_1.clone(),
-			token_2.clone()
-		));
-
-		assert_ok!(AssetConversion::add_liquidity(
-			RuntimeOrigin::signed(lp_provider),
-			token_1,
-			token_2,
-			(u32::MAX / 8).into(), // 1 desired
-			u32::MAX.into(),       // 2 desired
-			1,                     // 1 min
-			1,                     // 2 min
-			lp_provider_account,
-		));
-
-		use frame_support::traits::Currency;
-		let _ = Balances::deposit_creating(&account, u32::MAX.into());
-
-		let beneficiary = <Runtime as system::Config>::Lookup::unlookup(account);
-		let balance = 1000;
-
-		assert_ok!(Assets::mint_into(asset_idx, &beneficiary, balance));
-		assert_eq!(Assets::balance(asset_idx, account), balance);
-	}
+	type Fungibles = Assets;
+	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
 }

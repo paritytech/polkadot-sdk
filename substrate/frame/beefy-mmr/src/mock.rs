@@ -19,15 +19,16 @@ use std::vec;
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
+	construct_runtime, parameter_types,
+	traits::{ConstU16, ConstU32, ConstU64},
 };
 use sp_consensus_beefy::mmr::MmrLeafVersion;
+use sp_core::H256;
 use sp_io::TestExternalities;
 use sp_runtime::{
 	app_crypto::ecdsa::Public,
 	impl_opaque_keys,
-	traits::{ConvertInto, Keccak256, OpaqueKeys},
+	traits::{BlakeTwo256, ConvertInto, IdentityLookup, Keccak256, OpaqueKeys},
 	BuildStorage,
 };
 use sp_state_machine::BasicExternalities;
@@ -37,7 +38,6 @@ use crate as pallet_beefy_mmr;
 pub use sp_consensus_beefy::{
 	ecdsa_crypto::AuthorityId as BeefyId, mmr::BeefyDataProvider, ConsensusLog, BEEFY_ENGINE_ID,
 };
-use sp_core::offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -50,17 +50,38 @@ type Block = frame_system::mocking::MockBlock<Test>;
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system,
-		Session: pallet_session,
-		Mmr: pallet_mmr,
-		Beefy: pallet_beefy,
-		BeefyMmr: pallet_beefy_mmr,
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		Mmr: pallet_mmr::{Pallet, Storage},
+		Beefy: pallet_beefy::{Pallet, Config<T>, Storage},
+		BeefyMmr: pallet_beefy_mmr::{Pallet, Storage},
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type BaseCallFilter = frame_support::traits::Everything;
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
+	type RuntimeOrigin = RuntimeOrigin;
+	type Nonce = u64;
+	type Hash = H256;
+	type RuntimeCall = RuntimeCall;
+	type Hashing = BlakeTwo256;
+	type AccountId = u64;
+	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
+	type RuntimeEvent = RuntimeEvent;
+	type BlockHashCount = ConstU64<250>;
+	type Version = ();
+	type PalletInfo = PalletInfo;
+	type AccountData = ();
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
+	type SS58Prefix = ConstU16<42>;
+	type OnSetCode = ();
+	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_session::Config for Test {
@@ -91,12 +112,7 @@ impl pallet_mmr::Config for Test {
 
 	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Test>;
 
-	type BlockHashProvider = pallet_mmr::DefaultBlockHashProvider<Test>;
-
 	type WeightInfo = ();
-
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
 }
 
 impl pallet_beefy::Config for Test {
@@ -105,7 +121,6 @@ impl pallet_beefy::Config for Test {
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = ConstU64<100>;
 	type OnNewValidatorSet = BeefyMmr;
-	type AncestryHelper = BeefyMmr;
 	type WeightInfo = ();
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
@@ -123,7 +138,6 @@ impl pallet_beefy_mmr::Config for Test {
 	type LeafExtra = Vec<u8>;
 
 	type BeefyDataProvider = DummyDataProvider;
-	type WeightInfo = ();
 }
 
 pub struct DummyDataProvider;
@@ -189,14 +203,9 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<(u64, BeefyId)>) -> TestExt
 		}
 	});
 
-	pallet_session::GenesisConfig::<Test> { keys: session_keys, ..Default::default() }
+	pallet_session::GenesisConfig::<Test> { keys: session_keys }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	let mut ext: TestExternalities = t.into();
-	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
-	ext.register_extension(OffchainDbExt::new(offchain.clone()));
-	ext.register_extension(OffchainWorkerExt::new(offchain));
-
-	ext
+	t.into()
 }

@@ -1,7 +1,0 @@
-title: '[pallet-revive] Add metrics to eth-rpc'
-doc:
-- audience: Runtime Dev
-  description: Add metrics for eth-rpc
-crates:
-- name: pallet-revive-eth-rpc
-  bump: minor

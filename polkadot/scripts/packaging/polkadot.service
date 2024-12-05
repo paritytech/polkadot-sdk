@@ -25,13 +25,12 @@ ProtectKernelTunables=true
 ProtectSystem=strict
 RemoveIPC=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
-RestrictNamespaces=false
+RestrictNamespaces=true
 RestrictSUIDSGID=true
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
-SystemCallFilter=landlock_add_rule landlock_create_ruleset landlock_restrict_self seccomp mount umount2
-SystemCallFilter=~@clock @module @reboot @swap @privileged
-SystemCallFilter=pivot_root
+SystemCallFilter=landlock_add_rule landlock_create_ruleset landlock_restrict_self seccomp
+SystemCallFilter=~@clock @module @mount @reboot @swap @privileged
 UMask=0027
 
 [Install]

@@ -1,9 +1,0 @@
-title: '[eth-rpc] proxy /health'
-doc:
-- audience: Runtime Dev
-  description: |-
-    make the eth-rpc proxy /health and /health/readiness from the proxied substrate chain
-    see #4802
-crates:
-- name: pallet-revive-eth-rpc
-  bump: minor

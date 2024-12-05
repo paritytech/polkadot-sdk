@@ -45,8 +45,9 @@ pub mod multilocation {
 				let interior = if num_junctions == 0 {
 					quote!(Junctions::Here)
 				} else {
+					let variant = format_ident!("X{}", num_junctions);
 					quote! {
-						[#(#idents .into()),*].into()
+						Junctions::#variant( #(#idents .into()),* )
 					}
 				};
 
@@ -109,7 +110,7 @@ pub mod multilocation {
 
 			impl From<Junction> for MultiLocation {
 				fn from(x: Junction) -> Self {
-					MultiLocation { parents: 0, interior: [x].into() }
+					MultiLocation { parents: 0, interior: Junctions::X1(x) }
 				}
 			}
 
@@ -127,11 +128,11 @@ pub mod junctions {
 		}
 
 		// Support up to 8 Parents in a tuple, assuming that most use cases don't go past 8 parents.
-		let from_v4 = generate_conversion_from_v4();
+		let from_v2 = generate_conversion_from_v2(MAX_JUNCTIONS);
 		let from_tuples = generate_conversion_from_tuples(MAX_JUNCTIONS);
 
 		Ok(quote! {
-			#from_v4
+			#from_v2
 			#from_tuples
 		})
 	}
@@ -142,11 +143,12 @@ pub mod junctions {
 				let idents =
 					(0..num_junctions).map(|i| format_ident!("j{}", i)).collect::<Vec<_>>();
 				let types = (0..num_junctions).map(|i| format_ident!("J{}", i)).collect::<Vec<_>>();
+				let variant = &format_ident!("X{}", num_junctions);
 
 				quote! {
 					impl<#(#types : Into<Junction>,)*> From<( #(#types,)* )> for Junctions {
 						fn from( ( #(#idents,)* ): ( #(#types,)* ) ) -> Self {
-							[#(#idents .into()),*].into()
+							Self::#variant( #(#idents .into()),* )
 						}
 					}
 				}
@@ -154,38 +156,27 @@ pub mod junctions {
 			.collect()
 	}
 
-	fn generate_conversion_from_v4() -> TokenStream {
-		let match_variants = (0..8u8)
-			.map(|current_number| {
-				let number_ancestors = current_number + 1;
-				let variant = format_ident!("X{}", number_ancestors);
-				let idents =
-					(0..=current_number).map(|i| format_ident!("j{}", i)).collect::<Vec<_>>();
-				let convert = idents
-					.iter()
-					.map(|ident| {
-						quote! { let #ident = core::convert::TryInto::try_into(#ident.clone())?; }
-					})
-					.collect::<Vec<_>>();
+	fn generate_conversion_from_v2(max_junctions: usize) -> TokenStream {
+		let match_variants = (0..max_junctions)
+			.map(|cur_num| {
+				let num_ancestors = cur_num + 1;
+				let variant = format_ident!("X{}", num_ancestors);
+				let idents = (0..=cur_num).map(|i| format_ident!("j{}", i)).collect::<Vec<_>>();
 
 				quote! {
-					crate::v4::Junctions::#variant( junctions ) => {
-						let [#(#idents),*] = &*junctions;
-						#(#convert);*
-						[#(#idents),*].into()
-					},
+					crate::v2::Junctions::#variant( #(#idents),* ) =>
+						#variant( #( core::convert::TryInto::try_into(#idents)? ),* ),
 				}
 			})
 			.collect::<TokenStream>();
 
 		quote! {
-			impl core::convert::TryFrom<crate::v4::Junctions> for Junctions {
+			impl core::convert::TryFrom<crate::v2::Junctions> for Junctions {
 				type Error = ();
-
-				fn try_from(mut new: crate::v4::Junctions) -> core::result::Result<Self, Self::Error> {
+				fn try_from(mut old: crate::v2::Junctions) -> core::result::Result<Self, ()> {
 					use Junctions::*;
-					Ok(match new {
-						crate::v4::Junctions::Here => Here,
+					Ok(match old {
+						crate::v2::Junctions::Here => Here,
 						#match_variants
 					})
 				}

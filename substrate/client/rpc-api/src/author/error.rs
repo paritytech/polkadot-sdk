@@ -18,7 +18,10 @@
 
 //! Authoring RPC module errors.
 
-use jsonrpsee::types::error::{ErrorObject, ErrorObjectOwned};
+use jsonrpsee::{
+	core::Error as JsonRpseeError,
+	types::error::{CallError, ErrorObject},
+};
 use sp_runtime::transaction_validity::InvalidTransaction;
 
 /// Author RPC Result type.
@@ -83,104 +86,98 @@ const POOL_NO_TAGS: i32 = POOL_INVALID_TX + 9;
 const POOL_INVALID_BLOCK_ID: i32 = POOL_INVALID_TX + 10;
 /// The pool is not accepting future transactions.
 const POOL_FUTURE_TX: i32 = POOL_INVALID_TX + 11;
-/// Other error.
-const OTHER_ERR: i32 = BASE_ERROR + 40;
 
-impl From<Error> for ErrorObjectOwned {
-	fn from(e: Error) -> ErrorObjectOwned {
+impl From<Error> for JsonRpseeError {
+	fn from(e: Error) -> Self {
 		use sc_transaction_pool_api::error::Error as PoolError;
 
 		match e {
-			Error::BadFormat(e) => ErrorObject::owned(
+			Error::BadFormat(e) => CallError::Custom(ErrorObject::owned(
 				BAD_FORMAT,
 				format!("Extrinsic has invalid format: {}", e),
 				None::<()>,
-			),
-			Error::Verification(e) => ErrorObject::owned(
+			)),
+			Error::Verification(e) => CallError::Custom(ErrorObject::owned(
 				VERIFICATION_ERROR,
 				format!("Verification Error: {}", e),
 				Some(format!("{:?}", e)),
-			),
+			)),
 			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Custom(e))) => {
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 					POOL_INVALID_TX,
 					"Invalid Transaction",
 					Some(format!("Custom error: {}", e)),
-				)
+				))
 			},
 			Error::Pool(PoolError::InvalidTransaction(e)) => {
 				let msg: &str = e.into();
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 					POOL_INVALID_TX,
 					"Invalid Transaction",
 					Some(msg),
-				)
+				))
 			},
 			Error::Pool(PoolError::UnknownTransaction(e)) => {
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 					POOL_UNKNOWN_VALIDITY,
 					"Unknown Transaction Validity",
 					Some(format!("{:?}", e)),
-				)
+				))
 			},
 			Error::Pool(PoolError::TemporarilyBanned) =>
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 				POOL_TEMPORARILY_BANNED,
 				"Transaction is temporarily banned",
 				None::<()>,
-			),
+			)),
 			Error::Pool(PoolError::AlreadyImported(hash)) =>
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 				POOL_ALREADY_IMPORTED,
 				"Transaction Already Imported",
 				Some(format!("{:?}", hash)),
-			),
-			Error::Pool(PoolError::TooLowPriority { old, new }) => ErrorObject::owned(
+			)),
+			Error::Pool(PoolError::TooLowPriority { old, new }) => CallError::Custom(ErrorObject::owned(
 				POOL_TOO_LOW_PRIORITY,
 				format!("Priority is too low: ({} vs {})", old, new),
 				Some("The transaction has too low priority to replace another transaction already in the pool.")
-			),
+			)),
 			Error::Pool(PoolError::CycleDetected) =>
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 				POOL_CYCLE_DETECTED,
 				"Cycle Detected",
 				None::<()>
-			),
-			Error::Pool(PoolError::ImmediatelyDropped) => ErrorObject::owned(
+			)),
+			Error::Pool(PoolError::ImmediatelyDropped) => CallError::Custom(ErrorObject::owned(
 				POOL_IMMEDIATELY_DROPPED,
 				"Immediately Dropped",
 				Some("The transaction couldn't enter the pool because of the limit"),
-			),
-			Error::Pool(PoolError::Unactionable) => ErrorObject::owned(
+			)),
+			Error::Pool(PoolError::Unactionable) => CallError::Custom(ErrorObject::owned(
 				POOL_UNACTIONABLE,
 				"Unactionable",
 				Some("The transaction is unactionable since it is not propagable and \
 				the local node does not author blocks")
-			),
-			Error::Pool(PoolError::NoTagsProvided) => ErrorObject::owned(
+			)),
+			Error::Pool(PoolError::NoTagsProvided) => CallError::Custom(ErrorObject::owned(
 				POOL_NO_TAGS,
 				"No tags provided",
 				Some("Transaction does not provide any tags, so the pool can't identify it")
-			),
+			)),
 			Error::Pool(PoolError::InvalidBlockId(_)) =>
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 				POOL_INVALID_BLOCK_ID,
 				"The provided block ID is not valid",
 				None::<()>
-			),
+			)),
 			Error::Pool(PoolError::RejectedFutureTransaction) => {
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 					POOL_FUTURE_TX,
 					"The pool is not accepting future transactions",
 					None::<()>,
-				)
+				))
 			},
 			Error::UnsafeRpcCalled(e) => e.into(),
-			other => ErrorObject::owned(
-				OTHER_ERR,
-				other.to_string(),
-				None::<()>,
-			)
-		}
+			e => CallError::Failed(e.into()),
+		}.into()
 	}
 }

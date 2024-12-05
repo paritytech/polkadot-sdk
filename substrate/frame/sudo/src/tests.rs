@@ -28,7 +28,7 @@ use mock::{
 fn test_setup_works() {
 	// Environment setup, logger storage, and sudo `key` retrieval should work as expected.
 	new_test_ext(1).execute_with(|| {
-		assert_eq!(Key::<Test>::get(), Some(1u64));
+		assert_eq!(Sudo::key(), Some(1u64));
 		assert!(Logger::i32_log().is_empty());
 		assert!(Logger::account_log().is_empty());
 	});
@@ -59,6 +59,9 @@ fn sudo_basics() {
 #[test]
 fn sudo_emits_events_correctly() {
 	new_test_ext(1).execute_with(|| {
+		// Set block number to 1 because events are not emitted on block 0.
+		System::set_block_number(1);
+
 		// Should emit event to indicate success when called with the root `key` and `call` is `Ok`.
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::privileged_i32_log {
 			i: 42,
@@ -108,13 +111,16 @@ fn sudo_unchecked_weight_basics() {
 		let sudo_unchecked_weight_call =
 			SudoCall::sudo_unchecked_weight { call, weight: Weight::from_parts(1_000, 0) };
 		let info = sudo_unchecked_weight_call.get_dispatch_info();
-		assert_eq!(info.call_weight, Weight::from_parts(1_000, 0));
+		assert_eq!(info.weight, Weight::from_parts(1_000, 0));
 	});
 }
 
 #[test]
 fn sudo_unchecked_weight_emits_events_correctly() {
 	new_test_ext(1).execute_with(|| {
+		// Set block number to 1 because events are not emitted on block 0.
+		System::set_block_number(1);
+
 		// Should emit event to indicate success when called with the root `key` and `call` is `Ok`.
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::privileged_i32_log {
 			i: 42,
@@ -135,7 +141,7 @@ fn set_key_basics() {
 	new_test_ext(1).execute_with(|| {
 		// A root `key` can change the root `key`
 		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
-		assert_eq!(Key::<Test>::get(), Some(2u64));
+		assert_eq!(Sudo::key(), Some(2u64));
 	});
 
 	new_test_ext(1).execute_with(|| {
@@ -148,36 +154,15 @@ fn set_key_basics() {
 #[test]
 fn set_key_emits_events_correctly() {
 	new_test_ext(1).execute_with(|| {
+		// Set block number to 1 because events are not emitted on block 0.
+		System::set_block_number(1);
+
 		// A root `key` can change the root `key`.
 		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(1), 2));
-		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old: Some(1), new: 2 }));
+		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old_sudoer: Some(1) }));
 		// Double check.
 		assert_ok!(Sudo::set_key(RuntimeOrigin::signed(2), 4));
-		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old: Some(2), new: 4 }));
-	});
-}
-
-#[test]
-fn remove_key_works() {
-	new_test_ext(1).execute_with(|| {
-		assert_ok!(Sudo::remove_key(RuntimeOrigin::signed(1)));
-		assert!(Key::<Test>::get().is_none());
-		System::assert_has_event(TestEvent::Sudo(Event::KeyRemoved {}));
-
-		assert_noop!(Sudo::remove_key(RuntimeOrigin::signed(1)), Error::<Test>::RequireSudo);
-		assert_noop!(Sudo::set_key(RuntimeOrigin::signed(1), 1), Error::<Test>::RequireSudo);
-	});
-}
-
-#[test]
-fn using_root_origin_works() {
-	new_test_ext(1).execute_with(|| {
-		assert_ok!(Sudo::remove_key(RuntimeOrigin::root()));
-		assert!(Key::<Test>::get().is_none());
-		System::assert_has_event(TestEvent::Sudo(Event::KeyRemoved {}));
-
-		assert_ok!(Sudo::set_key(RuntimeOrigin::root(), 1));
-		assert_eq!(Some(1), Key::<Test>::get());
+		System::assert_has_event(TestEvent::Sudo(Event::KeyChanged { old_sudoer: Some(2) }));
 	});
 }
 
@@ -216,6 +201,9 @@ fn sudo_as_basics() {
 #[test]
 fn sudo_as_emits_events_correctly() {
 	new_test_ext(1).execute_with(|| {
+		// Set block number to 1 because events are not emitted on block 0.
+		System::set_block_number(1);
+
 		// A non-privileged function will work when passed to `sudo_as` with the root `key`.
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::non_privileged_log {
 			i: 42,

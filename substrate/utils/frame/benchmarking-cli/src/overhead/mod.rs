@@ -15,11 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod command;
+pub mod cmd;
 pub mod template;
 
-mod fake_runtime_api;
-pub mod remark_builder;
-pub mod runtime_utilities;
-
-pub use command::{OpaqueBlock, OverheadCmd};
+pub use cmd::OverheadCmd;

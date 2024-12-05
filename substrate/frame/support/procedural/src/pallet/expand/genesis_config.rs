@@ -17,7 +17,6 @@
 
 use crate::{pallet::Def, COUNTER};
 use frame_support_procedural_tools::get_doc_literals;
-use quote::ToTokens;
 use syn::{spanned::Spanned, Ident};
 
 ///
@@ -80,7 +79,7 @@ pub fn expand_genesis_config(def: &mut Def) -> proc_macro2::TokenStream {
 	let genesis_config_item =
 		&mut def.item.content.as_mut().expect("Checked by def parser").1[genesis_config.index];
 
-	let serde_crate = format!("{}::__private::serde", frame_support.to_token_stream());
+	let serde_crate = format!("{}::__private::serde", frame_support);
 
 	match genesis_config_item {
 		syn::Item::Enum(syn::ItemEnum { attrs, .. }) |

@@ -17,13 +17,15 @@
 //! Contains the V6 storage definition of the host configuration.
 
 use crate::configuration::{Config, Pallet};
-use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
+use sp_std::vec::Vec;
 
-use polkadot_primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
+use primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
+#[cfg(feature = "try-runtime")]
+use sp_std::prelude::*;
 
-#[derive(codec::Encode, codec::Decode, Debug, Clone)]
+#[derive(parity_scale_codec::Encode, parity_scale_codec::Decode, Debug, Clone)]
 pub struct V6HostConfiguration<BlockNumber> {
 	pub max_code_size: u32,
 	pub max_head_data_size: u32,

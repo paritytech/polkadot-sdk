@@ -20,8 +20,8 @@
 use super::types::{
 	ExtrinsicMetadataIR, MetadataIR, PalletCallMetadataIR, PalletConstantMetadataIR,
 	PalletErrorMetadataIR, PalletEventMetadataIR, PalletMetadataIR, PalletStorageMetadataIR,
-	StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR,
-	TransactionExtensionMetadataIR,
+	SignedExtensionMetadataIR, StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR,
+	StorageHasherIR,
 };
 
 use frame_metadata::v14::{
@@ -137,25 +137,22 @@ impl From<PalletErrorMetadataIR> for PalletErrorMetadata {
 	}
 }
 
-impl From<TransactionExtensionMetadataIR> for SignedExtensionMetadata {
-	fn from(ir: TransactionExtensionMetadataIR) -> Self {
+impl From<SignedExtensionMetadataIR> for SignedExtensionMetadata {
+	fn from(ir: SignedExtensionMetadataIR) -> Self {
 		SignedExtensionMetadata {
 			identifier: ir.identifier,
 			ty: ir.ty,
-			additional_signed: ir.implicit,
+			additional_signed: ir.additional_signed,
 		}
 	}
 }
 
 impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 	fn from(ir: ExtrinsicMetadataIR) -> Self {
-		let lowest_supported_version =
-			ir.versions.iter().min().expect("Metadata V14 supports one version; qed");
-
 		ExtrinsicMetadata {
 			ty: ir.ty,
-			version: *lowest_supported_version,
-			signed_extensions: ir.extensions.into_iter().map(Into::into).collect(),
+			version: ir.version,
+			signed_extensions: ir.signed_extensions.into_iter().map(Into::into).collect(),
 		}
 	}
 }

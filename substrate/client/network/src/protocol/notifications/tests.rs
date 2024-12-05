@@ -22,10 +22,6 @@ use crate::{
 	peer_store::PeerStore,
 	protocol::notifications::{Notifications, NotificationsOut, ProtocolConfig},
 	protocol_controller::{ProtoSetConfig, ProtocolController, SetId},
-	service::{
-		metrics::NotificationMetrics,
-		traits::{NotificationEvent, ValidationResult},
-	},
 };
 
 use futures::{future::BoxFuture, prelude::*};
@@ -33,8 +29,9 @@ use libp2p::{
 	core::{transport::MemoryTransport, upgrade, Endpoint},
 	identity, noise,
 	swarm::{
-		self, behaviour::FromSwarm, ConnectionDenied, ConnectionId, Executor, NetworkBehaviour,
-		PollParameters, Swarm, SwarmEvent, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
+		behaviour::FromSwarm, ConnectionDenied, ConnectionId, Executor, NetworkBehaviour,
+		PollParameters, Swarm, SwarmBuilder, SwarmEvent, THandler, THandlerInEvent,
+		THandlerOutEvent, ToSwarm,
 	},
 	yamux, Multiaddr, PeerId, Transport,
 };
@@ -42,7 +39,6 @@ use sc_utils::mpsc::tracing_unbounded;
 use std::{
 	iter,
 	pin::Pin,
-	sync::Arc,
 	task::{Context, Poll},
 	time::Duration,
 };
@@ -74,17 +70,11 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 			.timeout(Duration::from_secs(20))
 			.boxed();
 
-		let (protocol_handle_pair, mut notif_service) =
-			crate::protocol::notifications::service::notification_service("/foo".into());
-		// The first swarm has the second peer ID present in the peerstore.
-		let peer_store = PeerStore::new(
-			if index == 0 {
-				keypairs.iter().skip(1).map(|keypair| keypair.public().to_peer_id()).collect()
-			} else {
-				vec![]
-			},
-			None,
-		);
+		let peer_store = PeerStore::new(if index == 0 {
+			keypairs.iter().skip(1).map(|keypair| keypair.public().to_peer_id()).collect()
+		} else {
+			vec![]
+		});
 
 		let (to_notifications, from_controller) =
 			tracing_unbounded("test_protocol_controller_to_notifications", 10_000);
@@ -98,25 +88,19 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 				reserved_only: false,
 			},
 			to_notifications,
-			Arc::new(peer_store.handle()),
+			Box::new(peer_store.handle()),
 		);
 
-		let (notif_handle, command_stream) = protocol_handle_pair.split();
 		let behaviour = CustomProtoWithAddr {
 			inner: Notifications::new(
 				vec![controller_handle],
 				from_controller,
-				NotificationMetrics::new(None),
-				iter::once((
-					ProtocolConfig {
-						name: "/foo".into(),
-						fallback_names: Vec::new(),
-						handshake: Vec::new(),
-						max_notification_size: 1024 * 1024,
-					},
-					notif_handle,
-					command_stream,
-				)),
+				iter::once(ProtocolConfig {
+					name: "/foo".into(),
+					fallback_names: Vec::new(),
+					handshake: Vec::new(),
+					max_notification_size: 1024 * 1024,
+				}),
 			),
 			peer_store_future: peer_store.run().boxed(),
 			protocol_controller_future: controller.run().boxed(),
@@ -134,22 +118,13 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 		};
 
 		let runtime = tokio::runtime::Runtime::new().unwrap();
-		runtime.spawn(async move {
-			loop {
-				if let NotificationEvent::ValidateInboundSubstream { result_tx, .. } =
-					notif_service.next_event().await.unwrap()
-				{
-					result_tx.send(ValidationResult::Accept).unwrap();
-				}
-			}
-		});
-
-		let mut swarm = Swarm::new(
+		let mut swarm = SwarmBuilder::with_executor(
 			transport,
 			behaviour,
 			keypairs[index].public().to_peer_id(),
-			swarm::Config::with_executor(TokioExecutor(runtime)),
-		);
+			TokioExecutor(runtime),
+		)
+		.build();
 		swarm.listen_on(addrs[index].clone()).unwrap();
 		out.push(swarm);
 	}
@@ -185,7 +160,7 @@ impl std::ops::DerefMut for CustomProtoWithAddr {
 
 impl NetworkBehaviour for CustomProtoWithAddr {
 	type ConnectionHandler = <Notifications as NetworkBehaviour>::ConnectionHandler;
-	type ToSwarm = <Notifications as NetworkBehaviour>::ToSwarm;
+	type OutEvent = <Notifications as NetworkBehaviour>::OutEvent;
 
 	fn handle_pending_inbound_connection(
 		&mut self,
@@ -263,7 +238,7 @@ impl NetworkBehaviour for CustomProtoWithAddr {
 		&mut self,
 		cx: &mut Context,
 		params: &mut impl PollParameters,
-	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
+	) -> Poll<ToSwarm<Self::OutEvent, THandlerInEvent<Self>>> {
 		let _ = self.peer_store_future.poll_unpin(cx);
 		let _ = self.protocol_controller_future.poll_unpin(cx);
 		self.inner.poll(cx, params)

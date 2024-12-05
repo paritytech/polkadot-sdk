@@ -69,7 +69,7 @@ impl InherentDataProvider {
 }
 
 #[cfg(feature = "std")]
-impl core::ops::Deref for InherentDataProvider {
+impl sp_std::ops::Deref for InherentDataProvider {
 	type Target = InherentType;
 
 	fn deref(&self) -> &Self::Target {

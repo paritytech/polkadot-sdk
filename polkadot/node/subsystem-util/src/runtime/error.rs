@@ -28,7 +28,7 @@ pub enum Error {
 	/// Runtime API subsystem is down, which means we're shutting down.
 	#[fatal]
 	#[error("Runtime request got canceled")]
-	RuntimeRequestCanceled(#[from] oneshot::Canceled),
+	RuntimeRequestCanceled(oneshot::Canceled),
 
 	/// Some request to the runtime failed.
 	/// For example if we prune a block we're requesting info about.

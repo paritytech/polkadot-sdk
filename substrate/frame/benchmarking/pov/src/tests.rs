@@ -162,7 +162,6 @@ fn noop_is_free() {
 }
 
 mod mock {
-	use frame_support::derive_impl;
 	use sp_runtime::testing::H256;
 
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -170,12 +169,11 @@ mod mock {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system,
-			Baseline: crate,
+			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+			Baseline: crate::{Pallet, Call, Storage, Event<T>},
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

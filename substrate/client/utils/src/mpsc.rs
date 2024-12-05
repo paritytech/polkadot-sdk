@@ -86,7 +86,7 @@ pub fn tracing_unbounded<T>(
 		warning_fired: Arc::new(AtomicBool::new(false)),
 		creation_backtrace: Arc::new(Backtrace::force_capture()),
 	};
-	let receiver = TracingUnboundedReceiver { inner: r, name: name.into() };
+	let receiver = TracingUnboundedReceiver { inner: r, name };
 	(sender, receiver)
 }
 
@@ -103,7 +103,7 @@ impl<T> TracingUnboundedSender<T> {
 
 	/// Proxy function to `async_channel::Sender::try_send`.
 	pub fn unbounded_send(&self, msg: T) -> Result<(), TrySendError<T>> {
-		self.inner.try_send(msg).inspect(|_| {
+		self.inner.try_send(msg).map(|s| {
 			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, SENT_LABEL]).inc();
 			UNBOUNDED_CHANNELS_SIZE
 				.with_label_values(&[self.name])
@@ -124,6 +124,8 @@ impl<T> TracingUnboundedSender<T> {
 					Backtrace::force_capture(),
 				);
 			}
+
+			s
 		})
 	}
 
@@ -142,22 +144,18 @@ impl<T> TracingUnboundedReceiver<T> {
 	/// Proxy function to [`async_channel::Receiver`]
 	/// that discounts the messages taken out.
 	pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
-		self.inner.try_recv().inspect(|_| {
+		self.inner.try_recv().map(|s| {
 			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, RECEIVED_LABEL]).inc();
 			UNBOUNDED_CHANNELS_SIZE
 				.with_label_values(&[self.name])
 				.set(self.inner.len().saturated_into());
+			s
 		})
 	}
 
 	/// The number of elements in the channel (proxy function to [`async_channel::Receiver`]).
 	pub fn len(&self) -> usize {
 		self.inner.len()
-	}
-
-	/// The name of this receiver
-	pub fn name(&self) -> &'static str {
-		self.name
 	}
 }
 

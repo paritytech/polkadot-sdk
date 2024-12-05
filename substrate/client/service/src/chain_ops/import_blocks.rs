@@ -37,10 +37,6 @@ use sp_runtime::{
 use std::{
 	io::Read,
 	pin::Pin,
-	sync::{
-		atomic::{AtomicBool, AtomicU64, Ordering},
-		Arc,
-	},
 	task::Poll,
 	time::{Duration, Instant},
 };
@@ -53,6 +49,8 @@ const DELAY_TIME: u64 = 200;
 
 /// Number of milliseconds that must have passed between two updates.
 const TIME_BETWEEN_UPDATES: u64 = 3_000;
+
+use std::sync::Arc;
 
 /// Build a chain spec json
 pub fn build_spec(spec: &dyn ChainSpec, raw: bool) -> error::Result<String> {
@@ -75,7 +73,7 @@ where
 		reader: CodecIoReader<R>,
 	},
 	Json {
-		// Number of blocks we have decoded thus far.
+		// Nubmer of blocks we have decoded thus far.
 		read_block_count: u64,
 		// Stream to the data, used for decoding new blocks.
 		reader: StreamDeserializer<'static, JsonIoRead<R>, SignedBlock<B>>,
@@ -303,29 +301,29 @@ where
 	IQ: ImportQueue<B> + 'static,
 {
 	struct WaitLink {
-		imported_blocks: AtomicU64,
-		has_error: AtomicBool,
+		imported_blocks: u64,
+		has_error: bool,
 	}
 
 	impl WaitLink {
 		fn new() -> WaitLink {
-			WaitLink { imported_blocks: AtomicU64::new(0), has_error: AtomicBool::new(false) }
+			WaitLink { imported_blocks: 0, has_error: false }
 		}
 	}
 
 	impl<B: BlockT> Link<B> for WaitLink {
 		fn blocks_processed(
-			&self,
+			&mut self,
 			imported: usize,
 			_num_expected_blocks: usize,
 			results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
 		) {
-			self.imported_blocks.fetch_add(imported as u64, Ordering::AcqRel);
+			self.imported_blocks += imported as u64;
 
 			for result in results {
 				if let (Err(err), hash) = result {
 					warn!("There was an error importing block with hash {:?}: {}", hash, err);
-					self.has_error.store(true, Ordering::Release);
+					self.has_error = true;
 					break
 				}
 			}
@@ -375,9 +373,7 @@ where
 						let read_block_count = block_iter.read_block_count();
 						match block_result {
 							Ok(block) => {
-								if read_block_count - link.imported_blocks.load(Ordering::Acquire) >=
-									MAX_PENDING_BLOCKS
-								{
+								if read_block_count - link.imported_blocks >= MAX_PENDING_BLOCKS {
 									// The queue is full, so do not add this block and simply wait
 									// until the queue has made some progress.
 									let delay = Delay::new(Duration::from_millis(DELAY_TIME));
@@ -403,9 +399,7 @@ where
 			},
 			ImportState::WaitingForImportQueueToCatchUp { block_iter, mut delay, block } => {
 				let read_block_count = block_iter.read_block_count();
-				if read_block_count - link.imported_blocks.load(Ordering::Acquire) >=
-					MAX_PENDING_BLOCKS
-				{
+				if read_block_count - link.imported_blocks >= MAX_PENDING_BLOCKS {
 					// Queue is still full, so wait until there is room to insert our block.
 					match Pin::new(&mut delay).poll(cx) {
 						Poll::Pending => {
@@ -439,11 +433,7 @@ where
 			} => {
 				// All the blocks have been added to the queue, which doesn't mean they
 				// have all been properly imported.
-				if importing_is_done(
-					num_expected_blocks,
-					read_block_count,
-					link.imported_blocks.load(Ordering::Acquire),
-				) {
+				if importing_is_done(num_expected_blocks, read_block_count, link.imported_blocks) {
 					// Importing is done, we can log the result and return.
 					info!(
 						"🎉 Imported {} blocks. Best: #{}",
@@ -482,10 +472,10 @@ where
 		let best_number = client.info().best_number;
 		speedometer.notify_user(best_number);
 
-		if link.has_error.load(Ordering::Acquire) {
+		if link.has_error {
 			return Poll::Ready(Err(Error::Other(format!(
 				"Stopping after #{} blocks because of an error",
-				link.imported_blocks.load(Ordering::Acquire)
+				link.imported_blocks
 			))))
 		}
 

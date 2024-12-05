@@ -22,15 +22,13 @@ use crate::{
 	weights::WeightInfo,
 	CodeHash, Config, Determinism, Pallet, Weight, LOG_TARGET,
 };
-use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use frame_support::{
-	pallet_prelude::*, storage_alias, weights::WeightMeter, DefaultNoBound, Identity,
-};
+use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound, Identity};
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
+use sp_std::prelude::*;
 
-mod v8 {
+mod old {
 	use super::*;
 
 	#[derive(Encode, Decode)]
@@ -52,14 +50,14 @@ mod v8 {
 #[cfg(feature = "runtime-benchmarks")]
 pub fn store_old_dummy_code<T: Config>(len: usize) {
 	use sp_runtime::traits::Hash;
-	let module = v8::PrefabWasmModule {
+	let module = old::PrefabWasmModule {
 		instruction_weights_version: 0,
 		initial: 0,
 		maximum: 0,
-		code: alloc::vec![42u8; len],
+		code: vec![42u8; len],
 	};
 	let hash = T::Hashing::hash(&module.code);
-	v8::CodeStorage::<T>::insert(hash, module);
+	old::CodeStorage::<T>::insert(hash, module);
 }
 
 #[derive(Encode, Decode)]
@@ -89,11 +87,11 @@ impl<T: Config> MigrationStep for Migration<T> {
 		T::WeightInfo::v9_migration_step(T::MaxCodeLen::get())
 	}
 
-	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
+	fn step(&mut self) -> (IsFinished, Weight) {
 		let mut iter = if let Some(last_key) = self.last_code_hash.take() {
-			v8::CodeStorage::<T>::iter_from(v8::CodeStorage::<T>::hashed_key_for(last_key))
+			old::CodeStorage::<T>::iter_from(old::CodeStorage::<T>::hashed_key_for(last_key))
 		} else {
-			v8::CodeStorage::<T>::iter()
+			old::CodeStorage::<T>::iter()
 		};
 
 		if let Some((key, old)) = iter.next() {
@@ -108,18 +106,16 @@ impl<T: Config> MigrationStep for Migration<T> {
 			};
 			CodeStorage::<T>::insert(key, module);
 			self.last_code_hash = Some(key);
-			meter.consume(T::WeightInfo::v9_migration_step(len));
-			IsFinished::No
+			(IsFinished::No, T::WeightInfo::v9_migration_step(len))
 		} else {
 			log::debug!(target: LOG_TARGET, "No more contracts code to migrate");
-			meter.consume(T::WeightInfo::v9_migration_step(0));
-			IsFinished::Yes
+			(IsFinished::Yes, T::WeightInfo::v9_migration_step(0))
 		}
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade_step() -> Result<Vec<u8>, TryRuntimeError> {
-		let sample: Vec<_> = v8::CodeStorage::<T>::iter().take(100).collect();
+		let sample: Vec<_> = old::CodeStorage::<T>::iter().take(100).collect();
 
 		log::debug!(target: LOG_TARGET, "Taking sample of {} contract codes", sample.len());
 		Ok(sample.encode())
@@ -127,7 +123,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade_step(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		let sample = <Vec<(CodeHash<T>, v8::PrefabWasmModule)> as Decode>::decode(&mut &state[..])
+		let sample = <Vec<(CodeHash<T>, old::PrefabWasmModule)> as Decode>::decode(&mut &state[..])
 			.expect("pre_upgrade_step provides a valid state; qed");
 
 		log::debug!(target: LOG_TARGET, "Validating sample of {} contract codes", sample.len());
@@ -135,7 +131,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 			let module = CodeStorage::<T>::get(&code_hash).unwrap();
 			ensure!(
 				module.instruction_weights_version == old.instruction_weights_version,
-				"invalid instruction weights version"
+				"invalid isntruction weights version"
 			);
 			ensure!(module.determinism == Determinism::Enforced, "invalid determinism");
 			ensure!(module.initial == old.initial, "invalid initial");

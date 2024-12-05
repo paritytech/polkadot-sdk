@@ -18,7 +18,7 @@
 //! Home of the parsing and expansion code for the new pallet benchmarking syntax
 
 use derive_syn_parse::Parse;
-use frame_support_procedural_tools::generate_access_from_frame_or_crate;
+use frame_support_procedural_tools::generate_crate_access_2018;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
@@ -40,14 +40,10 @@ mod keywords {
 	custom_keyword!(benchmarks);
 	custom_keyword!(block);
 	custom_keyword!(extra);
-	custom_keyword!(pov_mode);
 	custom_keyword!(extrinsic_call);
 	custom_keyword!(skip_meta);
 	custom_keyword!(BenchmarkError);
 	custom_keyword!(Result);
-	custom_keyword!(MaxEncodedLen);
-	custom_keyword!(Measured);
-	custom_keyword!(Ignored);
 
 	pub const BENCHMARK_TOKEN: &str = stringify!(benchmark);
 	pub const BENCHMARKS_TOKEN: &str = stringify!(benchmarks);
@@ -69,7 +65,6 @@ struct RangeArgs {
 	start: syn::GenericArgument,
 	_comma: Comma,
 	end: syn::GenericArgument,
-	_trailing_comma: Option<Comma>,
 	_gt_token: Gt,
 }
 
@@ -77,124 +72,25 @@ struct RangeArgs {
 struct BenchmarkAttrs {
 	skip_meta: bool,
 	extra: bool,
-	pov_mode: Option<PovModeAttr>,
 }
 
 /// Represents a single benchmark option
-enum BenchmarkAttr {
+enum BenchmarkAttrKeyword {
 	Extra,
 	SkipMeta,
-	/// How the PoV should be measured.
-	PoV(PovModeAttr),
 }
 
-impl syn::parse::Parse for PovModeAttr {
-	fn parse(input: ParseStream) -> Result<Self> {
-		let _pov: keywords::pov_mode = input.parse()?;
-		let _eq: Token![=] = input.parse()?;
-		let root = PovEstimationMode::parse(input)?;
-
-		let mut maybe_content = None;
-		let _ = || -> Result<()> {
-			let content;
-			syn::braced!(content in input);
-			maybe_content = Some(content);
-			Ok(())
-		}();
-
-		let per_key = match maybe_content {
-			Some(content) => {
-				let per_key = Punctuated::<PovModeKeyAttr, Token![,]>::parse_terminated(&content)?;
-				per_key.into_iter().collect()
-			},
-			None => Vec::new(),
-		};
-
-		Ok(Self { root, per_key })
-	}
-}
-
-impl syn::parse::Parse for BenchmarkAttr {
+impl syn::parse::Parse for BenchmarkAttrKeyword {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::extra) {
 			let _extra: keywords::extra = input.parse()?;
-			Ok(BenchmarkAttr::Extra)
+			return Ok(BenchmarkAttrKeyword::Extra)
 		} else if lookahead.peek(keywords::skip_meta) {
 			let _skip_meta: keywords::skip_meta = input.parse()?;
-			Ok(BenchmarkAttr::SkipMeta)
-		} else if lookahead.peek(keywords::pov_mode) {
-			PovModeAttr::parse(input).map(BenchmarkAttr::PoV)
-		} else {
-			Err(lookahead.error())
-		}
-	}
-}
-
-/// A `#[pov_mode = .. { .. }]` attribute.
-#[derive(Debug, Clone)]
-struct PovModeAttr {
-	/// The root mode for this benchmarks.
-	root: PovEstimationMode,
-	/// The pov-mode for a specific key. This overwrites `root` for this key.
-	per_key: Vec<PovModeKeyAttr>,
-}
-
-/// A single key-value pair inside the `{}` of a `#[pov_mode = .. { .. }]` attribute.
-#[derive(Debug, Clone, derive_syn_parse::Parse)]
-struct PovModeKeyAttr {
-	/// A specific storage key for which to set the PoV mode.
-	key: Path,
-	_underscore: Token![:],
-	/// The PoV mode for this key.
-	mode: PovEstimationMode,
-}
-
-/// How the PoV should be estimated.
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub enum PovEstimationMode {
-	/// Use the maximal encoded length as provided by [`codec::MaxEncodedLen`].
-	MaxEncodedLen,
-	/// Measure the accessed value size in the pallet benchmarking and add some trie overhead.
-	Measured,
-	/// Do not estimate the PoV size for this storage item or benchmark.
-	Ignored,
-}
-
-impl syn::parse::Parse for PovEstimationMode {
-	fn parse(input: ParseStream) -> Result<Self> {
-		let lookahead = input.lookahead1();
-		if lookahead.peek(keywords::MaxEncodedLen) {
-			let _max_encoded_len: keywords::MaxEncodedLen = input.parse()?;
-			return Ok(PovEstimationMode::MaxEncodedLen)
-		} else if lookahead.peek(keywords::Measured) {
-			let _measured: keywords::Measured = input.parse()?;
-			return Ok(PovEstimationMode::Measured)
-		} else if lookahead.peek(keywords::Ignored) {
-			let _ignored: keywords::Ignored = input.parse()?;
-			return Ok(PovEstimationMode::Ignored)
+			return Ok(BenchmarkAttrKeyword::SkipMeta)
 		} else {
 			return Err(lookahead.error())
-		}
-	}
-}
-
-impl ToString for PovEstimationMode {
-	fn to_string(&self) -> String {
-		match self {
-			PovEstimationMode::MaxEncodedLen => "MaxEncodedLen".into(),
-			PovEstimationMode::Measured => "Measured".into(),
-			PovEstimationMode::Ignored => "Ignored".into(),
-		}
-	}
-}
-
-impl quote::ToTokens for PovEstimationMode {
-	fn to_tokens(&self, tokens: &mut TokenStream2) {
-		match self {
-			PovEstimationMode::MaxEncodedLen => tokens.extend(quote!(MaxEncodedLen)),
-			PovEstimationMode::Measured => tokens.extend(quote!(Measured)),
-			PovEstimationMode::Ignored => tokens.extend(quote!(Ignored)),
 		}
 	}
 }
@@ -203,32 +99,24 @@ impl syn::parse::Parse for BenchmarkAttrs {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
 		let mut extra = false;
 		let mut skip_meta = false;
-		let mut pov_mode = None;
-		let args = Punctuated::<BenchmarkAttr, Token![,]>::parse_terminated(&input)?;
-
+		let args = Punctuated::<BenchmarkAttrKeyword, Token![,]>::parse_terminated(&input)?;
 		for arg in args.into_iter() {
 			match arg {
-				BenchmarkAttr::Extra => {
+				BenchmarkAttrKeyword::Extra => {
 					if extra {
 						return Err(input.error("`extra` can only be specified once"))
 					}
 					extra = true;
 				},
-				BenchmarkAttr::SkipMeta => {
+				BenchmarkAttrKeyword::SkipMeta => {
 					if skip_meta {
 						return Err(input.error("`skip_meta` can only be specified once"))
 					}
 					skip_meta = true;
 				},
-				BenchmarkAttr::PoV(mode) => {
-					if pov_mode.is_some() {
-						return Err(input.error("`pov_mode` can only be specified once"))
-					}
-					pov_mode = Some(mode);
-				},
 			}
 		}
-		Ok(BenchmarkAttrs { extra, skip_meta, pov_mode })
+		Ok(BenchmarkAttrs { extra, skip_meta })
 	}
 }
 
@@ -249,7 +137,7 @@ impl BenchmarkCallDef {
 	}
 }
 
-/// Represents a parsed `#[benchmark]` or `#[instance_benchmark]` item.
+/// Represents a parsed `#[benchmark]` or `#[instance_banchmark]` item.
 #[derive(Clone)]
 struct BenchmarkDef {
 	params: Vec<ParamDef>,
@@ -299,24 +187,6 @@ fn ensure_valid_return_type(item_fn: &ItemFn) -> Result<()> {
 			.last()
 			.expect("to be parsed as a TypePath, it must have at least one segment; qed");
 		syn::parse2::<keywords::BenchmarkError>(seg.to_token_stream())?;
-	}
-	Ok(())
-}
-
-/// Ensure that the passed statements do not contain any forbidden variable names
-fn ensure_no_forbidden_variable_names(stmts: &[Stmt]) -> Result<()> {
-	const FORBIDDEN_VAR_NAMES: [&str; 2] = ["recording", "verify"];
-	for stmt in stmts {
-		let Stmt::Local(l) = stmt else { continue };
-		let Pat::Ident(ident) = &l.pat else { continue };
-		if FORBIDDEN_VAR_NAMES.contains(&ident.ident.to_string().as_str()) {
-			return Err(Error::new(
-				ident.span(),
-				format!(
-					"Variables {FORBIDDEN_VAR_NAMES:?} are reserved for benchmarking internals.",
-				),
-			));
-		}
 	}
 	Ok(())
 }
@@ -454,12 +324,9 @@ impl BenchmarkDef {
 			},
 		};
 
-		let setup_stmts = Vec::from(&item_fn.block.stmts[0..i]);
-		ensure_no_forbidden_variable_names(&setup_stmts)?;
-
 		Ok(BenchmarkDef {
 			params,
-			setup_stmts,
+			setup_stmts: Vec::from(&item_fn.block.stmts[0..i]),
 			call_def,
 			verify_stmts,
 			last_stmt,
@@ -476,7 +343,6 @@ pub fn benchmarks(
 	tokens: TokenStream,
 	instance: bool,
 ) -> syn::Result<TokenStream> {
-	let krate = generate_access_from_frame_or_crate("frame-benchmarking")?;
 	// gather module info
 	let module: ItemMod = syn::parse(tokens)?;
 	let mod_span = module.span();
@@ -487,7 +353,7 @@ pub fn benchmarks(
 	let mod_vis = module.vis;
 	let mod_name = module.ident;
 
-	// consume #[benchmarks] attribute by excluding it from mod_attrs
+	// consume #[benchmarks] attribute by exclusing it from mod_attrs
 	let mod_attrs: Vec<&Attribute> = module
 		.attrs
 		.iter()
@@ -497,8 +363,6 @@ pub fn benchmarks(
 	let mut benchmark_names: Vec<Ident> = Vec::new();
 	let mut extra_benchmark_names: Vec<Ident> = Vec::new();
 	let mut skip_meta_benchmark_names: Vec<Ident> = Vec::new();
-	// Map benchmarks to PoV modes.
-	let mut pov_modes = Vec::new();
 
 	let (_brace, mut content) =
 		module.content.ok_or(syn::Error::new(mod_span, "Module cannot be empty!"))?;
@@ -535,25 +399,6 @@ pub fn benchmarks(
 			} else if benchmark_attrs.skip_meta {
 				skip_meta_benchmark_names.push(name.clone());
 			}
-
-			if let Some(mode) = benchmark_attrs.pov_mode {
-				let mut modes = Vec::new();
-				// We cannot expand strings here since it is no-std, but syn does not expand bytes.
-				let name = name.to_string();
-				let m = mode.root.to_string();
-				modes.push(quote!(("ALL".as_bytes().to_vec(), #m.as_bytes().to_vec())));
-
-				for attr in mode.per_key.iter() {
-					// syn always puts spaces in quoted paths:
-					let key = attr.key.clone().into_token_stream().to_string().replace(" ", "");
-					let mode = attr.mode.to_string();
-					modes.push(quote!((#key.as_bytes().to_vec(), #mode.as_bytes().to_vec())));
-				}
-
-				pov_modes.push(
-					quote!((#name.as_bytes().to_vec(), #krate::__private::vec![#(#modes),*])),
-				);
-			}
 		}
 
 		// expand benchmark
@@ -573,7 +418,7 @@ pub fn benchmarks(
 		true => quote!(T: Config<I>, I: 'static),
 	};
 
-	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
+	let krate = generate_crate_access_2018("frame-benchmarking")?;
 
 	// benchmark name variables
 	let benchmark_names_str: Vec<String> = benchmark_names.iter().map(|n| n.to_string()).collect();
@@ -585,7 +430,7 @@ pub fn benchmarks(
 	let mut benchmarks_by_name_mappings: Vec<TokenStream2> = Vec::new();
 	let test_idents: Vec<Ident> = benchmark_names_str
 		.iter()
-		.map(|n| Ident::new(format!("test_benchmark_{}", n).as_str(), Span::call_site()))
+		.map(|n| Ident::new(format!("test_{}", n).as_str(), Span::call_site()))
 		.collect();
 	for i in 0..benchmark_names.len() {
 		let name_ident = &benchmark_names[i];
@@ -594,37 +439,6 @@ pub fn benchmarks(
 		selected_benchmark_mappings.push(quote!(#name_str => SelectedBenchmark::#name_ident));
 		benchmarks_by_name_mappings.push(quote!(#name_str => Self::#test_ident()))
 	}
-
-	let impl_test_function = content
-		.iter_mut()
-		.find_map(|item| {
-			let Item::Macro(item_macro) = item else {
-				return None;
-			};
-
-			if !item_macro
-				.mac
-				.path
-				.segments
-				.iter()
-				.any(|s| s.ident == "impl_benchmark_test_suite")
-			{
-				return None;
-			}
-
-			let tokens = item_macro.mac.tokens.clone();
-			*item = Item::Verbatim(quote! {});
-
-			Some(quote! {
-				impl_test_function!(
-					(#( {} #benchmark_names )*)
-					(#( #extra_benchmark_names )*)
-					(#( #skip_meta_benchmark_names )*)
-					#tokens
-				);
-			})
-		})
-		.unwrap_or(quote! {});
 
 	// emit final quoted tokens
 	let res = quote! {
@@ -654,16 +468,18 @@ pub fn benchmarks(
 
 				fn instance(
 					&self,
-					recording: &mut impl #krate::Recording,
 					components: &[(#krate::BenchmarkParameter, u32)],
 					verify: bool,
-				) -> Result<(), #krate::BenchmarkError> {
+				) -> Result<
+					#krate::__private::Box<dyn FnOnce() -> Result<(), #krate::BenchmarkError>>,
+					#krate::BenchmarkError,
+				> {
 					match self {
 						#(
 							Self::#benchmark_names => {
 								<#benchmark_names as #krate::BenchmarkingSetup<
 									#type_use_generics
-								>>::instance(&#benchmark_names, recording, components, verify)
+								>>::instance(&#benchmark_names, components, verify)
 							}
 						)
 						*
@@ -672,7 +488,7 @@ pub fn benchmarks(
 			}
 			#[cfg(any(feature = "runtime-benchmarks", test))]
 			impl<#type_impl_generics> #krate::Benchmarking for Pallet<#type_use_generics>
-			where T: #frame_system::Config, #where_clause
+			where T: frame_system::Config, #where_clause
 			{
 				fn benchmarks(
 					extra: bool,
@@ -688,16 +504,6 @@ pub fn benchmarks(
 						];
 						all_names.retain(|x| !extra.contains(x));
 					}
-					let pov_modes:
-						#krate::__private::Vec<(
-							#krate::__private::Vec<u8>,
-							#krate::__private::Vec<(
-								#krate::__private::Vec<u8>,
-								#krate::__private::Vec<u8>
-							)>,
-						)> = #krate::__private::vec![
-						#( #pov_modes ),*
-					];
 					all_names.into_iter().map(|benchmark| {
 						let selected_benchmark = match benchmark {
 							#(#selected_benchmark_mappings),
@@ -705,13 +511,12 @@ pub fn benchmarks(
 							_ => panic!("all benchmarks should be selectable")
 						};
 						let components = <SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>>::components(&selected_benchmark);
-						let name = benchmark.as_bytes().to_vec();
-						let modes = pov_modes.iter().find(|p| p.0 == name).map(|p| p.1.clone());
-
 						#krate::BenchmarkMetadata {
 							name: benchmark.as_bytes().to_vec(),
 							components,
-							pov_modes: modes.unwrap_or_default(),
+							// TODO: Not supported by V2 syntax as of yet.
+							// https://github.com/paritytech/substrate/issues/13132
+							pov_modes: vec![],
 						}
 					}).collect::<#krate::__private::Vec<_>>()
 				}
@@ -730,7 +535,7 @@ pub fn benchmarks(
 						_ => return Err("Could not find extrinsic.".into()),
 					};
 					let mut whitelist = whitelist.to_vec();
-					let whitelisted_caller_key = <#frame_system::Account<
+					let whitelisted_caller_key = <frame_system::Account<
 						T,
 					> as #krate::__private::storage::StorageMap<_, _,>>::hashed_key_for(
 						#krate::whitelisted_caller::<T::AccountId>()
@@ -754,10 +559,20 @@ pub fn benchmarks(
 					#krate::benchmarking::set_whitelist(whitelist.clone());
 					let mut results: #krate::__private::Vec<#krate::BenchmarkResult> = #krate::__private::Vec::new();
 
-					let on_before_start = || {
+					// Always do at least one internal repeat...
+					for _ in 0 .. internal_repeats.max(1) {
+						// Always reset the state after the benchmark.
+						#krate::__private::defer!(#krate::benchmarking::wipe_db());
+
+						// Set up the externalities environment for the setup we want to
+						// benchmark.
+						let closure_to_benchmark = <
+							SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>
+						>::instance(&selected_benchmark, c, verify)?;
+
 						// Set the block number to at least 1 so events are deposited.
-						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
-							#frame_system::Pallet::<T>::set_block_number(1u32.into());
+						if #krate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
+							frame_system::Pallet::<T>::set_block_number(1u32.into());
 						}
 
 						// Commit the externalities to the database, flushing the DB cache.
@@ -772,12 +587,6 @@ pub fn benchmarks(
 
 						// Reset the read/write counter so we don't count operations in the setup process.
 						#krate::benchmarking::reset_read_write_count();
-					};
-
-					// Always do at least one internal repeat...
-					for _ in 0 .. internal_repeats.max(1) {
-						// Always reset the state after the benchmark.
-						#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
 						// Time the extrinsic logic.
 						#krate::__private::log::trace!(
@@ -787,12 +596,20 @@ pub fn benchmarks(
 							c
 						);
 
-						let mut recording = #krate::BenchmarkRecording::new(&on_before_start);
-						<SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>>::instance(&selected_benchmark, &mut recording, c, verify)?;
+						let start_pov = #krate::benchmarking::proof_size();
+						let start_extrinsic = #krate::benchmarking::current_time();
+
+						closure_to_benchmark()?;
+
+						let finish_extrinsic = #krate::benchmarking::current_time();
+						let end_pov = #krate::benchmarking::proof_size();
 
 						// Calculate the diff caused by the benchmark.
-						let elapsed_extrinsic = recording.elapsed_extrinsic().expect("elapsed time should be recorded");
-						let diff_pov = recording.diff_pov().unwrap_or_default();
+						let elapsed_extrinsic = finish_extrinsic.saturating_sub(start_extrinsic);
+						let diff_pov = match (start_pov, end_pov) {
+							(Some(start), Some(end)) => end.saturating_sub(start),
+							_ => Default::default(),
+						};
 
 						// Commit the changes to get proper write count
 						#krate::benchmarking::commit_db();
@@ -837,7 +654,7 @@ pub fn benchmarks(
 			}
 
 			#[cfg(test)]
-			impl<#type_impl_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
+			impl<#type_impl_generics> Pallet<#type_use_generics> where T: ::frame_system::Config, #where_clause {
 				/// Test a particular benchmark by name.
 				///
 				/// This isn't called `test_benchmark_by_name` just in case some end-user eventually
@@ -858,8 +675,6 @@ pub fn benchmarks(
 					}
 				}
 			}
-
-			#impl_test_function
 		}
 		#mod_vis use #mod_name::*;
 	};
@@ -904,12 +719,8 @@ fn expand_benchmark(
 	where_clause: TokenStream2,
 ) -> TokenStream2 {
 	// set up variables needed during quoting
-	let krate = match generate_access_from_frame_or_crate("frame-benchmarking") {
+	let krate = match generate_crate_access_2018("frame-benchmarking") {
 		Ok(ident) => ident,
-		Err(err) => return err.to_compile_error().into(),
-	};
-	let frame_system = match generate_access_from_frame_or_crate("frame-system") {
-		Ok(path) => path,
 		Err(err) => return err.to_compile_error().into(),
 	};
 	let codec = quote!(#krate::__private::codec);
@@ -917,8 +728,7 @@ fn expand_benchmark(
 	let setup_stmts = benchmark_def.setup_stmts;
 	let verify_stmts = benchmark_def.verify_stmts;
 	let last_stmt = benchmark_def.last_stmt;
-	let test_ident =
-		Ident::new(format!("test_benchmark_{}", name.to_string()).as_str(), Span::call_site());
+	let test_ident = Ident::new(format!("test_{}", name.to_string()).as_str(), Span::call_site());
 
 	// unroll params (prepare for quoting)
 	let unrolled = UnrolledParams::from(&benchmark_def.params);
@@ -952,7 +762,7 @@ fn expand_benchmark(
 				Expr::Cast(t) => {
 					let ty = t.ty.clone();
 					quote! {
-						<<T as #frame_system::Config>::RuntimeOrigin as From<#ty>>::from(#origin);
+						<<T as frame_system::Config>::RuntimeOrigin as From<#ty>>::from(#origin);
 					}
 				},
 				_ => quote! {
@@ -1093,10 +903,9 @@ fn expand_benchmark(
 
 			fn instance(
 				&self,
-				recording: &mut impl #krate::Recording,
 				components: &[(#krate::BenchmarkParameter, u32)],
 				verify: bool
-			) -> Result<(), #krate::BenchmarkError> {
+			) -> Result<#krate::__private::Box<dyn FnOnce() -> Result<(), #krate::BenchmarkError>>, #krate::BenchmarkError> {
 				#(
 					// prepare instance #param_names
 					let #param_names = components.iter()
@@ -1110,20 +919,20 @@ fn expand_benchmark(
 					#setup_stmts
 				)*
 				#pre_call
-				recording.start();
-				#post_call
-				recording.stop();
-				if verify {
-					#(
-						#verify_stmts
-					)*
-				}
-				#impl_last_stmt
+				Ok(#krate::__private::Box::new(move || -> Result<(), #krate::BenchmarkError> {
+					#post_call
+					if verify {
+						#(
+							#verify_stmts
+						)*
+					}
+					#impl_last_stmt
+				}))
 			}
 		}
 
 		#[cfg(test)]
-		impl<#type_impl_generics> Pallet<#type_use_generics> where T: #frame_system::Config, #where_clause {
+		impl<#type_impl_generics> Pallet<#type_use_generics> where T: ::frame_system::Config, #where_clause {
 			#[allow(unused)]
 			fn #test_ident() -> Result<(), #krate::BenchmarkError> {
 				let selected_benchmark = SelectedBenchmark::#name;
@@ -1136,15 +945,18 @@ fn expand_benchmark(
 					// Always reset the state after the benchmark.
 					#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
-					let on_before_start = || {
-						// Set the block number to at least 1 so events are deposited.
-						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
-							#frame_system::Pallet::<T>::set_block_number(1u32.into());
-						}
-					};
+					// Set up the benchmark, return execution + verification function.
+					let closure_to_verify = <
+						SelectedBenchmark as #krate::BenchmarkingSetup<T, _>
+					>::instance(&selected_benchmark, &c, true)?;
+
+					// Set the block number to at least 1 so events are deposited.
+					if #krate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
+						frame_system::Pallet::<T>::set_block_number(1u32.into());
+					}
 
 					// Run execution + verification
-					<SelectedBenchmark as #krate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark,  &c, &on_before_start)
+					closure_to_verify()
 				};
 
 				if components.is_empty() {

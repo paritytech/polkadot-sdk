@@ -34,8 +34,6 @@ use sp_runtime::traits::Header as HeaderT;
 use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	prelude::*,
-	vec,
-	vec::Vec,
 };
 
 enum AuthorityVotes<Header: HeaderT> {
@@ -103,13 +101,6 @@ impl<'a, Header: HeaderT> EquivocationsCollector<'a, Header> {
 }
 
 impl<'a, Header: HeaderT> JustificationVerifier<Header> for EquivocationsCollector<'a, Header> {
-	fn process_duplicate_votes_ancestries(
-		&mut self,
-		_duplicate_votes_ancestries: Vec<usize>,
-	) -> Result<(), JustificationVerificationError> {
-		Ok(())
-	}
-
 	fn process_redundant_vote(
 		&mut self,
 		_precommit_idx: usize,

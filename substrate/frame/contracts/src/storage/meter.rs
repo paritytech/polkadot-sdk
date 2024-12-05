@@ -22,8 +22,6 @@ use crate::{
 	Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 
-use alloc::vec::Vec;
-use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	ensure,
 	traits::{
@@ -35,10 +33,12 @@ use frame_support::{
 	},
 	DefaultNoBound, RuntimeDebugNoBound,
 };
+use sp_api::HashT;
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
 };
+use sp_std::{fmt::Debug, marker::PhantomData, vec, vec::Vec};
 
 /// Deposit that uses the native fungible's balance type.
 pub type DepositOf<T> = Deposit<BalanceOf<T>>;
@@ -436,12 +436,22 @@ where
 		contract: &T::AccountId,
 		contract_info: &mut ContractInfo<T>,
 		code_info: &CodeInfo<T>,
-	) -> Result<(), DispatchError> {
+	) -> Result<DepositOf<T>, DispatchError> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
+		let ed = Pallet::<T>::min_balance();
+
+		let deposit = contract_info.update_base_deposit(&code_info);
+		if deposit > self.limit {
+			return Err(<Error<T>>::StorageDepositLimitExhausted.into())
+		}
+
+		let deposit = Deposit::Charge(deposit);
+
+		// We do not increase `own_contribution` because this will be charged later when the
+		// contract execution does conclude and hence would lead to a double charge.
+		self.total_deposit = Deposit::Charge(ed);
 
 		// We need to make sure that the contract's account exists.
-		let ed = Pallet::<T>::min_balance();
-		self.total_deposit = Deposit::Charge(ed);
 		T::Currency::transfer(origin, contract, ed, Preservation::Preserve)?;
 
 		// A consumer is added at account creation and removed it on termination, otherwise the
@@ -449,11 +459,9 @@ where
 		// With the consumer, a correct runtime cannot remove the account.
 		System::<T>::inc_consumers(contract)?;
 
-		let deposit = contract_info.update_base_deposit(&code_info);
-		let deposit = Deposit::Charge(deposit);
+		self.charge_deposit(contract.clone(), deposit.saturating_sub(&Deposit::Charge(ed)));
 
-		self.charge_deposit(contract.clone(), deposit);
-		Ok(())
+		Ok(deposit)
 	}
 
 	/// Call to tell the meter that the currently executing contract was terminated.
@@ -552,11 +560,14 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Fortitude::Polite,
 				)?;
 
-				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndHeld {
-					from: origin.clone(),
-					to: contract.clone(),
-					amount: *amount,
-				});
+				Pallet::<T>::deposit_event(
+					vec![T::Hashing::hash_of(&origin), T::Hashing::hash_of(&contract)],
+					Event::StorageDepositTransferredAndHeld {
+						from: origin.clone(),
+						to: contract.clone(),
+						amount: *amount,
+					},
+				);
 			},
 			Deposit::Refund(amount) => {
 				let transferred = T::Currency::transfer_on_hold(
@@ -569,11 +580,14 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Fortitude::Polite,
 				)?;
 
-				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndReleased {
-					from: contract.clone(),
-					to: origin.clone(),
-					amount: transferred,
-				});
+				Pallet::<T>::deposit_event(
+					vec![T::Hashing::hash_of(&contract), T::Hashing::hash_of(&origin)],
+					Event::StorageDepositTransferredAndReleased {
+						from: contract.clone(),
+						to: origin.clone(),
+						amount: transferred,
+					},
+				);
 
 				if transferred < *amount {
 					// This should never happen, if it does it means that there is a bug in the
@@ -846,14 +860,14 @@ mod tests {
 		let test_cases = vec![
 			ChargingTestCase {
 				origin: Origin::<Test>::from_account_id(ALICE),
-				deposit: Deposit::Refund(108),
+				deposit: Deposit::Refund(107),
 				expected: TestExt {
 					limit_checks: vec![LimitCheck { origin: ALICE, limit: 1_000, min_leftover: 0 }],
 					charges: vec![
 						Charge {
 							origin: ALICE,
 							contract: CHARLIE,
-							amount: Deposit::Refund(120),
+							amount: Deposit::Refund(119),
 							state: ContractState::Terminated { beneficiary: CHARLIE },
 						},
 						Charge {
@@ -902,6 +916,7 @@ mod tests {
 
 			meter.absorb(nested0, &BOB, None);
 			assert_eq!(meter.try_into_deposit(&test_case.origin).unwrap(), test_case.deposit);
+
 			assert_eq!(TestExtTestValue::get(), test_case.expected)
 		}
 	}

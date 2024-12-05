@@ -16,7 +16,6 @@
 // limitations under the License.
 
 #[frame_support::pallet]
-#[allow(unused_imports)]
 mod pallet {
 	use frame_support::pallet_prelude::{Hooks, IsType};
 	use frame_system::pallet_prelude::BlockNumberFor;
@@ -42,4 +41,5 @@ mod pallet {
 	}
 }
 
-fn main() {}
+fn main() {
+}

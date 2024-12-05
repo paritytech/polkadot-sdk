@@ -1,39 +1,34 @@
 [package]
 name = "cumulus-pallet-aura-ext"
-version = "0.7.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "AURA consensus extension pallet for parachains"
-license = "Apache-2.0"
-homepage.workspace = true
-repository.workspace = true
-
-[lints]
-workspace = true
 
 [dependencies]
-codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-aura = { workspace = true }
-pallet-timestamp = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support = { path = "../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../substrate/frame/system", default-features = false}
+pallet-aura = { path = "../../../substrate/frame/aura", default-features = false}
+pallet-timestamp= { path = "../../../substrate/frame/timestamp", default-features = false}
+sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false}
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false}
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
+sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
 # Cumulus
-cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false }
 
 [dev-dependencies]
 
 # Cumulus
-cumulus-pallet-parachain-system = { workspace = true, default-features = true }
+cumulus-pallet-parachain-system = { path = "../parachain-system" }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
@@ -45,6 +40,7 @@ std = [
 	"sp-application-crypto/std",
 	"sp-consensus-aura/std",
 	"sp-runtime/std",
+	"sp-std/std",
 ]
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",

@@ -134,6 +134,7 @@ pub fn expand_outer_enum(
 			enum_ty,
 		));
 		enum_conversions.extend(expand_enum_conversion(
+			scrate,
 			pallet_decl,
 			&pallet_enum,
 			&enum_name_ident,
@@ -219,6 +220,7 @@ fn expand_enum_variant(
 }
 
 fn expand_enum_conversion(
+	scrate: &TokenStream,
 	pallet: &Pallet,
 	pallet_enum: &TokenStream,
 	enum_name_ident: &Ident,
@@ -245,7 +247,7 @@ fn expand_enum_conversion(
 		impl TryInto<#pallet_enum> for #enum_name_ident {
 			type Error = ();
 
-			fn try_into(self) -> ::core::result::Result<#pallet_enum, Self::Error> {
+			fn try_into(self) -> #scrate::__private::sp_std::result::Result<#pallet_enum, Self::Error> {
 				match self {
 					Self::#variant_name(evt) => Ok(evt),
 					_ => Err(()),

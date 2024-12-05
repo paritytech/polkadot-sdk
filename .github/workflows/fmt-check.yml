@@ -1,0 +1,22 @@
+name: Rustfmt check
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  quick_check:
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+    runs-on: ${{ matrix.os }}
+    container:
+      image: paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
+    steps:
+      - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+
+      - name: Cargo fmt
+        run: cargo +nightly fmt --all -- --check

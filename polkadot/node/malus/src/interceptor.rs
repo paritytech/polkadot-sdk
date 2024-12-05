@@ -21,8 +21,8 @@
 //! messages on the overseer level.
 
 use polkadot_node_subsystem::*;
-pub use polkadot_node_subsystem::{messages::*, overseer, FromOrchestra};
-use std::{collections::VecDeque, future::Future, pin::Pin};
+pub use polkadot_node_subsystem::{messages, messages::*, overseer, FromOrchestra};
+use std::{future::Future, pin::Pin};
 
 /// Filter incoming and outgoing messages.
 pub trait MessageInterceptor<Sender>: Send + Sync + Clone + 'static
@@ -90,10 +90,6 @@ where
 	<OutgoingMessage as TryFrom<overseer::AllMessages>>::Error: std::fmt::Debug,
 {
 	async fn send_message(&mut self, msg: OutgoingMessage) {
-		self.send_message_with_priority::<overseer::NormalPriority>(msg).await;
-	}
-
-	async fn send_message_with_priority<P: Priority>(&mut self, msg: OutgoingMessage) {
 		let msg = <
 					<<Fil as MessageInterceptor<Sender>>::Message as overseer::AssociateOutgoing
 				>::OutgoingMessages as From<OutgoingMessage>>::from(msg);
@@ -107,14 +103,7 @@ where
 		}
 	}
 
-	fn try_send_message(
-		&mut self,
-		msg: OutgoingMessage,
-	) -> Result<(), polkadot_node_subsystem_util::metered::TrySendError<OutgoingMessage>> {
-		self.try_send_message_with_priority::<overseer::NormalPriority>(msg)
-	}
-
-	fn try_send_message_with_priority<P: Priority>(&mut self, msg: OutgoingMessage) -> Result<(), TrySendError<OutgoingMessage>> {
+	fn try_send_message(&mut self, msg: OutgoingMessage) -> Result<(), TrySendError<OutgoingMessage>> {
 		let msg = <
 				<<Fil as MessageInterceptor<Sender>>::Message as overseer::AssociateOutgoing
 			>::OutgoingMessages as From<OutgoingMessage>>::from(msg);
@@ -181,7 +170,6 @@ where
 	inner: Context,
 	message_filter: Fil,
 	sender: InterceptedSender<<Context as overseer::SubsystemContext>::Sender, Fil>,
-	message_buffer: VecDeque<FromOrchestra<<Context as overseer::SubsystemContext>::Message>>,
 }
 
 impl<Context, Fil> InterceptedContext<Context, Fil>
@@ -201,7 +189,7 @@ where
 			inner: inner.sender().clone(),
 			message_filter: message_filter.clone(),
 		};
-		Self { inner, message_filter, sender, message_buffer: VecDeque::new() }
+		Self { inner, message_filter, sender }
 	}
 }
 
@@ -245,26 +233,10 @@ where
 	}
 
 	async fn recv(&mut self) -> SubsystemResult<FromOrchestra<Self::Message>> {
-		if let Some(msg) = self.message_buffer.pop_front() {
-			return Ok(msg)
-		}
 		loop {
 			let msg = self.inner.recv().await?;
 			if let Some(msg) = self.message_filter.intercept_incoming(self.inner.sender(), msg) {
 				return Ok(msg)
-			}
-		}
-	}
-
-	async fn recv_signal(&mut self) -> SubsystemResult<Self::Signal> {
-		loop {
-			let msg = self.inner.recv().await?;
-			if let Some(msg) = self.message_filter.intercept_incoming(self.inner.sender(), msg) {
-				if let FromOrchestra::Signal(sig) = msg {
-					return Ok(sig)
-				} else {
-					self.message_buffer.push_back(msg)
-				}
 			}
 		}
 	}

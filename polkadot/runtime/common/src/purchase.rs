@@ -1,35 +1,35 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Pallet to process purchase of DOTs.
 
-use alloc::vec::Vec;
-use codec::{Decode, Encode};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, EnsureOrigin, ExistenceRequirement, Get, VestingSchedule},
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
+use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::sr25519;
 use sp_runtime::{
 	traits::{CheckedAdd, Saturating, Verify, Zero},
 	AnySignature, DispatchError, DispatchResult, Permill, RuntimeDebug,
 };
+use sp_std::prelude::*;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -425,8 +425,8 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	fn verify_signature(who: &T::AccountId, signature: &[u8]) -> Result<(), DispatchError> {
 		// sr25519 always expects a 64 byte signature.
-		let signature: AnySignature = sr25519::Signature::try_from(signature)
-			.map_err(|_| Error::<T>::InvalidSignature)?
+		let signature: AnySignature = sr25519::Signature::from_slice(signature)
+			.ok_or(Error::<T>::InvalidSignature)?
 			.into();
 
 		// In Polkadot, the AccountId is always the same as the 32 byte public key.
@@ -479,19 +479,19 @@ where
 mod tests {
 	use super::*;
 
-	use sp_core::{crypto::AccountId32, H256};
-	use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
+	use sp_core::{crypto::AccountId32, ed25519, Pair, Public, H256};
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::purchase;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
+		assert_noop, assert_ok, ord_parameter_types, parameter_types,
 		traits::{Currency, WithdrawReasons},
 	};
 	use sp_runtime::{
-		traits::{BlakeTwo256, Dispatchable, Identity, IdentityLookup},
+		traits::{BlakeTwo256, Dispatchable, IdentifyAccount, Identity, IdentityLookup, Verify},
 		ArithmeticError, BuildStorage,
 		DispatchError::BadOrigin,
+		MultiSignature,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -499,16 +499,18 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system,
-			Balances: pallet_balances,
-			Vesting: pallet_vesting,
-			Purchase: purchase,
+			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+			Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>},
+			Purchase: purchase::{Pallet, Call, Storage, Event<T>},
 		}
 	);
 
 	type AccountId = AccountId32;
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	parameter_types! {
+		pub const BlockHashCount: u32 = 250;
+	}
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -523,6 +525,7 @@ mod tests {
 		type Lookup = IdentityLookup<AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
+		type BlockHashCount = BlockHashCount;
 		type Version = ();
 		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
@@ -534,9 +537,24 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
-	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	parameter_types! {
+		pub const ExistentialDeposit: u64 = 1;
+	}
+
 	impl pallet_balances::Config for Test {
+		type Balance = u64;
+		type RuntimeEvent = RuntimeEvent;
+		type DustRemoval = ();
+		type ExistentialDeposit = ExistentialDeposit;
 		type AccountStore = System;
+		type MaxLocks = ();
+		type MaxReserves = ();
+		type ReserveIdentifier = [u8; 8];
+		type WeightInfo = ();
+		type RuntimeHoldReason = RuntimeHoldReason;
+		type FreezeIdentifier = ();
+		type MaxHolds = ConstU32<1>;
+		type MaxFreezes = ConstU32<1>;
 	}
 
 	parameter_types! {
@@ -552,7 +570,6 @@ mod tests {
 		type MinVestedTransfer = MinVestedTransfer;
 		type WeightInfo = ();
 		type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
-		type BlockNumberProvider = System;
 		const MAX_VESTING_SCHEDULES: u32 = 28;
 	}
 
@@ -602,16 +619,33 @@ mod tests {
 		Balances::make_free_balance_be(&payment_account(), 100_000);
 	}
 
+	type AccountPublic = <MultiSignature as Verify>::Signer;
+
+	/// Helper function to generate a crypto pair from seed
+	fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+		TPublic::Pair::from_string(&format!("//{}", seed), None)
+			.expect("static values are valid; qed")
+			.public()
+	}
+
+	/// Helper function to generate an account ID from seed
+	fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+	where
+		AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+	{
+		AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	}
+
 	fn alice() -> AccountId {
-		Sr25519Keyring::Alice.to_account_id()
+		get_account_id_from_seed::<sr25519::Public>("Alice")
 	}
 
 	fn alice_ed25519() -> AccountId {
-		Ed25519Keyring::Alice.to_account_id()
+		get_account_id_from_seed::<ed25519::Public>("Alice")
 	}
 
 	fn bob() -> AccountId {
-		Sr25519Keyring::Bob.to_account_id()
+		get_account_id_from_seed::<sr25519::Public>("Bob")
 	}
 
 	fn alice_signature() -> [u8; 64] {

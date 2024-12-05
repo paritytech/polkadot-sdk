@@ -17,21 +17,21 @@ use frame_support::traits::{
 	ContainsPair, EnsureOrigin, EnsureOriginWithArg, Everything, OriginTrait,
 };
 use pallet_xcm::{EnsureXcm, Origin as XcmOrigin};
-use xcm::latest::Location;
+use xcm::latest::MultiLocation;
 use xcm_executor::traits::ConvertLocation;
 
 /// `EnsureOriginWithArg` impl for `CreateOrigin` that allows only XCM origins that are locations
 /// containing the class location.
-pub struct ForeignCreators<IsForeign, AccountOf, AccountId, L = Location>(
-	core::marker::PhantomData<(IsForeign, AccountOf, AccountId, L)>,
+pub struct ForeignCreators<IsForeign, AccountOf, AccountId>(
+	sp_std::marker::PhantomData<(IsForeign, AccountOf, AccountId)>,
 );
 impl<
-		IsForeign: ContainsPair<L, L>,
+		IsForeign: ContainsPair<MultiLocation, MultiLocation>,
 		AccountOf: ConvertLocation<AccountId>,
 		AccountId: Clone,
 		RuntimeOrigin: From<XcmOrigin> + OriginTrait + Clone,
-		L: TryFrom<Location> + TryInto<Location> + Clone,
-	> EnsureOriginWithArg<RuntimeOrigin, L> for ForeignCreators<IsForeign, AccountOf, AccountId, L>
+	> EnsureOriginWithArg<RuntimeOrigin, MultiLocation>
+	for ForeignCreators<IsForeign, AccountOf, AccountId>
 where
 	RuntimeOrigin::PalletsOrigin:
 		From<XcmOrigin> + TryInto<XcmOrigin, Error = RuntimeOrigin::PalletsOrigin>,
@@ -40,20 +40,17 @@ where
 
 	fn try_origin(
 		origin: RuntimeOrigin,
-		asset_location: &L,
-	) -> core::result::Result<Self::Success, RuntimeOrigin> {
-		let origin_location = EnsureXcm::<Everything, L>::try_origin(origin.clone())?;
+		asset_location: &MultiLocation,
+	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
+		let origin_location = EnsureXcm::<Everything>::try_origin(origin.clone())?;
 		if !IsForeign::contains(asset_location, &origin_location) {
 			return Err(origin)
 		}
-		let latest_location: Location =
-			origin_location.clone().try_into().map_err(|_| origin.clone())?;
-		AccountOf::convert_location(&latest_location).ok_or(origin)
+		AccountOf::convert_location(&origin_location).ok_or(origin)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin(a: &L) -> Result<RuntimeOrigin, ()> {
-		let latest_location: Location = (*a).clone().try_into().map_err(|_| ())?;
-		Ok(pallet_xcm::Origin::Xcm(latest_location).into())
+	fn try_successful_origin(a: &MultiLocation) -> Result<RuntimeOrigin, ()> {
+		Ok(pallet_xcm::Origin::Xcm(*a).into())
 	}
 }

@@ -22,7 +22,7 @@
 //! This module provides transaction related helpers to:
 //! - Submit a raw unsigned transaction
 //! - Submit an unsigned transaction with a signed payload
-//! - Submit a signed transaction.
+//! - Submit a signed transction.
 //!
 //! ## Usage
 //!
@@ -56,14 +56,13 @@
 
 #![warn(missing_docs)]
 
-use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::Encode;
-use scale_info::TypeInfo;
 use sp_runtime::{
 	app_crypto::RuntimeAppPublic,
-	traits::{ExtrinsicLike, IdentifyAccount, One},
+	traits::{Extrinsic as ExtrinsicT, IdentifyAccount, One},
 	RuntimeDebug,
 };
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// Marker struct used to flag using all supported keys to sign a payload.
 pub struct ForAll {}
@@ -76,17 +75,28 @@ pub struct ForAny {}
 /// For submitting unsigned transactions, `submit_unsigned_transaction`
 /// utility function can be used. However, this struct is used by `Signer`
 /// to submit a signed transactions providing the signature along with the call.
-pub struct SubmitTransaction<T: CreateTransactionBase<RuntimeCall>, RuntimeCall> {
-	_phantom: core::marker::PhantomData<(T, RuntimeCall)>,
+pub struct SubmitTransaction<T: SendTransactionTypes<OverarchingCall>, OverarchingCall> {
+	_phantom: sp_std::marker::PhantomData<(T, OverarchingCall)>,
 }
 
 impl<T, LocalCall> SubmitTransaction<T, LocalCall>
 where
-	T: CreateTransactionBase<LocalCall>,
+	T: SendTransactionTypes<LocalCall>,
 {
-	/// A convenience method to submit an extrinsic onchain.
-	pub fn submit_transaction(xt: T::Extrinsic) -> Result<(), ()> {
+	/// Submit transaction onchain by providing the call and an optional signature
+	pub fn submit_transaction(
+		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
+		signature: Option<<T::Extrinsic as ExtrinsicT>::SignaturePayload>,
+	) -> Result<(), ()> {
+		let xt = T::Extrinsic::new(call, signature).ok_or(())?;
 		sp_io::offchain::submit_transaction(xt.encode())
+	}
+
+	/// A convenience method to submit an unsigned transaction onchain.
+	pub fn submit_unsigned_transaction(
+		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
+	) -> Result<(), ()> {
+		SubmitTransaction::<T, LocalCall>::submit_transaction(call, None)
 	}
 }
 
@@ -105,7 +115,7 @@ where
 #[derive(RuntimeDebug)]
 pub struct Signer<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X = ForAny> {
 	accounts: Option<Vec<T::Public>>,
-	_phantom: core::marker::PhantomData<(X, C)>,
+	_phantom: sp_std::marker::PhantomData<(X, C)>,
 }
 
 impl<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X> Default for Signer<T, C, X> {
@@ -144,8 +154,8 @@ impl<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X> Signer<T, C, X> 
 	/// all available accounts and the provided accounts
 	/// in `with_filter`. If no accounts are provided,
 	/// use all accounts by default.
-	pub fn accounts_from_keys<'a>(&'a self) -> Box<dyn Iterator<Item = Account<T>> + 'a> {
-		let keystore_accounts = Self::keystore_accounts();
+	fn accounts_from_keys<'a>(&'a self) -> Box<dyn Iterator<Item = Account<T>> + 'a> {
+		let keystore_accounts = self.keystore_accounts();
 		match self.accounts {
 			None => Box::new(keystore_accounts),
 			Some(ref keys) => {
@@ -165,8 +175,7 @@ impl<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X> Signer<T, C, X> 
 		}
 	}
 
-	/// Return all available accounts in keystore.
-	pub fn keystore_accounts() -> impl Iterator<Item = Account<T>> {
+	fn keystore_accounts(&self) -> impl Iterator<Item = Account<T>> {
 		C::RuntimeAppPublic::all().into_iter().enumerate().map(|(index, key)| {
 			let generic_public = C::GenericPublic::from(key);
 			let public: T::Public = generic_public.into();
@@ -274,7 +283,7 @@ impl<
 }
 
 impl<
-		T: SigningTypes + CreateInherent<LocalCall>,
+		T: SigningTypes + SendTransactionTypes<LocalCall>,
 		C: AppCrypto<T::Public, T::Signature>,
 		LocalCall,
 	> SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAny>
@@ -300,7 +309,7 @@ impl<
 }
 
 impl<
-		T: SigningTypes + CreateInherent<LocalCall>,
+		T: SigningTypes + SendTransactionTypes<LocalCall>,
 		C: AppCrypto<T::Public, T::Signature>,
 		LocalCall,
 	> SendUnsignedTransaction<T, LocalCall> for Signer<T, C, ForAll>
@@ -374,7 +383,7 @@ where
 ///
 /// // runtime-specific public key
 /// type Public = MultiSigner: From<sr25519::Public>;
-/// type Signature = MultiSignature: From<sr25519::Signature>;
+/// type Signature = MulitSignature: From<sr25519::Signature>;
 /// ```
 // TODO [#5662] Potentially use `IsWrappedBy` types, or find some other way to make it easy to
 // obtain unwrapped crypto (and wrap it back).
@@ -434,7 +443,7 @@ pub trait SigningTypes: crate::Config {
 	/// A public key that is capable of identifying `AccountId`s.
 	///
 	/// Usually that's either a raw crypto public key (e.g. `sr25519::Public`) or
-	/// an aggregate type for multiple crypto public keys, like `MultiSigner`.
+	/// an aggregate type for multiple crypto public keys, like `MulitSigner`.
 	type Public: Clone
 		+ PartialEq
 		+ IdentifyAccount<AccountId = Self::AccountId>
@@ -447,32 +456,25 @@ pub trait SigningTypes: crate::Config {
 	type Signature: Clone + PartialEq + core::fmt::Debug + codec::Codec + scale_info::TypeInfo;
 }
 
-/// Common interface for the `CreateTransaction` trait family to unify the `Call` type.
-pub trait CreateTransactionBase<LocalCall> {
-	/// The extrinsic.
-	type Extrinsic: ExtrinsicLike + Encode;
-
+/// A definition of types required to submit transactions from within the runtime.
+pub trait SendTransactionTypes<LocalCall> {
+	/// The extrinsic type expected by the runtime.
+	type Extrinsic: ExtrinsicT<Call = Self::OverarchingCall> + codec::Encode;
 	/// The runtime's call type.
 	///
 	/// This has additional bound to be able to be created from pallet-local `Call` types.
-	type RuntimeCall: From<LocalCall> + Encode;
+	type OverarchingCall: From<LocalCall> + codec::Encode;
 }
 
-/// Interface for creating a transaction.
-pub trait CreateTransaction<LocalCall>: CreateTransactionBase<LocalCall> {
-	/// The extension.
-	type Extension: TypeInfo;
-
-	/// Create a transaction using the call and the desired transaction extension.
-	fn create_transaction(
-		call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
-		extension: Self::Extension,
-	) -> Self::Extrinsic;
-}
-
-/// Interface for creating an old-school signed transaction.
+/// Create signed transaction.
+///
+/// This trait is meant to be implemented by the runtime and is responsible for constructing
+/// a payload to be signed and contained within the extrinsic.
+/// This will most likely include creation of `SignedExtra` (a set of `SignedExtensions`).
+/// Note that the result can be altered by inspecting the `Call` (for instance adjusting
+/// fees, or mortality depending on the `pallet` being called).
 pub trait CreateSignedTransaction<LocalCall>:
-	CreateTransactionBase<LocalCall> + SigningTypes
+	SendTransactionTypes<LocalCall> + SigningTypes
 {
 	/// Attempt to create signed extrinsic data that encodes call from given account.
 	///
@@ -480,18 +482,12 @@ pub trait CreateSignedTransaction<LocalCall>:
 	/// in any way it wants.
 	/// Returns `None` if signed extrinsic could not be created (either because signing failed
 	/// or because of any other runtime-specific reason).
-	fn create_signed_transaction<C: AppCrypto<Self::Public, Self::Signature>>(
-		call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
+	fn create_transaction<C: AppCrypto<Self::Public, Self::Signature>>(
+		call: Self::OverarchingCall,
 		public: Self::Public,
 		account: Self::AccountId,
 		nonce: Self::Nonce,
-	) -> Option<Self::Extrinsic>;
-}
-
-/// Interface for creating an inherent.
-pub trait CreateInherent<LocalCall>: CreateTransactionBase<LocalCall> {
-	/// Create an inherent.
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic;
+	) -> Option<(Self::OverarchingCall, <Self::Extrinsic as ExtrinsicT>::SignaturePayload)>;
 }
 
 /// A message signer.
@@ -519,7 +515,7 @@ pub trait SignMessage<T: SigningTypes> {
 
 /// Submit a signed transaction to the transaction pool.
 pub trait SendSignedTransaction<
-	T: CreateSignedTransaction<LocalCall>,
+	T: SigningTypes + CreateSignedTransaction<LocalCall>,
 	C: AppCrypto<T::Public, T::Signature>,
 	LocalCall,
 >
@@ -550,14 +546,13 @@ pub trait SendSignedTransaction<
 			account.id,
 			account_data.nonce,
 		);
-		let transaction = T::create_signed_transaction::<C>(
+		let (call, signature) = T::create_transaction::<C>(
 			call.into(),
 			account.public.clone(),
 			account.id.clone(),
 			account_data.nonce,
 		)?;
-
-		let res = SubmitTransaction::<T, LocalCall>::submit_transaction(transaction);
+		let res = SubmitTransaction::<T, LocalCall>::submit_transaction(call, Some(signature));
 
 		if res.is_ok() {
 			// increment the nonce. This is fine, since the code should always
@@ -571,7 +566,7 @@ pub trait SendSignedTransaction<
 }
 
 /// Submit an unsigned transaction onchain with a signed payload
-pub trait SendUnsignedTransaction<T: SigningTypes + CreateInherent<LocalCall>, LocalCall> {
+pub trait SendUnsignedTransaction<T: SigningTypes + SendTransactionTypes<LocalCall>, LocalCall> {
 	/// A submission result.
 	///
 	/// Should contain the submission result and the account(s) that signed the payload.
@@ -594,8 +589,7 @@ pub trait SendUnsignedTransaction<T: SigningTypes + CreateInherent<LocalCall>, L
 
 	/// Submits an unsigned call to the transaction pool.
 	fn submit_unsigned_transaction(&self, call: LocalCall) -> Option<Result<(), ()>> {
-		let xt = T::create_inherent(call.into());
-		Some(SubmitTransaction::<T, LocalCall>::submit_transaction(xt))
+		Some(SubmitTransaction::<T, LocalCall>::submit_unsigned_transaction(call.into()))
 	}
 }
 
@@ -635,15 +629,9 @@ mod tests {
 
 	type Extrinsic = TestXt<RuntimeCall, ()>;
 
-	impl CreateTransactionBase<RuntimeCall> for TestRuntime {
+	impl SendTransactionTypes<RuntimeCall> for TestRuntime {
 		type Extrinsic = Extrinsic;
-		type RuntimeCall = RuntimeCall;
-	}
-
-	impl CreateInherent<RuntimeCall> for TestRuntime {
-		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-			Extrinsic::new_bare(call)
-		}
+		type OverarchingCall = RuntimeCall;
 	}
 
 	#[derive(codec::Encode, codec::Decode)]
@@ -704,7 +692,7 @@ mod tests {
 			let _tx3 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 
@@ -735,7 +723,7 @@ mod tests {
 			let tx1 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 
@@ -769,7 +757,7 @@ mod tests {
 			let _tx2 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 
@@ -801,7 +789,7 @@ mod tests {
 			let tx1 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert!(tx1.is_inherent());
+			assert_eq!(tx1.signature, None);
 		});
 	}
 }

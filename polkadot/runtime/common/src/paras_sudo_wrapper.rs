@@ -16,17 +16,17 @@
 
 //! A simple wrapper allowing `Sudo` to call into `paras` routines.
 
-use alloc::boxed::Box;
-use codec::Encode;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use polkadot_primitives::Id as ParaId;
-use polkadot_runtime_parachains::{
+use parity_scale_codec::Encode;
+use primitives::Id as ParaId;
+use runtime_parachains::{
 	configuration, dmp, hrmp,
-	paras::{self, AssignCoretime, ParaGenesisArgs, ParaKind},
+	paras::{self, ParaGenesisArgs},
 	ParaLifecycle,
 };
+use sp_std::boxed::Box;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -58,8 +58,6 @@ pub mod pallet {
 		CannotUpgrade,
 		/// Cannot downgrade lease holding parachain to on-demand.
 		CannotDowngrade,
-		/// There are more cores than supported by the runtime.
-		TooManyCores,
 	}
 
 	#[pallet::hooks]
@@ -68,10 +66,6 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Schedule a para to be initialized at the start of the next session.
-		///
-		/// This should only be used for TESTING and not on PRODUCTION chains. It automatically
-		/// assigns Coretime to the chain and increases the number of cores. Thus, there is no
-		/// running coretime chain required.
 		#[pallet::call_index(0)]
 		#[pallet::weight((1_000, DispatchClass::Operational))]
 		pub fn sudo_schedule_para_initialize(
@@ -80,16 +74,8 @@ pub mod pallet {
 			genesis: ParaGenesisArgs,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-
-			let assign_coretime = genesis.para_kind == ParaKind::Parachain;
-
-			polkadot_runtime_parachains::schedule_para_initialize::<T>(id, genesis)
+			runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
-
-			if assign_coretime {
-				T::AssignCoretime::assign_coretime(id)?;
-			}
-
 			Ok(())
 		}
 
@@ -98,7 +84,7 @@ pub mod pallet {
 		#[pallet::weight((1_000, DispatchClass::Operational))]
 		pub fn sudo_schedule_para_cleanup(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
 			ensure_root(origin)?;
-			polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
+			runtime_parachains::schedule_para_cleanup::<T>(id)
 				.map_err(|_| Error::<T>::CouldntCleanup)?;
 			Ok(())
 		}
@@ -116,7 +102,7 @@ pub mod pallet {
 				paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parathread),
 				Error::<T>::NotParathread,
 			);
-			polkadot_runtime_parachains::schedule_parathread_upgrade::<T>(id)
+			runtime_parachains::schedule_parathread_upgrade::<T>(id)
 				.map_err(|_| Error::<T>::CannotUpgrade)?;
 			Ok(())
 		}
@@ -134,7 +120,7 @@ pub mod pallet {
 				paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parachain),
 				Error::<T>::NotParachain,
 			);
-			polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id)
+			runtime_parachains::schedule_parachain_downgrade::<T>(id)
 				.map_err(|_| Error::<T>::CannotDowngrade)?;
 			Ok(())
 		}
@@ -151,9 +137,9 @@ pub mod pallet {
 			xcm: Box<xcm::opaque::VersionedXcm>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(paras::Pallet::<T>::is_valid_para(id), Error::<T>::ParaDoesntExist);
-			let config = configuration::ActiveConfig::<T>::get();
-			dmp::Pallet::<T>::queue_downward_message(&config, id, xcm.encode()).map_err(|e| match e
+			ensure!(<paras::Pallet<T>>::is_valid_para(id), Error::<T>::ParaDoesntExist);
+			let config = <configuration::Pallet<T>>::config();
+			<dmp::Pallet<T>>::queue_downward_message(&config, id, xcm.encode()).map_err(|e| match e
 			{
 				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize =>
 					Error::<T>::ExceedsMaxMessageSize.into(),
@@ -175,13 +161,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			hrmp::Pallet::<T>::init_open_channel(
+			<hrmp::Pallet<T>>::init_open_channel(
 				sender,
 				recipient,
 				max_capacity,
 				max_message_size,
 			)?;
-			hrmp::Pallet::<T>::accept_open_channel(recipient, sender)?;
+			<hrmp::Pallet<T>>::accept_open_channel(recipient, sender)?;
 			Ok(())
 		}
 	}

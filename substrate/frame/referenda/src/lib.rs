@@ -64,11 +64,7 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
-use alloc::boxed::Box;
 use codec::{Codec, Encode};
-use core::fmt::Debug;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -88,6 +84,7 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Bounded, Dispatchable, One, Saturating, Zero},
 	DispatchError, Perbill,
 };
+use sp_std::{fmt::Debug, prelude::*};
 
 mod branch;
 pub mod migration;
@@ -105,7 +102,6 @@ pub use self::{
 	},
 	weights::WeightInfo,
 };
-pub use alloc::vec::Vec;
 
 #[cfg(test)]
 mod mock;
@@ -116,6 +112,7 @@ mod tests;
 pub mod benchmarking;
 
 pub use frame_support::traits::Get;
+pub use sp_std::vec::Vec;
 
 #[macro_export]
 macro_rules! impl_tracksinfo_get {
@@ -146,7 +143,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
 	use frame_system::pallet_prelude::*;
 
-	/// The in-code storage version.
+	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -308,7 +305,7 @@ pub mod pallet {
 			/// The amount placed by the account.
 			amount: BalanceOf<T, I>,
 		},
-		/// A deposit has been slashed.
+		/// A deposit has been slashaed.
 		DepositSlashed {
 			/// The account who placed the deposit.
 			who: T::AccountId,
@@ -427,8 +424,6 @@ pub mod pallet {
 		BadStatus,
 		/// The preimage does not exist.
 		PreimageNotExist,
-		/// The preimage is stored with a different length than the one provided.
-		PreimageStoredWithDifferentLength,
 	}
 
 	#[pallet::hooks]
@@ -437,11 +432,6 @@ pub mod pallet {
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()?;
 			Ok(())
-		}
-
-		#[cfg(any(feature = "std", test))]
-		fn integrity_test() {
-			T::Tracks::check_integrity().expect("Static tracks configuration is valid.");
 		}
 	}
 
@@ -466,16 +456,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			let proposal_origin = *proposal_origin;
 			let who = T::SubmitOrigin::ensure_origin(origin, &proposal_origin)?;
-
-			// If the pre-image is already stored, ensure that it has the same length as given in
-			// `proposal`.
-			if let (Some(preimage_len), Some(proposal_len)) =
-				(proposal.lookup_hash().and_then(|h| T::Preimages::len(&h)), proposal.lookup_len())
-			{
-				if preimage_len != proposal_len {
-					return Err(Error::<T, I>::PreimageStoredWithDifferentLength.into())
-				}
-			}
 
 			let track =
 				T::Tracks::track_for(&proposal_origin).map_err(|_| Error::<T, I>::NoTrack)?;
@@ -894,8 +874,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		call: BoundedCallOf<T, I>,
 	) {
 		let now = frame_system::Pallet::<T>::block_number();
-		// Earliest allowed block is always at minimum the next block.
-		let earliest_allowed = now.saturating_add(track.min_enactment_period.max(One::one()));
+		let earliest_allowed = now.saturating_add(track.min_enactment_period);
 		let desired = desired.evaluate(now);
 		let ok = T::Scheduler::schedule_named(
 			(ASSEMBLY_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256),

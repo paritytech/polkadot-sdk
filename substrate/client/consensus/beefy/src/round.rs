@@ -19,11 +19,10 @@
 use crate::LOG_TARGET;
 
 use codec::{Decode, Encode};
-use log::{debug, info};
-use sp_application_crypto::RuntimeAppPublic;
+use log::debug;
 use sp_consensus_beefy::{
-	AuthorityIdBound, Commitment, DoubleVotingProof, SignedCommitment, ValidatorSet,
-	ValidatorSetId, VoteMessage,
+	ecdsa_crypto::{AuthorityId, Signature},
+	Commitment, EquivocationProof, SignedCommitment, ValidatorSet, ValidatorSetId, VoteMessage,
 };
 use sp_runtime::traits::{Block, NumberFor};
 use std::collections::BTreeMap;
@@ -32,24 +31,15 @@ use std::collections::BTreeMap;
 /// whether the local `self` validator has voted/signed.
 ///
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
-#[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound> {
-	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+#[derive(Debug, Decode, Default, Encode, PartialEq)]
+pub(crate) struct RoundTracker {
+	votes: BTreeMap<AuthorityId, Signature>,
 }
 
-impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId> {
-	fn default() -> Self {
-		Self { votes: Default::default() }
-	}
-}
-
-impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
-	fn add_vote(
-		&mut self,
-		vote: (AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature),
-	) -> bool {
+impl RoundTracker {
+	fn add_vote(&mut self, vote: (AuthorityId, Signature)) -> bool {
 		if self.votes.contains_key(&vote.0) {
-			return false;
+			return false
 		}
 
 		self.votes.insert(vote.0, vote.1);
@@ -68,12 +58,10 @@ pub fn threshold(authorities: usize) -> usize {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound> {
+pub enum VoteImportResult<B: Block> {
 	Ok,
-	RoundConcluded(SignedCommitment<NumberFor<B>, <AuthorityId as RuntimeAppPublic>::Signature>),
-	DoubleVoting(
-		DoubleVotingProof<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
-	),
+	RoundConcluded(SignedCommitment<NumberFor<B>, Signature>),
+	Equivocation(EquivocationProof<NumberFor<B>, AuthorityId, Signature>),
 	Invalid,
 	Stale,
 }
@@ -83,22 +71,19 @@ pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound> {
 ///
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
 #[derive(Debug, Decode, Encode, PartialEq)]
-pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound> {
-	rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTracker<AuthorityId>>,
-	previous_votes: BTreeMap<
-		(AuthorityId, NumberFor<B>),
-		VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
-	>,
+pub(crate) struct Rounds<B: Block> {
+	rounds: BTreeMap<Commitment<NumberFor<B>>, RoundTracker>,
+	previous_votes:
+		BTreeMap<(AuthorityId, NumberFor<B>), VoteMessage<NumberFor<B>, AuthorityId, Signature>>,
 	session_start: NumberFor<B>,
 	validator_set: ValidatorSet<AuthorityId>,
 	mandatory_done: bool,
 	best_done: Option<NumberFor<B>>,
 }
 
-impl<B, AuthorityId> Rounds<B, AuthorityId>
+impl<B> Rounds<B>
 where
 	B: Block,
-	AuthorityId: AuthorityIdBound,
 {
 	pub(crate) fn new(
 		session_start: NumberFor<B>,
@@ -136,14 +121,14 @@ where
 
 	pub(crate) fn add_vote(
 		&mut self,
-		vote: VoteMessage<NumberFor<B>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
-	) -> VoteImportResult<B, AuthorityId> {
+		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
+	) -> VoteImportResult<B> {
 		let num = vote.commitment.block_number;
 		let vote_key = (vote.id.clone(), num);
 
 		if num < self.session_start || Some(num) <= self.best_done {
 			debug!(target: LOG_TARGET, "🥩 received vote for old stale round {:?}, ignoring", num);
-			return VoteImportResult::Stale;
+			return VoteImportResult::Stale
 		} else if vote.commitment.validator_set_id != self.validator_set_id() {
 			debug!(
 				target: LOG_TARGET,
@@ -151,14 +136,14 @@ where
 				self.validator_set_id(),
 				vote,
 			);
-			return VoteImportResult::Invalid;
+			return VoteImportResult::Invalid
 		} else if !self.validators().iter().any(|id| &vote.id == id) {
 			debug!(
 				target: LOG_TARGET,
 				"🥩 received vote {:?} from validator that is not in the validator set, ignoring",
 				vote
 			);
-			return VoteImportResult::Invalid;
+			return VoteImportResult::Invalid
 		}
 
 		if let Some(previous_vote) = self.previous_votes.get(&vote_key) {
@@ -168,10 +153,10 @@ where
 					target: LOG_TARGET,
 					"🥩 detected equivocated vote: 1st: {:?}, 2nd: {:?}", previous_vote, vote
 				);
-				return VoteImportResult::DoubleVoting(DoubleVotingProof {
+				return VoteImportResult::Equivocation(EquivocationProof {
 					first: previous_vote.clone(),
 					second: vote,
-				});
+				})
 			}
 		} else {
 			// this is the first vote sent by `id` for `num`, all good
@@ -184,7 +169,7 @@ where
 			round.is_done(threshold(self.validator_set.len()))
 		{
 			if let Some(round) = self.rounds.remove_entry(&vote.commitment) {
-				return VoteImportResult::RoundConcluded(self.signed_commitment(round));
+				return VoteImportResult::RoundConcluded(self.signed_commitment(round))
 			}
 		}
 		VoteImportResult::Ok
@@ -192,8 +177,8 @@ where
 
 	fn signed_commitment(
 		&mut self,
-		round: (Commitment<NumberFor<B>>, RoundTracker<AuthorityId>),
-	) -> SignedCommitment<NumberFor<B>, <AuthorityId as RuntimeAppPublic>::Signature> {
+		round: (Commitment<NumberFor<B>>, RoundTracker),
+	) -> SignedCommitment<NumberFor<B>, Signature> {
 		let votes = round.1.votes;
 		let signatures = self
 			.validators()
@@ -209,11 +194,7 @@ where
 		self.previous_votes.retain(|&(_, number), _| number > round_num);
 		self.mandatory_done = self.mandatory_done || round_num == self.session_start;
 		self.best_done = self.best_done.max(Some(round_num));
-		if round_num == self.session_start {
-			info!(target: LOG_TARGET, "🥩 Concluded mandatory round #{}", round_num);
-		} else {
-			debug!(target: LOG_TARGET, "🥩 Concluded optional round #{}", round_num);
-		}
+		debug!(target: LOG_TARGET, "🥩 Concluded round #{}", round_num);
 	}
 }
 
@@ -222,14 +203,14 @@ mod tests {
 	use sc_network_test::Block;
 
 	use sp_consensus_beefy::{
-		ecdsa_crypto, known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment,
-		DoubleVotingProof, Payload, SignedCommitment, ValidatorSet, VoteMessage,
+		known_payloads::MMR_ROOT_ID, Commitment, EquivocationProof, Keyring, Payload,
+		SignedCommitment, ValidatorSet, VoteMessage,
 	};
 
-	use super::{threshold, Block as BlockT, RoundTracker, Rounds};
+	use super::{threshold, AuthorityId, Block as BlockT, RoundTracker, Rounds};
 	use crate::round::VoteImportResult;
 
-	impl<B> Rounds<B, ecdsa_crypto::AuthorityId>
+	impl<B> Rounds<B>
 	where
 		B: BlockT,
 	{
@@ -240,11 +221,8 @@ mod tests {
 
 	#[test]
 	fn round_tracker() {
-		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::default();
-		let bob_vote = (
-			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed"),
-		);
+		let mut rt = RoundTracker::default();
+		let bob_vote = (Keyring::Bob.public(), Keyring::Bob.sign(b"I am committed"));
 		let threshold = 2;
 
 		// adding new vote allowed
@@ -255,10 +233,7 @@ mod tests {
 		// vote is not done
 		assert!(!rt.is_done(threshold));
 
-		let alice_vote = (
-			Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
-		);
+		let alice_vote = (Keyring::Alice.public(), Keyring::Alice.sign(b"I am committed"));
 		// adding new vote (self vote this time) allowed
 		assert!(rt.add_vote(alice_vote));
 
@@ -280,23 +255,19 @@ mod tests {
 	fn new_rounds() {
 		sp_tracing::try_init_simple();
 
-		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+		let validators = ValidatorSet::<AuthorityId>::new(
 			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
 			42,
 		)
 		.unwrap();
 
 		let session_start = 1u64.into();
-		let rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+		let rounds = Rounds::<Block>::new(session_start, validators);
 
 		assert_eq!(42, rounds.validator_set_id());
 		assert_eq!(1, rounds.session_start());
 		assert_eq!(
-			&vec![
-				Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
-				Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
-				Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public()
-			],
+			&vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
 			rounds.validators()
 		);
 	}
@@ -305,7 +276,7 @@ mod tests {
 	fn add_and_conclude_votes() {
 		sp_tracing::try_init_simple();
 
-		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+		let validators = ValidatorSet::<AuthorityId>::new(
 			vec![
 				Keyring::Alice.public(),
 				Keyring::Bob.public(),
@@ -318,7 +289,7 @@ mod tests {
 		let validator_set_id = validators.id();
 
 		let session_start = 1u64.into();
-		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+		let mut rounds = Rounds::<Block>::new(session_start, validators);
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
 		let block_number = 1;
@@ -326,7 +297,7 @@ mod tests {
 		let mut vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+			signature: Keyring::Alice.sign(b"I am committed"),
 		};
 		// add 1st good vote
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
@@ -335,26 +306,26 @@ mod tests {
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
 
 		vote.id = Keyring::Dave.public();
-		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Dave.sign(b"I am committed");
+		vote.signature = Keyring::Dave.sign(b"I am committed");
 		// invalid vote (Dave is not a validator)
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Invalid);
 
 		vote.id = Keyring::Bob.public();
-		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed");
+		vote.signature = Keyring::Bob.sign(b"I am committed");
 		// add 2nd good vote
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
 
 		vote.id = Keyring::Charlie.public();
-		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed");
+		vote.signature = Keyring::Charlie.sign(b"I am committed");
 		// add 3rd good vote -> round concluded -> signatures present
 		assert_eq!(
 			rounds.add_vote(vote.clone()),
 			VoteImportResult::RoundConcluded(SignedCommitment {
 				commitment,
 				signatures: vec![
-					Some(Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed")),
-					Some(Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed")),
-					Some(Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
+					Some(Keyring::Alice.sign(b"I am committed")),
+					Some(Keyring::Bob.sign(b"I am committed")),
+					Some(Keyring::Charlie.sign(b"I am committed")),
 					None,
 				]
 			})
@@ -362,7 +333,7 @@ mod tests {
 		rounds.conclude(block_number);
 
 		vote.id = Keyring::Eve.public();
-		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Eve.sign(b"I am committed");
+		vote.signature = Keyring::Eve.sign(b"I am committed");
 		// Eve is a validator, but round was concluded, adding vote disallowed
 		assert_eq!(rounds.add_vote(vote), VoteImportResult::Stale);
 	}
@@ -371,7 +342,7 @@ mod tests {
 	fn old_rounds_not_accepted() {
 		sp_tracing::try_init_simple();
 
-		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+		let validators = ValidatorSet::<AuthorityId>::new(
 			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
 			42,
 		)
@@ -380,7 +351,7 @@ mod tests {
 
 		// active rounds starts at block 10
 		let session_start = 10u64.into();
-		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+		let mut rounds = Rounds::<Block>::new(session_start, validators);
 
 		// vote on round 9
 		let block_number = 9;
@@ -389,7 +360,7 @@ mod tests {
 		let mut vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment,
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+			signature: Keyring::Alice.sign(b"I am committed"),
 		};
 		// add vote for previous session, should fail
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Stale);
@@ -417,7 +388,7 @@ mod tests {
 	fn multiple_rounds() {
 		sp_tracing::try_init_simple();
 
-		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+		let validators = ValidatorSet::<AuthorityId>::new(
 			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
 			Default::default(),
 		)
@@ -425,29 +396,29 @@ mod tests {
 		let validator_set_id = validators.id();
 
 		let session_start = 1u64.into();
-		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+		let mut rounds = Rounds::<Block>::new(session_start, validators);
 
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
 		let commitment = Commitment { block_number: 1, payload, validator_set_id };
 		let mut alice_vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+			signature: Keyring::Alice.sign(b"I am committed"),
 		};
 		let mut bob_vote = VoteMessage {
 			id: Keyring::Bob.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed"),
+			signature: Keyring::Bob.sign(b"I am committed"),
 		};
 		let mut charlie_vote = VoteMessage {
 			id: Keyring::Charlie.public(),
 			commitment,
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed"),
+			signature: Keyring::Charlie.sign(b"I am committed"),
 		};
 		let expected_signatures = vec![
-			Some(Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed")),
-			Some(Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed")),
-			Some(Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
+			Some(Keyring::Alice.sign(b"I am committed")),
+			Some(Keyring::Bob.sign(b"I am committed")),
+			Some(Keyring::Charlie.sign(b"I am committed")),
 		];
 
 		// round 1 - only 2 out of 3 vote
@@ -492,14 +463,14 @@ mod tests {
 	fn should_provide_equivocation_proof() {
 		sp_tracing::try_init_simple();
 
-		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+		let validators = ValidatorSet::<AuthorityId>::new(
 			vec![Keyring::Alice.public(), Keyring::Bob.public()],
 			Default::default(),
 		)
 		.unwrap();
 		let validator_set_id = validators.id();
 		let session_start = 1u64.into();
-		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+		let mut rounds = Rounds::<Block>::new(session_start, validators);
 
 		let payload1 = Payload::from_single_entry(MMR_ROOT_ID, vec![1, 1, 1, 1]);
 		let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![2, 2, 2, 2]);
@@ -509,12 +480,12 @@ mod tests {
 		let alice_vote1 = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment1,
-			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+			signature: Keyring::Alice.sign(b"I am committed"),
 		};
 		let mut alice_vote2 = alice_vote1.clone();
 		alice_vote2.commitment = commitment2;
 
-		let expected_result = VoteImportResult::DoubleVoting(DoubleVotingProof {
+		let expected_result = VoteImportResult::Equivocation(EquivocationProof {
 			first: alice_vote1.clone(),
 			second: alice_vote2.clone(),
 		});

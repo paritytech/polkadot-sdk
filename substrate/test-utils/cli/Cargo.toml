@@ -5,28 +5,25 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage.workspace = true
+homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
-
-[lints]
-workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-substrate-rpc-client = { workspace = true, default-features = true }
-sp-rpc = { workspace = true, default-features = true }
-assert_cmd = { workspace = true }
-nix = { features = ["signal"], workspace = true }
-regex = { workspace = true }
-tokio = { features = ["full"], workspace = true, default-features = true }
-node-primitives = { workspace = true, default-features = true }
-node-cli = { workspace = true }
-sc-cli = { workspace = true, default-features = true }
-sc-service = { workspace = true, default-features = true }
-futures = { workspace = true }
+substrate-rpc-client = { path = "../../utils/frame/rpc/client" }
+sp-rpc = { path = "../../primitives/rpc" }
+assert_cmd = "2.0.10"
+nix = "0.26.2"
+regex = "1.7.3"
+tokio = { version = "1.22.0", features = ["full"] }
+node-primitives = { path = "../../bin/node/primitives" }
+node-cli = { path = "../../bin/node/cli" }
+sc-cli = { path = "../../client/cli" }
+sc-service = { path = "../../client/service" }
+futures = "0.3.28"
 
 [features]
-try-runtime = ["node-cli/try-runtime"]
+try-runtime = [ "node-cli/try-runtime" ]

@@ -25,19 +25,21 @@ use futures::{
 	channel::oneshot,
 	future,
 	future::{Future, FutureExt},
+	select,
 };
 use log::{debug, error, info, trace, warn};
-use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
+use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use sc_client_api::backend;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
 use sp_inherents::InherentData;
 use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
-	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
+	Digest, Percent, SaturatedConversion,
 };
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
 
@@ -58,7 +60,7 @@ const DEFAULT_SOFT_DEADLINE_PERCENT: Percent = Percent::from_percent(50);
 const LOG_TARGET: &'static str = "basic-authorship";
 
 /// [`Proposer`] factory.
-pub struct ProposerFactory<A, C, PR> {
+pub struct ProposerFactory<A, B, C, PR> {
 	spawn_handle: Box<dyn SpawnNamed>,
 	/// The client instance.
 	client: Arc<C>,
@@ -77,32 +79,16 @@ pub struct ProposerFactory<A, C, PR> {
 	/// The soft deadline indicates where we should stop attempting to add transactions
 	/// to the block, which exhaust resources. After soft deadline is reached,
 	/// we switch to a fixed-amount mode, in which after we see `MAX_SKIPPED_TRANSACTIONS`
-	/// transactions which exhaust resources, we will conclude that the block is full.
+	/// transactions which exhaust resrouces, we will conclude that the block is full.
 	soft_deadline_percent: Percent,
 	telemetry: Option<TelemetryHandle>,
 	/// When estimating the block size, should the proof be included?
 	include_proof_in_block_size_estimation: bool,
-	/// phantom member to pin the `ProofRecording` type.
-	_phantom: PhantomData<PR>,
+	/// phantom member to pin the `Backend`/`ProofRecording` type.
+	_phantom: PhantomData<(B, PR)>,
 }
 
-impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
-	fn clone(&self) -> Self {
-		Self {
-			spawn_handle: self.spawn_handle.clone(),
-			client: self.client.clone(),
-			transaction_pool: self.transaction_pool.clone(),
-			metrics: self.metrics.clone(),
-			default_block_size_limit: self.default_block_size_limit,
-			soft_deadline_percent: self.soft_deadline_percent,
-			telemetry: self.telemetry.clone(),
-			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
-			_phantom: self._phantom,
-		}
-	}
-}
-
-impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
+impl<A, B, C> ProposerFactory<A, B, C, DisableProofRecording> {
 	/// Create a new proposer factory.
 	///
 	/// Proof recording will be disabled when using proposers built by this instance to build
@@ -128,7 +114,7 @@ impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 	}
 }
 
-impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
+impl<A, B, C> ProposerFactory<A, B, C, EnableProofRecording> {
 	/// Create a new proposer factory with proof recording enabled.
 	///
 	/// Each proposer created by this instance will record a proof while building a block.
@@ -161,7 +147,7 @@ impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
 	}
 }
 
-impl<A, C, PR> ProposerFactory<A, C, PR> {
+impl<A, B, C, PR> ProposerFactory<A, B, C, PR> {
 	/// Set the default block size limit in bytes.
 	///
 	/// The default value for the block size limit is:
@@ -179,7 +165,7 @@ impl<A, C, PR> ProposerFactory<A, C, PR> {
 	/// The soft deadline indicates where we should stop attempting to add transactions
 	/// to the block, which exhaust resources. After soft deadline is reached,
 	/// we switch to a fixed-amount mode, in which after we see `MAX_SKIPPED_TRANSACTIONS`
-	/// transactions which exhaust resources, we will conclude that the block is full.
+	/// transactions which exhaust resrouces, we will conclude that the block is full.
 	///
 	/// Setting the value too low will significantly limit the amount of transactions
 	/// we try in case they exhaust resources. Setting the value too high can
@@ -190,27 +176,29 @@ impl<A, C, PR> ProposerFactory<A, C, PR> {
 	}
 }
 
-impl<Block, C, A, PR> ProposerFactory<A, C, PR>
+impl<B, Block, C, A, PR> ProposerFactory<A, B, C, PR>
 where
 	A: TransactionPool<Block = Block> + 'static,
+	B: backend::Backend<Block> + Send + Sync + 'static,
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	C: BlockBuilderProvider<B, Block, C>
+		+ HeaderBackend<Block>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 {
 	fn init_with_now(
 		&mut self,
 		parent_header: &<Block as BlockT>::Header,
 		now: Box<dyn Fn() -> time::Instant + Send + Sync>,
-	) -> Proposer<Block, C, A, PR> {
+	) -> Proposer<B, Block, C, A, PR> {
 		let parent_hash = parent_header.hash();
 
-		info!(
-			"🙌 Starting consensus session on top of parent {:?} (#{})",
-			parent_hash,
-			parent_header.number()
-		);
+		info!("🙌 Starting consensus session on top of parent {:?}", parent_hash);
 
-		let proposer = Proposer::<_, _, _, PR> {
+		let proposer = Proposer::<_, _, _, _, PR> {
 			spawn_handle: self.spawn_handle.clone(),
 			client: self.client.clone(),
 			parent_hash,
@@ -229,16 +217,22 @@ where
 	}
 }
 
-impl<A, Block, C, PR> sp_consensus::Environment<Block> for ProposerFactory<A, C, PR>
+impl<A, B, Block, C, PR> sp_consensus::Environment<Block> for ProposerFactory<A, B, C, PR>
 where
 	A: TransactionPool<Block = Block> + 'static,
+	B: backend::Backend<Block> + Send + Sync + 'static,
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
+	C: BlockBuilderProvider<B, Block, C>
+		+ HeaderBackend<Block>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
 	type CreateProposer = future::Ready<Result<Self::Proposer, Self::Error>>;
-	type Proposer = Proposer<Block, C, A, PR>;
+	type Proposer = Proposer<B, Block, C, A, PR>;
 	type Error = sp_blockchain::Error;
 
 	fn init(&mut self, parent_header: &<Block as BlockT>::Header) -> Self::CreateProposer {
@@ -247,7 +241,7 @@ where
 }
 
 /// The proposer logic.
-pub struct Proposer<Block: BlockT, C, A: TransactionPool, PR> {
+pub struct Proposer<B, Block: BlockT, C, A: TransactionPool, PR> {
 	spawn_handle: Box<dyn SpawnNamed>,
 	client: Arc<C>,
 	parent_hash: Block::Hash,
@@ -259,14 +253,20 @@ pub struct Proposer<Block: BlockT, C, A: TransactionPool, PR> {
 	include_proof_in_block_size_estimation: bool,
 	soft_deadline_percent: Percent,
 	telemetry: Option<TelemetryHandle>,
-	_phantom: PhantomData<PR>,
+	_phantom: PhantomData<(B, PR)>,
 }
 
-impl<A, Block, C, PR> sp_consensus::Proposer<Block> for Proposer<Block, C, A, PR>
+impl<A, B, Block, C, PR> sp_consensus::Proposer<Block> for Proposer<B, Block, C, A, PR>
 where
 	A: TransactionPool<Block = Block> + 'static,
+	B: backend::Backend<Block> + Send + Sync + 'static,
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
+	C: BlockBuilderProvider<B, Block, C>
+		+ HeaderBackend<Block>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
@@ -313,11 +313,17 @@ where
 /// It allows us to increase block utilization.
 const MAX_SKIPPED_TRANSACTIONS: usize = 8;
 
-impl<A, Block, C, PR> Proposer<Block, C, A, PR>
+impl<A, B, Block, C, PR> Proposer<B, Block, C, A, PR>
 where
 	A: TransactionPool<Block = Block>,
+	B: backend::Backend<Block> + Send + Sync + 'static,
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
+	C: BlockBuilderProvider<B, Block, C>
+		+ HeaderBackend<Block>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
@@ -328,36 +334,32 @@ where
 		deadline: time::Instant,
 		block_size_limit: Option<usize>,
 	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
-		let block_timer = time::Instant::now();
-		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
-			.on_parent_block(self.parent_hash)
-			.with_parent_block_number(self.parent_number)
-			.with_proof_recording(PR::ENABLED)
-			.with_inherent_digests(inherent_digests)
-			.build()?;
+		let propose_with_timer = time::Instant::now();
+		let mut block_builder =
+			self.client.new_block_at(self.parent_hash, inherent_digests, PR::ENABLED)?;
 
 		self.apply_inherents(&mut block_builder, inherent_data)?;
 
-		let mode = block_builder.extrinsic_inclusion_mode();
-		let end_reason = match mode {
-			ExtrinsicInclusionMode::AllExtrinsics =>
-				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
-			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
-		};
+		// TODO call `after_inherents` and check if we should apply extrinsincs here
+		// <https://github.com/paritytech/substrate/pull/14275/>
+
+		let block_timer = time::Instant::now();
+		let end_reason =
+			self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?;
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
 
 		let proof =
 			PR::into_proof(proof).map_err(|e| sp_blockchain::Error::Application(Box::new(e)))?;
 
-		self.print_summary(&block, end_reason, block_took, block_timer.elapsed());
+		self.print_summary(&block, end_reason, block_took, propose_with_timer.elapsed());
 		Ok(Proposal { block, proof, storage_changes })
 	}
 
 	/// Apply all inherents to the block.
 	fn apply_inherents(
 		&self,
-		block_builder: &mut sc_block_builder::BlockBuilder<'_, Block, C>,
+		block_builder: &mut sc_block_builder::BlockBuilder<'_, Block, C, B>,
 		inherent_data: InherentData,
 	) -> Result<(), sp_blockchain::Error> {
 		let create_inherents_start = time::Instant::now();
@@ -401,7 +403,7 @@ where
 	/// Apply as many extrinsics as possible to the block.
 	async fn apply_extrinsics(
 		&self,
-		block_builder: &mut sc_block_builder::BlockBuilder<'_, Block, C>,
+		block_builder: &mut sc_block_builder::BlockBuilder<'_, Block, C, B>,
 		deadline: time::Instant,
 		block_size_limit: Option<usize>,
 	) -> Result<EndProposingReason, sp_blockchain::Error> {
@@ -415,24 +417,32 @@ where
 		let mut skipped = 0;
 		let mut unqueue_invalid = Vec::new();
 
-		let delay = deadline.saturating_duration_since((self.now)()) / 8;
-		let mut pending_iterator =
-			self.transaction_pool.ready_at_with_timeout(self.parent_hash, delay).await;
+		let mut t1 = self.transaction_pool.ready_at(self.parent_number).fuse();
+		let mut t2 =
+			futures_timer::Delay::new(deadline.saturating_duration_since((self.now)()) / 8).fuse();
+
+		let mut pending_iterator = select! {
+			res = t1 => res,
+			_ = t2 => {
+				warn!(target: LOG_TARGET,
+					"Timeout fired waiting for transaction pool at block #{}. \
+					Proceeding with production.",
+					self.parent_number,
+				);
+				self.transaction_pool.ready()
+			},
+		};
 
 		let block_size_limit = block_size_limit.unwrap_or(self.default_block_size_limit);
 
-		debug!(target: LOG_TARGET, "Attempting to push transactions from the pool at {:?}.", self.parent_hash);
+		debug!(target: LOG_TARGET, "Attempting to push transactions from the pool.");
+		debug!(target: LOG_TARGET, "Pool status: {:?}", self.transaction_pool.status());
 		let mut transaction_pushed = false;
 
 		let end_reason = loop {
 			let pending_tx = if let Some(pending_tx) = pending_iterator.next() {
 				pending_tx
 			} else {
-				debug!(
-					target: LOG_TARGET,
-					"No more transactions, proceeding with proposing."
-				);
-
 				break EndProposingReason::NoMoreTransactions
 			};
 
@@ -446,7 +456,7 @@ where
 				break EndProposingReason::HitDeadline
 			}
 
-			let pending_tx_data = (**pending_tx.data()).clone();
+			let pending_tx_data = pending_tx.data().clone();
 			let pending_tx_hash = pending_tx.hash().clone();
 
 			let block_size =
@@ -510,7 +520,7 @@ where
 					pending_iterator.report_invalid(&pending_tx);
 					debug!(
 						target: LOG_TARGET,
-						"[{:?}] Invalid transaction: {} at: {}", pending_tx_hash, e, self.parent_hash
+						"[{:?}] Invalid transaction: {}", pending_tx_hash, e
 					);
 					unqueue_invalid.push(pending_tx_hash);
 				},
@@ -529,24 +539,19 @@ where
 	}
 
 	/// Prints a summary and does telemetry + metrics.
-	///
-	/// - `block`: The block that was build.
-	/// - `end_reason`: Why did we stop producing the block?
-	/// - `block_took`: How long did it took to produce the actual block?
-	/// - `propose_took`: How long did the entire proposing took?
 	fn print_summary(
 		&self,
 		block: &Block,
 		end_reason: EndProposingReason,
 		block_took: time::Duration,
-		propose_took: time::Duration,
+		propose_with_took: time::Duration,
 	) {
 		let extrinsics = block.extrinsics();
 		self.metrics.report(|metrics| {
 			metrics.number_of_transactions.set(extrinsics.len() as u64);
 			metrics.block_constructed.observe(block_took.as_secs_f64());
 			metrics.report_end_proposing_reason(end_reason);
-			metrics.create_block_proposal_time.observe(propose_took.as_secs_f64());
+			metrics.create_block_proposal_time.observe(propose_with_took.as_secs_f64());
 		});
 
 		let extrinsics_summary = if extrinsics.is_empty() {
@@ -563,25 +568,13 @@ where
 			)
 		};
 
-		if log::log_enabled!(log::Level::Info) {
-			info!(
-				"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; extrinsics_count: {}",
-				block.header().number(),
-				block_took.as_millis(),
-				<Block as BlockT>::Hash::from(block.header().hash()),
-				block.header().parent_hash(),
-				extrinsics.len()
-			)
-		} else if log::log_enabled!(log::Level::Debug) {
-			debug!(
-				"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; {extrinsics_summary}",
-				block.header().number(),
-				block_took.as_millis(),
-				<Block as BlockT>::Hash::from(block.header().hash()),
-				block.header().parent_hash(),
-			);
-		}
-
+		info!(
+			"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; {extrinsics_summary}",
+			block.header().number(),
+			block_took.as_millis(),
+			<Block as BlockT>::Hash::from(block.header().hash()),
+			block.header().parent_hash(),
+		);
 		telemetry!(
 			self.telemetry;
 			CONSENSUS_INFO;
@@ -641,20 +634,22 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = Arc::from(BasicPool::new_full(
+		let txpool = BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		));
+		);
 
 		let hashof0 = client.info().genesis_hash;
 		block_on(txpool.submit_at(hashof0, SOURCE, vec![extrinsic(0), extrinsic(1)])).unwrap();
 
 		block_on(
 			txpool.maintain(chain_event(
-				client.expect_header(hashof0).expect("there should be header"),
+				client
+					.expect_header(client.info().genesis_hash)
+					.expect("there should be header"),
 			)),
 		);
 
@@ -694,13 +689,13 @@ mod tests {
 	fn should_not_panic_when_deadline_is_reached() {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = Arc::from(BasicPool::new_full(
+		let txpool = BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		));
+		);
 
 		let mut proposer_factory =
 			ProposerFactory::new(spawner.clone(), client.clone(), txpool.clone(), None, None);
@@ -731,13 +726,13 @@ mod tests {
 		let (client, backend) = TestClientBuilder::new().build_with_backend();
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = Arc::from(BasicPool::new_full(
+		let txpool = BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		));
+		);
 
 		let genesis_hash = client.info().best_hash;
 
@@ -787,13 +782,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = Arc::from(BasicPool::new_full(
+		let txpool = BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		));
+		);
 
 		let medium = |nonce| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(MEDIUM))
@@ -848,7 +843,7 @@ mod tests {
 			block
 		};
 
-		let import_and_maintain = |client: Arc<TestClient>, block: TestBlock| {
+		let import_and_maintain = |mut client: Arc<TestClient>, block: TestBlock| {
 			let hash = block.hash();
 			block_on(client.import(BlockOrigin::Own, block)).unwrap();
 			block_on(txpool.maintain(chain_event(
@@ -867,27 +862,27 @@ mod tests {
 
 		// let's create one block and import it
 		let block = propose_block(&client, 0, 2, 7);
-		import_and_maintain(client.clone(), block.clone());
+		import_and_maintain(client.clone(), block);
 		assert_eq!(txpool.ready().count(), 5);
 
 		// now let's make sure that we can still make some progress
 		let block = propose_block(&client, 1, 1, 5);
-		import_and_maintain(client.clone(), block.clone());
+		import_and_maintain(client.clone(), block);
 		assert_eq!(txpool.ready().count(), 4);
 
 		// again let's make sure that we can still make some progress
 		let block = propose_block(&client, 2, 1, 4);
-		import_and_maintain(client.clone(), block.clone());
+		import_and_maintain(client.clone(), block);
 		assert_eq!(txpool.ready().count(), 3);
 
 		// again let's make sure that we can still make some progress
 		let block = propose_block(&client, 3, 1, 3);
-		import_and_maintain(client.clone(), block.clone());
+		import_and_maintain(client.clone(), block);
 		assert_eq!(txpool.ready().count(), 2);
 
 		// again let's make sure that we can still make some progress
 		let block = propose_block(&client, 4, 2, 2);
-		import_and_maintain(client.clone(), block.clone());
+		import_and_maintain(client.clone(), block);
 		assert_eq!(txpool.ready().count(), 0);
 	}
 
@@ -895,13 +890,13 @@ mod tests {
 	fn should_cease_building_block_when_block_limit_is_reached() {
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = Arc::from(BasicPool::new_full(
+		let txpool = BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		));
+		);
 		let genesis_hash = client.info().genesis_hash;
 		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
 
@@ -972,12 +967,8 @@ mod tests {
 		// Exact block_limit, which includes:
 		// 99 (header_size) + 718 (proof@initialize_block) + 246 (one Transfer extrinsic)
 		let block_limit = {
-			let builder = BlockBuilderBuilder::new(&*client)
-				.on_parent_block(genesis_header.hash())
-				.with_parent_block_number(0)
-				.enable_proof_recording()
-				.build()
-				.unwrap();
+			let builder =
+				client.new_block_at(genesis_header.hash(), Default::default(), true).unwrap();
 			builder.estimate_block_size(true) + extrinsics[0].encoded_size()
 		};
 		let block = block_on(proposer.propose(
@@ -1000,13 +991,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = Arc::from(BasicPool::new_full(
+		let txpool = BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		));
+		);
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |nonce| {
@@ -1069,13 +1060,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let txpool = Arc::from(BasicPool::new_full(
+		let txpool = BasicPool::new_full(
 			Default::default(),
 			true.into(),
 			None,
 			spawner.clone(),
 			client.clone(),
-		));
+		);
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |who| {

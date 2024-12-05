@@ -20,26 +20,20 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	async_backing, slashing, vstaging,
-	vstaging::{
-		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		ScrapedOnChainVotes,
-	},
-	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
-	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Id as ParaId,
-	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, SessionIndex, SessionInfo, Slot, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
-};
-use polkadot_primitives_test_helpers::{
-	dummy_committed_candidate_receipt_v2, dummy_validation_code,
+	async_backing, slashing, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, Slot, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 use sp_api::ApiError;
 use sp_core::testing::TaskExecutor;
 use std::{
-	collections::{BTreeMap, HashMap, VecDeque},
+	collections::{BTreeMap, HashMap},
 	sync::{Arc, Mutex},
 };
+use test_helpers::{dummy_committed_candidate_receipt, dummy_validation_code};
 
 #[derive(Default)]
 struct MockSubsystemClient {
@@ -53,7 +47,6 @@ struct MockSubsystemClient {
 	validation_outputs_results: HashMap<ParaId, bool>,
 	session_index_for_child: SessionIndex,
 	candidate_pending_availability: HashMap<ParaId, CommittedCandidateReceipt>,
-	candidates_pending_availability: HashMap<ParaId, Vec<CommittedCandidateReceipt>>,
 	dmq_contents: HashMap<ParaId, Vec<InboundDownwardMessage>>,
 	hrmp_channels: HashMap<ParaId, BTreeMap<ParaId, Vec<InboundHrmpMessage>>>,
 	validation_code_by_hash: HashMap<ValidationCodeHash, ValidationCode>,
@@ -145,14 +138,6 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		para_id: ParaId,
 	) -> Result<Option<CommittedCandidateReceipt<Hash>>, ApiError> {
 		Ok(self.candidate_pending_availability.get(&para_id).cloned())
-	}
-
-	async fn candidates_pending_availability(
-		&self,
-		_: Hash,
-		para_id: ParaId,
-	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
-		Ok(self.candidates_pending_availability.get(&para_id).cloned().unwrap_or_default())
 	}
 
 	async fn candidate_events(&self, _: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {
@@ -257,15 +242,6 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		todo!("Not required for tests")
 	}
 
-	/// Approval voting configuration parameters
-	async fn approval_voting_params(
-		&self,
-		_: Hash,
-		_: SessionIndex,
-	) -> Result<ApprovalVotingParams, ApiError> {
-		todo!("Not required for tests")
-	}
-
 	async fn current_epoch(&self, _: Hash) -> Result<sp_consensus_babe::Epoch, ApiError> {
 		Ok(self.babe_epoch.as_ref().unwrap().clone())
 	}
@@ -285,26 +261,11 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		&self,
 		_: Hash,
 		_: ParaId,
-	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError> {
+	) -> Result<Option<async_backing::BackingState>, ApiError> {
 		todo!("Not required for tests")
 	}
 
 	async fn minimum_backing_votes(&self, _: Hash, _: SessionIndex) -> Result<u32, ApiError> {
-		todo!("Not required for tests")
-	}
-
-	async fn node_features(&self, _: Hash) -> Result<NodeFeatures, ApiError> {
-		todo!("Not required for tests")
-	}
-
-	async fn disabled_validators(&self, _: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
-		todo!("Not required for tests")
-	}
-
-	async fn claim_queue(
-		&self,
-		_: Hash,
-	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, ApiError> {
 		todo!("Not required for tests")
 	}
 }
@@ -312,12 +273,12 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 #[test]
 fn requests_authorities() {
 	let (ctx, mut ctx_handle) = make_subsystem_context(TaskExecutor::new());
-	let subsystem_client = Arc::new(MockSubsystemClient::default());
+	let substem_client = Arc::new(MockSubsystemClient::default());
 	let relay_parent = [1; 32].into();
 	let spawner = sp_core::testing::TaskExecutor::new();
 
 	let subsystem =
-		RuntimeApiSubsystem::new(subsystem_client.clone(), Metrics(None), SpawnGlue(spawner));
+		RuntimeApiSubsystem::new(substem_client.clone(), Metrics(None), SpawnGlue(spawner));
 	let subsystem_task = run(ctx, subsystem).map(|x| x.unwrap());
 	let test_task = async move {
 		let (tx, rx) = oneshot::channel();
@@ -328,7 +289,7 @@ fn requests_authorities() {
 			})
 			.await;
 
-		assert_eq!(rx.await.unwrap().unwrap(), subsystem_client.authorities);
+		assert_eq!(rx.await.unwrap().unwrap(), substem_client.authorities);
 
 		ctx_handle.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 	};
@@ -705,7 +666,7 @@ fn requests_candidate_pending_availability() {
 	let para_a = ParaId::from(5_u32);
 	let para_b = ParaId::from(6_u32);
 	let spawner = sp_core::testing::TaskExecutor::new();
-	let candidate_receipt = dummy_committed_candidate_receipt_v2(relay_parent);
+	let candidate_receipt = dummy_committed_candidate_receipt(relay_parent);
 
 	let mut subsystem_client = MockSubsystemClient::default();
 	subsystem_client
@@ -1055,7 +1016,7 @@ fn requests_submit_pvf_check_statement() {
 		let _ = rx.await.unwrap().unwrap();
 
 		assert_eq!(
-			&*subsystem_client.submitted_pvf_check_statement.lock().expect("poisoned mutex"),
+			&*subsystem_client.submitted_pvf_check_statement.lock().expect("poisened mutex"),
 			&[(stmt.clone(), sig.clone()), (stmt.clone(), sig.clone())]
 		);
 

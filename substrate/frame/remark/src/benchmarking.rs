@@ -20,9 +20,9 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use alloc::vec;
-use frame_benchmarking::v2::*;
+use frame_benchmarking::v1::{benchmarks, whitelisted_caller};
 use frame_system::{EventRecord, Pallet as System, RawOrigin};
+use sp_std::*;
 
 #[cfg(test)]
 use crate::Pallet as Remark;
@@ -34,24 +34,13 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	assert_eq!(event, &system_event);
 }
 
-#[benchmarks]
-mod benchmarks {
-	use super::*;
-
-	#[benchmark]
-	fn store(l: Linear<1, { 1024 * 1024 }>) {
+benchmarks! {
+	store {
+		let l in 1 .. 1024*1024;
 		let caller: T::AccountId = whitelisted_caller();
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), vec![0u8; l as usize]);
-
-		assert_last_event::<T>(
-			Event::Stored {
-				sender: caller,
-				content_hash: sp_io::hashing::blake2_256(&vec![0u8; l as usize]).into(),
-			}
-			.into(),
-		);
+	}: _(RawOrigin::Signed(caller.clone()), vec![0u8; l as usize])
+	verify {
+		assert_last_event::<T>(Event::Stored { sender: caller, content_hash: sp_io::hashing::blake2_256(&vec![0u8; l as usize]).into() }.into());
 	}
 
 	impl_benchmark_test_suite!(Remark, crate::mock::new_test_ext(), crate::mock::Test);

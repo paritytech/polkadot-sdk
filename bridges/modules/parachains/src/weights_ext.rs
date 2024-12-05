@@ -31,25 +31,11 @@ use frame_support::weights::{RuntimeDbWeight, Weight};
 pub const DEFAULT_PARACHAIN_HEAD_SIZE: u32 = 384;
 
 /// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
-/// some generic chain.
+/// the Rialto chain.
 pub const EXTRA_STORAGE_PROOF_SIZE: u32 = 1024;
 
 /// Extended weight info.
 pub trait WeightInfoExt: WeightInfo {
-	// Our configuration assumes that the runtime has special signed extensions used to:
-	//
-	// 1) boost priority of `submit_parachain_heads` transactions;
-	//
-	// 2) slash relayer if he submits an invalid transaction.
-	//
-	// We read and update storage values of other pallets (`pallet-bridge-relayers` and
-	// balances/assets pallet). So we need to add this weight to the weight of our call.
-	// Hence two following methods.
-
-	/// Extra weight that is added to the `submit_finality_proof` call weight by signed extensions
-	/// that are declared at runtime level.
-	fn submit_parachain_heads_overhead_from_runtime() -> Weight;
-
 	/// Storage proof overhead, that is included in every storage proof.
 	///
 	/// The relayer would pay some extra fee for additional proof bytes, since they mean
@@ -79,10 +65,7 @@ pub trait WeightInfoExt: WeightInfo {
 		let pruning_weight =
 			Self::parachain_head_pruning_weight(db_weight).saturating_mul(parachains_count as u64);
 
-		base_weight
-			.saturating_add(proof_size_overhead)
-			.saturating_add(pruning_weight)
-			.saturating_add(Self::submit_parachain_heads_overhead_from_runtime())
+		base_weight.saturating_add(proof_size_overhead).saturating_add(pruning_weight)
 	}
 
 	/// Returns weight of single parachain head storage update.
@@ -112,20 +95,12 @@ pub trait WeightInfoExt: WeightInfo {
 }
 
 impl WeightInfoExt for () {
-	fn submit_parachain_heads_overhead_from_runtime() -> Weight {
-		Weight::zero()
-	}
-
 	fn expected_extra_storage_proof_size() -> u32 {
 		EXTRA_STORAGE_PROOF_SIZE
 	}
 }
 
 impl<T: frame_system::Config> WeightInfoExt for BridgeWeight<T> {
-	fn submit_parachain_heads_overhead_from_runtime() -> Weight {
-		Weight::zero()
-	}
-
 	fn expected_extra_storage_proof_size() -> u32 {
 		EXTRA_STORAGE_PROOF_SIZE
 	}

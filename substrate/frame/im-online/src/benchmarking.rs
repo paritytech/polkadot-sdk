@@ -19,7 +19,9 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use frame_benchmarking::v2::*;
+use super::*;
+
+use frame_benchmarking::v1::benchmarks;
 use frame_support::{traits::UnfilteredDispatchable, WeakBoundedVec};
 use frame_system::RawOrigin;
 use sp_runtime::{
@@ -27,7 +29,7 @@ use sp_runtime::{
 	transaction_validity::TransactionSource,
 };
 
-use crate::*;
+use crate::Pallet as ImOnline;
 
 const MAX_KEYS: u32 = 1000;
 
@@ -62,55 +64,34 @@ pub fn create_heartbeat<T: Config>(
 	Ok((input_heartbeat, signature))
 }
 
-#[benchmarks]
-mod benchmarks {
-	use super::*;
-
-	#[benchmark(extra)]
-	fn heartbeat(k: Linear<1, MAX_KEYS>) -> Result<(), BenchmarkError> {
+benchmarks! {
+	#[extra]
+	heartbeat {
+		let k in 1 .. MAX_KEYS;
 		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
+	}: _(RawOrigin::None, input_heartbeat, signature)
 
-		#[extrinsic_call]
-		_(RawOrigin::None, input_heartbeat, signature);
-
-		Ok(())
-	}
-
-	#[benchmark(extra)]
-	fn validate_unsigned(k: Linear<1, MAX_KEYS>) -> Result<(), BenchmarkError> {
+	#[extra]
+	validate_unsigned {
+		let k in 1 .. MAX_KEYS;
 		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
 		let call = Call::heartbeat { heartbeat: input_heartbeat, signature };
-
-		#[block]
-		{
-			Pallet::<T>::validate_unsigned(TransactionSource::InBlock, &call)
-				.map_err(<&str>::from)?;
-		}
-
-		Ok(())
+	}: {
+		ImOnline::<T>::validate_unsigned(TransactionSource::InBlock, &call)
+			.map_err(<&str>::from)?;
 	}
 
-	#[benchmark]
-	fn validate_unsigned_and_then_heartbeat(k: Linear<1, MAX_KEYS>) -> Result<(), BenchmarkError> {
+	validate_unsigned_and_then_heartbeat {
+		let k in 1 .. MAX_KEYS;
 		let (input_heartbeat, signature) = create_heartbeat::<T>(k)?;
 		let call = Call::heartbeat { heartbeat: input_heartbeat, signature };
 		let call_enc = call.encode();
-
-		#[block]
-		{
-			Pallet::<T>::validate_unsigned(TransactionSource::InBlock, &call)
-				.map_err(<&str>::from)?;
-			<Call<T> as Decode>::decode(&mut &*call_enc)
-				.expect("call is encoded above, encoding must be correct")
-				.dispatch_bypass_filter(RawOrigin::None.into())?;
-		}
-
-		Ok(())
+	}: {
+		ImOnline::<T>::validate_unsigned(TransactionSource::InBlock, &call).map_err(<&str>::from)?;
+		<Call<T> as Decode>::decode(&mut &*call_enc)
+			.expect("call is encoded above, encoding must be correct")
+			.dispatch_bypass_filter(RawOrigin::None.into())?;
 	}
 
-	impl_benchmark_test_suite! {
-		Pallet,
-		mock::new_test_ext(),
-		mock::Runtime
-	}
+	impl_benchmark_test_suite!(ImOnline, crate::mock::new_test_ext(), crate::mock::Runtime);
 }

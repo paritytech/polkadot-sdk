@@ -5,31 +5,6 @@ This subsystem is responsible for handling candidate validation requests. It is 
 A variety of subsystems want to know if a parachain block candidate is valid. None of them care about the detailed
 mechanics of how a candidate gets validated, just the results. This subsystem handles those details.
 
-## High-Level Flow
-
-```dot process
-digraph {
- rankdir="LR";
-
- pre [label = "Pvf-Checker"; shape = square]
- bac [label = "Backing"; shape = square]
- app [label = "Approval\nVoting"; shape = square]
- dis [label = "Dispute\nCoordinator"; shape = square]
-
- can [label = "Candidate\nValidation"; shape = square]
-
- pvf [label = "PVF Host"; shape = square]
-
- pre -> can [style = dashed]
- bac -> can
- app -> can
- dis -> can
-
- can -> pvf [label = "Precheck"; style = dashed]
- can -> pvf [label = "Validate"]
-}
-```
-
 ## Protocol
 
 Input: [`CandidateValidationMessage`](../../types/overseer-protocol.md#validation-request-type)
@@ -56,7 +31,7 @@ all the necessary parameters to the validation function. These are:
   * The [`ValidationData`](../../types/candidate.md#validationdata).
   * The [`PoV`](../../types/availability.md#proofofvalidity).
 
-The second category is for PVF pre-checking. This is primarily used by the [PVF pre-checker](pvf-prechecker.md)
+The second category is for PVF pre-checking. This is primarly used by the [PVF pre-checker](pvf-prechecker.md)
 subsystem.
 
 ### Determining Parameters
@@ -85,7 +60,7 @@ state.
 
 Once we have all parameters, we can spin up a background task to perform the validation in a way that doesn't hold up
 the entire event loop. Before invoking the validation function itself, this should first do some basic checks:
-  * The collator signature is valid (only if `CandidateDescriptor` has version 1)
+  * The collator signature is valid
   * The PoV provided matches the `pov_hash` field of the descriptor
 
 For more details please see [PVF Host and Workers](pvf-host-and-workers.md).

@@ -48,16 +48,27 @@ pub mod migrations;
 mod tests;
 pub mod weights;
 
-extern crate alloc;
-use alloc::{boxed::Box, vec, vec::Vec};
-use frame::{
-	prelude::*,
-	traits::{Currency, ReservableCurrency},
+use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::{
+	dispatch::{
+		DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
+		PostDispatchInfo,
+	},
+	ensure,
+	traits::{Currency, Get, ReservableCurrency},
+	weights::Weight,
+	BoundedVec,
 };
-use frame_system::RawOrigin;
+use frame_system::{self as system, pallet_prelude::BlockNumberFor, RawOrigin};
+use scale_info::TypeInfo;
+use sp_io::hashing::blake2_256;
+use sp_runtime::{
+	traits::{Dispatchable, TrailingZeroInput, Zero},
+	DispatchError, RuntimeDebug,
+};
+use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
-/// Re-export all pallet items.
 pub use pallet::*;
 
 /// The log target of this pallet.
@@ -76,9 +87,6 @@ macro_rules! log {
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-pub type BlockNumberFor<T> =
-	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A global extrinsic index, formed as the extrinsic index within a block, together with that
 /// block's height. This allows a transaction in which a multisig operation of a particular
@@ -117,9 +125,11 @@ enum CallOrHash<T: Config> {
 	Hash([u8; 32]),
 }
 
-#[frame::pallet]
+#[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -155,13 +165,10 @@ pub mod pallet {
 		type MaxSignatories: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
-		type WeightInfo: weights::WeightInfo;
-
-		/// Provider for the block number. Normally this is the `frame_system` pallet.
-		type BlockNumberProvider: BlockNumberProvider;
+		type WeightInfo: WeightInfo;
 	}
 
-	/// The in-code storage version.
+	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -241,7 +248,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {}
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -264,7 +271,7 @@ pub mod pallet {
 				T::WeightInfo::as_multi_threshold_1(call.using_encoded(|c| c.len() as u32))
 					// AccountData for inner call origin accountdata.
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-					.saturating_add(dispatch_info.call_weight),
+					.saturating_add(dispatch_info.weight),
 				dispatch_info.class,
 			)
 		})]
@@ -545,7 +552,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(call) = maybe_call.filter(|_| approvals >= threshold) {
 				// verify weight
 				ensure!(
-					call.get_dispatch_info().call_weight.all_lte(max_weight),
+					call.get_dispatch_info().weight.all_lte(max_weight),
 					Error::<T>::MaxWeightTooLow
 				);
 
@@ -632,8 +639,8 @@ impl<T: Config> Pallet<T> {
 	/// The current `Timepoint`.
 	pub fn timepoint() -> Timepoint<BlockNumberFor<T>> {
 		Timepoint {
-			height: T::BlockNumberProvider::current_block_number(),
-			index: <frame_system::Pallet<T>>::extrinsic_index().unwrap_or_default(),
+			height: <system::Pallet<T>>::block_number(),
+			index: <system::Pallet<T>>::extrinsic_index().unwrap_or_default(),
 		}
 	}
 

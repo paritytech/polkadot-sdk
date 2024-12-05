@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
-// Cumulus is free software: you can redistribute it and/or modify
+// Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Cumulus is distributed in the hope that it will be useful,
+// Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -242,19 +242,17 @@ pub async fn initialize_collator_subsystems(
 	overseer_handle: &mut OverseerHandle,
 	key: CollatorPair,
 	para_id: ParaId,
-	reinitialize: bool,
 ) {
-	let config = CollationGenerationConfig { key, para_id, collator: None };
-
-	if reinitialize {
-		overseer_handle
-			.send_msg(CollationGenerationMessage::Reinitialize(config), "StartCollator")
-			.await;
-	} else {
-		overseer_handle
-			.send_msg(CollationGenerationMessage::Initialize(config), "StartCollator")
-			.await;
-	}
+	overseer_handle
+		.send_msg(
+			CollationGenerationMessage::Initialize(CollationGenerationConfig {
+				key,
+				para_id,
+				collator: None,
+			}),
+			"StartCollator",
+		)
+		.await;
 
 	overseer_handle
 		.send_msg(CollatorProtocolMessage::CollateOn(para_id), "StartCollator")
@@ -381,11 +379,13 @@ mod tests {
 			sproof.included_para_head = Some(HeadData(parent.encode()));
 			sproof.para_id = cumulus_test_runtime::PARACHAIN_ID.into();
 
-			let cumulus_test_client::BlockBuilderAndSupportData { block_builder, .. } = self
-				.client
-				.init_block_builder_at(parent.hash(), Some(validation_data.clone()), sproof);
+			let builder = self.client.init_block_builder_at(
+				parent.hash(),
+				Some(validation_data.clone()),
+				sproof,
+			);
 
-			let (block, _, proof) = block_builder.build().expect("Creates block").into_inner();
+			let (block, _, proof) = builder.build().expect("Creates block").into_inner();
 
 			self.client
 				.import(BlockOrigin::Own, block.clone())

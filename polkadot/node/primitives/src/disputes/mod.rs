@@ -19,15 +19,15 @@ use std::collections::{
 	BTreeMap, BTreeSet,
 };
 
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 
 use sp_application_crypto::AppCrypto;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CompactStatement,
-	DisputeStatement, EncodeAs, InvalidDisputeStatementKind, SessionIndex, SigningContext,
-	UncheckedSigned, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
+	CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement, EncodeAs,
+	InvalidDisputeStatementKind, SessionIndex, SigningContext, UncheckedSigned,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 /// `DisputeMessage` and related types.
@@ -44,15 +44,6 @@ pub struct SignedDisputeStatement {
 	validator_public: ValidatorId,
 	validator_signature: ValidatorSignature,
 	session_index: SessionIndex,
-}
-
-/// Errors encountered while signing a dispute statement
-#[derive(Debug)]
-pub enum SignedDisputeStatementError {
-	/// Encountered a keystore error while signing
-	KeyStoreError(KeystoreError),
-	/// Could not generate signing payload
-	PayloadError,
 }
 
 /// Tracked votes on candidates, for the purposes of dispute resolution.
@@ -84,7 +75,7 @@ impl CandidateVotes {
 #[derive(Debug, Clone)]
 /// Valid candidate votes.
 ///
-/// Prefer backing votes over other votes.
+/// Prefere backing votes over other votes.
 pub struct ValidCandidateVotes {
 	votes: BTreeMap<ValidatorIndex, (ValidDisputeStatementKind, ValidatorSignature)>,
 }
@@ -116,9 +107,8 @@ impl ValidCandidateVotes {
 				ValidDisputeStatementKind::BackingValid(_) |
 				ValidDisputeStatementKind::BackingSeconded(_) => false,
 				ValidDisputeStatementKind::Explicit |
-				ValidDisputeStatementKind::ApprovalChecking |
-				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_) => {
-					occupied.insert((kind.clone(), sig));
+				ValidDisputeStatementKind::ApprovalChecking => {
+					occupied.insert((kind, sig));
 					kind != occupied.get().0
 				},
 			},
@@ -133,7 +123,7 @@ impl ValidCandidateVotes {
 		self.votes.retain(f)
 	}
 
-	/// Get all the validator indices we have votes for.
+	/// Get all the validator indeces we have votes for.
 	pub fn keys(
 		&self,
 	) -> Bkeys<'_, ValidatorIndex, (ValidDisputeStatementKind, ValidatorSignature)> {
@@ -223,19 +213,16 @@ impl SignedDisputeStatement {
 		candidate_hash: CandidateHash,
 		session_index: SessionIndex,
 		validator_public: ValidatorId,
-	) -> Result<Option<Self>, SignedDisputeStatementError> {
+	) -> Result<Option<Self>, KeystoreError> {
 		let dispute_statement = if valid {
 			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit)
 		} else {
 			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit)
 		};
 
-		let data = dispute_statement
-			.payload_data(candidate_hash, session_index)
-			.map_err(|_| SignedDisputeStatementError::PayloadError)?;
+		let data = dispute_statement.payload_data(candidate_hash, session_index);
 		let signature = keystore
-			.sr25519_sign(ValidatorId::ID, validator_public.as_ref(), &data)
-			.map_err(SignedDisputeStatementError::KeyStoreError)?
+			.sr25519_sign(ValidatorId::ID, validator_public.as_ref(), &data)?
 			.map(|sig| Self {
 				dispute_statement,
 				candidate_hash,

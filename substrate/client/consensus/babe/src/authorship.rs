@@ -27,6 +27,7 @@ use sp_consensus_babe::{
 	make_vrf_sign_data, AuthorityId, BabeAuthorityWeight, Randomness, Slot,
 };
 use sp_core::{
+	blake2_256,
 	crypto::{ByteArray, Wraps},
 	U256,
 };
@@ -59,7 +60,7 @@ pub(super) fn calculate_primary_threshold(
 	assert!(theta > 0.0, "authority with weight 0.");
 
 	// NOTE: in the equation `p = 1 - (1 - c)^theta` the value of `p` is always
-	// capped by `c`. For all practical purposes `c` should always be set to a
+	// capped by `c`. For all pratical purposes `c` should always be set to a
 	// value < 0.5, as such in the computations below we should never be near
 	// edge cases like `0.999999`.
 
@@ -108,8 +109,7 @@ pub(super) fn secondary_slot_author(
 		return None
 	}
 
-	let rand =
-		U256::from_big_endian(&(randomness, slot).using_encoded(sp_crypto_hashing::blake2_256));
+	let rand = U256::from((randomness, slot).using_encoded(blake2_256));
 
 	let authorities_len = U256::from(authorities.len());
 	let idx = rand % authorities_len;
@@ -249,7 +249,7 @@ fn claim_primary_slot(
 				.make_bytes::<AUTHORING_SCORE_LENGTH>(
 					AUTHORING_SCORE_VRF_CONTEXT,
 					&data.as_ref(),
-					&vrf_signature.pre_output,
+					&vrf_signature.output,
 				)
 				.map(|bytes| u128::from_le_bytes(bytes) < threshold)
 				.unwrap_or_default();
@@ -272,9 +272,7 @@ fn claim_primary_slot(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_consensus_babe::{
-		AllowedSlots, AuthorityId, BabeEpochConfiguration, Epoch, RANDOMNESS_LENGTH,
-	};
+	use sp_consensus_babe::{AllowedSlots, AuthorityId, BabeEpochConfiguration, Epoch};
 	use sp_core::{crypto::Pair as _, sr25519::Pair};
 	use sp_keystore::testing::MemoryKeystore;
 
@@ -307,19 +305,5 @@ mod tests {
 
 		epoch.authorities.push((valid_public_key.into(), 10));
 		assert_eq!(claim_slot(10.into(), &epoch, &keystore).unwrap().1, valid_public_key.into());
-	}
-
-	#[test]
-	fn secondary_slot_author_selection_works() {
-		let authorities = (0..1000)
-			.map(|i| (AuthorityId::from(Pair::generate().0.public()), i))
-			.collect::<Vec<_>>();
-
-		let randomness = [3; RANDOMNESS_LENGTH];
-
-		assert_eq!(
-			*secondary_slot_author(100.into(), &authorities, randomness).unwrap(),
-			authorities[167].0
-		);
 	}
 }

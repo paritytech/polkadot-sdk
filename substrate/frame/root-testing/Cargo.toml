@@ -1,28 +1,27 @@
 [package]
 name = "pallet-root-testing"
-version = "4.0.0"
+version = "1.0.0-dev"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage.workspace = true
+homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME root testing pallet"
 readme = "README.md"
-
-[lints]
-workspace = true
+publish = false
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+frame-support = { path = "../support", default-features = false}
+frame-system = { path = "../system", default-features = false}
+sp-core = { path = "../../primitives/core", default-features = false}
+sp-io = { path = "../../primitives/io", default-features = false}
+sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-std = { path = "../../primitives/std", default-features = false}
 
 [features]
 try-runtime = [
@@ -30,7 +29,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"codec/std",
 	"frame-support/std",
@@ -39,4 +38,5 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-std/std",
 ]

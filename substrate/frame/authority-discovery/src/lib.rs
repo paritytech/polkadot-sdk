@@ -23,14 +23,12 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
-use alloc::vec::Vec;
 use frame_support::{
 	traits::{Get, OneSessionHandler},
 	WeakBoundedVec,
 };
 use sp_authority_discovery::AuthorityId;
+use sp_std::prelude::*;
 
 pub use pallet::*;
 
@@ -50,11 +48,13 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
+	#[pallet::getter(fn keys)]
 	/// Keys of the current authority set.
 	pub(super) type Keys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn next_keys)]
 	/// Keys of the next authority set.
 	pub(super) type NextKeys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
@@ -64,7 +64,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub keys: Vec<AuthorityId>,
 		#[serde(skip)]
-		pub _config: core::marker::PhantomData<T>,
+		pub _config: sp_std::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -144,21 +144,19 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			);
 
 			Keys::<T>::put(bounded_keys);
+
+			let next_keys = queued_validators.map(|x| x.1).collect::<Vec<_>>();
+
+			let next_bounded_keys = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
+				next_keys,
+				Some(
+					"Warning: The session has more queued validators than expected. \
+				A runtime configuration adjustment may be needed.",
+				),
+			);
+
+			NextKeys::<T>::put(next_bounded_keys);
 		}
-
-		// `changed` represents if queued_validators changed in the previous session not in the
-		// current one.
-		let next_keys = queued_validators.map(|x| x.1).collect::<Vec<_>>();
-
-		let next_bounded_keys = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
-			next_keys,
-			Some(
-				"Warning: The session has more queued validators than expected. \
-			A runtime configuration adjustment may be needed.",
-			),
-		);
-
-		NextKeys::<T>::put(next_bounded_keys);
 	}
 
 	fn on_disabled(_i: u32) {
@@ -170,11 +168,13 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
-	use alloc::vec;
-	use frame_support::{derive_impl, parameter_types, traits::ConstU32};
+	use frame_support::{
+		parameter_types,
+		traits::{ConstU32, ConstU64},
+	};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
-	use sp_core::crypto::key_types;
+	use sp_core::{crypto::key_types, H256};
 	use sp_io::TestExternalities;
 	use sp_runtime::{
 		testing::UintAuthorityId,
@@ -187,9 +187,9 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system,
-			Session: pallet_session,
-			AuthorityDiscovery: pallet_authority_discovery,
+			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+			Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+			AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config<T>},
 		}
 	);
 
@@ -225,11 +225,30 @@ mod tests {
 		pub const Offset: BlockNumber = 0;
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
+		type BaseCallFilter = frame_support::traits::Everything;
+		type BlockWeights = ();
+		type BlockLength = ();
+		type DbWeight = ();
+		type RuntimeOrigin = RuntimeOrigin;
+		type Nonce = u64;
+		type RuntimeCall = RuntimeCall;
+		type Hash = H256;
+		type Hashing = ::sp_runtime::traits::BlakeTwo256;
 		type AccountId = AuthorityId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
+		type RuntimeEvent = RuntimeEvent;
+		type BlockHashCount = ConstU64<250>;
+		type Version = ();
+		type PalletInfo = PalletInfo;
+		type AccountData = ();
+		type OnNewAccount = ();
+		type OnKilledAccount = ();
+		type SystemWeightInfo = ();
+		type SS58Prefix = ();
+		type OnSetCode = ();
+		type MaxConsumers = ConstU32<16>;
 	}
 
 	pub struct TestSessionHandler;
@@ -273,25 +292,13 @@ mod tests {
 			.map(|id| (&account_id, id))
 			.collect::<Vec<(&AuthorityId, AuthorityId)>>();
 
-		let third_authorities: Vec<AuthorityId> = vec![4, 5]
+		let mut third_authorities: Vec<AuthorityId> = vec![4, 5]
 			.into_iter()
 			.map(|i| AuthorityPair::from_seed_slice(vec![i; 32].as_ref()).unwrap().public())
 			.map(AuthorityId::from)
 			.collect();
 		// Needed for `pallet_session::OneSessionHandler::on_new_session`.
 		let third_authorities_and_account_ids = third_authorities
-			.clone()
-			.into_iter()
-			.map(|id| (&account_id, id))
-			.collect::<Vec<(&AuthorityId, AuthorityId)>>();
-
-		let mut fourth_authorities: Vec<AuthorityId> = vec![6, 7]
-			.into_iter()
-			.map(|i| AuthorityPair::from_seed_slice(vec![i; 32].as_ref()).unwrap().public())
-			.map(AuthorityId::from)
-			.collect();
-		// Needed for `pallet_session::OneSessionHandler::on_new_session`.
-		let fourth_authorities_and_account_ids = fourth_authorities
 			.clone()
 			.into_iter()
 			.map(|id| (&account_id, id))
@@ -325,33 +332,25 @@ mod tests {
 				third_authorities_and_account_ids.clone().into_iter(),
 			);
 			let authorities_returned = AuthorityDiscovery::authorities();
-			let mut first_and_third_authorities = first_authorities
-				.iter()
-				.chain(third_authorities.iter())
-				.cloned()
-				.collect::<Vec<AuthorityId>>();
-			first_and_third_authorities.sort();
-
 			assert_eq!(
-				first_and_third_authorities, authorities_returned,
+				first_authorities, authorities_returned,
 				"Expected authority set not to change as `changed` was set to false.",
 			);
 
 			// When `changed` set to true, the authority set should be updated.
 			AuthorityDiscovery::on_new_session(
 				true,
-				third_authorities_and_account_ids.into_iter(),
-				fourth_authorities_and_account_ids.clone().into_iter(),
+				second_authorities_and_account_ids.into_iter(),
+				third_authorities_and_account_ids.clone().into_iter(),
 			);
-
-			let mut third_and_fourth_authorities = third_authorities
+			let mut second_and_third_authorities = second_authorities
 				.iter()
-				.chain(fourth_authorities.iter())
+				.chain(third_authorities.iter())
 				.cloned()
 				.collect::<Vec<AuthorityId>>();
-			third_and_fourth_authorities.sort();
+			second_and_third_authorities.sort();
 			assert_eq!(
-				third_and_fourth_authorities,
+				second_and_third_authorities,
 				AuthorityDiscovery::authorities(),
 				"Expected authority set to contain both the authorities of the new as well as the \
 				 next session."
@@ -360,12 +359,12 @@ mod tests {
 			// With overlapping authority sets, `authorities()` should return a deduplicated set.
 			AuthorityDiscovery::on_new_session(
 				true,
-				fourth_authorities_and_account_ids.clone().into_iter(),
-				fourth_authorities_and_account_ids.clone().into_iter(),
+				third_authorities_and_account_ids.clone().into_iter(),
+				third_authorities_and_account_ids.clone().into_iter(),
 			);
-			fourth_authorities.sort();
+			third_authorities.sort();
 			assert_eq!(
-				fourth_authorities,
+				third_authorities,
 				AuthorityDiscovery::authorities(),
 				"Expected authority set to be deduplicated."
 			);

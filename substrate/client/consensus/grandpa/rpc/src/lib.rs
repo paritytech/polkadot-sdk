@@ -19,13 +19,15 @@
 //! RPC API for GRANDPA.
 #![warn(missing_docs)]
 
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use log::warn;
 use std::sync::Arc;
 
 use jsonrpsee::{
-	core::{async_trait, server::PendingSubscriptionSink},
+	core::{async_trait, RpcResult},
 	proc_macros::rpc,
+	types::SubscriptionResult,
+	SubscriptionSink,
 };
 
 mod error;
@@ -33,16 +35,13 @@ mod finality;
 mod notification;
 mod report;
 
-use error::Error;
+use sc_consensus_grandpa::GrandpaJustificationStream;
+use sc_rpc::SubscriptionTaskExecutor;
+use sp_runtime::traits::{Block as BlockT, NumberFor};
+
 use finality::{EncodedFinalityProof, RpcFinalityProofProvider};
 use notification::JustificationNotification;
 use report::{ReportAuthoritySet, ReportVoterState, ReportedRoundStates};
-use sc_consensus_grandpa::GrandpaJustificationStream;
-use sc_rpc::{
-	utils::{BoundedVecDeque, PendingSubscription},
-	SubscriptionTaskExecutor,
-};
-use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 /// Provides RPC methods for interacting with GRANDPA.
 #[rpc(client, server)]
@@ -50,7 +49,7 @@ pub trait GrandpaApi<Notification, Hash, Number> {
 	/// Returns the state of the current best round state as well as the
 	/// ongoing background rounds.
 	#[method(name = "grandpa_roundState")]
-	async fn round_state(&self) -> Result<ReportedRoundStates, Error>;
+	async fn round_state(&self) -> RpcResult<ReportedRoundStates>;
 
 	/// Returns the block most recently finalized by Grandpa, alongside
 	/// side its justification.
@@ -64,7 +63,7 @@ pub trait GrandpaApi<Notification, Hash, Number> {
 	/// Prove finality for the given block number by returning the Justification for the last block
 	/// in the set and all the intermediary headers to link them together.
 	#[method(name = "grandpa_proveFinality")]
-	async fn prove_finality(&self, block: Number) -> Result<Option<EncodedFinalityProof>, Error>;
+	async fn prove_finality(&self, block: Number) -> RpcResult<Option<EncodedFinalityProof>>;
 }
 
 /// Provides RPC methods for interacting with GRANDPA.
@@ -100,48 +99,55 @@ where
 	Block: BlockT,
 	ProofProvider: RpcFinalityProofProvider<Block> + Send + Sync + 'static,
 {
-	async fn round_state(&self) -> Result<ReportedRoundStates, Error> {
-		ReportedRoundStates::from(&self.authority_set, &self.voter_state)
+	async fn round_state(&self) -> RpcResult<ReportedRoundStates> {
+		ReportedRoundStates::from(&self.authority_set, &self.voter_state).map_err(Into::into)
 	}
 
-	fn subscribe_justifications(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_justifications(&self, mut sink: SubscriptionSink) -> SubscriptionResult {
 		let stream = self.justification_stream.subscribe(100_000).map(
 			|x: sc_consensus_grandpa::GrandpaJustification<Block>| {
 				JustificationNotification::from(x)
 			},
 		);
 
-		sc_rpc::utils::spawn_subscription_task(
-			&self.executor,
-			PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
-		);
+		let fut = async move {
+			sink.pipe_from_stream(stream).await;
+		};
+
+		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+		Ok(())
 	}
 
 	async fn prove_finality(
 		&self,
 		block: NumberFor<Block>,
-	) -> Result<Option<EncodedFinalityProof>, Error> {
-		self.finality_proof_provider.rpc_prove_finality(block).map_err(|e| {
-			warn!("Error proving finality: {}", e);
-			error::Error::ProveFinalityFailed(e)
-		})
+	) -> RpcResult<Option<EncodedFinalityProof>> {
+		self.finality_proof_provider
+			.rpc_prove_finality(block)
+			.map_err(|e| {
+				warn!("Error proving finality: {}", e);
+				error::Error::ProveFinalityFailed(e)
+			})
+			.map_err(Into::into)
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::{collections::HashSet, sync::Arc};
+	use std::{collections::HashSet, convert::TryInto, sync::Arc};
 
-	use codec::{Decode, Encode};
-	use jsonrpsee::{core::EmptyServerParams as EmptyParams, types::SubscriptionId, RpcModule};
-	use sc_block_builder::BlockBuilderBuilder;
+	use jsonrpsee::{
+		types::{EmptyServerParams as EmptyParams, SubscriptionId},
+		RpcModule,
+	};
+	use parity_scale_codec::{Decode, Encode};
+	use sc_block_builder::{BlockBuilder, RecordProof};
 	use sc_consensus_grandpa::{
 		report, AuthorityId, FinalityProof, GrandpaJustification, GrandpaJustificationSender,
 	};
-	use sc_rpc::testing::test_executor;
 	use sp_blockchain::HeaderBackend;
-	use sp_core::crypto::ByteArray;
+	use sp_core::{crypto::ByteArray, testing::TaskExecutor};
 	use sp_keyring::Ed25519Keyring;
 	use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 	use substrate_test_runtime_client::{
@@ -258,7 +264,7 @@ mod tests {
 	{
 		let (justification_sender, justification_stream) = GrandpaJustificationStream::channel();
 		let finality_proof_provider = Arc::new(TestFinalityProofProvider { finality_proof });
-		let executor = test_executor();
+		let executor = Arc::new(TaskExecutor::default());
 
 		let rpc = Grandpa::new(
 			executor,
@@ -275,17 +281,17 @@ mod tests {
 	#[tokio::test]
 	async fn uninitialized_rpc_handler() {
 		let (rpc, _) = setup_io_handler(EmptyVoterState);
-		let expected_response = r#"{"jsonrpc":"2.0","id":0,"error":{"code":1,"message":"GRANDPA RPC endpoint not ready"}}"#.to_string();
+		let expected_response = r#"{"jsonrpc":"2.0","error":{"code":1,"message":"GRANDPA RPC endpoint not ready"},"id":0}"#.to_string();
 		let request = r#"{"jsonrpc":"2.0","method":"grandpa_roundState","params":[],"id":0}"#;
-		let (response, _) = rpc.raw_json_request(&request, 1).await.unwrap();
+		let (response, _) = rpc.raw_json_request(&request).await.unwrap();
 
-		assert_eq!(expected_response, response);
+		assert_eq!(expected_response, response.result);
 	}
 
 	#[tokio::test]
 	async fn working_rpc_handler() {
 		let (rpc, _) = setup_io_handler(TestVoterState);
-		let expected_response = "{\"jsonrpc\":\"2.0\",\"id\":0,\"result\":{\
+		let expected_response = "{\"jsonrpc\":\"2.0\",\"result\":{\
 			\"setId\":1,\
 			\"best\":{\
 				\"round\":2,\"totalWeight\":100,\"thresholdWeight\":67,\
@@ -297,11 +303,11 @@ mod tests {
 				\"prevotes\":{\"currentWeight\":100,\"missing\":[]},\
 				\"precommits\":{\"currentWeight\":100,\"missing\":[]}\
 			}]\
-		}}".to_string();
+		},\"id\":0}".to_string();
 
 		let request = r#"{"jsonrpc":"2.0","method":"grandpa_roundState","params":[],"id":0}"#;
-		let (response, _) = rpc.raw_json_request(&request, 1).await.unwrap();
-		assert_eq!(expected_response, response);
+		let (response, _) = rpc.raw_json_request(&request).await.unwrap();
+		assert_eq!(expected_response, response.result);
 	}
 
 	#[tokio::test]
@@ -309,7 +315,7 @@ mod tests {
 		let (rpc, _) = setup_io_handler(TestVoterState);
 		// Subscribe call.
 		let _sub = rpc
-			.subscribe_unbounded("grandpa_subscribeJustifications", EmptyParams::new())
+			.subscribe("grandpa_subscribeJustifications", EmptyParams::new())
 			.await
 			.unwrap();
 
@@ -317,29 +323,33 @@ mod tests {
 		let (response, _) = rpc
 			.raw_json_request(
 				r#"{"jsonrpc":"2.0","method":"grandpa_unsubscribeJustifications","params":["FOO"],"id":1}"#,
-				1,
 			)
 			.await
 			.unwrap();
-		let expected = r#"{"jsonrpc":"2.0","id":1,"result":false}"#;
+		let expected = r#"{"jsonrpc":"2.0","result":false,"id":1}"#;
 
-		assert_eq!(response, expected);
+		assert_eq!(response.result, expected);
 	}
 
 	fn create_justification() -> GrandpaJustification<Block> {
 		let peers = &[Ed25519Keyring::Alice];
 
 		let builder = TestClientBuilder::new();
+		let backend = builder.backend();
 		let client = builder.build();
 		let client = Arc::new(client);
 
-		let built_block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.info().best_hash)
-			.with_parent_block_number(client.info().best_number)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap();
+		let built_block = BlockBuilder::new(
+			&*client,
+			client.info().best_hash,
+			client.info().best_number,
+			RecordProof::No,
+			Default::default(),
+			&*backend,
+		)
+		.unwrap()
+		.build()
+		.unwrap();
 
 		let block = built_block.block;
 		let block_hash = block.hash();
@@ -380,7 +390,7 @@ mod tests {
 		let (rpc, justification_sender) = setup_io_handler(TestVoterState);
 
 		let mut sub = rpc
-			.subscribe_unbounded("grandpa_subscribeJustifications", EmptyParams::new())
+			.subscribe("grandpa_subscribeJustifications", EmptyParams::new())
 			.await
 			.unwrap();
 

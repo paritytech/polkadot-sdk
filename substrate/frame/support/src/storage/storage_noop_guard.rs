@@ -38,7 +38,7 @@
 /// ```
 #[must_use]
 pub struct StorageNoopGuard<'a> {
-	storage_root: alloc::vec::Vec<u8>,
+	storage_root: sp_std::vec::Vec<u8>,
 	error_message: &'a str,
 }
 
@@ -71,8 +71,7 @@ impl<'a> StorageNoopGuard<'a> {
 impl<'a> Drop for StorageNoopGuard<'a> {
 	fn drop(&mut self) {
 		// No need to double panic, eg. inside a test assertion failure.
-		#[cfg(feature = "std")]
-		if std::thread::panicking() {
+		if sp_std::thread::panicking() {
 			return
 		}
 		assert_eq!(
@@ -86,9 +85,8 @@ impl<'a> Drop for StorageNoopGuard<'a> {
 
 #[cfg(test)]
 mod tests {
-	use sp_io::TestExternalities;
-
 	use super::*;
+	use sp_io::TestExternalities;
 
 	#[test]
 	#[should_panic(expected = "`StorageNoopGuard` detected an attempted storage change.")]
@@ -114,7 +112,7 @@ mod tests {
 		TestExternalities::default().execute_with(|| {
 			let guard = StorageNoopGuard::default();
 			frame_support::storage::unhashed::put(b"key", b"value");
-			std::mem::drop(guard);
+			sp_std::mem::drop(guard);
 			frame_support::storage::unhashed::kill(b"key");
 		});
 	}
@@ -124,7 +122,7 @@ mod tests {
 		TestExternalities::default().execute_with(|| {
 			let guard = StorageNoopGuard::default();
 			frame_support::storage::unhashed::put(b"key", b"value");
-			std::mem::forget(guard);
+			sp_std::mem::forget(guard);
 		});
 	}
 

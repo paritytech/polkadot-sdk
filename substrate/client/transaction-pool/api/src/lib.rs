@@ -23,10 +23,10 @@ pub mod error;
 
 use async_trait::async_trait;
 use codec::Codec;
-use futures::Stream;
+use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::offchain::TransactionPoolExt;
-use sp_runtime::traits::{Block as BlockT, Member};
+use sp_runtime::traits::{Block as BlockT, Member, NumberFor};
 use std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
 
 const LOG_TARGET: &str = "txpool::api";
@@ -36,7 +36,7 @@ pub use sp_runtime::transaction_validity::{
 };
 
 /// Transaction pool status.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PoolStatus {
 	/// Number of transactions in the ready queue.
 	pub ready: usize,
@@ -49,7 +49,7 @@ pub struct PoolStatus {
 }
 
 impl PoolStatus {
-	/// Returns true if there are no transactions in the pool.
+	/// Returns true if the are no transactions in the pool.
 	pub fn is_empty(&self) -> bool {
 		self.ready == 0 && self.future == 0
 	}
@@ -57,32 +57,25 @@ impl PoolStatus {
 
 /// Possible transaction status events.
 ///
-/// These events are being emitted by `TransactionPool` watchers,
+/// This events are being emitted by `TransactionPool` watchers,
 /// which are also exposed over RPC.
 ///
 /// The status events can be grouped based on their kinds as:
 /// 1. Entering/Moving within the pool:
-/// 		- [Future](TransactionStatus::Future)
-/// 		- [Ready](TransactionStatus::Ready)
+/// 		- `Future`
+/// 		- `Ready`
 /// 2. Inside `Ready` queue:
-/// 		- [Broadcast](TransactionStatus::Broadcast)
+/// 		- `Broadcast`
 /// 3. Leaving the pool:
-/// 		- [InBlock](TransactionStatus::InBlock)
-/// 		- [Invalid](TransactionStatus::Invalid)
-/// 		- [Usurped](TransactionStatus::Usurped)
-/// 		- [Dropped](TransactionStatus::Dropped)
+/// 		- `InBlock`
+/// 		- `Invalid`
+/// 		- `Usurped`
+/// 		- `Dropped`
 /// 	4. Re-entering the pool:
-/// 		- [Retracted](TransactionStatus::Retracted)
+/// 		- `Retracted`
 /// 	5. Block finalized:
-/// 		- [Finalized](TransactionStatus::Finalized)
-/// 		- [FinalityTimeout](TransactionStatus::FinalityTimeout)
-///
-/// Transactions are first placed in either the `Ready` or `Future` queues of the transaction pool.
-/// Substrate validates the transaction before it enters the pool.
-///
-/// A transaction is placed in the `Future` queue if it will become valid at a future time.
-/// For example, submitting a transaction with a higher account nonce than the current
-/// expected nonce will place the transaction in the `Future` queue.
+/// 		- `Finalized`
+/// 		- `FinalityTimeout`
 ///
 /// The events will always be received in the order described above, however
 /// there might be cases where transactions alternate between `Future` and `Ready`
@@ -95,37 +88,19 @@ impl PoolStatus {
 /// 1. Due to possible forks, the transaction that ends up being in included
 /// in one block, may later re-enter the pool or be marked as invalid.
 /// 2. Transaction `Dropped` at one point, may later re-enter the pool if some other
-/// transactions are removed. A `Dropped` transaction may re-enter the pool only if it is
-/// resubmitted.
+/// transactions are removed.
 /// 3. `Invalid` transaction may become valid at some point in the future.
 /// (Note that runtimes are encouraged to use `UnknownValidity` to inform the pool about
-/// such case). An `Invalid` transaction may re-enter the pool only if it is resubmitted.
+/// such case).
 /// 4. `Retracted` transactions might be included in some next block.
 ///
-/// The `FinalityTimeout` event will be emitted when the block did not reach finality
+/// The stream is considered finished only when either `Finalized` or `FinalityTimeout`
+/// event is triggered. You are however free to unsubscribe from notifications at any point.
+/// The first one will be emitted when the block, in which transaction was included gets
+/// finalized. The `FinalityTimeout` event will be emitted when the block did not reach finality
 /// within 512 blocks. This either indicates that finality is not available for your chain,
 /// or that finality gadget is lagging behind. If you choose to wait for finality longer, you can
 /// re-subscribe for a particular transaction hash manually again.
-///
-/// ### Last Event
-///
-/// The stream is considered finished when one of the following events happen:
-/// - [Finalized](TransactionStatus::Finalized)
-/// - [FinalityTimeout](TransactionStatus::FinalityTimeout)
-/// - [Usurped](TransactionStatus::Usurped)
-/// - [Invalid](TransactionStatus::Invalid)
-/// - [Dropped](TransactionStatus::Dropped)
-///
-/// See [`TransactionStatus::is_final`] for more details.
-///
-/// ### Resubmit Transactions
-///
-/// Users might resubmit the transaction at a later time for the following events:
-/// - [FinalityTimeout](TransactionStatus::FinalityTimeout)
-/// - [Invalid](TransactionStatus::Invalid)
-/// - [Dropped](TransactionStatus::Dropped)
-///
-/// See [`TransactionStatus::is_retriable`] for more details.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TransactionStatus<Hash, BlockHash> {
@@ -144,7 +119,7 @@ pub enum TransactionStatus<Hash, BlockHash> {
 	/// Maximum number of finality watchers has been reached,
 	/// old watchers are being removed.
 	FinalityTimeout(BlockHash),
-	/// Transaction has been finalized by a finality-gadget, e.g. GRANDPA.
+	/// Transaction has been finalized by a finality-gadget, e.g GRANDPA.
 	#[serde(with = "v1_compatible")]
 	Finalized((BlockHash, TxIndex)),
 	/// Transaction has been replaced in the pool, by another transaction
@@ -154,38 +129,6 @@ pub enum TransactionStatus<Hash, BlockHash> {
 	Dropped,
 	/// Transaction is no longer valid in the current state.
 	Invalid,
-}
-
-impl<Hash, BlockHash> TransactionStatus<Hash, BlockHash> {
-	/// Returns true if this is the last event emitted by [`TransactionStatusStream`].
-	pub fn is_final(&self) -> bool {
-		// The state must be kept in sync with `crate::graph::Sender`.
-		match self {
-			Self::Usurped(_) |
-			Self::Finalized(_) |
-			Self::FinalityTimeout(_) |
-			Self::Invalid |
-			Self::Dropped => true,
-			_ => false,
-		}
-	}
-
-	/// Returns true if the transaction could be re-submitted to the pool in the future.
-	///
-	/// For example, `TransactionStatus::Dropped` is retriable, because the transaction
-	/// may enter the pool if there is space for it in the future.
-	pub fn is_retriable(&self) -> bool {
-		match self {
-			// The number of finality watchers has been reached.
-			Self::FinalityTimeout(_) |
-			// An invalid transaction might be valid at a later time.
-			Self::Invalid |
-			// The transaction was dropped because of the limits of the pool.
-			// It can reenter the pool when other transactions are removed / finalized.
-			Self::Dropped => true,
-			_ => false,
-		}
-	}
 }
 
 /// The stream of transaction events.
@@ -207,6 +150,9 @@ pub type TransactionStatusStreamFor<P> = TransactionStatusStream<TxHash<P>, Bloc
 pub type LocalTransactionFor<P> = <<P as LocalTransactionPool>::Block as BlockT>::Extrinsic;
 /// Transaction's index within the block in which it was included.
 pub type TxIndex = usize;
+
+/// Typical future type used in transaction pool api.
+pub type PoolFuture<T, E> = std::pin::Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
 /// In-pool transaction interface.
 ///
@@ -235,7 +181,6 @@ pub trait InPoolTransaction {
 }
 
 /// Transaction pool interface.
-#[async_trait]
 pub trait TransactionPool: Send + Sync {
 	/// Block type.
 	type Block: BlockT;
@@ -243,7 +188,7 @@ pub trait TransactionPool: Send + Sync {
 	type Hash: Hash + Eq + Member + Serialize + DeserializeOwned + Codec;
 	/// In-pool transaction type.
 	type InPoolTransaction: InPoolTransaction<
-		Transaction = Arc<TransactionFor<Self>>,
+		Transaction = TransactionFor<Self>,
 		Hash = TxHash<Self>,
 	>;
 	/// Error type.
@@ -251,40 +196,46 @@ pub trait TransactionPool: Send + Sync {
 
 	// *** RPC
 
-	/// Asynchronously imports a bunch of unverified transactions to the pool.
-	async fn submit_at(
+	/// Returns a future that imports a bunch of unverified transactions to the pool.
+	fn submit_at(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
-	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error>;
+	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error>;
 
-	/// Asynchronously imports one unverified transaction to the pool.
-	async fn submit_one(
+	/// Returns a future that imports one unverified transaction to the pool.
+	fn submit_one(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> Result<TxHash<Self>, Self::Error>;
+	) -> PoolFuture<TxHash<Self>, Self::Error>;
 
-	/// Asynchronously imports a single transaction and starts to watch their progress in the
+	/// Returns a future that import a single transaction and starts to watch their progress in the
 	/// pool.
-	async fn submit_and_watch(
+	fn submit_and_watch(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error>;
+	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error>;
 
 	// *** Block production / Networking
 	/// Get an iterator for ready transactions ordered by priority.
 	///
-	/// Guaranteed to resolve only when transaction pool got updated at `at` block.
-	/// Guaranteed to resolve immediately when `None` is passed.
-	async fn ready_at(
+	/// Guarantees to return only when transaction pool got updated at `at` block.
+	/// Guarantees to return immediately when `None` is passed.
+	fn ready_at(
 		&self,
-		at: <Self::Block as BlockT>::Hash,
-	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
+		at: NumberFor<Self::Block>,
+	) -> Pin<
+		Box<
+			dyn Future<
+					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
+				> + Send,
+		>,
+	>;
 
 	/// Get an iterator for ready transactions ordered by priority.
 	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
@@ -313,16 +264,6 @@ pub trait TransactionPool: Send + Sync {
 
 	/// Return specific ready transaction by hash, if there is one.
 	fn ready_transaction(&self, hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>>;
-
-	/// Asynchronously returns a set of ready transaction at given block within given timeout.
-	///
-	/// If the timeout is hit during method execution, then the best effort (without executing full
-	/// maintain process) set of ready transactions for given block is returned.
-	async fn ready_at_with_timeout(
-		&self,
-		at: <Self::Block as BlockT>::Hash,
-		timeout: std::time::Duration,
-	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
 }
 
 /// An iterator of ready transactions.
@@ -347,7 +288,6 @@ impl<T> ReadyTransactions for std::iter::Empty<T> {
 }
 
 /// Events that the transaction pool listens for.
-#[derive(Debug)]
 pub enum ChainEvent<B: BlockT> {
 	/// New best block have been added to the chain.
 	NewBestBlock {
@@ -444,7 +384,7 @@ impl<TPool: LocalTransactionPool> OffchainSubmitTransaction<TPool::Block> for TP
 		at: <TPool::Block as BlockT>::Hash,
 		extrinsic: <TPool::Block as BlockT>::Extrinsic,
 	) -> Result<(), ()> {
-		log::trace!(
+		log::debug!(
 			target: LOG_TARGET,
 			"(offchain call) Submitting a transaction to the pool: {:?}",
 			extrinsic

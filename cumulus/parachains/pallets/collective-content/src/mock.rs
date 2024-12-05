@@ -18,7 +18,9 @@
 pub use crate as pallet_collective_content;
 use crate::WeightInfo;
 use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types, traits::ConstU32, weights::Weight,
+	ord_parameter_types, parameter_types,
+	traits::{ConstU32, ConstU64},
+	weights::Weight,
 };
 use frame_system::EnsureSignedBy;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
@@ -53,7 +55,6 @@ impl pallet_collective_content::Config for Test {
 	type WeightInfo = CCWeightInfo;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = ();
 	type BlockWeights = ();
@@ -68,6 +69,7 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
+	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = ();

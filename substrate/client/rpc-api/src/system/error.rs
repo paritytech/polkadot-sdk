@@ -19,9 +19,9 @@
 //! System RPC module errors.
 
 use crate::system::helpers::Health;
-use jsonrpsee::types::{
-	error::{ErrorCode, ErrorObject},
-	ErrorObjectOwned,
+use jsonrpsee::{
+	core::Error as JsonRpseeError,
+	types::error::{CallError, ErrorObject},
 };
 
 /// System RPC Result type.
@@ -36,12 +36,6 @@ pub enum Error {
 	/// Peer argument is malformatted.
 	#[error("{0}")]
 	MalformattedPeerArg(String),
-	/// Call to an unsafe RPC was denied.
-	#[error(transparent)]
-	UnsafeRpcCalled(#[from] crate::policy::UnsafeRpcError),
-	/// Internal error.
-	#[error("{0}")]
-	Internal(String),
 }
 
 // Base code for all system errors.
@@ -51,16 +45,17 @@ const NOT_HEALTHY_ERROR: i32 = BASE_ERROR + 1;
 // Peer argument is malformatted.
 const MALFORMATTED_PEER_ARG_ERROR: i32 = BASE_ERROR + 2;
 
-impl From<Error> for ErrorObjectOwned {
-	fn from(e: Error) -> ErrorObjectOwned {
+impl From<Error> for JsonRpseeError {
+	fn from(e: Error) -> Self {
 		match e {
 			Error::NotHealthy(ref h) =>
-				ErrorObject::owned(NOT_HEALTHY_ERROR, e.to_string(), Some(h)),
-			Error::MalformattedPeerArg(e) =>
-				ErrorObject::owned(MALFORMATTED_PEER_ARG_ERROR, e, None::<()>),
-			Error::UnsafeRpcCalled(e) => e.into(),
-			Error::Internal(e) =>
-				ErrorObjectOwned::owned(ErrorCode::InternalError.code(), e, None::<()>),
+				CallError::Custom(ErrorObject::owned(NOT_HEALTHY_ERROR, e.to_string(), Some(h))),
+			Error::MalformattedPeerArg(e) => CallError::Custom(ErrorObject::owned(
+				MALFORMATTED_PEER_ARG_ERROR + 2,
+				e,
+				None::<()>,
+			)),
 		}
+		.into()
 	}
 }

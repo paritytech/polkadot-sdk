@@ -4,11 +4,11 @@ The implementers' guide is compiled from several source files with [`mdBook`](ht
 
 ## Hosted build
 
-This is available [here](https://paritytech.github.io/polkadot-sdk/book/).
+This is available [here](https://paritytech.github.io/polkadot/book/).
 
 ## Local build
 
-To view it locally, run the following (from the `polkadot/` directory):
+To view it locally from the repo root:
 
 Ensure graphviz is installed:
 

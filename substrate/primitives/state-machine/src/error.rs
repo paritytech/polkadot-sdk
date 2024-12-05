@@ -16,7 +16,7 @@
 // limitations under the License.
 
 /// State Machine Errors
-use core::fmt;
+use sp_std::fmt;
 
 /// State Machine Error bound.
 ///

@@ -19,7 +19,7 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	impl_tx_ext_default, traits::TransactionExtension,
+	traits::{DispatchInfoOf, SignedExtension},
 	transaction_validity::TransactionValidityError,
 };
 
@@ -31,39 +31,45 @@ use sp_runtime::{
 /// is not affected in any other way.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct CheckSpecVersion<T: Config + Send + Sync>(core::marker::PhantomData<T>);
+pub struct CheckSpecVersion<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>);
 
-impl<T: Config + Send + Sync> core::fmt::Debug for CheckSpecVersion<T> {
+impl<T: Config + Send + Sync> sp_std::fmt::Debug for CheckSpecVersion<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		write!(f, "CheckSpecVersion")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
+	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		Ok(())
 	}
 }
 
 impl<T: Config + Send + Sync> CheckSpecVersion<T> {
-	/// Create new `TransactionExtension` to check runtime version.
+	/// Create new `SignedExtension` to check runtime version.
 	pub fn new() -> Self {
-		Self(core::marker::PhantomData)
+		Self(sp_std::marker::PhantomData)
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtension<<T as Config>::RuntimeCall>
-	for CheckSpecVersion<T>
-{
+impl<T: Config + Send + Sync> SignedExtension for CheckSpecVersion<T> {
+	type AccountId = T::AccountId;
+	type Call = <T as Config>::RuntimeCall;
+	type AdditionalSigned = u32;
+	type Pre = ();
 	const IDENTIFIER: &'static str = "CheckSpecVersion";
-	type Implicit = u32;
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 		Ok(<Pallet<T>>::runtime_version().spec_version)
 	}
-	type Val = ();
-	type Pre = ();
-	fn weight(&self, _: &<T as Config>::RuntimeCall) -> sp_weights::Weight {
-		<T::ExtensionsWeightInfo as super::WeightInfo>::check_spec_version()
+
+	fn pre_dispatch(
+		self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		self.validate(who, call, info, len).map(|_| ())
 	}
-	impl_tx_ext_default!(<T as Config>::RuntimeCall; validate prepare);
 }

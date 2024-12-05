@@ -70,64 +70,48 @@
 // Make doc tests happy
 extern crate self as sp_api;
 
-extern crate alloc;
-
-/// Private exports used by the macros.
-///
-/// This is seen as internal API and can change at any point.
 #[doc(hidden)]
-pub mod __private {
-	#[cfg(feature = "std")]
-	mod std_imports {
-		pub use hash_db::Hasher;
-		pub use sp_core::traits::CallContext;
-		pub use sp_externalities::{Extension, Extensions};
-		pub use sp_runtime::StateVersion;
-		pub use sp_state_machine::{
-			Backend as StateBackend, InMemoryBackend, OverlayedChanges, StorageProof, TrieBackend,
-			TrieBackendBuilder,
-		};
-	}
-	#[cfg(feature = "std")]
-	pub use std_imports::*;
-
-	pub use crate::*;
-	pub use alloc::vec;
-	pub use codec::{self, Decode, DecodeLimit, Encode};
-	pub use core::{mem, slice};
-	pub use scale_info;
-	pub use sp_core::offchain;
-	#[cfg(not(feature = "std"))]
-	pub use sp_core::to_substrate_wasm_fn_return_value;
-	#[cfg(feature = "frame-metadata")]
-	pub use sp_metadata_ir::{self as metadata_ir, frame_metadata as metadata};
-	pub use sp_runtime::{
-		generic::BlockId,
-		traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, NumberFor},
-		transaction_validity::TransactionValidity,
-		ExtrinsicInclusionMode, TransactionOutcome,
-	};
-	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
-
-	#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
-	pub use sp_runtime_interface::polkavm::{polkavm_abi, polkavm_export};
-}
-
+pub use codec::{self, Decode, DecodeLimit, Encode};
+#[doc(hidden)]
+#[cfg(feature = "std")]
+pub use hash_db::Hasher;
+#[doc(hidden)]
+pub use scale_info;
+#[doc(hidden)]
+pub use sp_core::offchain;
+#[doc(hidden)]
+#[cfg(not(feature = "std"))]
+pub use sp_core::to_substrate_wasm_fn_return_value;
+#[doc(hidden)]
 #[cfg(feature = "std")]
 pub use sp_core::traits::CallContext;
 use sp_core::OpaqueMetadata;
+#[doc(hidden)]
 #[cfg(feature = "std")]
-use sp_externalities::{Extension, Extensions};
+pub use sp_externalities::{Extension, Extensions};
+#[doc(hidden)]
+#[cfg(feature = "frame-metadata")]
+pub use sp_metadata_ir::{self as metadata_ir, frame_metadata as metadata};
+#[doc(hidden)]
 #[cfg(feature = "std")]
-use sp_runtime::traits::HashingFor;
+pub use sp_runtime::StateVersion;
+#[doc(hidden)]
+pub use sp_runtime::{
+	generic::BlockId,
+	traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, NumberFor},
+	transaction_validity::TransactionValidity,
+	RuntimeString, TransactionOutcome,
+};
+#[doc(hidden)]
 #[cfg(feature = "std")]
-pub use sp_runtime::TransactionOutcome;
-use sp_runtime::{traits::Block as BlockT, ExtrinsicInclusionMode};
-#[cfg(feature = "std")]
-pub use sp_state_machine::StorageProof;
-#[cfg(feature = "std")]
-use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
-use sp_version::RuntimeVersion;
+pub use sp_state_machine::{
+	backend::AsTrieBackend, Backend as StateBackend, InMemoryBackend, OverlayedChanges,
+	StorageProof, TrieBackend, TrieBackendBuilder,
+};
+#[doc(hidden)]
+pub use sp_std::{mem, slice, vec};
+#[doc(hidden)]
+pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
 #[cfg(feature = "std")]
 use std::cell::RefCell;
 
@@ -258,11 +242,6 @@ pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
 /// ```
 /// Note that the latest version (4 in our example above) always contains all methods from all
 /// the versions before.
-///
-/// ## Note on deprecation.
-///
-/// - Usage of `deprecated` attribute will propagate deprecation information to the metadata.
-/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
 pub use sp_api_proc_macro::decl_runtime_apis;
 
 /// Tags given trait implementations as runtime apis.
@@ -286,14 +265,14 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// # Example
 ///
 /// ```rust
-/// extern crate alloc;
+/// use sp_version::create_runtime_str;
 /// #
-/// # use sp_runtime::{ExtrinsicInclusionMode, traits::Block as BlockT};
+/// # use sp_runtime::traits::Block as BlockT;
 /// # use sp_test_primitives::Block;
 /// #
 /// # /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro
 /// # /// in a real runtime.
-/// # pub enum Runtime {}
+/// # pub struct Runtime {}
 /// #
 /// # sp_api::decl_runtime_apis! {
 /// #     /// Declare the api trait.
@@ -315,9 +294,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// #           unimplemented!()
 /// #       }
 /// #       fn execute_block(_block: Block) {}
-/// #       fn initialize_block(_header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
-/// #           unimplemented!()
-/// #       }
+/// #       fn initialize_block(_header: &<Block as BlockT>::Header) {}
 /// #   }
 ///
 ///     impl self::Balance<Block> for Runtime {
@@ -338,15 +315,15 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 ///
 /// /// Runtime version. This needs to be declared for each runtime.
 /// pub const VERSION: sp_version::RuntimeVersion = sp_version::RuntimeVersion {
-///     spec_name: alloc::borrow::Cow::Borrowed("node"),
-///     impl_name: alloc::borrow::Cow::Borrowed("test-node"),
+///     spec_name: create_runtime_str!("node"),
+///     impl_name: create_runtime_str!("test-node"),
 ///     authoring_version: 1,
 ///     spec_version: 1,
 ///     impl_version: 0,
 ///     // Here we are exposing the runtime api versions.
 ///     apis: RUNTIME_API_VERSIONS,
 ///     transaction_version: 1,
-///     system_version: 1,
+///     state_version: 1,
 /// };
 ///
 /// # fn main() {}
@@ -374,7 +351,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// let's say you want to implement a staging version of the runtime api and put it behind a
 /// feature flag. You can do it this way:
 /// ```ignore
-/// pub enum Runtime {}
+/// pub struct Runtime {}
 /// sp_api::decl_runtime_apis! {
 ///     pub trait ApiWithStagingMethod {
 ///         fn stable_one(data: u64);
@@ -419,14 +396,14 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 
 /// Mocks given trait implementations as runtime apis.
 ///
-/// Accepts similar syntax as [`impl_runtime_apis!`] and generates simplified mock
-/// implementations of the given runtime apis. The difference in syntax is that the trait does
-/// not need to be referenced by a qualified path, methods accept the `&self` parameter and the
-/// error type can be specified as associated type. If no error type is specified [`String`] is
-/// used as error type.
+/// Accepts similar syntax as [`impl_runtime_apis!`] and generates
+/// simplified mock implementations of the given runtime apis. The difference in syntax is that
+/// the trait does not need to be referenced by a qualified path, methods accept the `&self`
+/// parameter and the error type can be specified as associated type. If no error type is
+/// specified [`String`] is used as error type.
 ///
-/// Besides implementing the given traits, the [`Core`] and [`ApiExt`] are implemented
-/// automatically.
+/// Besides implementing the given traits, the [`Core`](sp_api::Core) and
+/// [`ApiExt`](sp_api::ApiExt) are implemented automatically.
 ///
 /// # Example
 ///
@@ -540,7 +517,6 @@ pub trait ConstructRuntimeApi<Block: BlockT, C: CallApiAt<Block>> {
 	fn construct_runtime_api(call: &C) -> ApiRef<Self::RuntimeApi>;
 }
 
-#[docify::export]
 /// Init the [`RuntimeLogger`](sp_runtime::runtime_logger::RuntimeLogger).
 pub fn init_runtime_logger() {
 	#[cfg(not(feature = "disable-logging"))]
@@ -551,12 +527,11 @@ pub fn init_runtime_logger() {
 #[cfg(feature = "std")]
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
-	#[error("Failed to decode return value of {function}: {error} raw data: {raw:?}")]
+	#[error("Failed to decode return value of {function}")]
 	FailedToDecodeReturnValue {
 		function: &'static str,
 		#[source]
 		error: codec::Error,
-		raw: Vec<u8>,
 	},
 	#[error("Failed to convert return value from runtime to node of {function}")]
 	FailedToConvertReturnValue {
@@ -690,34 +665,6 @@ pub trait CallApiAt<Block: BlockT> {
 	) -> Result<(), ApiError>;
 }
 
-#[cfg(feature = "std")]
-impl<Block: BlockT, T: CallApiAt<Block>> CallApiAt<Block> for std::sync::Arc<T> {
-	type StateBackend = T::StateBackend;
-
-	fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError> {
-		(**self).call_api_at(params)
-	}
-
-	fn runtime_version_at(
-		&self,
-		at_hash: <Block as BlockT>::Hash,
-	) -> Result<RuntimeVersion, ApiError> {
-		(**self).runtime_version_at(at_hash)
-	}
-
-	fn state_at(&self, at: <Block as BlockT>::Hash) -> Result<Self::StateBackend, ApiError> {
-		(**self).state_at(at)
-	}
-
-	fn initialize_extensions(
-		&self,
-		at: <Block as BlockT>::Hash,
-		extensions: &mut Extensions,
-	) -> Result<(), ApiError> {
-		(**self).initialize_extensions(at, extensions)
-	}
-}
-
 /// Auxiliary wrapper that holds an api instance and binds it to the given lifetime.
 #[cfg(feature = "std")]
 pub struct ApiRef<'a, T>(T, std::marker::PhantomData<&'a ()>);
@@ -812,18 +759,15 @@ pub fn deserialize_runtime_api_info(bytes: [u8; RUNTIME_API_INFO_SIZE]) -> ([u8;
 decl_runtime_apis! {
 	/// The `Core` runtime api that every Substrate runtime needs to implement.
 	#[core_trait]
-	#[api_version(5)]
+	#[api_version(4)]
 	pub trait Core {
 		/// Returns the version of the runtime.
 		fn version() -> RuntimeVersion;
 		/// Execute the given block.
 		fn execute_block(block: Block);
 		/// Initialize a block with the given header.
-		#[changed_in(5)]
 		#[renamed("initialise_block", 2)]
 		fn initialize_block(header: &<Block as BlockT>::Header);
-		/// Initialize a block with the given header and return the runtime executive mode.
-		fn initialize_block(header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode;
 	}
 
 	/// The `Metadata` api trait that returns metadata for the runtime.
@@ -841,10 +785,9 @@ decl_runtime_apis! {
 		/// Returns the supported metadata versions.
 		///
 		/// This can be used to call `metadata_at_version`.
-		fn metadata_versions() -> alloc::vec::Vec<u32>;
+		fn metadata_versions() -> sp_std::vec::Vec<u32>;
 	}
 }
 
 sp_core::generate_feature_enabled_macro!(std_enabled, feature = "std", $);
 sp_core::generate_feature_enabled_macro!(std_disabled, not(feature = "std"), $);
-sp_core::generate_feature_enabled_macro!(frame_metadata_enabled, feature = "frame-metadata", $);

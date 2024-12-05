@@ -19,7 +19,6 @@
 use codec::Encode;
 use serde::{Deserialize, Serialize};
 
-use sp_consensus_beefy::AuthorityIdBound;
 use sp_runtime::traits::Block as BlockT;
 
 /// An encoded finality proof proving that the given header has been finalized.
@@ -29,15 +28,11 @@ use sp_runtime::traits::Block as BlockT;
 pub struct EncodedVersionedFinalityProof(sp_core::Bytes);
 
 impl EncodedVersionedFinalityProof {
-	pub fn new<Block, AuthorityId>(
-		finality_proof: sc_consensus_beefy::justification::BeefyVersionedFinalityProof<
-			Block,
-			AuthorityId,
-		>,
+	pub fn new<Block>(
+		finality_proof: sc_consensus_beefy::justification::BeefyVersionedFinalityProof<Block>,
 	) -> Self
 	where
 		Block: BlockT,
-		AuthorityId: AuthorityIdBound,
 	{
 		EncodedVersionedFinalityProof(finality_proof.encode().into())
 	}

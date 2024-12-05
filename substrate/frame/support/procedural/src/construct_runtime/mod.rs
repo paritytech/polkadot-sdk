@@ -21,10 +21,10 @@
 //! order to get all the pallet parts for each pallet.
 //!
 //! Pallets can define their parts:
-//!  - Implicitly: `System: frame_system`
+//!  - Implicitely: `System: frame_system`
 //!  - Explicitly: `System: frame_system::{Pallet, Call}`
 //!
-//! The `construct_runtime` transitions from the implicit definition to the explicit one.
+//! The `construct_runtime` transitions from the implicit definition to the explict one.
 //! From the explicit state, Substrate expands the pallets with additional information
 //! that is to be included in the runtime metadata. This expansion makes visible some extra
 //! parts of the pallets, mainly the `Error` if defined. The expanded state looks like
@@ -55,7 +55,7 @@
 //!  +----------+     +------------------+
 //! ```
 //!
-//! When all pallet parts are implicit, then the `construct_runtime!` macro expands to its final
+//! When all pallet parts are implcit, then the `construct_runtime!` macro expands to its final
 //! state, the `ExplicitExpanded`. Otherwise, all implicit parts are converted to an explicit
 //! expanded part allow the `construct_runtime!` to expand any remaining explicit parts to an
 //! explicit expanded part.
@@ -172,7 +172,7 @@
 //!
 //! This call has no implicit pallet parts, thus it will expand to the runtime construction:
 //! ```ignore
-//! pub enum Runtime { ... }
+//! pub struct Runtime { ... }
 //! pub struct Call { ... }
 //! impl Call ...
 //! pub enum Origin { ... }
@@ -202,19 +202,18 @@
 //! Similarly to the previous transition, the macro expansion transforms `System:
 //! frame_system::{Pallet, Call}` into  `System: frame_system expanded::{Error} ::{Pallet, Call}`.
 //! The `expanded` section adds extra parts that the Substrate would like to expose for each pallet
-//! by default. This is done to expose the appropriate types for metadata construction.
+//! by default. This is done to expose the approprite types for metadata construction.
 //!
 //! This time, instead of calling `tt_default_parts` we are using the `tt_extra_parts` macro.
 //! This macro returns the ` :: expanded { Error }` list of additional parts we would like to
 //! expose.
 
-pub(crate) mod expand;
-pub(crate) mod parse;
+mod expand;
+mod parse;
 
-use crate::pallet::parse::helper::two128_str;
 use cfg_expr::Predicate;
 use frame_support_procedural_tools::{
-	generate_access_from_frame_or_crate, generate_crate_access, generate_hidden_includes,
+	generate_crate_access, generate_crate_access_2018, generate_hidden_includes,
 };
 use itertools::Itertools;
 use parse::{ExplicitRuntimeDeclaration, ImplicitRuntimeDeclaration, Pallet, RuntimeDeclaration};
@@ -233,40 +232,27 @@ pub fn construct_runtime(input: TokenStream) -> TokenStream {
 	let input_copy = input.clone();
 	let definition = syn::parse_macro_input!(input as RuntimeDeclaration);
 
-	let (check_pallet_number_res, res) = match definition {
-		RuntimeDeclaration::Implicit(implicit_def) => (
-			check_pallet_number(input_copy.clone().into(), implicit_def.pallets.len()),
-			construct_runtime_implicit_to_explicit(input_copy.into(), implicit_def),
-		),
-		RuntimeDeclaration::Explicit(explicit_decl) => (
-			check_pallet_number(input_copy.clone().into(), explicit_decl.pallets.len()),
-			construct_runtime_explicit_to_explicit_expanded(input_copy.into(), explicit_decl),
-		),
-		RuntimeDeclaration::ExplicitExpanded(explicit_decl) => (
-			check_pallet_number(input_copy.into(), explicit_decl.pallets.len()),
-			construct_runtime_final_expansion(explicit_decl),
-		),
+	let res = match definition {
+		RuntimeDeclaration::Implicit(implicit_def) =>
+			check_pallet_number(input_copy.clone().into(), implicit_def.pallets.len()).and_then(
+				|_| construct_runtime_implicit_to_explicit(input_copy.into(), implicit_def),
+			),
+		RuntimeDeclaration::Explicit(explicit_decl) => check_pallet_number(
+			input_copy.clone().into(),
+			explicit_decl.pallets.len(),
+		)
+		.and_then(|_| {
+			construct_runtime_explicit_to_explicit_expanded(input_copy.into(), explicit_decl)
+		}),
+		RuntimeDeclaration::ExplicitExpanded(explicit_decl) =>
+			check_pallet_number(input_copy.into(), explicit_decl.pallets.len())
+				.and_then(|_| construct_runtime_final_expansion(explicit_decl)),
 	};
 
 	let res = res.unwrap_or_else(|e| e.to_compile_error());
 
-	// We want to provide better error messages to the user and thus, handle the error here
-	// separately. If there is an error, we print the error and still generate all of the code to
-	// get in overall less errors for the user.
-	let res = if let Err(error) = check_pallet_number_res {
-		let error = error.to_compile_error();
-
-		quote! {
-			#error
-
-			#res
-		}
-	} else {
-		res
-	};
-
 	let res = expander::Expander::new("construct_runtime")
-		.dry(std::env::var("EXPAND_MACROS").is_err())
+		.dry(std::env::var("FRAME_EXPAND").is_err())
 		.verbose(true)
 		.write_to_out_dir(res)
 		.expect("Does not fail because of IO in OUT_DIR; qed");
@@ -285,7 +271,7 @@ fn construct_runtime_implicit_to_explicit(
 	input: TokenStream2,
 	definition: ImplicitRuntimeDeclaration,
 ) -> Result<TokenStream2> {
-	let frame_support = generate_access_from_frame_or_crate("frame-support")?;
+	let frame_support = generate_crate_access_2018("frame-support")?;
 	let mut expansion = quote::quote!(
 		#frame_support::construct_runtime! { #input }
 	);
@@ -296,7 +282,7 @@ fn construct_runtime_implicit_to_explicit(
 		expansion = quote::quote!(
 			#frame_support::__private::tt_call! {
 				macro = [{ #pallet_path::tt_default_parts }]
-				your_tt_return = [{ #frame_support::__private::tt_return }]
+				frame_support = [{ #frame_support }]
 				~~> #frame_support::match_and_insert! {
 					target = [{ #expansion }]
 					pattern = [{ #pallet_name: #pallet_path #pallet_instance }]
@@ -321,7 +307,7 @@ fn construct_runtime_explicit_to_explicit_expanded(
 	input: TokenStream2,
 	definition: ExplicitRuntimeDeclaration,
 ) -> Result<TokenStream2> {
-	let frame_support = generate_access_from_frame_or_crate("frame-support")?;
+	let frame_support = generate_crate_access_2018("frame-support")?;
 	let mut expansion = quote::quote!(
 		#frame_support::construct_runtime! { #input }
 	);
@@ -332,7 +318,7 @@ fn construct_runtime_explicit_to_explicit_expanded(
 		expansion = quote::quote!(
 			#frame_support::__private::tt_call! {
 				macro = [{ #pallet_path::tt_extra_parts }]
-				your_tt_return = [{ #frame_support::__private::tt_return }]
+				frame_support = [{ #frame_support }]
 				~~> #frame_support::match_and_insert! {
 					target = [{ #expansion }]
 					pattern = [{ #pallet_name: #pallet_path #pallet_instance }]
@@ -355,7 +341,7 @@ fn construct_runtime_final_expansion(
 			syn::Error::new(
 				pallets_token.span.join(),
 				"`System` pallet declaration is missing. \
-			 Please add this line: `System: frame_system,`",
+			 Please add this line: `System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},`",
 			)
 		})?;
 	if !system_pallet.cfg_pattern.is_empty() {
@@ -385,7 +371,7 @@ fn construct_runtime_final_expansion(
 	let scrate = generate_crate_access(hidden_crate_name, "frame-support");
 	let scrate_decl = generate_hidden_includes(hidden_crate_name, "frame-support");
 
-	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
+	let frame_system = generate_crate_access_2018("frame-system")?;
 	let block = quote!(<#name as #frame_system::Config>::Block);
 	let unchecked_extrinsic = quote!(<#block as #scrate::sp_runtime::traits::Block>::Extrinsic);
 
@@ -399,7 +385,6 @@ fn construct_runtime_final_expansion(
 	let pallet_to_index = decl_pallet_runtime_setup(&name, &pallets, &scrate);
 
 	let dispatch = expand::expand_outer_dispatch(&name, system_pallet, &pallets, &scrate);
-	let tasks = expand::expand_outer_task(&name, &pallets, &scrate);
 	let metadata = expand::expand_runtime_metadata(
 		&name,
 		&pallets,
@@ -418,19 +403,17 @@ fn construct_runtime_final_expansion(
 	let integrity_test = decl_integrity_test(&scrate);
 	let static_assertions = decl_static_assertions(&name, &pallets, &scrate);
 
-	let warning = where_section.map_or(None, |where_section| {
-		Some(
-			proc_macro_warning::Warning::new_deprecated("WhereSection")
-				.old("use a `where` clause in `construct_runtime`")
-				.new(
-					"use `frame_system::Config` to set the `Block` type and delete this clause.
-				It is planned to be removed in December 2023",
-				)
-				.help_links(&["https://github.com/paritytech/substrate/pull/14437"])
-				.span(where_section.span)
-				.build_or_panic(),
+	let warning =
+		where_section.map_or(None, |where_section| {
+			Some(proc_macro_warning::Warning::new_deprecated("WhereSection")
+			.old("use a `where` clause in `construct_runtime`")
+			.new("use `frame_system::Config` to set the `Block` type and delete this clause. 
+				It is planned to be removed in December 2023")
+			.help_links(&["https://github.com/paritytech/substrate/pull/14437"])
+			.span(where_section.span)
+			.build(),
 		)
-	});
+		});
 
 	let res = quote!(
 		#warning
@@ -466,17 +449,16 @@ fn construct_runtime_final_expansion(
 		// Therefore, the `Deref` trait will resolve the `runtime_metadata` from `impl_runtime_apis!`
 		// when both macros are called; and will resolve an empty `runtime_metadata` when only the `construct_runtime!`
 		// is called.
+
 		#[doc(hidden)]
 		trait InternalConstructRuntime {
 			#[inline(always)]
-			fn runtime_metadata(&self) -> #scrate::__private::Vec<#scrate::__private::metadata_ir::RuntimeApiMetadataIR> {
+			fn runtime_metadata(&self) -> #scrate::__private::sp_std::vec::Vec<#scrate::__private::metadata_ir::RuntimeApiMetadataIR> {
 				Default::default()
 			}
 		}
 		#[doc(hidden)]
 		impl InternalConstructRuntime for &#name {}
-
-		use #scrate::__private::metadata_ir::InternalImplRuntimeApis;
 
 		#outer_event
 
@@ -489,8 +471,6 @@ fn construct_runtime_final_expansion(
 		#pallet_to_index
 
 		#dispatch
-
-		#tasks
 
 		#metadata
 
@@ -516,7 +496,7 @@ fn construct_runtime_final_expansion(
 	Ok(res)
 }
 
-pub(crate) fn decl_all_pallets<'a>(
+fn decl_all_pallets<'a>(
 	runtime: &'a Ident,
 	pallet_declarations: impl Iterator<Item = &'a Pallet>,
 	features: &HashSet<&str>,
@@ -534,7 +514,6 @@ pub(crate) fn decl_all_pallets<'a>(
 	for pallet_declaration in pallet_declarations {
 		let type_name = &pallet_declaration.name;
 		let pallet = &pallet_declaration.path;
-		let docs = &pallet_declaration.docs;
 		let mut generics = vec![quote!(#runtime)];
 		generics.extend(pallet_declaration.instance.iter().map(|name| quote!(#pallet::#name)));
 		let mut attrs = Vec::new();
@@ -543,7 +522,6 @@ pub(crate) fn decl_all_pallets<'a>(
 			attrs.extend(TokenStream2::from_str(&feat).expect("was parsed successfully; qed"));
 		}
 		let type_decl = quote!(
-			#( #[doc = #docs] )*
 			#(#attrs)*
 			pub type #type_name = #pallet::Pallet <#(#generics),*>;
 		);
@@ -619,23 +597,76 @@ pub(crate) fn decl_all_pallets<'a>(
 		}
 	});
 
+	let all_pallets_without_system_reversed = attribute_to_names.iter().map(|(attr, names)| {
+		let names = names.iter().filter(|n| **n != SYSTEM_PALLET_NAME).rev();
+		quote! {
+			#attr
+			/// All pallets included in the runtime as a nested tuple of types in reversed order.
+			/// Excludes the System pallet.
+			#[deprecated(note = "Using reverse pallet orders is deprecated. use only \
+			`AllPalletsWithSystem or AllPalletsWithoutSystem`")]
+			pub type AllPalletsWithoutSystemReversed = ( #(#names,)* );
+		}
+	});
+
+	let all_pallets_with_system_reversed = attribute_to_names.iter().map(|(attr, names)| {
+		let names = names.iter().rev();
+		quote! {
+			#attr
+			/// All pallets included in the runtime as a nested tuple of types in reversed order.
+			#[deprecated(note = "Using reverse pallet orders is deprecated. use only \
+			`AllPalletsWithSystem or AllPalletsWithoutSystem`")]
+			pub type AllPalletsWithSystemReversed = ( #(#names,)* );
+		}
+	});
+
+	let all_pallets_reversed_with_system_first = attribute_to_names.iter().map(|(attr, names)| {
+		let system = quote::format_ident!("{}", SYSTEM_PALLET_NAME);
+		let names = std::iter::once(&system)
+			.chain(names.iter().rev().filter(|n| **n != SYSTEM_PALLET_NAME).cloned());
+		quote! {
+			#attr
+			/// All pallets included in the runtime as a nested tuple of types in reversed order.
+			/// With the system pallet first.
+			#[deprecated(note = "Using reverse pallet orders is deprecated. use only \
+			`AllPalletsWithSystem or AllPalletsWithoutSystem`")]
+			pub type AllPalletsReversedWithSystemFirst = ( #(#names,)* );
+		}
+	});
+
 	quote!(
 		#types
+
+		/// All pallets included in the runtime as a nested tuple of types.
+		#[deprecated(note = "The type definition has changed from representing all pallets \
+			excluding system, in reversed order to become the representation of all pallets \
+			including system pallet in regular order. For this reason it is encouraged to use \
+			explicitly one of `AllPalletsWithSystem`, `AllPalletsWithoutSystem`, \
+			`AllPalletsWithSystemReversed`, `AllPalletsWithoutSystemReversed`. \
+			Note that the type `frame_executive::Executive` expects one of `AllPalletsWithSystem` \
+			, `AllPalletsWithSystemReversed`, `AllPalletsReversedWithSystemFirst`. More details in \
+			https://github.com/paritytech/substrate/pull/10043")]
+		pub type AllPallets = AllPalletsWithSystem;
 
 		#( #all_pallets_with_system )*
 
 		#( #all_pallets_without_system )*
+
+		#( #all_pallets_with_system_reversed )*
+
+		#( #all_pallets_without_system_reversed )*
+
+		#( #all_pallets_reversed_with_system_first )*
 	)
 }
 
-pub(crate) fn decl_pallet_runtime_setup(
+fn decl_pallet_runtime_setup(
 	runtime: &Ident,
 	pallet_declarations: &[Pallet],
 	scrate: &TokenStream2,
 ) -> TokenStream2 {
 	let names = pallet_declarations.iter().map(|d| &d.name).collect::<Vec<_>>();
 	let name_strings = pallet_declarations.iter().map(|d| d.name.to_string());
-	let name_hashes = pallet_declarations.iter().map(|d| two128_str(&d.name.to_string()));
 	let module_names = pallet_declarations.iter().map(|d| d.path.module_name());
 	let indices = pallet_declarations.iter().map(|pallet| pallet.index as usize);
 	let pallet_structs = pallet_declarations
@@ -668,12 +699,11 @@ pub(crate) fn decl_pallet_runtime_setup(
 		pub struct PalletInfo;
 
 		impl #scrate::traits::PalletInfo for PalletInfo {
-
 			fn index<P: 'static>() -> Option<usize> {
-				let type_id = core::any::TypeId::of::<P>();
+				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == core::any::TypeId::of::<#names>() {
+					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
 						return Some(#indices)
 					}
 				)*
@@ -682,10 +712,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 			}
 
 			fn name<P: 'static>() -> Option<&'static str> {
-				let type_id = core::any::TypeId::of::<P>();
+				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == core::any::TypeId::of::<#names>() {
+					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
 						return Some(#name_strings)
 					}
 				)*
@@ -693,23 +723,11 @@ pub(crate) fn decl_pallet_runtime_setup(
 				None
 			}
 
-			fn name_hash<P: 'static>() -> Option<[u8; 16]> {
-				let type_id = core::any::TypeId::of::<P>();
-				#(
-					#pallet_attrs
-					if type_id == core::any::TypeId::of::<#names>() {
-						return Some(#name_hashes)
-					}
-				)*
-
-				None
-			}
-
 			fn module_name<P: 'static>() -> Option<&'static str> {
-				let type_id = core::any::TypeId::of::<P>();
+				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == core::any::TypeId::of::<#names>() {
+					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
 						return Some(#module_names)
 					}
 				)*
@@ -718,10 +736,10 @@ pub(crate) fn decl_pallet_runtime_setup(
 			}
 
 			fn crate_version<P: 'static>() -> Option<#scrate::traits::CrateVersion> {
-				let type_id = core::any::TypeId::of::<P>();
+				let type_id = #scrate::__private::sp_std::any::TypeId::of::<P>();
 				#(
 					#pallet_attrs
-					if type_id == core::any::TypeId::of::<#names>() {
+					if type_id == #scrate::__private::sp_std::any::TypeId::of::<#names>() {
 						return Some(
 							<#pallet_structs as #scrate::traits::PalletInfoAccess>::crate_version()
 						)
@@ -734,7 +752,7 @@ pub(crate) fn decl_pallet_runtime_setup(
 	)
 }
 
-pub(crate) fn decl_integrity_test(scrate: &TokenStream2) -> TokenStream2 {
+fn decl_integrity_test(scrate: &TokenStream2) -> TokenStream2 {
 	quote!(
 		#[cfg(test)]
 		mod __construct_runtime_integrity_test {
@@ -749,7 +767,7 @@ pub(crate) fn decl_integrity_test(scrate: &TokenStream2) -> TokenStream2 {
 	)
 }
 
-pub(crate) fn decl_static_assertions(
+fn decl_static_assertions(
 	runtime: &Ident,
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream2,
@@ -765,7 +783,7 @@ pub(crate) fn decl_static_assertions(
 		quote! {
 			#scrate::__private::tt_call! {
 				macro = [{ #path::tt_error_token }]
-				your_tt_return = [{ #scrate::__private::tt_return }]
+				frame_support = [{ #scrate }]
 				~~> #scrate::assert_error_encoded_size! {
 					path = [{ #path }]
 					runtime = [{ #runtime }]
@@ -780,7 +798,7 @@ pub(crate) fn decl_static_assertions(
 	}
 }
 
-pub(crate) fn check_pallet_number(input: TokenStream2, pallet_num: usize) -> Result<()> {
+fn check_pallet_number(input: TokenStream2, pallet_num: usize) -> Result<()> {
 	let max_pallet_num = {
 		if cfg!(feature = "tuples-96") {
 			96

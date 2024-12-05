@@ -16,9 +16,9 @@
 
 //! Error handling related code and Error/Result definitions.
 
-use sc_network_types::PeerId;
+use sc_network::PeerId;
 
-use codec::Error as DecodingError;
+use parity_scale_codec::Error as DecodingError;
 
 #[allow(missing_docs)]
 #[fatality::fatality(splitable)]

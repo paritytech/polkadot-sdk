@@ -17,7 +17,7 @@
 
 //! > Made with *Substrate*, for *Polkadot*.
 //!
-//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/bags-list) -
+//! [![github]](https://github.com/paritytech/substrate/frame/fast-unstake) -
 //! [![polkadot]](https://polkadot.network)
 //!
 //! [polkadot]:
@@ -122,13 +122,11 @@
 #[doc = docify::embed!("src/tests.rs", examples_work)]
 pub mod example {}
 
-extern crate alloc;
-
-use alloc::boxed::Box;
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, StaticLookup};
+use sp_std::prelude::*;
 
 #[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
 use sp_runtime::TryRuntimeError;
@@ -240,7 +238,7 @@ pub mod pallet {
 			+ Eq
 			+ Ord
 			+ PartialOrd
-			+ core::fmt::Debug
+			+ sp_std::fmt::Debug
 			+ Copy
 			+ AtLeast32BitUnsigned
 			+ Bounded
@@ -467,7 +465,7 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 			let node = list::Node::<T, I>::get(who).unwrap();
 			let current_bag_idx = thresholds
 				.iter()
-				.chain(core::iter::once(&T::Score::max_value()))
+				.chain(sp_std::iter::once(&T::Score::max_value()))
 				.position(|w| w == &node.bag_upper)
 				.unwrap();
 
@@ -491,7 +489,7 @@ impl<T: Config<I>, I: 'static> ScoreProvider<T::AccountId> for Pallet<T, I> {
 		Node::<T, I>::get(id).map(|node| node.score()).unwrap_or_default()
 	}
 
-	frame_election_provider_support::runtime_benchmarks_or_std_enabled! {
+	frame_election_provider_support::runtime_benchmarks_fuzz_or_std_enabled! {
 		fn set_score_of(id: &T::AccountId, new_score: T::Score) {
 			ListNodes::<T, I>::mutate(id, |maybe_node| {
 				if let Some(node) = maybe_node.as_mut() {

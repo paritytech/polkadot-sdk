@@ -25,6 +25,7 @@ use polkadot_node_network_protocol::request_response::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{
+	jaeger,
 	messages::{IfDisconnected, NetworkBridgeTxMessage},
 	overseer,
 };
@@ -51,7 +52,18 @@ pub async fn fetch_pov<Context>(
 	pov_hash: Hash,
 	tx: oneshot::Sender<PoV>,
 	metrics: Metrics,
+	span: &jaeger::Span,
 ) -> Result<()> {
+	let _span = span
+		.child("fetch-pov")
+		.with_trace_id(candidate_hash)
+		.with_validator_index(from_validator)
+		.with_candidate(candidate_hash)
+		.with_para_id(para_id)
+		.with_relay_parent(parent)
+		.with_string_tag("pov-hash", format!("{:?}", pov_hash))
+		.with_stage(jaeger::Stage::AvailabilityDistribution);
+
 	let info = &runtime.get_session_info(ctx.sender(), parent).await?.session_info;
 	let authority_id = info
 		.discovery_keys
@@ -126,8 +138,7 @@ mod tests {
 	use assert_matches::assert_matches;
 	use futures::{executor, future};
 
-	use codec::Encode;
-	use sc_network::ProtocolName;
+	use parity_scale_codec::Encode;
 	use sp_core::testing::TaskExecutor;
 
 	use polkadot_node_primitives::BlockData;
@@ -135,7 +146,7 @@ mod tests {
 		AllMessages, AvailabilityDistributionMessage, RuntimeApiMessage, RuntimeApiRequest,
 	};
 	use polkadot_node_subsystem_test_helpers as test_helpers;
-	use polkadot_primitives::{CandidateHash, ExecutorParams, Hash, NodeFeatures, ValidatorIndex};
+	use polkadot_primitives::{CandidateHash, ExecutorParams, Hash, ValidatorIndex};
 	use test_helpers::mock::make_ferdie_keystore;
 
 	use super::*;
@@ -157,11 +168,10 @@ mod tests {
 
 	fn test_run(pov_hash: Hash, pov: PoV) {
 		let pool = TaskExecutor::new();
-		let (mut context, mut virtual_overseer) =
-			polkadot_node_subsystem_test_helpers::make_subsystem_context::<
-				AvailabilityDistributionMessage,
-				TaskExecutor,
-			>(pool.clone());
+		let (mut context, mut virtual_overseer) = test_helpers::make_subsystem_context::<
+			AvailabilityDistributionMessage,
+			TaskExecutor,
+		>(pool.clone());
 		let keystore = make_ferdie_keystore();
 		let mut runtime = polkadot_node_subsystem_util::runtime::RuntimeInfo::new(Some(keystore));
 
@@ -177,6 +187,7 @@ mod tests {
 				pov_hash,
 				tx,
 				Metrics::new_dummy(),
+				&jaeger::Span::Disabled,
 			)
 			.await
 			.expect("Should succeed");
@@ -203,12 +214,6 @@ mod tests {
 					)) => {
 						tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 					},
-					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-						_,
-						RuntimeApiRequest::NodeFeatures(_, si_tx),
-					)) => {
-						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
-					},
 					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(
 						mut reqs,
 						_,
@@ -218,10 +223,7 @@ mod tests {
 							Some(Requests::PoVFetchingV1(outgoing)) => {outgoing}
 						);
 						req.pending_response
-							.send(Ok((
-								PoVFetchingResponse::PoV(pov.clone()).encode(),
-								ProtocolName::from(""),
-							)))
+							.send(Ok(PoVFetchingResponse::PoV(pov.clone()).encode()))
 							.unwrap();
 						break
 					},

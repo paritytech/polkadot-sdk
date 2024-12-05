@@ -49,7 +49,7 @@ pub enum Error {
 
 	#[fatal]
 	#[error("Oneshot for receiving response from Chain API got cancelled")]
-	ChainApiSenderDropped(#[from] oneshot::Canceled),
+	ChainApiSenderDropped(#[source] oneshot::Canceled),
 
 	#[fatal]
 	#[error("Retrieving response from Chain API unexpectedly failed with error: {0}")]
@@ -82,9 +82,6 @@ pub enum Error {
 
 	#[error("Given validator index could not be found in current session")]
 	InvalidValidatorIndex,
-
-	#[error("Erasure coding error: {0}")]
-	ErasureCoding(#[from] polkadot_erasure_coding::Error),
 }
 
 /// General result abbreviation type alias.
@@ -107,8 +104,7 @@ pub fn log_error(
 				JfyiError::InvalidValidatorIndex |
 				JfyiError::NoSuchCachedSession { .. } |
 				JfyiError::QueryAvailableDataResponseChannel(_) |
-				JfyiError::QueryChunkResponseChannel(_) |
-				JfyiError::ErasureCoding(_) => gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
+				JfyiError::QueryChunkResponseChannel(_) => gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
 				JfyiError::FetchPoV(_) |
 				JfyiError::SendResponse |
 				JfyiError::NoSuchPoV |

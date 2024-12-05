@@ -17,10 +17,13 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{helpers::SyncState, *};
-use crate::DenyUnsafe;
 use assert_matches::assert_matches;
 use futures::prelude::*;
-use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError, RpcModule};
+use jsonrpsee::{
+	core::Error as RpcError,
+	types::{error::CallError, EmptyServerParams as EmptyParams},
+	RpcModule,
+};
 use sc_network::{self, config::Role, PeerId};
 use sc_rpc_api::system::helpers::PeerInfo;
 use sc_utils::mpsc::tracing_unbounded;
@@ -128,7 +131,7 @@ fn api<T: Into<Option<Status>>>(sync: T) -> RpcModule<System<Block>> {
 			future::ready(())
 		}))
 	});
-	let mut module = System::new(
+	System::new(
 		SystemInfo {
 			impl_name: "testclient".into(),
 			impl_version: "0.2.0".into(),
@@ -137,11 +140,9 @@ fn api<T: Into<Option<Status>>>(sync: T) -> RpcModule<System<Block>> {
 			chain_type: Default::default(),
 		},
 		tx,
+		sc_rpc_api::DenyUnsafe::No,
 	)
-	.into_rpc();
-
-	module.extensions_mut().insert(DenyUnsafe::No);
-	module
+	.into_rpc()
 }
 
 #[tokio::test]
@@ -311,7 +312,7 @@ async fn system_network_add_reserved() {
 	let bad_peer_id = ["/ip4/198.51.100.19/tcp/30333"];
 	assert_matches!(
 		api(None).call::<_, ()>("system_addReservedPeer", bad_peer_id).await,
-		Err(RpcError::JsonRpc(err)) if err.message().contains("Peer id is missing from the address")
+		Err(RpcError::Call(CallError::Custom(err))) if err.message().contains("Peer id is missing from the address")
 	);
 }
 
@@ -327,7 +328,7 @@ async fn system_network_remove_reserved() {
 
 	assert_matches!(
 		api(None).call::<_, String>("system_removeReservedPeer", bad_peer_id).await,
-		Err(RpcError::JsonRpc(err)) if err.message().contains("base-58 decode error: provided string contained invalid character '/' at byte 0")
+		Err(RpcError::Call(CallError::Custom(err))) if err.message().contains("base-58 decode error: provided string contained invalid character '/' at byte 0")
 	);
 }
 #[tokio::test]

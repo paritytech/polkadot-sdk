@@ -20,17 +20,12 @@
 //! A crate which contains primitives that are useful for implementation that uses staking
 //! approaches in general. Definitions related to sessions, slashing, etc go here.
 
-extern crate alloc;
-
 use crate::currency_to_vote::CurrencyToVote;
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
-use core::ops::Sub;
+use codec::{FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
-};
+use sp_core::RuntimeDebug;
+use sp_runtime::{DispatchError, DispatchResult, Saturating};
+use sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec::Vec};
 
 pub mod offence;
 
@@ -41,25 +36,6 @@ pub type SessionIndex = u32;
 
 /// Counter for the number of eras that have passed.
 pub type EraIndex = u32;
-
-/// Type for identifying a page.
-pub type Page = u32;
-/// Representation of a staking account, which may be a stash or controller account.
-///
-/// Note: once the controller is completely deprecated, this enum can also be deprecated in favor of
-/// the stash account. Tracking issue: <https://github.com/paritytech/substrate/issues/6927>.
-#[derive(Clone, Debug)]
-pub enum StakingAccount<AccountId> {
-	Stash(AccountId),
-	Controller(AccountId),
-}
-
-#[cfg(feature = "std")]
-impl<AccountId> From<AccountId> for StakingAccount<AccountId> {
-	fn from(account: AccountId) -> Self {
-		StakingAccount::Stash(account)
-	}
-}
 
 /// Representation of the status of a staker.
 #[derive(RuntimeDebug, TypeInfo)]
@@ -145,17 +121,12 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// * `slashed_active` - The new bonded balance of the staker after the slash was applied.
 	/// * `slashed_unlocking` - A map of slashed eras, and the balance of that unlocking chunk after
 	///   the slash is applied. Any era not present in the map is not affected at all.
-	/// * `slashed_total` - The aggregated balance that was lost due to the slash.
 	fn on_slash(
 		_stash: &AccountId,
 		_slashed_active: Balance,
 		_slashed_unlocking: &BTreeMap<EraIndex, Balance>,
-		_slashed_total: Balance,
 	) {
 	}
-
-	/// Fired when a portion of a staker's balance has been withdrawn.
-	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
 }
 
 /// A generic representation of a staking implementation.
@@ -175,7 +146,7 @@ pub trait StakingInterface {
 		+ Saturating;
 
 	/// AccountId type used by the staking system.
-	type AccountId: Clone + core::fmt::Debug;
+	type AccountId: Clone + sp_std::fmt::Debug;
 
 	/// Means of converting Currency to VoteWeight.
 	type CurrencyToVote: CurrencyToVote<Self::Balance>;
@@ -254,9 +225,6 @@ pub trait StakingInterface {
 	/// schedules have reached their unlocking era should allow more calls to this function.
 	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult;
 
-	/// Set the reward destination for the ledger associated with the stash.
-	fn set_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult;
-
 	/// Unlock any funds schedule to unlock before or at the current era.
 	///
 	/// Returns whether the stash was killed because of this withdraw or not.
@@ -277,20 +245,13 @@ pub trait StakingInterface {
 	/// Checks whether an account `staker` has been exposed in an era.
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool;
 
-	/// Return the status of the given staker, `Err` if not staked at all.
+	/// Return the status of the given staker, `None` if not staked at all.
 	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError>;
 
 	/// Checks whether or not this is a validator account.
 	fn is_validator(who: &Self::AccountId) -> bool {
 		Self::status(who).map(|s| matches!(s, StakerStatus::Validator)).unwrap_or(false)
 	}
-
-	/// Checks whether the staker is a virtual account.
-	///
-	/// A virtual staker is an account whose locks are not managed by the [`StakingInterface`]
-	/// implementation but by an external pallet. See [`StakingUnchecked::virtual_bond`] for more
-	/// details.
-	fn is_virtual_staker(who: &Self::AccountId) -> bool;
 
 	/// Get the nominations of a stash, if they are a nominator, `None` otherwise.
 	fn nominations(who: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
@@ -299,12 +260,6 @@ pub trait StakingInterface {
 			_ => None,
 		}
 	}
-
-	/// Returns the fraction of the slash to be rewarded to reporter.
-	fn slash_reward_fraction() -> Perbill;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn max_exposure_page_size() -> Page;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn add_era_stakers(
@@ -315,311 +270,6 @@ pub trait StakingInterface {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_era(era: EraIndex);
-}
-
-/// Set of low level apis to manipulate staking ledger.
-///
-/// These apis bypass some or all safety checks and should only be used if you know what you are
-/// doing.
-pub trait StakingUnchecked: StakingInterface {
-	/// Migrate an existing staker to a virtual staker.
-	///
-	/// It would release all funds held by the implementation pallet.
-	fn migrate_to_virtual_staker(who: &Self::AccountId);
-
-	/// Book-keep a new bond for `keyless_who` without applying any locks (hence virtual).
-	///
-	/// It is important that `keyless_who` is a keyless account and therefore cannot interact with
-	/// staking pallet directly. Caller is responsible for ensuring the passed amount is locked and
-	/// valid.
-	fn virtual_bond(
-		keyless_who: &Self::AccountId,
-		value: Self::Balance,
-		payee: &Self::AccountId,
-	) -> DispatchResult;
-
-	/// Migrate a virtual staker to a direct staker.
-	///
-	/// Only used for testing.
-	#[cfg(feature = "runtime-benchmarks")]
-	fn migrate_to_direct_staker(who: &Self::AccountId);
-}
-
-/// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct IndividualExposure<AccountId, Balance: HasCompact> {
-	/// The stash account of the nominator in question.
-	pub who: AccountId,
-	/// Amount of funds exposed.
-	#[codec(compact)]
-	pub value: Balance,
-}
-
-/// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct Exposure<AccountId, Balance: HasCompact> {
-	/// The total balance backing this validator.
-	#[codec(compact)]
-	pub total: Balance,
-	/// The validator's own stash that is exposed.
-	#[codec(compact)]
-	pub own: Balance,
-	/// The portions of nominators stashes that are exposed.
-	pub others: Vec<IndividualExposure<AccountId, Balance>>,
-}
-
-impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, Balance> {
-	fn default() -> Self {
-		Self { total: Default::default(), own: Default::default(), others: vec![] }
-	}
-}
-
-impl<
-		AccountId: Clone,
-		Balance: HasCompact + AtLeast32BitUnsigned + Copy + codec::MaxEncodedLen,
-	> Exposure<AccountId, Balance>
-{
-	/// Splits an `Exposure` into `PagedExposureMetadata` and multiple chunks of
-	/// `IndividualExposure` with each chunk having maximum of `page_size` elements.
-	pub fn into_pages(
-		self,
-		page_size: Page,
-	) -> (PagedExposureMetadata<Balance>, Vec<ExposurePage<AccountId, Balance>>) {
-		let individual_chunks = self.others.chunks(page_size as usize);
-		let mut exposure_pages: Vec<ExposurePage<AccountId, Balance>> =
-			Vec::with_capacity(individual_chunks.len());
-
-		for chunk in individual_chunks {
-			let mut page_total: Balance = Zero::zero();
-			let mut others: Vec<IndividualExposure<AccountId, Balance>> =
-				Vec::with_capacity(chunk.len());
-			for individual in chunk.iter() {
-				page_total.saturating_accrue(individual.value);
-				others.push(IndividualExposure {
-					who: individual.who.clone(),
-					value: individual.value,
-				})
-			}
-
-			exposure_pages.push(ExposurePage { page_total, others });
-		}
-
-		(
-			PagedExposureMetadata {
-				total: self.total,
-				own: self.own,
-				nominator_count: self.others.len() as u32,
-				page_count: exposure_pages.len() as Page,
-			},
-			exposure_pages,
-		)
-	}
-}
-
-/// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct ExposurePage<AccountId, Balance: HasCompact> {
-	/// The total balance of this chunk/page.
-	#[codec(compact)]
-	pub page_total: Balance,
-	/// The portions of nominators stashes that are exposed.
-	pub others: Vec<IndividualExposure<AccountId, Balance>>,
-}
-
-impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
-	fn default() -> Self {
-		ExposurePage { page_total: Default::default(), others: vec![] }
-	}
-}
-
-/// Metadata for Paged Exposure of a validator such as total stake across pages and page count.
-///
-/// In combination with the associated `ExposurePage`s, it can be used to reconstruct a full
-/// `Exposure` set of a validator. This is useful for cases where we want to query full set of
-/// `Exposure` as one page (for backward compatibility).
-#[derive(
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Clone,
-	Encode,
-	Decode,
-	RuntimeDebug,
-	TypeInfo,
-	Default,
-	MaxEncodedLen,
-)]
-pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
-	/// The total balance backing this validator.
-	#[codec(compact)]
-	pub total: Balance,
-	/// The validator's own stash that is exposed.
-	#[codec(compact)]
-	pub own: Balance,
-	/// Number of nominators backing this validator.
-	pub nominator_count: u32,
-	/// Number of pages of nominators.
-	pub page_count: Page,
-}
-
-/// A type that belongs only in the context of an `Agent`.
-///
-/// `Agent` is someone that manages delegated funds from [`Delegator`] accounts. It can
-/// then use these funds to participate in the staking system. It can never use its own funds to
-/// stake. They instead (virtually bond)[`StakingUnchecked::virtual_bond`] into the staking system
-/// and are also called `Virtual Stakers`.
-///
-/// The `Agent` is also responsible for managing rewards and slashing for all the `Delegators` that
-/// have delegated funds to it.
-#[derive(Clone, Debug)]
-pub struct Agent<T>(T);
-impl<T> From<T> for Agent<T> {
-	fn from(acc: T) -> Self {
-		Agent(acc)
-	}
-}
-
-impl<T> Agent<T> {
-	pub fn get(self) -> T {
-		self.0
-	}
-}
-
-/// A type that belongs only in the context of a `Delegator`.
-///
-/// `Delegator` is someone that delegates funds to an `Agent`, allowing them to pool funds
-/// along with other delegators and participate in the staking system.
-#[derive(Clone, Debug)]
-pub struct Delegator<T>(T);
-impl<T> From<T> for Delegator<T> {
-	fn from(acc: T) -> Self {
-		Delegator(acc)
-	}
-}
-
-impl<T> Delegator<T> {
-	pub fn get(self) -> T {
-		self.0
-	}
-}
-
-/// Trait to provide delegation functionality for stakers.
-pub trait DelegationInterface {
-	/// Balance type used by the staking system.
-	type Balance: Sub<Output = Self::Balance>
-		+ Ord
-		+ PartialEq
-		+ Default
-		+ Copy
-		+ MaxEncodedLen
-		+ FullCodec
-		+ TypeInfo
-		+ Saturating;
-
-	/// AccountId type used by the staking system.
-	type AccountId: Clone + core::fmt::Debug;
-
-	/// Returns effective balance of the `Agent` account. `None` if not an `Agent`.
-	///
-	/// This takes into account any pending slashes to `Agent` against the delegated balance.
-	fn agent_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
-
-	/// Returns the total amount of funds that is unbonded and can be withdrawn from the `Agent`
-	/// account. `None` if not an `Agent`.
-	fn agent_transferable_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
-
-	/// Returns the total amount of funds delegated. `None` if not a `Delegator`.
-	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance>;
-
-	/// Register `Agent` such that it can accept delegation.
-	fn register_agent(
-		agent: Agent<Self::AccountId>,
-		reward_account: &Self::AccountId,
-	) -> DispatchResult;
-
-	/// Removes `Agent` registration.
-	///
-	/// This should only be allowed if the agent has no staked funds.
-	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult;
-
-	/// Add delegation to the `Agent`.
-	fn delegate(
-		delegator: Delegator<Self::AccountId>,
-		agent: Agent<Self::AccountId>,
-		amount: Self::Balance,
-	) -> DispatchResult;
-
-	/// Withdraw or revoke delegation to `Agent`.
-	///
-	/// If there are `Agent` funds upto `amount` available to withdraw, then those funds would
-	/// be released to the `delegator`
-	fn withdraw_delegation(
-		delegator: Delegator<Self::AccountId>,
-		agent: Agent<Self::AccountId>,
-		amount: Self::Balance,
-		num_slashing_spans: u32,
-	) -> DispatchResult;
-
-	/// Returns pending slashes posted to the `Agent` account. None if not an `Agent`.
-	///
-	/// Slashes to `Agent` account are not immediate and are applied lazily. Since `Agent`
-	/// has an unbounded number of delegators, immediate slashing is not possible.
-	fn pending_slash(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
-
-	/// Apply a pending slash to an `Agent` by slashing `value` from `delegator`.
-	///
-	/// A reporter may be provided (if one exists) in order for the implementor to reward them,
-	/// if applicable.
-	fn delegator_slash(
-		agent: Agent<Self::AccountId>,
-		delegator: Delegator<Self::AccountId>,
-		value: Self::Balance,
-		maybe_reporter: Option<Self::AccountId>,
-	) -> DispatchResult;
-}
-
-/// Trait to provide functionality for direct stakers to migrate to delegation agents.
-/// See [`DelegationInterface`] for more details on delegation.
-pub trait DelegationMigrator {
-	/// Balance type used by the staking system.
-	type Balance: Sub<Output = Self::Balance>
-		+ Ord
-		+ PartialEq
-		+ Default
-		+ Copy
-		+ MaxEncodedLen
-		+ FullCodec
-		+ TypeInfo
-		+ Saturating;
-
-	/// AccountId type used by the staking system.
-	type AccountId: Clone + core::fmt::Debug;
-
-	/// Migrate an existing `Nominator` to `Agent` account.
-	///
-	/// The implementation should ensure the `Nominator` account funds are moved to an escrow
-	/// from which `Agents` can later release funds to its `Delegators`.
-	fn migrate_nominator_to_agent(
-		agent: Agent<Self::AccountId>,
-		reward_account: &Self::AccountId,
-	) -> DispatchResult;
-
-	/// Migrate `value` of delegation to `delegator` from a migrating agent.
-	///
-	/// When a direct `Nominator` migrates to `Agent`, the funds are kept in escrow. This function
-	/// allows the `Agent` to release the funds to the `delegator`.
-	fn migrate_delegation(
-		agent: Agent<Self::AccountId>,
-		delegator: Delegator<Self::AccountId>,
-		value: Self::Balance,
-	) -> DispatchResult;
-
-	/// Drop the `Agent` account and its associated delegators.
-	///
-	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
-	#[cfg(feature = "runtime-benchmarks")]
-	fn force_kill_agent(agent: Agent<Self::AccountId>);
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

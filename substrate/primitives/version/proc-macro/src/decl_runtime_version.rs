@@ -17,7 +17,6 @@
 
 use codec::Encode;
 use proc_macro2::{Span, TokenStream};
-use proc_macro_warning::Warning;
 use quote::quote;
 use syn::{
 	parse::{Error, Result},
@@ -38,19 +37,13 @@ pub fn decl_runtime_version_impl(input: proc_macro::TokenStream) -> proc_macro::
 }
 
 fn decl_runtime_version_impl_inner(item: ItemConst) -> Result<TokenStream> {
-	let (parsed_runtime_version, warnings) = ParseRuntimeVersion::parse_expr(&item.expr)?;
-	let runtime_version = parsed_runtime_version.build(item.expr.span())?;
+	let runtime_version = ParseRuntimeVersion::parse_expr(&item.expr)?.build(item.expr.span())?;
 	let link_section =
 		generate_emit_link_section_decl(&runtime_version.encode(), "runtime_version");
 
 	Ok(quote! {
 		#item
 		#link_section
-		const _:() = {
-			#(
-				#warnings
-			)*
-		};
 	})
 }
 
@@ -59,7 +52,7 @@ fn decl_runtime_version_impl_inner(item: ItemConst) -> Result<TokenStream> {
 /// enable `std` feature even for `no_std` wasm runtime builds.
 ///
 /// One difference from the original definition is the `apis` field. Since we don't actually parse
-/// `apis` from this macro it will always be emitted as empty. An empty vector can be encoded as
+/// `apis` from this macro it will always be emitteed as empty. An empty vector can be encoded as
 /// a zero-byte, thus `u8` is sufficient here.
 #[derive(Encode)]
 struct RuntimeVersion {
@@ -70,7 +63,7 @@ struct RuntimeVersion {
 	impl_version: u32,
 	apis: u8,
 	transaction_version: u32,
-	system_version: u8,
+	state_version: u8,
 }
 
 #[derive(Default, Debug)]
@@ -81,11 +74,11 @@ struct ParseRuntimeVersion {
 	spec_version: Option<u32>,
 	impl_version: Option<u32>,
 	transaction_version: Option<u32>,
-	system_version: Option<u8>,
+	state_version: Option<u8>,
 }
 
 impl ParseRuntimeVersion {
-	fn parse_expr(init_expr: &Expr) -> Result<(ParseRuntimeVersion, Vec<Warning>)> {
+	fn parse_expr(init_expr: &Expr) -> Result<ParseRuntimeVersion> {
 		let init_expr = match init_expr {
 			Expr::Struct(ref e) => e,
 			_ =>
@@ -93,14 +86,13 @@ impl ParseRuntimeVersion {
 		};
 
 		let mut parsed = ParseRuntimeVersion::default();
-		let mut warnings = vec![];
 		for field_value in init_expr.fields.iter() {
-			warnings.append(&mut parsed.parse_field_value(field_value)?)
+			parsed.parse_field_value(field_value)?;
 		}
-		Ok((parsed, warnings))
+		Ok(parsed)
 	}
 
-	fn parse_field_value(&mut self, field_value: &FieldValue) -> Result<Vec<Warning>> {
+	fn parse_field_value(&mut self, field_value: &FieldValue) -> Result<()> {
 		let field_name = match field_value.member {
 			syn::Member::Named(ref ident) => ident,
 			syn::Member::Unnamed(_) =>
@@ -120,7 +112,6 @@ impl ParseRuntimeVersion {
 			}
 		}
 
-		let mut warnings = vec![];
 		if field_name == "spec_name" {
 			parse_once(&mut self.spec_name, field_value, Self::parse_str_literal)?;
 		} else if field_name == "impl_name" {
@@ -134,16 +125,7 @@ impl ParseRuntimeVersion {
 		} else if field_name == "transaction_version" {
 			parse_once(&mut self.transaction_version, field_value, Self::parse_num_literal)?;
 		} else if field_name == "state_version" {
-			let warning = Warning::new_deprecated("RuntimeVersion")
-				.old("state_version")
-				.new("system_version)")
-				.help_link("https://github.com/paritytech/polkadot-sdk/pull/4257")
-				.span(field_name.span())
-				.build_or_panic();
-			warnings.push(warning);
-			parse_once(&mut self.system_version, field_value, Self::parse_num_literal_u8)?;
-		} else if field_name == "system_version" {
-			parse_once(&mut self.system_version, field_value, Self::parse_num_literal_u8)?;
+			parse_once(&mut self.state_version, field_value, Self::parse_num_literal_u8)?;
 		} else if field_name == "apis" {
 			// Intentionally ignored
 			//
@@ -154,7 +136,7 @@ impl ParseRuntimeVersion {
 			return Err(Error::new(field_name.span(), "unknown field"))
 		}
 
-		Ok(warnings)
+		Ok(())
 	}
 
 	fn parse_num_literal(expr: &Expr) -> Result<u32> {
@@ -182,47 +164,21 @@ impl ParseRuntimeVersion {
 	}
 
 	fn parse_str_literal(expr: &Expr) -> Result<String> {
-		match expr {
-			// TODO: Remove this branch when `sp_runtime::create_runtime_str` is removed
-			Expr::Macro(syn::ExprMacro { mac, .. }) => {
-				let lit: ExprLit = mac.parse_body().map_err(|e| {
-					Error::new(
-						e.span(),
-						format!(
-							"a single literal argument is expected, but parsing is failed: {}",
-							e
-						),
-					)
-				})?;
+		let mac = match *expr {
+			Expr::Macro(syn::ExprMacro { ref mac, .. }) => mac,
+			_ => return Err(Error::new(expr.span(), "a macro expression is expected here")),
+		};
 
-				match &lit.lit {
-					Lit::Str(lit) => Ok(lit.value()),
-					_ => Err(Error::new(lit.span(), "only string literals are supported here")),
-				}
-			},
-			Expr::Call(call) => {
-				if call.args.len() != 1 {
-					return Err(Error::new(
-						expr.span(),
-						"a single literal argument is expected, but parsing is failed",
-					));
-				}
-				let Expr::Lit(lit) = call.args.first().expect("Length checked above; qed") else {
-					return Err(Error::new(
-						expr.span(),
-						"a single literal argument is expected, but parsing is failed",
-					));
-				};
+		let lit: ExprLit = mac.parse_body().map_err(|e| {
+			Error::new(
+				e.span(),
+				format!("a single literal argument is expected, but parsing is failed: {}", e),
+			)
+		})?;
 
-				match &lit.lit {
-					Lit::Str(lit) => Ok(lit.value()),
-					_ => Err(Error::new(lit.span(), "only string literals are supported here")),
-				}
-			},
-			_ => Err(Error::new(
-				expr.span(),
-				format!("a function call is expected here, instead of: {expr:?}"),
-			)),
+		match lit.lit {
+			Lit::Str(ref lit) => Ok(lit.value()),
+			_ => Err(Error::new(lit.span(), "only string literals are supported here")),
 		}
 	}
 
@@ -242,7 +198,7 @@ impl ParseRuntimeVersion {
 			spec_version,
 			impl_version,
 			transaction_version,
-			system_version,
+			state_version,
 		} = self;
 
 		Ok(RuntimeVersion {
@@ -252,7 +208,7 @@ impl ParseRuntimeVersion {
 			spec_version: required!(spec_version),
 			impl_version: required!(impl_version),
 			transaction_version: required!(transaction_version),
-			system_version: required!(system_version),
+			state_version: required!(state_version),
 			apis: 0,
 		})
 	}
@@ -284,7 +240,7 @@ mod tests {
 			impl_version: 1,
 			apis: 0,
 			transaction_version: 2,
-			system_version: 1,
+			state_version: 1,
 		}
 		.encode();
 
@@ -299,7 +255,7 @@ mod tests {
 				impl_version: 1,
 				apis: Cow::Owned(vec![]),
 				transaction_version: 2,
-				system_version: 1,
+				state_version: 1,
 			},
 		);
 	}

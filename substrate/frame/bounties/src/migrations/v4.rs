@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::str;
 use frame_support::{
 	storage::{generator::StorageValue, StoragePrefixedMap},
 	traits::{
@@ -26,6 +25,7 @@ use frame_support::{
 };
 use sp_core::hexdisplay::HexDisplay;
 use sp_io::{hashing::twox_128, storage};
+use sp_std::str;
 
 use crate as pallet_bounties;
 
@@ -110,7 +110,7 @@ pub fn migrate<
 }
 
 /// Some checks prior to migration. This can be linked to
-/// `frame_support::traits::OnRuntimeUpgrade::pre_upgrade` for further testing.
+/// [`frame_support::traits::OnRuntimeUpgrade::pre_upgrade`] for further testing.
 ///
 /// Panics if anything goes wrong.
 pub fn pre_migration<T: pallet_bounties::Config, P: GetStorageVersion + 'static, N: AsRef<str>>(
@@ -164,7 +164,7 @@ pub fn pre_migration<T: pallet_bounties::Config, P: GetStorageVersion + 'static,
 }
 
 /// Some checks for after migration. This can be linked to
-/// `frame_support::traits::OnRuntimeUpgrade::post_upgrade` for further testing.
+/// [`frame_support::traits::OnRuntimeUpgrade::post_upgrade`] for further testing.
 ///
 /// Panics if anything goes wrong.
 pub fn post_migration<T: pallet_bounties::Config, P: GetStorageVersion, N: AsRef<str>>(

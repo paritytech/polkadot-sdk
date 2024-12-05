@@ -24,23 +24,32 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
+use std::sync::Arc;
+
 use crate::SubscriptionTaskExecutor;
-use jsonrpsee::{core::async_trait, Extensions, PendingSubscriptionSink};
-use sc_client_api::{
-	Backend, BlockBackend, BlockchainEvents, ExecutorProvider, ProofProvider, StorageProvider,
+
+use jsonrpsee::{
+	core::{async_trait, server::rpc_module::SubscriptionSink, Error as JsonRpseeError, RpcResult},
+	types::SubscriptionResult,
 };
-use sc_rpc_api::{check_if_safe, DenyUnsafe};
-use sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
-use sp_blockchain::{HeaderBackend, HeaderMetadata};
+
+use sc_rpc_api::DenyUnsafe;
 use sp_core::{
 	storage::{PrefixedStorageKey, StorageChangeSet, StorageData, StorageKey},
 	Bytes,
 };
 use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
-use std::sync::Arc;
 
+use sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
+
+use self::error::Error;
+
+use sc_client_api::{
+	Backend, BlockBackend, BlockchainEvents, ExecutorProvider, ProofProvider, StorageProvider,
+};
 pub use sc_rpc_api::{child_state::*, state::*};
+use sp_blockchain::{HeaderBackend, HeaderMetadata};
 
 const STORAGE_KEYS_PAGED_MAX_COUNT: u32 = 1000;
 
@@ -149,21 +158,17 @@ where
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
 
 	/// New runtime version subscription
-	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink);
+	fn subscribe_runtime_version(&self, sink: SubscriptionSink);
 
 	/// New storage subscription
-	fn subscribe_storage(
-		&self,
-		pending: PendingSubscriptionSink,
-		keys: Option<Vec<StorageKey>>,
-		deny_unsafe: DenyUnsafe,
-	);
+	fn subscribe_storage(&self, sink: SubscriptionSink, keys: Option<Vec<StorageKey>>);
 }
 
 /// Create new state API that works on full node.
 pub fn new_full<BE, Block: BlockT, Client>(
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
+	deny_unsafe: DenyUnsafe,
 ) -> (State<Block, Client>, ChildState<Block, Client>)
 where
 	Block: BlockT + 'static,
@@ -186,12 +191,14 @@ where
 	let child_backend =
 		Box::new(self::state_full::FullState::new(client.clone(), executor.clone()));
 	let backend = Box::new(self::state_full::FullState::new(client, executor));
-	(State { backend }, ChildState { backend: child_backend })
+	(State { backend, deny_unsafe }, ChildState { backend: child_backend })
 }
 
 /// State API with subscriptions support.
 pub struct State<Block, Client> {
 	backend: Box<dyn StateBackend<Block, Client>>,
+	/// Whether to deny unsafe calls
+	deny_unsafe: DenyUnsafe,
 }
 
 #[async_trait]
@@ -200,12 +207,7 @@ where
 	Block: BlockT + 'static,
 	Client: Send + Sync + 'static,
 {
-	fn call(
-		&self,
-		method: String,
-		data: Bytes,
-		block: Option<Block::Hash>,
-	) -> Result<Bytes, Error> {
+	fn call(&self, method: String, data: Bytes, block: Option<Block::Hash>) -> RpcResult<Bytes> {
 		self.backend.call(block, method, data).map_err(Into::into)
 	}
 
@@ -213,17 +215,16 @@ where
 		&self,
 		key_prefix: StorageKey,
 		block: Option<Block::Hash>,
-	) -> Result<Vec<StorageKey>, Error> {
+	) -> RpcResult<Vec<StorageKey>> {
 		self.backend.storage_keys(block, key_prefix).map_err(Into::into)
 	}
 
 	fn storage_pairs(
 		&self,
-		ext: &Extensions,
 		key_prefix: StorageKey,
 		block: Option<Block::Hash>,
-	) -> Result<Vec<(StorageKey, StorageData)>, Error> {
-		check_if_safe(ext)?;
+	) -> RpcResult<Vec<(StorageKey, StorageData)>> {
+		self.deny_unsafe.check_if_safe()?;
 		self.backend.storage_pairs(block, key_prefix).map_err(Into::into)
 	}
 
@@ -233,9 +234,12 @@ where
 		count: u32,
 		start_key: Option<StorageKey>,
 		block: Option<Block::Hash>,
-	) -> Result<Vec<StorageKey>, Error> {
+	) -> RpcResult<Vec<StorageKey>> {
 		if count > STORAGE_KEYS_PAGED_MAX_COUNT {
-			return Err(Error::InvalidCount { value: count, max: STORAGE_KEYS_PAGED_MAX_COUNT })
+			return Err(JsonRpseeError::from(Error::InvalidCount {
+				value: count,
+				max: STORAGE_KEYS_PAGED_MAX_COUNT,
+			}))
 		}
 		self.backend
 			.storage_keys_paged(block, prefix, count, start_key)
@@ -246,7 +250,7 @@ where
 		&self,
 		key: StorageKey,
 		block: Option<Block::Hash>,
-	) -> Result<Option<StorageData>, Error> {
+	) -> RpcResult<Option<StorageData>> {
 		self.backend.storage(block, key).map_err(Into::into)
 	}
 
@@ -254,39 +258,36 @@ where
 		&self,
 		key: StorageKey,
 		block: Option<Block::Hash>,
-	) -> Result<Option<Block::Hash>, Error> {
+	) -> RpcResult<Option<Block::Hash>> {
 		self.backend.storage_hash(block, key).map_err(Into::into)
 	}
 
 	async fn storage_size(
 		&self,
-		ext: &Extensions,
 		key: StorageKey,
 		block: Option<Block::Hash>,
-	) -> Result<Option<u64>, Error> {
-		let deny_unsafe = ext
-			.get::<DenyUnsafe>()
-			.cloned()
-			.expect("DenyUnsafe extension is always set by the substrate rpc server; qed");
-		self.backend.storage_size(block, key, deny_unsafe).await.map_err(Into::into)
+	) -> RpcResult<Option<u64>> {
+		self.backend
+			.storage_size(block, key, self.deny_unsafe)
+			.await
+			.map_err(Into::into)
 	}
 
-	fn metadata(&self, block: Option<Block::Hash>) -> Result<Bytes, Error> {
+	fn metadata(&self, block: Option<Block::Hash>) -> RpcResult<Bytes> {
 		self.backend.metadata(block).map_err(Into::into)
 	}
 
-	fn runtime_version(&self, at: Option<Block::Hash>) -> Result<RuntimeVersion, Error> {
+	fn runtime_version(&self, at: Option<Block::Hash>) -> RpcResult<RuntimeVersion> {
 		self.backend.runtime_version(at).map_err(Into::into)
 	}
 
 	fn query_storage(
 		&self,
-		ext: &Extensions,
 		keys: Vec<StorageKey>,
 		from: Block::Hash,
 		to: Option<Block::Hash>,
-	) -> Result<Vec<StorageChangeSet<Block::Hash>>, Error> {
-		check_if_safe(ext)?;
+	) -> RpcResult<Vec<StorageChangeSet<Block::Hash>>> {
+		self.deny_unsafe.check_if_safe()?;
 		self.backend.query_storage(from, to, keys).map_err(Into::into)
 	}
 
@@ -294,7 +295,7 @@ where
 		&self,
 		keys: Vec<StorageKey>,
 		at: Option<Block::Hash>,
-	) -> Result<Vec<StorageChangeSet<Block::Hash>>, Error> {
+	) -> RpcResult<Vec<StorageChangeSet<Block::Hash>>> {
 		self.backend.query_storage_at(keys, at).map_err(Into::into)
 	}
 
@@ -302,7 +303,7 @@ where
 		&self,
 		keys: Vec<StorageKey>,
 		block: Option<Block::Hash>,
-	) -> Result<ReadProof<Block::Hash>, Error> {
+	) -> RpcResult<ReadProof<Block::Hash>> {
 		self.backend.read_proof(block, keys).map_err(Into::into)
 	}
 
@@ -313,33 +314,36 @@ where
 	/// Note: requires runtimes compiled with wasm tracing support, `--features with-tracing`.
 	fn trace_block(
 		&self,
-		ext: &Extensions,
 		block: Block::Hash,
 		targets: Option<String>,
 		storage_keys: Option<String>,
 		methods: Option<String>,
-	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error> {
-		check_if_safe(ext)?;
+	) -> RpcResult<sp_rpc::tracing::TraceBlockResponse> {
+		self.deny_unsafe.check_if_safe()?;
 		self.backend
 			.trace_block(block, targets, storage_keys, methods)
 			.map_err(Into::into)
 	}
 
-	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink) {
-		self.backend.subscribe_runtime_version(pending)
+	fn subscribe_runtime_version(&self, sink: SubscriptionSink) -> SubscriptionResult {
+		self.backend.subscribe_runtime_version(sink);
+		Ok(())
 	}
 
 	fn subscribe_storage(
 		&self,
-		pending: PendingSubscriptionSink,
-		ext: &Extensions,
+		mut sink: SubscriptionSink,
 		keys: Option<Vec<StorageKey>>,
-	) {
-		let deny_unsafe = ext
-			.get::<DenyUnsafe>()
-			.cloned()
-			.expect("DenyUnsafe extension is always set by the substrate rpc server; qed");
-		self.backend.subscribe_storage(pending, keys, deny_unsafe)
+	) -> SubscriptionResult {
+		if keys.is_none() {
+			if let Err(err) = self.deny_unsafe.check_if_safe() {
+				let _ = sink.reject(JsonRpseeError::from(err));
+				return Ok(())
+			}
+		}
+
+		self.backend.subscribe_storage(sink, keys);
+		Ok(())
 	}
 }
 
@@ -426,7 +430,7 @@ where
 		storage_key: PrefixedStorageKey,
 		key_prefix: StorageKey,
 		block: Option<Block::Hash>,
-	) -> Result<Vec<StorageKey>, Error> {
+	) -> RpcResult<Vec<StorageKey>> {
 		self.backend.storage_keys(block, storage_key, key_prefix).map_err(Into::into)
 	}
 
@@ -437,7 +441,7 @@ where
 		count: u32,
 		start_key: Option<StorageKey>,
 		block: Option<Block::Hash>,
-	) -> Result<Vec<StorageKey>, Error> {
+	) -> RpcResult<Vec<StorageKey>> {
 		self.backend
 			.storage_keys_paged(block, storage_key, prefix, count, start_key)
 			.map_err(Into::into)
@@ -448,7 +452,7 @@ where
 		storage_key: PrefixedStorageKey,
 		key: StorageKey,
 		block: Option<Block::Hash>,
-	) -> Result<Option<StorageData>, Error> {
+	) -> RpcResult<Option<StorageData>> {
 		self.backend.storage(block, storage_key, key).map_err(Into::into)
 	}
 
@@ -457,7 +461,7 @@ where
 		storage_key: PrefixedStorageKey,
 		keys: Vec<StorageKey>,
 		block: Option<Block::Hash>,
-	) -> Result<Vec<Option<StorageData>>, Error> {
+	) -> RpcResult<Vec<Option<StorageData>>> {
 		self.backend.storage_entries(block, storage_key, keys).map_err(Into::into)
 	}
 
@@ -466,7 +470,7 @@ where
 		storage_key: PrefixedStorageKey,
 		key: StorageKey,
 		block: Option<Block::Hash>,
-	) -> Result<Option<Block::Hash>, Error> {
+	) -> RpcResult<Option<Block::Hash>> {
 		self.backend.storage_hash(block, storage_key, key).map_err(Into::into)
 	}
 
@@ -475,7 +479,7 @@ where
 		storage_key: PrefixedStorageKey,
 		key: StorageKey,
 		block: Option<Block::Hash>,
-	) -> Result<Option<u64>, Error> {
+	) -> RpcResult<Option<u64>> {
 		self.backend.storage_size(block, storage_key, key).map_err(Into::into)
 	}
 
@@ -484,7 +488,7 @@ where
 		child_storage_key: PrefixedStorageKey,
 		keys: Vec<StorageKey>,
 		block: Option<Block::Hash>,
-	) -> Result<ReadProof<Block::Hash>, Error> {
+	) -> RpcResult<ReadProof<Block::Hash>> {
 		self.backend
 			.read_child_proof(block, child_storage_key, keys)
 			.map_err(Into::into)

@@ -25,10 +25,7 @@ use crate::{
 	CodeHash, Config, Pallet, TrieId, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
-use core::{
-	cmp::{max, min},
-	ops::Deref,
-};
+use core::cmp::{max, min};
 use frame_support::{
 	pallet_prelude::*,
 	storage_alias,
@@ -36,21 +33,18 @@ use frame_support::{
 		tokens::{fungible::Inspect, Fortitude::Polite, Preservation::Preserve},
 		ExistenceRequirement, ReservableCurrency,
 	},
-	weights::WeightMeter,
 	DefaultNoBound,
 };
 use sp_core::hexdisplay::HexDisplay;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
 use sp_runtime::{
 	traits::{Hash, TrailingZeroInput, Zero},
 	Perbill, Saturating,
 };
+use sp_std::{ops::Deref, prelude::*};
 
-#[cfg(feature = "try-runtime")]
-use alloc::vec::Vec;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
-
-mod v9 {
+mod old {
 	use super::*;
 
 	pub type BalanceOf<T, OldCurrency> = <OldCurrency as frame_support::traits::Currency<
@@ -88,7 +82,7 @@ pub fn store_old_contract_info<T: Config, OldCurrency>(
 ) where
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId> + 'static,
 {
-	let info = v9::ContractInfo {
+	let info = old::ContractInfo {
 		trie_id: info.trie_id,
 		code_hash: info.code_hash,
 		storage_bytes: Default::default(),
@@ -97,7 +91,7 @@ pub fn store_old_contract_info<T: Config, OldCurrency>(
 		storage_item_deposit: Default::default(),
 		storage_base_deposit: Default::default(),
 	};
-	v9::ContractInfoOf::<T, OldCurrency>::insert(account, info);
+	old::ContractInfoOf::<T, OldCurrency>::insert(account, info);
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen)]
@@ -123,9 +117,9 @@ where
 	pub code_hash: CodeHash<T>,
 	storage_bytes: u32,
 	storage_items: u32,
-	pub storage_byte_deposit: v9::BalanceOf<T, OldCurrency>,
-	storage_item_deposit: v9::BalanceOf<T, OldCurrency>,
-	storage_base_deposit: v9::BalanceOf<T, OldCurrency>,
+	pub storage_byte_deposit: old::BalanceOf<T, OldCurrency>,
+	storage_item_deposit: old::BalanceOf<T, OldCurrency>,
+	storage_base_deposit: old::BalanceOf<T, OldCurrency>,
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, DefaultNoBound)]
@@ -155,7 +149,7 @@ fn deposit_address<T: Config>(
 impl<T: Config, OldCurrency: 'static> MigrationStep for Migration<T, OldCurrency>
 where
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>
-		+ Inspect<<T as frame_system::Config>::AccountId, Balance = v9::BalanceOf<T, OldCurrency>>,
+		+ Inspect<<T as frame_system::Config>::AccountId, Balance = old::BalanceOf<T, OldCurrency>>,
 {
 	const VERSION: u16 = 10;
 
@@ -163,13 +157,13 @@ where
 		T::WeightInfo::v10_migration_step()
 	}
 
-	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
+	fn step(&mut self) -> (IsFinished, Weight) {
 		let mut iter = if let Some(last_account) = self.last_account.take() {
-			v9::ContractInfoOf::<T, OldCurrency>::iter_from(
-				v9::ContractInfoOf::<T, OldCurrency>::hashed_key_for(last_account),
+			old::ContractInfoOf::<T, OldCurrency>::iter_from(
+				old::ContractInfoOf::<T, OldCurrency>::hashed_key_for(last_account),
 			)
 		} else {
-			v9::ContractInfoOf::<T, OldCurrency>::iter()
+			old::ContractInfoOf::<T, OldCurrency>::iter()
 		};
 
 		if let Some((account, contract)) = iter.next() {
@@ -225,7 +219,7 @@ where
 					"Failed to transfer the base deposit, reason: {:?}",
 					err
 				);
-				let _ = OldCurrency::deposit_creating(&deposit_account, min_balance);
+				OldCurrency::deposit_creating(&deposit_account, min_balance);
 				min_balance
 			});
 
@@ -270,18 +264,16 @@ where
 			// Store last key for next migration step
 			self.last_account = Some(account);
 
-			meter.consume(T::WeightInfo::v10_migration_step());
-			IsFinished::No
+			(IsFinished::No, T::WeightInfo::v10_migration_step())
 		} else {
 			log::debug!(target: LOG_TARGET, "Done Migrating contract info");
-			meter.consume(T::WeightInfo::v10_migration_step());
-			IsFinished::Yes
+			(IsFinished::Yes, T::WeightInfo::v10_migration_step())
 		}
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade_step() -> Result<Vec<u8>, TryRuntimeError> {
-		let sample: Vec<_> = v9::ContractInfoOf::<T, OldCurrency>::iter().take(10).collect();
+		let sample: Vec<_> = old::ContractInfoOf::<T, OldCurrency>::iter().take(10).collect();
 
 		log::debug!(target: LOG_TARGET, "Taking sample of {} contracts", sample.len());
 		Ok(sample.encode())
@@ -289,7 +281,7 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade_step(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		let sample = <Vec<(T::AccountId, v9::ContractInfo<T, OldCurrency>)> as Decode>::decode(
+		let sample = <Vec<(T::AccountId, old::ContractInfo<T, OldCurrency>)> as Decode>::decode(
 			&mut &state[..],
 		)
 		.expect("pre_upgrade_step provides a valid state; qed");

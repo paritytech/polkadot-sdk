@@ -16,13 +16,14 @@
 
 //! Primitives of parachains module.
 
-#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use bp_header_chain::StoredHeaderData;
-pub use call_info::{BridgeParachainCall, SubmitParachainHeadsInfo};
 
-use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId};
+use bp_polkadot_core::{
+	parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId},
+	BlockNumber as RelayBlockNumber, Hash as RelayBlockHash,
+};
 use bp_runtime::{
 	BlockNumberOf, Chain, HashOf, HeaderOf, Parachain, StorageDoubleMapKeyProvider,
 	StorageMapKeyProvider,
@@ -33,15 +34,6 @@ use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
 use sp_std::{marker::PhantomData, prelude::*};
-
-/// Block hash of the bridged relay chain.
-pub type RelayBlockHash = bp_polkadot_core::Hash;
-/// Block number of the bridged relay chain.
-pub type RelayBlockNumber = bp_polkadot_core::BlockNumber;
-/// Hasher of the bridged relay chain.
-pub type RelayBlockHasher = bp_polkadot_core::Hasher;
-
-mod call_info;
 
 /// Best known parachain head hash.
 #[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
@@ -123,10 +115,6 @@ impl ParaStoredHeaderData {
 
 /// Stored parachain head data builder.
 pub trait ParaStoredHeaderDataBuilder {
-	/// Maximal parachain head size that we may accept for free. All heads above
-	/// this limit are submitted for a regular fee.
-	fn max_free_head_size() -> u32;
-
 	/// Return number of parachains that are supported by this builder.
 	fn supported_parachains() -> u32;
 
@@ -138,10 +126,6 @@ pub trait ParaStoredHeaderDataBuilder {
 pub struct SingleParaStoredHeaderDataBuilder<C: Parachain>(PhantomData<C>);
 
 impl<C: Parachain> ParaStoredHeaderDataBuilder for SingleParaStoredHeaderDataBuilder<C> {
-	fn max_free_head_size() -> u32 {
-		C::MAX_HEADER_SIZE
-	}
-
 	fn supported_parachains() -> u32 {
 		1
 	}
@@ -162,17 +146,6 @@ impl<C: Parachain> ParaStoredHeaderDataBuilder for SingleParaStoredHeaderDataBui
 #[impl_trait_for_tuples::impl_for_tuples(1, 30)]
 #[tuple_types_custom_trait_bound(Parachain)]
 impl ParaStoredHeaderDataBuilder for C {
-	fn max_free_head_size() -> u32 {
-		let mut result = 0_u32;
-		for_tuples!( #(
-			result = sp_std::cmp::max(
-				result,
-				SingleParaStoredHeaderDataBuilder::<C>::max_free_head_size(),
-			);
-		)* );
-		result
-	}
-
 	fn supported_parachains() -> u32 {
 		let mut result = 0;
 		for_tuples!( #(
@@ -191,4 +164,17 @@ impl ParaStoredHeaderDataBuilder for C {
 
 		None
 	}
+}
+
+/// A minimized version of `pallet-bridge-parachains::Call` that can be used without a runtime.
+#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
+#[allow(non_camel_case_types)]
+pub enum BridgeParachainCall {
+	/// `pallet-bridge-parachains::Call::submit_parachain_heads`
+	#[codec(index = 0)]
+	submit_parachain_heads {
+		at_relay_block: (RelayBlockNumber, RelayBlockHash),
+		parachains: Vec<(ParaId, ParaHash)>,
+		parachain_heads_proof: ParaHeadsProof,
+	},
 }

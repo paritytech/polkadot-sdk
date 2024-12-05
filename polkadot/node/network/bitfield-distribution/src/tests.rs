@@ -25,7 +25,11 @@ use polkadot_node_network_protocol::{
 	peer_set::ValidationVersion,
 	view, ObservedRole,
 };
-use polkadot_node_subsystem::messages::ReportPeerMessage;
+use polkadot_node_subsystem::{
+	jaeger,
+	jaeger::{PerLeafSpan, Span},
+	messages::ReportPeerMessage,
+};
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{AvailabilityBitfield, Signed, ValidatorIndex};
@@ -36,7 +40,7 @@ use sp_core::Pair as PairT;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
 
-use std::{sync::Arc, time::Duration};
+use std::{iter::FromIterator as _, sync::Arc, time::Duration};
 
 const TIMEOUT: Duration = Duration::from_millis(50);
 macro_rules! launch {
@@ -82,6 +86,7 @@ fn prewarmed_state(
 					},
 					message_received_from_peer: hashmap!{},
 					message_sent_to_peer: hashmap!{},
+					span: PerLeafSpan::new(Arc::new(jaeger::Span::Disabled), "test"),
 				},
 		},
 		peer_data: peers
@@ -119,6 +124,7 @@ fn state_with_view(
 					one_per_validator: hashmap! {},
 					message_received_from_peer: hashmap! {},
 					message_sent_to_peer: hashmap! {},
+					span: PerLeafSpan::new(Arc::new(jaeger::Span::Disabled), "test"),
 				},
 			)
 		})
@@ -131,7 +137,10 @@ fn state_with_view(
 
 #[test]
 fn receive_invalid_signature() {
-	sp_tracing::init_for_tests();
+	let _ = env_logger::builder()
+		.filter(None, log::LevelFilter::Trace)
+		.is_test(true)
+		.try_init();
 
 	let hash_a: Hash = [0; 32].into();
 
@@ -141,7 +150,7 @@ fn receive_invalid_signature() {
 
 	let signing_context = SigningContext { session_index: 1, parent_hash: hash_a };
 
-	// another validator not part of the validator set
+	// another validator not part of the validatorset
 	let keystore: KeystorePtr = Arc::new(MemoryKeystore::new());
 	let malicious = Keystore::sr25519_generate_new(&*keystore, ValidatorId::ID, None)
 		.expect("Malicious key created");
@@ -245,7 +254,10 @@ fn receive_invalid_signature() {
 
 #[test]
 fn receive_invalid_validator_index() {
-	sp_tracing::init_for_tests();
+	let _ = env_logger::builder()
+		.filter(None, log::LevelFilter::Trace)
+		.is_test(true)
+		.try_init();
 
 	let hash_a: Hash = [0; 32].into();
 	let hash_b: Hash = [1; 32].into(); // other
@@ -305,7 +317,10 @@ fn receive_invalid_validator_index() {
 
 #[test]
 fn receive_duplicate_messages() {
-	sp_tracing::init_for_tests();
+	let _ = env_logger::builder()
+		.filter(None, log::LevelFilter::Trace)
+		.is_test(true)
+		.try_init();
 
 	let hash_a: Hash = [0; 32].into();
 	let hash_b: Hash = [1; 32].into();
@@ -427,7 +442,10 @@ fn receive_duplicate_messages() {
 fn delay_reputation_change() {
 	use polkadot_node_subsystem_util::reputation::add_reputation;
 
-	sp_tracing::init_for_tests();
+	let _ = env_logger::builder()
+		.filter(None, log::LevelFilter::Trace)
+		.is_test(true)
+		.try_init();
 
 	let hash_a: Hash = [0; 32].into();
 	let hash_b: Hash = [1; 32].into();
@@ -532,7 +550,10 @@ fn delay_reputation_change() {
 
 #[test]
 fn do_not_relay_message_twice() {
-	sp_tracing::init_for_tests();
+	let _ = env_logger::builder()
+		.filter(None, log::LevelFilter::Trace)
+		.is_test(true)
+		.try_init();
 
 	let hash = Hash::random();
 
@@ -637,7 +658,10 @@ fn do_not_relay_message_twice() {
 
 #[test]
 fn changing_view() {
-	sp_tracing::init_for_tests();
+	let _ = env_logger::builder()
+		.filter(None, log::LevelFilter::Trace)
+		.is_test(true)
+		.try_init();
 
 	let hash_a: Hash = [0; 32].into();
 	let hash_b: Hash = [1; 32].into();
@@ -809,7 +833,10 @@ fn changing_view() {
 
 #[test]
 fn do_not_send_message_back_to_origin() {
-	sp_tracing::init_for_tests();
+	let _ = env_logger::builder()
+		.filter(None, log::LevelFilter::Trace)
+		.is_test(true)
+		.try_init();
 
 	let hash: Hash = [0; 32].into();
 
@@ -893,7 +920,10 @@ fn do_not_send_message_back_to_origin() {
 
 #[test]
 fn topology_test() {
-	sp_tracing::init_for_tests();
+	let _ = env_logger::builder()
+		.filter(None, log::LevelFilter::Trace)
+		.is_test(true)
+		.try_init();
 
 	let hash: Hash = [0; 32].into();
 
@@ -1018,7 +1048,11 @@ fn need_message_works() {
 	let validator_set = Vec::from_iter(validators.iter().map(|k| ValidatorId::from(k.public())));
 
 	let signing_context = SigningContext { session_index: 1, parent_hash: Hash::repeat_byte(0x00) };
-	let mut state = PerRelayParentData::new(signing_context, validator_set.clone());
+	let mut state = PerRelayParentData::new(
+		signing_context,
+		validator_set.clone(),
+		PerLeafSpan::new(Arc::new(Span::Disabled), "foo"),
+	);
 
 	let peer_a = PeerId::random();
 	let peer_b = PeerId::random();

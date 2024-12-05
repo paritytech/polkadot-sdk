@@ -14,14 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Helpers for implementing various message-related runtime API methods.
+//! Helpers for implementing various message-related runtime API mthods.
 
-use bp_messages::{InboundMessageDetails, MessageNonce, MessagePayload, OutboundMessageDetails};
+use bp_messages::{
+	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
+};
 use sp_std::vec::Vec;
 
 /// Implementation of the `To*OutboundLaneApi::message_details`.
 pub fn outbound_message_details<Runtime, MessagesPalletInstance>(
-	lane: Runtime::LaneId,
+	lane: LaneId,
 	begin: MessageNonce,
 	end: MessageNonce,
 ) -> Vec<OutboundMessageDetails>
@@ -46,7 +48,7 @@ where
 
 /// Implementation of the `To*InboundLaneApi::message_details`.
 pub fn inbound_message_details<Runtime, MessagesPalletInstance>(
-	lane: Runtime::LaneId,
+	lane: LaneId,
 	messages: Vec<(MessagePayload, OutboundMessageDetails)>,
 ) -> Vec<InboundMessageDetails>
 where

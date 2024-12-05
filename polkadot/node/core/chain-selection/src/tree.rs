@@ -236,7 +236,7 @@ fn propagate_viability_update(
 	Ok(())
 }
 
-/// Imports a new block and applies any reversions to ancestors or the block itself.
+/// Imports a new block and applies any reversions to ancestors.
 pub(crate) fn import_block(
 	backend: &mut OverlayedBackend<impl Backend>,
 	block_hash: Hash,
@@ -246,29 +246,25 @@ pub(crate) fn import_block(
 	weight: BlockWeight,
 	stagnant_at: Timestamp,
 ) -> Result<(), Error> {
-	let block_entry =
-		add_block(backend, block_hash, block_number, parent_hash, weight, stagnant_at)?;
-	apply_reversions(backend, block_entry, reversion_logs)?;
+	add_block(backend, block_hash, block_number, parent_hash, weight, stagnant_at)?;
+	apply_ancestor_reversions(backend, block_hash, block_number, reversion_logs)?;
 
 	Ok(())
 }
 
 // Load the given ancestor's block entry, in descending order from the `block_hash`.
-// The ancestor_number must be not higher than the `block_entry`'s.
+// The ancestor_number must be at least one block less than the `block_number`.
 //
 // The returned entry will be `None` if the range is invalid or any block in the path had
 // no entry present. If any block entry was missing, it can safely be assumed to
 // be finalized.
 fn load_ancestor(
 	backend: &mut OverlayedBackend<impl Backend>,
-	block_entry: &BlockEntry,
+	block_hash: Hash,
+	block_number: BlockNumber,
 	ancestor_number: BlockNumber,
 ) -> Result<Option<BlockEntry>, Error> {
-	let block_hash = block_entry.block_hash;
-	let block_number = block_entry.block_number;
-	if block_number == ancestor_number {
-		return Ok(Some(block_entry.clone()))
-	} else if block_number < ancestor_number {
+	if block_number <= ancestor_number {
 		return Ok(None)
 	}
 
@@ -304,7 +300,7 @@ fn add_block(
 	parent_hash: Hash,
 	weight: BlockWeight,
 	stagnant_at: Timestamp,
-) -> Result<BlockEntry, Error> {
+) -> Result<(), Error> {
 	let mut leaves = backend.load_leaves()?;
 	let parent_entry = backend.load_block_entry(&parent_hash)?;
 
@@ -312,7 +308,7 @@ fn add_block(
 		parent_entry.as_ref().and_then(|parent| parent.non_viable_ancestor_for_child());
 
 	// 1. Add the block to the DB assuming it's not reverted.
-	let block_entry = BlockEntry {
+	backend.write_block_entry(BlockEntry {
 		block_hash,
 		block_number,
 		parent_hash,
@@ -323,8 +319,7 @@ fn add_block(
 			approval: Approval::Unapproved,
 		},
 		weight,
-	};
-	backend.write_block_entry(block_entry.clone());
+	});
 
 	// 2. Update leaves if inherited viability is fine.
 	if inherited_viability.is_none() {
@@ -349,25 +344,26 @@ fn add_block(
 	stagnant_at_list.push(block_hash);
 	backend.write_stagnant_at(stagnant_at, stagnant_at_list);
 
-	Ok(block_entry)
+	Ok(())
 }
 
 /// Assuming that a block is already imported, accepts the number of the block
 /// as well as a list of reversions triggered by the block in ascending order.
-fn apply_reversions(
+fn apply_ancestor_reversions(
 	backend: &mut OverlayedBackend<impl Backend>,
-	block_entry: BlockEntry,
+	block_hash: Hash,
+	block_number: BlockNumber,
 	reversions: Vec<BlockNumber>,
 ) -> Result<(), Error> {
 	// Note: since revert numbers are  in ascending order, the expensive propagation
 	// of unviability is only heavy on the first log.
 	for revert_number in reversions {
-		let maybe_block_entry = load_ancestor(backend, &block_entry, revert_number)?;
-		if let Some(entry) = &maybe_block_entry {
+		let maybe_block_entry = load_ancestor(backend, block_hash, block_number, revert_number)?;
+		if let Some(block_entry) = &maybe_block_entry {
 			gum::trace!(
 				target: LOG_TARGET,
 				?revert_number,
-				revert_hash = ?entry.block_hash,
+				revert_hash = ?block_entry.block_hash,
 				"Block marked as reverted via scraped on-chain reversions"
 			);
 		}
@@ -376,8 +372,8 @@ fn apply_reversions(
 			maybe_block_entry,
 			None,
 			revert_number,
-			Some(block_entry.block_hash),
-			Some(block_entry.block_number),
+			Some(block_hash),
+			Some(block_number),
 		)?;
 	}
 

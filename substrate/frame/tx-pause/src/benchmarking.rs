@@ -18,7 +18,6 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet as TxPause, *};
-use alloc::vec;
 use frame_benchmarking::v2::*;
 
 #[benchmarks]

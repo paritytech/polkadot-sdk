@@ -1,9 +1,0 @@
-title: Add networking benchmarks for libp2p
-doc:
-- audience: node_dev
-  description: |-
-    Adds benchmarks for Notifications and RequestResponse protocols with libp2p implementation
-
-crates:
-- name: sc-network
-  validate: false

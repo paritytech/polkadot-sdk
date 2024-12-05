@@ -19,7 +19,7 @@
 
 use crate::RIType;
 
-use core::cell::Cell;
+use sp_std::cell::Cell;
 
 /// Something that can be created from a ffi value.
 ///

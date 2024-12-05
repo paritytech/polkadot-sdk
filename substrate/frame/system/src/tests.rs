@@ -19,16 +19,16 @@ use crate::*;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::{Pays, PostDispatchInfo, WithPostDispatchInfo},
-	traits::{OnRuntimeUpgrade, WhitelistedStorageKeys},
+	traits::WhitelistedStorageKeys,
 };
+use std::collections::BTreeSet;
+
 use mock::{RuntimeOrigin, *};
 use sp_core::{hexdisplay::HexDisplay, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, Header},
 	DispatchError, DispatchErrorWithPostInfo,
 };
-use std::collections::BTreeSet;
-use substrate_test_runtime_client::WasmExecutor;
 
 #[test]
 fn check_whitelist() {
@@ -102,13 +102,7 @@ fn stored_map_works() {
 
 		assert_eq!(
 			Account::<Test>::get(0),
-			AccountInfo {
-				nonce: 0u64.into(),
-				providers: 1,
-				consumers: 0,
-				sufficients: 0,
-				data: 42
-			}
+			AccountInfo { nonce: 0, providers: 1, consumers: 0, sufficients: 0, data: 42 }
 		);
 
 		assert_ok!(System::inc_consumers(&0));
@@ -132,26 +126,26 @@ fn provider_ref_handover_to_self_sufficient_ref_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Created);
 		System::inc_account_nonce(&0);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 
 		// a second reference coming and going doesn't change anything.
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 
 		// a provider reference coming and going doesn't change anything.
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 
 		// decreasing the providers with a self-sufficient present should not delete the account
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 
 		// decreasing the sufficients should delete the account
 		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Reaped);
-		assert_eq!(System::account_nonce(&0), 0u64.into());
+		assert_eq!(System::account_nonce(&0), 0);
 	});
 }
 
@@ -160,26 +154,26 @@ fn self_sufficient_ref_handover_to_provider_ref_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Created);
 		System::inc_account_nonce(&0);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 
 		// a second reference coming and going doesn't change anything.
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 
 		// a sufficient reference coming and going doesn't change anything.
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 
 		// decreasing the sufficients with a provider present should not delete the account
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 
 		// decreasing the providers should delete the account
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Reaped);
-		assert_eq!(System::account_nonce(&0), 0u64.into());
+		assert_eq!(System::account_nonce(&0), 0);
 	});
 }
 
@@ -188,7 +182,7 @@ fn sufficient_cannot_support_consumer() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Created);
 		System::inc_account_nonce(&0);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 		assert_noop!(System::inc_consumers(&0), DispatchError::NoProviders);
 
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Existed);
@@ -204,18 +198,18 @@ fn provider_required_to_support_consumer() {
 
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Created);
 		System::inc_account_nonce(&0);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1u64.into());
+		assert_eq!(System::account_nonce(&0), 1);
 
 		assert_ok!(System::inc_consumers(&0));
 		assert_noop!(System::dec_providers(&0), DispatchError::ConsumerRemaining);
 
 		System::dec_consumers(&0);
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Reaped);
-		assert_eq!(System::account_nonce(&0), 0u64.into());
+		assert_eq!(System::account_nonce(&0), 0);
 	});
 }
 
@@ -266,10 +260,7 @@ fn deposit_event_should_work() {
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
 					event: SysEvent::ExtrinsicSuccess {
-						dispatch_info: DispatchEventInfo {
-							weight: normal_base,
-							..Default::default()
-						}
+						dispatch_info: DispatchInfo { weight: normal_base, ..Default::default() }
 					}
 					.into(),
 					topics: vec![]
@@ -278,10 +269,7 @@ fn deposit_event_should_work() {
 					phase: Phase::ApplyExtrinsic(1),
 					event: SysEvent::ExtrinsicFailed {
 						dispatch_error: DispatchError::BadOrigin.into(),
-						dispatch_info: DispatchEventInfo {
-							weight: normal_base,
-							..Default::default()
-						}
+						dispatch_info: DispatchInfo { weight: normal_base, ..Default::default() }
 					}
 					.into(),
 					topics: vec![]
@@ -306,8 +294,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 		let normal_base = <Test as crate::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
-		let pre_info =
-			DispatchInfo { call_weight: Weight::from_parts(1000, 0), ..Default::default() };
+		let pre_info = DispatchInfo { weight: Weight::from_parts(1000, 0), ..Default::default() };
 		System::note_applied_extrinsic(&Ok(from_actual_ref_time(Some(300))), pre_info);
 		System::note_applied_extrinsic(&Ok(from_actual_ref_time(Some(1000))), pre_info);
 		System::note_applied_extrinsic(
@@ -363,7 +350,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			.base_extrinsic;
 		assert!(normal_base != operational_base, "Test pre-condition violated");
 		let pre_info = DispatchInfo {
-			call_weight: Weight::from_parts(1000, 0),
+			weight: Weight::from_parts(1000, 0),
 			class: DispatchClass::Operational,
 			..Default::default()
 		};
@@ -374,7 +361,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(0),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(300, 0).saturating_add(normal_base),
 						..Default::default()
 					},
@@ -385,7 +372,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(1),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
 						..Default::default()
 					},
@@ -396,7 +383,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(2),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
 						..Default::default()
 					},
@@ -407,10 +394,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(3),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
 						pays_fee: Pays::Yes,
-						class: Default::default(),
+						..Default::default()
 					},
 				}
 				.into(),
@@ -419,10 +406,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(4),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
 						pays_fee: Pays::No,
-						class: Default::default(),
+						..Default::default()
 					},
 				}
 				.into(),
@@ -431,10 +418,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(5),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
 						pays_fee: Pays::No,
-						class: Default::default(),
+						..Default::default()
 					},
 				}
 				.into(),
@@ -443,10 +430,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(6),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(500, 0).saturating_add(normal_base),
 						pays_fee: Pays::No,
-						class: Default::default(),
+						..Default::default()
 					},
 				}
 				.into(),
@@ -456,7 +443,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				phase: Phase::ApplyExtrinsic(7),
 				event: SysEvent::ExtrinsicFailed {
 					dispatch_error: DispatchError::BadOrigin.into(),
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(999, 0).saturating_add(normal_base),
 						..Default::default()
 					},
@@ -468,10 +455,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				phase: Phase::ApplyExtrinsic(8),
 				event: SysEvent::ExtrinsicFailed {
 					dispatch_error: DispatchError::BadOrigin.into(),
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(1000, 0).saturating_add(normal_base),
 						pays_fee: Pays::Yes,
-						class: Default::default(),
+						..Default::default()
 					},
 				}
 				.into(),
@@ -481,10 +468,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				phase: Phase::ApplyExtrinsic(9),
 				event: SysEvent::ExtrinsicFailed {
 					dispatch_error: DispatchError::BadOrigin.into(),
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(800, 0).saturating_add(normal_base),
 						pays_fee: Pays::Yes,
-						class: Default::default(),
+						..Default::default()
 					},
 				}
 				.into(),
@@ -494,10 +481,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 				phase: Phase::ApplyExtrinsic(10),
 				event: SysEvent::ExtrinsicFailed {
 					dispatch_error: DispatchError::BadOrigin.into(),
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(800, 0).saturating_add(normal_base),
 						pays_fee: Pays::No,
-						class: Default::default(),
+						..Default::default()
 					},
 				}
 				.into(),
@@ -506,10 +493,10 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 			EventRecord {
 				phase: Phase::ApplyExtrinsic(11),
 				event: SysEvent::ExtrinsicSuccess {
-					dispatch_info: DispatchEventInfo {
+					dispatch_info: DispatchInfo {
 						weight: Weight::from_parts(300, 0).saturating_add(operational_base),
 						class: DispatchClass::Operational,
-						pays_fee: Default::default(),
+						..Default::default()
 					},
 				}
 				.into(),
@@ -666,7 +653,7 @@ fn assert_runtime_updated_digest(num: usize) {
 
 #[test]
 fn set_code_with_real_wasm_blob() {
-	let executor = WasmExecutor::default();
+	let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
 	let mut ext = new_test_ext();
 	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
 	ext.execute_with(|| {
@@ -689,70 +676,8 @@ fn set_code_with_real_wasm_blob() {
 }
 
 #[test]
-fn set_code_rejects_during_mbm() {
-	Ongoing::set(true);
-
-	let executor = substrate_test_runtime_client::WasmExecutor::default();
-	let mut ext = new_test_ext();
-	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
-	ext.execute_with(|| {
-		System::set_block_number(1);
-		let res = System::set_code(
-			RawOrigin::Root.into(),
-			substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
-		);
-		assert_eq!(
-			res,
-			Err(DispatchErrorWithPostInfo::from(Error::<Test>::MultiBlockMigrationsOngoing))
-		);
-
-		assert!(System::events().is_empty());
-	});
-}
-
-#[test]
-fn set_code_via_authorization_works() {
-	let executor = substrate_test_runtime_client::WasmExecutor::default();
-	let mut ext = new_test_ext();
-	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
-	ext.execute_with(|| {
-		System::set_block_number(1);
-		assert!(System::authorized_upgrade().is_none());
-
-		let runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
-		let hash = <mock::Test as pallet::Config>::Hashing::hash(&runtime);
-
-		// Can't apply before authorization
-		assert_noop!(
-			System::apply_authorized_upgrade(RawOrigin::None.into(), runtime.clone()),
-			Error::<Test>::NothingAuthorized,
-		);
-
-		// Can authorize
-		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into(), hash));
-		System::assert_has_event(
-			SysEvent::UpgradeAuthorized { code_hash: hash, check_version: true }.into(),
-		);
-		assert!(System::authorized_upgrade().is_some());
-
-		// Can't be sneaky
-		let mut bad_runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
-		bad_runtime.extend(b"sneaky");
-		assert_noop!(
-			System::apply_authorized_upgrade(RawOrigin::None.into(), bad_runtime),
-			Error::<Test>::Unauthorized,
-		);
-
-		// Can apply correct runtime
-		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), runtime));
-		System::assert_has_event(SysEvent::CodeUpdated.into());
-		assert!(System::authorized_upgrade().is_none());
-	});
-}
-
-#[test]
 fn runtime_upgraded_with_set_storage() {
-	let executor = substrate_test_runtime_client::WasmExecutor::default();
+	let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
 	let mut ext = new_test_ext();
 	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
 	ext.execute_with(|| {
@@ -796,10 +721,7 @@ fn extrinsics_root_is_calculated_correctly() {
 		System::note_finished_extrinsics();
 		let header = System::finalize();
 
-		let ext_root = extrinsics_data_root::<BlakeTwo256>(
-			vec![vec![1], vec![2]],
-			sp_core::storage::StateVersion::V0,
-		);
+		let ext_root = extrinsics_data_root::<BlakeTwo256>(vec![vec![1], vec![2]]);
 		assert_eq!(ext_root, *header.extrinsics_root());
 	});
 }
@@ -850,45 +772,4 @@ pub fn from_actual_ref_time(ref_time: Option<u64>) -> PostDispatchInfo {
 
 pub fn from_post_weight_info(ref_time: Option<u64>, pays_fee: Pays) -> PostDispatchInfo {
 	PostDispatchInfo { actual_weight: ref_time.map(|t| Weight::from_all(t)), pays_fee }
-}
-
-#[docify::export]
-#[test]
-fn last_runtime_upgrade_spec_version_usage() {
-	#[allow(dead_code)]
-	struct Migration;
-
-	impl OnRuntimeUpgrade for Migration {
-		fn on_runtime_upgrade() -> Weight {
-			// Ensure to compare the spec version against some static version to prevent applying
-			// the same migration multiple times.
-			//
-			// `1337` here is the spec version of the runtime running on chain. If there is maybe
-			// a runtime upgrade in the pipeline of being applied, you should use the spec version
-			// of this upgrade.
-			if System::last_runtime_upgrade_spec_version() > 1337 {
-				return Weight::zero()
-			}
-
-			// Do the migration.
-			Weight::zero()
-		}
-	}
-}
-
-#[test]
-fn test_default_account_nonce() {
-	new_test_ext().execute_with(|| {
-		System::set_block_number(2);
-		assert_eq!(System::account_nonce(&1), 2u64.into());
-
-		System::inc_account_nonce(&1);
-		assert_eq!(System::account_nonce(&1), 3u64.into());
-
-		System::set_block_number(5);
-		assert_eq!(System::account_nonce(&1), 3u64.into());
-
-		Account::<Test>::remove(&1);
-		assert_eq!(System::account_nonce(&1), 5u64.into());
-	});
 }

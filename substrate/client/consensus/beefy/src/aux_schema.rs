@@ -18,12 +18,11 @@
 
 //! Schema for BEEFY state persisted in the aux-db.
 
-use crate::{error::Error, worker::PersistedState, LOG_TARGET};
+use crate::{worker::PersistedState, LOG_TARGET};
 use codec::{Decode, Encode};
-use log::{debug, trace, warn};
+use log::{info, trace};
 use sc_client_api::{backend::AuxStore, Backend};
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
-use sp_consensus_beefy::AuthorityIdBound;
 use sp_runtime::traits::Block as BlockT;
 
 const VERSION_KEY: &[u8] = b"beefy_auxschema_version";
@@ -31,16 +30,15 @@ const WORKER_STATE_KEY: &[u8] = b"beefy_voter_state";
 
 const CURRENT_VERSION: u32 = 4;
 
-pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> Result<(), Error> {
-	debug!(target: LOG_TARGET, "🥩 write aux schema version {:?}", CURRENT_VERSION);
+pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> ClientResult<()> {
+	info!(target: LOG_TARGET, "🥩 write aux schema version {:?}", CURRENT_VERSION);
 	AuxStore::insert_aux(backend, &[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())], &[])
-		.map_err(|e| Error::Backend(e.to_string()))
 }
 
 /// Write voter state.
-pub(crate) fn write_voter_state<B: BlockT, BE: AuxStore, AuthorityId: AuthorityIdBound>(
+pub(crate) fn write_voter_state<B: BlockT, BE: AuxStore>(
 	backend: &BE,
-	state: &PersistedState<B, AuthorityId>,
+	state: &PersistedState<B>,
 ) -> ClientResult<()> {
 	trace!(target: LOG_TARGET, "🥩 persisting {:?}", state);
 	AuxStore::insert_aux(backend, &[(WORKER_STATE_KEY, state.encode().as_slice())], &[])
@@ -56,9 +54,7 @@ fn load_decode<BE: AuxStore, T: Decode>(backend: &BE, key: &[u8]) -> ClientResul
 }
 
 /// Load or initialize persistent data from backend.
-pub(crate) fn load_persistent<B, BE, AuthorityId: AuthorityIdBound>(
-	backend: &BE,
-) -> ClientResult<Option<PersistedState<B, AuthorityId>>>
+pub(crate) fn load_persistent<B, BE>(backend: &BE) -> ClientResult<Option<PersistedState<B>>>
 where
 	B: BlockT,
 	BE: Backend<B>,
@@ -67,12 +63,8 @@ where
 
 	match version {
 		None => (),
-
-		Some(v) if 1 <= v && v <= 3 =>
-		// versions 1, 2 & 3 are obsolete and should be ignored
-			warn!(target: LOG_TARGET,  "🥩 backend contains a BEEFY state of an obsolete version {v}. ignoring..."),
-		Some(4) =>
-			return load_decode::<_, PersistedState<B, AuthorityId>>(backend, WORKER_STATE_KEY),
+		Some(1) | Some(2) | Some(3) => (), // versions 1, 2 & 3 are obsolete and should be ignored
+		Some(4) => return load_decode::<_, PersistedState<B>>(backend, WORKER_STATE_KEY),
 		other =>
 			return Err(ClientError::Backend(format!("Unsupported BEEFY DB version: {:?}", other))),
 	}
@@ -86,7 +78,6 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::tests::BeefyTestNet;
 	use sc_network_test::TestNetFactory;
-	use sp_consensus_beefy::ecdsa_crypto;
 
 	// also used in tests.rs
 	pub fn verify_persisted_version<B: BlockT, BE: Backend<B>>(backend: &BE) -> bool {
@@ -100,7 +91,7 @@ pub(crate) mod tests {
 		let backend = net.peer(0).client().as_backend();
 
 		// version not available in db -> None
-		assert_eq!(load_persistent::<_, _, ecdsa_crypto::AuthorityId>(&*backend).unwrap(), None);
+		assert_eq!(load_persistent(&*backend).unwrap(), None);
 
 		// populate version in db
 		write_current_version(&*backend).unwrap();
@@ -108,7 +99,7 @@ pub(crate) mod tests {
 		assert_eq!(load_decode(&*backend, VERSION_KEY).unwrap(), Some(CURRENT_VERSION));
 
 		// version is available in db but state isn't -> None
-		assert_eq!(load_persistent::<_, _, ecdsa_crypto::AuthorityId>(&*backend).unwrap(), None);
+		assert_eq!(load_persistent(&*backend).unwrap(), None);
 
 		// full `PersistedState` load is tested in `tests.rs`.
 	}

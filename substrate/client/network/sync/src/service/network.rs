@@ -17,21 +17,21 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::{channel::oneshot, StreamExt};
-use sc_network_types::PeerId;
+use libp2p::PeerId;
 
 use sc_network::{
 	request_responses::{IfDisconnected, RequestFailure},
 	types::ProtocolName,
-	NetworkPeers, NetworkRequest, ReputationChange,
+	NetworkNotification, NetworkPeers, NetworkRequest, ReputationChange,
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 
 use std::sync::Arc;
 
 /// Network-related services required by `sc-network-sync`
-pub trait Network: NetworkPeers + NetworkRequest {}
+pub trait Network: NetworkPeers + NetworkRequest + NetworkNotification {}
 
-impl<T> Network for T where T: NetworkPeers + NetworkRequest {}
+impl<T> Network for T where T: NetworkPeers + NetworkRequest + NetworkNotification {}
 
 /// Network service provider for `ChainSync`
 ///
@@ -39,11 +39,9 @@ impl<T> Network for T where T: NetworkPeers + NetworkRequest {}
 /// calls the `NetworkService` on its behalf.
 pub struct NetworkServiceProvider {
 	rx: TracingUnboundedReceiver<ToServiceCommand>,
-	handle: NetworkServiceHandle,
 }
 
 /// Commands that `ChainSync` wishes to send to `NetworkService`
-#[derive(Debug)]
 pub enum ToServiceCommand {
 	/// Call `NetworkPeers::disconnect_peer()`
 	DisconnectPeer(PeerId, ProtocolName),
@@ -56,14 +54,20 @@ pub enum ToServiceCommand {
 		PeerId,
 		ProtocolName,
 		Vec<u8>,
-		oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
+		oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
 		IfDisconnected,
 	),
+
+	/// Call `NetworkNotification::write_notification()`
+	WriteNotification(PeerId, ProtocolName, Vec<u8>),
+
+	/// Call `NetworkNotification::set_notification_handshake()`
+	SetNotificationHandshake(ProtocolName, Vec<u8>),
 }
 
 /// Handle that is (temporarily) passed to `ChainSync` so it can
 /// communicate with `NetworkService` through `SyncingEngine`
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NetworkServiceHandle {
 	tx: TracingUnboundedSender<ToServiceCommand>,
 }
@@ -90,41 +94,51 @@ impl NetworkServiceHandle {
 		who: PeerId,
 		protocol: ProtocolName,
 		request: Vec<u8>,
-		tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
+		tx: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
 		connect: IfDisconnected,
 	) {
 		let _ = self
 			.tx
 			.unbounded_send(ToServiceCommand::StartRequest(who, protocol, request, tx, connect));
 	}
+
+	/// Send notification to peer
+	pub fn write_notification(&self, who: PeerId, protocol: ProtocolName, message: Vec<u8>) {
+		let _ = self
+			.tx
+			.unbounded_send(ToServiceCommand::WriteNotification(who, protocol, message));
+	}
+
+	/// Set handshake for the notification protocol.
+	pub fn set_notification_handshake(&self, protocol: ProtocolName, handshake: Vec<u8>) {
+		let _ = self
+			.tx
+			.unbounded_send(ToServiceCommand::SetNotificationHandshake(protocol, handshake));
+	}
 }
 
 impl NetworkServiceProvider {
 	/// Create new `NetworkServiceProvider`
-	pub fn new() -> Self {
+	pub fn new() -> (Self, NetworkServiceHandle) {
 		let (tx, rx) = tracing_unbounded("mpsc_network_service_provider", 100_000);
 
-		Self { rx, handle: NetworkServiceHandle::new(tx) }
-	}
-
-	/// Get handle to talk to the provider
-	pub fn handle(&self) -> NetworkServiceHandle {
-		self.handle.clone()
+		(Self { rx }, NetworkServiceHandle::new(tx))
 	}
 
 	/// Run the `NetworkServiceProvider`
-	pub async fn run(self, service: Arc<dyn Network + Send + Sync>) {
-		let Self { mut rx, handle } = self;
-		drop(handle);
-
-		while let Some(inner) = rx.next().await {
+	pub async fn run(mut self, service: Arc<dyn Network + Send + Sync>) {
+		while let Some(inner) = self.rx.next().await {
 			match inner {
 				ToServiceCommand::DisconnectPeer(peer, protocol_name) =>
 					service.disconnect_peer(peer, protocol_name),
 				ToServiceCommand::ReportPeer(peer, reputation_change) =>
 					service.report_peer(peer, reputation_change),
 				ToServiceCommand::StartRequest(peer, protocol, request, tx, connect) =>
-					service.start_request(peer, protocol, request, None, tx, connect),
+					service.start_request(peer, protocol, request, tx, connect),
+				ToServiceCommand::WriteNotification(peer, protocol, message) =>
+					service.write_notification(peer, protocol, message),
+				ToServiceCommand::SetNotificationHandshake(protocol, handshake) =>
+					service.set_notification_handshake(protocol, handshake),
 			}
 		}
 	}
@@ -139,8 +153,7 @@ mod tests {
 	// and then reported
 	#[tokio::test]
 	async fn disconnect_and_report_peer() {
-		let provider = NetworkServiceProvider::new();
-		let handle = provider.handle();
+		let (provider, handle) = NetworkServiceProvider::new();
 
 		let peer = PeerId::random();
 		let proto = ProtocolName::from("test-protocol");

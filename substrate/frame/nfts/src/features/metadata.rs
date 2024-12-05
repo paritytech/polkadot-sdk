@@ -18,7 +18,6 @@
 //! This module contains helper methods to configure the metadata of collections and items.
 
 use crate::*;
-use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -248,7 +247,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			);
 		}
 
-		let mut details =
+		let details =
 			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 		let collection_config = Self::get_collection_config(&collection)?;
 
@@ -261,8 +260,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		CollectionMetadataOf::<T, I>::try_mutate_exists(collection, |metadata| {
 			let deposit = metadata.take().ok_or(Error::<T, I>::UnknownCollection)?.deposit;
 			T::Currency::unreserve(&details.owner, deposit);
-			details.owner_deposit.saturating_reduce(deposit);
-			Collection::<T, I>::insert(&collection, details);
 			Self::deposit_event(Event::CollectionMetadataCleared { collection });
 			Ok(())
 		})

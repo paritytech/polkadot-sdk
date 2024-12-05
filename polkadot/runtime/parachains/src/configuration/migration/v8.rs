@@ -17,17 +17,17 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, Config, Pallet};
-use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, StorageVersion},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{
+use primitives::{
 	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::Perbill;
+use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
 
@@ -161,7 +161,7 @@ mod v8 {
 	>;
 }
 
-pub struct MigrateToV8<T>(core::marker::PhantomData<T>);
+pub struct MigrateToV8<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for MigrateToV8<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
@@ -250,7 +250,7 @@ on_demand_fee_variability                : Perbill::from_percent(3),
 on_demand_target_queue_utilization       : Perbill::from_percent(25),
 on_demand_ttl                            : 5u32.into(),
 		}
-};
+	};
 
 	let v7 = v7::ActiveConfig::<T>::get()
 		.defensive_proof("Could not decode old config")
@@ -304,8 +304,7 @@ mod tests {
 	];
 
 		let v8 =
-			V8HostConfiguration::<polkadot_primitives::BlockNumber>::decode(&mut &raw_config[..])
-				.unwrap();
+			V8HostConfiguration::<primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
 
 		// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
@@ -330,7 +329,7 @@ mod tests {
 		// We specify only the picked fields and the rest should be provided by the `Default`
 		// implementation. That implementation is copied over between the two types and should work
 		// fine.
-		let v7 = V7HostConfiguration::<polkadot_primitives::BlockNumber> {
+		let v7 = V7HostConfiguration::<primitives::BlockNumber> {
 			needed_approvals: 69,
 			thread_availability_period: 55,
 			hrmp_recipient_deposit: 1337,
@@ -404,7 +403,7 @@ mod tests {
 	// pallet's storage.
 	#[test]
 	fn test_migrate_to_v8_no_pending() {
-		let v7 = V7HostConfiguration::<polkadot_primitives::BlockNumber>::default();
+		let v7 = V7HostConfiguration::<primitives::BlockNumber>::default();
 
 		new_test_ext(Default::default()).execute_with(|| {
 			// Implant the v6 version in the state.

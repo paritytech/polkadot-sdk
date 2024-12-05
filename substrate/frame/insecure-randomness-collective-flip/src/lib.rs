@@ -60,7 +60,7 @@
 //!     impl<T: Config> Pallet<T> {
 //!         #[pallet::weight(0)]
 //!         pub fn random_module_example(origin: OriginFor<T>) -> DispatchResult {
-//!             let _random_value = pallet_insecure_randomness_collective_flip::Pallet::<T>::random(&b"my context"[..]);
+//!             let _random_value = <pallet_insecure_randomness_collective_flip::Pallet<T>>::random(&b"my context"[..]);
 //!             Ok(())
 //!         }
 //!     }
@@ -101,9 +101,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
-			let parent_hash = frame_system::Pallet::<T>::parent_hash();
+			let parent_hash = <frame_system::Pallet<T>>::parent_hash();
 
-			RandomMaterial::<T>::mutate(|ref mut values| {
+			<RandomMaterial<T>>::mutate(|ref mut values| {
 				if values.try_push(parent_hash).is_err() {
 					let index = block_number_to_index::<T>(block_number);
 					values[index] = parent_hash;
@@ -118,15 +118,9 @@ pub mod pallet {
 	/// is arranged as a ring buffer with `block_number % 81` being the index into the `Vec` of
 	/// the oldest hash.
 	#[pallet::storage]
-	pub type RandomMaterial<T: Config> =
+	#[pallet::getter(fn random_material)]
+	pub(super) type RandomMaterial<T: Config> =
 		StorageValue<_, BoundedVec<T::Hash, ConstU32<RANDOM_MATERIAL_LEN>>, ValueQuery>;
-
-	impl<T: Config> Pallet<T> {
-		/// Gets the random material storage value
-		pub fn random_material() -> BoundedVec<T::Hash, ConstU32<RANDOM_MATERIAL_LEN>> {
-			RandomMaterial::<T>::get()
-		}
-	}
 }
 
 impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
@@ -141,10 +135,10 @@ impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
 	/// and mean that all bits of the resulting value are entirely manipulatable by the author of
 	/// the parent block, who can determine the value of `parent_hash`.
 	fn random(subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {
-		let block_number = frame_system::Pallet::<T>::block_number();
+		let block_number = <frame_system::Pallet<T>>::block_number();
 		let index = block_number_to_index::<T>(block_number);
 
-		let hash_series = RandomMaterial::<T>::get();
+		let hash_series = <RandomMaterial<T>>::get();
 		let seed = if !hash_series.is_empty() {
 			// Always the case after block 1 is initialized.
 			hash_series
@@ -169,11 +163,14 @@ mod tests {
 	use crate as pallet_insecure_randomness_collective_flip;
 
 	use sp_core::H256;
-	use sp_runtime::{traits::Header as _, BuildStorage};
+	use sp_runtime::{
+		traits::{BlakeTwo256, Header as _, IdentityLookup},
+		BuildStorage,
+	};
 
 	use frame_support::{
-		derive_impl, parameter_types,
-		traits::{OnInitialize, Randomness},
+		parameter_types,
+		traits::{ConstU32, ConstU64, OnInitialize, Randomness},
 	};
 	use frame_system::limits;
 
@@ -182,8 +179,8 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system,
-			CollectiveFlip: pallet_insecure_randomness_collective_flip,
+			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+			CollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
 		}
 	);
 
@@ -192,9 +189,30 @@ mod tests {
 			::max(2 * 1024);
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
+		type BaseCallFilter = frame_support::traits::Everything;
+		type BlockWeights = ();
+		type BlockLength = BlockLength;
+		type DbWeight = ();
+		type RuntimeOrigin = RuntimeOrigin;
+		type Nonce = u64;
+		type RuntimeCall = RuntimeCall;
+		type Hash = H256;
+		type Hashing = BlakeTwo256;
+		type AccountId = u64;
+		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
+		type RuntimeEvent = RuntimeEvent;
+		type BlockHashCount = ConstU64<250>;
+		type Version = ();
+		type PalletInfo = PalletInfo;
+		type AccountData = ();
+		type OnNewAccount = ();
+		type OnKilledAccount = ();
+		type SystemWeightInfo = ();
+		type SS58Prefix = ();
+		type OnSetCode = ();
+		type MaxConsumers = ConstU32<16>;
 	}
 
 	impl pallet_insecure_randomness_collective_flip::Config for Test {}
@@ -232,7 +250,7 @@ mod tests {
 
 			setup_blocks(38);
 
-			let random_material = RandomMaterial::<Test>::get();
+			let random_material = CollectiveFlip::random_material();
 
 			assert_eq!(random_material.len(), 38);
 			assert_eq!(random_material[0], genesis_hash);
@@ -246,7 +264,7 @@ mod tests {
 
 			setup_blocks(81);
 
-			let random_material = RandomMaterial::<Test>::get();
+			let random_material = CollectiveFlip::random_material();
 
 			assert_eq!(random_material.len(), 81);
 			assert_ne!(random_material[0], random_material[1]);
@@ -261,7 +279,7 @@ mod tests {
 
 			setup_blocks(162);
 
-			let random_material = RandomMaterial::<Test>::get();
+			let random_material = CollectiveFlip::random_material();
 
 			assert_eq!(random_material.len(), 81);
 			assert_ne!(random_material[0], random_material[1]);
@@ -282,7 +300,7 @@ mod tests {
 
 			assert_eq!(known_since, 162 - RANDOM_MATERIAL_LEN as u64);
 			assert_ne!(random, H256::zero());
-			assert!(!RandomMaterial::<Test>::get().contains(&random));
+			assert!(!CollectiveFlip::random_material().contains(&random));
 		});
 	}
 }

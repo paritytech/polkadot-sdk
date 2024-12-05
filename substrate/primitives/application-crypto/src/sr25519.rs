@@ -19,7 +19,7 @@
 
 use crate::{KeyTypeId, RuntimePublic};
 
-use alloc::vec::Vec;
+use sp_std::vec::Vec;
 
 pub use sp_core::sr25519::*;
 
@@ -27,7 +27,9 @@ mod app {
 	crate::app_crypto!(super, sp_core::testing::SR25519);
 }
 
-pub use app::{Pair as AppPair, Public as AppPublic, Signature as AppSignature};
+#[cfg(feature = "full_crypto")]
+pub use app::Pair as AppPair;
+pub use app::{Public as AppPublic, Signature as AppSignature};
 
 impl RuntimePublic for Public {
 	type Signature = Signature;

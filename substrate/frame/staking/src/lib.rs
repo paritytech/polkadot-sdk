@@ -41,7 +41,7 @@
 //! - Nominating: The process of placing staked funds behind one or more validators in order to
 //!   share in any reward, and punishment, they take.
 //! - Stash account: The account holding an owner's funds used for staking.
-//! - Controller account (being deprecated): The account that controls an owner's funds for staking.
+//! - Controller account: The account that controls an owner's funds for staking.
 //! - Era: A (whole) number of sessions, which is the period that the validator set (and each
 //!   validator's active nominator set) is recalculated and where rewards are paid out.
 //! - Slash: The punishment of a staker by reducing its funds.
@@ -61,20 +61,20 @@
 //!
 //! Almost any interaction with the Staking pallet requires a process of _**bonding**_ (also known
 //! as being a _staker_). To become *bonded*, a fund-holding register known as the _stash account_,
-//! which holds some or all of the funds that become frozen in place as part of the staking process.
-//! The controller account, which this pallet now assigns the stash account to, issues instructions
-//! on how funds shall be used.
+//! which holds some or all of the funds that become frozen in place as part of the staking process,
+//! is paired with an active **controller** account, which issues instructions on how they shall be
+//! used.
 //!
-//! An account can become a bonded stash account using the [`bond`](Call::bond) call.
+//! An account pair can become bonded using the [`bond`](Call::bond) call.
 //!
-//! In the event stash accounts registered a unique controller account before the controller account
-//! deprecation, they can update their associated controller back to the stash account using the
+//! Stash accounts can update their associated controller back to the stash account using the
 //! [`set_controller`](Call::set_controller) call.
 //!
 //! There are three possible roles that any staked account pair can be in: `Validator`, `Nominator`
-//! and `Idle` (defined in [`StakerStatus`]). There are three corresponding instructions to change
-//! between roles, namely: [`validate`](Call::validate), [`nominate`](Call::nominate), and
-//! [`chill`](Call::chill).
+//! and `Idle` (defined in [`StakerStatus`]). There are three
+//! corresponding instructions to change between roles, namely:
+//! [`validate`](Call::validate),
+//! [`nominate`](Call::nominate), and [`chill`](Call::chill).
 //!
 //! #### Validating
 //!
@@ -85,13 +85,14 @@
 //! _might_ get elected at the _next era_ as a validator. The result of the election is determined
 //! by nominators and their votes.
 //!
-//! An account can become a validator candidate via the [`validate`](Call::validate) call.
+//! An account can become a validator candidate via the
+//! [`validate`](Call::validate) call.
 //!
 //! #### Nomination
 //!
 //! A **nominator** does not take any _direct_ role in maintaining the network, instead, it votes on
-//! a set of validators to be elected. Once interest in nomination is stated by an account, it takes
-//! effect at the next election round. The funds in the nominator's stash account indicate the
+//! a set of validators  to be elected. Once interest in nomination is stated by an account, it
+//! takes effect at the next election round. The funds in the nominator's stash account indicate the
 //! _weight_ of its vote. Both the rewards and any punishment that a validator earns are shared
 //! between the validator and its nominators. This rule incentivizes the nominators to NOT vote for
 //! the misbehaving/offline validators as much as possible, simply because the nominators will also
@@ -103,22 +104,19 @@
 //!
 //! Staking is closely related to elections; actual validators are chosen from among all potential
 //! validators via election by the potential validators and nominators. To reduce use of the phrase
-//! "potential validators and nominators", we often use the term **voters**, who are simply the
-//! union of potential validators and nominators.
+//! "potential validators and nominators", we often use the term **voters**, who are simply
+//! the union of potential validators and nominators.
 //!
 //! #### Rewards and Slash
 //!
 //! The **reward and slashing** procedure is the core of the Staking pallet, attempting to _embrace
 //! valid behavior_ while _punishing any misbehavior or lack of availability_.
 //!
-//! Rewards must be claimed for each era before it gets too old by
-//! [`HistoryDepth`](`Config::HistoryDepth`) using the `payout_stakers` call. Any account can call
-//! `payout_stakers`, which pays the reward to the validator as well as its nominators. Only
-//! [`Config::MaxExposurePageSize`] nominator rewards can be claimed in a single call. When the
-//! number of nominators exceeds [`Config::MaxExposurePageSize`], then the exposed nominators are
-//! stored in multiple pages, with each page containing up to [`Config::MaxExposurePageSize`]
-//! nominators. To pay out all nominators, `payout_stakers` must be called once for each available
-//! page. Paging exists to limit the i/o cost to mutate storage for each nominator's account.
+//! Rewards must be claimed for each era before it gets too old by `$HISTORY_DEPTH` using the
+//! `payout_stakers` call. Any account can call `payout_stakers`, which pays the reward to the
+//! validator as well as its nominators. Only the [`Config::MaxNominatorRewardedPerValidator`]
+//! biggest stakers can claim their reward. This is to limit the i/o cost to mutate storage for each
+//! nominator's account.
 //!
 //! Slashing can occur at any point in time, once misbehavior is reported. Once slashing is
 //! determined, a value is deducted from the balance of the validator and all the nominators who
@@ -163,18 +161,18 @@
 //!
 //! #[frame_support::pallet(dev_mode)]
 //! pub mod pallet {
-//!   use super::*;
-//!   use frame_support::pallet_prelude::*;
-//!   use frame_system::pallet_prelude::*;
+//! 	use super::*;
+//! 	use frame_support::pallet_prelude::*;
+//! 	use frame_system::pallet_prelude::*;
 //!
-//!   #[pallet::pallet]
-//!   pub struct Pallet<T>(_);
+//! 	#[pallet::pallet]
+//! 	pub struct Pallet<T>(_);
 //!
-//!   #[pallet::config]
-//!   pub trait Config: frame_system::Config + staking::Config {}
+//! 	#[pallet::config]
+//! 	pub trait Config: frame_system::Config + staking::Config {}
 //!
-//!   #[pallet::call]
-//!   impl<T: Config> Pallet<T> {
+//! 	#[pallet::call]
+//! 	impl<T: Config> Pallet<T> {
 //!         /// Reward a validator.
 //!         #[pallet::weight(0)]
 //!         pub fn reward_myself(origin: OriginFor<T>) -> DispatchResult {
@@ -191,8 +189,8 @@
 //!
 //! ### Era payout
 //!
-//! The era payout is computed using yearly inflation curve defined at [`Config::EraPayout`] as
-//! such:
+//! The era payout is computed using yearly inflation curve defined at
+//! [`Config::EraPayout`] as such:
 //!
 //! ```nocompile
 //! staker_payout = yearly_inflation(npos_token_staked / total_tokens) * total_tokens / era_per_year
@@ -202,13 +200,8 @@
 //! ```nocompile
 //! remaining_payout = max_yearly_inflation * total_tokens / era_per_year - staker_payout
 //! ```
-//!
-//! Note, however, that it is possible to set a cap on the total `staker_payout` for the era through
-//! the `MaxStakersRewards` storage type. The `era_payout` implementor must ensure that the
-//! `max_payout = remaining_payout + (staker_payout * max_stakers_rewards)`. The excess payout that
-//! is not allocated for stakers is the era remaining reward.
-//!
-//! The remaining reward is send to the configurable end-point [`Config::RewardRemainder`].
+//! The remaining reward is send to the configurable end-point
+//! [`Config::RewardRemainder`].
 //!
 //! ### Reward Calculation
 //!
@@ -222,38 +215,42 @@
 //! they received during the era. Points are added to a validator using
 //! [`reward_by_ids`](Pallet::reward_by_ids).
 //!
-//! [`Pallet`] implements [`pallet_authorship::EventHandler`] to add reward points to block producer
-//! and block producer of referenced uncles.
+//! [`Pallet`] implements
+//! [`pallet_authorship::EventHandler`] to add reward
+//! points to block producer and block producer of referenced uncles.
 //!
 //! The validator and its nominator split their reward as following:
 //!
 //! The validator can declare an amount, named [`commission`](ValidatorPrefs::commission), that does
 //! not get shared with the nominators at each reward payout through its [`ValidatorPrefs`]. This
 //! value gets deducted from the total reward that is paid to the validator and its nominators. The
-//! remaining portion is split pro rata among the validator and the nominators that nominated the
-//! validator, proportional to the value staked behind the validator (_i.e._ dividing the
+//! remaining portion is split pro rata among the validator and the top
+//! [`Config::MaxNominatorRewardedPerValidator`] nominators that nominated the validator,
+//! proportional to the value staked behind the validator (_i.e._ dividing the
 //! [`own`](Exposure::own) or [`others`](Exposure::others) by [`total`](Exposure::total) in
-//! [`Exposure`]). Note that payouts are made in pages with each page capped at
-//! [`Config::MaxExposurePageSize`] nominators. The distribution of nominators across pages may be
-//! unsorted. The total commission is paid out proportionally across pages based on the total stake
-//! of the page.
+//! [`Exposure`]). Note that the pro rata division of rewards uses the total exposure behind the
+//! validator, *not* just the exposure of the validator and the top
+//! [`Config::MaxNominatorRewardedPerValidator`] nominators.
 //!
 //! All entities who receive a reward have the option to choose their reward destination through the
-//! [`Payee`] storage item (see [`set_payee`](Call::set_payee)), to be one of the following:
+//! [`Payee`] storage item (see
+//! [`set_payee`](Call::set_payee)), to be one of the following:
 //!
+//! - Controller account, (obviously) not increasing the staked value.
 //! - Stash account, not increasing the staked value.
 //! - Stash account, also increasing the staked value.
-//! - Any other account, sent as free balance.
 //!
 //! ### Additional Fund Management Operations
 //!
 //! Any funds already placed into stash can be the target of the following operations:
 //!
 //! The controller account can free a portion (or all) of the funds using the
-//! [`unbond`](Call::unbond) call. Note that the funds are not immediately accessible. Instead, a
-//! duration denoted by [`Config::BondingDuration`] (in number of eras) must pass until the funds
-//! can actually be removed. Once the `BondingDuration` is over, the
-//! [`withdraw_unbonded`](Call::withdraw_unbonded) call can be used to actually withdraw the funds.
+//! [`unbond`](Call::unbond) call. Note that the funds are not immediately
+//! accessible. Instead, a duration denoted by
+//! [`Config::BondingDuration`] (in number of eras) must
+//! pass until the funds can actually be removed. Once the `BondingDuration` is over, the
+//! [`withdraw_unbonded`](Call::withdraw_unbonded) call can be used to actually
+//! withdraw the funds.
 //!
 //! Note that there is a limitation to the number of fund-chunks that can be scheduled to be
 //! unlocked in the future via [`unbond`](Call::unbond). In case this maximum
@@ -273,8 +270,8 @@
 //!
 //! ## GenesisConfig
 //!
-//! The Staking pallet depends on the [`GenesisConfig`]. The `GenesisConfig` is optional and allow
-//! to set some initial stakers.
+//! The Staking pallet depends on the [`GenesisConfig`]. The
+//! `GenesisConfig` is optional and allow to set some initial stakers.
 //!
 //! ## Related Modules
 //!
@@ -295,45 +292,36 @@ pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
 
-pub mod asset;
 pub mod election_size_tracker;
 pub mod inflation;
-pub mod ledger;
 pub mod migrations;
 pub mod slashing;
 pub mod weights;
 
 mod pallet;
 
-extern crate alloc;
-
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
-	defensive, defensive_assert,
-	traits::{
-		ConstU32, Currency, Defensive, DefensiveMax, DefensiveSaturating, Get, LockIdentifier,
-	},
+	traits::{ConstU32, Currency, Defensive, Get},
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,
-	traits::{AtLeast32BitUnsigned, Convert, StaticLookup, Zero},
-	Perbill, Perquintill, Rounding, RuntimeDebug, Saturating,
+	traits::{AtLeast32BitUnsigned, Convert, Saturating, StaticLookup, Zero},
+	Perbill, Perquintill, Rounding, RuntimeDebug,
 };
+pub use sp_staking::StakerStatus;
 use sp_staking::{
-	offence::{Offence, OffenceError, OffenceSeverity, ReportOffence},
-	EraIndex, ExposurePage, OnStakingUpdate, Page, PagedExposureMetadata, SessionIndex,
-	StakingAccount,
+	offence::{Offence, OffenceError, ReportOffence},
+	EraIndex, OnStakingUpdate, SessionIndex,
 };
-pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
-pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking";
 
 // syntactic sugar for logging.
@@ -364,7 +352,7 @@ pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
-pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -379,7 +367,7 @@ pub struct ActiveEraInfo {
 	///
 	/// Start can be none if start hasn't been set for the era yet,
 	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
-	pub start: Option<u64>,
+	start: Option<u64>,
 }
 
 /// Reward points of an era. Used to split era total payout between validators.
@@ -406,14 +394,18 @@ pub enum RewardDestination<AccountId> {
 	Staked,
 	/// Pay into the stash account, not increasing the amount at stake.
 	Stash,
-	#[deprecated(
-		note = "`Controller` will be removed after January 2024. Use `Account(controller)` instead."
-	)]
+	/// Pay into the controller account.
 	Controller,
 	/// Pay into a specified account.
 	Account(AccountId),
 	/// Receive no reward.
 	None,
+}
+
+impl<AccountId> Default for RewardDestination<AccountId> {
+	fn default() -> Self {
+		RewardDestination::Staked
+	}
 }
 
 /// Preference of what happens regarding validation.
@@ -441,14 +433,6 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 }
 
 /// The ledger of a (bonded) stash.
-///
-/// Note: All the reads and mutations to the [`Ledger`], [`Bonded`] and [`Payee`] storage items
-/// *MUST* be performed through the methods exposed by this struct, to ensure the consistency of
-/// ledger's data and corresponding staking lock
-///
-/// TODO: move struct definition and full implementation into `/src/ledger.rs`. Currently
-/// leaving here to enforce a clean PR diff, given how critical this logic is. Tracking issue
-/// <https://github.com/paritytech/substrate/issues/14749>.
 #[derive(
 	PartialEqNoBound,
 	EqNoBound,
@@ -463,52 +447,35 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 pub struct StakingLedger<T: Config> {
 	/// The stash account whose balance is actually locked and at stake.
 	pub stash: T::AccountId,
-
 	/// The total amount of the stash's balance that we are currently accounting for.
 	/// It's just `active` plus all the `unlocking` balances.
 	#[codec(compact)]
 	pub total: BalanceOf<T>,
-
 	/// The total amount of the stash's balance that will be at stake in any forthcoming
 	/// rounds.
 	#[codec(compact)]
 	pub active: BalanceOf<T>,
-
 	/// Any balance that is becoming free, which may eventually be transferred out of the stash
 	/// (assuming it doesn't get slashed first). It is assumed that this will be treated as a first
 	/// in, first out queue where the new (higher value) eras get pushed on the back.
 	pub unlocking: BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>,
-
 	/// List of eras for which the stakers behind a validator have claimed rewards. Only updated
 	/// for validators.
-	///
-	/// This is deprecated as of V14 in favor of `T::ClaimedRewards` and will be removed in future.
-	/// Refer to issue <https://github.com/paritytech/polkadot-sdk/issues/433>
-	pub legacy_claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
-
-	/// The controller associated with this ledger's stash.
-	///
-	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
-	/// Use [`controller`] function to get the controller associated with the ledger.
-	#[codec(skip)]
-	controller: Option<T::AccountId>,
-}
-
-/// State of a ledger with regards with its data and metadata integrity.
-#[derive(PartialEq, Debug)]
-enum LedgerIntegrityState {
-	/// Ledger, bond and corresponding staking lock is OK.
-	Ok,
-	/// Ledger and/or bond is corrupted. This means that the bond has a ledger with a different
-	/// stash than the bonded stash.
-	Corrupted,
-	/// Ledger was corrupted and it has been killed.
-	CorruptedKilled,
-	/// Ledger and bond are OK, however the ledger's stash lock is out of sync.
-	LockCorrupted,
+	pub claimed_rewards: BoundedVec<EraIndex, T::HistoryDepth>,
 }
 
 impl<T: Config> StakingLedger<T> {
+	/// Initializes the default object using the given `validator`.
+	pub fn default_from(stash: T::AccountId) -> Self {
+		Self {
+			stash,
+			total: Zero::zero(),
+			active: Zero::zero(),
+			unlocking: Default::default(),
+			claimed_rewards: Default::default(),
+		}
+	}
+
 	/// Remove entries from `unlocking` that are sufficiently old and reduce the
 	/// total by the sum of their balances.
 	fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
@@ -535,8 +502,7 @@ impl<T: Config> StakingLedger<T> {
 			total,
 			active: self.active,
 			unlocking,
-			legacy_claimed_rewards: self.legacy_claimed_rewards,
-			controller: self.controller,
+			claimed_rewards: self.claimed_rewards,
 		}
 	}
 
@@ -547,12 +513,12 @@ impl<T: Config> StakingLedger<T> {
 		let mut unlocking_balance = BalanceOf::<T>::zero();
 
 		while let Some(last) = self.unlocking.last_mut() {
-			if unlocking_balance.defensive_saturating_add(last.value) <= value {
+			if unlocking_balance + last.value <= value {
 				unlocking_balance += last.value;
 				self.active += last.value;
 				self.unlocking.pop();
 			} else {
-				let diff = value.defensive_saturating_sub(unlocking_balance);
+				let diff = value - unlocking_balance;
 
 				unlocking_balance += diff;
 				self.active += diff;
@@ -606,7 +572,7 @@ impl<T: Config> StakingLedger<T> {
 
 		// for a `slash_era = x`, any chunk that is scheduled to be unlocked at era `x + 28`
 		// (assuming 28 is the bonding duration) onwards should be slashed.
-		let slashable_chunks_start = slash_era.saturating_add(T::BondingDuration::get());
+		let slashable_chunks_start = slash_era + T::BondingDuration::get();
 
 		// `Some(ratio)` if this is proportional, with `ratio`, `None` otherwise. In both cases, we
 		// slash first the active chunk, and then `slash_chunks_priority`.
@@ -677,7 +643,7 @@ impl<T: Config> StakingLedger<T> {
 				// slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
 				// deal.
 				slash_from_target =
-					core::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
+					sp_std::mem::replace(target, Zero::zero()).saturating_add(slash_from_target)
 			}
 
 			self.total = self.total.saturating_sub(slash_from_target);
@@ -705,14 +671,8 @@ impl<T: Config> StakingLedger<T> {
 		// clean unlocking chunks that are set to zero.
 		self.unlocking.retain(|c| !c.value.is_zero());
 
-		let final_slashed_amount = pre_slash_total.saturating_sub(self.total);
-		T::EventListeners::on_slash(
-			&self.stash,
-			self.active,
-			&slashed_unlocking,
-			final_slashed_amount,
-		);
-		final_slashed_amount
+		T::EventListeners::on_slash(&self.stash, self.active, &slashed_unlocking);
+		pre_slash_total.saturating_sub(self.total)
 	}
 }
 
@@ -736,50 +696,32 @@ pub struct Nominations<T: Config> {
 	pub suppressed: bool,
 }
 
-/// Facade struct to encapsulate `PagedExposureMetadata` and a single page of `ExposurePage`.
-///
-/// This is useful where we need to take into account the validator's own stake and total exposure
-/// in consideration, in addition to the individual nominators backing them.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
-pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
-	exposure_metadata: PagedExposureMetadata<Balance>,
-	exposure_page: ExposurePage<AccountId, Balance>,
+/// The amount of exposure (to slashing) than an individual nominator has.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct IndividualExposure<AccountId, Balance: HasCompact> {
+	/// The stash account of the nominator in question.
+	pub who: AccountId,
+	/// Amount of funds exposed.
+	#[codec(compact)]
+	pub value: Balance,
 }
 
-impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEncodedLen>
-	PagedExposure<AccountId, Balance>
-{
-	/// Create a new instance of `PagedExposure` from legacy clipped exposures.
-	pub fn from_clipped(exposure: Exposure<AccountId, Balance>) -> Self {
-		Self {
-			exposure_metadata: PagedExposureMetadata {
-				total: exposure.total,
-				own: exposure.own,
-				nominator_count: exposure.others.len() as u32,
-				page_count: 1,
-			},
-			exposure_page: ExposurePage { page_total: exposure.total, others: exposure.others },
-		}
-	}
+/// A snapshot of the stake backing a single validator in the system.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct Exposure<AccountId, Balance: HasCompact> {
+	/// The total balance backing this validator.
+	#[codec(compact)]
+	pub total: Balance,
+	/// The validator's own stash that is exposed.
+	#[codec(compact)]
+	pub own: Balance,
+	/// The portions of nominators stashes that are exposed.
+	pub others: Vec<IndividualExposure<AccountId, Balance>>,
+}
 
-	/// Returns total exposure of this validator across pages
-	pub fn total(&self) -> Balance {
-		self.exposure_metadata.total
-	}
-
-	/// Returns total exposure of this validator for the current page
-	pub fn page_total(&self) -> Balance {
-		self.exposure_page.page_total + self.exposure_metadata.own
-	}
-
-	/// Returns validator's own stake that is exposed
-	pub fn own(&self) -> Balance {
-		self.exposure_metadata.own
-	}
-
-	/// Returns the portions of nominators stashes that are exposed in this page.
-	pub fn others(&self) -> &Vec<IndividualExposure<AccountId, Balance>> {
-		&self.exposure_page.others
+impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, Balance> {
+	fn default() -> Self {
+		Self { total: Default::default(), own: Default::default(), others: vec![] }
 	}
 }
 
@@ -849,9 +791,6 @@ pub trait SessionInterface<AccountId> {
 	/// Disable the validator at the given index, returns `false` if the validator was already
 	/// disabled or the index is out of bounds.
 	fn disable_validator(validator_index: u32) -> bool;
-	/// Re-enable a validator that was previously disabled. Returns `false` if the validator was
-	/// already enabled or the index is out of bounds.
-	fn enable_validator(validator_index: u32) -> bool;
 	/// Get the validators from session.
 	fn validators() -> Vec<AccountId>;
 	/// Prune historical session tries up to but not including the given index.
@@ -876,10 +815,6 @@ where
 		<pallet_session::Pallet<T>>::disable_index(validator_index)
 	}
 
-	fn enable_validator(validator_index: u32) -> bool {
-		<pallet_session::Pallet<T>>::enable_index(validator_index)
-	}
-
 	fn validators() -> Vec<<T as frame_system::Config>::AccountId> {
 		<pallet_session::Pallet<T>>::validators()
 	}
@@ -891,9 +826,6 @@ where
 
 impl<AccountId> SessionInterface<AccountId> for () {
 	fn disable_validator(_: u32) -> bool {
-		true
-	}
-	fn enable_validator(_: u32) -> bool {
 		true
 	}
 	fn validators() -> Vec<AccountId> {
@@ -929,11 +861,9 @@ impl<Balance: Default> EraPayout<Balance> for () {
 
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
-pub struct ConvertCurve<T>(core::marker::PhantomData<T>);
-impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
-where
-	Balance: AtLeast32BitUnsigned + Clone + Copy,
-	T: Get<&'static PiecewiseLinear<'static>>,
+pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
+	EraPayout<Balance> for ConvertCurve<T>
 {
 	fn era_payout(
 		total_staked: Balance,
@@ -947,7 +877,7 @@ where
 			// Duration of era; more than u64::MAX is rewarded as u64::MAX.
 			era_duration_millis,
 		);
-		let rest = max_payout.saturating_sub(validator_payout);
+		let rest = max_payout.saturating_sub(validator_payout.clone());
 		(validator_payout, rest)
 	}
 }
@@ -987,11 +917,11 @@ impl Default for Forcing {
 
 /// A `Convert` implementation that finds the stash of the given controller account,
 /// if any.
-pub struct StashOf<T>(core::marker::PhantomData<T>);
+pub struct StashOf<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 	fn convert(controller: T::AccountId) -> Option<T::AccountId> {
-		StakingLedger::<T>::paired_account(StakingAccount::Controller(controller))
+		<Pallet<T>>::ledger(&controller).map(|l| l.stash)
 	}
 }
 
@@ -1000,20 +930,20 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for StashOf<T> {
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
-pub struct ExposureOf<T>(core::marker::PhantomData<T>);
+pub struct ExposureOf<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: Config> Convert<T::AccountId, Option<Exposure<T::AccountId, BalanceOf<T>>>>
 	for ExposureOf<T>
 {
 	fn convert(validator: T::AccountId) -> Option<Exposure<T::AccountId, BalanceOf<T>>> {
-		ActiveEra::<T>::get()
+		<Pallet<T>>::active_era()
 			.map(|active_era| <Pallet<T>>::eras_stakers(active_era.index, &validator))
 	}
 }
 
 /// Filter historical offences out and only allow those from the bonding period.
 pub struct FilterHistoricalOffences<T, R> {
-	_inner: core::marker::PhantomData<(T, R)>,
+	_inner: sp_std::marker::PhantomData<(T, R)>,
 }
 
 impl<T, Reporter, Offender, R, O> ReportOffence<Reporter, Offender, O>
@@ -1043,222 +973,6 @@ where
 	}
 }
 
-/// Wrapper struct for Era related information. It is not a pure encapsulation as these storage
-/// items can be accessed directly but nevertheless, its recommended to use `EraInfo` where we
-/// can and add more functions to it as needed.
-pub struct EraInfo<T>(core::marker::PhantomData<T>);
-impl<T: Config> EraInfo<T> {
-	/// Returns true if validator has one or more page of era rewards not claimed yet.
-	// Also looks at legacy storage that can be cleaned up after #433.
-	pub fn pending_rewards(era: EraIndex, validator: &T::AccountId) -> bool {
-		let page_count = if let Some(overview) = <ErasStakersOverview<T>>::get(&era, validator) {
-			overview.page_count
-		} else {
-			if <ErasStakers<T>>::contains_key(era, validator) {
-				// this means non paged exposure, and we treat them as single paged.
-				1
-			} else {
-				// if no exposure, then no rewards to claim.
-				return false
-			}
-		};
-
-		// check if era is marked claimed in legacy storage.
-		if <Ledger<T>>::get(validator)
-			.map(|l| l.legacy_claimed_rewards.contains(&era))
-			.unwrap_or_default()
-		{
-			return false
-		}
-
-		ClaimedRewards::<T>::get(era, validator).len() < page_count as usize
-	}
-
-	/// Temporary function which looks at both (1) passed param `T::StakingLedger` for legacy
-	/// non-paged rewards, and (2) `T::ClaimedRewards` for paged rewards. This function can be
-	/// removed once `T::HistoryDepth` eras have passed and none of the older non-paged rewards
-	/// are relevant/claimable.
-	// Refer tracker issue for cleanup: https://github.com/paritytech/polkadot-sdk/issues/433
-	pub(crate) fn is_rewards_claimed_with_legacy_fallback(
-		era: EraIndex,
-		ledger: &StakingLedger<T>,
-		validator: &T::AccountId,
-		page: Page,
-	) -> bool {
-		ledger.legacy_claimed_rewards.binary_search(&era).is_ok() ||
-			Self::is_rewards_claimed(era, validator, page)
-	}
-
-	/// Check if the rewards for the given era and page index have been claimed.
-	///
-	/// This is only used for paged rewards. Once older non-paged rewards are no longer
-	/// relevant, `is_rewards_claimed_with_legacy_fallback` can be removed and this function can
-	/// be made public.
-	fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
-		ClaimedRewards::<T>::get(era, validator).contains(&page)
-	}
-
-	/// Get exposure for a validator at a given era and page.
-	///
-	/// This builds a paged exposure from `PagedExposureMetadata` and `ExposurePage` of the
-	/// validator. For older non-paged exposure, it returns the clipped exposure directly.
-	pub fn get_paged_exposure(
-		era: EraIndex,
-		validator: &T::AccountId,
-		page: Page,
-	) -> Option<PagedExposure<T::AccountId, BalanceOf<T>>> {
-		let overview = <ErasStakersOverview<T>>::get(&era, validator);
-
-		// return clipped exposure if page zero and paged exposure does not exist
-		// exists for backward compatibility and can be removed as part of #13034
-		if overview.is_none() && page == 0 {
-			return Some(PagedExposure::from_clipped(<ErasStakersClipped<T>>::get(era, validator)))
-		}
-
-		// no exposure for this validator
-		if overview.is_none() {
-			return None
-		}
-
-		let overview = overview.expect("checked above; qed");
-
-		// validator stake is added only in page zero
-		let validator_stake = if page == 0 { overview.own } else { Zero::zero() };
-
-		// since overview is present, paged exposure will always be present except when a
-		// validator has only own stake and no nominator stake.
-		let exposure_page = <ErasStakersPaged<T>>::get((era, validator, page)).unwrap_or_default();
-
-		// build the exposure
-		Some(PagedExposure {
-			exposure_metadata: PagedExposureMetadata { own: validator_stake, ..overview },
-			exposure_page,
-		})
-	}
-
-	/// Get full exposure of the validator at a given era.
-	pub fn get_full_exposure(
-		era: EraIndex,
-		validator: &T::AccountId,
-	) -> Exposure<T::AccountId, BalanceOf<T>> {
-		let overview = <ErasStakersOverview<T>>::get(&era, validator);
-
-		if overview.is_none() {
-			return ErasStakers::<T>::get(era, validator)
-		}
-
-		let overview = overview.expect("checked above; qed");
-
-		let mut others = Vec::with_capacity(overview.nominator_count as usize);
-		for page in 0..overview.page_count {
-			let nominators = <ErasStakersPaged<T>>::get((era, validator, page));
-			others.append(&mut nominators.map(|n| n.others).defensive_unwrap_or_default());
-		}
-
-		Exposure { total: overview.total, own: overview.own, others }
-	}
-
-	/// Returns the number of pages of exposure a validator has for the given era.
-	///
-	/// For eras where paged exposure does not exist, this returns 1 to keep backward compatibility.
-	pub(crate) fn get_page_count(era: EraIndex, validator: &T::AccountId) -> Page {
-		<ErasStakersOverview<T>>::get(&era, validator)
-			.map(|overview| {
-				if overview.page_count == 0 && overview.own > Zero::zero() {
-					// Even though there are no nominator pages, there is still validator's own
-					// stake exposed which needs to be paid out in a page.
-					1
-				} else {
-					overview.page_count
-				}
-			})
-			// Always returns 1 page for older non-paged exposure.
-			// FIXME: Can be cleaned up with issue #13034.
-			.unwrap_or(1)
-	}
-
-	/// Returns the next page that can be claimed or `None` if nothing to claim.
-	pub(crate) fn get_next_claimable_page(
-		era: EraIndex,
-		validator: &T::AccountId,
-		ledger: &StakingLedger<T>,
-	) -> Option<Page> {
-		if Self::is_non_paged_exposure(era, validator) {
-			return match ledger.legacy_claimed_rewards.binary_search(&era) {
-				// already claimed
-				Ok(_) => None,
-				// Non-paged exposure is considered as a single page
-				Err(_) => Some(0),
-			}
-		}
-
-		// Find next claimable page of paged exposure.
-		let page_count = Self::get_page_count(era, validator);
-		let all_claimable_pages: Vec<Page> = (0..page_count).collect();
-		let claimed_pages = ClaimedRewards::<T>::get(era, validator);
-
-		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
-	}
-
-	/// Checks if exposure is paged or not.
-	fn is_non_paged_exposure(era: EraIndex, validator: &T::AccountId) -> bool {
-		<ErasStakersClipped<T>>::contains_key(&era, validator)
-	}
-
-	/// Returns validator commission for this era and page.
-	pub(crate) fn get_validator_commission(
-		era: EraIndex,
-		validator_stash: &T::AccountId,
-	) -> Perbill {
-		<ErasValidatorPrefs<T>>::get(&era, validator_stash).commission
-	}
-
-	/// Creates an entry to track validator reward has been claimed for a given era and page.
-	/// Noop if already claimed.
-	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
-		let mut claimed_pages = ClaimedRewards::<T>::get(era, validator);
-
-		// this should never be called if the reward has already been claimed
-		if claimed_pages.contains(&page) {
-			defensive!("Trying to set an already claimed reward");
-			// nevertheless don't do anything since the page already exist in claimed rewards.
-			return
-		}
-
-		// add page to claimed entries
-		claimed_pages.push(page);
-		ClaimedRewards::<T>::insert(era, validator, claimed_pages);
-	}
-
-	/// Store exposure for elected validators at start of an era.
-	pub fn set_exposure(
-		era: EraIndex,
-		validator: &T::AccountId,
-		exposure: Exposure<T::AccountId, BalanceOf<T>>,
-	) {
-		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
-
-		let nominator_count = exposure.others.len();
-		// expected page count is the number of nominators divided by the page size, rounded up.
-		let expected_page_count = nominator_count
-			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
-			.saturating_div(page_size as usize);
-
-		let (exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
-		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
-
-		<ErasStakersOverview<T>>::insert(era, &validator, &exposure_metadata);
-		exposure_pages.iter().enumerate().for_each(|(page, paged_exposure)| {
-			<ErasStakersPaged<T>>::insert((era, &validator, page as Page), &paged_exposure);
-		});
-	}
-
-	/// Store total exposure for all the elected validators in the era.
-	pub(crate) fn set_total_stake(era: EraIndex, total_stake: BalanceOf<T>) {
-		<ErasTotalStake<T>>::insert(era, total_stake);
-	}
-}
-
 /// Configurations of the benchmarking of the pallet.
 pub trait BenchmarkingConfig {
 	/// The maximum number of validators to use.
@@ -1277,201 +991,4 @@ pub struct TestBenchmarkingConfig;
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
-}
-
-/// Controls validator disabling
-pub trait DisablingStrategy<T: Config> {
-	/// Make a disabling decision. Returning a [`DisablingDecision`]
-	fn decision(
-		offender_stash: &T::AccountId,
-		offender_slash_severity: OffenceSeverity,
-		slash_era: EraIndex,
-		currently_disabled: &Vec<(u32, OffenceSeverity)>,
-	) -> DisablingDecision;
-}
-
-/// Helper struct representing a decision coming from a given [`DisablingStrategy`] implementing
-/// `decision`
-///
-/// `disable` is the index of the validator to disable,
-/// `reenable` is the index of the validator to re-enable.
-#[derive(Debug)]
-pub struct DisablingDecision {
-	pub disable: Option<u32>,
-	pub reenable: Option<u32>,
-}
-
-/// Calculate the disabling limit based on the number of validators and the disabling limit factor.
-///
-/// This is a sensible default implementation for the disabling limit factor for most disabling
-/// strategies.
-///
-/// Disabling limit factor n=2 -> 1/n = 1/2 = 50% of validators can be disabled
-fn factor_based_disable_limit(validators_len: usize, disabling_limit_factor: usize) -> usize {
-	validators_len
-		.saturating_sub(1)
-		.checked_div(disabling_limit_factor)
-		.unwrap_or_else(|| {
-			defensive!("DISABLING_LIMIT_FACTOR should not be 0");
-			0
-		})
-}
-
-/// Implementation of [`DisablingStrategy`] using factor_based_disable_limit which disables
-/// validators from the active set up to a threshold. `DISABLING_LIMIT_FACTOR` is the factor of the
-/// maximum disabled validators in the active set. E.g. setting this value to `3` means no more than
-/// 1/3 of the validators in the active set can be disabled in an era.
-///
-/// By default a factor of 3 is used which is the byzantine threshold.
-pub struct UpToLimitDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
-
-impl<const DISABLING_LIMIT_FACTOR: usize> UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR> {
-	/// Disabling limit calculated from the total number of validators in the active set. When
-	/// reached no more validators will be disabled.
-	pub fn disable_limit(validators_len: usize) -> usize {
-		factor_based_disable_limit(validators_len, DISABLING_LIMIT_FACTOR)
-	}
-}
-
-impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
-	for UpToLimitDisablingStrategy<DISABLING_LIMIT_FACTOR>
-{
-	fn decision(
-		offender_stash: &T::AccountId,
-		_offender_slash_severity: OffenceSeverity,
-		slash_era: EraIndex,
-		currently_disabled: &Vec<(u32, OffenceSeverity)>,
-	) -> DisablingDecision {
-		let active_set = T::SessionInterface::validators();
-
-		// We don't disable more than the limit
-		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
-			log!(
-				debug,
-				"Won't disable: reached disabling limit {:?}",
-				Self::disable_limit(active_set.len())
-			);
-			return DisablingDecision { disable: None, reenable: None }
-		}
-
-		// We don't disable for offences in previous eras
-		if ActiveEra::<T>::get().map(|e| e.index).unwrap_or_default() > slash_era {
-			log!(
-				debug,
-				"Won't disable: current_era {:?} > slash_era {:?}",
-				CurrentEra::<T>::get().unwrap_or_default(),
-				slash_era
-			);
-			return DisablingDecision { disable: None, reenable: None }
-		}
-
-		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
-			idx as u32
-		} else {
-			log!(debug, "Won't disable: offender not in active set",);
-			return DisablingDecision { disable: None, reenable: None }
-		};
-
-		log!(debug, "Will disable {:?}", offender_idx);
-
-		DisablingDecision { disable: Some(offender_idx), reenable: None }
-	}
-}
-
-/// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
-/// limit (factor_based_disable_limit) and if the limit is reached and the new offender is higher
-/// (bigger punishment/severity) then it re-enables the lowest offender to free up space for the new
-/// offender.
-///
-/// This strategy is not based on cumulative severity of offences but only on the severity of the
-/// highest offence. Offender first committing a 25% offence and then a 50% offence will be treated
-/// the same as an offender committing 50% offence.
-///
-/// An extension of [`UpToLimitDisablingStrategy`].
-pub struct UpToLimitWithReEnablingDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
-
-impl<const DISABLING_LIMIT_FACTOR: usize>
-	UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>
-{
-	/// Disabling limit calculated from the total number of validators in the active set. When
-	/// reached re-enabling logic might kick in.
-	pub fn disable_limit(validators_len: usize) -> usize {
-		factor_based_disable_limit(validators_len, DISABLING_LIMIT_FACTOR)
-	}
-}
-
-impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
-	for UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>
-{
-	fn decision(
-		offender_stash: &T::AccountId,
-		offender_slash_severity: OffenceSeverity,
-		slash_era: EraIndex,
-		currently_disabled: &Vec<(u32, OffenceSeverity)>,
-	) -> DisablingDecision {
-		let active_set = T::SessionInterface::validators();
-
-		// We don't disable for offences in previous eras
-		if ActiveEra::<T>::get().map(|e| e.index).unwrap_or_default() > slash_era {
-			log!(
-				debug,
-				"Won't disable: current_era {:?} > slash_era {:?}",
-				Pallet::<T>::current_era().unwrap_or_default(),
-				slash_era
-			);
-			return DisablingDecision { disable: None, reenable: None }
-		}
-
-		// We don't disable validators that are not in the active set
-		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
-			idx as u32
-		} else {
-			log!(debug, "Won't disable: offender not in active set",);
-			return DisablingDecision { disable: None, reenable: None }
-		};
-
-		// Check if offender is already disabled
-		if let Some((_, old_severity)) =
-			currently_disabled.iter().find(|(idx, _)| *idx == offender_idx)
-		{
-			if offender_slash_severity > *old_severity {
-				log!(debug, "Offender already disabled but with lower severity, will disable again to refresh severity of {:?}", offender_idx);
-				return DisablingDecision { disable: Some(offender_idx), reenable: None };
-			} else {
-				log!(debug, "Offender already disabled with higher or equal severity");
-				return DisablingDecision { disable: None, reenable: None };
-			}
-		}
-
-		// We don't disable more than the limit (but we can re-enable a smaller offender to make
-		// space)
-		if currently_disabled.len() >= Self::disable_limit(active_set.len()) {
-			log!(
-				debug,
-				"Reached disabling limit {:?}, checking for re-enabling",
-				Self::disable_limit(active_set.len())
-			);
-
-			// Find the smallest offender to re-enable that is not higher than
-			// offender_slash_severity
-			if let Some((smallest_idx, _)) = currently_disabled
-				.iter()
-				.filter(|(_, severity)| *severity <= offender_slash_severity)
-				.min_by_key(|(_, severity)| *severity)
-			{
-				log!(debug, "Will disable {:?} and re-enable {:?}", offender_idx, smallest_idx);
-				return DisablingDecision {
-					disable: Some(offender_idx),
-					reenable: Some(*smallest_idx),
-				}
-			} else {
-				log!(debug, "No smaller offender found to re-enable");
-				return DisablingDecision { disable: None, reenable: None }
-			}
-		} else {
-			// If we are not at the limit, just disable the new offender and dont re-enable anyone
-			log!(debug, "Will disable {:?}", offender_idx);
-			return DisablingDecision { disable: Some(offender_idx), reenable: None }
-		}
-	}
 }

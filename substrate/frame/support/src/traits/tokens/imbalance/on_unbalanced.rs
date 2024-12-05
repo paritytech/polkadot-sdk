@@ -17,9 +17,7 @@
 
 //! Trait for handling imbalances.
 
-use core::marker::PhantomData;
-use frame_support::traits::{fungible, fungibles, misc::TryDrop};
-use sp_core::TypedGet;
+use crate::traits::misc::TryDrop;
 
 /// Handler for when some currency "account" decreased in balance for
 /// some reason.
@@ -35,26 +33,11 @@ pub trait OnUnbalanced<Imbalance: TryDrop> {
 	/// Handler for some imbalances. The different imbalances might have different origins or
 	/// meanings, dependent on the context. Will default to simply calling on_unbalanced for all
 	/// of them. Infallible.
-	fn on_unbalanceds(mut amounts: impl Iterator<Item = Imbalance>)
+	fn on_unbalanceds<B>(amounts: impl Iterator<Item = Imbalance>)
 	where
-		Imbalance: crate::traits::tokens::imbalance::TryMerge,
+		Imbalance: crate::traits::Imbalance<B>,
 	{
-		let mut sum: Option<Imbalance> = None;
-		while let Some(next) = amounts.next() {
-			sum = match sum {
-				Some(sum) => match sum.try_merge(next) {
-					Ok(sum) => Some(sum),
-					Err((sum, next)) => {
-						Self::on_unbalanced(next);
-						Some(sum)
-					},
-				},
-				None => Some(next),
-			}
-		}
-		if let Some(sum) = sum {
-			Self::on_unbalanced(sum)
-		}
+		Self::on_unbalanced(amounts.fold(Imbalance::zero(), |i, x| x.merge(i)))
 	}
 
 	/// Handler for some imbalance. Infallible.
@@ -70,29 +53,3 @@ pub trait OnUnbalanced<Imbalance: TryDrop> {
 }
 
 impl<Imbalance: TryDrop> OnUnbalanced<Imbalance> for () {}
-
-/// Resolves received asset credit to account `A`, implementing [`OnUnbalanced`].
-///
-/// Credits that cannot be resolved to account `A` are dropped. This may occur if the account for
-/// address `A` does not exist and the existential deposit requirement is not met.
-pub struct ResolveTo<A, F>(PhantomData<(A, F)>);
-impl<A: TypedGet, F: fungible::Balanced<A::Type>> OnUnbalanced<fungible::Credit<A::Type, F>>
-	for ResolveTo<A, F>
-{
-	fn on_nonzero_unbalanced(credit: fungible::Credit<A::Type, F>) {
-		let _ = F::resolve(&A::get(), credit).map_err(|c| drop(c));
-	}
-}
-
-/// Resolves received asset credit to account `A`, implementing [`OnUnbalanced`].
-///
-/// Credits that cannot be resolved to account `A` are dropped. This may occur if the account for
-/// address `A` does not exist and the existential deposit requirement is not met.
-pub struct ResolveAssetTo<A, F>(PhantomData<(A, F)>);
-impl<A: TypedGet, F: fungibles::Balanced<A::Type>> OnUnbalanced<fungibles::Credit<A::Type, F>>
-	for ResolveAssetTo<A, F>
-{
-	fn on_nonzero_unbalanced(credit: fungibles::Credit<A::Type, F>) {
-		let _ = F::resolve(&A::get(), credit).map_err(|c| drop(c));
-	}
-}

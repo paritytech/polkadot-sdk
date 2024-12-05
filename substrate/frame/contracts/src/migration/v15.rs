@@ -28,8 +28,6 @@ use crate::{
 	AccountIdOf, BalanceOf, CodeHash, Config, HoldReason, Pallet, TrieId, Weight, LOG_TARGET,
 };
 #[cfg(feature = "try-runtime")]
-use alloc::vec::Vec;
-#[cfg(feature = "try-runtime")]
 use frame_support::traits::fungible::InspectHold;
 use frame_support::{
 	pallet_prelude::*,
@@ -38,7 +36,6 @@ use frame_support::{
 		fungible::{Mutate, MutateHold},
 		tokens::{fungible::Inspect, Fortitude, Preservation},
 	},
-	weights::WeightMeter,
 	BoundedBTreeMap, DefaultNoBound,
 };
 use frame_system::Pallet as System;
@@ -46,8 +43,10 @@ use sp_core::hexdisplay::HexDisplay;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, Saturating};
+#[cfg(feature = "try-runtime")]
+use sp_std::vec::Vec;
 
-mod v14 {
+mod old {
 	use super::*;
 
 	#[derive(
@@ -82,7 +81,7 @@ pub fn store_old_contract_info<T: Config>(account: T::AccountId, info: crate::Co
 	let entropy = (b"contract_depo_v1", account.clone()).using_encoded(T::Hashing::hash);
 	let deposit_account = Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
 		.expect("infinite length input; no invalid inputs for type; qed");
-	let info = v14::ContractInfo {
+	let info = old::ContractInfo {
 		trie_id: info.trie_id.clone(),
 		deposit_account,
 		code_hash: info.code_hash,
@@ -93,7 +92,7 @@ pub fn store_old_contract_info<T: Config>(account: T::AccountId, info: crate::Co
 		storage_base_deposit: info.storage_base_deposit(),
 		delegate_dependencies: info.delegate_dependencies().clone(),
 	};
-	v14::ContractInfoOf::<T>::insert(account, info);
+	old::ContractInfoOf::<T>::insert(account, info);
 }
 
 #[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -126,13 +125,13 @@ impl<T: Config> MigrationStep for Migration<T> {
 		T::WeightInfo::v15_migration_step()
 	}
 
-	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
+	fn step(&mut self) -> (IsFinished, Weight) {
 		let mut iter = if let Some(last_account) = self.last_account.take() {
-			v14::ContractInfoOf::<T>::iter_from(v14::ContractInfoOf::<T>::hashed_key_for(
+			old::ContractInfoOf::<T>::iter_from(old::ContractInfoOf::<T>::hashed_key_for(
 				last_account,
 			))
 		} else {
-			v14::ContractInfoOf::<T>::iter()
+			old::ContractInfoOf::<T>::iter()
 		};
 
 		if let Some((account, old_contract)) = iter.next() {
@@ -235,22 +234,20 @@ impl<T: Config> MigrationStep for Migration<T> {
 			// Store last key for next migration step
 			self.last_account = Some(account);
 
-			meter.consume(T::WeightInfo::v15_migration_step());
-			IsFinished::No
+			(IsFinished::No, T::WeightInfo::v15_migration_step())
 		} else {
 			log::info!(target: LOG_TARGET, "Done Migrating Storage Deposits.");
-			meter.consume(T::WeightInfo::v15_migration_step());
-			IsFinished::Yes
+			(IsFinished::Yes, T::WeightInfo::v15_migration_step())
 		}
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade_step() -> Result<Vec<u8>, TryRuntimeError> {
-		let sample: Vec<_> = v14::ContractInfoOf::<T>::iter().take(100).collect();
+		let sample: Vec<_> = old::ContractInfoOf::<T>::iter().take(100).collect();
 
 		log::debug!(target: LOG_TARGET, "Taking sample of {} contracts", sample.len());
 
-		let state: Vec<(T::AccountId, v14::ContractInfo<T>, BalanceOf<T>, BalanceOf<T>)> = sample
+		let state: Vec<(T::AccountId, old::ContractInfo<T>, BalanceOf<T>, BalanceOf<T>)> = sample
 			.iter()
 			.map(|(account, contract)| {
 				(
@@ -268,7 +265,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade_step(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		let sample =
-			<Vec<(T::AccountId, v14::ContractInfo<T>, BalanceOf<T>, BalanceOf<T>)> as Decode>::decode(
+			<Vec<(T::AccountId, old::ContractInfo<T>, BalanceOf<T>, BalanceOf<T>)> as Decode>::decode(
 				&mut &state[..],
 			)
 			.expect("pre_upgrade_step provides a valid state; qed");

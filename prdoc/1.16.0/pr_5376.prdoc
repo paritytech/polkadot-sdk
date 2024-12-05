@@ -1,3 +1,0 @@
-crates:
-  - name: binary-merkle-tree
-    bump: none

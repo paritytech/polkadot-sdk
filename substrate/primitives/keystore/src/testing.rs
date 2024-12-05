@@ -22,7 +22,7 @@ use crate::{Error, Keystore, KeystorePtr};
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381, KeccakHasher};
+use sp_core::{bls377, bls381};
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ed25519, sr25519,
@@ -32,7 +32,7 @@ use parking_lot::RwLock;
 use std::{collections::HashMap, sync::Arc};
 
 /// A keystore implementation usable in tests.
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct MemoryKeystore {
 	/// `KeyTypeId` maps to public keys and public keys map to private keys.
 	keys: Arc<RwLock<HashMap<KeyTypeId, HashMap<Vec<u8>, String>>>>,
@@ -113,14 +113,14 @@ impl MemoryKeystore {
 		Ok(sig)
 	}
 
-	fn vrf_pre_output<T: Pair + VrfSecret>(
+	fn vrf_output<T: Pair + VrfSecret>(
 		&self,
 		key_type: KeyTypeId,
 		public: &T::Public,
 		input: &T::VrfInput,
-	) -> Result<Option<T::VrfPreOutput>, Error> {
-		let pre_output = self.pair::<T>(key_type, public).map(|pair| pair.vrf_pre_output(input));
-		Ok(pre_output)
+	) -> Result<Option<T::VrfOutput>, Error> {
+		let preout = self.pair::<T>(key_type, public).map(|pair| pair.vrf_output(input));
+		Ok(preout)
 	}
 }
 
@@ -155,13 +155,13 @@ impl Keystore for MemoryKeystore {
 		self.vrf_sign::<sr25519::Pair>(key_type, public, data)
 	}
 
-	fn sr25519_vrf_pre_output(
+	fn sr25519_vrf_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &sr25519::Public,
 		input: &sr25519::vrf::VrfInput,
-	) -> Result<Option<sr25519::vrf::VrfPreOutput>, Error> {
-		self.vrf_pre_output::<sr25519::Pair>(key_type, public, input)
+	) -> Result<Option<sr25519::vrf::VrfOutput>, Error> {
+		self.vrf_output::<sr25519::Pair>(key_type, public, input)
 	}
 
 	fn ed25519_public_keys(&self, key_type: KeyTypeId) -> Vec<ed25519::Public> {
@@ -265,13 +265,13 @@ impl Keystore for MemoryKeystore {
 	}
 
 	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_pre_output(
+	fn bandersnatch_vrf_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &bandersnatch::Public,
 		input: &bandersnatch::vrf::VrfInput,
-	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error> {
-		self.vrf_pre_output::<bandersnatch::Pair>(key_type, public, input)
+	) -> Result<Option<bandersnatch::vrf::VrfOutput>, Error> {
+		self.vrf_output::<bandersnatch::Pair>(key_type, public, input)
 	}
 
 	#[cfg(feature = "bls-experimental")]
@@ -299,40 +299,27 @@ impl Keystore for MemoryKeystore {
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
-		self.public_keys::<ecdsa_bls381::Pair>(key_type)
+	fn bls377_public_keys(&self, key_type: KeyTypeId) -> Vec<bls377::Public> {
+		self.public_keys::<bls377::Pair>(key_type)
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_generate_new(
+	fn bls377_generate_new(
 		&self,
 		key_type: KeyTypeId,
 		seed: Option<&str>,
-	) -> Result<ecdsa_bls381::Public, Error> {
-		self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)
+	) -> Result<bls377::Public, Error> {
+		self.generate_new::<bls377::Pair>(key_type, seed)
 	}
 
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_sign(
+	fn bls377_sign(
 		&self,
 		key_type: KeyTypeId,
-		public: &ecdsa_bls381::Public,
+		public: &bls377::Public,
 		msg: &[u8],
-	) -> Result<Option<ecdsa_bls381::Signature>, Error> {
-		self.sign::<ecdsa_bls381::Pair>(key_type, public, msg)
-	}
-
-	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_sign_with_keccak256(
-		&self,
-		key_type: KeyTypeId,
-		public: &ecdsa_bls381::Public,
-		msg: &[u8],
-	) -> Result<Option<ecdsa_bls381::Signature>, Error> {
-		let sig = self
-			.pair::<ecdsa_bls381::Pair>(key_type, public)
-			.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
-		Ok(sig)
+	) -> Result<Option<bls377::Signature>, Error> {
+		self.sign::<bls377::Pair>(key_type, public, msg)
 	}
 
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {
@@ -432,7 +419,7 @@ mod tests {
 	}
 
 	#[test]
-	fn sr25519_vrf_pre_output() {
+	fn sr25519_vrf_output() {
 		let store = MemoryKeystore::new();
 
 		let secret_uri = "//Alice";
@@ -447,17 +434,16 @@ mod tests {
 			],
 		);
 
-		let result = store.sr25519_vrf_pre_output(SR25519, &pair.public(), &input);
+		let result = store.sr25519_vrf_output(SR25519, &pair.public(), &input);
 		assert!(result.unwrap().is_none());
 
 		store
 			.insert(SR25519, secret_uri, pair.public().as_ref())
 			.expect("Inserts unknown key");
 
-		let pre_output =
-			store.sr25519_vrf_pre_output(SR25519, &pair.public(), &input).unwrap().unwrap();
+		let preout = store.sr25519_vrf_output(SR25519, &pair.public(), &input).unwrap().unwrap();
 
-		let result = pre_output.make_bytes::<32>(b"rand", &input, &pair.public());
+		let result = preout.make_bytes::<32>(b"rand", &input, &pair.public());
 		assert!(result.is_ok());
 	}
 
@@ -468,50 +454,17 @@ mod tests {
 		let suri = "//Alice";
 		let pair = ecdsa::Pair::from_string(suri, None).unwrap();
 
-		// Let's pretend this to be the hash output as content doesn't really matter here.
-		let hash = [0xff; 32];
+		let msg = sp_core::keccak_256(b"this should be a hashed message");
 
 		// no key in key store
-		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &hash).unwrap();
+		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &msg).unwrap();
 		assert!(res.is_none());
 
 		// insert key, sign again
 		store.insert(ECDSA, suri, pair.public().as_ref()).unwrap();
 
-		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &hash).unwrap();
+		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &msg).unwrap();
 		assert!(res.is_some());
-	}
-
-	#[test]
-	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls381_sign_with_keccak_works() {
-		use sp_core::testing::ECDSA_BLS377;
-
-		let store = MemoryKeystore::new();
-
-		let suri = "//Alice";
-		let pair = ecdsa_bls381::Pair::from_string(suri, None).unwrap();
-
-		let msg = b"this should be a normal unhashed message not a hash of a message because bls scheme comes with its own hashing";
-
-		// insert key, sign again
-		store.insert(ECDSA_BLS377, suri, pair.public().as_ref()).unwrap();
-
-		let res = store
-			.ecdsa_bls381_sign_with_keccak256(ECDSA_BLS377, &pair.public(), &msg[..])
-			.unwrap();
-
-		assert!(res.is_some());
-
-		// does not verify with default out-of-the-box verification
-		assert!(!ecdsa_bls381::Pair::verify(&res.unwrap(), &msg[..], &pair.public()));
-
-		// should verify using keccak256 as hasher
-		assert!(ecdsa_bls381::Pair::verify_with_hasher::<KeccakHasher>(
-			&res.unwrap(),
-			msg,
-			&pair.public()
-		));
 	}
 
 	#[test]
@@ -548,7 +501,7 @@ mod tests {
 
 		let store = MemoryKeystore::new();
 
-		let ring_ctx = bandersnatch::ring_vrf::RingContext::<1024>::new_testing();
+		let ring_ctx = bandersnatch::ring_vrf::RingContext::new_testing();
 
 		let mut pks: Vec<_> = (0..16)
 			.map(|i| bandersnatch::Pair::from_seed(&[i as u8; 32]).public())

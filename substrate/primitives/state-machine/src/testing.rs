@@ -209,15 +209,12 @@ where
 	///
 	/// In contrast to [`commit_all`](Self::commit_all) this will not panic if there are open
 	/// transactions.
-	pub fn as_backend(&mut self) -> InMemoryBackend<H> {
-		let top: Vec<_> = self
-			.overlay
-			.changes_mut()
-			.map(|(k, v)| (k.clone(), v.value().cloned()))
-			.collect();
+	pub fn as_backend(&self) -> InMemoryBackend<H> {
+		let top: Vec<_> =
+			self.overlay.changes().map(|(k, v)| (k.clone(), v.value().cloned())).collect();
 		let mut transaction = vec![(None, top)];
 
-		for (child_changes, child_info) in self.overlay.children_mut() {
+		for (child_changes, child_info) in self.overlay.children() {
 			transaction.push((
 				Some(child_info.clone()),
 				child_changes.map(|(k, v)| (k.clone(), v.value().cloned())).collect(),
@@ -296,14 +293,13 @@ where
 	}
 }
 
-impl<H> TestExternalities<H>
+impl<H: Hasher> PartialEq for TestExternalities<H>
 where
-	H: Hasher,
 	H::Out: Ord + 'static + codec::Codec,
 {
 	/// This doesn't test if they are in the same state, only if they contains the
 	/// same data at this state
-	pub fn eq(&mut self, other: &mut TestExternalities<H>) -> bool {
+	fn eq(&self, other: &TestExternalities<H>) -> bool {
 		self.as_backend().eq(&other.as_backend())
 	}
 }
@@ -421,7 +417,7 @@ mod tests {
 			original_ext.backend.clone().into_storage(),
 		);
 
-		// Ensure all have the correct ref count
+		// Ensure all have the correct ref counrt
 		assert!(original_ext.backend.backend_storage().keys().values().all(|r| *r == 2));
 
 		// Drain the raw storage and root.

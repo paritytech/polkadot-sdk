@@ -17,12 +17,12 @@
 use super::*;
 use crate::{
 	configuration::ActiveConfig,
-	mock::{new_test_ext, Dmp, MockGenesisConfig, Paras, System, Test},
+	mock::{new_test_ext, Configuration, Dmp, MockGenesisConfig, Paras, System, Test},
 };
-use codec::Encode;
 use frame_support::assert_ok;
 use hex_literal::hex;
-use polkadot_primitives::BlockNumber;
+use parity_scale_codec::Encode;
+use primitives::BlockNumber;
 
 pub(crate) fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>>) {
 	while System::block_number() < to {
@@ -58,7 +58,7 @@ fn queue_downward_message(
 	para_id: ParaId,
 	msg: DownwardMessage,
 ) -> Result<(), QueueDownwardMessageError> {
-	Dmp::queue_downward_message(&configuration::ActiveConfig::<Test>::get(), para_id, msg)
+	Dmp::queue_downward_message(&Configuration::config(), para_id, msg)
 }
 
 #[test]
@@ -210,7 +210,7 @@ fn queue_downward_message_critical() {
 #[test]
 fn verify_dmq_mqc_head_is_externally_accessible() {
 	use hex_literal::hex;
-	use polkadot_primitives::well_known_keys;
+	use primitives::well_known_keys;
 
 	let a = ParaId::from(2020);
 
@@ -233,7 +233,7 @@ fn verify_dmq_mqc_head_is_externally_accessible() {
 }
 
 #[test]
-fn verify_fee_increase_and_decrease() {
+fn verify_fee_increment_and_decrement() {
 	let a = ParaId::from(123);
 	let mut genesis = default_genesis_config();
 	genesis.configuration.config.max_downward_message_size = 16777216;

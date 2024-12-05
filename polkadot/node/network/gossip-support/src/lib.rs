@@ -32,7 +32,7 @@ use std::{
 
 use futures::{channel::oneshot, select, FutureExt as _};
 use futures_timer::Delay;
-use rand::{Rng, SeedableRng};
+use rand::{seq::SliceRandom as _, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 use sc_network::{config::parse_addr, Multiaddr};
@@ -63,21 +63,7 @@ use metrics::Metrics;
 const LOG_TARGET: &str = "parachain::gossip-support";
 // How much time should we wait to reissue a connection request
 // since the last authority discovery resolution failure.
-#[cfg(not(test))]
 const BACKOFF_DURATION: Duration = Duration::from_secs(5);
-
-#[cfg(test)]
-const BACKOFF_DURATION: Duration = Duration::from_millis(500);
-
-// The authorithy_discovery queries runs every ten minutes,
-// so it make sense to run a bit more often than that to
-// detect changes as often as we can, but not too often since
-// it won't help.
-#[cfg(not(test))]
-const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(5 * 60);
-
-#[cfg(test)]
-const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(2);
 
 /// Duration after which we consider low connectivity a problem.
 ///
@@ -101,14 +87,6 @@ pub struct GossipSupport<AD> {
 	// `None` otherwise.
 	last_failure: Option<Instant>,
 
-	// Validators can restart during a session, so if they change
-	// their PeerID, we will connect to them in the best case after
-	// a session, so we need to try more often to resolved peers and
-	// reconnect to them. The authorithy_discovery queries runs every ten
-	// minutes, so we can't detect changes in the address more often
-	// that that.
-	last_connection_request: Option<Instant>,
-
 	/// First time we did not reach our connectivity threshold.
 	///
 	/// This is the time of the first failed attempt to connect to >2/3 of all validators in a
@@ -126,7 +104,7 @@ pub struct GossipSupport<AD> {
 	/// By `PeerId`.
 	///
 	/// Needed for efficient handling of disconnect events.
-	connected_peers: HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
+	connected_authorities_by_peer_id: HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	/// Authority discovery service.
 	authority_discovery: AD,
 
@@ -149,11 +127,10 @@ where
 			keystore,
 			last_session_index: None,
 			last_failure: None,
-			last_connection_request: None,
 			failure_start: None,
 			resolved_authorities: HashMap::new(),
 			connected_authorities: HashMap::new(),
-			connected_peers: HashMap::new(),
+			connected_authorities_by_peer_id: HashMap::new(),
 			authority_discovery,
 			metrics,
 		}
@@ -215,22 +192,15 @@ where
 		for leaf in leaves {
 			let current_index = util::request_session_index_for_child(leaf, sender).await.await??;
 			let since_failure = self.last_failure.map(|i| i.elapsed()).unwrap_or_default();
-			let since_last_reconnect =
-				self.last_connection_request.map(|i| i.elapsed()).unwrap_or_default();
-
 			let force_request = since_failure >= BACKOFF_DURATION;
-			let re_resolve_authorities = since_last_reconnect >= TRY_RERESOLVE_AUTHORITIES;
 			let leaf_session = Some((current_index, leaf));
 			let maybe_new_session = match self.last_session_index {
 				Some(i) if current_index <= i => None,
 				_ => leaf_session,
 			};
 
-			let maybe_issue_connection = if force_request || re_resolve_authorities {
-				leaf_session
-			} else {
-				maybe_new_session
-			};
+			let maybe_issue_connection =
+				if force_request { leaf_session } else { maybe_new_session };
 
 			if let Some((session_index, relay_parent)) = maybe_issue_connection {
 				let session_info =
@@ -274,7 +244,7 @@ where
 				// connections to a much broader set of validators.
 				{
 					let mut connections = authorities_past_present_future(sender, leaf).await?;
-					self.last_connection_request = Some(Instant::now());
+
 					// Remove all of our locally controlled validator indices so we don't connect to
 					// ourself.
 					let connections =
@@ -285,12 +255,7 @@ where
 							// to clean up all connections.
 							Vec::new()
 						};
-
-					if force_request || is_new_session {
-						self.issue_connection_request(sender, connections).await;
-					} else if re_resolve_authorities {
-						self.issue_connection_request_to_changed(sender, connections).await;
-					}
+					self.issue_connection_request(sender, connections).await;
 				}
 
 				if is_new_session {
@@ -305,10 +270,9 @@ where
 						session_index,
 					)
 					.await?;
+
+					self.update_authority_ids(sender, session_info.discovery_keys).await;
 				}
-				// authority_discovery is just a cache so let's try every time we try to re-connect
-				// if new authorities are present.
-				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			}
 		}
 		Ok(())
@@ -355,14 +319,17 @@ where
 		authority_check_result
 	}
 
-	async fn resolve_authorities(
+	async fn issue_connection_request<Sender>(
 		&mut self,
+		sender: &mut Sender,
 		authorities: Vec<AuthorityDiscoveryId>,
-	) -> (Vec<HashSet<Multiaddr>>, HashMap<AuthorityDiscoveryId, HashSet<Multiaddr>>, usize) {
+	) where
+		Sender: overseer::GossipSupportSenderTrait,
+	{
+		let num = authorities.len();
 		let mut validator_addrs = Vec::with_capacity(authorities.len());
-		let mut resolved = HashMap::with_capacity(authorities.len());
 		let mut failures = 0;
-
+		let mut resolved = HashMap::with_capacity(authorities.len());
 		for authority in authorities {
 			if let Some(addrs) =
 				self.authority_discovery.get_addresses_by_authority_id(authority.clone()).await
@@ -378,67 +345,6 @@ where
 				);
 			}
 		}
-		(validator_addrs, resolved, failures)
-	}
-
-	async fn issue_connection_request_to_changed<Sender>(
-		&mut self,
-		sender: &mut Sender,
-		authorities: Vec<AuthorityDiscoveryId>,
-	) where
-		Sender: overseer::GossipSupportSenderTrait,
-	{
-		let (_, resolved, _) = self.resolve_authorities(authorities).await;
-
-		let mut changed = Vec::new();
-
-		for (authority, new_addresses) in &resolved {
-			let new_peer_ids = new_addresses
-				.iter()
-				.flat_map(|addr| parse_addr(addr.clone()).ok().map(|(p, _)| p))
-				.collect::<HashSet<_>>();
-			match self.resolved_authorities.get(authority) {
-				Some(old_addresses) => {
-					let old_peer_ids = old_addresses
-						.iter()
-						.flat_map(|addr| parse_addr(addr.clone()).ok().map(|(p, _)| p))
-						.collect::<HashSet<_>>();
-					if !old_peer_ids.is_superset(&new_peer_ids) {
-						changed.push(new_addresses.clone());
-					}
-				},
-				None => changed.push(new_addresses.clone()),
-			}
-		}
-		gum::debug!(
-			target: LOG_TARGET,
-			num_changed = ?changed.len(),
-			?changed,
-			"Issuing a connection request to changed validators"
-		);
-		if !changed.is_empty() {
-			self.resolved_authorities = resolved;
-
-			sender
-				.send_message(NetworkBridgeTxMessage::AddToResolvedValidators {
-					validator_addrs: changed,
-					peer_set: PeerSet::Validation,
-				})
-				.await;
-		}
-	}
-
-	async fn issue_connection_request<Sender>(
-		&mut self,
-		sender: &mut Sender,
-		authorities: Vec<AuthorityDiscoveryId>,
-	) where
-		Sender: overseer::GossipSupportSenderTrait,
-	{
-		let num = authorities.len();
-
-		let (validator_addrs, resolved, failures) = self.resolve_authorities(authorities).await;
-
 		self.resolved_authorities = resolved;
 		gum::debug!(target: LOG_TARGET, %num, "Issuing a connection request");
 
@@ -488,63 +394,32 @@ where
 	{
 		let mut authority_ids: HashMap<PeerId, HashSet<AuthorityDiscoveryId>> = HashMap::new();
 		for authority in authorities {
-			let peer_ids = self
+			let peer_id = self
 				.authority_discovery
 				.get_addresses_by_authority_id(authority.clone())
 				.await
 				.into_iter()
 				.flat_map(|list| list.into_iter())
-				.flat_map(|addr| parse_addr(addr).ok().map(|(p, _)| p))
-				.collect::<HashSet<_>>();
+				.find_map(|addr| parse_addr(addr).ok().map(|(p, _)| p));
 
-			gum::trace!(
-				target: LOG_TARGET,
-				?peer_ids,
-				?authority,
-				"Resolved to peer ids"
-			);
-
-			for p in peer_ids {
-				authority_ids.entry(p).or_default().insert(authority.clone());
+			if let Some(p) = peer_id {
+				authority_ids.entry(p).or_default().insert(authority);
 			}
 		}
 
-		// peer was authority and now isn't
-		for (peer_id, current) in self.connected_peers.iter_mut() {
-			// empty -> nonempty is handled in the next loop
-			if !current.is_empty() && !authority_ids.contains_key(peer_id) {
-				sender
-					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
-						peer_id: *peer_id,
-						authority_ids: HashSet::new(),
-					})
-					.await;
-
-				for a in current.drain() {
-					self.connected_authorities.remove(&a);
-				}
-			}
-		}
-
-		// peer has new authority set.
-		for (peer_id, new) in authority_ids {
-			// If the peer is connected _and_ the authority IDs have changed.
-			if let Some(prev) = self.connected_peers.get(&peer_id).filter(|x| x != &&new) {
+		for (peer_id, auths) in authority_ids {
+			if self.connected_authorities_by_peer_id.get(&peer_id) != Some(&auths) {
 				sender
 					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
 						peer_id,
-						authority_ids: new.clone(),
+						authority_ids: auths.clone(),
 					})
 					.await;
 
-				prev.iter().for_each(|a| {
-					self.connected_authorities.remove(a);
-				});
-				new.iter().for_each(|a| {
+				auths.iter().for_each(|a| {
 					self.connected_authorities.insert(a.clone(), peer_id);
 				});
-
-				self.connected_peers.insert(peer_id, new);
+				self.connected_authorities_by_peer_id.insert(peer_id, auths);
 			}
 		}
 	}
@@ -556,13 +431,12 @@ where
 					authority_ids.iter().for_each(|a| {
 						self.connected_authorities.insert(a.clone(), peer_id);
 					});
-					self.connected_peers.insert(peer_id, authority_ids);
-				} else {
-					self.connected_peers.insert(peer_id, HashSet::new());
+					self.connected_authorities_by_peer_id.insert(peer_id, authority_ids);
 				}
 			},
 			NetworkBridgeEvent::PeerDisconnected(peer_id) => {
-				if let Some(authority_ids) = self.connected_peers.remove(&peer_id) {
+				if let Some(authority_ids) = self.connected_authorities_by_peer_id.remove(&peer_id)
+				{
 					authority_ids.into_iter().for_each(|a| {
 						self.connected_authorities.remove(&a);
 					});
@@ -579,7 +453,6 @@ where
 				match message {
 					Versioned::V1(m) => match m {},
 					Versioned::V2(m) => match m {},
-					Versioned::V3(m) => match m {},
 				}
 			},
 		}
@@ -695,7 +568,7 @@ async fn update_gossip_topology(
 		let mut subject = [0u8; 40];
 		subject[..8].copy_from_slice(b"gossipsu");
 		subject[8..].copy_from_slice(&randomness);
-		sp_crypto_hashing::blake2_256(&subject)
+		sp_core::blake2_256(&subject)
 	};
 
 	// shuffle the validators and create the index mapping
@@ -709,7 +582,7 @@ async fn update_gossip_topology(
 			.map(|(i, a)| (a.clone(), ValidatorIndex(i as _)))
 			.collect();
 
-		fisher_yates_shuffle(&mut rng, &mut canonical_shuffling[..]);
+		canonical_shuffling.shuffle(&mut rng);
 		for (i, (_, validator_index)) in canonical_shuffling.iter().enumerate() {
 			shuffled_indices[validator_index.0 as usize] = i;
 		}
@@ -727,16 +600,6 @@ async fn update_gossip_topology(
 		.await;
 
 	Ok(())
-}
-
-// Durstenfeld algorithm for the Fisher-Yates shuffle
-// https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm
-fn fisher_yates_shuffle<T, R: Rng + ?Sized>(rng: &mut R, items: &mut [T]) {
-	for i in (1..items.len()).rev() {
-		// invariant: elements with index > i have been locked in place.
-		let index = rng.gen_range(0u32..(i as u32 + 1));
-		items.swap(i, index as usize);
-	}
 }
 
 #[overseer::subsystem(GossipSupport, error = SubsystemError, prefix = self::overseer)]

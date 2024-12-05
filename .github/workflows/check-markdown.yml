@@ -1,0 +1,33 @@
+name: Check Markdown
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  packages: read
+
+jobs:
+  lint-markdown:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+
+      - uses: actions/setup-node@v3.8.1
+        with:
+          node-version: "18.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@paritytech"
+
+      - name: Install tooling
+        run: |
+            npm install -g markdownlint-cli
+            markdownlint --version
+
+      - name: Check Markdown
+        env:
+          CONFIG: .github/.markdownlint.yaml
+        run: |
+          markdownlint --config "$CONFIG" --ignore target .

@@ -26,7 +26,6 @@ use sp_timestamp::Timestamp;
 /// Unit type wrapper that represents a slot.
 #[derive(Debug, Encode, MaxEncodedLen, Decode, Eq, Clone, Copy, Default, Ord, Hash, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(transparent)]
 pub struct Slot(u64);
 
 impl core::ops::Deref for Slot {
@@ -91,13 +90,6 @@ impl Slot {
 		Slot(timestamp.as_millis() / slot_duration.as_millis())
 	}
 
-	/// Timestamp of the start of the slot.
-	///
-	/// Returns `None` if would overflow for given `SlotDuration`.
-	pub fn timestamp(&self, slot_duration: SlotDuration) -> Option<Timestamp> {
-		slot_duration.as_millis().checked_mul(self.0).map(Timestamp::new)
-	}
-
 	/// Saturating addition.
 	pub fn saturating_add<T: Into<u64>>(self, rhs: T) -> Self {
 		Self(self.0.saturating_add(rhs.into()))
@@ -129,21 +121,7 @@ impl From<Slot> for u64 {
 }
 
 /// A slot duration defined in milliseconds.
-#[derive(
-	Clone,
-	Copy,
-	Debug,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	Hash,
-	PartialOrd,
-	Ord,
-	PartialEq,
-	Eq,
-	TypeInfo,
-)]
-#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Encode, Decode, Hash, PartialOrd, Ord, PartialEq, Eq, TypeInfo)]
 pub struct SlotDuration(u64);
 
 impl SlotDuration {
@@ -162,9 +140,9 @@ impl SlotDuration {
 
 #[cfg(feature = "std")]
 impl SlotDuration {
-	/// Returns `self` as [`core::time::Duration`].
-	pub const fn as_duration(&self) -> core::time::Duration {
-		core::time::Duration::from_millis(self.0)
+	/// Returns `self` as [`sp_std::time::Duration`].
+	pub const fn as_duration(&self) -> sp_std::time::Duration {
+		sp_std::time::Duration::from_millis(self.0)
 	}
 }
 

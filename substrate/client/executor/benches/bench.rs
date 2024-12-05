@@ -150,7 +150,7 @@ fn run_benchmark(
 }
 
 fn bench_call_instance(c: &mut Criterion) {
-	sp_tracing::try_init_simple();
+	let _ = env_logger::try_init();
 
 	let strategies = [
 		(

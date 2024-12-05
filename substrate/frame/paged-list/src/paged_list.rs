@@ -23,7 +23,6 @@
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
-use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use core::marker::PhantomData;
 use frame_support::{
@@ -33,6 +32,7 @@ use frame_support::{
 	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use sp_runtime::traits::Saturating;
+use sp_std::prelude::*;
 
 pub type PageIndex = u32;
 pub type ValueIndex = u32;
@@ -53,7 +53,7 @@ pub type ValueIndex = u32;
 /// [`Page`]s.
 ///
 /// Each [`Page`] holds at most `ValuesPerNewPage` values in its `values` vector. The last page is
-/// the only one that could have less than `ValuesPerNewPage` values.
+/// the only one that could have less than `ValuesPerNewPage` values.  
 /// **Iteration** happens by starting
 /// at [`first_page`][StoragePagedListMeta::first_page]/
 /// [`first_value_offset`][StoragePagedListMeta::first_value_offset] and incrementing these indices
@@ -177,7 +177,7 @@ pub struct Page<V> {
 	/// The index of the page.
 	index: PageIndex,
 	/// The remaining values of the page, to be drained by [`Page::next`].
-	values: core::iter::Skip<alloc::vec::IntoIter<V>>,
+	values: sp_std::iter::Skip<sp_std::vec::IntoIter<V>>,
 }
 
 impl<V: FullCodec> Page<V> {
@@ -188,9 +188,9 @@ impl<V: FullCodec> Page<V> {
 	) -> Option<Self> {
 		let key = page_key::<Prefix>(index);
 		let values = sp_io::storage::get(&key)
-			.and_then(|raw| alloc::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
+			.and_then(|raw| sp_std::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
 		if values.is_empty() {
-			// Don't create empty pages.
+			// Dont create empty pages.
 			return None
 		}
 		let values = values.into_iter().skip(value_index as usize);
@@ -373,11 +373,11 @@ where
 /// that are completely useless for prefix calculation.
 struct StoragePagedListPrefix<Prefix>(PhantomData<Prefix>);
 
-impl<Prefix> StoragePrefixedContainer for StoragePagedListPrefix<Prefix>
+impl<Prefix> frame_support::storage::StoragePrefixedContainer for StoragePagedListPrefix<Prefix>
 where
 	Prefix: StorageInstance,
 {
-	fn pallet_prefix() -> &'static [u8] {
+	fn module_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 
@@ -386,15 +386,15 @@ where
 	}
 }
 
-impl<Prefix, Value, ValuesPerNewPage> StoragePrefixedContainer
+impl<Prefix, Value, ValuesPerNewPage> frame_support::storage::StoragePrefixedContainer
 	for StoragePagedList<Prefix, Value, ValuesPerNewPage>
 where
 	Prefix: StorageInstance,
 	Value: FullCodec,
 	ValuesPerNewPage: Get<u32>,
 {
-	fn pallet_prefix() -> &'static [u8] {
-		StoragePagedListPrefix::<Prefix>::pallet_prefix()
+	fn module_prefix() -> &'static [u8] {
+		StoragePagedListPrefix::<Prefix>::module_prefix()
 	}
 
 	fn storage_prefix() -> &'static [u8] {
@@ -407,11 +407,13 @@ where
 #[allow(dead_code)]
 pub(crate) mod mock {
 	pub use super::*;
-	pub use frame_support::parameter_types;
-	#[cfg(test)]
-	pub use frame_support::{storage::StorageList as _, StorageNoopGuard};
-	#[cfg(test)]
-	pub use sp_io::TestExternalities;
+	pub use frame_support::{
+		parameter_types,
+		storage::{types::ValueQuery, StorageList as _},
+		StorageNoopGuard,
+	};
+	pub use sp_io::{hashing::twox_128, TestExternalities};
+	pub use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
 
 	parameter_types! {
 		pub const ValuesPerNewPage: u32 = 5;

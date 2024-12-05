@@ -22,7 +22,7 @@
 //! parachains. Having pallets that are referencing polkadot, would mean that there may
 //! be two versions of polkadot crates included in the runtime. Which is bad.
 
-use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
+use bp_runtime::{RawStorageProof, Size};
 use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::Hasher;
@@ -31,6 +31,9 @@ use sp_std::vec::Vec;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "std")]
+use parity_util_mem::MallocSizeOf;
 
 /// Parachain id.
 ///
@@ -68,7 +71,7 @@ impl From<u32> for ParaId {
 #[derive(
 	PartialEq, Eq, Clone, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo, Default,
 )]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash, MallocSizeOf))]
 pub struct ParaHead(pub Vec<u8>);
 
 impl ParaHead {
@@ -86,14 +89,11 @@ pub type ParaHasher = crate::Hasher;
 
 /// Raw storage proof of parachain heads, stored in polkadot-like chain runtime.
 #[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct ParaHeadsProof {
-	/// Unverified storage proof of finalized parachain heads.
-	pub storage_proof: RawStorageProof,
-}
+pub struct ParaHeadsProof(pub RawStorageProof);
 
 impl Size for ParaHeadsProof {
 	fn size(&self) -> u32 {
-		use frame_support::sp_runtime::SaturatedConversion;
-		raw_storage_proof_size(&self.storage_proof).saturated_into()
+		u32::try_from(self.0.iter().fold(0usize, |sum, node| sum.saturating_add(node.len())))
+			.unwrap_or(u32::MAX)
 	}
 }

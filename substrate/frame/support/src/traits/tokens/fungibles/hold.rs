@@ -16,8 +16,6 @@
 // limitations under the License.
 
 //! The traits for putting holds within a single fungible token class.
-//!
-//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use crate::{
 	ensure,
@@ -214,11 +212,7 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 }
 
 /// Trait for slashing a fungible asset which can be place on hold.
-pub trait Balanced<AccountId>:
-	super::Balanced<AccountId>
-	+ Unbalanced<AccountId>
-	+ DoneSlash<Self::AssetId, Self::Reason, AccountId, Self::Balance>
-{
+pub trait Balanced<AccountId>: super::Balanced<AccountId> + Unbalanced<AccountId> {
 	/// Reduce the balance of some funds on hold in an account.
 	///
 	/// The resulting imbalance is the first item of the tuple returned.
@@ -242,19 +236,13 @@ pub trait Balanced<AccountId>:
 		Self::done_slash(asset, reason, who, decrease);
 		(credit, amount.saturating_sub(decrease))
 	}
-}
 
-/// Trait for optional bookkeeping callbacks after a slash
-pub trait DoneSlash<AssetId, Reason, AccountId, Balance> {
-	fn done_slash(_asset: AssetId, _reason: &Reason, _who: &AccountId, _amount: Balance) {}
-}
-
-#[impl_trait_for_tuples::impl_for_tuples(30)]
-impl<AssetId: Copy, Reason, AccountId, Balance: Copy> DoneSlash<AssetId, Reason, AccountId, Balance>
-	for Tuple
-{
-	fn done_slash(asset_id: AssetId, reason: &Reason, who: &AccountId, amount: Balance) {
-		for_tuples!( #( Tuple::done_slash(asset_id, reason, who, amount); )* );
+	fn done_slash(
+		_asset: Self::AssetId,
+		_reason: &Self::Reason,
+		_who: &AccountId,
+		_amount: Self::Balance,
+	) {
 	}
 }
 

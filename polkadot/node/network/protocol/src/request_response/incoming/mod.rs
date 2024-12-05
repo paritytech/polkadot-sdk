@@ -18,11 +18,9 @@ use std::marker::PhantomData;
 
 use futures::{channel::oneshot, StreamExt};
 
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
 
-use sc_network::{config as netconfig, NetworkBackend};
-use sc_network_types::PeerId;
-use sp_runtime::traits::Block;
+use sc_network::{config as netconfig, config::RequestResponseConfig, PeerId};
 
 use super::{IsRequest, ReqProtocolNames};
 use crate::UnifiedReputationChange;
@@ -49,15 +47,15 @@ where
 	Req: IsRequest + Decode + Encode,
 	Req::Response: Encode,
 {
-	/// Create configuration for `NetworkConfiguration::request_response_protocols` and a
+	/// Create configuration for `NetworkConfiguration::request_response_porotocols` and a
 	/// corresponding typed receiver.
 	///
 	/// This Register that config with substrate networking and receive incoming requests via the
 	/// returned `IncomingRequestReceiver`.
-	pub fn get_config_receiver<B: Block, N: NetworkBackend<B, <B as Block>::Hash>>(
+	pub fn get_config_receiver(
 		req_protocol_names: &ReqProtocolNames,
-	) -> (IncomingRequestReceiver<Req>, N::RequestResponseProtocolConfig) {
-		let (raw, cfg) = Req::PROTOCOL.get_config::<B, N>(req_protocol_names);
+	) -> (IncomingRequestReceiver<Req>, RequestResponseConfig) {
+		let (raw, cfg) = Req::PROTOCOL.get_config(req_protocol_names);
 		(IncomingRequestReceiver { raw, phantom: PhantomData {} }, cfg)
 	}
 

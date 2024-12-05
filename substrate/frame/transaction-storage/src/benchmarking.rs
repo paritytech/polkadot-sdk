@@ -19,13 +19,15 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::*;
-use alloc::{vec, vec::Vec};
-use frame_benchmarking::v2::*;
-use frame_support::traits::{Get, OnFinalize, OnInitialize};
+use super::*;
+use frame_benchmarking::v1::{benchmarks, whitelisted_caller};
+use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, Pallet as System, RawOrigin};
-use sp_runtime::traits::{Bounded, CheckedDiv, One, Zero};
+use sp_runtime::traits::{Bounded, One, Zero};
+use sp_std::*;
 use sp_transaction_storage_proof::TransactionStorageProof;
+
+use crate::Pallet as TransactionStorage;
 
 // Proof generated from max size storage:
 // ```
@@ -101,6 +103,9 @@ fn proof() -> Vec<u8> {
 	array_bytes::hex2bytes_unchecked(PROOF)
 }
 
+type BalanceOf<T> =
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = System::<T>::events();
 	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
@@ -120,50 +125,36 @@ pub fn run_to_block<T: Config>(n: frame_system::pallet_prelude::BlockNumberFor<T
 	}
 }
 
-#[benchmarks]
-mod benchmarks {
-	use super::*;
-
-	#[benchmark]
-	fn store(l: Linear<1, { T::MaxTransactionSize::get() }>) {
+benchmarks! {
+	store {
+		let l in 1 .. T::MaxTransactionSize::get();
 		let caller: T::AccountId = whitelisted_caller();
-		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
-		T::Currency::set_balance(&caller, initial_balance);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), vec![0u8; l as usize]);
-
+		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+	}: _(RawOrigin::Signed(caller.clone()), vec![0u8; l as usize])
+	verify {
 		assert!(!BlockTransactions::<T>::get().is_empty());
 		assert_last_event::<T>(Event::Stored { index: 0 }.into());
 	}
 
-	#[benchmark]
-	fn renew() -> Result<(), BenchmarkError> {
+	renew {
 		let caller: T::AccountId = whitelisted_caller();
-		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
-		T::Currency::set_balance(&caller, initial_balance);
-		Pallet::<T>::store(
+		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		TransactionStorage::<T>::store(
 			RawOrigin::Signed(caller.clone()).into(),
 			vec![0u8; T::MaxTransactionSize::get() as usize],
 		)?;
 		run_to_block::<T>(1u32.into());
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), BlockNumberFor::<T>::zero(), 0);
-
+	}: _(RawOrigin::Signed(caller.clone()), BlockNumberFor::<T>::zero(), 0)
+	verify {
 		assert_last_event::<T>(Event::Renewed { index: 0 }.into());
-
-		Ok(())
 	}
 
-	#[benchmark]
-	fn check_proof_max() -> Result<(), BenchmarkError> {
+	check_proof_max {
 		run_to_block::<T>(1u32.into());
 		let caller: T::AccountId = whitelisted_caller();
-		let initial_balance = BalanceOf::<T>::max_value().checked_div(&2u32.into()).unwrap();
-		T::Currency::set_balance(&caller, initial_balance);
-		for _ in 0..T::MaxBlockTransactions::get() {
-			Pallet::<T>::store(
+		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		for _ in 0 .. T::MaxBlockTransactions::get() {
+			TransactionStorage::<T>::store(
 				RawOrigin::Signed(caller.clone()).into(),
 				vec![0u8; T::MaxTransactionSize::get() as usize],
 			)?;
@@ -171,14 +162,10 @@ mod benchmarks {
 		run_to_block::<T>(StoragePeriod::<T>::get() + BlockNumberFor::<T>::one());
 		let encoded_proof = proof();
 		let proof = TransactionStorageProof::decode(&mut &*encoded_proof).unwrap();
-
-		#[extrinsic_call]
-		check_proof(RawOrigin::None, proof);
-
+	}: check_proof(RawOrigin::None, proof)
+	verify {
 		assert_last_event::<T>(Event::ProofChecked.into());
-
-		Ok(())
 	}
 
-	impl_benchmark_test_suite!(Pallet, mock::new_test_ext(), mock::Test);
+	impl_benchmark_test_suite!(TransactionStorage, crate::mock::new_test_ext(), crate::mock::Test);
 }

@@ -40,9 +40,6 @@ mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
 
-extern crate alloc;
-
-use alloc::boxed::Box;
 use codec::{DecodeLimit, Encode, FullCodec};
 use frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},
@@ -52,6 +49,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash};
+use sp_std::prelude::*;
 
 pub use pallet::*;
 
@@ -178,7 +176,7 @@ pub mod pallet {
 			.map_err(|_| Error::<T>::UndecodableCall)?;
 
 			ensure!(
-				call.get_dispatch_info().call_weight.all_lte(call_weight_witness),
+				call.get_dispatch_info().weight.all_lte(call_weight_witness),
 				Error::<T>::InvalidCallWeightWitness
 			);
 
@@ -191,7 +189,7 @@ pub mod pallet {
 
 		#[pallet::call_index(3)]
 		#[pallet::weight({
-			let call_weight = call.get_dispatch_info().call_weight;
+			let call_weight = call.get_dispatch_info().weight;
 			let call_len = call.encoded_size() as u32;
 
 			T::WeightInfo::dispatch_whitelisted_call_with_preimage(call_len)

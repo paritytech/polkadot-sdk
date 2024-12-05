@@ -22,21 +22,22 @@
 
 #![warn(missing_docs)]
 
-pub use jsonrpsee::core::id_providers::{
-	RandomIntegerIdProvider as RandomIntegerSubscriptionId,
-	RandomStringIdProvider as RandomStringSubscriptionId,
+pub use jsonrpsee::core::{
+	id_providers::{
+		RandomIntegerIdProvider as RandomIntegerSubscriptionId,
+		RandomStringIdProvider as RandomStringSubscriptionId,
+	},
+	traits::IdProvider as RpcSubscriptionIdProvider,
 };
 pub use sc_rpc_api::DenyUnsafe;
 
 pub mod author;
 pub mod chain;
 pub mod dev;
-pub mod mixnet;
 pub mod offchain;
 pub mod state;
 pub mod statement;
 pub mod system;
-pub mod utils;
 
 #[cfg(any(test, feature = "test-helpers"))]
 pub mod testing;

@@ -20,25 +20,17 @@
 //! Within that context, things are plain-old-data. Within this module,
 //! data and logic are intertwined.
 
-use itertools::Itertools;
-use polkadot_node_primitives::approval::{
-	v1::{DelayTranche, RelayVRFStory},
-	v2::{AssignmentCertV2, CandidateBitfield},
-};
+use polkadot_node_primitives::approval::{AssignmentCert, DelayTranche, RelayVRFStory};
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, CandidateIndex,
-	CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, Hash, SessionIndex,
+	ValidatorIndex, ValidatorSignature,
 };
 use sp_consensus_slots::Slot;
 
-use bitvec::{order::Lsb0 as BitOrderLsb0, slice::BitSlice};
+use bitvec::{order::Lsb0 as BitOrderLsb0, slice::BitSlice, vec::BitVec};
 use std::collections::BTreeMap;
 
-use crate::approval_db::v2::Bitfield;
-
-use super::criteria::OurAssignment;
-
-use polkadot_node_primitives::approval::time::Tick;
+use super::{criteria::OurAssignment, time::Tick};
 
 /// Metadata regarding a specific tranche of assignments for a specific candidate.
 #[derive(Debug, Clone, PartialEq)]
@@ -61,8 +53,8 @@ impl TrancheEntry {
 	}
 }
 
-impl From<crate::approval_db::v2::TrancheEntry> for TrancheEntry {
-	fn from(entry: crate::approval_db::v2::TrancheEntry) -> Self {
+impl From<crate::approval_db::v1::TrancheEntry> for TrancheEntry {
+	fn from(entry: crate::approval_db::v1::TrancheEntry) -> Self {
 		TrancheEntry {
 			tranche: entry.tranche,
 			assignments: entry.assignments.into_iter().map(|(v, t)| (v, t.into())).collect(),
@@ -70,7 +62,7 @@ impl From<crate::approval_db::v2::TrancheEntry> for TrancheEntry {
 	}
 }
 
-impl From<TrancheEntry> for crate::approval_db::v2::TrancheEntry {
+impl From<TrancheEntry> for crate::approval_db::v1::TrancheEntry {
 	fn from(entry: TrancheEntry) -> Self {
 		Self {
 			tranche: entry.tranche,
@@ -79,45 +71,6 @@ impl From<TrancheEntry> for crate::approval_db::v2::TrancheEntry {
 	}
 }
 
-impl From<crate::approval_db::v3::OurApproval> for OurApproval {
-	fn from(approval: crate::approval_db::v3::OurApproval) -> Self {
-		Self {
-			signature: approval.signature,
-			signed_candidates_indices: approval.signed_candidates_indices,
-		}
-	}
-}
-impl From<OurApproval> for crate::approval_db::v3::OurApproval {
-	fn from(approval: OurApproval) -> Self {
-		Self {
-			signature: approval.signature,
-			signed_candidates_indices: approval.signed_candidates_indices,
-		}
-	}
-}
-
-/// Metadata about our approval signature
-#[derive(Debug, Clone, PartialEq)]
-pub struct OurApproval {
-	/// The signature for the candidates hashes pointed by indices.
-	pub signature: ValidatorSignature,
-	/// The indices of the candidates signed in this approval.
-	pub signed_candidates_indices: CandidateBitfield,
-}
-
-impl OurApproval {
-	/// Converts a ValidatorSignature to an OurApproval.
-	/// It used in converting the database from v1 to latest.
-	pub fn from_v1(value: ValidatorSignature, candidate_index: CandidateIndex) -> Self {
-		Self { signature: value, signed_candidates_indices: candidate_index.into() }
-	}
-
-	/// Converts a ValidatorSignature to an OurApproval.
-	/// It used in converting the database from v2 to latest.
-	pub fn from_v2(value: ValidatorSignature, candidate_index: CandidateIndex) -> Self {
-		Self::from_v1(value, candidate_index)
-	}
-}
 /// Metadata regarding approval of a particular candidate within the context of some
 /// particular block.
 #[derive(Debug, Clone, PartialEq)]
@@ -125,9 +78,9 @@ pub struct ApprovalEntry {
 	tranches: Vec<TrancheEntry>,
 	backing_group: GroupIndex,
 	our_assignment: Option<OurAssignment>,
-	our_approval_sig: Option<OurApproval>,
+	our_approval_sig: Option<ValidatorSignature>,
 	// `n_validators` bits.
-	assigned_validators: Bitfield,
+	assignments: BitVec<u8, BitOrderLsb0>,
 	approved: bool,
 }
 
@@ -137,19 +90,12 @@ impl ApprovalEntry {
 		tranches: Vec<TrancheEntry>,
 		backing_group: GroupIndex,
 		our_assignment: Option<OurAssignment>,
-		our_approval_sig: Option<OurApproval>,
+		our_approval_sig: Option<ValidatorSignature>,
 		// `n_validators` bits.
-		assigned_validators: Bitfield,
+		assignments: BitVec<u8, BitOrderLsb0>,
 		approved: bool,
 	) -> Self {
-		Self {
-			tranches,
-			backing_group,
-			our_assignment,
-			our_approval_sig,
-			assigned_validators,
-			approved,
-		}
+		Self { tranches, backing_group, our_assignment, our_approval_sig, assignments, approved }
 	}
 
 	// Access our assignment for this approval entry.
@@ -161,7 +107,7 @@ impl ApprovalEntry {
 	pub fn trigger_our_assignment(
 		&mut self,
 		tick_now: Tick,
-	) -> Option<(AssignmentCertV2, ValidatorIndex, DelayTranche)> {
+	) -> Option<(AssignmentCert, ValidatorIndex, DelayTranche)> {
 		let our = self.our_assignment.as_mut().and_then(|a| {
 			if a.triggered() {
 				return None
@@ -179,16 +125,13 @@ impl ApprovalEntry {
 	}
 
 	/// Import our local approval vote signature for this candidate.
-	pub fn import_approval_sig(&mut self, approval_sig: OurApproval) {
+	pub fn import_approval_sig(&mut self, approval_sig: ValidatorSignature) {
 		self.our_approval_sig = Some(approval_sig);
 	}
 
 	/// Whether a validator is already assigned.
 	pub fn is_assigned(&self, validator_index: ValidatorIndex) -> bool {
-		self.assigned_validators
-			.get(validator_index.0 as usize)
-			.map(|b| *b)
-			.unwrap_or(false)
+		self.assignments.get(validator_index.0 as usize).map(|b| *b).unwrap_or(false)
 	}
 
 	/// Import an assignment. No-op if already assigned on the same tranche.
@@ -215,14 +158,14 @@ impl ApprovalEntry {
 		};
 
 		self.tranches[idx].assignments.push((validator_index, tick_now));
-		self.assigned_validators.set(validator_index.0 as _, true);
+		self.assignments.set(validator_index.0 as _, true);
 	}
 
 	// Produce a bitvec indicating the assignments of all validators up to and
 	// including `tranche`.
-	pub fn assignments_up_to(&self, tranche: DelayTranche) -> Bitfield {
+	pub fn assignments_up_to(&self, tranche: DelayTranche) -> BitVec<u8, BitOrderLsb0> {
 		self.tranches.iter().take_while(|e| e.tranche <= tranche).fold(
-			bitvec::bitvec![u8, BitOrderLsb0; 0; self.assigned_validators.len()],
+			bitvec::bitvec![u8, BitOrderLsb0; 0; self.assignments.len()],
 			|mut a, e| {
 				for &(v, _) in &e.assignments {
 					a.set(v.0 as _, true);
@@ -250,12 +193,12 @@ impl ApprovalEntry {
 
 	/// Get the number of validators in this approval entry.
 	pub fn n_validators(&self) -> usize {
-		self.assigned_validators.len()
+		self.assignments.len()
 	}
 
 	/// Get the number of assignments by validators, including the local validator.
 	pub fn n_assignments(&self) -> usize {
-		self.assigned_validators.count_ones()
+		self.assignments.count_ones()
 	}
 
 	/// Get the backing group index of the approval entry.
@@ -266,7 +209,7 @@ impl ApprovalEntry {
 	/// Get the assignment cert & approval signature.
 	///
 	/// The approval signature will only be `Some` if the assignment is too.
-	pub fn local_statements(&self) -> (Option<OurAssignment>, Option<OurApproval>) {
+	pub fn local_statements(&self) -> (Option<OurAssignment>, Option<ValidatorSignature>) {
 		let approval_sig = self.our_approval_sig.clone();
 		if let Some(our_assignment) = self.our_assignment.as_ref().filter(|a| a.triggered()) {
 			(Some(our_assignment.clone()), approval_sig)
@@ -274,63 +217,29 @@ impl ApprovalEntry {
 			(None, None)
 		}
 	}
-
-	// Convert an ApprovalEntry from v1 version to latest version
-	pub fn from_v1(
-		value: crate::approval_db::v1::ApprovalEntry,
-		candidate_index: CandidateIndex,
-	) -> Self {
-		ApprovalEntry {
-			tranches: value.tranches.into_iter().map(|tranche| tranche.into()).collect(),
-			backing_group: value.backing_group,
-			our_assignment: value.our_assignment.map(|assignment| assignment.into()),
-			our_approval_sig: value
-				.our_approval_sig
-				.map(|sig| OurApproval::from_v1(sig, candidate_index)),
-			assigned_validators: value.assignments,
-			approved: value.approved,
-		}
-	}
-
-	// Convert an ApprovalEntry from v1 version to latest version
-	pub fn from_v2(
-		value: crate::approval_db::v2::ApprovalEntry,
-		candidate_index: CandidateIndex,
-	) -> Self {
-		ApprovalEntry {
-			tranches: value.tranches.into_iter().map(|tranche| tranche.into()).collect(),
-			backing_group: value.backing_group,
-			our_assignment: value.our_assignment.map(|assignment| assignment.into()),
-			our_approval_sig: value
-				.our_approval_sig
-				.map(|sig| OurApproval::from_v2(sig, candidate_index)),
-			assigned_validators: value.assigned_validators,
-			approved: value.approved,
-		}
-	}
 }
 
-impl From<crate::approval_db::v3::ApprovalEntry> for ApprovalEntry {
-	fn from(entry: crate::approval_db::v3::ApprovalEntry) -> Self {
+impl From<crate::approval_db::v1::ApprovalEntry> for ApprovalEntry {
+	fn from(entry: crate::approval_db::v1::ApprovalEntry) -> Self {
 		ApprovalEntry {
 			tranches: entry.tranches.into_iter().map(Into::into).collect(),
 			backing_group: entry.backing_group,
 			our_assignment: entry.our_assignment.map(Into::into),
 			our_approval_sig: entry.our_approval_sig.map(Into::into),
-			assigned_validators: entry.assigned_validators,
+			assignments: entry.assignments,
 			approved: entry.approved,
 		}
 	}
 }
 
-impl From<ApprovalEntry> for crate::approval_db::v3::ApprovalEntry {
+impl From<ApprovalEntry> for crate::approval_db::v1::ApprovalEntry {
 	fn from(entry: ApprovalEntry) -> Self {
 		Self {
 			tranches: entry.tranches.into_iter().map(Into::into).collect(),
 			backing_group: entry.backing_group,
 			our_assignment: entry.our_assignment.map(Into::into),
 			our_approval_sig: entry.our_approval_sig.map(Into::into),
-			assigned_validators: entry.assigned_validators,
+			assignments: entry.assignments,
 			approved: entry.approved,
 		}
 	}
@@ -344,7 +253,7 @@ pub struct CandidateEntry {
 	// Assignments are based on blocks, so we need to track assignments separately
 	// based on the block we are looking at.
 	pub block_assignments: BTreeMap<Hash, ApprovalEntry>,
-	pub approvals: Bitfield,
+	pub approvals: BitVec<u8, BitOrderLsb0>,
 }
 
 impl CandidateEntry {
@@ -379,44 +288,10 @@ impl CandidateEntry {
 	pub fn approval_entry(&self, block_hash: &Hash) -> Option<&ApprovalEntry> {
 		self.block_assignments.get(block_hash)
 	}
-
-	/// Convert a CandidateEntry from a v1 to its latest equivalent.
-	pub fn from_v1(
-		value: crate::approval_db::v1::CandidateEntry,
-		candidate_index: CandidateIndex,
-	) -> Self {
-		Self {
-			approvals: value.approvals,
-			block_assignments: value
-				.block_assignments
-				.into_iter()
-				.map(|(h, ae)| (h, ApprovalEntry::from_v1(ae, candidate_index)))
-				.collect(),
-			candidate: value.candidate,
-			session: value.session,
-		}
-	}
-
-	/// Convert a CandidateEntry from a v2 to its latest equivalent.
-	pub fn from_v2(
-		value: crate::approval_db::v2::CandidateEntry,
-		candidate_index: CandidateIndex,
-	) -> Self {
-		Self {
-			approvals: value.approvals,
-			block_assignments: value
-				.block_assignments
-				.into_iter()
-				.map(|(h, ae)| (h, ApprovalEntry::from_v2(ae, candidate_index)))
-				.collect(),
-			candidate: value.candidate,
-			session: value.session,
-		}
-	}
 }
 
-impl From<crate::approval_db::v3::CandidateEntry> for CandidateEntry {
-	fn from(entry: crate::approval_db::v3::CandidateEntry) -> Self {
+impl From<crate::approval_db::v1::CandidateEntry> for CandidateEntry {
+	fn from(entry: crate::approval_db::v1::CandidateEntry) -> Self {
 		CandidateEntry {
 			candidate: entry.candidate,
 			session: entry.session,
@@ -430,7 +305,7 @@ impl From<crate::approval_db::v3::CandidateEntry> for CandidateEntry {
 	}
 }
 
-impl From<CandidateEntry> for crate::approval_db::v3::CandidateEntry {
+impl From<CandidateEntry> for crate::approval_db::v1::CandidateEntry {
 	fn from(entry: CandidateEntry) -> Self {
 		Self {
 			candidate: entry.candidate,
@@ -456,26 +331,13 @@ pub struct BlockEntry {
 	slot: Slot,
 	relay_vrf_story: RelayVRFStory,
 	// The candidates included as-of this block and the index of the core they are
-	// leaving.
+	// leaving. Sorted ascending by core index.
 	candidates: Vec<(CoreIndex, CandidateHash)>,
 	// A bitfield where the i'th bit corresponds to the i'th candidate in `candidates`.
 	// The i'th bit is `true` iff the candidate has been approved in the context of this
 	// block. The block can be considered approved if the bitfield has all bits set to `true`.
-	pub approved_bitfield: Bitfield,
+	pub approved_bitfield: BitVec<u8, BitOrderLsb0>,
 	pub children: Vec<Hash>,
-	// A list of candidates we have checked, but didn't not sign and
-	// advertise the vote yet.
-	candidates_pending_signature: BTreeMap<CandidateIndex, CandidateSigningContext>,
-	// A list of assignments for which we already distributed the assignment.
-	// We use this to ensure we don't distribute multiple core assignments twice as we track
-	// individual wakeups for each core.
-	distributed_assignments: Bitfield,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct CandidateSigningContext {
-	pub candidate_hash: CandidateHash,
-	pub sign_no_later_than_tick: Tick,
 }
 
 impl BlockEntry {
@@ -550,138 +412,6 @@ impl BlockEntry {
 	pub fn parent_hash(&self) -> Hash {
 		self.parent_hash
 	}
-
-	/// Mark distributed assignment for many candidate indices.
-	/// Returns `true` if an assignment was already distributed for the `candidates`.
-	pub fn mark_assignment_distributed(&mut self, candidates: CandidateBitfield) -> bool {
-		let bitfield = candidates.into_inner();
-		let total_one_bits = self.distributed_assignments.count_ones();
-
-		let new_len = std::cmp::max(self.distributed_assignments.len(), bitfield.len());
-		self.distributed_assignments.resize(new_len, false);
-		self.distributed_assignments |= bitfield;
-
-		// If the an operation did not change our current bitfield, we return true.
-		let distributed = total_one_bits == self.distributed_assignments.count_ones();
-
-		distributed
-	}
-
-	/// Defer signing and issuing an approval for a candidate no later than the specified tick
-	pub fn defer_candidate_signature(
-		&mut self,
-		candidate_index: CandidateIndex,
-		candidate_hash: CandidateHash,
-		sign_no_later_than_tick: Tick,
-	) -> Option<CandidateSigningContext> {
-		self.candidates_pending_signature.insert(
-			candidate_index,
-			CandidateSigningContext { candidate_hash, sign_no_later_than_tick },
-		)
-	}
-
-	/// Returns the number of candidates waiting for an approval to be issued.
-	pub fn num_candidates_pending_signature(&self) -> usize {
-		self.candidates_pending_signature.len()
-	}
-
-	/// Return if we have candidates waiting for signature to be issued
-	pub fn has_candidates_pending_signature(&self) -> bool {
-		!self.candidates_pending_signature.is_empty()
-	}
-
-	/// Returns true if candidate hash is in the queue for a signature.
-	pub fn candidate_is_pending_signature(&self, candidate_hash: CandidateHash) -> bool {
-		self.candidates_pending_signature
-			.values()
-			.any(|context| context.candidate_hash == candidate_hash)
-	}
-
-	/// Candidate hashes  for candidates pending signatures
-	fn candidate_hashes_pending_signature(&self) -> Vec<CandidateHash> {
-		self.candidates_pending_signature
-			.values()
-			.map(|unsigned_approval| unsigned_approval.candidate_hash)
-			.collect()
-	}
-
-	/// Candidate indices for candidates pending signature
-	fn candidate_indices_pending_signature(&self) -> Option<CandidateBitfield> {
-		self.candidates_pending_signature
-			.keys()
-			.map(|val| *val)
-			.collect_vec()
-			.try_into()
-			.ok()
-	}
-
-	/// Returns a list of candidates hashes that need need signature created at the current tick:
-	/// This might happen in other of the two reasons:
-	/// 1. We queued more than max_approval_coalesce_count candidates.
-	/// 2. We have candidates that waiting in the queue past their `sign_no_later_than_tick`
-	///
-	/// Additionally, we also return the first tick when we will have to create a signature,
-	/// so that the caller can arm the timer if it is not already armed.
-	pub fn get_candidates_that_need_signature(
-		&self,
-		tick_now: Tick,
-		max_approval_coalesce_count: u32,
-	) -> (Option<(Vec<CandidateHash>, CandidateBitfield)>, Option<Tick>) {
-		let sign_no_later_than_tick = self
-			.candidates_pending_signature
-			.values()
-			.min_by(|a, b| a.sign_no_later_than_tick.cmp(&b.sign_no_later_than_tick))
-			.map(|val| val.sign_no_later_than_tick);
-
-		if let Some(sign_no_later_than_tick) = sign_no_later_than_tick {
-			if sign_no_later_than_tick <= tick_now ||
-				self.num_candidates_pending_signature() >= max_approval_coalesce_count as usize
-			{
-				(
-					self.candidate_indices_pending_signature().and_then(|candidate_indices| {
-						Some((self.candidate_hashes_pending_signature(), candidate_indices))
-					}),
-					Some(sign_no_later_than_tick),
-				)
-			} else {
-				// We can still wait for other candidates to queue in, so just make sure
-				// we wake up at the tick we have to sign the longest waiting candidate.
-				(Default::default(), Some(sign_no_later_than_tick))
-			}
-		} else {
-			// No cached candidates, nothing to do here, this just means the timer fired,
-			// but the signatures were already sent because we gathered more than
-			// max_approval_coalesce_count.
-			(Default::default(), sign_no_later_than_tick)
-		}
-	}
-
-	/// Clears the candidates pending signature because the approval was issued.
-	pub fn issued_approval(&mut self) {
-		self.candidates_pending_signature.clear();
-	}
-}
-
-impl From<crate::approval_db::v3::BlockEntry> for BlockEntry {
-	fn from(entry: crate::approval_db::v3::BlockEntry) -> Self {
-		BlockEntry {
-			block_hash: entry.block_hash,
-			parent_hash: entry.parent_hash,
-			block_number: entry.block_number,
-			session: entry.session,
-			slot: entry.slot,
-			relay_vrf_story: RelayVRFStory(entry.relay_vrf_story),
-			candidates: entry.candidates,
-			approved_bitfield: entry.approved_bitfield,
-			children: entry.children,
-			candidates_pending_signature: entry
-				.candidates_pending_signature
-				.into_iter()
-				.map(|(candidate_index, signing_context)| (candidate_index, signing_context.into()))
-				.collect(),
-			distributed_assignments: entry.distributed_assignments,
-		}
-	}
 }
 
 impl From<crate::approval_db::v1::BlockEntry> for BlockEntry {
@@ -696,31 +426,11 @@ impl From<crate::approval_db::v1::BlockEntry> for BlockEntry {
 			candidates: entry.candidates,
 			approved_bitfield: entry.approved_bitfield,
 			children: entry.children,
-			distributed_assignments: Default::default(),
-			candidates_pending_signature: Default::default(),
 		}
 	}
 }
 
-impl From<crate::approval_db::v2::BlockEntry> for BlockEntry {
-	fn from(entry: crate::approval_db::v2::BlockEntry) -> Self {
-		BlockEntry {
-			block_hash: entry.block_hash,
-			parent_hash: entry.parent_hash,
-			block_number: entry.block_number,
-			session: entry.session,
-			slot: entry.slot,
-			relay_vrf_story: RelayVRFStory(entry.relay_vrf_story),
-			candidates: entry.candidates,
-			approved_bitfield: entry.approved_bitfield,
-			children: entry.children,
-			distributed_assignments: entry.distributed_assignments,
-			candidates_pending_signature: Default::default(),
-		}
-	}
-}
-
-impl From<BlockEntry> for crate::approval_db::v3::BlockEntry {
+impl From<BlockEntry> for crate::approval_db::v1::BlockEntry {
 	fn from(entry: BlockEntry) -> Self {
 		Self {
 			block_hash: entry.block_hash,
@@ -732,30 +442,6 @@ impl From<BlockEntry> for crate::approval_db::v3::BlockEntry {
 			candidates: entry.candidates,
 			approved_bitfield: entry.approved_bitfield,
 			children: entry.children,
-			candidates_pending_signature: entry
-				.candidates_pending_signature
-				.into_iter()
-				.map(|(candidate_index, signing_context)| (candidate_index, signing_context.into()))
-				.collect(),
-			distributed_assignments: entry.distributed_assignments,
-		}
-	}
-}
-
-impl From<crate::approval_db::v3::CandidateSigningContext> for CandidateSigningContext {
-	fn from(signing_context: crate::approval_db::v3::CandidateSigningContext) -> Self {
-		Self {
-			candidate_hash: signing_context.candidate_hash,
-			sign_no_later_than_tick: signing_context.sign_no_later_than_tick.into(),
-		}
-	}
-}
-
-impl From<CandidateSigningContext> for crate::approval_db::v3::CandidateSigningContext {
-	fn from(signing_context: CandidateSigningContext) -> Self {
-		Self {
-			candidate_hash: signing_context.candidate_hash,
-			sign_no_later_than_tick: signing_context.sign_no_later_than_tick.into(),
 		}
 	}
 }

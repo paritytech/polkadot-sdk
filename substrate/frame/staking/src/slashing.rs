@@ -50,22 +50,22 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	asset, BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure,
-	NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash,
-	UnappliedSlash, ValidatorSlashInEra,
+	BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, NominatorSlashInEra,
+	OffendingValidators, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
+	ValidatorSlashInEra,
 };
-use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	traits::{Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
+	traits::{Currency, Defensive, Get, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchResult, RuntimeDebug,
 };
-use sp_staking::{offence::OffenceSeverity, EraIndex, StakingInterface};
+use sp_staking::{offence::DisableStrategy, EraIndex};
+use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
@@ -85,7 +85,7 @@ pub(crate) struct SlashingSpan {
 
 impl SlashingSpan {
 	fn contains_era(&self, era: EraIndex) -> bool {
-		self.start <= era && self.length.map_or(true, |l| self.start.saturating_add(l) > era)
+		self.start <= era && self.length.map_or(true, |l| self.start + l > era)
 	}
 }
 
@@ -123,15 +123,15 @@ impl SlashingSpans {
 	// returns `true` if a new span was started, `false` otherwise. `false` indicates
 	// that internal state is unchanged.
 	pub(crate) fn end_span(&mut self, now: EraIndex) -> bool {
-		let next_start = now.defensive_saturating_add(1);
+		let next_start = now + 1;
 		if next_start <= self.last_start {
 			return false
 		}
 
-		let last_length = next_start.defensive_saturating_sub(self.last_start);
+		let last_length = next_start - self.last_start;
 		self.prior.insert(0, last_length);
 		self.last_start = next_start;
-		self.span_index.defensive_saturating_accrue(1);
+		self.span_index += 1;
 		true
 	}
 
@@ -141,14 +141,14 @@ impl SlashingSpans {
 		let mut index = self.span_index;
 		let last = SlashingSpan { index, start: last_start, length: None };
 		let prior = self.prior.iter().cloned().map(move |length| {
-			let start = last_start.defensive_saturating_sub(length);
+			let start = last_start - length;
 			last_start = start;
-			index.defensive_saturating_reduce(1);
+			index -= 1;
 
 			SlashingSpan { index, start, length: Some(length) }
 		});
 
-		core::iter::once(last).chain(prior)
+		sp_std::iter::once(last).chain(prior)
 	}
 
 	/// Yields the era index where the most recent non-zero slash occurred.
@@ -164,25 +164,20 @@ impl SlashingSpans {
 		let old_idx = self
 			.iter()
 			.skip(1) // skip ongoing span.
-			.position(|span| {
-				span.length
-					.map_or(false, |len| span.start.defensive_saturating_add(len) <= window_start)
-			});
+			.position(|span| span.length.map_or(false, |len| span.start + len <= window_start));
 
-		let earliest_span_index =
-			self.span_index.defensive_saturating_sub(self.prior.len() as SpanIndex);
+		let earliest_span_index = self.span_index - self.prior.len() as SpanIndex;
 		let pruned = match old_idx {
 			Some(o) => {
 				self.prior.truncate(o);
-				let new_earliest =
-					self.span_index.defensive_saturating_sub(self.prior.len() as SpanIndex);
+				let new_earliest = self.span_index - self.prior.len() as SpanIndex;
 				Some((earliest_span_index, new_earliest))
 			},
 			None => None,
 		};
 
 		// readjust the ongoing span, if it started before the beginning of the window.
-		self.last_start = core::cmp::max(self.last_start, window_start);
+		self.last_start = sp_std::cmp::max(self.last_start, window_start);
 		pruned
 	}
 }
@@ -220,6 +215,8 @@ pub(crate) struct SlashParams<'a, T: 'a + Config> {
 	/// The maximum percentage of a slash that ever gets paid out.
 	/// This is f_inf in the paper.
 	pub(crate) reward_proportion: Perbill,
+	/// When to disable offenders.
+	pub(crate) disable_strategy: DisableStrategy,
 }
 
 /// Computes a slash of a validator and nominators. It returns an unapplied
@@ -278,13 +275,18 @@ pub(crate) fn compute_slash<T: Config>(
 		let target_span = spans.compare_and_update_span_slash(params.slash_era, own_slash);
 
 		if target_span == Some(spans.span_index()) {
-			// misbehavior occurred within the current slashing span - end current span.
-			// Check <https://github.com/paritytech/polkadot-sdk/issues/2650> for details.
+			// misbehavior occurred within the current slashing span - take appropriate
+			// actions.
+
+			// chill the validator - it misbehaved in the current span and should
+			// not continue in the next election. also end the slashing span.
 			spans.end_span(params.now);
+			<Pallet<T>>::chill_stash(params.stash);
 		}
 	}
 
-	add_offending_validator::<T>(&params);
+	let disable_when_slashed = params.disable_strategy != DisableStrategy::Never;
+	add_offending_validator::<T>(params.stash, disable_when_slashed);
 
 	let mut nominators_slashed = Vec::new();
 	reward_payout += slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
@@ -313,62 +315,54 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 	);
 
 	if spans.era_span(params.slash_era).map(|s| s.index) == Some(spans.span_index()) {
-		// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
 		spans.end_span(params.now);
+		<Pallet<T>>::chill_stash(params.stash);
 	}
 
-	add_offending_validator::<T>(&params);
+	let disable_without_slash = params.disable_strategy == DisableStrategy::Always;
+	add_offending_validator::<T>(params.stash, disable_without_slash);
 }
 
-/// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
-/// validators provided by [`decision`].
-fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
-	DisabledValidators::<T>::mutate(|disabled| {
-		let new_severity = OffenceSeverity(params.slash);
-		let decision =
-			T::DisablingStrategy::decision(params.stash, new_severity, params.slash_era, &disabled);
+/// Add the given validator to the offenders list and optionally disable it.
+/// If after adding the validator `OffendingValidatorsThreshold` is reached
+/// a new era will be forced.
+fn add_offending_validator<T: Config>(stash: &T::AccountId, disable: bool) {
+	OffendingValidators::<T>::mutate(|offending| {
+		let validators = T::SessionInterface::validators();
+		let validator_index = match validators.iter().position(|i| i == stash) {
+			Some(index) => index,
+			None => return,
+		};
 
-		if let Some(offender_idx) = decision.disable {
-			// Check if the offender is already disabled
-			match disabled.binary_search_by_key(&offender_idx, |(index, _)| *index) {
-				// Offender is already disabled, update severity if the new one is higher
-				Ok(index) => {
-					let (_, old_severity) = &mut disabled[index];
-					if new_severity > *old_severity {
-						*old_severity = new_severity;
-					}
-				},
-				Err(index) => {
-					// Offender is not disabled, add to `DisabledValidators` and disable it
-					disabled.insert(index, (offender_idx, new_severity));
-					// Propagate disablement to session level
-					T::SessionInterface::disable_validator(offender_idx);
-					// Emit event that a validator got disabled
-					<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorDisabled {
-						stash: params.stash.clone(),
-					});
-				},
-			}
-		}
+		let validator_index_u32 = validator_index as u32;
 
-		if let Some(reenable_idx) = decision.reenable {
-			// Remove the validator from `DisabledValidators` and re-enable it.
-			if let Ok(index) = disabled.binary_search_by_key(&reenable_idx, |(index, _)| *index) {
-				disabled.remove(index);
-				// Propagate re-enablement to session level
-				T::SessionInterface::enable_validator(reenable_idx);
-				// Emit event that a validator got re-enabled
-				let reenabled_stash =
-					T::SessionInterface::validators()[reenable_idx as usize].clone();
-				<Pallet<T>>::deposit_event(super::Event::<T>::ValidatorReenabled {
-					stash: reenabled_stash,
-				});
-			}
+		match offending.binary_search_by_key(&validator_index_u32, |(index, _)| *index) {
+			// this is a new offending validator
+			Err(index) => {
+				offending.insert(index, (validator_index_u32, disable));
+
+				let offending_threshold =
+					T::OffendingValidatorsThreshold::get() * validators.len() as u32;
+
+				if offending.len() >= offending_threshold as usize {
+					// force a new era, to select a new validator set
+					<Pallet<T>>::ensure_new_era()
+				}
+
+				if disable {
+					T::SessionInterface::disable_validator(validator_index_u32);
+				}
+			},
+			Ok(index) => {
+				if disable && !offending[index].1 {
+					// the validator had previously offended without being disabled,
+					// let's make sure we disable it now
+					offending[index].1 = true;
+					T::SessionInterface::disable_validator(validator_index_u32);
+				}
+			},
 		}
 	});
-
-	// `DisabledValidators` should be kept sorted
-	debug_assert!(DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] < pair[1]));
 }
 
 /// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.
@@ -439,7 +433,7 @@ struct InspectingSpans<'a, T: Config + 'a> {
 	paid_out: &'a mut BalanceOf<T>,
 	slash_of: &'a mut BalanceOf<T>,
 	reward_proportion: Perbill,
-	_marker: core::marker::PhantomData<T>,
+	_marker: sp_std::marker::PhantomData<T>,
 }
 
 // fetches the slashing spans record for a stash account, initializing it if necessary.
@@ -464,7 +458,7 @@ fn fetch_spans<'a, T: Config + 'a>(
 		slash_of,
 		paid_out,
 		reward_proportion,
-		_marker: core::marker::PhantomData,
+		_marker: sp_std::marker::PhantomData,
 	}
 }
 
@@ -482,7 +476,7 @@ impl<'a, T: 'a + Config> InspectingSpans<'a, T> {
 	// although `amount` may be zero, as it is only a difference.
 	fn add_slash(&mut self, amount: BalanceOf<T>, slash_era: EraIndex) {
 		*self.slash_of += amount;
-		self.spans.last_nonzero_slash = core::cmp::max(self.spans.last_nonzero_slash, slash_era);
+		self.spans.last_nonzero_slash = sp_std::cmp::max(self.spans.last_nonzero_slash, slash_era);
 	}
 
 	// find the span index of the given era, if covered.
@@ -506,7 +500,7 @@ impl<'a, T: 'a + Config> InspectingSpans<'a, T> {
 
 		let reward = if span_record.slashed < slash {
 			// new maximum span slash. apply the difference.
-			let difference = slash.defensive_saturating_sub(span_record.slashed);
+			let difference = slash - span_record.slashed;
 			span_record.slashed = slash;
 
 			// compute reward.
@@ -603,35 +597,35 @@ pub fn do_slash<T: Config>(
 	slashed_imbalance: &mut NegativeImbalanceOf<T>,
 	slash_era: EraIndex,
 ) {
-	let mut ledger =
-		match Pallet::<T>::ledger(sp_staking::StakingAccount::Stash(stash.clone())).defensive() {
-			Ok(ledger) => ledger,
-			Err(_) => return, // nothing to do.
-		};
+	let controller = match <Pallet<T>>::bonded(stash).defensive() {
+		None => return,
+		Some(c) => c,
+	};
 
-	let value = ledger.slash(value, asset::existential_deposit::<T>(), slash_era);
-	if value.is_zero() {
-		// nothing to do
-		return
-	}
+	let mut ledger = match <Pallet<T>>::ledger(&controller) {
+		Some(ledger) => ledger,
+		None => return, // nothing to do.
+	};
 
-	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
-	if !Pallet::<T>::is_virtual_staker(stash) {
-		let (imbalance, missing) = asset::slash::<T>(stash, value);
+	let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
+
+	if !value.is_zero() {
+		let (imbalance, missing) = T::Currency::slash(stash, value);
 		slashed_imbalance.subsume(imbalance);
 
 		if !missing.is_zero() {
 			// deduct overslash from the reward payout
 			*reward_payout = reward_payout.saturating_sub(missing);
 		}
+
+		<Pallet<T>>::update_ledger(&controller, &ledger);
+
+		// trigger the event
+		<Pallet<T>>::deposit_event(super::Event::<T>::Slashed {
+			staker: stash.clone(),
+			amount: value,
+		});
 	}
-
-	let _ = ledger
-		.update()
-		.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
-
-	// trigger the event
-	<Pallet<T>>::deposit_event(super::Event::<T>::Slashed { staker: stash.clone(), amount: value });
 }
 
 /// Apply a previously-unapplied slash.
@@ -687,7 +681,7 @@ fn pay_reporters<T: Config>(
 
 		// this cancels out the reporter reward imbalance internally, leading
 		// to no change in total issuance.
-		asset::deposit_slashed::<T>(reporter, reporter_reward);
+		T::Currency::resolve_creating(reporter, reporter_reward);
 	}
 
 	// the rest goes to the on-slash imbalance handler (e.g. treasury)

@@ -20,10 +20,14 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
+	assert_noop, assert_ok, parameter_types,
 	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
 };
-use sp_runtime::BuildStorage;
+use sp_core::H256;
+use sp_runtime::{
+	traits::{BlakeTwo256, IdentityLookup},
+	BuildStorage,
+};
 
 use super::*;
 use crate as pallet_conviction_voting;
@@ -33,13 +37,13 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system,
-		Balances: pallet_balances,
-		Voting: pallet_conviction_voting,
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Voting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
-// Test that a filtered call can be dispatched.
+// Test that a fitlered call can be dispatched.
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -47,16 +51,46 @@ impl Contains<RuntimeCall> for BaseFilter {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
+	type RuntimeOrigin = RuntimeOrigin;
+	type Nonce = u64;
+	type RuntimeCall = RuntimeCall;
+	type Hash = H256;
+	type Hashing = BlakeTwo256;
+	type AccountId = u64;
+	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
+	type RuntimeEvent = RuntimeEvent;
+	type BlockHashCount = ConstU64<250>;
+	type Version = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
+	type SS58Prefix = ();
+	type OnSetCode = ();
+	type MaxConsumers = ConstU32<16>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	type MaxLocks = ConstU32<10>;
+	type Balance = u64;
+	type RuntimeEvent = RuntimeEvent;
+	type DustRemoval = ();
+	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
+	type WeightInfo = ();
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type MaxHolds = ();
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -172,7 +206,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 fn params_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::free_balance(42), 0);
-		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 210);
+		assert_eq!(Balances::total_issuance(), 210);
 	});
 }
 
@@ -238,52 +272,27 @@ fn basic_stuff() {
 fn basic_voting_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(2, 5)));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
-			who: 1,
-			vote: aye(2, 5),
-		}));
 		assert_eq!(tally(3), Tally::from_parts(10, 0, 2));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(2, 5)));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
-			who: 1,
-			vote: nay(2, 5),
-		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 10, 0));
 		assert_eq!(Balances::usable_balance(1), 8);
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(5, 1)));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
-			who: 1,
-			vote: aye(5, 1),
-		}));
 		assert_eq!(tally(3), Tally::from_parts(5, 0, 5));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(5, 1)));
 		assert_eq!(tally(3), Tally::from_parts(0, 5, 0));
 		assert_eq!(Balances::usable_balance(1), 5);
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
-			who: 1,
-			vote: aye(10, 0),
-		}));
 		assert_eq!(tally(3), Tally::from_parts(1, 0, 10));
-
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(10, 0)));
 		assert_eq!(tally(3), Tally::from_parts(0, 1, 0));
 		assert_eq!(Balances::usable_balance(1), 0);
 
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
-			who: 1,
-			vote: nay(10, 0),
-		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteUnlocked {
-			who: 1,
-			class: class(3),
-		}));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
@@ -292,32 +301,15 @@ fn basic_voting_works() {
 fn split_voting_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split(10, 0)));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
-			who: 1,
-			vote: split(10, 0),
-		}));
 		assert_eq!(tally(3), Tally::from_parts(1, 0, 10));
-
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split(5, 5)));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
-			who: 1,
-			vote: split(5, 5),
-		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 5));
 		assert_eq!(Balances::usable_balance(1), 0);
 
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
-			who: 1,
-			vote: split(5, 5),
-		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteUnlocked {
-			who: 1,
-			class: class(3),
-		}));
 		assert_eq!(Balances::usable_balance(1), 10);
 	});
 }
@@ -326,48 +318,25 @@ fn split_voting_works() {
 fn abstain_voting_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split_abstain(0, 0, 10)));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
-			who: 1,
-			vote: split_abstain(0, 0, 10),
-		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 10));
-
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(6), 3, split_abstain(10, 0, 20)));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
-			who: 6,
-			vote: split_abstain(10, 0, 20),
-		}));
-		assert_eq!(tally(3), Tally::from_parts(1, 0, 40));
-
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(6), 3, split_abstain(0, 0, 40)));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
-			who: 6,
-			vote: split_abstain(0, 0, 40),
-		}));
-
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 50));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, split_abstain(0, 0, 20)));
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 30));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, split_abstain(10, 0, 10)));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 30));
 		assert_eq!(Balances::usable_balance(1), 0);
-		assert_eq!(Balances::usable_balance(6), 20);
+		assert_eq!(Balances::usable_balance(2), 0);
 
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
-			who: 1,
-			vote: split_abstain(0, 0, 10),
-		}));
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 40));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 20));
 
-		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(6), Some(class(3)), 3));
-		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
-			who: 6,
-			vote: split_abstain(0, 0, 40),
-		}));
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), None, 3));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
 		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
 		assert_eq!(Balances::usable_balance(1), 10);
 
-		assert_ok!(Voting::unlock(RuntimeOrigin::signed(6), class(3), 6));
-		assert_eq!(Balances::usable_balance(6), 60);
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(2), class(3), 2));
+		assert_eq!(Balances::usable_balance(2), 20);
 	});
 }
 

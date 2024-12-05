@@ -51,20 +51,20 @@ pub mod v1 {
 	}
 
 	/// A migration utility to update the storage version from v0 to v1 for the pallet.
-	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let in_code_version = Pallet::<T>::in_code_storage_version();
-			let on_chain_version = Pallet::<T>::on_chain_storage_version();
+			let current_version = Pallet::<T>::current_storage_version();
+			let onchain_version = Pallet::<T>::on_chain_storage_version();
 
 			log::info!(
 				target: LOG_TARGET,
-				"Running migration with in-code storage version {:?} / onchain {:?}",
-				in_code_version,
-				on_chain_version
+				"Running migration with current storage version {:?} / onchain {:?}",
+				current_version,
+				onchain_version
 			);
 
-			if on_chain_version == 0 && in_code_version == 1 {
+			if onchain_version == 0 && current_version == 1 {
 				let mut translated = 0u64;
 				let mut configs_iterated = 0u64;
 				Collection::<T>::translate::<
@@ -77,13 +77,13 @@ pub mod v1 {
 					Some(old_value.migrate_to_v1(item_configs))
 				});
 
-				in_code_version.put::<Pallet<T>>();
+				current_version.put::<Pallet<T>>();
 
 				log::info!(
 					target: LOG_TARGET,
 					"Upgraded {} records, storage to version {:?}",
 					translated,
-					in_code_version
+					current_version
 				);
 				T::DbWeight::get().reads_writes(translated + configs_iterated + 1, translated + 1)
 			} else {
@@ -97,6 +97,9 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let current_version = Pallet::<T>::current_storage_version();
+			let onchain_version = Pallet::<T>::on_chain_storage_version();
+			ensure!(onchain_version == 0 && current_version == 1, "migration from version 0 to 1.");
 			let prev_count = Collection::<T>::iter().count();
 			Ok((prev_count as u32).encode())
 		}
@@ -112,7 +115,7 @@ pub mod v1 {
 				"the records count before and after the migration should be the same"
 			);
 
-			ensure!(Pallet::<T>::on_chain_storage_version() >= 1, "wrong storage version");
+			ensure!(Pallet::<T>::on_chain_storage_version() == 1, "wrong storage version");
 
 			Ok(())
 		}

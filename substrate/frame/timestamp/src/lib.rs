@@ -31,7 +31,7 @@
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
 //! including its configuration trait, dispatchables, storage items, events and errors.
-//!
+//!  
 //! ## Overview
 //!
 //! The Timestamp pallet is designed to create a consensus-based time source. This helps ensure that
@@ -133,9 +133,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
-use core::{cmp, result};
 use frame_support::traits::{OnTimestampSet, Time, UnixTime};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
+use sp_std::{cmp, result};
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 pub use weights::WeightInfo;
 
@@ -144,33 +144,12 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{derive_impl, pallet_prelude::*};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// Default preludes for [`Config`].
-	pub mod config_preludes {
-		use super::*;
-
-		/// Default prelude sensible to be used in a testing environment.
-		pub struct TestDefaultConfig;
-
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
-		impl frame_system::DefaultConfig for TestDefaultConfig {}
-
-		#[frame_support::register_default_impl(TestDefaultConfig)]
-		impl DefaultConfig for TestDefaultConfig {
-			type Moment = u64;
-			type OnTimestampSet = ();
-			type MinimumPeriod = ConstUint<1>;
-			type WeightInfo = ();
-		}
-	}
-
-	/// The pallet configuration trait
-	#[pallet::config(with_default)]
+	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Type used for expressing a timestamp.
-		#[pallet::no_default_bounds]
 		type Moment: Parameter
 			+ Default
 			+ AtLeast32Bit
@@ -202,6 +181,7 @@ pub mod pallet {
 
 	/// The current time for the current block.
 	#[pallet::storage]
+	#[pallet::getter(fn now)]
 	pub type Now<T: Config> = StorageValue<_, T::Moment, ValueQuery>;
 
 	/// Whether the timestamp has been updated in this block.
@@ -260,7 +240,7 @@ pub mod pallet {
 		pub fn set(origin: OriginFor<T>, #[pallet::compact] now: T::Moment) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(!DidUpdate::<T>::exists(), "Timestamp must be updated only once in the block");
-			let prev = Now::<T>::get();
+			let prev = Self::now();
 			assert!(
 				prev.is_zero() || now >= prev + T::MinimumPeriod::get(),
 				"Timestamp must increment by at least <MinimumPeriod> between sequential blocks"
@@ -295,7 +275,7 @@ pub mod pallet {
 				.expect("Timestamp inherent data must be provided");
 			let data = (*inherent_data).saturated_into::<T::Moment>();
 
-			let next_time = cmp::max(data, Now::<T>::get() + T::MinimumPeriod::get());
+			let next_time = cmp::max(data, Self::now() + T::MinimumPeriod::get());
 			Some(Call::set { now: next_time })
 		}
 
@@ -316,7 +296,7 @@ pub mod pallet {
 				.expect("Timestamp inherent data not correctly encoded")
 				.expect("Timestamp inherent data must be provided");
 
-			let minimum = (Now::<T>::get() + T::MinimumPeriod::get()).saturated_into::<u64>();
+			let minimum = (Self::now() + T::MinimumPeriod::get()).saturated_into::<u64>();
 			if t > *(data + MAX_TIMESTAMP_DRIFT_MILLIS) {
 				Err(InherentError::TooFarInFuture)
 			} else if t < minimum {
@@ -338,7 +318,7 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: if this function is called prior to setting the timestamp,
 	/// it will return the timestamp of the previous block.
 	pub fn get() -> T::Moment {
-		Now::<T>::get()
+		Self::now()
 	}
 
 	/// Set the timestamp to something in particular. Only used for tests.
@@ -355,7 +335,7 @@ impl<T: Config> Time for Pallet<T> {
 	type Moment = T::Moment;
 
 	fn now() -> Self::Moment {
-		Now::<T>::get()
+		Self::now()
 	}
 }
 
@@ -366,15 +346,15 @@ impl<T: Config> UnixTime for Pallet<T> {
 	fn now() -> core::time::Duration {
 		// now is duration since unix epoch in millisecond as documented in
 		// `sp_timestamp::InherentDataProvider`.
-		let now = Now::<T>::get();
-
-		if now == T::Moment::zero() {
-			log::error!(
-				target: "runtime::timestamp",
-				"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
-			);
+		let now = Self::now();
+		sp_std::if_std! {
+			if now == T::Moment::zero() {
+				log::error!(
+					target: "runtime::timestamp",
+					"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
+				);
+			}
 		}
-
 		core::time::Duration::from_millis(now.saturated_into::<u64>())
 	}
 }

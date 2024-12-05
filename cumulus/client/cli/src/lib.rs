@@ -21,20 +21,22 @@
 use std::{
 	fs,
 	io::{self, Write},
+	net::SocketAddr,
 	path::PathBuf,
-	sync::Arc,
 };
 
 use codec::Encode;
 use sc_chain_spec::ChainSpec;
-use sc_cli::RpcEndpoint;
-use sc_client_api::HeaderBackend;
+use sc_client_api::ExecutorProvider;
 use sc_service::{
-	config::{PrometheusConfig, RpcBatchRequestConfig, TelemetryEndpoints},
+	config::{PrometheusConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
 };
 use sp_core::hexdisplay::HexDisplay;
-use sp_runtime::traits::{Block as BlockT, Zero};
+use sp_runtime::{
+	traits::{Block as BlockT, Hash as HashT, Header as HeaderT, Zero},
+	StateVersion,
+};
 use url::Url;
 
 /// The `purge-chain` command used to remove the whole chain: the parachain and the relay chain.
@@ -96,7 +98,7 @@ impl PurgeChainCmd {
 				Some('y') | Some('Y') => {},
 				_ => {
 					println!("Aborted");
-					return Ok(());
+					return Ok(())
 				},
 			}
 		}
@@ -127,30 +129,9 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 	}
 }
 
-/// Get the SCALE encoded genesis header of the parachain.
-pub fn get_raw_genesis_header<B, C>(client: Arc<C>) -> sc_cli::Result<Vec<u8>>
-where
-	B: BlockT,
-	C: HeaderBackend<B> + 'static,
-{
-	let genesis_hash =
-		client
-			.hash(Zero::zero())?
-			.ok_or(sc_cli::Error::Client(sp_blockchain::Error::Backend(
-				"Failed to lookup genesis block hash when exporting genesis head data.".into(),
-			)))?;
-	let genesis_header = client.header(genesis_hash)?.ok_or(sc_cli::Error::Client(
-		sp_blockchain::Error::Backend(
-			"Failed to lookup genesis header by hash when exporting genesis head data.".into(),
-		),
-	))?;
-
-	Ok(genesis_header.encode())
-}
-
-/// Command for exporting the genesis head data of the parachain
+/// Command for exporting the genesis state of the parachain
 #[derive(Debug, clap::Parser)]
-pub struct ExportGenesisHeadCommand {
+pub struct ExportGenesisStateCommand {
 	/// Output file name or stdout if unspecified.
 	#[arg()]
 	pub output: Option<PathBuf>,
@@ -164,18 +145,24 @@ pub struct ExportGenesisHeadCommand {
 	pub shared_params: sc_cli::SharedParams,
 }
 
-impl ExportGenesisHeadCommand {
-	/// Run the export-genesis-head command
-	pub fn run<B, C>(&self, client: Arc<C>) -> sc_cli::Result<()>
-	where
-		B: BlockT,
-		C: HeaderBackend<B> + 'static,
-	{
-		let raw_header = get_raw_genesis_header(client)?;
+impl ExportGenesisStateCommand {
+	/// Run the export-genesis-state command
+	pub fn run<Block: BlockT>(
+		&self,
+		chain_spec: &dyn ChainSpec,
+		client: &impl ExecutorProvider<Block>,
+	) -> sc_cli::Result<()> {
+		let state_version = sc_chain_spec::resolve_state_version_from_wasm(
+			&chain_spec.build_storage()?,
+			client.executor(),
+		)?;
+
+		let block: Block = generate_genesis_block(chain_spec, state_version)?;
+		let raw_header = block.header().encode();
 		let output_buf = if self.raw {
 			raw_header
 		} else {
-			format!("0x{:?}", HexDisplay::from(&raw_header)).into_bytes()
+			format!("0x{:?}", HexDisplay::from(&block.header().encode())).into_bytes()
 		};
 
 		if let Some(output) = &self.output {
@@ -188,16 +175,45 @@ impl ExportGenesisHeadCommand {
 	}
 }
 
-impl sc_cli::CliConfiguration for ExportGenesisHeadCommand {
+/// Generate the genesis block from a given ChainSpec.
+pub fn generate_genesis_block<Block: BlockT>(
+	chain_spec: &dyn ChainSpec,
+	genesis_state_version: StateVersion,
+) -> Result<Block, String> {
+	let storage = chain_spec.build_storage()?;
+
+	let child_roots = storage.children_default.iter().map(|(sk, child_content)| {
+		let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+			child_content.data.clone().into_iter().collect(),
+			genesis_state_version,
+		);
+		(sk.clone(), state_root.encode())
+	});
+	let state_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+		storage.top.clone().into_iter().chain(child_roots).collect(),
+		genesis_state_version,
+	);
+
+	let extrinsics_root = <<<Block as BlockT>::Header as HeaderT>::Hashing as HashT>::trie_root(
+		Vec::new(),
+		genesis_state_version,
+	);
+
+	Ok(Block::new(
+		<<Block as BlockT>::Header as HeaderT>::new(
+			Zero::zero(),
+			extrinsics_root,
+			state_root,
+			Default::default(),
+			Default::default(),
+		),
+		Default::default(),
+	))
+}
+
+impl sc_cli::CliConfiguration for ExportGenesisStateCommand {
 	fn shared_params(&self) -> &sc_cli::SharedParams {
 		&self.shared_params
-	}
-
-	fn base_path(&self) -> sc_cli::Result<Option<BasePath>> {
-		// As we are just exporting the genesis wasm a tmp database is enough.
-		//
-		// As otherwise we may "pollute" the global base path.
-		Ok(Some(BasePath::new_temp_dir()?))
 	}
 }
 
@@ -250,13 +266,6 @@ impl sc_cli::CliConfiguration for ExportGenesisWasmCommand {
 	fn shared_params(&self) -> &sc_cli::SharedParams {
 		&self.shared_params
 	}
-
-	fn base_path(&self) -> sc_cli::Result<Option<BasePath>> {
-		// As we are just exporting the genesis wasm a tmp database is enough.
-		//
-		// As otherwise we may "pollute" the global base path.
-		Ok(Some(BasePath::new_temp_dir()?))
-	}
 }
 
 fn validate_relay_chain_url(arg: &str) -> Result<Url, String> {
@@ -287,14 +296,7 @@ pub struct RunCmd {
 	#[arg(long, conflicts_with = "validator")]
 	pub collator: bool,
 
-	/// Creates a less resource-hungry node that retrieves relay chain data from an RPC endpoint.
-	///
-	/// The provided URLs should point to RPC endpoints of the relay chain.
-	/// This node connects to the remote nodes following the order they were specified in. If the
-	/// connection fails, it attempts to connect to the next endpoint in the list.
-	///
-	/// Note: This option doesn't stop the node from connecting to the relay chain network but
-	/// reduces bandwidth use.
+	/// EXPERIMENTAL: Specify an URL to a relay chain full node to communicate with.
 	#[arg(
 		long,
 		value_parser = validate_relay_chain_url,
@@ -423,7 +425,7 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.rpc_cors(is_dev)
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<Vec<RpcEndpoint>>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<SocketAddr>> {
 		self.base.rpc_addr(default_listen_port)
 	}
 
@@ -432,23 +434,15 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 	}
 
 	fn rpc_max_request_size(&self) -> sc_cli::Result<u32> {
-		self.base.rpc_max_request_size()
+		Ok(self.base.rpc_max_request_size)
 	}
 
 	fn rpc_max_response_size(&self) -> sc_cli::Result<u32> {
-		self.base.rpc_max_response_size()
+		Ok(self.base.rpc_max_response_size)
 	}
 
 	fn rpc_max_subscriptions_per_connection(&self) -> sc_cli::Result<u32> {
-		self.base.rpc_max_subscriptions_per_connection()
-	}
-
-	fn rpc_buffer_capacity_per_connection(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_params.rpc_message_buffer_capacity_per_connection)
-	}
-
-	fn rpc_batch_config(&self) -> sc_cli::Result<RpcBatchRequestConfig> {
-		self.base.rpc_batch_config()
+		Ok(self.base.rpc_max_subscriptions_per_connection)
 	}
 
 	fn transaction_pool(&self, is_dev: bool) -> sc_cli::Result<TransactionPoolOptions> {

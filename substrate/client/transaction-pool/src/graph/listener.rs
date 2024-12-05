@@ -18,32 +18,18 @@
 
 use std::{collections::HashMap, fmt::Debug, hash};
 
+use crate::LOG_TARGET;
 use linked_hash_map::LinkedHashMap;
-use log::trace;
-use sc_transaction_pool_api::TransactionStatus;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use log::{debug, trace};
 use serde::Serialize;
 use sp_runtime::traits;
 
 use super::{watcher, BlockHash, ChainApi, ExtrinsicHash};
 
-static LOG_TARGET: &str = "txpool::watcher";
-
-/// Single event used in dropped by limits stream. It is one of Ready/Future/Dropped.
-pub type DroppedByLimitsEvent<H, BH> = (H, TransactionStatus<H, BH>);
-/// Stream of events used to determine if a transaction was dropped.
-pub type DroppedByLimitsStream<H, BH> = TracingUnboundedReceiver<DroppedByLimitsEvent<H, BH>>;
-
 /// Extrinsic pool default listener.
 pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {
-	/// Map containing per-transaction sinks for emitting transaction status events.
-	watchers: HashMap<H, watcher::Sender<H, BlockHash<C>>>,
+	watchers: HashMap<H, watcher::Sender<H, ExtrinsicHash<C>>>,
 	finality_watchers: LinkedHashMap<ExtrinsicHash<C>, Vec<H>>,
-
-	/// The sink used to notify dropped-by-enforcing-limits transactions. Also ready and future
-	/// statuses are reported via this channel to allow consumer of the stream tracking actual
-	/// drops.
-	dropped_by_limits_sink: Option<TracingUnboundedSender<DroppedByLimitsEvent<H, BlockHash<C>>>>,
 }
 
 /// Maximum number of blocks awaiting finality at any time.
@@ -51,15 +37,11 @@ const MAX_FINALITY_WATCHERS: usize = 512;
 
 impl<H: hash::Hash + Eq + Debug, C: ChainApi> Default for Listener<H, C> {
 	fn default() -> Self {
-		Self {
-			watchers: Default::default(),
-			finality_watchers: Default::default(),
-			dropped_by_limits_sink: None,
-		}
+		Self { watchers: Default::default(), finality_watchers: Default::default() }
 	}
 }
 
-impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H, C> {
+impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
 	fn fire<F>(&mut self, hash: &H, fun: F)
 	where
 		F: FnOnce(&mut watcher::Sender<H, ExtrinsicHash<C>>),
@@ -84,15 +66,6 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		sender.new_watcher(hash)
 	}
 
-	/// Creates a new single stream for entire pool.
-	///
-	/// The stream can be used to subscribe to life-cycle events of all extrinsics in the pool.
-	pub fn create_dropped_by_limits_stream(&mut self) -> DroppedByLimitsStream<H, BlockHash<C>> {
-		let (sender, single_stream) = tracing_unbounded("mpsc_txpool_watcher", 100_000);
-		self.dropped_by_limits_sink = Some(sender);
-		single_stream
-	}
-
 	/// Notify the listeners about extrinsic broadcast.
 	pub fn broadcasted(&mut self, hash: &H, peers: Vec<String>) {
 		trace!(target: LOG_TARGET, "[{:?}] Broadcasted", hash);
@@ -106,67 +79,32 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 		if let Some(old) = old {
 			self.fire(old, |watcher| watcher.usurped(tx.clone()));
 		}
-
-		if let Some(ref sink) = self.dropped_by_limits_sink {
-			if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Ready)) {
-				trace!(target: LOG_TARGET, "[{:?}] dropped_sink/ready: send message failed: {:?}", tx, e);
-			}
-		}
 	}
 
 	/// New transaction was added to the future pool.
 	pub fn future(&mut self, tx: &H) {
 		trace!(target: LOG_TARGET, "[{:?}] Future", tx);
 		self.fire(tx, |watcher| watcher.future());
-		if let Some(ref sink) = self.dropped_by_limits_sink {
-			if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Future)) {
-				trace!(target: LOG_TARGET, "[{:?}] dropped_sink: send message failed: {:?}", tx, e);
-			}
-		}
 	}
 
-	/// Transaction was dropped from the pool because of enforcing the limit.
-	pub fn limit_enforced(&mut self, tx: &H) {
-		trace!(target: LOG_TARGET, "[{:?}] Dropped (limit enforced)", tx);
-		self.fire(tx, |watcher| watcher.limit_enforced());
-
-		if let Some(ref sink) = self.dropped_by_limits_sink {
-			if let Err(e) = sink.unbounded_send((tx.clone(), TransactionStatus::Dropped)) {
-				trace!(target: LOG_TARGET, "[{:?}] dropped_sink: send message failed: {:?}", tx, e);
-			}
-		}
-	}
-
-	/// Transaction was replaced with other extrinsic.
-	pub fn usurped(&mut self, tx: &H, by: &H) {
+	/// Transaction was dropped from the pool because of the limit.
+	pub fn dropped(&mut self, tx: &H, by: Option<&H>) {
 		trace!(target: LOG_TARGET, "[{:?}] Dropped (replaced with {:?})", tx, by);
-		self.fire(tx, |watcher| watcher.usurped(by.clone()));
-
-		if let Some(ref sink) = self.dropped_by_limits_sink {
-			if let Err(e) =
-				sink.unbounded_send((tx.clone(), TransactionStatus::Usurped(by.clone())))
-			{
-				trace!(target: LOG_TARGET, "[{:?}] dropped_sink: send message failed: {:?}", tx, e);
-			}
-		}
-	}
-
-	/// Transaction was dropped from the pool because of the failure during the resubmission of
-	/// revalidate transactions or failure during pruning tags.
-	pub fn dropped(&mut self, tx: &H) {
-		trace!(target: LOG_TARGET, "[{:?}] Dropped", tx);
-		self.fire(tx, |watcher| watcher.dropped());
+		self.fire(tx, |watcher| match by {
+			Some(t) => watcher.usurped(t.clone()),
+			None => watcher.dropped(),
+		})
 	}
 
 	/// Transaction was removed as invalid.
 	pub fn invalid(&mut self, tx: &H) {
-		trace!(target: LOG_TARGET, "[{:?}] Extrinsic invalid", tx);
+		debug!(target: LOG_TARGET, "[{:?}] Extrinsic invalid", tx);
 		self.fire(tx, |watcher| watcher.invalid());
 	}
 
 	/// Transaction was pruned from the pool.
 	pub fn pruned(&mut self, block_hash: BlockHash<C>, tx: &H) {
-		trace!(target: LOG_TARGET, "[{:?}] Pruned at {:?}", tx, block_hash);
+		debug!(target: LOG_TARGET, "[{:?}] Pruned at {:?}", tx, block_hash);
 		// Get the transactions included in the given block hash.
 		let txs = self.finality_watchers.entry(block_hash).or_insert(vec![]);
 		txs.push(tx.clone());
@@ -197,7 +135,7 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 	pub fn finalized(&mut self, block_hash: BlockHash<C>) {
 		if let Some(hashes) = self.finality_watchers.remove(&block_hash) {
 			for (tx_index, hash) in hashes.into_iter().enumerate() {
-				log::trace!(
+				log::debug!(
 					target: LOG_TARGET,
 					"[{:?}] Sent finalization event (block {:?})",
 					hash,
@@ -206,10 +144,5 @@ impl<H: hash::Hash + traits::Member + Serialize + Clone, C: ChainApi> Listener<H
 				self.fire(&hash, |watcher| watcher.finalized(block_hash, tx_index))
 			}
 		}
-	}
-
-	/// Provides hashes of all watched transactions.
-	pub fn watched_transactions(&self) -> impl Iterator<Item = &H> {
-		self.watchers.keys()
 	}
 }

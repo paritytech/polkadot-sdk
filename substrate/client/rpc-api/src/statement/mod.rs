@@ -27,7 +27,7 @@ pub mod error;
 #[rpc(client, server)]
 pub trait StatementApi {
 	/// Return all statements, SCALE-encoded.
-	#[method(name = "statement_dump", with_extensions)]
+	#[method(name = "statement_dump")]
 	fn dump(&self) -> RpcResult<Vec<Bytes>>;
 
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`

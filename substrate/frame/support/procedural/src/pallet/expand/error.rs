@@ -16,14 +16,10 @@
 // limitations under the License.
 
 use crate::{
-	pallet::{
-		parse::error::{VariantDef, VariantField},
-		Def,
-	},
+	pallet::{parse::error::VariantField, Def},
 	COUNTER,
 };
 use frame_support_procedural_tools::get_doc_literals;
-use quote::ToTokens;
 use syn::spanned::Spanned;
 
 ///
@@ -46,9 +42,9 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 			macro_rules! #error_token_unique_id {
 				{
 					$caller:tt
-					your_tt_return = [{ $my_tt_return:path }]
+					frame_support = [{ $($frame_support:ident)::* }]
 				} => {
-					$my_tt_return! {
+					$($frame_support::)*__private::tt_return! {
 						$caller
 					}
 				};
@@ -66,30 +62,25 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		#[doc(hidden)]
 		#[codec(skip)]
 		__Ignore(
-			core::marker::PhantomData<(#type_use_gen)>,
+			#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen)>,
 			#frame_support::Never,
 		)
 	);
 
-	let as_str_matches =
-		error
-			.variants
-			.iter()
-			.map(|VariantDef { ident: variant, field: field_ty, cfg_attrs }| {
-				let variant_str = variant.to_string();
-				let cfg_attrs = cfg_attrs.iter().map(|attr| attr.to_token_stream());
-				match field_ty {
-					Some(VariantField { is_named: true }) => {
-						quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* Self::#variant { .. } => #variant_str,)
-					},
-					Some(VariantField { is_named: false }) => {
-						quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* Self::#variant(..) => #variant_str,)
-					},
-					None => {
-						quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* Self::#variant => #variant_str,)
-					},
-				}
-			});
+	let as_str_matches = error.variants.iter().map(|(variant, field_ty, _)| {
+		let variant_str = variant.to_string();
+		match field_ty {
+			Some(VariantField { is_named: true }) => {
+				quote::quote_spanned!(error.attr_span => Self::#variant { .. } => #variant_str,)
+			},
+			Some(VariantField { is_named: false }) => {
+				quote::quote_spanned!(error.attr_span => Self::#variant(..) => #variant_str,)
+			},
+			None => {
+				quote::quote_spanned!(error.attr_span => Self::#variant => #variant_str,)
+			},
+		}
+	});
 
 	let error_item = {
 		let item = &mut def.item.content.as_mut().expect("Checked by def parser").1[error.index];
@@ -103,19 +94,6 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 	error_item.variants.insert(0, phantom_variant);
 
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
-
-	let deprecation = match crate::deprecation::get_deprecation_enum(
-		&quote::quote! {#frame_support},
-		&error.attrs,
-		error_item.variants.iter().enumerate().map(|(index, item)| {
-			let index = crate::deprecation::variant_index_for_deprecation(index as u8, item);
-
-			(index, item.attrs.as_ref())
-		}),
-	) {
-		Ok(deprecation) => deprecation,
-		Err(e) => return e.into_compile_error(),
-	};
 
 	// derive TypeInfo for error metadata
 	error_item.attrs.push(syn::parse_quote! {
@@ -137,11 +115,11 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 
 	quote::quote_spanned!(error.attr_span =>
-		impl<#type_impl_gen> core::fmt::Debug for #error_ident<#type_use_gen>
+		impl<#type_impl_gen> #frame_support::__private::sp_std::fmt::Debug for #error_ident<#type_use_gen>
 			#config_where_clause
 		{
-			fn fmt(&self, f: &mut core::fmt::Formatter<'_>)
-				-> core::fmt::Result
+			fn fmt(&self, f: &mut #frame_support::__private::sp_std::fmt::Formatter<'_>)
+				-> #frame_support::__private::sp_std::fmt::Result
 			{
 				f.write_str(self.as_str())
 			}
@@ -192,9 +170,9 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		macro_rules! #error_token_unique_id {
 			{
 				$caller:tt
-				your_tt_return = [{ $my_tt_return:path }]
+				frame_support = [{ $($frame_support:ident)::* }]
 			} => {
-				$my_tt_return! {
+				$($frame_support::)*__private::tt_return! {
 					$caller
 					error = [{ #error_ident }]
 				}
@@ -202,16 +180,5 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 
 		pub use #error_token_unique_id as tt_error_token;
-
-		impl<#type_impl_gen> #error_ident<#type_use_gen> #config_where_clause {
-			#[allow(dead_code)]
-			#[doc(hidden)]
-			pub fn error_metadata() -> #frame_support::__private::metadata_ir::PalletErrorMetadataIR {
-				#frame_support::__private::metadata_ir::PalletErrorMetadataIR {
-					ty: #frame_support::__private::scale_info::meta_type::<#error_ident<#type_use_gen>>(),
-					deprecation_info: #deprecation,
-				}
-			}
-		}
 	)
 }

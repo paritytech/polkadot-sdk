@@ -79,6 +79,53 @@ macro_rules! identify_chain {
 	};
 }
 
+/// Generates `System::Remark` extrinsics for the benchmarks.
+///
+/// Note: Should only be used for benchmarking.
+pub struct RemarkBuilder {
+	client: Arc<FullClient>,
+	chain: Chain,
+}
+
+impl RemarkBuilder {
+	/// Creates a new [`Self`] from the given client.
+	pub fn new(client: Arc<FullClient>, chain: Chain) -> Self {
+		Self { client, chain }
+	}
+}
+
+impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
+	fn pallet(&self) -> &str {
+		"system"
+	}
+
+	fn extrinsic(&self) -> &str {
+		"remark"
+	}
+
+	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
+		// We apply the extrinsic directly, so let's take some random period.
+		let period = 128;
+		let genesis = self.client.usage_info().chain.best_hash;
+		let signer = Sr25519Keyring::Bob.pair();
+		let current_block = 0;
+
+		identify_chain! {
+			self.chain,
+			nonce,
+			current_block,
+			period,
+			genesis,
+			signer,
+			{
+				runtime::RuntimeCall::System(
+					runtime::SystemCall::remark { remark: vec![] }
+				)
+			},
+		}
+	}
+}
+
 /// Generates `Balances::TransferKeepAlive` extrinsics for the benchmarks.
 ///
 /// Note: Should only be used for benchmarking.
@@ -142,7 +189,7 @@ fn westend_sign_call(
 	use sp_core::Pair;
 	use westend_runtime as runtime;
 
-	let tx_ext: runtime::TxExtension = (
+	let extra: runtime::SignedExtra = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -154,13 +201,11 @@ fn westend_sign_call(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
-		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
-	)
-		.into();
+	);
 
 	let payload = runtime::SignedPayload::from_raw(
 		call.clone(),
-		tx_ext.clone(),
+		extra.clone(),
 		(
 			(),
 			runtime::VERSION.spec_version,
@@ -170,7 +215,6 @@ fn westend_sign_call(
 			(),
 			(),
 			(),
-			None,
 		),
 	);
 
@@ -178,8 +222,8 @@ fn westend_sign_call(
 	runtime::UncheckedExtrinsic::new_signed(
 		call,
 		sp_runtime::AccountId32::from(acc.public()).into(),
-		polkadot_core_primitives::Signature::Sr25519(signature),
-		tx_ext,
+		polkadot_core_primitives::Signature::Sr25519(signature.clone()),
+		extra,
 	)
 	.into()
 }
@@ -197,7 +241,7 @@ fn rococo_sign_call(
 	use rococo_runtime as runtime;
 	use sp_core::Pair;
 
-	let tx_ext: runtime::TxExtension = (
+	let extra: runtime::SignedExtra = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckTxVersion::<runtime::Runtime>::new(),
@@ -209,13 +253,11 @@ fn rococo_sign_call(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
-		frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
-	)
-		.into();
+	);
 
 	let payload = runtime::SignedPayload::from_raw(
 		call.clone(),
-		tx_ext.clone(),
+		extra.clone(),
 		(
 			(),
 			runtime::VERSION.spec_version,
@@ -225,7 +267,6 @@ fn rococo_sign_call(
 			(),
 			(),
 			(),
-			None,
 		),
 	);
 
@@ -233,8 +274,8 @@ fn rococo_sign_call(
 	runtime::UncheckedExtrinsic::new_signed(
 		call,
 		sp_runtime::AccountId32::from(acc.public()).into(),
-		polkadot_core_primitives::Signature::Sr25519(signature),
-		tx_ext,
+		polkadot_core_primitives::Signature::Sr25519(signature.clone()),
+		extra,
 	)
 	.into()
 }

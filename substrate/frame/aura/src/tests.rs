@@ -19,8 +19,7 @@
 
 #![cfg(test)]
 
-use super::pallet;
-use crate::mock::{build_ext_and_execute_test, Aura, MockDisabledValidators, System, Test};
+use crate::mock::{build_ext_and_execute_test, Aura, MockDisabledValidators, System};
 use codec::Encode;
 use frame_support::traits::OnInitialize;
 use sp_consensus_aura::{Slot, AURA_ENGINE_ID};
@@ -29,9 +28,8 @@ use sp_runtime::{Digest, DigestItem};
 #[test]
 fn initial_values() {
 	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
-		assert_eq!(pallet::CurrentSlot::<Test>::get(), 0u64);
-		assert_eq!(pallet::Authorities::<Test>::get().len(), Aura::authorities_len());
-		assert_eq!(Aura::authorities_len(), 4);
+		assert_eq!(Aura::current_slot(), 0u64);
+		assert_eq!(Aura::authorities().len(), 4);
 	});
 }
 

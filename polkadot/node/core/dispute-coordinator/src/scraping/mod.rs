@@ -28,9 +28,8 @@ use polkadot_node_subsystem_util::runtime::{
 	self, get_candidate_events, get_on_chain_votes, get_unapplied_slashes,
 };
 use polkadot_primitives::{
-	slashing::PendingSlashes,
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt, ScrapedOnChainVotes},
-	BlockNumber, CandidateHash, Hash, SessionIndex,
+	slashing::PendingSlashes, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, Hash,
+	ScrapedOnChainVotes, SessionIndex,
 };
 
 use crate::{
@@ -122,7 +121,7 @@ impl Inclusions {
 				Entry::Vacant(_) => {
 					// Rare case where same candidate was present on multiple heights, but all are
 					// pruned at the same time. This candidate was already pruned in the previous
-					// occurrence so it is skipped now.
+					// occurence so it is skipped now.
 				},
 				Entry::Occupied(mut e) => {
 					let mut blocks_including = std::mem::take(e.get_mut());

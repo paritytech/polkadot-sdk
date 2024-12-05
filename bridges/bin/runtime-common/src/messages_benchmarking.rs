@@ -19,32 +19,39 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use bp_messages::{
-	source_chain::FromBridgedChainMessagesDeliveryProof,
-	target_chain::FromBridgedChainMessagesProof, MessagePayload,
+use crate::{
+	messages::{
+		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
+		AccountIdOf, BridgedChain, HashOf, HasherOf, MessageBridge, ThisChain,
+	},
+	messages_generation::{
+		encode_all_messages, encode_lane_data, grow_trie_leaf_value, prepare_messages_storage_proof,
+	},
 };
+
+use bp_messages::{storage_keys, MessagePayload};
 use bp_polkadot_core::parachains::ParaHash;
-use bp_runtime::{AccountIdOf, Chain, HashOf, Parachain};
+use bp_runtime::{
+	record_all_trie_keys, Chain, Parachain, RawStorageProof, StorageProofSize, UnderlyingChainOf,
+};
 use codec::Encode;
 use frame_support::weights::Weight;
-use pallet_bridge_messages::{
-	benchmarking::{MessageDeliveryProofParams, MessageProofParams},
-	messages_generation::{
-		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
-		prepare_messages_storage_proof,
-	},
-	BridgedChainOf, LaneIdOf, ThisChainOf,
-};
+use pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessageProofParams};
 use sp_runtime::traits::{Header, Zero};
 use sp_std::prelude::*;
-use xcm::latest::prelude::*;
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
+use xcm::v3::prelude::*;
 
 /// Prepare inbound bridge message according to given message proof parameters.
-fn prepare_inbound_message<LaneId>(
-	params: &MessageProofParams<LaneId>,
+fn prepare_inbound_message(
+	params: &MessageProofParams,
 	successful_dispatch_message_generator: impl Fn(usize) -> MessagePayload,
 ) -> MessagePayload {
-	let expected_size = params.proof_params.db_size.unwrap_or(0) as usize;
+	// we only care about **this** message size when message proof needs to be `Minimal`
+	let expected_size = match params.size {
+		StorageProofSize::Minimal(size) => size as usize,
+		_ => 0,
+	};
 
 	// if we don't need a correct message, then we may just return some random blob
 	if !params.is_successful_dispatch_expected {
@@ -70,34 +77,24 @@ fn prepare_inbound_message<LaneId>(
 /// This method is intended to be used when benchmarking pallet, linked to the chain that
 /// uses GRANDPA finality. For parachains, please use the `prepare_message_proof_from_parachain`
 /// function.
-pub fn prepare_message_proof_from_grandpa_chain<R, FI, MI>(
-	params: MessageProofParams<LaneIdOf<R, MI>>,
+pub fn prepare_message_proof_from_grandpa_chain<R, FI, B>(
+	params: MessageProofParams,
 	message_generator: impl Fn(usize) -> MessagePayload,
-) -> (FromBridgedChainMessagesProof<HashOf<BridgedChainOf<R, MI>>, LaneIdOf<R, MI>>, Weight)
+) -> (FromBridgedChainMessagesProof<HashOf<BridgedChain<B>>>, Weight)
 where
-	R: pallet_bridge_grandpa::Config<FI, BridgedChain = BridgedChainOf<R, MI>>
-		+ pallet_bridge_messages::Config<
-			MI,
-			BridgedHeaderChain = pallet_bridge_grandpa::Pallet<R, FI>,
-		>,
+	R: pallet_bridge_grandpa::Config<FI, BridgedChain = UnderlyingChainOf<BridgedChain<B>>>,
 	FI: 'static,
-	MI: 'static,
+	B: MessageBridge,
 {
 	// prepare storage proof
-	let (state_root, storage_proof) = prepare_messages_storage_proof::<
-		BridgedChainOf<R, MI>,
-		ThisChainOf<R, MI>,
-		LaneIdOf<R, MI>,
-	>(
+	let (state_root, storage_proof) = prepare_messages_storage_proof::<B>(
 		params.lane,
 		params.message_nonces.clone(),
 		params.outbound_lane_data.clone(),
-		params.proof_params,
-		|_| prepare_inbound_message(&params, &message_generator),
+		params.size,
+		prepare_inbound_message(&params, message_generator),
 		encode_all_messages,
 		encode_lane_data,
-		false,
-		false,
 	);
 
 	// update runtime storage
@@ -123,36 +120,30 @@ where
 /// This method is intended to be used when benchmarking pallet, linked to the chain that
 /// uses parachain finality. For GRANDPA chains, please use the
 /// `prepare_message_proof_from_grandpa_chain` function.
-pub fn prepare_message_proof_from_parachain<R, PI, MI>(
-	params: MessageProofParams<LaneIdOf<R, MI>>,
+pub fn prepare_message_proof_from_parachain<R, PI, B>(
+	params: MessageProofParams,
 	message_generator: impl Fn(usize) -> MessagePayload,
-) -> (FromBridgedChainMessagesProof<HashOf<BridgedChainOf<R, MI>>, LaneIdOf<R, MI>>, Weight)
+) -> (FromBridgedChainMessagesProof<HashOf<BridgedChain<B>>>, Weight)
 where
-	R: pallet_bridge_parachains::Config<PI> + pallet_bridge_messages::Config<MI>,
+	R: pallet_bridge_parachains::Config<PI>,
 	PI: 'static,
-	MI: 'static,
-	BridgedChainOf<R, MI>: Chain<Hash = ParaHash> + Parachain,
+	B: MessageBridge,
+	UnderlyingChainOf<BridgedChain<B>>: Chain<Hash = ParaHash> + Parachain,
 {
 	// prepare storage proof
-	let (state_root, storage_proof) = prepare_messages_storage_proof::<
-		BridgedChainOf<R, MI>,
-		ThisChainOf<R, MI>,
-		LaneIdOf<R, MI>,
-	>(
+	let (state_root, storage_proof) = prepare_messages_storage_proof::<B>(
 		params.lane,
 		params.message_nonces.clone(),
 		params.outbound_lane_data.clone(),
-		params.proof_params,
-		|_| prepare_inbound_message(&params, &message_generator),
+		params.size,
+		prepare_inbound_message(&params, message_generator),
 		encode_all_messages,
 		encode_lane_data,
-		false,
-		false,
 	);
 
 	// update runtime storage
 	let (_, bridged_header_hash) =
-		insert_header_to_parachains_pallet::<R, PI, BridgedChainOf<R, MI>>(state_root);
+		insert_header_to_parachains_pallet::<R, PI, UnderlyingChainOf<BridgedChain<B>>>(state_root);
 
 	(
 		FromBridgedChainMessagesProof {
@@ -171,25 +162,17 @@ where
 /// This method is intended to be used when benchmarking pallet, linked to the chain that
 /// uses GRANDPA finality. For parachains, please use the
 /// `prepare_message_delivery_proof_from_parachain` function.
-pub fn prepare_message_delivery_proof_from_grandpa_chain<R, FI, MI>(
-	params: MessageDeliveryProofParams<AccountIdOf<ThisChainOf<R, MI>>, LaneIdOf<R, MI>>,
-) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<R, MI>>, LaneIdOf<R, MI>>
+pub fn prepare_message_delivery_proof_from_grandpa_chain<R, FI, B>(
+	params: MessageDeliveryProofParams<AccountIdOf<ThisChain<B>>>,
+) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChain<B>>>
 where
-	R: pallet_bridge_grandpa::Config<FI, BridgedChain = BridgedChainOf<R, MI>>
-		+ pallet_bridge_messages::Config<
-			MI,
-			BridgedHeaderChain = pallet_bridge_grandpa::Pallet<R, FI>,
-		>,
+	R: pallet_bridge_grandpa::Config<FI, BridgedChain = UnderlyingChainOf<BridgedChain<B>>>,
 	FI: 'static,
-	MI: 'static,
+	B: MessageBridge,
 {
 	// prepare storage proof
 	let lane = params.lane;
-	let (state_root, storage_proof) = prepare_message_delivery_storage_proof::<
-		BridgedChainOf<R, MI>,
-		ThisChainOf<R, MI>,
-		LaneIdOf<R, MI>,
-	>(params.lane, params.inbound_lane_data, params.proof_params);
+	let (state_root, storage_proof) = prepare_message_delivery_proof::<B>(params);
 
 	// update runtime storage
 	let (_, bridged_header_hash) = insert_header_to_grandpa_pallet::<R, FI>(state_root);
@@ -206,32 +189,58 @@ where
 /// This method is intended to be used when benchmarking pallet, linked to the chain that
 /// uses parachain finality. For GRANDPA chains, please use the
 /// `prepare_message_delivery_proof_from_grandpa_chain` function.
-pub fn prepare_message_delivery_proof_from_parachain<R, PI, MI>(
-	params: MessageDeliveryProofParams<AccountIdOf<ThisChainOf<R, MI>>, LaneIdOf<R, MI>>,
-) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChainOf<R, MI>>, LaneIdOf<R, MI>>
+pub fn prepare_message_delivery_proof_from_parachain<R, PI, B>(
+	params: MessageDeliveryProofParams<AccountIdOf<ThisChain<B>>>,
+) -> FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChain<B>>>
 where
-	R: pallet_bridge_parachains::Config<PI> + pallet_bridge_messages::Config<MI>,
+	R: pallet_bridge_parachains::Config<PI>,
 	PI: 'static,
-	MI: 'static,
-	BridgedChainOf<R, MI>: Chain<Hash = ParaHash> + Parachain,
+	B: MessageBridge,
+	UnderlyingChainOf<BridgedChain<B>>: Chain<Hash = ParaHash> + Parachain,
 {
 	// prepare storage proof
 	let lane = params.lane;
-	let (state_root, storage_proof) = prepare_message_delivery_storage_proof::<
-		BridgedChainOf<R, MI>,
-		ThisChainOf<R, MI>,
-		LaneIdOf<R, MI>,
-	>(params.lane, params.inbound_lane_data, params.proof_params);
+	let (state_root, storage_proof) = prepare_message_delivery_proof::<B>(params);
 
 	// update runtime storage
 	let (_, bridged_header_hash) =
-		insert_header_to_parachains_pallet::<R, PI, BridgedChainOf<R, MI>>(state_root);
+		insert_header_to_parachains_pallet::<R, PI, UnderlyingChainOf<BridgedChain<B>>>(state_root);
 
 	FromBridgedChainMessagesDeliveryProof {
 		bridged_header_hash: bridged_header_hash.into(),
 		storage_proof,
 		lane,
 	}
+}
+
+/// Prepare in-memory message delivery proof, without inserting anything to the runtime storage.
+fn prepare_message_delivery_proof<B>(
+	params: MessageDeliveryProofParams<AccountIdOf<ThisChain<B>>>,
+) -> (HashOf<BridgedChain<B>>, RawStorageProof)
+where
+	B: MessageBridge,
+{
+	// prepare Bridged chain storage with inbound lane state
+	let storage_key =
+		storage_keys::inbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, &params.lane).0;
+	let mut root = Default::default();
+	let mut mdb = MemoryDB::default();
+	{
+		let mut trie =
+			TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb, &mut root).build();
+		let inbound_lane_data =
+			grow_trie_leaf_value(params.inbound_lane_data.encode(), params.size);
+		trie.insert(&storage_key, &inbound_lane_data)
+			.map_err(|_| "TrieMut::insert has failed")
+			.expect("TrieMut::insert should not fail in benchmarks");
+	}
+
+	// generate storage proof to be delivered to This chain
+	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
+		.map_err(|_| "record_all_trie_keys has failed")
+		.expect("record_all_trie_keys should not fail in benchmarks");
+
+	(root, storage_proof)
 }
 
 /// Insert header to the bridge GRANDPA pallet.
@@ -281,19 +290,19 @@ where
 /// Returns callback which generates `BridgeMessage` from Polkadot XCM builder based on
 /// `expected_message_size` for benchmark.
 pub fn generate_xcm_builder_bridge_message_sample(
-	destination: InteriorLocation,
+	destination: InteriorMultiLocation,
 ) -> impl Fn(usize) -> MessagePayload {
 	move |expected_message_size| -> MessagePayload {
 		// For XCM bridge hubs, it is the message that
 		// will be pushed further to some XCM queue (XCMP/UMP)
-		let location = xcm::VersionedInteriorLocation::from(destination.clone());
+		let location = xcm::VersionedInteriorMultiLocation::V3(destination);
 		let location_encoded_size = location.encoded_size();
 
 		// we don't need to be super-precise with `expected_size` here
 		let xcm_size = expected_message_size.saturating_sub(location_encoded_size);
 		let xcm_data_size = xcm_size.saturating_sub(
 			// minus empty instruction size
-			Instruction::<()>::ExpectPallet {
+			xcm::v3::Instruction::<()>::ExpectPallet {
 				index: 0,
 				name: vec![],
 				module_name: vec![],
@@ -309,13 +318,16 @@ pub fn generate_xcm_builder_bridge_message_sample(
 			expected_message_size, location_encoded_size, xcm_size, xcm_data_size,
 		);
 
-		let xcm = xcm::VersionedXcm::<()>::from(Xcm(vec![Instruction::<()>::ExpectPallet {
-			index: 0,
-			name: vec![42; xcm_data_size],
-			module_name: vec![],
-			crate_major: 0,
-			min_crate_minor: 0,
-		}]));
+		let xcm = xcm::VersionedXcm::<()>::V3(
+			vec![xcm::v3::Instruction::<()>::ExpectPallet {
+				index: 0,
+				name: vec![42; xcm_data_size],
+				module_name: vec![],
+				crate_major: 0,
+				min_crate_minor: 0,
+			}]
+			.into(),
+		);
 
 		// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
 		// or public fields, so just tuple

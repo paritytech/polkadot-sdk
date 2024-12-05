@@ -51,7 +51,7 @@ pub struct VanityCmd {
 impl VanityCmd {
 	/// Run the command
 	pub fn run(&self) -> error::Result<()> {
-		let formatted_seed = with_crypto_scheme!(
+		let formated_seed = with_crypto_scheme!(
 			self.crypto_scheme.scheme,
 			generate_key(
 				&self.pattern,
@@ -62,7 +62,7 @@ impl VanityCmd {
 		with_crypto_scheme!(
 			self.crypto_scheme.scheme,
 			print_from_uri(
-				&formatted_seed,
+				&formated_seed,
 				None,
 				self.network_scheme.network,
 				self.output_scheme.output_type,
@@ -166,6 +166,8 @@ mod tests {
 		crypto::{default_ss58_version, Ss58AddressFormatRegistry, Ss58Codec},
 		sr25519, Pair,
 	};
+	#[cfg(feature = "bench")]
+	use test::Bencher;
 
 	#[test]
 	fn vanity() {
@@ -222,5 +224,17 @@ mod tests {
 			calculate_score("Polkadot", "5GUWv4bLCchGUHJrzULXnh4JgXsMpTKRnjuXTY7Qo1Kh9uYK"),
 			0
 		);
+	}
+
+	#[cfg(feature = "bench")]
+	#[bench]
+	fn bench_paranoiac(b: &mut Bencher) {
+		b.iter(|| generate_key("polk"));
+	}
+
+	#[cfg(feature = "bench")]
+	#[bench]
+	fn bench_not_paranoiac(b: &mut Bencher) {
+		b.iter(|| generate_key("polk"));
 	}
 }

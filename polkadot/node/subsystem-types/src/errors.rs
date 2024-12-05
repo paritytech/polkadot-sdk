@@ -16,8 +16,8 @@
 
 //! Error types for the subsystem requests.
 
+use crate::JaegerError;
 use ::orchestra::OrchestraError as OverseerError;
-use fatality::fatality;
 
 /// A description of an error causing the runtime API request to be unservable.
 #[derive(thiserror::Error, Debug, Clone)]
@@ -68,20 +68,31 @@ impl core::fmt::Display for ChainApiError {
 impl std::error::Error for ChainApiError {}
 
 /// An error that may happen during Availability Recovery process.
-#[derive(PartialEq, Clone)]
-#[fatality(splitable)]
-#[allow(missing_docs)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum RecoveryError {
-	#[error("Invalid data")]
+	/// A chunk is recovered but is invalid.
 	Invalid,
 
-	#[error("Data is unavailable")]
+	/// A requested chunk is unavailable.
 	Unavailable,
 
-	#[fatal]
-	#[error("Erasure task channel closed")]
+	/// Erasure task channel closed, usually means node is shutting down.
 	ChannelClosed,
 }
+
+impl std::fmt::Display for RecoveryError {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
+		let msg = match self {
+			RecoveryError::Invalid => "Invalid",
+			RecoveryError::Unavailable => "Unavailable",
+			RecoveryError::ChannelClosed => "ChannelClosed",
+		};
+
+		write!(f, "{}", msg)
+	}
+}
+
+impl std::error::Error for RecoveryError {}
 
 /// An error type that describes faults that may happen
 ///
@@ -106,7 +117,10 @@ pub enum SubsystemError {
 	Infallible(#[from] std::convert::Infallible),
 
 	#[error(transparent)]
-	Prometheus(#[from] prometheus_endpoint::PrometheusError),
+	Prometheus(#[from] substrate_prometheus_endpoint::PrometheusError),
+
+	#[error(transparent)]
+	Jaeger(#[from] JaegerError),
 
 	#[error("Failed to {0}")]
 	Context(String),

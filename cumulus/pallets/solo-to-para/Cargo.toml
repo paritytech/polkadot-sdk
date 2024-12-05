@@ -1,34 +1,29 @@
 [package]
 name = "cumulus-pallet-solo-to-para"
-version = "0.7.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "Adds functionality to migrate from a Solo to a Parachain"
-license = "Apache-2.0"
-homepage.workspace = true
-repository.workspace = true
-
-[lints]
-workspace = true
 
 [dependencies]
-codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-sudo = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support = { path = "../../../substrate/frame/support", default-features = false}
+frame-system = { path = "../../../substrate/frame/system", default-features = false}
+pallet-sudo = { path = "../../../substrate/frame/sudo", default-features = false}
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
+sp-std = { path = "../../../substrate/primitives/std", default-features = false}
 
 # Polkadot
-polkadot-primitives = { workspace = true }
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false}
 
 # Cumulus
-cumulus-pallet-parachain-system = { workspace = true }
+cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false}
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
@@ -38,6 +33,7 @@ std = [
 	"polkadot-primitives/std",
 	"scale-info/std",
 	"sp-runtime/std",
+	"sp-std/std",
 ]
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",

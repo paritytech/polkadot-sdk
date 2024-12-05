@@ -25,5 +25,4 @@ pub mod base {
 	pub const OFFCHAIN: i32 = 5000;
 	pub const DEV: i32 = 6000;
 	pub const STATEMENT: i32 = 7000;
-	pub const MIXNET: i32 = 8000;
 }

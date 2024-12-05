@@ -66,7 +66,6 @@ pub fn expand_outer_dispatch(
 	quote! {
 		#( #query_call_part_macros )*
 
-		/// The aggregated runtime call type.
 		#[derive(
 			Clone, PartialEq, Eq,
 			#scrate::__private::codec::Encode,
@@ -125,18 +124,6 @@ pub fn expand_outer_dispatch(
 			}
 		}
 
-		impl #scrate::dispatch::CheckIfFeeless for RuntimeCall {
-			type Origin = #system_path::pallet_prelude::OriginFor<#runtime>;
-			fn is_feeless(&self, origin: &Self::Origin) -> bool {
-				match self {
-					#(
-						#pallet_attrs
-						#variant_patterns => call.is_feeless(origin),
-					)*
-				}
-			}
-		}
-
 		impl #scrate::traits::GetCallMetadata for RuntimeCall {
 			fn get_call_metadata(&self) -> #scrate::traits::CallMetadata {
 				use #scrate::traits::GetCallName;
@@ -179,7 +166,7 @@ pub fn expand_outer_dispatch(
 			type PostInfo = #scrate::dispatch::PostDispatchInfo;
 			fn dispatch(self, origin: RuntimeOrigin) -> #scrate::dispatch::DispatchResultWithPostInfo {
 				if !<Self::RuntimeOrigin as #scrate::traits::OriginTrait>::filter_call(&origin, &self) {
-					return ::core::result::Result::Err(
+					return #scrate::__private::sp_std::result::Result::Err(
 						#system_path::Error::<#runtime>::CallFiltered.into()
 					);
 				}

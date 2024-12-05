@@ -8,7 +8,6 @@
   - [Disputes Process](protocol-disputes.md)
     - [Dispute Flow](disputes-flow.md)
   - [Chain Selection and Finalization](protocol-chain-selection.md)
-  - [Validator Disabling](protocol-validator-disabling.md)
 - [Architecture Overview](architecture.md)
   - [Messaging Overview](messaging.md)
   - [PVF Pre-checking](pvf-prechecking.md)

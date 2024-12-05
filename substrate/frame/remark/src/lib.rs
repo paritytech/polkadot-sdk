@@ -28,9 +28,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-extern crate alloc;
-
-use alloc::vec::Vec;
+use sp_std::prelude::*;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;

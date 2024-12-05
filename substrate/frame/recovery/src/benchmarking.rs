@@ -20,8 +20,7 @@
 use super::*;
 
 use crate::Pallet;
-use alloc::{boxed::Box, vec, vec::Vec};
-use frame_benchmarking::v2::*;
+use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
@@ -103,55 +102,56 @@ fn insert_recovery_account<T: Config>(caller: &T::AccountId, account: &T::Accoun
 	<Recoverable<T>>::insert(&account, recovery_config);
 }
 
-#[benchmarks]
-mod benchmarks {
-	use super::*;
-
-	#[benchmark]
-	fn as_recovered() {
+benchmarks! {
+	as_recovered {
 		let caller: T::AccountId = whitelisted_caller();
 		let recovered_account: T::AccountId = account("recovered_account", 0, SEED);
 		let recovered_account_lookup = T::Lookup::unlookup(recovered_account.clone());
-		let call: <T as Config>::RuntimeCall =
-			frame_system::Call::<T>::remark { remark: vec![] }.into();
+		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
 
 		Proxy::<T>::insert(&caller, &recovered_account);
+	}: _(
+		RawOrigin::Signed(caller),
+		recovered_account_lookup,
+		Box::new(call)
+	)
 
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), recovered_account_lookup, Box::new(call))
-	}
-
-	#[benchmark]
-	fn set_recovered() {
+	set_recovered {
 		let lost: T::AccountId = whitelisted_caller();
 		let lost_lookup = T::Lookup::unlookup(lost.clone());
 		let rescuer: T::AccountId = whitelisted_caller();
 		let rescuer_lookup = T::Lookup::unlookup(rescuer.clone());
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, lost_lookup, rescuer_lookup);
-
+	}: _(
+		RawOrigin::Root,
+		lost_lookup,
+		rescuer_lookup
+	) verify {
 		assert_last_event::<T>(
-			Event::AccountRecovered { lost_account: lost, rescuer_account: rescuer }.into(),
+			Event::AccountRecovered {
+				lost_account: lost,
+				rescuer_account: rescuer,
+			}.into()
 		);
 	}
 
-	#[benchmark]
-	fn create_recovery(n: Linear<1, { T::MaxFriends::get() }>) {
+	create_recovery {
+		let n in 1 .. T::MaxFriends::get();
+
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
 		// Create friends
 		let friends = generate_friends::<T>(n);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), friends, n as u16, DEFAULT_DELAY.into());
-
+	}: _(
+		RawOrigin::Signed(caller.clone()),
+		friends,
+		n as u16,
+		DEFAULT_DELAY.into()
+	) verify {
 		assert_last_event::<T>(Event::RecoveryCreated { account: caller }.into());
 	}
 
-	#[benchmark]
-	fn initiate_recovery() {
+	initiate_recovery {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
@@ -159,22 +159,27 @@ mod benchmarks {
 		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
 
 		insert_recovery_account::<T>(&caller, &lost_account);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), lost_account_lookup);
-
+	}: _(
+		RawOrigin::Signed(caller.clone()),
+		lost_account_lookup
+	) verify {
 		assert_last_event::<T>(
-			Event::RecoveryInitiated { lost_account, rescuer_account: caller }.into(),
+			Event::RecoveryInitiated {
+				lost_account: lost_account,
+				rescuer_account: caller,
+			}.into()
 		);
 	}
 
-	#[benchmark]
-	fn vouch_recovery(n: Linear<1, { T::MaxFriends::get() }>) {
+	vouch_recovery {
+		let n in 1 .. T::MaxFriends::get();
+
 		let caller: T::AccountId = whitelisted_caller();
 		let lost_account: T::AccountId = account("lost_account", 0, SEED);
 		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
 		let rescuer_account: T::AccountId = account("rescuer_account", 0, SEED);
 		let rescuer_account_lookup = T::Lookup::unlookup(rescuer_account.clone());
+
 
 		// Create friends
 		let friends = add_caller_and_generate_friends::<T>(caller.clone(), n);
@@ -185,7 +190,7 @@ mod benchmarks {
 
 		let recovery_config = RecoveryConfig {
 			delay_period: DEFAULT_DELAY.into(),
-			deposit: total_deposit,
+			deposit: total_deposit.clone(),
 			friends: bounded_friends.clone(),
 			threshold: n as u16,
 		};
@@ -206,15 +211,23 @@ mod benchmarks {
 		// Create the active recovery storage item
 		<ActiveRecoveries<T>>::insert(&lost_account, &rescuer_account, recovery_status);
 
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), lost_account_lookup, rescuer_account_lookup);
+	}: _(
+		RawOrigin::Signed(caller.clone()),
+		lost_account_lookup,
+		rescuer_account_lookup
+	) verify {
 		assert_last_event::<T>(
-			Event::RecoveryVouched { lost_account, rescuer_account, sender: caller }.into(),
+			Event::RecoveryVouched {
+				lost_account: lost_account,
+				rescuer_account: rescuer_account,
+				sender: caller,
+			}.into()
 		);
 	}
 
-	#[benchmark]
-	fn claim_recovery(n: Linear<1, { T::MaxFriends::get() }>) {
+	claim_recovery {
+		let n in 1 .. T::MaxFriends::get();
+
 		let caller: T::AccountId = whitelisted_caller();
 		let lost_account: T::AccountId = account("lost_account", 0, SEED);
 		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
@@ -230,7 +243,7 @@ mod benchmarks {
 
 		let recovery_config = RecoveryConfig {
 			delay_period: 0u32.into(),
-			deposit: total_deposit,
+			deposit: total_deposit.clone(),
 			friends: bounded_friends.clone(),
 			threshold: n as u16,
 		};
@@ -250,19 +263,24 @@ mod benchmarks {
 
 		// Create the active recovery storage item
 		<ActiveRecoveries<T>>::insert(&lost_account, &caller, recovery_status);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), lost_account_lookup);
+	}: _(
+		RawOrigin::Signed(caller.clone()),
+		lost_account_lookup
+	) verify {
 		assert_last_event::<T>(
-			Event::AccountRecovered { lost_account, rescuer_account: caller }.into(),
+			Event::AccountRecovered {
+				lost_account: lost_account,
+				rescuer_account: caller,
+			}.into()
 		);
 	}
 
-	#[benchmark]
-	fn close_recovery(n: Linear<1, { T::MaxFriends::get() }>) {
+	close_recovery {
 		let caller: T::AccountId = whitelisted_caller();
 		let rescuer_account: T::AccountId = account("rescuer_account", 0, SEED);
 		let rescuer_account_lookup = T::Lookup::unlookup(rescuer_account.clone());
+
+		let n in 1 .. T::MaxFriends::get();
 
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		T::Currency::make_free_balance_be(&rescuer_account, BalanceOf::<T>::max_value());
@@ -276,7 +294,7 @@ mod benchmarks {
 
 		let recovery_config = RecoveryConfig {
 			delay_period: DEFAULT_DELAY.into(),
-			deposit: total_deposit,
+			deposit: total_deposit.clone(),
 			friends: bounded_friends.clone(),
 			threshold: n as u16,
 		};
@@ -296,16 +314,21 @@ mod benchmarks {
 
 		// Create the active recovery storage item
 		<ActiveRecoveries<T>>::insert(&caller, &rescuer_account, recovery_status);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), rescuer_account_lookup);
+	}: _(
+		RawOrigin::Signed(caller.clone()),
+		rescuer_account_lookup
+	) verify {
 		assert_last_event::<T>(
-			Event::RecoveryClosed { lost_account: caller, rescuer_account }.into(),
+			Event::RecoveryClosed {
+				lost_account: caller,
+				rescuer_account: rescuer_account,
+			}.into()
 		);
 	}
 
-	#[benchmark]
-	fn remove_recovery(n: Linear<1, { T::MaxFriends::get() }>) {
+	remove_recovery {
+		let n in 1 .. T::MaxFriends::get();
+
 		let caller: T::AccountId = whitelisted_caller();
 
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
@@ -319,7 +342,7 @@ mod benchmarks {
 
 		let recovery_config = RecoveryConfig {
 			delay_period: DEFAULT_DELAY.into(),
-			deposit: total_deposit,
+			deposit: total_deposit.clone(),
 			friends: bounded_friends.clone(),
 			threshold: n as u16,
 		};
@@ -329,14 +352,17 @@ mod benchmarks {
 
 		// Reserve deposit for recovery
 		T::Currency::reserve(&caller, total_deposit).unwrap();
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()));
-		assert_last_event::<T>(Event::RecoveryRemoved { lost_account: caller }.into());
+	}: _(
+		RawOrigin::Signed(caller.clone())
+	) verify {
+		assert_last_event::<T>(
+			Event::RecoveryRemoved {
+				lost_account: caller
+			}.into()
+		);
 	}
 
-	#[benchmark]
-	fn cancel_recovered() -> Result<(), BenchmarkError> {
+	cancel_recovered {
 		let caller: T::AccountId = whitelisted_caller();
 		let account: T::AccountId = account("account", 0, SEED);
 		let account_lookup = T::Lookup::unlookup(account.clone());
@@ -346,12 +372,10 @@ mod benchmarks {
 		frame_system::Pallet::<T>::inc_consumers(&caller)?;
 
 		Proxy::<T>::insert(&caller, &account);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), account_lookup);
-
-		Ok(())
-	}
+	}: _(
+		RawOrigin::Signed(caller),
+		account_lookup
+	)
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

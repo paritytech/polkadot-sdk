@@ -38,9 +38,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
-use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
@@ -53,6 +50,7 @@ use sp_runtime::{
 	traits::{IsMember, Member, SaturatedConversion, Saturating, Zero},
 	RuntimeAppPublic,
 };
+use sp_std::prelude::*;
 
 pub mod migrations;
 mod mock;
@@ -68,7 +66,10 @@ const LOG_TARGET: &str = "runtime::aura";
 ///
 /// This was the default behavior of the Aura pallet and may be used for
 /// backwards compatibility.
-pub struct MinimumPeriodTimesTwo<T>(core::marker::PhantomData<T>);
+///
+/// Note that this type is likely not useful without the `experimental`
+/// feature.
+pub struct MinimumPeriodTimesTwo<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: pallet_timestamp::Config> Get<T::Moment> for MinimumPeriodTimesTwo<T> {
 	fn get() -> T::Moment {
@@ -116,12 +117,15 @@ pub mod pallet {
 		/// The effective value of this type should not change while the chain is running.
 		///
 		/// For backwards compatibility either use [`MinimumPeriodTimesTwo`] or a const.
-		#[pallet::constant]
+		///
+		/// This associated type is only present when compiled with the `experimental`
+		/// feature.
+		#[cfg(feature = "experimental")]
 		type SlotDuration: Get<<Self as pallet_timestamp::Config>::Moment>;
 	}
 
 	#[pallet::pallet]
-	pub struct Pallet<T>(core::marker::PhantomData<T>);
+	pub struct Pallet<T>(sp_std::marker::PhantomData<T>);
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -164,14 +168,16 @@ pub mod pallet {
 
 	/// The current authority set.
 	#[pallet::storage]
-	pub type Authorities<T: Config> =
+	#[pallet::getter(fn authorities)]
+	pub(super) type Authorities<T: Config> =
 		StorageValue<_, BoundedVec<T::AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	/// The current slot of this block.
 	///
 	/// This will be set in `on_initialize`.
 	#[pallet::storage]
-	pub type CurrentSlot<T: Config> = StorageValue<_, Slot, ValueQuery>;
+	#[pallet::getter(fn current_slot)]
+	pub(super) type CurrentSlot<T: Config> = StorageValue<_, Slot, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -224,11 +230,6 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Return current authorities length.
-	pub fn authorities_len() -> usize {
-		Authorities::<T>::decode_len().unwrap_or(0)
-	}
-
 	/// Get the current slot from the pre-runtime digests.
 	fn current_slot_from_digests() -> Option<Slot> {
 		let digest = frame_system::Pallet::<T>::digest();
@@ -244,7 +245,17 @@ impl<T: Config> Pallet<T> {
 
 	/// Determine the Aura slot-duration based on the Timestamp module configuration.
 	pub fn slot_duration() -> T::Moment {
-		T::SlotDuration::get()
+		#[cfg(feature = "experimental")]
+		{
+			T::SlotDuration::get()
+		}
+
+		#[cfg(not(feature = "experimental"))]
+		{
+			// we double the minimum block-period so each author can always propose within
+			// the majority of its slot.
+			<T as pallet_timestamp::Config>::MinimumPeriod::get().saturating_mul(2u32.into())
+		}
 	}
 
 	/// Ensure the correctness of the state of this pallet.
@@ -319,7 +330,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		// instant changes
 		if changed {
 			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
-			let last_authorities = Authorities::<T>::get();
+			let last_authorities = Self::authorities();
 			if last_authorities != next_authorities {
 				if next_authorities.len() as u32 > T::MaxAuthorities::get() {
 					log::warn!(
@@ -352,7 +363,7 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 		for (id, mut data) in digests.into_iter() {
 			if id == AURA_ENGINE_ID {
 				let slot = Slot::decode(&mut data).ok()?;
-				let author_index = *slot % Self::authorities_len() as u64;
+				let author_index = *slot % Self::authorities().len() as u64;
 				return Some(author_index as u32)
 			}
 		}
@@ -364,7 +375,7 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 /// We can not implement `FindAuthor` twice, because the compiler does not know if
 /// `u32 == T::AuthorityId` and thus, prevents us to implement the trait twice.
 #[doc(hidden)]
-pub struct FindAccountFromAuthorIndex<T, Inner>(core::marker::PhantomData<(T, Inner)>);
+pub struct FindAccountFromAuthorIndex<T, Inner>(sp_std::marker::PhantomData<(T, Inner)>);
 
 impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::AuthorityId>
 	for FindAccountFromAuthorIndex<T, Inner>
@@ -375,7 +386,7 @@ impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::AuthorityId>
 	{
 		let i = Inner::find_author(digests)?;
 
-		let validators = Authorities::<T>::get();
+		let validators = <Pallet<T>>::authorities();
 		validators.get(i as usize).cloned()
 	}
 }
@@ -385,7 +396,7 @@ pub type AuraAuthorId<T> = FindAccountFromAuthorIndex<T, Pallet<T>>;
 
 impl<T: Config> IsMember<T::AuthorityId> for Pallet<T> {
 	fn is_member(authority_id: &T::AuthorityId) -> bool {
-		Authorities::<T>::get().iter().any(|id| id == authority_id)
+		Self::authorities().iter().any(|id| id == authority_id)
 	}
 }
 
@@ -397,12 +408,9 @@ impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T> {
 		let timestamp_slot = moment / slot_duration;
 		let timestamp_slot = Slot::from(timestamp_slot.saturated_into::<u64>());
 
-		assert_eq!(
-			CurrentSlot::<T>::get(),
-			timestamp_slot,
-			"Timestamp slot must match `CurrentSlot`. This likely means that the configured block \
-			time in the node and/or rest of the runtime is not compatible with Aura's \
-			`SlotDuration`",
+		assert!(
+			CurrentSlot::<T>::get() == timestamp_slot,
+			"Timestamp slot must match `CurrentSlot`"
 		);
 	}
 }

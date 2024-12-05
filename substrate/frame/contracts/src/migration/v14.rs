@@ -26,8 +26,6 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, CodeHash, Config, Determinism, HoldReason, Pallet, Weight, LOG_TARGET,
 };
-#[cfg(feature = "try-runtime")]
-use alloc::collections::btree_map::BTreeMap;
 use codec::{Decode, Encode};
 #[cfg(feature = "try-runtime")]
 use environmental::Vec;
@@ -37,15 +35,16 @@ use frame_support::{
 	pallet_prelude::*,
 	storage_alias,
 	traits::{fungible::MutateHold, ReservableCurrency},
-	weights::WeightMeter,
 	DefaultNoBound,
 };
 use sp_core::hexdisplay::HexDisplay;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, Saturating};
+#[cfg(feature = "try-runtime")]
+use sp_std::collections::btree_map::BTreeMap;
 
-mod v13 {
+mod old {
 	use super::*;
 
 	pub type BalanceOf<T, OldCurrency> = <OldCurrency as frame_support::traits::Currency<
@@ -62,7 +61,7 @@ mod v13 {
 	{
 		pub owner: AccountIdOf<T>,
 		#[codec(compact)]
-		pub deposit: v13::BalanceOf<T, OldCurrency>,
+		pub deposit: old::BalanceOf<T, OldCurrency>,
 		#[codec(compact)]
 		pub refcount: u64,
 		pub determinism: Determinism,
@@ -80,21 +79,21 @@ where
 	T: Config,
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId> + 'static,
 {
-	use alloc::vec;
 	use sp_runtime::traits::Hash;
+	use sp_std::vec;
 
 	let len = T::MaxCodeLen::get();
 	let code = vec![42u8; len as usize];
 	let hash = T::Hashing::hash(&code);
 
-	let info = v13::CodeInfo {
+	let info = old::CodeInfo {
 		owner: account,
 		deposit: 10_000u32.into(),
 		refcount: u64::MAX,
 		determinism: Determinism::Enforced,
 		code_len: len,
 	};
-	v13::CodeInfoOf::<T, OldCurrency>::insert(hash, info);
+	old::CodeInfoOf::<T, OldCurrency>::insert(hash, info);
 }
 
 #[cfg(feature = "try-runtime")]
@@ -106,9 +105,9 @@ where
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>,
 {
 	/// Total reserved balance as code upload deposit for the owner.
-	reserved: v13::BalanceOf<T, OldCurrency>,
+	reserved: old::BalanceOf<T, OldCurrency>,
 	/// Total balance of the owner.
-	total: v13::BalanceOf<T, OldCurrency>,
+	total: old::BalanceOf<T, OldCurrency>,
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, DefaultNoBound)]
@@ -133,13 +132,13 @@ where
 		T::WeightInfo::v14_migration_step()
 	}
 
-	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
+	fn step(&mut self) -> (IsFinished, Weight) {
 		let mut iter = if let Some(last_hash) = self.last_code_hash.take() {
-			v13::CodeInfoOf::<T, OldCurrency>::iter_from(
-				v13::CodeInfoOf::<T, OldCurrency>::hashed_key_for(last_hash),
+			old::CodeInfoOf::<T, OldCurrency>::iter_from(
+				old::CodeInfoOf::<T, OldCurrency>::hashed_key_for(last_hash),
 			)
 		} else {
-			v13::CodeInfoOf::<T, OldCurrency>::iter()
+			old::CodeInfoOf::<T, OldCurrency>::iter()
 		};
 
 		if let Some((hash, code_info)) = iter.next() {
@@ -186,18 +185,16 @@ where
 			});
 
 			self.last_code_hash = Some(hash);
-			meter.consume(T::WeightInfo::v14_migration_step());
-			IsFinished::No
+			(IsFinished::No, T::WeightInfo::v14_migration_step())
 		} else {
 			log::debug!(target: LOG_TARGET, "No more code upload deposit to migrate");
-			meter.consume(T::WeightInfo::v14_migration_step());
-			IsFinished::Yes
+			(IsFinished::Yes, T::WeightInfo::v14_migration_step())
 		}
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade_step() -> Result<Vec<u8>, TryRuntimeError> {
-		let info: Vec<_> = v13::CodeInfoOf::<T, OldCurrency>::iter().collect();
+		let info: Vec<_> = old::CodeInfoOf::<T, OldCurrency>::iter().collect();
 
 		let mut owner_balance_allocation =
 			BTreeMap::<AccountIdOf<T>, BalanceAllocation<T, OldCurrency>>::new();

@@ -1,7 +1,0 @@
-Description: While relayer is active, we only sync mandatory and required Rococo (and Rococo BH) headers to Westend BH.
-Network: {{ENV_PATH}}/bridge_hub_westend_local_network.toml
-Creds: config
-
-# ensure that relayer won't sync any extra headers while delivering messages and confirmations
-bridge-hub-westend-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/only-required-headers-synced-when-active.js with "500,rococo-at-westend" within 600 seconds
-

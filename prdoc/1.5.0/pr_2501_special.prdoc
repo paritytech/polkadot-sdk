@@ -1,9 +1,0 @@
-title: "Staking: `chill_other` takes stash instead of controller"
-author: rossbulat
-topic: Pallets
-
-doc:
-  - audience: Runtime Dev
-    description: n/a
-
-crates: []

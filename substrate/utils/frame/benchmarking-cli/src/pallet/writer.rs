@@ -28,10 +28,7 @@ use itertools::Itertools;
 use serde::Serialize;
 
 use crate::{
-	pallet::{
-		command::{PovEstimationMode, PovModesMap},
-		types::{ComponentRange, ComponentRangeMap},
-	},
+	pallet::command::{ComponentRange, PovEstimationMode, PovModesMap},
 	shared::UnderscoreHelper,
 	PalletCmd,
 };
@@ -135,7 +132,7 @@ fn io_error(s: &str) -> std::io::Error {
 fn map_results(
 	batches: &[BenchmarkBatchSplitResults],
 	storage_info: &[StorageInfo],
-	component_ranges: &ComponentRangeMap,
+	component_ranges: &HashMap<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>,
 	pov_modes: PovModesMap,
 	default_pov_mode: PovEstimationMode,
 	analysis_choice: &AnalysisChoice,
@@ -156,8 +153,8 @@ fn map_results(
 			continue
 		}
 
-		let pallet_name = String::from_utf8(batch.pallet.clone()).unwrap();
-		let instance_name = String::from_utf8(batch.instance.clone()).unwrap();
+		let pallet_string = String::from_utf8(batch.pallet.clone()).unwrap();
+		let instance_string = String::from_utf8(batch.instance.clone()).unwrap();
 		let benchmark_data = get_benchmark_data(
 			batch,
 			storage_info,
@@ -169,7 +166,7 @@ fn map_results(
 			worst_case_map_values,
 			additional_trie_layers,
 		);
-		let pallet_benchmarks = all_benchmarks.entry((pallet_name, instance_name)).or_default();
+		let pallet_benchmarks = all_benchmarks.entry((pallet_string, instance_string)).or_default();
 		pallet_benchmarks.push(benchmark_data);
 	}
 	Ok(all_benchmarks)
@@ -191,7 +188,7 @@ fn get_benchmark_data(
 	batch: &BenchmarkBatchSplitResults,
 	storage_info: &[StorageInfo],
 	// Per extrinsic component ranges.
-	component_ranges: &ComponentRangeMap,
+	component_ranges: &HashMap<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>,
 	pov_modes: PovModesMap,
 	default_pov_mode: PovEstimationMode,
 	analysis_choice: &AnalysisChoice,
@@ -210,8 +207,6 @@ fn get_benchmark_data(
 		AnalysisChoice::MedianSlopes => Analysis::median_slopes,
 		AnalysisChoice::Max => Analysis::max,
 	};
-	let pallet = String::from_utf8(batch.pallet.clone()).unwrap();
-	let benchmark = String::from_utf8(batch.benchmark.clone()).unwrap();
 
 	let extrinsic_time = analysis_function(&batch.time_results, BenchmarkSelector::ExtrinsicTime)
 		.expect("analysis function should return an extrinsic time for valid inputs");
@@ -287,7 +282,10 @@ fn get_benchmark_data(
 	// We add additional comments showing which storage items were touched.
 	// We find the worst case proof size, and use that as the final proof size result.
 	let mut storage_per_prefix = HashMap::<Vec<u8>, Vec<BenchmarkResult>>::new();
-	let pov_mode = pov_modes.get(&(pallet.clone(), benchmark.clone())).cloned().unwrap_or_default();
+	let pov_mode = pov_modes
+		.get(&(batch.pallet.clone(), batch.benchmark.clone()))
+		.cloned()
+		.unwrap_or_default();
 	let comments = process_storage_results(
 		&mut storage_per_prefix,
 		&batch.db_results,
@@ -353,12 +351,12 @@ fn get_benchmark_data(
 		.collect::<Vec<_>>();
 
 	let component_ranges = component_ranges
-		.get(&(pallet.clone(), benchmark.clone()))
+		.get(&(batch.pallet.clone(), batch.benchmark.clone()))
 		.map(|c| c.clone())
 		.unwrap_or_default();
 
 	BenchmarkData {
-		name: benchmark,
+		name: String::from_utf8(batch.benchmark.clone()).unwrap(),
 		components,
 		base_weight: extrinsic_time.base,
 		base_reads: reads.base,
@@ -380,7 +378,7 @@ fn get_benchmark_data(
 pub(crate) fn write_results(
 	batches: &[BenchmarkBatchSplitResults],
 	storage_info: &[StorageInfo],
-	component_ranges: &HashMap<(String, String), Vec<ComponentRange>>,
+	component_ranges: &HashMap<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>,
 	pov_modes: PovModesMap,
 	default_pov_mode: PovEstimationMode,
 	path: &PathBuf,
@@ -484,9 +482,7 @@ pub(crate) fn write_results(
 			benchmarks: results.clone(),
 		};
 
-		let mut output_file = fs::File::create(&file_path).map_err(|e| {
-			format!("Could not write weight file to: {:?}. Error: {:?}", &file_path, e)
-		})?;
+		let mut output_file = fs::File::create(&file_path)?;
 		handlebars
 			.render_template_to_write(&template, &hbs_data, &mut output_file)
 			.map_err(|e| io_error(&e.to_string()))?;
@@ -575,22 +571,19 @@ pub(crate) fn process_storage_results(
 
 			let mut prefix_result = result.clone();
 			let key_info = storage_info_map.get(&prefix);
-			let pallet_name = match key_info {
-				Some(k) => String::from_utf8(k.pallet_name.clone()).expect("encoded from string"),
-				None => "".to_string(),
-			};
-			let storage_name = match key_info {
-				Some(k) => String::from_utf8(k.storage_name.clone()).expect("encoded from string"),
-				None => "".to_string(),
-			};
 			let max_size = key_info.and_then(|k| k.max_size);
 
 			let override_pov_mode = match key_info {
-				Some(_) => {
+				Some(StorageInfo { pallet_name, storage_name, .. }) => {
+					let pallet_name =
+						String::from_utf8(pallet_name.clone()).expect("encoded from string");
+					let storage_name =
+						String::from_utf8(storage_name.clone()).expect("encoded from string");
+
 					// Is there an override for the storage key?
-					pov_modes.get(&(pallet_name.clone(), storage_name.clone())).or(
+					pov_modes.get(&(pallet_name.clone(), storage_name)).or(
 						// .. or for the storage prefix?
-						pov_modes.get(&(pallet_name.clone(), "ALL".to_string())).or(
+						pov_modes.get(&(pallet_name, "ALL".to_string())).or(
 							// .. or for the benchmark?
 							pov_modes.get(&("ALL".to_string(), "ALL".to_string())),
 						),
@@ -669,10 +662,15 @@ pub(crate) fn process_storage_results(
 			// writes.
 			if !is_prefix_identified {
 				match key_info {
-					Some(_) => {
+					Some(key_info) => {
 						let comment = format!(
 							"Storage: `{}::{}` (r:{} w:{})",
-							pallet_name, storage_name, reads, writes,
+							String::from_utf8(key_info.pallet_name.clone())
+								.expect("encoded from string"),
+							String::from_utf8(key_info.storage_name.clone())
+								.expect("encoded from string"),
+							reads,
+							writes,
 						);
 						comments.push(comment)
 					},
@@ -700,7 +698,11 @@ pub(crate) fn process_storage_results(
 						) {
 							Some(new_pov) => {
 								let comment = format!(
-									"Proof: `{pallet_name}::{storage_name}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)",
+									"Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)",
+									String::from_utf8(key_info.pallet_name.clone())
+										.expect("encoded from string"),
+									String::from_utf8(key_info.storage_name.clone())
+										.expect("encoded from string"),
 									key_info.max_values,
 									key_info.max_size,
 									new_pov,
@@ -709,9 +711,13 @@ pub(crate) fn process_storage_results(
 								comments.push(comment)
 							},
 							None => {
+								let pallet = String::from_utf8(key_info.pallet_name.clone())
+									.expect("encoded from string");
+								let item = String::from_utf8(key_info.storage_name.clone())
+									.expect("encoded from string");
 								let comment = format!(
 									"Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, mode: `{:?}`)",
-									pallet_name, storage_name, key_info.max_values, key_info.max_size,
+									pallet, item, key_info.max_values, key_info.max_size,
 									used_pov_mode,
 								);
 								comments.push(comment);
@@ -773,7 +779,6 @@ fn worst_case_pov(
 
 /// A simple match statement which outputs the log 16 of some value.
 fn easy_log_16(i: u32) -> u32 {
-	#[allow(clippy::redundant_guards)]
 	match i {
 		i if i == 0 => 0,
 		i if i <= 16 => 1,
@@ -875,10 +880,10 @@ mod test {
 
 	fn test_pov_mode() -> PovModesMap {
 		let mut map = PovModesMap::new();
-		map.entry(("scheduler".into(), "first_benchmark".into()))
+		map.entry((b"scheduler".to_vec(), b"first_benchmark".to_vec()))
 			.or_default()
 			.insert(("scheduler".into(), "mel".into()), PovEstimationMode::MaxEncodedLen);
-		map.entry(("scheduler".into(), "first_benchmark".into()))
+		map.entry((b"scheduler".to_vec(), b"first_benchmark".to_vec()))
 			.or_default()
 			.insert(("scheduler".into(), "measured".into()), PovEstimationMode::Measured);
 		map

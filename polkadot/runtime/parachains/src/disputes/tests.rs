@@ -29,7 +29,7 @@ use frame_support::{
 	traits::{OnFinalize, OnInitialize},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::BlockNumber;
+use primitives::BlockNumber;
 use sp_core::{crypto::CryptoType, Pair};
 
 const VOTE_FOR: VoteKind = VoteKind::ExplicitValid;
@@ -37,7 +37,7 @@ const VOTE_AGAINST: VoteKind = VoteKind::Invalid;
 const VOTE_BACKING: VoteKind = VoteKind::Backing;
 
 fn filter_dispute_set(stmts: MultiDisputeStatementSet) -> CheckedMultiDisputeStatementSet {
-	let config = configuration::ActiveConfig::<Test>::get();
+	let config = <configuration::Pallet<Test>>::config();
 	let post_conclusion_acceptance_period = config.dispute_post_conclusion_acceptance_period;
 
 	stmts
@@ -1500,8 +1500,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_1,
-		&signed_1,
-		true,
+		&signed_1
 	)
 	.is_ok());
 	assert!(check_signature(
@@ -1509,8 +1508,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_1,
-		&signed_1,
-		true
+		&signed_1
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1518,8 +1516,7 @@ fn test_check_signature() {
 		wrong_candidate_hash,
 		session,
 		&statement_1,
-		&signed_1,
-		true,
+		&signed_1
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1527,8 +1524,7 @@ fn test_check_signature() {
 		candidate_hash,
 		wrong_session,
 		&statement_1,
-		&signed_1,
-		true
+		&signed_1
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1536,8 +1532,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_2,
-		&signed_1,
-		true,
+		&signed_1
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1545,8 +1540,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_3,
-		&signed_1,
-		true
+		&signed_1
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1554,8 +1548,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_4,
-		&signed_1,
-		true
+		&signed_1
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1563,8 +1556,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_5,
-		&signed_1,
-		true,
+		&signed_1
 	)
 	.is_err());
 
@@ -1573,8 +1565,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_2,
-		&signed_2,
-		true,
+		&signed_2
 	)
 	.is_ok());
 	assert!(check_signature(
@@ -1582,8 +1573,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_2,
-		&signed_2,
-		true,
+		&signed_2
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1591,8 +1581,7 @@ fn test_check_signature() {
 		wrong_candidate_hash,
 		session,
 		&statement_2,
-		&signed_2,
-		true,
+		&signed_2
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1600,8 +1589,7 @@ fn test_check_signature() {
 		candidate_hash,
 		wrong_session,
 		&statement_2,
-		&signed_2,
-		true
+		&signed_2
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1609,8 +1597,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&wrong_statement_2,
-		&signed_2,
-		true,
+		&signed_2
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1618,8 +1605,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_1,
-		&signed_2,
-		true,
+		&signed_2
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1627,8 +1613,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_3,
-		&signed_2,
-		true,
+		&signed_2
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1636,8 +1621,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_4,
-		&signed_2,
-		true,
+		&signed_2
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1645,8 +1629,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_5,
-		&signed_2,
-		true,
+		&signed_2
 	)
 	.is_err());
 
@@ -1655,8 +1638,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_3,
-		&signed_3,
-		true,
+		&signed_3
 	)
 	.is_ok());
 	assert!(check_signature(
@@ -1664,8 +1646,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_3,
-		&signed_3,
-		true,
+		&signed_3
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1673,8 +1654,7 @@ fn test_check_signature() {
 		wrong_candidate_hash,
 		session,
 		&statement_3,
-		&signed_3,
-		true,
+		&signed_3
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1682,8 +1662,7 @@ fn test_check_signature() {
 		candidate_hash,
 		wrong_session,
 		&statement_3,
-		&signed_3,
-		true,
+		&signed_3
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1691,8 +1670,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&wrong_statement_3,
-		&signed_3,
-		true,
+		&signed_3
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1700,8 +1678,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_1,
-		&signed_3,
-		true,
+		&signed_3
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1709,8 +1686,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_2,
-		&signed_3,
-		true
+		&signed_3
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1718,8 +1694,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_4,
-		&signed_3,
-		true,
+		&signed_3
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1727,8 +1702,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_5,
-		&signed_3,
-		true,
+		&signed_3
 	)
 	.is_err());
 
@@ -1737,8 +1711,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_4,
-		&signed_4,
-		true,
+		&signed_4
 	)
 	.is_ok());
 	assert!(check_signature(
@@ -1746,8 +1719,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_4,
-		&signed_4,
-		true,
+		&signed_4
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1755,8 +1727,7 @@ fn test_check_signature() {
 		wrong_candidate_hash,
 		session,
 		&statement_4,
-		&signed_4,
-		true,
+		&signed_4
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1764,8 +1735,7 @@ fn test_check_signature() {
 		candidate_hash,
 		wrong_session,
 		&statement_4,
-		&signed_4,
-		true,
+		&signed_4
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1773,8 +1743,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_1,
-		&signed_4,
-		true,
+		&signed_4
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1782,8 +1751,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_2,
-		&signed_4,
-		true,
+		&signed_4
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1791,8 +1759,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_3,
-		&signed_4,
-		true,
+		&signed_4
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1800,8 +1767,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_5,
-		&signed_4,
-		true,
+		&signed_4
 	)
 	.is_err());
 
@@ -1810,8 +1776,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_5,
-		&signed_5,
-		true,
+		&signed_5
 	)
 	.is_ok());
 	assert!(check_signature(
@@ -1819,8 +1784,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_5,
-		&signed_5,
-		true,
+		&signed_5
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1828,8 +1792,7 @@ fn test_check_signature() {
 		wrong_candidate_hash,
 		session,
 		&statement_5,
-		&signed_5,
-		true,
+		&signed_5
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1837,8 +1800,7 @@ fn test_check_signature() {
 		candidate_hash,
 		wrong_session,
 		&statement_5,
-		&signed_5,
-		true,
+		&signed_5
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1846,8 +1808,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_1,
-		&signed_5,
-		true,
+		&signed_5
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1855,8 +1816,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_2,
-		&signed_5,
-		true,
+		&signed_5
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1864,8 +1824,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_3,
-		&signed_5,
-		true,
+		&signed_5
 	)
 	.is_err());
 	assert!(check_signature(
@@ -1873,8 +1832,7 @@ fn test_check_signature() {
 		candidate_hash,
 		session,
 		&statement_4,
-		&signed_5,
-		true,
+		&signed_5
 	)
 	.is_err());
 }
@@ -1985,7 +1943,7 @@ fn deduplication_and_sorting_works() {
 fn apply_filter_all<T: Config, I: IntoIterator<Item = DisputeStatementSet>>(
 	sets: I,
 ) -> Vec<CheckedDisputeStatementSet> {
-	let config = configuration::ActiveConfig::<T>::get();
+	let config = <configuration::Pallet<T>>::config();
 	let post_conclusion_acceptance_period = config.dispute_post_conclusion_acceptance_period;
 
 	let mut acc = Vec::<CheckedDisputeStatementSet>::new();
@@ -2203,7 +2161,7 @@ fn filter_removes_concluded_ancient() {
 		let candidate_hash_a = CandidateHash(sp_core::H256::repeat_byte(1));
 		let candidate_hash_b = CandidateHash(sp_core::H256::repeat_byte(2));
 
-		Disputes::<Test>::insert(
+		<Disputes<Test>>::insert(
 			&1,
 			&candidate_hash_a,
 			DisputeState {
@@ -2214,7 +2172,7 @@ fn filter_removes_concluded_ancient() {
 			},
 		);
 
-		Disputes::<Test>::insert(
+		<Disputes<Test>>::insert(
 			&1,
 			&candidate_hash_b,
 			DisputeState {

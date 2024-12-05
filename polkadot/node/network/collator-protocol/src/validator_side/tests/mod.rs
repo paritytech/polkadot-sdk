@@ -17,16 +17,10 @@
 use super::*;
 use assert_matches::assert_matches;
 use futures::{executor, future, Future};
-use sc_network::ProtocolName;
 use sp_core::{crypto::Pair, Encode};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
-use std::{
-	collections::{BTreeMap, VecDeque},
-	iter,
-	sync::Arc,
-	time::Duration,
-};
+use std::{iter, sync::Arc, time::Duration};
 
 use polkadot_node_network_protocol::{
 	our_view,
@@ -42,10 +36,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	node_features,
-	vstaging::{CandidateReceiptV2 as CandidateReceipt, CoreState, OccupiedCore},
-	CollatorPair, CoreIndex, GroupIndex, GroupRotationInfo, HeadData, NodeFeatures,
-	PersistedValidationData, ScheduledCore, ValidatorId, ValidatorIndex,
+	CandidateReceipt, CollatorPair, CoreState, GroupIndex, GroupRotationInfo, HeadData,
+	OccupiedCore, PersistedValidationData, ScheduledCore, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_descriptor, dummy_candidate_receipt_bad_sig, dummy_hash,
@@ -78,9 +70,6 @@ struct TestState {
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	group_rotation_info: GroupRotationInfo,
 	cores: Vec<CoreState>,
-	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
-	node_features: NodeFeatures,
-	session_index: SessionIndex,
 }
 
 impl Default for TestState {
@@ -114,7 +103,7 @@ impl Default for TestState {
 			CoreState::Scheduled(ScheduledCore { para_id: chain_ids[0], collator: None }),
 			CoreState::Free,
 			CoreState::Occupied(OccupiedCore {
-				next_up_on_available: Some(ScheduledCore { para_id: chain_ids[1], collator: None }),
+				next_up_on_available: None,
 				occupied_since: 0,
 				time_out_at: 1,
 				next_up_on_time_out: None,
@@ -125,19 +114,10 @@ impl Default for TestState {
 					let mut d = dummy_candidate_descriptor(dummy_hash());
 					d.para_id = chain_ids[1];
 
-					d.into()
+					d
 				},
 			}),
 		];
-
-		let mut claim_queue = BTreeMap::new();
-		claim_queue.insert(CoreIndex(0), [chain_ids[0]].into_iter().collect());
-		claim_queue.insert(CoreIndex(1), VecDeque::new());
-		claim_queue.insert(CoreIndex(2), [chain_ids[1]].into_iter().collect());
-
-		let mut node_features = NodeFeatures::EMPTY;
-		node_features.resize(node_features::FeatureIndex::CandidateReceiptV2 as usize + 1, false);
-		node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
 
 		Self {
 			chain_ids,
@@ -147,15 +127,11 @@ impl Default for TestState {
 			validator_groups,
 			group_rotation_info,
 			cores,
-			claim_queue,
-			node_features,
-			session_index: 1,
 		}
 	}
 }
 
-type VirtualOverseer =
-	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
+type VirtualOverseer = test_helpers::TestSubsystemContextHandle<CollatorProtocolMessage>;
 
 struct TestHarness {
 	virtual_overseer: VirtualOverseer,
@@ -166,12 +142,15 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	reputation: ReputationAggregator,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	sp_tracing::init_for_tests();
+	let _ = env_logger::builder()
+		.is_test(true)
+		.filter(Some("polkadot_collator_protocol"), log::LevelFilter::Trace)
+		.filter(Some(LOG_TARGET), log::LevelFilter::Trace)
+		.try_init();
 
 	let pool = sp_core::testing::TaskExecutor::new();
 
-	let (context, virtual_overseer) =
-		polkadot_node_subsystem_test_helpers::make_subsystem_context(pool.clone());
+	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
 
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
 	Keystore::sr25519_generate_new(
@@ -246,44 +225,10 @@ async fn overseer_signal(overseer: &mut VirtualOverseer, signal: OverseerSignal)
 		.expect(&format!("{:?} is more than enough for sending signals.", TIMEOUT));
 }
 
-async fn respond_to_runtime_api_queries(
+async fn respond_to_core_info_queries(
 	virtual_overseer: &mut VirtualOverseer,
 	test_state: &TestState,
-	hash: Hash,
 ) {
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
-			RuntimeApiRequest::SessionIndexForChild(tx)
-		)) => {
-			assert_eq!(rp, hash);
-			tx.send(Ok(test_state.session_index)).unwrap();
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
-			RuntimeApiRequest::AsyncBackingParams(tx)
-		)) => {
-			assert_eq!(rp, hash);
-			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
-			RuntimeApiRequest::NodeFeatures(_, tx)
-		)) => {
-			assert_eq!(rp, hash);
-			tx.send(Ok(test_state.node_features.clone())).unwrap();
-		}
-	);
-
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -297,10 +242,9 @@ async fn respond_to_runtime_api_queries(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
+			_,
 			RuntimeApiRequest::ValidatorGroups(tx),
 		)) => {
-			assert_eq!(rp, hash);
 			let _ = tx.send(Ok((
 				test_state.validator_groups.clone(),
 				test_state.group_rotation_info.clone(),
@@ -311,22 +255,10 @@ async fn respond_to_runtime_api_queries(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
+			_,
 			RuntimeApiRequest::AvailabilityCores(tx),
 		)) => {
-			assert_eq!(rp, hash);
 			let _ = tx.send(Ok(test_state.cores.clone()));
-		}
-	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			rp,
-			RuntimeApiRequest::ClaimQueue(tx),
-		)) => {
-			assert_eq!(rp, hash);
-			let _ = tx.send(Ok(test_state.claim_queue.clone()));
 		}
 	);
 }
@@ -337,15 +269,15 @@ async fn assert_candidate_backing_second(
 	expected_relay_parent: Hash,
 	expected_para_id: ParaId,
 	expected_pov: &PoV,
-	version: CollationVersion,
+	mode: ProspectiveParachainsMode,
 ) -> CandidateReceipt {
 	let pvd = dummy_pvd();
 
 	// Depending on relay parent mode pvd will be either requested
 	// from the Runtime API or Prospective Parachains.
 	let msg = overseer_recv(virtual_overseer).await;
-	match version {
-		CollationVersion::V1 => assert_matches!(
+	match mode {
+		ProspectiveParachainsMode::Disabled => assert_matches!(
 			msg,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				hash,
@@ -357,7 +289,7 @@ async fn assert_candidate_backing_second(
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
 			}
 		),
-		CollationVersion::V2 => assert_matches!(
+		ProspectiveParachainsMode::Enabled { .. } => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
@@ -378,7 +310,7 @@ async fn assert_candidate_backing_second(
 			incoming_pov,
 		)) => {
 			assert_eq!(expected_relay_parent, relay_parent);
-			assert_eq!(expected_para_id, candidate_receipt.descriptor.para_id());
+			assert_eq!(expected_para_id, candidate_receipt.descriptor.para_id);
 			assert_eq!(*expected_pov, incoming_pov);
 			assert_eq!(pvd, received_pvd);
 			candidate_receipt
@@ -506,6 +438,19 @@ async fn advertise_collation(
 	.await;
 }
 
+async fn assert_async_backing_params_request(virtual_overseer: &mut VirtualOverseer, hash: Hash) {
+	assert_matches!(
+		overseer_recv(virtual_overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			relay_parent,
+			RuntimeApiRequest::AsyncBackingParams(tx)
+		)) => {
+			assert_eq!(relay_parent, hash);
+			tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
+		}
+	);
+}
+
 // As we receive a relevant advertisement act on it and issue a collation request.
 #[test]
 fn act_on_advertisement() {
@@ -525,8 +470,8 @@ fn act_on_advertisement() {
 		)
 		.await;
 
-		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
-			.await;
+		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
+		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
 		let peer_b = PeerId::random();
 
@@ -573,8 +518,8 @@ fn act_on_advertisement_v2() {
 		)
 		.await;
 
-		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
-			.await;
+		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
+		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
 		let peer_b = PeerId::random();
 
@@ -587,14 +532,7 @@ fn act_on_advertisement_v2() {
 		)
 		.await;
 
-		let pov = PoV { block_data: BlockData(vec![]) };
-		let mut candidate_a =
-			dummy_candidate_receipt_bad_sig(dummy_hash(), Some(Default::default()));
-		candidate_a.descriptor.para_id = test_state.chain_ids[0];
-		candidate_a.descriptor.relay_parent = test_state.relay_parent;
-		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
-
-		let candidate_hash = candidate_a.hash();
+		let candidate_hash = CandidateHash::default();
 		let parent_head_data_hash = Hash::zero();
 		// v2 advertisement.
 		advertise_collation(
@@ -605,7 +543,7 @@ fn act_on_advertisement_v2() {
 		)
 		.await;
 
-		let response_channel = assert_fetch_collation_request(
+		assert_fetch_collation_request(
 			&mut virtual_overseer,
 			test_state.relay_parent,
 			test_state.chain_ids[0],
@@ -613,26 +551,66 @@ fn act_on_advertisement_v2() {
 		)
 		.await;
 
-		response_channel
-			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(
-					candidate_a.clone().into(),
-					pov.clone(),
-				)
-				.encode(),
-				ProtocolName::from(""),
-			)))
-			.expect("Sending response should succeed");
+		virtual_overseer
+	});
+}
 
-		assert_candidate_backing_second(
+// Test that other subsystems may modify collators' reputations.
+#[test]
+fn collator_reporting_works() {
+	let test_state = TestState::default();
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		overseer_send(
 			&mut virtual_overseer,
-			test_state.relay_parent,
+			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
+				our_view![test_state.relay_parent],
+			)),
+		)
+		.await;
+
+		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
+
+		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
+
+		let peer_b = PeerId::random();
+		let peer_c = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_b,
+			test_state.collators[0].clone(),
 			test_state.chain_ids[0],
-			&pov,
-			// Async backing isn't enabled and thus it should do it the old way.
 			CollationVersion::V1,
 		)
 		.await;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_c,
+			test_state.collators[1].clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V1,
+		)
+		.await;
+
+		overseer_send(
+			&mut virtual_overseer,
+			CollatorProtocolMessage::ReportCollator(test_state.collators[0].public()),
+		)
+		.await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer, rep)),
+			) => {
+				assert_eq!(peer, peer_b);
+				assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
+			}
+		);
 
 		virtual_overseer
 	});
@@ -710,7 +688,8 @@ fn fetch_one_collation_at_a_time() {
 
 		// Iter over view since the order may change due to sorted invariant.
 		for hash in our_view.iter() {
-			respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, *hash).await;
+			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
+			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 		}
 
 		let peer_b = PeerId::random();
@@ -757,14 +736,11 @@ fn fetch_one_collation_at_a_time() {
 		candidate_a.descriptor.relay_parent = test_state.relay_parent;
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
-			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(
-					candidate_a.clone().into(),
-					pov.clone(),
-				)
-				.encode(),
-				ProtocolName::from(""),
-			)))
+			.send(Ok(request_v1::CollationFetchingResponse::Collation(
+				candidate_a.clone(),
+				pov.clone(),
+			)
+			.encode()))
 			.expect("Sending response should succeed");
 
 		assert_candidate_backing_second(
@@ -772,7 +748,7 @@ fn fetch_one_collation_at_a_time() {
 			test_state.relay_parent,
 			test_state.chain_ids[0],
 			&pov,
-			CollationVersion::V1,
+			ProspectiveParachainsMode::Disabled,
 		)
 		.await;
 
@@ -808,7 +784,8 @@ fn fetches_next_collation() {
 		.await;
 
 		for hash in our_view.iter() {
-			respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, *hash).await;
+			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
+			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 		}
 
 		let peer_b = PeerId::random();
@@ -883,25 +860,19 @@ fn fetches_next_collation() {
 
 		// First request finishes now:
 		response_channel_non_exclusive
-			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(
-					candidate_a.clone().into(),
-					pov.clone(),
-				)
-				.encode(),
-				ProtocolName::from(""),
-			)))
+			.send(Ok(request_v1::CollationFetchingResponse::Collation(
+				candidate_a.clone(),
+				pov.clone(),
+			)
+			.encode()))
 			.expect("Sending response should succeed");
 
 		response_channel
-			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(
-					candidate_a.clone().into(),
-					pov.clone(),
-				)
-				.encode(),
-				ProtocolName::from(""),
-			)))
+			.send(Ok(request_v1::CollationFetchingResponse::Collation(
+				candidate_a.clone(),
+				pov.clone(),
+			)
+			.encode()))
 			.expect("Sending response should succeed");
 
 		assert_candidate_backing_second(
@@ -909,7 +880,7 @@ fn fetches_next_collation() {
 			second,
 			test_state.chain_ids[0],
 			&pov,
-			CollationVersion::V1,
+			ProspectiveParachainsMode::Disabled,
 		)
 		.await;
 
@@ -932,8 +903,8 @@ fn reject_connection_to_next_group() {
 		)
 		.await;
 
-		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
-			.await;
+		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
+		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
 		let peer_b = PeerId::random();
 
@@ -984,7 +955,8 @@ fn fetch_next_collation_on_invalid_collation() {
 		.await;
 
 		for hash in our_view.iter() {
-			respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, *hash).await;
+			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
+			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 		}
 
 		let peer_b = PeerId::random();
@@ -1026,14 +998,11 @@ fn fetch_next_collation_on_invalid_collation() {
 		candidate_a.descriptor.relay_parent = test_state.relay_parent;
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
-			.send(Ok((
-				request_v1::CollationFetchingResponse::Collation(
-					candidate_a.clone().into(),
-					pov.clone(),
-				)
-				.encode(),
-				ProtocolName::from(""),
-			)))
+			.send(Ok(request_v1::CollationFetchingResponse::Collation(
+				candidate_a.clone(),
+				pov.clone(),
+			)
+			.encode()))
 			.expect("Sending response should succeed");
 
 		let receipt = assert_candidate_backing_second(
@@ -1041,7 +1010,7 @@ fn fetch_next_collation_on_invalid_collation() {
 			test_state.relay_parent,
 			test_state.chain_ids[0],
 			&pov,
-			CollationVersion::V1,
+			ProspectiveParachainsMode::Disabled,
 		)
 		.await;
 
@@ -1094,8 +1063,8 @@ fn inactive_disconnected() {
 		)
 		.await;
 
-		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
-			.await;
+		assert_async_backing_params_request(&mut virtual_overseer, hash_a).await;
+		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
 		let peer_b = PeerId::random();
 
@@ -1148,7 +1117,8 @@ fn activity_extends_life() {
 		.await;
 
 		for hash in our_view.iter() {
-			respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, *hash).await;
+			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
+			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 		}
 
 		let peer_b = PeerId::random();
@@ -1221,8 +1191,8 @@ fn disconnect_if_no_declare() {
 		)
 		.await;
 
-		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
-			.await;
+		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
+		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
 		let peer_b = PeerId::random();
 
@@ -1260,8 +1230,8 @@ fn disconnect_if_wrong_declare() {
 		)
 		.await;
 
-		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
-			.await;
+		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
+		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
 		let peer_b = PeerId::random();
 
@@ -1322,8 +1292,8 @@ fn delay_reputation_change() {
 		)
 		.await;
 
-		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
-			.await;
+		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
+		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
 		let peer_b = PeerId::random();
 
@@ -1408,8 +1378,8 @@ fn view_change_clears_old_collators() {
 		)
 		.await;
 
-		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
-			.await;
+		assert_async_backing_params_request(&mut virtual_overseer, test_state.relay_parent).await;
+		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
 		let peer_b = PeerId::random();
 
@@ -1433,7 +1403,8 @@ fn view_change_clears_old_collators() {
 		.await;
 
 		test_state.group_rotation_info = test_state.group_rotation_info.bump_rotation();
-		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, hash_b).await;
+		assert_async_backing_params_request(&mut virtual_overseer, hash_b).await;
+		respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
 
 		assert_collator_disconnect(&mut virtual_overseer, peer_b).await;
 

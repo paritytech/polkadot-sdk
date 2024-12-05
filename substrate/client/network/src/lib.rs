@@ -243,9 +243,8 @@
 //! More precise usage details are still being worked on and will likely change in the future.
 
 mod behaviour;
-mod bitswap;
-mod litep2p;
 mod protocol;
+mod service;
 
 #[cfg(test)]
 mod mock;
@@ -259,35 +258,32 @@ pub mod peer_info;
 pub mod peer_store;
 pub mod protocol_controller;
 pub mod request_responses;
-pub mod service;
 pub mod transport;
 pub mod types;
 pub mod utils;
 
-pub use crate::litep2p::Litep2pNetworkBackend;
-pub use event::{DhtEvent, Event};
+pub use event::{DhtEvent, Event, SyncEvent};
 #[doc(inline)]
+pub use libp2p::{multiaddr, Multiaddr, PeerId};
 pub use request_responses::{Config, IfDisconnected, RequestFailure};
 pub use sc_network_common::{
-	role::{ObservedRole, Roles},
+	role::ObservedRole,
+	sync::{
+		warp::{WarpSyncPhase, WarpSyncProgress},
+		ExtendedPeerInfo, StateDownloadProgress, SyncEventStream, SyncState, SyncStatusProvider,
+	},
 	types::ReputationChange,
 };
-pub use sc_network_types::{
-	multiaddr::{self, Multiaddr},
-	PeerId,
-};
 pub use service::{
-	metrics::NotificationMetrics,
 	signature::Signature,
 	traits::{
-		KademliaKey, MessageSink, NetworkBackend, NetworkBlock, NetworkDHTProvider,
-		NetworkEventStream, NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo,
-		NetworkStatus, NetworkStatusProvider, NetworkSyncForkRequest, NotificationConfig,
-		NotificationSender as NotificationSenderT, NotificationSenderError,
-		NotificationSenderReady, NotificationService,
+		KademliaKey, NetworkBlock, NetworkDHTProvider, NetworkEventStream, NetworkNotification,
+		NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo, NetworkStatus,
+		NetworkStatusProvider, NetworkSyncForkRequest, NotificationSender as NotificationSenderT,
+		NotificationSenderError, NotificationSenderReady,
 	},
-	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
-	PublicKey,
+	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, NotificationsSink,
+	OutboundFailure, PublicKey,
 };
 pub use types::ProtocolName;
 
@@ -302,6 +298,3 @@ const MAX_CONNECTIONS_PER_PEER: usize = 2;
 
 /// The maximum number of concurrent established connections that were incoming.
 const MAX_CONNECTIONS_ESTABLISHED_INCOMING: u32 = 10_000;
-
-/// Maximum response size limit.
-pub const MAX_RESPONSE_SIZE: u64 = 16 * 1024 * 1024;

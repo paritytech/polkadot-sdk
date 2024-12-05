@@ -123,7 +123,7 @@ where
 			return None
 		}
 		if let ExistenceReason::DepositHeld(deposit) =
-			core::mem::replace(self, ExistenceReason::DepositRefunded)
+			sp_std::mem::replace(self, ExistenceReason::DepositRefunded)
 		{
 			Some(deposit)
 		} else {
@@ -136,7 +136,7 @@ where
 			return None
 		}
 		if let ExistenceReason::DepositFrom(depositor, deposit) =
-			core::mem::replace(self, ExistenceReason::DepositRefunded)
+			sp_std::mem::replace(self, ExistenceReason::DepositRefunded)
 		{
 			Some((depositor, deposit))
 		} else {

@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::v2::*;
+use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_support::{
 	assert_ok,
 	traits::{
@@ -32,6 +32,7 @@ use frame_support::{
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin as SystemOrigin};
 use pallet_nfts::{CollectionConfig, CollectionSettings, ItemConfig, MintSettings};
 use sp_runtime::traits::StaticLookup;
+use sp_std::prelude::*;
 
 use crate::Pallet as NftFractionalization;
 
@@ -77,37 +78,20 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	assert_eq!(event, &system_event);
 }
 
-#[benchmarks(
-	where
-		T::Nfts:
-			Create<
-				T::AccountId,
-				CollectionConfig<BalanceOf<T>,
-				frame_system::pallet_prelude::BlockNumberFor::<T>,
-				T::NftCollectionId>
-			>
-			+ Mutate<T::AccountId, ItemConfig>,
-)]
-mod benchmarks {
-	use super::*;
+benchmarks! {
+	where_clause {
+		where
+			T::Nfts: Create<T::AccountId, CollectionConfig<BalanceOf<T>, frame_system::pallet_prelude::BlockNumberFor::<T>, T::NftCollectionId>>
+				+ Mutate<T::AccountId, ItemConfig>,
+	}
 
-	#[benchmark]
-	fn fractionalize() {
+	fractionalize {
 		let asset = T::BenchmarkHelper::asset(0);
 		let collection = T::BenchmarkHelper::collection(0);
 		let nft = T::BenchmarkHelper::nft(0);
 		let (caller, caller_lookup) = mint_nft::<T>(nft);
-
-		#[extrinsic_call]
-		_(
-			SystemOrigin::Signed(caller.clone()),
-			collection,
-			nft,
-			asset.clone(),
-			caller_lookup,
-			1000u32.into(),
-		);
-
+	}: _(SystemOrigin::Signed(caller.clone()), collection, nft, asset.clone(), caller_lookup, 1000u32.into())
+	verify {
 		assert_last_event::<T>(
 			Event::NftFractionalized {
 				nft_collection: collection,
@@ -115,39 +99,34 @@ mod benchmarks {
 				fractions: 1000u32.into(),
 				asset,
 				beneficiary: caller,
-			}
-			.into(),
+			}.into()
 		);
 	}
 
-	#[benchmark]
-	fn unify() {
+	unify {
 		let asset = T::BenchmarkHelper::asset(0);
 		let collection = T::BenchmarkHelper::collection(0);
 		let nft = T::BenchmarkHelper::nft(0);
 		let (caller, caller_lookup) = mint_nft::<T>(nft);
-
-		assert_ok!(NftFractionalization::<T>::fractionalize(
+		NftFractionalization::<T>::fractionalize(
 			SystemOrigin::Signed(caller.clone()).into(),
 			collection,
 			nft,
 			asset.clone(),
 			caller_lookup.clone(),
 			1000u32.into(),
-		));
-
-		#[extrinsic_call]
-		_(SystemOrigin::Signed(caller.clone()), collection, nft, asset.clone(), caller_lookup);
-
+		)?;
+	}: _(SystemOrigin::Signed(caller.clone()), collection, nft, asset.clone(), caller_lookup)
+	verify {
 		assert_last_event::<T>(
-			Event::NftUnified { nft_collection: collection, nft, asset, beneficiary: caller }
-				.into(),
+			Event::NftUnified {
+				nft_collection: collection,
+				nft,
+				asset,
+				beneficiary: caller,
+			}.into()
 		);
 	}
 
-	impl_benchmark_test_suite!(
-		NftFractionalization,
-		crate::mock::new_test_ext(),
-		crate::mock::Test
-	);
+	impl_benchmark_test_suite!(NftFractionalization, crate::mock::new_test_ext(), crate::mock::Test);
 }

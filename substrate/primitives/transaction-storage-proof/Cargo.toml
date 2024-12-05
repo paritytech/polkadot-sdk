@@ -1,31 +1,29 @@
 [package]
 name = "sp-transaction-storage-proof"
-version = "26.0.0"
+version = "4.0.0-dev"
 authors.workspace = true
 description = "Transaction storage proof primitives"
 edition.workspace = true
 license = "Apache-2.0"
-homepage.workspace = true
+homepage = "https://substrate.io"
 repository.workspace = true
 readme = "README.md"
-
-[lints]
-workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = { optional = true, workspace = true }
-codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-sp-core = { optional = true, workspace = true }
-sp-inherents = { workspace = true }
-sp-runtime = { workspace = true }
-sp-trie = { optional = true, workspace = true }
+async-trait = { version = "0.1.57", optional = true }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+sp-core = { path = "../core", optional = true}
+sp-inherents = { path = "../inherents", default-features = false}
+sp-runtime = { path = "../runtime", default-features = false}
+sp-std = { path = "../std", default-features = false}
+sp-trie = { path = "../trie", optional = true}
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"async-trait",
 	"codec/std",
@@ -33,5 +31,6 @@ std = [
 	"sp-core/std",
 	"sp-inherents/std",
 	"sp-runtime/std",
+	"sp-std/std",
 	"sp-trie/std",
 ]

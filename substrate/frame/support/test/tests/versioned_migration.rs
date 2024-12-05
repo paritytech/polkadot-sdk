@@ -23,10 +23,11 @@ use frame_support::{
 	construct_runtime, derive_impl,
 	migrations::VersionedMigration,
 	parameter_types,
-	traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion, UncheckedOnRuntimeUpgrade},
+	traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::Config;
+use sp_core::ConstU64;
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -51,7 +52,7 @@ mod dummy_pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		_config: core::marker::PhantomData<T>,
+		_config: sp_std::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -65,15 +66,16 @@ impl dummy_pallet::Config for Test {}
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system = 0,
-		DummyPallet: dummy_pallet = 1,
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
+		DummyPallet: dummy_pallet::{Pallet, Config<T>, Storage} = 1,
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Block = Block;
+	type BlockHashCount = ConstU64<10>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
@@ -90,7 +92,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 
 /// A dummy migration for testing the `VersionedMigration` trait.
 /// Sets SomeStorage to S.
-struct SomeUnversionedMigration<T: Config, const S: u32>(core::marker::PhantomData<T>);
+struct SomeUnversionedMigration<T: Config, const S: u32>(sp_std::marker::PhantomData<T>);
 
 parameter_types! {
 	const UpgradeReads: u64 = 4;
@@ -101,11 +103,9 @@ parameter_types! {
 	static PostUpgradeCalledWith: Vec<u8> = Vec::new();
 }
 
-/// Implement `UncheckedOnRuntimeUpgrade` for `SomeUnversionedMigration`.
+/// Implement `OnRuntimeUpgrade` for `SomeUnversionedMigration`.
 /// It sets SomeStorage to S, and returns a weight derived from UpgradeReads and UpgradeWrites.
-impl<T: dummy_pallet::Config, const S: u32> UncheckedOnRuntimeUpgrade
-	for SomeUnversionedMigration<T, S>
-{
+impl<T: dummy_pallet::Config, const S: u32> OnRuntimeUpgrade for SomeUnversionedMigration<T, S> {
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		PreUpgradeCalled::set(true);
 		Ok(PreUpgradeReturnBytes::get().to_vec())

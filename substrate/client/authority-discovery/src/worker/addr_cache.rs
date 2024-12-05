@@ -16,8 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use sc_network::{multiaddr::Protocol, Multiaddr};
-use sc_network_types::PeerId;
+use libp2p::{
+	core::multiaddr::{Multiaddr, Protocol},
+	PeerId,
+};
 use sp_authority_discovery::AuthorityId;
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 
@@ -176,8 +178,8 @@ fn addresses_to_peer_ids(addresses: &HashSet<Multiaddr>) -> HashSet<PeerId> {
 mod tests {
 	use super::*;
 
+	use libp2p::multihash::{self, Multihash};
 	use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
-	use sc_network_types::multihash::{Code, Multihash};
 
 	use sp_authority_discovery::{AuthorityId, AuthorityPair};
 	use sp_core::crypto::Pair;
@@ -198,9 +200,10 @@ mod tests {
 	impl Arbitrary for TestMultiaddr {
 		fn arbitrary(g: &mut Gen) -> Self {
 			let seed = (0..32).map(|_| u8::arbitrary(g)).collect::<Vec<_>>();
-			let peer_id =
-				PeerId::from_multihash(Multihash::wrap(Code::Sha2_256.into(), &seed).unwrap())
-					.unwrap();
+			let peer_id = PeerId::from_multihash(
+				Multihash::wrap(multihash::Code::Sha2_256.into(), &seed).unwrap(),
+			)
+			.unwrap();
 			let multiaddr = "/ip6/2001:db8:0:0:0:0:0:2/tcp/30333"
 				.parse::<Multiaddr>()
 				.unwrap()
@@ -216,9 +219,10 @@ mod tests {
 	impl Arbitrary for TestMultiaddrsSamePeerCombo {
 		fn arbitrary(g: &mut Gen) -> Self {
 			let seed = (0..32).map(|_| u8::arbitrary(g)).collect::<Vec<_>>();
-			let peer_id =
-				PeerId::from_multihash(Multihash::wrap(Code::Sha2_256.into(), &seed).unwrap())
-					.unwrap();
+			let peer_id = PeerId::from_multihash(
+				Multihash::wrap(multihash::Code::Sha2_256.into(), &seed).unwrap(),
+			)
+			.unwrap();
 			let multiaddr1 = "/ip6/2001:db8:0:0:0:0:0:2/tcp/30333"
 				.parse::<Multiaddr>()
 				.unwrap()

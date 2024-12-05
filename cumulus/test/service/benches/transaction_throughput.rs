@@ -17,7 +17,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
-use cumulus_client_cli::get_raw_genesis_header;
 use cumulus_test_runtime::{AccountId, BalancesCall, ExistentialDeposit, SudoCall};
 use futures::{future, StreamExt};
 use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, TransactionStatus};
@@ -25,8 +24,9 @@ use sp_core::{crypto::Pair, sr25519};
 use sp_runtime::OpaqueExtrinsic;
 
 use cumulus_primitives_core::ParaId;
-use cumulus_test_service::{construct_extrinsic, fetch_nonce, Client, Keyring::*, TransactionPool};
-use polkadot_primitives::HeadData;
+use cumulus_test_service::{
+	construct_extrinsic, fetch_nonce, initial_head_data, Client, Keyring::*, TransactionPool,
+};
 
 fn create_accounts(num: usize) -> Vec<sr25519::Pair> {
 	(0..num)
@@ -54,7 +54,7 @@ fn create_account_extrinsics(client: &Client, accounts: &[sr25519::Pair]) -> Vec
 					SudoCall::sudo {
 						call: Box::new(
 							BalancesCall::force_set_balance {
-								who: AccountId::from(a.public()).into(),
+								who: AccountId::from(a.public()),
 								new_free: 0,
 							}
 							.into(),
@@ -69,7 +69,7 @@ fn create_account_extrinsics(client: &Client, accounts: &[sr25519::Pair]) -> Vec
 					SudoCall::sudo {
 						call: Box::new(
 							BalancesCall::force_set_balance {
-								who: AccountId::from(a.public()).into(),
+								who: AccountId::from(a.public()),
 								new_free: 1_000_000_000_000 * ExistentialDeposit::get(),
 							}
 							.into(),
@@ -96,7 +96,7 @@ fn create_benchmark_extrinsics(
 				construct_extrinsic(
 					client,
 					BalancesCall::transfer_allow_death {
-						dest: Bob.to_account_id().into(),
+						dest: Bob.to_account_id(),
 						value: ExistentialDeposit::get(),
 					},
 					account.clone(),
@@ -159,13 +159,6 @@ fn transaction_throughput_benchmarks(c: &mut Criterion) {
 		None,
 	);
 
-	// Run charlie as parachain collator
-	let charlie = runtime.block_on(
-		cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Charlie)
-			.enable_collator()
-			.connect_to_relay_chain_nodes(vec![&alice, &bob])
-			.build(),
-	);
 	// Register parachain
 	runtime
 		.block_on(
@@ -174,13 +167,18 @@ fn transaction_throughput_benchmarks(c: &mut Criterion) {
 				cumulus_test_service::runtime::WASM_BINARY
 					.expect("You need to build the WASM binary to run this test!")
 					.to_vec(),
-				HeadData(
-					get_raw_genesis_header(charlie.client.clone())
-						.expect("Unable to get genesis HeadData."),
-				),
+				initial_head_data(para_id),
 			),
 		)
 		.unwrap();
+
+	// Run charlie as parachain collator
+	let charlie = runtime.block_on(
+		cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Charlie)
+			.enable_collator()
+			.connect_to_relay_chain_nodes(vec![&alice, &bob])
+			.build(),
+	);
 
 	// Run dave as parachain collator
 	let dave = runtime.block_on(

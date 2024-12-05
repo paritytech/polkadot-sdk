@@ -23,35 +23,26 @@
 
 pub use crate::{
 	discovery::DEFAULT_KADEMLIA_REPLICATION_FACTOR,
-	peer_store::PeerStoreProvider,
-	protocol::{notification_service, NotificationsSink, ProtocolHandlePair},
+	protocol::NotificationsSink,
 	request_responses::{
 		IncomingRequest, OutgoingResponse, ProtocolConfig as RequestResponseConfig,
-	},
-	service::{
-		metrics::NotificationMetrics,
-		traits::{NotificationConfig, NotificationService, PeerStore},
 	},
 	types::ProtocolName,
 };
 
-pub use sc_network_types::{build_multiaddr, ed25519};
-use sc_network_types::{
-	multiaddr::{self, Multiaddr},
-	PeerId,
-};
+pub use libp2p::{identity::Keypair, multiaddr, Multiaddr, PeerId};
 
-use crate::service::{ensure_addresses_consistent_with_transport, traits::NetworkBackend};
+use crate::peer_store::PeerStoreHandle;
 use codec::Encode;
 use prometheus_endpoint::Registry;
 use zeroize::Zeroize;
 
 pub use sc_network_common::{
 	role::{Role, Roles},
-	sync::SyncMode,
+	sync::{warp::WarpSyncProvider, SyncMode},
 	ExHashT,
 };
-
+use sc_utils::mpsc::TracingUnboundedSender;
 use sp_runtime::traits::Block as BlockT;
 
 use std::{
@@ -65,7 +56,11 @@ use std::{
 	path::{Path, PathBuf},
 	pin::Pin,
 	str::{self, FromStr},
-	sync::Arc,
+};
+
+pub use libp2p::{
+	build_multiaddr,
+	identity::{self, ed25519},
 };
 
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
@@ -99,12 +94,12 @@ impl fmt::Debug for ProtocolId {
 /// # Example
 ///
 /// ```
-/// # use sc_network_types::{multiaddr::Multiaddr, PeerId};
+/// # use libp2p::{Multiaddr, PeerId};
 /// use sc_network::config::parse_str_addr;
 /// let (peer_id, addr) = parse_str_addr(
 /// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV"
 /// ).unwrap();
-/// assert_eq!(peer_id, "QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV".parse::<PeerId>().unwrap().into());
+/// assert_eq!(peer_id, "QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV".parse::<PeerId>().unwrap());
 /// assert_eq!(addr, "/ip4/198.51.100.19/tcp/30333".parse::<Multiaddr>().unwrap());
 /// ```
 pub fn parse_str_addr(addr_str: &str) -> Result<(PeerId, Multiaddr), ParseErr> {
@@ -114,13 +109,13 @@ pub fn parse_str_addr(addr_str: &str) -> Result<(PeerId, Multiaddr), ParseErr> {
 
 /// Splits a Multiaddress into a Multiaddress and PeerId.
 pub fn parse_addr(mut addr: Multiaddr) -> Result<(PeerId, Multiaddr), ParseErr> {
-	let multihash = match addr.pop() {
-		Some(multiaddr::Protocol::P2p(multihash)) => multihash,
+	let who = match addr.pop() {
+		Some(multiaddr::Protocol::P2p(key)) =>
+			PeerId::from_multihash(key).map_err(|_| ParseErr::InvalidPeerId)?,
 		_ => return Err(ParseErr::PeerIdMissing),
 	};
-	let peer_id = PeerId::from_multihash(multihash).map_err(|_| ParseErr::InvalidPeerId)?;
 
-	Ok((peer_id, addr))
+	Ok((who, addr))
 }
 
 /// Address of a node, including its identity.
@@ -130,7 +125,7 @@ pub fn parse_addr(mut addr: Multiaddr) -> Result<(PeerId, Multiaddr), ParseErr> 
 /// # Example
 ///
 /// ```
-/// # use sc_network_types::{multiaddr::Multiaddr, PeerId};
+/// # use libp2p::{Multiaddr, PeerId};
 /// use sc_network::config::MultiaddrWithPeerId;
 /// let addr: MultiaddrWithPeerId =
 /// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV".parse().unwrap();
@@ -186,7 +181,7 @@ impl TryFrom<String> for MultiaddrWithPeerId {
 #[derive(Debug)]
 pub enum ParseErr {
 	/// Error while parsing the multiaddress.
-	MultiaddrParse(multiaddr::ParseError),
+	MultiaddrParse(multiaddr::Error),
 	/// Multihash of the peer ID is invalid.
 	InvalidPeerId,
 	/// The peer ID is missing from the address.
@@ -213,8 +208,8 @@ impl std::error::Error for ParseErr {
 	}
 }
 
-impl From<multiaddr::ParseError> for ParseErr {
-	fn from(err: multiaddr::ParseError) -> ParseErr {
+impl From<multiaddr::Error> for ParseErr {
+	fn from(err: multiaddr::Error) -> ParseErr {
 		Self::MultiaddrParse(err)
 	}
 }
@@ -342,10 +337,10 @@ impl NodeKeyConfig {
 	///
 	///  * If the secret is configured to be new, it is generated and the corresponding keypair is
 	///    returned.
-	pub fn into_keypair(self) -> io::Result<ed25519::Keypair> {
+	pub fn into_keypair(self) -> io::Result<Keypair> {
 		use NodeKeyConfig::*;
 		match self {
-			Ed25519(Secret::New) => Ok(ed25519::Keypair::generate()),
+			Ed25519(Secret::New) => Ok(Keypair::generate_ed25519()),
 
 			Ed25519(Secret::Input(k)) => Ok(ed25519::Keypair::from(k).into()),
 
@@ -364,7 +359,8 @@ impl NodeKeyConfig {
 				ed25519::SecretKey::generate,
 				|b| b.as_ref().to_vec(),
 			)
-			.map(ed25519::Keypair::from),
+			.map(ed25519::Keypair::from)
+			.map(Keypair::from),
 		}
 	}
 }
@@ -458,14 +454,14 @@ impl Default for SetConfig {
 ///
 /// > **Note**: As new fields might be added in the future, please consider using the `new` method
 /// >			and modifiers instead of creating this struct manually.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct NonDefaultSetConfig {
 	/// Name of the notifications protocols of this set. A substream on this set will be
 	/// considered established once this protocol is open.
 	///
 	/// > **Note**: This field isn't present for the default set, as this is handled internally
 	/// > by the networking code.
-	protocol_name: ProtocolName,
+	pub notifications_protocol: ProtocolName,
 
 	/// If the remote reports that it doesn't support the protocol indicated in the
 	/// `notifications_protocol` field, then each of these fallback names will be tried one by
@@ -473,84 +469,37 @@ pub struct NonDefaultSetConfig {
 	///
 	/// If a fallback is used, it will be reported in
 	/// `sc_network::protocol::event::Event::NotificationStreamOpened::negotiated_fallback`
-	fallback_names: Vec<ProtocolName>,
+	pub fallback_names: Vec<ProtocolName>,
 
 	/// Handshake of the protocol
 	///
 	/// NOTE: Currently custom handshakes are not fully supported. See issue #5685 for more
 	/// details. This field is temporarily used to allow moving the hardcoded block announcement
 	/// protocol out of `protocol.rs`.
-	handshake: Option<NotificationHandshake>,
+	pub handshake: Option<NotificationHandshake>,
 
 	/// Maximum allowed size of single notifications.
-	max_notification_size: u64,
+	pub max_notification_size: u64,
 
 	/// Base configuration.
-	set_config: SetConfig,
-
-	/// Notification handle.
-	///
-	/// Notification handle is created during `NonDefaultSetConfig` creation and its other half,
-	/// `Box<dyn NotificationService>` is given to the protocol created the config and
-	/// `ProtocolHandle` is given to `Notifications` when it initializes itself. This handle allows
-	/// `Notifications ` to communicate with the protocol directly without relaying events through
-	/// `sc-network.`
-	protocol_handle_pair: ProtocolHandlePair,
+	pub set_config: SetConfig,
 }
 
 impl NonDefaultSetConfig {
 	/// Creates a new [`NonDefaultSetConfig`]. Zero slots and accepts only reserved nodes.
-	/// Also returns an object which allows the protocol to communicate with `Notifications`.
-	pub fn new(
-		protocol_name: ProtocolName,
-		fallback_names: Vec<ProtocolName>,
-		max_notification_size: u64,
-		handshake: Option<NotificationHandshake>,
-		set_config: SetConfig,
-	) -> (Self, Box<dyn NotificationService>) {
-		let (protocol_handle_pair, notification_service) =
-			notification_service(protocol_name.clone());
-		(
-			Self {
-				protocol_name,
-				max_notification_size,
-				fallback_names,
-				handshake,
-				set_config,
-				protocol_handle_pair,
+	pub fn new(notifications_protocol: ProtocolName, max_notification_size: u64) -> Self {
+		Self {
+			notifications_protocol,
+			max_notification_size,
+			fallback_names: Vec::new(),
+			handshake: None,
+			set_config: SetConfig {
+				in_peers: 0,
+				out_peers: 0,
+				reserved_nodes: Vec::new(),
+				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
-			notification_service,
-		)
-	}
-
-	/// Get reference to protocol name.
-	pub fn protocol_name(&self) -> &ProtocolName {
-		&self.protocol_name
-	}
-
-	/// Get reference to fallback protocol names.
-	pub fn fallback_names(&self) -> impl Iterator<Item = &ProtocolName> {
-		self.fallback_names.iter()
-	}
-
-	/// Get reference to handshake.
-	pub fn handshake(&self) -> &Option<NotificationHandshake> {
-		&self.handshake
-	}
-
-	/// Get maximum notification size.
-	pub fn max_notification_size(&self) -> u64 {
-		self.max_notification_size
-	}
-
-	/// Get reference to `SetConfig`.
-	pub fn set_config(&self) -> &SetConfig {
-		&self.set_config
-	}
-
-	/// Take `ProtocolHandlePair` from `NonDefaultSetConfig`
-	pub fn take_protocol_handle(self) -> ProtocolHandlePair {
-		self.protocol_handle_pair
+		}
 	}
 
 	/// Modifies the configuration to allow non-reserved nodes.
@@ -570,17 +519,6 @@ impl NonDefaultSetConfig {
 	/// See the explanations in [`NonDefaultSetConfig::fallback_names`].
 	pub fn add_fallback_names(&mut self, fallback_names: Vec<ProtocolName>) {
 		self.fallback_names.extend(fallback_names);
-	}
-}
-
-impl NotificationConfig for NonDefaultSetConfig {
-	fn set_config(&self) -> &SetConfig {
-		&self.set_config
-	}
-
-	/// Get reference to protocol name.
-	fn protocol_name(&self) -> &ProtocolName {
-		&self.protocol_name
 	}
 }
 
@@ -670,9 +608,6 @@ pub struct NetworkConfiguration {
 	/// a modification of the way the implementation works. Different nodes with different
 	/// configured values remain compatible with each other.
 	pub yamux_window_size: Option<u32>,
-
-	/// Networking backend used for P2P communication.
-	pub network_backend: NetworkBackendType,
 }
 
 impl NetworkConfiguration {
@@ -705,7 +640,6 @@ impl NetworkConfiguration {
 				.expect("value is a constant; constant is non-zero; qed."),
 			yamux_window_size: None,
 			ipfs_server: false,
-			network_backend: NetworkBackendType::Libp2p,
 		}
 	}
 
@@ -741,15 +675,18 @@ impl NetworkConfiguration {
 }
 
 /// Network initialization parameters.
-pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
+pub struct Params<Block: BlockT> {
 	/// Assigned role for our node (full, light, ...).
 	pub role: Role,
 
 	/// How to spawn background tasks.
-	pub executor: Box<dyn Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send + Sync>,
+	pub executor: Box<dyn Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send>,
 
 	/// Network layer configuration.
-	pub network_config: FullNetworkConfiguration<Block, H, N>,
+	pub network_config: FullNetworkConfiguration,
+
+	/// Peer store with known nodes, peer reputations, etc.
+	pub peer_store: PeerStoreHandle,
 
 	/// Legacy name of the protocol to use on the wire. Should be different for each chain.
 	pub protocol_id: ProtocolId,
@@ -765,179 +702,48 @@ pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	pub metrics_registry: Option<Registry>,
 
 	/// Block announce protocol configuration
-	pub block_announce_config: N::NotificationProtocolConfig,
+	pub block_announce_config: NonDefaultSetConfig,
 
-	/// Bitswap configuration, if the server has been enabled.
-	pub bitswap_config: Option<N::BitswapConfig>,
-
-	/// Notification metrics.
-	pub notification_metrics: NotificationMetrics,
+	/// TX channel for direct communication with `SyncingEngine` and `Protocol`.
+	pub tx: TracingUnboundedSender<crate::event::SyncEvent<Block>>,
 }
 
 /// Full network configuration.
-pub struct FullNetworkConfiguration<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> {
+pub struct FullNetworkConfiguration {
 	/// Installed notification protocols.
-	pub(crate) notification_protocols: Vec<N::NotificationProtocolConfig>,
+	pub(crate) notification_protocols: Vec<NonDefaultSetConfig>,
 
 	/// List of request-response protocols that the node supports.
-	pub(crate) request_response_protocols: Vec<N::RequestResponseProtocolConfig>,
+	pub(crate) request_response_protocols: Vec<RequestResponseConfig>,
 
 	/// Network configuration.
 	pub network_config: NetworkConfiguration,
-
-	/// [`PeerStore`](crate::peer_store::PeerStore),
-	peer_store: Option<N::PeerStore>,
-
-	/// Handle to [`PeerStore`](crate::peer_store::PeerStore).
-	peer_store_handle: Arc<dyn PeerStoreProvider>,
-
-	/// Registry for recording prometheus metrics to.
-	pub metrics_registry: Option<Registry>,
 }
 
-impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfiguration<B, H, N> {
+impl FullNetworkConfiguration {
 	/// Create new [`FullNetworkConfiguration`].
-	pub fn new(network_config: &NetworkConfiguration, metrics_registry: Option<Registry>) -> Self {
-		let bootnodes = network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect();
-		let peer_store = N::peer_store(bootnodes, metrics_registry.clone());
-		let peer_store_handle = peer_store.handle();
-
+	pub fn new(network_config: &NetworkConfiguration) -> Self {
 		Self {
-			peer_store: Some(peer_store),
-			peer_store_handle,
 			notification_protocols: Vec::new(),
 			request_response_protocols: Vec::new(),
 			network_config: network_config.clone(),
-			metrics_registry,
 		}
 	}
 
 	/// Add a notification protocol.
-	pub fn add_notification_protocol(&mut self, config: N::NotificationProtocolConfig) {
+	pub fn add_notification_protocol(&mut self, config: NonDefaultSetConfig) {
 		self.notification_protocols.push(config);
 	}
 
 	/// Get reference to installed notification protocols.
-	pub fn notification_protocols(&self) -> &Vec<N::NotificationProtocolConfig> {
+	pub fn notification_protocols(&self) -> &Vec<NonDefaultSetConfig> {
 		&self.notification_protocols
 	}
 
 	/// Add a request-response protocol.
-	pub fn add_request_response_protocol(&mut self, config: N::RequestResponseProtocolConfig) {
+	pub fn add_request_response_protocol(&mut self, config: RequestResponseConfig) {
 		self.request_response_protocols.push(config);
 	}
-
-	/// Get handle to [`PeerStore`].
-	pub fn peer_store_handle(&self) -> Arc<dyn PeerStoreProvider> {
-		Arc::clone(&self.peer_store_handle)
-	}
-
-	/// Take [`PeerStore`].
-	///
-	/// `PeerStore` is created when `FullNetworkConfig` is initialized so that `PeerStoreHandle`s
-	/// can be passed onto notification protocols. `PeerStore` itself should be started only once
-	/// and since technically it's not a libp2p task, it should be started with `SpawnHandle` in
-	/// `builder.rs` instead of using the libp2p/litep2p executor in the networking backend. This
-	/// function consumes `PeerStore` and starts its event loop in the appropriate place.
-	pub fn take_peer_store(&mut self) -> N::PeerStore {
-		self.peer_store
-			.take()
-			.expect("`PeerStore` can only be taken once when it's started; qed")
-	}
-
-	/// Verify addresses are consistent with enabled transports.
-	pub fn sanity_check_addresses(&self) -> Result<(), crate::error::Error> {
-		ensure_addresses_consistent_with_transport(
-			self.network_config.listen_addresses.iter(),
-			&self.network_config.transport,
-		)?;
-		ensure_addresses_consistent_with_transport(
-			self.network_config.boot_nodes.iter().map(|x| &x.multiaddr),
-			&self.network_config.transport,
-		)?;
-		ensure_addresses_consistent_with_transport(
-			self.network_config
-				.default_peers_set
-				.reserved_nodes
-				.iter()
-				.map(|x| &x.multiaddr),
-			&self.network_config.transport,
-		)?;
-
-		for notification_protocol in &self.notification_protocols {
-			ensure_addresses_consistent_with_transport(
-				notification_protocol.set_config().reserved_nodes.iter().map(|x| &x.multiaddr),
-				&self.network_config.transport,
-			)?;
-		}
-		ensure_addresses_consistent_with_transport(
-			self.network_config.public_addresses.iter(),
-			&self.network_config.transport,
-		)?;
-
-		Ok(())
-	}
-
-	/// Check for duplicate bootnodes.
-	pub fn sanity_check_bootnodes(&self) -> Result<(), crate::error::Error> {
-		self.network_config.boot_nodes.iter().try_for_each(|bootnode| {
-			if let Some(other) = self
-				.network_config
-				.boot_nodes
-				.iter()
-				.filter(|o| o.multiaddr == bootnode.multiaddr)
-				.find(|o| o.peer_id != bootnode.peer_id)
-			{
-				Err(crate::error::Error::DuplicateBootnode {
-					address: bootnode.multiaddr.clone().into(),
-					first_id: bootnode.peer_id.into(),
-					second_id: other.peer_id.into(),
-				})
-			} else {
-				Ok(())
-			}
-		})
-	}
-
-	/// Collect all reserved nodes and bootnodes addresses.
-	pub fn known_addresses(&self) -> Vec<(PeerId, Multiaddr)> {
-		let mut addresses: Vec<_> = self
-			.network_config
-			.default_peers_set
-			.reserved_nodes
-			.iter()
-			.map(|reserved| (reserved.peer_id, reserved.multiaddr.clone()))
-			.chain(self.notification_protocols.iter().flat_map(|protocol| {
-				protocol
-					.set_config()
-					.reserved_nodes
-					.iter()
-					.map(|reserved| (reserved.peer_id, reserved.multiaddr.clone()))
-			}))
-			.chain(
-				self.network_config
-					.boot_nodes
-					.iter()
-					.map(|bootnode| (bootnode.peer_id, bootnode.multiaddr.clone())),
-			)
-			.collect();
-
-		// Remove possible duplicates.
-		addresses.sort();
-		addresses.dedup();
-
-		addresses
-	}
-}
-
-/// Network backend type.
-#[derive(Debug, Clone)]
-pub enum NetworkBackendType {
-	/// Use libp2p for P2P networking.
-	Libp2p,
-
-	/// Use litep2p for P2P networking.
-	Litep2p,
 }
 
 #[cfg(test)]
@@ -949,8 +755,14 @@ mod tests {
 		tempfile::Builder::new().prefix(prefix).tempdir().unwrap()
 	}
 
-	fn secret_bytes(kp: ed25519::Keypair) -> Vec<u8> {
-		kp.secret().to_bytes().into()
+	fn secret_bytes(kp: Keypair) -> Vec<u8> {
+		kp.try_into_ed25519()
+			.expect("ed25519 keypair")
+			.secret()
+			.as_ref()
+			.iter()
+			.cloned()
+			.collect()
 	}
 
 	#[test]

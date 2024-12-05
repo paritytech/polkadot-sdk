@@ -22,9 +22,9 @@
 #[cfg(test)]
 mod tests;
 
-use jsonrpsee::Extensions;
+use jsonrpsee::core::RpcResult;
 use sc_client_api::{BlockBackend, HeaderBackend};
-use sc_rpc_api::{check_if_safe, dev::error::Error};
+use sc_rpc_api::{dev::error::Error, DenyUnsafe};
 use sp_api::{ApiExt, Core, ProvideRuntimeApi};
 use sp_core::Encode;
 use sp_runtime::{
@@ -43,13 +43,14 @@ type HasherOf<Block> = <<Block as BlockT>::Header as Header>::Hashing;
 /// The Dev API. All methods are unsafe.
 pub struct Dev<Block: BlockT, Client> {
 	client: Arc<Client>,
+	deny_unsafe: DenyUnsafe,
 	_phantom: PhantomData<Block>,
 }
 
 impl<Block: BlockT, Client> Dev<Block, Client> {
 	/// Create a new Dev API.
-	pub fn new(client: Arc<Client>) -> Self {
-		Self { client, _phantom: PhantomData::default() }
+	pub fn new(client: Arc<Client>, deny_unsafe: DenyUnsafe) -> Self {
+		Self { client, deny_unsafe, _phantom: PhantomData::default() }
 	}
 }
 
@@ -64,12 +65,8 @@ where
 		+ 'static,
 	Client::Api: Core<Block>,
 {
-	fn block_stats(
-		&self,
-		ext: &Extensions,
-		hash: Block::Hash,
-	) -> Result<Option<BlockStats>, Error> {
-		check_if_safe(ext)?;
+	fn block_stats(&self, hash: Block::Hash) -> RpcResult<Option<BlockStats>> {
+		self.deny_unsafe.check_if_safe()?;
 
 		let block = {
 			let block = self.client.block(hash).map_err(|e| Error::BlockQueryError(Box::new(e)))?;

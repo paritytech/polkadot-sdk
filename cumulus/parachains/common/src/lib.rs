@@ -15,10 +15,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
 pub mod impls;
-pub mod message_queue;
+pub mod kusama;
+pub mod polkadot;
+pub mod rococo;
+pub mod westend;
 pub mod xcm_config;
 pub use constants::*;
 pub use opaque::*;
@@ -66,21 +67,12 @@ mod types {
 
 	// Id used for identifying assets.
 	pub type AssetIdForTrustBackedAssets = u32;
-
-	// Id used for identifying non-fungible collections.
-	pub type CollectionId = u32;
-
-	// Id used for identifying non-fungible items.
-	pub type ItemId = u32;
 }
 
 /// Common constants of parachains.
 mod constants {
 	use super::types::BlockNumber;
-	use frame_support::{
-		weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
-		PalletId,
-	};
+	use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
 	use sp_runtime::Perbill;
 	/// This determines the average expected block time that we are targeting. Blocks will be
 	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
@@ -108,9 +100,6 @@ mod constants {
 		WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
 		polkadot_primitives::MAX_POV_SIZE as u64,
 	);
-
-	/// Treasury pallet id of the local chain, used to convert into AccountId
-	pub const TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

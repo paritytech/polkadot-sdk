@@ -33,12 +33,12 @@ use sp_core::storage::{ChildInfo, StateVersion};
 #[cfg(feature = "std")]
 use sp_trie::{
 	cache::{LocalTrieCache, TrieCache},
-	MemoryDB,
+	recorder::Recorder,
+	MemoryDB, StorageProof,
 };
 #[cfg(not(feature = "std"))]
 use sp_trie::{Error, NodeCodec};
-use sp_trie::{MerkleValue, PrefixedMemoryDB, StorageProof, TrieRecorderProvider};
-
+use sp_trie::{MerkleValue, PrefixedMemoryDB};
 use trie_db::TrieCache as TrieCacheT;
 #[cfg(not(feature = "std"))]
 use trie_db::{node::NodeOwned, CachedValue};
@@ -52,10 +52,7 @@ pub trait TrieCacheProvider<H: Hasher> {
 
 	/// Return a [`trie_db::TrieDB`] compatible cache.
 	///
-	/// The `storage_root` parameter *must* be the storage root of the trie this cache is used for.
-	///
-	/// NOTE: Implementors should use the `storage_root` to differentiate between storage keys that
-	/// may belong to different tries.
+	/// The `storage_root` parameter should be the storage root of the used trie.
 	fn as_trie_db_cache(&self, storage_root: H::Out) -> Self::Cache<'_>;
 
 	/// Returns a cache that can be used with a [`trie_db::TrieDBMut`].
@@ -73,10 +70,7 @@ pub trait TrieCacheProvider<H: Hasher> {
 
 #[cfg(feature = "std")]
 impl<H: Hasher> TrieCacheProvider<H> for LocalTrieCache<H> {
-	type Cache<'a>
-		= TrieCache<'a, H>
-	where
-		H: 'a;
+	type Cache<'a> = TrieCache<'a, H> where H: 'a;
 
 	fn as_trie_db_cache(&self, storage_root: H::Out) -> Self::Cache<'_> {
 		self.as_trie_db_cache(storage_root)
@@ -93,10 +87,7 @@ impl<H: Hasher> TrieCacheProvider<H> for LocalTrieCache<H> {
 
 #[cfg(feature = "std")]
 impl<H: Hasher> TrieCacheProvider<H> for &LocalTrieCache<H> {
-	type Cache<'a>
-		= TrieCache<'a, H>
-	where
-		Self: 'a;
+	type Cache<'a> = TrieCache<'a, H> where Self: 'a;
 
 	fn as_trie_db_cache(&self, storage_root: H::Out) -> Self::Cache<'_> {
 		(*self).as_trie_db_cache(storage_root)
@@ -118,6 +109,8 @@ pub struct UnimplementedCacheProvider<H> {
 	// Not strictly necessary, but the H bound allows to use this as a drop-in
 	// replacement for the `LocalTrieCache` in no-std contexts.
 	_phantom: core::marker::PhantomData<H>,
+	// Statically prevents construction.
+	_infallible: core::convert::Infallible,
 }
 
 #[cfg(not(feature = "std"))]
@@ -145,10 +138,7 @@ impl<H: Hasher> trie_db::TrieCache<NodeCodec<H>> for UnimplementedCacheProvider<
 
 #[cfg(not(feature = "std"))]
 impl<H: Hasher> TrieCacheProvider<H> for UnimplementedCacheProvider<H> {
-	type Cache<'a>
-		= UnimplementedCacheProvider<H>
-	where
-		H: 'a;
+	type Cache<'a> = UnimplementedCacheProvider<H> where H: 'a;
 
 	fn as_trie_db_cache(&self, _storage_root: <H as Hasher>::Out) -> Self::Cache<'_> {
 		unimplemented!()
@@ -163,86 +153,52 @@ impl<H: Hasher> TrieCacheProvider<H> for UnimplementedCacheProvider<H> {
 	}
 }
 
-/// Recorder provider that allows construction of a [`TrieBackend`] and satisfies the requirements,
-/// but can never be instantiated.
-#[cfg(not(feature = "std"))]
-pub struct UnimplementedRecorderProvider<H> {
-	// Not strictly necessary, but the H bound allows to use this as a drop-in
-	// replacement for the [`sp_trie::recorder::Recorder`] in no-std contexts.
-	_phantom: core::marker::PhantomData<H>,
-}
-
-#[cfg(not(feature = "std"))]
-impl<H: Hasher> trie_db::TrieRecorder<H::Out> for UnimplementedRecorderProvider<H> {
-	fn record<'a>(&mut self, _access: trie_db::TrieAccess<'a, H::Out>) {
-		unimplemented!()
-	}
-
-	fn trie_nodes_recorded_for_key(&self, _key: &[u8]) -> trie_db::RecordedForKey {
-		unimplemented!()
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl<H: Hasher> TrieRecorderProvider<H> for UnimplementedRecorderProvider<H> {
-	type Recorder<'a>
-		= UnimplementedRecorderProvider<H>
-	where
-		H: 'a;
-
-	fn drain_storage_proof(self) -> Option<StorageProof> {
-		unimplemented!()
-	}
-
-	fn as_trie_recorder(&self, _storage_root: H::Out) -> Self::Recorder<'_> {
-		unimplemented!()
-	}
-}
-
 #[cfg(feature = "std")]
 type DefaultCache<H> = LocalTrieCache<H>;
 
 #[cfg(not(feature = "std"))]
 type DefaultCache<H> = UnimplementedCacheProvider<H>;
 
-#[cfg(feature = "std")]
-type DefaultRecorder<H> = sp_trie::recorder::Recorder<H>;
-
-#[cfg(not(feature = "std"))]
-type DefaultRecorder<H> = UnimplementedRecorderProvider<H>;
-
 /// Builder for creating a [`TrieBackend`].
-pub struct TrieBackendBuilder<
-	S: TrieBackendStorage<H>,
-	H: Hasher,
-	C = DefaultCache<H>,
-	R = DefaultRecorder<H>,
-> {
+pub struct TrieBackendBuilder<S: TrieBackendStorage<H>, H: Hasher, C = DefaultCache<H>> {
 	storage: S,
 	root: H::Out,
-	recorder: Option<R>,
+	#[cfg(feature = "std")]
+	recorder: Option<Recorder<H>>,
 	cache: Option<C>,
 }
 
-impl<S, H> TrieBackendBuilder<S, H>
+impl<S, H> TrieBackendBuilder<S, H, DefaultCache<H>>
 where
 	S: TrieBackendStorage<H>,
 	H: Hasher,
 {
 	/// Create a new builder instance.
 	pub fn new(storage: S, root: H::Out) -> Self {
-		Self { storage, root, recorder: None, cache: None }
+		Self {
+			storage,
+			root,
+			#[cfg(feature = "std")]
+			recorder: None,
+			cache: None,
+		}
 	}
 }
 
-impl<S, H, C, R> TrieBackendBuilder<S, H, C, R>
+impl<S, H, C> TrieBackendBuilder<S, H, C>
 where
 	S: TrieBackendStorage<H>,
 	H: Hasher,
 {
 	/// Create a new builder instance.
 	pub fn new_with_cache(storage: S, root: H::Out, cache: C) -> Self {
-		Self { storage, root, recorder: None, cache: Some(cache) }
+		Self {
+			storage,
+			root,
+			#[cfg(feature = "std")]
+			recorder: None,
+			cache: Some(cache),
+		}
 	}
 	/// Wrap the given [`TrieBackend`].
 	///
@@ -251,47 +207,53 @@ where
 	/// backend.
 	///
 	/// The backend storage and the cache will be taken from `other`.
-	pub fn wrap(other: &TrieBackend<S, H, C, R>) -> TrieBackendBuilder<&S, H, &C, R> {
+	pub fn wrap(other: &TrieBackend<S, H, C>) -> TrieBackendBuilder<&S, H, &C> {
 		TrieBackendBuilder {
 			storage: other.essence.backend_storage(),
 			root: *other.essence.root(),
+			#[cfg(feature = "std")]
 			recorder: None,
 			cache: other.essence.trie_node_cache.as_ref(),
 		}
 	}
 
 	/// Use the given optional `recorder` for the to be configured [`TrieBackend`].
-	pub fn with_optional_recorder(self, recorder: Option<R>) -> Self {
+	#[cfg(feature = "std")]
+	pub fn with_optional_recorder(self, recorder: Option<Recorder<H>>) -> Self {
 		Self { recorder, ..self }
 	}
 
 	/// Use the given `recorder` for the to be configured [`TrieBackend`].
-	pub fn with_recorder(self, recorder: R) -> Self {
+	#[cfg(feature = "std")]
+	pub fn with_recorder(self, recorder: Recorder<H>) -> Self {
 		Self { recorder: Some(recorder), ..self }
 	}
 
 	/// Use the given optional `cache` for the to be configured [`TrieBackend`].
-	pub fn with_optional_cache<LC>(self, cache: Option<LC>) -> TrieBackendBuilder<S, H, LC, R> {
+	pub fn with_optional_cache<LC>(self, cache: Option<LC>) -> TrieBackendBuilder<S, H, LC> {
 		TrieBackendBuilder {
 			cache,
 			root: self.root,
 			storage: self.storage,
+			#[cfg(feature = "std")]
 			recorder: self.recorder,
 		}
 	}
 
 	/// Use the given `cache` for the to be configured [`TrieBackend`].
-	pub fn with_cache<LC>(self, cache: LC) -> TrieBackendBuilder<S, H, LC, R> {
+	pub fn with_cache<LC>(self, cache: LC) -> TrieBackendBuilder<S, H, LC> {
 		TrieBackendBuilder {
 			cache: Some(cache),
 			root: self.root,
 			storage: self.storage,
+			#[cfg(feature = "std")]
 			recorder: self.recorder,
 		}
 	}
 
 	/// Build the configured [`TrieBackend`].
-	pub fn build(self) -> TrieBackend<S, H, C, R> {
+	#[cfg(feature = "std")]
+	pub fn build(self) -> TrieBackend<S, H, C> {
 		TrieBackend {
 			essence: TrieBackendEssence::new_with_cache_and_recorder(
 				self.storage,
@@ -302,18 +264,27 @@ where
 			next_storage_key_cache: Default::default(),
 		}
 	}
+
+	/// Build the configured [`TrieBackend`].
+	#[cfg(not(feature = "std"))]
+	pub fn build(self) -> TrieBackend<S, H, C> {
+		TrieBackend {
+			essence: TrieBackendEssence::new_with_cache(self.storage, self.root, self.cache),
+			next_storage_key_cache: Default::default(),
+		}
+	}
 }
 
 /// A cached iterator.
-struct CachedIter<S, H, C, R>
+struct CachedIter<S, H, C>
 where
 	H: Hasher,
 {
-	last_key: alloc::vec::Vec<u8>,
-	iter: RawIter<S, H, C, R>,
+	last_key: sp_std::vec::Vec<u8>,
+	iter: RawIter<S, H, C>,
 }
 
-impl<S, H, C, R> Default for CachedIter<S, H, C, R>
+impl<S, H, C> Default for CachedIter<S, H, C>
 where
 	H: Hasher,
 {
@@ -339,32 +310,23 @@ fn access_cache<T, R>(cell: &CacheCell<T>, callback: impl FnOnce(&mut T) -> R) -
 }
 
 /// Patricia trie-based backend. Transaction type is an overlay of changes to commit.
-pub struct TrieBackend<
-	S: TrieBackendStorage<H>,
-	H: Hasher,
-	C = DefaultCache<H>,
-	R = DefaultRecorder<H>,
-> {
-	pub(crate) essence: TrieBackendEssence<S, H, C, R>,
-	next_storage_key_cache: CacheCell<Option<CachedIter<S, H, C, R>>>,
+pub struct TrieBackend<S: TrieBackendStorage<H>, H: Hasher, C = DefaultCache<H>> {
+	pub(crate) essence: TrieBackendEssence<S, H, C>,
+	next_storage_key_cache: CacheCell<Option<CachedIter<S, H, C>>>,
 }
 
-impl<
-		S: TrieBackendStorage<H>,
-		H: Hasher,
-		C: TrieCacheProvider<H> + Send + Sync,
-		R: TrieRecorderProvider<H> + Send + Sync,
-	> TrieBackend<S, H, C, R>
+impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H> + Send + Sync>
+	TrieBackend<S, H, C>
 where
 	H::Out: Codec,
 {
 	#[cfg(test)]
-	pub(crate) fn from_essence(essence: TrieBackendEssence<S, H, C, R>) -> Self {
+	pub(crate) fn from_essence(essence: TrieBackendEssence<S, H, C>) -> Self {
 		Self { essence, next_storage_key_cache: Default::default() }
 	}
 
 	/// Get backend essence reference.
-	pub fn essence(&self) -> &TrieBackendEssence<S, H, C, R> {
+	pub fn essence(&self) -> &TrieBackendEssence<S, H, C> {
 		&self.essence
 	}
 
@@ -396,31 +358,28 @@ where
 	/// Extract the [`StorageProof`].
 	///
 	/// This only returns `Some` when there was a recorder set.
+	#[cfg(feature = "std")]
 	pub fn extract_proof(mut self) -> Option<StorageProof> {
-		self.essence.recorder.take().and_then(|r| r.drain_storage_proof())
+		self.essence.recorder.take().map(|r| r.drain_storage_proof())
 	}
 }
 
-impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>, R: TrieRecorderProvider<H>>
-	core::fmt::Debug for TrieBackend<S, H, C, R>
+impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>> sp_std::fmt::Debug
+	for TrieBackend<S, H, C>
 {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
 		write!(f, "TrieBackend")
 	}
 }
 
-impl<
-		S: TrieBackendStorage<H>,
-		H: Hasher,
-		C: TrieCacheProvider<H> + Send + Sync,
-		R: TrieRecorderProvider<H> + Send + Sync,
-	> Backend<H> for TrieBackend<S, H, C, R>
+impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H> + Send + Sync> Backend<H>
+	for TrieBackend<S, H, C>
 where
 	H::Out: Ord + Codec,
 {
 	type Error = crate::DefaultError;
 	type TrieBackendStorage = S;
-	type RawIter = crate::trie_backend_essence::RawIter<S, H, C, R>;
+	type RawIter = crate::trie_backend_essence::RawIter<S, H, C>;
 
 	fn storage_hash(&self, key: &[u8]) -> Result<Option<H::Out>, Self::Error> {
 		self.essence.storage_hash(key)

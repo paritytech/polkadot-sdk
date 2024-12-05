@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sc_block_builder::BlockBuilderApi;
+use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
-use sc_client_api::UsageProvider;
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sc_client_api::Backend as ClientBackend;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_runtime::{traits::Block as BlockT, DigestItem, OpaqueExtrinsic};
 
 use clap::{Args, Parser};
@@ -84,7 +84,7 @@ impl ExtrinsicCmd {
 	/// Benchmark the execution time of a specific type of extrinsic.
 	///
 	/// The output will be printed to console.
-	pub fn run<Block, C>(
+	pub fn run<Block, BA, C>(
 		&self,
 		client: Arc<C>,
 		inherent_data: sp_inherents::InherentData,
@@ -93,9 +93,9 @@ impl ExtrinsicCmd {
 	) -> Result<()>
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
-		C: ProvideRuntimeApi<Block>
-			+ CallApiAt<Block>
-			+ UsageProvider<Block>
+		BA: ClientBackend<Block>,
+		C: BlockBuilderProvider<BA, Block, C>
+			+ ProvideRuntimeApi<Block>
 			+ sp_blockchain::HeaderBackend<Block>,
 		C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	{
@@ -118,8 +118,7 @@ impl ExtrinsicCmd {
 				return Err("Unknown pallet or extrinsic. Use --list for a complete list.".into()),
 		};
 
-		let bench =
-			Benchmark::new(client, self.params.bench.clone(), inherent_data, digest_items, false);
+		let bench = Benchmark::new(client, self.params.bench.clone(), inherent_data, digest_items);
 		let stats = bench.bench_extrinsic(ext_builder)?;
 		info!(
 			"Executing a {}::{} extrinsic takes[ns]:\n{:?}",

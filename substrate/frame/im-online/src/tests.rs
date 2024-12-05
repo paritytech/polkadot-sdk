@@ -26,7 +26,10 @@ use sp_core::offchain::{
 	testing::{TestOffchainExt, TestTransactionPoolExt},
 	OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 };
-use sp_runtime::testing::UintAuthorityId;
+use sp_runtime::{
+	testing::UintAuthorityId,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+};
 
 #[test]
 fn test_unresponsiveness_slash_fraction() {
@@ -50,6 +53,9 @@ fn test_unresponsiveness_slash_fraction() {
 		dummy_offence.slash_fraction(17),
 		Perbill::from_parts(46200000), // 4.62%
 	);
+
+	// Offline offences should never lead to being disabled.
+	assert_eq!(dummy_offence.disable_strategy(), DisableStrategy::Never);
 }
 
 #[test]
@@ -225,7 +231,7 @@ fn should_generate_heartbeats() {
 
 		// check stuff about the transaction.
 		let ex: Extrinsic = Decode::decode(&mut &*transaction).unwrap();
-		let heartbeat = match ex.function {
+		let heartbeat = match ex.call {
 			crate::mock::RuntimeCall::ImOnline(crate::Call::heartbeat { heartbeat, .. }) =>
 				heartbeat,
 			e => panic!("Unexpected call: {:?}", e),
@@ -261,14 +267,14 @@ fn should_cleanup_received_heartbeats_on_session_end() {
 		let _ = heartbeat(1, 2, 0, 1.into(), Session::validators()).unwrap();
 
 		// the heartbeat is stored
-		assert!(!super::pallet::ReceivedHeartbeats::<Runtime>::get(2, 0).is_none());
+		assert!(!ImOnline::received_heartbeats(&2, &0).is_none());
 
 		advance_session();
 
 		// after the session has ended we have already processed the heartbeat
 		// message, so any messages received on the previous session should have
 		// been pruned.
-		assert!(super::pallet::ReceivedHeartbeats::<Runtime>::get(2, 0).is_none());
+		assert!(ImOnline::received_heartbeats(&2, &0).is_none());
 	});
 }
 
@@ -339,7 +345,7 @@ fn should_not_send_a_report_if_already_online() {
 		assert_eq!(pool_state.read().transactions.len(), 0);
 		// check stuff about the transaction.
 		let ex: Extrinsic = Decode::decode(&mut &*transaction).unwrap();
-		let heartbeat = match ex.function {
+		let heartbeat = match ex.call {
 			crate::mock::RuntimeCall::ImOnline(crate::Call::heartbeat { heartbeat, .. }) =>
 				heartbeat,
 			e => panic!("Unexpected call: {:?}", e),
@@ -413,7 +419,7 @@ fn should_handle_non_linear_session_progress() {
 
 		Session::rotate_session();
 
-		// if we don't have valid results for the current session progress then
+		// if we don't have valid results for the current session progres then
 		// we'll fallback to `HeartbeatAfter` and only heartbeat on block 5.
 		MockCurrentSessionProgress::mutate(|p| *p = Some(None));
 		assert_eq!(ImOnline::send_heartbeats(2).err(), Some(OffchainErr::TooEarly));

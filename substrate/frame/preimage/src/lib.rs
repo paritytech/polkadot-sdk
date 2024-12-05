@@ -37,13 +37,11 @@ mod mock;
 mod tests;
 pub mod weights;
 
-extern crate alloc;
-
-use alloc::{borrow::Cow, vec::Vec};
 use sp_runtime::{
 	traits::{BadOrigin, Hash, Saturating},
 	Perbill,
 };
+use sp_std::{borrow::Cow, prelude::*};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -104,7 +102,7 @@ pub const MAX_HASH_UPGRADE_BULK_COUNT: u32 = 1024;
 pub mod pallet {
 	use super::*;
 
-	/// The in-code storage version.
+	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::config]
@@ -124,7 +122,7 @@ pub mod pallet {
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// A means of providing some cost while data is stored on-chain.
-		type Consideration: Consideration<Self::AccountId, Footprint>;
+		type Consideration: Consideration<Self::AccountId>;
 	}
 
 	#[pallet::pallet]

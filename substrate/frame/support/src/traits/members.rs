@@ -17,11 +17,10 @@
 
 //! Traits for dealing with the idea of membership.
 
-use alloc::vec::Vec;
-use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::AtLeast16BitUnsigned;
 use sp_runtime::DispatchResult;
+use sp_std::{marker::PhantomData, prelude::*};
 
 /// A trait for querying whether a type can be said to "contain" a value.
 pub trait Contains<T> {
@@ -64,15 +63,6 @@ pub struct FromContainsPair<CP>(PhantomData<CP>);
 impl<A, B, CP: ContainsPair<A, B>> Contains<(A, B)> for FromContainsPair<CP> {
 	fn contains((ref a, ref b): &(A, B)) -> bool {
 		CP::contains(a, b)
-	}
-}
-
-/// A [`ContainsPair`] implementation that has a `Contains` implementation for each member of the
-/// pair.
-pub struct FromContains<CA, CB>(PhantomData<(CA, CB)>);
-impl<A, B, CA: Contains<A>, CB: Contains<B>> ContainsPair<A, B> for FromContains<CA, CB> {
-	fn contains(a: &A, b: &B) -> bool {
-		CA::contains(a) && CB::contains(b)
 	}
 }
 
@@ -144,14 +134,6 @@ impl<A, B, These: ContainsPair<A, B>, Those: ContainsPair<A, B>> ContainsPair<A,
 {
 	fn contains(a: &A, b: &B) -> bool {
 		These::contains(a, b) && Those::contains(a, b)
-	}
-}
-
-/// An implementation of [`Contains`] which contains only equal members to `T`.
-pub struct Equals<T>(PhantomData<T>);
-impl<X: PartialEq, T: super::Get<X>> Contains<X> for Equals<T> {
-	fn contains(t: &X) -> bool {
-		t == &T::get()
 	}
 }
 
@@ -305,13 +287,6 @@ pub trait RankedMembers {
 	/// Demote a member to the next lower rank; demoting beyond the `min_rank` removes the
 	/// member entirely.
 	fn demote(who: &Self::AccountId) -> DispatchResult;
-}
-
-/// Handler that can deal with the swap of two members.
-#[impl_trait_for_tuples::impl_for_tuples(16)]
-pub trait RankedMembersSwapHandler<AccountId, Rank> {
-	/// Member `old` was swapped with `new` at `rank`.
-	fn swapped(who: &AccountId, new_who: &AccountId, rank: Rank);
 }
 
 /// Trait for type that can handle the initialization of account IDs at genesis.

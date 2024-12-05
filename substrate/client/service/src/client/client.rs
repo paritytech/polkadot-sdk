@@ -18,15 +18,13 @@
 
 //! Substrate Client
 
-use super::{
-	block_rules::{BlockRules, LookupResult as BlockLookupResult},
-	CodeProvider,
-};
-use crate::client::notification_pinning::NotificationPinningWorker;
-use log::{debug, info, trace, warn};
+use super::block_rules::{BlockRules, LookupResult as BlockLookupResult};
+use futures::{FutureExt, StreamExt};
+use log::{error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use rand::Rng;
+use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider, RecordProof};
 use sc_chain_spec::{resolve_state_version_from_wasm, BuildGenesisBlock};
 use sc_client_api::{
 	backend::{
@@ -41,7 +39,7 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	ProofProvider, UnpinWorkerMessage, UsageProvider,
+	ProofProvider, UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -60,7 +58,10 @@ use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_core::{
-	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
+	storage::{
+		well_known_keys, ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData,
+		StorageKey,
+	},
 	traits::{CallContext, SpawnNamed},
 };
 use sp_runtime::{
@@ -69,7 +70,7 @@ use sp_runtime::{
 		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
 		SaturatedConversion, Zero,
 	},
-	Justification, Justifications, StateVersion,
+	Digest, Justification, Justifications, StateVersion,
 };
 use sp_state_machine::{
 	prove_child_read, prove_range_read_with_child_with_size, prove_read,
@@ -77,7 +78,7 @@ use sp_state_machine::{
 	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
 	MAX_NESTED_TRIE_DEPTH,
 };
-use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, StorageProof};
+use sp_trie::{CompactProof, MerkleValue, StorageProof};
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
@@ -85,8 +86,10 @@ use std::{
 	sync::Arc,
 };
 
-use super::call_executor::LocalCallExecutor;
-use sp_core::traits::CodeExecutor;
+#[cfg(feature = "test-helpers")]
+use {
+	super::call_executor::LocalCallExecutor, sc_client_api::in_mem, sp_core::traits::CodeExecutor,
+};
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
@@ -112,8 +115,7 @@ where
 	block_rules: BlockRules<Block>,
 	config: ClientConfig<Block>,
 	telemetry: Option<TelemetryHandle>,
-	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
-	code_provider: CodeProvider<Block, B, E>,
+	unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
 	_phantom: PhantomData<RA>,
 }
 
@@ -150,7 +152,40 @@ enum PrepareStorageChangesResult<Block: BlockT> {
 	Discard(ImportResult),
 	Import(Option<sc_consensus::StorageChanges<Block>>),
 }
-/// Client configuration items.
+
+/// Create an instance of in-memory client.
+#[cfg(feature = "test-helpers")]
+pub fn new_in_mem<E, Block, G, RA>(
+	backend: Arc<in_mem::Backend<Block>>,
+	executor: E,
+	genesis_block_builder: G,
+	prometheus_registry: Option<Registry>,
+	telemetry: Option<TelemetryHandle>,
+	spawn_handle: Box<dyn SpawnNamed>,
+	config: ClientConfig<Block>,
+) -> sp_blockchain::Result<
+	Client<in_mem::Backend<Block>, LocalCallExecutor<Block, in_mem::Backend<Block>, E>, Block, RA>,
+>
+where
+	E: CodeExecutor + sc_executor::RuntimeVersionOf,
+	Block: BlockT,
+	G: BuildGenesisBlock<
+			Block,
+			BlockImportOperation = <in_mem::Backend<Block> as backend::Backend<Block>>::BlockImportOperation,
+		>,
+{
+	new_with_backend(
+		backend,
+		executor,
+		genesis_block_builder,
+		spawn_handle,
+		prometheus_registry,
+		telemetry,
+		config,
+	)
+}
+
+/// Relevant client configuration items relevant for the client.
 #[derive(Debug, Clone)]
 pub struct ClientConfig<Block: BlockT> {
 	/// Enable the offchain worker db.
@@ -166,8 +201,6 @@ pub struct ClientConfig<Block: BlockT> {
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
 	/// Path where precompiled wasmtime modules exist.
 	pub wasmtime_precompiled: Option<PathBuf>,
-	/// Enable recording of storage proofs during block import
-	pub enable_import_proof_recording: bool,
 }
 
 impl<Block: BlockT> Default for ClientConfig<Block> {
@@ -179,13 +212,13 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 			no_genesis: false,
 			wasm_runtime_substitutes: HashMap::new(),
 			wasmtime_precompiled: None,
-			enable_import_proof_recording: false,
 		}
 	}
 }
 
 /// Create a client with the explicitly provided backend.
 /// This is useful for testing backend implementations.
+#[cfg(feature = "test-helpers")]
 pub fn new_with_backend<B, E, Block, G, RA>(
 	backend: Arc<B>,
 	executor: E,
@@ -294,35 +327,19 @@ where
 			// dropped, the block will be unpinned automatically.
 			if let Some(ref notification) = finality_notification {
 				if let Err(err) = self.backend.pin_block(notification.hash) {
-					debug!(
+					error!(
 						"Unable to pin block for finality notification. hash: {}, Error: {}",
 						notification.hash, err
 					);
-				} else {
-					let _ = self
-						.unpin_worker_sender
-						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
-						.map_err(|e| {
-							log::error!(
-								"Unable to send AnnouncePin worker message for finality: {e}"
-							)
-						});
-				}
+				};
 			}
 
 			if let Some(ref notification) = import_notification {
 				if let Err(err) = self.backend.pin_block(notification.hash) {
-					debug!(
+					error!(
 						"Unable to pin block for import notification. hash: {}, Error: {}",
 						notification.hash, err
 					);
-				} else {
-					let _ = self
-						.unpin_worker_sender
-						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
-						.map_err(|e| {
-							log::error!("Unable to send AnnouncePin worker message for import: {e}")
-						});
 				};
 			}
 
@@ -378,7 +395,6 @@ where
 			Block,
 			BlockImportOperation = <B as backend::Backend<Block>>::BlockImportOperation,
 		>,
-		E: Clone,
 		B: 'static,
 	{
 		let info = backend.blockchain().info();
@@ -401,13 +417,25 @@ where
 			backend.commit_operation(op)?;
 		}
 
-		let (unpin_worker_sender, rx) = tracing_unbounded::<UnpinWorkerMessage<Block>>(
-			"notification-pinning-worker-channel",
-			10_000,
+		let (unpin_worker_sender, mut rx) =
+			tracing_unbounded::<Block::Hash>("unpin-worker-channel", 10_000);
+		let task_backend = Arc::downgrade(&backend);
+		spawn_handle.spawn(
+			"unpin-worker",
+			None,
+			async move {
+				while let Some(message) = rx.next().await {
+					if let Some(backend) = task_backend.upgrade() {
+						backend.unpin_block(message);
+					} else {
+						log::debug!("Terminating unpin-worker, backend reference was dropped.");
+						return
+					}
+				}
+				log::debug!("Terminating unpin-worker, stream terminated.")
+			}
+			.boxed(),
 		);
-		let unpin_worker = NotificationPinningWorker::new(rx, backend.clone());
-		spawn_handle.spawn("notification-pinning-worker", None, Box::pin(unpin_worker.run()));
-		let code_provider = CodeProvider::new(&config, executor.clone(), backend.clone())?;
 
 		Ok(Client {
 			backend,
@@ -423,7 +451,6 @@ where
 			config,
 			telemetry,
 			unpin_worker_sender,
-			code_provider,
 			_phantom: Default::default(),
 		})
 	}
@@ -446,10 +473,13 @@ where
 	}
 
 	/// Get the code at a given block.
-	///
-	/// This takes any potential substitutes into account, but ignores overrides.
 	pub fn code_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
-		self.code_provider.code_at_ignoring_overrides(hash)
+		Ok(StorageProvider::storage(self, hash, &StorageKey(well_known_keys::CODE.to_vec()))?
+			.expect(
+				"None is returned if there's no value stored for the given key;\
+				':code' key is always defined; qed",
+			)
+			.0)
 	}
 
 	/// Get the RuntimeVersion at a given block.
@@ -480,7 +510,6 @@ where
 			fork_choice,
 			intermediates,
 			import_existing,
-			create_gap,
 			..
 		} = import_block;
 
@@ -504,8 +533,6 @@ where
 		let height = (*import_headers.post().number()).saturated_into::<u64>();
 
 		*self.importing_block.write() = Some(hash);
-
-		operation.op.set_create_gap(create_gap);
 
 		let result = self.execute_and_import_block(
 			operation,
@@ -574,8 +601,9 @@ where
 		}
 
 		let info = self.backend.blockchain().info();
-		let gap_block =
-			info.block_gap.map_or(false, |gap| *import_headers.post().number() == gap.start);
+		let gap_block = info
+			.block_gap
+			.map_or(false, |(start, _)| *import_headers.post().number() == start);
 
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
@@ -648,10 +676,8 @@ where
 
 						// This is use by fast sync for runtime version to be resolvable from
 						// changes.
-						let state_version = resolve_state_version_from_wasm::<_, HashingFor<Block>>(
-							&storage,
-							&self.executor,
-						)?;
+						let state_version =
+							resolve_state_version_from_wasm(&storage, &self.executor)?;
 						let state_root = operation.op.reset_storage(storage, state_version)?;
 						if state_root != *import_headers.post().state_root() {
 							// State root mismatch when importing state. This should not happen in
@@ -836,14 +862,6 @@ where
 
 				runtime_api.set_call_context(CallContext::Onchain);
 
-				if self.config.enable_import_proof_recording {
-					runtime_api.record_proof();
-					let recorder = runtime_api
-						.proof_recorder()
-						.expect("Proof recording is enabled in the line above; qed.");
-					runtime_api.register_extension(ProofSizeExt::new(recorder));
-				}
-
 				runtime_api.execute_block(
 					*parent_hash,
 					Block::new(import_block.header.clone(), body.clone()),
@@ -948,12 +966,8 @@ where
 
 			// The stale heads are the leaves that will be displaced after the
 			// block is finalized.
-			let stale_heads = self
-				.backend
-				.blockchain()
-				.displaced_leaves_after_finalizing(hash, block_number)?
-				.hashes()
-				.collect();
+			let stale_heads =
+				self.backend.blockchain().displaced_leaves_after_finalizing(block_number)?;
 
 			let header = self
 				.backend
@@ -1391,6 +1405,46 @@ where
 	}
 }
 
+impl<B, E, Block, RA> BlockBuilderProvider<B, Block, Self> for Client<B, E, Block, RA>
+where
+	B: backend::Backend<Block> + Send + Sync + 'static,
+	E: CallExecutor<Block> + Send + Sync + 'static,
+	Block: BlockT,
+	Self: ChainHeaderBackend<Block> + ProvideRuntimeApi<Block>,
+	<Self as ProvideRuntimeApi<Block>>::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+{
+	fn new_block_at<R: Into<RecordProof>>(
+		&self,
+		parent: Block::Hash,
+		inherent_digests: Digest,
+		record_proof: R,
+	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, Self, B>> {
+		sc_block_builder::BlockBuilder::new(
+			self,
+			parent,
+			self.expect_block_number_from_id(&BlockId::Hash(parent))?,
+			record_proof.into(),
+			inherent_digests,
+			&self.backend,
+		)
+	}
+
+	fn new_block(
+		&self,
+		inherent_digests: Digest,
+	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, Self, B>> {
+		let info = self.chain_info();
+		sc_block_builder::BlockBuilder::new(
+			self,
+			info.best_hash,
+			info.best_number,
+			RecordProof::No,
+			inherent_digests,
+			&self.backend,
+		)
+	}
+}
+
 impl<B, E, Block, RA> ExecutorProvider<Block> for Client<B, E, Block, RA>
 where
 	B: backend::Backend<Block>,
@@ -1723,7 +1777,7 @@ where
 	/// If you are not sure that there are no BlockImport objects provided by the consensus
 	/// algorithm, don't use this function.
 	async fn import_block(
-		&self,
+		&mut self,
 		mut import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let span = tracing::span!(tracing::Level::DEBUG, "import_block");
@@ -1749,7 +1803,7 @@ where
 
 	/// Check block preconditions.
 	async fn check_block(
-		&self,
+		&mut self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let BlockCheckParams {
@@ -1823,18 +1877,18 @@ where
 {
 	type Error = ConsensusError;
 
-	async fn check_block(
-		&self,
-		block: BlockCheckParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		(&self).check_block(block).await
-	}
-
 	async fn import_block(
-		&self,
+		&mut self,
 		import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
-		(&self).import_block(import_block).await
+		(&*self).import_block(import_block).await
+	}
+
+	async fn check_block(
+		&mut self,
+		block: BlockCheckParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		(&*self).check_block(block).await
 	}
 }
 

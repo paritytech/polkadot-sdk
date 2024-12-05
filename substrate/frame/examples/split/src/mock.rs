@@ -17,6 +17,7 @@
 
 use crate as pallet_template;
 use frame_support::{derive_impl, sp_runtime::BuildStorage};
+use sp_core::ConstU64;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -31,9 +32,16 @@ frame_support::construct_runtime!(
 
 /// Using a default config for [`frame_system`] in tests. See `default-config` example for more
 /// details.
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockHashCount = ConstU64<10>;
+	type BaseCallFilter = frame_support::traits::Everything;
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type PalletInfo = PalletInfo;
+	type OnSetCode = ();
 }
 
 impl pallet_template::Config for Test {

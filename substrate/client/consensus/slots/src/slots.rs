@@ -21,7 +21,7 @@
 //! This is used instead of `futures_timer::Interval` because it was unreliable.
 
 use super::{InherentDataProviderExt, Slot, LOG_TARGET};
-use sp_consensus::{SelectChain, SyncOracle};
+use sp_consensus::SelectChain;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
@@ -87,23 +87,21 @@ impl<B: BlockT> SlotInfo<B> {
 }
 
 /// A stream that returns every time there is a new slot.
-pub(crate) struct Slots<Block, SC, IDP, SO> {
+pub(crate) struct Slots<Block, SC, IDP> {
 	last_slot: Slot,
 	slot_duration: Duration,
 	until_next_slot: Option<Delay>,
 	create_inherent_data_providers: IDP,
 	select_chain: SC,
-	sync_oracle: SO,
 	_phantom: std::marker::PhantomData<Block>,
 }
 
-impl<Block, SC, IDP, SO> Slots<Block, SC, IDP, SO> {
+impl<Block, SC, IDP> Slots<Block, SC, IDP> {
 	/// Create a new `Slots` stream.
 	pub fn new(
 		slot_duration: Duration,
 		create_inherent_data_providers: IDP,
 		select_chain: SC,
-		sync_oracle: SO,
 	) -> Self {
 		Slots {
 			last_slot: 0.into(),
@@ -111,19 +109,17 @@ impl<Block, SC, IDP, SO> Slots<Block, SC, IDP, SO> {
 			until_next_slot: None,
 			create_inherent_data_providers,
 			select_chain,
-			sync_oracle,
 			_phantom: Default::default(),
 		}
 	}
 }
 
-impl<Block, SC, IDP, SO> Slots<Block, SC, IDP, SO>
+impl<Block, SC, IDP> Slots<Block, SC, IDP>
 where
 	Block: BlockT,
 	SC: SelectChain<Block>,
 	IDP: CreateInherentDataProviders<Block, ()> + 'static,
 	IDP::InherentDataProviders: crate::InherentDataProviderExt,
-	SO: SyncOracle,
 {
 	/// Returns a future that fires when the next slot starts.
 	pub async fn next_slot(&mut self) -> SlotInfo<Block> {
@@ -141,11 +137,6 @@ where
 			// Schedule delay for next slot.
 			let wait_dur = time_until_next_slot(self.slot_duration);
 			self.until_next_slot = Some(Delay::new(wait_dur));
-
-			if self.sync_oracle.is_major_syncing() {
-				log::debug!(target: LOG_TARGET, "Skipping slot: major sync is in progress.");
-				continue;
-			}
 
 			let chain_head = match self.select_chain.best_chain().await {
 				Ok(x) => x,

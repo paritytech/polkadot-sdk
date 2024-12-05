@@ -14,39 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! PVF host integration tests checking the chain production pipeline.
-
 use super::TestHost;
-use codec::{Decode, Encode};
-use polkadot_node_primitives::PoV;
+use adder::{hash_state, BlockData, HeadData};
+use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{
-	BlockData as GenericBlockData, HeadData as GenericHeadData,
+	BlockData as GenericBlockData, HeadData as GenericHeadData, RelayChainBlockNumber,
+	ValidationParams,
 };
-use polkadot_primitives::PersistedValidationData;
-use sp_core::H256;
-use test_parachain_adder::{hash_state, BlockData, HeadData};
 
 #[tokio::test]
 async fn execute_good_block_on_parent() {
 	let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
-	let block_data = BlockData { state: 0, add: 512 };
-	let pvd = PersistedValidationData {
-		parent_head: GenericHeadData(parent_head.encode()),
-		relay_parent_number: 1u32,
-		relay_parent_storage_root: H256::default(),
-		max_pov_size: 4096 * 1024,
-	};
-	let pov = PoV { block_data: GenericBlockData(block_data.encode()) };
 
-	let host = TestHost::new().await;
+	let block_data = BlockData { state: 0, add: 512 };
+
+	let host = TestHost::new();
 
 	let ret = host
 		.validate_candidate(
-			test_parachain_adder::wasm_binary_unwrap(),
-			pvd,
-			pov,
+			adder::wasm_binary_unwrap(),
+			ValidationParams {
+				parent_head: GenericHeadData(parent_head.encode()),
+				block_data: GenericBlockData(block_data.encode()),
+				relay_parent_number: 1,
+				relay_parent_storage_root: Default::default(),
+			},
 			Default::default(),
-			H256::default(),
 		)
 		.await
 		.unwrap();
@@ -63,27 +56,24 @@ async fn execute_good_chain_on_parent() {
 	let mut parent_hash = [0; 32];
 	let mut last_state = 0;
 
-	let host = TestHost::new().await;
+	let host = TestHost::new();
 
 	for (number, add) in (0..10).enumerate() {
 		let parent_head =
 			HeadData { number: number as u64, parent_hash, post_state: hash_state(last_state) };
+
 		let block_data = BlockData { state: last_state, add };
-		let pvd = PersistedValidationData {
-			parent_head: GenericHeadData(parent_head.encode()),
-			relay_parent_number: 1u32,
-			relay_parent_storage_root: H256::default(),
-			max_pov_size: 4096 * 1024,
-		};
-		let pov = PoV { block_data: GenericBlockData(block_data.encode()) };
 
 		let ret = host
 			.validate_candidate(
-				test_parachain_adder::wasm_binary_unwrap(),
-				pvd,
-				pov,
+				adder::wasm_binary_unwrap(),
+				ValidationParams {
+					parent_head: GenericHeadData(parent_head.encode()),
+					block_data: GenericBlockData(block_data.encode()),
+					relay_parent_number: number as RelayChainBlockNumber + 1,
+					relay_parent_storage_root: Default::default(),
+				},
 				Default::default(),
-				H256::default(),
 			)
 			.await
 			.unwrap();
@@ -102,27 +92,24 @@ async fn execute_good_chain_on_parent() {
 #[tokio::test]
 async fn execute_bad_block_on_parent() {
 	let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
+
 	let block_data = BlockData {
 		state: 256, // start state is wrong.
 		add: 256,
 	};
-	let pvd = PersistedValidationData {
-		parent_head: GenericHeadData(parent_head.encode()),
-		relay_parent_number: 1u32,
-		relay_parent_storage_root: H256::default(),
-		max_pov_size: 4096 * 1024,
-	};
-	let pov = PoV { block_data: GenericBlockData(block_data.encode()) };
 
-	let host = TestHost::new().await;
+	let host = TestHost::new();
 
 	let _err = host
 		.validate_candidate(
-			test_parachain_adder::wasm_binary_unwrap(),
-			pvd,
-			pov,
+			adder::wasm_binary_unwrap(),
+			ValidationParams {
+				parent_head: GenericHeadData(parent_head.encode()),
+				block_data: GenericBlockData(block_data.encode()),
+				relay_parent_number: 1,
+				relay_parent_storage_root: Default::default(),
+			},
 			Default::default(),
-			H256::default(),
 		)
 		.await
 		.unwrap_err();
@@ -130,25 +117,21 @@ async fn execute_bad_block_on_parent() {
 
 #[tokio::test]
 async fn stress_spawn() {
-	let host = std::sync::Arc::new(TestHost::new().await);
+	let host = std::sync::Arc::new(TestHost::new());
 
 	async fn execute(host: std::sync::Arc<TestHost>) {
 		let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
 		let block_data = BlockData { state: 0, add: 512 };
-		let pvd = PersistedValidationData {
-			parent_head: GenericHeadData(parent_head.encode()),
-			relay_parent_number: 1u32,
-			relay_parent_storage_root: H256::default(),
-			max_pov_size: 4096 * 1024,
-		};
-		let pov = PoV { block_data: GenericBlockData(block_data.encode()) };
 		let ret = host
 			.validate_candidate(
-				test_parachain_adder::wasm_binary_unwrap(),
-				pvd,
-				pov,
+				adder::wasm_binary_unwrap(),
+				ValidationParams {
+					parent_head: GenericHeadData(parent_head.encode()),
+					block_data: GenericBlockData(block_data.encode()),
+					relay_parent_number: 1,
+					relay_parent_storage_root: Default::default(),
+				},
 				Default::default(),
-				H256::default(),
 			)
 			.await
 			.unwrap();
@@ -166,30 +149,23 @@ async fn stress_spawn() {
 // With one worker, run multiple execution jobs serially. They should not conflict.
 #[tokio::test]
 async fn execute_can_run_serially() {
-	let host = std::sync::Arc::new(
-		TestHost::new_with_config(|cfg| {
-			cfg.execute_workers_max_num = 1;
-		})
-		.await,
-	);
+	let host = std::sync::Arc::new(TestHost::new_with_config(|cfg| {
+		cfg.execute_workers_max_num = 1;
+	}));
 
 	async fn execute(host: std::sync::Arc<TestHost>) {
 		let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
 		let block_data = BlockData { state: 0, add: 512 };
-		let pvd = PersistedValidationData {
-			parent_head: GenericHeadData(parent_head.encode()),
-			relay_parent_number: 1u32,
-			relay_parent_storage_root: H256::default(),
-			max_pov_size: 4096 * 1024,
-		};
-		let pov = PoV { block_data: GenericBlockData(block_data.encode()) };
 		let ret = host
 			.validate_candidate(
-				test_parachain_adder::wasm_binary_unwrap(),
-				pvd,
-				pov,
+				adder::wasm_binary_unwrap(),
+				ValidationParams {
+					parent_head: GenericHeadData(parent_head.encode()),
+					block_data: GenericBlockData(block_data.encode()),
+					relay_parent_number: 1,
+					relay_parent_storage_root: Default::default(),
+				},
 				Default::default(),
-				H256::default(),
 			)
 			.await
 			.unwrap();

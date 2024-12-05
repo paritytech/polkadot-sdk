@@ -44,16 +44,16 @@ async fn sync_peers_works() {
 	sp_tracing::try_init_simple();
 	let mut net = TestNet::new(3);
 
-	while net.peer(0).num_peers().await != 2 &&
-		net.peer(1).num_peers().await != 2 &&
-		net.peer(2).num_peers().await != 2
-	{
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
-			Poll::Ready(())
-		})
-		.await;
-	}
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		for peer in 0..3 {
+			if net.peer(peer).num_peers() != 2 {
+				return Poll::Pending
+			}
+		}
+		Poll::Ready(())
+	})
+	.await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -412,13 +412,15 @@ async fn can_sync_small_non_best_forks() {
 	assert!(net.peer(1).client().header(small_hash).unwrap().is_none());
 
 	// poll until the two nodes connect, otherwise announcing the block will not work
-	while net.peer(0).num_peers().await == 0 || net.peer(1).num_peers().await == 0 {
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		if net.peer(0).num_peers() == 0 || net.peer(1).num_peers() == 0 {
+			Poll::Pending
+		} else {
 			Poll::Ready(())
-		})
-		.await;
-	}
+		}
+	})
+	.await;
 
 	// synchronization: 0 synced to longer chain and 1 didn't sync to small chain.
 
@@ -463,7 +465,6 @@ async fn can_sync_forks_ahead_of_the_best_chain() {
 	net.peer(1).push_blocks(1, false);
 
 	net.run_until_connected().await;
-
 	// Peer 0 is on 2-block fork which is announced with is_best=false
 	let fork_hash = net
 		.peer(0)
@@ -515,13 +516,15 @@ async fn can_sync_explicit_forks() {
 	assert!(net.peer(1).client().header(small_hash).unwrap().is_none());
 
 	// poll until the two nodes connect, otherwise announcing the block will not work
-	while net.peer(0).num_peers().await == 0 || net.peer(1).num_peers().await == 0 {
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		if net.peer(0).num_peers() == 0 || net.peer(1).num_peers() == 0 {
+			Poll::Pending
+		} else {
 			Poll::Ready(())
-		})
-		.await;
-	}
+		}
+	})
+	.await;
 
 	// synchronization: 0 synced to longer chain and 1 didn't sync to small chain.
 
@@ -610,14 +613,15 @@ async fn full_sync_requires_block_body() {
 
 	net.peer(0).push_headers(1);
 	// Wait for nodes to connect
-	while net.peer(0).num_peers().await == 0 || net.peer(1).num_peers().await == 0 {
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		if net.peer(0).num_peers() == 0 || net.peer(1).num_peers() == 0 {
+			Poll::Pending
+		} else {
 			Poll::Ready(())
-		})
-		.await;
-	}
-
+		}
+	})
+	.await;
 	net.run_until_idle().await;
 	assert_eq!(net.peer(1).client.info().best_number, 0);
 }
@@ -746,6 +750,24 @@ async fn sync_blocks_when_block_announce_validator_says_it_is_new_best() {
 
 	while !net.peer(2).has_block(block_hash) {
 		net.run_until_idle().await;
+	}
+}
+
+/// Waits for some time until the validation is successfull.
+struct DeferredBlockAnnounceValidator;
+
+impl BlockAnnounceValidator<Block> for DeferredBlockAnnounceValidator {
+	fn validate(
+		&mut self,
+		_: &Header,
+		_: &[u8],
+	) -> Pin<Box<dyn Future<Output = Result<Validation, Box<dyn std::error::Error + Send>>> + Send>>
+	{
+		async {
+			futures_timer::Delay::new(std::time::Duration::from_millis(500)).await;
+			Ok(Validation::Success { is_new_best: false })
+		}
+		.boxed()
 	}
 }
 
@@ -895,16 +917,18 @@ async fn block_announce_data_is_propagated() {
 	});
 
 	// Wait until peer 1 is connected to both nodes.
-	while net.peer(1).num_peers().await != 2 ||
-		net.peer(0).num_peers().await != 1 ||
-		net.peer(2).num_peers().await != 1
-	{
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		if net.peer(1).num_peers() == 2 &&
+			net.peer(0).num_peers() == 1 &&
+			net.peer(2).num_peers() == 1
+		{
 			Poll::Ready(())
-		})
-		.await;
-	}
+		} else {
+			Poll::Pending
+		}
+	})
+	.await;
 
 	let block_hash = net
 		.peer(0)
@@ -986,7 +1010,7 @@ async fn multiple_requests_are_accepted_as_long_as_they_are_not_fulfilled() {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 		net.peer(0).push_blocks(1, false);
 		net.run_until_sync().await;
-		assert_eq!(1, net.peer(0).num_peers().await);
+		assert_eq!(1, net.peer(0).num_peers());
 	}
 
 	let hashof10 = hashes[9];
@@ -1031,7 +1055,7 @@ async fn syncs_all_forks_from_single_peer() {
 		})
 		.await;
 
-		if net.peer(1).sync_service().status().await.unwrap().best_seen_block == Some(12) {
+		if net.peer(1).sync_service().best_seen_block().await.unwrap() == Some(12) {
 			break
 		}
 	}
@@ -1214,14 +1238,12 @@ async fn warp_sync() {
 	let target = net.peer(0).push_blocks(1, false).pop().unwrap();
 	net.peer(1).push_blocks(64, false);
 	net.peer(2).push_blocks(64, false);
-	// Wait for peer 3 to sync state.
+	// Wait for peer 1 to sync state.
 	net.run_until_sync().await;
-	// Make sure it was not a full sync.
 	assert!(!net.peer(3).client().has_state_at(&BlockId::Number(1)));
-	// Make sure warp sync was successful.
 	assert!(net.peer(3).client().has_state_at(&BlockId::Number(64)));
 
-	// Wait for peer 3 to download block history (gap sync).
+	// Wait for peer 1 download block history
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 		if net.peer(3).has_body(gap_end) && net.peer(3).has_body(target) {
@@ -1231,35 +1253,6 @@ async fn warp_sync() {
 		}
 	})
 	.await;
-}
-
-/// If there is a finalized state in the DB, warp sync falls back to full sync.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn warp_sync_failover_to_full_sync() {
-	sp_tracing::try_init_simple();
-	let mut net = TestNet::new(0);
-	// Create 3 synced peers and 1 peer trying to warp sync.
-	net.add_full_peer_with_config(Default::default());
-	net.add_full_peer_with_config(Default::default());
-	net.add_full_peer_with_config(Default::default());
-	net.add_full_peer_with_config(FullPeerConfig {
-		sync_mode: SyncMode::Warp,
-		// We want some finalized state in the DB to make warp sync impossible.
-		force_genesis: true,
-		..Default::default()
-	});
-	net.peer(0).push_blocks(64, false);
-	net.peer(1).push_blocks(64, false);
-	net.peer(2).push_blocks(64, false);
-	// Even though we requested peer 3 to warp sync, it'll fall back to full sync if there is
-	// a finalized state in the DB.
-	assert!(net.peer(3).client().info().finalized_state.is_some());
-	// Wait for peer 3 to sync.
-	net.run_until_sync().await;
-	// Make sure it was a full sync (peer 3 has state for all blocks).
-	(1..65)
-		.into_iter()
-		.for_each(|i| assert!(net.peer(3).client().has_state_at(&BlockId::Number(i as u64))));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1280,7 +1273,7 @@ async fn warp_sync_to_target_block() {
 
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
-		target_header: Some(target_block),
+		target_block: Some(target_block),
 		..Default::default()
 	});
 

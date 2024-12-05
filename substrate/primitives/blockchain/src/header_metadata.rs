@@ -18,18 +18,14 @@
 //! Implements tree backend, cached header metadata and algorithms
 //! to compute routes efficiently over the tree of headers.
 
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 use schnellru::{ByLength, LruMap};
-use sp_core::U256;
-use sp_runtime::{
-	traits::{Block as BlockT, Header, NumberFor, One},
-	Saturating,
-};
+use sp_runtime::traits::{Block as BlockT, Header, NumberFor, One};
 
 /// Set to the expected max difference between `best` and `finalized` blocks at sync.
-pub(crate) const LRU_CACHE_SIZE: u32 = 5_000;
+const LRU_CACHE_SIZE: u32 = 5_000;
 
-/// Get the lowest common ancestor between two blocks in the tree.
+/// Get lowest common ancestor between two blocks in the tree.
 ///
 /// This implementation is efficient because our trees have very few and
 /// small branches, and because of our current query pattern:
@@ -101,7 +97,7 @@ pub fn lowest_common_ancestor<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 }
 
 /// Compute a tree-route between two blocks. See tree-route docs for more details.
-pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
+pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block>>(
 	backend: &T,
 	from: Block::Hash,
 	to: Block::Hash,
@@ -109,16 +105,15 @@ pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 	let mut from = backend.header_metadata(from)?;
 	let mut to = backend.header_metadata(to)?;
 
-	let mut to_branch =
-		Vec::with_capacity(Into::<U256>::into(to.number.saturating_sub(from.number)).as_usize());
+	let mut from_branch = Vec::new();
+	let mut to_branch = Vec::new();
+
 	while to.number > from.number {
 		to_branch.push(HashAndNumber { number: to.number, hash: to.hash });
 
 		to = backend.header_metadata(to.parent)?;
 	}
 
-	let mut from_branch =
-		Vec::with_capacity(Into::<U256>::into(to.number.saturating_sub(from.number)).as_usize());
 	while from.number > to.number {
 		from_branch.push(HashAndNumber { number: from.number, hash: from.hash });
 		from = backend.header_metadata(from.parent)?;
@@ -137,7 +132,6 @@ pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 	// add the pivot block. and append the reversed to-branch
 	// (note that it's reverse order originals)
 	let pivot = from_branch.len();
-	from_branch.reserve_exact(to_branch.len() + 1);
 	from_branch.push(HashAndNumber { number: to.number, hash: to.hash });
 	from_branch.extend(to_branch.into_iter().rev());
 
@@ -155,7 +149,7 @@ pub struct HashAndNumber<Block: BlockT> {
 
 /// A tree-route from one block to another in the chain.
 ///
-/// All blocks prior to the pivot in the vector is the reverse-order unique ancestry
+/// All blocks prior to the pivot in the deque is the reverse-order unique ancestry
 /// of the first block, the block at the pivot index is the common ancestor,
 /// and all blocks after the pivot is the ancestry of the second block, in
 /// order.
@@ -184,7 +178,7 @@ pub struct TreeRoute<Block: BlockT> {
 impl<Block: BlockT> TreeRoute<Block> {
 	/// Creates a new `TreeRoute`.
 	///
-	/// To preserve the structure safety invariants it is required that `pivot < route.len()`.
+	/// To preserve the structure safety invariats it is required that `pivot < route.len()`.
 	pub fn new(route: Vec<HashAndNumber<Block>>, pivot: usize) -> Result<Self, String> {
 		if pivot < route.len() {
 			Ok(TreeRoute { route, pivot })
@@ -218,7 +212,7 @@ impl<Block: BlockT> TreeRoute<Block> {
 		)
 	}
 
-	/// Get a slice of enacted blocks (descendants of the common ancestor)
+	/// Get a slice of enacted blocks (descendents of the common ancestor)
 	pub fn enacted(&self) -> &[HashAndNumber<Block>] {
 		&self.route[self.pivot + 1..]
 	}
@@ -248,33 +242,33 @@ pub trait HeaderMetadata<Block: BlockT> {
 
 /// Caches header metadata in an in-memory LRU cache.
 pub struct HeaderMetadataCache<Block: BlockT> {
-	cache: Mutex<LruMap<Block::Hash, CachedHeaderMetadata<Block>>>,
+	cache: RwLock<LruMap<Block::Hash, CachedHeaderMetadata<Block>>>,
 }
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	/// Creates a new LRU header metadata cache with `capacity`.
 	pub fn new(capacity: u32) -> Self {
-		HeaderMetadataCache { cache: Mutex::new(LruMap::new(ByLength::new(capacity))) }
+		HeaderMetadataCache { cache: RwLock::new(LruMap::new(ByLength::new(capacity))) }
 	}
 }
 
 impl<Block: BlockT> Default for HeaderMetadataCache<Block> {
 	fn default() -> Self {
-		Self::new(LRU_CACHE_SIZE)
+		HeaderMetadataCache { cache: RwLock::new(LruMap::new(ByLength::new(LRU_CACHE_SIZE))) }
 	}
 }
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	pub fn header_metadata(&self, hash: Block::Hash) -> Option<CachedHeaderMetadata<Block>> {
-		self.cache.lock().get(&hash).cloned()
+		self.cache.write().get(&hash).cloned()
 	}
 
 	pub fn insert_header_metadata(&self, hash: Block::Hash, metadata: CachedHeaderMetadata<Block>) {
-		self.cache.lock().insert(hash, metadata);
+		self.cache.write().insert(hash, metadata);
 	}
 
 	pub fn remove_header_metadata(&self, hash: Block::Hash) {
-		self.cache.lock().remove(&hash);
+		self.cache.write().remove(&hash);
 	}
 }
 

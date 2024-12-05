@@ -14,16 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::Encode;
-use net_protocol::{filter_by_peer_version, peer_set::ProtocolVersion};
+use parity_scale_codec::Encode;
 
 use polkadot_node_network_protocol::{
 	self as net_protocol,
 	grid_topology::{GridNeighbors, RequiredRouting, SessionBoundGridTopologyStorage},
 	peer_set::{IsAuthority, PeerSet, ValidationVersion},
 	v1::{self as protocol_v1, StatementMetadata},
-	v2 as protocol_v2, v3 as protocol_v3, IfDisconnected, PeerId, UnifiedReputationChange as Rep,
-	Versioned, View,
+	v2 as protocol_v2, IfDisconnected, PeerId, UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::{
 	SignedFullStatement, Statement, StatementWithPVD, UncheckedSignedFullStatement,
@@ -33,14 +31,14 @@ use polkadot_node_subsystem_util::{
 };
 
 use polkadot_node_subsystem::{
+	jaeger,
 	messages::{CandidateBackingMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
-	overseer, ActivatedLeaf, StatementDistributionSenderTrait,
+	overseer, ActivatedLeaf, PerLeafSpan, StatementDistributionSenderTrait,
 };
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, AuthorityDiscoveryId,
-	CandidateHash, CompactStatement, Hash, Id as ParaId, IndexedVec, OccupiedCoreAssumption,
-	PersistedValidationData, SignedStatement, SigningContext, UncheckedSignedStatement,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	AuthorityDiscoveryId, CandidateHash, CommittedCandidateReceipt, CompactStatement, Hash,
+	Id as ParaId, IndexedVec, OccupiedCoreAssumption, PersistedValidationData, SignedStatement,
+	SigningContext, UncheckedSignedStatement, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use futures::{
@@ -632,12 +630,15 @@ pub(crate) struct ActiveHeadData {
 	session_index: sp_staking::SessionIndex,
 	/// How many `Seconded` statements we've seen per validator.
 	seconded_counts: HashMap<ValidatorIndex, usize>,
+	/// A Jaeger span for this head, so we can attach data to it.
+	span: PerLeafSpan,
 }
 
 impl ActiveHeadData {
 	fn new(
 		validators: IndexedVec<ValidatorIndex, ValidatorId>,
 		session_index: sp_staking::SessionIndex,
+		span: PerLeafSpan,
 	) -> Self {
 		ActiveHeadData {
 			candidates: Default::default(),
@@ -647,6 +648,7 @@ impl ActiveHeadData {
 			validators,
 			session_index,
 			seconded_counts: Default::default(),
+			span,
 		}
 	}
 
@@ -897,6 +899,12 @@ async fn circulate_statement_and_dependents<Context>(
 		None => return,
 	};
 
+	let _span = active_head
+		.span
+		.child("circulate-statement")
+		.with_candidate(statement.payload().candidate_hash())
+		.with_stage(jaeger::Stage::StatementDistribution);
+
 	let topology = topology_store
 		.get_topology_or_fallback(active_head.session_index)
 		.local_grid_neighbors();
@@ -923,10 +931,12 @@ async fn circulate_statement_and_dependents<Context>(
 		}
 	};
 
+	let _span = _span.child("send-to-peers");
 	// Now send dependent statements to all peers needing them, if any.
 	if let Some((candidate_hash, peers_needing_dependents)) = outputs {
 		for peer in peers_needing_dependents {
 			if let Some(peer_data) = peers.get_mut(&peer) {
+				let _span_loop = _span.child("to-peer").with_peer_id(&peer);
 				// defensive: the peer data should always be some because the iterator
 				// of peers is derived from the set of peers.
 				send_statements_about(
@@ -1051,7 +1061,7 @@ async fn circulate_statement<'a, Context>(
 		"We filter out duplicates above. qed.",
 	);
 
-	let (v1_peers_to_send, non_v1_peers_to_send) = peers_to_send
+	let (v1_peers_to_send, v2_peers_to_send) = peers_to_send
 		.into_iter()
 		.map(|peer_id| {
 			let peer_data =
@@ -1063,7 +1073,7 @@ async fn circulate_statement<'a, Context>(
 		})
 		.partition::<Vec<_>, _>(|(_, _, version)| match version {
 			ValidationVersion::V1 => true,
-			ValidationVersion::V2 | ValidationVersion::V3 => false,
+			ValidationVersion::V2 => false,
 		}); // partition is handy here but not if we add more protocol versions
 
 	let payload = v1_statement_message(relay_parent, stored.statement.clone(), metrics);
@@ -1083,21 +1093,6 @@ async fn circulate_statement<'a, Context>(
 		))
 		.await;
 	}
-
-	let peers_to_send: Vec<(PeerId, ProtocolVersion)> = non_v1_peers_to_send
-		.iter()
-		.map(|(p, _, version)| (*p, (*version).into()))
-		.collect();
-
-	let peer_needs_dependent_statement = v1_peers_to_send
-		.into_iter()
-		.chain(non_v1_peers_to_send)
-		.filter_map(|(peer, needs_dependent, _)| if needs_dependent { Some(peer) } else { None })
-		.collect();
-
-	let v2_peers_to_send = filter_by_peer_version(&peers_to_send, ValidationVersion::V2.into());
-	let v3_to_send = filter_by_peer_version(&peers_to_send, ValidationVersion::V3.into());
-
 	if !v2_peers_to_send.is_empty() {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -1107,28 +1102,17 @@ async fn circulate_statement<'a, Context>(
 			"Sending statement to v2 peers",
 		);
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			v2_peers_to_send,
+			v2_peers_to_send.iter().map(|(p, _, _)| *p).collect(),
 			compatible_v1_message(ValidationVersion::V2, payload.clone()).into(),
 		))
 		.await;
 	}
 
-	if !v3_to_send.is_empty() {
-		gum::trace!(
-			target: LOG_TARGET,
-			?v3_to_send,
-			?relay_parent,
-			statement = ?stored.statement,
-			"Sending statement to v3 peers",
-		);
-		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			v3_to_send,
-			compatible_v1_message(ValidationVersion::V3, payload.clone()).into(),
-		))
-		.await;
-	}
-
-	peer_needs_dependent_statement
+	v1_peers_to_send
+		.into_iter()
+		.chain(v2_peers_to_send)
+		.filter_map(|(peer, needs_dependent, _)| if needs_dependent { Some(peer) } else { None })
+		.collect()
 }
 
 /// Send all statements about a given candidate hash to a peer.
@@ -1458,9 +1442,8 @@ async fn handle_incoming_message<'a, Context>(
 
 	let message = match message {
 		Versioned::V1(m) => m,
-		Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(m)) |
-		Versioned::V3(protocol_v3::StatementDistributionMessage::V1Compatibility(m)) => m,
-		Versioned::V2(_) | Versioned::V3(_) => {
+		Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(m)) => m,
+		Versioned::V2(_) => {
 			// The higher-level subsystem code is supposed to filter out
 			// all non v1 messages.
 			gum::debug!(
@@ -1501,6 +1484,11 @@ async fn handle_incoming_message<'a, Context>(
 
 	let fingerprint = message.get_fingerprint();
 	let candidate_hash = *fingerprint.0.candidate_hash();
+	let handle_incoming_span = active_head
+		.span
+		.child("handle-incoming")
+		.with_candidate(candidate_hash)
+		.with_peer_id(&peer);
 
 	let max_message_count = active_head.validators.len() * 2;
 
@@ -1642,7 +1630,7 @@ async fn handle_incoming_message<'a, Context>(
 	// In case of `Valid` we should have it cached prior, therefore this performs
 	// no Runtime API calls and always returns `Ok(Some(_))`.
 	let pvd = if let Statement::Seconded(receipt) = statement.payload() {
-		let para_id = receipt.descriptor.para_id();
+		let para_id = receipt.descriptor.para_id;
 		// Either call the Runtime API or check that validation data is cached.
 		let result = active_head
 			.fetch_persisted_validation_data(ctx.sender(), relay_parent, para_id)
@@ -1681,6 +1669,8 @@ async fn handle_incoming_message<'a, Context>(
 		},
 		NotedStatement::Fresh(statement) => {
 			modify_reputation(reputation, ctx.sender(), peer, BENEFIT_VALID_STATEMENT_FIRST).await;
+
+			let mut _span = handle_incoming_span.child("notify-backing");
 
 			// When we receive a new message from a peer, we forward it to the
 			// candidate backing subsystem.
@@ -1873,9 +1863,7 @@ pub(crate) async fn handle_network_update<Context, R>(
 				?authority_ids,
 				"Updated `AuthorityDiscoveryId`s"
 			);
-			topology_storage
-				.get_current_topology_mut()
-				.update_authority_ids(peer, &authority_ids);
+
 			// Remove the authority IDs which were previously mapped to the peer
 			// but aren't part of the new set.
 			authorities.retain(|a, p| p != &peer || authority_ids.contains(a));
@@ -2060,6 +2048,7 @@ pub(crate) async fn handle_activated_leaf<Context>(
 	activated: ActivatedLeaf,
 ) -> Result<()> {
 	let relay_parent = activated.hash;
+	let span = PerLeafSpan::new(activated.span, "statement-distribution-legacy");
 	gum::trace!(
 		target: LOG_TARGET,
 		hash = ?relay_parent,
@@ -2075,10 +2064,11 @@ pub(crate) async fn handle_activated_leaf<Context>(
 		.await?;
 	let session_info = &info.session_info;
 
-	state
-		.active_heads
-		.entry(relay_parent)
-		.or_insert(ActiveHeadData::new(session_info.validators.clone(), session_index));
+	state.active_heads.entry(relay_parent).or_insert(ActiveHeadData::new(
+		session_info.validators.clone(),
+		session_index,
+		span,
+	));
 
 	Ok(())
 }
@@ -2179,7 +2169,5 @@ fn compatible_v1_message(
 		ValidationVersion::V1 => Versioned::V1(message),
 		ValidationVersion::V2 =>
 			Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(message)),
-		ValidationVersion::V3 =>
-			Versioned::V3(protocol_v3::StatementDistributionMessage::V1Compatibility(message)),
 	}
 }

@@ -278,21 +278,32 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 frame_support::construct_runtime!(
 	pub enum Runtime
 	{
-		System: frame_system,
-		Module1_1: module1::<Instance1>,
-		Module1_2: module1::<Instance2>,
-		Module2: module2,
-		Module2_1: module2::<Instance1>,
-		Module2_2: module2::<Instance2>,
-		Module2_3: module2::<Instance3>,
-		Module3: module3,
+		System: frame_system::{Pallet, Call, Event<T>},
+		Module1_1: module1::<Instance1>::{
+			Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent
+		},
+		Module1_2: module1::<Instance2>::{
+			Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent
+		},
+		Module2: module2::{Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent},
+		Module2_1: module2::<Instance1>::{
+			Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent
+		},
+		Module2_2: module2::<Instance2>::{
+			Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent
+		},
+		Module2_3: module2::<Instance3>::{
+			Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent
+		},
+		Module3: module3::{Pallet, Call},
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Block = Block;
+	type BlockHashCount = ConstU32<10>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
@@ -339,7 +350,6 @@ impl module3::Config for Runtime {
 
 fn new_test_ext() -> sp_io::TestExternalities {
 	RuntimeGenesisConfig {
-		system: Default::default(),
 		module_1_1: module1::GenesisConfig { value: 3, test: 2 },
 		module_1_2: module1::GenesisConfig { value: 4, test: 5 },
 		module_2: module2::GenesisConfig {
@@ -441,7 +451,6 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<u32>()),
 				default: vec![0, 0, 0, 0],
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "Map",
@@ -453,7 +462,6 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: [0u8; 8].to_vec(),
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "DoubleMap",
@@ -465,7 +473,6 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: [0u8; 8].to_vec(),
 				docs: vec![],
-				deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
 			},
 		],
 	}

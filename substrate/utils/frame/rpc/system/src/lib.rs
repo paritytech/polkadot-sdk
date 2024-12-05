@@ -23,10 +23,10 @@ use codec::{self, Codec, Decode, Encode};
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,
-	types::error::ErrorObject,
-	Extensions,
+	types::error::{CallError, ErrorObject},
 };
 
+use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 use sp_api::ApiExt;
 use sp_block_builder::BlockBuilder;
@@ -37,7 +37,6 @@ use sp_runtime::{legacy, traits};
 pub use frame_system_rpc_runtime_api::AccountNonceApi;
 
 /// System RPC methods.
-#[docify::export]
 #[rpc(client, server)]
 pub trait SystemApi<BlockHash, AccountId, Nonce> {
 	/// Returns the next valid index (aka nonce) for given account.
@@ -49,7 +48,7 @@ pub trait SystemApi<BlockHash, AccountId, Nonce> {
 	async fn nonce(&self, account: AccountId) -> RpcResult<Nonce>;
 
 	/// Dry run an extrinsic at a given block. Return SCALE encoded ApplyExtrinsicResult.
-	#[method(name = "system_dryRun", aliases = ["system_dryRunAt"], with_extensions)]
+	#[method(name = "system_dryRun", aliases = ["system_dryRunAt"])]
 	async fn dry_run(&self, extrinsic: Bytes, at: Option<BlockHash>) -> RpcResult<Bytes>;
 }
 
@@ -74,13 +73,14 @@ impl From<Error> for i32 {
 pub struct System<P: TransactionPool, C, B> {
 	client: Arc<C>,
 	pool: Arc<P>,
+	deny_unsafe: DenyUnsafe,
 	_marker: std::marker::PhantomData<B>,
 }
 
 impl<P: TransactionPool, C, B> System<P, C, B> {
 	/// Create new `FullSystem` given client and transaction pool.
-	pub fn new(client: Arc<C>, pool: Arc<P>) -> Self {
-		Self { client, pool, _marker: Default::default() }
+	pub fn new(client: Arc<C>, pool: Arc<P>, deny_unsafe: DenyUnsafe) -> Self {
+		Self { client, pool, deny_unsafe, _marker: Default::default() }
 	}
 }
 
@@ -103,23 +103,21 @@ where
 		let best = self.client.info().best_hash;
 
 		let nonce = api.account_nonce(best, account.clone()).map_err(|e| {
-			ErrorObject::owned(
+			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to query nonce.",
 				Some(e.to_string()),
-			)
+			))
 		})?;
 		Ok(adjust_nonce(&*self.pool, account, nonce))
 	}
 
 	async fn dry_run(
 		&self,
-		ext: &Extensions,
 		extrinsic: Bytes,
 		at: Option<<Block as traits::Block>::Hash>,
 	) -> RpcResult<Bytes> {
-		sc_rpc_api::check_if_safe(ext)?;
-
+		self.deny_unsafe.check_if_safe()?;
 		let api = self.client.runtime_api();
 		let best_hash = at.unwrap_or_else(||
 			// If the block hash is not supplied assume the best block.
@@ -127,28 +125,28 @@ where
 
 		let uxt: <Block as traits::Block>::Extrinsic =
 			Decode::decode(&mut &*extrinsic).map_err(|e| {
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 					Error::DecodeError.into(),
 					"Unable to dry run extrinsic",
 					Some(e.to_string()),
-				)
+				))
 			})?;
 
 		let api_version = api
 			.api_version::<dyn BlockBuilder<Block>>(best_hash)
 			.map_err(|e| {
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 					Error::RuntimeError.into(),
 					"Unable to dry run extrinsic.",
 					Some(e.to_string()),
-				)
+				))
 			})?
 			.ok_or_else(|| {
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 					Error::RuntimeError.into(),
 					"Unable to dry run extrinsic.",
 					Some(format!("Could not find `BlockBuilder` api for block `{:?}`.", best_hash)),
-				)
+				))
 			})?;
 
 		let result = if api_version < 6 {
@@ -156,19 +154,19 @@ where
 			api.apply_extrinsic_before_version_6(best_hash, uxt)
 				.map(legacy::byte_sized_error::convert_to_latest)
 				.map_err(|e| {
-					ErrorObject::owned(
+					CallError::Custom(ErrorObject::owned(
 						Error::RuntimeError.into(),
 						"Unable to dry run extrinsic.",
 						Some(e.to_string()),
-					)
+					))
 				})?
 		} else {
 			api.apply_extrinsic(best_hash, uxt).map_err(|e| {
-				ErrorObject::owned(
+				CallError::Custom(ErrorObject::owned(
 					Error::RuntimeError.into(),
 					"Unable to dry run extrinsic.",
 					Some(e.to_string()),
-				)
+				))
 			})?
 		};
 
@@ -218,25 +216,13 @@ mod tests {
 
 	use assert_matches::assert_matches;
 	use futures::executor::block_on;
-	use sc_rpc_api::DenyUnsafe;
+	use jsonrpsee::{core::Error as JsonRpseeError, types::error::CallError};
 	use sc_transaction_pool::BasicPool;
 	use sp_runtime::{
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
 		ApplyExtrinsicResult,
 	};
 	use substrate_test_runtime_client::{runtime::Transfer, AccountKeyring};
-
-	fn deny_unsafe() -> Extensions {
-		let mut ext = Extensions::new();
-		ext.insert(DenyUnsafe::Yes);
-		ext
-	}
-
-	fn allow_unsafe() -> Extensions {
-		let mut ext = Extensions::new();
-		ext.insert(DenyUnsafe::No);
-		ext
-	}
 
 	#[tokio::test]
 	async fn should_return_next_nonce_for_some_account() {
@@ -245,13 +231,8 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool = Arc::from(BasicPool::new_full(
-			Default::default(),
-			true.into(),
-			None,
-			spawner,
-			client.clone(),
-		));
+		let pool =
+			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let new_transaction = |nonce: u64| {
@@ -270,7 +251,7 @@ mod tests {
 		let ext1 = new_transaction(1);
 		block_on(pool.submit_one(hash_of_block0, source, ext1)).unwrap();
 
-		let accounts = System::new(client, pool);
+		let accounts = System::new(client, pool, DenyUnsafe::Yes);
 
 		// when
 		let nonce = accounts.nonce(AccountKeyring::Alice.into()).await;
@@ -286,19 +267,14 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool = Arc::from(BasicPool::new_full(
-			Default::default(),
-			true.into(),
-			None,
-			spawner,
-			client.clone(),
-		));
+		let pool =
+			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
-		let accounts = System::new(client, pool);
+		let accounts = System::new(client, pool, DenyUnsafe::Yes);
 
 		// when
-		let res = accounts.dry_run(&deny_unsafe(), vec![].into(), None).await;
-		assert_matches!(res, Err(e) => {
+		let res = accounts.dry_run(vec![].into(), None).await;
+		assert_matches!(res, Err(JsonRpseeError::Call(CallError::Custom(e))) => {
 			assert!(e.message().contains("RPC call is unsafe to be called externally"));
 		});
 	}
@@ -310,15 +286,10 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool = Arc::from(BasicPool::new_full(
-			Default::default(),
-			true.into(),
-			None,
-			spawner,
-			client.clone(),
-		));
+		let pool =
+			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
-		let accounts = System::new(client, pool);
+		let accounts = System::new(client, pool, DenyUnsafe::No);
 
 		let tx = Transfer {
 			from: AccountKeyring::Alice.into(),
@@ -329,10 +300,7 @@ mod tests {
 		.into_unchecked_extrinsic();
 
 		// when
-		let bytes = accounts
-			.dry_run(&allow_unsafe(), tx.encode().into(), None)
-			.await
-			.expect("Call is successful");
+		let bytes = accounts.dry_run(tx.encode().into(), None).await.expect("Call is successful");
 
 		// then
 		let apply_res: ApplyExtrinsicResult = Decode::decode(&mut bytes.as_ref()).unwrap();
@@ -346,15 +314,10 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool = Arc::from(BasicPool::new_full(
-			Default::default(),
-			true.into(),
-			None,
-			spawner,
-			client.clone(),
-		));
+		let pool =
+			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
-		let accounts = System::new(client, pool);
+		let accounts = System::new(client, pool, DenyUnsafe::No);
 
 		let tx = Transfer {
 			from: AccountKeyring::Alice.into(),
@@ -365,10 +328,7 @@ mod tests {
 		.into_unchecked_extrinsic();
 
 		// when
-		let bytes = accounts
-			.dry_run(&allow_unsafe(), tx.encode().into(), None)
-			.await
-			.expect("Call is successful");
+		let bytes = accounts.dry_run(tx.encode().into(), None).await.expect("Call is successful");
 
 		// then
 		let apply_res: ApplyExtrinsicResult = Decode::decode(&mut bytes.as_ref()).unwrap();

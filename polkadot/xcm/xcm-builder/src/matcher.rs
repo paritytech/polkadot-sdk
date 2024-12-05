@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -18,7 +18,7 @@
 
 use core::ops::ControlFlow;
 use frame_support::traits::ProcessMessageError;
-use xcm::latest::{Instruction, Location};
+use xcm::latest::{Instruction, MultiLocation};
 
 /// Creates an instruction matcher from an XCM. Since XCM versions differ, we need to make a trait
 /// here to unify the interfaces among them.
@@ -67,7 +67,7 @@ impl<'a, Call> CreateMatcher for &'a mut [Instruction<Call>] {
 pub trait MatchXcm {
 	/// The concrete instruction type. Necessary to specify as it changes between XCM versions.
 	type Inst;
-	/// The `Location` type. Necessary to specify as it changes between XCM versions.
+	/// The `MultiLocation` type. Necessary to specify as it changes between XCM versions.
 	type Loc;
 	/// The error type to throw when errors happen during matching.
 	type Error;
@@ -125,7 +125,7 @@ pub struct Matcher<'a, Call> {
 impl<'a, Call> MatchXcm for Matcher<'a, Call> {
 	type Error = ProcessMessageError;
 	type Inst = Instruction<Call>;
-	type Loc = Location;
+	type Loc = MultiLocation;
 
 	fn assert_remaining_insts(self, n: usize) -> Result<Self, Self::Error>
 	where

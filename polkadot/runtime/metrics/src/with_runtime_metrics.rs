@@ -22,12 +22,13 @@
 
 const TRACING_TARGET: &'static str = "metrics";
 
-use alloc::vec::Vec;
-use codec::Encode;
-use polkadot_primitives::{
+use parity_scale_codec::Encode;
+use primitives::{
 	metric_definitions::{CounterDefinition, CounterVecDefinition, HistogramDefinition},
 	RuntimeMetricLabelValues, RuntimeMetricOp, RuntimeMetricUpdate,
 };
+
+use sp_std::prelude::*;
 
 /// Holds a set of counters that have different values for their labels,
 /// like Prometheus `CounterVec`.

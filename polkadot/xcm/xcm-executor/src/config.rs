@@ -16,9 +16,8 @@
 
 use crate::traits::{
 	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
-	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
-	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, RecordXcm, ShouldExecute,
-	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+	FeeManager, OnResponse, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds,
+	WeightTrader,
 };
 use frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
@@ -33,10 +32,6 @@ pub trait Config {
 	type RuntimeCall: Parameter + Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo;
 
 	/// How to send an onward XCM message.
-	///
-	/// The sender is tasked with returning the assets it needs to pay for delivery fees.
-	/// Only one asset should be returned as delivery fees, any other will be ignored by
-	/// the executor.
 	type XcmSender: SendXcm;
 
 	/// How to withdraw and deposit an asset.
@@ -46,17 +41,17 @@ pub trait Config {
 	type OriginConverter: ConvertOrigin<<Self::RuntimeCall as Dispatchable>::RuntimeOrigin>;
 
 	/// Combinations of (Asset, Location) pairs which we trust as reserves.
-	type IsReserve: ContainsPair<Asset, Location>;
+	type IsReserve: ContainsPair<MultiAsset, MultiLocation>;
 
 	/// Combinations of (Asset, Location) pairs which we trust as teleporters.
-	type IsTeleporter: ContainsPair<Asset, Location>;
+	type IsTeleporter: ContainsPair<MultiAsset, MultiLocation>;
 
 	/// A list of (Origin, Target) pairs allowing a given Origin to be substituted with its
 	/// corresponding Target pair.
-	type Aliasers: ContainsPair<Location, Location>;
+	type Aliasers: ContainsPair<MultiLocation, MultiLocation>;
 
 	/// This chain's Universal Location.
-	type UniversalLocation: Get<InteriorLocation>;
+	type UniversalLocation: Get<InteriorMultiLocation>;
 
 	/// Whether we should execute the given XCM at all.
 	type Barrier: ShouldExecute;
@@ -78,9 +73,6 @@ pub trait Config {
 	type AssetLocker: AssetLock;
 
 	/// Handler for exchanging assets.
-	///
-	/// This is used in the executor to swap the asset wanted for fees with the asset needed for
-	/// delivery fees.
 	type AssetExchanger: AssetExchange;
 
 	/// The handler for when there is an instruction to claim assets.
@@ -106,7 +98,7 @@ pub trait Config {
 
 	/// The origin locations and specific universal junctions to which they are allowed to elevate
 	/// themselves.
-	type UniversalAliases: Contains<(Location, Junction)>;
+	type UniversalAliases: Contains<(MultiLocation, Junction)>;
 
 	/// The call dispatcher used by XCM.
 	///
@@ -119,16 +111,4 @@ pub trait Config {
 	/// Use this type to explicitly whitelist calls that cannot undergo recursion. This is a
 	/// temporary measure until we properly account for proof size weights for XCM instructions.
 	type SafeCallFilter: Contains<Self::RuntimeCall>;
-
-	/// Transactional processor for XCM instructions.
-	type TransactionalProcessor: ProcessTransaction;
-
-	/// Allows optional logic execution for the `HrmpNewChannelOpenRequest` XCM notification.
-	type HrmpNewChannelOpenRequestHandler: HandleHrmpNewChannelOpenRequest;
-	/// Allows optional logic execution for the `HrmpChannelAccepted` XCM notification.
-	type HrmpChannelAcceptedHandler: HandleHrmpChannelAccepted;
-	/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification.
-	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
-	/// Allows recording the last executed XCM (used by dry-run runtime APIs).
-	type XcmRecorder: RecordXcm;
 }

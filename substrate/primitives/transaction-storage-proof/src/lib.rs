@@ -15,16 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Storage proof primitives. Contains types and basic code to extract storage
+//! Storage proof primitives. Constains types and basic code to extract storage
 //! proofs for indexed transactions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
+use sp_std::{prelude::*, result::Result};
 
-use core::result::Result;
-
-use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_inherents::{InherentData, InherentIdentifier, IsFatalError};
 use sp_runtime::traits::{Block as BlockT, NumberFor};

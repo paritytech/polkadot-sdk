@@ -16,22 +16,22 @@
 
 // Shared test utilities and implementations for the XCM Builder.
 
-use alloc::vec::Vec;
 use frame_support::{
 	parameter_types,
 	traits::{Contains, CrateVersion, PalletInfoData, PalletsInfoAccess},
 };
+use sp_std::vec::Vec;
 pub use xcm::latest::{prelude::*, Weight};
 use xcm_executor::traits::{ClaimAssets, DropAssets, VersionChangeNotifier};
 pub use xcm_executor::{
 	traits::{
 		AssetExchange, AssetLock, ConvertOrigin, Enact, LockError, OnResponse, TransactAsset,
 	},
-	AssetsInHolding, Config,
+	Assets, Config,
 };
 
 parameter_types! {
-	pub static SubscriptionRequests: Vec<(Location, Option<(QueryId, Weight)>)> = vec![];
+	pub static SubscriptionRequests: Vec<(MultiLocation, Option<(QueryId, Weight)>)> = vec![];
 	pub static MaxAssetsIntoHolding: u32 = 4;
 }
 
@@ -39,39 +39,39 @@ pub struct TestSubscriptionService;
 
 impl VersionChangeNotifier for TestSubscriptionService {
 	fn start(
-		location: &Location,
+		location: &MultiLocation,
 		query_id: QueryId,
 		max_weight: Weight,
 		_context: &XcmContext,
 	) -> XcmResult {
 		let mut r = SubscriptionRequests::get();
-		r.push((location.clone(), Some((query_id, max_weight))));
+		r.push((*location, Some((query_id, max_weight))));
 		SubscriptionRequests::set(r);
 		Ok(())
 	}
-	fn stop(location: &Location, _context: &XcmContext) -> XcmResult {
+	fn stop(location: &MultiLocation, _context: &XcmContext) -> XcmResult {
 		let mut r = SubscriptionRequests::get();
 		r.retain(|(l, _q)| l != location);
-		r.push((location.clone(), None));
+		r.push((*location, None));
 		SubscriptionRequests::set(r);
 		Ok(())
 	}
-	fn is_subscribed(location: &Location) -> bool {
+	fn is_subscribed(location: &MultiLocation) -> bool {
 		let r = SubscriptionRequests::get();
 		r.iter().any(|(l, q)| l == location && q.is_some())
 	}
 }
 
 parameter_types! {
-	pub static TrappedAssets: Vec<(Location, Assets)> = vec![];
+	pub static TrappedAssets: Vec<(MultiLocation, MultiAssets)> = vec![];
 }
 
 pub struct TestAssetTrap;
 
 impl DropAssets for TestAssetTrap {
-	fn drop_assets(origin: &Location, assets: AssetsInHolding, _context: &XcmContext) -> Weight {
-		let mut t: Vec<(Location, Assets)> = TrappedAssets::get();
-		t.push((origin.clone(), assets.into()));
+	fn drop_assets(origin: &MultiLocation, assets: Assets, _context: &XcmContext) -> Weight {
+		let mut t: Vec<(MultiLocation, MultiAssets)> = TrappedAssets::get();
+		t.push((*origin, assets.into()));
 		TrappedAssets::set(t);
 		Weight::from_parts(5, 5)
 	}
@@ -79,13 +79,13 @@ impl DropAssets for TestAssetTrap {
 
 impl ClaimAssets for TestAssetTrap {
 	fn claim_assets(
-		origin: &Location,
-		ticket: &Location,
-		what: &Assets,
+		origin: &MultiLocation,
+		ticket: &MultiLocation,
+		what: &MultiAssets,
 		_context: &XcmContext,
 	) -> bool {
-		let mut t: Vec<(Location, Assets)> = TrappedAssets::get();
-		if let (0, [GeneralIndex(i)]) = ticket.unpack() {
+		let mut t: Vec<(MultiLocation, MultiAssets)> = TrappedAssets::get();
+		if let (0, X1(GeneralIndex(i))) = (ticket.parents, &ticket.interior) {
 			if let Some((l, a)) = t.get(*i as usize) {
 				if l == origin && a == what {
 					t.swap_remove(*i as usize);
@@ -102,16 +102,12 @@ pub struct TestAssetExchanger;
 
 impl AssetExchange for TestAssetExchanger {
 	fn exchange_asset(
-		_origin: Option<&Location>,
-		_give: AssetsInHolding,
-		want: &Assets,
+		_origin: Option<&MultiLocation>,
+		_give: Assets,
+		want: &MultiAssets,
 		_maximal: bool,
-	) -> Result<AssetsInHolding, AssetsInHolding> {
+	) -> Result<Assets, Assets> {
 		Ok(want.clone().into())
-	}
-
-	fn quote_exchange_price(give: &Assets, _want: &Assets, _maximal: bool) -> Option<Assets> {
-		Some(give.clone())
 	}
 }
 
@@ -139,17 +135,17 @@ impl PalletsInfoAccess for TestPalletsInfo {
 }
 
 pub struct TestUniversalAliases;
-impl Contains<(Location, Junction)> for TestUniversalAliases {
-	fn contains(aliases: &(Location, Junction)) -> bool {
+impl Contains<(MultiLocation, Junction)> for TestUniversalAliases {
+	fn contains(aliases: &(MultiLocation, Junction)) -> bool {
 		&aliases.0 == &Here.into_location() && &aliases.1 == &GlobalConsensus(ByGenesis([0; 32]))
 	}
 }
 
 parameter_types! {
-	pub static LockedAssets: Vec<(Location, Asset)> = vec![];
+	pub static LockedAssets: Vec<(MultiLocation, MultiAsset)> = vec![];
 }
 
-pub struct TestLockTicket(Location, Asset);
+pub struct TestLockTicket(MultiLocation, MultiAsset);
 impl Enact for TestLockTicket {
 	fn enact(self) -> Result<(), LockError> {
 		let mut locked_assets = LockedAssets::get();
@@ -158,7 +154,7 @@ impl Enact for TestLockTicket {
 		Ok(())
 	}
 }
-pub struct TestUnlockTicket(Location, Asset);
+pub struct TestUnlockTicket(MultiLocation, MultiAsset);
 impl Enact for TestUnlockTicket {
 	fn enact(self) -> Result<(), LockError> {
 		let mut locked_assets = LockedAssets::get();
@@ -187,33 +183,33 @@ impl AssetLock for TestAssetLocker {
 	type ReduceTicket = TestReduceTicket;
 
 	fn prepare_lock(
-		unlocker: Location,
-		asset: Asset,
-		_owner: Location,
+		unlocker: MultiLocation,
+		asset: MultiAsset,
+		_owner: MultiLocation,
 	) -> Result<TestLockTicket, LockError> {
 		Ok(TestLockTicket(unlocker, asset))
 	}
 
 	fn prepare_unlock(
-		unlocker: Location,
-		asset: Asset,
-		_owner: Location,
+		unlocker: MultiLocation,
+		asset: MultiAsset,
+		_owner: MultiLocation,
 	) -> Result<TestUnlockTicket, LockError> {
 		Ok(TestUnlockTicket(unlocker, asset))
 	}
 
 	fn note_unlockable(
-		_locker: Location,
-		_asset: Asset,
-		_owner: Location,
+		_locker: MultiLocation,
+		_asset: MultiAsset,
+		_owner: MultiLocation,
 	) -> Result<(), LockError> {
 		Ok(())
 	}
 
 	fn prepare_reduce_unlockable(
-		_locker: Location,
-		_asset: Asset,
-		_owner: Location,
+		_locker: MultiLocation,
+		_asset: MultiAsset,
+		_owner: MultiLocation,
 	) -> Result<TestReduceTicket, LockError> {
 		Ok(TestReduceTicket)
 	}

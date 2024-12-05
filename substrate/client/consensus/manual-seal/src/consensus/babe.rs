@@ -82,7 +82,7 @@ pub struct BabeVerifier<B: BlockT, C> {
 }
 
 impl<B: BlockT, C> BabeVerifier<B, C> {
-	/// create a new verifier
+	/// create a nrew verifier
 	pub fn new(epoch_changes: SharedEpochChanges<B, Epoch>, client: Arc<C>) -> BabeVerifier<B, C> {
 		BabeVerifier { epoch_changes, client }
 	}
@@ -96,7 +96,7 @@ where
 	C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
 {
 	async fn verify(
-		&self,
+		&mut self,
 		mut import_params: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		import_params.finalized = false;

@@ -6,14 +6,11 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
-[lints]
-workspace = true
-
 [dependencies]
-polkadot-erasure-coding = { workspace = true, default-features = true }
-honggfuzz = { workspace = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-erasure-coding = { path = ".." }
+honggfuzz = "0.5"
+polkadot-primitives = { path = "../../primitives" }
+primitives = { package = "polkadot-node-primitives", path = "../../node/primitives" }
 
 [[bin]]
 name = "reconstruct"

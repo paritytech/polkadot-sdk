@@ -1,9 +1,0 @@
-title: "add pallet nomination-pools versioned migration to kitchensink"
-author: brunopgalvao
-topic: Tests
-
-doc:
-  - audience: Runtime Dev
-    description: n/a
-
-crates: []

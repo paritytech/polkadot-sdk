@@ -15,16 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound,
-//! RuntimeDebugNoBound, PartialOrdNoBound and OrdNoBound
+//! Tests for DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound, and
+//! RuntimeDebugNoBound
 
 use frame_support::{
-	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
-	PartialOrdNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
 #[derive(RuntimeDebugNoBound)]
-#[allow(dead_code)]
 struct Unnamed(u64);
 
 #[test]
@@ -34,7 +32,7 @@ fn runtime_debug_no_bound_display_correctly() {
 }
 
 trait Config {
-	type C: std::fmt::Debug + Clone + Eq + PartialEq + Default + PartialOrd + Ord;
+	type C: std::fmt::Debug + Clone + Eq + PartialEq + Default;
 }
 
 struct Runtime;
@@ -44,15 +42,7 @@ impl Config for Runtime {
 	type C = u32;
 }
 
-#[derive(
-	DebugNoBound,
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	DefaultNoBound,
-	PartialOrdNoBound,
-	OrdNoBound,
-)]
+#[derive(DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound)]
 struct StructNamed<T: Config, U, V> {
 	a: u32,
 	b: u64,
@@ -106,18 +96,9 @@ fn test_struct_named() {
 	};
 
 	assert!(b != a_1);
-	assert!(b > a_1);
 }
 
-#[derive(
-	DebugNoBound,
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	DefaultNoBound,
-	PartialOrdNoBound,
-	OrdNoBound,
-)]
+#[derive(DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound)]
 struct StructUnnamed<T: Config, U, V>(u32, u64, T::C, core::marker::PhantomData<(U, V)>);
 
 #[rustversion::attr(not(stable), ignore)]
@@ -147,25 +128,14 @@ fn test_struct_unnamed() {
 	let b = StructUnnamed::<Runtime, ImplNone, ImplNone>(1, 2, 4, Default::default());
 
 	assert!(b != a_1);
-	assert!(b > a_1);
 }
 
-#[derive(
-	DebugNoBound,
-	CloneNoBound,
-	EqNoBound,
-	PartialEqNoBound,
-	DefaultNoBound,
-	PartialOrdNoBound,
-	OrdNoBound,
-)]
-#[allow(dead_code)]
+#[derive(DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound)]
 struct StructNoGenerics {
 	field1: u32,
 	field2: u64,
 }
 
-#[allow(dead_code)]
 #[derive(DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound)]
 enum EnumNoGenerics {
 	#[default]
@@ -192,7 +162,6 @@ enum Enum<T: Config, U, V> {
 }
 
 // enum that will have a named default.
-#[allow(dead_code)]
 #[derive(DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound)]
 enum Enum2<T: Config> {
 	#[default]
@@ -206,7 +175,6 @@ enum Enum2<T: Config> {
 	VariantUnit2,
 }
 
-#[allow(dead_code)]
 // enum that will have a unit default.
 #[derive(DebugNoBound, CloneNoBound, EqNoBound, PartialEqNoBound, DefaultNoBound)]
 enum Enum3<T: Config> {
@@ -282,64 +250,4 @@ fn test_enum() {
 	assert!(variant_1.clone() == variant_1);
 	assert!(variant_2.clone() == variant_2);
 	assert!(variant_3.clone() == variant_3);
-}
-
-// Return all the combinations of (0, 0, 0), (0, 0, 1), (0, 1, 0), ...
-// Used to test all the possible struct orderings
-fn combinations() -> Vec<(u32, u64, u32)> {
-	let mut v = vec![];
-
-	for a in 0..=1 {
-		for b in 0..=1 {
-			for c in 0..=1 {
-				v.push((a, b, c));
-			}
-		}
-	}
-
-	v
-}
-
-// Ensure that the PartialOrdNoBound follows the same rules as the native PartialOrd
-#[derive(Debug, Clone, Eq, PartialEq, Default, PartialOrd, Ord)]
-struct StructNamedRust {
-	a: u32,
-	b: u64,
-	c: u32,
-	phantom: core::marker::PhantomData<(ImplNone, ImplNone)>,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Default, PartialOrd, Ord)]
-struct StructUnnamedRust(u32, u64, u32, core::marker::PhantomData<(ImplNone, ImplNone)>);
-
-#[test]
-fn struct_named_same_as_native_rust() {
-	for (a, b, c) in combinations() {
-		let a_1 =
-			StructNamed::<Runtime, ImplNone, ImplNone> { a, b, c, phantom: Default::default() };
-		let b_1 = StructNamedRust { a, b, c, phantom: Default::default() };
-		for (a, b, c) in combinations() {
-			let a_2 =
-				StructNamed::<Runtime, ImplNone, ImplNone> { a, b, c, phantom: Default::default() };
-			let b_2 = StructNamedRust { a, b, c, phantom: Default::default() };
-			assert_eq!(a_1.partial_cmp(&a_2), b_1.partial_cmp(&b_2));
-			assert_eq!(a_1.cmp(&a_2), b_1.cmp(&b_2));
-			assert_eq!(a_1.eq(&a_2), b_1.eq(&b_2));
-		}
-	}
-}
-
-#[test]
-fn struct_unnamed_same_as_native_rust() {
-	for (a, b, c) in combinations() {
-		let a_1 = StructUnnamed::<Runtime, ImplNone, ImplNone>(a, b, c, Default::default());
-		let b_1 = StructUnnamedRust(a, b, c, Default::default());
-		for (a, b, c) in combinations() {
-			let a_2 = StructUnnamed::<Runtime, ImplNone, ImplNone>(a, b, c, Default::default());
-			let b_2 = StructUnnamedRust(a, b, c, Default::default());
-			assert_eq!(a_1.partial_cmp(&a_2), b_1.partial_cmp(&b_2));
-			assert_eq!(a_1.cmp(&a_2), b_1.cmp(&b_2));
-			assert_eq!(a_1.eq(&a_2), b_1.eq(&b_2));
-		}
-	}
 }

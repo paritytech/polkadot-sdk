@@ -1,3 +1,0 @@
-crates:
-  - name: sc-consensus-babe
-    bump: none

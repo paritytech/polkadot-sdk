@@ -20,34 +20,30 @@ use crate::{Config, Pallet};
 
 use bp_messages::{
 	source_chain::{DeliveryConfirmationPayments, RelayersRewards},
-	MessageNonce,
+	LaneId, MessageNonce,
 };
-pub use bp_relayers::PayRewardFromAccount;
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
-use bp_runtime::Chain;
 use frame_support::{sp_runtime::SaturatedConversion, traits::Get};
-use pallet_bridge_messages::LaneIdOf;
 use sp_arithmetic::traits::{Saturating, Zero};
 use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, ops::RangeInclusive};
 
 /// Adapter that allows relayers pallet to be used as a delivery+dispatch payment mechanism
 /// for the messages pallet.
-pub struct DeliveryConfirmationPaymentsAdapter<T, MI, RI, DeliveryReward>(
-	PhantomData<(T, MI, RI, DeliveryReward)>,
+pub struct DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward>(
+	PhantomData<(T, MI, DeliveryReward)>,
 );
 
-impl<T, MI, RI, DeliveryReward> DeliveryConfirmationPayments<T::AccountId, LaneIdOf<T, MI>>
-	for DeliveryConfirmationPaymentsAdapter<T, MI, RI, DeliveryReward>
+impl<T, MI, DeliveryReward> DeliveryConfirmationPayments<T::AccountId>
+	for DeliveryConfirmationPaymentsAdapter<T, MI, DeliveryReward>
 where
-	T: Config<RI> + pallet_bridge_messages::Config<MI, LaneId = <T as Config<RI>>::LaneId>,
+	T: Config + pallet_bridge_messages::Config<MI>,
 	MI: 'static,
-	RI: 'static,
 	DeliveryReward: Get<T::Reward>,
 {
 	type Error = &'static str;
 
 	fn pay_reward(
-		lane_id: LaneIdOf<T, MI>,
+		lane_id: LaneId,
 		messages_relayers: VecDeque<bp_messages::UnrewardedRelayer<T::AccountId>>,
 		confirmation_relayer: &T::AccountId,
 		received_range: &RangeInclusive<bp_messages::MessageNonce>,
@@ -56,12 +52,12 @@ where
 			bp_messages::calc_relayers_rewards::<T::AccountId>(messages_relayers, received_range);
 		let rewarded_relayers = relayers_rewards.len();
 
-		register_relayers_rewards::<T, RI>(
+		register_relayers_rewards::<T>(
 			confirmation_relayer,
 			relayers_rewards,
 			RewardsAccountParams::new(
 				lane_id,
-				T::BridgedChain::ID,
+				T::BridgedChainId::get(),
 				RewardsAccountOwner::BridgedChain,
 			),
 			DeliveryReward::get(),
@@ -72,10 +68,10 @@ where
 }
 
 // Update rewards to given relayers, optionally rewarding confirmation relayer.
-fn register_relayers_rewards<T: Config<I>, I: 'static>(
+fn register_relayers_rewards<T: Config>(
 	confirmation_relayer: &T::AccountId,
 	relayers_rewards: RelayersRewards<T::AccountId>,
-	lane_id: RewardsAccountParams<T::LaneId>,
+	lane_id: RewardsAccountParams,
 	delivery_fee: T::Reward,
 ) {
 	// reward every relayer except `confirmation_relayer`
@@ -86,7 +82,7 @@ fn register_relayers_rewards<T: Config<I>, I: 'static>(
 		let relayer_reward = T::Reward::saturated_from(messages).saturating_mul(delivery_fee);
 
 		if relayer != *confirmation_relayer {
-			Pallet::<T, I>::register_relayer_reward(lane_id, &relayer, relayer_reward);
+			Pallet::<T>::register_relayer_reward(lane_id, &relayer, relayer_reward);
 		} else {
 			confirmation_relayer_reward =
 				confirmation_relayer_reward.saturating_add(relayer_reward);
@@ -94,7 +90,7 @@ fn register_relayers_rewards<T: Config<I>, I: 'static>(
 	}
 
 	// finally - pay reward to confirmation relayer
-	Pallet::<T, I>::register_relayer_reward(
+	Pallet::<T>::register_relayer_reward(
 		lane_id,
 		confirmation_relayer,
 		confirmation_relayer_reward,
@@ -106,30 +102,30 @@ mod tests {
 	use super::*;
 	use crate::{mock::*, RelayerRewards};
 
-	const RELAYER_1: ThisChainAccountId = 1;
-	const RELAYER_2: ThisChainAccountId = 2;
-	const RELAYER_3: ThisChainAccountId = 3;
+	const RELAYER_1: AccountId = 1;
+	const RELAYER_2: AccountId = 2;
+	const RELAYER_3: AccountId = 3;
 
-	fn relayers_rewards() -> RelayersRewards<ThisChainAccountId> {
+	fn relayers_rewards() -> RelayersRewards<AccountId> {
 		vec![(RELAYER_1, 2), (RELAYER_2, 3)].into_iter().collect()
 	}
 
 	#[test]
 	fn confirmation_relayer_is_rewarded_if_it_has_also_delivered_messages() {
 		run_test(|| {
-			register_relayers_rewards::<TestRuntime, ()>(
+			register_relayers_rewards::<TestRuntime>(
 				&RELAYER_2,
 				relayers_rewards(),
-				test_reward_account_param(),
+				TEST_REWARDS_ACCOUNT_PARAMS,
 				50,
 			);
 
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_1, test_reward_account_param()),
+				RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
 				Some(100)
 			);
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_2, test_reward_account_param()),
+				RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
 				Some(150)
 			);
 		});
@@ -138,23 +134,23 @@ mod tests {
 	#[test]
 	fn confirmation_relayer_is_not_rewarded_if_it_has_not_delivered_any_messages() {
 		run_test(|| {
-			register_relayers_rewards::<TestRuntime, ()>(
+			register_relayers_rewards::<TestRuntime>(
 				&RELAYER_3,
 				relayers_rewards(),
-				test_reward_account_param(),
+				TEST_REWARDS_ACCOUNT_PARAMS,
 				50,
 			);
 
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_1, test_reward_account_param()),
+				RelayerRewards::<TestRuntime>::get(RELAYER_1, TEST_REWARDS_ACCOUNT_PARAMS),
 				Some(100)
 			);
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_2, test_reward_account_param()),
+				RelayerRewards::<TestRuntime>::get(RELAYER_2, TEST_REWARDS_ACCOUNT_PARAMS),
 				Some(150)
 			);
 			assert_eq!(
-				RelayerRewards::<TestRuntime>::get(RELAYER_3, test_reward_account_param()),
+				RelayerRewards::<TestRuntime>::get(RELAYER_3, TEST_REWARDS_ACCOUNT_PARAMS),
 				None
 			);
 		});

@@ -18,13 +18,13 @@
 
 //! Console informant. Prints sync progress and block events. Runs on the calling thread.
 
-use console::style;
+use ansi_term::Colour;
 use futures::prelude::*;
 use futures_timer::Delay;
 use log::{debug, info, trace};
 use sc_client_api::{BlockchainEvents, UsageProvider};
 use sc_network::NetworkStatusProvider;
-use sc_network_sync::{SyncStatusProvider, SyncingService};
+use sc_network_common::sync::SyncStatusProvider;
 use sp_blockchain::HeaderMetadata;
 use sp_runtime::traits::{Block as BlockT, Header};
 use std::{collections::VecDeque, fmt::Display, sync::Arc, time::Duration};
@@ -36,14 +36,30 @@ fn interval(duration: Duration) -> impl Stream<Item = ()> + Unpin {
 	futures::stream::unfold((), move |_| Delay::new(duration).map(|_| Some(((), ())))).map(drop)
 }
 
+/// The format to print telemetry output in.
+#[derive(Clone, Debug)]
+pub struct OutputFormat {
+	/// Enable color output in logs.
+	///
+	/// Is enabled by default.
+	pub enable_color: bool,
+}
+
+impl Default for OutputFormat {
+	fn default() -> Self {
+		Self { enable_color: true }
+	}
+}
+
 /// Builds the informant and returns a `Future` that drives the informant.
-pub async fn build<B: BlockT, C, N>(client: Arc<C>, network: N, syncing: Arc<SyncingService<B>>)
+pub async fn build<B: BlockT, C, N, S>(client: Arc<C>, network: N, syncing: S, format: OutputFormat)
 where
 	N: NetworkStatusProvider,
+	S: SyncStatusProvider<B>,
 	C: UsageProvider<B> + HeaderMetadata<B> + BlockchainEvents<B>,
 	<C as HeaderMetadata<B>>::Error: Display,
 {
-	let mut display = display::InformantDisplay::new();
+	let mut display = display::InformantDisplay::new(format.clone());
 
 	let client_1 = client.clone();
 
@@ -51,14 +67,13 @@ where
 		.filter_map(|_| async {
 			let net_status = network.status().await;
 			let sync_status = syncing.status().await;
-			let num_connected_peers = syncing.num_connected_peers();
 
-			match (net_status, sync_status) {
-				(Ok(net), Ok(sync)) => Some((net, sync, num_connected_peers)),
+			match (net_status.ok(), sync_status.ok()) {
+				(Some(net), Some(sync)) => Some((net, sync)),
 				_ => None,
 			}
 		})
-		.for_each(move |(net_status, sync_status, num_connected_peers)| {
+		.for_each(move |(net_status, sync_status)| {
 			let info = client_1.usage_info();
 			if let Some(ref usage) = info.usage {
 				trace!(target: "usage", "Usage statistics: {}", usage);
@@ -68,7 +83,7 @@ where
 					"Usage statistics not displayed as backend does not provide it",
 				)
 			}
-			display.display(&info, net_status, sync_status, num_connected_peers);
+			display.display(&info, net_status, sync_status);
 			future::ready(())
 		});
 
@@ -102,11 +117,11 @@ where
 				match maybe_ancestor {
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
-						style(last_num).red().bold(),
+						Colour::Red.bold().paint(format!("{}", last_num)),
 						last_hash,
-						style(n.header.number()).green().bold(),
+						Colour::Green.bold().paint(format!("{}", n.header.number())),
 						n.hash,
-						style(ancestor.number).white().bold(),
+						Colour::White.bold().paint(format!("{}", ancestor.number)),
 						ancestor.hash,
 					),
 					Ok(_) => {},
@@ -128,12 +143,10 @@ where
 				last_blocks.pop_front();
 			}
 
-			let best_indicator = if n.is_new_best { "🏆" } else { "🆕" };
 			info!(
 				target: "substrate",
-				"{best_indicator} Imported #{} ({} → {})",
-				style(n.header.number()).white().bold(),
-				n.header.parent_hash(),
+				"✨ Imported #{} ({})",
+				Colour::White.bold().paint(format!("{}", n.header.number())),
 				n.hash,
 			);
 		}

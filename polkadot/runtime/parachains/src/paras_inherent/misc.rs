@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use alloc::vec::Vec;
-use core::cmp::Ordering;
+use sp_std::{cmp::Ordering, vec::Vec};
 
 /// A helper trait to allow calling retain while getting access
 /// to the index of the item in the `vec`.

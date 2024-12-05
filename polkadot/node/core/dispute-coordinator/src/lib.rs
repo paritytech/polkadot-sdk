@@ -27,7 +27,6 @@
 
 use std::sync::Arc;
 
-use error::FatalError;
 use futures::FutureExt;
 
 use gum::CandidateHash;
@@ -46,7 +45,7 @@ use polkadot_node_subsystem_util::{
 	runtime::{Config as RuntimeInfoConfig, RuntimeInfo},
 };
 use polkadot_primitives::{
-	vstaging::ScrapedOnChainVotes, DisputeStatement, SessionIndex, SessionInfo, ValidatorIndex,
+	DisputeStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorIndex,
 };
 
 use crate::{
@@ -122,7 +121,6 @@ pub struct DisputeCoordinatorSubsystem {
 	store: Arc<dyn Database>,
 	keystore: Arc<LocalKeystore>,
 	metrics: Metrics,
-	approval_voting_parallel_enabled: bool,
 }
 
 /// Configuration for the dispute coordinator subsystem.
@@ -165,9 +163,8 @@ impl DisputeCoordinatorSubsystem {
 		config: Config,
 		keystore: Arc<LocalKeystore>,
 		metrics: Metrics,
-		approval_voting_parallel_enabled: bool,
 	) -> Self {
-		Self { store, config, keystore, metrics, approval_voting_parallel_enabled }
+		Self { store, config, keystore, metrics }
 	}
 
 	/// Initialize and afterwards run `Initialized::run`.
@@ -343,8 +340,6 @@ impl DisputeCoordinatorSubsystem {
 				runtime_info,
 				highest_session,
 				leaf_hash,
-				// on startup we don't have any off-chain disabled state
-				std::iter::empty(),
 			)
 			.await
 			{
@@ -374,9 +369,8 @@ impl DisputeCoordinatorSubsystem {
 					},
 				};
 			let vote_state = CandidateVoteState::new(votes, &env, now);
-			let is_disabled = |v: &ValidatorIndex| env.disabled_indices().contains(v);
-			let potential_spam =
-				is_potential_spam(&scraper, &vote_state, candidate_hash, is_disabled);
+
+			let potential_spam = is_potential_spam(&scraper, &vote_state, candidate_hash);
 			let is_included =
 				scraper.is_candidate_included(&vote_state.votes().candidate_receipt.hash());
 
@@ -437,7 +431,7 @@ impl DisputeCoordinatorSubsystem {
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
 async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<ActivatedLeaf>> {
 	loop {
-		match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
+		match ctx.recv().await? {
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(None),
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
 				if let Some(activated) = update.activated {
@@ -464,35 +458,20 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<Activa
 	}
 }
 
-/// Check whether a dispute for the given candidate could be spam.
+/// Check wheter a dispute for the given candidate could be spam.
 ///
 /// That is the candidate could be made up.
-pub fn is_potential_spam(
+pub fn is_potential_spam<V>(
 	scraper: &ChainScraper,
-	vote_state: &CandidateVoteState<CandidateVotes>,
+	vote_state: &CandidateVoteState<V>,
 	candidate_hash: &CandidateHash,
-	is_disabled: impl FnMut(&ValidatorIndex) -> bool,
 ) -> bool {
 	let is_disputed = vote_state.is_disputed();
 	let is_included = scraper.is_candidate_included(candidate_hash);
 	let is_backed = scraper.is_candidate_backed(candidate_hash);
 	let is_confirmed = vote_state.is_confirmed();
-	let all_invalid_votes_disabled = vote_state.invalid_votes_all_disabled(is_disabled);
-	let ignore_disabled = !is_confirmed && all_invalid_votes_disabled;
 
-	gum::trace!(
-		target: LOG_TARGET,
-		?candidate_hash,
-		?is_disputed,
-		?is_included,
-		?is_backed,
-		?is_confirmed,
-		?all_invalid_votes_disabled,
-		?ignore_disabled,
-		"Checking for potential spam"
-	);
-
-	(is_disputed && !is_included && !is_backed && !is_confirmed) || ignore_disabled
+	is_disputed && !is_included && !is_backed && !is_confirmed
 }
 
 /// Tell dispute-distribution to send all our votes.
@@ -596,7 +575,7 @@ pub fn make_dispute_message(
 				.next()
 				.ok_or(DisputeMessageCreationError::NoOppositeVote)?;
 			let other_vote = SignedDisputeStatement::new_checked(
-				DisputeStatement::Valid(statement_kind.clone()),
+				DisputeStatement::Valid(*statement_kind),
 				*our_vote.candidate_hash(),
 				our_vote.session_index(),
 				validators

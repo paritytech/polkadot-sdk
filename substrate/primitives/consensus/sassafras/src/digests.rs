@@ -22,12 +22,11 @@ use crate::{
 	EpochConfiguration, Randomness, Slot, SASSAFRAS_ENGINE_ID,
 };
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 use sp_runtime::{DigestItem, RuntimeDebug};
+use sp_std::vec::Vec;
 
 /// Epoch slot claim digest entry.
 ///
@@ -49,11 +48,11 @@ pub struct SlotClaim {
 /// This is mandatory in the first block of each epoch.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
 pub struct NextEpochDescriptor {
-	/// Randomness value.
-	pub randomness: Randomness,
 	/// Authorities list.
 	pub authorities: Vec<AuthorityId>,
-	/// Epoch configuration.
+	/// Epoch randomness.
+	pub randomness: Randomness,
+	/// Epoch configurable parameters.
 	///
 	/// If not present previous epoch parameters are used.
 	pub config: Option<EpochConfiguration>,

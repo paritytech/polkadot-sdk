@@ -1,5 +1,3 @@
-// This file is part of Cumulus.
-
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -15,15 +13,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarks for the Session Pallet.
-// This is separated into its own crate due to cyclic dependency issues.
-
+//! Benchmarking setup for pallet-session
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg(feature = "runtime-benchmarks")]
+use sp_std::{prelude::*, vec};
 
-extern crate alloc;
+use frame_benchmarking::{benchmarks, whitelisted_caller};
+use frame_system::RawOrigin;
+use pallet_session::*;
+use parity_scale_codec::Decode;
+pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
+pub trait Config: pallet_session::Config {}
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod inner;
+benchmarks! {
+	set_keys {
+		let caller: T::AccountId = whitelisted_caller();
+		frame_system::Pallet::<T>::inc_providers(&caller);
+		let keys = T::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
+		let proof: Vec<u8> = vec![0,1,2,3];
+	}: _(RawOrigin::Signed(caller), keys, proof)
 
-#[cfg(feature = "runtime-benchmarks")]
-pub use inner::*;
+	purge_keys {
+		let caller: T::AccountId = whitelisted_caller();
+		frame_system::Pallet::<T>::inc_providers(&caller);
+		let keys = T::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
+		let proof: Vec<u8> = vec![0,1,2,3];
+		let _t = pallet_session::Pallet::<T>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof);
+	}: _(RawOrigin::Signed(caller))
+}

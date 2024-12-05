@@ -18,7 +18,6 @@
 //! Storage migrations for the vesting pallet.
 
 use super::*;
-use alloc::vec;
 
 // Migration from single schedule to multiple schedules.
 pub mod v1 {
@@ -30,7 +29,7 @@ pub mod v1 {
 
 		log::debug!(
 			target: "runtime::vesting",
-			"migration: Vesting storage version v1 PRE migration checks successful!"
+			"migration: Vesting storage version v1 PRE migration checks succesful!"
 		);
 
 		Ok(())

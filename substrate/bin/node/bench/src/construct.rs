@@ -24,18 +24,18 @@
 //! DO NOT depend on user input). Thus transaction generation should be
 //! based on randomized data.
 
+use futures::Future;
 use std::{borrow::Cow, collections::HashMap, pin::Pin, sync::Arc};
 
-use async_trait::async_trait;
 use node_primitives::Block;
 use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes};
 use sc_transaction_pool_api::{
-	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionSource,
-	TransactionStatusStreamFor, TxHash,
+	ImportNotificationStream, PoolFuture, PoolStatus, ReadyTransactions, TransactionFor,
+	TransactionSource, TransactionStatusStreamFor, TxHash,
 };
 use sp_consensus::{Environment, Proposer};
 use sp_inherents::InherentDataProvider;
-use sp_runtime::OpaqueExtrinsic;
+use sp_runtime::{traits::NumberFor, OpaqueExtrinsic};
 
 use crate::{
 	common::SizeType,
@@ -165,18 +165,18 @@ impl core::Benchmark for ConstructionBenchmark {
 
 #[derive(Clone, Debug)]
 pub struct PoolTransaction {
-	data: Arc<OpaqueExtrinsic>,
+	data: OpaqueExtrinsic,
 	hash: node_primitives::Hash,
 }
 
 impl From<OpaqueExtrinsic> for PoolTransaction {
 	fn from(e: OpaqueExtrinsic) -> Self {
-		PoolTransaction { data: Arc::from(e), hash: node_primitives::Hash::zero() }
+		PoolTransaction { data: e, hash: node_primitives::Hash::zero() }
 	}
 }
 
 impl sc_transaction_pool_api::InPoolTransaction for PoolTransaction {
-	type Transaction = Arc<OpaqueExtrinsic>;
+	type Transaction = OpaqueExtrinsic;
 	type Hash = node_primitives::Hash;
 
 	fn data(&self) -> &Self::Transaction {
@@ -224,47 +224,54 @@ impl ReadyTransactions for TransactionsIterator {
 	fn report_invalid(&mut self, _tx: &Self::Item) {}
 }
 
-#[async_trait]
 impl sc_transaction_pool_api::TransactionPool for Transactions {
 	type Block = Block;
 	type Hash = node_primitives::Hash;
 	type InPoolTransaction = PoolTransaction;
 	type Error = sc_transaction_pool_api::error::Error;
 
-	/// Asynchronously imports a bunch of unverified transactions to the pool.
-	async fn submit_at(
+	/// Returns a future that imports a bunch of unverified transactions to the pool.
+	fn submit_at(
 		&self,
 		_at: Self::Hash,
 		_source: TransactionSource,
 		_xts: Vec<TransactionFor<Self>>,
-	) -> Result<Vec<Result<node_primitives::Hash, Self::Error>>, Self::Error> {
+	) -> PoolFuture<Vec<Result<node_primitives::Hash, Self::Error>>, Self::Error> {
 		unimplemented!()
 	}
 
-	/// Asynchronously imports one unverified transaction to the pool.
-	async fn submit_one(
+	/// Returns a future that imports one unverified transaction to the pool.
+	fn submit_one(
 		&self,
 		_at: Self::Hash,
 		_source: TransactionSource,
 		_xt: TransactionFor<Self>,
-	) -> Result<TxHash<Self>, Self::Error> {
+	) -> PoolFuture<TxHash<Self>, Self::Error> {
 		unimplemented!()
 	}
 
-	async fn submit_and_watch(
+	fn submit_and_watch(
 		&self,
 		_at: Self::Hash,
 		_source: TransactionSource,
 		_xt: TransactionFor<Self>,
-	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
+	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		unimplemented!()
 	}
 
-	async fn ready_at(
+	fn ready_at(
 		&self,
-		_at: Self::Hash,
-	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
-		Box::new(TransactionsIterator(self.0.clone().into_iter()))
+		_at: NumberFor<Self::Block>,
+	) -> Pin<
+		Box<
+			dyn Future<
+					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
+				> + Send,
+		>,
+	> {
+		let iter: Box<dyn ReadyTransactions<Item = Arc<PoolTransaction>> + Send> =
+			Box::new(TransactionsIterator(self.0.clone().into_iter()));
+		Box::pin(futures::future::ready(iter))
 	}
 
 	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
@@ -296,14 +303,6 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	}
 
 	fn ready_transaction(&self, _hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
-		unimplemented!()
-	}
-
-	async fn ready_at_with_timeout(
-		&self,
-		_at: Self::Hash,
-		_timeout: std::time::Duration,
-	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
 		unimplemented!()
 	}
 }

@@ -16,14 +16,13 @@
 
 use super::*;
 
-use codec::Encode;
 use futures::{channel::oneshot, future::BoxFuture};
+use parity_scale_codec::Encode;
 use std::collections::BTreeMap;
 
 use polkadot_node_primitives::BlockWeight;
 use polkadot_node_subsystem_test_helpers::{make_subsystem_context, TestSubsystemContextHandle};
-use polkadot_node_subsystem_types::ChainApiBackend;
-use polkadot_primitives::{Block, BlockNumber, Hash, Header};
+use polkadot_primitives::{BlockNumber, Hash, Header};
 use sp_blockchain::Info as BlockInfo;
 use sp_core::testing::TaskExecutor;
 
@@ -111,7 +110,7 @@ fn last_key_value<K: Clone, V: Clone>(map: &BTreeMap<K, V>) -> (K, V) {
 	map.iter().last().map(|(k, v)| (k.clone(), v.clone())).unwrap()
 }
 
-impl sp_blockchain::HeaderBackend<Block> for TestClient {
+impl HeaderBackend<Block> for TestClient {
 	fn info(&self) -> BlockInfo<Block> {
 		let genesis_hash = self.blocks.iter().next().map(|(h, _)| *h).unwrap();
 		let (best_hash, best_number) = last_key_value(&self.blocks);
@@ -192,8 +191,8 @@ fn request_block_number() {
 		async move {
 			let zero = Hash::zero();
 			let test_cases = [
-				(TWO, client.number(TWO).await.unwrap()),
-				(zero, client.number(zero).await.unwrap()), // not here
+				(TWO, client.number(TWO).unwrap()),
+				(zero, client.number(zero).unwrap()), // not here
 			];
 			for (hash, expected) in &test_cases {
 				let (tx, rx) = oneshot::channel();
@@ -218,10 +217,8 @@ fn request_block_header() {
 	test_harness(|client, mut sender| {
 		async move {
 			const NOT_HERE: Hash = Hash::repeat_byte(0x5);
-			let test_cases = [
-				(TWO, client.header(TWO).await.unwrap()),
-				(NOT_HERE, client.header(NOT_HERE).await.unwrap()),
-			];
+			let test_cases =
+				[(TWO, client.header(TWO).unwrap()), (NOT_HERE, client.header(NOT_HERE).unwrap())];
 			for (hash, expected) in &test_cases {
 				let (tx, rx) = oneshot::channel();
 
@@ -273,8 +270,8 @@ fn request_finalized_hash() {
 	test_harness(|client, mut sender| {
 		async move {
 			let test_cases = [
-				(1, client.hash(1).await.unwrap()), // not here
-				(2, client.hash(2).await.unwrap()),
+				(1, client.hash(1).unwrap()), // not here
+				(2, client.hash(2).unwrap()),
 			];
 			for (number, expected) in &test_cases {
 				let (tx, rx) = oneshot::channel();
@@ -300,7 +297,7 @@ fn request_last_finalized_number() {
 		async move {
 			let (tx, rx) = oneshot::channel();
 
-			let expected = client.info().await.unwrap().finalized_number;
+			let expected = client.info().finalized_number;
 			sender
 				.send(FromOrchestra::Communication {
 					msg: ChainApiMessage::FinalizedBlockNumber(tx),

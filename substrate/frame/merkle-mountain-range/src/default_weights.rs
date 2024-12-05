@@ -24,8 +24,7 @@ use frame_support::weights::{
 };
 
 impl crate::WeightInfo for () {
-	fn on_initialize(peaks: u32) -> Weight {
-		let peaks = u64::from(peaks);
+	fn on_initialize(peaks: u64) -> Weight {
 		// Reading the parent hash.
 		let leaf_weight = DbWeight::get().reads(1);
 		// Blake2 hash cost.

@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// This file is part of Substrate.
 
-// Cumulus is free software: you can redistribute it and/or modify
+// Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Cumulus is distributed in the hope that it will be useful,
+// Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -26,13 +26,6 @@ mod tests;
 #[doc(hidden)]
 mod trie_cache;
 
-#[cfg(any(test, not(feature = "std")))]
-#[doc(hidden)]
-mod trie_recorder;
-
-#[cfg(not(feature = "std"))]
-#[doc(hidden)]
-pub use alloc::{boxed::Box, slice};
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub use bytes;

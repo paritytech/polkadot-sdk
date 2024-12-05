@@ -81,7 +81,7 @@ pub mod v3 {
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 
 	/// Migrate the scheduler pallet from V3 to V4.
-	pub struct MigrateToV4<T>(core::marker::PhantomData<T>);
+	pub struct MigrateToV4<T>(sp_std::marker::PhantomData<T>);
 
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV4<T> {
 		#[cfg(feature = "try-runtime")]
@@ -105,7 +105,7 @@ pub mod v3 {
 			// Check that no agenda overflows `MaxScheduledPerBlock`.
 			let max_scheduled_per_block = T::MaxScheduledPerBlock::get() as usize;
 			for (block_number, agenda) in Agenda::<T>::iter() {
-				if agenda.iter().cloned().flatten().count() > max_scheduled_per_block {
+				if agenda.iter().cloned().filter_map(|s| s).count() > max_scheduled_per_block {
 					log::error!(
 						target: TARGET,
 						"Would truncate agenda of block {:?} from {} items to {} items.",
@@ -119,7 +119,7 @@ pub mod v3 {
 			// Check that bounding the calls will not overflow `MAX_LENGTH`.
 			let max_length = T::Preimages::MAX_LENGTH as usize;
 			for (block_number, agenda) in Agenda::<T>::iter() {
-				for schedule in agenda.iter().cloned().flatten() {
+				for schedule in agenda.iter().cloned().filter_map(|s| s) {
 					match schedule.call {
 						frame_support::traits::schedule::MaybeHashed::Value(call) => {
 							let l = call.using_encoded(|c| c.len());
@@ -194,7 +194,7 @@ pub mod v4 {
 	///
 	/// This should be run on a scheduler that does not have
 	/// <https://github.com/paritytech/substrate/pull/12989> since it piles up `None`-only agendas. This does not modify the pallet version.
-	pub struct CleanupAgendas<T>(core::marker::PhantomData<T>);
+	pub struct CleanupAgendas<T>(sp_std::marker::PhantomData<T>);
 
 	impl<T: Config> OnRuntimeUpgrade for CleanupAgendas<T> {
 		#[cfg(feature = "try-runtime")]
@@ -305,8 +305,8 @@ pub mod v4 {
 mod test {
 	use super::*;
 	use crate::mock::*;
-	use alloc::borrow::Cow;
 	use frame_support::Hashable;
+	use sp_std::borrow::Cow;
 	use substrate_test_utils::assert_eq_uvec;
 
 	#[test]
@@ -362,7 +362,7 @@ mod test {
 					Some(ScheduledV3Of::<Test> {
 						maybe_id: Some(vec![i as u8; 320]),
 						priority: 123,
-						call: MaybeHashed::Hash(undecodable_hash),
+						call: MaybeHashed::Hash(undecodable_hash.clone()),
 						maybe_periodic: Some((4u64, 20)),
 						origin: root(),
 						_phantom: PhantomData::<u64>::default(),

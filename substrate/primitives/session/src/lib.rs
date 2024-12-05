@@ -19,8 +19,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
 use codec::{Decode, Encode};
 
 #[cfg(feature = "std")]
@@ -28,12 +26,28 @@ use sp_api::ProvideRuntimeApi;
 #[cfg(feature = "std")]
 use sp_runtime::traits::Block as BlockT;
 
-use alloc::vec::Vec;
-use sp_core::RuntimeDebug;
+use sp_core::{crypto::KeyTypeId, RuntimeDebug};
 use sp_staking::SessionIndex;
+use sp_std::vec::Vec;
 
-pub mod runtime_api;
-pub use runtime_api::*;
+sp_api::decl_runtime_apis! {
+	/// Session keys runtime api.
+	pub trait SessionKeys {
+		/// Generate a set of session keys with optionally using the given seed.
+		/// The keys should be stored within the keystore exposed via runtime
+		/// externalities.
+		///
+		/// The seed needs to be a valid `utf8` string.
+		///
+		/// Returns the concatenated SCALE encoded public keys.
+		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8>;
+
+		/// Decode the given public session keys.
+		///
+		/// Returns the list of public raw public keys + key type.
+		fn decode_session_keys(encoded: Vec<u8>) -> Option<Vec<(Vec<u8>, KeyTypeId)>>;
+	}
+}
 
 /// Number of validators in a given session.
 pub type ValidatorCount = u32;

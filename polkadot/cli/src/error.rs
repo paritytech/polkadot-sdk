@@ -17,7 +17,7 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
 	#[error(transparent)]
-	PolkadotService(#[from] polkadot_service::Error),
+	PolkadotService(#[from] service::Error),
 
 	#[error(transparent)]
 	SubstrateCli(#[from] sc_cli::Error),
@@ -28,13 +28,17 @@ pub enum Error {
 	#[error(transparent)]
 	SubstrateTracing(#[from] sc_tracing::logging::Error),
 
+	#[error(transparent)]
+	#[cfg(feature = "hostperfcheck")]
+	PerfCheck(#[from] polkadot_performance_test::PerfCheckError),
+
 	#[cfg(not(feature = "pyroscope"))]
 	#[error("Binary was not compiled with `--feature=pyroscope`")]
 	PyroscopeNotCompiledIn,
 
 	#[cfg(feature = "pyroscope")]
 	#[error("Failed to connect to pyroscope agent")]
-	PyroscopeError(#[from] pyroscope::error::PyroscopeError),
+	PyroscopeError(#[from] pyro::error::PyroscopeError),
 
 	#[error("Failed to resolve provided URL")]
 	AddressResolutionFailure(#[from] std::io::Error),

@@ -21,7 +21,7 @@ use sc_client_api::UsageProvider;
 
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
-use sc_block_builder::BlockBuilderBuilder;
+use sc_block_builder::{BlockBuilderProvider, RecordProof};
 
 use sp_keyring::Sr25519Keyring::Alice;
 
@@ -50,11 +50,7 @@ fn benchmark_block_production(c: &mut Criterion) {
 	let parent_header = client.header(parent_hash).expect("Just fetched this hash.").unwrap();
 	let set_validation_data_extrinsic = utils::extrinsic_set_validation_data(parent_header);
 
-	let mut block_builder = BlockBuilderBuilder::new(&*client)
-		.on_parent_block(client.chain_info().best_hash)
-		.with_parent_block_number(client.chain_info().best_number)
-		.build()
-		.unwrap();
+	let mut block_builder = client.new_block(Default::default()).unwrap();
 	block_builder.push(utils::extrinsic_set_time(&client)).unwrap();
 	block_builder.push(set_validation_data_extrinsic).unwrap();
 	let built_block = block_builder.build().unwrap();
@@ -70,7 +66,7 @@ fn benchmark_block_production(c: &mut Criterion) {
 	group.measurement_time(Duration::from_secs(120));
 	group.throughput(Throughput::Elements(max_transfer_count as u64));
 
-	let chain = client.chain_info();
+	let best_hash = client.chain_info().best_hash;
 
 	group.bench_function(
 		format!("(proof = true, transfers = {}) block production", max_transfer_count),
@@ -78,13 +74,9 @@ fn benchmark_block_production(c: &mut Criterion) {
 			b.iter_batched(
 				|| extrinsics.clone(),
 				|extrinsics| {
-					let mut block_builder = BlockBuilderBuilder::new(&*client)
-						.on_parent_block(chain.best_hash)
-						.with_parent_block_number(chain.best_number)
-						.enable_proof_recording()
-						.build()
+					let mut block_builder = client
+						.new_block_at(best_hash, Default::default(), RecordProof::Yes)
 						.unwrap();
-
 					for extrinsic in extrinsics {
 						block_builder.push(extrinsic).unwrap();
 					}
@@ -101,12 +93,9 @@ fn benchmark_block_production(c: &mut Criterion) {
 			b.iter_batched(
 				|| extrinsics.clone(),
 				|extrinsics| {
-					let mut block_builder = BlockBuilderBuilder::new(&*client)
-						.on_parent_block(chain.best_hash)
-						.with_parent_block_number(chain.best_number)
-						.build()
+					let mut block_builder = client
+						.new_block_at(best_hash, Default::default(), RecordProof::No)
 						.unwrap();
-
 					for extrinsic in extrinsics {
 						block_builder.push(extrinsic).unwrap();
 					}

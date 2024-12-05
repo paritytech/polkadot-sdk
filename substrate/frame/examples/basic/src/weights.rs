@@ -42,7 +42,7 @@
 #![allow(unused_imports)]
 
 use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use core::marker::PhantomData;
+use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_example_basic.
 pub trait WeightInfo {

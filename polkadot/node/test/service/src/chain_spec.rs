@@ -16,25 +16,23 @@
 
 //! Chain specifications for the test runtime.
 
+use babe_primitives::AuthorityId as BabeId;
+use grandpa::AuthorityId as GrandpaId;
 use pallet_staking::Forcing;
-use polkadot_primitives::{
-	AccountId, AssignmentId, SchedulerParams, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE,
-};
-use polkadot_service::chain_spec::Extensions;
+use polkadot_primitives::{AccountId, AssignmentId, ValidatorId, MAX_CODE_SIZE, MAX_POV_SIZE};
+use polkadot_service::chain_spec::{get_account_id_from_seed, get_from_seed, Extensions};
 use polkadot_test_runtime::BABE_GENESIS_EPOCH_CONFIG;
 use sc_chain_spec::{ChainSpec, ChainType};
-use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_consensus_babe::AuthorityId as BabeId;
-use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
-use sp_keyring::Sr25519Keyring;
+use sp_core::sr25519;
 use sp_runtime::Perbill;
 use test_runtime_constants::currency::DOTS;
 
 const DEFAULT_PROTOCOL_ID: &str = "dot";
 
 /// The `ChainSpec` parameterized for polkadot test runtime.
-pub type PolkadotChainSpec = sc_service::GenericChainSpec<Extensions>;
+pub type PolkadotChainSpec =
+	sc_service::GenericChainSpec<polkadot_test_runtime::RuntimeGenesisConfig, Extensions>;
 
 /// Returns the properties for the [`PolkadotChainSpec`].
 pub fn polkadot_chain_spec_properties() -> serde_json::map::Map<String, serde_json::Value> {
@@ -48,24 +46,25 @@ pub fn polkadot_chain_spec_properties() -> serde_json::map::Map<String, serde_js
 
 /// Local testnet config (multivalidator Alice + Bob)
 pub fn polkadot_local_testnet_config() -> PolkadotChainSpec {
-	PolkadotChainSpec::builder(
-		polkadot_test_runtime::WASM_BINARY.expect("Wasm binary must be built for testing"),
+	PolkadotChainSpec::from_genesis(
+		"Local Testnet",
+		"local_testnet",
+		ChainType::Local,
+		|| polkadot_local_testnet_genesis(),
+		vec![],
+		None,
+		Some(DEFAULT_PROTOCOL_ID),
+		None,
+		Some(polkadot_chain_spec_properties()),
 		Default::default(),
 	)
-	.with_name("Local Testnet")
-	.with_id("local_testnet")
-	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(polkadot_local_testnet_genesis())
-	.with_protocol_id(DEFAULT_PROTOCOL_ID)
-	.with_properties(polkadot_chain_spec_properties())
-	.build()
 }
 
 /// Local testnet genesis config (multivalidator Alice + Bob)
-pub fn polkadot_local_testnet_genesis() -> serde_json::Value {
+pub fn polkadot_local_testnet_genesis() -> polkadot_test_runtime::RuntimeGenesisConfig {
 	polkadot_testnet_genesis(
 		vec![get_authority_keys_from_seed("Alice"), get_authority_keys_from_seed("Bob")],
-		Sr25519Keyring::Alice.to_account_id(),
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
 	)
 }
@@ -75,18 +74,31 @@ fn get_authority_keys_from_seed(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
-		get_public_from_string_or_panic::<sr25519::Public>(&format!("{}//stash", seed)).into(),
-		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
-		get_public_from_string_or_panic::<BabeId>(seed),
-		get_public_from_string_or_panic::<GrandpaId>(seed),
-		get_public_from_string_or_panic::<ValidatorId>(seed),
-		get_public_from_string_or_panic::<AssignmentId>(seed),
-		get_public_from_string_or_panic::<AuthorityDiscoveryId>(seed),
+		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+		get_account_id_from_seed::<sr25519::Public>(seed),
+		get_from_seed::<BabeId>(seed),
+		get_from_seed::<GrandpaId>(seed),
+		get_from_seed::<ValidatorId>(seed),
+		get_from_seed::<AssignmentId>(seed),
+		get_from_seed::<AuthorityDiscoveryId>(seed),
 	)
 }
 
 fn testnet_accounts() -> Vec<AccountId> {
-	Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect()
+	vec![
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		get_account_id_from_seed::<sr25519::Public>("Bob"),
+		get_account_id_from_seed::<sr25519::Public>("Charlie"),
+		get_account_id_from_seed::<sr25519::Public>("Dave"),
+		get_account_id_from_seed::<sr25519::Public>("Eve"),
+		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+	]
 }
 
 /// Helper function to create polkadot `RuntimeGenesisConfig` for testing
@@ -102,7 +114,7 @@ fn polkadot_testnet_genesis(
 	)>,
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<AccountId>>,
-) -> serde_json::Value {
+) -> polkadot_test_runtime::RuntimeGenesisConfig {
 	use polkadot_test_runtime as runtime;
 
 	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
@@ -110,12 +122,17 @@ fn polkadot_testnet_genesis(
 	const ENDOWMENT: u128 = 1_000_000 * DOTS;
 	const STASH: u128 = 100 * DOTS;
 
-	serde_json::json!({
-		"balances": {
-			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
+	runtime::RuntimeGenesisConfig {
+		system: runtime::SystemConfig {
+			code: runtime::WASM_BINARY.expect("Wasm binary must be built for testing").to_vec(),
+			..Default::default()
 		},
-		"session": {
-			"keys": initial_authorities
+		indices: runtime::IndicesConfig { indices: vec![] },
+		balances: runtime::BalancesConfig {
+			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
+		},
+		session: runtime::SessionConfig {
+			keys: initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -132,41 +149,47 @@ fn polkadot_testnet_genesis(
 				})
 				.collect::<Vec<_>>(),
 		},
-		"staking": {
-			"minimumValidatorCount": 1,
-			"validatorCount": 2,
-			"stakers": initial_authorities
+		staking: runtime::StakingConfig {
+			minimum_validator_count: 1,
+			validator_count: 2,
+			stakers: initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), x.0.clone(), STASH, runtime::StakerStatus::<AccountId>::Validator))
-				.collect::<Vec<_>>(),
-			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
-			"forceEra": Forcing::NotForcing,
-			"slashRewardFraction": Perbill::from_percent(10),
+				.map(|x| (x.0.clone(), x.0.clone(), STASH, runtime::StakerStatus::Validator))
+				.collect(),
+			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			force_era: Forcing::NotForcing,
+			slash_reward_fraction: Perbill::from_percent(10),
+			..Default::default()
 		},
-		"babe": {
-			"epochConfig": Some(BABE_GENESIS_EPOCH_CONFIG),
+		babe: runtime::BabeConfig {
+			authorities: vec![],
+			epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG),
+			..Default::default()
 		},
-		"sudo": { "key": Some(root_key) },
-		"configuration": {
-			"config": polkadot_runtime_parachains::configuration::HostConfiguration {
+		grandpa: Default::default(),
+		authority_discovery: runtime::AuthorityDiscoveryConfig {
+			keys: vec![],
+			..Default::default()
+		},
+		claims: runtime::ClaimsConfig { claims: vec![], vesting: vec![] },
+		vesting: runtime::VestingConfig { vesting: vec![] },
+		sudo: runtime::SudoConfig { key: Some(root_key) },
+		configuration: runtime::ConfigurationConfig {
+			config: polkadot_runtime_parachains::configuration::HostConfiguration {
 				validation_upgrade_cooldown: 10u32,
 				validation_upgrade_delay: 5,
 				code_retention_period: 1200,
 				max_code_size: MAX_CODE_SIZE,
 				max_pov_size: MAX_POV_SIZE,
 				max_head_data_size: 32 * 1024,
+				group_rotation_frequency: 20,
+				paras_availability_period: 4,
 				no_show_slots: 10,
 				minimum_validation_upgrade_delay: 5,
-				max_downward_message_size: 1024,
-				scheduler_params: SchedulerParams {
-					group_rotation_frequency: 20,
-					paras_availability_period: 4,
-					..Default::default()
-				},
 				..Default::default()
 			},
-		}
-	})
+		},
+	}
 }
 
 /// Can be called for a `Configuration` to check if it is a configuration for the `Test` network.

@@ -25,9 +25,7 @@ use polkadot_node_subsystem_util::database::Database;
 use polkadot_primitives::Id as ParaId;
 use std::{collections::HashMap, sync::Arc};
 
-use polkadot_primitives_test_helpers::{
-	dummy_candidate_receipt, dummy_candidate_receipt_bad_sig, dummy_hash,
-};
+use ::test_helpers::{dummy_candidate_receipt, dummy_candidate_receipt_bad_sig, dummy_hash};
 
 const DATA_COL: u32 = 0;
 
@@ -40,6 +38,10 @@ fn make_db() -> (DbBackend, Arc<dyn Database>) {
 	let db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
 	let db_writer: Arc<dyn Database> = Arc::new(db);
 	(DbBackend::new(db_writer.clone(), TEST_CONFIG), db_writer)
+}
+
+fn make_bitvec(len: usize) -> BitVec<u8, BitOrderLsb0> {
+	bitvec::bitvec![u8, BitOrderLsb0; 0; len]
 }
 
 fn make_block_entry(
@@ -256,7 +258,7 @@ fn canonicalize_works() {
 	//   -> B1 -> C1 -> D1
 	// A -> B2 -> C2 -> D2
 	//
-	// We'll canonicalize C1. Everything except D1 should disappear.
+	// We'll canonicalize C1. Everytning except D1 should disappear.
 	//
 	// Candidates:
 	// Cand1 in B2

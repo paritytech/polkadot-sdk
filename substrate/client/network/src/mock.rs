@@ -18,15 +18,9 @@
 
 //! Mocked components for tests.
 
-use crate::{
-	peer_store::{PeerStoreProvider, ProtocolHandle},
-	ReputationChange,
-};
-
-use sc_network_common::role::ObservedRole;
-use sc_network_types::PeerId;
-
-use std::{collections::HashSet, sync::Arc};
+use crate::{peer_store::PeerStoreProvider, protocol_controller::ProtocolHandle, ReputationChange};
+use libp2p::PeerId;
+use std::collections::HashSet;
 
 /// No-op `PeerStore`.
 #[derive(Debug)]
@@ -38,15 +32,15 @@ impl PeerStoreProvider for MockPeerStore {
 		false
 	}
 
-	fn register_protocol(&self, _protocol_handle: Arc<dyn ProtocolHandle>) {
+	fn register_protocol(&self, _protocol_handle: ProtocolHandle) {
 		// Make sure not to fail.
 	}
 
-	fn report_disconnect(&self, _peer_id: PeerId) {
+	fn report_disconnect(&mut self, _peer_id: PeerId) {
 		// Make sure not to fail.
 	}
 
-	fn report_peer(&self, _peer_id: PeerId, _change: ReputationChange) {
+	fn report_peer(&mut self, _peer_id: PeerId, _change: ReputationChange) {
 		// Make sure not to fail.
 	}
 
@@ -55,19 +49,7 @@ impl PeerStoreProvider for MockPeerStore {
 		0
 	}
 
-	fn peer_role(&self, _peer_id: &PeerId) -> Option<ObservedRole> {
-		None
-	}
-
-	fn set_peer_role(&self, _peer_id: &PeerId, _role: ObservedRole) {
-		unimplemented!();
-	}
-
-	fn outgoing_candidates(&self, _count: usize, _ignored: HashSet<PeerId>) -> Vec<PeerId> {
-		unimplemented!()
-	}
-
-	fn add_known_peer(&self, _peer_id: PeerId) {
+	fn outgoing_candidates(&self, _count: usize, _ignored: HashSet<&PeerId>) -> Vec<PeerId> {
 		unimplemented!()
 	}
 }

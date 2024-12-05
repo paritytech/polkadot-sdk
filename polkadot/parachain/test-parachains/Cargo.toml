@@ -7,19 +7,16 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
-[lints]
-workspace = true
-
 [dependencies]
-tiny-keccak = { features = ["keccak"], workspace = true }
-codec = { features = ["derive"], workspace = true }
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 
-test-parachain-adder = { workspace = true }
-test-parachain-halt = { workspace = true }
+adder = { package = "test-parachain-adder", path = "adder" }
+halt = { package = "test-parachain-halt", path = "halt" }
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = true }
+sp-core = { path = "../../../substrate/primitives/core" }
 
 [features]
-default = ["std"]
-std = ["codec/std", "test-parachain-adder/std", "test-parachain-halt/std"]
+default = [ "std" ]
+std = [ "adder/std", "halt/std" ]

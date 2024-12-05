@@ -32,15 +32,13 @@ pub type BeefyBestBlockStream<Block> =
 
 /// The sending half of the notifications channel(s) used to send notifications
 /// about versioned finality proof generated at the end of a BEEFY round.
-pub type BeefyVersionedFinalityProofSender<Block, AuthorityId> =
-	NotificationSender<BeefyVersionedFinalityProof<Block, AuthorityId>>;
+pub type BeefyVersionedFinalityProofSender<Block> =
+	NotificationSender<BeefyVersionedFinalityProof<Block>>;
 
 /// The receiving half of a notifications channel used to receive notifications
 /// about versioned finality proof generated at the end of a BEEFY round.
-pub type BeefyVersionedFinalityProofStream<Block, AuthorityId> = NotificationStream<
-	BeefyVersionedFinalityProof<Block, AuthorityId>,
-	BeefyVersionedFinalityProofTracingKey,
->;
+pub type BeefyVersionedFinalityProofStream<Block> =
+	NotificationStream<BeefyVersionedFinalityProof<Block>, BeefyVersionedFinalityProofTracingKey>;
 
 /// Provides tracing key for BEEFY best block stream.
 #[derive(Clone)]

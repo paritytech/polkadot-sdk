@@ -20,31 +20,47 @@
 #![cfg(test)]
 
 use super::*;
+
 use crate as pallet_multisig;
-use frame::{prelude::*, runtime::prelude::*, testing_prelude::*};
+use frame_support::{
+	assert_noop, assert_ok, derive_impl,
+	traits::{ConstU32, ConstU64, Contains},
+};
+use sp_runtime::{BuildStorage, TokenError};
 
 type Block = frame_system::mocking::MockBlockU32<Test>;
 
-construct_runtime!(
-	pub struct Test {
-		System: frame_system,
-		Balances: pallet_balances,
-		Multisig: pallet_multisig,
+frame_support::construct_runtime!(
+	pub enum Test
+	{
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type AccountData = pallet_balances::AccountData<u64>;
-	// This pallet wishes to overwrite this.
+	type BlockHashCount = ConstU32<250>;
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
 	type BaseCallFilter = TestBaseCallFilter;
+	type PalletInfo = PalletInfo;
+	type OnSetCode = ();
+
+	type AccountData = pallet_balances::AccountData<u64>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = ();
 	type ReserveIdentifier = [u8; 8];
+	type DustRemoval = ();
 	type AccountStore = System;
+	type ExistentialDeposit = ConstU64<1>;
 }
 
 pub struct TestBaseCallFilter;
@@ -66,19 +82,18 @@ impl Config for Test {
 	type DepositFactor = ConstU64<1>;
 	type MaxSignatories = ConstU32<3>;
 	type WeightInfo = ();
-	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 use pallet_balances::Call as BalancesCall;
 
-pub fn new_test_ext() -> TestState {
+pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 2)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	let mut ext = TestState::new(t);
+	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
@@ -100,7 +115,7 @@ fn multisig_deposit_is_taken_and_returned() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().call_weight;
+		let call_weight = call.get_dispatch_info().weight;
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -221,7 +236,7 @@ fn multisig_2_of_3_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().call_weight;
+		let call_weight = call.get_dispatch_info().weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
@@ -254,7 +269,7 @@ fn multisig_3_of_3_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().call_weight;
+		let call_weight = call.get_dispatch_info().weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
@@ -324,7 +339,7 @@ fn multisig_2_of_3_as_multi_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().call_weight;
+		let call_weight = call.get_dispatch_info().weight;
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -356,9 +371,9 @@ fn multisig_2_of_3_as_multi_with_many_calls_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call1 = call_transfer(6, 10);
-		let call1_weight = call1.get_dispatch_info().call_weight;
+		let call1_weight = call1.get_dispatch_info().weight;
 		let call2 = call_transfer(7, 5);
-		let call2_weight = call2.get_dispatch_info().call_weight;
+		let call2_weight = call2.get_dispatch_info().weight;
 
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
@@ -407,7 +422,7 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 10);
-		let call_weight = call.get_dispatch_info().call_weight;
+		let call_weight = call.get_dispatch_info().weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
@@ -648,7 +663,7 @@ fn multisig_handles_no_preimage_after_all_approve() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().call_weight;
+		let call_weight = call.get_dispatch_info().weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),

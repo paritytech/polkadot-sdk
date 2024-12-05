@@ -36,41 +36,32 @@ mod tick_impls;
 mod types;
 mod utility_impls;
 
-pub mod migration;
-pub mod runtime_api;
-
 pub mod weights;
 pub use weights::WeightInfo;
 
 pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
+pub use nonfungible_impl::*;
 pub use types::*;
-
-extern crate alloc;
-
-/// The log target for this pallet.
-const LOG_TARGET: &str = "runtime::broker";
+pub use utility_impls::*;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
 			fungible::{Balanced, Credit, Mutate},
-			BuildGenesisConfig, EnsureOrigin, OnUnbalanced,
+			EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
-
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	use sp_runtime::traits::{Convert, ConvertBack};
+	use sp_std::vec::Vec;
 
 	#[pallet::pallet]
-	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -94,16 +85,12 @@ pub mod pallet {
 		type Coretime: CoretimeInterface;
 
 		/// The algorithm to determine the next price on the basis of market performance.
-		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
+		type PriceAdapter: AdaptPrice;
 
 		/// Reversible conversion from local balance to Relay-chain balance. This will typically be
 		/// the `Identity`, but provided just in case the chains use different representations.
 		type ConvertBalance: Convert<BalanceOf<Self>, RelayBalanceOf<Self>>
 			+ ConvertBack<BalanceOf<Self>, RelayBalanceOf<Self>>;
-
-		/// Type used for getting the associated account of a task. This account is controlled by
-		/// the task itself.
-		type SovereignAccountOf: MaybeConvert<TaskId, Self::AccountId>;
 
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
@@ -120,9 +107,6 @@ pub mod pallet {
 		/// Maximum number of system cores.
 		#[pallet::constant]
 		type MaxReservedCores: Get<u32>;
-
-		#[pallet::constant]
-		type MaxAutoRenewals: Get<u32>;
 	}
 
 	/// The current configuration of this pallet.
@@ -145,14 +129,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
 
-	/// Records of potential renewals.
-	///
-	/// Renewals will only actually be allowed if `CompletionStatus` is actually `Complete`.
+	/// Records of allowed renewals.
 	#[pallet::storage]
-	pub type PotentialRenewals<T> =
-		StorageMap<_, Twox64Concat, PotentialRenewalId, PotentialRenewalRecordOf<T>, OptionQuery>;
+	pub type AllowedRenewals<T> =
+		StorageMap<_, Twox64Concat, AllowedRenewalId, AllowedRenewalRecordOf<T>, OptionQuery>;
 
-	/// The current (unassigned or provisionally assigend) Regions.
+	/// The current (unassigned) Regions.
 	#[pallet::storage]
 	pub type Regions<T> = StorageMap<_, Blake2_128Concat, RegionId, RegionRecordOf<T>, OptionQuery>;
 
@@ -178,21 +160,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type InstaPoolHistory<T> =
 		StorageMap<_, Blake2_128Concat, Timeslice, InstaPoolHistoryRecordOf<T>>;
-
-	/// Received core count change from the relay chain.
-	#[pallet::storage]
-	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
-
-	/// Keeping track of cores which have auto-renewal enabled.
-	///
-	/// Sorted by `CoreIndex` to make the removal of cores from auto-renewal more efficient.
-	#[pallet::storage]
-	pub type AutoRenewals<T: Config> =
-		StorageValue<_, BoundedVec<AutoRenewalRecord, T::MaxAutoRenewals>, ValueQuery>;
-
-	/// Received revenue info from the relay chain.
-	#[pallet::storage]
-	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -245,9 +212,9 @@ pub mod pallet {
 			/// The duration of the Region.
 			duration: Timeslice,
 			/// The old owner of the Region.
-			old_owner: Option<T::AccountId>,
+			old_owner: T::AccountId,
 			/// The new owner of the Region.
-			owner: Option<T::AccountId>,
+			owner: T::AccountId,
 		},
 		/// A Region has been split into two non-overlapping Regions.
 		Partitioned {
@@ -305,21 +272,21 @@ pub mod pallet {
 		},
 		/// A new sale has been initialized.
 		SaleInitialized {
-			/// The relay block number at which the sale will/did start.
-			sale_start: RelayBlockNumberOf<T>,
-			/// The length in relay chain blocks of the Leadin Period (where the price is
-			/// decreasing).
-			leadin_length: RelayBlockNumberOf<T>,
+			/// The local block number at which the sale will/did start.
+			sale_start: BlockNumberFor<T>,
+			/// The length in blocks of the Leadin Period (where the price is decreasing).
+			leadin_length: BlockNumberFor<T>,
 			/// The price of Bulk Coretime at the beginning of the Leadin Period.
 			start_price: BalanceOf<T>,
 			/// The price of Bulk Coretime after the Leadin Period.
-			end_price: BalanceOf<T>,
+			regular_price: BalanceOf<T>,
 			/// The first timeslice of the Regions which are being sold in this sale.
 			region_begin: Timeslice,
 			/// The timeslice on which the Regions which are being sold in the sale terminate.
 			/// (i.e. One after the last timeslice which the Regions control.)
 			region_end: Timeslice,
-			/// The number of cores we want to sell, ideally.
+			/// The number of cores we want to sell, ideally. Selling this amount would result in
+			/// no change to the price for the next sale.
 			ideal_cores_sold: CoreIndex,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
@@ -435,39 +402,12 @@ pub mod pallet {
 			assignment: Vec<(CoreAssignment, PartsOf57600)>,
 		},
 		/// Some historical Instantaneous Core Pool payment record has been dropped.
-		PotentialRenewalDropped {
+		AllowedRenewalDropped {
 			/// The timeslice whose renewal is no longer available.
 			when: Timeslice,
 			/// The core whose workload is no longer available to be renewed for `when`.
 			core: CoreIndex,
 		},
-		AutoRenewalEnabled {
-			/// The core for which the renewal was enabled.
-			core: CoreIndex,
-			/// The task for which the renewal was enabled.
-			task: TaskId,
-		},
-		AutoRenewalDisabled {
-			/// The core for which the renewal was disabled.
-			core: CoreIndex,
-			/// The task for which the renewal was disabled.
-			task: TaskId,
-		},
-		/// Failed to auto-renew a core, likely due to the payer account not being sufficiently
-		/// funded.
-		AutoRenewalFailed {
-			/// The core for which the renewal failed.
-			core: CoreIndex,
-			/// The account which was supposed to pay for renewal.
-			///
-			/// If `None` it indicates that we failed to get the sovereign account of a task.
-			payer: Option<T::AccountId>,
-		},
-		/// The auto-renewal limit has been reached upon renewing cores.
-		///
-		/// This should never happen, given that enable_auto_renew checks for this before enabling
-		/// auto-renewal.
-		AutoRenewalLimitReached,
 	}
 
 	#[pallet::error]
@@ -532,32 +472,6 @@ pub mod pallet {
 		AlreadyExpired,
 		/// The configuration could not be applied because it is invalid.
 		InvalidConfig,
-		/// The revenue must be claimed for 1 or more timeslices.
-		NoClaimTimeslices,
-		/// The caller doesn't have the permission to enable or disable auto-renewal.
-		NoPermission,
-		/// We reached the limit for auto-renewals.
-		TooManyAutoRenewals,
-		/// Only cores which are assigned to a task can be auto-renewed.
-		NonTaskAutoRenewal,
-		/// Failed to get the sovereign account of a task.
-		SovereignAccountNotFound,
-		/// Attempted to disable auto-renewal for a core that didn't have it enabled.
-		AutoRenewalNotEnabled,
-	}
-
-	#[derive(frame_support::DefaultNoBound)]
-	#[pallet::genesis_config]
-	pub struct GenesisConfig<T: Config> {
-		#[serde(skip)]
-		pub _config: core::marker::PhantomData<T>,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			frame_system::Pallet::<T>::inc_providers(&Pallet::<T>::account_id());
-		}
 	}
 
 	#[pallet::hooks]
@@ -631,23 +545,17 @@ pub mod pallet {
 		/// Begin the Bulk Coretime sales rotation.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
-		/// - `end_price`: The price after the leadin period of Bulk Coretime in the first sale.
-		/// - `extra_cores`: Number of extra cores that should be requested on top of the cores
-		///   required for `Reservations` and `Leases`.
-		///
-		/// This will call [`Self::request_core_count`] internally to set the correct core count on
-		/// the relay chain.
+		/// - `initial_price`: The price of Bulk Coretime in the first sale.
+		/// - `core_count`: The number of cores which can be allocated.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::start_sales(
-			T::MaxLeasedCores::get() + T::MaxReservedCores::get() + *extra_cores as u32
-		))]
+		#[pallet::weight(T::WeightInfo::start_sales((*core_count).into()))]
 		pub fn start_sales(
 			origin: OriginFor<T>,
-			end_price: BalanceOf<T>,
-			extra_cores: CoreIndex,
+			initial_price: BalanceOf<T>,
+			core_count: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_start_sales(end_price, extra_cores)?;
+			Self::do_start_sales(initial_price, core_count)?;
 			Ok(Pays::No.into())
 		}
 
@@ -717,7 +625,7 @@ pub mod pallet {
 		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
 		/// - `region_id`: The Region which should become two interlaced Regions of incomplete
 		///   regularity.
-		/// - `pivot`: The interlace mask of one of the two new regions (the other is its partial
+		/// - `pivot`: The interlace mask of on of the two new regions (the other it its partial
 		///   complement).
 		#[pallet::call_index(9)]
 		pub fn interlace(
@@ -770,12 +678,13 @@ pub mod pallet {
 
 		/// Claim the revenue owed from inclusion in the Instantaneous Coretime Pool.
 		///
-		/// - `origin`: Must be a Signed origin.
+		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
 		/// - `region_id`: The Region which was assigned to the Pool.
-		/// - `max_timeslices`: The maximum number of timeslices which should be processed. This
-		///   must be greater than 0. This may affect the weight of the call but should be ideally
-		///   made equivalent to the length of the Region `region_id`. If less, further dispatches
-		///   will be required with the same `region_id` to claim revenue for the remainder.
+		/// - `max_timeslices`: The maximum number of timeslices which should be processed. This may
+		///   effect the weight of the call but should be ideally made equivalant to the length of
+		///   the Region `region_id`. If it is less than this, then further dispatches will be
+		///   required with the `region_id` which makes up any remainders of the region to be
+		///   collected.
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::claim_revenue(*max_timeslices))]
 		pub fn claim_revenue(
@@ -807,51 +716,55 @@ pub mod pallet {
 
 		/// Drop an expired Region from the chain.
 		///
-		/// - `origin`: Can be any kind of origin.
+		/// - `origin`: Must be a Signed origin.
 		/// - `region_id`: The Region which has expired.
 		#[pallet::call_index(14)]
 		pub fn drop_region(
-			_origin: OriginFor<T>,
+			origin: OriginFor<T>,
 			region_id: RegionId,
 		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
 			Self::do_drop_region(region_id)?;
 			Ok(Pays::No.into())
 		}
 
 		/// Drop an expired Instantaneous Pool Contribution record from the chain.
 		///
-		/// - `origin`: Can be any kind of origin.
+		/// - `origin`: Must be a Signed origin.
 		/// - `region_id`: The Region identifying the Pool Contribution which has expired.
 		#[pallet::call_index(15)]
 		pub fn drop_contribution(
-			_origin: OriginFor<T>,
+			origin: OriginFor<T>,
 			region_id: RegionId,
 		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
 			Self::do_drop_contribution(region_id)?;
 			Ok(Pays::No.into())
 		}
 
 		/// Drop an expired Instantaneous Pool History record from the chain.
 		///
-		/// - `origin`: Can be any kind of origin.
+		/// - `origin`: Must be a Signed origin.
 		/// - `region_id`: The time of the Pool History record which has expired.
 		#[pallet::call_index(16)]
-		pub fn drop_history(_origin: OriginFor<T>, when: Timeslice) -> DispatchResultWithPostInfo {
+		pub fn drop_history(origin: OriginFor<T>, when: Timeslice) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
 			Self::do_drop_history(when)?;
 			Ok(Pays::No.into())
 		}
 
 		/// Drop an expired Allowed Renewal record from the chain.
 		///
-		/// - `origin`: Can be any kind of origin.
+		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
 		/// - `core`: The core to which the expired renewal refers.
 		/// - `when`: The timeslice to which the expired renewal refers. This must have passed.
 		#[pallet::call_index(17)]
 		pub fn drop_renewal(
-			_origin: OriginFor<T>,
+			origin: OriginFor<T>,
 			core: CoreIndex,
 			when: Timeslice,
 		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
 			Self::do_drop_renewal(core, when)?;
 			Ok(Pays::No.into())
 		}
@@ -865,89 +778,6 @@ pub mod pallet {
 		pub fn request_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_request_core_count(core_count)?;
-			Ok(())
-		}
-
-		#[pallet::call_index(19)]
-		#[pallet::weight(T::WeightInfo::notify_core_count())]
-		pub fn notify_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
-			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_notify_core_count(core_count)?;
-			Ok(())
-		}
-
-		#[pallet::call_index(20)]
-		#[pallet::weight(T::WeightInfo::notify_revenue())]
-		pub fn notify_revenue(
-			origin: OriginFor<T>,
-			revenue: OnDemandRevenueRecordOf<T>,
-		) -> DispatchResult {
-			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_notify_revenue(revenue)?;
-			Ok(())
-		}
-
-		/// Extrinsic for enabling auto renewal.
-		///
-		/// Callable by the sovereign account of the task on the specified core. This account
-		/// will be charged at the start of every bulk period for renewing core time.
-		///
-		/// - `origin`: Must be the sovereign account of the task
-		/// - `core`: The core to which the task to be renewed is currently assigned.
-		/// - `task`: The task for which we want to enable auto renewal.
-		/// - `workload_end_hint`: should be used when enabling auto-renewal for a core that is not
-		///   expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
-		///   inefficient to look up when the core expires to schedule the next renewal.
-		#[pallet::call_index(21)]
-		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
-		pub fn enable_auto_renew(
-			origin: OriginFor<T>,
-			core: CoreIndex,
-			task: TaskId,
-			workload_end_hint: Option<Timeslice>,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			let sovereign_account = T::SovereignAccountOf::maybe_convert(task)
-				.ok_or(Error::<T>::SovereignAccountNotFound)?;
-			// Only the sovereign account of a task can enable auto renewal for its own core.
-			ensure!(who == sovereign_account, Error::<T>::NoPermission);
-
-			Self::do_enable_auto_renew(sovereign_account, core, task, workload_end_hint)?;
-			Ok(())
-		}
-
-		/// Extrinsic for disabling auto renewal.
-		///
-		/// Callable by the sovereign account of the task on the specified core.
-		///
-		/// - `origin`: Must be the sovereign account of the task.
-		/// - `core`: The core for which we want to disable auto renewal.
-		/// - `task`: The task for which we want to disable auto renewal.
-		#[pallet::call_index(22)]
-		#[pallet::weight(T::WeightInfo::disable_auto_renew())]
-		pub fn disable_auto_renew(
-			origin: OriginFor<T>,
-			core: CoreIndex,
-			task: TaskId,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			let sovereign_account = T::SovereignAccountOf::maybe_convert(task)
-				.ok_or(Error::<T>::SovereignAccountNotFound)?;
-			// Only the sovereign account of the task can disable auto-renewal.
-			ensure!(who == sovereign_account, Error::<T>::NoPermission);
-
-			Self::do_disable_auto_renew(core, task)?;
-
-			Ok(())
-		}
-
-		#[pallet::call_index(99)]
-		#[pallet::weight(T::WeightInfo::swap_leases())]
-		pub fn swap_leases(origin: OriginFor<T>, id: TaskId, other: TaskId) -> DispatchResult {
-			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_swap_leases(id, other)?;
 			Ok(())
 		}
 	}

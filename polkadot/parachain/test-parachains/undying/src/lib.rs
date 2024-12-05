@@ -18,10 +18,8 @@
 
 #![no_std]
 
-extern crate alloc;
-
-use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode};
+use sp_std::vec::Vec;
 use tiny_keccak::{Hasher as _, Keccak};
 
 #[cfg(not(feature = "std"))]

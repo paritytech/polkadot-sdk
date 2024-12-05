@@ -35,12 +35,10 @@ use sp_wasm_interface::{FunctionContext, Result};
 
 use codec::{Decode, Encode};
 
-use core::{any::TypeId, mem};
-
-use alloc::vec::Vec;
+use sp_std::{any::TypeId, mem, vec::Vec};
 
 #[cfg(feature = "std")]
-use alloc::borrow::Cow;
+use sp_std::borrow::Cow;
 
 // Make sure that our assumptions for storing a pointer + its size in `u64` is valid.
 #[cfg(all(not(feature = "std"), not(feature = "disable_target_static_assertions")))]
@@ -339,7 +337,7 @@ impl<const N: usize> IntoPreallocatedFFIValue for [u8; N] {
 	}
 }
 
-impl<T: codec::Codec, E: codec::Codec> PassBy for core::result::Result<T, E> {
+impl<T: codec::Codec, E: codec::Codec> PassBy for sp_std::result::Result<T, E> {
 	type PassBy = Codec<Self>;
 }
 

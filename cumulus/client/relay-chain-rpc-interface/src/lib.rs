@@ -18,29 +18,27 @@ use async_trait::async_trait;
 use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash as RelayHash,
-		Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidationCodeHash, ValidatorId,
+		CommittedCandidateReceipt, Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage,
+		OccupiedCoreAssumption, SessionIndex, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
-	BlockNumber, CoreState, PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
+	PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
 };
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
 
 use sc_client_api::StorageProof;
+use sp_core::sp_std::collections::btree_map::BTreeMap;
 use sp_state_machine::StorageValue;
 use sp_storage::StorageKey;
-use sp_version::RuntimeVersion;
-use std::{collections::btree_map::BTreeMap, pin::Pin};
+use std::pin::Pin;
 
 use cumulus_primitives_core::relay_chain::BlockId;
 pub use url::Url;
 
 mod light_client_worker;
-mod metrics;
 mod reconnecting_ws_client;
 mod rpc_client;
 mod tokio_platform;
@@ -89,13 +87,12 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
-			BlockId::Number(num) => {
+			BlockId::Number(num) =>
 				if let Some(hash) = self.rpc_client.chain_get_block_hash(Some(num)).await? {
 					hash
 				} else {
 					return Ok(None)
-				}
-			},
+				},
 		};
 		let header = self.rpc_client.chain_get_header(Some(hash)).await?;
 
@@ -110,17 +107,6 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	) -> RelayChainResult<Option<PersistedValidationData>> {
 		self.rpc_client
 			.parachain_host_persisted_validation_data(hash, para_id, occupied_core_assumption)
-			.await
-	}
-
-	async fn validation_code_hash(
-		&self,
-		hash: RelayHash,
-		para_id: ParaId,
-		occupied_core_assumption: OccupiedCoreAssumption,
-	) -> RelayChainResult<Option<ValidationCodeHash>> {
-		self.rpc_client
-			.validation_code_hash(hash, para_id, occupied_core_assumption)
 			.await
 	}
 
@@ -164,18 +150,6 @@ impl RelayChainInterface for RelayChainRpcInterface {
 
 	async fn finalized_block_hash(&self) -> RelayChainResult<RelayHash> {
 		self.rpc_client.chain_get_finalized_head().await
-	}
-
-	async fn call_runtime_api(
-		&self,
-		method_name: &'static str,
-		hash: RelayHash,
-		payload: &[u8],
-	) -> RelayChainResult<Vec<u8>> {
-		self.rpc_client
-			.call_remote_runtime_function_encoded(method_name, hash, payload)
-			.await
-			.map(|bytes| bytes.to_vec())
 	}
 
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
@@ -251,35 +225,5 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>> {
 		let imported_headers_stream = self.rpc_client.get_best_heads_stream()?;
 		Ok(imported_headers_stream.boxed())
-	}
-
-	async fn candidates_pending_availability(
-		&self,
-		hash: RelayHash,
-		para_id: ParaId,
-	) -> RelayChainResult<Vec<CommittedCandidateReceipt>> {
-		self.rpc_client
-			.parachain_host_candidates_pending_availability(hash, para_id)
-			.await
-	}
-
-	async fn version(&self, relay_parent: RelayHash) -> RelayChainResult<RuntimeVersion> {
-		self.rpc_client.runtime_version(relay_parent).await
-	}
-
-	async fn availability_cores(
-		&self,
-		relay_parent: RelayHash,
-	) -> RelayChainResult<Vec<CoreState<RelayHash, BlockNumber>>> {
-		self.rpc_client.parachain_host_availability_cores(relay_parent).await
-	}
-
-	async fn claim_queue(
-		&self,
-		relay_parent: RelayHash,
-	) -> RelayChainResult<
-		BTreeMap<cumulus_relay_chain_interface::CoreIndex, std::collections::VecDeque<ParaId>>,
-	> {
-		self.rpc_client.parachain_host_claim_queue(relay_parent).await
 	}
 }

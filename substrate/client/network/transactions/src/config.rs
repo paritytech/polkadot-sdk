@@ -19,7 +19,6 @@
 //! Configuration of the transaction protocol
 
 use futures::prelude::*;
-use sc_network::MAX_RESPONSE_SIZE;
 use sc_network_common::ExHashT;
 use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashMap, future::Future, pin::Pin, time};
@@ -33,7 +32,7 @@ pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis
 pub(crate) const MAX_KNOWN_TRANSACTIONS: usize = 10240; // ~300kb per peer + overhead.
 
 /// Maximum allowed size for a transactions notification.
-pub(crate) const MAX_TRANSACTIONS_SIZE: u64 = MAX_RESPONSE_SIZE;
+pub(crate) const MAX_TRANSACTIONS_SIZE: u64 = 16 * 1024 * 1024;
 
 /// Maximum number of transaction validation request we keep at any moment.
 pub(crate) const MAX_PENDING_TRANSACTIONS: usize = 8192;

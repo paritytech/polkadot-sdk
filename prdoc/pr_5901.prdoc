@@ -1,3 +1,0 @@
-crates:
-  - name: polkadot-node-core-dispute-coordinator
-    bump: none

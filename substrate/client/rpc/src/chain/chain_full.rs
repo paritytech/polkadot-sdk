@@ -19,17 +19,14 @@
 //! Blockchain API backend for full nodes.
 
 use super::{client_err, ChainBackend, Error};
-use crate::{
-	utils::{spawn_subscription_task, BoundedVecDeque, PendingSubscription},
-	SubscriptionTaskExecutor,
-};
+use crate::SubscriptionTaskExecutor;
 use std::{marker::PhantomData, sync::Arc};
 
 use futures::{
-	future::{self},
+	future::{self, FutureExt},
 	stream::{self, Stream, StreamExt},
 };
-use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
+use jsonrpsee::SubscriptionSink;
 use sc_client_api::{BlockBackend, BlockchainEvents};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::SignedBlock, traits::Block as BlockT};
@@ -51,7 +48,6 @@ impl<Block: BlockT, Client> FullChain<Block, Client> {
 	}
 }
 
-#[async_trait]
 impl<Block, Client> ChainBackend<Client, Block> for FullChain<Block, Client>
 where
 	Block: BlockT + 'static,
@@ -70,11 +66,11 @@ where
 		self.client.block(self.unwrap_or_best(hash)).map_err(client_err)
 	}
 
-	fn subscribe_all_heads(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_all_heads(&self, sink: SubscriptionSink) {
 		subscribe_headers(
 			&self.client,
 			&self.executor,
-			pending,
+			sink,
 			|| self.client().info().best_hash,
 			|| {
 				self.client()
@@ -84,11 +80,11 @@ where
 		)
 	}
 
-	fn subscribe_new_heads(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_new_heads(&self, sink: SubscriptionSink) {
 		subscribe_headers(
 			&self.client,
 			&self.executor,
-			pending,
+			sink,
 			|| self.client().info().best_hash,
 			|| {
 				self.client()
@@ -99,11 +95,11 @@ where
 		)
 	}
 
-	fn subscribe_finalized_heads(&self, pending: PendingSubscriptionSink) {
+	fn subscribe_finalized_heads(&self, sink: SubscriptionSink) {
 		subscribe_headers(
 			&self.client,
 			&self.executor,
-			pending,
+			sink,
 			|| self.client().info().finalized_hash,
 			|| {
 				self.client()
@@ -118,7 +114,7 @@ where
 fn subscribe_headers<Block, Client, F, G, S>(
 	client: &Arc<Client>,
 	executor: &SubscriptionTaskExecutor,
-	pending: PendingSubscriptionSink,
+	mut sink: SubscriptionSink,
 	best_block_hash: G,
 	stream: F,
 ) where
@@ -142,8 +138,10 @@ fn subscribe_headers<Block, Client, F, G, S>(
 	// we set up the stream and chain it to the stream. Consuming code would need to handle
 	// duplicates at the beginning of the stream though.
 	let stream = stream::iter(maybe_header).chain(stream());
-	spawn_subscription_task(
-		executor,
-		PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
-	);
+
+	let fut = async move {
+		sink.pipe_from_stream(stream).await;
+	};
+
+	executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 }

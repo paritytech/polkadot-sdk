@@ -17,6 +17,7 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 
+use sc_client_api::UsageProvider;
 use sp_arithmetic::{
 	traits::{One, Zero},
 	FixedPointNumber,
@@ -25,7 +26,7 @@ use sp_arithmetic::{
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
 
-use sc_block_builder::BlockBuilderBuilder;
+use sc_block_builder::{BlockBuilderProvider, RecordProof};
 
 use sp_keyring::Sr25519Keyring::Alice;
 
@@ -59,11 +60,11 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 		runtime.block_on(utils::import_block(&client, &block, false));
 		initialize_glutton_pallet = false;
 
-		let best_hash = client.chain_info().best_hash;
-		let best_number = client.chain_info().best_number;
-		let parent_header = client.header(best_hash).expect("Just fetched this hash.").unwrap();
+		let parent_hash = client.usage_info().chain.best_hash;
+		let parent_header = client.header(parent_hash).expect("Just fetched this hash.").unwrap();
 		let set_validation_data_extrinsic = utils::extrinsic_set_validation_data(parent_header);
 		let set_time_extrinsic = utils::extrinsic_set_time(&client);
+		let best_hash = client.chain_info().best_hash;
 
 		group.bench_function(
 			format!(
@@ -75,11 +76,8 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 				b.iter_batched(
 					|| (set_validation_data_extrinsic.clone(), set_time_extrinsic.clone()),
 					|(validation_data, time)| {
-						let mut block_builder = BlockBuilderBuilder::new(&*client)
-							.on_parent_block(best_hash)
-							.with_parent_block_number(best_number)
-							.enable_proof_recording()
-							.build()
+						let mut block_builder = client
+							.new_block_at(best_hash, Default::default(), RecordProof::Yes)
 							.unwrap();
 						block_builder.push(validation_data).unwrap();
 						block_builder.push(time).unwrap();
@@ -100,10 +98,8 @@ fn benchmark_block_production_compute(c: &mut Criterion) {
 				b.iter_batched(
 					|| (set_validation_data_extrinsic.clone(), set_time_extrinsic.clone()),
 					|(validation_data, time)| {
-						let mut block_builder = BlockBuilderBuilder::new(&*client)
-							.on_parent_block(best_hash)
-							.with_parent_block_number(best_number)
-							.build()
+						let mut block_builder = client
+							.new_block_at(best_hash, Default::default(), RecordProof::No)
 							.unwrap();
 						block_builder.push(validation_data).unwrap();
 						block_builder.push(time).unwrap();
