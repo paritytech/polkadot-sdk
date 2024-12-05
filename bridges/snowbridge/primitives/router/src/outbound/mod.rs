@@ -44,7 +44,8 @@ impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription, 
 		OutboundQueue,
 		AgentHashedDescription,
 		ConvertAssetId,
-	> where
+	>
+where
 	UniversalLocation: Get<InteriorLocation>,
 	EthereumNetwork: Get<NetworkId>,
 	OutboundQueue: SendMessage<Balance = u128>,
@@ -401,6 +402,9 @@ where
 		// Check if there is a SetTopic and skip over it if found.
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
-		Ok((Command::MintForeignToken { token_id, recipient, amount }, *topic_id))
+		Ok((
+			Command::MintForeignToken { agent_id: self.agent_id, token_id, recipient, amount },
+			*topic_id,
+		))
 	}
 }
