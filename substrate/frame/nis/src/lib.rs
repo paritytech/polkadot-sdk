@@ -90,11 +90,6 @@ use sp_runtime::{
 	DispatchError, Perquintill,
 };
 
-mod benchmarking;
-#[cfg(test)]
-mod mock;
-#[cfg(test)]
-mod tests;
 pub mod weights;
 
 pub struct WithMaximumOf<A: TypedGet>(core::marker::PhantomData<A>);
