@@ -190,14 +190,14 @@ pub mod pallet {
 		},
 		PalletId,
 	};
-	use frame_system::pallet_prelude::{BlockNumberFor, ensure_signed, OriginFor};
+	use frame_system::pallet_prelude::{BlockNumberFor as SystemBlockNumberFor, ensure_signed, OriginFor};
 	use sp_arithmetic::{PerThing, Perquintill};
 	use sp_runtime::{
 		traits::{AccountIdConversion, Bounded, Convert, ConvertBack, Saturating, Zero, BlockNumberProvider},
 		Rounding, TokenError,
 	};
 
-	// type BlockNumberFor<T> = <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	type BlockNumberFor<T> = <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 	type BalanceOf<T> =
 		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 	type DebtOf<T> =
@@ -313,7 +313,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type ThawThrottle: Get<(Perquintill, BlockNumberFor<Self>)>;
 
-		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber: Default>;
 
 		/// Setup the state for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -518,12 +518,12 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-			// let block_number = T::BlockNumberProvider::current_block_number();
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: SystemBlockNumberFor<T>) -> Weight {
+			let block_number = T::BlockNumberProvider::current_block_number();
 			let mut weight_counter =
 				WeightCounter { used: Weight::zero(), limit: T::MaxIntakeWeight::get() };
-			if T::IntakePeriod::get().is_zero() || (n % T::IntakePeriod::get()).is_zero() {
+			if T::IntakePeriod::get().is_zero() || (block_number % T::IntakePeriod::get()).is_zero() {
 				if weight_counter.check_accrue(T::WeightInfo::process_queues()) {
 					Self::process_queues(
 						T::Target::get(),
