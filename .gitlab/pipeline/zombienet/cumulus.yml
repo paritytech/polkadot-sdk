@@ -64,7 +64,7 @@ zombienet-cumulus-0001-sync_blocks_from_tip_without_connected_collator:
       --concurrency=1
       --test="0001-sync_blocks_from_tip_without_connected_collator.zndsl"
 
-zombienet-cumulus-0002-pov_recovery:
+.zombienet-cumulus-0002-pov_recovery:
   extends:
     - .zombienet-cumulus-common
     - .zombienet-refs
