@@ -1,0 +1,19 @@
+title: Add scaffolding to declare Facade APIs
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds two new experimental crates:
+
+    - `sp-facade-apis`: A crate to define Facade Runtime APIs. This has two purposes:
+       1. Help enforce certain rules to promote the stability/documentation/naming of these APIs.
+       2. Provide metadata about the declared APIs so that we can eg check the compatibility of a given runtime with current facade APIs.
+    - `sp-facade-apis-macro`: A supporting macro to enable the above.
+
+    The Facade APIs are not actually defined yet, except with an example showing the syntax (same as `decl_runtime_apis` basically).
+crates:
+- name: sp-facade-apis-macro
+  bump: patch
+- name: sp-facade-apis
+  bump: patch
+- name: polkadot-sdk
+  bump: minor
