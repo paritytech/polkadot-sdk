@@ -118,13 +118,16 @@ where
 	) -> Result<Xcm<()>, ConvertMessageError> {
 		let mut message_xcm: Xcm<()> = Xcm::new();
 		if message.xcm.len() > 0 {
-			// Decode xcm
-			let versioned_xcm = VersionedXcm::<()>::decode_with_depth_limit(
+			// Allow xcm decode failure so that assets can be trapped on AH instead of this
+			// message failing but funds are already locked on Ethereum.
+			if let Ok(versioned_xcm) = VersionedXcm::<()>::decode_with_depth_limit(
 				MAX_XCM_DECODE_DEPTH,
 				&mut message.xcm.as_ref(),
-			)
-			.map_err(|_| ConvertMessageError::InvalidVersionedXCM)?;
-			message_xcm = versioned_xcm.try_into().map_err(|_| ConvertMessageError::InvalidXCM)?;
+			) {
+				if let Ok(decoded_xcm) = versioned_xcm.try_into() {
+					message_xcm = decoded_xcm;
+				}
+			}
 		}
 
 		log::debug!(target: LOG_TARGET,"xcm decoded as {:?}", message_xcm);
