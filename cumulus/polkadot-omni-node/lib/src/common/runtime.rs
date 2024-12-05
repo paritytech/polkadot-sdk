@@ -118,7 +118,7 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 
 		if !metadata_inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME) {
 			log::warn!(
-				r#"⚠️   The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
+				r#"⚠️  The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
 			   missing from the runtime’s metadata. Please check Omni Node docs for runtime conventions:
 			   https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions."#
 			);
