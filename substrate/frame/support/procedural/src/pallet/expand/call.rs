@@ -52,7 +52,7 @@ fn expand_weight(
 		},
 		CallWeightDef::Inherited(t) => {
 			// Expand `<<T as Config>::WeightInfo>::$prefix$call_name()`.
-			let n = &syn::Ident::new(&format!("{}{}", prefix, method.name), t.span());
+			let n = &syn::Ident::new(&format!("{}{}", prefix, method.name), method.name.span());
 			quote!({ < #t > :: #n () })
 		},
 	}
