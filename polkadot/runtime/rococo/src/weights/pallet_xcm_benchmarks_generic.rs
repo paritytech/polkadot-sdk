@@ -344,4 +344,11 @@ impl<T: frame_system::Config> pallet_xcm_benchmarks::generic::WeightInfo for Wei
 		Weight::from_parts(1_354_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	fn execute_with_origin() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 713_000 picoseconds.
+		Weight::from_parts(776_000, 0)
+	}
 }

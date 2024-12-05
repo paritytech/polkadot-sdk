@@ -32,11 +32,10 @@ fn create_and_claim_treasury_spend() {
 		ahw_xcm_config::LocationToAccountId::convert_location(&treasury_location).unwrap();
 	let asset_hub_location = Location::new(0, Parachain(AssetHubWestend::para_id().into()));
 	let root = <Westend as Chain>::RuntimeOrigin::root();
-	// asset kind to be spend from the treasury.
-	let asset_kind = VersionedLocatableAsset::V4 {
-		location: asset_hub_location,
-		asset_id: AssetId([PalletInstance(50), GeneralIndex(USDT_ID.into())].into()),
-	};
+	// asset kind to be spent from the treasury.
+	let asset_kind: VersionedLocatableAsset =
+		(asset_hub_location, AssetId([PalletInstance(50), GeneralIndex(USDT_ID.into())].into()))
+			.into();
 	// treasury spend beneficiary.
 	let alice: AccountId = Westend::account_id_of(ALICE);
 	let bob: AccountId = Westend::account_id_of(BOB);

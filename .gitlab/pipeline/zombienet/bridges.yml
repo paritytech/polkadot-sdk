@@ -11,7 +11,7 @@
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/
       variables:
         DOCKER_IMAGES_VERSION: ${CI_COMMIT_SHORT_SHA}
-    - !reference [.build-refs, rules]
+    - !reference [ .build-refs, rules ]
   before_script:
     - echo "Zombienet Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
@@ -47,8 +47,6 @@
     - cp -r /tmp/bridges-tests-run-*/bridge_hub_rococo_local_network/*.log ./zombienet-logs/
     # copy logs of westend nodes
     - cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/
-  tags:
-    - zombienet-polkadot-integration-test
 
 zombienet-bridges-0001-asset-transfer-works:
   extends:

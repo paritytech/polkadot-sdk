@@ -49,28 +49,15 @@ mod tests;
 pub mod weights;
 
 extern crate alloc;
-
 use alloc::{boxed::Box, vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	dispatch::{
-		DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
-		PostDispatchInfo,
-	},
-	ensure,
-	traits::{Currency, Get, ReservableCurrency},
-	weights::Weight,
-	BoundedVec,
+use frame::{
+	prelude::*,
+	traits::{Currency, ReservableCurrency},
 };
-use frame_system::{self as system, pallet_prelude::BlockNumberFor, RawOrigin};
-use scale_info::TypeInfo;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	traits::{Dispatchable, TrailingZeroInput, Zero},
-	DispatchError, RuntimeDebug,
-};
+use frame_system::RawOrigin;
 pub use weights::WeightInfo;
 
+/// Re-export all pallet items.
 pub use pallet::*;
 
 /// The log target of this pallet.
@@ -89,6 +76,9 @@ macro_rules! log {
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type BlockNumberFor<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A global extrinsic index, formed as the extrinsic index within a block, together with that
 /// block's height. This allows a transaction in which a multisig operation of a particular
@@ -127,11 +117,9 @@ enum CallOrHash<T: Config> {
 	Hash([u8; 32]),
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -167,7 +155,10 @@ pub mod pallet {
 		type MaxSignatories: Get<u32>;
 
 		/// Weight information for extrinsics in this pallet.
-		type WeightInfo: WeightInfo;
+		type WeightInfo: weights::WeightInfo;
+
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
 	/// The in-code storage version.
@@ -250,7 +241,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+	impl<T: Config> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -641,8 +632,8 @@ impl<T: Config> Pallet<T> {
 	/// The current `Timepoint`.
 	pub fn timepoint() -> Timepoint<BlockNumberFor<T>> {
 		Timepoint {
-			height: <system::Pallet<T>>::block_number(),
-			index: <system::Pallet<T>>::extrinsic_index().unwrap_or_default(),
+			height: T::BlockNumberProvider::current_block_number(),
+			index: <frame_system::Pallet<T>>::extrinsic_index().unwrap_or_default(),
 		}
 	}
 

@@ -14,12 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Basic polkadot omni-node.
+//! White labeled polkadot omni-node.
 //!
-//! It can be used to start a parachain node from a provided chain spec file.
-//! It is only compatible with runtimes that use block number `u32` and `Aura` consensus.
-//!
-//! Example: `polkadot-omni-node --chain [chain_spec.json]`
+//! For documentation, see [`polkadot_omni_node_lib`].
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
@@ -52,9 +49,6 @@ impl CliConfigT for CliConfig {
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
 
-	let config = RunConfig {
-		chain_spec_loader: Box::new(DiskChainSpecLoader),
-		runtime_resolver: Box::new(DefaultRuntimeResolver),
-	};
+	let config = RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
 	Ok(run::<CliConfig>(config)?)
 }

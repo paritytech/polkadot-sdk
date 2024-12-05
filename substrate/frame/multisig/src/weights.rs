@@ -46,9 +46,8 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use core::marker::PhantomData;
-
+// TODO update this in frame-weight-template.hbs
+use frame::weights_prelude::*;
 /// Weight functions needed for `pallet_multisig`.
 pub trait WeightInfo {
 	fn as_multi_threshold_1(z: u32, ) -> Weight;

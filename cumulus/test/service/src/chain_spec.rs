@@ -16,13 +16,13 @@
 
 #![allow(missing_docs)]
 
+use cumulus_client_service::ParachainHostFunctions;
 use cumulus_primitives_core::ParaId;
 use cumulus_test_runtime::AccountId;
-use parachains_common::AuraId;
-use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
+use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup, GenesisConfigBuilderRuntimeCaller};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
-use sp_keyring::Sr25519Keyring;
+use serde_json::json;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
@@ -50,17 +50,51 @@ pub fn get_chain_spec_with_extra_endowed(
 	extra_endowed_accounts: Vec<AccountId>,
 	code: &[u8],
 ) -> ChainSpec {
+	let runtime_caller = GenesisConfigBuilderRuntimeCaller::<ParachainHostFunctions>::new(code);
+	let mut development_preset = runtime_caller
+		.get_named_preset(Some(&sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET.to_string()))
+		.expect("development preset is available on test runtime; qed");
+
+	// Extract existing balances
+	let existing_balances = development_preset
+		.get("balances")
+		.and_then(|b| b.get("balances"))
+		.and_then(|b| b.as_array())
+		.cloned()
+		.unwrap_or_default();
+
+	// Create new balances by combining existing and extra accounts
+	let mut all_balances = existing_balances;
+	all_balances.extend(extra_endowed_accounts.into_iter().map(|a| json!([a, 1u64 << 60])));
+
+	let mut patch_json = json!({
+		"balances": {
+			"balances": all_balances,
+		}
+	});
+
+	if let Some(id) = id {
+		// Merge parachain ID if given, otherwise use the one from the preset.
+		sc_chain_spec::json_merge(
+			&mut patch_json,
+			json!({
+				"parachainInfo": {
+					"parachainId": id,
+				},
+			}),
+		);
+	};
+
+	sc_chain_spec::json_merge(&mut development_preset, patch_json.into());
+
 	ChainSpec::builder(
 		code,
 		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
 	)
 	.with_name("Local Testnet")
-	.with_id("local_testnet")
+	.with_id(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(testnet_genesis_with_default_endowed(
-		extra_endowed_accounts.clone(),
-		id,
-	))
+	.with_genesis_config_patch(development_preset)
 	.build()
 }
 
@@ -81,36 +115,4 @@ pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> ChainSpec {
 		cumulus_test_runtime::elastic_scaling::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 	)
-}
-
-/// Local testnet genesis for testing.
-pub fn testnet_genesis_with_default_endowed(
-	mut extra_endowed_accounts: Vec<AccountId>,
-	self_para_id: Option<ParaId>,
-) -> serde_json::Value {
-	let mut endowed = Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect::<Vec<_>>();
-	endowed.append(&mut extra_endowed_accounts);
-	let invulnerables =
-		Sr25519Keyring::invulnerable().map(|k| k.public().into()).collect::<Vec<_>>();
-	testnet_genesis(Sr25519Keyring::Alice.to_account_id(), invulnerables, endowed, self_para_id)
-}
-
-/// Creates a local testnet genesis with endowed accounts.
-pub fn testnet_genesis(
-	root_key: AccountId,
-	invulnerables: Vec<AuraId>,
-	endowed_accounts: Vec<AccountId>,
-	self_para_id: Option<ParaId>,
-) -> serde_json::Value {
-	let self_para_id = self_para_id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into());
-	serde_json::json!({
-		"balances": cumulus_test_runtime::BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
-		},
-		"sudo": cumulus_test_runtime::SudoConfig { key: Some(root_key) },
-		"parachainInfo": {
-			"parachainId": self_para_id,
-		},
-		"aura": cumulus_test_runtime::AuraConfig { authorities: invulnerables }
-	})
 }

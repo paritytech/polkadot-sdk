@@ -66,8 +66,8 @@ use polkadot_node_subsystem_util::{
 	runtime::{ExtendedSessionInfo, RuntimeInfo},
 };
 use polkadot_primitives::{
-	node_features, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex, GroupIndex,
-	Hash, SessionIndex, ValidatorIndex,
+	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash,
+	ChunkIndex, CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex,
 };
 
 mod error;
@@ -540,11 +540,11 @@ async fn handle_recover<Context>(
 					threshold: recovery_threshold(n_validators)?,
 					systematic_threshold,
 					candidate_hash,
-					erasure_root: receipt.descriptor.erasure_root,
+					erasure_root: receipt.descriptor.erasure_root(),
 					metrics: metrics.clone(),
 					bypass_availability_store,
 					post_recovery_check,
-					pov_hash: receipt.descriptor.pov_hash,
+					pov_hash: receipt.descriptor.pov_hash(),
 					req_v1_protocol_name,
 					req_v2_protocol_name,
 					chunk_mapping_enabled,

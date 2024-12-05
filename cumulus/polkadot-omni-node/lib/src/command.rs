@@ -48,6 +48,16 @@ pub struct RunConfig {
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
 }
 
+impl RunConfig {
+	/// Create a new `RunConfig`
+	pub fn new(
+		runtime_resolver: Box<dyn RuntimeResolver>,
+		chain_spec_loader: Box<dyn LoadSpec>,
+	) -> Self {
+		RunConfig { chain_spec_loader, runtime_resolver }
+	}
+}
+
 pub fn new_aura_node_spec<Block>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
@@ -266,13 +276,15 @@ pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()
 				}
 
 				let hwbench = (!cli.no_hardware_benchmarks)
-					.then_some(config.database.path().map(|database_path| {
-						let _ = std::fs::create_dir_all(database_path);
-						sc_sysinfo::gather_hwbench(
-							Some(database_path),
-							&SUBSTRATE_REFERENCE_HARDWARE,
-						)
-					}))
+					.then(|| {
+						config.database.path().map(|database_path| {
+							let _ = std::fs::create_dir_all(database_path);
+							sc_sysinfo::gather_hwbench(
+								Some(database_path),
+								&SUBSTRATE_REFERENCE_HARDWARE,
+							)
+						})
+					})
 					.flatten();
 
 				let parachain_account =

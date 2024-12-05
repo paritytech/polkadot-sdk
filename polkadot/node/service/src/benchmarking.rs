@@ -79,53 +79,6 @@ macro_rules! identify_chain {
 	};
 }
 
-/// Generates `System::Remark` extrinsics for the benchmarks.
-///
-/// Note: Should only be used for benchmarking.
-pub struct RemarkBuilder {
-	client: Arc<FullClient>,
-	chain: Chain,
-}
-
-impl RemarkBuilder {
-	/// Creates a new [`Self`] from the given client.
-	pub fn new(client: Arc<FullClient>, chain: Chain) -> Self {
-		Self { client, chain }
-	}
-}
-
-impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
-	fn pallet(&self) -> &str {
-		"system"
-	}
-
-	fn extrinsic(&self) -> &str {
-		"remark"
-	}
-
-	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
-		// We apply the extrinsic directly, so let's take some random period.
-		let period = 128;
-		let genesis = self.client.usage_info().chain.best_hash;
-		let signer = Sr25519Keyring::Bob.pair();
-		let current_block = 0;
-
-		identify_chain! {
-			self.chain,
-			nonce,
-			current_block,
-			period,
-			genesis,
-			signer,
-			{
-				runtime::RuntimeCall::System(
-					runtime::SystemCall::remark { remark: vec![] }
-				)
-			},
-		}
-	}
-}
-
 /// Generates `Balances::TransferKeepAlive` extrinsics for the benchmarks.
 ///
 /// Note: Should only be used for benchmarking.

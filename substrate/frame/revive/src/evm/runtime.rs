@@ -16,7 +16,7 @@
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
-	evm::api::{TransactionLegacySigned, TransactionLegacyUnsigned},
+	evm::api::{GenericTransaction, TransactionSigned},
 	AccountIdOf, AddressMapper, BalanceOf, MomentOf, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
@@ -25,9 +25,9 @@ use frame_support::{
 	traits::{ExtrinsicCall, InherentBuilder, SignedTransactionBuilder},
 };
 use pallet_transaction_payment::OnChargeTransaction;
-use scale_info::TypeInfo;
+use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_arithmetic::Percent;
-use sp_core::{Get, U256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
@@ -48,15 +48,27 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// We use a fixed value for the gas price.
 /// This let us calculate the gas estimate for a transaction with the formula:
 /// `estimate_gas = substrate_fee / gas_price`.
-pub const GAS_PRICE: u32 = 1_000u32;
+pub const GAS_PRICE: u32 = 1u32;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-#[scale_info(skip_type_params(E))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct UncheckedExtrinsic<Address, Signature, E: EthExtra>(
 	pub generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>,
 );
+
+impl<Address, Signature, E: EthExtra> TypeInfo for UncheckedExtrinsic<Address, Signature, E>
+where
+	Address: StaticTypeInfo,
+	Signature: StaticTypeInfo,
+	E::Extension: StaticTypeInfo,
+{
+	type Identity =
+		generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>;
+	fn type_info() -> scale_info::Type {
+		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extension>::type_info()
+	}
+}
 
 impl<Address, Signature, E: EthExtra>
 	From<generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>>
@@ -80,8 +92,12 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicLike
 impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 	for UncheckedExtrinsic<Address, Signature, E>
 {
-	const VERSION: u8 =
-		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extension>::VERSION;
+	const VERSIONS: &'static [u8] = generic::UncheckedExtrinsic::<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::Extension,
+	>::VERSIONS;
 	type TransactionExtensions = E::Extension;
 }
 
@@ -109,6 +125,7 @@ where
 	BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
 	MomentOf<E::Config>: Into<U256>,
 	CallOf<E::Config>: From<crate::Call<E::Config>> + TryInto<crate::Call<E::Config>>,
+	<E::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 
 	// required by Checkable for `generic::UncheckedExtrinsic`
 	LookupSource: Member + MaybeDisplay,
@@ -177,7 +194,7 @@ impl<'a, Address: Decode, Signature: Decode, E: EthExtra> serde::Deserialize<'a>
 	{
 		let r = sp_core::bytes::deserialize(de)?;
 		Decode::decode(&mut &r[..])
-			.map_err(|e| serde::de::Error::custom(sp_runtime::format!("Decode error: {}", e)))
+			.map_err(|e| serde::de::Error::custom(alloc::format!("Decode error: {}", e)))
 	}
 }
 
@@ -278,8 +295,9 @@ pub trait EthExtra {
 		<Self::Config as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 		OnChargeTransactionBalanceOf<Self::Config>: Into<BalanceOf<Self::Config>>,
 		CallOf<Self::Config>: From<crate::Call<Self::Config>>,
+		<Self::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
-		let tx = rlp::decode::<TransactionLegacySigned>(&payload).map_err(|err| {
+		let tx = TransactionSigned::decode(&payload).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
 			InvalidTransaction::Call
 		})?;
@@ -290,29 +308,34 @@ pub trait EthExtra {
 		})?;
 
 		let signer =
-			<Self::Config as crate::Config>::AddressMapper::to_account_id_contract(&signer);
-		let TransactionLegacyUnsigned { nonce, chain_id, to, value, input, gas, gas_price, .. } =
-			tx.transaction_legacy_unsigned;
+			<Self::Config as crate::Config>::AddressMapper::to_fallback_account_id(&signer);
+		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
+			GenericTransaction::from_signed(tx, None);
 
 		if chain_id.unwrap_or_default() != <Self::Config as crate::Config>::ChainId::get().into() {
 			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 			return Err(InvalidTransaction::Call);
 		}
 
+		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(value.unwrap_or_default())
+			.map_err(|err| {
+				log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
+				InvalidTransaction::Call
+			})?;
+
+		let data = input.unwrap_or_default().0;
 		let call = if let Some(dest) = to {
 			crate::Call::call::<Self::Config> {
 				dest,
-				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
+				value,
 				gas_limit,
 				storage_deposit_limit,
-				data: input.0,
+				data,
 			}
 		} else {
-			let blob = match polkavm::ProgramBlob::blob_length(&input.0) {
-				Some(blob_len) => blob_len
-					.try_into()
-					.ok()
-					.and_then(|blob_len| (input.0.split_at_checked(blob_len))),
+			let blob = match polkavm::ProgramBlob::blob_length(&data) {
+				Some(blob_len) =>
+					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len))),
 				_ => None,
 			};
 
@@ -322,7 +345,7 @@ pub trait EthExtra {
 			};
 
 			crate::Call::instantiate_with_code::<Self::Config> {
-				value: value.try_into().map_err(|_| InvalidTransaction::Call)?,
+				value,
 				gas_limit,
 				storage_deposit_limit,
 				code: code.to_vec(),
@@ -331,17 +354,18 @@ pub trait EthExtra {
 			}
 		};
 
-		let nonce = nonce.try_into().map_err(|_| InvalidTransaction::Call)?;
+		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
 
-		// Fees calculated with the fixed `GAS_PRICE` that should be used to estimate the gas.
+		// Fees calculated with the fixed `GAS_PRICE`
+		// When we dry-run the transaction, we set the gas to `Fee / GAS_PRICE`
 		let eth_fee_no_tip = U256::from(GAS_PRICE)
-			.saturating_mul(gas)
+			.saturating_mul(gas.unwrap_or_default())
 			.try_into()
 			.map_err(|_| InvalidTransaction::Call)?;
 
 		// Fees with the actual gas_price from the transaction.
-		let eth_fee: BalanceOf<Self::Config> = U256::from(gas_price)
-			.saturating_mul(gas)
+		let eth_fee: BalanceOf<Self::Config> = U256::from(gas_price.unwrap_or_default())
+			.saturating_mul(gas.unwrap_or_default())
 			.try_into()
 			.map_err(|_| InvalidTransaction::Call)?;
 
@@ -356,13 +380,10 @@ pub trait EthExtra {
 				Default::default(),
 			)
 			.into();
+		log::trace!(target: LOG_TARGET, "try_into_checked_extrinsic: encoded_len: {encoded_len:?} actual_fee: {actual_fee:?} eth_fee: {eth_fee:?}");
 
-		log::debug!(target: LOG_TARGET, "Checking Ethereum transaction fees:
-			dispatch_info: {info:?}
-			encoded_len: {encoded_len:?}
-			fees: {actual_fee:?}
-		");
-
+		// The fees from the Ethereum transaction should be greater or equal to the actual fees paid
+		// by the account.
 		if eth_fee < actual_fee {
 			log::debug!(target: LOG_TARGET, "fees {eth_fee:?} too low for the extrinsic {actual_fee:?}");
 			return Err(InvalidTransaction::Payment.into())
@@ -372,10 +393,10 @@ pub trait EthExtra {
 		let max = actual_fee.max(eth_fee_no_tip);
 		let diff = Percent::from_rational(max - min, min);
 		if diff > Percent::from_percent(10) {
-			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
+			log::trace!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?} should be no more than 10% got {diff:?}");
 			return Err(InvalidTransaction::Call.into())
 		} else {
-			log::debug!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
+			log::trace!(target: LOG_TARGET, "Difference between the extrinsic fees {actual_fee:?} and the Ethereum gas fees {eth_fee_no_tip:?}:  {diff:?}");
 		}
 
 		let tip = eth_fee.saturating_sub(eth_fee_no_tip);
@@ -397,47 +418,11 @@ mod test {
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
-	use rlp::Encodable;
 	use sp_runtime::{
 		traits::{Checkable, DispatchTransaction},
 		MultiAddress, MultiSignature,
 	};
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-
-	/// A simple account that can sign transactions
-	pub struct Account(subxt_signer::eth::Keypair);
-
-	impl Default for Account {
-		fn default() -> Self {
-			Self(subxt_signer::eth::dev::alith())
-		}
-	}
-
-	impl From<subxt_signer::eth::Keypair> for Account {
-		fn from(kp: subxt_signer::eth::Keypair) -> Self {
-			Self(kp)
-		}
-	}
-
-	impl Account {
-		/// Get the [`AccountId`] of the account.
-		pub fn account_id(&self) -> AccountIdOf<Test> {
-			let address = self.address();
-			<Test as crate::Config>::AddressMapper::to_account_id_contract(&address)
-		}
-
-		/// Get the [`H160`] address of the account.
-		pub fn address(&self) -> H160 {
-			H160::from_slice(&self.0.account_id().as_ref())
-		}
-
-		/// Sign a transaction.
-		pub fn sign_transaction(&self, tx: TransactionLegacyUnsigned) -> TransactionLegacySigned {
-			let rlp_encoded = tx.rlp_bytes();
-			let signature = self.0.sign(&rlp_encoded);
-			TransactionLegacySigned::from(tx, signature.as_ref())
-		}
-	}
 
 	#[derive(Clone, PartialEq, Eq, Debug)]
 	pub struct Extra;
@@ -470,22 +455,44 @@ mod test {
 	/// A builder for creating an unchecked extrinsic, and test that the check function works.
 	#[derive(Clone)]
 	struct UncheckedExtrinsicBuilder {
-		tx: TransactionLegacyUnsigned,
+		tx: GenericTransaction,
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<Test>,
+		before_validate: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
 	}
 
 	impl UncheckedExtrinsicBuilder {
 		/// Create a new builder with default values.
 		fn new() -> Self {
 			Self {
-				tx: TransactionLegacyUnsigned {
+				tx: GenericTransaction {
+					from: Some(Account::default().address()),
 					chain_id: Some(<Test as crate::Config>::ChainId::get().into()),
-					gas_price: U256::from(GAS_PRICE),
+					gas_price: Some(U256::from(GAS_PRICE)),
 					..Default::default()
 				},
 				gas_limit: Weight::zero(),
 				storage_deposit_limit: 0,
+				before_validate: None,
+			}
+		}
+
+		fn estimate_gas(&mut self) {
+			let dry_run =
+				crate::Pallet::<Test>::bare_eth_transact(self.tx.clone(), Weight::MAX, |call| {
+					let call = RuntimeCall::Contracts(call);
+					let uxt: Ex = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
+					uxt.encoded_size() as u32
+				});
+
+			match dry_run {
+				Ok(dry_run) => {
+					log::debug!(target: LOG_TARGET, "Estimated gas: {:?}", dry_run.eth_gas);
+					self.tx.gas = Some(dry_run.eth_gas);
+				},
+				Err(err) => {
+					log::debug!(target: LOG_TARGET, "Failed to estimate gas: {:?}", err);
+				},
 			}
 		}
 
@@ -493,193 +500,220 @@ mod test {
 		fn call_with(dest: H160) -> Self {
 			let mut builder = Self::new();
 			builder.tx.to = Some(dest);
-			builder.tx.gas = U256::from(516_708u128);
+			ExtBuilder::default().build().execute_with(|| builder.estimate_gas());
 			builder
 		}
 
 		/// Create a new builder with an instantiate call.
 		fn instantiate_with(code: Vec<u8>, data: Vec<u8>) -> Self {
 			let mut builder = Self::new();
-			builder.tx.input = Bytes(code.into_iter().chain(data.into_iter()).collect());
-			builder.tx.gas = U256::from(1_035_070u128);
+			builder.tx.input = Some(Bytes(code.into_iter().chain(data.into_iter()).collect()));
+			ExtBuilder::default().build().execute_with(|| builder.estimate_gas());
 			builder
 		}
 
 		/// Update the transaction with the given function.
-		fn update(mut self, f: impl FnOnce(&mut TransactionLegacyUnsigned) -> ()) -> Self {
+		fn update(mut self, f: impl FnOnce(&mut GenericTransaction) -> ()) -> Self {
 			f(&mut self.tx);
+			self
+		}
+		/// Set before_validate function.
+		fn before_validate(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
+			self.before_validate = Some(std::sync::Arc::new(f));
 			self
 		}
 
 		/// Call `check` on the unchecked extrinsic, and `pre_dispatch` on the signed extension.
 		fn check(&self) -> Result<(RuntimeCall, SignedExtra), TransactionValidityError> {
-			let UncheckedExtrinsicBuilder { tx, gas_limit, storage_deposit_limit } = self.clone();
+			ExtBuilder::default().build().execute_with(|| {
+				let UncheckedExtrinsicBuilder {
+					tx,
+					gas_limit,
+					storage_deposit_limit,
+					before_validate,
+				} = self.clone();
 
-			// Fund the account.
-			let account = Account::default();
-			let _ = <Test as crate::Config>::Currency::set_balance(
-				&account.account_id(),
-				100_000_000_000_000,
-			);
+				// Fund the account.
+				let account = Account::default();
+				let _ = <Test as crate::Config>::Currency::set_balance(
+					&account.substrate_account(),
+					100_000_000_000_000,
+				);
 
-			let payload = account.sign_transaction(tx).rlp_bytes().to_vec();
-			let call = RuntimeCall::Contracts(crate::Call::eth_transact {
-				payload,
-				gas_limit,
-				storage_deposit_limit,
-			});
+				let payload =
+					account.sign_transaction(tx.try_into_unsigned().unwrap()).signed_payload();
+				let call = RuntimeCall::Contracts(crate::Call::eth_transact {
+					payload,
+					gas_limit,
+					storage_deposit_limit,
+				});
 
-			let encoded_len = call.encoded_size();
-			let uxt: Ex = generic::UncheckedExtrinsic::new_bare(call).into();
-			let result: CheckedExtrinsic<_, _, _> = uxt.check(&TestContext {})?;
-			let (account_id, extra): (AccountId32, SignedExtra) = match result.format {
-				ExtrinsicFormat::Signed(signer, extra) => (signer, extra),
-				_ => unreachable!(),
-			};
+				let encoded_len = call.encoded_size();
+				let uxt: Ex = generic::UncheckedExtrinsic::new_bare(call).into();
+				let result: CheckedExtrinsic<_, _, _> = uxt.check(&TestContext {})?;
+				let (account_id, extra): (AccountId32, SignedExtra) = match result.format {
+					ExtrinsicFormat::Signed(signer, extra) => (signer, extra),
+					_ => unreachable!(),
+				};
 
-			extra.clone().validate_and_prepare(
-				RuntimeOrigin::signed(account_id),
-				&result.function,
-				&result.function.get_dispatch_info(),
-				encoded_len,
-			)?;
+				before_validate.map(|f| f());
+				extra.clone().validate_and_prepare(
+					RuntimeOrigin::signed(account_id),
+					&result.function,
+					&result.function.get_dispatch_info(),
+					encoded_len,
+					0,
+				)?;
 
-			Ok((result.function, extra))
+				Ok((result.function, extra))
+			})
 		}
 	}
 
 	#[test]
 	fn check_eth_transact_call_works() {
-		ExtBuilder::default().build().execute_with(|| {
-			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-			assert_eq!(
-				builder.check().unwrap().0,
-				crate::Call::call::<Test> {
-					dest: builder.tx.to.unwrap(),
-					value: builder.tx.value.as_u64(),
-					gas_limit: builder.gas_limit,
-					storage_deposit_limit: builder.storage_deposit_limit,
-					data: builder.tx.input.0
-				}
-				.into()
-			);
-		});
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
+		assert_eq!(
+			builder.check().unwrap().0,
+			crate::Call::call::<Test> {
+				dest: builder.tx.to.unwrap(),
+				value: builder.tx.value.unwrap_or_default().as_u64(),
+				gas_limit: builder.gas_limit,
+				storage_deposit_limit: builder.storage_deposit_limit,
+				data: builder.tx.input.unwrap_or_default().0
+			}
+			.into()
+		);
 	}
 
 	#[test]
 	fn check_eth_transact_instantiate_works() {
-		ExtBuilder::default().build().execute_with(|| {
-			let (code, _) = compile_module("dummy").unwrap();
-			let data = vec![];
-			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
+		let (code, _) = compile_module("dummy").unwrap();
+		let data = vec![];
+		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
-			assert_eq!(
-				builder.check().unwrap().0,
-				crate::Call::instantiate_with_code::<Test> {
-					value: builder.tx.value.as_u64(),
-					gas_limit: builder.gas_limit,
-					storage_deposit_limit: builder.storage_deposit_limit,
-					code,
-					data,
-					salt: None
-				}
-				.into()
-			);
-		});
+		assert_eq!(
+			builder.check().unwrap().0,
+			crate::Call::instantiate_with_code::<Test> {
+				value: builder.tx.value.unwrap_or_default().as_u64(),
+				gas_limit: builder.gas_limit,
+				storage_deposit_limit: builder.storage_deposit_limit,
+				code,
+				data,
+				salt: None
+			}
+			.into()
+		);
 	}
 
 	#[test]
 	fn check_eth_transact_nonce_works() {
-		ExtBuilder::default().build().execute_with(|| {
-			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
-				.update(|tx| tx.nonce = 1u32.into());
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
+			.update(|tx| tx.nonce = Some(1u32.into()));
 
-			assert_eq!(
-				builder.check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Future))
-			);
+		assert_eq!(
+			builder.check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Future))
+		);
 
-			<crate::System<Test>>::inc_account_nonce(Account::default().account_id());
+		let builder =
+			UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20])).before_validate(|| {
+				<crate::System<Test>>::inc_account_nonce(Account::default().substrate_account());
+			});
 
-			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-			assert_eq!(
-				builder.check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))
-			);
-		});
+		assert_eq!(
+			builder.check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))
+		);
 	}
 
 	#[test]
 	fn check_eth_transact_chain_id_works() {
-		ExtBuilder::default().build().execute_with(|| {
-			let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
-				.update(|tx| tx.chain_id = Some(42.into()));
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]))
+			.update(|tx| tx.chain_id = Some(42.into()));
 
-			assert_eq!(
-				builder.check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
-			);
-		});
+		assert_eq!(
+			builder.check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+		);
 	}
 
 	#[test]
 	fn check_instantiate_data() {
-		ExtBuilder::default().build().execute_with(|| {
-			let code = b"invalid code".to_vec();
-			let data = vec![1];
-			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
+		let code = b"invalid code".to_vec();
+		let data = vec![1];
+		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
-			// Fail because the tx input fail to get the blob length
-			assert_eq!(
-				builder.clone().update(|tx| tx.input = Bytes(vec![1, 2, 3])).check(),
-				Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
-			);
-		});
+		// Fail because the tx input fail to get the blob length
+		assert_eq!(
+			builder.clone().update(|tx| tx.input = Some(Bytes(vec![1, 2, 3]))).check(),
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+		);
 	}
 
 	#[test]
 	fn check_transaction_fees() {
-		ExtBuilder::default().build().execute_with(|| {
-			let scenarios: [(_, Box<dyn FnOnce(&mut TransactionLegacyUnsigned)>, _); 5] = [
-				("Eth fees too low", Box::new(|tx| tx.gas_price /= 2), InvalidTransaction::Payment),
-				("Gas fees too high", Box::new(|tx| tx.gas *= 2), InvalidTransaction::Call),
-				("Gas fees too low", Box::new(|tx| tx.gas *= 2), InvalidTransaction::Call),
-				(
-					"Diff > 10%",
-					Box::new(|tx| tx.gas = tx.gas * 111 / 100),
-					InvalidTransaction::Call,
-				),
-				(
-					"Diff < 10%",
-					Box::new(|tx| {
-						tx.gas_price *= 2;
-						tx.gas = tx.gas * 89 / 100
-					}),
-					InvalidTransaction::Call,
-				),
-			];
+		let scenarios: [(_, Box<dyn FnOnce(&mut GenericTransaction)>, _); 5] = [
+			(
+				"Eth fees too low",
+				Box::new(|tx| {
+					tx.gas_price = Some(tx.gas_price.unwrap() / 2);
+				}),
+				InvalidTransaction::Payment,
+			),
+			(
+				"Gas fees too high",
+				Box::new(|tx| {
+					tx.gas = Some(tx.gas.unwrap() * 2);
+				}),
+				InvalidTransaction::Call,
+			),
+			(
+				"Gas fees too low",
+				Box::new(|tx| {
+					tx.gas = Some(tx.gas.unwrap() * 2);
+				}),
+				InvalidTransaction::Call,
+			),
+			(
+				"Diff > 10%",
+				Box::new(|tx| {
+					tx.gas = Some(tx.gas.unwrap() * 111 / 100);
+				}),
+				InvalidTransaction::Call,
+			),
+			(
+				"Diff < 10%",
+				Box::new(|tx| {
+					tx.gas_price = Some(tx.gas_price.unwrap() * 2);
+					tx.gas = Some(tx.gas.unwrap() * 89 / 100);
+				}),
+				InvalidTransaction::Call,
+			),
+		];
 
-			for (msg, update_tx, err) in scenarios {
-				let builder =
-					UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20])).update(update_tx);
+		for (msg, update_tx, err) in scenarios {
+			let builder =
+				UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20])).update(update_tx);
 
-				assert_eq!(builder.check(), Err(TransactionValidityError::Invalid(err)), "{}", msg);
-			}
-		});
+			assert_eq!(builder.check(), Err(TransactionValidityError::Invalid(err)), "{}", msg);
+		}
 	}
 
 	#[test]
 	fn check_transaction_tip() {
-		ExtBuilder::default().build().execute_with(|| {
-			let (code, _) = compile_module("dummy").unwrap();
-			let data = vec![];
-			let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
-				.update(|tx| tx.gas_price = tx.gas_price * 103 / 100);
+		let (code, _) = compile_module("dummy").unwrap();
+		let data = vec![];
+		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
+			.update(|tx| {
+				tx.gas_price = Some(tx.gas_price.unwrap() * 103 / 100);
+				log::debug!(target: LOG_TARGET, "Gas price: {:?}", tx.gas_price);
+			});
 
-			let tx = &builder.tx;
-			let expected_tip = tx.gas_price * tx.gas - U256::from(GAS_PRICE) * tx.gas;
-			let (_, extra) = builder.check().unwrap();
-			assert_eq!(U256::from(extra.1.tip()), expected_tip);
-		});
+		let tx = &builder.tx;
+		let expected_tip =
+			tx.gas_price.unwrap() * tx.gas.unwrap() - U256::from(GAS_PRICE) * tx.gas.unwrap();
+		let (_, extra) = builder.check().unwrap();
+		assert_eq!(U256::from(extra.1.tip()), expected_tip);
 	}
 }

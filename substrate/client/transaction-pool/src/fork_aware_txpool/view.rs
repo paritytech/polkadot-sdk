@@ -27,16 +27,17 @@ use super::metrics::MetricsLink as PrometheusMetrics;
 use crate::{
 	common::log_xt::log_xt_trace,
 	graph::{
-		self, watcher::Watcher, ExtrinsicFor, ExtrinsicHash, IsValidator, ValidatedTransaction,
-		ValidatedTransactionFor,
+		self, base_pool::TimedTransactionSource, watcher::Watcher, ExtrinsicFor, ExtrinsicHash,
+		IsValidator, ValidatedTransaction, ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
 use parking_lot::Mutex;
-use sc_transaction_pool_api::{PoolStatus, TransactionSource};
+use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
-	traits::Block as BlockT, transaction_validity::TransactionValidityError, SaturatedConversion,
+	generic::BlockId, traits::Block as BlockT, transaction_validity::TransactionValidityError,
+	SaturatedConversion,
 };
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
@@ -156,26 +157,69 @@ where
 	/// Imports many unvalidated extrinsics into the view.
 	pub(super) async fn submit_many(
 		&self,
-		source: TransactionSource,
-		xts: impl IntoIterator<Item = ExtrinsicFor<ChainApi>>,
+		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)>,
 	) -> Vec<Result<ExtrinsicHash<ChainApi>, ChainApi::Error>> {
 		if log::log_enabled!(target: LOG_TARGET, log::Level::Trace) {
 			let xts = xts.into_iter().collect::<Vec<_>>();
-			log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
-			self.pool.submit_at(&self.at, source, xts).await
+			log_xt_trace!(target: LOG_TARGET, xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0), "[{:?}] view::submit_many at:{}", self.at.hash);
+			self.pool.submit_at(&self.at, xts).await
 		} else {
-			self.pool.submit_at(&self.at, source, xts).await
+			self.pool.submit_at(&self.at, xts).await
 		}
 	}
 
 	/// Import a single extrinsic and starts to watch its progress in the view.
 	pub(super) async fn submit_and_watch(
 		&self,
-		source: TransactionSource,
+		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<Watcher<ExtrinsicHash<ChainApi>, ExtrinsicHash<ChainApi>>, ChainApi::Error> {
 		log::trace!(target: LOG_TARGET, "[{:?}] view::submit_and_watch at:{}", self.pool.validated_pool().api().hash_and_length(&xt).0, self.at.hash);
 		self.pool.submit_and_watch(&self.at, source, xt).await
+	}
+
+	/// Synchronously imports single unvalidated extrinsics into the view.
+	pub(super) fn submit_local(
+		&self,
+		xt: ExtrinsicFor<ChainApi>,
+	) -> Result<ExtrinsicHash<ChainApi>, ChainApi::Error> {
+		let (hash, length) = self.pool.validated_pool().api().hash_and_length(&xt);
+		log::trace!(target: LOG_TARGET, "[{:?}] view::submit_local at:{}", hash, self.at.hash);
+
+		let validity = self
+			.pool
+			.validated_pool()
+			.api()
+			.validate_transaction_blocking(
+				self.at.hash,
+				sc_transaction_pool_api::TransactionSource::Local,
+				Arc::from(xt.clone()),
+			)?
+			.map_err(|e| {
+				match e {
+					TransactionValidityError::Invalid(i) => TxPoolError::InvalidTransaction(i),
+					TransactionValidityError::Unknown(u) => TxPoolError::UnknownTransaction(u),
+				}
+				.into()
+			})?;
+
+		let block_number = self
+			.pool
+			.validated_pool()
+			.api()
+			.block_id_to_number(&BlockId::hash(self.at.hash))?
+			.ok_or_else(|| TxPoolError::InvalidBlockId(format!("{:?}", self.at.hash)))?;
+
+		let validated = ValidatedTransaction::valid_at(
+			block_number.saturated_into::<u64>(),
+			hash,
+			TimedTransactionSource::new_local(true),
+			Arc::from(xt),
+			length,
+			validity,
+		);
+
+		self.pool.validated_pool().submit(vec![validated]).remove(0)
 	}
 
 	/// Status of the pool associated with the view.
@@ -240,12 +284,10 @@ where
 				}
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
-						let validation_result = (api.validate_transaction(self.at.hash, tx.source, tx.data.clone()).await, tx.hash, tx);
+						let validation_result = (api.validate_transaction(self.at.hash, tx.source.clone().into(), tx.data.clone()).await, tx.hash, tx);
 						validation_results.push(validation_result);
 					} else {
-						{
-							self.revalidation_worker_channels.lock().as_mut().map(|ch| ch.remove_sender());
-						}
+						self.revalidation_worker_channels.lock().as_mut().map(|ch| ch.remove_sender());
 						should_break = true;
 					}
 				} => {}
@@ -281,7 +323,7 @@ where
 						ValidatedTransaction::valid_at(
 							self.at.number.saturated_into::<u64>(),
 							tx_hash,
-							tx.source,
+							tx.source.clone(),
 							tx.data.clone(),
 							api.hash_and_length(&tx.data).1,
 							validity,
@@ -411,5 +453,11 @@ where
 				start.elapsed()
 			);
 		}
+	}
+
+	/// Returns true if the transaction with given hash is already imported into the view.
+	pub(super) fn is_imported(&self, tx_hash: &ExtrinsicHash<ChainApi>) -> bool {
+		const IGNORE_BANNED: bool = false;
+		self.pool.validated_pool().check_is_known(tx_hash, IGNORE_BANNED).is_err()
 	}
 }

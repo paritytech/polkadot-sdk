@@ -580,9 +580,9 @@ pub use pallet_remark;
 #[cfg(feature = "pallet-revive")]
 pub use pallet_revive;
 
-/// Fixtures for testing and benchmarking.
-#[cfg(feature = "pallet-revive-fixtures")]
-pub use pallet_revive_fixtures;
+/// An Ethereum JSON-RPC server for pallet-revive.
+#[cfg(feature = "pallet-revive-eth-rpc")]
+pub use pallet_revive_eth_rpc;
 
 /// A mock network for testing pallet-revive.
 #[cfg(feature = "pallet-revive-mock-network")]

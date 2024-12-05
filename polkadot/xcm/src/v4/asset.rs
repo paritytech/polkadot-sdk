@@ -27,10 +27,17 @@
 //!   holding account.
 
 use super::{InteriorLocation, Location, Reanchorable};
-use crate::v3::{
-	AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
-	MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
-	WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
+use crate::{
+	v3::{
+		AssetId as OldAssetId, AssetInstance as OldAssetInstance, Fungibility as OldFungibility,
+		MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
+		WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
+	},
+	v5::{
+		Asset as NewAsset, AssetFilter as NewAssetFilter, AssetId as NewAssetId,
+		AssetInstance as NewAssetInstance, Assets as NewAssets, Fungibility as NewFungibility,
+		WildAsset as NewWildAsset, WildFungibility as NewWildFungibility,
+	},
 };
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
@@ -79,6 +86,21 @@ impl TryFrom<OldAssetInstance> for AssetInstance {
 	type Error = ();
 	fn try_from(value: OldAssetInstance) -> Result<Self, Self::Error> {
 		use OldAssetInstance::*;
+		Ok(match value {
+			Undefined => Self::Undefined,
+			Index(n) => Self::Index(n),
+			Array4(n) => Self::Array4(n),
+			Array8(n) => Self::Array8(n),
+			Array16(n) => Self::Array16(n),
+			Array32(n) => Self::Array32(n),
+		})
+	}
+}
+
+impl TryFrom<NewAssetInstance> for AssetInstance {
+	type Error = ();
+	fn try_from(value: NewAssetInstance) -> Result<Self, Self::Error> {
+		use NewAssetInstance::*;
 		Ok(match value {
 			Undefined => Self::Undefined,
 			Index(n) => Self::Index(n),
@@ -244,6 +266,17 @@ impl TryFrom<AssetInstance> for u128 {
 	}
 }
 
+impl TryFrom<NewFungibility> for Fungibility {
+	type Error = ();
+	fn try_from(value: NewFungibility) -> Result<Self, Self::Error> {
+		use NewFungibility::*;
+		Ok(match value {
+			Fungible(n) => Self::Fungible(n),
+			NonFungible(i) => Self::NonFungible(i.try_into()?),
+		})
+	}
+}
+
 /// Classification of whether an asset is fungible or not, along with a mandatory amount or
 /// instance.
 #[derive(
@@ -357,6 +390,17 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 	}
 }
 
+impl TryFrom<NewWildFungibility> for WildFungibility {
+	type Error = ();
+	fn try_from(value: NewWildFungibility) -> Result<Self, Self::Error> {
+		use NewWildFungibility::*;
+		Ok(match value {
+			Fungible => Self::Fungible,
+			NonFungible => Self::NonFungible,
+		})
+	}
+}
+
 /// Location to identify an asset.
 #[derive(
 	Clone,
@@ -388,6 +432,13 @@ impl TryFrom<OldAssetId> for AssetId {
 			Concrete(l) => Self(l.try_into()?),
 			Abstract(_) => return Err(()),
 		})
+	}
+}
+
+impl TryFrom<NewAssetId> for AssetId {
+	type Error = ();
+	fn try_from(new: NewAssetId) -> Result<Self, Self::Error> {
+		Ok(Self(new.0.try_into()?))
 	}
 }
 
@@ -526,6 +577,13 @@ impl TryFrom<OldAsset> for Asset {
 	}
 }
 
+impl TryFrom<NewAsset> for Asset {
+	type Error = ();
+	fn try_from(new: NewAsset) -> Result<Self, Self::Error> {
+		Ok(Self { id: new.id.try_into()?, fun: new.fun.try_into()? })
+	}
+}
+
 /// A `Vec` of `Asset`s.
 ///
 /// There are a number of invariants which the construction and mutation functions must ensure are
@@ -571,6 +629,18 @@ impl TryFrom<OldAssets> for Assets {
 	type Error = ();
 	fn try_from(old: OldAssets) -> Result<Self, ()> {
 		let v = old
+			.into_inner()
+			.into_iter()
+			.map(Asset::try_from)
+			.collect::<Result<Vec<_>, ()>>()?;
+		Ok(Assets(v))
+	}
+}
+
+impl TryFrom<NewAssets> for Assets {
+	type Error = ();
+	fn try_from(new: NewAssets) -> Result<Self, Self::Error> {
+		let v = new
 			.into_inner()
 			.into_iter()
 			.map(Asset::try_from)
@@ -795,6 +865,20 @@ impl TryFrom<OldWildAsset> for WildAsset {
 	}
 }
 
+impl TryFrom<NewWildAsset> for WildAsset {
+	type Error = ();
+	fn try_from(new: NewWildAsset) -> Result<Self, ()> {
+		use NewWildAsset::*;
+		Ok(match new {
+			AllOf { id, fun } => Self::AllOf { id: id.try_into()?, fun: fun.try_into()? },
+			AllOfCounted { id, fun, count } =>
+				Self::AllOfCounted { id: id.try_into()?, fun: fun.try_into()?, count },
+			All => Self::All,
+			AllCounted(count) => Self::AllCounted(count),
+		})
+	}
+}
+
 impl WildAsset {
 	/// Returns true if `self` is a super-set of the given `inner` asset.
 	pub fn contains(&self, inner: &Asset) -> bool {
@@ -941,6 +1025,17 @@ impl AssetFilter {
 			Definite(_) => None,
 			Wild(x) => x.limit(),
 		}
+	}
+}
+
+impl TryFrom<NewAssetFilter> for AssetFilter {
+	type Error = ();
+	fn try_from(new: NewAssetFilter) -> Result<AssetFilter, Self::Error> {
+		use NewAssetFilter::*;
+		Ok(match new {
+			Definite(x) => Self::Definite(x.try_into()?),
+			Wild(x) => Self::Wild(x.try_into()?),
+		})
 	}
 }
 

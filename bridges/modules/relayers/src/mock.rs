@@ -171,14 +171,14 @@ pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 frame_support::construct_runtime! {
 	pub enum TestRuntime
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+		System: frame_system,
 		Utility: pallet_utility,
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
-		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>},
-		BridgeGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage, Event<T>},
-		BridgeParachains: pallet_bridge_parachains::{Pallet, Call, Storage, Event<T>},
-		BridgeMessages: pallet_bridge_messages::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Balances: pallet_balances,
+		TransactionPayment: pallet_transaction_payment,
+		BridgeRelayers: pallet_bridge_relayers,
+		BridgeGrandpa: pallet_bridge_grandpa,
+		BridgeParachains: pallet_bridge_parachains,
+		BridgeMessages: pallet_bridge_messages,
 	}
 }
 
@@ -266,6 +266,7 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type DeliveryPayments = ();
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
+		(),
 		(),
 		ConstU64<100_000>,
 	>;
