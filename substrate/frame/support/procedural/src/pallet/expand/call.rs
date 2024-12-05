@@ -296,6 +296,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					&format!("__macro_inner_authorize_call_for_{}", method.name),
 					authorize_fn.span(),
 				);
+				let source = syn::Ident::new("source", span);
 
 				let typed_authorize_fn = quote::quote_spanned!(authorize_fn.span() => {
 					// Closure don't have a writable type. So we fix the authorize token stream to
@@ -320,7 +321,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				// `source` is from outside this block, so we can't use the authorize_fn span.
 				quote::quote!(
 					let authorize_fn = #typed_authorize_fn;
-					let res = authorize_fn(source, #( #arg_name, )*);
+					let res = authorize_fn(#source, #( #arg_name, )*);
 
 					Some(res)
 				)
