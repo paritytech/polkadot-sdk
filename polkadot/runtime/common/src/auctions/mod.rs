@@ -668,6 +668,9 @@ impl<T: Config> Pallet<T> {
 }
 
 #[cfg(test)]
+mod mock;
+
+#[cfg(test)]
 mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
