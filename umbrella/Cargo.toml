@@ -986,6 +986,7 @@ node = [
 ]
 tuples-96 = ["frame-support-procedural?/tuples-96", "frame-support?/tuples-96"]
 
+
 [package.edition]
 workspace = true
 
@@ -2704,7 +2705,7 @@ default-features = false
 optional = true
 
 [dependencies.sc-runtime-utilities]
-path = "../substrate/client/runtime-utilities/"
+path = "../substrate/client/runtime-utilities"
 default-features = false
 optional = true
 

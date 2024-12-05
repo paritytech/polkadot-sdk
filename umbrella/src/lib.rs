@@ -1119,7 +1119,7 @@ pub use sc_rpc_server;
 #[cfg(feature = "sc-rpc-spec-v2")]
 pub use sc_rpc_spec_v2;
 
-/// Substrate client runtime utilities.
+/// Substrate client utilities for frame runtime functions calls.
 #[cfg(feature = "sc-runtime-utilities")]
 pub use sc_runtime_utilities;
 
