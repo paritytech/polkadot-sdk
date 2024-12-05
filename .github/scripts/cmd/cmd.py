@@ -127,7 +127,7 @@ def main():
 
     print(f'args: {args}')
 
-    if args.command == 'bench':
+    if args.command == 'bench-omni':
         runtime_pallets_map = {}
         failed_benchmarks = {}
         successful_benchmarks = {}
@@ -271,7 +271,7 @@ def main():
             for runtime, pallets in successful_benchmarks.items():
                 print_and_log(f'-- {runtime}: {pallets}')
     
-    if args.command == 'bench-old':
+    if args.command == 'bench':
         runtime_pallets_map = {}
         failed_benchmarks = {}
         successful_benchmarks = {}
