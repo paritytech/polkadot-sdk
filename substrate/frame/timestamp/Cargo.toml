@@ -25,10 +25,6 @@ sp-timestamp = { workspace = true }
 
 docify = { workspace = true }
 
-# [dev-dependencies]
-# sp-core = { workspace = true, default-features = true }
-# sp-io = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 std = [

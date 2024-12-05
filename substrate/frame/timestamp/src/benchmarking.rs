@@ -18,14 +18,8 @@
 //! Timestamp pallet benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
-/*
-use frame_benchmarking::{benchmarking::add_to_whitelist, v2::*};
-use frame_support::traits::OnFinalize;
-use frame_system::RawOrigin;
-use sp_storage::TrackedStorageKey;
-*/
 use crate::*;
-use frame::{benchmarking::prelude::*, traits::TrackedStorageKey};
+use frame::benchmarking::prelude::*;
 
 const MAX_TIME: u32 = 100;
 
@@ -38,7 +32,7 @@ mod benchmarks {
 		let t = MAX_TIME;
 		// Ignore write to `DidUpdate` since it transient.
 		let did_update_key = DidUpdate::<T>::hashed_key().to_vec();
-		add_to_whitelist(TrackedStorageKey {
+		add_to_whitelist(frame::deps::sp_storage::TrackedStorageKey {
 			key: did_update_key,
 			reads: 0,
 			writes: 1,
