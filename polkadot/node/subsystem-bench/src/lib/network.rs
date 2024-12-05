@@ -42,6 +42,7 @@ use crate::{
 		chain_api::{ChainApiState, MockChainApi},
 		prospective_parachains::MockProspectiveParachains,
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
+		statement_distribution::MockStatementDistribution,
 		AlwaysSupportsParachains,
 	},
 	NODE_UNDER_TEST,
@@ -896,7 +897,7 @@ pub fn new_network(
 	let mut listen_addresses = vec![];
 	let mut notification_services = vec![];
 	for (handle, peer_id, listen_address, notification_service) in
-		peers.iter().skip(1).map(|peer| build_peer_overseer(dependencies))
+		peers.iter().skip(1).map(|_| build_peer_overseer(config, dependencies))
 	{
 		handles.push(handle);
 		peer_ids.push(peer_id);
@@ -1196,6 +1197,7 @@ impl AuthorityDiscovery for DummyAuthotiryDiscoveryService {
 }
 
 fn build_peer_overseer(
+	config: &TestConfiguration,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (OverseerHandle, PeerId, Multiaddr, Box<dyn NotificationService>) {
 	let handle = Arc::new(dependencies.runtime.handle().clone());
@@ -1323,13 +1325,7 @@ fn build_peer_overseer(
 		false,
 	);
 
-	let statement_distribution = StatementDistributionSubsystem::new(
-		Arc::new(sc_keystore::LocalKeystore::in_memory()),
-		statement_req_receiver,
-		candidate_req_receiver,
-		Default::default(),
-		rand::rngs::StdRng::from_entropy(),
-	);
+	let statement_distribution = MockStatementDistribution::new(candidate_req_receiver, config);
 
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_statement_distribution(|_| statement_distribution)
@@ -1338,8 +1334,6 @@ fn build_peer_overseer(
 
 	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();
 	let overseer_handle = OverseerHandle::new(raw_handle);
-
-	let listen_addresses = network_service.listen_addresses();
 
 	let spawn_handle = dependencies.task_manager.spawn_handle();
 	spawn_handle.spawn_blocking("1", "peer_overseer", overseer.run());

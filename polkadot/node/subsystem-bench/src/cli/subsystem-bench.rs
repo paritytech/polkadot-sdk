@@ -165,10 +165,13 @@ impl BenchCli {
 				},
 				TestObjective::StatementDistribution => {
 					let state = statement::TestState::new(&test_config);
-					let (mut env, _protocol_config, _service) =
+					let (mut env, test_authorities, _protocol_config, _service) =
 						statement::prepare_test(&state, true);
-					env.runtime()
-						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
+					env.runtime().block_on(statement::benchmark_statement_distribution(
+						&mut env,
+						&test_authorities,
+						&state,
+					))
 				},
 			};
 			println!("\n{}\n{}", benchmark_name.purple(), usage);
