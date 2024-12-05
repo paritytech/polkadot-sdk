@@ -19,19 +19,27 @@ use super::*;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, iter::once, ops::Add};
+use frame::{
+	derive::{CloneNoBound, PartialEqNoBound, RuntimeDebug, RuntimeDebugNoBound},
+	runtime::prelude::BoundedVec,
+	traits::{ConstU32, Get, Member, Zero},
+};
+/*
 use frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
+*/
 use scale_info::{
 	build::{Fields, Variants},
 	Path, Type, TypeInfo,
 };
+/*
 use sp_runtime::{
 	traits::{Member, Zero},
 	RuntimeDebug,
 };
-
+*/
 /// An identifier for a single name registrar/identity verification service.
 pub type RegistrarIndex = u32;
 

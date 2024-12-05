@@ -342,6 +342,8 @@ pub mod runtime {
 		/// Consider using the new version of this [`frame_construct_runtime`].
 		pub use frame_support::construct_runtime;
 
+		pub use frame_support::BoundedVec;
+
 		/// Macro to amalgamate the runtime into `struct Runtime`.
 		///
 		/// This is the newer version of [`construct_runtime`].
@@ -439,6 +441,8 @@ pub mod runtime {
 
 		/// A signature type compatible capably of handling multiple crypto-schemes.
 		pub type Signature = sp_runtime::MultiSignature;
+
+		pub use sp_runtime::MultiSigner;
 
 		/// The corresponding account-id type of [`Signature`].
 		pub type AccountId =
