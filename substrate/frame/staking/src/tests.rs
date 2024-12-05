@@ -28,7 +28,10 @@ use frame_support::{
 	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
 	hypothetically,
 	pallet_prelude::*,
-	traits::{fungible::Inspect, Currency, Get, InspectLockableCurrency, ReservableCurrency},
+	traits::{
+		fungible::Inspect, Currency, Get, InspectLockableCurrency, LockableCurrency,
+		ReservableCurrency, WithdrawReasons,
+	},
 };
 
 use mock::*;
@@ -1046,18 +1049,61 @@ fn cannot_reserve_staked_balance() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Confirm account 11 is stashed
 		assert_eq!(Staking::bonded(&11), Some(11));
-		// Confirm account 11 has some stakeable balance.
-		assert_eq!(asset::stakeable_balance::<Test>(&11), 1000);
 		// Confirm account 11 is totally staked
-		assert_eq!(Staking::eras_stakers(active_era(), &11).own, 1000);
+		assert_eq!(asset::staked::<Test>(&11), 1000);
+
 		// Confirm account 11 cannot reserve as a result
 		assert_noop!(Balances::reserve(&11, 2), BalancesError::<Test, _>::InsufficientBalance);
 		assert_noop!(Balances::reserve(&11, 1), DispatchError::ConsumerRemaining);
 
 		// Give account 11 extra free balance
-		let _ = asset::set_stakeable_balance::<Test>(&11, 10000);
+		let _ = asset::set_stakeable_balance::<Test>(&11, 1000 + 1000);
+		assert_eq!(asset::free_to_stake::<Test>(&11), 1000);
+
 		// Confirm account 11 can now reserve balance
-		assert_ok!(Balances::reserve(&11, 1));
+		assert_ok!(Balances::reserve(&11, 500));
+
+		// free to stake balance has reduced
+		assert_eq!(asset::free_to_stake::<Test>(&11), 500);
+	});
+}
+
+#[test]
+fn locked_balance_can_be_staked() {
+	// Checks that a bonded account cannot reserve balance from free balance
+	ExtBuilder::default().build_and_execute(|| {
+		// Confirm account 11 is stashed
+		assert_eq!(Staking::bonded(&11), Some(11));
+		assert_eq!(asset::staked::<Test>(&11), 1000);
+		assert_eq!(asset::free_to_stake::<Test>(&11), 0);
+
+		// add some staking balance to 11
+		let _ = asset::set_stakeable_balance::<Test>(&11, 1000 + 1000);
+		// free to stake is 1000
+		assert_eq!(asset::free_to_stake::<Test>(&11), 1000);
+
+		// lock some balance
+		Balances::set_lock(*b"somelock", &11, 500, WithdrawReasons::all());
+
+		// locked balance still available for staking
+		assert_eq!(asset::free_to_stake::<Test>(&11), 1000);
+
+		// can stake free balance
+		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 500));
+		assert_eq!(asset::staked::<Test>(&11), 1500);
+
+		// Can stake the locked balance
+		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 500));
+		assert_eq!(asset::staked::<Test>(&11), 2000);
+		// no balance left to stake
+		assert_eq!(asset::free_to_stake::<Test>(&11), 0);
+
+		// this does not fail if someone tries to stake more than free balance but just stakes
+		// whatever is available. (not sure if that is the best way, but we keep it backward
+		// compatible)
+		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 10));
+		// no extra balance staked.
+		assert_eq!(asset::staked::<Test>(&11), 2000);
 	});
 }
 
