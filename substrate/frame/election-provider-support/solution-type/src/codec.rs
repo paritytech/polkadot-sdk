@@ -51,14 +51,14 @@ fn decode_impl(
 		quote! {
 			let #name =
 			<
-				_fepsp::sp_std::prelude::Vec<(_fepsp::codec::Compact<#voter_type>, _fepsp::codec::Compact<#target_type>)>
+				_fepsp::Vec<(_fepsp::codec::Compact<#voter_type>, _fepsp::codec::Compact<#target_type>)>
 				as
 				_fepsp::codec::Decode
 			>::decode(value)?;
 			let #name = #name
 				.into_iter()
 				.map(|(v, t)| (v.0, t.0))
-				.collect::<_fepsp::sp_std::prelude::Vec<_>>();
+				.collect::<_fepsp::Vec<_>>();
 		}
 	};
 
@@ -73,7 +73,7 @@ fn decode_impl(
 			quote! {
 				let #name =
 				<
-					_fepsp::sp_std::prelude::Vec<(
+					_fepsp::Vec<(
 						_fepsp::codec::Compact<#voter_type>,
 						[(_fepsp::codec::Compact<#target_type>, _fepsp::codec::Compact<#weight_type>); #c-1],
 						_fepsp::codec::Compact<#target_type>,
@@ -87,7 +87,7 @@ fn decode_impl(
 						[ #inner_impl ],
 						t_last.0,
 					))
-					.collect::<_fepsp::sp_std::prelude::Vec<_>>();
+					.collect::<_fepsp::Vec<_>>();
 			}
 		})
 		.collect::<TokenStream2>();
@@ -126,7 +126,7 @@ fn encode_impl(ident: &syn::Ident, count: usize) -> TokenStream2 {
 					_fepsp::codec::Compact(v.clone()),
 					_fepsp::codec::Compact(t.clone()),
 				))
-				.collect::<_fepsp::sp_std::prelude::Vec<_>>();
+				.collect::<_fepsp::Vec<_>>();
 			#name.encode_to(&mut r);
 		}
 	};
@@ -153,7 +153,7 @@ fn encode_impl(ident: &syn::Ident, count: usize) -> TokenStream2 {
 						[ #inners_solution_array ],
 						_fepsp::codec::Compact(t_last.clone()),
 					))
-					.collect::<_fepsp::sp_std::prelude::Vec<_>>();
+					.collect::<_fepsp::Vec<_>>();
 				#name.encode_to(&mut r);
 			}
 		})
@@ -161,7 +161,7 @@ fn encode_impl(ident: &syn::Ident, count: usize) -> TokenStream2 {
 
 	quote!(
 		impl _fepsp::codec::Encode for #ident {
-			fn encode(&self) -> _fepsp::sp_std::prelude::Vec<u8> {
+			fn encode(&self) -> _fepsp::Vec<u8> {
 				let mut r = vec![];
 				#encode_impl_single
 				#encode_impl_rest
@@ -182,7 +182,7 @@ fn scale_info_impl(
 		let name = format!("{}", vote_field(1));
 		quote! {
 			.field(|f|
-				f.ty::<_fepsp::sp_std::prelude::Vec<
+				f.ty::<_fepsp::Vec<
 				   (_fepsp::codec::Compact<#voter_type>, _fepsp::codec::Compact<#target_type>)
 				>>()
 				.name(#name)
@@ -194,7 +194,7 @@ fn scale_info_impl(
 		let name = format!("{}", vote_field(2));
 		quote! {
 			.field(|f|
-				f.ty::<_fepsp::sp_std::prelude::Vec<(
+				f.ty::<_fepsp::Vec<(
 					_fepsp::codec::Compact<#voter_type>,
 					(_fepsp::codec::Compact<#target_type>, _fepsp::codec::Compact<#weight_type>),
 					_fepsp::codec::Compact<#target_type>
@@ -209,7 +209,7 @@ fn scale_info_impl(
 			let name = format!("{}", vote_field(c));
 			quote! {
 				.field(|f|
-					f.ty::<_fepsp::sp_std::prelude::Vec<(
+					f.ty::<_fepsp::Vec<(
 						_fepsp::codec::Compact<#voter_type>,
 						[
 							(_fepsp::codec::Compact<#target_type>, _fepsp::codec::Compact<#weight_type>);

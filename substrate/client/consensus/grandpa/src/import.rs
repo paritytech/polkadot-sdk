@@ -18,8 +18,9 @@
 
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
+use codec::Decode;
 use log::debug;
-use parity_scale_codec::Decode;
+use parking_lot::Mutex;
 
 use sc_client_api::{backend::Backend, utils::is_descendent_of};
 use sc_consensus::{
@@ -32,7 +33,6 @@ use sp_api::{Core, RuntimeApiInfo};
 use sp_blockchain::BlockStatus;
 use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
 use sp_consensus_grandpa::{ConsensusLog, GrandpaApi, ScheduledChange, SetId, GRANDPA_ENGINE_ID};
-use sp_core::hashing::twox_128;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
@@ -63,7 +63,8 @@ pub struct GrandpaBlockImport<Backend, Block: BlockT, Client, SC> {
 	select_chain: SC,
 	authority_set: SharedAuthoritySet<Block::Hash, NumberFor<Block>>,
 	send_voter_commands: TracingUnboundedSender<VoterCommand<Block::Hash, NumberFor<Block>>>,
-	authority_set_hard_forks: HashMap<Block::Hash, PendingChange<Block::Hash, NumberFor<Block>>>,
+	authority_set_hard_forks:
+		Mutex<HashMap<Block::Hash, PendingChange<Block::Hash, NumberFor<Block>>>>,
 	justification_sender: GrandpaJustificationSender<Block>,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: PhantomData<Backend>,
@@ -79,7 +80,7 @@ impl<Backend, Block: BlockT, Client, SC: Clone> Clone
 			select_chain: self.select_chain.clone(),
 			authority_set: self.authority_set.clone(),
 			send_voter_commands: self.send_voter_commands.clone(),
-			authority_set_hard_forks: self.authority_set_hard_forks.clone(),
+			authority_set_hard_forks: Mutex::new(self.authority_set_hard_forks.lock().clone()),
 			justification_sender: self.justification_sender.clone(),
 			telemetry: self.telemetry.clone(),
 			_phantom: PhantomData,
@@ -243,7 +244,7 @@ where
 		hash: Block::Hash,
 	) -> Option<PendingChange<Block::Hash, NumberFor<Block>>> {
 		// check for forced authority set hard forks
-		if let Some(change) = self.authority_set_hard_forks.get(&hash) {
+		if let Some(change) = self.authority_set_hard_forks.lock().get(&hash) {
 			return Some(change.clone())
 		}
 
@@ -438,7 +439,11 @@ where
 			// The new API is not supported in this runtime. Try reading directly from storage.
 			// This code may be removed once warp sync to an old runtime is no longer needed.
 			for prefix in ["GrandpaFinality", "Grandpa"] {
-				let k = [twox_128(prefix.as_bytes()), twox_128(b"CurrentSetId")].concat();
+				let k = [
+					sp_crypto_hashing::twox_128(prefix.as_bytes()),
+					sp_crypto_hashing::twox_128(b"CurrentSetId"),
+				]
+				.concat();
 				if let Ok(Some(id)) =
 					self.inner.storage(hash, &sc_client_api::StorageKey(k.to_vec()))
 				{
@@ -458,7 +463,7 @@ where
 
 	/// Import whole new state and reset authority set.
 	async fn import_state(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, ConsensusError> {
 		let hash = block.post_hash();
@@ -471,7 +476,7 @@ where
 				// We've just imported a new state. We trust the sync module has verified
 				// finality proofs and that the state is correct and final.
 				// So we can read the authority list and set id from the state.
-				self.authority_set_hard_forks.clear();
+				self.authority_set_hard_forks.lock().clear();
 				let authorities = self
 					.inner
 					.runtime_api()
@@ -515,12 +520,12 @@ where
 	Client: ClientForGrandpa<Block, BE>,
 	Client::Api: GrandpaApi<Block>,
 	for<'a> &'a Client: BlockImport<Block, Error = ConsensusError>,
-	SC: Send,
+	SC: Send + Sync,
 {
 	type Error = ConsensusError;
 
 	async fn import_block(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let hash = block.post_hash();
@@ -694,7 +699,7 @@ where
 	}
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await
@@ -747,7 +752,7 @@ impl<Backend, Block: BlockT, Client, SC> GrandpaBlockImport<Backend, Block, Clie
 			select_chain,
 			authority_set,
 			send_voter_commands,
-			authority_set_hard_forks,
+			authority_set_hard_forks: Mutex::new(authority_set_hard_forks),
 			justification_sender,
 			telemetry,
 			_phantom: PhantomData,
@@ -766,7 +771,7 @@ where
 	/// If `enacts_change` is set to true, then finalizing this block *must*
 	/// enact an authority set change, the function will panic otherwise.
 	fn import_justification(
-		&mut self,
+		&self,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 		justification: Justification,

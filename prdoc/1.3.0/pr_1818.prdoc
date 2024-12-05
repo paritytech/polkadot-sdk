@@ -1,0 +1,9 @@
+title: FRAME pallets warning for unchecked weight witness
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      FRAME pallets now emit a warning when a call uses a function argument that starts with an underscore in its weight declaration.
+
+crates:
+  - name: frame-support-procedural

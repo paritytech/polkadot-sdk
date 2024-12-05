@@ -39,17 +39,21 @@ use kitchensink_runtime::{
 	RuntimeCall, Signature, SystemCall, UncheckedExtrinsic,
 };
 use node_primitives::Block;
-use sc_block_builder::BlockBuilderProvider;
-use sc_client_api::execution_extensions::ExecutionExtensions;
+use sc_block_builder::BlockBuilderBuilder;
+use sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
 use sc_client_db::PruningMode;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedAux};
-use sc_executor::{NativeElseWasmExecutor, WasmExecutionMethod, WasmtimeInstantiationStrategy};
+use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_consensus::BlockOrigin;
-use sp_core::{blake2_256, ed25519, sr25519, traits::SpawnNamed, Pair, Public};
+use sp_core::{
+	crypto::get_public_from_string_or_panic, ed25519, sr25519, traits::SpawnNamed, Pair,
+};
+use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
+	generic::{self, ExtrinsicFormat, Preamble, EXTRINSIC_FORMAT_VERSION},
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	OpaqueExtrinsic,
 };
@@ -83,7 +87,7 @@ impl BenchPair {
 
 /// Drop system cache.
 ///
-/// Will panic if cache drop is impossbile.
+/// Will panic if cache drop is impossible.
 pub fn drop_system_cache() {
 	#[cfg(target_os = "windows")]
 	{
@@ -172,7 +176,7 @@ impl Clone for BenchDb {
 
 		// We clear system cache after db clone but before any warmups.
 		// This populates system cache with some data unrelated to actual
-		// data we will be quering further under benchmark (like what
+		// data we will be querying further under benchmark (like what
 		// would have happened in real system that queries random entries
 		// from database).
 		drop_system_cache();
@@ -287,17 +291,18 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 		}
 
 		let sender = self.keyring.at(self.iteration);
-		let receiver = get_account_id_from_seed::<sr25519::Public>(&format!(
+		let receiver = get_public_from_string_or_panic::<sr25519::Public>(&format!(
 			"random-user//{}",
 			self.iteration
-		));
+		))
+		.into();
 
 		let signed = self.keyring.sign(
 			CheckedExtrinsic {
-				signed: Some((
+				format: ExtrinsicFormat::Signed(
 					sender,
-					signed_extra(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
-				)),
+					tx_ext(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
+				),
 				function: match self.content.block_type {
 					BlockType::RandomTransfersKeepAlive =>
 						RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
@@ -388,17 +393,15 @@ impl BenchDb {
 		let task_executor = TaskExecutor::new();
 
 		let backend = sc_service::new_db_backend(db_config).expect("Should not fail");
-		let executor = NativeElseWasmExecutor::new_with_wasm_executor(
-			sc_executor::WasmExecutor::builder()
-				.with_execution_method(WasmExecutionMethod::Compiled {
-					instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
-				})
-				.build(),
-		);
+		let executor = sc_executor::WasmExecutor::builder()
+			.with_execution_method(WasmExecutionMethod::Compiled {
+				instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
+			})
+			.build();
 
 		let client_config = sc_service::ClientConfig::default();
 		let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
-			&keyring.generate_genesis(),
+			keyring.as_storage_builder(),
 			!client_config.no_genesis,
 			backend.clone(),
 			executor.clone(),
@@ -444,7 +447,7 @@ impl BenchDb {
 		BlockContentIterator::new(content, &self.keyring, client)
 	}
 
-	/// Get cliet for this database operations.
+	/// Get client for this database operations.
 	pub fn client(&mut self) -> Client {
 		let (client, _backend, _task_executor) =
 			Self::bench_client(self.database_type, self.directory_guard.path(), &self.keyring);
@@ -455,8 +458,13 @@ impl BenchDb {
 	/// Generate new block using this database.
 	pub fn generate_block(&mut self, content: BlockContent) -> Block {
 		let client = self.client();
+		let chain = client.usage_info().chain;
 
-		let mut block = client.new_block(Default::default()).expect("Block creation failed");
+		let mut block = BlockBuilderBuilder::new(&client)
+			.on_parent_block(chain.best_hash)
+			.with_parent_block_number(chain.best_number)
+			.build()
+			.expect("Failed to create block builder.");
 
 		for extrinsic in self.generate_inherents(&client) {
 			block.push(extrinsic).expect("Push inherent failed");
@@ -558,39 +566,63 @@ impl BenchKeyring {
 		tx_version: u32,
 		genesis_hash: [u8; 32],
 	) -> UncheckedExtrinsic {
-		match xt.signed {
-			Some((signed, extra)) => {
+		match xt.format {
+			ExtrinsicFormat::Signed(signed, tx_ext) => {
 				let payload = (
 					xt.function,
-					extra.clone(),
+					tx_ext.clone(),
 					spec_version,
 					tx_version,
 					genesis_hash,
 					genesis_hash,
+					// metadata_hash
+					None::<()>,
 				);
 				let key = self.accounts.get(&signed).expect("Account id not found in keyring");
 				let signature = payload.using_encoded(|b| {
 					if b.len() > 256 {
-						key.sign(&sp_io::hashing::blake2_256(b))
+						key.sign(&blake2_256(b))
 					} else {
 						key.sign(b)
 					}
 				});
-				UncheckedExtrinsic {
-					signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
+				generic::UncheckedExtrinsic {
+					preamble: Preamble::Signed(
+						sp_runtime::MultiAddress::Id(signed),
+						signature,
+						tx_ext,
+					),
 					function: payload.0,
 				}
+				.into()
 			},
-			None => UncheckedExtrinsic { signature: None, function: xt.function },
+			ExtrinsicFormat::Bare => generic::UncheckedExtrinsic {
+				preamble: Preamble::Bare(EXTRINSIC_FORMAT_VERSION),
+				function: xt.function,
+			}
+			.into(),
+			ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic {
+				preamble: sp_runtime::generic::Preamble::General(ext_version, tx_ext),
+				function: xt.function,
+			}
+			.into(),
 		}
 	}
 
-	/// Generate genesis with accounts from this keyring endowed with some balance.
-	pub fn generate_genesis(&self) -> kitchensink_runtime::RuntimeGenesisConfig {
-		crate::genesis::config_endowed(
-			Some(kitchensink_runtime::wasm_binary_unwrap()),
-			self.collect_account_ids(),
-		)
+	/// Generate genesis with accounts from this keyring endowed with some balance and
+	/// kitchensink_runtime code blob.
+	pub fn as_storage_builder(&self) -> &dyn sp_runtime::BuildStorage {
+		self
+	}
+}
+
+impl sp_runtime::BuildStorage for BenchKeyring {
+	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
+		storage.top.insert(
+			sp_core::storage::well_known_keys::CODE.to_vec(),
+			kitchensink_runtime::wasm_binary_unwrap().into(),
+		);
+		crate::genesis::config_endowed(self.collect_account_ids()).assimilate_storage(storage)
 	}
 }
 
@@ -615,19 +647,6 @@ pub struct BenchContext {
 }
 
 type AccountPublic = <Signature as Verify>::Signer;
-
-fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
 
 impl BenchContext {
 	/// Import some block.

@@ -1,7 +1,7 @@
 # High-Level Bridge Documentation
 
 This document gives a brief, abstract description of main components that may be found in this repository. If you want
-to see how we're using them to build Rococo <> Wococo (Kusama <> Polkadot) bridge, please refer to the [Polkadot <>
+to see how we're using them to build Rococo <> Westend (Kusama <> Polkadot) bridge, please refer to the [Polkadot <>
 Kusama Bridge](./polkadot-kusama-bridge-overview.md).
 
 ## Purpose

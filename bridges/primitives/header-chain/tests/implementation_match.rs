@@ -42,7 +42,7 @@ struct AncestryChain(bp_header_chain::justification::AncestryChain<TestHeader>);
 
 impl AncestryChain {
 	fn new(justification: &GrandpaJustification<TestHeader>) -> Self {
-		Self(bp_header_chain::justification::AncestryChain::new(justification))
+		Self(bp_header_chain::justification::AncestryChain::new(justification).0)
 	}
 }
 
@@ -58,7 +58,7 @@ impl finality_grandpa::Chain<TestHash, TestNumber> for AncestryChain {
 			if current_hash == base {
 				break
 			}
-			match self.0.parents.get(&current_hash) {
+			match self.0.parent_hash_of(&current_hash) {
 				Some(parent_hash) => {
 					current_hash = *parent_hash;
 					route.push(current_hash);

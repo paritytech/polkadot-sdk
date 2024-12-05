@@ -21,6 +21,9 @@
 use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 use sp_api::ApiError;
 use sp_version::RuntimeVersion;
+use std::collections::BTreeMap;
+
+use crate::common::events::StorageResult;
 
 /// The operation could not be processed due to an error.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -35,11 +38,47 @@ pub struct ErrorEvent {
 /// This event is generated for:
 ///   - the first announced block by the follow subscription
 ///   - blocks that suffered a change in runtime compared with their parents
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeVersionEvent {
 	/// The runtime version.
-	pub spec: RuntimeVersion,
+	pub spec: ChainHeadRuntimeVersion,
+}
+
+/// Simplified type clone of `sp_version::RuntimeVersion`. Used instead of
+/// `sp_version::RuntimeVersion` to conform to RPC spec V2.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChainHeadRuntimeVersion {
+	/// Identifies the different Substrate runtimes.
+	pub spec_name: String,
+	/// Name of the implementation of the spec.
+	pub impl_name: String,
+	/// Version of the runtime specification.
+	pub spec_version: u32,
+	/// Version of the implementation of the specification.
+	pub impl_version: u32,
+	/// Map of all supported API "features" and their versions.
+	pub apis: BTreeMap<String, u32>,
+	/// Transaction version.
+	pub transaction_version: u32,
+}
+
+impl From<RuntimeVersion> for ChainHeadRuntimeVersion {
+	fn from(val: RuntimeVersion) -> Self {
+		Self {
+			spec_name: val.spec_name.into(),
+			impl_name: val.impl_name.into(),
+			spec_version: val.spec_version,
+			impl_version: val.impl_version,
+			apis: val
+				.apis
+				.into_iter()
+				.map(|(api, version)| (sp_core::bytes::to_hex(api, false), *version))
+				.collect(),
+			transaction_version: val.transaction_version,
+		}
+	}
 }
 
 /// The runtime event generated if the `follow` subscription
@@ -72,8 +111,8 @@ impl From<ApiError> for RuntimeEvent {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Initialized<Hash> {
-	/// The hash of the latest finalized block.
-	pub finalized_block_hash: Hash,
+	/// The hash of the latest finalized blocks.
+	pub finalized_block_hashes: Vec<Hash>,
 	/// The runtime version of the finalized block.
 	///
 	/// # Note
@@ -96,12 +135,12 @@ impl<Hash: Serialize> Serialize for Initialized<Hash> {
 	{
 		if self.with_runtime {
 			let mut state = serializer.serialize_struct("Initialized", 2)?;
-			state.serialize_field("finalizedBlockHash", &self.finalized_block_hash)?;
+			state.serialize_field("finalizedBlockHashes", &self.finalized_block_hashes)?;
 			state.serialize_field("finalizedBlockRuntime", &self.finalized_block_runtime)?;
 			state.end()
 		} else {
 			let mut state = serializer.serialize_struct("Initialized", 1)?;
-			state.serialize_field("finalizedBlockHash", &self.finalized_block_hash)?;
+			state.serialize_field("finalizedBlockHashes", &self.finalized_block_hashes)?;
 			state.end()
 		}
 	}
@@ -196,7 +235,7 @@ pub struct OperationCallDone {
 	pub output: String,
 }
 
-/// The response of the `chainHead_call` method.
+/// The response of the `chainHead_storage` method.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OperationStorageItems {
@@ -276,57 +315,7 @@ pub enum FollowEvent<Hash> {
 	Stop,
 }
 
-/// The storage item received as paramter.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StorageQuery<Key> {
-	/// The provided key.
-	pub key: Key,
-	/// The type of the storage query.
-	#[serde(rename = "type")]
-	pub query_type: StorageQueryType,
-}
-
-/// The type of the storage query.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum StorageQueryType {
-	/// Fetch the value of the provided key.
-	Value,
-	/// Fetch the hash of the value of the provided key.
-	Hash,
-	/// Fetch the closest descendant merkle value.
-	ClosestDescendantMerkleValue,
-	/// Fetch the values of all descendants of they provided key.
-	DescendantsValues,
-	/// Fetch the hashes of the values of all descendants of they provided key.
-	DescendantsHashes,
-}
-
-/// The storage result.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StorageResult {
-	/// The hex-encoded key of the result.
-	pub key: String,
-	/// The result of the query.
-	#[serde(flatten)]
-	pub result: StorageResultType,
-}
-
-/// The type of the storage query.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum StorageResultType {
-	/// Fetch the value of the provided key.
-	Value(String),
-	/// Fetch the hash of the value of the provided key.
-	Hash(String),
-	/// Fetch the closest descendant merkle value.
-	ClosestDescendantMerkleValue(String),
-}
-
-/// The method respose of `chainHead_body`, `chainHead_call` and `chainHead_storage`.
+/// The method response of `chainHead_body`, `chainHead_call` and `chainHead_storage`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(tag = "result")]
@@ -351,19 +340,21 @@ pub struct MethodResponseStarted {
 
 #[cfg(test)]
 mod tests {
+	use crate::common::events::StorageResultType;
+
 	use super::*;
 
 	#[test]
 	fn follow_initialized_event_no_updates() {
 		// Runtime flag is false.
 		let event: FollowEvent<String> = FollowEvent::Initialized(Initialized {
-			finalized_block_hash: "0x1".into(),
+			finalized_block_hashes: vec!["0x1".into()],
 			finalized_block_runtime: None,
 			with_runtime: false,
 		});
 
 		let ser = serde_json::to_string(&event).unwrap();
-		let exp = r#"{"event":"initialized","finalizedBlockHash":"0x1"}"#;
+		let exp = r#"{"event":"initialized","finalizedBlockHashes":["0x1"]}"#;
 		assert_eq!(ser, exp);
 
 		let event_dec: FollowEvent<String> = serde_json::from_str(exp).unwrap();
@@ -380,9 +371,9 @@ mod tests {
 			..Default::default()
 		};
 
-		let runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime });
+		let runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.into() });
 		let mut initialized = Initialized {
-			finalized_block_hash: "0x1".into(),
+			finalized_block_hashes: vec!["0x1".into()],
 			finalized_block_runtime: Some(runtime_event),
 			with_runtime: true,
 		};
@@ -390,9 +381,9 @@ mod tests {
 
 		let ser = serde_json::to_string(&event).unwrap();
 		let exp = concat!(
-			r#"{"event":"initialized","finalizedBlockHash":"0x1","#,
-			r#""finalizedBlockRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","authoringVersion":0,"#,
-			r#""specVersion":1,"implVersion":0,"apis":[],"transactionVersion":0,"stateVersion":0}}}"#,
+			r#"{"event":"initialized","finalizedBlockHashes":["0x1"],"#,
+			r#""finalizedBlockRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","#,
+			r#""specVersion":1,"implVersion":0,"apis":{},"transactionVersion":0}}}"#,
 		);
 		assert_eq!(ser, exp);
 
@@ -429,10 +420,11 @@ mod tests {
 			spec_name: "ABC".into(),
 			impl_name: "Impl".into(),
 			spec_version: 1,
+			apis: vec![([0, 0, 0, 0, 0, 0, 0, 0], 2), ([1, 0, 0, 0, 0, 0, 0, 0], 3)].into(),
 			..Default::default()
 		};
 
-		let runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime });
+		let runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.into() });
 		let mut new_block = NewBlock {
 			block_hash: "0x1".into(),
 			parent_block_hash: "0x2".into(),
@@ -445,8 +437,8 @@ mod tests {
 		let ser = serde_json::to_string(&event).unwrap();
 		let exp = concat!(
 			r#"{"event":"newBlock","blockHash":"0x1","parentBlockHash":"0x2","#,
-			r#""newRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","authoringVersion":0,"#,
-			r#""specVersion":1,"implVersion":0,"apis":[],"transactionVersion":0,"stateVersion":0}}}"#,
+			r#""newRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","#,
+			r#""specVersion":1,"implVersion":0,"apis":{"0x0000000000000000":2,"0x0100000000000000":3},"transactionVersion":0}}}"#,
 		);
 		assert_eq!(ser, exp);
 
@@ -544,6 +536,7 @@ mod tests {
 				items: vec![StorageResult {
 					key: "0x1".into(),
 					result: StorageResultType::Value("0x123".to_string()),
+					child_trie_key: None,
 				}],
 			});
 
@@ -658,97 +651,5 @@ mod tests {
 
 		let event_dec: MethodResponse = serde_json::from_str(exp).unwrap();
 		assert_eq!(event_dec, event);
-	}
-
-	#[test]
-	fn chain_head_storage_query() {
-		// Item with Value.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::Value };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"value"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		// Item with Hash.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::Hash };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"hash"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		// Item with DescendantsValues.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::DescendantsValues };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"descendantsValues"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		// Item with DescendantsHashes.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::DescendantsHashes };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"descendantsHashes"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		// Item with Merkle.
-		let item =
-			StorageQuery { key: "0x1", query_type: StorageQueryType::ClosestDescendantMerkleValue };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"closestDescendantMerkleValue"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-	}
-
-	#[test]
-	fn chain_head_storage_result() {
-		// Item with Value.
-		let item =
-			StorageResult { key: "0x1".into(), result: StorageResultType::Value("res".into()) };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","value":"res"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageResult = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		// Item with Hash.
-		let item =
-			StorageResult { key: "0x1".into(), result: StorageResultType::Hash("res".into()) };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","hash":"res"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageResult = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		// Item with DescendantsValues.
-		let item = StorageResult {
-			key: "0x1".into(),
-			result: StorageResultType::ClosestDescendantMerkleValue("res".into()),
-		};
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","closestDescendantMerkleValue":"res"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageResult = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
 	}
 }

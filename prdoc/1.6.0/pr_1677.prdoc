@@ -1,0 +1,22 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "pallet-asset-conversion: Swap Credit"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduces a swap implementation that allows the exchange of a credit (aka Negative Imbalance) of one asset for a credit of another asset.
+
+      This is particularly useful when a credit swap is required but may not have sufficient value to meet the ED constraint, hence cannot be deposited to temp account before. An example use case is when XCM fees are paid using an asset held in the XCM executor registry and has to be swapped for native currency.
+
+      Additional Updates:
+      - encapsulates the existing `Swap` trait impl within a transactional context, since partial storage mutation is possible when an error occurs;
+      - supplied `Currency` and `Assets` impls must be implemented over the same `Balance` type, the `AssetBalance` generic type is dropped. This helps to avoid numerous type conversion and overflow cases. If those types are different it should be handled outside of the pallet;
+      - `Box` asset kind on a pallet level, unbox on a runtime level - here [why](https://substrate.stackexchange.com/questions/10039/boxed-argument-of-a-dispatchable/10103#10103);
+      - `path` uses `Vec` now, instead of `BoundedVec` since it is never used in PoV;
+      - removes the `Transfer` event due to it's redundancy with the events emitted by `fungible/s` implementations;
+      - modifies the `SwapExecuted` event type;
+
+crates: [ ]
+

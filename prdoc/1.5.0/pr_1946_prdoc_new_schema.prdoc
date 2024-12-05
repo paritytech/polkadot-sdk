@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: New PRDoc Schema
+
+author: chevdor
+topic: documentation
+
+doc:
+  - audience: Node Dev
+    description:  &desc |
+      The new version of prdoc and the new schema is activated in this PR.
+
+  - audience: Runtime Dev
+    description: *desc
+
+crates: []

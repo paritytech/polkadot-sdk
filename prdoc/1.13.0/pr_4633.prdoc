@@ -1,0 +1,8 @@
+title: "Unify dependency aliases"
+
+doc:
+  - audience: [Runtime Dev, Node Dev]
+    description: |
+      Changes the re-export names of some crates but does not do any logic changes.
+
+crates: [ ]

@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "`benchmarking-cli` `pallet` subcommand: refactor `--list` and add `--all` option"
+
+doc:
+  - audience: Node Dev
+    description: |
+      `pallet` subcommand's `--list` now accepts two values: "all" and "pallets". The former will list all available benchmarks, the latter will list only pallets.
+      Also adds `--all` to run all the available benchmarks and `--no-csv-header` to omit the csv-style header in the output.
+      NOTE: changes are backward compatible.
+
+crates: 
+  - name: frame-benchmarking-cli

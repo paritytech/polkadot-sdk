@@ -1,0 +1,8 @@
+title: '`chain-spec-builder`: info about patch/full files added'
+doc:
+- audience: Runtime User
+  description: There was no good example of what is patch and full genesis config
+    file. Some explanation and example were added to the `chain-spec-builder` doc.
+crates:
+- name: staging-chain-spec-builder
+  bump: patch

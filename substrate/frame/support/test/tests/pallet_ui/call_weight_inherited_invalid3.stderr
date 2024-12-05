@@ -17,3 +17,4 @@ error: unused import: `frame_system::pallet_prelude::*`
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`

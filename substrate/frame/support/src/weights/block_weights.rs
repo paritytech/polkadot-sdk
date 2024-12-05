@@ -15,24 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-06-16 (Y/M/D)
-//! HOSTNAME: `runner-e8ezs4ez-project-145-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
+//! DATE: 2024-11-08 (Y/M/D)
+//! HOSTNAME: `runner-wiukf8gn-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
 //! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Development`
 //! WARMUPS: `10`, REPEAT: `100`
-//! WEIGHT-PATH: `./frame/support/src/weights/`
+//! WEIGHT-PATH: `./substrate/frame/support/src/weights/`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
 // Executed Command:
-//   ./target/production/substrate
+//   ./target/production/substrate-node
 //   benchmark
 //   overhead
 //   --chain=dev
-//   --execution=wasm
 //   --wasm-execution=compiled
-//   --weight-path=./frame/support/src/weights/
-//   --header=./HEADER-APACHE2
+//   --weight-path=./substrate/frame/support/src/weights/
+//   --header=./substrate/HEADER-APACHE2
 //   --warmup=10
 //   --repeat=100
 
@@ -40,21 +39,21 @@ use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 
 parameter_types! {
-	/// Time to execute an empty block.
+	/// Weight of executing an empty block.
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 376_949, 622_462
-	///   Average:  390_584
-	///   Median:   386_322
-	///   Std-Dev:  24792.0
+	///   Min, Max: 419_969, 685_012
+	///   Average:  431_614
+	///   Median:   427_388
+	///   Std-Dev:  26437.34
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 433_299
-	///   95th: 402_688
-	///   75th: 391_645
+	///   99th: 456_205
+	///   95th: 443_420
+	///   75th: 431_833
 	pub const BlockExecutionWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(390_584), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(431_614), 0);
 }
 
 #[cfg(test)]

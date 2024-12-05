@@ -15,25 +15,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use std::vec;
 
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen,
+	onchain, SequentialPhragmen, Weight,
 };
 use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
+	construct_runtime, derive_impl, parameter_types,
+	traits::{ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
 };
+use frame_system::pallet_prelude::HeaderFor;
 use pallet_session::historical as pallet_session_historical;
-use sp_core::{crypto::KeyTypeId, ConstU128, H256};
-use sp_io::TestExternalities;
+use sp_core::{crypto::KeyTypeId, ConstU128};
 use sp_runtime::{
 	app_crypto::ecdsa::Public,
 	curve::PiecewiseLinear,
 	impl_opaque_keys,
 	testing::TestXt,
-	traits::{BlakeTwo256, IdentityLookup, OpaqueKeys},
+	traits::{Header as HeaderT, OpaqueKeys},
 	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
@@ -41,10 +43,8 @@ use sp_state_machine::BasicExternalities;
 
 use crate as pallet_beefy;
 
-pub use sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId as BeefyId, AuthoritySignature as BeefySignature},
-	ConsensusLog, EquivocationProof, BEEFY_ENGINE_ID,
-};
+pub use sp_consensus_beefy::{ecdsa_crypto::AuthorityId as BeefyId, ConsensusLog, BEEFY_ENGINE_ID};
+use sp_consensus_beefy::{AncestryHelper, AncestryHelperWeightInfo, Commitment};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -69,38 +69,37 @@ construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = TestXt<RuntimeCall, ()>;
+}
+
+impl<C> frame_system::offchain::CreateInherent<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		TestXt::new_bare(call)
+	}
+}
+
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+pub struct MockAncestryProofContext {
+	pub is_valid: bool,
+}
+
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+pub struct MockAncestryProof {
+	pub is_non_canonical: bool,
 }
 
 parameter_types! {
@@ -108,6 +107,48 @@ parameter_types! {
 	pub const ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * Period::get();
 	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+
+	pub storage AncestryProofContext: Option<MockAncestryProofContext> = Some(
+		MockAncestryProofContext {
+			is_valid: true,
+		}
+	);
+}
+
+pub struct MockAncestryHelper;
+
+impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
+	type Proof = MockAncestryProof;
+	type ValidationContext = MockAncestryProofContext;
+
+	fn generate_proof(
+		_prev_block_number: Header::Number,
+		_best_known_block_number: Option<Header::Number>,
+	) -> Option<Self::Proof> {
+		unimplemented!()
+	}
+
+	fn extract_validation_context(_header: Header) -> Option<Self::ValidationContext> {
+		AncestryProofContext::get()
+	}
+
+	fn is_non_canonical(
+		_commitment: &Commitment<Header::Number>,
+		proof: Self::Proof,
+		context: Self::ValidationContext,
+	) -> bool {
+		context.is_valid && proof.is_non_canonical
+	}
+}
+
+impl<Header: HeaderT> AncestryHelperWeightInfo<Header> for MockAncestryHelper {
+	fn extract_validation_context() -> Weight {
+		unimplemented!()
+	}
+
+	fn is_non_canonical(_proof: &<Self as AncestryHelper<HeaderFor<Test>>>::Proof) -> Weight {
+		unimplemented!()
+	}
 }
 
 impl pallet_beefy::Config for Test {
@@ -116,6 +157,7 @@ impl pallet_beefy::Config for Test {
 	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type OnNewValidatorSet = ();
+	type AncestryHelper = MockAncestryHelper;
 	type WeightInfo = ();
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
 	type EquivocationReportSystem =
@@ -148,20 +190,11 @@ impl pallet_authorship::Config for Test {
 	type EventHandler = ();
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = u128;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type RuntimeHoldReason = ();
-	type MaxHolds = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -186,7 +219,6 @@ parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	pub static ElectionsBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
@@ -200,40 +232,92 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Bounds = ElectionsBoundsOnChain;
 }
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
-	type RewardRemainder = ();
-	type CurrencyToVote = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
-	type Slash = ();
-	type Reward = ();
-	type SessionsPerEra = SessionsPerEra;
-	type BondingDuration = BondingDuration;
-	type SlashDeferDuration = ();
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type SessionInterface = Self;
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type HistoryDepth = ConstU32<84>;
-	type EventListeners = ();
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type WeightInfo = ();
 }
 
 impl pallet_offences::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
 	type OnOffenceHandler = Staking;
+}
+
+#[derive(Default)]
+pub struct ExtBuilder {
+	authorities: Vec<BeefyId>,
+}
+
+impl ExtBuilder {
+	/// Add some AccountIds to insert into `List`.
+	#[cfg(test)]
+	pub(crate) fn add_authorities(mut self, ids: Vec<BeefyId>) -> Self {
+		self.authorities = ids;
+		self
+	}
+
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
+		let balances: Vec<_> =
+			(0..self.authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
+
+		pallet_balances::GenesisConfig::<Test> { balances }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
+		let session_keys: Vec<_> = self
+			.authorities
+			.iter()
+			.enumerate()
+			.map(|(i, k)| (i as u64, i as u64, MockSessionKeys { dummy: k.clone() }))
+			.collect();
+
+		BasicExternalities::execute_with_storage(&mut t, || {
+			for (ref id, ..) in &session_keys {
+				frame_system::Pallet::<Test>::inc_providers(id);
+			}
+		});
+
+		pallet_session::GenesisConfig::<Test> { keys: session_keys, ..Default::default() }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
+		// controllers are same as stash
+		let stakers: Vec<_> = (0..self.authorities.len())
+			.map(|i| (i as u64, i as u64, 10_000, pallet_staking::StakerStatus::<u64>::Validator))
+			.collect();
+
+		let staking_config = pallet_staking::GenesisConfig::<Test> {
+			stakers,
+			validator_count: 2,
+			force_era: pallet_staking::Forcing::ForceNew,
+			minimum_validator_count: 0,
+			invulnerables: vec![],
+			..Default::default()
+		};
+
+		staking_config.assimilate_storage(&mut t).unwrap();
+
+		t.into()
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+			Beefy::do_try_state().expect("All invariants must hold after a test");
+		})
+	}
 }
 
 // Note, that we can't use `UintAuthorityId` here. Reason is that the implementation
@@ -250,54 +334,6 @@ pub fn mock_beefy_id(id: u8) -> BeefyId {
 
 pub fn mock_authorities(vec: Vec<u8>) -> Vec<BeefyId> {
 	vec.into_iter().map(|id| mock_beefy_id(id)).collect()
-}
-
-pub fn new_test_ext(ids: Vec<u8>) -> TestExternalities {
-	new_test_ext_raw_authorities(mock_authorities(ids))
-}
-
-pub fn new_test_ext_raw_authorities(authorities: Vec<BeefyId>) -> TestExternalities {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-
-	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
-
-	pallet_balances::GenesisConfig::<Test> { balances }
-		.assimilate_storage(&mut t)
-		.unwrap();
-
-	let session_keys: Vec<_> = authorities
-		.iter()
-		.enumerate()
-		.map(|(i, k)| (i as u64, i as u64, MockSessionKeys { dummy: k.clone() }))
-		.collect();
-
-	BasicExternalities::execute_with_storage(&mut t, || {
-		for (ref id, ..) in &session_keys {
-			frame_system::Pallet::<Test>::inc_providers(id);
-		}
-	});
-
-	pallet_session::GenesisConfig::<Test> { keys: session_keys }
-		.assimilate_storage(&mut t)
-		.unwrap();
-
-	// controllers are same as stash
-	let stakers: Vec<_> = (0..authorities.len())
-		.map(|i| (i as u64, i as u64, 10_000, pallet_staking::StakerStatus::<u64>::Validator))
-		.collect();
-
-	let staking_config = pallet_staking::GenesisConfig::<Test> {
-		stakers,
-		validator_count: 2,
-		force_era: pallet_staking::Forcing::ForceNew,
-		minimum_validator_count: 0,
-		invulnerables: vec![],
-		..Default::default()
-	};
-
-	staking_config.assimilate_storage(&mut t).unwrap();
-
-	t.into()
 }
 
 pub fn start_session(session_index: SessionIndex) {
@@ -330,5 +366,5 @@ pub fn start_session(session_index: SessionIndex) {
 
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), Some(era_index));
+	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
 }

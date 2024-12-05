@@ -1,0 +1,10 @@
+title: Fix storage weight reclaim bug.
+
+doc:
+  - audience: Node Dev
+    description: |
+      Improvement in slot worker loop that will not call create inherent data providers if the major sync is in progress. Before it was called every slot and the results were discarded during major sync.
+
+crates:
+  - name: sc-consensus-slots
+    bump: minor

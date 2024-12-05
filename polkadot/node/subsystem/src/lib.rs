@@ -21,14 +21,11 @@
 #![deny(missing_docs)]
 #![deny(unused_crate_dependencies)]
 
-pub use jaeger::*;
-pub use polkadot_node_jaeger as jaeger;
-
 pub use polkadot_overseer::{self as overseer, *};
 
 pub use polkadot_node_subsystem_types::{
 	errors::{self, *},
-	ActivatedLeaf, LeafStatus,
+	ActivatedLeaf,
 };
 
 /// Re-export of all messages type, including the wrapper type.

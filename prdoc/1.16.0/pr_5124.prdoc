@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add Polkadot Chain genesis chainspec
+
+doc:
+  - audience: Node Operator
+    description: |
+      The Polkadot People Chain can now be run as all other system parachains without specifying a
+      chainspec. However this will soon be deprecated and `--chain ./chainspec.json` should continue
+      to be used instead.
+
+  - audience: Runtime User
+    description: |
+      The Polkadot People Chain chainspecs have been added to the polkadot-sdk repo and can now be
+      pulled from there along with all other system chains.
+
+crates:
+  - name: polkadot-parachain-bin
+    bump: minor

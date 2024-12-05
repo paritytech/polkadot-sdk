@@ -44,7 +44,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::weight(0)]
         pub fn random_module_example(origin: OriginFor<T>) -> DispatchResult {
-            let _random_value = <pallet_insecure_randomness_collective_flip::Pallet<T>>::random(&b"my context"[..]);
+            let _random_value = pallet_insecure_randomness_collective_flip::Pallet::<T>::random(&b"my context"[..]);
             Ok(())
         }
     }

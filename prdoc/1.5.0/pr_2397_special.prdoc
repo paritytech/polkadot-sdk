@@ -1,0 +1,9 @@
+title: "Pools: Add `MaxUnbonding` to metadata"
+author: rossbulat
+topic: Pallets
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove `pallet::getter` usage from both bounties and child bounties pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes `pallet::getter`s from `pallet-bounties` and `pallet-child-bounties`.
+      The syntax `StorageItem::<T, I>::get()` should be used instead.
+
+crates:
+  - name: pallet-bounties
+    bump: major
+  - name: pallet-child-bounties
+    bump: major

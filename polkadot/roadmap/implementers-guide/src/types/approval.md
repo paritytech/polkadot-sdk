@@ -22,6 +22,35 @@ enum AssignmentCertKind {
     }
 }
 
+enum AssignmentCertKindV2 {
+    /// Multiple assignment stories based on the VRF that authorized the relay-chain block where the
+    /// candidates were included.
+    ///
+    /// The context is [`v2::RELAY_VRF_MODULO_CONTEXT`]
+    RelayVRFModuloCompact {
+        /// A bitfield representing the core indices claimed by this assignment.
+        core_bitfield: CoreBitfield,
+    },
+    /// An assignment story based on the VRF that authorized the relay-chain block where the
+    /// candidate was included combined with the index of a particular core.
+    ///
+    /// The context is [`v2::RELAY_VRF_DELAY_CONTEXT`]
+    RelayVRFDelay {
+        /// The core index chosen in this cert.
+        core_index: CoreIndex,
+    },
+    /// Deprecated assignment. Soon to be removed.
+    ///  
+    /// An assignment story based on the VRF that authorized the relay-chain block where the
+    /// candidate was included combined with a sample number.
+    ///
+    /// The context used to produce bytes is [`v1::RELAY_VRF_MODULO_CONTEXT`]
+    RelayVRFModulo {
+        /// The sample number used in this cert.
+        sample: u32,
+    },
+}
+
 struct AssignmentCert {
     // The criterion which is claimed to be met by this cert.
     kind: AssignmentCertKind,
@@ -88,7 +117,7 @@ struct IndirectSignedApprovalVote {
 ## `CheckedAssignmentCert`
 
 An assignment cert which has checked both the VRF and the validity of the implied assignment according to the selection
-criteria rules of the protocol. This type should be declared in such a way as to be instantiatable only when the checks
+criteria rules of the protocol. This type should be declared in such a way as to be instantiable only when the checks
 have actually been done. Fields should be accessible via getters, not direct struct access.
 
 ```rust

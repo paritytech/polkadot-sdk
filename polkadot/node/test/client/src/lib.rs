@@ -51,7 +51,7 @@ pub struct GenesisParameters;
 
 impl substrate_test_client::GenesisInit for GenesisParameters {
 	fn genesis_storage(&self) -> Storage {
-		polkadot_test_service::chain_spec::polkadot_local_testnet_genesis()
+		polkadot_test_service::chain_spec::polkadot_local_testnet_config()
 			.build_storage()
 			.expect("Builds test runtime genesis storage")
 	}
@@ -102,7 +102,7 @@ mod tests {
 
 	#[test]
 	fn ensure_test_client_can_build_and_import_block() {
-		let mut client = TestClientBuilder::new().build();
+		let client = TestClientBuilder::new().build();
 
 		let block_builder = client.init_polkadot_block_builder();
 		let block = block_builder.build().expect("Finalizes the block").block;
@@ -113,7 +113,7 @@ mod tests {
 
 	#[test]
 	fn ensure_test_client_can_push_extrinsic() {
-		let mut client = TestClientBuilder::new().build();
+		let client = TestClientBuilder::new().build();
 
 		let transfer = construct_transfer_extrinsic(
 			&client,

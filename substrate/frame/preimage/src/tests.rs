@@ -58,7 +58,7 @@ pub fn make_bounded_values() -> (
 fn user_note_preimage_works() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
-		assert_eq!(Balances::balance_on_hold(&(), &2), 3);
+		assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 3);
 		assert_eq!(Balances::free_balance(2), 97);
 
 		let h = hashed([1]);
@@ -255,14 +255,14 @@ fn unrequest_preimage_works() {
 fn user_noted_then_requested_preimage_is_refunded_once_only() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1; 3]));
-		assert_eq!(Balances::balance_on_hold(&(), &2), 5);
+		assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 5);
 		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(2), vec![1]));
-		assert_eq!(Balances::balance_on_hold(&(), &2), 8);
+		assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 8);
 		assert_ok!(Preimage::request_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::unrequest_preimage(RuntimeOrigin::signed(1), hashed([1])));
 		assert_ok!(Preimage::unnote_preimage(RuntimeOrigin::signed(2), hashed([1])));
 		// Still have hold from `vec[1; 3]`.
-		assert_eq!(Balances::balance_on_hold(&(), &2), 5);
+		assert_eq!(Balances::balance_on_hold(&PreimageHoldReason::get(), &2), 5);
 	});
 }
 

@@ -17,6 +17,7 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
+use alloc::boxed::Box;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -26,11 +27,12 @@ use frame_support::{
 };
 use pallet_alliance::{IdentityVerifier, ProposalIndex, ProposalProvider};
 use pallet_asset_tx_payment::HandleCredit;
-use sp_std::prelude::*;
+use pallet_identity::legacy::IdentityField;
+use polkadot_sdk::*;
 
 use crate::{
-	AccountId, AllianceMotion, Assets, Authorship, Balances, Hash, NegativeImbalance, Runtime,
-	RuntimeCall,
+	AccountId, AllianceCollective, AllianceMotion, Assets, Authorship, Balances, Hash,
+	NegativeImbalance, Runtime, RuntimeCall,
 };
 
 pub struct Author;
@@ -56,13 +58,13 @@ impl HandleCredit<AccountId, Assets> for CreditToBlockAuthor {
 
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
-	fn has_identity(who: &AccountId, fields: u64) -> bool {
-		crate::Identity::has_identity(who, fields)
+	fn has_required_identities(who: &AccountId) -> bool {
+		crate::Identity::has_identity(who, (IdentityField::Display | IdentityField::Web).bits())
 	}
 
 	fn has_good_judgement(who: &AccountId) -> bool {
-		use pallet_identity::Judgement;
-		crate::Identity::identity(who)
+		use pallet_identity::{IdentityOf, Judgement};
+		IdentityOf::<Runtime>::get(who)
 			.map(|registration| registration.judgements)
 			.map_or(false, |judgements| {
 				judgements
@@ -72,7 +74,8 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	}
 
 	fn super_account_id(who: &AccountId) -> Option<AccountId> {
-		crate::Identity::super_of(who).map(|parent| parent.0)
+		use pallet_identity::SuperOf;
+		SuperOf::<Runtime>::get(who).map(|parent| parent.0)
 	}
 }
 
@@ -106,7 +109,7 @@ impl ProposalProvider<AccountId, Hash, RuntimeCall> for AllianceProposalProvider
 	}
 
 	fn proposal_of(proposal_hash: Hash) -> Option<RuntimeCall> {
-		AllianceMotion::proposal_of(proposal_hash)
+		pallet_collective::ProposalOf::<Runtime, AllianceCollective>::get(proposal_hash)
 	}
 }
 
@@ -117,6 +120,7 @@ mod multiplier_tests {
 		weights::{Weight, WeightToFee},
 	};
 	use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+	use polkadot_sdk::*;
 	use sp_runtime::{
 		assert_eq_error_rate,
 		traits::{Convert, One, Zero},
@@ -275,7 +279,7 @@ mod multiplier_tests {
 				let next = runtime_multiplier_update(fm);
 				fm = next;
 				if fm == min_multiplier() {
-					break
+					break;
 				}
 				iterations += 1;
 			}

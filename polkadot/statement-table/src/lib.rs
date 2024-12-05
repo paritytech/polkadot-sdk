@@ -29,14 +29,14 @@
 
 pub mod generic;
 
-pub use generic::{Config, Context, Table};
+pub use generic::{Context, Table};
 
 /// Concrete instantiations suitable for v2 primitives.
 pub mod v2 {
 	use crate::generic;
-	use primitives::{
-		CandidateHash, CommittedCandidateReceipt, CompactStatement as PrimitiveStatement, Id,
-		ValidatorIndex, ValidatorSignature,
+	use polkadot_primitives::{
+		vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash,
+		CompactStatement as PrimitiveStatement, CoreIndex, ValidatorIndex, ValidatorSignature,
 	};
 
 	/// Statements about candidates on the network.
@@ -59,7 +59,7 @@ pub mod v2 {
 	>;
 
 	/// A summary of import of a statement.
-	pub type Summary = generic::Summary<CandidateHash, Id>;
+	pub type Summary = generic::Summary<CandidateHash, CoreIndex>;
 
 	impl<'a> From<&'a Statement> for PrimitiveStatement {
 		fn from(s: &'a Statement) -> PrimitiveStatement {

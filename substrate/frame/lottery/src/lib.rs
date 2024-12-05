@@ -54,6 +54,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo},
@@ -68,7 +71,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, Dispatchable, Saturating, Zero},
 	ArithmeticError, DispatchError, RuntimeDebug,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
@@ -298,7 +300,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(
 			T::WeightInfo::buy_ticket()
-				.saturating_add(call.get_dispatch_info().weight)
+				.saturating_add(call.get_dispatch_info().call_weight)
 		)]
 		pub fn buy_ticket(
 			origin: OriginFor<T>,
@@ -368,7 +370,8 @@ pub mod pallet {
 			// Make sure pot exists.
 			let lottery_account = Self::account_id();
 			if T::Currency::total_balance(&lottery_account).is_zero() {
-				T::Currency::deposit_creating(&lottery_account, T::Currency::minimum_balance());
+				let _ =
+					T::Currency::deposit_creating(&lottery_account, T::Currency::minimum_balance());
 			}
 			Self::deposit_event(Event::<T>::LotteryStarted);
 			Ok(())

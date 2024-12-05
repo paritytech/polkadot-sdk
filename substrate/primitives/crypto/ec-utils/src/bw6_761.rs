@@ -15,89 +15,172 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Support functions for bw6_761 to improve the performance of
-//! multi_miller_loop, final_exponentiation, msm's and projective
-//! multiplications by host function calls.
+//! *BW6-761* types and host functions.
 
-use crate::utils::{
-	final_exponentiation_generic, msm_sw_generic, mul_projective_generic, multi_miller_loop_generic,
+use crate::utils;
+use alloc::vec::Vec;
+use ark_bw6_761_ext::CurveHooks;
+use ark_ec::{pairing::Pairing, CurveConfig};
+use sp_runtime_interface::runtime_interface;
+
+/// First pairing group definitions.
+pub mod g1 {
+	pub use ark_bw6_761_ext::g1::{G1_GENERATOR_X, G1_GENERATOR_Y};
+	/// Group configuration.
+	pub type Config = ark_bw6_761_ext::g1::Config<super::HostHooks>;
+	/// Short Weierstrass form point affine representation.
+	pub type G1Affine = ark_bw6_761_ext::g1::G1Affine<super::HostHooks>;
+	/// Short Weierstrass form point projective representation.
+	pub type G1Projective = ark_bw6_761_ext::g1::G1Projective<super::HostHooks>;
+}
+
+/// Second pairing group definitions.
+pub mod g2 {
+	pub use ark_bw6_761_ext::g2::{G2_GENERATOR_X, G2_GENERATOR_Y};
+	/// Group configuration.
+	pub type Config = ark_bw6_761_ext::g2::Config<super::HostHooks>;
+	/// Short Weierstrass form point affine representation.
+	pub type G2Affine = ark_bw6_761_ext::g2::G2Affine<super::HostHooks>;
+	/// Short Weierstrass form point projective representation.
+	pub type G2Projective = ark_bw6_761_ext::g2::G2Projective<super::HostHooks>;
+}
+
+pub use self::{
+	g1::{Config as G1Config, G1Affine, G1Projective},
+	g2::{Config as G2Config, G2Affine, G2Projective},
 };
-use ark_bw6_761::{g1, g2, BW6_761};
-use sp_std::vec::Vec;
 
-/// Compute a multi miller loop through arkworks
-pub fn multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
-	multi_miller_loop_generic::<BW6_761>(a, b)
-}
+/// Curve hooks jumping into [`host_calls`] host functions.
+#[derive(Copy, Clone)]
+pub struct HostHooks;
 
-/// Compute a final exponentiation through arkworks
-pub fn final_exponentiation(target: Vec<u8>) -> Result<Vec<u8>, ()> {
-	final_exponentiation_generic::<BW6_761>(target)
-}
+/// Configuration for *BW6-361* curve.
+pub type Config = ark_bw6_761_ext::Config<HostHooks>;
 
-/// Compute a multi scalar multiplication for short_weierstrass through
-/// arkworks on G1.
-pub fn msm_g1(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-	msm_sw_generic::<g1::Config>(bases, scalars)
-}
+/// *BW6-361* definition.
+///
+/// A generic *BW6* model specialized with *BW6-761* configuration.
+pub type BW6_761 = ark_bw6_761_ext::BW6_761<HostHooks>;
 
-/// Compute a multi scalar multiplication for short_weierstrass through
-/// arkworks on G2.
-pub fn msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-	msm_sw_generic::<g2::Config>(bases, scalars)
-}
-
-/// Compute a projective scalar multiplication for short_weierstrass through
-/// arkworks on G1.
-pub fn mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-	mul_projective_generic::<g1::Config>(base, scalar)
-}
-
-/// Compute a projective scalar multiplication for short_weierstrass through
-/// arkworks on G2.
-pub fn mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-	mul_projective_generic::<g2::Config>(base, scalar)
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use ark_algebra_test_templates::*;
-	use sp_ark_bw6_761::{
-		G1Projective as G1ProjectiveHost, G2Projective as G2ProjectiveHost, HostFunctions,
-		BW6_761 as BW6_761Host,
-	};
-
-	#[derive(PartialEq, Eq)]
-	struct Host;
-
-	impl HostFunctions for Host {
-		fn bw6_761_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
-			crate::elliptic_curves::bw6_761_multi_miller_loop(a, b)
-		}
-		fn bw6_761_final_exponentiation(f12: Vec<u8>) -> Result<Vec<u8>, ()> {
-			crate::elliptic_curves::bw6_761_final_exponentiation(f12)
-		}
-		fn bw6_761_msm_g1(bases: Vec<u8>, bigints: Vec<u8>) -> Result<Vec<u8>, ()> {
-			crate::elliptic_curves::bw6_761_msm_g1(bases, bigints)
-		}
-		fn bw6_761_msm_g2(bases: Vec<u8>, bigints: Vec<u8>) -> Result<Vec<u8>, ()> {
-			crate::elliptic_curves::bw6_761_msm_g2(bases, bigints)
-		}
-		fn bw6_761_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-			crate::elliptic_curves::bw6_761_mul_projective_g1(base, scalar)
-		}
-		fn bw6_761_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-			crate::elliptic_curves::bw6_761_mul_projective_g2(base, scalar)
-		}
+impl CurveHooks for HostHooks {
+	fn bw6_761_multi_miller_loop(
+		g1: impl Iterator<Item = <BW6_761 as Pairing>::G1Prepared>,
+		g2: impl Iterator<Item = <BW6_761 as Pairing>::G2Prepared>,
+	) -> Result<<BW6_761 as Pairing>::TargetField, ()> {
+		let g1 = utils::encode(g1.collect::<Vec<_>>());
+		let g2 = utils::encode(g2.collect::<Vec<_>>());
+		let res = host_calls::bw6_761_multi_miller_loop(g1, g2).unwrap_or_default();
+		utils::decode(res)
 	}
 
-	type BW6_761 = BW6_761Host<Host>;
-	type G1Projective = G1ProjectiveHost<Host>;
-	type G2Projective = G2ProjectiveHost<Host>;
+	fn bw6_761_final_exponentiation(
+		target: <BW6_761 as Pairing>::TargetField,
+	) -> Result<<BW6_761 as Pairing>::TargetField, ()> {
+		let target = utils::encode(target);
+		let res = host_calls::bw6_761_final_exponentiation(target).unwrap_or_default();
+		utils::decode(res)
+	}
 
-	test_group!(g1; G1Projective; sw);
-	test_group!(g2; G2Projective; sw);
-	test_group!(pairing_output; ark_ec::pairing::PairingOutput<BW6_761>; msm);
-	test_pairing!(pairing; super::BW6_761);
+	fn bw6_761_msm_g1(
+		bases: &[G1Affine],
+		scalars: &[<G1Config as CurveConfig>::ScalarField],
+	) -> Result<G1Projective, ()> {
+		let bases = utils::encode(bases);
+		let scalars = utils::encode(scalars);
+		let res = host_calls::bw6_761_msm_g1(bases, scalars).unwrap_or_default();
+		utils::decode_proj_sw(res)
+	}
+
+	fn bw6_761_msm_g2(
+		bases: &[G2Affine],
+		scalars: &[<G2Config as CurveConfig>::ScalarField],
+	) -> Result<G2Projective, ()> {
+		let bases = utils::encode(bases);
+		let scalars = utils::encode(scalars);
+		let res = host_calls::bw6_761_msm_g2(bases, scalars).unwrap_or_default();
+		utils::decode_proj_sw(res)
+	}
+
+	fn bw6_761_mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> Result<G1Projective, ()> {
+		let base = utils::encode_proj_sw(base);
+		let scalar = utils::encode(scalar);
+		let res = host_calls::bw6_761_mul_projective_g1(base, scalar).unwrap_or_default();
+		utils::decode_proj_sw(res)
+	}
+
+	fn bw6_761_mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> Result<G2Projective, ()> {
+		let base = utils::encode_proj_sw(base);
+		let scalar = utils::encode(scalar);
+		let res = host_calls::bw6_761_mul_projective_g2(base, scalar).unwrap_or_default();
+		utils::decode_proj_sw(res)
+	}
+}
+
+/// Interfaces for working with *Arkworks* *BW6-761* elliptic curve related types
+/// from within the runtime.
+///
+/// All types are (de-)serialized through the wrapper types from the `ark-scale` trait,
+/// with `ark_scale::{ArkScale, ArkScaleProjective}`.
+///
+/// `ArkScale`'s `Usage` generic parameter is expected to be set to "not-validated"
+/// and "not-compressed".
+#[runtime_interface]
+pub trait HostCalls {
+	/// Pairing multi Miller loop for *BW6-761*.
+	///
+	/// - Receives encoded:
+	///   - `a: ArkScale<Vec<G1Affine>>`.
+	///   - `b: ArkScale<Vec<G2Affine>>`.
+	/// - Returns encoded: `ArkScale<BW6_761;:TargetField>`.
+	fn bw6_761_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
+		utils::multi_miller_loop::<ark_bw6_761::BW6_761>(a, b)
+	}
+
+	/// Pairing final exponentiation for *BW6-761*.
+	///
+	/// - Receives encoded: `ArkScale<BW6_761::TargetField>`.
+	/// - Returns encoded: `ArkScale<BW6_761::TargetField>`.
+	fn bw6_761_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
+		utils::final_exponentiation::<ark_bw6_761::BW6_761>(f)
+	}
+
+	/// Multi scalar multiplication on *G1* for *BW6-761*.
+	///
+	/// - Receives encoded:
+	///   - `bases`: `ArkScale<Vec<G1Affine>>`.
+	///   - `scalars`: `ArkScale<G1Config::ScalarField>`.
+	/// - Returns encoded: `ArkScaleProjective<G1Projective>`.
+	fn bw6_761_msm_g1(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+		utils::msm_sw::<ark_bw6_761::g1::Config>(bases, scalars)
+	}
+
+	/// Multi scalar multiplication on *G2* for *BW6-761*.
+	///
+	/// - Receives encoded:
+	///   - `bases`: `ArkScale<Vec<G2Affine>>`.
+	///   - `scalars`: `ArkScale<Vec<G2Config::ScalarField>>`.
+	/// - Returns encoded: `ArkScaleProjective<G2Projective>`.
+	fn bw6_761_msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+		utils::msm_sw::<ark_bw6_761::g2::Config>(bases, scalars)
+	}
+
+	/// Projective multiplication on *G1* for *BW6-761*.
+	///
+	/// - Receives encoded:
+	///   - `base`: `ArkScaleProjective<G1Projective>`.
+	///   - `scalar`: `ArkScale<Vec<u64>>`.
+	/// - Returns encoded: `ArkScaleProjective<G1Projective>`.
+	fn bw6_761_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+		utils::mul_projective_sw::<ark_bw6_761::g1::Config>(base, scalar)
+	}
+
+	/// Projective multiplication on *G2* for *BW6-761*.
+	///
+	/// - Receives encoded:
+	///   - `base`: `ArkScaleProjective<G2Projective>`.
+	///   - `scalar`: `ArkScale<Vec<u64>>`.
+	/// - Returns encoded: `ArkScaleProjective<G2Projective>`.
+	fn bw6_761_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+		utils::mul_projective_sw::<ark_bw6_761::g2::Config>(base, scalar)
+	}
 }

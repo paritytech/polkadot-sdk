@@ -18,11 +18,11 @@
 //! Storage migrations for the preimage pallet.
 
 use super::*;
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{
 	storage_alias,
 	traits::{ConstU32, OnRuntimeUpgrade},
 };
-use sp_std::collections::btree_map::BTreeMap;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
@@ -79,7 +79,7 @@ pub mod v1 {
 	///
 	/// Note: This needs to be run with the same hashing algorithm as before
 	/// since it is not re-hashing the preimages.
-	pub struct Migration<T>(sp_std::marker::PhantomData<T>);
+	pub struct Migration<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> OnRuntimeUpgrade for Migration<T> {
 		#[cfg(feature = "try-runtime")]
@@ -133,7 +133,7 @@ pub mod v1 {
 						None =>
 							OldRequestStatus::Requested { deposit: None, count: 1, len: Some(len) },
 					},
-					v0::OldRequestStatus::Requested(count) if count == 0 => {
+					v0::OldRequestStatus::Requested(0) => {
 						log::error!(target: TARGET, "preimage has counter of zero: {:?}", hash);
 						continue
 					},

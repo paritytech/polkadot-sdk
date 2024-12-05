@@ -62,7 +62,7 @@ use sp_runtime::traits::Zero;
 /// Encapsulates the counting of things that can be bounded in an election, such as voters,
 /// targets or anything else.
 ///
-/// This struct is defined mostly to prevent callers from mistankingly using `CountBound` instead of
+/// This struct is defined mostly to prevent callers from mistakenly using `CountBound` instead of
 /// `SizeBound` and vice-versa.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct CountBound(pub u32);
@@ -96,7 +96,7 @@ impl Zero for CountBound {
 /// logic and implementation, but it most likely will represent bytes in SCALE encoding in this
 /// context.
 ///
-/// This struct is defined mostly to prevent callers from mistankingly using `CountBound` instead of
+/// This struct is defined mostly to prevent callers from mistakenly using `CountBound` instead of
 /// `SizeBound` and vice-versa.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct SizeBound(pub u32);
