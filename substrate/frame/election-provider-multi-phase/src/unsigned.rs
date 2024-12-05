@@ -112,16 +112,20 @@ impl From<FeasibilityError> for MinerError {
 	}
 }
 
-/// Reports the trimming result of a mined solution
+/// Reports the trimming result of a mined solution.
 #[derive(Debug, Clone)]
 pub struct TrimmingStatus {
+	/// Number of voters trimmed due to the solution weight limits.
 	weight: usize,
+	/// Number of voters trimmed due to the solution length limits.
 	length: usize,
+	/// Number of edges (voter -> target) trimmed due to the max backers per winner bound.
+	edges: usize,
 }
 
 impl TrimmingStatus {
 	pub fn is_trimmed(&self) -> bool {
-		self.weight > 0 || self.length > 0
+		self.weight > 0 || self.length > 0 || self.edges > 0
 	}
 
 	pub fn trimmed_weight(&self) -> usize {
@@ -130,6 +134,10 @@ impl TrimmingStatus {
 
 	pub fn trimmed_length(&self) -> usize {
 		self.length
+	}
+
+	pub fn trimmed_edges(&self) -> usize {
+		self.edges
 	}
 }
 
@@ -493,7 +501,11 @@ impl<T: MinerConfig> Miner<T> {
 
 		let ElectionResult { assignments, winners: _ } = election_result;
 
-		// Reduce (requires round-trip to staked form)
+		// keeps track of how many edges were trimmed out.
+		let mut edges_trimmed = 0;
+
+		// Reduce (requires round-trip to staked form) and ensures the max backer per winner bound
+        // requirements are met.
 		let sorted_assignments = {
 			// convert to staked and reduce.
 			let mut staked = assignment_ratio_to_staked_normalized(assignments, &stake_of)?;
@@ -520,7 +532,57 @@ impl<T: MinerConfig> Miner<T> {
 				},
 			);
 
-			// convert back.
+			// ensures that the max backers per winner bounds are respected given the supports
+			// generated from the assignments. We achieve that by removing edges (voter ->
+			// target) in the assignments with lower stake until the total number of backers per
+			// winner fits within the expected bounded supports. This should be performed *after*
+			// applying reduce over the assignments to avoid over-trimming.
+			//
+			// a potential trimming does not affect the desired targets of the solution as the
+			// targets have *too many* edges by definition if trimmed.
+			let max_backers_per_winner = T::MaxBackersPerWinner::get().saturated_into::<usize>();
+
+			let _ = sp_npos_elections::to_supports(&staked)
+				.iter_mut()
+				.filter(|(_, support)| support.voters.len() > max_backers_per_winner)
+				.for_each(|(target, ref mut support)| {
+					// first sort by support stake, lowest at the tail.
+					support.voters.sort_by(|a, b| b.1.cmp(&a.1));
+
+					// filter out lowest stake edge in this support.
+					// optimization note: collects edge voters to remove from assignments into a
+					// btree set to optimize the search in the next loop.
+					let filtered: std::collections::BTreeSet<_> = support
+						.voters
+						.split_off(max_backers_per_winner)
+						.into_iter()
+						.map(|(who, stake)| {
+							// update total support of the target where the edge will be removed.
+							support.total -= stake;
+							who
+						})
+						.collect();
+
+					// remove dropped edge from assignments.
+					staked.iter_mut().for_each(|assignment| {
+						if filtered.contains(&assignment.who) {
+							assignment.distribution.retain(|(t, _)| t != target);
+						}
+					});
+
+					edges_trimmed += filtered.len();
+				});
+
+			debug_assert!({
+				// at this point we expect the supports generated from the assignments to fit within
+				// the expected bounded supports.
+				let expected_ok: Result<
+					crate::BoundedSupports<_, T::MaxWinners, T::MaxBackersPerWinner>,
+					_,
+				> = sp_npos_elections::to_supports(&staked).try_into();
+				expected_ok.is_ok()
+			});
+
 			assignment_staked_to_ratio_normalized(staked)?
 		};
 
@@ -552,7 +614,8 @@ impl<T: MinerConfig> Miner<T> {
 		// re-calc score.
 		let score = solution.clone().score(stake_of, voter_at, target_at)?;
 
-		let is_trimmed = TrimmingStatus { weight: weight_trimmed, length: length_trimmed };
+		let is_trimmed =
+			TrimmingStatus { weight: weight_trimmed, length: length_trimmed, edges: edges_trimmed };
 
 		Ok((solution, score, size, is_trimmed))
 	}
@@ -817,9 +880,12 @@ impl<T: MinerConfig> Miner<T> {
 
 		// Finally, check that the claimed score was indeed correct.
 		let known_score = supports.evaluate();
+
 		ensure!(known_score == score, FeasibilityError::InvalidScore);
 
-		// Size of winners in miner solution is equal to `desired_targets` <= `MaxWinners`.
+		// Size of winners in miner solution is equal to `desired_targets` <= `MaxWinners`. In
+		// addition, the miner should have ensured that the MaxBackerPerWinner bound in respected,
+		// thus this conversion should not fail.
 		let supports = supports
 			.try_into()
 			.defensive_map_err(|_| FeasibilityError::BoundedConversionFailed)?;
@@ -1884,7 +1950,7 @@ mod tests {
 		let expected_score_unbounded =
 			ElectionScore { minimal_stake: 12, sum_stake: 50, sum_stake_squared: 874 };
 		let expected_score_bounded =
-			ElectionScore { minimal_stake: 2, sum_stake: 10, sum_stake_squared: 44 };
+			ElectionScore { minimal_stake: 10, sum_stake: 30, sum_stake_squared: 300 };
 
 		// solution without max_backers_per_winner set will be higher than the score when bounds
 		// are set, confirming the trimming when using the same snapshot state.
@@ -1894,11 +1960,13 @@ mod tests {
 		ExtBuilder::default().max_backers_per_winner(u32::MAX).build_and_execute(|| {
 			assert_eq!(MaxBackersPerWinner::get(), u32::MAX);
 
-			let solution = Miner::<Runtime>::mine_solution_with_snapshot::<
-				<Runtime as Config>::Solver,
-			>(voters.clone(), targets.clone(), desired_targets)
-			.unwrap()
-			.0;
+			let (solution, _, _, trimming_status) =
+				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
+					voters.clone(),
+					targets.clone(),
+					desired_targets,
+				)
+				.unwrap();
 
 			let ready_solution = Miner::<Runtime>::feasibility_check(
 				RawSolution { solution, score: expected_score_unbounded, round },
@@ -1921,17 +1989,22 @@ mod tests {
 					(30, BoundedSupport { total: 12, voters: bounded_vec![(3, 10), (4, 2)] }),
 				]
 			);
+
+			// no trimmed edges.
+			assert_eq!(trimming_status.trimmed_edges(), 0);
 		});
 
 		// election with max 1 backer per winnner.
 		ExtBuilder::default().max_backers_per_winner(1).build_and_execute(|| {
 			assert_eq!(MaxBackersPerWinner::get(), 1);
 
-			let solution = Miner::<Runtime>::mine_solution_with_snapshot::<
-				<Runtime as Config>::Solver,
-			>(voters, targets, desired_targets)
-			.unwrap()
-			.0;
+			let (solution, _, _, trimming_status) =
+				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
+					voters,
+					targets,
+					desired_targets,
+				)
+				.unwrap();
 
 			let ready_solution = Miner::<Runtime>::feasibility_check(
 				RawSolution { solution, score: expected_score_bounded, round },
@@ -1950,12 +2023,108 @@ mod tests {
 			assert_eq!(
 				ready_solution.supports.into_iter().collect::<Vec<_>>(),
 				vec![
-					(10, BoundedSupport { total: 6, voters: bounded_vec![(1, 6)] }),
-					(20, BoundedSupport { total: 2, voters: bounded_vec![(1, 2)] }),
-					(30, BoundedSupport { total: 2, voters: bounded_vec![(1, 2)] }),
+					(10, BoundedSupport { total: 10, voters: bounded_vec![(1, 10)] }),
+					(20, BoundedSupport { total: 10, voters: bounded_vec![(2, 10)] }),
+					(30, BoundedSupport { total: 10, voters: bounded_vec![(3, 10)] }),
 				]
 			);
+
+			// four trimmed edges.
+			assert_eq!(trimming_status.trimmed_edges(), 4);
 		});
+	}
+
+	#[test]
+	fn max_backers_edges_trims_lowest_stake() {
+		use crate::mock::MaxBackersPerWinner;
+
+		ExtBuilder::default().build_and_execute(|| {
+			let targets = vec![10, 20, 30, 40];
+
+			let voters = vec![
+				(1, 100, bounded_vec![10, 20]),
+				(2, 200, bounded_vec![10, 20, 30]),
+				(3, 300, bounded_vec![10, 30]),
+				(4, 400, bounded_vec![10, 30]),
+				(5, 500, bounded_vec![10, 20, 30]),
+				(6, 600, bounded_vec![10, 20, 30, 40]),
+			];
+			let snapshot = RoundSnapshot { voters: voters.clone(), targets: targets.clone() };
+			let (round, desired_targets) = (1, 4);
+
+			let max_backers_bound = u32::MAX;
+			let trim_backers_bound = 2;
+
+			// election with unbounded max backers per winnner.
+			MaxBackersPerWinner::set(max_backers_bound);
+			let (solution, score, _, trimming_status) =
+				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
+					voters.clone(),
+					targets.clone(),
+					desired_targets,
+				)
+				.unwrap();
+
+			assert_eq!(trimming_status.trimmed_edges(), 0);
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score, round },
+				Default::default(),
+				desired_targets,
+				snapshot.clone(),
+				round,
+				Default::default(),
+			)
+			.unwrap();
+
+			let full_supports = ready_solution.supports.into_iter().collect::<Vec<_>>();
+
+			// gather the expected trimmed supports (lowest stake from supports with more backers
+			// than expected when MaxBackersPerWinner is 2) from the full, unbounded supports.
+			let expected_trimmed_supports = full_supports
+				.into_iter()
+				.filter(|(_, s)| s.voters.len() as u32 > trim_backers_bound)
+				.map(|(t, s)| (t, s.voters.into_iter().min_by(|a, b| a.1.cmp(&b.1)).unwrap()))
+				.collect::<Vec<_>>();
+
+			// election with bounded 2 max backers per winnner.
+			MaxBackersPerWinner::set(trim_backers_bound);
+			let (solution, score, _, trimming_status) =
+				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
+					voters.clone(),
+					targets.clone(),
+					desired_targets,
+				)
+				.unwrap();
+
+			assert_eq!(trimming_status.trimmed_edges(), 2);
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score, round },
+				Default::default(),
+				desired_targets,
+				snapshot.clone(),
+				round,
+				Default::default(),
+			)
+			.unwrap();
+
+			let trimmed_supports = ready_solution.supports.into_iter().collect::<Vec<_>>();
+
+			// gather all trimmed_supports edges from the trimmed solution.
+			let mut trimmed_supports_edges_full = vec![];
+			for (t, s) in trimmed_supports {
+				for v in s.voters {
+					trimmed_supports_edges_full.push((t, v));
+				}
+			}
+
+			// expected trimmed supports set should be disjoint to the trimmed_supports full set of
+			// edges.
+			for edge in trimmed_supports_edges_full {
+				assert!(!expected_trimmed_supports.contains(&edge));
+			}
+		})
 	}
 
 	#[test]
