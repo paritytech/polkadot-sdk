@@ -157,6 +157,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	pallet_balances::GenesisConfig::<Test> {
 		// The 0 account is NOT a special origin. The rest may be:
 		balances: vec![(0, 1234), (1, 5678), (2, 5678), (3, 5678), (4, 5678)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
