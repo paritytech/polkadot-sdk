@@ -520,7 +520,7 @@ impl<T: Config> Pallet<T> {
 		let stake = T::CoreStaking::stake(who)?;
 
 		// release funds from core staking.
-		T::CoreStaking::migrate_to_virtual_staker(who);
+		T::CoreStaking::migrate_to_virtual_staker(who)?;
 
 		// transfer just released staked amount plus any free amount.
 		let amount_to_transfer =
