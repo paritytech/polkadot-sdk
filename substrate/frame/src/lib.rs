@@ -494,7 +494,7 @@ pub mod runtime {
 	pub mod testing_prelude {
 		pub use sp_core::storage::Storage;
 		pub use sp_runtime::BuildStorage;
-		pub use sp_runtime::{testing::{TestSignature, UintAuthorityId}, generic::ExtensionVersion};
+		pub use sp_runtime::testing::{TestSignature, UintAuthorityId};
 	}
 }
 

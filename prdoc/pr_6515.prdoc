@@ -6,8 +6,14 @@ title: migrate pallet-verify-signature to umbrella crate
 doc:
   - audience: Runtime Dev
     description: |
-      This pull request adapts the frame umbrella crate into pallet-verify-signature
-      by importing existing systems into the pallet.
+      This pull request refactors the pallet-verify-signature 
+      to integrate it into the Frame umbrella crate. 
+      
+      The update incorporates components from the `sp_runtime` testing module, 
+      specifically `TestSignature` and `UintAuthorityId`, now included in 
+      `frame::runtime::testing_prelude`. This transition enhances the consistency 
+      and modularity of the pallet within the broader Frame ecosystem, 
+      aligning it with the testing infrastructure provided by the umbrella crate.
       
 
 crates:

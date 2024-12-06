@@ -21,15 +21,8 @@
 use crate::{Config, WeightInfo};
 use codec::{Decode, Encode};
 use frame::{
-	hashing::blake2_256,
-	runtime::prelude::{
-		impl_tx_ext_default, InvalidTransaction, TransactionSource, TransactionValidityError,
-		ValidTransaction,
-	},
-	traits::{
-		AsTransactionAuthorizedOrigin, DispatchInfoOf, Dispatchable, OriginTrait,
-		TransactionExtension, Verify,
-	},
+	runtime::prelude::*,
+	traits::{AsTransactionAuthorizedOrigin, OriginTrait, TransactionExtension, Verify},
 };
 use scale_info::TypeInfo;
 use sp_weights::Weight;

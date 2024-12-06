@@ -15780,7 +15780,6 @@ dependencies = [
 name = "pallet-verify-signature"
 version = "1.0.0"
 dependencies = [
- "frame-system 28.0.0",
  "pallet-balances 28.0.0",
  "pallet-collective 28.0.0",
  "pallet-root-testing 4.0.0",

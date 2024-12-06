@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["experimental", "runtime"] }
-frame-system = { workspace = true }
 sp-weights = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
@@ -33,7 +32,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame/std",
-	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-collective/std",
 	"pallet-root-testing/std",
@@ -43,14 +41,12 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame/try-runtime",
-	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-root-testing/try-runtime",
