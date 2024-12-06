@@ -40,7 +40,7 @@ pub extern "C" fn call() {
 	api::set_storage(StorageFlags::empty(), buffer, &[1u8; 4]);
 
 	// Call the callee
-	api::call(
+	let ret = api::call(
 		uapi::CallFlags::empty(),
 		callee,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
@@ -49,8 +49,10 @@ pub extern "C" fn call() {
 		&[0u8; 32], // Value transferred to the contract.
 		input,
 		None,
-	)
-	.unwrap();
+	);
+	if let Err(code) = ret {
+		api::return_value(uapi::ReturnFlags::REVERT, &(code as u32).to_le_bytes());
+	};
 
 	// create 8 byte of storage after calling
 	// item of 12 bytes because we override 4 bytes

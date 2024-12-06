@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Collator-side subsystem that handles incoming candidate submissions from the parachain."
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true

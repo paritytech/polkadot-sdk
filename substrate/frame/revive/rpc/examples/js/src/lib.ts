@@ -1,28 +1,24 @@
-import {
-	Contract,
-	ContractFactory,
-	JsonRpcProvider,
-	TransactionReceipt,
-	TransactionResponse,
-	Wallet,
-} from 'ethers'
 import { readFileSync } from 'node:fs'
-import type { compile } from '@parity/revive'
 import { spawn } from 'node:child_process'
 import { parseArgs } from 'node:util'
-import { BaseContract } from 'ethers'
-
-type CompileOutput = Awaited<ReturnType<typeof compile>>
-type Abi = CompileOutput['contracts'][string][string]['abi']
+import { createWalletClient, defineChain, Hex, http, parseEther, publicActions } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 
 const {
-	values: { geth, westend, ['private-key']: privateKey },
+	values: { geth, proxy, westend, endowment, ['private-key']: privateKey },
 } = parseArgs({
 	args: process.argv.slice(2),
 	options: {
 		['private-key']: {
 			type: 'string',
 			short: 'k',
+		},
+		endowment: {
+			type: 'string',
+			short: 'e',
+		},
+		proxy: {
+			type: 'boolean',
 		},
 		geth: {
 			type: 'boolean',
@@ -42,7 +38,7 @@ if (geth) {
 			'--http.api',
 			'web3,eth,debug,personal,net',
 			'--http.port',
-			'8546',
+			process.env.GETH_PORT ?? '8546',
 			'--dev',
 			'--verbosity',
 			'0',
@@ -55,56 +51,78 @@ if (geth) {
 	await new Promise((resolve) => setTimeout(resolve, 500))
 }
 
-export const provider = new JsonRpcProvider(
-	westend
+const rpcUrl = proxy
+	? 'http://localhost:8080'
+	: westend
 		? 'https://westend-asset-hub-eth-rpc.polkadot.io'
 		: geth
 			? 'http://localhost:8546'
 			: 'http://localhost:8545'
-)
 
-export const signer = privateKey ? new Wallet(privateKey, provider) : await provider.getSigner()
-console.log(`Signer address: ${await signer.getAddress()}, Nonce: ${await signer.getNonce()}`)
+export const chain = defineChain({
+	id: geth ? 1337 : 420420420,
+	name: 'Asset Hub Westend',
+	network: 'asset-hub',
+	nativeCurrency: {
+		name: 'Westie',
+		symbol: 'WST',
+		decimals: 18,
+	},
+	rpcUrls: {
+		default: {
+			http: [rpcUrl],
+		},
+	},
+	testnet: true,
+})
+
+const wallet = createWalletClient({
+	transport: http(),
+	chain,
+})
+const [account] = await wallet.getAddresses()
+export const serverWalletClient = createWalletClient({
+	account,
+	transport: http(),
+	chain,
+})
+
+export const walletClient = await (async () => {
+	if (privateKey) {
+		const account = privateKeyToAccount(`0x${privateKey}`)
+		console.log(`Wallet address ${account.address}`)
+
+		const wallet = createWalletClient({
+			account,
+			transport: http(),
+			chain,
+		})
+
+		if (endowment) {
+			await serverWalletClient.sendTransaction({
+				to: account.address,
+				value: parseEther(endowment),
+			})
+			console.log(`Endowed address ${account.address} with: ${endowment}`)
+		}
+
+		return wallet.extend(publicActions)
+	} else {
+		return serverWalletClient.extend(publicActions)
+	}
+})()
 
 /**
  * Get one of the pre-built contracts
  * @param name - the contract name
  */
-export function getContract(name: string): { abi: Abi; bytecode: string } {
+export function getByteCode(name: string): Hex {
 	const bytecode = geth ? readFileSync(`evm/${name}.bin`) : readFileSync(`pvm/${name}.polkavm`)
-	const abi = JSON.parse(readFileSync(`abi/${name}.json`, 'utf8')) as Abi
-	return { abi, bytecode: Buffer.from(bytecode).toString('hex') }
+	return `0x${Buffer.from(bytecode).toString('hex')}`
 }
 
-/**
- * Deploy a contract
- * @returns the contract address
- **/
-export async function deploy(bytecode: string, abi: Abi, args: any[] = []): Promise<BaseContract> {
-	console.log('Deploying contract with', args)
-	const contractFactory = new ContractFactory(abi, bytecode, signer)
-
-	const contract = await contractFactory.deploy(args)
-	await contract.waitForDeployment()
-	const address = await contract.getAddress()
-	console.log(`Contract deployed: ${address}`)
-
-	return contract
-}
-
-/**
- * Call a contract
- **/
-export async function call(
-	method: string,
-	address: string,
-	abi: Abi,
-	args: any[] = [],
-	opts: { value?: bigint } = {}
-): Promise<null | TransactionReceipt> {
-	console.log(`Calling ${method} at ${address} with`, args, opts)
-	const contract = new Contract(address, abi, signer)
-	const tx = (await contract[method](...args, opts)) as TransactionResponse
-	console.log('Call transaction hash:', tx.hash)
-	return tx.wait()
+export function assert(condition: any, message: string): asserts condition {
+	if (!condition) {
+		throw new Error(message)
+	}
 }

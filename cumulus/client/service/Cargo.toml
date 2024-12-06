@@ -5,12 +5,15 @@ authors.workspace = true
 edition.workspace = true
 description = "Common functions used to assemble the components of a parachain node."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
 futures = { workspace = true }
+futures-timer = { workspace = true }
 
 # Substrate
 sc-client-api = { workspace = true, default-features = true }

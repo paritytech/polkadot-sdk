@@ -877,3 +877,40 @@ fn no_fee_and_no_weight_for_other_origins() {
 		assert_eq!(post_info.actual_weight, Some(info.call_weight));
 	})
 }
+
+#[test]
+fn fungible_adapter_no_zero_refund_action() {
+	type FungibleAdapterT = payment::FungibleAdapter<Balances, DealWithFees>;
+
+	ExtBuilder::default().balance_factor(10).build().execute_with(|| {
+		System::set_block_number(10);
+
+		let dummy_acc = 1;
+		let (actual_fee, no_tip) = (10, 0);
+		let already_paid = <FungibleAdapterT as OnChargeTransaction<Runtime>>::withdraw_fee(
+			&dummy_acc,
+			CALL,
+			&CALL.get_dispatch_info(),
+			actual_fee,
+			no_tip,
+		).expect("Account must have enough funds.");
+
+		// Correction action with no expected side effect.
+		assert!(<FungibleAdapterT as OnChargeTransaction<Runtime>>::correct_and_deposit_fee(
+			&dummy_acc,
+			&CALL.get_dispatch_info(),
+			&default_post_info(),
+			actual_fee,
+			no_tip,
+			already_paid,
+		).is_ok());
+
+		// Ensure no zero amount deposit event is emitted.
+		let events = System::events();
+		assert!(!events
+			.iter()
+			.any(|record| matches!(record.event, RuntimeEvent::Balances(pallet_balances::Event::Deposit { amount, .. }) if amount.is_zero())),
+    		"No zero amount deposit amount event should be emitted.",
+		);
+	});
+}

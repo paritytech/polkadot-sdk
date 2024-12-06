@@ -22,8 +22,9 @@
 
 use bp_relayers::{
 	ExplicitOrAccountParams, PaymentProcedure, Registration, RelayerRewardsKeyProvider,
-	RewardsAccountParams, StakeAndSlash,
+	StakeAndSlash,
 };
+pub use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::fail;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
@@ -31,7 +32,7 @@ use sp_runtime::{traits::CheckedSub, Saturating};
 use sp_std::marker::PhantomData;
 
 pub use pallet::*;
-pub use payment_adapter::DeliveryConfirmationPaymentsAdapter;
+pub use payment_adapter::{DeliveryConfirmationPaymentsAdapter, PayRewardFromAccount};
 pub use stake_adapter::StakeAndSlashNamed;
 pub use weights::WeightInfo;
 pub use weights_ext::WeightInfoExt;

@@ -42,6 +42,7 @@ log = { workspace = true, default-features = true }
 futures-util = { workspace = true }
 rand = { workspace = true, default-features = true }
 schnellru = { workspace = true }
+itertools = { workspace = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
@@ -55,7 +56,7 @@ sp-consensus = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
-sc-service = { features = ["test-helpers"], workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true, features = ["test-helpers"] }
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }

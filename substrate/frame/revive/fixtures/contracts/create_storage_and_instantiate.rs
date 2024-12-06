@@ -39,7 +39,7 @@ pub extern "C" fn call() {
 	let salt = [0u8; 32];
 	let mut address = [0u8; 20];
 
-	api::instantiate(
+	let ret = api::instantiate(
 		code_hash,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
@@ -49,8 +49,10 @@ pub extern "C" fn call() {
 		Some(&mut address),
 		None,
 		Some(&salt),
-	)
-	.unwrap();
+	);
+	if let Err(code) = ret {
+		api::return_value(uapi::ReturnFlags::REVERT, &(code as u32).to_le_bytes());
+	};
 
 	// Return the deployed contract address.
 	api::return_value(uapi::ReturnFlags::empty(), &address);

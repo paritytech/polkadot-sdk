@@ -562,6 +562,9 @@ pub struct Stack<'a, T: Config, E> {
 	debug_message: Option<&'a mut DebugBuffer>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
+	/// Whether or not actual transfer of funds should be performed.
+	/// This is set to `true` exclusively when we simulate a call through eth_transact.
+	skip_transfer: bool,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -777,6 +780,7 @@ where
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
+		skip_transfer: bool,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
@@ -786,6 +790,7 @@ where
 			gas_meter,
 			storage_meter,
 			value,
+			skip_transfer,
 			debug_message,
 		)? {
 			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
@@ -812,6 +817,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
+		skip_transfer: bool,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Self::new(
@@ -825,6 +831,7 @@ where
 			gas_meter,
 			storage_meter,
 			value,
+			skip_transfer,
 			debug_message,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
@@ -853,6 +860,7 @@ where
 			gas_meter,
 			storage_meter,
 			value.into(),
+			false,
 			debug_message,
 		)
 		.unwrap()
@@ -869,6 +877,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
+		skip_transfer: bool,
 		debug_message: Option<&'a mut DebugBuffer>,
 	) -> Result<Option<(Self, E)>, ExecError> {
 		origin.ensure_mapped()?;
@@ -896,6 +905,7 @@ where
 			frames: Default::default(),
 			debug_message,
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
+			skip_transfer,
 			_phantom: Default::default(),
 		};
 
@@ -1058,7 +1068,7 @@ where
 
 		self.transient_storage.start_transaction();
 
-		let do_transaction = || {
+		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
 			let frame = top_frame_mut!(self);
 
@@ -1073,6 +1083,7 @@ where
 					&frame.account_id,
 					frame.contract_info.get(&frame.account_id),
 					executable.code_info(),
+					self.skip_transfer,
 				)?;
 				// Needs to be incremented before calling into the code so that it is visible
 				// in case of recursion.
@@ -1096,11 +1107,8 @@ where
 			let call_span = T::Debug::new_call_span(&contract_address, entry_point, &input_data);
 
 			let output = T::Debug::intercept_call(&contract_address, entry_point, &input_data)
-				.unwrap_or_else(|| {
-					executable
-						.execute(self, entry_point, input_data)
-						.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })
-				})?;
+				.unwrap_or_else(|| executable.execute(self, entry_point, input_data))
+				.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
 
 			call_span.after_call(&output);
 
@@ -1125,7 +1133,10 @@ where
 			// If a special limit was set for the sub-call, we enforce it here.
 			// The sub-call will be rolled back in case the limit is exhausted.
 			let contract = frame.contract_info.as_contract();
-			frame.nested_storage.enforce_subcall_limit(contract)?;
+			frame
+				.nested_storage
+				.enforce_subcall_limit(contract)
+				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
 			let account_id = T::AddressMapper::to_address(&frame.account_id);
 			match (entry_point, delegated_code_hash) {
@@ -2101,6 +2112,7 @@ mod tests {
 					&mut storage_meter,
 					value.into(),
 					vec![],
+					false,
 					None,
 				),
 				Ok(_)
@@ -2193,6 +2205,7 @@ mod tests {
 				&mut storage_meter,
 				value.into(),
 				vec![],
+				false,
 				None,
 			)
 			.unwrap();
@@ -2233,6 +2246,7 @@ mod tests {
 				&mut storage_meter,
 				value.into(),
 				vec![],
+				false,
 				None,
 			));
 
@@ -2269,6 +2283,7 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
+					false,
 					None,
 				),
 				ExecError {
@@ -2286,6 +2301,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			));
 		});
@@ -2314,6 +2330,7 @@ mod tests {
 				&mut storage_meter,
 				55u64.into(),
 				vec![],
+				false,
 				None,
 			)
 			.unwrap();
@@ -2363,6 +2380,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			);
 
@@ -2392,6 +2410,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			);
 
@@ -2421,6 +2440,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![1, 2, 3, 4],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -2457,6 +2477,7 @@ mod tests {
 					min_balance.into(),
 					vec![1, 2, 3, 4],
 					Some(&[0; 32]),
+					false,
 					None,
 				);
 				assert_matches!(result, Ok(_));
@@ -2511,6 +2532,7 @@ mod tests {
 				&mut storage_meter,
 				value.into(),
 				vec![],
+				false,
 				None,
 			);
 
@@ -2575,6 +2597,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			);
 
@@ -2640,6 +2663,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			);
 
@@ -2672,6 +2696,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -2709,6 +2734,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -2735,6 +2761,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -2779,6 +2806,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -2805,6 +2833,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -2831,6 +2860,7 @@ mod tests {
 				&mut storage_meter,
 				1u64.into(),
 				vec![0],
+				false,
 				None,
 			);
 			assert_matches!(result, Err(_));
@@ -2875,6 +2905,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -2920,6 +2951,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			);
 
@@ -2946,6 +2978,7 @@ mod tests {
 					U256::zero(), // <- zero value
 					vec![],
 					Some(&[0; 32]),
+					false,
 					None,
 				),
 				Err(_)
@@ -2981,6 +3014,7 @@ mod tests {
 						min_balance.into(),
 						vec![],
 						Some(&[0 ;32]),
+						false,
 						None,
 					),
 					Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
@@ -3032,10 +3066,10 @@ mod tests {
 						executable,
 						&mut gas_meter,
 						&mut storage_meter,
-
 						min_balance.into(),
 						vec![],
 						Some(&[0; 32]),
+						false,
 						None,
 					),
 					Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
@@ -3100,6 +3134,7 @@ mod tests {
 						&mut storage_meter,
 						(min_balance * 10).into(),
 						vec![],
+						false,
 						None,
 					),
 					Ok(_)
@@ -3180,6 +3215,7 @@ mod tests {
 						&mut storage_meter,
 						U256::zero(),
 						vec![],
+						false,
 						None,
 					),
 					Ok(_)
@@ -3223,6 +3259,7 @@ mod tests {
 						100u64.into(),
 						vec![],
 						Some(&[0; 32]),
+						false,
 						None,
 					),
 					Err(Error::<Test>::TerminatedInConstructor.into())
@@ -3287,6 +3324,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -3349,6 +3387,7 @@ mod tests {
 					10u64.into(),
 					vec![],
 					Some(&[0; 32]),
+					false,
 					None,
 				);
 				assert_matches!(result, Ok(_));
@@ -3373,7 +3412,7 @@ mod tests {
 					true,
 					false
 				),
-				<Error<Test>>::TransferFailed
+				<Error<Test>>::TransferFailed,
 			);
 			exec_success()
 		});
@@ -3395,6 +3434,7 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
+					false,
 					None,
 				)
 				.unwrap();
@@ -3426,6 +3466,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				Some(&mut debug_buffer),
 			)
 			.unwrap();
@@ -3459,6 +3500,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				Some(&mut debug_buffer),
 			);
 			assert!(result.is_err());
@@ -3492,6 +3534,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				Some(&mut debug_buf_after),
 			)
 			.unwrap();
@@ -3525,6 +3568,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				CHARLIE_ADDR.as_bytes().to_vec(),
+				false,
 				None,
 			));
 
@@ -3537,6 +3581,7 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					BOB_ADDR.as_bytes().to_vec(),
+					false,
 					None,
 				)
 				.map_err(|e| e.error),
@@ -3587,6 +3632,7 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![0],
+					false,
 					None,
 				)
 				.map_err(|e| e.error),
@@ -3621,6 +3667,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			)
 			.unwrap();
@@ -3705,6 +3752,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			)
 			.unwrap();
@@ -3831,6 +3879,7 @@ mod tests {
 					(min_balance * 100).into(),
 					vec![],
 					Some(&[0; 32]),
+					false,
 					None,
 				)
 				.ok();
@@ -3844,6 +3893,7 @@ mod tests {
 					(min_balance * 100).into(),
 					vec![],
 					Some(&[0; 32]),
+					false,
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 1);
@@ -3856,6 +3906,7 @@ mod tests {
 					(min_balance * 200).into(),
 					vec![],
 					Some(&[0; 32]),
+					false,
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 2);
@@ -3868,6 +3919,7 @@ mod tests {
 					(min_balance * 200).into(),
 					vec![],
 					Some(&[0; 32]),
+					false,
 					None,
 				));
 				assert_eq!(System::account_nonce(&ALICE), 3);
@@ -3936,6 +3988,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			));
 		});
@@ -4047,6 +4100,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			));
 		});
@@ -4086,6 +4140,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			));
 		});
@@ -4125,6 +4180,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			));
 		});
@@ -4178,6 +4234,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			));
 		});
@@ -4234,6 +4291,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			));
 		});
@@ -4309,6 +4367,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			));
 		});
@@ -4379,6 +4438,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -4417,6 +4477,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			));
 		});
@@ -4479,6 +4540,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -4512,6 +4574,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -4595,6 +4658,7 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
+					false,
 					None,
 				)
 				.unwrap()
@@ -4663,6 +4727,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![0],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -4734,6 +4799,7 @@ mod tests {
 				&mut storage_meter,
 				U256::zero(),
 				vec![],
+				false,
 				None,
 			);
 			assert_matches!(result, Ok(_));
@@ -4785,6 +4851,7 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
+					false,
 					None,
 				)
 				.unwrap()
@@ -4854,6 +4921,7 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
+					false,
 					None,
 				)
 				.unwrap()
@@ -4900,6 +4968,7 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
+					false,
 					None,
 				)
 				.unwrap()
@@ -4944,6 +5013,7 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![],
+					false,
 					None,
 				)
 				.unwrap()
@@ -4999,6 +5069,7 @@ mod tests {
 					&mut storage_meter,
 					U256::zero(),
 					vec![0],
+					false,
 					None,
 				),
 				Ok(_)

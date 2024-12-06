@@ -638,66 +638,6 @@ fn act_on_advertisement_v2() {
 	});
 }
 
-// Test that other subsystems may modify collators' reputations.
-#[test]
-fn collator_reporting_works() {
-	let test_state = TestState::default();
-
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, .. } = test_harness;
-
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-				our_view![test_state.relay_parent],
-			)),
-		)
-		.await;
-
-		respond_to_runtime_api_queries(&mut virtual_overseer, &test_state, test_state.relay_parent)
-			.await;
-
-		let peer_b = PeerId::random();
-		let peer_c = PeerId::random();
-
-		connect_and_declare_collator(
-			&mut virtual_overseer,
-			peer_b,
-			test_state.collators[0].clone(),
-			test_state.chain_ids[0],
-			CollationVersion::V1,
-		)
-		.await;
-
-		connect_and_declare_collator(
-			&mut virtual_overseer,
-			peer_c,
-			test_state.collators[1].clone(),
-			test_state.chain_ids[0],
-			CollationVersion::V1,
-		)
-		.await;
-
-		overseer_send(
-			&mut virtual_overseer,
-			CollatorProtocolMessage::ReportCollator(test_state.collators[0].public()),
-		)
-		.await;
-
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::NetworkBridgeTx(
-				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer, rep)),
-			) => {
-				assert_eq!(peer, peer_b);
-				assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
-			}
-		);
-
-		virtual_overseer
-	});
-}
-
 // Test that we verify the signatures on `Declare` and `AdvertiseCollation` messages.
 #[test]
 fn collator_authentication_verification_works() {
