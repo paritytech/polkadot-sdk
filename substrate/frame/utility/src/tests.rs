@@ -22,6 +22,8 @@
 use super::*;
 
 use crate as utility;
+use frame::{testing_prelude::*, arithmetic::Perbill}; // deps::frame_system, traits::{IsType, EnsureOrigin}, runtime::prelude::{OriginFor, DispatchResult, DispatchClass}, arithmetic::Perbill};
+/*
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, Pays},
@@ -29,20 +31,27 @@ use frame_support::{
 	traits::{ConstU64, Contains},
 	weights::Weight,
 };
-use frame_system::EnsureRoot;
+*/
+// use frame_system::EnsureRoot;
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
+/*
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, Dispatchable, Hash},
 	BuildStorage, DispatchError, TokenError,
 };
-
+*/
 type BlockNumber = u64;
 
 // example module to test behaviors.
-#[frame_support::pallet(dev_mode)]
+// #[frame_support::pallet(dev_mode)]
+#[frame::pallet]
 pub mod example {
+	//use super::*;
+	/*
 	use frame_support::{dispatch::WithPostDispatchInfo, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
+	*/
+	use frame::prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -87,46 +96,54 @@ pub mod example {
 	}
 }
 
-mod mock_democracy {
-	pub use pallet::*;
-	#[frame_support::pallet(dev_mode)]
-	pub mod pallet {
+#[frame::pallet]
+pub mod mock_democracy {
+	//pub use pallet::*;
+	//use super::*;
+	// #[frame_support::pallet(dev_mode)]
+	use frame::prelude::*;
+	
+	//pub mod pallet {
+		
+		/*
 		use frame_support::pallet_prelude::*;
 		use frame_system::pallet_prelude::*;
+		*/
 
-		#[pallet::pallet]
-		pub struct Pallet<T>(_);
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
 
-		#[pallet::config]
-		pub trait Config: frame_system::Config + Sized {
-			type RuntimeEvent: From<Event<Self>>
-				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-			type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-		}
+	#[pallet::config]
+	pub trait Config: frame_system::Config + Sized {
+		type RuntimeEvent: From<Event<Self>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+	}
 
-		#[pallet::call]
-		impl<T: Config> Pallet<T> {
-			#[pallet::call_index(3)]
-			#[pallet::weight(0)]
-			pub fn external_propose_majority(origin: OriginFor<T>) -> DispatchResult {
-				T::ExternalMajorityOrigin::ensure_origin(origin)?;
-				Self::deposit_event(Event::<T>::ExternalProposed);
-				Ok(())
-			}
-		}
-
-		#[pallet::event]
-		#[pallet::generate_deposit(pub(super) fn deposit_event)]
-		pub enum Event<T: Config> {
-			ExternalProposed,
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(3)]
+		#[pallet::weight(0)]
+		pub fn external_propose_majority(origin: OriginFor<T>) -> DispatchResult {
+			T::ExternalMajorityOrigin::ensure_origin(origin)?;
+			Self::deposit_event(Event::<T>::ExternalProposed);
+			Ok(())
 		}
 	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		ExternalProposed,
+	}
+	//}
 }
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
-	pub enum Test
+//frame_support::construct_runtime!(
+construct_runtime!(
+	pub struct Test
 	{
 		System: frame_system,
 		Timestamp: pallet_timestamp,
@@ -175,7 +192,7 @@ parameter_types! {
 	pub const MotionDuration: BlockNumber = MOTION_DURATION_IN_BLOCKS;
 	pub const MaxProposals: u32 = 100;
 	pub const MaxMembers: u32 = 100;
-	pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
+	pub MaxProposalWeight: Weight = Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
 
 type CouncilCollective = pallet_collective::Instance1;
@@ -233,7 +250,7 @@ use pallet_balances::Call as BalancesCall;
 use pallet_root_testing::Call as RootTestingCall;
 use pallet_timestamp::Call as TimestampCall;
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 2)],
@@ -248,7 +265,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.assimilate_storage(&mut t)
 	.unwrap();
 
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
@@ -451,7 +468,7 @@ fn batch_early_exit_works() {
 
 #[test]
 fn batch_weight_calculation_doesnt_overflow() {
-	use sp_runtime::Perbill;
+	//use sp_runtime::Perbill;
 	new_test_ext().execute_with(|| {
 		let big_call = RuntimeCall::RootTesting(RootTestingCall::fill_block {
 			ratio: Perbill::from_percent(50),
@@ -899,7 +916,7 @@ fn with_weight_works() {
 		);
 		assert_eq!(
 			upgrade_code_call.get_dispatch_info().class,
-			frame_support::dispatch::DispatchClass::Operational
+			DispatchClass::Operational
 		);
 
 		let with_weight_call = Call::<Test>::with_weight {
@@ -910,7 +927,7 @@ fn with_weight_works() {
 		assert_eq!(with_weight_call.get_dispatch_info().call_weight, Weight::from_parts(123, 456));
 		assert_eq!(
 			with_weight_call.get_dispatch_info().class,
-			frame_support::dispatch::DispatchClass::Operational
+			DispatchClass::Operational
 		);
 	})
 }
