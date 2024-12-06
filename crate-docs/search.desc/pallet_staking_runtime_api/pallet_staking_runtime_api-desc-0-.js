@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_staking_runtime_api", 0, "Runtime API definition for the staking pallet.\nReturns the page count of exposures for a validator <code>account</code>…\nReturns the nominations quota for a nominator with a given …\nReturns true if validator <code>account</code> has pages to be claimed …")

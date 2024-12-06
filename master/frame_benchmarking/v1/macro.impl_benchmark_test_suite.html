@@ -1,0 +1,262 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="This creates a test suite which runs the module’s benchmarks."><title>impl_benchmark_test_suite in frame_benchmarking::v1 - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_benchmarking/index.html">frame_benchmarking</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In frame_benchmarking::v1</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Macro <a href="../index.html">frame_benchmarking</a>::<wbr><a href="index.html">v1</a>::<wbr><a class="macro" href="#">impl_benchmark_test_suite</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/frame_benchmarking/v1.rs.html#1433-1450">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><span class="macro">macro_rules!</span> impl_benchmark_test_suite {
+    (
+		<span class="macro-nonterminal">$bench_module</span>:ident,
+		<span class="macro-nonterminal">$new_test_ext</span>:expr,
+		<span class="macro-nonterminal">$test</span>:path
+		$(, $( <span class="macro-nonterminal">$rest</span>:tt )* )<span class="question-mark">?
+	</span>) =&gt; { ... };
+}</pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>This creates a test suite which runs the module’s benchmarks.</p>
+<p>When called in <code>pallet_example_basic</code> as</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">impl_benchmark_test_suite!</span>(Pallet, <span class="kw">crate</span>::tests::new_test_ext(), <span class="kw">crate</span>::tests::Test);</code></pre></div>
+<p>It expands to the equivalent of:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span><span class="kw">crate</span>::tests::{new_test_ext, Test};
+	<span class="kw">use </span>frame_support::assert_ok;
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>test_benchmarks() {
+		new_test_ext().execute_with(|| {
+			<span class="macro">assert_ok!</span>(test_benchmark_accumulate_dummy::&lt;Test&gt;());
+			<span class="macro">assert_ok!</span>(test_benchmark_set_dummy::&lt;Test&gt;());
+			<span class="macro">assert_ok!</span>(test_benchmark_sort_vector::&lt;Test&gt;());
+		});
+	}
+}</code></pre></div>
+<p>When called inside the <code>benchmarks</code> macro of the <code>pallet_example_basic</code> as</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">benchmarks!</span> {
+	<span class="comment">// Benchmarks omitted for brevity
+
+	</span><span class="macro">impl_benchmark_test_suite!</span>(Pallet, <span class="kw">crate</span>::tests::new_test_ext(), <span class="kw">crate</span>::tests::Test);
+}</code></pre></div>
+<p>It expands to the equivalent of:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>benchmarking {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span><span class="kw">crate</span>::tests::{new_test_ext, Test};
+	<span class="kw">use </span>frame_support::assert_ok;
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>bench_accumulate_dummy() {
+		new_test_ext().execute_with(|| {
+			<span class="macro">assert_ok!</span>(test_benchmark_accumulate_dummy::&lt;Test&gt;());
+		})
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>bench_set_dummy() {
+		new_test_ext().execute_with(|| {
+			<span class="macro">assert_ok!</span>(test_benchmark_set_dummy::&lt;Test&gt;());
+		})
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>bench_sort_vector() {
+		new_test_ext().execute_with(|| {
+			<span class="macro">assert_ok!</span>(test_benchmark_sort_vector::&lt;Test&gt;());
+		})
+	}
+}</code></pre></div>
+<h3 id="arguments"><a class="doc-anchor" href="#arguments">§</a>Arguments</h3>
+<p>The first argument, <code>module</code>, must be the path to this crate’s module.</p>
+<p>The second argument, <code>new_test_ext</code>, must be a function call which returns either a
+<code>sp_io::TestExternalities</code>, or some other type with a similar interface.</p>
+<p>Note that this function call is <em>not</em> evaluated at compile time, but is instead copied textually
+into each appropriate invocation site.</p>
+<p>The third argument, <code>test</code>, must be the path to the runtime. The item to which this must refer
+will generally take the form:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">frame_support::construct_runtime!</span>(
+	<span class="kw">pub enum </span>Test <span class="kw">where </span>...
+	{ ... }
+);</code></pre></div>
+<p>There is an optional fourth argument, with keyword syntax: <code>benchmarks_path = path_to_benchmarks_invocation</code>. In the typical case in which this macro is in the same module as
+the <code>benchmarks!</code> invocation, you don’t need to supply this. However, if the
+<code>impl_benchmark_test_suite!</code> invocation is in a different module than the <code>benchmarks!</code>
+invocation, then you should provide the path to the module containing the <code>benchmarks!</code>
+invocation:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>benches {
+	<span class="macro">benchmarks!</span>{
+		...
+	}
+}
+
+<span class="kw">mod </span>tests {
+	<span class="comment">// because of macro syntax limitations, neither Pallet nor benches can be paths, but both have
+	// to be idents in the scope of `impl_benchmark_test_suite`.
+	</span><span class="kw">use crate</span>::{benches, Pallet};
+
+	<span class="macro">impl_benchmark_test_suite!</span>(Pallet, new_test_ext(), Test, benchmarks_path = benches);
+
+	<span class="comment">// new_test_ext and the Test item are defined later in this module
+</span>}</code></pre></div>
+<p>There is an optional fifth argument, with keyword syntax: <code>extra = true</code> or <code>extra = false</code>.
+By default, this generates a test suite which iterates over all benchmarks, including those
+marked with the <code>#[extra]</code> annotation. Setting <code>extra = false</code> excludes those.</p>
+<p>There is an optional sixth argument, with keyword syntax: <code>exec_name = custom_exec_name</code>.
+By default, this macro uses <code>execute_with</code> for this parameter. This argument, if set, is subject
+to these restrictions:</p>
+<ul>
+<li>It must be the name of a method applied to the output of the <code>new_test_ext</code> argument.</li>
+<li>That method must have a signature capable of receiving a single argument of the form <code>impl FnOnce()</code>.</li>
+</ul>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

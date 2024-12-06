@@ -1,0 +1,302 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Finality engine, used by the Substrate chain."><title>Engine in substrate_relay_helper::finality_base::engine - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../substrate_relay_helper/index.html">substrate_relay_helper</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Engine</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.ConsensusLogReader">ConsensusLogReader</a></li><li><a href="#associatedtype.EquivocationProof">EquivocationProof</a></li><li><a href="#associatedtype.EquivocationsFinder">EquivocationsFinder</a></li><li><a href="#associatedtype.FinalityProof">FinalityProof</a></li><li><a href="#associatedtype.FinalityVerificationContext">FinalityVerificationContext</a></li><li><a href="#associatedtype.InitializationData">InitializationData</a></li><li><a href="#associatedtype.KeyOwnerProof">KeyOwnerProof</a></li><li><a href="#associatedtype.OperatingMode">OperatingMode</a></li></ul><h3><a href="#required-associated-consts">Required Associated Constants</a></h3><ul class="block"><li><a href="#associatedconstant.ID">ID</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.check_max_expected_call_limits">check_max_expected_call_limits</a></li><li><a href="#tymethod.finality_verification_context">finality_verification_context</a></li><li><a href="#tymethod.generate_source_key_ownership_proof">generate_source_key_ownership_proof</a></li><li><a href="#tymethod.is_initialized_key">is_initialized_key</a></li><li><a href="#tymethod.pallet_operating_mode_key">pallet_operating_mode_key</a></li><li><a href="#tymethod.prepare_initialization_data">prepare_initialization_data</a></li><li><a href="#tymethod.source_finality_proofs">source_finality_proofs</a></li><li><a href="#tymethod.synced_headers_finality_info">synced_headers_finality_info</a></li><li><a href="#tymethod.verify_and_optimize_proof">verify_and_optimize_proof</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.is_halted">is_halted</a></li><li><a href="#method.is_initialized">is_initialized</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In substrate_relay_helper::finality_base::engine</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">substrate_relay_helper</a>::<wbr><a href="../index.html">finality_base</a>::<wbr><a href="index.html">engine</a>::<wbr><a class="trait" href="#">Engine</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#44-151">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Engine&lt;C: <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> {
+    type <a href="#associatedtype.ConsensusLogReader" class="associatedtype">ConsensusLogReader</a>: ConsensusLogReader;
+    type <a href="#associatedtype.FinalityProof" class="associatedtype">FinalityProof</a>: FinalityProof&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt; + Decode + Encode;
+    type <a href="#associatedtype.FinalityVerificationContext" class="associatedtype">FinalityVerificationContext</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>;
+    type <a href="#associatedtype.EquivocationProof" class="associatedtype">EquivocationProof</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>;
+    type <a href="#associatedtype.EquivocationsFinder" class="associatedtype">EquivocationsFinder</a>: FindEquivocations&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityProof" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityProof">FinalityProof</a>, Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityVerificationContext" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityVerificationContext">FinalityVerificationContext</a>, Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.EquivocationProof" title="type substrate_relay_helper::finality_base::engine::Engine::EquivocationProof">EquivocationProof</a>&gt;;
+    type <a href="#associatedtype.KeyOwnerProof" class="associatedtype">KeyOwnerProof</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>;
+    type <a href="#associatedtype.InitializationData" class="associatedtype">InitializationData</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static;
+    type <a href="#associatedtype.OperatingMode" class="associatedtype">OperatingMode</a>: OperatingMode + 'static;
+
+    const <a href="#associatedconstant.ID" class="constant">ID</a>: ConsensusEngineId;
+
+    // Required methods
+    fn <a href="#tymethod.is_initialized_key" class="fn">is_initialized_key</a>() -&gt; StorageKey;
+<span class="item-spacer"></span>    fn <a href="#tymethod.pallet_operating_mode_key" class="fn">pallet_operating_mode_key</a>() -&gt; StorageKey;
+<span class="item-spacer"></span>    fn <a href="#tymethod.source_finality_proofs" class="fn">source_finality_proofs</a>&lt;'life0, 'async_trait&gt;(
+        source_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;C&gt;),
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../../relay_substrate_client/client/subscription/struct.Subscription.html" title="struct relay_substrate_client::client::subscription::Subscription">Subscription</a>&lt;Bytes&gt;, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where 'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.verify_and_optimize_proof" class="fn">verify_and_optimize_proof</a>&lt;'life0, 'life1, 'life2, 'async_trait, TargetChain&gt;(
+        target_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;TargetChain&gt;),
+        header: &amp;'life1 C::Header,
+        proof: &amp;'life2 mut Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityProof" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityProof">FinalityProof</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityVerificationContext" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityVerificationContext">FinalityVerificationContext</a>, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where TargetChain: 'async_trait + <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>,
+             Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait,
+             'life2: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.check_max_expected_call_limits" class="fn">check_max_expected_call_limits</a>(
+        header: &amp;C::Header,
+        proof: &amp;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityProof" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityProof">FinalityProof</a>,
+    ) -&gt; SubmitFinalityProofCallExtras;
+<span class="item-spacer"></span>    fn <a href="#tymethod.prepare_initialization_data" class="fn">prepare_initialization_data</a>&lt;'async_trait&gt;(
+        client: impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;C&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.InitializationData" title="type substrate_relay_helper::finality_base::engine::Engine::InitializationData">InitializationData</a>, <a class="enum" href="../../error/enum.Error.html" title="enum substrate_relay_helper::error::Error">Error</a>&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.finality_verification_context" class="fn">finality_verification_context</a>&lt;'life0, 'async_trait, TargetChain&gt;(
+        target_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;TargetChain&gt;),
+        at: HashOf&lt;TargetChain&gt;,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityVerificationContext" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityVerificationContext">FinalityVerificationContext</a>, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where TargetChain: 'async_trait + <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>,
+             Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.synced_headers_finality_info" class="fn">synced_headers_finality_info</a>&lt;'life0, 'async_trait, TargetChain&gt;(
+        target_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;TargetChain&gt;),
+        at: TargetChain::Hash,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;HeaderFinalityInfo&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityProof" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityProof">FinalityProof</a>, Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityVerificationContext" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityVerificationContext">FinalityVerificationContext</a>&gt;&gt;, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where TargetChain: 'async_trait + <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>,
+             Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.generate_source_key_ownership_proof" class="fn">generate_source_key_ownership_proof</a>&lt;'life0, 'life1, 'async_trait&gt;(
+        source_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;C&gt;),
+        at: C::Hash,
+        equivocation: &amp;'life1 Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.EquivocationProof" title="type substrate_relay_helper::finality_base::engine::Engine::EquivocationProof">EquivocationProof</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.KeyOwnerProof" title="type substrate_relay_helper::finality_base::engine::Engine::KeyOwnerProof">KeyOwnerProof</a>, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait,
+             'life1: 'async_trait</span>;
+
+    // Provided methods
+    fn <a href="#method.is_initialized" class="fn">is_initialized</a>&lt;'life0, 'async_trait, TargetChain&gt;(
+        target_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;TargetChain&gt;),
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where TargetChain: 'async_trait + <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>,
+             Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.is_halted" class="fn">is_halted</a>&lt;'life0, 'async_trait, TargetChain&gt;(
+        target_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;TargetChain&gt;),
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where TargetChain: 'async_trait + <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>,
+             Self: 'async_trait,
+             'life0: 'async_trait</span> { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Finality engine, used by the Substrate chain.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.ConsensusLogReader" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#48">source</a><h4 class="code-header">type <a href="#associatedtype.ConsensusLogReader" class="associatedtype">ConsensusLogReader</a>: ConsensusLogReader</h4></section></summary><div class="docblock"><p>A reader that can extract the consensus log from the header digest and interpret it.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.FinalityProof" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#50">source</a><h4 class="code-header">type <a href="#associatedtype.FinalityProof" class="associatedtype">FinalityProof</a>: FinalityProof&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt; + Decode + Encode</h4></section></summary><div class="docblock"><p>Type of finality proofs, used by consensus engine.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.FinalityVerificationContext" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#52">source</a><h4 class="code-header">type <a href="#associatedtype.FinalityVerificationContext" class="associatedtype">FinalityVerificationContext</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a></h4></section></summary><div class="docblock"><p>The context needed for verifying finality proofs.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.EquivocationProof" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#54">source</a><h4 class="code-header">type <a href="#associatedtype.EquivocationProof" class="associatedtype">EquivocationProof</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a></h4></section></summary><div class="docblock"><p>The type of the equivocation proof used by the consensus engine.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.EquivocationsFinder" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#56-60">source</a><h4 class="code-header">type <a href="#associatedtype.EquivocationsFinder" class="associatedtype">EquivocationsFinder</a>: FindEquivocations&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityProof" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityProof">FinalityProof</a>, Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityVerificationContext" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityVerificationContext">FinalityVerificationContext</a>, Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.EquivocationProof" title="type substrate_relay_helper::finality_base::engine::Engine::EquivocationProof">EquivocationProof</a>&gt;</h4></section></summary><div class="docblock"><p>The equivocations finder.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.KeyOwnerProof" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#62">source</a><h4 class="code-header">type <a href="#associatedtype.KeyOwnerProof" class="associatedtype">KeyOwnerProof</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a></h4></section></summary><div class="docblock"><p>The type of the key owner proof used by the consensus engine.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.InitializationData" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#64">source</a><h4 class="code-header">type <a href="#associatedtype.InitializationData" class="associatedtype">InitializationData</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static</h4></section></summary><div class="docblock"><p>Type of bridge pallet initialization data.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.OperatingMode" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#66">source</a><h4 class="code-header">type <a href="#associatedtype.OperatingMode" class="associatedtype">OperatingMode</a>: OperatingMode + 'static</h4></section></summary><div class="docblock"><p>Type of bridge pallet operating mode.</p>
+</div></details></div><h2 id="required-associated-consts" class="section-header">Required Associated Constants<a href="#required-associated-consts" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedconstant.ID" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#46">source</a><h4 class="code-header">const <a href="#associatedconstant.ID" class="constant">ID</a>: ConsensusEngineId</h4></section></summary><div class="docblock"><p>Unique consensus engine identifier.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.is_initialized_key" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#72">source</a><h4 class="code-header">fn <a href="#tymethod.is_initialized_key" class="fn">is_initialized_key</a>() -&gt; StorageKey</h4></section></summary><div class="docblock"><p>Returns storage at the bridged (target) chain that corresponds to some value that is
+missing from the storage until bridge pallet is initialized.</p>
+<p>Note that we don’t care about type of the value - just if it present or not.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.pallet_operating_mode_key" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#86">source</a><h4 class="code-header">fn <a href="#tymethod.pallet_operating_mode_key" class="fn">pallet_operating_mode_key</a>() -&gt; StorageKey</h4></section></summary><div class="docblock"><p>Returns storage key at the bridged (target) chain that corresponds to the variable
+that holds the operating mode of the pallet.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.source_finality_proofs" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#103-105">source</a><h4 class="code-header">fn <a href="#tymethod.source_finality_proofs" class="fn">source_finality_proofs</a>&lt;'life0, 'async_trait&gt;(
+    source_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;C&gt;),
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../../relay_substrate_client/client/subscription/struct.Subscription.html" title="struct relay_substrate_client::client::subscription::Subscription">Subscription</a>&lt;Bytes&gt;, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>A method to subscribe to encoded finality proofs, given source client.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.verify_and_optimize_proof" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#111-115">source</a><h4 class="code-header">fn <a href="#tymethod.verify_and_optimize_proof" class="fn">verify_and_optimize_proof</a>&lt;'life0, 'life1, 'life2, 'async_trait, TargetChain&gt;(
+    target_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;TargetChain&gt;),
+    header: &amp;'life1 C::Header,
+    proof: &amp;'life2 mut Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityProof" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityProof">FinalityProof</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityVerificationContext" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityVerificationContext">FinalityVerificationContext</a>, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    TargetChain: 'async_trait + <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>,
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,
+    'life2: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Verify and optimize finality proof before sending it to the target node.</p>
+<p>Apart from optimization, we expect this method to perform all required checks
+that the <code>header</code> and <code>proof</code> are valid at the current state of the target chain.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.check_max_expected_call_limits" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#119-122">source</a><h4 class="code-header">fn <a href="#tymethod.check_max_expected_call_limits" class="fn">check_max_expected_call_limits</a>(
+    header: &amp;C::Header,
+    proof: &amp;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityProof" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityProof">FinalityProof</a>,
+) -&gt; SubmitFinalityProofCallExtras</h4></section></summary><div class="docblock"><p>Checks whether the given <code>header</code> and its finality <code>proof</code> fit the maximal expected
+call limits (size and weight).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.prepare_initialization_data" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#125-127">source</a><h4 class="code-header">fn <a href="#tymethod.prepare_initialization_data" class="fn">prepare_initialization_data</a>&lt;'async_trait&gt;(
+    client: impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;C&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.InitializationData" title="type substrate_relay_helper::finality_base::engine::Engine::InitializationData">InitializationData</a>, <a class="enum" href="../../error/enum.Error.html" title="enum substrate_relay_helper::error::Error">Error</a>&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Prepare initialization data for the finality bridge pallet.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.finality_verification_context" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#130-133">source</a><h4 class="code-header">fn <a href="#tymethod.finality_verification_context" class="fn">finality_verification_context</a>&lt;'life0, 'async_trait, TargetChain&gt;(
+    target_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;TargetChain&gt;),
+    at: HashOf&lt;TargetChain&gt;,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityVerificationContext" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityVerificationContext">FinalityVerificationContext</a>, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    TargetChain: 'async_trait + <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>,
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Get the context needed for validating a finality proof.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.synced_headers_finality_info" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#137-143">source</a><h4 class="code-header">fn <a href="#tymethod.synced_headers_finality_info" class="fn">synced_headers_finality_info</a>&lt;'life0, 'async_trait, TargetChain&gt;(
+    target_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;TargetChain&gt;),
+    at: TargetChain::Hash,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;HeaderFinalityInfo&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityProof" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityProof">FinalityProof</a>, Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.FinalityVerificationContext" title="type substrate_relay_helper::finality_base::engine::Engine::FinalityVerificationContext">FinalityVerificationContext</a>&gt;&gt;, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    TargetChain: 'async_trait + <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>,
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns the finality info associated to the source headers synced with the target
+at the provided block.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.generate_source_key_ownership_proof" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#146-150">source</a><h4 class="code-header">fn <a href="#tymethod.generate_source_key_ownership_proof" class="fn">generate_source_key_ownership_proof</a>&lt;'life0, 'life1, 'async_trait&gt;(
+    source_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;C&gt;),
+    at: C::Hash,
+    equivocation: &amp;'life1 Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.EquivocationProof" title="type substrate_relay_helper::finality_base::engine::Engine::EquivocationProof">EquivocationProof</a>,
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.Engine.html#associatedtype.KeyOwnerProof" title="type substrate_relay_helper::finality_base::engine::Engine::KeyOwnerProof">KeyOwnerProof</a>, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    Self: 'async_trait,
+    'life0: 'async_trait,
+    'life1: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Generate key ownership proof for the provided equivocation.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.is_initialized" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#75-82">source</a><h4 class="code-header">fn <a href="#method.is_initialized" class="fn">is_initialized</a>&lt;'life0, 'async_trait, TargetChain&gt;(
+    target_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;TargetChain&gt;),
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    TargetChain: 'async_trait + <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>,
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns <code>Ok(true)</code> if finality pallet at the bridged chain has already been initialized.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_halted" class="method"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#89-100">source</a><h4 class="code-header">fn <a href="#method.is_halted" class="fn">is_halted</a>&lt;'life0, 'async_trait, TargetChain&gt;(
+    target_client: &amp;'life0 (impl 'async_trait + <a class="trait" href="../../../relay_substrate_client/client/traits/trait.Client.html" title="trait relay_substrate_client::client::traits::Client">Client</a>&lt;TargetChain&gt;),
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, <a class="enum" href="../../../relay_substrate_client/error/enum.Error.html" title="enum relay_substrate_client::error::Error">SubstrateError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<div class="where">where
+    TargetChain: 'async_trait + <a class="trait" href="../../../relay_substrate_client/chain/trait.Chain.html" title="trait relay_substrate_client::chain::Chain">Chain</a>,
+    Self: 'async_trait,
+    'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>Returns <code>Ok(true)</code> if finality pallet at the bridged chain is halted.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Engine%3CC%3E-for-Grandpa%3CC%3E" class="impl"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#183-440">source</a><a href="#impl-Engine%3CC%3E-for-Grandpa%3CC%3E" class="anchor">§</a><h3 class="code-header">impl&lt;C: <a class="trait" href="../../../relay_substrate_client/chain/trait.ChainWithGrandpa.html" title="trait relay_substrate_client::chain::ChainWithGrandpa">ChainWithGrandpa</a>&gt; <a class="trait" href="trait.Engine.html" title="trait substrate_relay_helper::finality_base::engine::Engine">Engine</a>&lt;C&gt; for <a class="struct" href="struct.Grandpa.html" title="struct substrate_relay_helper::finality_base::engine::Grandpa">Grandpa</a>&lt;C&gt;</h3></section></summary><div class="impl-items"><section id="associatedconstant.ID-1" class="associatedconstant trait-impl"><a class="src rightside" href="../../../src/substrate_relay_helper/finality_base/engine.rs.html#184">source</a><a href="#associatedconstant.ID-1" class="anchor">§</a><h4 class="code-header">const <a href="#associatedconstant.ID" class="constant">ID</a>: ConsensusEngineId = GRANDPA_ENGINE_ID</h4></section><section id="associatedtype.ConsensusLogReader-1" class="associatedtype trait-impl"><a href="#associatedtype.ConsensusLogReader-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.ConsensusLogReader" class="associatedtype">ConsensusLogReader</a> = GrandpaConsensusLogReader&lt;&lt;&lt;C as Chain&gt;::Header as Header&gt;::Number&gt;</h4></section><section id="associatedtype.FinalityProof-1" class="associatedtype trait-impl"><a href="#associatedtype.FinalityProof-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.FinalityProof" class="associatedtype">FinalityProof</a> = GrandpaJustification&lt;&lt;C as Chain&gt;::Header&gt;</h4></section><section id="associatedtype.FinalityVerificationContext-1" class="associatedtype trait-impl"><a href="#associatedtype.FinalityVerificationContext-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.FinalityVerificationContext" class="associatedtype">FinalityVerificationContext</a> = JustificationVerificationContext</h4></section><section id="associatedtype.EquivocationProof-1" class="associatedtype trait-impl"><a href="#associatedtype.EquivocationProof-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.EquivocationProof" class="associatedtype">EquivocationProof</a> = EquivocationProof&lt;&lt;C as Chain&gt;::Hash, &lt;C as Chain&gt;::BlockNumber&gt;</h4></section><section id="associatedtype.EquivocationsFinder-1" class="associatedtype trait-impl"><a href="#associatedtype.EquivocationsFinder-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.EquivocationsFinder" class="associatedtype">EquivocationsFinder</a> = GrandpaEquivocationsFinder&lt;C&gt;</h4></section><section id="associatedtype.KeyOwnerProof-1" class="associatedtype trait-impl"><a href="#associatedtype.KeyOwnerProof-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.KeyOwnerProof" class="associatedtype">KeyOwnerProof</a> = &lt;C as <a class="trait" href="../../../relay_substrate_client/chain/trait.ChainWithGrandpa.html" title="trait relay_substrate_client::chain::ChainWithGrandpa">ChainWithGrandpa</a>&gt;::<a class="associatedtype" href="../../../relay_substrate_client/chain/trait.ChainWithGrandpa.html#associatedtype.KeyOwnerProof" title="type relay_substrate_client::chain::ChainWithGrandpa::KeyOwnerProof">KeyOwnerProof</a></h4></section><section id="associatedtype.InitializationData-1" class="associatedtype trait-impl"><a href="#associatedtype.InitializationData-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.InitializationData" class="associatedtype">InitializationData</a> = InitializationData&lt;&lt;C as Chain&gt;::Header&gt;</h4></section><section id="associatedtype.OperatingMode-1" class="associatedtype trait-impl"><a href="#associatedtype.OperatingMode-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.OperatingMode" class="associatedtype">OperatingMode</a> = BasicOperatingMode</h4></section></div></details></div><script src="../../../trait.impl/substrate_relay_helper/finality_base/engine/trait.Engine.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

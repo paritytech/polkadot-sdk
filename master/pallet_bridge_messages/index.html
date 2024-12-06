@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Runtime module that allows sending and receiving messages using lane concept:"><title>pallet_bridge_messages - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_bridge_messages" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_bridge_messages/index.html">pallet_bridge_messages</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_bridge_messages</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_bridge_messages/lib.rs.html#17-789">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Runtime module that allows sending and receiving messages using lane concept:</p>
+<ol>
+<li>the message is sent using <code>send_message()</code> call;</li>
+<li>every outbound message is assigned nonce;</li>
+<li>the messages are stored in the storage;</li>
+<li>external component (relay) delivers messages to bridged chain;</li>
+<li>messages are processed in order (ordered by assigned nonce);</li>
+<li>relay may send proof-of-delivery back to this chain.</li>
+</ol>
+<p>Once message is sent, its progress can be tracked by looking at module events.
+The assigned nonce is reported using <code>MessageAccepted</code> event. When message is
+delivered to the the bridged chain, it is reported using <code>MessagesDelivered</code> event.</p>
+<p><strong>IMPORTANT NOTE</strong>: after generating weights (custom <code>WeighInfo</code> implementation) for
+your runtime (where this module is plugged to), please add test for these weights.
+The test should call the <code>ensure_weights_are_correct</code> function from this module.
+If this test fails with your weights, then either weights are computed incorrectly,
+or some benchmarks assumptions are broken for your runtime.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_bridge_messages::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_bridge_messages::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="benchmarking/index.html" title="mod pallet_bridge_messages::benchmarking">benchmarking</a></div><div class="desc docblock-short">Messages pallet benchmarking.</div></li><li><div class="item-name"><a class="mod" href="messages_generation/index.html" title="mod pallet_bridge_messages::messages_generation">messages_generation</a></div><div class="desc docblock-short">Helpers for generating message storage proofs, that are used by tests and by benchmarks.</div></li><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod pallet_bridge_messages::migration">migration</a></div><div class="desc docblock-short">A module that is responsible for migration of storage.</div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_bridge_messages::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_bridge_messages::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for pallet_bridge_messages</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.CallHelper.html" title="struct pallet_bridge_messages::CallHelper">CallHelper</a></div><div class="desc docblock-short">Helper struct that provides methods for working with a call supported by <code>MessagesCallInfo</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.InboundLane.html" title="struct pallet_bridge_messages::InboundLane">InboundLane</a></div><div class="desc docblock-short">Inbound messages lane.</div></li><li><div class="item-name"><a class="struct" href="struct.LanesManager.html" title="struct pallet_bridge_messages::LanesManager">LanesManager</a></div><div class="desc docblock-short">Message lanes manager.</div></li><li><div class="item-name"><a class="struct" href="struct.OutboundLane.html" title="struct pallet_bridge_messages::OutboundLane">OutboundLane</a></div><div class="desc docblock-short">Outbound messages lane.</div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeInboundLaneStorage.html" title="struct pallet_bridge_messages::RuntimeInboundLaneStorage">RuntimeInboundLaneStorage</a></div><div class="desc docblock-short">Runtime inbound lane storage.</div></li><li><div class="item-name"><a class="struct" href="struct.RuntimeOutboundLaneStorage.html" title="struct pallet_bridge_messages::RuntimeOutboundLaneStorage">RuntimeOutboundLaneStorage</a></div><div class="desc docblock-short">Runtime outbound lane storage.</div></li><li><div class="item-name"><a class="struct" href="struct.SendMessageArgs.html" title="struct pallet_bridge_messages::SendMessageArgs">SendMessageArgs</a></div><div class="desc docblock-short">Structure, containing a validated message payload and all the info required
+to send it on the bridge.</div></li><li><div class="item-name"><a class="struct" href="struct.StoredInboundLaneData.html" title="struct pallet_bridge_messages::StoredInboundLaneData">StoredInboundLaneData</a></div><div class="desc docblock-short">Inbound lane data wrapper that implements <code>MaxEncodedLen</code>.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.LanesManagerError.html" title="enum pallet_bridge_messages::LanesManagerError">LanesManagerError</a></div><div class="desc docblock-short">Lanes manager errors.</div></li><li><div class="item-name"><a class="enum" href="enum.ReceptionConfirmationError.html" title="enum pallet_bridge_messages::ReceptionConfirmationError">ReceptionConfirmationError</a></div><div class="desc docblock-short">Result of messages receival confirmation.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.EXPECTED_DEFAULT_MESSAGE_LENGTH.html" title="constant pallet_bridge_messages::EXPECTED_DEFAULT_MESSAGE_LENGTH">EXPECTED_DEFAULT_MESSAGE_LENGTH</a></div><div class="desc docblock-short">Size of the message being delivered in benchmarks.</div></li><li><div class="item-name"><a class="constant" href="constant.EXTRA_STORAGE_PROOF_SIZE.html" title="constant pallet_bridge_messages::EXTRA_STORAGE_PROOF_SIZE">EXTRA_STORAGE_PROOF_SIZE</a></div><div class="desc docblock-short">Number of extra bytes (excluding size of storage value itself) of storage proof.
+This mostly depends on number of entries (and their density) in the storage trie.
+Some reserve is reserved to account future chain growth.</div></li><li><div class="item-name"><a class="constant" href="constant.LOG_TARGET.html" title="constant pallet_bridge_messages::LOG_TARGET">LOG_TARGET</a></div><div class="desc docblock-short">The target that will be used when publishing logs related to this pallet.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.CallSubType.html" title="trait pallet_bridge_messages::CallSubType">CallSubType</a></div><div class="desc docblock-short">Trait representing a call that is a sub type of <code>pallet_bridge_messages::Call</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.InboundLaneStorage.html" title="trait pallet_bridge_messages::InboundLaneStorage">InboundLaneStorage</a></div><div class="desc docblock-short">Inbound lane storage.</div></li><li><div class="item-name"><a class="trait" href="trait.OutboundLaneStorage.html" title="trait pallet_bridge_messages::OutboundLaneStorage">OutboundLaneStorage</a></div><div class="desc docblock-short">Outbound lane storage.</div></li><li><div class="item-name"><a class="trait" href="trait.WeightInfoExt.html" title="trait pallet_bridge_messages::WeightInfoExt">WeightInfoExt</a></div><div class="desc docblock-short">Extended weight info.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.ensure_able_to_receive_confirmation.html" title="fn pallet_bridge_messages::ensure_able_to_receive_confirmation">ensure_able_to_receive_confirmation</a></div><div class="desc docblock-short">Ensure that we’re able to receive maximal confirmation from other chain.</div></li><li><div class="item-name"><a class="fn" href="fn.ensure_able_to_receive_message.html" title="fn pallet_bridge_messages::ensure_able_to_receive_message">ensure_able_to_receive_message</a></div><div class="desc docblock-short">Ensure that we’re able to receive maximal (by-size and by-weight) message from other chain.</div></li><li><div class="item-name"><a class="fn" href="fn.ensure_maximal_message_dispatch.html" title="fn pallet_bridge_messages::ensure_maximal_message_dispatch">ensure_maximal_message_dispatch</a></div><div class="desc docblock-short">Ensure that we are able to dispatch maximal size messages.</div></li><li><div class="item-name"><a class="fn" href="fn.ensure_weights_are_correct.html" title="fn pallet_bridge_messages::ensure_weights_are_correct">ensure_weights_are_correct</a></div><div class="desc docblock-short">Ensure that weights from <code>WeightInfoExt</code> implementation are looking correct.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.StoredMessagePayload.html" title="type pallet_bridge_messages::StoredMessagePayload">StoredMessagePayload</a></div><div class="desc docblock-short">Outbound message data wrapper that implements <code>MaxEncodedLen</code>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

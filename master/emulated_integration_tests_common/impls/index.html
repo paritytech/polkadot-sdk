@@ -1,0 +1,170 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `impls` mod in crate `emulated_integration_tests_common`."><title>emulated_integration_tests_common::impls - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="emulated_integration_tests_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../emulated_integration_tests_common/index.html">emulated_integration_tests_common</a><span class="version">3.0.0</span></h2></div><h2 class="location"><a href="#">Module impls</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li><li><a href="#derives">Derive Macros</a></li></ul></section><h2><a href="../index.html">In crate emulated_integration_tests_common</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">emulated_integration_tests_common</a>::<wbr><a class="mod" href="#">impls</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/emulated_integration_tests_common/impls.rs.html#16-976">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.xcm_transact_paid_execution"><code>pub use crate::xcm_helpers::<a class="fn" href="../xcm_helpers/fn.xcm_transact_paid_execution.html" title="fn emulated_integration_tests_common::xcm_helpers::xcm_transact_paid_execution">xcm_transact_paid_execution</a>;</code></div></li><li><div class="item-name" id="reexport.xcm_transact_unpaid_execution"><code>pub use crate::xcm_helpers::<a class="fn" href="../xcm_helpers/fn.xcm_transact_unpaid_execution.html" title="fn emulated_integration_tests_common::xcm_helpers::xcm_transact_unpaid_execution">xcm_transact_unpaid_execution</a>;</code></div></li><li><div class="item-name" id="reexport.PROOF_SIZE_THRESHOLD"><code>pub use crate::<a class="constant" href="../constant.PROOF_SIZE_THRESHOLD.html" title="constant emulated_integration_tests_common::PROOF_SIZE_THRESHOLD">PROOF_SIZE_THRESHOLD</a>;</code></div></li><li><div class="item-name" id="reexport.REF_TIME_THRESHOLD"><code>pub use crate::<a class="constant" href="../constant.REF_TIME_THRESHOLD.html" title="constant emulated_integration_tests_common::REF_TIME_THRESHOLD">REF_TIME_THRESHOLD</a>;</code></div></li><li><div class="item-name" id="reexport.paste"><code>pub use <a class="mod" href="https://docs.rs/paste/1.0.15/paste/index.html" title="mod paste">paste</a>;</code></div></li><li><div class="item-name" id="reexport.pallet_assets"><code>pub use pallet_assets;</code></div></li><li><div class="item-name" id="reexport.pallet_message_queue"><code>pub use pallet_message_queue;</code></div></li><li><div class="item-name" id="reexport.pallet_xcm"><code>pub use pallet_xcm;</code></div></li><li><div class="item-name" id="reexport.cumulus_pallet_parachain_system"><code>pub use cumulus_pallet_parachain_system;</code></div></li><li><div class="item-name" id="reexport.cumulus_pallet_xcmp_queue"><code>pub use cumulus_pallet_xcmp_queue;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="dmp/index.html" title="mod emulated_integration_tests_common::impls::dmp">dmp</a></div><div class="desc docblock-short">To prevent Out of Memory errors on the <code>DownwardMessageQueue</code>, an
+exponential fee factor (<code>DeliveryFeeFactor</code>) is set. The fee factor
+increments exponentially after the number of messages in the
+<code>DownwardMessageQueue</code> passes a threshold. This threshold is set as:</div></li><li><div class="item-name"><a class="mod" href="hrmp/index.html" title="mod emulated_integration_tests_common::impls::hrmp">hrmp</a></div></li></ul><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.assert_expected_events.html" title="macro emulated_integration_tests_common::impls::assert_expected_events">assert_expected_events</a></div></li><li><div class="item-name"><a class="macro" href="macro.assert_ok.html" title="macro emulated_integration_tests_common::impls::assert_ok">assert_ok</a></div><div class="desc docblock-short">Panic if an expression doesn’t evaluate to <code>Ok</code>.</div></li><li><div class="item-name"><a class="macro" href="macro.bx.html" title="macro emulated_integration_tests_common::impls::bx">bx</a></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AccountId32.html" title="struct emulated_integration_tests_common::impls::AccountId32">AccountId32</a></div><div class="desc docblock-short">An opaque 32-byte cryptographic identifier.</div></li><li><div class="item-name"><a class="struct" href="struct.Asset.html" title="struct emulated_integration_tests_common::impls::Asset">Asset</a></div><div class="desc docblock-short">Either an amount of a single fungible asset, or a single well-identified non-fungible asset.</div></li><li><div class="item-name"><a class="struct" href="struct.BridgeHubMessageHandler.html" title="struct emulated_integration_tests_common::impls::BridgeHubMessageHandler">BridgeHubMessageHandler</a></div></li><li><div class="item-name"><a class="struct" href="struct.BridgeMessage.html" title="struct emulated_integration_tests_common::impls::BridgeMessage">BridgeMessage</a></div></li><li><div class="item-name"><a class="struct" href="struct.BridgeMessageDispatchError.html" title="struct emulated_integration_tests_common::impls::BridgeMessageDispatchError">BridgeMessageDispatchError</a></div></li><li><div class="item-name"><a class="struct" href="struct.BridgeMessagesInstance1.html" title="struct emulated_integration_tests_common::impls::BridgeMessagesInstance1">BridgeMessagesInstance1</a></div><div class="desc docblock-short"><code>Instance1</code> to be used for instantiable pallets defined with the
+<a href="../../frame_support_procedural/attr.pallet.html" title="attr frame_support_procedural::pallet"><code>#[pallet]</code></a> macro. Instances 2-16 are also available but are hidden
+from docs.</div></li><li><div class="item-name"><a class="struct" href="struct.DoubleEncoded.html" title="struct emulated_integration_tests_common::impls::DoubleEncoded">DoubleEncoded</a></div><div class="desc docblock-short">Wrapper around the encoded and decoded versions of a value.
+Caches the decoded value once computed.</div></li><li><div class="item-name"><a class="struct" href="struct.HrmpChannelId.html" title="struct emulated_integration_tests_common::impls::HrmpChannelId">HrmpChannelId</a></div><div class="desc docblock-short">A type that uniquely identifies an HRMP channel. An HRMP channel is established between two
+paras. In text, we use the notation <code>(A, B)</code> to specify a channel between A and B. The channels
+are unidirectional, meaning that <code>(A, B)</code> and <code>(B, A)</code> refer to different channels. The
+convention is that we use the first item tuple for the sender and the second for the recipient.
+Only one channel is allowed between two participants in one direction, i.e. there cannot be 2
+different channels identified by <code>(A, B)</code>. A channel with the same para id in sender and
+recipient is invalid. That is, however, not enforced.</div></li><li><div class="item-name"><a class="struct" href="struct.Location.html" title="struct emulated_integration_tests_common::impls::Location">Location</a></div><div class="desc docblock-short">A relative path between state-bearing consensus systems.</div></li><li><div class="item-name"><a class="struct" href="struct.ParaId.html" title="struct emulated_integration_tests_common::impls::ParaId">ParaId</a></div><div class="desc docblock-short">Unique identifier of a parachain.</div></li><li><div class="item-name"><a class="struct" href="struct.Weight.html" title="struct emulated_integration_tests_common::impls::Weight">Weight</a></div></li><li><div class="item-name"><a class="struct" href="struct.WeightMeter.html" title="struct emulated_integration_tests_common::impls::WeightMeter">WeightMeter</a></div><div class="desc docblock-short">Meters consumed weight and a hard limit for the maximal consumable weight.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.AggregateMessageOrigin.html" title="enum emulated_integration_tests_common::impls::AggregateMessageOrigin">AggregateMessageOrigin</a></div><div class="desc docblock-short">Aggregate message origin for the <code>MessageQueue</code> pallet.</div></li><li><div class="item-name"><a class="enum" href="enum.Junction.html" title="enum emulated_integration_tests_common::impls::Junction">Junction</a></div><div class="desc docblock-short">A single item in a path to describe the relative location of a consensus system.</div></li><li><div class="item-name"><a class="enum" href="enum.Junctions.html" title="enum emulated_integration_tests_common::impls::Junctions">Junctions</a></div><div class="desc docblock-short">Non-parent junctions that can be constructed, up to the length of 8. This specific <code>Junctions</code>
+implementation uses a Rust <code>enum</code> in order to make pattern matching easier.</div></li><li><div class="item-name"><a class="enum" href="enum.NetworkId.html" title="enum emulated_integration_tests_common::impls::NetworkId">NetworkId</a></div><div class="desc docblock-short">A global identifier of a data structure existing within consensus.</div></li><li><div class="item-name"><a class="enum" href="enum.OriginKind.html" title="enum emulated_integration_tests_common::impls::OriginKind">OriginKind</a></div><div class="desc docblock-short">Basically just the XCM (more general) version of <code>ParachainDispatchOrigin</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.Outcome.html" title="enum emulated_integration_tests_common::impls::Outcome">Outcome</a></div><div class="desc docblock-short">Outcome of an XCM execution.</div></li><li><div class="item-name"><a class="enum" href="enum.UmpQueueId.html" title="enum emulated_integration_tests_common::impls::UmpQueueId">UmpQueueId</a></div><div class="desc docblock-short">Identifies a UMP queue inside the <code>MessageQueue</code> pallet.</div></li><li><div class="item-name"><a class="enum" href="enum.VersionedXcm.html" title="enum emulated_integration_tests_common::impls::VersionedXcm">VersionedXcm</a></div><div class="desc docblock-short">A single XCM message, together with its version code.</div></li><li><div class="item-name"><a class="enum" href="enum.XcmBridgeHubCall.html" title="enum emulated_integration_tests_common::impls::XcmBridgeHubCall">XcmBridgeHubCall</a></div><div class="desc docblock-short">A minimized version of <code>pallet_xcm_bridge_hub::Call</code> that can be used without a runtime.</div></li><li><div class="item-name"><a class="enum" href="enum.XcmError.html" title="enum emulated_integration_tests_common::impls::XcmError">XcmError</a></div><div class="desc docblock-short">Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
+format. Those trailing are merely part of the XCM implementation; there is no expectation that
+they will retain the same index over time.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.BridgeMessageHandler.html" title="trait emulated_integration_tests_common::impls::BridgeMessageHandler">BridgeMessageHandler</a></div></li><li><div class="item-name"><a class="trait" href="trait.Chain.html" title="trait emulated_integration_tests_common::impls::Chain">Chain</a></div></li><li><div class="item-name"><a class="trait" href="trait.Decode.html" title="trait emulated_integration_tests_common::impls::Decode">Decode</a></div><div class="desc docblock-short">Trait that allows zero-copy read of value-references from slices in LE format.</div></li><li><div class="item-name"><a class="trait" href="trait.DmpMessageHandler.html" title="trait emulated_integration_tests_common::impls::DmpMessageHandler">DmpMessageHandler</a></div><div class="desc docblock-short">Something that should be called when a downward message is received.</div></li><li><div class="item-name"><a class="trait" href="trait.Encode.html" title="trait emulated_integration_tests_common::impls::Encode">Encode</a></div><div class="desc docblock-short">Trait that allows zero-copy write of value-references to slices in LE format.</div></li><li><div class="item-name"><a class="trait" href="trait.Inspect.html" title="trait emulated_integration_tests_common::impls::Inspect">Inspect</a></div><div class="desc docblock-short">Trait for providing balance-inspection access to a set of named fungible assets.</div></li><li><div class="item-name"><a class="trait" href="trait.Network.html" title="trait emulated_integration_tests_common::impls::Network">Network</a></div></li><li><div class="item-name"><a class="trait" href="trait.Parachain.html" title="trait emulated_integration_tests_common::impls::Parachain">Parachain</a></div></li><li><div class="item-name"><a class="trait" href="trait.RelayChain.html" title="trait emulated_integration_tests_common::impls::RelayChain">RelayChain</a></div></li><li><div class="item-name"><a class="trait" href="trait.TestExt.html" title="trait emulated_integration_tests_common::impls::TestExt">TestExt</a></div></li><li><div class="item-name"><a class="trait" href="trait.XcmpMessageHandler.html" title="trait emulated_integration_tests_common::impls::XcmpMessageHandler">XcmpMessageHandler</a></div><div class="desc docblock-short">Something that should be called for each batch of messages received over XCMP.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.weight_within_threshold.html" title="fn emulated_integration_tests_common::impls::weight_within_threshold">weight_within_threshold</a></div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AccountId.html" title="type emulated_integration_tests_common::impls::AccountId">AccountId</a></div><div class="desc docblock-short">Some way of identifying an account on the chain. We intentionally make it equivalent
+to the public key of our transaction signing scheme.</div></li><li><div class="item-name"><a class="type" href="type.Balance.html" title="type emulated_integration_tests_common::impls::Balance">Balance</a></div><div class="desc docblock-short">Balance of an account.</div></li><li><div class="item-name"><a class="type" href="type.BridgeLaneId.html" title="type emulated_integration_tests_common::impls::BridgeLaneId">BridgeLaneId</a></div></li><li><div class="item-name"><a class="type" href="type.InteriorLocation.html" title="type emulated_integration_tests_common::impls::InteriorLocation">InteriorLocation</a></div><div class="desc docblock-short">A relative location which is constrained to be an interior location of the context.</div></li><li><div class="item-name"><a class="type" href="type.XcmVersion.html" title="type emulated_integration_tests_common::impls::XcmVersion">XcmVersion</a></div><div class="desc docblock-short">A version of XCM.</div></li></ul><h2 id="derives" class="section-header">Derive Macros<a href="#derives" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="derive" href="derive.Decode.html" title="derive emulated_integration_tests_common::impls::Decode">Decode</a></div><div class="desc docblock-short">Derive <code>parity_scale_codec::Decode</code> and for struct and enum.</div></li><li><div class="item-name"><a class="derive" href="derive.Encode.html" title="derive emulated_integration_tests_common::impls::Encode">Encode</a></div><div class="desc docblock-short">Derive <code>parity_scale_codec::Encode</code> and <code>parity_scale_codec::EncodeLike</code> for struct and enum.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

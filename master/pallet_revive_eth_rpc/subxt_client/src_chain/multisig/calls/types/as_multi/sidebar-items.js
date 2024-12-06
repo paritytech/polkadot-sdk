@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Call","MaxWeight","MaybeTimepoint","OtherSignatories","Threshold"]};

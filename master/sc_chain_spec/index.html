@@ -1,0 +1,653 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="This crate includes structs and utilities for defining configuration files (known as chain specification) for both runtime and node."><title>sc_chain_spec - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_chain_spec" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_chain_spec/index.html">sc_chain_spec</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li><li><a href="#derives">Derive Macros</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sc_chain_spec</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/sc_chain_spec/lib.rs.html#19-433">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>This crate includes structs and utilities for defining configuration files (known as chain
+specification) for both runtime and node.</p>
+<h2 id="intro-chain-specification"><a class="doc-anchor" href="#intro-chain-specification">§</a>Intro: Chain Specification</h2>
+<p>The chain specification comprises parameters and settings that define the properties and an
+initial state of a chain. Users typically interact with the JSON representation of the chain
+spec. Internally, the chain spec is embodied by the <a href="struct.GenericChainSpec.html" title="struct sc_chain_spec::GenericChainSpec"><code>GenericChainSpec</code></a> struct, and specific
+properties can be accessed using the <a href="trait.ChainSpec.html" title="trait sc_chain_spec::ChainSpec"><code>ChainSpec</code></a> trait.</p>
+<p>In summary, although not restricted to, the primary role of the chain spec is to provide a list
+of well-known boot nodes for the blockchain network and the means for initializing the genesis
+storage. This initialization is necessary for creating a genesis block upon which subsequent
+blocks are built. When the node is launched for the first time, it reads the chain spec,
+initializes the genesis block, and establishes connections with the boot nodes.</p>
+<p>The JSON chain spec is divided into two main logical sections:</p>
+<ul>
+<li>one section details general chain properties,</li>
+<li>second explicitly or indirectly defines the genesis storage, which, in turn, determines the
+genesis hash of the chain,</li>
+</ul>
+<p>The chain specification consists of the following fields:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Chain spec key</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>name</td>
+      <td>The human readable name of the chain.</td>
+    </tr>
+    <tr>
+      <td>id</td>
+      <td>The id of the chain.</td>
+    </tr>
+    <tr>
+      <td>chainType</td>
+      <td>The chain type of this chain
+          (refer to
+           <a href="enum.ChainType.html" title="enum sc_chain_spec::ChainType">
+             <code>ChainType</code>
+           </a>).
+      </td>
+    </tr>
+    <tr>
+      <td>bootNodes</td>
+      <td>A list of
+      <a href="https://github.com/multiformats/multiaddr">multi addresses</a>
+      that belong to boot nodes of the chain.</td>
+    </tr>
+    <tr>
+      <td>telemetryEndpoints</td>
+      <td>Optional list of <code>multi address, verbosity</code> of telemetry endpoints. The
+verbosity goes from 0 to 9. With 0 being the mode with the lowest verbosity.</td>
+    </tr>
+    <tr>
+      <td>protocolId</td>
+      <td>Optional networking protocol id that identifies the chain.</td>
+    </tr>
+    <tr>
+      <td>forkId</td>
+      <td>Optional fork id. Should most likely be left empty. Can be used to signal a fork on
+the network level when two chains have the same genesis hash.</td>
+    </tr>
+    <tr>
+      <td>properties</td>
+      <td>Custom properties. Shall be provided in the form of
+<code>key</code>-<code>value</code> json object.
+    </td>
+    </tr>
+    <tr>
+      <td>consensusEngine</td>
+      <td>Deprecated field. Should be ignored.</td>
+    </tr>
+    <tr>
+      <td>codeSubstitutes</td>
+      <td>Optional map of <code>block_number</code> to <code>wasm_code</code>. More details in
+material to follow.</td>
+    </tr>
+    <tr>
+      <td>genesis</td>
+      <td>Defines the initial state of the runtime. More details in material to follow.</td>
+    </tr>
+  </tbody>
+</table>
+<h2 id="genesis-initial-runtime-state"><a class="doc-anchor" href="#genesis-initial-runtime-state">§</a><code>genesis</code>: Initial Runtime State</h2>
+<p>All nodes in the network must build subsequent blocks upon exactly the same genesis block.</p>
+<p>The information configured in the <code>genesis</code> section of a chain specification is used to build
+the genesis storage, which is essential for creating the genesis block, since the block header
+includes the storage root hash.</p>
+<p>The <code>genesis</code> key of the chain specification definition describes the
+initial state of the runtime. For example, it may contain:</p>
+<ul>
+<li>an initial list of funded accounts,</li>
+<li>the administrative account that controls the sudo key,</li>
+<li>an initial authorities set for consensus, etc.</li>
+</ul>
+<p>As the compiled WASM blob of the runtime code is stored in the chain’s state, the initial
+runtime must also be provided within the chain specification.</p>
+<h2 id="chain-spec-formats"><a class="doc-anchor" href="#chain-spec-formats">§</a><code>chain-spec</code> formats</h2>
+<p>In essence, the most important formats of genesis initial state in chain specification files
+are:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Format</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+		<code>full config</code>
+      </td>
+      <td>A JSON object that provides an explicit and comprehensive representation of the
+<code>RuntimeGenesisConfig</code> struct, which is generated by <a
+href="../frame_support_procedural/macro.construct_runtime.html"
+><code>polkadot_sdk_frame::runtime::prelude::construct_runtime</code></a> macro (<a
+href="../substrate_test_runtime/struct.RuntimeGenesisConfig.html#"
+>example of generated struct</a>). Must contain *all* the keys of
+the genesis config, no defaults will be used.
+<p>This format explicitly provides the code of the runtime.</p>
+</td></tr>
+    <tr>
+      <td>
+		<code>patch</code>
+      </td>
+      <td>A JSON object that offers a partial representation of the
+      <code>RuntimeGenesisConfig</code> provided by the runtime. It contains a patch, which is
+essentially a list of key-value pairs to customize in the default runtime's
+<code>RuntimeGenesisConfig</code>: `full = default + patch`. Please note that `default`
+`RuntimeGenesisConfig` may not be functional.
+This format explicitly provides the code of the runtime.
+</td></tr>
+    <tr>
+      <td>
+		<code>raw</code>
+      </td>
+      <td>A JSON object with two fields: <code>top</code> and <code>children_default</code>.
+Each field is a map of <code>key => value</code> pairs representing entries in a genesis storage
+trie. The runtime code is one of such entries.</td>
+    </tr>
+  </tbody>
+</table>
+<p>The main purpose of the <code>RuntimeGenesisConfig</code> patch is to:</p>
+<ul>
+<li>minimize the maintenance effort when RuntimeGenesisConfig is changed in the future (e.g. new
+pallets added to the runtime or pallet’s genesis config changed),</li>
+<li>increase the readability - it only contains the relevant fields,</li>
+<li>allow to apply numerous changes in distinct domains (e.g. for zombienet).</li>
+</ul>
+<p>For production or long-lasting blockchains, using the <code>raw</code> format in the chain specification is
+recommended. Only the <code>raw</code> format guarantees that storage root hash will remain unchanged when
+the <code>RuntimeGenesisConfig</code> format changes due to software upgrade.</p>
+<p>JSON examples in the <a href="#json-chain-specification-example">following section</a> illustrate the <code>raw</code>
+<code>patch</code> and full genesis fields.</p>
+<h2 id="from-initial-state-to-raw-genesis"><a class="doc-anchor" href="#from-initial-state-to-raw-genesis">§</a>From Initial State to Raw Genesis.</h2>
+<p>To generate a raw genesis storage from the JSON representation of the runtime genesis config,
+the node needs to interact with the runtime.</p>
+<p>This interaction involves passing the runtime genesis config JSON blob to the runtime using the
+[<code>sp_genesis_builder::GenesisBuilder::build_state</code>] function. During this operation, the
+runtime converts the JSON representation of the genesis config into [<code>sp_io::storage</code>] items. It
+is a crucial step for computing the storage root hash, which is a key component in determining
+the genesis hash.</p>
+<p>Consequently, the runtime must support the [<code>sp_genesis_builder::GenesisBuilder</code>] API to
+utilize either <code>patch</code> or <code>full</code> formats.</p>
+<p>This entire process is encapsulated within the implementation of the [<code>BuildStorage</code>] trait,
+which can be accessed through the <a href="trait.ChainSpec.html#tymethod.as_storage_builder" title="method sc_chain_spec::ChainSpec::as_storage_builder"><code>ChainSpec::as_storage_builder</code></a> method. There is an
+intermediate internal helper that facilitates this interaction,
+<a href="struct.GenesisConfigBuilderRuntimeCaller.html" title="struct sc_chain_spec::GenesisConfigBuilderRuntimeCaller"><code>GenesisConfigBuilderRuntimeCaller</code></a>, which serves as a straightforward wrapper for
+[<code>sc_executor::WasmExecutor</code>].</p>
+<p>In case of <code>raw</code> genesis state the node does not interact with the runtime regarding the
+computation of initial state.</p>
+<p>The plain and <code>raw</code> chain specification JSON blobs can be found in
+<a href="#json-chain-specification-example">JSON examples</a> section.</p>
+<h2 id="optional-code-mapping"><a class="doc-anchor" href="#optional-code-mapping">§</a>Optional Code Mapping</h2>
+<p>Optional map of <code>block_number</code> to <code>wasm_code</code>.</p>
+<p>The given <code>wasm_code</code> will be used to substitute the on-chain wasm code starting with the
+given block number until the <code>spec_version</code> on-chain changes. The given <code>wasm_code</code> should
+be as close as possible to the on-chain wasm code. A substitute should be used to fix a bug
+that cannot be fixed with a runtime upgrade, if for example the runtime is constantly
+panicking. Introducing new runtime APIs isn’t supported, because the node
+will read the runtime version from the on-chain wasm code.</p>
+<p>Use this functionality only when there is no other way around it, and only patch the problematic
+bug; the rest should be done with an on-chain runtime upgrade.</p>
+<h2 id="building-a-chain-specification"><a class="doc-anchor" href="#building-a-chain-specification">§</a>Building a Chain Specification</h2>
+<p>The <a href="struct.ChainSpecBuilder.html" title="struct sc_chain_spec::ChainSpecBuilder"><code>ChainSpecBuilder</code></a> should be used to create an instance of a chain specification. Its API
+allows configuration of all fields of the chain spec. To generate a JSON representation of the
+specification, use <a href="trait.ChainSpec.html#tymethod.as_json" title="method sc_chain_spec::ChainSpec::as_json"><code>ChainSpec::as_json</code></a>.</p>
+<p>The sample code to generate a chain spec is as follows:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>build_chain_spec_with_patch_works() {
+	<span class="kw">let </span>output = ChainSpec::&lt;()&gt;::builder(
+		substrate_test_runtime::wasm_binary_unwrap().into(),
+		Default::default(),
+	)
+	.with_name(<span class="string">"TestName"</span>)
+	.with_id(<span class="string">"test_id"</span>)
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(<span class="macro">json!</span>({
+		<span class="string">"babe"</span>: {
+			<span class="string">"epochConfig"</span>: {
+				<span class="string">"c"</span>: [
+					<span class="number">7</span>,
+					<span class="number">10
+				</span>],
+				<span class="string">"allowed_slots"</span>: <span class="string">"PrimaryAndSecondaryPlainSlots"
+			</span>}
+		},
+		<span class="string">"substrateTest"</span>: {
+			<span class="string">"authorities"</span>: [
+				AccountKeyring::Ferdie.public().to_ss58check(),
+				AccountKeyring::Alice.public().to_ss58check()
+			],
+		}
+	}))
+	.build();
+
+	<span class="kw">let </span>raw_chain_spec = output.as_json(<span class="bool-val">true</span>);
+	<span class="macro">assert!</span>(raw_chain_spec.is_ok());
+}</code></pre></div>
+<h2 id="json-chain-specification-example"><a class="doc-anchor" href="#json-chain-specification-example">§</a>JSON chain specification example</h2>
+<p>The following are the plain and <code>raw</code> versions of the chain specification JSON files, resulting
+from executing of the above <a href="#building-a-chain-specification">example</a>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>{
+  <span class="string">"name"</span>: <span class="string">"TestName"</span>,
+  <span class="string">"id"</span>: <span class="string">"test_id"</span>,
+  <span class="string">"chainType"</span>: <span class="string">"Local"</span>,
+  <span class="string">"bootNodes"</span>: [],
+  <span class="string">"telemetryEndpoints"</span>: null,
+  <span class="string">"protocolId"</span>: null,
+  <span class="string">"properties"</span>: null,
+  <span class="string">"codeSubstitutes"</span>: {},
+  <span class="string">"genesis"</span>: {
+    <span class="string">"runtimeGenesis"</span>: {
+      <span class="string">"patch"</span>: {
+        <span class="string">"babe"</span>: {
+          <span class="string">"epochConfig"</span>: {
+            <span class="string">"allowed_slots"</span>: <span class="string">"PrimaryAndSecondaryPlainSlots"</span>,
+            <span class="string">"c"</span>: [
+              <span class="number">7</span>,
+              <span class="number">10
+            </span>]
+          }
+        },
+        <span class="string">"substrateTest"</span>: {
+          <span class="string">"authorities"</span>: [
+            <span class="string">"5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"</span>,
+            <span class="string">"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+          </span>]
+        }
+      },
+      <span class="string">"code"</span>: <span class="string">"0x0"
+    </span>}
+  }
+}</code></pre></div>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>{
+  <span class="string">"name"</span>: <span class="string">"TestName"</span>,
+  <span class="string">"id"</span>: <span class="string">"test_id"</span>,
+  <span class="string">"chainType"</span>: <span class="string">"Local"</span>,
+  <span class="string">"bootNodes"</span>: [],
+  <span class="string">"telemetryEndpoints"</span>: null,
+  <span class="string">"protocolId"</span>: null,
+  <span class="string">"properties"</span>: null,
+  <span class="string">"codeSubstitutes"</span>: {},
+  <span class="string">"genesis"</span>: {
+    <span class="string">"raw"</span>: {
+      <span class="string">"top"</span>: {
+        <span class="string">"0x00771836bebdd29870ff246d305c578c4e7b9012096b41c4eb3aaf947f6ea429"</span>: <span class="string">"0x0000"</span>,
+        <span class="string">"0x00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d"</span>: <span class="string">"0x081cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07cd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"</span>,
+        <span class="string">"0x1cb6f36e027abb2091cfb5110ab5087f4e7b9012096b41c4eb3aaf947f6ea429"</span>: <span class="string">"0x0000"</span>,
+        <span class="string">"0x1cb6f36e027abb2091cfb5110ab5087f66e8f035c8adbe7f1547b43c51e6f8a4"</span>: <span class="string">"0x00000000"</span>,
+        <span class="string">"0x1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef"</span>: <span class="string">"0x07000000000000000a0000000000000001"</span>,
+        <span class="string">"0x26aa394eea5630e07c48ae0c9558cef74e7b9012096b41c4eb3aaf947f6ea429"</span>: <span class="string">"0x0000"</span>,
+        <span class="string">"0x26aa394eea5630e07c48ae0c9558cef75684a022a34dd8bfa2baaf44f172b710"</span>: <span class="string">"0x01"</span>,
+        <span class="string">"0x26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc"</span>: <span class="string">"0x4545454545454545454545454545454545454545454545454545454545454545"</span>,
+        <span class="string">"0x26aa394eea5630e07c48ae0c9558cef7a44704b568d21667356a5a050c118746bb1bdbcacd6ac9340000000000000000"</span>: <span class="string">"0x4545454545454545454545454545454545454545454545454545454545454545"</span>,
+        <span class="string">"0x26aa394eea5630e07c48ae0c9558cef7a7fd6c28836b9a28522dc924110cf439"</span>: <span class="string">"0x01"</span>,
+        <span class="string">"0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8"</span>: <span class="string">"0x0000"</span>,
+        <span class="string">"0x3a636f6465"</span>: <span class="string">"0x0"</span>,
+        <span class="string">"0x3a65787472696e7369635f696e646578"</span>: <span class="string">"0x00000000"</span>,
+        <span class="string">"0xc2261276cc9d1f8598ea4b6a74b15c2f4e7b9012096b41c4eb3aaf947f6ea429"</span>: <span class="string">"0x0100"</span>,
+        <span class="string">"0xc2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80"</span>: <span class="string">"0x0000000000000000"
+      </span>},
+      <span class="string">"childrenDefault"</span>: {}
+    }
+  }
+}</code></pre></div>
+<p>The following example shows the plain full config version of chain spec:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>{
+  <span class="string">"name"</span>: <span class="string">"TestName"</span>,
+  <span class="string">"id"</span>: <span class="string">"test_id"</span>,
+  <span class="string">"chainType"</span>: <span class="string">"Local"</span>,
+  <span class="string">"bootNodes"</span>: [],
+  <span class="string">"telemetryEndpoints"</span>: null,
+  <span class="string">"protocolId"</span>: null,
+  <span class="string">"properties"</span>: null,
+  <span class="string">"codeSubstitutes"</span>: {},
+  <span class="string">"genesis"</span>: {
+    <span class="string">"runtimeGenesis"</span>: {
+      <span class="string">"config"</span>: {
+        <span class="string">"babe"</span>: {
+          <span class="string">"authorities"</span>: [
+            [
+              <span class="string">"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"</span>,
+              <span class="number">1
+            </span>],
+            [
+              <span class="string">"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"</span>,
+              <span class="number">1
+            </span>],
+            [
+              <span class="string">"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y"</span>,
+              <span class="number">1
+            </span>]
+          ],
+          <span class="string">"epochConfig"</span>: {
+            <span class="string">"allowed_slots"</span>: <span class="string">"PrimaryAndSecondaryPlainSlots"</span>,
+            <span class="string">"c"</span>: [
+              <span class="number">3</span>,
+              <span class="number">10
+            </span>]
+          }
+        },
+        <span class="string">"balances"</span>: {
+          <span class="string">"balances"</span>: [
+            [
+              <span class="string">"5D34dL5prEUaGNQtPPZ3yN5Y6BnkfXunKXXz6fo7ZJbLwRRH"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5GBNeWRhZc2jXu7D55rBimKYDk8PGk8itRYFTPfC8RJLKG5o"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5Dfis6XL8J2P6JHUnUtArnFWndn62SydeP8ee8sG2ky9nfm9"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5F4H97f7nQovyrbiq4ZetaaviNwThSVcFobcA5aGab6167dK"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5DiDShBWa1fQx6gLzpf3SFBhMinCoyvHM1BWjPNsmXS8hkrW"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5EFb84yH9tpcFuiKUcsmdoF7xeeY3ajG1ZLQimxQoFt9HMKR"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5DZLHESsfGrJ5YzT3HuRPXsSNb589xQ4Unubh1mYLodzKdVY"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5GHJzqvG6tXnngCpG7B12qjUvbo5e4e9z8Xjidk3CQZHxTPZ"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5CUnSsgAyLND3bxxnfNhgWXSe9Wn676JzLpGLgyJv858qhoX"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5CVKn7HAZW1Ky4r7Vkgsr7VEW88C2sHgUNDiwHY9Ct2hjU8q"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5H673aukQ4PeDe1U2nuv1bi32xDEziimh3PZz7hDdYUB7TNz"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5HTe9L15LJryjUAt1jZXZCBPnzbbGnpvFwbjE3NwCWaAqovf"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5D7LFzGpMwHPyDBavkRbWSKWTtJhCaPPZ379wWLT23bJwXJz"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5CLepMARnEgtVR1EkUuJVUvKh97gzergpSxUU3yKGx1v6EwC"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5Chb2UhfvZpmjjEziHbFbotM4quX32ZscRV6QJBt1rUKzz51"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5HmRp3i3ZZk7xsAvbi8hyXVP6whSMnBJGebVC4FsiZVhx52e"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"</span>,
+              <span class="number">100000000000000000
+            </span>],
+            [
+              <span class="string">"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y"</span>,
+              <span class="number">100000000000000000
+            </span>]
+          ]
+        },
+        <span class="string">"substrateTest"</span>: {
+          <span class="string">"authorities"</span>: [
+            <span class="string">"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"</span>,
+            <span class="string">"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"</span>,
+            <span class="string">"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y"
+          </span>]
+        },
+        <span class="string">"system"</span>: {}
+      },
+      <span class="string">"code"</span>: <span class="string">"0x0"
+    </span>}
+  }
+}</code></pre></div>
+<p>The <a href="trait.ChainSpec.html" title="trait sc_chain_spec::ChainSpec"><code>ChainSpec</code></a> trait represents the API to access values defined in the JSON chain specification.</p>
+<h2 id="custom-chain-spec-extensions"><a class="doc-anchor" href="#custom-chain-spec-extensions">§</a>Custom Chain Spec Extensions</h2>
+<p>The basic chain spec type containing all required parameters is <a href="struct.GenericChainSpec.html" title="struct sc_chain_spec::GenericChainSpec"><code>GenericChainSpec</code></a>. It can be
+extended with additional options containing configuration specific to your chain. Usually, the
+extension will be a combination of types exposed by Substrate core modules.</p>
+<p>To allow the core modules to retrieve their configuration from your extension, you should use
+<code>ChainSpecExtension</code> macro exposed by this crate.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>sc_chain_spec::{GenericChainSpec, ChainSpecExtension};
+
+<span class="attr">#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, ChainSpecExtension)]
+</span><span class="kw">pub struct </span>MyExtension {
+	<span class="kw">pub </span>known_blocks: HashMap&lt;u64, String&gt;,
+}
+
+<span class="kw">pub type </span>MyChainSpec = GenericChainSpec&lt;MyExtension&gt;;</code></pre></div>
+<p>Some parameters may require different values depending on the current blockchain height (a.k.a.
+forks). You can use the <a href="derive.ChainSpecGroup.html" title="derive sc_chain_spec::ChainSpecGroup"><code>ChainSpecGroup</code></a> macro and the provided <a href="struct.Forks.html" title="struct sc_chain_spec::Forks"><code>Forks</code></a>
+structure to add such parameters to your chain spec. This will allow overriding a single
+parameter starting at a specific block number.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>sc_chain_spec::{Forks, ChainSpecGroup, ChainSpecExtension, GenericChainSpec};
+
+<span class="attr">#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, ChainSpecGroup)]
+</span><span class="kw">pub struct </span>ClientParams {
+	max_block_size: usize,
+	max_extrinsic_size: usize,
+}
+
+<span class="attr">#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, ChainSpecGroup)]
+</span><span class="kw">pub struct </span>PoolParams {
+	max_transaction_size: usize,
+}
+
+<span class="attr">#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, ChainSpecGroup, ChainSpecExtension)]
+</span><span class="kw">pub struct </span>Extension {
+	<span class="kw">pub </span>client: ClientParams,
+	<span class="kw">pub </span>pool: PoolParams,
+}
+
+<span class="kw">pub type </span>BlockNumber = u64;
+
+<span class="doccomment">/// A chain spec supporting forkable `ClientParams`.
+</span><span class="kw">pub type </span>MyChainSpec1 = GenericChainSpec&lt;Forks&lt;BlockNumber, ClientParams&gt;&gt;;
+
+<span class="doccomment">/// A chain spec supporting forkable `Extension`.
+</span><span class="kw">pub type </span>MyChainSpec2 = GenericChainSpec&lt;Forks&lt;BlockNumber, Extension&gt;&gt;;</code></pre></div>
+<p>It’s also possible to have a set of parameters that are allowed to change with block numbers
+(i.e., they are forkable), and another set that is not subject to changes. This can also be
+achieved by declaring an extension that contains <a href="struct.Forks.html" title="struct sc_chain_spec::Forks"><code>Forks</code></a> within it.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>serde::{Serialize, Deserialize};
+<span class="kw">use </span>sc_chain_spec::{Forks, GenericChainSpec, ChainSpecGroup, ChainSpecExtension};
+
+<span class="attr">#[derive(Clone, Debug, Serialize, Deserialize, ChainSpecGroup)]
+</span><span class="kw">pub struct </span>ClientParams {
+	max_block_size: usize,
+	max_extrinsic_size: usize,
+}
+
+<span class="attr">#[derive(Clone, Debug, Serialize, Deserialize, ChainSpecGroup)]
+</span><span class="kw">pub struct </span>PoolParams {
+	max_transaction_size: usize,
+}
+
+<span class="attr">#[derive(Clone, Debug, Serialize, Deserialize, ChainSpecExtension)]
+</span><span class="kw">pub struct </span>Extension {
+	<span class="kw">pub </span>client: ClientParams,
+	<span class="attr">#[forks]
+	</span><span class="kw">pub </span>pool: Forks&lt;u64, PoolParams&gt;,
+}
+
+<span class="kw">pub type </span>MyChainSpec = GenericChainSpec&lt;Extension&gt;;</code></pre></div>
+<p>The chain spec can be extended with other fields that are opaque to the default chain spec.
+Specific node implementations will need to be able to deserialize these extensions.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.json_merge"><code>pub use self::json_patch::<a class="fn" href="json_patch/fn.merge.html" title="fn sc_chain_spec::json_patch::merge">merge</a> as json_merge;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="json_patch/index.html" title="mod sc_chain_spec::json_patch">json_patch</a></div><div class="desc docblock-short">A helper module providing json patching functions.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ChainSpecBuilder.html" title="struct sc_chain_spec::ChainSpecBuilder">ChainSpecBuilder</a></div><div class="desc docblock-short">Builder for creating <a href="struct.GenericChainSpec.html" title="struct sc_chain_spec::GenericChainSpec"><code>ChainSpec</code></a> instances.</div></li><li><div class="item-name"><a class="struct" href="struct.Forks.html" title="struct sc_chain_spec::Forks">Forks</a></div></li><li><div class="item-name"><a class="struct" href="struct.GenericChainSpec.html" title="struct sc_chain_spec::GenericChainSpec">GenericChainSpec</a></div><div class="desc docblock-short">A configuration of a chain. Can be used to build a genesis block.</div></li><li><div class="item-name"><a class="struct" href="struct.GenesisBlockBuilder.html" title="struct sc_chain_spec::GenesisBlockBuilder">GenesisBlockBuilder</a></div><div class="desc docblock-short">Default genesis block builder in Substrate.</div></li><li><div class="item-name"><a class="struct" href="struct.GenesisConfigBuilderRuntimeCaller.html" title="struct sc_chain_spec::GenesisConfigBuilderRuntimeCaller">GenesisConfigBuilderRuntimeCaller</a></div><div class="desc docblock-short">A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.ChainType.html" title="enum sc_chain_spec::ChainType">ChainType</a></div><div class="desc docblock-short">The type of chain.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.DEV_RUNTIME_PRESET.html" title="constant sc_chain_spec::DEV_RUNTIME_PRESET">DEV_RUNTIME_PRESET</a></div><div class="desc docblock-short">The default <code>development</code> preset used to communicate with the runtime via
+[<code>GenesisBuilder</code>] interface.</div></li><li><div class="item-name"><a class="constant" href="constant.LOCAL_TESTNET_RUNTIME_PRESET.html" title="constant sc_chain_spec::LOCAL_TESTNET_RUNTIME_PRESET">LOCAL_TESTNET_RUNTIME_PRESET</a></div><div class="desc docblock-short">The default <code>local_testnet</code> preset used to communicate with the runtime via
+[<code>GenesisBuilder</code>] interface.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.BuildGenesisBlock.html" title="trait sc_chain_spec::BuildGenesisBlock">BuildGenesisBlock</a></div><div class="desc docblock-short">Trait for building the genesis block.</div></li><li><div class="item-name"><a class="trait" href="trait.ChainSpec.html" title="trait sc_chain_spec::ChainSpec">ChainSpec</a></div><div class="desc docblock-short">Common interface of a chain specification.</div></li><li><div class="item-name"><a class="trait" href="trait.Extension.html" title="trait sc_chain_spec::Extension">Extension</a></div><div class="desc docblock-short">A collection of <code>ChainSpec</code> extensions.</div></li><li><div class="item-name"><a class="trait" href="trait.Fork.html" title="trait sc_chain_spec::Fork">Fork</a></div><div class="desc docblock-short">A <code>ChainSpec</code> extension fork definition.</div></li><li><div class="item-name"><a class="trait" href="trait.GetExtension.html" title="trait sc_chain_spec::GetExtension">GetExtension</a></div><div class="desc docblock-short">A subset of the <code>Extension</code> trait that only allows for querying extensions.</div></li><li><div class="item-name"><a class="trait" href="trait.Group.html" title="trait sc_chain_spec::Group">Group</a></div><div class="desc docblock-short">A <code>ChainSpec</code> extension.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.construct_genesis_block.html" title="fn sc_chain_spec::construct_genesis_block">construct_genesis_block</a></div><div class="desc docblock-short">Create a genesis block, given the initial storage.</div></li><li><div class="item-name"><a class="fn" href="fn.get_extension.html" title="fn sc_chain_spec::get_extension">get_extension</a></div><div class="desc docblock-short">Helper function that queries an extension by type from <code>GetExtension</code> trait object.</div></li><li><div class="item-name"><a class="fn" href="fn.get_extension_mut.html" title="fn sc_chain_spec::get_extension_mut">get_extension_mut</a></div><div class="desc docblock-short">Helper function that queries an extension by type from <code>GetExtension</code> trait object.</div></li><li><div class="item-name"><a class="fn" href="fn.resolve_state_version_from_wasm.html" title="fn sc_chain_spec::resolve_state_version_from_wasm">resolve_state_version_from_wasm</a></div><div class="desc docblock-short">Return the state version given the genesis storage and executor.</div></li><li><div class="item-name"><a class="fn" href="fn.set_code_substitute_in_json_chain_spec.html" title="fn sc_chain_spec::set_code_substitute_in_json_chain_spec">set_code_substitute_in_json_chain_spec</a></div><div class="desc docblock-short">This function sets a codeSubstitute in the chain spec.</div></li><li><div class="item-name"><a class="fn" href="fn.update_code_in_json_chain_spec.html" title="fn sc_chain_spec::update_code_in_json_chain_spec">update_code_in_json_chain_spec</a></div><div class="desc docblock-short">This function updates the code in given chain spec.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.NoExtension.html" title="type sc_chain_spec::NoExtension">NoExtension</a></div><div class="desc docblock-short">A type denoting empty extensions.</div></li><li><div class="item-name"><a class="type" href="type.Properties.html" title="type sc_chain_spec::Properties">Properties</a></div><div class="desc docblock-short">Arbitrary properties defined in chain spec as a JSON object</div></li></ul><h2 id="derives" class="section-header">Derive Macros<a href="#derives" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="derive" href="derive.ChainSpecExtension.html" title="derive sc_chain_spec::ChainSpecExtension">ChainSpecExtension</a></div></li><li><div class="item-name"><a class="derive" href="derive.ChainSpecGroup.html" title="derive sc_chain_spec::ChainSpecGroup">ChainSpecGroup</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

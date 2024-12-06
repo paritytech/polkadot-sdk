@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["current_index","disabled_validators","key_owner","next_keys","queued_changed","queued_keys","validators"]};

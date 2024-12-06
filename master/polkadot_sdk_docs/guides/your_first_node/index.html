@@ -1,0 +1,244 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Running the given runtime with a node. No specific consensus mechanism is used at this stage."><title>polkadot_sdk_docs::guides::your_first_node - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module your_first_node</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::guides</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">your_first_node</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/your_first_node.rs.html#1-314">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Running the given runtime with a node. No specific consensus mechanism is used at this stage.</p>
+<h2 id="your-first-node"><a class="doc-anchor" href="#your-first-node">§</a>Your first Node</h2>
+<p>In this guide, you will learn how to run a runtime, such as the one created in
+<a href="../your_first_runtime/index.html" title="mod polkadot_sdk_docs::guides::your_first_runtime"><code>your_first_runtime</code></a>, in a node. Within the context of this guide, we will focus on running
+the runtime with an <a href="../../reference_docs/omni_node/index.html" title="mod polkadot_sdk_docs::reference_docs::omni_node"><code>omni-node</code></a>. Please first read this page to learn about the OmniNode, and
+other options when it comes to running a node.</p>
+<p><a href="../your_first_runtime/index.html" title="mod polkadot_sdk_docs::guides::your_first_runtime"><code>your_first_runtime</code></a> is a runtime with no consensus related code, and therefore can only be
+executed with a node that also expects no consensus (<a href="../../../sc_consensus_manual_seal/index.html" title="mod sc_consensus_manual_seal"><code>sc_consensus_manual_seal</code></a>).
+<code>polkadot-omni-node</code>’s <a href="(polkadot_omni_node_lib::cli::Cli::dev_block_time)"><code>--dev-block-time</code></a> precisely does this.</p>
+<blockquote>
+<p>All of the following steps are coded as unit tests of this module. Please see <code>Source</code> of the
+page for more information.</p>
+</blockquote>
+<h3 id="running-the-omni-node"><a class="doc-anchor" href="#running-the-omni-node">§</a>Running The Omni Node</h3><h4 id="installs"><a class="doc-anchor" href="#installs">§</a>Installs</h4>
+<p>The <code>polkadot-omni-node</code> can either be downloaded from the latest <a href="https://github.com/paritytech/polkadot-sdk/releases/">Release</a> of <code>polkadot-sdk</code>,
+or installed using <code>cargo</code>:</p>
+<div class="example-wrap"><pre class="language-text"><code>cargo install polkadot-omni-node
+</code></pre></div>
+<p>Next, we need to install the [<code>chain-spec-builder</code>]. This is the tool that allows us to build
+chain-specifications, through interacting with the genesis related APIs of the runtime, as
+described in <a href="../your_first_runtime/index.html#genesis-configuration" title="mod polkadot_sdk_docs::guides::your_first_runtime"><code>crate::guides::your_first_runtime</code></a>.</p>
+<div class="example-wrap"><pre class="language-text"><code>cargo install staging-chain-spec-builder
+</code></pre></div>
+<blockquote>
+<p>The name of the crate is prefixed with <code>staging</code> as the crate name <code>chain-spec-builder</code> on
+crates.io is already taken and is not controlled by <code>polkadot-sdk</code> developers.</p>
+</blockquote>
+<h4 id="building-runtime"><a class="doc-anchor" href="#building-runtime">§</a>Building Runtime</h4>
+<p>Next, we need to build the corresponding runtime that we wish to interact with.</p>
+<div class="example-wrap"><pre class="language-text"><code>cargo build --release -p path-to-runtime
+</code></pre></div>
+<p>Equivalent code in tests:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>Command::new(<span class="string">"cargo"</span>)
+	.arg(<span class="string">"build"</span>)
+	.arg(<span class="string">"--release"</span>)
+	.arg(<span class="string">"-p"</span>)
+	.arg(FIRST_RUNTIME)
+	.assert()
+	.success();</code></pre></div>
+<p>This creates the wasm file under <code>./target/{release}/wbuild/release</code> directory.</p>
+<h4 id="building-chain-spec"><a class="doc-anchor" href="#building-chain-spec">§</a>Building Chain Spec</h4>
+<p>Next, we can generate the corresponding chain-spec file. For this example, we will use the
+<code>development</code> (<code>sp_genesis_config::DEVELOPMENT</code>) preset.</p>
+<p>Note that we intend to run this chain-spec with <code>polkadot-omni-node</code>, which is tailored for
+running parachains. This requires the chain-spec to always contain the <code>para_id</code> and a
+<code>relay_chain</code> fields, which are provided below as CLI arguments.</p>
+<div class="example-wrap"><pre class="language-text"><code>chain-spec-builder \
+	-c &lt;path-to-output&gt; \
+	create \
+	--para-id 42 \
+	--relay-chain dontcare \
+	--runtime polkadot_sdk_docs_first_runtime.wasm \
+	named-preset development
+</code></pre></div>
+<p>Equivalent code in tests:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>chain_spec_builder = find_release_binary(<span class="kw-2">&amp;</span>CHAIN_SPEC_BUILDER).unwrap();
+<span class="kw">let </span>runtime_path = find_wasm(PARA_RUNTIME).unwrap();
+<span class="kw">let </span>output = <span class="string">"/tmp/demo-chain-spec.json"</span>;
+Command::new(chain_spec_builder)
+	.args([<span class="string">"-c"</span>, output])
+	.arg(<span class="string">"create"</span>)
+	.args([<span class="string">"--para-id"</span>, <span class="string">"1000"</span>, <span class="string">"--relay-chain"</span>, <span class="string">"dontcare"</span>])
+	.args([<span class="string">"-r"</span>, runtime_path.to_str().unwrap()])
+	.args([<span class="string">"named-preset"</span>, <span class="string">"development"</span>])
+	.assert()
+	.success();
+std::fs::remove_file(output).unwrap();</code></pre></div>
+<h4 id="running-polkadot-omni-node"><a class="doc-anchor" href="#running-polkadot-omni-node">§</a>Running <code>polkadot-omni-node</code></h4>
+<p>Finally, we can run the node with the generated chain-spec file. We can also specify the block
+time using the <code>--dev-block-time</code> flag.</p>
+<div class="example-wrap"><pre class="language-text"><code>polkadot-omni-node \
+	--tmp \
+	--dev-block-time 1000 \
+	--chain &lt;chain_spec_file&gt;.json
+</code></pre></div>
+<blockquote>
+<p>Note that we always prefer to use <code>--tmp</code> for testing, as it will save the chain state to a
+temporary folder, allowing the chain-to be easily restarted without <code>purge-chain</code>. See
+<a href="../../../sc_cli/commands/purge_chain_cmd/struct.PurgeChainCmd.html" title="struct sc_cli::commands::purge_chain_cmd::PurgeChainCmd"><code>sc_cli::commands::PurgeChainCmd</code></a> and <a href="../../../sc_cli/commands/run_cmd/struct.RunCmd.html#structfield.tmp" title="field sc_cli::commands::run_cmd::RunCmd::tmp"><code>sc_cli::commands::RunCmd::tmp</code></a> for more info.</p>
+</blockquote>
+<p>This will start the node and import the blocks. Note while using <code>--dev-block-time</code>, the node
+will use the testing-specific manual-seal consensus. This is an efficient way to test the
+application logic of your runtime, without needing to yet care about consensus, block
+production, relay-chain and so on.</p>
+<h4 id="next-steps"><a class="doc-anchor" href="#next-steps">§</a>Next Steps</h4>
+<ul>
+<li>See the rest of the steps in <a href="../../reference_docs/omni_node/index.html#user-journey" title="mod polkadot_sdk_docs::reference_docs::omni_node"><code>crate::reference_docs::omni_node</code></a>.</li>
+</ul>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

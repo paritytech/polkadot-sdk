@@ -1,0 +1,275 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Module that adds XCM support to bridge pallets. The pallet allows to dynamically open and close bridges between local (to this pallet location) and remote XCM destinations."><title>pallet_xcm_bridge_hub - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_xcm_bridge_hub" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_xcm_bridge_hub/index.html">pallet_xcm_bridge_hub</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_xcm_bridge_hub</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/pallet_xcm_bridge_hub/lib.rs.html#17-1701">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Module that adds XCM support to bridge pallets. The pallet allows to dynamically
+open and close bridges between local (to this pallet location) and remote XCM
+destinations.</p>
+<p>The <code>pallet_xcm_bridge_hub</code> pallet is used to manage (open, close) bridges between chains from
+different consensuses. The new extrinsics <code>fn open_bridge</code> and <code>fn close_bridge</code> are introduced.
+Other chains can manage channels with different bridged global consensuses.</p>
+<h2 id="concept-of-lane-and-laneid"><a class="doc-anchor" href="#concept-of-lane-and-laneid">§</a>Concept of <code>lane</code> and <code>LaneId</code></h2>
+<p>There is another <code>pallet_bridge_messages</code> pallet that handles inbound/outbound lanes for
+messages. Each lane is a unique connection between two chains from different consensuses and is
+identified by <code>LaneId</code>. <code>LaneId</code> is generated once when a new bridge is requested by <code>fn open_bridge</code>. It is generated by <code>BridgeLocations::calculate_lane_id</code> based on the following
+parameters:</p>
+<ul>
+<li>Source <code>bridge_origin_universal_location</code> (latest XCM)</li>
+<li>Destination <code>bridge_destination_universal_location</code> (latest XCM)</li>
+<li>XCM version (both sides of the bridge must use the same parameters to generate the same
+<code>LaneId</code>)
+<ul>
+<li><code>bridge_origin_universal_location</code>, <code>bridge_destination_universal_location</code> is converted to
+the <code>Versioned*</code> structs</li>
+</ul>
+</li>
+</ul>
+<p><code>LaneId</code> is expected to never change because:</p>
+<ul>
+<li>We need the same <code>LaneId</code> on both sides of the bridge, as <code>LaneId</code> is part of the message key
+proofs.</li>
+<li>Runtime upgrades are entirely asynchronous.</li>
+<li>We already have a running production Polkadot/Kusama bridge that uses <code>LaneId([0, 0, 0, 0])</code>.</li>
+</ul>
+<p><code>LaneId</code> is backward compatible, meaning it can be encoded/decoded from the older format <code>[u8; 4]</code> used for static lanes, as well as the new format <code>H256</code> generated by
+<code>BridgeLocations::calculate_lane_id</code>.</p>
+<h2 id="concept-of-bridge-and-bridgeid"><a class="doc-anchor" href="#concept-of-bridge-and-bridgeid">§</a>Concept of <code>bridge</code> and <code>BridgeId</code></h2>
+<p>The <code>pallet_xcm_bridge_hub</code> pallet needs to store some metadata about opened bridges. The bridge
+(or bridge metadata) is stored under the <code>BridgeId</code> key.</p>
+<p><code>BridgeId</code> is generated from <code>bridge_origin_relative_location</code> and
+<code>bridge_origin_universal_location</code> using the <code>latest</code> XCM structs. <code>BridgeId</code> is not transferred
+over the bridge; it is only important for local consensus. It essentially serves as an index/key
+to bridge metadata. All the XCM infrastructure around <code>XcmExecutor</code>, <code>SendXcm</code>, <code>ExportXcm</code> use
+the <code>latest</code> XCM, so <code>BridgeId</code> must remain compatible with the <code>latest</code> XCM. For example, we
+have an <code>ExportXcm</code> implementation in <code>exporter.rs</code> that handles the <code>ExportMessage</code> instruction
+with <code>universal_source</code> and <code>destination</code> (latest XCM), so we need to create <code>BridgeId</code> and the
+corresponding <code>LaneId</code>.</p>
+<h2 id="migrations-and-state"><a class="doc-anchor" href="#migrations-and-state">§</a>Migrations and State</h2>
+<p>This pallet implements <code>try_state</code>, ensuring compatibility and checking everything so we know if
+any migration is needed. <code>do_try_state</code> checks for <code>BridgeId</code> compatibility, which is
+recalculated on runtime upgrade. Upgrading to a new XCM version should not break anything,
+except removing older XCM versions. In such cases, we need to add migration for <code>BridgeId</code> and
+stored <code>Versioned*</code> structs and update <code>LaneToBridge</code> mapping, but this won’t affect <code>LaneId</code>
+over the bridge.</p>
+<h2 id="how-to-open-a-bridge"><a class="doc-anchor" href="#how-to-open-a-bridge">§</a>How to Open a Bridge?</h2>
+<p>The <code>pallet_xcm_bridge_hub</code> pallet has the extrinsic <code>fn open_bridge</code> and an important
+configuration <code>pallet_xcm_bridge_hub::Config::OpenBridgeOrigin</code>, which translates the call’s
+origin to the XCM <code>Location</code> and converts it to the <code>bridge_origin_universal_location</code>. With the
+current setup, this origin/location is expected to be either the relay chain or a sibling
+parachain as one side of the bridge. Another parameter is
+<code>bridge_destination_universal_location</code>, which is the other side of the bridge from a different
+global consensus.</p>
+<p>Every bridge between two XCM locations has a dedicated lane in associated
+messages pallet. Assuming that this pallet is deployed at the bridge hub
+parachain and there’s a similar pallet at the bridged network, the dynamic
+bridge lifetime is as follows:</p>
+<ol>
+<li>
+<p>the sibling parachain opens a XCMP channel with this bridge hub;</p>
+</li>
+<li>
+<p>the sibling parachain funds its sovereign parachain account at this bridge hub. It shall hold
+enough funds to pay for the bridge (see <code>BridgeDeposit</code>);</p>
+</li>
+<li>
+<p>the sibling parachain opens the bridge by sending XCM <code>Transact</code> instruction with the
+<code>open_bridge</code> call. The <code>BridgeDeposit</code> amount is reserved on the sovereign account of
+sibling parachain;</p>
+</li>
+<li>
+<p>at the other side of the bridge, the same thing (1, 2, 3) happens. Parachains that need to
+connect over the bridge need to coordinate the moment when they start sending messages over
+the bridge. Otherwise they may lose messages and/or bundled assets;</p>
+</li>
+<li>
+<p>when either side wants to close the bridge, it sends the XCM <code>Transact</code> with the
+<code>close_bridge</code> call. The bridge is closed immediately if there are no queued messages.
+Otherwise, the owner must repeat the <code>close_bridge</code> call to prune all queued messages first.</p>
+</li>
+</ol>
+<p>The pallet doesn’t provide any mechanism for graceful closure, because it always involves
+some contract between two connected chains and the bridge hub knows nothing about that. It
+is the task for the connected chains to make sure that all required actions are completed
+before the closure. In the end, the bridge hub can’t even guarantee that all messages that
+are delivered to the destination, are processed in the way their sender expects. So if we
+can’t guarantee that, we shall not care about more complex procedures and leave it to the
+participating parties.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<p>Example of opening a bridge between some random parachains from Polkadot and Kusama:</p>
+<ol start="0">
+<li>Let’s have:
+<ul>
+<li>BridgeHubPolkadot with <code>UniversalLocation</code> = <code>[GlobalConsensus(Polkadot), Parachain(1002)]</code></li>
+<li>BridgeHubKusama with <code>UniversalLocation</code> = <code>[GlobalConsensus(Kusama), Parachain(1002)]</code></li>
+</ul>
+</li>
+<li>The Polkadot local sibling parachain <code>Location::new(1, Parachain(1234))</code> must send some DOTs
+to its sovereign account on BridgeHubPolkadot to cover <code>BridgeDeposit</code>, fees for <code>Transact</code>,
+and the existential deposit.</li>
+<li>Send a call to the BridgeHubPolkadot from the local sibling parachain: <code>Location::new(1, Parachain(1234))</code> <code>xcm::Transact( origin_kind: OriginKind::Xcm, XcmOverBridgeHubKusama::open_bridge( VersionedInteriorLocation::V4([GlobalConsensus(Kusama), Parachain(4567)].into()), ); )</code></li>
+<li>Check the stored bridge metadata and generated <code>LaneId</code>.</li>
+<li>The Kusama local sibling parachain <code>Location::new(1, Parachain(4567))</code> must send some KSMs to
+its sovereign account
+on BridgeHubKusama to cover <code>BridgeDeposit</code>, fees for <code>Transact</code>, and the existential deposit.</li>
+<li>Send a call to the BridgeHubKusama from the local sibling parachain: <code>Location::new(1, Parachain(4567))</code> <code>xcm::Transact( origin_kind: OriginKind::Xcm, XcmOverBridgeHubKusama::open_bridge( VersionedInteriorLocation::V4([GlobalConsensus(Polkadot), Parachain(1234)].into()), ); )</code></li>
+<li>Check the stored bridge metadata and generated <code>LaneId</code>.</li>
+<li>Both <code>LaneId</code>s from steps 3 and 6 must be the same (see above <em>Concept of <code>lane</code> and
+<code>LaneId</code></em>).</li>
+<li>Run the bridge messages relayer for <code>LaneId</code>.</li>
+<li>Send messages from both sides.</li>
+</ol>
+<p>The opening bridge holds the configured <code>BridgeDeposit</code> from the origin’s sovereign account, but
+this deposit is returned when the bridge is closed with <code>fn close_bridge</code>.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_xcm_bridge_hub::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod pallet_xcm_bridge_hub::migration">migration</a></div><div class="desc docblock-short">A module that is responsible for migration of storage.</div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_xcm_bridge_hub::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Bridge.html" title="struct pallet_xcm_bridge_hub::Bridge">Bridge</a></div><div class="desc docblock-short">Bridge metadata.</div></li><li><div class="item-name"><a class="struct" href="struct.BridgeId.html" title="struct pallet_xcm_bridge_hub::BridgeId">BridgeId</a></div><div class="desc docblock-short">Bridge identifier - used <strong>only</strong> for communicating with sibling/parent chains in the same
+consensus.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.BridgeState.html" title="enum pallet_xcm_bridge_hub::BridgeState">BridgeState</a></div><div class="desc docblock-short">Bridge state.</div></li><li><div class="item-name"><a class="enum" href="enum.XcmBlobMessageDispatchResult.html" title="enum pallet_xcm_bridge_hub::XcmBlobMessageDispatchResult">XcmBlobMessageDispatchResult</a></div><div class="desc docblock-short">Message dispatch result type for single message.</div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.LOG_TARGET.html" title="constant pallet_xcm_bridge_hub::LOG_TARGET">LOG_TARGET</a></div><div class="desc docblock-short">The target that will be used when publishing logs related to this pallet.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.PalletAsHaulBlobExporter.html" title="type pallet_xcm_bridge_hub::PalletAsHaulBlobExporter">PalletAsHaulBlobExporter</a></div><div class="desc docblock-short">An easy way to access <code>HaulBlobExporter</code>.</div></li><li><div class="item-name"><a class="type" href="type.XcmAsPlainPayload.html" title="type pallet_xcm_bridge_hub::XcmAsPlainPayload">XcmAsPlainPayload</a></div><div class="desc docblock-short">Encoded XCM blob. We expect the bridge messages pallet to use this blob type for both inbound
+and outbound payloads.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

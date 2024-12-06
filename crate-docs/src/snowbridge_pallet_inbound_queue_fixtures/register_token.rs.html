@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/snowbridge/parachain/pallets/inbound-queue/fixtures/src/register_token.rs`."><title>register_token.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="snowbridge_pallet_inbound_queue_fixtures" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0 (79e9716c9 2023-11-13)" data-channel="1.74.0" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../snowbridge_pallet_inbound_queue_fixtures/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+</pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
+// Generated, do not edit!
+// See ethereum client README.md for instructions to generate
+
+</span><span class="kw">use </span><span class="kw">crate</span>::InboundQueueFixture;
+<span class="kw">use </span>hex_literal::hex;
+<span class="kw">use </span>snowbridge_beacon_primitives::CompactExecutionHeader;
+<span class="kw">use </span>snowbridge_core::inbound::{Log, Message, Proof};
+<span class="kw">use </span>sp_std::vec;
+
+<span class="kw">pub fn </span>make_register_token_message() -&gt; InboundQueueFixture {
+	InboundQueueFixture {
+        execution_header: CompactExecutionHeader{
+            parent_hash: <span class="macro">hex!</span>(<span class="string">&quot;d5de3dd02c96dbdc8aaa4db70a1e9fdab5ded5f4d52f18798acd56a3d37d1ad6&quot;</span>).into(),
+            block_number: <span class="number">772</span>,
+            state_root: <span class="macro">hex!</span>(<span class="string">&quot;49cba2a79b23ad74cefe80c3a96699825d1cda0f75bfceb587c5549211c86245&quot;</span>).into(),
+            receipts_root: <span class="macro">hex!</span>(<span class="string">&quot;7b1f61b9714c080ef0be014e01657a15f45f0304b477beebc7ca5596c8033095&quot;</span>).into(),
+        },
+        message: Message {
+            event_log: 	Log {
+                address: <span class="macro">hex!</span>(<span class="string">&quot;eda338e4dc46038493b885327842fd3e301cab39&quot;</span>).into(),
+                topics: <span class="macro">vec!</span>[
+                    <span class="macro">hex!</span>(<span class="string">&quot;7153f9357c8ea496bba60bf82e67143e27b64462b49041f8e689e1b05728f84f&quot;</span>).into(),
+                    <span class="macro">hex!</span>(<span class="string">&quot;c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539&quot;</span>).into(),
+                    <span class="macro">hex!</span>(<span class="string">&quot;5f7060e971b0dc81e63f0aa41831091847d97c1a4693ac450cc128c7214e65e0&quot;</span>).into(),
+                ],
+                data: <span class="macro">hex!</span>(<span class="string">&quot;00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002e00a736aa00000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d00e40b54020000000000000000000000000000000000000000000000000000000000&quot;</span>).into(),
+            },
+            proof: Proof {
+                block_hash: <span class="macro">hex!</span>(<span class="string">&quot;392182a385b3a417e8ddea8b252953ee81e6ec0fb09d9056c96c89fbeb703a3f&quot;</span>).into(),
+                tx_index: <span class="number">0</span>,
+                data: (<span class="macro">vec!</span>[
+                    <span class="macro">hex!</span>(<span class="string">&quot;7b1f61b9714c080ef0be014e01657a15f45f0304b477beebc7ca5596c8033095&quot;</span>).to_vec(),
+                ], <span class="macro">vec!</span>[
+                    <span class="macro">hex!</span>(<span class="string">&quot;f9028e822080b9028802f90284018301d205b9010000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000080000000000000000000000000000004000000000080000000000000000000000000000000000010100000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000040004000000000000002000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000200000000000010f90179f85894eda338e4dc46038493b885327842fd3e301cab39e1a0f78bb28d4b1d7da699e5c0bc2be29c2b04b5aab6aacf6298fe5304f9db9c6d7ea000000000000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7df9011c94eda338e4dc46038493b885327842fd3e301cab39f863a07153f9357c8ea496bba60bf82e67143e27b64462b49041f8e689e1b05728f84fa0c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539a05f7060e971b0dc81e63f0aa41831091847d97c1a4693ac450cc128c7214e65e0b8a000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002e00a736aa00000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d00e40b54020000000000000000000000000000000000000000000000000000000000&quot;</span>).to_vec(),
+                ]),
+            },
+        },
+    }
+}
+</code></pre></div></section></main></body></html>

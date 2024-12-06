@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["approve_as_multi","as_multi","as_multi_threshold1","cancel_as_multi"],"struct":["ApproveAsMulti","AsMulti","AsMultiThreshold1","CancelAsMulti"]};

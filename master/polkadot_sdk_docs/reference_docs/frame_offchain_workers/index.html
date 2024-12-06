@@ -1,0 +1,253 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about the offchain workers, how they function, and how to use them, as provided by the `frame` APIs."><title>polkadot_sdk_docs::reference_docs::frame_offchain_workers - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module frame_offchain_workers</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">frame_offchain_workers</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/frame_offchain_workers.rs.html#1-114">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about the offchain workers, how they function, and how to use them, as provided by the
+<a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame"><code>frame</code></a> APIs.</p>
+<h2 id="offchain-workers"><a class="doc-anchor" href="#offchain-workers">§</a>Offchain Workers</h2>
+<p>This reference document explains how offchain workers work in Substrate and FRAME. The main
+focus is upon FRAME’s implementation of this functionality. Nonetheless, offchain workers are a
+Substrate-provided feature and can be used with possible alternatives to <a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame"><code>frame</code></a> as well.</p>
+<p>Offchain workers are a commonly misunderstood topic, therefore we explain them bottom-up,
+starting at the fundamentals and then describing the developer interface.</p>
+<h3 id="context"><a class="doc-anchor" href="#context">§</a>Context</h3>
+<p>Recall from <a href="../wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a> that the node and the runtime
+communicate with one another via host functions and runtime APIs. Many of these interactions
+contribute to the actual state transition of the blockchain. For example <a href="../../../sp_api/trait.Core.html" title="trait sp_api::Core"><code>sp_api::Core</code></a> is the
+main runtime API that is called to execute new blocks.</p>
+<p>Offchain workers are in principle not different in any way: It is a runtime API exposed by the
+wasm blob (<a href="../../../sp_offchain/trait.OffchainWorkerApi.html" title="trait sp_offchain::OffchainWorkerApi"><code>sp_offchain::OffchainWorkerApi</code></a>), and the node software calls into it when it
+deems fit. But, crucially, this API call is different in that:</p>
+<ol>
+<li>It can have no impact on the state ie. it is <em>OFF (the) CHAIN</em>. If any state is altered
+during the execution of this API call, it is discarded.</li>
+<li>It has access to an extended set of host functions that allow the wasm blob to do more. For
+example, call into HTTP requests.</li>
+</ol>
+<blockquote>
+<p>The main way through which an offchain worker can interact with the state is by submitting an
+extrinsic to the chain. This is the ONLY way to alter the state from an offchain worker.
+<a href="../../../pallet_example_offchain_worker/index.html" title="mod pallet_example_offchain_worker"><code>pallet_example_offchain_worker</code></a> provides an example of this.</p>
+</blockquote>
+<p>Given the “Off Chain” nature of this API, it is important to remember that calling this API is
+entirely optional. Some nodes might call into it, some might not, and it would have no impact on
+the execution of your blockchain because no state is altered no matter the execution of the
+offchain worker API.</p>
+<p>Substrate’s CLI allows some degree of configuration about this, allowing node operators to
+specify when they want to run the offchain worker API. See
+<a href="../../../sc_cli/commands/run_cmd/struct.RunCmd.html#structfield.offchain_worker_params" title="field sc_cli::commands::run_cmd::RunCmd::offchain_worker_params"><code>sc_cli::RunCmd::offchain_worker_params</code></a>.</p>
+<h3 id="nondeterministic-execution"><a class="doc-anchor" href="#nondeterministic-execution">§</a>Nondeterministic Execution</h3>
+<p>Needless to say, given the above description, the code in your offchain worker API can be
+nondeterministic, as it is not part of the blockchain’s STF, so it can be executed at unknown
+times, by unknown nodes, and has no impact on the state. This is why an HTTP
+(<a href="../../../sp_runtime/offchain/http/index.html" title="mod sp_runtime::offchain::http"><code>sp_runtime::offchain::http</code></a>) API is readily provided to the offchain worker APIs. Because
+there is no need for determinism in this context.</p>
+<blockquote>
+<p>A common mistake here is for novice developers to see this HTTP API, and imagine that
+<code>polkadot-sdk</code> somehow magically solved the determinism in blockchains, and now a blockchain
+can make HTTP calls and it will all work. This is absolutely NOT the case. An HTTP call made
+by the offchain worker is non-deterministic by design. Blockchains can’t and always won’t be
+able to perform non-deterministic operations such as making HTTP calls to a foreign server.</p>
+</blockquote>
+<h3 id="frames-api"><a class="doc-anchor" href="#frames-api">§</a>FRAME’s API</h3>
+<p><a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame"><code>frame</code></a> provides a simple API through which pallets can define offchain worker functions. This
+is part of <a href="../../../frame_support/traits/hooks/trait.Hooks.html" title="trait frame_support::traits::hooks::Hooks"><code>frame::traits::Hooks</code></a>, which is implemented as a part of
+<a href="../../../frame_support_procedural/attr.hooks.html" title="attr frame_support_procedural::hooks"><code>frame::pallet_macros::hooks</code></a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet]
+</span><span class="kw">pub mod </span>pallet {
+	<span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
+
+	<span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {}
+
+	<span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+
+	<span class="attr">#[pallet::hooks]
+	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+		<span class="kw">fn </span>offchain_worker(block_number: BlockNumberFor&lt;T&gt;) {
+			<span class="comment">// ...
+		</span>}
+	}
+}</code></pre></div>
+<p>Additionally, <a href="../../../sp_runtime/offchain/index.html" title="mod sp_runtime::offchain"><code>sp_runtime::offchain</code></a> provides a set of utilities that can be used to moderate
+the execution of offchain workers.</p>
+<h3 id="think-twice-why-use-substrates-offchain-workers"><a class="doc-anchor" href="#think-twice-why-use-substrates-offchain-workers">§</a>Think Twice: Why Use Substrate’s Offchain Workers?</h3>
+<p>Consider the fact that in principle, an offchain worker code written using the above API is no
+different than an equivalent written with an <em>actual offchain interaction library</em>, such as
+<a href="https://polkadot.js.org/docs/">Polkadot-JS</a>, or any of the other ones listed <a href="https://github.com/substrate-developer-hub/awesome-substrate?tab=readme-ov-file#client-libraries">here</a>.</p>
+<p>They can both read from the state, and have no means of updating the state, other than the route
+of submitting an extrinsic to the chain. Therefore, it is worth thinking twice before embedding
+a logic as a part of Substrate’s offchain worker API. Does it have to be there? Can it not be a
+simple, actual offchain application that lives outside of the chain’s WASM blob?</p>
+<p>Some of the reasons why you might want to do the opposite, and actually embed an offchain worker
+API into the WASM blob are:</p>
+<ul>
+<li>Accessing the state is easier within the <code>offchain_worker</code> function, as it is already a part
+of the runtime, and <a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>frame::pallet_macros::storage</code></a> provides all the tools needed to read
+the state. Other client libraries might provide varying degrees of capability here.</li>
+<li>It will be updated in synchrony with the runtime. A Substrate’s offchain application is part
+of the same WASM blob, and is therefore guaranteed to be up to date.</li>
+</ul>
+<p>For example, imagine you have modified a storage item to have a new type. This will possibly
+require a <a href="../frame_runtime_upgrades_and_migrations/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_runtime_upgrades_and_migrations"><code>crate::reference_docs::frame_runtime_upgrades_and_migrations</code></a>, and any offchain
+code, such as a Polkadot-JS application, will have to be updated to reflect this change. Whereas
+the WASM offchain worker code is guaranteed to already be updated, or else the runtime code will
+not even compile.</p>
+<h3 id="further-references"><a class="doc-anchor" href="#further-references">§</a>Further References</h3>
+<ul>
+<li><a href="https://forum.polkadot.network/t/offchain-workers-design-assumptions-vulnerabilities/2548">https://forum.polkadot.network/t/offchain-workers-design-assumptions-vulnerabilities/2548</a></li>
+<li><a href="https://substrate.stackexchange.com/questions/11058/how-can-i-create-ocw-that-wont-activates-every-block-but-will-activates-only-w/11060#11060">https://substrate.stackexchange.com/questions/11058/how-can-i-create-ocw-that-wont-activates-every-block-but-will-activates-only-w/11060#11060</a></li>
+<li><a href="https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/examples/offchain-worker">Offchain worker example</a></li>
+</ul>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

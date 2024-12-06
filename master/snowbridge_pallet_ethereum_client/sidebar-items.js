@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"mod":["config","functions","impls","mock","pallet","types","weights"]};

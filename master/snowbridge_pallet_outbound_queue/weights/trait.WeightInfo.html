@@ -1,0 +1,172 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Weight functions needed for `snowbridge-pallet-outbound-queue`."><title>WeightInfo in snowbridge_pallet_outbound_queue::weights - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="snowbridge_pallet_outbound_queue" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../snowbridge_pallet_outbound_queue/index.html">snowbridge_pallet_outbound_queue</a><span class="version">0.2.0</span></h2></div><h2 class="location"><a href="#">WeightInfo</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.commit">commit</a></li><li><a href="#tymethod.commit_single">commit_single</a></li><li><a href="#tymethod.do_process_message">do_process_message</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-WeightInfo-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In snowbridge_pallet_outbound_queue::weights</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">snowbridge_pallet_outbound_queue</a>::<wbr><a href="index.html">weights</a>::<wbr><a class="trait" href="#">WeightInfo</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/snowbridge_pallet_outbound_queue/weights.rs.html#33-37">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait WeightInfo {
+    // Required methods
+    fn <a href="#tymethod.do_process_message" class="fn">do_process_message</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.commit" class="fn">commit</a>() -&gt; Weight;
+<span class="item-spacer"></span>    fn <a href="#tymethod.commit_single" class="fn">commit_single</a>() -&gt; Weight;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Weight functions needed for <code>snowbridge-pallet-outbound-queue</code>.</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.do_process_message" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue/weights.rs.html#34">source</a><h4 class="code-header">fn <a href="#tymethod.do_process_message" class="fn">do_process_message</a>() -&gt; Weight</h4></section><section id="tymethod.commit" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue/weights.rs.html#35">source</a><h4 class="code-header">fn <a href="#tymethod.commit" class="fn">commit</a>() -&gt; Weight</h4></section><section id="tymethod.commit_single" class="method"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue/weights.rs.html#36">source</a><h4 class="code-header">fn <a href="#tymethod.commit_single" class="fn">commit_single</a>() -&gt; Weight</h4></section></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-WeightInfo-for-()" class="impl"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue/weights.rs.html#40-81">source</a><a href="#impl-WeightInfo-for-()" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.WeightInfo.html" title="trait snowbridge_pallet_outbound_queue::weights::WeightInfo">WeightInfo</a> for <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.do_process_message" class="method trait-impl"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue/weights.rs.html#49-57">source</a><a href="#method.do_process_message" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.do_process_message" class="fn">do_process_message</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: EthereumOutboundQueue MessageLeaves (r:1 w:1)
+Proof Skipped: EthereumOutboundQueue MessageLeaves (max_values: Some(1), max_size: None, mode: Measured)
+Storage: EthereumOutboundQueue PendingHighPriorityMessageCount (r:1 w:1)
+Proof: EthereumOutboundQueue PendingHighPriorityMessageCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+Storage: EthereumOutboundQueue Nonce (r:1 w:1)
+Proof: EthereumOutboundQueue Nonce (max_values: None, max_size: Some(20), added: 2495, mode: MaxEncodedLen)
+Storage: EthereumOutboundQueue Messages (r:1 w:1)
+Proof Skipped: EthereumOutboundQueue Messages (max_values: Some(1), max_size: None, mode: Measured)</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.commit" class="method trait-impl"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue/weights.rs.html#62-70">source</a><a href="#method.commit" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.commit" class="fn">commit</a>() -&gt; Weight</h4></section></summary><div class="docblock"><p>Storage: EthereumOutboundQueue MessageLeaves (r:1 w:0)
+Proof Skipped: EthereumOutboundQueue MessageLeaves (max_values: Some(1), max_size: None, mode: Measured)
+Storage: System Digest (r:1 w:1)
+Proof Skipped: System Digest (max_values: Some(1), max_size: None, mode: Measured)</p>
+</div></details><section id="method.commit_single" class="method trait-impl"><a class="src rightside" href="../../src/snowbridge_pallet_outbound_queue/weights.rs.html#72-80">source</a><a href="#method.commit_single" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.commit_single" class="fn">commit_single</a>() -&gt; Weight</h4></section></div></details><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/snowbridge_pallet_outbound_queue/weights/trait.WeightInfo.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

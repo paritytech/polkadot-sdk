@@ -1,0 +1,348 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A state backend is used to read state data and can have changes committed to it."><title>StateBackend in sp_consensus - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_consensus/index.html">sp_consensus</a><span class="version">0.32.0</span></h2></div><h2 class="location"><a href="#">StateBackend</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Error">Error</a></li><li><a href="#associatedtype.RawIter">RawIter</a></li><li><a href="#associatedtype.TrieBackendStorage">TrieBackendStorage</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.child_closest_merkle_value">child_closest_merkle_value</a></li><li><a href="#tymethod.child_storage">child_storage</a></li><li><a href="#tymethod.child_storage_hash">child_storage_hash</a></li><li><a href="#tymethod.child_storage_root">child_storage_root</a></li><li><a href="#tymethod.closest_merkle_value">closest_merkle_value</a></li><li><a href="#tymethod.next_child_storage_key">next_child_storage_key</a></li><li><a href="#tymethod.next_storage_key">next_storage_key</a></li><li><a href="#tymethod.raw_iter">raw_iter</a></li><li><a href="#tymethod.register_overlay_stats">register_overlay_stats</a></li><li><a href="#tymethod.storage">storage</a></li><li><a href="#tymethod.storage_hash">storage_hash</a></li><li><a href="#tymethod.storage_root">storage_root</a></li><li><a href="#tymethod.usage_info">usage_info</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.commit">commit</a></li><li><a href="#method.exists_child_storage">exists_child_storage</a></li><li><a href="#method.exists_storage">exists_storage</a></li><li><a href="#method.full_storage_root">full_storage_root</a></li><li><a href="#method.get_read_and_written_keys">get_read_and_written_keys</a></li><li><a href="#method.get_whitelist">get_whitelist</a></li><li><a href="#method.keys">keys</a></li><li><a href="#method.pairs">pairs</a></li><li><a href="#method.proof_size">proof_size</a></li><li><a href="#method.read_write_count">read_write_count</a></li><li><a href="#method.reset_read_write_count">reset_read_write_count</a></li><li><a href="#method.set_whitelist">set_whitelist</a></li><li><a href="#method.wipe">wipe</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate sp_consensus</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">sp_consensus</a>::<wbr><a class="trait" href="#">StateBackend</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait StateBackend&lt;H&gt;: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a><div class="where">where
+    H: Hasher,</div>{
+    type <a href="#associatedtype.Error" class="associatedtype">Error</a>: Error;
+    type <a href="#associatedtype.TrieBackendStorage" class="associatedtype">TrieBackendStorage</a>: TrieBackendStorage&lt;H&gt;;
+    type <a href="#associatedtype.RawIter" class="associatedtype">RawIter</a>: StorageIterator&lt;H, Backend = Self, Error = Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;;
+
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 26 methods</span></summary>    // Required methods
+    fn <a href="#tymethod.storage" class="fn">storage</a>(&amp;self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage_hash" class="fn">storage_hash</a>(
+        &amp;self,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;H as Hasher&gt;::Out&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.closest_merkle_value" class="fn">closest_merkle_value</a>(
+        &amp;self,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MerkleValue&lt;&lt;H as Hasher&gt;::Out&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.child_closest_merkle_value" class="fn">child_closest_merkle_value</a>(
+        &amp;self,
+        child_info: &amp;ChildInfo,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MerkleValue&lt;&lt;H as Hasher&gt;::Out&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.child_storage" class="fn">child_storage</a>(
+        &amp;self,
+        child_info: &amp;ChildInfo,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.child_storage_hash" class="fn">child_storage_hash</a>(
+        &amp;self,
+        child_info: &amp;ChildInfo,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;H as Hasher&gt;::Out&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.next_storage_key" class="fn">next_storage_key</a>(
+        &amp;self,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.next_child_storage_key" class="fn">next_child_storage_key</a>(
+        &amp;self,
+        child_info: &amp;ChildInfo,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.storage_root" class="fn">storage_root</a>&lt;'a&gt;(
+        &amp;self,
+        delta: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = (&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;)&gt;,
+        state_version: StateVersion,
+    ) -&gt; (&lt;H as Hasher&gt;::Out, MemoryDB&lt;H, PrefixedKey&lt;H&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)
+       <span class="where">where &lt;H as Hasher&gt;::Out: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a></span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.child_storage_root" class="fn">child_storage_root</a>&lt;'a&gt;(
+        &amp;self,
+        child_info: &amp;ChildInfo,
+        delta: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = (&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;)&gt;,
+        state_version: StateVersion,
+    ) -&gt; (&lt;H as Hasher&gt;::Out, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, MemoryDB&lt;H, PrefixedKey&lt;H&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)
+       <span class="where">where &lt;H as Hasher&gt;::Out: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a></span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.raw_iter" class="fn">raw_iter</a>(&amp;self, args: IterArgs&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.RawIter" title="type sp_consensus::StateBackend::RawIter">RawIter</a>, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.register_overlay_stats" class="fn">register_overlay_stats</a>(&amp;self, _stats: &amp;StateMachineStats);
+<span class="item-spacer"></span>    fn <a href="#tymethod.usage_info" class="fn">usage_info</a>(&amp;self) -&gt; UsageInfo;
+
+    // Provided methods
+    fn <a href="#method.exists_storage" class="fn">exists_storage</a>(&amp;self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.exists_child_storage" class="fn">exists_child_storage</a>(
+        &amp;self,
+        child_info: &amp;ChildInfo,
+        key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.pairs" class="fn">pairs</a>&lt;'a&gt;(
+        &amp;'a self,
+        args: IterArgs&lt;'_&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;PairsIter&lt;'a, H, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.RawIter" title="type sp_consensus::StateBackend::RawIter">RawIter</a>&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.keys" class="fn">keys</a>&lt;'a&gt;(
+        &amp;'a self,
+        args: IterArgs&lt;'_&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;KeysIter&lt;'a, H, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.RawIter" title="type sp_consensus::StateBackend::RawIter">RawIter</a>&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.full_storage_root" class="fn">full_storage_root</a>&lt;'a&gt;(
+        &amp;self,
+        delta: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = (&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;)&gt;,
+        child_deltas: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = (&amp;'a ChildInfo, impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = (&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;)&gt;)&gt;,
+        state_version: StateVersion,
+    ) -&gt; (&lt;H as Hasher&gt;::Out, MemoryDB&lt;H, PrefixedKey&lt;H&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)
+       <span class="where">where &lt;H as Hasher&gt;::Out: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + Encode</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.wipe" class="fn">wipe</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.commit" class="fn">commit</a>(
+        &amp;self,
+        _: &lt;H as Hasher&gt;::Out,
+        _: MemoryDB&lt;H, PrefixedKey&lt;H&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;,
+        _: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)&gt;,
+        _: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)&gt;)&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_write_count" class="fn">read_write_count</a>(&amp;self) -&gt; (<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.reset_read_write_count" class="fn">reset_read_write_count</a>(&amp;self) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.get_whitelist" class="fn">get_whitelist</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;TrackedStorageKey&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.set_whitelist" class="fn">set_whitelist</a>(&amp;self, _: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;TrackedStorageKey&gt;) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.proof_size" class="fn">proof_size</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.get_read_and_written_keys" class="fn">get_read_and_written_keys</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>)&gt; { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A state backend is used to read state data and can have changes committed
+to it.</p>
+<p>The clone operation (if implemented) should be cheap.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.Error" class="method"><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a>: Error</h4></section></summary><div class="docblock"><p>An error type when fetching data is not possible.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.TrieBackendStorage" class="method"><h4 class="code-header">type <a href="#associatedtype.TrieBackendStorage" class="associatedtype">TrieBackendStorage</a>: TrieBackendStorage&lt;H&gt;</h4></section></summary><div class="docblock"><p>Type of trie backend storage.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.RawIter" class="method"><h4 class="code-header">type <a href="#associatedtype.RawIter" class="associatedtype">RawIter</a>: StorageIterator&lt;H, Backend = Self, Error = Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Type of the raw storage iterator.</p>
+</div></details></div><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.storage" class="method"><h4 class="code-header">fn <a href="#tymethod.storage" class="fn">storage</a>(&amp;self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get keyed storage or None if there is nothing associated.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_hash" class="method"><h4 class="code-header">fn <a href="#tymethod.storage_hash" class="fn">storage_hash</a>(
+    &amp;self,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;H as Hasher&gt;::Out&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get keyed storage value hash or None if there is nothing associated.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.closest_merkle_value" class="method"><h4 class="code-header">fn <a href="#tymethod.closest_merkle_value" class="fn">closest_merkle_value</a>(
+    &amp;self,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MerkleValue&lt;&lt;H as Hasher&gt;::Out&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get the merkle value or None if there is nothing associated.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_closest_merkle_value" class="method"><h4 class="code-header">fn <a href="#tymethod.child_closest_merkle_value" class="fn">child_closest_merkle_value</a>(
+    &amp;self,
+    child_info: &amp;ChildInfo,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MerkleValue&lt;&lt;H as Hasher&gt;::Out&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get the child merkle value or None if there is nothing associated.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_storage" class="method"><h4 class="code-header">fn <a href="#tymethod.child_storage" class="fn">child_storage</a>(
+    &amp;self,
+    child_info: &amp;ChildInfo,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get child keyed child storage or None if there is nothing associated.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_storage_hash" class="method"><h4 class="code-header">fn <a href="#tymethod.child_storage_hash" class="fn">child_storage_hash</a>(
+    &amp;self,
+    child_info: &amp;ChildInfo,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&lt;H as Hasher&gt;::Out&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get child keyed storage value hash or None if there is nothing associated.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.next_storage_key" class="method"><h4 class="code-header">fn <a href="#tymethod.next_storage_key" class="fn">next_storage_key</a>(&amp;self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Return the next key in storage in lexicographic order or <code>None</code> if there is no value.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.next_child_storage_key" class="method"><h4 class="code-header">fn <a href="#tymethod.next_child_storage_key" class="fn">next_child_storage_key</a>(
+    &amp;self,
+    child_info: &amp;ChildInfo,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Return the next key in child storage in lexicographic order or <code>None</code> if there is no value.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.storage_root" class="method"><h4 class="code-header">fn <a href="#tymethod.storage_root" class="fn">storage_root</a>&lt;'a&gt;(
+    &amp;self,
+    delta: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = (&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;)&gt;,
+    state_version: StateVersion,
+) -&gt; (&lt;H as Hasher&gt;::Out, MemoryDB&lt;H, PrefixedKey&lt;H&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)<div class="where">where
+    &lt;H as Hasher&gt;::Out: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>,</div></h4></section></summary><div class="docblock"><p>Calculate the storage root, with given delta over what is already stored in
+the backend, and produce a “transaction” that can be used to commit.
+Does not include child storage updates.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.child_storage_root" class="method"><h4 class="code-header">fn <a href="#tymethod.child_storage_root" class="fn">child_storage_root</a>&lt;'a&gt;(
+    &amp;self,
+    child_info: &amp;ChildInfo,
+    delta: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = (&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;)&gt;,
+    state_version: StateVersion,
+) -&gt; (&lt;H as Hasher&gt;::Out, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, MemoryDB&lt;H, PrefixedKey&lt;H&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)<div class="where">where
+    &lt;H as Hasher&gt;::Out: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>,</div></h4></section></summary><div class="docblock"><p>Calculate the child storage root, with given delta over what is already stored in
+the backend, and produce a “transaction” that can be used to commit. The second argument
+is true if child storage root equals default storage root.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.raw_iter" class="method"><h4 class="code-header">fn <a href="#tymethod.raw_iter" class="fn">raw_iter</a>(&amp;self, args: IterArgs&lt;'_&gt;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.RawIter" title="type sp_consensus::StateBackend::RawIter">RawIter</a>, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Returns a lifetimeless raw storage iterator.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.register_overlay_stats" class="method"><h4 class="code-header">fn <a href="#tymethod.register_overlay_stats" class="fn">register_overlay_stats</a>(&amp;self, _stats: &amp;StateMachineStats)</h4></section></summary><div class="docblock"><p>Register stats from overlay of state machine.</p>
+<p>By default nothing is registered.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.usage_info" class="method"><h4 class="code-header">fn <a href="#tymethod.usage_info" class="fn">usage_info</a>(&amp;self) -&gt; UsageInfo</h4></section></summary><div class="docblock"><p>Query backend usage statistics (i/o, memory)</p>
+<p>Not all implementations are expected to be able to do this. In the
+case when they don’t, empty statistics is returned.</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.exists_storage" class="method"><h4 class="code-header">fn <a href="#method.exists_storage" class="fn">exists_storage</a>(&amp;self, key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>true if a key exists in storage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.exists_child_storage" class="method"><h4 class="code-header">fn <a href="#method.exists_child_storage" class="fn">exists_child_storage</a>(
+    &amp;self,
+    child_info: &amp;ChildInfo,
+    key: &amp;[<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>true if a key exists in child storage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.pairs" class="method"><h4 class="code-header">fn <a href="#method.pairs" class="fn">pairs</a>&lt;'a&gt;(
+    &amp;'a self,
+    args: IterArgs&lt;'_&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;PairsIter&lt;'a, H, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.RawIter" title="type sp_consensus::StateBackend::RawIter">RawIter</a>&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get an iterator over key/value pairs.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.keys" class="method"><h4 class="code-header">fn <a href="#method.keys" class="fn">keys</a>&lt;'a&gt;(
+    &amp;'a self,
+    args: IterArgs&lt;'_&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;KeysIter&lt;'a, H, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.RawIter" title="type sp_consensus::StateBackend::RawIter">RawIter</a>&gt;, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Get an iterator over keys.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.full_storage_root" class="method"><h4 class="code-header">fn <a href="#method.full_storage_root" class="fn">full_storage_root</a>&lt;'a&gt;(
+    &amp;self,
+    delta: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = (&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;)&gt;,
+    child_deltas: impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = (&amp;'a ChildInfo, impl <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/iter/traits/iterator/trait.Iterator.html" title="trait core::iter::traits::iterator::Iterator">Iterator</a>&lt;Item = (&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>], <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>]&gt;)&gt;)&gt;,
+    state_version: StateVersion,
+) -&gt; (&lt;H as Hasher&gt;::Out, MemoryDB&lt;H, PrefixedKey&lt;H&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)<div class="where">where
+    &lt;H as Hasher&gt;::Out: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + Encode,</div></h4></section></summary><div class="docblock"><p>Calculate the storage root, with given delta over what is already stored
+in the backend, and produce a “transaction” that can be used to commit.
+Does include child storage updates.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.wipe" class="method"><h4 class="code-header">fn <a href="#method.wipe" class="fn">wipe</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Wipe the state database.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.commit" class="method"><h4 class="code-header">fn <a href="#method.commit" class="fn">commit</a>(
+    &amp;self,
+    _: &lt;H as Hasher&gt;::Out,
+    _: MemoryDB&lt;H, PrefixedKey&lt;H&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;,
+    _: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)&gt;,
+    _: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;&gt;)&gt;)&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>, Self::<a class="associatedtype" href="trait.StateBackend.html#associatedtype.Error" title="type sp_consensus::StateBackend::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Commit given transaction to storage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_write_count" class="method"><h4 class="code-header">fn <a href="#method.read_write_count" class="fn">read_write_count</a>(&amp;self) -&gt; (<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>)</h4></section></summary><div class="docblock"><p>Get the read/write count of the db</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.reset_read_write_count" class="method"><h4 class="code-header">fn <a href="#method.reset_read_write_count" class="fn">reset_read_write_count</a>(&amp;self)</h4></section></summary><div class="docblock"><p>Get the read/write count of the db</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_whitelist" class="method"><h4 class="code-header">fn <a href="#method.get_whitelist" class="fn">get_whitelist</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;TrackedStorageKey&gt;</h4></section></summary><div class="docblock"><p>Get the whitelist for tracking db reads/writes</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_whitelist" class="method"><h4 class="code-header">fn <a href="#method.set_whitelist" class="fn">set_whitelist</a>(&amp;self, _: <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;TrackedStorageKey&gt;)</h4></section></summary><div class="docblock"><p>Update the whitelist for tracking db reads/writes</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.proof_size" class="method"><h4 class="code-header">fn <a href="#method.proof_size" class="fn">proof_size</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Estimate proof size</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_read_and_written_keys" class="method"><h4 class="code-header">fn <a href="#method.get_read_and_written_keys" class="fn">get_read_and_written_keys</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u8.html">u8</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.bool.html">bool</a>)&gt;</h4></section></summary><div class="docblock"><p>Extend storage info for benchmarking db</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-Backend%3CH%3E-for-TrieBackend%3CS,+H,+C,+R%3E" class="impl"><a href="#impl-Backend%3CH%3E-for-TrieBackend%3CS,+H,+C,+R%3E" class="anchor">§</a><h3 class="code-header">impl&lt;S, H, C, R&gt; <a class="trait" href="trait.StateBackend.html" title="trait sp_consensus::StateBackend">Backend</a>&lt;H&gt; for TrieBackend&lt;S, H, C, R&gt;<div class="where">where
+    S: TrieBackendStorage&lt;H&gt;,
+    H: Hasher,
+    C: TrieCacheProvider&lt;H&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
+    R: TrieRecorderProvider&lt;H&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
+    &lt;H as Hasher&gt;::Out: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a> + Codec,</div></h3></section></summary><div class="impl-items"><section id="associatedtype.Error-1" class="associatedtype trait-impl"><a href="#associatedtype.Error-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a> = <a class="struct" href="https://doc.rust-lang.org/1.81.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></h4></section><section id="associatedtype.TrieBackendStorage-1" class="associatedtype trait-impl"><a href="#associatedtype.TrieBackendStorage-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.TrieBackendStorage" class="associatedtype">TrieBackendStorage</a> = S</h4></section><section id="associatedtype.RawIter-1" class="associatedtype trait-impl"><a href="#associatedtype.RawIter-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.RawIter" class="associatedtype">RawIter</a> = RawIter&lt;S, H, C, R&gt;</h4></section></div></details></div><script src="../trait.impl/sp_state_machine/backend/trait.Backend.js" data-ignore-extern-crates="sp_state_machine" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

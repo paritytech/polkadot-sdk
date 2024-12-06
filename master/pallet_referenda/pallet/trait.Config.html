@@ -1,0 +1,195 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Configuration trait of this pallet."><title>Config in pallet_referenda::pallet - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_referenda" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_referenda/index.html">pallet_referenda</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Config</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.AlarmInterval">AlarmInterval</a></li><li><a href="#associatedtype.CancelOrigin">CancelOrigin</a></li><li><a href="#associatedtype.Currency">Currency</a></li><li><a href="#associatedtype.KillOrigin">KillOrigin</a></li><li><a href="#associatedtype.MaxQueued">MaxQueued</a></li><li><a href="#associatedtype.Preimages">Preimages</a></li><li><a href="#associatedtype.RuntimeCall">RuntimeCall</a></li><li><a href="#associatedtype.RuntimeEvent">RuntimeEvent</a></li><li><a href="#associatedtype.Scheduler">Scheduler</a></li><li><a href="#associatedtype.Slash">Slash</a></li><li><a href="#associatedtype.SubmissionDeposit">SubmissionDeposit</a></li><li><a href="#associatedtype.SubmitOrigin">SubmitOrigin</a></li><li><a href="#associatedtype.Tally">Tally</a></li><li><a href="#associatedtype.Tracks">Tracks</a></li><li><a href="#associatedtype.UndecidingTimeout">UndecidingTimeout</a></li><li><a href="#associatedtype.Votes">Votes</a></li><li><a href="#associatedtype.WeightInfo">WeightInfo</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In pallet_referenda::pallet</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">pallet_referenda</a>::<wbr><a href="index.html">pallet</a>::<wbr><a class="trait" href="#">Config</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/pallet_referenda/lib.rs.html#157-242">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Config&lt;I: 'static = <a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.unit.html">()</a>&gt;: Config + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 17 associated items</span></summary>    type <a href="#associatedtype.RuntimeCall" class="associatedtype">RuntimeCall</a>: Parameter + Dispatchable&lt;RuntimeOrigin = Self::RuntimeOrigin&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Call.html" title="enum pallet_referenda::pallet::Call">Call</a>&lt;Self, I&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeCall&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Call&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_referenda::pallet::Event">Event</a>&lt;Self, I&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;;
+    type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_referenda::weights::WeightInfo">WeightInfo</a>;
+    type <a href="#associatedtype.Scheduler" class="associatedtype">Scheduler</a>: ScheduleAnon&lt;BlockNumberFor&lt;Self&gt;, <a class="type" href="../type.CallOf.html" title="type pallet_referenda::CallOf">CallOf</a>&lt;Self, I&gt;, <a class="type" href="../type.PalletsOriginOf.html" title="type pallet_referenda::PalletsOriginOf">PalletsOriginOf</a>&lt;Self&gt;, Hasher = Self::Hashing&gt; + ScheduleNamed&lt;BlockNumberFor&lt;Self&gt;, <a class="type" href="../type.CallOf.html" title="type pallet_referenda::CallOf">CallOf</a>&lt;Self, I&gt;, <a class="type" href="../type.PalletsOriginOf.html" title="type pallet_referenda::PalletsOriginOf">PalletsOriginOf</a>&lt;Self&gt;, Hasher = Self::Hashing&gt;;
+    type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: ReservableCurrency&lt;Self::AccountId&gt;;
+    type <a href="#associatedtype.SubmitOrigin" class="associatedtype">SubmitOrigin</a>: EnsureOriginWithArg&lt;Self::RuntimeOrigin, <a class="type" href="../type.PalletsOriginOf.html" title="type pallet_referenda::PalletsOriginOf">PalletsOriginOf</a>&lt;Self&gt;, Success = Self::AccountId&gt;;
+    type <a href="#associatedtype.CancelOrigin" class="associatedtype">CancelOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.KillOrigin" class="associatedtype">KillOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.Slash" class="associatedtype">Slash</a>: OnUnbalanced&lt;<a class="type" href="../type.NegativeImbalanceOf.html" title="type pallet_referenda::NegativeImbalanceOf">NegativeImbalanceOf</a>&lt;Self, I&gt;&gt;;
+    type <a href="#associatedtype.Votes" class="associatedtype">Votes</a>: AtLeast32BitUnsigned + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + Parameter + Member + MaxEncodedLen;
+    type <a href="#associatedtype.Tally" class="associatedtype">Tally</a>: VoteTally&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Votes" title="type pallet_referenda::pallet::Config::Votes">Votes</a>, <a class="type" href="../type.TrackIdOf.html" title="type pallet_referenda::TrackIdOf">TrackIdOf</a>&lt;Self, I&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + Codec + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + TypeInfo + MaxEncodedLen;
+    type <a href="#associatedtype.SubmissionDeposit" class="associatedtype">SubmissionDeposit</a>: <a class="trait" href="../trait.Get.html" title="trait pallet_referenda::Get">Get</a>&lt;<a class="type" href="../type.BalanceOf.html" title="type pallet_referenda::BalanceOf">BalanceOf</a>&lt;Self, I&gt;&gt;;
+    type <a href="#associatedtype.MaxQueued" class="associatedtype">MaxQueued</a>: <a class="trait" href="../trait.Get.html" title="trait pallet_referenda::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.UndecidingTimeout" class="associatedtype">UndecidingTimeout</a>: <a class="trait" href="../trait.Get.html" title="trait pallet_referenda::Get">Get</a>&lt;BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.AlarmInterval" class="associatedtype">AlarmInterval</a>: <a class="trait" href="../trait.Get.html" title="trait pallet_referenda::Get">Get</a>&lt;BlockNumberFor&lt;Self&gt;&gt;;
+    type <a href="#associatedtype.Tracks" class="associatedtype">Tracks</a>: <a class="trait" href="../trait.Get.html" title="trait pallet_referenda::Get">Get</a>&lt;<a class="struct" href="../struct.Vec.html" title="struct pallet_referenda::Vec">Vec</a>&lt;(&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Tracks" title="type pallet_referenda::pallet::Config::Tracks">Tracks</a> as <a class="trait" href="../trait.TracksInfo.html" title="trait pallet_referenda::TracksInfo">TracksInfo</a>&lt;<a class="type" href="../type.BalanceOf.html" title="type pallet_referenda::BalanceOf">BalanceOf</a>&lt;Self, I&gt;, BlockNumberFor&lt;Self&gt;&gt;&gt;::<a class="associatedtype" href="../trait.TracksInfo.html#associatedtype.Id" title="type pallet_referenda::TracksInfo::Id">Id</a>, <a class="struct" href="../struct.TrackInfo.html" title="struct pallet_referenda::TrackInfo">TrackInfo</a>&lt;<a class="type" href="../type.BalanceOf.html" title="type pallet_referenda::BalanceOf">BalanceOf</a>&lt;Self, I&gt;, BlockNumberFor&lt;Self&gt;&gt;)&gt;&gt; + <a class="trait" href="../trait.TracksInfo.html" title="trait pallet_referenda::TracksInfo">TracksInfo</a>&lt;<a class="type" href="../type.BalanceOf.html" title="type pallet_referenda::BalanceOf">BalanceOf</a>&lt;Self, I&gt;, BlockNumberFor&lt;Self&gt;, RuntimeOrigin = &lt;Self::RuntimeOrigin as OriginTrait&gt;::PalletsOrigin&gt;;
+    type <a href="#associatedtype.Preimages" class="associatedtype">Preimages</a>: QueryPreimage&lt;H = Self::Hashing&gt; + StorePreimage;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configuration trait of this pallet.</p>
+<p>The main purpose of this trait is to act as an interface between this pallet and the runtime in
+which it is embedded in. A type, function, or constant in this trait is essentially left to be
+configured by the runtime that includes this pallet.</p>
+<p>Consequently, a runtime that wants to include this pallet must implement this trait.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><section id="associatedtype.RuntimeCall" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#159-163">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeCall" class="associatedtype">RuntimeCall</a>: Parameter + Dispatchable&lt;RuntimeOrigin = Self::RuntimeOrigin&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Call.html" title="enum pallet_referenda::pallet::Call">Call</a>&lt;Self, I&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeCall&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Call&lt;Self&gt;&gt;</h4></section><section id="associatedtype.RuntimeEvent" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#164-165">source</a><h4 class="code-header">type <a href="#associatedtype.RuntimeEvent" class="associatedtype">RuntimeEvent</a>: <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;<a class="enum" href="enum.Event.html" title="enum pallet_referenda::pallet::Event">Event</a>&lt;Self, I&gt;&gt; + IsType&lt;&lt;Self as Config&gt;::RuntimeEvent&gt;</h4></section><details class="toggle" open><summary><section id="associatedtype.WeightInfo" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#167">source</a><h4 class="code-header">type <a href="#associatedtype.WeightInfo" class="associatedtype">WeightInfo</a>: <a class="trait" href="../weights/trait.WeightInfo.html" title="trait pallet_referenda::weights::WeightInfo">WeightInfo</a></h4></section></summary><div class="docblock"><p>Weight information for extrinsics in this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Scheduler" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#169-179">source</a><h4 class="code-header">type <a href="#associatedtype.Scheduler" class="associatedtype">Scheduler</a>: ScheduleAnon&lt;BlockNumberFor&lt;Self&gt;, <a class="type" href="../type.CallOf.html" title="type pallet_referenda::CallOf">CallOf</a>&lt;Self, I&gt;, <a class="type" href="../type.PalletsOriginOf.html" title="type pallet_referenda::PalletsOriginOf">PalletsOriginOf</a>&lt;Self&gt;, Hasher = Self::Hashing&gt; + ScheduleNamed&lt;BlockNumberFor&lt;Self&gt;, <a class="type" href="../type.CallOf.html" title="type pallet_referenda::CallOf">CallOf</a>&lt;Self, I&gt;, <a class="type" href="../type.PalletsOriginOf.html" title="type pallet_referenda::PalletsOriginOf">PalletsOriginOf</a>&lt;Self&gt;, Hasher = Self::Hashing&gt;</h4></section></summary><div class="docblock"><p>The Scheduler.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Currency" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#181">source</a><h4 class="code-header">type <a href="#associatedtype.Currency" class="associatedtype">Currency</a>: ReservableCurrency&lt;Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Currency type for this pallet.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SubmitOrigin" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#184-188">source</a><h4 class="code-header">type <a href="#associatedtype.SubmitOrigin" class="associatedtype">SubmitOrigin</a>: EnsureOriginWithArg&lt;Self::RuntimeOrigin, <a class="type" href="../type.PalletsOriginOf.html" title="type pallet_referenda::PalletsOriginOf">PalletsOriginOf</a>&lt;Self&gt;, Success = Self::AccountId&gt;</h4></section></summary><div class="docblock"><p>Origin from which proposals may be submitted.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.CancelOrigin" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#190">source</a><h4 class="code-header">type <a href="#associatedtype.CancelOrigin" class="associatedtype">CancelOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin from which any vote may be cancelled.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.KillOrigin" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#192">source</a><h4 class="code-header">type <a href="#associatedtype.KillOrigin" class="associatedtype">KillOrigin</a>: EnsureOrigin&lt;Self::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>Origin from which any vote may be killed.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Slash" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#194">source</a><h4 class="code-header">type <a href="#associatedtype.Slash" class="associatedtype">Slash</a>: OnUnbalanced&lt;<a class="type" href="../type.NegativeImbalanceOf.html" title="type pallet_referenda::NegativeImbalanceOf">NegativeImbalanceOf</a>&lt;Self, I&gt;&gt;</h4></section></summary><div class="docblock"><p>Handler for the unbalanced reduction when slashing a preimage deposit.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Votes" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#196">source</a><h4 class="code-header">type <a href="#associatedtype.Votes" class="associatedtype">Votes</a>: AtLeast32BitUnsigned + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + Parameter + Member + MaxEncodedLen</h4></section></summary><div class="docblock"><p>The counting type for votes. Usually just balance.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Tally" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#198-204">source</a><h4 class="code-header">type <a href="#associatedtype.Tally" class="associatedtype">Tally</a>: VoteTally&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Votes" title="type pallet_referenda::pallet::Config::Votes">Votes</a>, <a class="type" href="../type.TrackIdOf.html" title="type pallet_referenda::TrackIdOf">TrackIdOf</a>&lt;Self, I&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> + Codec + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/1.81.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + TypeInfo + MaxEncodedLen</h4></section></summary><div class="docblock"><p>The tallying type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SubmissionDeposit" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#209">source</a><h4 class="code-header">type <a href="#associatedtype.SubmissionDeposit" class="associatedtype">SubmissionDeposit</a>: <a class="trait" href="../trait.Get.html" title="trait pallet_referenda::Get">Get</a>&lt;<a class="type" href="../type.BalanceOf.html" title="type pallet_referenda::BalanceOf">BalanceOf</a>&lt;Self, I&gt;&gt;</h4></section></summary><div class="docblock"><p>The minimum amount to be used as a deposit for a public referendum proposal.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxQueued" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#213">source</a><h4 class="code-header">type <a href="#associatedtype.MaxQueued" class="associatedtype">MaxQueued</a>: <a class="trait" href="../trait.Get.html" title="trait pallet_referenda::Get">Get</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.81.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>Maximum size of the referendum queue for a single track.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.UndecidingTimeout" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#218">source</a><h4 class="code-header">type <a href="#associatedtype.UndecidingTimeout" class="associatedtype">UndecidingTimeout</a>: <a class="trait" href="../trait.Get.html" title="trait pallet_referenda::Get">Get</a>&lt;BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>The number of blocks after submission that a referendum must begin being decided by.
+Once this passes, then anyone may cancel the referendum.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AlarmInterval" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#224">source</a><h4 class="code-header">type <a href="#associatedtype.AlarmInterval" class="associatedtype">AlarmInterval</a>: <a class="trait" href="../trait.Get.html" title="trait pallet_referenda::Get">Get</a>&lt;BlockNumberFor&lt;Self&gt;&gt;</h4></section></summary><div class="docblock"><p>Quantization level for the referendum wakeup scheduler. A higher number will result in
+fewer storage reads/writes needed for smaller voters, but also result in delays to the
+automatic referendum status changes. Explicit servicing instructions are unaffected.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Tracks" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#229-238">source</a><h4 class="code-header">type <a href="#associatedtype.Tracks" class="associatedtype">Tracks</a>: <a class="trait" href="../trait.Get.html" title="trait pallet_referenda::Get">Get</a>&lt;<a class="struct" href="../struct.Vec.html" title="struct pallet_referenda::Vec">Vec</a>&lt;(&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.Tracks" title="type pallet_referenda::pallet::Config::Tracks">Tracks</a> as <a class="trait" href="../trait.TracksInfo.html" title="trait pallet_referenda::TracksInfo">TracksInfo</a>&lt;<a class="type" href="../type.BalanceOf.html" title="type pallet_referenda::BalanceOf">BalanceOf</a>&lt;Self, I&gt;, BlockNumberFor&lt;Self&gt;&gt;&gt;::<a class="associatedtype" href="../trait.TracksInfo.html#associatedtype.Id" title="type pallet_referenda::TracksInfo::Id">Id</a>, <a class="struct" href="../struct.TrackInfo.html" title="struct pallet_referenda::TrackInfo">TrackInfo</a>&lt;<a class="type" href="../type.BalanceOf.html" title="type pallet_referenda::BalanceOf">BalanceOf</a>&lt;Self, I&gt;, BlockNumberFor&lt;Self&gt;&gt;)&gt;&gt; + <a class="trait" href="../trait.TracksInfo.html" title="trait pallet_referenda::TracksInfo">TracksInfo</a>&lt;<a class="type" href="../type.BalanceOf.html" title="type pallet_referenda::BalanceOf">BalanceOf</a>&lt;Self, I&gt;, BlockNumberFor&lt;Self&gt;, RuntimeOrigin = &lt;Self::RuntimeOrigin as OriginTrait&gt;::PalletsOrigin&gt;</h4></section></summary><div class="docblock"><p>Information concerning the different referendum tracks.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Preimages" class="method"><a class="src rightside" href="../../src/pallet_referenda/lib.rs.html#241">source</a><h4 class="code-header">type <a href="#associatedtype.Preimages" class="associatedtype">Preimages</a>: QueryPreimage&lt;H = Self::Hashing&gt; + StorePreimage</h4></section></summary><div class="docblock"><p>The preimage provider.</p>
+</div></details></div><h2 id="object-safety" class="section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.81.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/pallet_referenda/pallet/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
