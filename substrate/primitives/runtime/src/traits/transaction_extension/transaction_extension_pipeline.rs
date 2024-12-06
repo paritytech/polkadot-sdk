@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The transaction extension pipeline struct.
+//! The transaction extension pipeline struct, allowing to define a pipeline with many elements.
 
 use crate::{
 	scale_info::TypeInfo,
@@ -40,6 +40,7 @@ macro_rules! declare_pipeline {
 	($( $num:tt: $generic:ident, { $( $basket_0:tt )* }, { $( $basket_1:tt )* }, { $( $basket_2:tt )* }, )*) => {
 		/// A pipeline of transaction extensions. Same as a tuple of transaction extensions, but
 		/// support up to 32 elements.
+		// NOTE: To extend beyond 32 elements we need to get rid of `push_back` usage.
 		#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
 		pub struct TransactionExtensionPipeline<
 			$( $generic = (), )*
@@ -275,25 +276,30 @@ declare_pipeline!(
 mod tests {
 	use super::*;
 	use std::cell::RefCell;
+	use crate::transaction_validity::InvalidTransaction;
 
-	const A_WEIGHT: Weight = Weight::from_all(3);
-	const A_POST_DISPATCH_WEIGHT: Weight = Weight::from_all(1);
-	const A_VAL: u32 = 4;
-	const A_PRE: u32 = 5;
-	const A_IMPLICIT: u64 = 6;
-	const A_EXPLICIT: u64 = 7;
 	#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
-	struct TransactionExtensionA(u64);
-	impl TransactionExtension<()> for TransactionExtensionA {
-		const IDENTIFIER: &'static str = "TransactionExtensionA";
-		type Implicit = u64;
+	struct TransactionExtensionN<const WEIGHT: u64, const POST_DISPATCH_WEIGHT: u64, const VAL: u32, const PRE: u32, const IMPLICIT: u32, const BARE_VALIDATE: bool, const BARE_POST_DISPATCH: bool>(u32);
+
+	impl<const WEIGHT: u64, const POST_DISPATCH_WEIGHT: u64, const VAL: u32, const PRE: u32, const IMPLICIT: u32, const BARE_VALIDATE: bool, const BARE_POST_DISPATCH: bool>
+		TransactionExtensionN<WEIGHT, POST_DISPATCH_WEIGHT, VAL, PRE, IMPLICIT, BARE_VALIDATE, BARE_POST_DISPATCH>
+		{
+			fn new(explicit: u32) -> Self {
+				Self(explicit)
+			}
+		}
+	impl<const WEIGHT: u64, const POST_DISPATCH_WEIGHT: u64, const VAL: u32, const PRE: u32, const IMPLICIT: u32, const BARE_VALIDATE: bool, const BARE_POST_DISPATCH: bool>
+		TransactionExtension<()> for TransactionExtensionN<WEIGHT, POST_DISPATCH_WEIGHT, VAL, PRE, IMPLICIT, BARE_VALIDATE, BARE_POST_DISPATCH>
+	{
+		const IDENTIFIER: &'static str = "TransactionExtensionN";
+		type Implicit = u32;
 		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-			Ok(A_IMPLICIT)
+			Ok(IMPLICIT)
 		}
 		type Val = u32;
 		type Pre = u32;
 		fn weight(&self, _call: &()) -> Weight {
-			A_WEIGHT
+			WEIGHT.into()
 		}
 		fn validate(
 			&self,
@@ -305,9 +311,8 @@ mod tests {
 			_inherited_implication: &impl Encode,
 			_source: TransactionSource,
 		) -> ValidateResult<Self::Val, ()> {
-			assert_eq!(self_implicit, A_IMPLICIT);
-			assert_eq!(self.0, A_EXPLICIT);
-			Ok((ValidTransaction::default(), A_VAL, origin))
+			assert_eq!(self_implicit, IMPLICIT);
+			Ok((ValidTransaction::default(), VAL, origin))
 		}
 		fn prepare(
 			self,
@@ -317,8 +322,8 @@ mod tests {
 			_info: &DispatchInfoOf<()>,
 			_len: usize,
 		) -> Result<Self::Pre, TransactionValidityError> {
-			assert_eq!(val, A_VAL);
-			Ok(A_PRE)
+			assert_eq!(val, VAL);
+			Ok(PRE)
 		}
 		fn post_dispatch_details(
 			_pre: Self::Pre,
@@ -327,64 +332,67 @@ mod tests {
 			_len: usize,
 			_result: &DispatchResult,
 		) -> Result<Weight, TransactionValidityError> {
-			Ok(A_POST_DISPATCH_WEIGHT)
+			Ok(POST_DISPATCH_WEIGHT.into())
+		}
+		fn bare_validate(_call: &(), _info: &DispatchInfoOf<()>, _len: usize) -> TransactionValidity {
+			if BARE_VALIDATE {
+				Ok(ValidTransaction::default())
+			} else {
+				Err(InvalidTransaction::Custom(0).into())
+			}
+		}
+		fn bare_validate_and_prepare(_call: &(), _info: &DispatchInfoOf<()>, _len: usize) -> Result<(), TransactionValidityError> {
+			if BARE_VALIDATE {
+				Ok(())
+			} else {
+				Err(InvalidTransaction::Custom(0).into())
+			}
+		}
+		fn bare_post_dispatch(
+			_info: &DispatchInfoOf<()>,
+			_post_info: &mut PostDispatchInfoOf<()>,
+			_len: usize,
+			_result: &DispatchResult,
+		) -> Result<(), TransactionValidityError> {
+			if BARE_POST_DISPATCH {
+				Ok(())
+			} else {
+				Err(InvalidTransaction::Custom(0).into())
+			}
 		}
 	}
 
-	const B_WEIGHT: Weight = Weight::from_all(5);
-	const B_POST_DISPATCH_WEIGHT: Weight = Weight::from_all(2);
+	#[test]
+	fn test_bare() {
+		type T1 = TransactionExtensionN<0, 0, 0, 0, 0, true, true>;
+		type T2 = TransactionExtensionN<0, 0, 0, 0, 0, false, false>;
+
+		type P1 = TransactionExtensionPipeline<T1, T1>;
+		P1::bare_validate_and_prepare(&(), &(), 0).expect("success");
+		P1::bare_validate(&(), &(), 0).expect("success");
+		P1::bare_post_dispatch(&(), &mut (), 0, &Ok(())).expect("success");
+
+		type P2 = TransactionExtensionPipeline<T1, T2>;
+		assert_eq!(P2::bare_validate_and_prepare(&(), &(), 0).unwrap_err(), InvalidTransaction::Custom(0).into());
+		assert_eq!(P2::bare_validate(&(), &(), 0).unwrap_err(), InvalidTransaction::Custom(0).into());
+		assert_eq!(P2::bare_post_dispatch(&(), &mut (), 0, &Ok(())).unwrap_err(), InvalidTransaction::Custom(0).into());
+	}
+
+	const A_WEIGHT: u64 = 3;
+	const A_POST_DISPATCH_WEIGHT: u64 = 1;
+	const A_VAL: u32 = 4;
+	const A_PRE: u32 = 5;
+	const A_IMPLICIT: u32 = 6;
+	const A_EXPLICIT: u32 = 7;
+	type TransactionExtensionA = TransactionExtensionN<A_WEIGHT, A_POST_DISPATCH_WEIGHT, A_VAL, A_PRE, A_IMPLICIT, true, true>;
+
+	const B_WEIGHT: u64 = 5;
+	const B_POST_DISPATCH_WEIGHT: u64 = 2;
 	const B_VAL: u32 = 6;
 	const B_PRE: u32 = 7;
 	const B_IMPLICIT: u32 = 8;
 	const B_EXPLICIT: u32 = 9;
-	#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
-	struct TransactionExtensionB(u32);
-	impl TransactionExtension<()> for TransactionExtensionB {
-		const IDENTIFIER: &'static str = "TransactionExtensionB";
-		type Implicit = u32;
-		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-			Ok(B_IMPLICIT)
-		}
-		type Val = u32;
-		type Pre = u32;
-		fn weight(&self, _call: &()) -> Weight {
-			B_WEIGHT
-		}
-		fn validate(
-			&self,
-			origin: DispatchOriginOf<()>,
-			_call: &(),
-			_info: &DispatchInfoOf<()>,
-			_len: usize,
-			self_implicit: Self::Implicit,
-			_inherited_implication: &impl Encode,
-			_source: TransactionSource,
-		) -> ValidateResult<Self::Val, ()> {
-			assert_eq!(self_implicit, B_IMPLICIT);
-			assert_eq!(self.0, B_EXPLICIT);
-			Ok((ValidTransaction::default(), B_VAL, origin))
-		}
-		fn prepare(
-			self,
-			val: Self::Val,
-			_origin: &DispatchOriginOf<()>,
-			_call: &(),
-			_info: &DispatchInfoOf<()>,
-			_len: usize,
-		) -> Result<Self::Pre, TransactionValidityError> {
-			assert_eq!(val, B_VAL);
-			Ok(B_PRE)
-		}
-		fn post_dispatch_details(
-			_pre: Self::Pre,
-			_info: &DispatchInfoOf<()>,
-			_post_info: &PostDispatchInfoOf<()>,
-			_len: usize,
-			_result: &DispatchResult,
-		) -> Result<Weight, TransactionValidityError> {
-			Ok(B_POST_DISPATCH_WEIGHT)
-		}
-	}
+	type TransactionExtensionB = TransactionExtensionN<B_WEIGHT, B_POST_DISPATCH_WEIGHT, B_VAL, B_PRE, B_IMPLICIT, true, true>;
 
 	thread_local! {
 		pub static INHERITED_IMPLICATION: RefCell<Vec<u8>> = RefCell::new(vec![]);
@@ -440,8 +448,8 @@ mod tests {
 	#[test]
 	fn inherited_implications_at_the_end() {
 		let t1 = TransactionExtensionPipeline::from((
-			TransactionExtensionA(A_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
 			TransactionExtensionCheck,
 		));
 
@@ -464,9 +472,9 @@ mod tests {
 		});
 
 		let t1 = TransactionExtensionPipeline::from((
-			TransactionExtensionA(A_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
 			TransactionExtensionCheck,
-			TransactionExtensionB(B_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
 		));
 
 		t1.validate(
@@ -488,10 +496,10 @@ mod tests {
 		});
 
 		let t2 = TransactionExtensionPipeline::from((
-			TransactionExtensionA(A_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
 			TransactionExtensionCheck,
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionA(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
 		));
 
 		t2.validate(
@@ -525,28 +533,28 @@ mod tests {
 		});
 
 		let t3 = TransactionExtensionPipeline::from((
-			TransactionExtensionA(A_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
 			TransactionExtensionCheck,
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionA(A_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionA(A_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionA(A_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionA(A_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionA(A_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionA(A_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionA(A_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionA(A_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
-			TransactionExtensionB(B_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionA::new(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
 		));
 
 		t3.validate(
@@ -582,5 +590,45 @@ mod tests {
 			TransactionSource::Local,
 		)
 		.unwrap();
+	}
+
+	#[test]
+	fn full_test() {
+		type Pipeline = TransactionExtensionPipeline<TransactionExtensionA, TransactionExtensionB>;
+		let p = Pipeline::from((
+			TransactionExtensionA::new(A_EXPLICIT),
+			TransactionExtensionB::new(B_EXPLICIT),
+		));
+
+		let weight = p.weight(&());
+
+		assert_eq!(weight, (A_WEIGHT + B_WEIGHT).into());
+
+		let implicit = p.implicit().unwrap();
+
+		assert_eq!(implicit, (A_IMPLICIT, B_IMPLICIT).into());
+
+		let val = p.validate(
+			(),
+			&(),
+			&(),
+			0,
+			TransactionExtensionPipelineImplicit::from((A_IMPLICIT, B_IMPLICIT)),
+			&(),
+			TransactionSource::Local,
+		)
+		.unwrap();
+
+		assert_eq!(val.1.0, A_VAL);
+		assert_eq!(val.1.1, B_VAL);
+
+		let pre = p.prepare(val.1, &(), &(), &(), 0).unwrap();
+
+		assert_eq!(pre.0, A_PRE);
+		assert_eq!(pre.1, B_PRE);
+
+		let details = Pipeline::post_dispatch_details(pre, &(), &mut (), 0, &Ok(())).unwrap();
+
+		assert_eq!(details, (A_POST_DISPATCH_WEIGHT + B_POST_DISPATCH_WEIGHT).into());
 	}
 }
