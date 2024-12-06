@@ -235,6 +235,7 @@ fn expand_enum_conversion(
 
 	quote! {
 		#attr
+		#[allow(deprecated)]
 		impl From<#pallet_enum> for #enum_name_ident {
 			fn from(x: #pallet_enum) -> Self {
 				#enum_name_ident
@@ -242,6 +243,7 @@ fn expand_enum_conversion(
 			}
 		}
 		#attr
+		#[allow(deprecated)]
 		impl TryInto<#pallet_enum> for #enum_name_ident {
 			type Error = ();
 
