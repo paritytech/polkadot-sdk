@@ -275,8 +275,47 @@ declare_pipeline!(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::transaction_validity::InvalidTransaction;
+	use crate::{
+		traits::{ExtensionPostDispatchWeightHandler, Printable, RefundWeight},
+		transaction_validity::InvalidTransaction,
+	};
 	use std::cell::RefCell;
+
+	struct MockCall;
+
+	#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode)]
+	struct MockPostInfo(sp_weights::Weight);
+
+	impl Printable for MockPostInfo {
+		fn print(&self) {
+			self.0.print();
+		}
+	}
+
+	impl ExtensionPostDispatchWeightHandler<()> for MockPostInfo {
+		fn set_extension_weight(&mut self, _info: &()) {
+			unimplemented!();
+		}
+	}
+
+	impl RefundWeight for MockPostInfo {
+		fn refund(&mut self, weight: sp_weights::Weight) {
+			self.0 = self.0.saturating_sub(weight);
+		}
+	}
+
+	impl Dispatchable for MockCall {
+		type RuntimeOrigin = ();
+		type Config = ();
+		type Info = ();
+		type PostInfo = MockPostInfo;
+		fn dispatch(
+			self,
+			_origin: Self::RuntimeOrigin,
+		) -> crate::DispatchResultWithInfo<Self::PostInfo> {
+			panic!("This implementation should not be used for actual dispatch.");
+		}
+	}
 
 	#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
 	struct TransactionExtensionN<
@@ -312,6 +351,7 @@ mod tests {
 			Self(explicit)
 		}
 	}
+
 	impl<
 			const WEIGHT: u64,
 			const POST_DISPATCH_WEIGHT: u64,
@@ -320,7 +360,7 @@ mod tests {
 			const IMPLICIT: u32,
 			const BARE_VALIDATE: bool,
 			const BARE_POST_DISPATCH: bool,
-		> TransactionExtension<()>
+		> TransactionExtension<MockCall>
 		for TransactionExtensionN<
 			WEIGHT,
 			POST_DISPATCH_WEIGHT,
@@ -338,14 +378,14 @@ mod tests {
 		}
 		type Val = u32;
 		type Pre = u32;
-		fn weight(&self, _call: &()) -> Weight {
+		fn weight(&self, _call: &MockCall) -> Weight {
 			WEIGHT.into()
 		}
 		fn validate(
 			&self,
-			origin: DispatchOriginOf<()>,
-			_call: &(),
-			_info: &DispatchInfoOf<()>,
+			origin: (),
+			_call: &MockCall,
+			_info: &(),
 			_len: usize,
 			self_implicit: Self::Implicit,
 			_inherited_implication: &impl Encode,
@@ -357,9 +397,9 @@ mod tests {
 		fn prepare(
 			self,
 			val: Self::Val,
-			_origin: &DispatchOriginOf<()>,
-			_call: &(),
-			_info: &DispatchInfoOf<()>,
+			_origin: &(),
+			_call: &MockCall,
+			_info: &(),
 			_len: usize,
 		) -> Result<Self::Pre, TransactionValidityError> {
 			assert_eq!(val, VAL);
@@ -367,18 +407,14 @@ mod tests {
 		}
 		fn post_dispatch_details(
 			_pre: Self::Pre,
-			_info: &DispatchInfoOf<()>,
-			_post_info: &PostDispatchInfoOf<()>,
+			_info: &(),
+			_post_info: &MockPostInfo,
 			_len: usize,
 			_result: &DispatchResult,
 		) -> Result<Weight, TransactionValidityError> {
 			Ok(POST_DISPATCH_WEIGHT.into())
 		}
-		fn bare_validate(
-			_call: &(),
-			_info: &DispatchInfoOf<()>,
-			_len: usize,
-		) -> TransactionValidity {
+		fn bare_validate(_call: &MockCall, _info: &(), _len: usize) -> TransactionValidity {
 			if BARE_VALIDATE {
 				Ok(ValidTransaction::default())
 			} else {
@@ -386,8 +422,8 @@ mod tests {
 			}
 		}
 		fn bare_validate_and_prepare(
-			_call: &(),
-			_info: &DispatchInfoOf<()>,
+			_call: &MockCall,
+			_info: &(),
 			_len: usize,
 		) -> Result<(), TransactionValidityError> {
 			if BARE_VALIDATE {
@@ -397,12 +433,13 @@ mod tests {
 			}
 		}
 		fn bare_post_dispatch(
-			_info: &DispatchInfoOf<()>,
-			_post_info: &mut PostDispatchInfoOf<()>,
+			_info: &(),
+			post_info: &mut MockPostInfo,
 			_len: usize,
 			_result: &DispatchResult,
 		) -> Result<(), TransactionValidityError> {
 			if BARE_POST_DISPATCH {
+				post_info.refund(POST_DISPATCH_WEIGHT.into());
 				Ok(())
 			} else {
 				Err(InvalidTransaction::Custom(0).into())
@@ -412,27 +449,32 @@ mod tests {
 
 	#[test]
 	fn test_bare() {
-		type T1 = TransactionExtensionN<0, 0, 0, 0, 0, true, true>;
+		type T1 = TransactionExtensionN<0, 1, 0, 0, 0, true, true>;
+		type T1Bis = TransactionExtensionN<0, 2, 0, 0, 0, true, true>;
 		type T2 = TransactionExtensionN<0, 0, 0, 0, 0, false, false>;
 
-		type P1 = TransactionExtensionPipeline<T1, T1>;
-		P1::bare_validate_and_prepare(&(), &(), 0).expect("success");
-		P1::bare_validate(&(), &(), 0).expect("success");
-		P1::bare_post_dispatch(&(), &mut (), 0, &Ok(())).expect("success");
+		type P1 = TransactionExtensionPipeline<T1, T1Bis, T1>;
+		P1::bare_validate_and_prepare(&MockCall, &(), 0).expect("success");
+		P1::bare_validate(&MockCall, &(), 0).expect("success");
+		let mut post_info = MockPostInfo(100.into());
+		P1::bare_post_dispatch(&(), &mut post_info, 0, &Ok(())).expect("success");
+		assert_eq!(post_info.0, (100 - 1 - 2 - 1).into());
 
-		type P2 = TransactionExtensionPipeline<T1, T2>;
+		type P2 = TransactionExtensionPipeline<T1, T1Bis, T2, T1>;
 		assert_eq!(
-			P2::bare_validate_and_prepare(&(), &(), 0).unwrap_err(),
+			P2::bare_validate_and_prepare(&MockCall, &(), 0).unwrap_err(),
 			InvalidTransaction::Custom(0).into()
 		);
 		assert_eq!(
-			P2::bare_validate(&(), &(), 0).unwrap_err(),
+			P2::bare_validate(&MockCall, &(), 0).unwrap_err(),
 			InvalidTransaction::Custom(0).into()
 		);
+		let mut post_info = MockPostInfo(100.into());
 		assert_eq!(
-			P2::bare_post_dispatch(&(), &mut (), 0, &Ok(())).unwrap_err(),
+			P2::bare_post_dispatch(&(), &mut post_info, 0, &Ok(())).unwrap_err(),
 			InvalidTransaction::Custom(0).into()
 		);
+		assert_eq!(post_info.0, (100 - 1 - 2).into());
 	}
 
 	const A_WEIGHT: u64 = 3;
@@ -473,7 +515,7 @@ mod tests {
 
 	#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
 	struct TransactionExtensionCheck;
-	impl TransactionExtension<()> for TransactionExtensionCheck {
+	impl TransactionExtension<MockCall> for TransactionExtensionCheck {
 		const IDENTIFIER: &'static str = "TransactionExtensionCheck";
 		type Implicit = ();
 		fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
@@ -481,14 +523,14 @@ mod tests {
 		}
 		type Val = u32;
 		type Pre = u32;
-		fn weight(&self, _call: &()) -> Weight {
+		fn weight(&self, _call: &MockCall) -> Weight {
 			Weight::zero()
 		}
 		fn validate(
 			&self,
-			origin: DispatchOriginOf<()>,
-			_call: &(),
-			_info: &DispatchInfoOf<()>,
+			origin: (),
+			_call: &MockCall,
+			_info: &(),
 			_len: usize,
 			_self_implicit: Self::Implicit,
 			inherited_implication: &impl Encode,
@@ -500,17 +542,17 @@ mod tests {
 		fn prepare(
 			self,
 			_val: Self::Val,
-			_origin: &DispatchOriginOf<()>,
-			_call: &(),
-			_info: &DispatchInfoOf<()>,
+			_origin: &(),
+			_call: &MockCall,
+			_info: &(),
 			_len: usize,
 		) -> Result<Self::Pre, TransactionValidityError> {
 			Ok(0)
 		}
 		fn post_dispatch_details(
 			_pre: Self::Pre,
-			_info: &DispatchInfoOf<()>,
-			_post_info: &PostDispatchInfoOf<()>,
+			_info: &(),
+			_post_info: &MockPostInfo,
 			_len: usize,
 			_result: &DispatchResult,
 		) -> Result<Weight, TransactionValidityError> {
@@ -528,7 +570,7 @@ mod tests {
 
 		t1.validate(
 			(),
-			&(),
+			&MockCall,
 			&(),
 			0,
 			TransactionExtensionPipelineImplicit::from((A_IMPLICIT, B_IMPLICIT, ())),
@@ -552,7 +594,7 @@ mod tests {
 
 		t1.validate(
 			(),
-			&(),
+			&MockCall,
 			&(),
 			0,
 			TransactionExtensionPipelineImplicit::from((A_IMPLICIT, (), B_IMPLICIT)),
@@ -577,7 +619,7 @@ mod tests {
 
 		t2.validate(
 			(),
-			&(),
+			&MockCall,
 			&(),
 			0,
 			TransactionExtensionPipelineImplicit::from((A_IMPLICIT, (), B_IMPLICIT, A_IMPLICIT)),
@@ -632,7 +674,7 @@ mod tests {
 
 		t3.validate(
 			(),
-			&(),
+			&MockCall,
 			&(),
 			0,
 			TransactionExtensionPipelineImplicit::from((
@@ -673,18 +715,16 @@ mod tests {
 			TransactionExtensionB::new(B_EXPLICIT),
 		));
 
-		let weight = p.weight(&());
-
+		let weight = p.weight(&MockCall);
 		assert_eq!(weight, (A_WEIGHT + B_WEIGHT).into());
 
 		let implicit = p.implicit().unwrap();
-
 		assert_eq!(implicit, (A_IMPLICIT, B_IMPLICIT).into());
 
 		let val = p
 			.validate(
 				(),
-				&(),
+				&MockCall,
 				&(),
 				0,
 				TransactionExtensionPipelineImplicit::from((A_IMPLICIT, B_IMPLICIT)),
@@ -692,17 +732,20 @@ mod tests {
 				TransactionSource::Local,
 			)
 			.unwrap();
-
 		assert_eq!(val.1 .0, A_VAL);
 		assert_eq!(val.1 .1, B_VAL);
 
-		let pre = p.prepare(val.1, &(), &(), &(), 0).unwrap();
-
+		let pre = p.prepare(val.1, &(), &MockCall, &(), 0).unwrap();
 		assert_eq!(pre.0, A_PRE);
 		assert_eq!(pre.1, B_PRE);
 
-		let details = Pipeline::post_dispatch_details(pre, &(), &(), 0, &Ok(())).unwrap();
-
+		let details =
+			Pipeline::post_dispatch_details(pre, &(), &MockPostInfo(100.into()), 0, &Ok(()))
+				.unwrap();
 		assert_eq!(details, (A_POST_DISPATCH_WEIGHT + B_POST_DISPATCH_WEIGHT).into());
+
+		let mut post_info = MockPostInfo(100.into());
+		Pipeline::post_dispatch(pre, &(), &mut post_info, 0, &Ok(())).unwrap();
+		assert_eq!(post_info.0, (100 - A_POST_DISPATCH_WEIGHT - B_POST_DISPATCH_WEIGHT).into());
 	}
 }
