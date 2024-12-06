@@ -387,7 +387,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	#[derive(frame::derive::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub fellows: Vec<T::AccountId>,
 		pub allies: Vec<T::AccountId>,
