@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::imports::*;
+use asset_hub_westend_runtime::ForeignAssets;
 use bridge_hub_westend_runtime::{
 	bridge_to_ethereum_config::{CreateAssetCall, CreateAssetDeposit, EthereumGatewayAddress},
 	EthereumInboundQueueV2,
@@ -23,10 +24,8 @@ use snowbridge_router_primitives::inbound::{
 	v2::{Asset::NativeTokenERC20, Message},
 	EthereumLocationsConverterFor,
 };
-use sp_core::H160;
+use sp_core::{H160, H256};
 use sp_runtime::MultiAddress;
-use sp_core::H256;
-use asset_hub_westend_runtime::ForeignAssets;
 
 /// Calculates the XCM prologue fee for sending an XCM to AH.
 const INITIAL_FUND: u128 = 5_000_000_000_000;
@@ -163,17 +162,18 @@ fn send_token_v2() {
 		// to pay fees
 		NativeTokenERC20 { token_id: WETH.into(), value: 1_500_000_000_000u128 },
 		// the token being transferred
-		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value }
+		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value },
 	];
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		let instructions = vec![
-			DepositAsset { assets: Wild(AllOf {
+		let instructions = vec![DepositAsset {
+			assets: Wild(AllOf {
 				id: AssetId(token_location.clone()),
 				fun: WildFungibility::Fungible,
-			}), beneficiary },
-		];
+			}),
+			beneficiary,
+		}];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
 		let origin = EthereumGatewayAddress::get();
@@ -211,9 +211,7 @@ fn send_token_v2() {
 		);
 
 		// Claimer received weth refund for fees paid
-		assert!(
-			ForeignAssets::balance(weth_location(), AccountId::from(claimer_acc_id_bytes)) > 0
-		);
+		assert!(ForeignAssets::balance(weth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
 	});
 }
 
@@ -245,12 +243,13 @@ fn send_weth_v2() {
 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		let instructions = vec![
-			DepositAsset { assets: Wild(AllOf {
+		let instructions = vec![DepositAsset {
+			assets: Wild(AllOf {
 				id: AssetId(weth_location().clone()),
 				fun: WildFungibility::Fungible,
-			}), beneficiary },
-		];
+			}),
+			beneficiary,
+		}];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
 		let origin = EthereumGatewayAddress::get();
@@ -288,14 +287,12 @@ fn send_weth_v2() {
 		);
 
 		// Claimer received weth refund for fees paid
-		assert!(
-			ForeignAssets::balance(weth_location(), AccountId::from(claimer_acc_id_bytes)) > 0
-		);
+		assert!(ForeignAssets::balance(weth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
 	});
 }
 
 #[test]
-fn register_and_send_tokens_v2() {
+fn register_and_send_multiple_tokens_v2() {
 	let relayer = BridgeHubWestendSender::get();
 	let relayer_location =
 		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
@@ -310,7 +307,11 @@ fn register_and_send_tokens_v2() {
 	let beneficiary =
 		Location::new(0, AccountId32 { network: None, id: beneficiary_acc_id.clone().into() });
 
-	AssetHubWestend::fund_accounts(vec![(sp_runtime::AccountId32::from(beneficiary_acc_bytes), 3_000_000_000_000)]);
+	// To satisfy ED
+	AssetHubWestend::fund_accounts(vec![(
+		sp_runtime::AccountId32::from(beneficiary_acc_bytes),
+		3_000_000_000_000,
+	)]);
 
 	let claimer_acc_id = H256::random();
 	let claimer_acc_id_bytes: [u8; 32] = claimer_acc_id.into();
@@ -335,7 +336,7 @@ fn register_and_send_tokens_v2() {
 		// to pay fees and transfer assets
 		NativeTokenERC20 { token_id: WETH.into(), value: 2_800_000_000_000u128 },
 		// the token being transferred
-		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value }
+		NativeTokenERC20 { token_id: token.into(), value: token_transfer_value },
 	];
 
 	BridgeHubWestend::execute_with(|| {
@@ -347,6 +348,7 @@ fn register_and_send_tokens_v2() {
 				maximal: false,
 			},
 			DepositAsset { assets: dot_fee.into(), beneficiary: bridge_owner.into() },
+			// register new token
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				call: (
@@ -359,10 +361,22 @@ fn register_and_send_tokens_v2() {
 					.into(),
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
-			DepositAsset { assets: Wild(AllOf {
-				id: AssetId(token_location.clone()),
-				fun: WildFungibility::Fungible,
-			}), beneficiary: beneficiary.clone() },
+			// deposit new token to beneficiary
+			DepositAsset {
+				assets: Wild(AllOf {
+					id: AssetId(token_location.clone()),
+					fun: WildFungibility::Fungible,
+				}),
+				beneficiary: beneficiary.clone(),
+			},
+			// deposit weth to beneficiary
+			DepositAsset {
+				assets: Wild(AllOf {
+					id: AssetId(weth_location()),
+					fun: WildFungibility::Fungible,
+				}),
+				beneficiary: beneficiary.clone(),
+			},
 		];
 		let xcm: Xcm<()> = instructions.into();
 		let versioned_message_xcm = VersionedXcm::V5(xcm);
@@ -406,10 +420,146 @@ fn register_and_send_tokens_v2() {
 			token_transfer_value
 		);
 
-		// Claimer received weth refund for fees paid
+		// Beneficiary received the weth transfer value
 		assert!(
-			ForeignAssets::balance(weth_location(), AccountId::from(claimer_acc_id_bytes)) > 0
+			ForeignAssets::balance(weth_location(), AccountId::from(beneficiary_acc_bytes)) >
+				weth_transfer_value
 		);
+
+		// Claimer received weth refund for fees paid
+		assert!(ForeignAssets::balance(weth_location(), AccountId::from(claimer_acc_id_bytes)) > 0);
+	});
+}
+
+#[test]
+fn invalid_xcm_traps_funds_on_ah() {
+	let relayer = BridgeHubWestendSender::get();
+	let relayer_location =
+		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+
+	let token: H160 = TOKEN_ID.into();
+	let claimer = AccountId32 { network: None, id: H256::random().into() };
+	let claimer_bytes = claimer.encode();
+	let beneficiary_acc_bytes: [u8; 32] = H256::random().into();
+
+	AssetHubWestend::fund_accounts(vec![(
+		sp_runtime::AccountId32::from(beneficiary_acc_bytes),
+		3_000_000_000_000,
+	)]);
+
+	register_foreign_asset(weth_location());
+
+	set_up_weth_and_dot_pool(weth_location());
+
+	let assets = vec![
+		// to pay fees and transfer assets
+		NativeTokenERC20 { token_id: WETH.into(), value: 2_800_000_000_000u128 },
+		// the token being transferred
+		NativeTokenERC20 { token_id: token.into(), value: 2_000_000_000_000u128 },
+	];
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		// invalid xcm
+		let instructions = hex!("02806c072d50e2c7cd6821d1f084cbb4");
+		let origin = EthereumGatewayAddress::get();
+
+		let message = Message {
+			origin,
+			fee: 1_500_000_000_000u128,
+			assets,
+			xcm: instructions.to_vec(),
+			claimer: Some(claimer_bytes),
+		};
+
+		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+		);
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		// Assets are trapped
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. }) => {},]
+		);
+	});
+}
+
+#[test]
+fn invalid_claimer_does_not_fail_the_message() {
+	let relayer = BridgeHubWestendSender::get();
+	let relayer_location =
+		Location::new(0, AccountId32 { network: None, id: relayer.clone().into() });
+
+	let beneficiary_acc: [u8; 32] = H256::random().into();
+	let beneficiary = Location::new(0, AccountId32 { network: None, id: beneficiary_acc.into() });
+
+	register_foreign_asset(weth_location());
+
+	let token_transfer_value = 2_000_000_000_000u128;
+
+	let assets = vec![
+		// to pay fees
+		NativeTokenERC20 { token_id: WETH.into(), value: token_transfer_value },
+		// the token being transferred
+	];
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		let instructions = vec![DepositAsset {
+			assets: Wild(AllOf {
+				id: AssetId(weth_location().clone()),
+				fun: WildFungibility::Fungible,
+			}),
+			beneficiary,
+		}];
+		let xcm: Xcm<()> = instructions.into();
+		let versioned_message_xcm = VersionedXcm::V5(xcm);
+		let origin = EthereumGatewayAddress::get();
+
+		let message = Message {
+			origin,
+			fee: 1_500_000_000_000u128,
+			assets,
+			xcm: versioned_message_xcm.encode(),
+			// Set an invalid claimer
+			claimer: Some(hex!("2b7ce7bc7e87e4d6619da21487c7a53f").to_vec()),
+		};
+
+		let xcm = EthereumInboundQueueV2::do_convert(message, relayer_location).unwrap();
+		let _ = EthereumInboundQueueV2::send_xcm(xcm, AssetHubWestend::para_id().into()).unwrap();
+
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},]
+		);
+	});
+
+	// Message still processes successfully
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		// Check that the token was received and issued as a foreign asset on AssetHub
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},]
+		);
+
+		// Beneficiary received the token transfer value
+		assert_eq!(
+			ForeignAssets::balance(weth_location(), AccountId::from(beneficiary_acc)),
+			token_transfer_value
+		);
+
+		// Relayer (instead of claimer) received weth refund for fees paid
+		assert!(ForeignAssets::balance(weth_location(), AccountId::from(relayer)) > 0);
 	});
 }
 

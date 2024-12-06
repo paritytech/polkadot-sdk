@@ -55,12 +55,6 @@ pub enum Asset {
 /// Reason why a message conversion failed.
 #[derive(Copy, Clone, TypeInfo, PalletError, Encode, Decode, RuntimeDebug)]
 pub enum ConvertMessageError {
-	/// The XCM provided with the message could not be decoded into XCM.
-	InvalidXCM,
-	/// The XCM provided with the message could not be decoded into versioned XCM.
-	InvalidVersionedXCM,
-	/// Invalid claimer MultiAddress provided in payload.
-	InvalidClaimer,
 	/// Invalid foreign ERC20 token ID
 	InvalidAsset,
 }
@@ -184,11 +178,13 @@ where
 		let mut refund_surplus_to = origin_account_location;
 
 		if let Some(claimer) = message.claimer {
-			let claimer = Junction::decode(&mut claimer.as_ref())
-				.map_err(|_| ConvertMessageError::InvalidClaimer)?;
-			let claimer_location: Location = Location::new(0, [claimer.into()]);
-			refund_surplus_to = claimer_location.clone();
-			instructions.push(SetAssetClaimer { location: claimer_location });
+			// If the claimer can be decoded, add it to the message. If the claimer decoding fails,
+			// do not add it to the message, because it will cause the xcm to fail.
+			if let Ok(claimer) = Junction::decode(&mut claimer.as_ref()) {
+				let claimer_location: Location = Location::new(0, [claimer.into()]);
+				refund_surplus_to = claimer_location.clone();
+				instructions.push(SetAssetClaimer { location: claimer_location });
+			}
 		}
 
 		// If the message origin is not the gateway proxy contract, set the origin to
